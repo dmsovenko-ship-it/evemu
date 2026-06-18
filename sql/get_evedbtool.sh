@@ -1,35 +1,32 @@
 #!/bin/bash
 
-echo "Downloading latest EVEDBTool..."
+echo "Downloading EVEDBTool..."
 
-# Check if curl is available or not
-if ! command -v curl &> /dev/null
-then
-    echo "Wget or curl not found, please install one of these."
-    exit
+if ! command -v curl &> /dev/null; then
+    echo "curl not found, please install it."
+    exit 1
 fi
 
 arch=$(arch)
 
-if [[ $arch == aarch64* ]];
-then
-echo "Using aarch64 build..."
-# Download with curl
-DOWNLOAD_URL=$(curl -s https://api.github.com/repos/EvEmu-Project/EVEDBTool/releases/latest \
-        | grep browser_download_url \
-        | grep evedb_aarch64 \
-        | cut -d '"' -f 4)
+# Direct download URLs for v0.0.6 (avoids GitHub API rate limits)
+if [[ $arch == aarch64* ]]; then
+    echo "Using aarch64 build..."
+    URL="https://github.com/EvEmu-Project/EVEDBTool/releases/download/0.0.6/evedb_aarch64"
+elif [[ $arch == x86_64* ]]; then
+    echo "Using x86_64 build..."
+    URL="https://github.com/EvEmu-Project/EVEDBTool/releases/download/0.0.6/evedbtool"
+else
+    echo "Unsupported architecture: $arch"
+    exit 1
 fi
 
-if [[ $arch == x86_64* ]];
-then
-echo "Using x86_64 build..."
-# Download with curl
-DOWNLOAD_URL=$(curl -s https://api.github.com/repos/EvEmu-Project/EVEDBTool/releases/latest \
-        | grep browser_download_url \
-        | grep evedbtool | grep -v exe \
-        | cut -d '"' -f 4)
+echo "Downloading from: $URL"
+if curl --output evedbtool -s -L -f "$URL"; then
+    chmod +x evedbtool
+    echo "EVEDBTool downloaded successfully."
+else
+    echo "Failed to download EVEDBTool."
+    rm -f evedbtool
+    exit 1
 fi
-
-curl --output evedbtool -s -L "$DOWNLOAD_URL"
-chmod +x evedbtool
