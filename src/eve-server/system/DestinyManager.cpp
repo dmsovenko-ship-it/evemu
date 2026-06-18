@@ -2060,10 +2060,15 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     // adjust target point by calculated stopping point
     m_targetPoint -= warp_distance;
 
-    m_targBubble = sBubbleMgr.GetBubble(mySE->SystemMgr(), m_targetPoint);
     if (is_log_enabled(DESTINY__WARP_TRACE))
         _log(DESTINY__TRACE, "Destiny::WarpTo() - %s(%u) target bubble: %u  m_stopDistance: %i  m_targetDistance: %.2f",
             mySE->GetName(), mySE->GetID(), m_targBubble->GetID(), m_stopDistance, m_targetDistance);
+    // debug: log warp params
+    _log(DESTINY__WARNING, "WARP: position=%.2f,%.2f,%.2f where=%.2f,%.2f,%.2f targetPoint=%.2f,%.2f,%.2f stopDist=%i targDist=%.2f",
+        m_position.x, m_position.y, m_position.z,
+        where.x, where.y, where.z,
+        m_targetPoint.x, m_targetPoint.y, m_targetPoint.z,
+        m_stopDistance, m_targetDistance);
 
     // npcs have no warp restrictions (yet)
     if (mySE->IsNPCSE() or mySE->IsDroneSE()) {
