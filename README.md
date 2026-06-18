@@ -1,123 +1,79 @@
-# EVEmu Crucible — Claude Fork
+# EVEmu Crucible — Custom Fork
 
-This is a personal fork of [EVEmu Crucible](https://github.com/EvEmu-Project/evemu_Crucible), an open-source server emulator for the space MMO EVE Online. This fork is actively developed with AI-assisted bug fixes and feature implementations. See the [ChangeLog](doc/ChangeLog.md) for what has been added on top of the upstream project.
+Форк [EVEmu Crucible](https://github.com/EvEmu-Project/evemu_Crucible) — эмулятор сервера EVE Online (Crucible).  
+Сборка и запуск через Docker.
 
-**Upstream project:** https://github.com/EvEmu-Project/evemu_Crucible
-**This fork:** https://github.com/rumpelstompskin/evemu_Crucible_Claude
+## Отличия от upstream
 
----
+- **Warp-to-0** — исправлено приземление внутри объектов (добавлен отступ 2200м)
+- **Docker** — удалён `.git` из образа, добавлен `.dockerignore`
+- **`.claude/instructions.md`** — правила для AI-assisted разработки
 
-## Introduction
-EVEmu is a work-in-progress server emulator for the space MMO EVE Online. This is an educational project. Please see the disclaimer below for details.
+## Установка на сервере
 
-## ChangeLog
-[ChangeLog](doc/ChangeLog.md)
+```bash
+# 1. Клонировать
+git clone https://github.com/dmsovenko-ship-it/evemu.git /opt/evemu
+cd /opt/evemu
 
-## `docker compose` Quickstart
-
-Clone **this fork** and run with Docker Compose:
-```
-git clone https://github.com/rumpelstompskin/evemu_Crucible_Claude.git
-cd evemu_Crucible_Claude
-docker compose up -d
-```
-
-> **Note:** If your Docker installation is older (pre-Compose V2), use `docker-compose` (with a hyphen) instead of `docker compose`.
-
-**NOTE:** Add `--build` to the command to force a rebuild of the source after pulling new changes:
-```
+# 2. Собрать и запустить
 docker compose up -d --build
+
+# 3. Следить за прогрессом первого запуска
+docker logs -f db     # инициализация БД
+docker logs -f server # загрузка сервера
 ```
 
-Configuration files are stored in `./config/`. These can be modified and will persist across restarts.
+Первый запуск ~10-20 минут — заливается рыночная база.  
+После `Server started` можно подключаться клиентом EVE (Crucible).
 
-To shut down:
-```
-docker compose stop
-```
+## Управление
 
-To wipe and start fresh (removes database volume — market will re-seed on next start):
-```
-docker compose down -v
-docker compose up -d
-```
-
-## Market Seeding
-
-On first start, the market is automatically seeded across all regions that have NPC stations — empire high/low-sec space plus NPC null-sec (Curse, Stain, Venal, Great Wildlands, Syndicate, Outer Ring).
-
-> **Note:** The first boot will take significantly longer than normal due to the volume of market data being inserted. This is expected — just let it run. Subsequent restarts skip seeding entirely since the data is already stored in the database volume.
-
-The list of seeded regions can be changed via the `SEED_REGIONS` environment variable in `docker-compose.yml`.
-
-### Monitoring first-boot progress
-
-To follow the server container logs and see where the process is at:
 ```bash
-docker logs -f server
+docker compose stop              # остановить
+docker compose up -d             # запустить
+docker compose down -v           # сброс + удаление БД
+docker compose logs -f server    # логи в реальном времени
 ```
 
-To check only the database container logs:
+## Учётные записи
+
+Создаются автоматически при первом входе в игру.  
+Выдача GM-прав:
+
 ```bash
-docker logs -f db
+bash utils/grant-admin.sh "AccountName"
 ```
 
-You will see output like `Executing migration ...` during the database setup phase — **this is normal, just wait for it to complete.** The server will start automatically once the migration and seeding are finished.
+Проверка:
 
-## Building with Docker
-EVEmu can be built with Docker to ensure a consistent dependency base:
-```
-docker compose build
-```
-
-## Accounts
-Accounts are created automatically when logging in with the EVE client if the username is not already taken.
-
-## Granting Admin / GM Access
-
-Admin access unlocks in-game GM commands such as `/giveallskills me` and `/spawn`.
-
-**Step 1** — Start the server and log in with the EVE client. Complete character creation. This creates your account row in the database.
-
-**Step 2** — From the repo root, run the helper script with your **account name** (the name you type at the login screen, not your character name). Use quotes if it contains spaces:
-```bash
-bash utils/grant-admin.sh "Your Account Name"
-```
-
-**Step 3** — Log out of the game client completely and log back in. GM commands are now available in in-game chat.
-
-To verify it worked:
 ```bash
 docker exec db mysql -u evemu -pevemu evemu -e "SELECT accountName, role FROM account;"
 ```
-A role value of `2013265920` confirms full admin access.
 
-For a full list of available GM commands see [doc/admin_reference.md](doc/admin_reference.md).
+`role = 2013265920` — полный админ.
 
-## Communication / Contact
-For the upstream project: [EVEmu Project website](https://evemu.dev), [Discord](https://discord.gg/fTfAREYxbz), and [Forums](https://forums.evemu.dev).
+## GM-команды
+
+| Команда | Описание |
+|---------|----------|
+| `/giveallskills me` | Все скиллы на 5 |
+| `/spawn <typeID>` | Заспавнить NPC |
+| `/online me` | Включить все модули |
+| `/search <name>` | Поиск предметов |
+
+Полный список: [doc/admin_reference.md](doc/admin_reference.md)
+
+## Ссылки
+
+- Upstream: https://github.com/EvEmu-Project/evemu_Crucible  
+- Ченджлог: [doc/ChangeLog.md](doc/ChangeLog.md)  
+- Discord: https://discord.gg/fTfAREYxbz
 
 ## Disclaimer
-***EVEmu is an educational project.***
-This means our primary interest is to learn and teach ourselves and our users more about C++ project development at scale. This software is not intended for running public servers, and we do not support that. We are not responsible for what others do with the source code downloaded from this project.
 
-## Legal
-    ------------------------------------------------------------------------------------
-    LICENSE:
-    ------------------------------------------------------------------------------------
-    This file is part of EVEmu: EVE Online Server Emulator
-    Copyright 2006 - 2021 The EVEmu Team
-    For the latest information visit https://evemu.dev/
-    ------------------------------------------------------------------------------------
-    This program is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the Free Software
-    Foundation, either version 3 of the License, or (at your option) any later
-    version.
+**Educational project.** Не предназначен для публичных серверов.
 
-    This program is distributed in the hope that it will be useful, but WITHOUT
-    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
+## License
 
-    You should have received a copy of the GNU Lesser General Public License along with
-    this program; if not, see https://www.gnu.org/licenses/.
-    ------------------------------------------------------------------------------------
+LGPL v3 — [LICENSE](https://www.gnu.org/licenses/lgpl-3.0.html)
