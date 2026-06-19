@@ -534,6 +534,14 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
             distance += (radius / 2);
         } else if (pSE->IsGateSE()) {
             distance += (radius / 3);  // fudge the distance a bit for gates... its' a lil close by default
+            if (radius > 5000) {
+                // Large gate model (>5km radius): cap offset to prevent
+                // units treating the gate as a celestial body (radius > 90km
+                // falls into the planet formula branch below).
+                GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
+                vectorFromOrigin.normalize();
+                warpToPoint -= (vectorFromOrigin * 5000.0f);
+            }
         } else if (pSE->IsMoonSE()) {
             if (pSE->GetMoonSE()->HasTower()) {
                 // if moon has a tower, make warpin point 20km inside edge of tower's bubble.
@@ -556,7 +564,10 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
             warpToPoint.y += ((radius * 1.3f) - 7500);
             warpToPoint.z -= ((radius + 500000) * std::sin(radius));
         }
-        if (radius < 90000) {
+        if (pSE->IsGateSE() && radius > 5000) {
+            // Gate already offset above (large model, capped at 5km).
+            // Skip radius-based offset to avoid planet formula.
+        } else if (radius < 90000) {
             // this will include stations (max station radius 60km)
             GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
             vectorFromOrigin.normalize();   //we now have a direction
