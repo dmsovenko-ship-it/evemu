@@ -241,6 +241,9 @@ void DestinyManager::ProcessState() {
                             mySE->GetName(), mySE->GetID());
                 }
                 m_shipHeading = toVec;
+                // Reset velocity so the warp trajectory starts clean
+                // (ship may have been drifting while trying to align).
+                m_velocity = NULL_ORIGIN_V;
                 InitWarp();
                 return;
             }
