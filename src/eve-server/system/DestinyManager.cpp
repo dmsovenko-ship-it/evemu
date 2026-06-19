@@ -792,7 +792,7 @@ void DestinyManager::MoveObject() {
     // keep timer in seconds.
     timeStamp = (GetTimeMSeconds() - m_moveTime) * 0.001f;
 
-    if ((timeStamp > m_shipAccelTime) and (m_timeFraction > 0.9998f)) {
+    if ((timeStamp >= m_shipAccelTime) and (m_timeFraction > 0.9998f)) {
         m_activeSpeedFraction = m_userSpeedFraction;
         speed = m_maxShipSpeed * m_activeSpeedFraction;
 
