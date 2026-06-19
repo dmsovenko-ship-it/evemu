@@ -412,7 +412,9 @@ void DestinyManager::UpdateVelocity(bool isMoving) {
         if (isMoving) {
             //  ... ship is moving and ...
             if ((m_activeSpeedFraction == m_userSpeedFraction) and (!m_prevSpeed)) {
-                // ... nothing has changed.
+                // Ship is already at commanded speed. No accel/decel needed.
+                m_accel = false;
+                m_decel = false;
                 return;
             }
 
