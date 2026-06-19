@@ -231,7 +231,7 @@ void DestinyManager::ProcessState() {
                 return;
             } else if (m_timeFraction < 0.749 && m_userSpeedFraction < 0.7499) {
                 SetSpeedFraction(1.0f, true);
-            } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 0.3) {
+            } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
                 // catchall for turn checks messed up, and m_moveTime > ship align time
                 if (mySE->HasPilot()) {
                     _log(DESTINY__ERROR, "Destiny::ProcessState() Error!  Ship %s(%u) for Player %s(%u) - warp align/speed is incorrect, but time > shipTimeToWarp.",  \
