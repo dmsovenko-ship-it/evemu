@@ -308,6 +308,7 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         if (d.srcSE->HasPilot()) {
             //notify to player of damage done:
             PyDict* dict = new PyDict();
+                dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
                 dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
                 dict->SetItemString("target", new PyInt(GetID()));
                 dict->SetItemString("damage", new PyFloat(total_damage));
@@ -333,6 +334,7 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 //  notify player of damage done by drone
                 PyDict* dict = new PyDict();
                     dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
+                    dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
                     dict->SetItemString("target", new PyInt(GetID()));
                 /*
                 PyTuple* tuple = new PyTuple(2);
