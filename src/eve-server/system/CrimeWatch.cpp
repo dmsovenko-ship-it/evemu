@@ -112,5 +112,18 @@ void CrimeWatch::ApplyConcordPenalty()
     sLog.Log("CrimeWatch", "CONCORD destroyed %s(%u).",
         m_client->GetName(), m_client->GetCharacterID());
 
+    // Send killmail notification via in-game mail
+    LSCService* lsc = m_client->GetLSC();
+    if (lsc != nullptr) {
+        std::string subject = "CONCORD Destruction Notice";
+        std::string body = "Your ship ";
+        body += ship->itemName();
+        body += " was destroyed by CONCORD forces in ";
+        body += m_client->SystemMgr()->GetName();
+        body += ".\n\nYour vessel engaged in illegal activity in a high-security system. "
+               "CONCORD has enforced the standard security protocol.";
+        lsc->SendMail(1, m_client->GetCharacterID(), subject, body);
+    }
+
     m_client->SendNotifyMsg("CONCORD has destroyed your ship.");
 }

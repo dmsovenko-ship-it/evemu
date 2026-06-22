@@ -93,6 +93,7 @@ public:
     EVEServiceManager&      services() const            { return m_services; }
     // this should never be null
     SystemManager*          SystemMgr() const           { return m_system; }
+    LSCService*             GetLSC()                    { return m_lsc; }
     // used in msgs and other places where a const char* is needed instead of me forgetting to use .c_str()
     const char*             GetName() const             { return (m_char.get() != nullptr ? m_char->name() : "(null)"); }
 
