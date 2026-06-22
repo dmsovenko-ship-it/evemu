@@ -87,27 +87,27 @@ void CrimeWatch::ApplyConcordPenalty()
         return;
     }
 
-    // Calculate 200% of total effective HP as CONCORD damage
-    double concordEM = 0.0, concordTherm = 0.0, concordKin = 0.0, concordExp = 0.0;
-    double shield = m_client->GetShip()->GetAttribute(AttrShieldCapacity).get_float();
-    double armor  = m_client->GetShip()->GetAttribute(AttrArmorHP).get_float();
-    double hull   = m_client->GetShip()->GetAttribute(AttrHP).get_float();
-    double totalEffectiveHp = shield + armor + hull;
+    // CONCORD: zero HP and trigger destruction via Damage (self as source, no weapon).
+    // Uses the NPC constructor signature to avoid weaponRef dereference.
+    ShipRef ship = m_client->GetShip();
+    if (ship.get() == nullptr) {
+        sLog.Debug("CrimeWatch", "ApplyConcordPenalty() - %s(%u) no ship item, skipping.",
+            m_client->GetName(), m_client->GetCharacterID());
+        return;
+    }
 
-    // CONCORD splits damage evenly across all four types and ignores resists.
-    // Apply ~200% total so the target is always destroyed regardless of fit.
-    double concordDmgPerType = totalEffectiveHp * 0.5;
-    concordEM    = concordDmgPerType;
-    concordTherm = concordDmgPerType;
-    concordKin   = concordDmgPerType;
-    concordExp   = concordDmgPerType;
+    ship->SetAttribute(AttrShieldCharge, 0.0);
+    ship->SetAttribute(AttrHP, 0.0);
+    // Armor HP uses AttrArmorDamage to represent damage taken vs max AttrArmorHP
+    double armorMax = ship->GetAttribute(AttrArmorHP).get_float();
+    ship->SetAttribute(AttrArmorDamage, armorMax);
 
-    Damage d(m_client->GetShipSE(), InventoryItemRef(nullptr), concordKin, concordTherm, concordEM, concordExp, 1.0f, 0);
+    // Trigger fatal blow - this calls the NPC damage path (no weapon)
+    Damage d(m_client->GetShipSE(), 1.0f, 0);
     shipSE->ApplyDamage(d);
 
-    sLog.Log("CrimeWatch", "CONCORD destroyed %s(%u) (ship HP=%.0f, concord=%.0f).",
-        m_client->GetName(), m_client->GetCharacterID(),
-        totalEffectiveHp, concordDmgPerType * 4);
+    sLog.Log("CrimeWatch", "CONCORD destroyed %s(%u).",
+        m_client->GetName(), m_client->GetCharacterID());
 
     m_client->SendNotifyMsg("CONCORD has destroyed your ship.");
 }
