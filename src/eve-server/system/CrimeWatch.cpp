@@ -55,10 +55,6 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
         if (!m_criminalTimer.Enabled()) {
             m_criminalTimer.Start(sConfig.crime.CrimFlagTime * 1000);
             m_client->SendNotifyMsg("CONCORD response initiated. You have been flagged as a criminal.");
-
-            // Apply security penalty (saved on character logout/save timer)
-            double penalty = -6.0 * systemSecRating;
-            m_client->GetChar()->secStatusChange(penalty);
         }
 
         // Start CONCORD response: 5 second delay, then ship destruction
