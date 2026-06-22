@@ -214,7 +214,7 @@ EVEServerConfig::EVEServerConfig()
     chat.EnforceRookieInHelp = false;
 
     // crime
-    crime.Enabled = false; //N
+    crime.Enabled = true; //Y - CONCORD
     crime.AggFlagTime = 900 /*s*/;//N
     crime.CrimFlagTime = 900 /*s*/;//N
     crime.CWSessionTime = 60 /*s*/;//N

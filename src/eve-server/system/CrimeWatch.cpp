@@ -102,7 +102,7 @@ void CrimeWatch::ApplyConcordPenalty()
     concordKin   = concordDmgPerType;
     concordExp   = concordDmgPerType;
 
-    Damage d(nullptr, InventoryItemRef(nullptr), concordKin, concordTherm, concordEM, concordExp, 1.0f, 0);
+    Damage d(m_client->GetShipSE(), InventoryItemRef(nullptr), concordKin, concordTherm, concordEM, concordExp, 1.0f, 0);
     shipSE->ApplyDamage(d);
 
     sLog.Log("CrimeWatch", "CONCORD destroyed %s(%u) (ship HP=%.0f, concord=%.0f).",
