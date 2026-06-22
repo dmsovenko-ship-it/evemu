@@ -470,7 +470,7 @@ void ShipSE::Killed(Damage &fatal_blow) {
              */
             /** @todo (allan) check for faction/corp status modifiers here. */
             double modifier = (1 + ((pPilot->GetSecurityRating() - pClient->GetSecurityRating()) / 90));
-            double penalty = 6.0f * m_system->GetSystemSecurityRating() * modifier;
+            double penalty = 0.035f * m_system->GetSystemSecurityRating() * modifier;
             double loss = penalty * ( pClient->GetSecurityRating() + 10);
             loss *= sConfig.rates.secRate;
             pClient->GetChar()->secStatusChange( -loss );

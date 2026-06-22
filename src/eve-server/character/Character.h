@@ -292,7 +292,7 @@ public:
     uint32                  logonMinutes() const                { return m_charData.logonMinutes; }
     uint16                  OnlineTime();
 
-    void                    secStatusChange( float amount )    { m_charData.securityRating += amount; }
+    void                    secStatusChange( float amount )    { m_charData.securityRating = EvE::max(-10.0f, EvE::min(5.0f, m_charData.securityRating + amount)); }
 
     // Corporation:
     void                    UpdateCorpData(CorpData& data);
