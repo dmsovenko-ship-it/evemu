@@ -106,9 +106,8 @@ void CrimeWatch::ApplyConcordPenalty()
                    + ship->GetAttribute(AttrHP).get_float();
     double concordDmg = totalHP * 25.0; // 2500% per type × 4 types = 10000% total
 
-    // Send killmail notification before ship destruction
-    m_client->SelfEveMail("CONCORD Destruction Notice",
-        "Your ship %s was destroyed by CONCORD forces in %s.",
+    // Notify: CONCORD destruction
+    m_client->SendNotifyMsg("CONCORD destroyed your %s in %s.",
         ship->itemName(), m_client->SystemMgr()->GetName());
 
     Damage d(shipSE, InventoryItemRef(ship.get()), concordDmg, concordDmg, concordDmg, concordDmg, 1.0f, 0);

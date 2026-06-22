@@ -563,34 +563,6 @@ void ShipSE::Killed(Damage &fatal_blow) {
 
     pPilot->GetChar()->LogKill(data);
 
-    // Send killmail notification via in-game mail to victim and killer
-    if (pClient != nullptr) {
-        LSCService* lsc = pClient->GetLSC();
-        if (lsc != nullptr) {
-        std::string sysName = m_system ? m_system->GetName() : "Unknown";
-        std::string victimName = pPilot->GetName();
-        std::string killerName = pClient->GetName();
-
-        // Mail to victim
-        std::string victimSubj = "Kill Report: " + victimName + " destroyed";
-        std::string victimBody = "Your ship (" + std::to_string(data.victimShipTypeID) + ") was destroyed.\n";
-        victimBody += "Location: " + sysName + " (" + std::to_string(data.solarSystemID) + ")\n";
-        victimBody += "Killed by: " + killerName + "\n";
-        victimBody += "Damage taken: " + std::to_string(data.victimDamageTaken);
-        if (lsc != nullptr) lsc->SendMail(1, pPilot->GetCharacterID(), victimSubj, victimBody);
-
-        // Mail to killer (if different)
-        if (pPilot->GetCharacterID() != pClient->GetCharacterID()) {
-            std::string killerSubj = "Kill Report: " + victimName + " destroyed";
-            std::string killerBody = "You destroyed " + victimName + "'s ship (" + std::to_string(data.victimShipTypeID) + ").\n";
-            killerBody += "Location: " + sysName + "\n";
-            killerBody += "Final blow: " + std::to_string(data.finalWeaponTypeID) + "\n";
-            killerBody += "Damage done: " + std::to_string(data.finalDamageDone);
-            lsc->SendMail(1, pClient->GetCharacterID(), killerSubj, killerBody);
-        }
-    }
-    }
-
     if (pPilot->InPod()) {
         // log podKill
         MapDB::AddPodKill(locationID);
