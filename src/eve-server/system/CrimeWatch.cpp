@@ -111,7 +111,7 @@ void CrimeWatch::ApplyConcordPenalty()
     m_client->SendNotifyMsg("CONCORD destroyed your %s in %s.",
         ship->itemName(), m_client->SystemMgr()->GetName());
 
-    // Send mail via mailMessage table using MailDB approach (visible in inbox)
+    // Send mail via mailMessage table using MailDB's format approach
     {
         DBerror err;
         uint32 messageID;
@@ -123,14 +123,15 @@ void CrimeWatch::ApplyConcordPenalty()
                "CONCORD has enforced the standard security protocol.";
         std::string bodyEscaped;
         sDatabase.DoEscapeString(bodyEscaped, body);
+        std::string titleEscaped;
+        sDatabase.DoEscapeString(titleEscaped, "CONCORD Destruction Notice");
         char toStr[32];
         snprintf(toStr, sizeof(toStr), "%u", m_client->GetCharacterID());
-        if (sDatabase.RunQueryLID(err, messageID,
-            "INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID, "
-            "title, body, sentDate) VALUES (1, '%s', -1, -1, "
-            "'CONCORD Destruction Notice', '%s', %lli)",
-            toStr, bodyEscaped.c_str(), Win32TimeNow()))
-        {
+        std::string query = "INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID, "
+                            "title, body, sentDate) VALUES (1, '" + std::string(toStr) + "', -1, -1, '"
+                            + titleEscaped + "', '" + bodyEscaped + "', "
+                            + std::to_string(Win32TimeNow()) + ")";
+        if (sDatabase.RunQueryLID(err, messageID, query.c_str())) {
             sDatabase.RunQuery(err,
                 "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask) "
                 "VALUES (%u, %u, 0, 1)", messageID, m_client->GetCharacterID());
