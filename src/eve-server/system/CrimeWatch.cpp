@@ -106,18 +106,10 @@ void CrimeWatch::ApplyConcordPenalty()
                    + ship->GetAttribute(AttrHP).get_float();
     double concordDmg = totalHP * 25.0; // 2500% per type × 4 types = 10000% total
 
-    // Send killmail notification BEFORE ship destruction (data still valid)
-    LSCService* lsc = m_client->GetLSC();
-    if (lsc != nullptr) {
-        std::string subject = "CONCORD Destruction Notice";
-        std::string body = "Your ship ";
-        body += ship->itemName();
-        body += " was destroyed by CONCORD forces in ";
-        body += m_client->SystemMgr()->GetName();
-        body += ".\n\nYour vessel engaged in illegal activity in a high-security system. "
-               "CONCORD has enforced the standard security protocol.";
-        lsc->SendMail(1, m_client->GetCharacterID(), subject, body);
-    }
+    // Send killmail notification before ship destruction
+    m_client->SelfEveMail("CONCORD Destruction Notice",
+        "Your ship %s was destroyed by CONCORD forces in %s.",
+        ship->itemName(), m_client->SystemMgr()->GetName());
 
     Damage d(shipSE, InventoryItemRef(ship.get()), concordDmg, concordDmg, concordDmg, concordDmg, 1.0f, 0);
     shipSE->ApplyDamage(d);
