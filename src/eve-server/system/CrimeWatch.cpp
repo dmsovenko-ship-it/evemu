@@ -1,9 +1,11 @@
 #include "CrimeWatch.h"
 #include "Client.h"
+#include "Character.h"
 #include "EVEServerConfig.h"
 #include "ship/Ship.h"
 #include "system/SystemManager.h"
 #include "system/Damage.h"
+#include "ServiceDB.h"
 
 CrimeWatch::CrimeWatch(Client* pClient)
 : m_client(pClient),
@@ -56,9 +58,14 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
             m_criminalTimer.Start(sConfig.crime.CrimFlagTime * 1000);
             m_client->SendNotifyMsg("CONCORD response initiated. You have been flagged as a criminal.");
 
-            // Apply immediate security penalty
+            // Apply security penalty and save to DB immediately
             double penalty = -6.0 * systemSecRating;
             m_client->GetChar()->secStatusChange(penalty);
+            DBerror err;
+            sDatabase.RunQuery(err,
+                "UPDATE chrCharacters SET securityRating = %f WHERE characterID = %u",
+                m_client->GetChar()->GetSecurityRating(),
+                m_client->GetCharacterID());
         }
 
         // Start CONCORD response: 5 second delay, then ship destruction

@@ -236,7 +236,7 @@ boolean can use either 0/1 OR true/false.
         <UseProfiling>false</UseProfiling><!-- bool  - use internal memobj code profiling system -->
         <ProfileTraceTime>5000</ProfileTraceTime><!-- msec  profile time above this will print StackTrace  default: 500 -->
         <UseShipTracking>false</UseShipTracking><!-- bool -->
-        <PositionHack>false</PositionHack><!-- bool -->
+        <PositionHack>true</PositionHack><!-- bool -->
         <DeleteTrackingCans>false</DeleteTrackingCans><!-- bool - no longer used -->
         <AnomalyFaction>0</AnomalyFaction><!-- force anomaly to this faction if !=0   -this is for testing dung spawn system -->
     </debug>
