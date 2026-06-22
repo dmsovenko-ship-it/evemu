@@ -56,6 +56,28 @@ PyRep* MailDB::GetNewMail(int charId)
     return DBResultToCRowset(res);
 }
 
+PyRep* MailDB::GetMailHeaders(int charId, std::vector<int32> messageIDs)
+{
+    if (messageIDs.empty())
+        return nullptr;
+
+    // Build IN clause
+    std::string ids;
+    for (size_t i = 0; i < messageIDs.size(); ++i) {
+        if (i > 0) ids += ",";
+        ids += std::to_string(messageIDs[i]);
+    }
+    DBQueryResult res;
+    std::string query = " SELECT m.messageID, m.senderID, m.toCharacterIDs, m.toListID, "
+                         "  m.toCorpOrAllianceID, m.title, m.sentDate FROM mailStatus AS s"
+                         "  LEFT JOIN mailMessage AS m USING (messageID) "
+                         "  WHERE s.characterID = " + std::to_string(charId) +
+                         "  AND m.messageID IN (" + ids + ")";
+    if (!sDatabase.RunQuery(res, query.c_str()))
+        return nullptr;
+    return DBResultToCRowset(res);
+}
+
 int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID, int toCorpOrAllianceID, const std::string& title, const std::string& body, int isReplyTo, int isForwardedFrom)
 {
     // build a string with ',' seperated char ids

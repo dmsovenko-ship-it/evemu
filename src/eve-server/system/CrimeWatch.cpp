@@ -106,9 +106,24 @@ void CrimeWatch::ApplyConcordPenalty()
                    + ship->GetAttribute(AttrHP).get_float();
     double concordDmg = totalHP * 25.0; // 2500% per type × 4 types = 10000% total
 
-    // Notify: CONCORD destruction
+    // Notify: CONCORD destruction  
     m_client->SendNotifyMsg("CONCORD destroyed your %s in %s.",
         ship->itemName(), m_client->SystemMgr()->GetName());
+
+    // Send killmail from EVE System (senderID=1)
+    LSCService* lsc = m_client->GetLSC();
+    if (lsc != nullptr) {
+        std::vector<int32> recipients;
+        recipients.push_back(m_client->GetCharacterID());
+        std::string subject = "CONCORD Destruction Notice";
+        std::string body = "Your ship ";
+        body += ship->itemName();
+        body += " was destroyed by CONCORD forces in ";
+        body += m_client->SystemMgr()->GetName();
+        body += ".\n\nYour vessel engaged in illegal activity in a high-security system. "
+               "CONCORD has enforced the standard security protocol.";
+        lsc->SendMail(1, recipients, subject, body);
+    }
 
     Damage d(shipSE, InventoryItemRef(ship.get()), concordDmg, concordDmg, concordDmg, concordDmg, 1.0f, 0);
     shipSE->ApplyDamage(d);

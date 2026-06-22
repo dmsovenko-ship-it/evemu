@@ -214,9 +214,15 @@ PyResult MailMgrService::GetLabels(PyCallArgs &call)
 
 PyResult MailMgrService::GetMailHeaders(PyCallArgs &call, PyList* messageIDs)
 {
-    // @TODO: Stub
-    // contains message ids
-    return nullptr;
+    std::vector<int32> ids;
+    PyList::const_iterator cur = messageIDs->begin();
+    for (; cur != messageIDs->end(); ++cur) {
+        if ((*cur)->IsInt())
+            ids.push_back((*cur)->AsInt()->value());
+    }
+    if (ids.empty())
+        return nullptr;
+    return m_db.GetMailHeaders(call.client->GetCharacterID(), ids);
 }
 
 PyResult MailMgrService::MarkAllAsRead(PyCallArgs &call)

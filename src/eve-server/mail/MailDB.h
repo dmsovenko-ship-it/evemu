@@ -109,6 +109,7 @@ public:
 
     int SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID, int toCorpOrAllianceID, const std::string& title, const std::string& body, int isReplyTo, int isForwardedFrom);
     PyRep* GetNewMail(int charId);
+    PyRep* GetMailHeaders(int charId, std::vector<int32> messageIDs);
     PyRep* GetMailStatus(int charId);
 
 protected:
