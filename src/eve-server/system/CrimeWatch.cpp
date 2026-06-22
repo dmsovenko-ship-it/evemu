@@ -98,12 +98,12 @@ void CrimeWatch::ApplyConcordPenalty()
 
     ship->SetAttribute(AttrShieldCharge, 0.0);
     ship->SetAttribute(AttrHP, 0.0);
-    // Armor HP uses AttrArmorDamage to represent damage taken vs max AttrArmorHP
     double armorMax = ship->GetAttribute(AttrArmorHP).get_float();
     ship->SetAttribute(AttrArmorDamage, armorMax);
 
-    // Trigger fatal blow - this calls the NPC damage path (no weapon)
-    Damage d(m_client->GetShipSE(), 1.0f, 0);
+    // Trigger fatal blow with 0 damage (ship HP already zeroed)
+    ShipItemRef shipRef = m_client->GetShip();
+    Damage d(m_client->GetShipSE(), InventoryItemRef(shipRef.get()), 0, 0, 0, 0, 1.0f, 0);
     shipSE->ApplyDamage(d);
 
     sLog.Log("CrimeWatch", "CONCORD destroyed %s(%u).",
