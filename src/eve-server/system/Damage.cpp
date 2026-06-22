@@ -589,6 +589,7 @@ void ShipSE::Killed(Damage &fatal_blow) {
             lsc->SendMail(1, pClient->GetCharacterID(), killerSubj, killerBody);
         }
     }
+    }
 
     if (pPilot->InPod()) {
         // log podKill
