@@ -87,8 +87,9 @@ void CrimeWatch::ApplyConcordPenalty()
         return;
     }
 
-    // CONCORD: zero HP and trigger destruction via Damage (self as source, no weapon).
-    // Uses the NPC constructor signature to avoid weaponRef dereference.
+    // CONCORD applies massive damage split across all 4 damage types.
+    // Using the explicit-damage constructor so weaponRef is stored but NOT
+    // dereferenced (the NPC constructor reads from weaponRef, the explicit one doesn't).
     ShipItemRef ship = m_client->GetShip();
     if (ship.get() == nullptr) {
         sLog.Debug("CrimeWatch", "ApplyConcordPenalty() - %s(%u) no ship item, skipping.",
@@ -96,15 +97,12 @@ void CrimeWatch::ApplyConcordPenalty()
         return;
     }
 
-    ship->SetAttribute(AttrShieldCharge, 0.0);
-    ship->SetAttribute(AttrHP, 0.0);
-    double armorMax = ship->GetAttribute(AttrArmorHP).get_float();
-    ship->SetAttribute(AttrArmorDamage, armorMax);
+    double totalHP = ship->GetAttribute(AttrShieldCapacity).get_float()
+                   + ship->GetAttribute(AttrArmorHP).get_float()
+                   + ship->GetAttribute(AttrHP).get_float();
+    double concordDmg = totalHP * 25.0; // 2500% per type × 4 types = 10000% total
 
-    // Trigger fatal blow with 0 damage (ship HP already zeroed)
-    ShipItemRef shipRef = m_client->GetShip();
-    InventoryItemRef wRef(shipRef.get());
-    Damage d(m_client->GetShipSE(), wRef, 0, 0, 0, 0, 1.0f, 0);
+    Damage d(shipSE, InventoryItemRef(ship.get()), concordDmg, concordDmg, concordDmg, concordDmg, 1.0f, 0);
     shipSE->ApplyDamage(d);
 
     sLog.Log("CrimeWatch", "CONCORD destroyed %s(%u).",
