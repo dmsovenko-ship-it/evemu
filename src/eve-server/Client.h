@@ -40,6 +40,7 @@
 #include "ship/Ship.h"
 #include "ship/modules/ModuleManager.h"
 #include "system/SystemEntity.h"
+#include "system/CrimeWatch.h"
 
 #include "../eve-common/EVE_Missions.h"
 #include "../eve-common/EVE_Player.h"
@@ -172,6 +173,7 @@ public:
     uint32 GetPodID() const                             { return m_pod->itemID(); }
     float GetBounty() const                             { return m_char->bounty(); }
     float GetSecurityRating() const                     { return m_char->GetSecurityRating(); }
+    CrimeWatch* GetCrimeWatch()                         { return m_crimeWatch; }
 
     bool AddBalance(double amount, uint8 type=Account::CreditType::ISK) // ---marketbot update
                                                         { return m_char->AlterBalance(amount, type); }
@@ -383,6 +385,7 @@ protected:
 
     uint32 m_fleet;
     uint32 m_shipId;
+    CrimeWatch* m_crimeWatch;
     //uint32 m_toGate;
     uint32 m_locationID;
     uint32 m_moveSystemID;      // holder for jumping to 'systemID'.    timer based.

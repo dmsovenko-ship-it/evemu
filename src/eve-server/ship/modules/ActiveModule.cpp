@@ -362,6 +362,15 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
             {
                 throw CustomError ("You cannot attack the %s.", m_targetSE->GetName());
             }
+        // Aggression/CONCORD check: offensive module used on another player
+        if (sFxDataMgr.isOffensive(effectID) and m_targetSE->HasPilot()) {
+            Client* attacker = m_shipRef->GetPilot();
+            Client* victim   = m_targetSE->GetPilot();
+            if (attacker != nullptr and victim != nullptr and attacker != victim) {
+                float sec = attacker->SystemMgr()->GetSystemSecurityRating();
+                attacker->GetCrimeWatch()->OnAggression(victim, sec);
+            }
+        }
 
         if (sFxDataMgr.isAssistance(effectID)) {
             if (m_targetSE->GetSelf()->HasAttribute(AttrDisallowAssistance)) {

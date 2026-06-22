@@ -89,8 +89,9 @@ Client::Client(EVEServiceManager& services, EVETCPConnection** con)
   m_uncloakTimer(0),
   m_destinyEventQueue(new PyList()),
   m_destinyUpdateQueue(new PyList()),
-  m_nextNotifySequence(0)
+    m_nextNotifySequence(0)
 {
+    m_crimeWatch = new CrimeWatch(this);
     m_pod = ShipItemRef(nullptr);
     m_ship = ShipItemRef(nullptr);
 
@@ -137,6 +138,7 @@ Client::Client(EVEServiceManager& services, EVETCPConnection** con)
 }
 
 Client::~Client() {
+    SafeDelete(m_crimeWatch);
     if (!m_loaded)
         return;
 
@@ -437,6 +439,8 @@ void Client::ProcessClient() {
             m_ballparkTimer.Disable();
             SetBallPark();
         }
+
+    m_crimeWatch->Process();
 
     if (pShipSE->DestinyMgr()->IsCloaked())
         if (m_cloakTimer.Check(false)) {

@@ -1,33 +1,42 @@
-/**
- * @name CrimeWatch.h
- *   EvEmu CrimeWatch code.
- *
- * @Author:         Allan
- * @date:   13 March 2016
- */
-
-
 #ifndef EVEMU_SERVER_CRIMEWATCH_H_
 #define EVEMU_SERVER_CRIMEWATCH_H_
 
-
 #include "eve-common.h"
+
+class Client;
 
 class CrimeWatch
 {
 public:
-    CrimeWatch();
-    ~CrimeWatch()   { /* do nothing here */ }
+    CrimeWatch(Client* pClient);
+    ~CrimeWatch() {}
 
-    void Init();
+    // Called every tick from Client::Process()
+    void Process();
+
+    // Flag observers
+    bool IsAggressed()      const { return m_aggressionTimer.Enabled(); }
+    bool IsCriminal()       const { return m_criminalTimer.Enabled(); }
+    bool HasWeaponTimer()   const { return m_weaponTimer.Enabled(); }
+    bool CanDock()          const { return !m_aggressionTimer.Enabled() && !m_weaponTimer.Enabled(); }
+    bool CanJump()          const { return !m_aggressionTimer.Enabled(); }
+
+    // Called when player aggresses another player
+    void OnAggression(Client* pTarget, float systemSecRating);
+
+    // CONCORD
+    bool IsConcordActive()  const { return m_concordTimer.Enabled(); }
+
 protected:
+    void ApplyConcordPenalty();
 
 private:
-    Timer t_crimFlag;
-    Timer t_aggression;
-    Timer t_weapon;
-    Timer t_session;
-    Timer t_killRight;
+    Client* m_client;
+
+    Timer m_aggressionTimer;
+    Timer m_criminalTimer;
+    Timer m_weaponTimer;
+    Timer m_concordTimer;
 };
 
 #endif  // EVEMU_SERVER_CRIMEWATCH_H_
