@@ -15,6 +15,7 @@
 #include "npc/SentryAI.h"
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
+#include "system/CrimeWatch.h"
 #include "system/SystemBubble.h"
 
 SentryAI::SentryAI(Sentry* who)
@@ -95,24 +96,22 @@ void SentryAI::Process() {
             if (m_beginFindTarget.Check()) {
                 std::vector<Client*> clientVec;
                 clientVec.clear();
-                DestinyManager* pDestiny(nullptr);
-                m_npc->SysBubble()->GetPlayers(clientVec); // what about player drones?  yes...later
+                m_npc->SysBubble()->GetPlayers(clientVec);
                 for (auto cur : clientVec) {
-                    /** @todo  this needs work
-                    if (cur->IsLogin() or cur->IsInvul() or cur->InPod())
+                    if (cur == nullptr or cur->IsLogin() or cur->IsInvul() or cur->InPod())
                         continue;
-                    if (!cur->GetShipTarget())
+                    SystemEntity* targetSE = cur->GetShipSE();
+                    if (targetSE == nullptr) continue;
+                    if (targetSE->DestinyMgr() == nullptr) continue;
+                    if (targetSE->DestinyMgr()->IsCloaked() or targetSE->DestinyMgr()->IsWarping())
                         continue;
-                    if ((!cur->GetShipTarget()->DestinyMgr()) or (!cur->GetShipTarget()->SysBubble()))    // this shouldnt be needed, but whatever...
+                    if (m_npc->GetPosition().distance(targetSE->GetPosition()) > m_sightRange)
                         continue;
-                    pDestiny = cur->GetShipTarget()->DestinyMgr();
-                    if (pDestiny->IsCloaked() or pDestiny->IsWarping())
-                        continue;
-                    if (m_npc->GetPosition().distance(cur->GetShipTarget()->GetPosition()) > m_sightRange)
-                        continue;
-                    Target(cur->GetShipTarget());
-                    */
-                    return;
+                    // Check for criminal/aggression flags or outlaw status
+                    CrimeWatch* cw = cur->GetCrimeWatch();
+                    if (cw != nullptr and (cw->IsCriminal() or cw->IsAggressed() or cw->IsOutlaw())) {
+                        Target(targetSE);
+                    }
                 }
             } else {
                 if (!m_beginFindTarget.Enabled())

@@ -70,25 +70,6 @@ void CrimeWatch::Process()
         ClearConcordShips();
     }
 
-    // Sentry gun DPS: 100 damage every second
-    if (m_sentryDamageTimer.Enabled() and m_sentryDamageTimer.Check()) {
-        ApplySentryDamage();
-        m_sentryDamageTimer.Start(1000);
-    }
-
-    // Outlaw: sentry guns fire automatically in highsec/lowsec
-    if (IsOutlaw() && m_client->IsInSpace() && !m_aggressionTimer.Enabled()) {
-        float sec = m_client->SystemMgr()->GetSystemSecurityRating();
-        if (sec > 0.0f && !m_sentryDamageTimer.Enabled()) {
-            m_sentryDamageTimer.Start(1000);
-        }
-    }
-
-    // Cleanup sentry guns when aggression expires
-    if (!m_aggressionTimer.Enabled() and !m_sentryGuns.empty()) {
-        ClearSentryGuns();
-    }
-
     if (m_aggressionTimer.Enabled()) m_aggressionTimer.Check();
     if (m_criminalTimer.Enabled()) m_criminalTimer.Check();
     if (m_weaponTimer.Enabled()) m_weaponTimer.Check();
