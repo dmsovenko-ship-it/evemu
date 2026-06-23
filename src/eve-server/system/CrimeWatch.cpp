@@ -93,7 +93,7 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
 
     // EVE: criminal flag + CONCORD only in highsec (>0.45)
-    if (systemSecRating > 0.45f && !m_concordTimer.Enabled() && !m_concordDamageTimer.Enabled()) {
+    if (systemSecRating >= 0.5f && !m_concordTimer.Enabled() && !m_concordDamageTimer.Enabled()) {
         if (!m_criminalTimer.Enabled()) {
             m_criminalTimer.Start(sConfig.crime.CrimFlagTime * 1000);
             m_client->SendNotifyMsg("CONCORD response initiated. You have been flagged as a criminal.");
