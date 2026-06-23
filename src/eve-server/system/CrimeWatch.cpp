@@ -76,6 +76,14 @@ void CrimeWatch::Process()
         m_sentryDamageTimer.Start(1000);
     }
 
+    // Outlaw: sentry guns fire automatically in highsec/lowsec
+    if (IsOutlaw() && m_client->IsInSpace() && !m_aggressionTimer.Enabled()) {
+        float sec = m_client->SystemMgr()->GetSystemSecurityRating();
+        if (sec > 0.0f && !m_sentryDamageTimer.Enabled()) {
+            m_sentryDamageTimer.Start(1000);
+        }
+    }
+
     // Cleanup sentry guns when aggression expires
     if (!m_aggressionTimer.Enabled() and !m_sentryGuns.empty()) {
         ClearSentryGuns();
@@ -284,7 +292,7 @@ void CrimeWatch::SpawnSentryGuns(uint32 count)
 void CrimeWatch::ApplySentryDamage()
 {
     if (!m_client->IsInSpace()) return;
-    if (!m_aggressionTimer.Enabled()) return;
+    if (!m_aggressionTimer.Enabled() && !IsOutlaw()) return;
     SystemEntity* shipSE = m_client->GetShipSE();
     if (shipSE == nullptr) return;
     ShipItemRef ship = m_client->GetShip();
