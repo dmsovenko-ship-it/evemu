@@ -4,7 +4,7 @@
 #include "ship/Ship.h"
 #include "system/SystemManager.h"
 #include "system/Damage.h"
-#include "eve-server.h"
+#include "mail/MailDB.h"
 
 CrimeWatch::CrimeWatch(Client* pClient)
 : m_client(pClient),
@@ -111,31 +111,18 @@ void CrimeWatch::ApplyConcordPenalty()
     m_client->SendNotifyMsg("CONCORD destroyed your %s in %s.",
         ship->itemName(), m_client->SystemMgr()->GetName());
 
-    // Send mail via mailMessage table using MailDB's format approach
+    // Send mail via MailDB (proven working by MailMgrService)
     {
-        DBerror err;
-        uint32 messageID;
+        MailDB mailDB;
+        std::vector<int32> recipients;
+        recipients.push_back(m_client->GetCharacterID());
         std::string body = "Your ship ";
         body += ship->itemName();
         body += " was destroyed by CONCORD forces in ";
         body += m_client->SystemMgr()->GetName();
         body += ".\n\nYour vessel engaged in illegal activity in a high-security system. "
                "CONCORD has enforced the standard security protocol.";
-        std::string bodyEscaped;
-        sDatabase.DoEscapeString(bodyEscaped, body);
-        std::string titleEscaped;
-        sDatabase.DoEscapeString(titleEscaped, "CONCORD Destruction Notice");
-        char toStr[32];
-        snprintf(toStr, sizeof(toStr), "%u", m_client->GetCharacterID());
-        std::string query = "INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID, "
-                            "title, body, sentDate) VALUES (1, '" + std::string(toStr) + "', -1, -1, '"
-                            + titleEscaped + "', '" + bodyEscaped + "', "
-                            + std::to_string(Win32TimeNow()) + ")";
-        if (sDatabase.RunQueryLID(err, messageID, "%s", query.c_str())) {
-            sDatabase.RunQuery(err,
-                "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask) "
-                "VALUES (%u, %u, 0, 1)", messageID, m_client->GetCharacterID());
-        }
+        mailDB.SendMail(1, recipients, -1, -1, "CONCORD Destruction Notice", body, 0, 0);
     }
 
     Damage d(shipSE, InventoryItemRef(ship.get()), concordDmg, concordDmg, concordDmg, concordDmg, 1.0f, 0);
