@@ -459,6 +459,10 @@ bool SystemManager::LoadSystemStatics() {
 
     _log(SERVER__INIT, "SystemManager::LoadSystemStatics() - %u Static System entities loaded for %s(%u)", entities.size(), m_data.name.c_str(), m_data.systemID);
     entities.clear();
+
+    // Spawn sentry guns at gates and stations
+    SpawnSentryGuns();
+
     return true;
 }
 
@@ -697,7 +701,72 @@ SystemEntity* DynamicEntityFactory::BuildEntity(SystemManager& sysMgr, const DBS
                         SystemEntity* pPE = sysMgr.GetSE(entity.planetID);
                         if ((pPE != nullptr) and pPE->IsPlanetSE())
                             pPE->GetPlanetSE()->SetCustomsOffice(pCoSE);
-                    }
+}
+
+void SystemManager::SpawnSentryGuns()
+{
+    // Determine sentry counts based on system security
+    uint32 gateCount = 2, stationCount = 4;
+    float sec = m_data.securityRating;
+    if (sec >= 0.5f) {          // Highsec
+        gateCount = 2;
+        stationCount = 4;
+    } else if (sec > 0.0f) {    // Lowsec
+        gateCount = 3;
+        stationCount = 6;
+    } else {                     // Nullsec
+        gateCount = 4;
+        stationCount = 8;
+    }
+
+    FactionData faction;
+    faction.allianceID = 0;
+    faction.factionID = 500021;
+    faction.ownerID = 1000125;
+    faction.corporationID = 1000125;
+
+    // Spawn at gates
+    for (auto& [id, pSE] : m_staticEntities) {
+        if (pSE == nullptr) continue;
+        uint32 group = pSE->GetSelf()->groupID();
+
+        if (group == EVEDB::invGroups::Stargate) {
+            GPoint gatePos = pSE->GetPosition();
+            for (uint32 i = 0; i < gateCount; ++i) {
+                char name[64];
+                snprintf(name, sizeof(name), "Sentry Gun SG%u-%u", id, i + 1);
+                GPoint pos = gatePos;
+                pos.x += (float)(MakeRandomInt(-3000, 3000));
+                pos.z += (float)(MakeRandomInt(-3000, 3000));
+                ItemData itemData(3740, faction.ownerID, m_data.systemID, flagNone, name, pos);
+                InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+                if (iRef.get() == nullptr) continue;
+                Sentry* sentry = new Sentry(iRef, m_services, this, faction);
+                if (sentry != nullptr) {
+                    sentry->DestinyMgr()->SetPosition(pos);
+                    AddEntity(sentry);
+                }
+            }
+        } else if (group == EVEDB::invGroups::Station) {
+            GPoint stationPos = pSE->GetPosition();
+            for (uint32 i = 0; i < stationCount; ++i) {
+                char name[64];
+                snprintf(name, sizeof(name), "Sentry Gun ST%u-%u", id, i + 1);
+                GPoint pos = stationPos;
+                pos.x += (float)(MakeRandomInt(-5000, 5000));
+                pos.z += (float)(MakeRandomInt(-5000, 5000));
+                ItemData itemData(3740, faction.ownerID, m_data.systemID, flagNone, name, pos);
+                InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+                if (iRef.get() == nullptr) continue;
+                Sentry* sentry = new Sentry(iRef, m_services, this, faction);
+                if (sentry != nullptr) {
+                    sentry->DestinyMgr()->SetPosition(pos);
+                    AddEntity(sentry);
+                }
+            }
+        }
+    }
+}
                     pCoSE->Init();
                     _log(POS__TRACE, "DynamicEntityFactory::BuildEntity() making CustomsSE for %s (%u)", entity.itemName.c_str(), entity.itemID);
                 } break;

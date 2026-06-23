@@ -86,6 +86,7 @@ public:
     const float GetSystemSecurityRating()               { return m_data.securityRating; }
 
     EVEServiceManager& GetServiceMgr()                  { return m_services; }
+    void SpawnSentryGuns();
     Inventory* GetSystemInv()                           { return m_solarSystemRef->GetMyInventory(); }
     SolarSystemRef GetSystemRef()                       { return m_solarSystemRef; }
 

@@ -120,10 +120,6 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     // Prevents docking and jumping
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
 
-    // Spawn sentry guns (count varies by system sec)
-    SpawnSentryGuns(GetSentryCount(systemSecRating));
-    m_sentryDamageTimer.Start(1000);
-
     // EVE: criminal flag + CONCORD only in highsec (>=0.5)
     if (systemSecRating >= 0.5f && !m_concordTimer.Enabled() && !m_concordDamageTimer.Enabled()) {
         if (!m_criminalTimer.Enabled()) {
