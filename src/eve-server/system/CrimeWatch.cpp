@@ -131,7 +131,7 @@ void CrimeWatch::ApplyConcordPenalty()
                             "title, body, sentDate) VALUES (1, '" + std::string(toStr) + "', -1, -1, '"
                             + titleEscaped + "', '" + bodyEscaped + "', "
                             + std::to_string(Win32TimeNow()) + ")";
-        if (sDatabase.RunQueryLID(err, messageID, query.c_str())) {
+        if (sDatabase.RunQueryLID(err, messageID, "%s", query.c_str())) {
             sDatabase.RunQuery(err,
                 "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask) "
                 "VALUES (%u, %u, 0, 1)", messageID, m_client->GetCharacterID());
