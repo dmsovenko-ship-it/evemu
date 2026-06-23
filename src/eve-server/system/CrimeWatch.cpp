@@ -5,6 +5,15 @@
 #include "system/SystemManager.h"
 #include "system/Damage.h"
 #include "mail/MailDB.h"
+#include "npc/NPC.h"
+#include "inventory/ItemFactory.h"
+
+// CONCORD ship typeIDs from EVE static data
+static const uint32 CONCORD_TYPEIDS[] = {
+    1912, // Concord Police Battleship
+    1914, // Concord Special Ops Battleship
+    1918, // Concord Army Battleship
+};
 
 CrimeWatch::CrimeWatch(Client* pClient)
 : m_client(pClient),
@@ -23,7 +32,7 @@ void CrimeWatch::Process()
 {
     if (m_concordTimer.Enabled() and m_concordTimer.Check()) {
         m_concordTimer.Disable();
-        ApplyConcordPenalty();
+        SpawnConcordShips();
     }
 
     if (m_aggressionTimer.Enabled())
@@ -76,7 +85,65 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
         systemSecRating);
 }
 
-#include <cmath>
+void CrimeWatch::SpawnConcordShips()
+{
+    if (!m_client->IsInSpace()) return;
+    if (m_client->GetShipSE() == nullptr) return;
+    if (m_client->GetShip().get() == nullptr) return;
+
+    SystemManager* sysMgr = m_client->SystemMgr();
+    if (sysMgr == nullptr) return;
+
+    GPoint criminalPos = m_client->GetShipSE()->GetPosition();
+    uint32 criminalSysID = sysMgr->GetID();
+
+    // Faction data for CONCORD
+    FactionData faction;
+    faction.allianceID = 0;
+    faction.factionID = 500021; // CONCORD faction
+    faction.ownerID = 1000125;  // CONCORD Bureau
+    faction.corporationID = 1000125;
+
+    // Spawn 2-3 CONCORD battleships
+    uint32 numShips = 2 + (MakeRandomInt(0, 1) ? 1 : 0);
+    for (uint32 i = 0; i < numShips; ++i) {
+        // Pick a random CONCORD type
+        uint32 typeID = CONCORD_TYPEIDS[MakeRandomInt(0, 2)];
+        char name[64];
+        snprintf(name, sizeof(name), "CONCORD Police #%u", m_client->GetCharacterID() + i);
+
+        // Create the ship item in the system
+        ItemData itemData(typeID, faction.ownerID, criminalSysID, flagNone, name, criminalPos);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        if (iRef.get() == nullptr) {
+            sLog.Error("CrimeWatch", "Failed to spawn CONCORD ship type %u", typeID);
+            continue;
+        }
+
+        // Create NPC entity
+        NPC* pNPC = new NPC(iRef, *sysMgr->GetServiceMgr(), sysMgr, faction);
+        if (pNPC == nullptr || !pNPC->Load()) {
+            if (pNPC) delete pNPC;
+            continue;
+        }
+
+        // Position near the criminal with some spread
+        GPoint pos = criminalPos;
+        pos.x += (float)(MakeRandomInt(-500, 500));
+        pos.y += (float)(MakeRandomInt(-500, 500));
+        pos.z += (float)(MakeRandomInt(-500, 500));
+        pNPC->DestinyMgr()->SetPosition(pos);
+
+        // Add to system (appears in space)
+        sysMgr->AddNPC(pNPC);
+
+        // Warp to criminal's position
+        pNPC->DestinyMgr()->WarpTo(criminalPos, 0);
+    }
+
+    // Apply damage after a brief delay via existing timer mechanism
+    m_concordTimer.Start(3000);
+}
 
 void CrimeWatch::ApplyConcordPenalty()
 {
@@ -92,9 +159,6 @@ void CrimeWatch::ApplyConcordPenalty()
         return;
     }
 
-    // CONCORD applies massive damage split across all 4 damage types.
-    // Using the explicit-damage constructor so weaponRef is stored but NOT
-    // dereferenced (the NPC constructor reads from weaponRef, the explicit one doesn't).
     ShipItemRef ship = m_client->GetShip();
     if (ship.get() == nullptr) {
         sLog.Debug("CrimeWatch", "ApplyConcordPenalty() - %s(%u) no ship item, skipping.",
@@ -105,13 +169,12 @@ void CrimeWatch::ApplyConcordPenalty()
     double totalHP = ship->GetAttribute(AttrShieldCapacity).get_float()
                    + ship->GetAttribute(AttrArmorHP).get_float()
                    + ship->GetAttribute(AttrHP).get_float();
-    double concordDmg = totalHP * 25.0; // 2500% per type × 4 types = 10000% total
+    double concordDmg = totalHP * 25.0;
 
-    // Notify: CONCORD destruction  
+    // Notify and mail
     m_client->SendNotifyMsg("CONCORD destroyed your %s in %s.",
         ship->itemName(), m_client->SystemMgr()->GetName());
 
-    // Send mail via MailDB (proven working by MailMgrService)
     {
         MailDB mailDB;
         std::vector<int32> recipients;
@@ -125,6 +188,7 @@ void CrimeWatch::ApplyConcordPenalty()
         mailDB.SendMail(1, recipients, -1, -1, "CONCORD Destruction Notice", body, 0, 0);
     }
 
+    // Destroy the ship
     Damage d(shipSE, InventoryItemRef(ship.get()), concordDmg, concordDmg, concordDmg, concordDmg, 1.0f, 0);
     shipSE->ApplyDamage(d);
 
