@@ -159,14 +159,24 @@ void CrimeWatch::ApplyConcordPenalty()
     m_client->SendNotifyMsg("CONCORD destroyed your %s in %s.",
         ship->itemName(), m_client->SystemMgr()->GetName());
 
-    MailDB mailDB;
-    std::vector<int32> recipients;
-    recipients.push_back(m_client->GetCharacterID());
-    std::string body = "Your ship ";
-    body += ship->itemName();
-    body += " was destroyed by CONCORD forces in ";
-    body += m_client->SystemMgr()->GetName();
-    mailDB.SendMail(1, recipients, -1, -1, "CONCORD Destruction Notice", body, 0, 0);
+    {
+        MailDB mailDB;
+        std::vector<int32> recipients;
+        recipients.push_back(m_client->GetCharacterID());
+        float secRating = m_client->SystemMgr()->GetSystemSecurityRating();
+        char secStr[16];
+        snprintf(secStr, sizeof(secStr), "%.1f", secRating);
+        std::string body = "Kill Report\n============\n\n";
+        body += "Victim: " + std::string(m_client->GetName()) + "\n";
+        body += "Ship: " + std::string(ship->itemName()) + "\n";
+        body += "System: " + std::string(m_client->SystemMgr()->GetName()) + " (" + secStr + ")\n";
+        body += "Damage Taken: " + std::to_string((int)totalHP) + "\n";
+        body += "Destroyed By: CONCORD Police Forces\n\n";
+        body += "Your vessel engaged in illegal activity in a high-security system.\n";
+        body += "CONCORD has enforced the standard security protocol.\n";
+        body += "Security status penalty has been applied.";
+        mailDB.SendMail(1, recipients, -1, -1, "CONCORD Kill Report", body, 0, 0);
+    }
 
     Damage d(shipSE, InventoryItemRef(ship.get()), concordDmg, concordDmg, concordDmg, concordDmg, 1.0f, 0);
     shipSE->ApplyDamage(d);
