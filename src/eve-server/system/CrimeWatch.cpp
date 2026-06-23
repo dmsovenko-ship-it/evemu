@@ -298,8 +298,20 @@ void CrimeWatch::ApplySentryDamage()
     ShipItemRef ship = m_client->GetShip();
     if (ship.get() == nullptr) return;
 
-    // 100 DPS as sentry gun damage
+    // Find a sentry gun in this system to use as damage source
+    SystemEntity* sentrySource = nullptr;
+    if (m_client->SystemMgr() != nullptr) {
+        for (auto& [id, se] : m_client->SystemMgr()->GetEntities()) {
+            if (se != nullptr && se->IsSentrySE()) {
+                sentrySource = se;
+                break;
+            }
+        }
+    }
+    if (sentrySource == nullptr) sentrySource = shipSE; // fallback
+
+    // 100 DPS split across 4 damage types (25 each)
     float dmg = SENTRY_DPS * 0.25f;
-    Damage d(nullptr, InventoryItemRef(ship.get()), dmg, dmg, dmg, dmg, 1.0f, 0);
+    Damage d(sentrySource, InventoryItemRef(ship.get()), dmg, dmg, dmg, dmg, 1.0f, 0);
     shipSE->ApplyDamage(d);
 }
