@@ -1798,17 +1798,23 @@ bool SystemManager::IsNull(std::map<uint32, SystemEntity*>::iterator& i)
 
 void SystemManager::SpawnSentryGuns()
 {
-    // Wormhole detection: no stargates = wormhole space
     if (m_gateMap.empty()) return;
 
-    uint32 gateCount = 2, stationCount = 4;
     float sec = m_data.securityRating;
-    if (sec >= 0.5f) {          // Highsec
+    uint32 gateCount = 0, stationCount = 0;
+    uint32 gateDist = 0, stationDist = 0, gateDistVar = 0, stationDistVar = 0;
+
+    if (sec >= 0.5f) {
         gateCount = 3; stationCount = 5;
-    } else if (sec > 0.0f) {    // Lowsec
+        gateDist = 17000; gateDistVar = 3000;        // 15-20km
+        stationDist = 22000; stationDistVar = 5000;   // 20-25km
+    } else if (sec > 0.0f) {
         gateCount = 4; stationCount = 7;
-    } else {                     // Nullsec
-        gateCount = 0; stationCount = 8; // No gate sentries in nullsec
+        gateDist = 16500; gateDistVar = 1500;         // 15-18km
+        stationDist = 20000; stationDistVar = 2000;   // 18-22km
+    } else {
+        gateCount = 0; stationCount = 8;
+        stationDist = 22000; stationDistVar = 5000;   // 20-25km
     }
 
     FactionData faction;
@@ -1818,14 +1824,16 @@ void SystemManager::SpawnSentryGuns()
     for (auto& [id, pSE] : m_staticEntities) {
         if (pSE == nullptr) continue;
         uint32 group = pSE->GetSelf()->groupID();
+        GPoint center = pSE->GetPosition();
 
         if (group == EVEDB::invGroups::Stargate && gateCount > 0) {
+            float angleStep = 6.283185f / gateCount;
+            float baseAngle = (float)(MakeRandomInt(0, 6283)) / 1000.0f;
             for (uint32 i = 0; i < gateCount; ++i) {
-                char name[64];
-                snprintf(name, sizeof(name), "Sentry SG%u-%u", id, i + 1);
-                GPoint pos = pSE->GetPosition();
-                pos.x += (float)(MakeRandomInt(-3000, 3000));
-                pos.z += (float)(MakeRandomInt(-3000, 3000));
+                float dist = (float)(gateDist + MakeRandomInt(-(int32)gateDistVar, (int32)gateDistVar));
+                float a = baseAngle + angleStep * i;
+                GPoint pos(center.x + dist * cosf(a), center.y, center.z + dist * sinf(a));
+                char name[64]; snprintf(name, sizeof(name), "Sentry SG%u-%u", id, i + 1);
                 ItemData itemData(3740, faction.ownerID, m_data.systemID, flagNone, name, pos);
                 InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                 if (iRef.get() == nullptr) continue;
@@ -1833,12 +1841,13 @@ void SystemManager::SpawnSentryGuns()
                 if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); AddEntity(sentry); }
             }
         } else if (group == EVEDB::invGroups::Station) {
+            float angleStep = 6.283185f / stationCount;
+            float baseAngle = (float)(MakeRandomInt(0, 6283)) / 1000.0f;
             for (uint32 i = 0; i < stationCount; ++i) {
-                char name[64];
-                snprintf(name, sizeof(name), "Sentry ST%u-%u", id, i + 1);
-                GPoint pos = pSE->GetPosition();
-                pos.x += (float)(MakeRandomInt(-5000, 5000));
-                pos.z += (float)(MakeRandomInt(-5000, 5000));
+                float dist = (float)(stationDist + MakeRandomInt(-(int32)stationDistVar, (int32)stationDistVar));
+                float a = baseAngle + angleStep * i;
+                GPoint pos(center.x + dist * cosf(a), center.y, center.z + dist * sinf(a));
+                char name[64]; snprintf(name, sizeof(name), "Sentry ST%u-%u", id, i + 1);
                 ItemData itemData(3740, faction.ownerID, m_data.systemID, flagNone, name, pos);
                 InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                 if (iRef.get() == nullptr) continue;
