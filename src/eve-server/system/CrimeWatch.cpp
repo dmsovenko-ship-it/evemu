@@ -120,8 +120,9 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     // Prevents docking and jumping
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
 
-    // EVE: criminal flag + CONCORD only in highsec (>=0.5)
-    if (systemSecRating >= 0.5f && !m_concordTimer.Enabled() && !m_concordDamageTimer.Enabled()) {
+    // EVE: CONCORD only in highsec, skip if target is outlaw
+    bool targetIsOutlaw = (pTarget->GetCrimeWatch() != nullptr && pTarget->GetCrimeWatch()->IsOutlaw());
+    if (!targetIsOutlaw && systemSecRating >= 0.5f && !m_concordTimer.Enabled() && !m_concordDamageTimer.Enabled()) {
         if (!m_criminalTimer.Enabled()) {
             m_criminalTimer.Start(sConfig.crime.CrimFlagTime * 1000);
             m_client->SendNotifyMsg("CONCORD response initiated. You have been flagged as a criminal.");
