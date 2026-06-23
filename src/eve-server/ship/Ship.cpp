@@ -12,6 +12,7 @@
 #include "ship/Ship.h"
 #include "ship/modules/GenericModule.h"
 #include "station/Station.h"
+#include "mail/MailDB.h"
 #include "system/DestinyManager.h"
 #include "system/BubbleManager.h"
 #include "system/SolarSystem.h"
@@ -2501,17 +2502,28 @@ void ShipSE::PayInsurance() {
         return;
     }
 
+    double payout = m_db.GetShipInsurancePayout(m_self->itemID());
+    if (payout <= 0.0) return;
+
     std::string reason = "Insurance payment for loss of the ship ";
     reason += m_self->itemName();
 
-    AccountService::TransferFunds(
-        corpSCC,
-        m_ownerID,
-        m_db.GetShipInsurancePayout(m_self->itemID()),
-        reason,
-        Journal::EntryType::Insurance,
-        m_self->typeID()
-    );
+    AccountService::TransferFunds(corpSCC, m_ownerID, payout, reason,
+        Journal::EntryType::Insurance, m_self->typeID());
+
+    // Notify player via mail
+    MailDB mailDB;
+    std::vector<int32> recipients;
+    recipients.push_back(m_ownerID);
+    std::string sysName = m_system ? m_system->GetName() : "Unknown";
+    char payoutStr[32];
+    snprintf(payoutStr, sizeof(payoutStr), "%.0f", payout);
+    std::string body = std::string("Insurance Payout\n================\n\n");
+    body += "Ship: " + std::string(m_self->itemName()) + "\n";
+    body += "Location: " + sysName + "\n";
+    body += "Payout: " + std::string(payoutStr) + " ISK\n\n";
+    body += "The SCC has transferred the insurance payout to your account.";
+    mailDB.SendMail(1, recipients, -1, -1, "Insurance Payout", body, 0, 0);
 
     ShipDB::DeleteInsuranceByShipID(m_self->itemID());
 }
