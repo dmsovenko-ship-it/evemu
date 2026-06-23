@@ -46,6 +46,11 @@ CrimeWatch::CrimeWatch(Client* pClient)
     m_sentryDamageTimer.Disable();
 }
 
+bool CrimeWatch::IsOutlaw() const
+{
+    return m_client->GetSecurityRating() <= -5.0f;
+}
+
 CrimeWatch::~CrimeWatch()
 {
     ClearConcordShips();

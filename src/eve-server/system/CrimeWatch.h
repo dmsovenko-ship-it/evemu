@@ -17,7 +17,7 @@ public:
     bool IsAggressed()      const { return m_aggressionTimer.Enabled(); }
     bool IsCriminal()       const { return m_criminalTimer.Enabled(); }
     bool HasWeaponTimer()   const { return m_weaponTimer.Enabled(); }
-    bool IsOutlaw()         const { return m_client->GetSecurityRating() <= -5.0f; }
+    bool IsOutlaw()         const;
     bool CanDock()          const { return !m_aggressionTimer.Enabled() && !m_weaponTimer.Enabled() && !IsOutlaw(); }
     bool CanJump()          const { return !m_aggressionTimer.Enabled() && !m_weaponTimer.Enabled() && !IsOutlaw(); }
     bool IsConcordActive()  const { return m_concordTimer.Enabled() || m_concordDamageTimer.Enabled(); }
