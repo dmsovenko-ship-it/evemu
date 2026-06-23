@@ -1798,59 +1798,52 @@ bool SystemManager::IsNull(std::map<uint32, SystemEntity*>::iterator& i)
 
 void SystemManager::SpawnSentryGuns()
 {
+    // Wormhole detection: no stargates = wormhole space
+    if (m_gateMap.empty()) return;
+
     uint32 gateCount = 2, stationCount = 4;
     float sec = m_data.securityRating;
-    if (sec >= 0.5f) {
-        gateCount = 2; stationCount = 4;
-    } else if (sec > 0.0f) {
-        gateCount = 3; stationCount = 6;
-    } else {
-        gateCount = 4; stationCount = 8;
+    if (sec >= 0.5f) {          // Highsec
+        gateCount = 3; stationCount = 5;
+    } else if (sec > 0.0f) {    // Lowsec
+        gateCount = 4; stationCount = 7;
+    } else {                     // Nullsec
+        gateCount = 0; stationCount = 8; // No gate sentries in nullsec
     }
 
     FactionData faction;
-    faction.allianceID = 0;
-    faction.factionID = 500021;
-    faction.ownerID = 1000125;
-    faction.corporationID = 1000125;
+    faction.allianceID = 0; faction.factionID = 500021;
+    faction.ownerID = 1000125; faction.corporationID = 1000125;
 
     for (auto& [id, pSE] : m_staticEntities) {
         if (pSE == nullptr) continue;
         uint32 group = pSE->GetSelf()->groupID();
 
-        if (group == EVEDB::invGroups::Stargate) {
-            GPoint gatePos = pSE->GetPosition();
+        if (group == EVEDB::invGroups::Stargate && gateCount > 0) {
             for (uint32 i = 0; i < gateCount; ++i) {
                 char name[64];
                 snprintf(name, sizeof(name), "Sentry SG%u-%u", id, i + 1);
-                GPoint pos = gatePos;
+                GPoint pos = pSE->GetPosition();
                 pos.x += (float)(MakeRandomInt(-3000, 3000));
                 pos.z += (float)(MakeRandomInt(-3000, 3000));
                 ItemData itemData(3740, faction.ownerID, m_data.systemID, flagNone, name, pos);
                 InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                 if (iRef.get() == nullptr) continue;
                 Sentry* sentry = new Sentry(iRef, m_services, this, faction);
-                if (sentry != nullptr) {
-                    sentry->DestinyMgr()->SetPosition(pos);
-                    AddEntity(sentry);
-                }
+                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); AddEntity(sentry); }
             }
         } else if (group == EVEDB::invGroups::Station) {
-            GPoint stationPos = pSE->GetPosition();
             for (uint32 i = 0; i < stationCount; ++i) {
                 char name[64];
                 snprintf(name, sizeof(name), "Sentry ST%u-%u", id, i + 1);
-                GPoint pos = stationPos;
+                GPoint pos = pSE->GetPosition();
                 pos.x += (float)(MakeRandomInt(-5000, 5000));
                 pos.z += (float)(MakeRandomInt(-5000, 5000));
                 ItemData itemData(3740, faction.ownerID, m_data.systemID, flagNone, name, pos);
                 InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                 if (iRef.get() == nullptr) continue;
                 Sentry* sentry = new Sentry(iRef, m_services, this, faction);
-                if (sentry != nullptr) {
-                    sentry->DestinyMgr()->SetPosition(pos);
-                    AddEntity(sentry);
-                }
+                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); AddEntity(sentry); }
             }
         }
     }
