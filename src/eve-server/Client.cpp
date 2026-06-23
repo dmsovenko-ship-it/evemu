@@ -1531,6 +1531,22 @@ void Client::ExecuteJump() {
 
     //OnScannerInfoRemoved  - no args.  flushes current scan data in client
     SendNotification("OnScannerInfoRemoved", "charid", new PyTuple(0), true);  // this is sequenced
+
+    // Security check: prevent entry into systems where personal sec is too low
+    SystemData targetSystem;
+    if (sDataMgr.GetSystemData(m_moveSystemID, targetSystem)) {
+        float targetSec = targetSystem.securityRating;
+        float personalSec = GetSecurityRating();
+        // EVE formula: min_sec = -(2.0 + (1.0 - systemSec) * 5.0)
+        float minSec = -(2.0f + (1.0f - targetSec) * 5.0f);
+        if (personalSec < minSec) {
+            SendNotifyMsg("Your security status (%.1f) is too low to enter %s (requires %.1f).",
+                personalSec, targetSystem.name.c_str(), minSec);
+            m_clientState = Player::State::Idle;
+            return;
+        }
+    }
+
     pShipSE->Jump();
 
     MoveToLocation(m_moveSystemID, m_movePoint);

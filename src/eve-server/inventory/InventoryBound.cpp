@@ -265,10 +265,12 @@ PyResult InventoryBound::Add(PyCallArgs &call, PyInt* itemID, PyInt* containerID
 
     InventoryItemRef iRef = sItemFactory.GetItemRef(itemID->value());
 
-    // Looting security penalty: taking items from non-owned containers in highsec
+    // Looting security penalty + suspect flag
     if (call.client->SystemMgr() != nullptr && call.client->SystemMgr()->GetSystemSecurityRating() > 0.45f) {
         if (iRef.get() != nullptr && iRef->ownerID() != call.client->GetCharacterID()) {
             call.client->GetChar()->secStatusChange(-0.2f);
+            if (call.client->GetCrimeWatch() != nullptr)
+                call.client->GetCrimeWatch()->OnLooting();
         }
     }
 

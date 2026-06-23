@@ -72,6 +72,15 @@ void CrimeWatch::OnWeaponFired()
     m_weaponTimer.Start(60000);
 }
 
+void CrimeWatch::OnLooting()
+{
+    if (!sConfig.crime.Enabled) return;
+    // Suspect flag: weapon timer + aggression timer for 15 min
+    m_weaponTimer.Start(60000);
+    m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
+    // -0.2 security penalty (already applied in InventoryBound::Add)
+}
+
 void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
 {
     if (pTarget == nullptr or pTarget == m_client)

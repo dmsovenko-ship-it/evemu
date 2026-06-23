@@ -23,6 +23,7 @@ public:
 
     void OnWeaponFired();                        // Any weapon activation (NPC or player)
     void OnAggression(Client* pTarget, float systemSecRating);  // PvP aggression
+    void OnLooting();                            // Looting from another player's container/wreck
     void ApplyConcordPenalty();
 
 protected:
