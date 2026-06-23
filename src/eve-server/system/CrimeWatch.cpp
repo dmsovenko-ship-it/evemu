@@ -7,6 +7,7 @@
 #include "mail/MailDB.h"
 #include "npc/NPC.h"
 #include "inventory/ItemFactory.h"
+#include "system/SystemBubble.h"
 
 static const uint32 CONCORD_TYPEIDS[] = {
     1912, 1914, 1918,
