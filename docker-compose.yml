@@ -7,6 +7,7 @@ services:
       - ./config:/app/etc
       - server_cache:/app/server_cache
       - image_cache:/app/image_cache
+      - ccache:/ccache
     ports:
       - "26000:26000"
       - "26001:26001"
@@ -48,4 +49,5 @@ volumes:
   db:
   server_cache:
   image_cache:
+  ccache:
 

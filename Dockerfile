@@ -24,6 +24,12 @@ RUN apt-get update && \
 # Build stage
 FROM base AS app-build
 
+# Install ccache for faster rebuilds
+RUN apt-get install -y --no-install-recommends ccache && apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV CCACHE_DIR=/ccache
+ENV PATH=/usr/lib/ccache:$PATH
+RUN ccache --max-size=5G
+
 # Add project files
 ADD CMakeLists.txt /src/
 ADD config.h.in /src/
@@ -33,13 +39,13 @@ ADD /src/ /src/src
 ADD /utils/ /src/utils
 
 # Create necessary directories
-RUN mkdir -p /src/build /app /app/logs /app/server_cache /app/image_cache
+RUN mkdir -p /src/build /app /app/logs /app/server_cache /app/image_cache /ccache
 
 # Set working directory
 WORKDIR /src/build
 
 # Configure and build the project
-RUN cmake -DCMAKE_INSTALL_PREFIX=/app -DCMAKE_BUILD_TYPE=Debug .. 
+RUN cmake -DCMAKE_INSTALL_PREFIX=/app -DCMAKE_BUILD_TYPE=Debug ..
 RUN make -j$(nproc)
 RUN make install
 
