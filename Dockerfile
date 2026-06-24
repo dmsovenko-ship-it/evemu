@@ -19,16 +19,15 @@ RUN apt-get update && \
     libutfcpp-dev \
     mariadb-client \
     passwd \
+    ccache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Build stage
 FROM base AS app-build
 
-# Install ccache for faster rebuilds
-RUN apt-get install -y --no-install-recommends ccache && apt-get clean && rm -rf /var/lib/apt/lists/*
 ENV CCACHE_DIR=/ccache
 ENV PATH=/usr/lib/ccache:$PATH
-RUN ccache --max-size=5G
+RUN ccache --max-size=5G && mkdir -p /ccache
 
 # Add project files
 ADD CMakeLists.txt /src/
