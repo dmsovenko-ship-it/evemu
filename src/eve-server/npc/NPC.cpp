@@ -84,7 +84,7 @@ NPC::~NPC() {
 
 bool NPC::IsConvoy() const
 {
-    uint32 gid = GetGroupID();
+    uint32 gid = m_self->groupID();
     return gid == EVEDB::invGroups::Convoy || gid == EVEDB::invGroups::Convoy_Drone;
 }
 
