@@ -51,7 +51,7 @@ m_AI(new NPCAIMgr(this))
     m_ownerID = data.ownerID;
 
     // Create default dynamic attributes in the AttributeMap:
-    m_self->SetAttribute(AttrInertia,             EvilOne, false);
+    m_self->SetAttribute(AttrInetia,             1.0f, false);
     m_self->SetAttribute(AttrDamage,              EvilZero, false);
     m_self->SetAttribute(AttrArmorDamage,         EvilZero, false);
     m_self->SetAttribute(AttrWarpCapacitorNeed,   0.00001, false);

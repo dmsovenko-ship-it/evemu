@@ -62,7 +62,6 @@ void ConvoyAI::Process()
     uint32 targetStation = m_group->goToB ? m_group->stationB : m_group->stationA;
 
     if (phase == 0) {
-        // Wait for timer, then warp
         if (m_index == 0 && m_group->phaseTimer->Check()) {
             for (NPC* member : m_group->members) {
                 if (member != nullptr && !member->IsDead() && member->DestinyMgr() != nullptr) {
@@ -76,16 +75,13 @@ void ConvoyAI::Process()
         }
     }
     else if (phase == 1) {
-        // Warp completed — arrived
         GPoint stationPos = GetStationPosition(targetStation);
         double dist = m_npc->GetPosition().distance(stationPos);
         if (dist > 150000.0 && m_index > 0) {
-            // Not yet warped — catch-up warp
             GVector dir(m_npc->GetPosition(), stationPos);
             dir.normalize();
             dest->WarpTo(stationPos - (dir * 18000.0));
         } else if (dist < 100000.0) {
-            // Arrived at destination
             bool isLast = (m_index == m_group->members.size() - 1);
             if (isLast) {
                 m_group->phase = 2;
@@ -94,7 +90,6 @@ void ConvoyAI::Process()
         }
     }
     else if (phase == 2) {
-        // Waiting — return trip
         if (m_index == 0 && m_group->phaseTimer->Check()) {
             m_group->goToB = !m_group->goToB;
             m_group->phase = 0;
