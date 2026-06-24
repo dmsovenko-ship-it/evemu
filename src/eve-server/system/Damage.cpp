@@ -114,6 +114,8 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                                          Standings::CombatAggression, -0.001,
                                          "Convoy Aggression");
         }
+        // Notify the NPC (distress call, escort defense trigger)
+        this->GetNPCSE()->OnAttacked(d.srcSE);
     }
 
     if (is_log_enabled(DAMAGE__MESSAGE)) {

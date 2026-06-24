@@ -63,6 +63,7 @@ public:
 
     /* virtual functions to be overridden in derived classes */
     virtual void MissileLaunched(Missile* pMissile);  // tells AI a missle has been launched at us.  allows defender missile code
+    virtual void OnAttacked(SystemEntity* attacker);
 
     /* specific functions handled here. */
     void SaveNPC();

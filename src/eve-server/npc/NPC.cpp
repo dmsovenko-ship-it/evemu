@@ -77,6 +77,22 @@ m_AI(new NPCAIMgr(this))
             m_ownerID, m_corpID, m_allyID, m_warID);
 }
 
+void NPC::OnAttacked(SystemEntity* attacker)
+{
+    if (m_killed || attacker == nullptr)
+        return;
+
+    // Distress call — broadcast to all players in system
+    if (m_system != nullptr && attacker->HasPilot()) {
+        std::vector<Client*> clients;
+        m_system->GetClientList(clients);
+        for (Client* c : clients) {
+            c->SendNotifyMsg("CONVOY ALERT: %s in %s is under attack by %s!",
+                             GetName(), m_system->GetNameStr().c_str(), attacker->GetPilot()->GetName());
+        }
+    }
+}
+
 NPC::~NPC() {
     SafeDelete(m_AI);
     SafeDelete(m_convoyAI);
