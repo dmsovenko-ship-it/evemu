@@ -60,18 +60,6 @@ GPoint ConvoyAI::GetDeparturePoint()
     return srcPos + (dir * 150000.0);
 }
 
-GPoint ConvoyAI::GetFormationOffset()
-{
-    uint32 src = m_group->goToB ? m_group->stationA : m_group->stationB;
-    uint32 dst = m_group->goToB ? m_group->stationB : m_group->stationA;
-    GPoint srcPos = GetStationPosition(src);
-    GPoint dstPos = GetStationPosition(dst);
-    GVector dir(srcPos, dstPos);
-    dir.normalize();
-    double behind = -(double)m_index * 2000.0;
-    return GPoint(dir.x * behind, 0, dir.z * behind);
-}
-
 void ConvoyAI::Process()
 {
     if (m_npc == nullptr || m_npc->DestinyMgr() == nullptr || m_npc->IsDead())
@@ -85,45 +73,38 @@ void ConvoyAI::Process()
     uint32 targetStation = m_group->goToB ? m_group->stationB : m_group->stationA;
 
     if (phase == 0) {
-        // FormUp — gather near station in chain
-        uint32 srcStation = m_group->goToB ? m_group->stationA : m_group->stationB;
-        GPoint stationPos = GetStationPosition(srcStation);
-        GPoint targetPos = stationPos + GetFormationOffset();
-        double dist = m_npc->GetPosition().distance(targetPos);
-        if (dist > 500.0)
-            dest->GotoPoint(targetPos);
-        // Leader waits for timer, then initiates departure
+        // FormUp — all ships stop and wait for timer
+        dest->SetSpeedFraction(0.0f);
         if (m_index == 0 && m_group->phaseTimer->Check()) {
-            GPoint depPoint = GetDeparturePoint();
-            dest->GotoPoint(depPoint);
             m_group->phase = 1;
         }
     }
     else if (phase == 1) {
-        // Departure — fly 150km from station in chain
-        GPoint depPoint = GetDeparturePoint();
-        if (m_index == 0) {
-            double distToDeparture = m_npc->GetPosition().distance(depPoint);
-            if (distToDeparture > 5000.0) {
-                dest->GotoPoint(depPoint);
-            } else {
-                // Reached departure point — warp
-                GPoint targetPos = GetStationPosition(targetStation);
-                GVector dir(m_npc->GetPosition(), targetPos);
-                dir.normalize();
-                dest->WarpTo(targetPos - (dir * 18000.0));
-                m_group->phase = 2;
+        // Departure — ALL ships fly independently to the departure point (150km from station)
+        GPoint dp = GetDeparturePoint();
+        double distToDP = m_npc->GetPosition().distance(dp);
+
+        if (distToDP > 10000.0) {
+            // Not at departure point yet — fly there
+            dest->GotoPoint(dp);
+        }
+
+        // Check if the LAST member reached departure point
+        if (m_index == m_group->members.size() - 1 && distToDP < 10000.0) {
+            // Last ship is in position — initiate group warp
+            for (NPC* member : m_group->members) {
+                if (member != nullptr && !member->IsDead() && member->DestinyMgr() != nullptr) {
+                    GPoint targetPos = GetStationPosition(targetStation);
+                    GVector dir(member->GetPosition(), targetPos);
+                    dir.normalize();
+                    member->DestinyMgr()->WarpTo(targetPos - (dir * 18000.0));
+                }
             }
-        } else {
-            NPC* lead = m_group->members[m_index - 1];
-            if (lead != nullptr && !lead->IsDead() && lead->DestinyMgr() != nullptr) {
-                if (!lead->DestinyMgr()->IsWarping())
-                    dest->Follow(lead, 2000);
-            }
+            m_group->phase = 2;
         }
     }
     else if (phase == 2) {
-        // WarpOut — arrived at destination
+        // WarpOut — arrived at destination station
         GPoint stationPos = GetStationPosition(targetStation);
         double dist = m_npc->GetPosition().distance(stationPos);
         if (dist < 100000.0) {
