@@ -99,6 +99,14 @@ void Sentry::EncodeDestiny( Buffer& into )
         mass.corporationID = m_corpID;
         mass.allianceID = (IsAlliance(m_allyID) ? m_allyID : -1);
     into.Append( mass );
+    DataSector data = DataSector();
+        data.maxSpeed = 0.0f;
+        data.velX = 0.0;
+        data.velY = 0.0;
+        data.velZ = 0.0;
+        data.inertia = 0.0;
+        data.speedfraction = 0.0;
+    into.Append( data );
     STOP_Struct main;
         main.formationID = 0xFF;
     into.Append( main );
