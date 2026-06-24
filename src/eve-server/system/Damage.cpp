@@ -42,6 +42,7 @@
 #include "system/Container.h"
 #include "system/SystemBubble.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
+#include "standing/StandingMgr.h"
 
 /*
 DAMAGE
@@ -102,6 +103,17 @@ bool SystemEntity::ApplyDamage(Damage &d) {
     // Null source guard (e.g. sentry gun damage)
     if (d.srcSE == nullptr) {
         d.srcSE = this; // Damage originates from self (no attribution)
+    }
+
+    // Standing loss when a player attacks a convoy NPC
+    if (d.srcSE->HasPilot() && this->IsNPCSE() && this->GetNPCSE()->IsConvoy()) {
+        Client* attacker = d.srcSE->GetPilot();
+        int32 factionID = this->GetNPCSE()->GetWarFactionID();
+        if (factionID > 0) {
+            sStandingMgr.UpdateStandings(factionID, attacker->GetCharacterID(),
+                                         Standings::CombatAggression, -0.001,
+                                         "Convoy Aggression");
+        }
     }
 
     if (is_log_enabled(DAMAGE__MESSAGE)) {

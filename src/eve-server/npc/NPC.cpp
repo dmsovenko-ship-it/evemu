@@ -81,6 +81,12 @@ NPC::~NPC() {
     SafeDelete(m_convoyAI);
 }
 
+bool NPC::IsConvoy() const
+{
+    uint32 gid = GetGroupID();
+    return gid == EVEDB::invGroups::Convoy || gid == EVEDB::invGroups::Convoy_Drone;
+}
+
 bool NPC::Load()
 {
     m_destiny->UpdateShipVariables();

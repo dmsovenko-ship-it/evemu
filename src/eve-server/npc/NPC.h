@@ -81,6 +81,7 @@ public:
 
     NPCAIMgr* GetAIMgr()                                { return m_AI; }
     SpawnMgr* GetSpawnMgr()                             { return m_spawnMgr; }
+    bool IsConvoy() const;
 
     /* for command dropLoot - commands all npcs in bubble to jettison loot */
     void CmdDropLoot();
