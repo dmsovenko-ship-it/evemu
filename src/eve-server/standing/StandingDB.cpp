@@ -61,6 +61,18 @@ PyObjectEx *StandingDB::GetFactionStandings()
     return DBResultToCRowset(res);
 }
 
+std::vector<int32> StandingDB::GetEnemyFactions(int32 factionID)
+{
+    std::vector<int32> enemies;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT fromID FROM repFactions WHERE toID = %d AND standing < 0", factionID)) {
+        DBResultRow row;
+        while (res.GetRow(row))
+            enemies.push_back(row.GetInt(0));
+    }
+    return enemies;
+}
+
 PyRep *StandingDB::GetMyStandings(uint32 charID)
 {
     DBQueryResult res;

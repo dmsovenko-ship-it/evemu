@@ -56,6 +56,7 @@ public:
      * NPC corp-->char, NPC corp-->PC corp  -- changed by missions and faction kills
      */
     static float GetStanding(uint32 fromID, uint32 toID);
+    static std::vector<int32> GetEnemyFactions(int32 factionID);
 
     static void SetStanding(uint32 fromID, uint32 toID, float standing);
     static void UpdateStanding(uint32 fromID, uint32 toID, float standing);

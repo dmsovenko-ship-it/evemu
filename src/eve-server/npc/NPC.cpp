@@ -36,6 +36,7 @@
 #include "system/Container.h"
 #include "system/Damage.h"
 #include "system/SystemManager.h"
+#include "standing/StandingMgr.h"
 
 
 NPC::NPC(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, SpawnMgr* spawnMgr)
@@ -350,6 +351,23 @@ void NPC::Killed(Damage &damage) {
         AwardBounty( pClient );
         if (m_system->GetSystemSecurityRating() > 0)
             AwardSecurityStatus(m_self, pClient->GetChar().get());  // this awards secStatusChange for npcs in empire space
+
+        // Faction standing changes on NPC kill
+        if (m_warID > 0) {
+            // Standing decrease with this NPC's faction
+            float penalty = -0.0005f;
+            sStandingMgr.UpdateStandings(m_warID, pClient->GetCharacterID(),
+                                         Standings::CombatShipKill, penalty,
+                                         "NPC kill - faction penalty");
+            // Standing increase with enemy factions
+            std::vector<int32> enemies = StandingDB::GetEnemyFactions(m_warID);
+            for (int32 enemyID : enemies) {
+                float reward = 0.0003f;
+                sStandingMgr.UpdateStandings(enemyID, pClient->GetCharacterID(),
+                                             Standings::CombatShipKill, reward,
+                                             "NPC kill - enemy faction reward");
+            }
+        }
     }
 
     GPoint wreckPosition = m_destiny->GetPosition();
