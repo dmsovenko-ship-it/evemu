@@ -61,6 +61,7 @@ m_AI(new NPCAIMgr(this))
     m_self->SetAttribute(AttrCapacity,            m_self->type().capacity(), false);
     m_self->SetAttribute(AttrShieldCharge,        m_self->GetAttribute(AttrShieldCapacity), false);
     m_self->SetAttribute(AttrCapacitorCharge,     m_self->GetAttribute(AttrCapacitorCapacity), false);
+    m_self->SetAttribute(AttrWarpSpeedMultiplier, 1.0f, false);
 
     /* Gets the value from the NPC and put on our own vars */
     m_emDamage = m_self->GetAttribute(AttrEmDamage).get_float(),
