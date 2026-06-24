@@ -7,10 +7,10 @@ class NPC;
 class Timer;
 
 struct ConvoyGroup {
-    std::vector<NPC*> members;
+    std::vector<NPC*> members; // [lead_guard, hauler, tail_guard...]
     uint32 stationA, stationB;
     bool goToB;
-    int8 phase; // 0=FormUp, 1=WarpOut, 2=Waiting
+    int8 phase; // 0=FormUp, 1=Depart, 2=WarpOut, 3=Waiting
     Timer* timer;
     uint32 refCount;
 
@@ -27,9 +27,11 @@ public:
 private:
     NPC* m_npc;
     ConvoyGroup* m_group;
-    uint32 m_index; // 0=lead, 1=hauler, 2=tail
+    uint32 m_index; // 0=lead guard, 1=hauler, 2=tail guard
 
     GPoint GetStationPosition(uint32 stationID);
+    GPoint GetDeparturePoint();
+    GPoint GetFormationOffset();
 };
 
 #endif

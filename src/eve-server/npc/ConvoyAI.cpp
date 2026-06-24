@@ -7,8 +7,8 @@
 ConvoyGroup::ConvoyGroup(uint32 a, uint32 b)
 : stationA(a), stationB(b), goToB(true), phase(0), timer(nullptr), refCount(0)
 {
-    timer = new Timer(15000);
-    timer->Start(15000);
+    timer = new Timer(20000);
+    timer->Start(20000);
 }
 
 ConvoyGroup::~ConvoyGroup()
@@ -41,6 +41,30 @@ GPoint ConvoyAI::GetStationPosition(uint32 stationID)
     return se->GetPosition();
 }
 
+GPoint ConvoyAI::GetDeparturePoint()
+{
+    uint32 src = m_group->goToB ? m_group->stationA : m_group->stationB;
+    uint32 dst = m_group->goToB ? m_group->stationB : m_group->stationA;
+    GPoint srcPos = GetStationPosition(src);
+    GPoint dstPos = GetStationPosition(dst);
+    GVector dir(srcPos, dstPos);
+    dir.normalize();
+    return srcPos + (dir * 150000.0);
+}
+
+GPoint ConvoyAI::GetFormationOffset()
+{
+    // Chain: lead guard at front, hauler 2000m behind, tail 2000m behind hauler
+    uint32 src = m_group->goToB ? m_group->stationA : m_group->stationB;
+    uint32 dst = m_group->goToB ? m_group->stationB : m_group->stationA;
+    GPoint srcPos = GetStationPosition(src);
+    GPoint dstPos = GetStationPosition(dst);
+    GVector dir(srcPos, dstPos);
+    dir.normalize();
+    double behind = -(double)m_index * 2000.0;
+    return GPoint(dir.x * behind, 0, dir.z * behind);
+}
+
 void ConvoyAI::Process()
 {
     if (m_npc == nullptr || m_npc->DestinyMgr() == nullptr || m_npc->IsDead())
@@ -50,51 +74,68 @@ void ConvoyAI::Process()
     if (dest->IsWarping())
         return;
 
+    int8 phase = m_group->phase;
     uint32 targetStation = m_group->goToB ? m_group->stationB : m_group->stationA;
 
-    if (m_group->phase == 0) {
-        // FormUp — stop and wait for leader timer
-        dest->SetSpeedFraction(0.0f);
+    if (phase == 0) {
+        // FormUp — gather near station in chain
+        uint32 srcStation = m_group->goToB ? m_group->stationA : m_group->stationB;
+        GPoint stationPos = GetStationPosition(srcStation);
+        GPoint targetPos = stationPos + GetFormationOffset();
+        double dist = m_npc->GetPosition().distance(targetPos);
+        if (dist > 500.0)
+            dest->GotoPoint(targetPos);
+        // Leader waits for timer, then initiates departure
         if (m_index == 0 && m_group->timer->Check()) {
-            // Leader initiates warp for all members
-            GPoint stationPos = GetStationPosition(targetStation);
-            GPoint warpDest = stationPos;
-            GVector dir(m_npc->GetPosition(), stationPos);
-            dir.normalize();
-            dest->WarpTo(stationPos - (dir * 18000.0));
+            // Start moving toward departure point
+            GPoint depPoint = GetDeparturePoint();
+            dest->GotoPoint(depPoint);
             m_group->phase = 1;
         }
     }
-    else if (m_group->phase == 1) {
-        // WarpOut — all members warp if not already there
-        GPoint stationPos = GetStationPosition(targetStation);
-        double dist = m_npc->GetPosition().distance(stationPos);
-
-        if (dist > 200000.0) {
-            // Not at destination yet — initiate warp
-            GVector dir(m_npc->GetPosition(), stationPos);
-            dir.normalize();
-            dest->WarpTo(stationPos - (dir * 18000.0));
-        } else if (dist < 100000.0) {
-            // Arrived at destination
-            bool isLast = (m_index == m_group->members.size() - 1);
-            if (isLast) {
+    else if (phase == 1) {
+        // Departure — fly 150km from station in chain
+        GPoint depPoint = GetDeparturePoint();
+        if (m_index == 0) {
+            // Leader heads to departure point
+            double distToDeparture = m_npc->GetPosition().distance(depPoint);
+            if (distToDeparture > 5000.0) {
+                dest->GotoPoint(depPoint);
+            } else {
+                // Reached departure point — initiate warp
+                GPoint targetPos = GetStationPosition(targetStation);
+                GVector dir(m_npc->GetPosition(), targetPos);
+                dir.normalize();
+                dest->WarpTo(targetPos - (dir * 18000.0));
                 m_group->phase = 2;
-                m_group->timer->Start(60000);
+            }
+        } else {
+            // Followers follow the preceding ship
+            NPC* lead = m_group->members[m_index - 1];
+            if (lead != nullptr && !lead->IsDead() && lead->DestinyMgr() != nullptr) {
+                if (!lead->DestinyMgr()->IsWarping())
+                    dest->Follow(lead, 2000);
             }
         }
     }
-    else if (m_group->phase == 2) {
-        // Waiting at station — timer controls return
+    else if (phase == 2) {
+        // WarpOut — arrived at destination
+        GPoint stationPos = GetStationPosition(targetStation);
+        double dist = m_npc->GetPosition().distance(stationPos);
+        if (dist < 100000.0) {
+            bool isLast = (m_index == m_group->members.size() - 1);
+            if (isLast) {
+                m_group->phase = 3;
+                m_group->timer->Start(120000); // wait 2 min
+            }
+        }
+    }
+    else if (phase == 3) {
+        // Waiting — then return trip
         if (m_index == 0 && m_group->timer->Check()) {
             m_group->goToB = !m_group->goToB;
-            m_group->phase = 1; // warp directly to other station
-            // Leader initiates warp
-            uint32 nextTarget = m_group->goToB ? m_group->stationB : m_group->stationA;
-            GPoint nextPos = GetStationPosition(nextTarget);
-            GVector dir(m_npc->GetPosition(), nextPos);
-            dir.normalize();
-            dest->WarpTo(nextPos - (dir * 18000.0));
+            m_group->phase = 0;
+            m_group->timer->Start(20000);
         }
     }
 }
