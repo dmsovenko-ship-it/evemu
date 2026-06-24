@@ -1890,8 +1890,9 @@ void SystemManager::SpawnConvoys()
     // Create shared convoy group
     ConvoyGroup* group = new ConvoyGroup(stationA, stationB);
 
-    uint32 numGuards = 2 + (uint32)MakeRandomInt(0, 4); // 2-6
-    uint32 numHaulers = 3 + (uint32)MakeRandomInt(0, 7); // 3-10
+    // Test: single NPC with player ship typeID
+    uint32 numGuards = 0;
+    uint32 numHaulers = 1;
 
     char nameBuf[64];
     uint32 index = 0;
@@ -1919,9 +1920,9 @@ void SystemManager::SpawnConvoys()
     for (uint32 i = 0; i < numGuards / 2 + (numGuards % 2); ++i)
         spawnShip(11001, "Convoy Guard", index);
 
-    // Haulers
+    // Haulers (using player ship typeID 26510 for testing)
     for (uint32 i = 0; i < numHaulers; ++i)
-        spawnShip(10826, "Convoy Hauler", index);
+        spawnShip(26510, "Convoy Hauler", index);
 
     // Rear guards
     for (uint32 i = 0; i < numGuards / 2; ++i)
