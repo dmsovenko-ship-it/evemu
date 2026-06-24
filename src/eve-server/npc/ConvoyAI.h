@@ -36,7 +36,6 @@ private:
     uint32 m_index;
 
     GPoint GetStationPosition(uint32 stationID);
-    GPoint GetDeparturePoint();
 };
 
 #endif
