@@ -60,6 +60,7 @@ public:
     /* virtual functions default to base class and overridden as needed */
     virtual void Killed(Damage &damage);
     virtual bool Load();  // sets orbit range and initalizes the AIMgr
+    virtual PyDict* MakeSlimItem();
 
     /* virtual functions to be overridden in derived classes */
     virtual void MissileLaunched(Missile* pMissile);  // tells AI a missle has been launched at us.  allows defender missile code
