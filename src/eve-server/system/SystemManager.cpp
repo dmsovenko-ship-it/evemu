@@ -1888,7 +1888,7 @@ void SystemManager::SpawnConvoys()
     if (haulerRef.get() != nullptr) {
         NPC* hauler = new NPC(haulerRef, m_services, this, faction);
         if (hauler && hauler->Load()) {
-            hauler->m_convoyAI = new ConvoyAI(hauler, stationA, stationB);
+            hauler->SetConvoyAI(new ConvoyAI(hauler, stationA, stationB));
             hauler->DestinyMgr()->SetPosition(haulerPos);
             AddNPC(hauler);
         } else if (hauler) delete hauler;
