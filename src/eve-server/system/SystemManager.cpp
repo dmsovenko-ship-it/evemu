@@ -34,6 +34,7 @@
 #include "map/MapDB.h"
 #include "npc/Drone.h"
 #include "npc/NPC.h"
+#include "npc/ConvoyAI.h"
 #include "npc/Sentry.h"
 #include "packets/Destiny.h"
 #include "planet/Planet.h"
@@ -462,6 +463,7 @@ bool SystemManager::LoadSystemStatics() {
 
     // Spawn sentry guns at gates and stations
     SpawnSentryGuns();
+    SpawnConvoys();
 
     return true;
 }

@@ -87,6 +87,7 @@ public:
 
     EVEServiceManager& GetServiceMgr()                  { return m_services; }
     void SpawnSentryGuns();
+    void SpawnConvoys();
     Inventory* GetSystemInv()                           { return m_solarSystemRef->GetMyInventory(); }
     SolarSystemRef GetSystemRef()                       { return m_solarSystemRef; }
 
