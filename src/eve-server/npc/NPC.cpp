@@ -108,6 +108,11 @@ bool NPC::IsConvoy() const
     return gid == EVEDB::invGroups::Convoy || gid == EVEDB::invGroups::Convoy_Drone;
 }
 
+bool NPC::IsConvoyUnderAttack() const
+{
+    return m_convoyAI != nullptr && m_convoyAI->IsGroupUnderAttack();
+}
+
 bool NPC::Load()
 {
     m_destiny->UpdateShipVariables();
