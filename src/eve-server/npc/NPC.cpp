@@ -170,6 +170,8 @@ void NPC::OnAttacked(SystemEntity* attacker)
         for (Client* c : clients) {
             c->SelfChatMessage("CONVOY ALERT: %s in %s is under attack by %s!",
                              GetName(), m_system->GetNameStr().c_str(), attacker->GetPilot()->GetName());
+            c->SendNotifyMsg("CONVOY ALERT: %s in %s is under attack by %s!",
+                             GetName(), m_system->GetNameStr().c_str(), attacker->GetPilot()->GetName());
         }
     }
 }
