@@ -39,7 +39,7 @@ Sentry::Sentry(InventoryItemRef self, EVEServiceManager& services, SystemManager
     m_self->SetAttribute(AttrCapacitorCharge,     m_self->GetAttribute(AttrCapacitorCapacity), false);
     m_self->SetAttribute(AttrArmorHP,             100000.0f, false);
     m_self->SetAttribute(AttrHP,                  100000.0f, false);
-    m_self->SetAttribute(AttrShieldRechargeRate,  1000.0f, false);
+    m_self->SetAttribute(AttrShieldRechargeRate,  600000.0f, false);   // ms for full recharge
 
     SetResists();
 

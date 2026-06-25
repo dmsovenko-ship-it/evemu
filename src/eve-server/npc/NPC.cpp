@@ -64,9 +64,17 @@ m_AI(new NPCAIMgr(this))
     m_self->SetAttribute(AttrCapacitorCharge,     m_self->GetAttribute(AttrCapacitorCapacity), false);
     m_self->SetAttribute(AttrWarpSpeedMultiplier, 1.0f, false);
     m_self->SetAttribute(AttrEntityCruiseSpeed,  150.0f, false);
-    m_self->SetAttribute(AttrShieldRechargeRate, 50.0f, false);
+    m_self->SetAttribute(AttrShieldRechargeRate, 500000.0f, false);    // ms for full recharge (500s = slow regen)
     m_self->SetAttribute(AttrArmorHP,             10000.0f, false);
     m_self->SetAttribute(AttrHP,                  10000.0f, false);
+    // Default weapon damage if type data doesn't have it
+    m_self->SetAttribute(AttrEmDamage,            5.0f, false);
+    m_self->SetAttribute(AttrKineticDamage,       5.0f, false);
+    m_self->SetAttribute(AttrThermalDamage,       5.0f, false);
+    m_self->SetAttribute(AttrExplosiveDamage,     5.0f, false);
+    m_self->SetAttribute(AttrEntityAttackSpeed,   5000.0f, false);
+    m_self->SetAttribute(AttrMaxRange,            15000.0f, false);
+    m_self->SetAttribute(AttrEntityFlyRange,      15000.0f, false);
 
     /* Gets the value from the NPC and put on our own vars */
     m_emDamage = m_self->GetAttribute(AttrEmDamage).get_float(),
