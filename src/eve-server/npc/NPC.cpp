@@ -147,9 +147,16 @@ void NPC::OnAttacked(SystemEntity* attacker)
     if (m_killed || attacker == nullptr)
         return;
 
-    // Notify convoy group of attack (triggers defensive AI)
-    if (m_convoyAI != nullptr)
+    // Direct retaliation — bypasses NPCAI entirely
+    if (m_convoyAI != nullptr) {
+        // Fire back at attacker immediately
+        float dmgMult = 2.0f;
+        Damage d(this, m_self, m_kinDamage * dmgMult, m_therDamage * dmgMult,
+                 m_emDamage * dmgMult, m_expDamage * dmgMult, 1.0f, EVEEffectID::targetAttack);
+        attacker->ApplyDamage(d);
+        // Notify group (chains to all members)
         m_convoyAI->NotifyAttacked(attacker);
+    }
 
     // Distress call — broadcast to all players in system
     if (m_system != nullptr && attacker->HasPilot()) {
