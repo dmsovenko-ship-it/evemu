@@ -67,15 +67,8 @@ m_AI(new NPCAIMgr(this))
     m_self->SetAttribute(AttrShieldRechargeRate, 500000.0f, false);    // ms for full recharge (500s = slow regen)
     m_self->SetAttribute(AttrArmorHP,             10000.0f, false);
     m_self->SetAttribute(AttrHP,                  10000.0f, false);
-    // Default weapon damage if type data doesn't have it
-    m_self->SetAttribute(AttrEmDamage,            5.0f, false);
-    m_self->SetAttribute(AttrKineticDamage,       5.0f, false);
-    m_self->SetAttribute(AttrThermalDamage,       5.0f, false);
-    m_self->SetAttribute(AttrExplosiveDamage,     5.0f, false);
-    // NPCAI uses AttrSpeed for attack interval and AttrOptimalSigRadius for targeting
-    m_self->SetAttribute(AttrSpeed,               5000.0f, false);
-    m_self->SetAttribute(AttrOptimalSigRadius,    1000.0f, false);
-    m_self->SetAttribute(AttrSignatureRadius,     100.0f, false);
+    // Weapon/combat attributes come from database (dgmTypeAttributes).
+    // If missing, NPCAI uses defaults from type data.
 
     /* Gets the value from the NPC and put on our own vars */
     m_emDamage = m_self->GetAttribute(AttrEmDamage).get_float(),
