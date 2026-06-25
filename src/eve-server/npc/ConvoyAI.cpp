@@ -1,6 +1,7 @@
 #include "eve-server.h"
 #include "npc/ConvoyAI.h"
 #include "npc/NPC.h"
+#include "npc/NPCAI.h"
 #include "system/DestinyManager.h"
 #include "system/SystemManager.h"
 
