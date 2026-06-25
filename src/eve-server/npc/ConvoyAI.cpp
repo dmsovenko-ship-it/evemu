@@ -172,5 +172,6 @@ void ConvoyAI::Process()
             uint32 interval = 15000 + MakeRandomInt(0, 30000);
             m_startTimer->Start(interval * (m_index + 1));
         }
+        return;
     }
 }
