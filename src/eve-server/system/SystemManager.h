@@ -159,7 +159,6 @@ public:
     SystemEntity* GetEntityByID(uint32 itemID) { return m_entities.find(itemID)->second; }
 
     void GetClientList(std::vector<Client*>& cVec);
-    void SendLocalMsg(const char* from, const char* msg);
 
     std::map< uint32, SystemEntity* > GetEntities()     { return m_entities; }
 
