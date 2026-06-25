@@ -179,7 +179,11 @@ void NPC::EncodeDestiny( Buffer& into )
 {
     using namespace Destiny;
 
-    uint8 mode = m_destiny->GetState(); //Ball::Mode::STOP;
+    uint8 mode = m_destiny->GetState();
+    // Clamp non-standard modes to STOP
+    if (mode != Ball::Mode::WARP && mode != Ball::Mode::FOLLOW
+     && mode != Ball::Mode::ORBIT && mode != Ball::Mode::GOTO)
+        mode = Ball::Mode::STOP;
 
     BallHeader head = BallHeader();
         head.entityID = GetID();
