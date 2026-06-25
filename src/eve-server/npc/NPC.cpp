@@ -161,12 +161,12 @@ void NPC::OnAttacked(SystemEntity* attacker)
         m_convoyAI->NotifyAttacked(attacker);
     }
 
-    // Distress call — broadcast to all players in system
+    // Distress call — broadcast to local chat of all players in system
     if (m_system != nullptr && attacker->HasPilot()) {
         std::vector<Client*> clients;
         m_system->GetClientList(clients);
         for (Client* c : clients) {
-            c->SendNotifyMsg("CONVOY ALERT: %s in %s is under attack by %s!",
+            c->SelfChatMessage("CONVOY ALERT: %s in %s is under attack by %s!",
                              GetName(), m_system->GetNameStr().c_str(), attacker->GetPilot()->GetName());
         }
     }
