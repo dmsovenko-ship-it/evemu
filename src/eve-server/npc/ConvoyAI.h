@@ -35,6 +35,7 @@ private:
     NPC* m_npc;
     ConvoyGroup* m_group;
     uint32 m_index;
+    Timer* m_startTimer; // staggered departure delay
 
     GPoint GetStationPosition(uint32 stationID);
     GPoint GetDeparturePoint();

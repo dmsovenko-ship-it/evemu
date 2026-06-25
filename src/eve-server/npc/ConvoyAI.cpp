@@ -8,8 +8,6 @@ ConvoyGroup::ConvoyGroup(uint32 a, uint32 b, bool sameCorpFlag)
 : stationA(a), stationB(b), goToB(true), sameCorp(sameCorpFlag),
   phase(0), phaseTimer(nullptr), attackTimer(nullptr), refCount(0)
 {
-    phaseTimer = new Timer(30000);
-    phaseTimer->Start(30000);
 }
 
 ConvoyGroup::~ConvoyGroup()
@@ -27,13 +25,18 @@ void ConvoyGroup::SetAttacked()
 }
 
 ConvoyAI::ConvoyAI(NPC* who, ConvoyGroup* group, uint32 idx)
-: m_npc(who), m_group(group), m_index(idx)
+: m_npc(who), m_group(group), m_index(idx), m_startTimer(nullptr)
 {
     m_group->refCount++;
+    // Each ship starts with a staggered delay: 15-45s * (index + 1)
+    uint32 interval = 15000 + MakeRandomInt(0, 30000);
+    m_startTimer = new Timer(interval * (idx + 1));
+    m_startTimer->Start(interval * (idx + 1));
 }
 
 ConvoyAI::~ConvoyAI()
 {
+    SafeDelete(m_startTimer);
     if (m_group != nullptr) {
         m_group->refCount--;
         if (m_group->refCount == 0)
@@ -72,30 +75,29 @@ void ConvoyAI::Process()
 
     int8 phase = m_group->phase;
     uint32 targetStation = m_group->goToB ? m_group->stationB : m_group->stationA;
+    GPoint depPoint = GetDeparturePoint();
 
+    // Phase 0: waiting for staggered start timer
     if (phase == 0) {
-        // FormUp — wait at station then start departure
-        if (m_index == 0 && m_group->phaseTimer->Check()) {
-            GPoint depPoint = GetDeparturePoint();
-            // All members fly to departure point
-            for (NPC* member : m_group->members) {
-                if (member != nullptr && !member->IsDead() && member->DestinyMgr() != nullptr)
-                    member->DestinyMgr()->GotoPoint(depPoint);
-            }
-            m_group->phase = 1;
-        }
-    }
-    else if (phase == 1) {
-        // Departure — flying to 150km point
-        GPoint depPoint = GetDeparturePoint();
-        double dist = m_npc->GetPosition().distance(depPoint);
-        if (dist > 5000.0 && m_index == 0) {
-            // Keep heading toward departure point
+        if (!m_startTimer->Enabled()) {
+            // Timer already fired — fly to departure point (catches stragglers after warp)
             dest->GotoPoint(depPoint);
+        } else if (m_startTimer->Check()) {
+            // Timer just expired — start departure
+            dest->GotoPoint(depPoint);
+            if (m_index > 0)
+                m_group->phase = 1;
         }
-        // Check if last member reached departure point
+        return;
+    }
+
+    // Phase 1: en route to departure point
+    if (phase == 1) {
+        double dist = m_npc->GetPosition().distance(depPoint);
+        if (dist > 5000.0)
+            dest->GotoPoint(depPoint);
+        // Last ship arrival triggers group warp
         if (m_index == m_group->members.size() - 1 && dist < 5000.0) {
-            // All ships at departure point — warp to target station
             for (NPC* member : m_group->members) {
                 if (member != nullptr && !member->IsDead() && member->DestinyMgr() != nullptr) {
                     GPoint targetPos = GetStationPosition(targetStation);
@@ -106,25 +108,30 @@ void ConvoyAI::Process()
             }
             m_group->phase = 2;
         }
+        return;
     }
-    else if (phase == 2) {
-        // Warping — arrived at target station
-        GPoint stationPos = GetStationPosition(targetStation);
-        double dist = m_npc->GetPosition().distance(stationPos);
+
+    // Phase 2: arrived at destination
+    if (phase == 2) {
+        double dist = m_npc->GetPosition().distance(GetStationPosition(targetStation));
         if (dist < 100000.0) {
-            bool isLast = (m_index == m_group->members.size() - 1);
-            if (isLast) {
+            if (m_index == m_group->members.size() - 1) {
                 m_group->phase = 3;
+                m_group->phaseTimer = new Timer(120000);
                 m_group->phaseTimer->Start(120000);
             }
         }
+        return;
     }
-    else if (phase == 3) {
-        // Waiting — return trip
-        if (m_index == 0 && m_group->phaseTimer->Check()) {
+
+    // Phase 3: waiting, then return trip
+    if (phase == 3) {
+        if (m_index == 0 && m_group->phaseTimer != nullptr && m_group->phaseTimer->Check()) {
+            SafeDelete(m_group->phaseTimer);
             m_group->goToB = !m_group->goToB;
             m_group->phase = 0;
-            m_group->phaseTimer->Start(30000);
+            uint32 interval = 15000 + MakeRandomInt(0, 30000);
+            m_startTimer->Start(interval * (m_index + 1));
         }
     }
 }
