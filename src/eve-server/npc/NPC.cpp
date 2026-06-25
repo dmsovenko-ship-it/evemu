@@ -68,21 +68,67 @@ m_AI(new NPCAIMgr(this))
     m_self->SetAttribute(AttrArmorHP,             10000.0f, false);
     m_self->SetAttribute(AttrHP,                  10000.0f, false);
     // Set default combat attributes if DB doesn't have them
-    if (!m_self->HasAttribute(AttrEmDamage)) {
-        uint32 gid = m_self->groupID();
-        if (gid == EVEDB::invGroups::Convoy_Drone) {
-            // Convoy guard: frigate-level damage
-            m_self->SetAttribute(AttrEmDamage,       5.0f, false);
-            m_self->SetAttribute(AttrKineticDamage,  8.0f, false);
-            m_self->SetAttribute(AttrThermalDamage,  4.0f, false);
-            m_self->SetAttribute(AttrExplosiveDamage,2.0f, false);
-        } else if (gid == EVEDB::invGroups::Convoy || gid == EVEDB::invGroups::Mission_Faction_Industrials) {
-            // Convoy hauler: industrial-level damage
-            m_self->SetAttribute(AttrEmDamage,       2.0f, false);
-            m_self->SetAttribute(AttrKineticDamage,  3.0f, false);
-            m_self->SetAttribute(AttrThermalDamage,  2.0f, false);
-            m_self->SetAttribute(AttrExplosiveDamage,1.0f, false);
-        }
+    uint32 gid = m_self->groupID();
+    if (gid == EVEDB::invGroups::Convoy_Drone) {
+        // Convoy guard: frigate-level (Condor/Kestrel types)
+        if (!m_self->HasAttribute(AttrEmDamage))
+            m_self->SetAttribute(AttrEmDamage,        5.0f, false);
+        if (!m_self->HasAttribute(AttrKineticDamage))
+            m_self->SetAttribute(AttrKineticDamage,   8.0f, false);
+        if (!m_self->HasAttribute(AttrThermalDamage))
+            m_self->SetAttribute(AttrThermalDamage,   4.0f, false);
+        if (!m_self->HasAttribute(AttrExplosiveDamage))
+            m_self->SetAttribute(AttrExplosiveDamage, 2.0f, false);
+        if (!m_self->HasAttribute(AttrDamageMultiplier))
+            m_self->SetAttribute(AttrDamageMultiplier, 1.0f, false);
+        if (!m_self->HasAttribute(AttrSpeed))
+            m_self->SetAttribute(AttrSpeed,           5000.0f, false);
+        if (!m_self->HasAttribute(AttrMaxVelocity))
+            m_self->SetAttribute(AttrMaxVelocity,     450.0f, false);
+        if (!m_self->HasAttribute(AttrOrbitVelocity))
+            m_self->SetAttribute(AttrOrbitVelocity,   350.0f, false);
+        if (!m_self->HasAttribute(AttrEntityFlyRange))
+            m_self->SetAttribute(AttrEntityFlyRange,  15000.0f, false);
+        if (!m_self->HasAttribute(AttrMaxRange))
+            m_self->SetAttribute(AttrMaxRange,        15000.0f, false);
+        if (!m_self->HasAttribute(AttrFalloff))
+            m_self->SetAttribute(AttrFalloff,         5000.0f, false);
+        if (!m_self->HasAttribute(AttrTrackingSpeed))
+            m_self->SetAttribute(AttrTrackingSpeed,   0.1f, false);
+        if (!m_self->HasAttribute(AttrOptimalSigRadius))
+            m_self->SetAttribute(AttrOptimalSigRadius, 40.0f, false);
+        if (!m_self->HasAttribute(AttrSignatureRadius))
+            m_self->SetAttribute(AttrSignatureRadius, 50.0f, false);
+    } else if (gid == EVEDB::invGroups::Convoy || gid == EVEDB::invGroups::Mission_Faction_Industrials) {
+        // Convoy hauler: industrial-level (weak weapons)
+        if (!m_self->HasAttribute(AttrEmDamage))
+            m_self->SetAttribute(AttrEmDamage,        2.0f, false);
+        if (!m_self->HasAttribute(AttrKineticDamage))
+            m_self->SetAttribute(AttrKineticDamage,   3.0f, false);
+        if (!m_self->HasAttribute(AttrThermalDamage))
+            m_self->SetAttribute(AttrThermalDamage,   2.0f, false);
+        if (!m_self->HasAttribute(AttrExplosiveDamage))
+            m_self->SetAttribute(AttrExplosiveDamage, 1.0f, false);
+        if (!m_self->HasAttribute(AttrDamageMultiplier))
+            m_self->SetAttribute(AttrDamageMultiplier, 0.5f, false);
+        if (!m_self->HasAttribute(AttrSpeed))
+            m_self->SetAttribute(AttrSpeed,           8000.0f, false);
+        if (!m_self->HasAttribute(AttrMaxVelocity))
+            m_self->SetAttribute(AttrMaxVelocity,     400.0f, false);
+        if (!m_self->HasAttribute(AttrOrbitVelocity))
+            m_self->SetAttribute(AttrOrbitVelocity,   200.0f, false);
+        if (!m_self->HasAttribute(AttrEntityFlyRange))
+            m_self->SetAttribute(AttrEntityFlyRange,  10000.0f, false);
+        if (!m_self->HasAttribute(AttrMaxRange))
+            m_self->SetAttribute(AttrMaxRange,        10000.0f, false);
+        if (!m_self->HasAttribute(AttrFalloff))
+            m_self->SetAttribute(AttrFalloff,         3000.0f, false);
+        if (!m_self->HasAttribute(AttrTrackingSpeed))
+            m_self->SetAttribute(AttrTrackingSpeed,   0.05f, false);
+        if (!m_self->HasAttribute(AttrOptimalSigRadius))
+            m_self->SetAttribute(AttrOptimalSigRadius, 40.0f, false);
+        if (!m_self->HasAttribute(AttrSignatureRadius))
+            m_self->SetAttribute(AttrSignatureRadius, 100.0f, false);
     }
 
     /* Gets the value from the NPC and put on our own vars */
