@@ -72,9 +72,10 @@ m_AI(new NPCAIMgr(this))
     m_self->SetAttribute(AttrKineticDamage,       5.0f, false);
     m_self->SetAttribute(AttrThermalDamage,       5.0f, false);
     m_self->SetAttribute(AttrExplosiveDamage,     5.0f, false);
-    m_self->SetAttribute(AttrEntityAttackSpeed,   5000.0f, false);
-    m_self->SetAttribute(AttrMaxRange,            15000.0f, false);
-    m_self->SetAttribute(AttrEntityFlyRange,      15000.0f, false);
+    // NPCAI uses AttrSpeed for attack interval and AttrOptimalSigRadius for targeting
+    m_self->SetAttribute(AttrSpeed,               5000.0f, false);
+    m_self->SetAttribute(AttrOptimalSigRadius,    1000.0f, false);
+    m_self->SetAttribute(AttrSignatureRadius,     100.0f, false);
 
     /* Gets the value from the NPC and put on our own vars */
     m_emDamage = m_self->GetAttribute(AttrEmDamage).get_float(),
