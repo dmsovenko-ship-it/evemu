@@ -1925,7 +1925,7 @@ void SystemManager::SpawnConvoys()
     for (uint32 i = 0; i < numGuards / 2 + (numGuards % 2); ++i)
         spawnShip(guardTypeIDs[MakeRandomInt(0, 3)], "Convoy Guard", index);
     for (uint32 i = 0; i < numHaulers; ++i)
-        spawnShip(haulerTypeIDs[MakeRandomInt(0, 1)], "Convoy Hauler", index);
+        spawnShip(haulerTypeIDs[MakeRandomInt(0, 6)], "Convoy Hauler", index);
     for (uint32 i = 0; i < numGuards / 2; ++i)
         spawnShip(guardTypeIDs[MakeRandomInt(0, 3)], "Convoy Rear Guard", index);
 
