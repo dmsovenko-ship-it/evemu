@@ -82,7 +82,7 @@ m_AI(new NPCAIMgr(this))
         if (!m_self->HasAttribute(AttrDamageMultiplier))
             m_self->SetAttribute(AttrDamageMultiplier, 2.0f, false);
         if (!m_self->HasAttribute(AttrSpeed))
-            m_self->SetAttribute(AttrSpeed,           4000.0f, false);
+            m_self->SetAttribute(AttrSpeed,           2000.0f, false); // 2s attack cycle for guards
         if (!m_self->HasAttribute(AttrMaxVelocity))
             m_self->SetAttribute(AttrMaxVelocity,     450.0f, false);
         if (!m_self->HasAttribute(AttrEntityFlyRange))
