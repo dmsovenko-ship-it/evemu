@@ -59,10 +59,10 @@ m_AI(new NPCAIMgr(this))
     m_self->SetAttribute(AttrRadius,              m_self->type().radius(), false);
     m_self->SetAttribute(AttrVolume,              m_self->type().volume(), false);
     m_self->SetAttribute(AttrCapacity,            m_self->type().capacity(), false);
-    m_self->SetAttribute(AttrShieldCharge,        m_self->GetAttribute(AttrShieldCapacity), false);
+    m_self->SetAttribute(AttrShieldCapacity,      10000.0f, false);
+    m_self->SetAttribute(AttrShieldCharge,        10000.0f, false);
     m_self->SetAttribute(AttrCapacitorCharge,     m_self->GetAttribute(AttrCapacitorCapacity), false);
     m_self->SetAttribute(AttrWarpSpeedMultiplier, 1.0f, false);
-    // Ensure armor and hull HP are set (prevents NaN in MakeDamageState)
     m_self->SetAttribute(AttrArmorHP,             10000.0f, false);
     m_self->SetAttribute(AttrHP,                  10000.0f, false);
 
