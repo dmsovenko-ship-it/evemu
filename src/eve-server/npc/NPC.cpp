@@ -85,8 +85,6 @@ m_AI(new NPCAIMgr(this))
             m_self->SetAttribute(AttrSpeed,           5000.0f, false);
         if (!m_self->HasAttribute(AttrMaxVelocity))
             m_self->SetAttribute(AttrMaxVelocity,     450.0f, false);
-        if (!m_self->HasAttribute(AttrOrbitVelocity))
-            m_self->SetAttribute(AttrOrbitVelocity,   350.0f, false);
         if (!m_self->HasAttribute(AttrEntityFlyRange))
             m_self->SetAttribute(AttrEntityFlyRange,  15000.0f, false);
         if (!m_self->HasAttribute(AttrMaxRange))
@@ -115,8 +113,6 @@ m_AI(new NPCAIMgr(this))
             m_self->SetAttribute(AttrSpeed,           8000.0f, false);
         if (!m_self->HasAttribute(AttrMaxVelocity))
             m_self->SetAttribute(AttrMaxVelocity,     400.0f, false);
-        if (!m_self->HasAttribute(AttrOrbitVelocity))
-            m_self->SetAttribute(AttrOrbitVelocity,   200.0f, false);
         if (!m_self->HasAttribute(AttrEntityFlyRange))
             m_self->SetAttribute(AttrEntityFlyRange,  10000.0f, false);
         if (!m_self->HasAttribute(AttrMaxRange))
