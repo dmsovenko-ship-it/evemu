@@ -149,6 +149,9 @@ void NPC::OnAttacked(SystemEntity* attacker)
 
     // Direct retaliation — bypasses NPCAI entirely
     if (m_convoyAI != nullptr) {
+        // Show targeting on client (visual aggression indicator)
+        bool chase = false;
+        m_targMgr->StartTargeting(attacker, 500.0f, m_targMgr->GetMaxLockedTargets(), 250000, chase);
         // Fire back at attacker immediately
         float dmgMult = 2.0f;
         Damage d(this, m_self, m_kinDamage * dmgMult, m_therDamage * dmgMult,
