@@ -18,20 +18,23 @@ ConvoyGroup::~ConvoyGroup()
     members.clear();
 }
 
-void ConvoyGroup::SetAttacked()
+void ConvoyGroup::SetAttacked(SystemEntity* attacker)
 {
     if (attackTimer == nullptr)
         attackTimer = new Timer(30000);
     attackTimer->Start(30000);
-    // Immediately activate all members' defense AI
-    WakeUpAll();
+    WakeUpAll(attacker);
 }
 
-void ConvoyGroup::WakeUpAll()
+void ConvoyGroup::WakeUpAll(SystemEntity* attacker)
 {
     for (NPC* npc : members) {
-        if (npc != nullptr && !npc->IsDead() && npc->GetAIMgr() != nullptr)
+        if (npc != nullptr && !npc->IsDead() && npc->GetAIMgr() != nullptr) {
             npc->GetAIMgr()->WakeUp();
+            // Directly tell the NPC about the attacker
+            if (attacker != nullptr)
+                npc->GetAIMgr()->Targeted(attacker);
+        }
     }
 }
 

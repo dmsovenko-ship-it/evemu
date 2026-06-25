@@ -19,8 +19,8 @@ struct ConvoyGroup {
     ConvoyGroup(uint32 a, uint32 b, bool sameCorpFlag);
     ~ConvoyGroup();
     bool IsUnderAttack() const { return attackTimer != nullptr && attackTimer->Enabled(); }
-    void SetAttacked();
-    void WakeUpAll();
+    void SetAttacked(SystemEntity* attacker);
+    void WakeUpAll(SystemEntity* attacker);
 };
 
 class ConvoyAI {
@@ -30,7 +30,7 @@ public:
     void Process();
 
     bool IsGroupUnderAttack() const { return m_group->IsUnderAttack(); }
-    void NotifyAttacked() { m_group->SetAttacked(); }
+    void NotifyAttacked(SystemEntity* attacker) { m_group->SetAttacked(attacker); }
 
 private:
     NPC* m_npc;

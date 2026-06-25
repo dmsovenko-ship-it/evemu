@@ -149,7 +149,7 @@ void NPC::OnAttacked(SystemEntity* attacker)
 
     // Notify convoy group of attack (triggers defensive AI)
     if (m_convoyAI != nullptr)
-        m_convoyAI->NotifyAttacked();
+        m_convoyAI->NotifyAttacked(attacker);
 
     // Distress call — broadcast to all players in system
     if (m_system != nullptr && attacker->HasPilot()) {
