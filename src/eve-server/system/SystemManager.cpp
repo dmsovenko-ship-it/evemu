@@ -1887,26 +1887,16 @@ void SystemManager::SpawnConvoys()
     dir.normalize();
     GPoint departurePos = posA + (dir * 150000.0);
 
-    // Create shared convoy group
-    ConvoyGroup* group = new ConvoyGroup(stationA, stationB);
-
-    // Guards: group 298 (Convoy_Drone) — 10999=Escort, 11000=Protector, 11001=Guard, 11002=Sentry
-    // Haulers: group 927 (Industrial) — 2878=Federation, 2883=State
     uint32 guardTypeIDs[] = { 10999, 11000, 11001, 11002 };
     uint32 haulerTypeIDs[] = { 2878, 2883 };
 
-    uint32 numGuards = 2;
-    uint32 numHaulers = 1;
-
     char nameBuf[64];
-    uint32 index = 0;
 
-    // TEST: spawn as plain DynamicSystemEntity, no NPC, no AI
-    auto spawnShip = [&](uint32 typeID, const char* prefix) {
+    auto spawnShip = [&](uint32 typeID, const char* prefix, uint32 num) {
         GPoint p = departurePos;
         p.x += (float)MakeRandomInt(-500, 500);
         p.z += (float)MakeRandomInt(-500, 500);
-        snprintf(nameBuf, sizeof(nameBuf), "%s %u", prefix, 1);
+        snprintf(nameBuf, sizeof(nameBuf), "%s %u", prefix, num);
         ItemData idata(typeID, faction.ownerID, m_data.systemID, flagNone, nameBuf, p);
         InventoryItemRef iref = sItemFactory.SpawnItem(idata);
         if (iref.get() != nullptr) {
@@ -1917,11 +1907,9 @@ void SystemManager::SpawnConvoys()
     };
 
     for (uint32 i = 0; i < 2; ++i)
-        spawnShip(11001, "TestGuard");
-    for (uint32 i = 0; i < 1; ++i)
-        spawnShip(10826, "TestHauler");
+        spawnShip(guardTypeIDs[MakeRandomInt(0, 3)], "Convoy Guard", i + 1);
+    spawnShip(haulerTypeIDs[MakeRandomInt(0, 1)], "Convoy Hauler", 1);
 
-    _log(SERVER__INIT, "Convoy spawned in %s(%u) route %u->%u (%u ships: %u guards, %u haulers) at departure point",
-         m_data.name.c_str(), m_data.systemID, stationA, stationB,
-         group->members.size(), numGuards, numHaulers);
+    _log(SERVER__INIT, "Convoy spawned in %s(%u) route %u->%u",
+         m_data.name.c_str(), m_data.systemID, stationA, stationB);
 }
