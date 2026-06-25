@@ -486,6 +486,24 @@ void NPC::Killed(Damage &damage) {
     if ((MakeRandomFloat() < sConfig.npc.LootDropChance) or (m_allyID == factionRogueDrones))
         DropLoot(wreckItemRef, m_self->groupID(), killerID);
 
+    // Convoy-specific loot (always drops)
+    if (IsConvoy()) {
+        // Minerals: Tritanium, Pyerite, Mexallon, Isogen
+        uint32 minMinerals[4] = { 34, 35, 36, 37 }; // typeIDs
+        uint32 minQty = 100 + MakeRandomInt(0, 1000);
+        for (int i = 0; i < 4; ++i) {
+            ItemData iLoot(minMinerals[i], killerID, wreckItemRef->itemID(), flagNone, minQty);
+            wreckItemRef->AddItem(sItemFactory.SpawnItem(iLoot));
+        }
+        // Random faction ammo or module
+        if (MakeRandomFloat() < 0.3f) {
+            uint32 modTypes[] = { 218, 219, 220, 221, 222 }; // various ammo
+            uint32 modID = modTypes[MakeRandomInt(0, 4)];
+            ItemData iLoot(modID, killerID, wreckItemRef->itemID(), flagNone, MakeRandomInt(1, 5));
+            wreckItemRef->AddItem(sItemFactory.SpawnItem(iLoot));
+        }
+    }
+
     DBSystemDynamicEntity wreckEntity = DBSystemDynamicEntity();
         wreckEntity.allianceID = (killer->GetAllianceID() == 0 ? m_allyID : killer->GetAllianceID());
         wreckEntity.categoryID = EVEDB::invCategories::Celestial;
