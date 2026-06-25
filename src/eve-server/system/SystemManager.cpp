@@ -1901,36 +1901,25 @@ void SystemManager::SpawnConvoys()
     char nameBuf[64];
     uint32 index = 0;
 
-    auto spawnShip = [&](uint32 typeID, const char* prefix, uint32& idx) {
+    // TEST: spawn as plain DynamicSystemEntity, no NPC, no AI
+    auto spawnShip = [&](uint32 typeID, const char* prefix) {
         GPoint p = departurePos;
         p.x += (float)MakeRandomInt(-500, 500);
         p.z += (float)MakeRandomInt(-500, 500);
-        snprintf(nameBuf, sizeof(nameBuf), "%s %u", prefix, idx + 1);
+        snprintf(nameBuf, sizeof(nameBuf), "%s %u", prefix, 1);
         ItemData idata(typeID, faction.ownerID, m_data.systemID, flagNone, nameBuf, p);
         InventoryItemRef iref = sItemFactory.SpawnItem(idata);
         if (iref.get() != nullptr) {
-            NPC* npc = new NPC(iref, m_services, this, faction);
-            if (npc && npc->Load()) {
-                AddNPC(npc);
-                npc->DestinyMgr()->SetPosition(p);
-                npc->SetConvoyAI(new ConvoyAI(npc, group, idx));
-                group->members.push_back(npc);
-                idx++;
-            } else if (npc) delete npc;
+            DynamicSystemEntity* dse = new DynamicSystemEntity(iref, m_services, this);
+            dse->DestinyMgr()->SetPosition(p);
+            AddEntity(dse);
         }
     };
 
-    // Front guards
-    for (uint32 i = 0; i < numGuards / 2 + (numGuards % 2); ++i)
-        spawnShip(guardTypeIDs[MakeRandomInt(0, 3)], "Convoy Guard", index);
-
-    // Haulers
-    for (uint32 i = 0; i < numHaulers; ++i)
-        spawnShip(haulerTypeIDs[MakeRandomInt(0, 1)], "Convoy Hauler", index);
-
-    // Rear guards
-    for (uint32 i = 0; i < numGuards / 2; ++i)
-        spawnShip(guardTypeIDs[MakeRandomInt(0, 3)], "Convoy Rear Guard", index);
+    for (uint32 i = 0; i < 2; ++i)
+        spawnShip(11001, "TestGuard");
+    for (uint32 i = 0; i < 1; ++i)
+        spawnShip(10826, "TestHauler");
 
     _log(SERVER__INIT, "Convoy spawned in %s(%u) route %u->%u (%u ships: %u guards, %u haulers) at departure point",
          m_data.name.c_str(), m_data.systemID, stationA, stationB,
