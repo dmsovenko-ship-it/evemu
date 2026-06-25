@@ -67,8 +67,23 @@ m_AI(new NPCAIMgr(this))
     m_self->SetAttribute(AttrShieldRechargeRate, 500000.0f, false);    // ms for full recharge (500s = slow regen)
     m_self->SetAttribute(AttrArmorHP,             10000.0f, false);
     m_self->SetAttribute(AttrHP,                  10000.0f, false);
-    // Weapon/combat attributes come from database (dgmTypeAttributes).
-    // If missing, NPCAI uses defaults from type data.
+    // Set default combat attributes if DB doesn't have them
+    if (!m_self->HasAttribute(AttrEmDamage)) {
+        uint32 gid = m_self->groupID();
+        if (gid == EVEDB::invGroups::Convoy_Drone) {
+            // Convoy guard: frigate-level damage
+            m_self->SetAttribute(AttrEmDamage,       5.0f, false);
+            m_self->SetAttribute(AttrKineticDamage,  8.0f, false);
+            m_self->SetAttribute(AttrThermalDamage,  4.0f, false);
+            m_self->SetAttribute(AttrExplosiveDamage,2.0f, false);
+        } else if (gid == EVEDB::invGroups::Convoy || gid == EVEDB::invGroups::Mission_Faction_Industrials) {
+            // Convoy hauler: industrial-level damage
+            m_self->SetAttribute(AttrEmDamage,       2.0f, false);
+            m_self->SetAttribute(AttrKineticDamage,  3.0f, false);
+            m_self->SetAttribute(AttrThermalDamage,  2.0f, false);
+            m_self->SetAttribute(AttrExplosiveDamage,1.0f, false);
+        }
+    }
 
     /* Gets the value from the NPC and put on our own vars */
     m_emDamage = m_self->GetAttribute(AttrEmDamage).get_float(),

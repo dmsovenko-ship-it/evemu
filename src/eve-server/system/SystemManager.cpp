@@ -1895,7 +1895,7 @@ void SystemManager::SpawnConvoys()
     ConvoyGroup* group = new ConvoyGroup(stationA, stationB, sameCorp);
 
     uint32 guardTypeIDs[] = { 10999, 11000, 11001, 11002 };
-    uint32 haulerTypeIDs[] = { 2878, 2883 };
+    uint32 haulerTypeIDs[] = { 10826, 10827, 10828, 10043, 10114, 20716, 20718 };
 
     uint32 numHaulers = 3 + (uint32)MakeRandomInt(0, 7); // 3-10
     uint32 numGuards = numHaulers / 2 + (uint32)MakeRandomInt(1, 3); // ~1 guard per 2 haulers + 1-3
