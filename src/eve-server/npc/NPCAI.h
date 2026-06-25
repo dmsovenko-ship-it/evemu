@@ -80,6 +80,7 @@ public:
     // npcAI methods
     void DisableWarpOutTimer()                          { m_warpOutTimer.Disable(); }
     void WarpOutComplete()                              { m_warpOutTimer.Disable(); m_state = NPCAI::State::Idle; }
+    void WakeUp(); // Force target search on next tick
 
     void LaunchMissile(uint16 typeID, SystemEntity* pTargSE);   // us to them
     void MissileLaunched(Missile* pMissile); // them to us

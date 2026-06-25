@@ -20,6 +20,7 @@ struct ConvoyGroup {
     ~ConvoyGroup();
     bool IsUnderAttack() const { return attackTimer != nullptr && attackTimer->Enabled(); }
     void SetAttacked();
+    void WakeUpAll();
 };
 
 class ConvoyAI {

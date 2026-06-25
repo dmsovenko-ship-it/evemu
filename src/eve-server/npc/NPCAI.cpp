@@ -374,6 +374,12 @@ bool NPCAIMgr::IsFighting() {
     return (m_state != NPCAI::State::Idle);
 }
 
+void NPCAIMgr::WakeUp() {
+    // Force target find timer to fire immediately
+    m_beginFindTarget.Start(1);
+    m_state = NPCAI::State::Idle;
+}
+
 void NPCAIMgr::WarpOut()
 {
     m_warpOutTimer.Disable();

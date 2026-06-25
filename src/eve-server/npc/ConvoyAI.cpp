@@ -22,6 +22,16 @@ void ConvoyGroup::SetAttacked()
     if (attackTimer == nullptr)
         attackTimer = new Timer(30000);
     attackTimer->Start(30000);
+    // Immediately activate all members' defense AI
+    WakeUpAll();
+}
+
+void ConvoyGroup::WakeUpAll()
+{
+    for (NPC* npc : members) {
+        if (npc != nullptr && !npc->IsDead() && npc->GetAIMgr() != nullptr)
+            npc->GetAIMgr()->WakeUp();
+    }
 }
 
 ConvoyAI::ConvoyAI(NPC* who, ConvoyGroup* group, uint32 idx)
