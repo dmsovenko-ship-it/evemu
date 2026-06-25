@@ -462,7 +462,8 @@ bool SystemManager::LoadSystemStatics() {
     entities.clear();
 
     // Spawn sentry guns at gates and stations
-    SpawnSentryGuns();
+    // TODO: re-enable after binary stream investigation
+    // SpawnSentryGuns();
     SpawnConvoys();
 
     return true;
@@ -1895,8 +1896,8 @@ void SystemManager::SpawnConvoys()
     uint32 guardTypeIDs[] = { 10999, 11000, 11001, 11002 };
     uint32 haulerTypeIDs[] = { 2878, 2883 };
 
-    uint32 numGuards = 2 + (uint32)MakeRandomInt(0, 4);
-    uint32 numHaulers = 3 + (uint32)MakeRandomInt(0, 7);
+    uint32 numGuards = 2;
+    uint32 numHaulers = 1;
 
     char nameBuf[64];
     uint32 index = 0;
