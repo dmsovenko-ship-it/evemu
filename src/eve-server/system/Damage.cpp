@@ -542,12 +542,12 @@ void ShipSE::Killed(Damage &fatal_blow) {
         deadShipInventory.clear();
         GetShipItemRef()->GetMyInventory()->GetInventoryMap(deadShipInventory);
         if (deadShipInventory.empty()) {
-            blob << "<i t=" << data.victimShipTypeID << " f=0 s=1 d=0 x=1/>";
+            blob << "<i t=" << data.victimShipTypeID << " f=0 q=1 s=1 d=0 x=1/>";
         } else {
-            uint32 s = 0, d = 0, x = 0;
+            uint32 s = 0, d = 0, x = 0, q = 0;
             for (auto cur : deadShipInventory) {
                 d = 0;
-                x = cur.second->quantity();
+                q = x = cur.second->quantity();
                 s = (cur.second->isSingleton() ? 1 : 0);
                 if (cur.second->categoryID() == EVEDB::invCategories::Blueprint) {
                     // singleton for bpo = 1, bpc = 2.
@@ -555,10 +555,8 @@ void ShipSE::Killed(Damage &fatal_blow) {
                     s = (bpRef->copy() ? 2 : s);
                 }
 
-                blob << "<i t=" << cur.second->typeID() << " f=" << cur.second->flag() << " s=" << s ;
+                blob << "<i t=" << cur.second->typeID() << " f=" << cur.second->flag() << " q=" << q << " s=" << s ;
                 // all contained items have 50% chance of drop, except rigs, which do not survive
-                // todo:  add damage to item, if applicable, from ship explosion
-                //cur.second->SetAttribute(AttrDamage, 5);
                 if (IsRigSlot(cur.second->flag())) {
                     /* just avoiding survive check */;
                 } else if (IsEven(MakeRandomInt(0, 100))) {
