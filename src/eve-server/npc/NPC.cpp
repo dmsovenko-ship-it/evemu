@@ -178,13 +178,13 @@ void NPC::OnAttacked(SystemEntity* attacker)
     // Activate sentry guns near the relevant station(s)
     if (m_convoyAI != nullptr && m_system != nullptr && attacker->HasPilot()) {
         auto findStation = [&](uint32 id) -> SystemEntity* {
-            auto ents = m_system->GetEntities();
+            const auto& ents = m_system->GetEntities();
             auto it = ents.find(id);
             return (it != ents.end()) ? it->second : nullptr;
         };
         SystemEntity* stA = findStation(m_convoyAI->GetStationA());
         SystemEntity* stB = findStation(m_convoyAI->GetStationB());
-        auto allEntities = m_system->GetEntities();
+        const auto& allEntities = m_system->GetEntities();
         for (auto& [eid, pSE] : allEntities) {
             if (pSE == nullptr || !pSE->IsSentrySE())
                 continue;
