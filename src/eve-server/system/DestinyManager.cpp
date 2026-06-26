@@ -854,8 +854,10 @@ void DestinyManager::MoveObject() {
                 // asf = psf - (psf - usf) * tf
                 m_activeSpeedFraction = m_prevSpeedFraction - (m_prevSpeedFraction - m_userSpeedFraction) * m_timeFraction;
             } else {
-                // this should never hit....should not have decel w/o previous speed
-                _log(DESTINY__TRACE, "Destiny::MoveObject() - decel = true, but psf = 0.");
+                // decel with no previous speed — we're already stopped
+                m_decel = false;
+                m_activeSpeedFraction = 0.0;
+                speed = 0.0;
             }
         } else if (m_tractored or m_tractorPause) {
             ;   // do nothing here.  this is to remove error reporting from next line.
@@ -863,8 +865,8 @@ void DestinyManager::MoveObject() {
             // no movement requested and no residual speed - safe to halt
             Halt();
         } else {
-            _log(DESTINY__TRACE, "Destiny::MoveObject() - %s(%u) move checks not set right. Acc:%s, Dec:%s, Turn:%s", \
-                    mySE->GetName(), mySE->GetID(), (m_accel ? "T" : "F"), (m_decel ? "T" : "F"), (m_turning ? "T" : "F"));
+            // no flags set but not at stop — force halt
+            Halt();
         }
 
         speed = (m_maxShipSpeed * m_activeSpeedFraction);
