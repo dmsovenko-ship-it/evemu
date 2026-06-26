@@ -413,7 +413,9 @@ void ShipSE::Killed(Damage &fatal_blow) {
             killerID = pClient->GetCharacterID();
         }
     } else {
-        killerID = killer->GetID();
+        killerID = killer->GetCorporationID();
+        if (killerID == 0)
+            killerID = killer->GetID();
     }
 
     // AttrFwLpKill
