@@ -3,7 +3,7 @@
  *      this class is for drone AI
  *
  * @Author:     Allan
- * @Version:    0.15
+ * @Version:    0.16
  * @Date:       27Nov19
  */
 
@@ -26,7 +26,7 @@ namespace DroneAI {
             Departing2        = 5,  // leaving.  different from Departing
             Pursuit           = 6,  // target out of range to attack/follow, but within npc sight range....use mwd/ab if equiped
             Fleeing           = 7,  // running away
-            Operating         = 9,  // whats diff from engaged here?
+            Operating         = 9,  // whats diff from engaged here?  mining maybe?
             Engaged           = 10, // non-combat? - needs targetID
             // internal only
             Unknown           = 8,  // as stated
@@ -35,9 +35,21 @@ namespace DroneAI {
             Incapacitated     = 13  //
         };
     }
+
+    enum DroneSubType : int8 {
+        SubType_Combat        = 0,
+        SubType_WarpScramble  = 1,
+        SubType_Web           = 2,
+        SubType_ECM           = 3,
+        SubType_Logistics     = 4,
+        SubType_CapDrain      = 5,
+        SubType_Mining        = 6,
+        SubType_Unknown       = 7
+    };
 }
 
 class DroneSE;
+class ShipSE;
 class SystemEntity;
 class Timer;
 class EvilNumber;
@@ -70,6 +82,17 @@ protected:
     void AttackTarget(SystemEntity* pTarget);
     void CheckDistance(SystemEntity* pTarget);
 
+    // subtype-specific attack methods
+    void CombatAttack(SystemEntity* pTarget);
+    void WebAttack(SystemEntity* pTarget);
+    void ScrambleAttack(SystemEntity* pTarget);
+    void ECMAttack(SystemEntity* pTarget);
+    void LogisticsRepair(SystemEntity* pTarget);
+    void CapDrainAttack(SystemEntity* pTarget);
+
+    // helpers
+    ShipSE* GetOwnerShip();
+
     int8 m_state;
     std::string GetStateName(int8 stateID);
 
@@ -87,6 +110,12 @@ private:
     uint32 m_targetRange;
     uint32 m_armorRepairDuration;
     uint32 m_shieldBoosterDuration;
+
+    int8 m_subType;
+
+    // EWAR & logistics params
+    float m_ewarStrength;     // warp scramble strength / web speed factor / ECM strength / neut amount
+    float m_repairAmount;     // shield or armor repair amount per cycle
 
     bool m_returnToBay;     // if true, scoop drone into bay when it reaches the ship
 

@@ -84,6 +84,8 @@ public:
     void SaveDrone();
     void RemoveDrone();
     void SetResists();
+    void MarkForRemoval()                               { m_pendingRemoval = true; }
+    bool IsPendingRemoval()                            { return m_pendingRemoval; }
     void SetOwner(Client* pClient);
 
     uint32 GetBounty() const                            { return (m_pClient == nullptr ? 0 : m_pClient->GetChar()->bounty()); }
@@ -125,6 +127,7 @@ private:
     uint32 m_controllerOwnerID;
 
     double m_orbitRange;
+    bool m_pendingRemoval;
     double m_emDamage;
     double m_expDamage;
     double m_kinDamage;
