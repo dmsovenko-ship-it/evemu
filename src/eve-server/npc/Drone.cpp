@@ -80,11 +80,6 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
 
     /** @todo update attribs from char skills here....it's not done by Fx system */
 
-    // sync destiny position to the item position (was set in LaunchDrone before construction)
-    // prevents incorrect distance calculations in Process() / control range check
-    if (!m_self->position().isZero())
-        m_destiny->SetPosition(m_self->position());
-
     m_destiny->UpdateShipVariables();
 
     SetResists();
@@ -161,6 +156,16 @@ void DroneSE::Online(ShipSE* pShipSE/*nullptr*/) {
 
     if (pShipSE == nullptr)
         pShipSE = m_pShipSE;
+
+    // Sync destiny position from item before first Process tick that checks distance.
+    // The item position was set in ShipSE::LaunchDrone() before construction.
+    if (m_self->position().isZero() and (pShipSE != nullptr)) {
+        GPoint pos(pShipSE->GetPosition());
+        pos.MakeRandomPointOnSphere(500.0);
+        m_destiny->SetPosition(pos);
+    } else if (!m_self->position().isZero()) {
+        m_destiny->SetPosition(m_self->position());
+    }
 
     m_AI->AssignShip(pShipSE);
     IdleOrbit(pShipSE);   // begin orbiting home ship immediately
