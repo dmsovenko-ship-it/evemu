@@ -68,8 +68,24 @@ void DroneAIMgr::Process() {
      *   Incapacitated     = 13  // out of control range, but online
      */
 
-    // test for drone attributes here - aggressive, focus fire, attack/follow
-    // test for control distance here also.  offline drones outside this  (AttrDroneControlDistance)
+    // test for control distance - offline drones outside AttrDroneControlDistance
+    if (m_assignedShip != nullptr) {
+        double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
+        double controlRange = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
+        if (controlRange < 1.0)
+            controlRange = 25000.0; // default 25km if not set
+        if (dist > controlRange * 1.1) {
+            if (m_state != DroneAI::State::Incapacitated) {
+                m_pDrone->DestinyMgr()->Stop();
+                m_pDrone->Disable();
+                m_state = DroneAI::State::Incapacitated;
+            }
+        } else if (m_state == DroneAI::State::Incapacitated) {
+            m_pDrone->Enable();
+            SetIdle();
+        }
+    }
+
     switch(m_state) {
         case DroneAI::State::Invalid: {
             // check everything in this state.   return to ship?
@@ -95,7 +111,8 @@ void DroneAIMgr::Process() {
         } break;
 
         case DroneAI::State::Departing: { // return to ship.  when close enough, scoop or orbit
-            if (m_pDrone->GetPosition().distance(m_assignedShip->GetPosition()) < m_entityOrbitRange) {
+            double arriveDist = std::min(m_entityOrbitRange, 5000.0);
+            if (m_pDrone->GetPosition().distance(m_assignedShip->GetPosition()) < arriveDist) {
                 if (m_returnToBay) {
                     m_returnToBay = false;
                     m_assignedShip->ScoopDrone(m_pDrone);  // removes from flight list, calls Offline()
@@ -188,25 +205,21 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
     //rewrote distance checks for correct logic this time
     double dist = m_pDrone->GetPosition().distance(pSE->GetPosition());
     if (dist > m_entityAttackRange) {
-        _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: %s(%u) is too far away (%u).  Return to Idle.",
+        _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: %s(%u) is too far away (%.0f).  Return to Idle.",
              m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID(), dist);
         if (m_state != DroneAI::State::Idle) {
-            // target is no longer in npc's "sight range".  unlock target and return to idle.
-            //   should we do anything else here?  search for another target?  wander around?
             ClearTarget(pSE);
         }
         return;
-    } else if (dist < m_entityFlyRange) { //within weapon max (and within falloff)
-        SetEngaged(pSE); //engage and orbit
-    } else if (dist < m_entityChaseRange) { //within follow
-       // SetFollowing(pSE);
-    } else if (dist < m_entityAttackRange) { //within sight
-       // SetChasing(pSE);
-        return;
     }
+    // within attack range — engage and orbit at weapon range
+    SetEngaged(pSE);
 
-    if (!m_mainAttackTimer.Enabled())
+    if (!m_mainAttackTimer.Enabled()) {
         m_mainAttackTimer.Start(m_attackSpeed);
+        // fire immediately on first call
+        AttackTarget(pSE);
+    }
 
     Attack(pSE);
 }
@@ -245,6 +258,10 @@ void DroneAIMgr::Targeted(SystemEntity* pAgressor) {
                 m_pDrone->GetName(), m_pDrone->GetID(), pAgressor->GetName(), pAgressor->GetID(), GetStateName(m_state).c_str());
     switch(m_state) {
         case DroneAI::State::Idle: {
+            if (m_pDrone->GetSelf()->HasAttribute(AttrDroneIsAgressive)) {
+                if (m_pDrone->GetSelf()->GetAttribute(AttrDroneIsAgressive).get_int() > 0)
+                    Target(pAgressor);
+            }
         } break;
         case DroneAI::State::Operating: {
         } break;

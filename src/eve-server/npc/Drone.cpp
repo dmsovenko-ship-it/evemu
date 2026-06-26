@@ -176,9 +176,8 @@ void DroneSE::IdleOrbit(ShipSE* pShipSE/*nullptr*/) {
     if (!m_online)
         return;         // error here?
 
-    // TODO:  fix these speeds
     // set speed and begin orbit
-    m_destiny->SetMaxVelocity(500);
+    m_destiny->SetMaxVelocity(m_self->GetAttribute(AttrMaxVelocity).get_float());
     m_destiny->SetSpeedFraction(0.6f);
     m_destiny->Orbit(pShipSE, m_orbitRange);
 }
