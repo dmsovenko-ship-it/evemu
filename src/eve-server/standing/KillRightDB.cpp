@@ -22,19 +22,12 @@ PyRep* KillRightDB::GetKillRights(uint32 ownerID, uint32 targetID)
     while (res.GetRow(row)) {
         uint32 rightOwner = row.GetInt(1);
         uint32 rightTarget = row.GetInt(2);
-
-        PyDict* entry = new PyDict();
-        entry->SetItemString("rightID", new PyInt(row.GetInt(0)));
-        entry->SetItemString("ownerID", new PyInt(rightOwner));
-        entry->SetItemString("targetID", new PyInt(rightTarget));
-        entry->SetItemString("created", new PyLong(row.GetInt64(5)));
-
-        PyObject* kr = new PyObject("util.KeyVal", entry);
+        int64 timestamp = row.GetInt64(5);
 
         if (rightOwner == ownerID) {
-            killRights->SetItem(new PyInt(rightTarget), kr);
+            killRights->SetItem(new PyInt(rightTarget), new PyLong(timestamp));
         } else if (rightTarget == ownerID) {
-            killedRights->SetItem(new PyInt(rightOwner), kr);
+            killedRights->SetItem(new PyInt(rightOwner), new PyLong(timestamp));
         }
     }
 
