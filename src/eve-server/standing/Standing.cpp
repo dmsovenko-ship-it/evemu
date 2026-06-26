@@ -114,11 +114,11 @@ PyResult Standing::ActivateKillRight(PyCallArgs &call, PyInt* rightID) {
 
     // pay the owner (buyer has already paid per EVE mechanic)
     if (price > 0) {
-        // transfer ISK from activator to owner
-        sDatabase.RunQuery(DBerror(),
+        DBerror err;
+        sDatabase.RunQuery(err,
             " UPDATE chrCharacters SET balance = balance - %" PRIi64 " WHERE characterID = %u",
             price, call.client->GetCharacterID());
-        sDatabase.RunQuery(DBerror(),
+        sDatabase.RunQuery(err,
             " UPDATE chrCharacters SET balance = balance + %" PRIi64 " WHERE characterID = %u",
             price, ownerID);
     }
