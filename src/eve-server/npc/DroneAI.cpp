@@ -3,9 +3,9 @@
  *      this class is for drone AI
  *
  * @Author:     Allan
- * @Version:    0.15
+ * @Version:    0.16
  * @Date:       27Nov19
-*/
+ */
 
 #include "eve-server.h"
 
@@ -18,6 +18,7 @@
 #include "system/Damage.h"
 #include "system/BubbleManager.h"
 #include "system/SystemBubble.h"
+#include "tables/invGroups.h"
 
 DroneAIMgr::DroneAIMgr(DroneSE* who)
 : m_state(DroneAI::State::Idle),
@@ -27,8 +28,8 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
   m_mainAttackTimer(0),// dont start timer until we have a target
   m_processTimer(0),
   m_beginFindTarget(0),
-  m_warpScramblerTimer(0),     //not implemented yet
-  m_webifierTimer(0),             //not implemented yet
+  m_warpScramblerTimer(0),     // Timer for warp scramble duration
+  m_webifierTimer(0),          // Timer for web duration
   m_sigRadius(std::max(who->GetSelf()->GetAttribute(AttrSignatureRadius).get_float(), 50.0f)),
   m_attackSpeed(std::max(who->GetSelf()->GetAttribute(AttrSpeed).get_float(), 4000.0f)),
   m_cruiseSpeed(static_cast<uint32>(std::max<int64>(who->GetSelf()->GetAttribute(AttrEntityCruiseSpeed).get_int(), 500))),
@@ -38,13 +39,87 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
   m_entityOrbitRange(std::max(who->GetSelf()->GetAttribute(AttrMaxRange).get_float(), 1000.0f)),
   m_entityAttackRange(std::max(who->GetSelf()->GetAttribute(AttrEntityAttackRange).get_float() * 2, 10000.0f)),
   m_shieldBoosterDuration(who->GetSelf()->GetAttribute(AttrEntityShieldBoostDuration).get_int()),
-  m_armorRepairDuration(who->GetSelf()->GetAttribute(AttrEntityArmorRepairDuration).get_int())
+  m_armorRepairDuration(who->GetSelf()->GetAttribute(AttrEntityArmorRepairDuration).get_int()),
+  m_subType(DroneAI::SubType_Unknown),
+  m_ewarStrength(0.0f),
+  m_repairAmount(0.0f)
 {
     m_processTimer.Start(5000);     //arbitrary.
+
+    // Detect drone subtype from groupID
+    switch (m_pDrone->GetGroupID()) {
+        case EVEDB::invGroups::Warp_Scrambling_Drone: {
+            m_subType = DroneAI::SubType_WarpScramble;
+            if (m_pDrone->GetSelf()->HasAttribute(AttrWarpScrambleStrength))
+                m_ewarStrength = m_pDrone->GetSelf()->GetAttribute(AttrWarpScrambleStrength).get_float();
+            break;
+        }
+        case EVEDB::invGroups::Stasis_Webifying_Drone: {
+            m_subType = DroneAI::SubType_Web;
+            if (m_pDrone->GetSelf()->HasAttribute(AttrSpeedFactor))
+                m_ewarStrength = m_pDrone->GetSelf()->GetAttribute(AttrSpeedFactor).get_float();
+            break;
+        }
+        case EVEDB::invGroups::Electronic_Warfare_Drone: {
+            m_subType = DroneAI::SubType_ECM;
+            // ECM strength is based on scan strength vs target's sensor strength
+            // Store scan strength bonus as ewarStrength
+            if (m_pDrone->GetSelf()->HasAttribute(AttrScanStrengthBonus))
+                m_ewarStrength = m_pDrone->GetSelf()->GetAttribute(AttrScanStrengthBonus).get_float();
+            break;
+        }
+        case EVEDB::invGroups::Logistic_Drone:
+        case EVEDB::invGroups::Repair_Drone: {
+            m_subType = DroneAI::SubType_Logistics;
+            // Determine repair type and amount
+            if (m_pDrone->GetSelf()->HasAttribute(AttrEntityShieldBoostAmount)) {
+                m_repairAmount = m_pDrone->GetSelf()->GetAttribute(AttrEntityShieldBoostAmount).get_float();
+            } else if (m_pDrone->GetSelf()->HasAttribute(AttrEntityArmorRepairAmount)) {
+                m_repairAmount = m_pDrone->GetSelf()->GetAttribute(AttrEntityArmorRepairAmount).get_float();
+            }
+            break;
+        }
+        case EVEDB::invGroups::Cap_Drain_Drone: {
+            m_subType = DroneAI::SubType_CapDrain;
+            // Neut amount is stored in entity capacitor drain amount
+            if (m_pDrone->GetSelf()->HasAttribute(AttrEntityCapacitorDrainAmount))
+                m_ewarStrength = m_pDrone->GetSelf()->GetAttribute(AttrEntityCapacitorDrainAmount).get_float();
+            break;
+        }
+        case EVEDB::invGroups::Mining_Drone: {
+            m_subType = DroneAI::SubType_Mining;
+            break;
+        }
+        default: {
+            // Combat drones (Combat_Drone=100, Fighter_Drone=549, Fighter_Bomber=1023)
+            m_subType = DroneAI::SubType_Combat;
+            break;
+        }
+    }
+
+    _log(DRONE__AI_TRACE, "Drone %s(%u): subtype=%d, ewarStrength=%.2f, repairAmount=%.2f",
+         m_pDrone->GetName(), m_pDrone->GetID(), m_subType, m_ewarStrength, m_repairAmount);
 }
 
 void DroneAIMgr::Process() {
     double profileStartTime(GetTimeUSeconds());
+
+    // Check warp scrambler duration expiry
+    // Note: On expiry, we only disable the timer. The target's AttrWarpScrambleStatus
+    // remains set until the scrambler stops being re-applied (next attack re-applies it).
+    // This matches current emulator behavior where EWAR persists while attacking.
+    if (m_warpScramblerTimer.Enabled() && m_warpScramblerTimer.Check()) {
+        m_warpScramblerTimer.Disable();
+        _log(DRONE__AI_TRACE, "Drone %s(%u): warp scrambler effect cycle expired.",
+             m_pDrone->GetName(), m_pDrone->GetID());
+    }
+
+    // Check web duration expiry
+    if (m_webifierTimer.Enabled() && m_webifierTimer.Check()) {
+        m_webifierTimer.Disable();
+        _log(DRONE__AI_TRACE, "Drone %s(%u): webifier effect cycle expired.",
+             m_pDrone->GetName(), m_pDrone->GetID());
+    }
 
     /* Drone::State definitions   -allan 27Nov19
      *   Invalid
@@ -66,7 +141,9 @@ void DroneAIMgr::Process() {
      */
 
     // test for control distance - offline drones outside AttrDroneControlDistance
-    if (m_assignedShip != nullptr && m_assignedShip->DestinyMgr() != nullptr) {
+    // skip check while Departing, otherwise the drone gets incapacitated before it can return
+    if ((m_state != DroneAI::State::Departing)
+    and (m_assignedShip != nullptr) and (m_assignedShip->DestinyMgr() != nullptr)) {
         double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
         double controlRange = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
         if (controlRange < 1.0)
@@ -89,6 +166,7 @@ void DroneAIMgr::Process() {
         } break;
         case DroneAI::State::Idle: {
             // orbiting controlling ship
+            // For logistics drones in idle, we could auto-repair, but currently just orbit
         } break;
         case DroneAI::State::Engaged:
         case DroneAI::State::Approaching: {
@@ -246,6 +324,9 @@ void DroneAIMgr::ClearAllTargets() {
 }
 
 void DroneAIMgr::Target(SystemEntity* pTarget) {
+    // Logistics drones always target the assigned ship to repair
+    // The client sends CmdEngage with the owner's shipID, which we handle normally
+
     bool chase = false;
     if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(), (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(), m_entityFlyRange, chase)) {
         _log(DRONE__AI_TRACE, "Drone %s(%u): Targeting of %s(%u) failed (chase=%d).  Will approach first.",
@@ -372,14 +453,32 @@ void DroneAIMgr::ClearTarget(SystemEntity* pSE) {
         SetIdle();
 }
 
-//also check for special effects and write code to implement them
-//modifyTargetSpeedRange, modifyTargetSpeedChance
-//entityWarpScrambleChance
-
 void DroneAIMgr::AttackTarget(SystemEntity* pTarget) {
-    /** @todo  not all drones use lazors...fix this */
-    //  woot!! --> group:1010        cat:8       Compact Citadel Torpedo         Citadel torpedoes for fighter-bombers
+    // Dispatch based on drone subtype
+    switch (m_subType) {
+        case DroneAI::SubType_WarpScramble:
+            ScrambleAttack(pTarget);
+            break;
+        case DroneAI::SubType_Web:
+            WebAttack(pTarget);
+            break;
+        case DroneAI::SubType_ECM:
+            ECMAttack(pTarget);
+            break;
+        case DroneAI::SubType_Logistics:
+            LogisticsRepair(pTarget);
+            break;
+        case DroneAI::SubType_CapDrain:
+            CapDrainAttack(pTarget);
+            break;
+        case DroneAI::SubType_Combat:
+        default:
+            CombatAttack(pTarget);
+            break;
+    }
+}
 
+void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
     // effects are listed in EVE_Effects.h
     //  NOTE: drones are called 'entities' in client; EVE_Effects has 'entityxxx' for gfx
     std::string guid = "effects.Laser"; // client looks for 'turret' in ship.ball.modules for 'effects.laser'
@@ -406,6 +505,188 @@ void DroneAIMgr::AttackTarget(SystemEntity* pTarget) {
     d *= m_pDrone->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float();
     d *= sConfig.rates.damageRate;      /** @todo this should be a separate config value */
     pTarget->ApplyDamage(d);
+}
+
+void DroneAIMgr::WebAttack(SystemEntity* pTarget) {
+    _log(DRONE__AI_TRACE, "Drone %s(%u): WebAttack on %s(%u) with strength %.2f",
+         m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), m_ewarStrength);
+
+    // Send web visual effect
+    uint32 gfxID = 0;
+    if (m_pDrone->GetSelf()->HasAttribute(AttrGfxBoosterID))
+        gfxID = m_pDrone->GetSelf()->GetAttribute(AttrGfxBoosterID).get_uint32();
+    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->typeID(),
+                                             pTarget->GetID(),
+                                             0, "effects.ModifyTargetSpeed",
+                                             1, 1, 1, m_attackSpeed, 0, gfxID);
+
+    // Apply web effect via WebbedMe using drone's own itemRef (must have AttrSpeedFactor)
+    InventoryItemRef droneRef = m_pDrone->GetSelf();
+    if (droneRef->HasAttribute(AttrSpeedFactor)) {
+        pTarget->DestinyMgr()->WebbedMe(droneRef, true);
+        // Set timer to remove web after one cycle (attackSpeed is cycle time in ms)
+        m_webifierTimer.Start(m_attackSpeed);
+    }
+}
+
+void DroneAIMgr::ScrambleAttack(SystemEntity* pTarget) {
+    _log(DRONE__AI_TRACE, "Drone %s(%u): ScrambleAttack on %s(%u) with strength %.2f",
+         m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), m_ewarStrength);
+
+    // Send warp scramble visual effect
+    uint32 gfxID = 0;
+    if (m_pDrone->GetSelf()->HasAttribute(AttrGfxBoosterID))
+        gfxID = m_pDrone->GetSelf()->GetAttribute(AttrGfxBoosterID).get_uint32();
+    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->typeID(),
+                                             pTarget->GetID(),
+                                             0, "effects.WarpScramble",
+                                             1, 1, 1, m_attackSpeed, 0, gfxID);
+
+    // Set WarpScrambleStatus on target
+    InventoryItemRef targetRef = pTarget->GetSelf();
+    if (targetRef->HasAttribute(AttrWarpScrambleStatus)) {
+        targetRef->SetAttribute(AttrWarpScrambleStatus, m_ewarStrength);
+    } else {
+        targetRef->SetAttribute(AttrWarpScrambleStatus, m_ewarStrength, false);
+    }
+
+    // Set timer to remove scramble after cycle time
+    m_warpScramblerTimer.Start(m_attackSpeed);
+}
+
+void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
+    _log(DRONE__AI_TRACE, "Drone %s(%u): ECMAttack on %s(%u) with strength %.2f",
+         m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), m_ewarStrength);
+
+    // Send ECM visual effect
+    uint32 gfxID = 0;
+    if (m_pDrone->GetSelf()->HasAttribute(AttrGfxBoosterID))
+        gfxID = m_pDrone->GetSelf()->GetAttribute(AttrGfxBoosterID).get_uint32();
+    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->typeID(),
+                                             pTarget->GetID(),
+                                             0, "effects.ElectronicAttributeModifyTarget",
+                                             1, 1, 1, m_attackSpeed, 0, gfxID);
+
+    // ECM clears target's lock list, breaking their targeting
+    pTarget->TargetMgr()->ClearTargets();
+    // Also clear anyone targeting the drone
+    // This simulates ECM breaking all locks on and by the target
+}
+
+void DroneAIMgr::LogisticsRepair(SystemEntity* pTarget) {
+    // Logistics drones always repair their assigned (owner) ship, not the target
+    ShipSE* repairTarget = m_assignedShip;
+    if (repairTarget == nullptr) {
+        _log(DRONE__AI_TRACE, "Drone %s(%u): LogisticsRepair has no assigned ship to repair.",
+             m_pDrone->GetName(), m_pDrone->GetID());
+        return;
+    }
+
+    InventoryItemRef targetShip = repairTarget->GetSelf();
+    double amount = m_repairAmount;
+
+    // Determine if this is a shield or armor logistics drone based on own attributes
+    bool isShieldLogistics = m_pDrone->GetSelf()->HasAttribute(AttrEntityShieldBoostAmount);
+
+    _log(DRONE__AI_TRACE, "Drone %s(%u): LogisticsRepair on %s(%u), amount=%.2f, isShield=%d",
+         m_pDrone->GetName(), m_pDrone->GetID(),
+         repairTarget->GetName(), repairTarget->GetID(), amount, isShieldLogistics);
+
+    if (isShieldLogistics) {
+        // Shield repair
+        double shieldCharge = targetShip->GetAttribute(AttrShieldCharge).get_float();
+        double shieldCap = targetShip->GetAttribute(AttrShieldCapacity).get_float();
+        shieldCharge += amount;
+        if (shieldCharge > shieldCap)
+            shieldCharge = shieldCap;
+        targetShip->SetAttribute(AttrShieldCharge, shieldCharge);
+
+        // Send shield boost visual effect
+        uint32 gfxID = m_pDrone->GetSelf()->HasAttribute(AttrGfxBoosterID) ?
+            m_pDrone->GetSelf()->GetAttribute(AttrGfxBoosterID).get_uint32() : 0;
+        m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->typeID(),
+                                                 repairTarget->GetID(),
+                                                 0, "effects.ShieldBoosting",
+                                                 0, 1, 1, m_attackSpeed, 0, gfxID);
+    } else {
+        // Armor repair
+        double armorDamage = targetShip->GetAttribute(AttrArmorDamage).get_float();
+        armorDamage -= amount;
+        if (armorDamage < 0.0)
+            armorDamage = 0.0;
+        targetShip->SetAttribute(AttrArmorDamage, armorDamage);
+
+        // Send armor repair visual effect
+        uint32 gfxID = m_pDrone->GetSelf()->HasAttribute(AttrGfxBoosterID) ?
+            m_pDrone->GetSelf()->GetAttribute(AttrGfxBoosterID).get_uint32() : 0;
+        m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->typeID(),
+                                                 repairTarget->GetID(),
+                                                 0, "effects.ArmorRepair",
+                                                 0, 1, 1, m_attackSpeed, 0, gfxID);
+    }
+
+    // Notify clients of damage state change
+    repairTarget->SendDamageStateChanged();
+}
+
+void DroneAIMgr::CapDrainAttack(SystemEntity* pTarget) {
+    _log(DRONE__AI_TRACE, "Drone %s(%u): CapDrainAttack on %s(%u) with amount %.2f",
+         m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), m_ewarStrength);
+
+    // Send energy neutralizer visual effect
+    uint32 gfxID = 0;
+    if (m_pDrone->GetSelf()->HasAttribute(AttrGfxBoosterID))
+        gfxID = m_pDrone->GetSelf()->GetAttribute(AttrGfxBoosterID).get_uint32();
+    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->typeID(),
+                                             pTarget->GetID(),
+                                             0, "effects.EnergyDestabilization",
+                                             1, 1, 1, m_attackSpeed, 0, gfxID);
+
+    // Drain capacitor from target
+    InventoryItemRef targetRef = pTarget->GetSelf();
+    double drainAmount = m_ewarStrength;
+    if (drainAmount < 1.0) {
+        // Fallback: use entity capacitor drain amount from drone
+        if (m_pDrone->GetSelf()->HasAttribute(AttrEntityCapacitorDrainAmount))
+            drainAmount = m_pDrone->GetSelf()->GetAttribute(AttrEntityCapacitorDrainAmount).get_float();
+    }
+
+    if (targetRef->HasAttribute(AttrCapacitorCharge)) {
+        double targetCap = targetRef->GetAttribute(AttrCapacitorCharge).get_float();
+        targetCap -= drainAmount;
+        if (targetCap < 0.0)
+            targetCap = 0.0;
+        targetRef->SetAttribute(AttrCapacitorCharge, targetCap);
+
+        // Transfer drained cap to owner ship if available
+        if (m_assignedShip != nullptr) {
+            InventoryItemRef ownerRef = m_assignedShip->GetSelf();
+            if (ownerRef->HasAttribute(AttrCapacitorCharge)) {
+                double ownerCap = ownerRef->GetAttribute(AttrCapacitorCharge).get_float();
+                double ownerMaxCap = ownerRef->GetAttribute(AttrCapacitorCapacity).get_float();
+                ownerCap += drainAmount;
+                if (ownerCap > ownerMaxCap)
+                    ownerCap = ownerMaxCap;
+                ownerRef->SetAttribute(AttrCapacitorCharge, ownerCap);
+            }
+        }
+    }
+}
+
+ShipSE* DroneAIMgr::GetOwnerShip() {
+    return m_assignedShip;
 }
 
 

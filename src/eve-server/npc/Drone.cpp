@@ -80,6 +80,11 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
 
     /** @todo update attribs from char skills here....it's not done by Fx system */
 
+    // sync destiny position to the item position (was set in LaunchDrone before construction)
+    // prevents incorrect distance calculations in Process() / control range check
+    if (!m_self->position().isZero())
+        m_destiny->SetPosition(m_self->position());
+
     m_destiny->UpdateShipVariables();
 
     SetResists();
