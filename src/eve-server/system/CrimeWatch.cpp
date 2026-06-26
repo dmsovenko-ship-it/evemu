@@ -113,22 +113,26 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     if (targetHasLimitedEng || targetIsOutlaw)
         return;
 
-    // Check if attacker has a Kill Right against the target
+    // Check if attacker has a free Kill Right against the target
     DBQueryResult krRes;
     uint32 attackerID = m_client->GetCharacterID();
     uint32 victimID = pTarget->GetCharacterID();
     if (sDatabase.RunQuery(krRes,
-        " SELECT rightID FROM chrKillRights "
+        " SELECT rightID, price FROM chrKillRights "
         " WHERE ownerID = %u AND targetID = %u AND used = 0 AND expiryDate > %lli",
         victimID, attackerID, static_cast<int64>(GetFileTimeNow())))
     {
         DBResultRow krRow;
         if (krRes.GetRow(krRow)) {
-            // attacker has a kill right against victim — attack is legal
-            // set limited engagement on victim but DON'T mark used yet
-            if (pTarget->GetCrimeWatch() != nullptr)
-                pTarget->GetCrimeWatch()->SetLimitedEngagement();
-            return;
+            int64 price = krRow.GetInt64(1);
+            // free kill right: auto-activate on attack
+            if (price == 0) {
+                if (pTarget->GetCrimeWatch() != nullptr)
+                    pTarget->GetCrimeWatch()->SetLimitedEngagement();
+                return;
+            }
+            // paid kill right: skip auto-activation, owner must call ActivateKillRight
+            // fall through to normal crime check
         }
     }
 

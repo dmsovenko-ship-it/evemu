@@ -56,6 +56,7 @@ protected:
     PyResult ActivateKillRight(PyCallArgs& call, PyInt* rightID);
     PyResult UpdateKillRight(PyCallArgs& call, PyInt* rightID, PyLong* price, std::optional<PyInt*> accessMask);
     PyResult DeleteKillRight(PyCallArgs& call, PyInt* rightID);
+    PyResult GetKillRightInfo(PyCallArgs& call, PyInt* rightID);
 };
 
 #endif

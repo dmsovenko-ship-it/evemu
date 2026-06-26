@@ -54,6 +54,7 @@ Standing::Standing() :
     this->Add("ActivateKillRight", &Standing::ActivateKillRight);
     this->Add("UpdateKillRight", &Standing::UpdateKillRight);
     this->Add("DeleteKillRight", &Standing::DeleteKillRight);
+    this->Add("GetKillRightInfo", &Standing::GetKillRightInfo);
     this->Add("GetStandingTransactions", &Standing::GetStandingTransactions);
     this->Add("GetStandingCompositions", &Standing::GetStandingCompositions);
 }
@@ -112,8 +113,18 @@ PyResult Standing::ActivateKillRight(PyCallArgs &call, PyInt* rightID) {
         return new PyBool(false);
     }
 
-    // pay the owner (buyer has already paid per EVE mechanic)
+    // pay the owner
     if (price > 0) {
+        DBQueryResult balRes;
+        sDatabase.RunQuery(balRes, "SELECT balance FROM chrCharacters WHERE characterID = %u", call.client->GetCharacterID());
+        DBResultRow balRow;
+        if (!balRes.GetRow(balRow) || balRow.GetDouble(0) < static_cast<double>(price)) {
+            call.client->SendErrorMsg("Insufficient ISK to activate this Kill Right.");
+            // revert activation
+            DBerror err;
+            sDatabase.RunQuery(err, "UPDATE chrKillRights SET used = 0, activatedBy = 0 WHERE rightID = %u", rightID->value());
+            return new PyBool(false);
+        }
         DBerror err;
         sDatabase.RunQuery(err,
             " UPDATE chrCharacters SET balance = balance - %" PRIi64 " WHERE characterID = %u",
@@ -147,6 +158,29 @@ PyResult Standing::DeleteKillRight(PyCallArgs &call, PyInt* rightID) {
         return new PyBool(true);
     }
     return new PyBool(false);
+}
+
+PyResult Standing::GetKillRightInfo(PyCallArgs &call, PyInt* rightID) {
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        " SELECT rightID, ownerID, targetID, price, accessMask, created, expiryDate, used, activatedBy"
+        " FROM chrKillRights WHERE rightID = %u", rightID->value());
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return nullptr;
+
+    PyDict* info = new PyDict();
+    info->SetItemString("rightID", new PyInt(row.GetInt(0)));
+    info->SetItemString("ownerID", new PyInt(row.GetInt(1)));
+    info->SetItemString("targetID", new PyInt(row.GetInt(2)));
+    info->SetItemString("price", new PyInt(static_cast<int32>(row.GetInt64(3))));
+    info->SetItemString("accessMask", new PyInt(row.GetInt(4)));
+    info->SetItemString("created", new PyLong(row.GetInt64(5)));
+    info->SetItemString("expiryDate", new PyLong(row.GetInt64(6)));
+    info->SetItemString("used", new PyBool(row.GetInt(7) ? true : false));
+    info->SetItemString("activatedBy", new PyInt(row.GetInt(8)));
+    info->SetItemString("standing", new PyFloat(10.0));
+    return new PyObject("util.KeyVal", info);
 }
 
 PyResult Standing::GetStandingTransactions(PyCallArgs &call, PyInt* fromID, PyInt* toID, PyInt* direction, std::optional<PyInt*> eventID, std::optional<PyInt*> eventType, std::optional<PyLong*> eventDateTime) {
