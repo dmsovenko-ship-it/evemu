@@ -312,11 +312,15 @@ void SentryAI::AttackTarget(SystemEntity* pTarget) {
     // some npcs use missiles.....write code for using missiles   -- entityMissileTypeID
     std::string guid = "effects.Laser";
     // sentry does NOT have a destiny manager...use target's destiny manager for sending fx
-    pTarget->DestinyMgr()->SendSpecialEffect(m_npc->GetSelf()->itemID(),
-                                             m_npc->GetSelf()->itemID(),
-                                             m_npc->GetSelf()->typeID(), //m_npc->GetSelf()->GetAttribute(AttrGfxTurretID).get_int(),
-                                             pTarget->GetID(),
-                                             0,guid,1,1,1,m_attackSpeed,0);
+    uint32 gfxID = 0;
+    if (m_npc->GetSelf()->HasAttribute(AttrGfxTurretID))
+        gfxID = m_npc->GetSelf()->GetAttribute(AttrGfxTurretID).get_uint32();
+    if (gfxID > 0)
+        pTarget->DestinyMgr()->SendSpecialEffect(m_npc->GetSelf()->itemID(),
+                                                 m_npc->GetSelf()->itemID(),
+                                                 m_npc->GetSelf()->typeID(),
+                                                 pTarget->GetID(),
+                                                 0,guid,1,1,1,m_attackSpeed,0,gfxID);
 
     Damage d(m_npc,
              m_npc->GetSelf(),
