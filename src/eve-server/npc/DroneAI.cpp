@@ -16,6 +16,7 @@
 #include "npc/Drone.h"
 #include "npc/DroneAI.h"
 #include "system/Damage.h"
+#include "system/BubbleManager.h"
 #include "system/SystemBubble.h"
 
 DroneAIMgr::DroneAIMgr(DroneSE* who)
@@ -185,11 +186,8 @@ void DroneAIMgr::SetEngaged(SystemEntity* pTarget) {
         return;
     _log(DRONE__AI_TRACE, "Drone %s(%u): SetEngaged: %s(%u) begin engaging.",
          m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
-    // actively fighting
-    //   not sure of the actual orbit speed of npc's, but their 'cruise speed' seems a bit slow.
-    //   this sets orbit speed between cruise speed and quarter of max speed (whether mwb or ab)
-    //   this will also enable this npc to have a variable speed, instead of fixed upon creation.
-    m_pDrone->DestinyMgr()->SetMaxVelocity(MakeRandomFloat(m_cruiseSpeed, (m_chaseSpeed /4)));
+    // actively fighting - keep max velocity to maintain pursuit of moving targets
+    m_pDrone->DestinyMgr()->SetMaxVelocity(m_chaseSpeed);
     m_pDrone->DestinyMgr()->Orbit(pTarget, m_entityOrbitRange);  //try to get inside orbit range
     m_state = DroneAI::State::Engaged;
 }
@@ -208,12 +206,17 @@ void DroneAIMgr::SetApproaching(SystemEntity* pSE)
 void DroneAIMgr::CheckDistance(SystemEntity* pSE)
 {
     double dist = m_pDrone->GetPosition().distance(pSE->GetPosition());
+
+    // If we're approaching and still far away, keep chasing
+    if ((m_state == DroneAI::State::Approaching) && (dist > m_entityFlyRange)) {
+        // keep approaching — flyRange only limits attack, not pursuit
+        return;
+    }
+
     if (dist > m_entityFlyRange) {
         _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: %s(%u) is too far away (%.0f).  Return to Idle.",
              m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID(), dist);
-        if (m_state != DroneAI::State::Idle) {
-            ClearTarget(pSE);
-        }
+        ClearTarget(pSE);
         return;
     }
     if (dist > m_entityAttackRange) {
@@ -245,11 +248,15 @@ void DroneAIMgr::ClearAllTargets() {
 void DroneAIMgr::Target(SystemEntity* pTarget) {
     bool chase = false;
     if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(), (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(), m_entityFlyRange, chase)) {
-        _log(DRONE__AI_TRACE, "Drone %s(%u): Targeting of %s(%u) failed (chase=%d).  Return to Idle.",
+        _log(DRONE__AI_TRACE, "Drone %s(%u): Targeting of %s(%u) failed (chase=%d).  Will approach first.",
              m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), chase);
+        // if chase=true (target too far), make a lock attempt without range check to add target to list
         if (chase) {
-            // target is within lock range but beyond attack range — approach first
-            CheckDistance(pTarget);
+            bool dummyChase = false;
+            m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(),
+                (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(),
+                BUBBLE_RADIUS_METERS, dummyChase);
+            SetApproaching(pTarget);
         } else {
             SetIdle();
         }
