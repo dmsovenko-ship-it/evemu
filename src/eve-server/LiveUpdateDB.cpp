@@ -26,6 +26,7 @@
 #include "eve-server.h"
 
 #include "LiveUpdateDB.h"
+#include <fstream>
 
 PyList* LiveUpdateDB::GenerateUpdates()
 {
@@ -61,8 +62,9 @@ PyList* LiveUpdateDB::GenerateUpdates()
     header->AddColumn("buildNumberMax", DBTYPE_I4);
     header->AddColumn("code", DBTYPE_STR);
 
-    // we need to manually create PyPackedRows since we don't want everything from the query in them
-    PyList* list = new PyList(res.GetRowCount());
+    // count rows + 1 for news ticker patch
+    uint32 rowCount = res.GetRowCount();
+    PyList* list = new PyList(rowCount + 1);
     int listIndex = 0;
     DBResultRow row;
     while (res.GetRow(row))
@@ -81,6 +83,81 @@ PyList* LiveUpdateDB::GenerateUpdates()
 
         list->SetItem(listIndex++, packedRow);
     }
+
+    // add news ticker live update with latest commit title
+    {
+        // read latest commit message
+        std::string commitMsg = "Welcome to EVEmu Crucible";
+        std::ifstream gitHead("/src/.git/HEAD");
+        if (gitHead.is_open()) {
+            std::string ref;
+            std::getline(gitHead, ref);
+            gitHead.close();
+            if (ref.compare(0, 5, "ref: ") == 0) {
+                std::string refPath = "/src/.git/" + ref.substr(5);
+                std::ifstream gitRef(refPath.c_str());
+                if (gitRef.is_open()) {
+                    std::string sha;
+                    std::getline(gitRef, sha);
+                    gitRef.close();
+                    std::string logCmd = "git log -1 --format=\"%s\" " + sha + " 2>/dev/null";
+                    FILE* fp = popen(logCmd.c_str(), "r");
+                    if (fp) {
+                        char buf[256];
+                        if (fgets(buf, sizeof(buf), fp))
+                            commitMsg = std::string(buf);
+                        while (commitMsg.size() > 0 && (commitMsg.back() == '\n' || commitMsg.back() == '\r'))
+                            commitMsg.pop_back();
+                        pclose(fp);
+                    }
+                }
+            }
+        }
+
+        // escape for Python string
+        std::string safeMsg;
+        for (char c : commitMsg) {
+            if (c == '\'') safeMsg += "\\'";
+            else if (c == '\\') safeMsg += "\\\\";
+            else if (c == '\n') safeMsg += "\\n";
+            else safeMsg += c;
+        }
+
+        std::string pyCode =
+            "def GetNewsTickerData(self):\n"
+            "    import blue\n"
+            "    from xml.dom.minidom import parseString\n"
+            "    msg = '" + safeMsg + "'\n"
+            "    now = blue.os.GetWallclockTime()\n"
+            "    xml = '<?xml version=\"1.0\"?>'\n"
+            "    xml += '<news><item>'\n"
+            "    xml += '<title>EVEmu Crucible</title>'\n"
+            "    xml += '<text>' + msg + '</text>'\n"
+            "    xml += '<date>' + str(blue.os.GetTimeParts(now)[:3]) + '</date>'\n"
+            "    xml += '</item></news>'\n"
+            "    return parseString(xml)\n";
+
+        uint32 now = static_cast<uint32>(GetFileTimeNow() / 10000000LL - 11644473600LL);
+
+        PyPackedRow* packedRow = new PyPackedRow(header);
+        packedRow->SetField(0, new PyInt(999));
+        packedRow->SetField(1, new PyWString("NewsTicker"));
+        packedRow->SetField(2, new PyWString("Suppresses SSL error, shows latest commit"));
+        packedRow->SetField(3, new PyInt(0));
+        packedRow->SetField(4, new PyInt(999999));
+        packedRow->SetField(5, new PyInt(0));
+        packedRow->SetField(6, new PyInt(999999));
+
+        LiveUpdateInner inner;
+        inner.code = pyCode;
+        inner.codeType = "method";
+        inner.objectID = "holoscreenMgr";
+        inner.methodName = "GetNewsTickerData";
+        packedRow->SetField(static_cast<uint32>(7), inner.Encode());
+
+        list->SetItem(listIndex++, packedRow);
+    }
+
     list->Dump(NET__PRES_DEBUG, "    ");
 
     return list;
