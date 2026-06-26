@@ -203,33 +203,16 @@ void DroneSE::Abandon() {
 
 void DroneSE::StateChange() {
     //OnDroneStateChange(droneID, ownerID, controllerID, activityState, droneTypeID, controllerOwnerID, targetID)
-    if (m_online) {
-        OnDroneStateChange du;
-            du.droneID = m_self->itemID();
-            du.ownerID = m_ownerID;
-            du.droneTypeID = m_self->typeID();
-            du.controllerID = m_controllerID;
-            du.controllerOwnerID = m_controllerOwnerID;
-            du.activityState = m_AI->GetState();
-            du.targetID = m_targetID;
-        PyTuple* up = du.Encode();
-        // bubblecast is faster than destiny::update
-        m_bubble->BubblecastDestinyUpdate(&up, "destiny");
-        //pShipSE->DestinyMgr()->SendSingleDestinyUpdate(&up);
-    } else {
-        PyList* list = new PyList();
-            list->AddItemInt(m_self->itemID());
-            list->AddItem(PyStatic.NewNone());
-            list->AddItem(PyStatic.NewNone());
-            list->AddItem(PyStatic.NewNone());
-            list->AddItem(PyStatic.NewNone());
-            list->AddItem(PyStatic.NewNone());
-            list->AddItem(PyStatic.NewNone());
-        PyTuple* tuple = new PyTuple(2);
-            tuple->SetItem(0, new PyString("OnDroneStateChange"));
-            tuple->SetItem(1, list);
-        m_bubble->BubblecastDestinyUpdate(&tuple, "destiny");
-    }
+    OnDroneStateChange du;
+        du.droneID = m_self->itemID();
+        du.ownerID = m_ownerID;
+        du.droneTypeID = m_self->typeID();
+        du.controllerID = m_controllerID;
+        du.controllerOwnerID = m_controllerOwnerID;
+        du.activityState = m_AI->GetState();
+        du.targetID = m_targetID;
+    PyTuple* up = du.Encode();
+    m_bubble->BubblecastDestinyUpdate(&up, "destiny");
 }
 
 void DroneSE::TargetAdded(SystemEntity* who) {
@@ -346,11 +329,14 @@ void DroneSE::EncodeDestiny( Buffer& into )
 
 void DroneSE::MakeDamageState(DoDestinyDamageState &into)
 {
-    into.shield = (m_self->GetAttribute(AttrShieldCharge).get_float() / m_self->GetAttribute(AttrShieldCapacity).get_float());
+    double shieldCap = m_self->GetAttribute(AttrShieldCapacity).get_float();
+    into.shield = (shieldCap > 0.0 ? m_self->GetAttribute(AttrShieldCharge).get_float() / shieldCap : 0.0);
     into.recharge = m_self->GetAttribute(AttrShieldRechargeRate).get_float() + 5;
     into.timestamp = GetFileTimeNow();
-    into.armor = 1.0 - (m_self->GetAttribute(AttrArmorDamage).get_float() / m_self->GetAttribute(AttrArmorHP).get_float());
-    into.structure = 1.0 - (m_self->GetAttribute(AttrDamage).get_float() / m_self->GetAttribute(AttrHP).get_float());
+    double armorHP = m_self->GetAttribute(AttrArmorHP).get_float();
+    into.armor = (armorHP > 0.0 ? 1.0 - (m_self->GetAttribute(AttrArmorDamage).get_float() / armorHP) : 0.0);
+    double hp = m_self->GetAttribute(AttrHP).get_float();
+    into.structure = (hp > 0.0 ? 1.0 - (m_self->GetAttribute(AttrDamage).get_float() / hp) : 0.0);
 }
 
 void DroneSE::SetResists() {
