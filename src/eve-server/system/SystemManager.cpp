@@ -1819,14 +1819,16 @@ void SystemManager::SpawnSentryGuns()
         stationDist = 22000; stationDistVar = 5000;   // 20-25km
     }
 
-    FactionData faction;
-    faction.allianceID = 0; faction.factionID = 500021;
-    faction.ownerID = 1000125; faction.corporationID = 1000125;
-
     for (auto& [id, pSE] : m_staticEntities) {
         if (pSE == nullptr) continue;
         uint32 group = pSE->GetSelf()->groupID();
         GPoint center = pSE->GetPosition();
+
+        FactionData faction;
+        faction.allianceID = 0;
+        faction.factionID = 500021;
+        faction.ownerID = pSE->GetCorporationID();
+        faction.corporationID = pSE->GetCorporationID();
 
         if (group == EVEDB::invGroups::Stargate && gateCount > 0) {
             float angleStep = 6.283185f / gateCount;

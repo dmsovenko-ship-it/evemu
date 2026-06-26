@@ -13,9 +13,9 @@
 #include "inventory/AttributeEnum.h"
 #include "npc/Sentry.h"
 #include "npc/SentryAI.h"
+#include "standing/StandingDB.h"
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
-#include "system/CrimeWatch.h"
 #include "system/SystemBubble.h"
 
 SentryAI::SentryAI(Sentry* who)
@@ -92,7 +92,6 @@ void SentryAI::Process() {
     */
     switch(m_state) {
         case State::Idle: {
-            // The parameter proximityRange (154) tells us how far we "see" (npc's dont have this, but drones do)
             if (m_beginFindTarget.Check()) {
                 std::vector<Client*> clientVec;
                 clientVec.clear();
@@ -107,15 +106,15 @@ void SentryAI::Process() {
                         continue;
                     if (m_npc->GetPosition().distance(targetSE->GetPosition()) > m_sightRange)
                         continue;
-                    // Check for criminal/aggression flags or outlaw status
-                    CrimeWatch* cw = cur->GetCrimeWatch();
-                    if (cw != nullptr and (cw->IsCriminal() or cw->IsAggressed() or cw->IsOutlaw())) {
+                    // sentry checks standing with owner corp only
+                    float standing = StandingDB::GetStanding(m_npc->GetCorporationID(), cur->GetCharacterID());
+                    if (standing < -2.0f) {
                         Target(targetSE);
                     }
                 }
             } else {
                 if (!m_beginFindTarget.Enabled())
-                    m_beginFindTarget.Start(m_attackSpeed);  //find target is based on npc attack speed.
+                    m_beginFindTarget.Start(m_attackSpeed);
             }
         } break;
         case State::Engaged: {
