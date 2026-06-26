@@ -2562,8 +2562,16 @@ void ShipSE::Dock() {
     if (m_targMgr != nullptr) {
         m_targMgr->ClearModules();
         m_targMgr->ClearAllTargets(false);
-        //m_targMgr->OnTarget(nullptr, TargMgr::Mode::Clear, TargMgr::Msg::Docking);
     }
+
+    // offline all drones in flight so they don't hold dangling ship pointer
+    for (auto cur : m_drones) {
+        SystemEntity* pSE = m_system->GetSE(cur.first);
+        if (pSE != nullptr && pSE->IsDroneSE())
+            pSE->GetDroneSE()->Offline();
+    }
+    m_drones.clear();
+    m_shipRef->SetAttribute(AttrDroneBandwidthLoad, EvilZero, false);
 
     m_shipRef->Dock();
 }

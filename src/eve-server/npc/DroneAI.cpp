@@ -69,7 +69,7 @@ void DroneAIMgr::Process() {
      */
 
     // test for control distance - offline drones outside AttrDroneControlDistance
-    if (m_assignedShip != nullptr) {
+    if (m_assignedShip != nullptr && m_assignedShip->DestinyMgr() != nullptr) {
         double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
         double controlRange = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
         if (controlRange < 1.0)
