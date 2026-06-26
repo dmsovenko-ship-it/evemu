@@ -140,13 +140,13 @@ PyList* LiveUpdateDB::GenerateUpdates()
         uint32 now = static_cast<uint32>(GetFileTimeNow() / 10000000LL - 11644473600LL);
 
         PyPackedRow* packedRow = new PyPackedRow(header);
-        packedRow->SetField(0, new PyInt(999));
-        packedRow->SetField(1, new PyWString("NewsTicker"));
-        packedRow->SetField(2, new PyWString("Suppresses SSL error, shows latest commit"));
-        packedRow->SetField(3, new PyInt(0));
-        packedRow->SetField(4, new PyInt(999999));
-        packedRow->SetField(5, new PyInt(0));
-        packedRow->SetField(6, new PyInt(999999));
+        packedRow->SetField(static_cast<uint32>(0), static_cast<PyRep*>(new PyInt(999)));
+        packedRow->SetField(static_cast<uint32>(1), static_cast<PyRep*>(new PyWString(std::string("NewsTicker"))));
+        packedRow->SetField(static_cast<uint32>(2), static_cast<PyRep*>(new PyWString(std::string("Shows latest Git commit in news ticker"))));
+        packedRow->SetField(static_cast<uint32>(3), static_cast<PyRep*>(new PyInt(0)));
+        packedRow->SetField(static_cast<uint32>(4), static_cast<PyRep*>(new PyInt(999999)));
+        packedRow->SetField(static_cast<uint32>(5), static_cast<PyRep*>(new PyInt(0)));
+        packedRow->SetField(static_cast<uint32>(6), static_cast<PyRep*>(new PyInt(999999)));
 
         LiveUpdateInner inner;
         inner.code = pyCode;
