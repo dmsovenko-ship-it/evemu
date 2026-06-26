@@ -55,6 +55,7 @@ Standing::Standing() :
     this->Add("UpdateKillRight", &Standing::UpdateKillRight);
     this->Add("DeleteKillRight", &Standing::DeleteKillRight);
     this->Add("GetKillRightInfo", &Standing::GetKillRightInfo);
+    this->Add("GetKillRightsList", &Standing::GetKillRightsList);
     this->Add("GetStandingTransactions", &Standing::GetStandingTransactions);
     this->Add("GetStandingCompositions", &Standing::GetStandingCompositions);
 }
@@ -181,6 +182,34 @@ PyResult Standing::GetKillRightInfo(PyCallArgs &call, PyInt* rightID) {
     info->SetItemString("activatedBy", new PyInt(row.GetInt(8)));
     info->SetItemString("standing", new PyFloat(10.0));
     return new PyObject("util.KeyVal", info);
+}
+
+PyResult Standing::GetKillRightsList(PyCallArgs &call) {
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        " SELECT rightID, ownerID, targetID, price, accessMask, created, expiryDate, used"
+        " FROM chrKillRights"
+        " WHERE (ownerID = %u OR targetID = %u) AND expiryDate > %lli"
+        " ORDER BY created DESC",
+        call.client->GetCharacterID(), call.client->GetCharacterID(),
+        static_cast<int64>(GetFileTimeNow()));
+
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* kr = new PyDict();
+        kr->SetItemString("rightID", new PyInt(row.GetInt(0)));
+        kr->SetItemString("ownerID", new PyInt(row.GetInt(1)));
+        kr->SetItemString("targetID", new PyInt(row.GetInt(2)));
+        kr->SetItemString("price", new PyInt(static_cast<int32>(row.GetInt64(3))));
+        kr->SetItemString("accessMask", new PyInt(row.GetInt(4)));
+        kr->SetItemString("created", new PyLong(row.GetInt64(5)));
+        kr->SetItemString("expiryDate", new PyLong(row.GetInt64(6)));
+        kr->SetItemString("used", new PyBool(row.GetInt(7) ? true : false));
+        kr->SetItemString("standing", new PyFloat(10.0));
+        list->AddItem(new PyObject("util.KeyVal", kr));
+    }
+    return list;
 }
 
 PyResult Standing::GetStandingTransactions(PyCallArgs &call, PyInt* fromID, PyInt* toID, PyInt* direction, std::optional<PyInt*> eventID, std::optional<PyInt*> eventType, std::optional<PyLong*> eventDateTime) {
