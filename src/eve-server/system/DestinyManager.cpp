@@ -1825,7 +1825,13 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         _log(AUTOPILOT__MESSAGE, "Destiny::WarpStop(): %s(%u) - Warp complete.", mySE->GetName(), mySE->GetID());
         mySE->GetPilot()->SetLoginWarpComplete();
     }
-    // SetSpeedFraction() checks for m_state = Warp and warpstate != null to set decel variables correctly with warp decel.
+
+    // snap position to target point exactly (prevent client desync)
+    m_position = m_targetPoint;
+    mySE->SetPosition(m_position);
+
+    // SetSpeedFraction() checks for m_state = Warp and warpstate != null
+    //   to set decel variables correctly with warp decel.
     //   have to call this BEFORE deleting or reseting m_state or WarpState.
     SetSpeedFraction(0.0f);
     m_stop = true;
@@ -1834,10 +1840,6 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
     }
-
-    // Force final position to client to prevent desync
-    // (ship appears at wrong location until manual update)
-    SetPosition(m_position, true);
 
     // Post-warp deceleration is handled by SetSpeedFraction(0.0f) above,
     // which set m_ballMode=GOTO and configured decel variables to match the
