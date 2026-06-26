@@ -43,6 +43,7 @@
 #include "system/SystemBubble.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "standing/StandingMgr.h"
+#include "StaticDataMgr.h"
 
 /*
 DAMAGE
@@ -578,9 +579,40 @@ void ShipSE::Killed(Damage &fatal_blow) {
 
     data.killBlob = blob.str().c_str();
     data.killTime = GetFileTimeNow();
-    data.moonID = 0;
+    data.moonID = m_system->GetID();
 
     pPilot->GetChar()->LogKill(data);
+
+    // send killmail notification
+    {
+        const char* victimName = pPilot->GetName();
+        const char* victimShip = sDataMgr.GetTypeName(m_self->typeID());
+        const char* killerShip = sDataMgr.GetTypeName(killer->GetTypeID());
+        const char* weaponName = sDataMgr.GetTypeName(data.finalWeaponTypeID);
+        std::string victimCorp = sDataMgr.GetOwnerName(m_corpID);
+        std::string victimAlly = m_allyID ? sDataMgr.GetOwnerName(m_allyID) : "None";
+        std::string killerName = (pClient != nullptr) ? pClient->GetName() : sDataMgr.GetOwnerName(killerID);
+
+        // notify killer
+        if (pClient != nullptr) {
+            pClient->SendNotifyMsg("Kill: %s (%s) - %s (%s) - %u damage",
+                victimName, victimShip, pClient->GetName(), killerShip, data.victimDamageTaken);
+            pClient->SelfEveMail("Kill Report",
+                "Victim: %s\nCorporation: %s\nAlliance: %s\nShip: %s\nSystem: %s\nDamage Taken: %u\n\nFinal Blow: %s\nShip: %s\nWeapon: %s",
+                victimName, victimCorp.c_str(), victimAlly.c_str(), victimShip,
+                m_system->GetName(), data.victimDamageTaken,
+                killerName.c_str(), killerShip, weaponName);
+        }
+
+        // notify victim
+        pPilot->SendNotifyMsg("You were destroyed by %s (%s) with %s - %u damage",
+            killerName.c_str(), killerShip, weaponName, data.victimDamageTaken);
+        pPilot->SelfEveMail("Loss Report",
+            "Victim: %s\nCorporation: %s\nShip: %s\nSystem: %s\nDamage Taken: %u\n\nFinal Blow: %s\nShip: %s\nWeapon: %s",
+            victimName, victimCorp.c_str(), victimShip,
+            m_system->GetName(), data.victimDamageTaken,
+            killerName.c_str(), killerShip, weaponName);
+    }
 
     if (pPilot->InPod()) {
         // log podKill

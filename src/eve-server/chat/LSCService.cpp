@@ -34,6 +34,9 @@
 #include "fleet/FleetService.h"
 #include "services/ServiceManager.h"
 
+#include "EVE_Mail.h"
+#include "utils/Deflate.h"
+
 
 /** @todo
  * LSC system todo list...
@@ -1190,6 +1193,29 @@ void Client::SelfEveMail(const char* subject, const char* fmt, ...)
     va_end(args);
 
     this->m_lsc->SendMail(GetCharacterID(), GetCharacterID(), subject, str);
+
+    // also store in mailMessage/mailStatus tables for client SyncMail to find
+    Buffer bodyCompressed;
+    Buffer bodyInput(str, str + strlen(str));
+    if (DeflateData(bodyInput, bodyCompressed)) {
+        std::string bodyEscaped;
+        sDatabase.DoEscapeString(bodyEscaped,
+            std::string(bodyCompressed.begin<char>(), bodyCompressed.end<char>()));
+        std::string subjectEscaped;
+        sDatabase.DoEscapeString(subjectEscaped, subject);
+        DBerror err;
+        uint32 messageID;
+        if (sDatabase.RunQueryLID(err, messageID,
+            " INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID, title, body, sentDate)"
+            " VALUES (%u, '%u', 0, 0, '%s', '%s', %" PRIu64 ")",
+            GetCharacterID(), GetCharacterID(), subjectEscaped.c_str(), bodyEscaped.c_str(), Win32TimeNow()))
+        {
+            sDatabase.RunQuery(err,
+                " INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask)"
+                " VALUES (%u, %u, 0, %u)", messageID, GetCharacterID(), mailLabelInbox);
+        }
+    }
+
     SafeFree(str);
 }
 
