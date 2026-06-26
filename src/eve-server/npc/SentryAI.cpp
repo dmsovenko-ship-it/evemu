@@ -107,14 +107,14 @@ void SentryAI::Process() {
                         continue;
                     if (m_npc->GetPosition().distance(targetSE->GetPosition()) > m_sightRange)
                         continue;
-                    // highsec: sentries enforce empire law (crime watch)
-                    if (m_npc->SystemMgr()->GetSystemSecurityRating() >= 0.5f) {
+                    // highsec + lowsec: sentries enforce empire law (crime watch)
+                    if (m_npc->SystemMgr()->GetSystemSecurityRating() > 0.0f) {
                         CrimeWatch* cw = cur->GetCrimeWatch();
                         if (cw != nullptr and (cw->IsCriminal() or cw->IsAggressed() or cw->IsOutlaw())) {
                             Target(targetSE);
                         }
                     } else {
-                        // lowsec/nullsec: sentries check standing with owner corp only
+                        // nullsec: sentries check standing with owner corp only
                         float standing = StandingDB::GetStanding(m_npc->GetCorporationID(), cur->GetCharacterID());
                         if (standing < -2.0f) {
                             Target(targetSE);
