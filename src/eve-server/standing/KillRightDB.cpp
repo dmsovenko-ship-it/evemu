@@ -26,7 +26,7 @@ PyRep* KillRightDB::GetKillRights(uint32 ownerID, uint32 targetID)
         entry->SetItemString("targetID", new PyInt(row.GetInt(2)));
         entry->SetItemString("price", new PyLong(row.GetInt64(3)));
         entry->SetItemString("accessMask", new PyInt(row.GetInt(4)));
-        entry->SetItemString("created", new PyLong(row.GetUInt64(5)));
+        entry->SetItemString("created", new PyLong(row.GetInt64(5)));
         entry->SetItemString("used", new PyBool(row.GetInt(6) ? true : false));
         PyObject* obj = new PyObject("util.KeyVal", entry);
 
