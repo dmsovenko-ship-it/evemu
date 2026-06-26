@@ -32,7 +32,7 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
   m_attackSpeed(std::max(who->GetSelf()->GetAttribute(AttrSpeed).get_float(), 4000.0)),
   m_cruiseSpeed(static_cast<uint32>(std::max(who->GetSelf()->GetAttribute(AttrEntityCruiseSpeed).get_int(), 500))),
   m_chaseSpeed(static_cast<uint32>(std::max(who->GetSelf()->GetAttribute(AttrMaxVelocity).get_int(), 2000))),
-  m_entityFlyRange(std::max(who->GetSelf()->GetAttribute(AttrEntityFlyRange).get_float() + who->GetSelf()->GetAttribute(AttrMaxRange).get_float(), 2000.0)),
+  m_entityFlyRange(std::max(who->GetSelf()->GetAttribute(AttrEntityFlyRange).get_float() + who->GetSelf()->GetAttribute(AttrMaxRange).get_float(), 25000.0)),
   m_entityChaseRange(std::max(who->GetSelf()->GetAttribute(AttrEntityChaseMaxDistance).get_float() * 2, 5000.0)),
   m_entityOrbitRange(std::max(who->GetSelf()->GetAttribute(AttrMaxRange).get_float(), 1000.0)),
   m_entityAttackRange(std::max(who->GetSelf()->GetAttribute(AttrEntityAttackRange).get_float() * 2, 10000.0)),
@@ -89,18 +89,17 @@ void DroneAIMgr::Process() {
         case DroneAI::State::Idle: {
             // orbiting controlling ship
         } break;
-        case DroneAI::State::Engaged: {
-            //NOTE: getting our pTarget like this is pretty weak...
-            SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(true);
+        case DroneAI::State::Engaged:
+        case DroneAI::State::Approaching: {
+            SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(m_state == DroneAI::State::Engaged);
             if (pTarget == nullptr) {
                 if (m_pDrone->TargetMgr()->HasNoTargets()) {
-                    _log(DRONE__AI_TRACE, "Drone %s(%u): Stopped engagement, GetFirstTarget() returned NULL.", m_pDrone->GetName(), m_pDrone->GetID());
+                    _log(DRONE__AI_TRACE, "Drone %s(%u): Stopped %s, GetFirstTarget() returned NULL.", m_pDrone->GetName(), m_pDrone->GetID(), GetStateName(m_state).c_str());
                     SetIdle();
                 }
                 return;
             } else if (pTarget->SysBubble() == nullptr) {
                 m_pDrone->TargetMgr()->ClearTarget(pTarget);
-                //m_pDrone->TargetMgr()->OnTarget(pTarget, TargMgr::Mode::Lost);
                 return;
             }
             CheckDistance(pTarget);
@@ -126,7 +125,6 @@ void DroneAIMgr::Process() {
         case DroneAI::State::Assisting:
         case DroneAI::State::Combat:
         case DroneAI::State::Mining:
-        case DroneAI::State::Approaching:
         case DroneAI::State::Departing2:
         case DroneAI::State::Pursuit: {
            // do nothing here yet
@@ -196,16 +194,31 @@ void DroneAIMgr::SetEngaged(SystemEntity* pTarget) {
     m_state = DroneAI::State::Engaged;
 }
 
+void DroneAIMgr::SetApproaching(SystemEntity* pSE)
+{
+    if (m_state == DroneAI::State::Approaching)
+        return;
+    _log(DRONE__AI_TRACE, "Drone %s(%u): SetApproaching: %s(%u) begin pursuit.",
+         m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID());
+    m_pDrone->DestinyMgr()->SetMaxVelocity(m_chaseSpeed);
+    m_pDrone->DestinyMgr()->Follow(pSE, m_entityOrbitRange);
+    m_state = DroneAI::State::Approaching;
+}
+
 void DroneAIMgr::CheckDistance(SystemEntity* pSE)
 {
-    //rewrote distance checks for correct logic this time
     double dist = m_pDrone->GetPosition().distance(pSE->GetPosition());
-    if (dist > m_entityAttackRange) {
+    if (dist > m_entityFlyRange) {
         _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: %s(%u) is too far away (%.0f).  Return to Idle.",
              m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID(), dist);
         if (m_state != DroneAI::State::Idle) {
             ClearTarget(pSE);
         }
+        return;
+    }
+    if (dist > m_entityAttackRange) {
+        // within fly range but outside attack range — approach
+        SetApproaching(pSE);
         return;
     }
     // within attack range — engage and orbit at weapon range
@@ -231,11 +244,15 @@ void DroneAIMgr::ClearAllTargets() {
 
 void DroneAIMgr::Target(SystemEntity* pTarget) {
     bool chase = false;
-    if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(), (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(), m_entityAttackRange, chase)) {
-        _log(DRONE__AI_TRACE, "Drone %s(%u): Targeting of %s(%u) failed.  Clear Target and Return to Idle.",
-             m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
-        //ClearAllTargets();
-        SetIdle();
+    if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(), (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(), m_entityFlyRange, chase)) {
+        _log(DRONE__AI_TRACE, "Drone %s(%u): Targeting of %s(%u) failed (chase=%d).  Return to Idle.",
+             m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), chase);
+        if (chase) {
+            // target is within lock range but beyond attack range — approach first
+            CheckDistance(pTarget);
+        } else {
+            SetIdle();
+        }
         return;
     }
     m_beginFindTarget.Disable();
