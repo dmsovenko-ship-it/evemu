@@ -20,23 +20,14 @@ PyRep* KillRightDB::GetKillRights(uint32 ownerID, uint32 targetID)
     PyDict* killedRights = new PyDict();
     DBResultRow row;
     while (res.GetRow(row)) {
-        PyDict* entry = new PyDict();
-        entry->SetItemString("rightID", new PyInt(row.GetInt(0)));
-        entry->SetItemString("ownerID", new PyInt(row.GetInt(1)));
-        entry->SetItemString("targetID", new PyInt(row.GetInt(2)));
-        entry->SetItemString("price", new PyInt(static_cast<int32>(row.GetInt64(3))));
-        entry->SetItemString("accessMask", new PyInt(row.GetInt(4)));
-        entry->SetItemString("created", new PyLong(row.GetInt64(5)));
-        entry->SetItemString("used", new PyBool(row.GetInt(6) ? true : false));
-        entry->SetItemString("standing", new PyFloat(10.0));
-        PyObject* obj = new PyObject("util.KeyVal", entry);
-
         uint32 rightOwner = row.GetInt(1);
         uint32 rightTarget = row.GetInt(2);
+        int64 timestamp = row.GetInt64(5);
+
         if (rightOwner == ownerID) {
-            killRights->SetItem(new PyInt(rightTarget), obj);
+            killRights->SetItem(new PyInt(rightTarget), new PyLong(timestamp));
         } else if (rightTarget == ownerID) {
-            killedRights->SetItem(new PyInt(rightOwner), obj);
+            killedRights->SetItem(new PyInt(rightOwner), new PyLong(timestamp));
         }
     }
 
