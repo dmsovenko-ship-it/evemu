@@ -511,11 +511,13 @@ SET( ship_modules_SOURCE
 SET( standing_INCLUDE
      "${TARGET_INCLUDE_DIR}/standing/Standing.h"
      "${TARGET_INCLUDE_DIR}/standing/StandingDB.h"
-     "${TARGET_INCLUDE_DIR}/standing/StandingMgr.h" )
+     "${TARGET_INCLUDE_DIR}/standing/StandingMgr.h"
+     "${TARGET_INCLUDE_DIR}/standing/KillRightDB.h" )
 SET( standing_SOURCE
      "${TARGET_SOURCE_DIR}/standing/Standing.cpp"
      "${TARGET_SOURCE_DIR}/standing/StandingDB.cpp"
-     "${TARGET_SOURCE_DIR}/standing/StandingMgr.cpp" )
+     "${TARGET_SOURCE_DIR}/standing/StandingMgr.cpp"
+     "${TARGET_SOURCE_DIR}/standing/KillRightDB.cpp" )
 
 SET( station_INCLUDE
      "${TARGET_INCLUDE_DIR}/station/HoloscreenMgrService.h"
