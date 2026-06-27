@@ -368,6 +368,7 @@ public:
     bool LaunchDrone(InventoryItemRef dRef);
     void ScoopDrone(SystemEntity* pSE);
     void AddDroneToFlight(DroneSE* pDrone); // register drone for reconnect
+    void RemoveDroneFromFlight(uint32 droneID);  // cleanup from map (safe if not found)
     // returns current count of drones in space for this ship
     uint8 DroneCount()                                  { return m_drones.size(); }
 

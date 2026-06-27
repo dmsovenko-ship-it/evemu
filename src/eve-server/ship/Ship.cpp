@@ -2911,4 +2911,10 @@ void ShipSE::AddDroneToFlight(DroneSE* pDrone) {
     load += pDrone->GetSelf()->GetAttribute(AttrDroneBandwidthUsed);
     m_shipRef->SetAttribute(AttrDroneBandwidthLoad, load, false);
 }
+
+void ShipSE::RemoveDroneFromFlight(uint32 droneID) {
+    auto it = m_drones.find(droneID);
+    if (it != m_drones.end())
+        m_drones.erase(it);
+}
 //AttrDroneControlDistance
