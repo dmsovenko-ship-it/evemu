@@ -35,6 +35,7 @@
 #include "system/DestinyManager.h"
 #include "system/SystemManager.h"
 #include "system/SystemBubble.h"
+#include "ship/Ship.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 
 DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemManager* pSystem, const FactionData& data)
@@ -99,6 +100,8 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
 }
 
 DroneSE::~DroneSE() {
+    if (m_pShipSE != nullptr)
+        m_pShipSE->RemoveDroneFromFlight(m_self->itemID());
     SafeDelete(m_AI);
 }
 

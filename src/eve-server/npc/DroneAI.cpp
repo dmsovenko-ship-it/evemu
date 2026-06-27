@@ -180,6 +180,14 @@ void DroneAIMgr::Process() {
             } else if (pTarget->SysBubble() == nullptr) {
                 m_pDrone->TargetMgr()->ClearTarget(pTarget);
                 return;
+            } else if (pTarget->DestinyMgr() != nullptr
+                   and pTarget->DestinyMgr()->GetState() == Ball::Mode::WARP) {
+                _log(DRONE__AI_TRACE, "Drone %s(%u): Target %s(%u) is warping.  Clearing target and returning to idle.",
+                     m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
+                m_pDrone->DestinyMgr()->Stop();
+                m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                SetIdle();
+                return;
             }
             CheckDistance(pTarget);
         } break;
@@ -283,6 +291,17 @@ void DroneAIMgr::SetApproaching(SystemEntity* pSE)
 
 void DroneAIMgr::CheckDistance(SystemEntity* pSE)
 {
+    // do not pursue a target that is warping — drone does NOT follow into warp
+    if (pSE->DestinyMgr() != nullptr
+    and pSE->DestinyMgr()->GetState() == Ball::Mode::WARP) {
+        _log(DRONE__AI_DEBUG, "Drone %s(%u): CheckDistance: target %s(%u) is warping.  Aborting pursuit.",
+             m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID());
+        m_pDrone->DestinyMgr()->Stop();
+        m_pDrone->TargetMgr()->ClearTarget(pSE);
+        SetIdle();
+        return;
+    }
+
     double dist = m_pDrone->GetPosition().distance(pSE->GetPosition());
 
     // If we're approaching and still far away, keep chasing
