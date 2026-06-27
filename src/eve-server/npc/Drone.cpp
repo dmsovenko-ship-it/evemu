@@ -138,8 +138,10 @@ void DroneSE::Process() {
     if (m_online)
         m_AI->Process();
 
-    // if AI just triggered a scoop, schedule entity removal for next tick
-    if (!m_online and !m_pendingRemoval)
+    // if AI just triggered a scoop (Departing → ScoopDrone → Offline),
+    // schedule entity removal for next tick.
+    // Do NOT remove if the drone was merely disabled for range (Incapacitated).
+    if (!m_online and !m_pendingRemoval and (m_AI->GetState() != DroneAI::State::Incapacitated))
         m_pendingRemoval = true;
 
     if (sConfig.debug.UseProfiling)
