@@ -890,13 +890,12 @@ SystemEntity* DynamicEntityFactory::BuildEntity(SystemManager& sysMgr, const DBS
             }
         } break;
         case EVEDB::invCategories::Drone: {             // Player Drones
-            InventoryItemRef drone = sItemFactory.GetItemRef( entity.itemID );
-            if (drone.get() == nullptr)
-                return nullptr;
-            /** @todo make error msg here */
-            DroneSE* dSE = new DroneSE(drone, sysMgr.GetServiceMgr(), &sysMgr, data);
-            _log(ITEM__TRACE, "DynamicEntityFactory::BuildEntity() making DroneSE for %s (%u)", entity.itemName.c_str(), entity.itemID);
-            return dSE;
+            // Drones are only created when launched by a ShipSE::LaunchDrone().
+            // Stale entries in the dynamic-entity table (from crashes or ghosts)
+            // must NOT be resurrected — they would produce orphan DroneSE objects
+            // that cause crashes on server start.
+            _log(ITEM__TRACE, "DynamicEntityFactory::BuildEntity() skipping stale DroneSE for %s (%u)", entity.itemName.c_str(), entity.itemID);
+            return nullptr;
         } break;
         case EVEDB::invCategories::Charge: {
             switch (entity.groupID) {
