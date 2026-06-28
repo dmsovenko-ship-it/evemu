@@ -68,6 +68,7 @@ public:
     void ClearAllTargets();
 
     int8 GetState();
+    int8 GetRawState() const                            { return m_state; }
     bool IsIncapacitated()                              { return m_state == DroneAI::State::Incapacitated; }
 
     void SetIdle();
@@ -93,9 +94,9 @@ protected:
 
     // helpers
     ShipSE* GetOwnerShip();
+    std::string GetStateName(int8 stateID);
 
     int8 m_state;
-    std::string GetStateName(int8 stateID);
 
 private:
     //cached to reduce access times. (faster but uses more memory)

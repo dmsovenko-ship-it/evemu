@@ -150,6 +150,8 @@ void DroneAIMgr::Process() {
             controlRange = 25000.0; // default 25km if not set
         if (dist > controlRange * 1.1) {
             if (m_state != DroneAI::State::Incapacitated) {
+                _log(DRONE__AI_TRACE, "Drone %s(%u): Out of control range (%.0fm > %.0fm).  Incapacitated.",
+                     m_pDrone->GetName(), m_pDrone->GetID(), dist, controlRange * 1.1);
                 m_pDrone->DestinyMgr()->Stop();
                 m_pDrone->Disable();
                 m_state = DroneAI::State::Incapacitated;
@@ -525,6 +527,12 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
         ? m_pDrone->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float() : 1.0f;
     d *= dmgMult;
     d *= sConfig.rates.damageRate;      /** @todo this should be a separate config value */
+    _log(DRONE__AI_TRACE, "Drone %s(%u): CombatAttack -> %s(%u) total=%.2f (K:%.1f T:%.1f EM:%.1f E:%.1f mult=%.2f hit=%.3f rate=%.3f)",
+         m_pDrone->GetName(), m_pDrone->GetID(),
+         pTarget->GetName(), pTarget->GetID(),
+         d.GetTotal(),
+         m_pDrone->GetKinetic(), m_pDrone->GetThermal(), m_pDrone->GetEM(), m_pDrone->GetExplosive(),
+         dmgMult, d.GetModifier(), sConfig.rates.damageRate);
     pTarget->ApplyDamage(d);
 }
 
