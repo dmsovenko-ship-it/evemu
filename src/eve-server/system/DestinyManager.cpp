@@ -281,7 +281,7 @@ void DestinyManager::SetSpeedFraction(float fraction/*1.0*/, bool startMovement/
     if (m_orbiting != 0)
         Orbit(m_targetEntity.second, m_targetDistance);
 
-    if ((fraction == m_userSpeedFraction) and (!startMovement)) {
+    if ((fraction == m_userSpeedFraction) and (!startMovement) and (m_ballMode != Destiny::Ball::Mode::WARP)) {
         // no change.
         return;
     }
@@ -422,8 +422,11 @@ void DestinyManager::UpdateVelocity(bool isMoving) {
         m_maxSpeed = m_speedToLeaveWarp;
         m_prevSpeed = m_speedToLeaveWarp;
         m_velocity = m_shipHeading * m_maxSpeed;
-        m_prevSpeedFraction = m_maxSpeed / m_maxShipSpeed;
-        m_shipAccelTime = m_shipAgility * -log(1-(m_prevSpeedFraction));
+        // Clamp to 1.0: warp exit speed can exceed maxShipSpeed, but
+        // 1 - psf must be positive for log(). NaN here breaks the entire
+        // GOTO decel and can eject the ship.
+        m_prevSpeedFraction = std::min(1.0f, m_maxSpeed / m_maxShipSpeed);
+        m_shipAccelTime = m_shipAgility * -log(1.0f - m_prevSpeedFraction + 0.0001f);
     } else if (m_userSpeedFraction) {
         // commanded speed fraction > 0 and ...
         float delta(1.0f);
