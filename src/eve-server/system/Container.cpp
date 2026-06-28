@@ -585,6 +585,14 @@ PyDict *WreckSE::MakeSlimItem() {
     return slim;
 }
 
+void WreckSE::MakeDamageState(DoDestinyDamageState &into) {
+    into.shield = 1.0;
+    into.recharge = 10000;
+    into.timestamp = GetFileTimeNow();
+    into.armor = 1.0;
+    into.structure = 1.0;
+}
+
 void WreckSE::SendDamageStateChanged() {  //working 24Apr15
     DoDestinyDamageState dmgState;
     MakeDamageState(dmgState);

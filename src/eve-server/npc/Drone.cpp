@@ -180,7 +180,7 @@ void DroneSE::Online(ShipSE* pShipSE/*nullptr*/) {
     // The item position was set in ShipSE::LaunchDrone() before construction.
     if (m_self->position().isZero() and (pShipSE != nullptr)) {
         GPoint pos(pShipSE->GetPosition());
-        pos.MakeRandomPointOnSphere(500.0);
+        pos.MakeRandomPointOnSphere(50.0);
         m_destiny->SetPosition(pos);
     } else if (!m_self->position().isZero()) {
         m_destiny->SetPosition(m_self->position());

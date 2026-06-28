@@ -2823,7 +2823,7 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     dRef->ChangeSingleton(true);
 
     GPoint position(GetPosition());
-    position.MakeRandomPointOnSphere(500.0);
+    position.MakeRandomPointOnSphere(50.0);
     dRef->SetPosition(position);
 
     //now we create an SE to represent it.
