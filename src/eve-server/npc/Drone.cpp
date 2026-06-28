@@ -135,14 +135,23 @@ void DroneSE::Process() {
 
     SystemEntity::Process();
 
+    _log(DRONE__AI_TRACE, "Drone %s(%u): pre-AI rawState=%s online=%d pendingRemoval=%d",
+         GetName(), GetID(), m_AI->GetStateName(m_AI->GetRawState()), m_online, m_pendingRemoval);
+
     if (m_online)
         m_AI->Process();
+
+    _log(DRONE__AI_TRACE, "Drone %s(%u): post-AI rawState=%s online=%d pendingRemoval=%d",
+         GetName(), GetID(), m_AI->GetStateName(m_AI->GetRawState()), m_online, m_pendingRemoval);
 
     // if AI just triggered a scoop (Departing → ScoopDrone → Offline),
     // schedule entity removal for next tick.
     // Do NOT remove if the drone was merely disabled for range (Incapacitated).
-    if (!m_online and !m_pendingRemoval and !m_AI->IsIncapacitated())
+    if (!m_online and !m_pendingRemoval and !m_AI->IsIncapacitated()) {
+        _log(DRONE__AI_TRACE, "Drone %s(%u): scheduling pendingRemoval (online=%d incapacitated=%d)",
+             GetName(), GetID(), m_online, m_AI->IsIncapacitated());
         m_pendingRemoval = true;
+    }
 
     if (sConfig.debug.UseProfiling)
         sProfiler.AddTime(Profile::drone, GetTimeUSeconds() - profileStartTime);
