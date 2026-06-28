@@ -705,9 +705,13 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
             CharNoLongerInStation();
             wasDocked = false;  // dont update station again on this call (redundant check later in this method)
         }
-        if (pShipSE != nullptr)
-            if ((IsJump()) and !m_autoPilot)
+        if (pShipSE != nullptr) {
+            if ((IsJump()) and !m_autoPilot) {
                 pShipSE->DestinyMgr()->Halt();
+            } else if ((IsJump()) and m_autoPilot) {
+                SetAutoPilot(true);
+            }
+        }
 
         // remove from current system before resetting system vars
         m_system->RemoveEntity(pShipSE);
@@ -825,8 +829,12 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
 
         SetDestiny(pt);
 
-        if (IsJump() and !m_autoPilot)
+        if (IsJump() and !m_autoPilot) {
             pShipSE->DestinyMgr()->Stop();
+        } else if (IsJump() and m_autoPilot) {
+            // re-enable autopilot flag after jump (client resets it on session change)
+            SetAutoPilot(true);
+        }
     }
 
     if (!m_login)
