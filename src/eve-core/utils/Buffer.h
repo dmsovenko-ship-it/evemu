@@ -228,19 +228,13 @@ public:
         typedef const_iterator< T > _Base;
 
     public:
-        /// Typedef for iterator category.
+        /// Typedefs required for std::iterator compatibility (non-const versions).
         typedef typename _Base::iterator_category iterator_category;
-        /// Typedef for value type.
         typedef typename _Base::value_type        value_type;
-        /// Typedef for difference type.
         typedef typename _Base::difference_type   difference_type;
-        /// Typedef for pointer.
-        typedef typename _Base::pointer           pointer;
-        /// Typedef for const pointer.
+        typedef T*                                pointer;
+        typedef T&                                reference;
         typedef typename _Base::const_pointer     const_pointer;
-        /// Typedef for reference.
-        typedef typename _Base::reference         reference;
-        /// Typedef for const reference.
         typedef typename _Base::const_reference   const_reference;
 
         /**
