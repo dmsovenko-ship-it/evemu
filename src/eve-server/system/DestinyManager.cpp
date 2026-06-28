@@ -1862,16 +1862,11 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     m_position = m_targetPoint;
     SetPosition(m_position, true);
 
-    // SetSpeedFraction() checks for m_state = Warp and warpstate != null
-    //   to set decel variables correctly with warp decel.
-    //   have to call this BEFORE deleting or reseting m_state or WarpState.
-    SetSpeedFraction(0.0f);
-    // Transition out of WARP mode — ProcessState with stale m_warpState=null
-    // computes a zero-length direction vector from position → m_targetPoint,
-    // which produces NaN alignment and can eject the ship.
-    m_ballMode = Destiny::Ball::Mode::GOTO;
-    m_stop = true;
-    SafeDelete(m_warpState);
+    // Jump directly to STOP mode — GOTO deceleration causes massive client
+    // desync (234+ km) because the EVE client ignores SetBallPosition
+    // updates during GOTO and runs its own physics simulation.
+    // Halt() also sends SetBallPosition + CmdStop to the client.
+    Halt();
     m_targBubble = nullptr;
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
