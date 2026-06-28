@@ -534,13 +534,24 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
     float dmgMult = m_pDrone->GetSelf()->HasAttribute(AttrDamageMultiplier)
         ? m_pDrone->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float() : 1.0f;
     d *= dmgMult;
+
+    // apply owner's drone skills
+    float skillMult = 1.0f;
+    Client* pOwner = m_pDrone->GetOwner();
+    if ((pOwner != nullptr) and (pOwner->GetChar().get() != nullptr)) {
+        int8 dronesSkill = pOwner->GetChar()->GetSkillLevel(EvESkill::Drones);
+        int8 droneInterfacing = pOwner->GetChar()->GetSkillLevel(EvESkill::DroneInterfacing);
+        skillMult = (1.0f + 0.05f * dronesSkill) * (1.0f + 0.10f * droneInterfacing);
+    }
+    d *= skillMult;
+
     d *= sConfig.rates.damageRate;      /** @todo this should be a separate config value */
-    _log(DRONE__AI_TRACE, "Drone %s(%u): CombatAttack -> %s(%u) total=%.2f (K:%.1f T:%.1f EM:%.1f E:%.1f mult=%.2f hit=%.3f rate=%.3f)",
+    _log(DRONE__AI_TRACE, "Drone %s(%u): CombatAttack -> %s(%u) total=%.2f (K:%.1f T:%.1f EM:%.1f E:%.1f mult=%.2f skill=%.2f hit=%.3f rate=%.3f)",
          m_pDrone->GetName(), m_pDrone->GetID(),
          pTarget->GetName(), pTarget->GetID(),
          d.GetTotal(),
          m_pDrone->GetKinetic(), m_pDrone->GetThermal(), m_pDrone->GetEM(), m_pDrone->GetExplosive(),
-         dmgMult, d.GetModifier(), sConfig.rates.damageRate);
+         dmgMult, skillMult, d.GetModifier(), sConfig.rates.damageRate);
     pTarget->ApplyDamage(d);
 }
 
