@@ -350,13 +350,12 @@ void DroneAIMgr::Target(SystemEntity* pTarget) {
     if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(), (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(), m_entityFlyRange, chase)) {
         _log(DRONE__AI_TRACE, "Drone %s(%u): Targeting of %s(%u) failed (chase=%d).  Will approach first.",
              m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), chase);
-        // if chase=true (target too far), make a lock attempt without range check to add target to list
         if (chase) {
             bool dummyChase = false;
+            SetApproaching(pTarget);
             m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(),
                 (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(),
                 BUBBLE_RADIUS_METERS, dummyChase);
-            SetApproaching(pTarget);
         } else {
             SetIdle();
         }
