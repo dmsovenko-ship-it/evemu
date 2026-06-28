@@ -281,7 +281,7 @@ void DestinyManager::SetSpeedFraction(float fraction/*1.0*/, bool startMovement/
     if (m_orbiting != 0)
         Orbit(m_targetEntity.second, m_targetDistance);
 
-    if ((fraction == m_userSpeedFraction) and (!startMovement)) {
+    if ((fraction == m_userSpeedFraction) and (!startMovement) and (m_ballMode != Destiny::Ball::Mode::WARP)) {
         // no change.
         return;
     }
@@ -422,8 +422,11 @@ void DestinyManager::UpdateVelocity(bool isMoving) {
         m_maxSpeed = m_speedToLeaveWarp;
         m_prevSpeed = m_speedToLeaveWarp;
         m_velocity = m_shipHeading * m_maxSpeed;
-        m_prevSpeedFraction = m_maxSpeed / m_maxShipSpeed;
-        m_shipAccelTime = m_shipAgility * -log(1-(m_prevSpeedFraction));
+        // Clamp to 1.0: warp exit speed can exceed maxShipSpeed, but
+        // 1 - psf must be positive for log(). NaN here breaks the entire
+        // GOTO decel and can eject the ship.
+        m_prevSpeedFraction = std::min(1.0f, m_maxSpeed / m_maxShipSpeed);
+        m_shipAccelTime = m_shipAgility * -log(1.0f - m_prevSpeedFraction + 0.0001f);
     } else if (m_userSpeedFraction) {
         // commanded speed fraction > 0 and ...
         float delta(1.0f);
@@ -1342,8 +1345,8 @@ void DestinyManager::Orbit() {
     // sanity check: computed orbit position must be within reasonable range of target
     {
         double posDist = mPos.distance(Tp);
-        if (posDist > m_followDistance * 10.0) {
-            if (posDist > 1000000.0) {
+        if (posDist > m_followDistance * 3.0) {
+            if (posDist > 105000.0) {
                 // egregiously far — teleport to a reasonable orbit start near the target
                 _log(DESTINY__TRACE, "%s(%u): Orbit position %.0fm from target — teleporting to orbit start.",
                      mySE->GetName(), mySE->GetID(), posDist);
@@ -1355,7 +1358,7 @@ void DestinyManager::Orbit() {
                 m_orbiting = Destiny::Ball::Orbit::TooFar;
             } else {
                 _log(DESTINY__TRACE, "%s(%u): Orbit position is %.0fm from target (max %u).  Resetting to approach.",
-                     mySE->GetName(), mySE->GetID(), posDist, uint32(m_followDistance * 10.0));
+                     mySE->GetName(), mySE->GetID(), posDist, uint32(m_followDistance * 3.0));
                 m_orbiting = Destiny::Ball::Orbit::TooFar;
                 m_targetPoint = Tp;
                 GVector heading(m_position, m_targetPoint);
