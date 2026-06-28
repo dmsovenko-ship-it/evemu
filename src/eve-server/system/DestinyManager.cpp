@@ -544,12 +544,6 @@ void DestinyManager::Stop() {
     if (m_stop and (m_ballMode == Destiny::Ball::Mode::STOP) and !IsMoving())
         return;
 
-    // AP not implemented yet in this version  -allan 4Mar15
-    // Clear autopilot
-    if (mySE->HasPilot()) {
-        mySE->GetPilot()->SetAutoPilot(false);
-    }
-
     if (m_userSpeedFraction == 0.0f) {
         m_stop = true;
     } else if  ((m_ballMode == Destiny::Ball::Mode::WARP) and (!IsWarping()))  {
