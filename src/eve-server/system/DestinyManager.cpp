@@ -1858,7 +1858,7 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     // snap position to target point exactly (prevent client desync)
     m_position = m_targetPoint;
-    mySE->SetPosition(m_position);
+    SetPosition(m_position, true);
 
     // SetSpeedFraction() checks for m_state = Warp and warpstate != null
     //   to set decel variables correctly with warp decel.
@@ -1884,7 +1884,10 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 //called whenever an entity is going away and can no longer be used as a target
 void DestinyManager::EntityRemoved(SystemEntity *pSE) {
     if (m_targetEntity.second == pSE) {
-        m_targetEntity.first = 0;
+    // Force final position to client (prevents desync drift after warp decel)
+    SetPosition(m_position, true);
+
+    m_targetEntity.first = 0;
         m_targetEntity.second = nullptr;
 
         switch(m_ballMode) {
