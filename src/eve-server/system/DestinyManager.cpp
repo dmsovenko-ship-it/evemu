@@ -1861,6 +1861,10 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     //   to set decel variables correctly with warp decel.
     //   have to call this BEFORE deleting or reseting m_state or WarpState.
     SetSpeedFraction(0.0f);
+    // Transition out of WARP mode — ProcessState with stale m_warpState=null
+    // computes a zero-length direction vector from position → m_targetPoint,
+    // which produces NaN alignment and can eject the ship.
+    m_ballMode = Destiny::Ball::Mode::GOTO;
     m_stop = true;
     SafeDelete(m_warpState);
     m_targBubble = nullptr;
