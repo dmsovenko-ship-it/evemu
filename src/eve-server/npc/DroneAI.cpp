@@ -521,7 +521,9 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
              EVEEffectID::targetAttack
             );
 
-    d *= m_pDrone->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float();
+    float dmgMult = m_pDrone->GetSelf()->HasAttribute(AttrDamageMultiplier)
+        ? m_pDrone->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float() : 1.0f;
+    d *= dmgMult;
     d *= sConfig.rates.damageRate;      /** @todo this should be a separate config value */
     pTarget->ApplyDamage(d);
 }
