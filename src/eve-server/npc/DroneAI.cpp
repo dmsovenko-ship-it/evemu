@@ -548,7 +548,7 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
                   * (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneInterfacing))
                   * (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::HeavyDroneOperation));
         // racial specialization (+2% per level)
-        int8 raceID = m_pDrone->GetSelf()->type().raceID();
+        int8 raceID = m_pDrone->GetSelf()->type().race();
         uint16 racialSkill = (raceID == 1 ? EvESkill::CaldariDroneSpecialization
                            : raceID == 2 ? EvESkill::MinmatarDroneSpecialization
                            : raceID == 4 ? EvESkill::AmarrDroneSpecialization
