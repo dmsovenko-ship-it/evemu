@@ -196,6 +196,22 @@ void DroneSE::Online(ShipSE* pShipSE/*nullptr*/) {
     }
 
     m_AI->AssignShip(pShipSE);
+
+    // apply Drone Durability skill bonus (+5% shield/armor/hull HP per level)
+    {
+        Client* pOwner = GetOwner();
+        if ((pOwner != nullptr) and (pOwner->GetChar().get() != nullptr)) {
+            int8 duraLevel = pOwner->GetChar()->GetSkillLevel(EvESkill::DroneDurability);
+            if (duraLevel > 0) {
+                float mult = 1.0f + 0.05f * duraLevel;
+                // attribute modifications are in-memory only (not persisted to DB)
+                m_self->SetAttribute(AttrShieldCapacity, m_self->GetAttribute(AttrShieldCapacity).get_float() * mult, false);
+                m_self->SetAttribute(AttrArmorHP,      m_self->GetAttribute(AttrArmorHP).get_float() * mult, false);
+                m_self->SetAttribute(AttrHP,           m_self->GetAttribute(AttrHP).get_float() * mult, false);
+            }
+        }
+    }
+
     IdleOrbit(pShipSE);   // begin orbiting home ship immediately
 }
 
