@@ -566,6 +566,8 @@ void DestinyManager::Stop() {
     SetSpeedFraction(0.0f);
     m_stop = true;
 
+    SetPosition(m_position, true);
+
     CmdStop du;
         du.entityID = mySE->GetID();
     PyTuple *up = du.Encode();
