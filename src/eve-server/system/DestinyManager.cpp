@@ -1339,6 +1339,22 @@ void DestinyManager::Orbit() {
     LogMacro(mPos);
     // apply origin to our calculated position
     mPos += Tp;
+    // sanity check: computed orbit position must be within reasonable range of target
+    {
+        double posDist = mPos.distance(Tp);
+        if (posDist > m_followDistance * 10.0) {
+            _log(DESTINY__ERROR, "%s(%u): Orbit position is %.0fm from target (max %u).  Resetting to approach.",
+                 mySE->GetName(), mySE->GetID(), posDist, uint32(m_followDistance * 10.0));
+            // switch to approach: head toward target to re-establish orbit
+            m_orbiting = Destiny::Ball::Orbit::TooFar;
+            m_targetPoint = Tp;
+            GVector heading(m_position, m_targetPoint);
+            heading.normalize();
+            m_shipHeading = heading;
+            MoveObject();
+            return;
+        }
+    }
     // set position for this tic
     m_position = mPos;
 
