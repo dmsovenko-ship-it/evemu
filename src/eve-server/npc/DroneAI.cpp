@@ -236,6 +236,9 @@ int8 DroneAIMgr::GetState() {
         case DroneAI::State::Unknown:
         case DroneAI::State::Incapacitated:
             return DroneAI::State::Idle;
+        case DroneAI::State::Engaged:
+        case DroneAI::State::Approaching:
+            return DroneAI::State::Combat;
         case DroneAI::State::Guarding:
         case DroneAI::State::Assisting:
             return DroneAI::State::Engaged;

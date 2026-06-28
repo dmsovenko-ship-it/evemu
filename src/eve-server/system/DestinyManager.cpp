@@ -1343,7 +1343,7 @@ void DestinyManager::Orbit() {
     {
         double posDist = mPos.distance(Tp);
         if (posDist > m_followDistance * 10.0) {
-            _log(DESTINY__ERROR, "%s(%u): Orbit position is %.0fm from target (max %u).  Resetting to approach.",
+            _log(DESTINY__TRACE, "%s(%u): Orbit position is %.0fm from target (max %u).  Resetting to approach.",
                  mySE->GetName(), mySE->GetID(), posDist, uint32(m_followDistance * 10.0));
             // switch to approach: head toward target to re-establish orbit
             m_orbiting = Destiny::Ball::Orbit::TooFar;
