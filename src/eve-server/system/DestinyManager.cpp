@@ -544,12 +544,6 @@ void DestinyManager::Stop() {
     if (m_stop and (m_ballMode == Destiny::Ball::Mode::STOP) and !IsMoving())
         return;
 
-    // AP not implemented yet in this version  -allan 4Mar15
-    // Clear autopilot
-    if (mySE->HasPilot()) {
-        mySE->GetPilot()->SetAutoPilot(false);
-    }
-
     if (m_userSpeedFraction == 0.0f) {
         m_stop = true;
     } else if  ((m_ballMode == Destiny::Ball::Mode::WARP) and (!IsWarping()))  {
@@ -1866,12 +1860,23 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     m_position = m_targetPoint;
     SetPosition(m_position, true);
 
+    // preserve follow target for autopilot (Halt clears m_targetEntity)
+    uint32 followTargetID = m_targetEntity.first;
+    uint32 followDist = m_stopDistance;
+
     // Jump directly to STOP mode — GOTO deceleration causes massive client
     // desync (234+ km) because the EVE client ignores SetBallPosition
     // updates during GOTO and runs its own physics simulation.
     // Halt() also sends SetBallPosition + CmdStop to the client.
     Halt();
     m_targBubble = nullptr;
+
+    // resume autopilot follow after warp complete
+    if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
+        SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
+        if (pTarget != nullptr)
+            Follow(pTarget, followDist);
+    }
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
     }
