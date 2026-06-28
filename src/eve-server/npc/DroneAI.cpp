@@ -141,8 +141,11 @@ void DroneAIMgr::Process() {
      */
 
     // test for control distance - offline drones outside AttrDroneControlDistance
-    // skip check while Departing, otherwise the drone gets incapacitated before it can return
+    // skip check while Departing (drone needs to return), Engaged, or Approaching
+    // (actively fighting drones should not be interrupted by distance)
     if ((m_state != DroneAI::State::Departing)
+    and (m_state != DroneAI::State::Engaged)
+    and (m_state != DroneAI::State::Approaching)
     and (m_assignedShip != nullptr) and (m_assignedShip->DestinyMgr() != nullptr)) {
         double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
         double controlRange = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
@@ -150,8 +153,10 @@ void DroneAIMgr::Process() {
             controlRange = 25000.0; // default 25km if not set
         if (dist > controlRange * 1.1) {
             if (m_state != DroneAI::State::Incapacitated) {
-                _log(DRONE__AI_TRACE, "Drone %s(%u): Out of control range (%.0fm > %.0fm).  Incapacitated.",
-                     m_pDrone->GetName(), m_pDrone->GetID(), dist, controlRange * 1.1);
+                _log(DRONE__AI_TRACE, "Drone %s(%u): Out of control range (%.0fm > %.0fm) ship=(%.0f,%.0f,%.0f) drone=(%.0f,%.0f,%.0f).  Incapacitated.",
+                     m_pDrone->GetName(), m_pDrone->GetID(), dist, controlRange * 1.1,
+                     m_assignedShip->GetPosition().x, m_assignedShip->GetPosition().y, m_assignedShip->GetPosition().z,
+                     m_pDrone->GetPosition().x, m_pDrone->GetPosition().y, m_pDrone->GetPosition().z);
                 m_pDrone->DestinyMgr()->Stop();
                 m_pDrone->Disable();
                 m_state = DroneAI::State::Incapacitated;

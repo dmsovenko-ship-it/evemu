@@ -135,11 +135,11 @@ void DroneSE::Process() {
 
     SystemEntity::Process();
 
-    _log(DRONE__AI_TRACE, "Drone %s(%u): pre-AI rawState=%s online=%d pendingRemoval=%d",
-         GetName(), GetID(), m_AI->GetStateName(m_AI->GetRawState()), m_online, m_pendingRemoval);
+    _log(DRONE__AI_TRACE, "Drone %s(%u): pre-AI rawState=%s online=%d pendingRemoval=%d pos=(%.0f,%.0f,%.0f)",
+         GetName(), GetID(), m_AI->GetStateName(m_AI->GetRawState()), m_online, m_pendingRemoval, x(), y(), z());
 
-    if (m_online)
-        m_AI->Process();
+    // always run AI Process so Incapacitated drones can recover when ship returns to range
+    m_AI->Process();
 
     _log(DRONE__AI_TRACE, "Drone %s(%u): post-AI rawState=%s online=%d pendingRemoval=%d",
          GetName(), GetID(), m_AI->GetStateName(m_AI->GetRawState()), m_online, m_pendingRemoval);
