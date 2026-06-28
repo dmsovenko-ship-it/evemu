@@ -540,6 +540,10 @@ void DestinyManager::Stop() {
         return;
     }
 
+    // already fully stopped — skip repeated CmdStop/SetPosition spam
+    if (m_stop and (m_ballMode == Destiny::Ball::Mode::STOP) and !IsMoving())
+        return;
+
     // AP not implemented yet in this version  -allan 4Mar15
     // Clear autopilot
     if (mySE->HasPilot()) {
