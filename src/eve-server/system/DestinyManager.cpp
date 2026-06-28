@@ -1343,14 +1343,25 @@ void DestinyManager::Orbit() {
     {
         double posDist = mPos.distance(Tp);
         if (posDist > m_followDistance * 10.0) {
-            _log(DESTINY__TRACE, "%s(%u): Orbit position is %.0fm from target (max %u).  Resetting to approach.",
-                 mySE->GetName(), mySE->GetID(), posDist, uint32(m_followDistance * 10.0));
-            // switch to approach: head toward target to re-establish orbit
-            m_orbiting = Destiny::Ball::Orbit::TooFar;
-            m_targetPoint = Tp;
-            GVector heading(m_position, m_targetPoint);
-            heading.normalize();
-            m_shipHeading = heading;
+            if (posDist > 1000000.0) {
+                // egregiously far — teleport to a reasonable orbit start near the target
+                _log(DESTINY__TRACE, "%s(%u): Orbit position %.0fm from target — teleporting to orbit start.",
+                     mySE->GetName(), mySE->GetID(), posDist);
+                m_position = Tp + GPoint(m_followDistance, 0, 0);
+                GVector heading(m_position, Tp);
+                heading.normalize();
+                m_shipHeading = heading;
+                m_targetPoint = Tp;
+                m_orbiting = Destiny::Ball::Orbit::TooFar;
+            } else {
+                _log(DESTINY__TRACE, "%s(%u): Orbit position is %.0fm from target (max %u).  Resetting to approach.",
+                     mySE->GetName(), mySE->GetID(), posDist, uint32(m_followDistance * 10.0));
+                m_orbiting = Destiny::Ball::Orbit::TooFar;
+                m_targetPoint = Tp;
+                GVector heading(m_position, m_targetPoint);
+                heading.normalize();
+                m_shipHeading = heading;
+            }
             MoveObject();
             return;
         }

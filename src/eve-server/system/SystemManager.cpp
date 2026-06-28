@@ -511,6 +511,9 @@ bool SystemManager::LoadPlayerDynamics() {
 
     SystemEntity* pSE(nullptr);
     for (auto cur : entities) {
+        // stale drone entries from crashed/disconnected sessions are expected — skip silently
+        if (cur.categoryID == EVEDB::invCategories::Drone)
+            continue;
         pSE = DynamicEntityFactory::BuildEntity(*this, cur);
         if (pSE == nullptr) {
             sLog.Error( "SystemManager::LoadPlayerDynamics()", "Failed to create entity for item %u (grp: %u, type %u)", cur.itemID, cur.groupID, cur.typeID);
