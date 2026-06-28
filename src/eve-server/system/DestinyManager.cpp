@@ -1346,7 +1346,7 @@ void DestinyManager::Orbit() {
     {
         double posDist = mPos.distance(Tp);
         if (posDist > m_followDistance * 3.0) {
-            if (posDist > 200000.0) {
+            if (posDist > 105000.0) {
                 // egregiously far — teleport to a reasonable orbit start near the target
                 _log(DESTINY__TRACE, "%s(%u): Orbit position %.0fm from target — teleporting to orbit start.",
                      mySE->GetName(), mySE->GetID(), posDist);
