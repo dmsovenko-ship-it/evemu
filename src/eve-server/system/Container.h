@@ -256,6 +256,7 @@ public:
     virtual void                Process();
     virtual void                EncodeDestiny(Buffer& into);
     virtual PyDict*             MakeSlimItem();
+    virtual void                MakeDamageState(DoDestinyDamageState &into);
     // this uses targetMgr update to send to all interested parties
     virtual void                SendDamageStateChanged();
 
