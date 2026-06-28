@@ -68,6 +68,7 @@ public:
     void ClearAllTargets();
 
     int8 GetState();
+    bool IsIncapacitated()                              { return m_state == DroneAI::State::Incapacitated; }
 
     void SetIdle();
     void Return();
