@@ -661,7 +661,10 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
     }
 
     call.client->SetUndock(false);
-    call.client->SetAutoPilot(false);
+    // Don't disable autopilot here — client sends CmdStop after gate jump
+    // (m_timeFraction > 0 from approach phase), which would break AP chains.
+    // The player can toggle AP via the client's UI button at any time.
+    // call.client->SetAutoPilot(false);
 
     pDestiny->Stop();
 
