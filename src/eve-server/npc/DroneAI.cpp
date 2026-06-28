@@ -379,7 +379,8 @@ void DroneAIMgr::Targeted(SystemEntity* pAgressor) {
         case DroneAI::State::Idle: {
             if (m_pDrone->GetSelf()->HasAttribute(AttrDroneIsAgressive)) {
                 if (m_pDrone->GetSelf()->GetAttribute(AttrDroneIsAgressive).get_int() > 0)
-                    Target(pAgressor);
+                    if (m_pDrone->TargetMgr()->GetTarget(pAgressor->GetID(), false) == nullptr)
+                        Target(pAgressor);
             }
         } break;
         case DroneAI::State::Operating: {
