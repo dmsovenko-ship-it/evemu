@@ -334,14 +334,9 @@ void SystemBubble::Add(SystemEntity* pSE) {
         if (!m_players.empty()) {
             AddBallExclusive(pSE);  // adds new player to all players in bubble, if any
         }
-    } else if (!m_players.empty() && pSE->IsDroneSE()) {
-        // notify all players in bubble about the new drone
+    } else if (!m_players.empty() && (pSE->IsDroneSE() || pSE->IsNPCSE())) {
+        // notify all players about dynamic entities added to their bubble
         AddBallExclusive(pSE);
-
-        m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
-    } else {
-        if (!m_players.empty())
-            AddBallExclusive(pSE);
         if (pSE->IsDroneSE())
             m_drones[pSE->GetID()] = pSE->GetDroneSE();
     }
