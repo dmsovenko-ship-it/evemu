@@ -16,6 +16,7 @@
 #include "npc/Drone.h"
 #include "npc/DroneAI.h"
 #include "inventory/ItemFactory.h"
+#include "inventory/Inventory.h"
 #include "ship/Ship.h"
 #include "system/Damage.h"
 #include "system/BubbleManager.h"
@@ -855,6 +856,20 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
 
     // add ore to ship cargo hold
     InventoryItemRef shipRef = m_assignedShip->GetSelf();
+
+    // check remaining cargo capacity
+    Inventory* inv = sItemFactory.GetInventoryFromId(shipRef->itemID());
+    if (inv != nullptr) {
+        double remaining = inv->GetRemainingCapacity(flagCargoHold);
+        double oreVol = oreUnits * oreVolume;
+        if (oreVol > remaining) {
+            _log(DRONE__AI_TRACE, "Drone %s(%u): Cargo full (need %.0f, have %.0f), stopping.",
+                 m_pDrone->GetName(), m_pDrone->GetID(), oreVol, remaining);
+            m_pDrone->GetOwner()->SendNotifyMsg("Mining drones deactivated: cargo hold full.");
+            SetIdle();
+            return;
+        }
+    }
 
     ItemData idata(oreTypeID, shipRef->ownerID(), shipRef->itemID(), flagNone, static_cast<int32>(oreUnits));
     InventoryItemRef oRef = sItemFactory.SpawnItem(idata);
