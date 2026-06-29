@@ -2527,8 +2527,8 @@ void DestinyManager::DockingAccepted()
 void DestinyManager::SetPosition(const GPoint &pt, bool update /*false*/) {
     _log(DESTINY__TRACE, "Destiny::SetPosition() called by %s(%u)", mySE->GetName(), mySE->GetID());
 
-    if (pt.isZero()) {
-        _log(DESTINY__TRACE, "Destiny::SetPosition() - %s(%u) point is zero", mySE->GetName(), mySE->GetID());
+    if (pt.isZero() or pt.isNaN()) {
+        _log(DESTINY__TRACE, "Destiny::SetPosition() - %s(%u) point is %s", mySE->GetName(), mySE->GetID(), pt.isNaN() ? "NaN" : "zero");
         EvE::traceStack();
         return;
     } else {
