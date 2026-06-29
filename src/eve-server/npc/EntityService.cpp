@@ -231,7 +231,7 @@ PyResult EntityBound::CmdMine(PyCallArgs &call, PyList* droneIDs, PyInt* targetI
 
 PyResult EntityBound::CmdMineRepeatedly(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {
     _log(DRONE__TRACE, "EntityBound::CmdMineRepeatedly()");
-    // same as CmdMine for now — drones will auto-mine until asteroid depleted or cargo full
+    // mine until cargo full or asteroid depleted
     return CmdMine(call, droneIDs, targetID);
 }
 
