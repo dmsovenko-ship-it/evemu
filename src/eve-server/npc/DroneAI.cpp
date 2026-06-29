@@ -856,16 +856,14 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
     // add ore to ship cargo hold
     InventoryItemRef shipRef = m_assignedShip->GetSelf();
 
-    uint32 locationID = shipRef->itemID();
-    ItemData idata(oreTypeID, shipRef->ownerID(), locationID, flagCargoHold, static_cast<int32>(oreUnits));
+    ItemData idata(oreTypeID, shipRef->ownerID(), shipRef->itemID(), flagNone, static_cast<int32>(oreUnits));
     InventoryItemRef oRef = sItemFactory.SpawnItem(idata);
     if (oRef.get() == nullptr) {
         _log(DRONE__MESSAGE, "MiningAttack: Could not create mined ore for ship %s(%u)",
              shipRef->name(), shipRef->itemID());
         return;
     }
-    ShipItemRef shipItemRef = ShipItemRef::StaticCast(shipRef);
-    shipItemRef->AddItemByFlag(flagCargoHold, oRef, m_pDrone->GetOwner());
+    oRef->Move(shipRef->itemID(), flagCargoHold, true);
     _log(DRONE__AI_TRACE, "Drone %s(%u): Added %.0f units of ore type %u to ship cargo.",
          m_pDrone->GetName(), m_pDrone->GetID(), oreUnits, oreTypeID);
 }
