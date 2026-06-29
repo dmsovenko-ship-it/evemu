@@ -856,13 +856,6 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
     // add ore to ship cargo hold
     InventoryItemRef shipRef = m_assignedShip->GetSelf();
 
-    // send mining visual effect
-    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
-                                              m_pDrone->GetSelf()->itemID(),
-                                              m_pDrone->GetSelf()->typeID(),
-                                              pTarget->GetID(),
-                                              0, "effects.MiningLaser", 0, 1, 1, m_attackSpeed, 0);
-
     uint32 locationID = shipRef->itemID();
     ItemData idata(oreTypeID, shipRef->ownerID(), locationID, flagCargoHold, static_cast<int32>(oreUnits));
     InventoryItemRef oRef = sItemFactory.SpawnItem(idata);
