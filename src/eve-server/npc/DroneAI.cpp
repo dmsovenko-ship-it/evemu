@@ -856,6 +856,17 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
     // add ore to ship cargo hold
     InventoryItemRef shipRef = m_assignedShip->GetSelf();
 
+    // check cargo capacity
+    double cargoCap = shipRef->GetAttribute(AttrCapacity).get_float();
+    if (cargoCap < 1.0) cargoCap = 10000.0;
+    double oreVol = oreUnits * oreVolume;
+    if (oreVol > cargoCap * 0.9) {
+        _log(DRONE__AI_TRACE, "Drone %s(%u): Cargo nearly full, stopping.", m_pDrone->GetName(), m_pDrone->GetID());
+        m_pDrone->GetOwner()->SendNotifyMsg("Mining drones deactivated: cargo hold nearly full.");
+        SetIdle();
+        return;
+    }
+
     ItemData idata(oreTypeID, shipRef->ownerID(), shipRef->itemID(), flagNone, static_cast<int32>(oreUnits));
     InventoryItemRef oRef = sItemFactory.SpawnItem(idata);
     if (oRef.get() == nullptr) {
