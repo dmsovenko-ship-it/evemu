@@ -434,22 +434,22 @@ void DroneAIMgr::Target(SystemEntity* pTarget) {
 }
 
 void DroneAIMgr::MineTarget(SystemEntity* pTarget) {
+    m_state = DroneAI::State::Mining;
+    m_beginFindTarget.Disable();
+    m_miningTimer.Start(m_attackSpeed);
+
     bool chase = false;
     uint32 scanSpeed = m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32();
     if (scanSpeed < 1000) scanSpeed = 2000;
     if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, scanSpeed, 1, m_entityFlyRange, chase)) {
         if (chase) {
-            bool dummyChase = false;
-            SetApproaching(pTarget);
-            m_pDrone->TargetMgr()->StartTargeting(pTarget, scanSpeed, 1, BUBBLE_RADIUS_METERS, dummyChase);
-        } else {
-            SetIdle();
+            // move toward target while in Mining state
+            m_pDrone->DestinyMgr()->Follow(pTarget, m_entityOrbitRange);
+            m_pDrone->TargetMgr()->StartTargeting(pTarget, scanSpeed, 1, BUBBLE_RADIUS_METERS, chase);
         }
         return;
     }
-    m_beginFindTarget.Disable();
-    m_state = DroneAI::State::Mining;
-    m_miningTimer.Start(m_attackSpeed);
+    // within range — orbit and mine
     CheckDistance(pTarget);
 }
 
