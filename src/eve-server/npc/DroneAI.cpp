@@ -16,6 +16,7 @@
 #include "npc/Drone.h"
 #include "npc/DroneAI.h"
 #include "inventory/ItemFactory.h"
+#include "ship/Ship.h"
 #include "system/Damage.h"
 #include "system/BubbleManager.h"
 #include "system/SystemBubble.h"
@@ -870,7 +871,8 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
              shipRef->name(), shipRef->itemID());
         return;
     }
-    shipRef->AddItem(oRef);
+    ShipItemRef shipItemRef = ShipItemRef::StaticCast(shipRef);
+    shipItemRef->AddItemByFlag(flagCargoHold, oRef, m_pDrone->GetOwner());
     _log(DRONE__AI_TRACE, "Drone %s(%u): Added %.0f units of ore type %u to ship cargo.",
          m_pDrone->GetName(), m_pDrone->GetID(), oreUnits, oreTypeID);
 }
