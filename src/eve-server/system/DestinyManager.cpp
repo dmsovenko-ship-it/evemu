@@ -27,6 +27,7 @@
 // this class is for objects that move
 
 #include <algorithm>
+#include <cmath>
 
 #include "EVEServerConfig.h"
 
@@ -1319,7 +1320,7 @@ void DestinyManager::Orbit() {
     //float hyp = sqrt(pow(target.z, 2) + pow(target.x, 2));
     float inclination = 45; //atan(hyp / target.y);
     // fractional value of orbit period (0 < x < 1)
-    float period = fmod(timeStamp, m_orbitTime) / m_orbitTime;
+    float period = (m_orbitTime > 0.0f) ? fmod(timeStamp, m_orbitTime) / m_orbitTime : 0.0f;
     // calculate a pendulum value here to adjust elevation (+/-y) where +x is 1, 0x is 0, -x is -1
     float c = cos(EvE::Trig::Deg2Rad(360 * period));
     // get elevation modifier based on orbit period
@@ -1364,12 +1365,12 @@ void DestinyManager::Orbit() {
         }
     }
     // set position for this tic
-    m_position = mPos;
+    SetPosition(mPos);
 
     // set heading for this tic
     GPoint mPosNext(NULL_ORIGIN);
     theta += m_orbitRadTic;
-    period = fmod(timeStamp + 1, m_orbitTime) / m_orbitTime;
+    period = (m_orbitTime > 0.0f) ? fmod(timeStamp + 1, m_orbitTime) / m_orbitTime : 0.0f;
     c = cos(EvE::Trig::Deg2Rad(360 * period));
     phi = EvE::Trig::Deg2Rad(inclination * c);
     mPosNext.x = radius * cos( theta );
@@ -2331,19 +2332,58 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
     /* r = sqrt(6 * cbrt(108t^2*Vm^2 * Rc^2 + 8Rc^6 + 12sqrt(81t^4 *Vm^4 + 12t^2 * Vm^2 * Rc^10))
      * + (24Rc^4 / (108t^2 * Vm^2 * Rc^2 + 8Rc^2 + 12sqrt(81t^4 * Vm^4 * Rc^8 + 12t^2 * Vm^2 * Rc^10)^1/3)) + 12Rc^2) /6
      */
+    // Guard against Rc <= 0 which produces NaN in the orbit radius formula
+    if (Rc <= 1.0) {
+        _log(DESTINY__ERROR, "%s(%u) - Orbit Rc=%.2f is too small (distance=%u, radius=%.1f, targetRadius=%.1f). Clamping.",
+             mySE->GetName(), mySE->GetID(), Rc, distance, m_radius, pSE->GetRadius());
+        // Rc must be positive for the orbit radius formula to work
+        // without producing zero-divide NaN. Pick a minimal sane value.
+        m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
+        if (m_followDistance < 1.0)
+            m_followDistance = 500.0;
+        goto orbit_done;
+    }
+
     double one = (108 * t2 * Vm2 * Rc2);
     double two = (12 * t2 * Vm2 *  std::pow(Rc,10));
     double three = (12 * std::sqrt(81 *  std::pow(m_shipAgility,4) *  std::pow(m_maxShipSpeed,4) + two));
     double four = (6 *  std::cbrt(one + 8 *  std::pow(Rc,6) + three));
     double five =  std::cbrt( std::sqrt(three *  std::pow(Rc,8) + two));
     double six = (one + (8 * Rc2) + (12 * five));
+    if (std::abs(six) < 1e-10) {
+        _log(DESTINY__ERROR, "%s(%u) - Orbit formula 'six' is zero (%.10f). Clamping to fallback.", mySE->GetName(), mySE->GetID(), six);
+        m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
+        if (m_followDistance < 1.0)
+            m_followDistance = 500.0;
+        goto orbit_done;
+    }
     m_followDistance =  std::sqrt(four + (24 *  std::pow(Rc, 4) / six) + 12 * Rc2) / 6;
+    if (std::isnan(m_followDistance) or (m_followDistance <= 0.0)) {
+        _log(DESTINY__ERROR, "%s(%u) - Orbit followDistance is %s. Clamping to fallback.",
+             mySE->GetName(), mySE->GetID(), std::isnan(m_followDistance) ? "NaN" : "<=0");
+        m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
+        if (m_followDistance < 1.0)
+            m_followDistance = 500.0;
+    }
 
-    double velocity = m_maxShipSpeed * ((distance / m_followDistance) + 0.065); // dunno where i got this from but seems to work very well.
+orbit_done:
+    double velocity = m_maxShipSpeed * ((distance / m_followDistance) + 0.065);
+    if (std::isnan(velocity) or (velocity <= 0.0)) {
+        _log(DESTINY__ERROR, "%s(%u) - Orbit velocity is %s. Clamping.", mySE->GetName(), mySE->GetID(), std::isnan(velocity) ? "NaN" : "<=0");
+        velocity = m_maxShipSpeed * 0.5;
+        if (velocity <= 0.0)
+            velocity = 1.0;
+    }
     m_maxOrbitSpeedFraction = velocity / m_maxShipSpeed;
 
     double circ = EvE::Trig::Pi2 * m_followDistance;
     m_orbitTime = circ / velocity;
+    if (std::isnan(m_orbitTime) or (m_orbitTime <= 0.0)) {
+        _log(DESTINY__ERROR, "%s(%u) - Orbit time is %s. Clamping.", mySE->GetName(), mySE->GetID(), std::isnan(m_orbitTime) ? "NaN" : "<=0");
+        m_orbitTime = circ / std::max(velocity, 1.0);
+        if (m_orbitTime <= 0.0)
+            m_orbitTime = 10.0;
+    }
     m_orbitRadTic = EvE::Trig::Pi2 / m_orbitTime;
 
     if (is_log_enabled(DESTINY__ORBIT_TRACE))
