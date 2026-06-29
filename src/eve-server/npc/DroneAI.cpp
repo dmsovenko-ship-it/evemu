@@ -832,19 +832,8 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
 
     uint16 oreTypeID = roidRef->typeID();
 
-    // add ore to ship's cargo hold
+    // add ore to ship cargo hold
     InventoryItemRef shipRef = m_assignedShip->GetSelf();
-    double cargoCap = shipRef->GetAttribute(AttrCapacity).get_float();
-    double cargoUsed = m_assignedShip->GetCargoUsed();
-    double oreTotalVolume = oreUnits * oreVolume;
-
-    if (cargoUsed + oreTotalVolume > cargoCap) {
-        // cargo full — deactivate mining
-        _log(DRONE__AI_TRACE, "Drone %s(%u): Ship cargo full, stopping mining.", m_pDrone->GetName(), m_pDrone->GetID());
-        m_pDrone->GetOwner()->SendNotifyMsg("Mining drones deactivated: cargo hold full.");
-        SetIdle();
-        return;
-    }
 
     // send mining visual effect
     m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
@@ -853,8 +842,6 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
                                               pTarget->GetID(),
                                               0, "effects.MiningLaser", 0, 1, 1, m_attackSpeed, 0);
 
-    // add ore to ship cargo hold
-    InventoryItemRef shipRef = m_assignedShip->GetSelf();
     uint32 locationID = shipRef->itemID();
     ItemData idata(oreTypeID, shipRef->ownerID(), locationID, flagCargoHold, static_cast<int32>(oreUnits));
     InventoryItemRef oRef = sItemFactory.SpawnItem(idata);
