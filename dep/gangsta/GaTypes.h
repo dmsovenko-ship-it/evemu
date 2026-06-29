@@ -162,6 +162,10 @@ namespace Ga
 
 		GaExpInl GaFloat normalize()
 		{
+			if (isNaN()) {
+				x = y = z = 0.0f;
+				return 0.0f;
+			}
 			GaFloat len = length();
 			if(len > Math::GaEpsilon)
 			{

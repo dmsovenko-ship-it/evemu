@@ -595,6 +595,7 @@ void DestinyManager::Halt() {
     m_prevSpeed = 0.0f;
     m_stateStamp = 0;
     m_targetPoint = GPoint(NULL_ORIGIN);
+    m_shipHeading = GVector(NULL_ORIGIN_V);
     m_stopDistance = 0;
     m_targetDistance = 0;
     m_followDistance = 0;
@@ -907,6 +908,10 @@ void DestinyManager::MoveObject() {
     }
 
     //set velocity and position for this tic
+    if (m_shipHeading.isNaN()) {
+        _log(DESTINY__ERROR, "%s(%u) - ShipHeading is NaN! Resetting to zero.", mySE->GetName(), mySE->GetID());
+        m_shipHeading = NULL_ORIGIN_V;
+    }
     m_velocity = m_shipHeading * speed;
     SetPosition(m_position + m_velocity, sConfig.debug.PositionHack);   // (PositionHack == true) here will force position update to client
 
@@ -1345,7 +1350,7 @@ void DestinyManager::Orbit() {
                 // egregiously far — teleport to a reasonable orbit start near the target
                 _log(DESTINY__TRACE, "%s(%u): Orbit position %.0fm from target — teleporting to orbit start.",
                      mySE->GetName(), mySE->GetID(), posDist);
-                m_position = Tp + GPoint(m_followDistance, 0, 0);
+                SetPosition(Tp + GPoint(m_followDistance, 0, 0));
                 GVector heading(m_position, Tp);
                 heading.normalize();
                 m_shipHeading = heading;
