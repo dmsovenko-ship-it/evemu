@@ -25,7 +25,7 @@ fi
 
 # Clean up stale wrecks
 mysql -h "${MARIADB_HOST:-db}" -u "${MARIADB_USER:-evemu}" -p"${MARIADB_PASSWORD:-evemu}" "${MARIADB_DATABASE:-evemu}" \
-    -e "DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%'); DELETE FROM entity WHERE itemName LIKE '%Wreck%';" \
+    -e "DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%'); DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE locationID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%')); DELETE FROM entity WHERE locationID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%'); DELETE FROM entity WHERE itemName LIKE '%Wreck%';" \
     2>/dev/null; true
 
 #Start eve-server
