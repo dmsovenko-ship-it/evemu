@@ -334,13 +334,13 @@ void SystemBubble::Add(SystemEntity* pSE) {
         if (!m_players.empty()) {
             AddBallExclusive(pSE);  // adds new player to all players in bubble, if any
         }
+
+        m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
     } else {
-        if (pSE->IsDroneSE() || pSE->IsNPCSE() || pSE->IsMissileSE()) {
-            if (!m_players.empty())
-                AddBallExclusive(pSE);
-            if (pSE->IsDroneSE())
-                m_drones[pSE->GetID()] = pSE->GetDroneSE();
-        }
+        if (!m_players.empty())
+            AddBallExclusive(pSE);
+        if (pSE->IsDroneSE())
+            m_drones[pSE->GetID()] = pSE->GetDroneSE();
     }
 
     // all non-global entities (players, npcs, roids, containers, etc) are put into bubble's dynamicEntity map
