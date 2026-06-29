@@ -50,8 +50,8 @@ EOF
 
 # Remove stale wrecks from DB (transient objects, not persistent)
 mysql -h $MARIADB_HOST -u $MARIADB_USER -p$MARIADB_PASSWORD $MARIADB_DATABASE -e "
-    DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE groupID IN (186, 237));
-    DELETE FROM entity WHERE groupID IN (186, 237);
+    DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%');
+    DELETE FROM entity WHERE itemName LIKE '%Wreck%';
 " 2>/dev/null || true
 
 echo "Running EVEDBTool..."
