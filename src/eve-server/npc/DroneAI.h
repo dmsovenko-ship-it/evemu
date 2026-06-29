@@ -76,6 +76,8 @@ public:
     void Return();
     void ReturnBay();   // fly back and scoop into drone bay on arrival
     void AssignShip(ShipSE* pSE)                        { m_assignedShip = pSE; }
+    int8 GetSubType() const                             { return m_subType; }
+    void MineTarget(SystemEntity* pTarget);
 
 protected:
     void Attack(SystemEntity* pTarget);
@@ -92,6 +94,7 @@ protected:
     void ECMAttack(SystemEntity* pTarget);
     void LogisticsRepair(SystemEntity* pTarget);
     void CapDrainAttack(SystemEntity* pTarget);
+    void MiningAttack(SystemEntity* pTarget);
 
     // helpers
     ShipSE* GetOwnerShip();
@@ -133,6 +136,7 @@ private:
     Timer m_beginFindTarget;
     Timer m_warpScramblerTimer;
     Timer m_webifierTimer;
+    Timer m_miningTimer;
 };
 
 #endif  // __EVEMU_SHIP_DRONEAI_H__

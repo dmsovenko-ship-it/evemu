@@ -191,50 +191,48 @@ PyResult EntityBound::CmdGuard(PyCallArgs &call, PyInt* guardID, PyList* droneID
 }
 
 PyResult EntityBound::CmdMine(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {
- // ret = entity.CmdMine(droneIDs, targetID)
-    /*
-     * 16:19:14 [DroneTrace] EntityBound::Handle_CmdMine()
-     * 16:19:14 [DroneDump]   Call Arguments:
-     * 16:19:14 [DroneDump]      Tuple: 2 elements
-     * 16:19:14 [DroneDump]       [ 0]   List: 5 elements
-     * 16:19:14 [DroneDump]       [ 0]   [ 0]    Integer: 140024264
-     * 16:19:14 [DroneDump]       [ 0]   [ 1]    Integer: 140024265
-     * 16:19:14 [DroneDump]       [ 0]   [ 2]    Integer: 140024261
-     * 16:19:14 [DroneDump]       [ 0]   [ 3]    Integer: 140024262
-     * 16:19:14 [DroneDump]       [ 0]   [ 4]    Integer: 140024263
-     * 16:19:14 [DroneDump]       [ 1]    Integer: 450000587
-     */
+    _log(DRONE__TRACE, "EntityBound::CmdMine()");
 
-    _log(DRONE__TRACE, "EntityBound::Handle_CmdMine()");
-    call.Dump(DRONE__DUMP);
+    SystemEntity* pTarget = m_sysMgr->GetSE(targetID->value());
+    if (pTarget == nullptr) {
+        _log(DRONE__MESSAGE, "CmdMine: target %u not found in system.", targetID->value());
+        return new PyDict();
+    }
 
-    /** @todo MAKE CHECKS IN MINING LASER FOR DRONES BEFORE COMPLETING THIS FUNCTION  **/
-
-    call.client->SendNotifyMsg("Mining drones are not yet supported.");
-    return new PyDict();
+    PyDict* errors = new PyDict();
+    for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
+        uint32 droneID = PyRep::IntegerValueU32(*itr);
+        SystemEntity* pSE = m_sysMgr->GetSE(droneID);
+        if (pSE == nullptr || !pSE->IsDroneSE()) {
+            _log(DRONE__WARNING, "CmdMine: drone %u not found.", droneID);
+            continue;
+        }
+        DroneSE* pDrone = pSE->GetDroneSE();
+        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID()) {
+            _log(DRONE__WARNING, "CmdMine: %s tried to command drone %u owned by %u.",
+                 call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
+            continue;
+        }
+        if (!pDrone->IsEnabled()) {
+            _log(DRONE__MESSAGE, "CmdMine: drone %u is offline.", droneID);
+            continue;
+        }
+        if (pDrone->GetAI()->GetSubType() != DroneAI::SubType_Mining) {
+            _log(DRONE__MESSAGE, "CmdMine: drone %u is not a mining drone.", droneID);
+            continue;
+        }
+        _log(DRONE__TRACE, "CmdMine: ordering drone %u to mine %u.", droneID, targetID->value());
+        pDrone->SetTarget(pTarget);
+        pDrone->GetAI()->MineTarget(pTarget);
+        pDrone->StateChange();
+    }
+    return errors;
 }
 
 PyResult EntityBound::CmdMineRepeatedly(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {
- // ret = entity.CmdMineRepeatedly(droneIDs, targetID)
-    /*)
-     * 16:20:28 [DroneTrace] EntityBound::Handle_CmdMineRepeatedly()
-     * 16:20:28 [DroneDump]   Call Arguments:
-     * 16:20:28 [DroneDump]      Tuple: 2 elements
-     * 16:20:28 [DroneDump]       [ 0]   List: 5 elements
-     * 16:20:28 [DroneDump]       [ 0]   [ 0]    Integer: 140024264
-     * 16:20:28 [DroneDump]       [ 0]   [ 1]    Integer: 140024265
-     * 16:20:28 [DroneDump]       [ 0]   [ 2]    Integer: 140024261
-     * 16:20:28 [DroneDump]       [ 0]   [ 3]    Integer: 140024262
-     * 16:20:28 [DroneDump]       [ 0]   [ 4]    Integer: 140024263
-     * 16:20:28 [DroneDump]       [ 1]    Integer: 450000587
-     */
-    _log(DRONE__TRACE, "EntityBound::Handle_CmdMineRepeatedly()");
-    call.Dump(DRONE__DUMP);
-
-    /** @todo MAKE CHECKS IN MINING LASER FOR DRONES BEFORE COMPLETING THIS FUNCTION  **/
-
-    call.client->SendNotifyMsg("Mining drones are not yet supported.");
-    return new PyDict();
+    _log(DRONE__TRACE, "EntityBound::CmdMineRepeatedly()");
+    // same as CmdMine for now — drones will auto-mine until asteroid depleted or cargo full
+    return CmdMine(call, droneIDs, targetID);
 }
 
 PyResult EntityBound::CmdUnanchor(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {

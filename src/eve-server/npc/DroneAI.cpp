@@ -15,6 +15,7 @@
 #include "system/DestinyManager.h"
 #include "npc/Drone.h"
 #include "npc/DroneAI.h"
+#include "inventory/ItemFactory.h"
 #include "system/Damage.h"
 #include "system/BubbleManager.h"
 #include "system/SystemBubble.h"
@@ -141,11 +142,12 @@ void DroneAIMgr::Process() {
      */
 
     // test for control distance - offline drones outside AttrDroneControlDistance
-    // skip check while Departing (drone needs to return), Engaged, or Approaching
-    // (actively fighting drones should not be interrupted by distance)
+    // skip check while Departing (drone needs to return), Engaged, Approaching, or Mining
+    // (actively working drones should not be interrupted by distance)
     if ((m_state != DroneAI::State::Departing)
     and (m_state != DroneAI::State::Engaged)
     and (m_state != DroneAI::State::Approaching)
+    and (m_state != DroneAI::State::Mining)
     and (m_assignedShip != nullptr) and (m_assignedShip->DestinyMgr() != nullptr)) {
         double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
         double controlRange = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
@@ -210,6 +212,30 @@ void DroneAIMgr::Process() {
                 SetIdle();
             }
         } break;
+        case DroneAI::State::Mining: {
+            SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(true);
+            if (pTarget == nullptr) {
+                if (m_pDrone->TargetMgr()->HasNoTargets()) {
+                    _log(DRONE__AI_TRACE, "Drone %s(%u): Mining stopped, no target.", m_pDrone->GetName(), m_pDrone->GetID());
+                    SetIdle();
+                }
+                return;
+            }
+            if (pTarget->SysBubble() == nullptr) {
+                m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                return;
+            }
+            double dist = m_pDrone->GetPosition().distance(pTarget->GetPosition());
+            if (dist > m_entityFlyRange) {
+                SetApproaching(pTarget);
+                return;
+            }
+            if (!m_miningTimer.Enabled())
+                m_miningTimer.Start(m_attackSpeed);
+            if (m_miningTimer.Check())
+                MiningAttack(pTarget);
+        } break;
+
         // not sure how im gonna do these...
         case DroneAI::State::Fleeing:
         case DroneAI::State::Operating:
@@ -218,7 +244,6 @@ void DroneAIMgr::Process() {
         case DroneAI::State::Guarding:
         case DroneAI::State::Assisting:
         case DroneAI::State::Combat:
-        case DroneAI::State::Mining:
         case DroneAI::State::Departing2:
         case DroneAI::State::Pursuit: {
            // do nothing here yet
@@ -386,6 +411,26 @@ void DroneAIMgr::Target(SystemEntity* pTarget) {
     throw PyException(MakeUserError("DeniedDroneTargetForceField", arg));
     */
  //DeniedDroneTargetForceField
+}
+
+void DroneAIMgr::MineTarget(SystemEntity* pTarget) {
+    bool chase = false;
+    uint32 scanSpeed = m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32();
+    if (scanSpeed < 1000) scanSpeed = 2000;
+    if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, scanSpeed, 1, m_entityFlyRange, chase)) {
+        if (chase) {
+            bool dummyChase = false;
+            SetApproaching(pTarget);
+            m_pDrone->TargetMgr()->StartTargeting(pTarget, scanSpeed, 1, BUBBLE_RADIUS_METERS, dummyChase);
+        } else {
+            SetIdle();
+        }
+        return;
+    }
+    m_beginFindTarget.Disable();
+    m_state = DroneAI::State::Mining;
+    m_miningTimer.Start(m_attackSpeed);
+    CheckDistance(pTarget);
 }
 
 void DroneAIMgr::Targeted(SystemEntity* pAgressor) {
@@ -745,6 +790,82 @@ void DroneAIMgr::CapDrainAttack(SystemEntity* pTarget) {
             }
         }
     }
+}
+
+void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
+    if (m_assignedShip == nullptr || m_assignedShip->DestinyMgr() == nullptr)
+        return;
+
+    // check distance to ship — ore can't be transferred if too far
+    double distToShip = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
+    double controlRange = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
+    if (controlRange < 1.0) controlRange = 25000.0;
+    if (distToShip > controlRange * 1.5)
+        return; // too far, wait until ship gets closer
+
+    // get mining amount from drone attributes
+    float miningAmount = m_pDrone->GetSelf()->GetAttribute(AttrMiningAmount).get_float();
+    if (miningAmount < 1.0)
+        miningAmount = 10.0; // fallback
+
+    // apply Mining skill bonus (+5% per level)
+    int8 miningSkill = GetOwnerSkillLevel(EvESkill::Mining);
+    miningAmount *= (1.0f + 0.05f * miningSkill);
+
+    // get asteroid ore volume
+    InventoryItemRef roidRef = pTarget->GetSelf();
+    float oreVolume = roidRef->GetAttribute(AttrVolume).get_float();
+    if (oreVolume <= 0) {
+        oreVolume = 1.0;
+    }
+
+    if (miningAmount < oreVolume) {
+        _log(DRONE__AI_TRACE, "Drone %s(%u): miningAmount %.2f < oreVolume %.2f for %s(%u), skipping cycle.",
+             m_pDrone->GetName(), m_pDrone->GetID(), miningAmount, oreVolume,
+             pTarget->GetName(), pTarget->GetID());
+        return;
+    }
+
+    float oreUnits = floor(miningAmount / oreVolume);
+    if (oreUnits < 1.0)
+        return;
+
+    uint16 oreTypeID = roidRef->typeID();
+
+    // add ore to ship's cargo hold
+    InventoryItemRef shipRef = m_assignedShip->GetSelf();
+    double cargoCap = shipRef->GetAttribute(AttrCapacity).get_float();
+    double cargoUsed = m_assignedShip->GetCargoUsed();
+    double oreTotalVolume = oreUnits * oreVolume;
+
+    if (cargoUsed + oreTotalVolume > cargoCap) {
+        // cargo full — deactivate mining
+        _log(DRONE__AI_TRACE, "Drone %s(%u): Ship cargo full, stopping mining.", m_pDrone->GetName(), m_pDrone->GetID());
+        m_pDrone->GetOwner()->SendNotifyMsg("Mining drones deactivated: cargo hold full.");
+        SetIdle();
+        return;
+    }
+
+    // send mining visual effect
+    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                              m_pDrone->GetSelf()->itemID(),
+                                              m_pDrone->GetSelf()->typeID(),
+                                              pTarget->GetID(),
+                                              0, "effects.MiningLaser", 0, 1, 1, m_attackSpeed, 0);
+
+    // add ore to ship cargo hold
+    InventoryItemRef shipRef = m_assignedShip->GetSelf();
+    uint32 locationID = shipRef->itemID();
+    ItemData idata(oreTypeID, shipRef->ownerID(), locationID, flagCargoHold, static_cast<int32>(oreUnits));
+    InventoryItemRef oRef = sItemFactory.SpawnItem(idata);
+    if (oRef.get() == nullptr) {
+        _log(DRONE__MESSAGE, "MiningAttack: Could not create mined ore for ship %s(%u)",
+             shipRef->name(), shipRef->itemID());
+        return;
+    }
+    shipRef->AddItem(oRef);
+    _log(DRONE__AI_TRACE, "Drone %s(%u): Added %.0f units of ore type %u to ship cargo.",
+         m_pDrone->GetName(), m_pDrone->GetID(), oreUnits, oreTypeID);
 }
 
 int8 DroneAIMgr::GetOwnerSkillLevel(uint16 skillID) const {
