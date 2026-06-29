@@ -2557,20 +2557,6 @@ void DestinyManager::SetPosition(const GPoint &pt, bool update /*false*/) {
     }
 }
 
-void DestinyManager::SendPosition() {
-    // broadcast current position as a GOTO update so all clients in bubble
-    // have a valid ball position immediately (avoids dist=nan in target label).
-    if (!mySE->IsDroneSE())
-        return;
-    CmdGotoPoint du;
-        du.entityID = mySE->GetID();
-        du.x = m_position.x;
-        du.y = m_position.y;
-        du.z = m_position.z;
-    PyTuple* up = du.Encode();
-    SendSingleDestinyUpdate(&up, false);
-}
-
 void DestinyManager::SetRadius(double radius, bool update /*false*/) {
     _log(DESTINY__TRACE, "Destiny::SetPosition() called by %s(%u)", mySE->GetName(), mySE->GetID());
 

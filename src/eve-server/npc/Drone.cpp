@@ -173,9 +173,19 @@ void DroneSE::Launch(ShipSE* pShipSE) {
     m_controllerID = pShipSE->GetID();
     m_controllerOwnerID = pShipSE->GetOwnerID();
 
+    GPoint pos(pShipSE->GetPosition());
+    pos.MakeRandomPointOnSphere(50.0);
+    m_self->SetPosition(pos);
+
+    // Add to bubble first so DestinyManager::SetPosition can broadcast
     m_system->AddEntity(this);
 
     assert (m_bubble != nullptr);
+
+    // Force broadcast SetBallPosition after AddEntity so all clients in bubble
+    // have valid coords before the first GOTO from IdleOrbit arrives.
+    // (Without this, bracket/OnMouseEnter computes nan position → crash.)
+    m_destiny->SetPosition(pos, true);
 }
 
 void DroneSE::Online(ShipSE* pShipSE/*nullptr*/) {
@@ -194,11 +204,6 @@ void DroneSE::Online(ShipSE* pShipSE/*nullptr*/) {
     } else if (!m_self->position().isZero()) {
         m_destiny->SetPosition(m_self->position());
     }
-
-    // Send immediate position update so client ball has valid coords
-    // (otherwise the first GOTO from IdleOrbit may arrive after the client
-    //  tries to display the target label, causing dist=nan → crash)
-    m_destiny->SendPosition();
 
     m_AI->AssignShip(pShipSE);
 

@@ -121,7 +121,6 @@ public:
     void WebbedMe(InventoryItemRef modRef, bool apply=false);
     void SpeedBoost(bool deactivate=false);             // reset speed variables and bubblecast ship's AB/MWD modified speed (module activate/deactivate)
     void SetPosition(const GPoint& pt, bool update=false);
-    void SendPosition();     // broadcast current position as GOTO immediately
     void SetRadius(double radius, bool update = false);
     void SetMaxVelocity(float maxVelocity);
     void UpdateShipVariables();
