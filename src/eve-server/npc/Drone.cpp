@@ -195,6 +195,11 @@ void DroneSE::Online(ShipSE* pShipSE/*nullptr*/) {
         m_destiny->SetPosition(m_self->position());
     }
 
+    // Send immediate position update so client ball has valid coords
+    // (otherwise the first GOTO from IdleOrbit may arrive after the client
+    //  tries to display the target label, causing dist=nan → crash)
+    m_destiny->SendPosition();
+
     m_AI->AssignShip(pShipSE);
 
     // apply Drone Durability skill bonus (+5% shield/armor/hull HP per level)
