@@ -80,8 +80,8 @@ Full GM list: [doc/admin_reference.md](doc/admin_reference.md)
 | **Kill Rights** | Grant on attack, auto-activate, Limited Engagement, price + DB |
 | **Convoys** | Guards + haulers, phased movement, wake-up on attack, defense |
 | **Killmails** | XML blob, push via mail + combat log, NPC corpID fix |
-| **Warp** | Stop desync fix, Halt after warp, position sync to client |
-| **Drones** | Full skill bonuses, EWAR/logistics/mining, AI rewrite |
+| **Warp** | Fix client-server desync (ship arrives at 0 but client shows 473km away). WarpStop sets position at target BEFORE sending GOTO update. Halt after warp to prevent NaN velocity. Autopilot chains preserved across gate jumps, Follow resumes for gate approach |
+| **Drones** | Full skill tree (Navigation, Sharpshooting, racial, Interfacing, Durability). EWAR (ECM/TP), logistics (shield/armor), mining subtypes. AI: approach from any range, chase, return-on-scoop. Fixes: ghost drones, re-entrancy, orphan removal, orbit sanity, NaN velocity |
 | **Mail** | Dual-write fix (visible in client), Deflate compression |
 | **LiveUpdate** | News ticker shows latest commit instead of SSL error |
 | **Build** | Docker Compose, ccache, MariaDB→MySQL symlinks |
@@ -171,8 +171,8 @@ docker logs -f server          # ждать "Server started"
 | **Kill Rights** | Выдача, авто-активация, Limited Engagement, цена |
 | **Конвои** | Охрана + грузовозы, фазы, защита сентри |
 | **Киллимейлы** | XML, push в почту, фикс killerID для NPC |
-| **Варп** | Фикс десинхра, Halt после варпа |
-| **Дроны** | Скиллы, EWAR/логистика/майнинг, AI |
+| **Варп** | Фикс десинхра клиент-сервер (корабль в 0, клиент на 473км). Позиция в targetPoint ДО отправки GOTO. Halt после варпа. Автопилот: флаг сохраняется после прыжка, Follow возобновляется для подлёта к гейту |
+| **Дроны** | Полное дерево скиллов (Navigation, Sharpshooting, расовые, Interfacing, Durability). EWAR (ECM/TP), логистика (щит/броня), майнинг. AI: подход с любой дистанции, преследование, возврат при scoop. Фиксы: ghost-дроны, re-entrancy, мёртвые ссылки, орбита, NaN скорость |
 | **Почта** | Двойная запись (видна клиенту) |
 | **LiveUpdate** | Новости — последний коммит вместо SSL ошибки |
 
