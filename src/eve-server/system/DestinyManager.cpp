@@ -2093,10 +2093,10 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
      */
     SafeDelete(m_warpState);
 
-    // Minimum landing offset for warp-to-0 (~2km). Prevents landing inside
-    // objects and being ejected 30+ km by physics.
+    // Landing offset for warp-to-0. Gates ~2km, stations ~5km.
+    // Use 5km default — matches standard EVE behavior for stations.
     if (distance == 0) {
-        distance = 2200;
+        distance = 5000;
     }
 
     // check for autopilot.  it has 'special' checks in client for auto-disable by destiny update
