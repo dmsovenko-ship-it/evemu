@@ -227,8 +227,12 @@ void DroneAIMgr::Process() {
             }
             double dist = m_pDrone->GetPosition().distance(pTarget->GetPosition());
             if (dist > m_entityFlyRange) {
-                SetApproaching(pTarget);
+                // move toward target without changing state to Approaching
+                m_pDrone->DestinyMgr()->Follow(pTarget, m_entityOrbitRange);
                 return;
+            }
+            if (!m_pDrone->DestinyMgr()->IsOrbiting()) {
+                m_pDrone->DestinyMgr()->Orbit(pTarget, m_entityOrbitRange);
             }
             if (!m_miningTimer.Enabled())
                 m_miningTimer.Start(m_attackSpeed);
@@ -352,6 +356,11 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
     }
 
     if (dist > flyRange) {
+        if (m_state == DroneAI::State::Mining) {
+            // mining drones approach target without state change
+            m_pDrone->DestinyMgr()->Follow(pSE, m_entityOrbitRange);
+            return;
+        }
         _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: %s(%u) is too far away (%.0f).  Return to Idle.",
              m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID(), dist);
         ClearTarget(pSE);
@@ -359,6 +368,10 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
     }
     if (dist > attackRange) {
         // within fly range but outside attack range — approach
+        if (m_state == DroneAI::State::Mining) {
+            m_pDrone->DestinyMgr()->Follow(pSE, m_entityOrbitRange);
+            return;
+        }
         SetApproaching(pSE);
         return;
     }
