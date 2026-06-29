@@ -866,7 +866,9 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
             _log(DRONE__AI_TRACE, "Drone %s(%u): Cargo full (need %.0f, have %.0f), stopping.",
                  m_pDrone->GetName(), m_pDrone->GetID(), oreVol, remaining);
             m_pDrone->GetOwner()->SendNotifyMsg("Mining drones deactivated: cargo hold full.");
+            m_pDrone->TargetMgr()->ClearTarget(pTarget);
             SetIdle();
+            m_pDrone->StateChange();
             return;
         }
     }
