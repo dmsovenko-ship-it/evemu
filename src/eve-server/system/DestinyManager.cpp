@@ -2336,28 +2336,26 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
     if (Rc <= 1.0) {
         _log(DESTINY__ERROR, "%s(%u) - Orbit Rc=%.2f is too small (distance=%u, radius=%.1f, targetRadius=%.1f). Clamping.",
              mySE->GetName(), mySE->GetID(), Rc, distance, m_radius, pSE->GetRadius());
-        // Rc must be positive for the orbit radius formula to work
-        // without producing zero-divide NaN. Pick a minimal sane value.
         m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
         if (m_followDistance < 1.0)
             m_followDistance = 500.0;
-        goto orbit_done;
+    } else {
+        double one = (108 * t2 * Vm2 * Rc2);
+        double two = (12 * t2 * Vm2 *  std::pow(Rc,10));
+        double three = (12 * std::sqrt(81 *  std::pow(m_shipAgility,4) *  std::pow(m_maxShipSpeed,4) + two));
+        double four = (6 *  std::cbrt(one + 8 *  std::pow(Rc,6) + three));
+        double five =  std::cbrt( std::sqrt(three *  std::pow(Rc,8) + two));
+        double six = (one + (8 * Rc2) + (12 * five));
+        if (std::abs(six) < 1e-10) {
+            _log(DESTINY__ERROR, "%s(%u) - Orbit formula 'six' is zero (%.10f). Clamping to fallback.", mySE->GetName(), mySE->GetID(), six);
+            m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
+            if (m_followDistance < 1.0)
+                m_followDistance = 500.0;
+        } else {
+            m_followDistance =  std::sqrt(four + (24 *  std::pow(Rc, 4) / six) + 12 * Rc2) / 6;
+        }
     }
 
-    double one = (108 * t2 * Vm2 * Rc2);
-    double two = (12 * t2 * Vm2 *  std::pow(Rc,10));
-    double three = (12 * std::sqrt(81 *  std::pow(m_shipAgility,4) *  std::pow(m_maxShipSpeed,4) + two));
-    double four = (6 *  std::cbrt(one + 8 *  std::pow(Rc,6) + three));
-    double five =  std::cbrt( std::sqrt(three *  std::pow(Rc,8) + two));
-    double six = (one + (8 * Rc2) + (12 * five));
-    if (std::abs(six) < 1e-10) {
-        _log(DESTINY__ERROR, "%s(%u) - Orbit formula 'six' is zero (%.10f). Clamping to fallback.", mySE->GetName(), mySE->GetID(), six);
-        m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
-        if (m_followDistance < 1.0)
-            m_followDistance = 500.0;
-        goto orbit_done;
-    }
-    m_followDistance =  std::sqrt(four + (24 *  std::pow(Rc, 4) / six) + 12 * Rc2) / 6;
     if (std::isnan(m_followDistance) or (m_followDistance <= 0.0)) {
         _log(DESTINY__ERROR, "%s(%u) - Orbit followDistance is %s. Clamping to fallback.",
              mySE->GetName(), mySE->GetID(), std::isnan(m_followDistance) ? "NaN" : "<=0");
@@ -2365,8 +2363,6 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
         if (m_followDistance < 1.0)
             m_followDistance = 500.0;
     }
-
-orbit_done:
     double velocity = m_maxShipSpeed * ((distance / m_followDistance) + 0.065);
     if (std::isnan(velocity) or (velocity <= 0.0)) {
         _log(DESTINY__ERROR, "%s(%u) - Orbit velocity is %s. Clamping.", mySE->GetName(), mySE->GetID(), std::isnan(velocity) ? "NaN" : "<=0");
