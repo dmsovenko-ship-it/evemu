@@ -28,6 +28,8 @@
 
 #include "EVEServerConfig.h"
 
+#include <algorithm>
+
 #include "Client.h"
 #include "EntityList.h"
 
@@ -222,7 +224,7 @@ void DestinyManager::ProcessState() {
             // Updated warp alignment and speed check.  -allan  17nov15
             GVector toVec(m_position, m_targetPoint);
             toVec.normalize();
-            float dot = toVec.dotProduct(m_shipHeading);
+            float dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0f, 1.0f);
             float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
 
             if (mySE->IsNPCSE() && mySE->SysBubble()->CountPlayers() <= 0)
@@ -422,11 +424,10 @@ void DestinyManager::UpdateVelocity(bool isMoving) {
         m_maxSpeed = m_speedToLeaveWarp;
         m_prevSpeed = m_speedToLeaveWarp;
         m_velocity = m_shipHeading * m_maxSpeed;
-        // Clamp to 1.0: warp exit speed can exceed maxShipSpeed, but
-        // 1 - psf must be positive for log(). NaN here breaks the entire
-        // GOTO decel and can eject the ship.
-        m_prevSpeedFraction = std::min(1.0f, m_maxSpeed / m_maxShipSpeed);
-        m_shipAccelTime = m_shipAgility * -log(1.0f - m_prevSpeedFraction + 0.0001f);
+        // Clamp to [0, 1): 1 - psf must be positive for log().
+        // NaN here breaks the entire GOTO decel and can eject the ship.
+        m_prevSpeedFraction = std::clamp(m_maxSpeed / m_maxShipSpeed, 0.0f, 0.9999f);
+        m_shipAccelTime = m_shipAgility * -log(1.0f - m_prevSpeedFraction);
     } else if (m_userSpeedFraction) {
         // commanded speed fraction > 0 and ...
         float delta(1.0f);
@@ -960,16 +961,7 @@ bool DestinyManager::IsTurn() {    //this is working.  dont change
     /** @todo revisit this to verify angle calcs */
     GVector toVec(m_position, m_targetPoint);
     toVec.normalize();
-    float dot(toVec.dotProduct(m_shipHeading));
-    // Normalize ship heading if it drifted from unit length
-    if ((dot > 1.0f) or (dot < -1.0f)) {
-        m_shipHeading.normalize();
-        dot = toVec.dotProduct(m_shipHeading);
-        if ((dot > 1.0f) or (dot < -1.0f)) {
-            sLog.Error("Destiny::IsTurn()", "%s(%u) - shipHeading is invalid even after normalization.", mySE->GetName(), mySE->GetID());
-            return false;
-        }
-    }
+    float dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0f, 1.0f);
     m_radians = std::acos(dot);
     float degrees(EvE::Trig::Rad2Deg(m_radians));
     if (degrees < TURN_ALIGNMENT/*4*/) {
@@ -2422,7 +2414,7 @@ bool DestinyManager::IsAligned(GPoint& targetPoint)
     }
     GVector toVec(m_position, targetPoint);
     toVec.normalize();
-    float dot = toVec.dotProduct(m_shipHeading);
+    float dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0f, 1.0f);
     float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
     if (degrees < TURN_ALIGNMENT)
         return true;
@@ -2536,8 +2528,7 @@ void DestinyManager::SetPosition(const GPoint &pt, bool update /*false*/) {
     if (pt.isZero()) {
         _log(DESTINY__TRACE, "Destiny::SetPosition() - %s(%u) point is zero", mySE->GetName(), mySE->GetID());
         EvE::traceStack();
-        // this *should* be systemID...
-        m_position = sMapData.GetRandPointOnPlanet(mySE->GetLocationID());
+        return;
     } else {
         m_position = pt;
     }

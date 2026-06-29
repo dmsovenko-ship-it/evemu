@@ -2564,11 +2564,13 @@ void ShipSE::Dock() {
         m_targMgr->ClearAllTargets(false);
     }
 
-    // offline all drones in flight so they don't hold dangling ship pointer
+    // remove drones from system silently — client is about to dock and has no space ballpark
+    // (Offline()->Stop() broadcasts SetBallPosition/CmdStop which would crash the docking client)
     for (auto cur : m_drones) {
         SystemEntity* pSE = m_system->GetSE(cur.first);
-        if (pSE != nullptr && pSE->IsDroneSE())
-            pSE->GetDroneSE()->Offline();
+        if (pSE != nullptr && pSE->IsDroneSE()) {
+            m_system->RemoveEntity(pSE);
+        }
     }
     m_drones.clear();
     m_shipRef->SetAttribute(AttrDroneBandwidthLoad, EvilZero, false);
