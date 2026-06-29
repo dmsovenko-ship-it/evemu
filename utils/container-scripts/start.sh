@@ -23,11 +23,10 @@ if [ ! -f "/app/etc/devtools.raw" ]; then
     cp /src/utils/config/devtools.raw /app/etc/
 fi
 
-# Clean up stale wrecks (transient DB entities from crashed sessions)
-mysql -h $MARIADB_HOST -u $MARIADB_USER -p$MARIADB_PASSWORD $MARIADB_DATABASE \
-    -e "DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE groupID = 237); \
-        DELETE FROM entity WHERE groupID = 237;" \
-    2>/dev/null || true
+# Clean up stale wrecks
+mysql -h "${MARIADB_HOST:-db}" -u "${MARIADB_USER:-evemu}" -p"${MARIADB_PASSWORD:-evemu}" "${MARIADB_DATABASE:-evemu}" \
+    -e "DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE groupID = 237); DELETE FROM entity WHERE groupID = 237;" \
+    2>/dev/null; true
 
 #Start eve-server
 echo "Starting eve-server..."
