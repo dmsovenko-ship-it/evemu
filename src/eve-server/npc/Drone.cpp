@@ -318,7 +318,7 @@ void DroneSE::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = Ball::Flag::IsFree;
+        head.flags = Ball::Flag::IsFree | Ball::Flag::IsInteractive;
     into.Append( head );
     MassSector mass = MassSector();
         mass.mass = m_destiny->GetMass();
