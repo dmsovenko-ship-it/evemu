@@ -28,6 +28,7 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
   m_pDrone(who),
   m_assignedShip(nullptr),
   m_returnToBay(false),
+  m_singleMineCycle(false),
   m_mainAttackTimer(0),// dont start timer until we have a target
   m_processTimer(0),
   m_beginFindTarget(0),
@@ -435,8 +436,9 @@ void DroneAIMgr::Target(SystemEntity* pTarget) {
  //DeniedDroneTargetForceField
 }
 
-void DroneAIMgr::MineTarget(SystemEntity* pTarget) {
+void DroneAIMgr::MineTarget(SystemEntity* pTarget, bool singleCycle) {
     m_state = DroneAI::State::Mining;
+    m_singleMineCycle = singleCycle;
     m_beginFindTarget.Disable();
     m_miningTimer.Start(m_attackSpeed);
 
@@ -883,6 +885,13 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
     oRef->Move(shipRef->itemID(), flagCargoHold, true);
     _log(DRONE__AI_TRACE, "Drone %s(%u): Added %.0f units of ore type %u to ship cargo.",
          m_pDrone->GetName(), m_pDrone->GetID(), oreUnits, oreTypeID);
+
+    // single cycle mode — return to orbit after one successful mine
+    if (m_singleMineCycle) {
+        m_pDrone->TargetMgr()->ClearTarget(pTarget);
+        SetIdle();
+        m_pDrone->StateChange();
+    }
 }
 
 int8 DroneAIMgr::GetOwnerSkillLevel(uint16 skillID) const {

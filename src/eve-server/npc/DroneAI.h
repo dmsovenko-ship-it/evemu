@@ -77,7 +77,7 @@ public:
     void ReturnBay();   // fly back and scoop into drone bay on arrival
     void AssignShip(ShipSE* pSE)                        { m_assignedShip = pSE; }
     int8 GetSubType() const                             { return m_subType; }
-    void MineTarget(SystemEntity* pTarget);
+    void MineTarget(SystemEntity* pTarget, bool singleCycle = false);
 
 protected:
     void Attack(SystemEntity* pTarget);
@@ -123,6 +123,7 @@ private:
     float m_repairAmount;     // shield or armor repair amount per cycle
 
     bool m_returnToBay;     // if true, scoop drone into bay when it reaches the ship
+    bool m_singleMineCycle; // if true, mine one cycle then return to orbit
 
     DroneSE* m_pDrone;
     ShipSE* m_assignedShip;

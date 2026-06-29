@@ -221,9 +221,9 @@ PyResult EntityBound::CmdMine(PyCallArgs &call, PyList* droneIDs, PyInt* targetI
             _log(DRONE__MESSAGE, "CmdMine: drone %u is not a mining drone.", droneID);
             continue;
         }
-        _log(DRONE__TRACE, "CmdMine: ordering drone %u to mine %u.", droneID, targetID->value());
+        _log(DRONE__TRACE, "CmdMine: ordering drone %u to mine %u (single cycle).", droneID, targetID->value());
         pDrone->SetTarget(pTarget);
-        pDrone->GetAI()->MineTarget(pTarget);
+        pDrone->GetAI()->MineTarget(pTarget, true);  // single cycle
         pDrone->StateChange();
     }
     return errors;
@@ -231,8 +231,27 @@ PyResult EntityBound::CmdMine(PyCallArgs &call, PyList* droneIDs, PyInt* targetI
 
 PyResult EntityBound::CmdMineRepeatedly(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {
     _log(DRONE__TRACE, "EntityBound::CmdMineRepeatedly()");
-    // mine until cargo full or asteroid depleted
-    return CmdMine(call, droneIDs, targetID);
+
+    SystemEntity* pTarget = m_sysMgr->GetSE(targetID->value());
+    if (pTarget == nullptr) {
+        _log(DRONE__MESSAGE, "CmdMineRepeatedly: target %u not found.", targetID->value());
+        return new PyDict();
+    }
+
+    PyDict* errors = new PyDict();
+    for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
+        uint32 droneID = PyRep::IntegerValueU32(*itr);
+        SystemEntity* pSE = m_sysMgr->GetSE(droneID);
+        if (pSE == nullptr || !pSE->IsDroneSE()) continue;
+        DroneSE* pDrone = pSE->GetDroneSE();
+        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID()) continue;
+        if (!pDrone->IsEnabled()) continue;
+        if (pDrone->GetAI()->GetSubType() != DroneAI::SubType_Mining) continue;
+        pDrone->SetTarget(pTarget);
+        pDrone->GetAI()->MineTarget(pTarget, false);  // continuous mining
+        pDrone->StateChange();
+    }
+    return errors;
 }
 
 PyResult EntityBound::CmdUnanchor(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {
