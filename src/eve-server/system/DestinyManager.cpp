@@ -26,9 +26,11 @@
 
 // this class is for objects that move
 
+#include <algorithm>
+
 #include "EVEServerConfig.h"
 
-#include <algorithm>
+
 
 #include "Client.h"
 #include "EntityList.h"
@@ -224,7 +226,7 @@ void DestinyManager::ProcessState() {
             // Updated warp alignment and speed check.  -allan  17nov15
             GVector toVec(m_position, m_targetPoint);
             toVec.normalize();
-            float dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0f, 1.0f);
+            double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
             float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
 
             if (mySE->IsNPCSE() && mySE->SysBubble()->CountPlayers() <= 0)
@@ -961,7 +963,7 @@ bool DestinyManager::IsTurn() {    //this is working.  dont change
     /** @todo revisit this to verify angle calcs */
     GVector toVec(m_position, m_targetPoint);
     toVec.normalize();
-    float dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0f, 1.0f);
+    double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
     m_radians = std::acos(dot);
     float degrees(EvE::Trig::Rad2Deg(m_radians));
     if (degrees < TURN_ALIGNMENT/*4*/) {
@@ -2414,7 +2416,7 @@ bool DestinyManager::IsAligned(GPoint& targetPoint)
     }
     GVector toVec(m_position, targetPoint);
     toVec.normalize();
-    float dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0f, 1.0f);
+    double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
     float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
     if (degrees < TURN_ALIGNMENT)
         return true;
