@@ -363,6 +363,13 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
         return;
     }
     // within attack range — engage and orbit at weapon range
+    if (m_state == DroneAI::State::Mining) {
+        // mining drones stay in Mining state, don't switch to Engaged
+        if (!m_miningTimer.Enabled())
+            m_miningTimer.Start(m_attackSpeed);
+        return;
+    }
+
     SetEngaged(pSE);
 
     if (!m_mainAttackTimer.Enabled()) {
