@@ -70,6 +70,24 @@ Full GM list: [doc/admin_reference.md](doc/admin_reference.md)
 
 ---
 
+## 📜 Changelog (custom)
+
+| Area | Change |
+|------|--------|
+| **CONCORD** | Police ships, delay by sec, killmail, −0.2 penalty |
+| **Sentry Guns** | Corp from station, standing-based in nullsec, CrimeWatch in high/low |
+| **CrimeWatch** | Weapon/aggression/criminal timers, outlaw, suspect on loot |
+| **Kill Rights** | Grant on attack, auto-activate, Limited Engagement, price + DB |
+| **Convoys** | Guards + haulers, phased movement, wake-up on attack, defense |
+| **Killmails** | XML blob, push via mail + combat log, NPC corpID fix |
+| **Warp** | Stop desync fix, Halt after warp, position sync to client |
+| **Drones** | Full skill bonuses, EWAR/logistics/mining, AI rewrite |
+| **Mail** | Dual-write fix (visible in client), Deflate compression |
+| **LiveUpdate** | News ticker shows latest commit instead of SSL error |
+| **Build** | Docker Compose, ccache, MariaDB→MySQL symlinks |
+
+---
+
 ## 🔗 Links
 
 [Upstream](https://github.com/EvEmu-Project/evemu_Crucible) · [PR #327](https://github.com/EvEmu-Project/evemu_Crucible/pull/327) · [Discord](https://discord.gg/fTfAREYxbz)
@@ -140,6 +158,23 @@ docker logs -f server          # ждать "Server started"
 - `Destiny::MoveObject()` — upstream, безвредно
 - Доставка почты — неполный `MailService`
 - Push-уведомления киллимейлов — не реализованы
+
+---
+
+## 📜 Список изменений
+
+| Область | Изменение |
+|---------|-----------|
+| **CONCORD** | Police, задержка по sec, киллимейл, штраф −0.2 |
+| **Сентри** | Корпорация от станции, рейтинг в нулях |
+| **CrimeWatch** | Таймеры оружия/аггрессии, криминал, outlaw |
+| **Kill Rights** | Выдача, авто-активация, Limited Engagement, цена |
+| **Конвои** | Охрана + грузовозы, фазы, защита сентри |
+| **Киллимейлы** | XML, push в почту, фикс killerID для NPC |
+| **Варп** | Фикс десинхра, Halt после варпа |
+| **Дроны** | Скиллы, EWAR/логистика/майнинг, AI |
+| **Почта** | Двойная запись (видна клиенту) |
+| **LiveUpdate** | Новости — последний коммит вместо SSL ошибки |
 
 ---
 
