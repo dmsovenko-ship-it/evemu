@@ -468,7 +468,7 @@ void WreckContainer::MakeSlimItemChange()
 // wrecks are invul. but shouldnt be.  see todo notes
 WreckSE::WreckSE(WreckContainerRef self, EVEServiceManager &services, SystemManager* system, const FactionData &data)
 : DynamicSystemEntity(self, services, system),
-m_deleteTimer(sConfig.rates.WorldDecay *60 *1000),
+m_deleteTimer(0),
 m_abandoned(false),
 m_contRef(self),
 m_launchedByID(0)
@@ -482,6 +482,11 @@ m_launchedByID(0)
     m_ownerID = data.ownerID;
 
     m_self->SetAttribute(AttrCapacity, m_self->type().capacity(), false);
+
+    // start garbage collection timer
+    uint32 decayMs = sConfig.rates.WorldDecay * 60 * 1000;
+    if (decayMs > 0)
+        m_deleteTimer.Start(decayMs);
 }
 
 WreckSE::~WreckSE()

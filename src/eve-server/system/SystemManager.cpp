@@ -478,6 +478,11 @@ bool SystemManager::LoadSystemDynamics() {
 
     SystemEntity* pSE(nullptr);
     for (auto cur : entities) {
+        // skip wrecks on system load — they are transient and have their own
+        // garbage-collection timer (120 min). On server restart they become stale.
+        if (cur.groupID == EVEDB::invGroups::Wreck)
+            continue;
+
         pSE = DynamicEntityFactory::BuildEntity(*this, cur);
         if (pSE == nullptr) {
             sLog.Error( "SystemManager::LoadSystemDynamics()", "Failed to create entity for item %u (grp: %u, type %u)",

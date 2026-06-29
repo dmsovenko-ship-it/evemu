@@ -48,6 +48,14 @@ migrations-dir: /src/sql/migrations
 dungeons-dir: /src/sql/dungeons
 EOF
 
+# Remove stale wrecks from DB (transient objects, not persistent)
+mysql -h $MARIADB_HOST -u $MARIADB_USER -p$MARIADB_PASSWORD $MARIADB_DATABASE -e "
+    DELETE FROM entity_attributes WHERE itemID IN (
+        SELECT itemID FROM entity WHERE groupID = 237  -- Wreck
+    );
+    DELETE FROM entity WHERE groupID = 237;             -- Wreck
+" 2>/dev/null || true
+
 echo "Running EVEDBTool..."
 /src/sql/evedbtool install
 
