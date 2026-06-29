@@ -96,6 +96,11 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
     m_shieldCharge = m_self->GetAttribute(AttrShieldCharge).get_float();
     m_shieldCapacity = m_self->GetAttribute(AttrShieldCapacity).get_float();
 
+    // Mining drones lack GfxTurretID in static data — set a fallback for client rendering
+    if (!m_self->HasAttribute(AttrGfxTurretID) && m_self->groupID() == EVEDB::invGroups::Mining_Drone) {
+        m_self->SetAttribute(AttrGfxTurretID, 375.0f, false);
+    }
+
     _log(DRONE__TRACE, "Created Drone object for %s (%u)", drone.get()->name(), drone.get()->itemID());
 }
 
