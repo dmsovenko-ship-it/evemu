@@ -836,6 +836,10 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
     int8 miningSkill = GetOwnerSkillLevel(EvESkill::Mining);
     miningAmount *= (1.0f + 0.05f * miningSkill);
 
+    // apply Mining Drone Operation bonus (+20% per level)
+    int8 miningDroneSkill = GetOwnerSkillLevel(EvESkill::MiningDroneOperation);
+    miningAmount *= (1.0f + 0.20f * miningDroneSkill);
+
     // get asteroid ore volume
     InventoryItemRef roidRef = pTarget->GetSelf();
     float oreVolume = roidRef->GetAttribute(AttrVolume).get_float();
