@@ -1788,13 +1788,12 @@ void DestinyManager::WarpDecel(uint16 sec_into_warp) {
                 mySE->GetName(), mySE->GetID(), decelTime, sec_into_warp, currentShipSpeed, m_targetDistance);
 
     WarpUpdate(currentShipSpeed);
-    // Fire WarpStop when remaining distance equals the GOTO stopping distance.
-    // UpdateVelocity() always caps exit speed to m_speedToLeaveWarp, so the
-    // stopping distance is fixed: m_speedToLeaveWarp * m_shipAgility.
-    // Triggering early leaves exactly that much runway so GOTO decel coasts
-    // the ship to a halt at m_targetPoint instead of overshooting by that amount.
-    double stoppingDist = static_cast<double>(m_speedToLeaveWarp) * m_shipAgility;
-    if (currentShipSpeed <= m_speedToLeaveWarp || (m_targetDistance > 0.0 && m_targetDistance <= stoppingDist))
+    // Fire WarpStop only when the ship has very nearly arrived (< 100m).
+    // This keeps the server position close to the client's WarpLoop position,
+    // preventing the 2736m snap that happened when triggering on stoppingDist.
+    // WarpStop itself sends no packets — the client's WarpLoop exits naturally
+    // and the next CmdStop/ProcessDestiny sync resolves any remaining offset.
+    if (m_targetDistance > 0.0 && m_targetDistance <= 100.0)
         WarpStop(currentShipSpeed);
 }
 
@@ -1862,9 +1861,11 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     SafeDelete(m_warpState);
 
-    // Stop the server-side ball immediately in STOP mode.
-    m_position = m_targetPoint;
-    mySE->SetPosition(m_position);
+    // Set server state to STOP but send NOTHING to the client.
+    // The client's WarpLoop runs independently using its own warp simulation
+    // and exits naturally when it reaches the destination. Sending CmdStop,
+    // CmdGotoDirection, or any position snap would either stop the ship
+    // 2736m early or cause the WarpLoop crash (ball.display = None).
     m_ballMode = Destiny::Ball::Mode::STOP;
     m_stop = true;
     m_accel = false;
@@ -1879,52 +1880,6 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     m_timeFraction = 0.0f;
 
     m_stateStamp = sEntityList.GetStamp();
-
-    // Send a batch of updates so the client atomically exits WarpLoop
-    // into STOP at the correct position — prevents GOTO decel or jerk.
-    std::vector<PyTuple*> updates;
-
-    // 1. Sync ball position to warp destination
-    SetBallPosition sbp;
-        sbp.entityID = mySE->GetID();
-        sbp.x = m_targetPoint.x;
-        sbp.y = m_targetPoint.y;
-        sbp.z = m_targetPoint.z;
-    updates.push_back(sbp.Encode());
-
-    // 2. Stop warp visual effect
-    OnSpecialFX10 sfx;
-        sfx.guid = "effects.Warping";
-        sfx.entityID = mySE->GetID();
-        sfx.isOffensive = false;
-        sfx.start = false;
-        sfx.active = false;
-    updates.push_back(sfx.Encode());
-
-    // 3. Set speed fraction to 0 + zero velocity (same as SendJumpInEffect)
-    CmdSetSpeedFraction ssf;
-        ssf.entityID = mySE->GetID();
-        ssf.fraction = 0.0;
-    updates.push_back(ssf.Encode());
-    SetBallVelocity sbv;
-        sbv.entityID = mySE->GetID();
-        sbv.x = 0.0;
-        sbv.y = 0.0;
-        sbv.z = 0.0;
-    updates.push_back(sbv.Encode());
-
-    // 4. Stop command to finalize STOP mode
-    CmdStop cs;
-        cs.entityID = mySE->GetID();
-    updates.push_back(cs.Encode());
-
-    // Send the batch to all observers (no SendSetState — that destroys the
-    // ballpark and makes WarpLoop crash with ball.display = None).
-    // The client WarpLoop will see STOP mode + speed 0 on its next check
-    // and exit naturally.
-    SendDestinyUpdate(updates);
-    for (auto& up : updates)
-        PyDecRef(up);
 
     // resume autopilot follow after warp complete
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {

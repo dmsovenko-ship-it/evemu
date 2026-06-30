@@ -139,6 +139,23 @@ uint32 FleetService::CreateFleet(Client *pClient)
     if (sConfig.chat.EnableSquadChat)
         m_lsc->CreateSystemChannel(m_squadID);
 
+    // auto-join the fleet founder to fleet/wing/squad channels
+    if (sConfig.chat.EnableFleetChat) {
+        LSCChannel* chan = m_lsc->GetChannelByID(m_fleetID);
+        if (chan != nullptr and !chan->IsJoined(pClient->GetCharacterID()))
+            chan->JoinChannel(pClient);
+    }
+    if (sConfig.chat.EnableWingChat and (m_wingID > 0)) {
+        LSCChannel* chan = m_lsc->GetChannelByID(m_wingID);
+        if (chan != nullptr and !chan->IsJoined(pClient->GetCharacterID()))
+            chan->JoinChannel(pClient);
+    }
+    if (sConfig.chat.EnableSquadChat and (m_squadID > 0)) {
+        LSCChannel* chan = m_lsc->GetChannelByID(m_squadID);
+        if (chan != nullptr and !chan->IsJoined(pClient->GetCharacterID()))
+            chan->JoinChannel(pClient);
+    }
+
     // increment counters after channels are created (to avoid wrong channel creation)
     ++m_fleetID;
     ++m_wingID;
@@ -264,6 +281,23 @@ bool FleetService::AddMember(Client* pClient, uint32 fleetID, int32 wingID, int3
         fData.booster = booster;
         fData.joinTime = GetFileTimeNow();
     pChar->SetFleetData(fData);
+
+    // auto-join this member to fleet/wing/squad channels
+    if (sConfig.chat.EnableFleetChat) {
+        LSCChannel* chan = m_lsc->GetChannelByID(fleetID);
+        if (chan != nullptr and !chan->IsJoined(pClient->GetCharacterID()))
+            chan->JoinChannel(pClient);
+    }
+    if (sConfig.chat.EnableWingChat and (wingID > 0)) {
+        LSCChannel* chan = m_lsc->GetChannelByID(wingID);
+        if (chan != nullptr and !chan->IsJoined(pClient->GetCharacterID()))
+            chan->JoinChannel(pClient);
+    }
+    if (sConfig.chat.EnableSquadChat and (squadID > 0)) {
+        LSCChannel* chan = m_lsc->GetChannelByID(squadID);
+        if (chan != nullptr and !chan->IsJoined(pClient->GetCharacterID()))
+            chan->JoinChannel(pClient);
+    }
 
     PyDict* dict = new PyDict();
         dict->SetItemString("targetTags", new PyDict());
