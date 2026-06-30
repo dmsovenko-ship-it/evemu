@@ -464,7 +464,7 @@ bool SystemManager::LoadSystemStatics() {
 
     // Spawn sentry guns at gates and stations
     SpawnSentryGuns();
-    //SpawnBillboards();  // disabled for crash investigation
+    SpawnBillboards();
     SpawnConvoys();
 
     return true;
@@ -1897,11 +1897,8 @@ void SystemManager::SpawnBillboards()
         if (iRef.get() == nullptr) continue;
 
         ItemSystemEntity* billboard = new ItemSystemEntity(iRef, m_services, this);
-        if (billboard != nullptr) {
-            billboard->DestinyMgr()->SetPosition(pos);
-            AddEntity(billboard);
-            ++count;
-        }
+        AddEntity(billboard);
+        ++count;
     }
 
     _log(SERVER__INIT, "SystemManager::SpawnBillboards() - %u billboards spawned for %s(%u)",
