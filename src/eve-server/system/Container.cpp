@@ -267,7 +267,29 @@ ContainerSE::ContainerSE(CargoContainerRef self, EVEServiceManager& services, Sy
         if (m_self->typeID() == EVEDB::invTypes::PlanetaryLaunchContainer) {
             m_deleteTimer.Start(5 *24 *60 *60 *1000);  //5d timer for PI launch.  should probably get this saved value from planet launches
         } else {
-            m_deleteTimer.Start(sConfig.rates.WorldDecay *60 *1000);
+            // Persist creation time across restarts via customInfo
+            std::string ci = m_self->customInfo();
+            int64 createTime = 0;
+            if (ci.find("created=") == 0)
+                createTime = std::stoll(ci.substr(8));
+
+            if (createTime == 0) {
+                // New or legacy container: store creation time now
+                createTime = static_cast<int64>(GetFileTimeNow());
+                m_self->SetCustomInfo(("created=" + std::to_string(createTime)).c_str());
+            }
+
+            // WorldDecay is in minutes, convert to 100ns units
+            int64 maxAge = static_cast<int64>(sConfig.rates.WorldDecay) * 60 * 1000 * 10000LL;
+            int64 age = static_cast<int64>(GetFileTimeNow()) - createTime;
+            if (age >= maxAge) {
+                // Already past expiry — delete in 1 second
+                m_deleteTimer.Start(1000);
+            } else {
+                // Convert remaining 100ns units to ms
+                int64 remainingMs = (maxAge - age) / 10000;
+                m_deleteTimer.Start(static_cast<uint32>(remainingMs));
+            }
         }
     }
 
@@ -483,10 +505,25 @@ m_launchedByID(0)
 
     m_self->SetAttribute(AttrCapacity, m_self->type().capacity(), false);
 
-    // start garbage collection timer
-    uint32 decayMs = sConfig.rates.WorldDecay * 60 * 1000;
-    if (decayMs > 0)
-        m_deleteTimer.Start(decayMs);
+    // start garbage collection timer (persistent across restarts)
+    std::string ci = m_self->customInfo();
+    int64 createTime = 0;
+    if (ci.find("created=") == 0)
+        createTime = std::stoll(ci.substr(8));
+
+    if (createTime == 0) {
+        createTime = static_cast<int64>(GetFileTimeNow());
+        m_self->SetCustomInfo(("created=" + std::to_string(createTime)).c_str());
+    }
+
+    int64 maxAge = static_cast<int64>(sConfig.rates.WorldDecay) * 60 * 1000 * 10000LL;
+    int64 age = static_cast<int64>(GetFileTimeNow()) - createTime;
+    if (age >= maxAge) {
+        m_deleteTimer.Start(1000);
+    } else {
+        int64 remainingMs = (maxAge - age) / 10000;
+        m_deleteTimer.Start(static_cast<uint32>(remainingMs));
+    }
 }
 
 WreckSE::~WreckSE()
