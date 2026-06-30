@@ -1443,13 +1443,12 @@ void FleetService::FleetBroadcast(Client* pFrom, uint32 itemID, int8 scope, int8
     //OnFleetBroadcast(name, group, charID, solarSystemID, itemID):
     //   ('HealCapacitor', 3, 95895066, 30003500, 1019274373727L, None)))
 
-    PyTuple* payload = new PyTuple(5);
+    PyTuple* payload = new PyTuple(6);
         payload->SetItem(0, new PyString(msg));
         payload->SetItem(1, new PyInt(group));
         payload->SetItem(2, new PyInt(pFrom->GetCharacterID()));
         payload->SetItem(3, new PyInt(pFrom->GetSystemID()));
         payload->SetItem(4, new PyInt(itemID));
-        // if BCastName(label) then add next item properly
         payload->SetItem(5, PyStatic.NewNone());
 
     uint8 count(0);
