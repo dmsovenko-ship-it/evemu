@@ -94,7 +94,7 @@ void CrimeWatch::OnWeaponFired()
     // Prevents docking and jumping during this time
     m_weaponTimer.Start(60000);
     if (m_client->GetChar()) {
-        int64 endTime = static_cast<int64>(GetFileTimeNow()) + 60000LL * 1000LL;
+        int64 endTime = static_cast<int64>(GetFileTimeNow()) + 60LL * EvE::Time::Second;
         m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(endTime), true);
     }
 }
@@ -107,8 +107,8 @@ void CrimeWatch::OnLooting()
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
     if (m_client->GetChar()) {
         int64 now = static_cast<int64>(GetFileTimeNow());
-        m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(now + 60000LL * 1000LL), true);
-        m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(now + sConfig.crime.AggFlagTime * 1000LL * 1000LL), true);
+        m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(now + 60LL * EvE::Time::Second), true);
+        m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(now + sConfig.crime.AggFlagTime * EvE::Time::Second), true);
     }
     // -0.2 security penalty (already applied in InventoryBound::Add)
 }
@@ -154,7 +154,7 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     // EVE: aggression timer = 15 minutes after PvP aggression
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
     if (m_client->GetChar()) {
-        int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * 1000LL * 1000LL;
+        int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
         m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
     }
 

@@ -709,6 +709,14 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
          d.GetTotal(),
          m_pDrone->GetKinetic(), m_pDrone->GetThermal(), m_pDrone->GetEM(), m_pDrone->GetExplosive(),
          dmgMult, skillMult, d.GetModifier(), sConfig.rates.damageRate);
+    Client* owner = m_pDrone->GetOwner();
+    if (owner != nullptr) {
+        owner->GetCrimeWatch()->OnWeaponFired();
+        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
+            float sec = owner->SystemMgr()->GetSystemSecurityRating();
+            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
+        }
+    }
     if (pTarget->ApplyDamage(d)) {
         return;
     }
@@ -759,6 +767,14 @@ void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
          m_pDrone->GetName(), m_pDrone->GetID(),
          pTarget->GetName(), pTarget->GetID(),
          d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
+    Client* owner = m_pDrone->GetOwner();
+    if (owner != nullptr) {
+        owner->GetCrimeWatch()->OnWeaponFired();
+        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
+            float sec = owner->SystemMgr()->GetSystemSecurityRating();
+            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
+        }
+    }
     if (pTarget->ApplyDamage(d)) {
         return;
     }
@@ -807,6 +823,14 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
          m_pDrone->GetName(), m_pDrone->GetID(),
          pTarget->GetName(), pTarget->GetID(),
          d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
+    Client* owner = m_pDrone->GetOwner();
+    if (owner != nullptr) {
+        owner->GetCrimeWatch()->OnWeaponFired();
+        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
+            float sec = owner->SystemMgr()->GetSystemSecurityRating();
+            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
+        }
+    }
     if (pTarget->ApplyDamage(d)) {
         return;
     }
@@ -827,6 +851,14 @@ void DroneAIMgr::WebAttack(SystemEntity* pTarget) {
                                              0, "effects.ModifyTargetSpeed",
                                              1, 1, 1, m_attackSpeed, 0, gfxID);
 
+    Client* owner = m_pDrone->GetOwner();
+    if (owner != nullptr) {
+        owner->GetCrimeWatch()->OnWeaponFired();
+        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
+            float sec = owner->SystemMgr()->GetSystemSecurityRating();
+            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
+        }
+    }
     // Apply web effect via WebbedMe using drone's own itemRef (must have AttrSpeedFactor)
     InventoryItemRef droneRef = m_pDrone->GetSelf();
     if (droneRef->HasAttribute(AttrSpeedFactor)) {
@@ -851,6 +883,14 @@ void DroneAIMgr::ScrambleAttack(SystemEntity* pTarget) {
                                              0, "effects.WarpScramble",
                                              1, 1, 1, m_attackSpeed, 0, gfxID);
 
+    Client* owner = m_pDrone->GetOwner();
+    if (owner != nullptr) {
+        owner->GetCrimeWatch()->OnWeaponFired();
+        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
+            float sec = owner->SystemMgr()->GetSystemSecurityRating();
+            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
+        }
+    }
     // Set WarpScrambleStatus on target
     InventoryItemRef targetRef = pTarget->GetSelf();
     if (targetRef->HasAttribute(AttrWarpScrambleStatus)) {
@@ -878,6 +918,14 @@ void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
                                              0, "effects.ElectronicAttributeModifyTarget",
                                              1, 1, 1, m_attackSpeed, 0, gfxID);
 
+    Client* owner = m_pDrone->GetOwner();
+    if (owner != nullptr) {
+        owner->GetCrimeWatch()->OnWeaponFired();
+        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
+            float sec = owner->SystemMgr()->GetSystemSecurityRating();
+            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
+        }
+    }
     // ECM clears target's lock list, breaking their targeting
     pTarget->TargetMgr()->ClearTargets();
     // Also clear anyone targeting the drone
@@ -1001,6 +1049,14 @@ void DroneAIMgr::CapDrainAttack(SystemEntity* pTarget) {
                     ownerCap = ownerMaxCap;
                 ownerRef->SetAttribute(AttrCapacitorCharge, ownerCap);
             }
+        }
+    }
+    Client* owner = m_pDrone->GetOwner();
+    if (owner != nullptr) {
+        owner->GetCrimeWatch()->OnWeaponFired();
+        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
+            float sec = owner->SystemMgr()->GetSystemSecurityRating();
+            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
         }
     }
 }
