@@ -1863,9 +1863,8 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     SafeDelete(m_warpState);
 
     // Stop the server-side ball immediately in STOP mode.
-    // Do NOT call Stop() — it calls SetPosition(m_position, true) which snaps
-    // the client ball to the server's warp position (~15m before target) and
-    // causes a visible jerk.
+    m_position = m_targetPoint;
+    mySE->SetPosition(m_position);
     m_ballMode = Destiny::Ball::Mode::STOP;
     m_stop = true;
     m_accel = false;
@@ -1881,14 +1880,47 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     m_stateStamp = sEntityList.GetStamp();
 
-    // Send CmdStop to client — only this, no SetPosition.
-    // Client exits WarpLoop and stops at its OWN warp-computed position
-    // (at the destination), avoiding any position snap.
-    CmdStop du;
-        du.entityID = mySE->GetID();
-    PyTuple *up = du.Encode();
-    SendSingleDestinyUpdate(&up);
-    PyDecRef(up);
+    // Send a batch of updates so the client atomically exits WarpLoop
+    // into STOP at the correct position — prevents GOTO decel or jerk.
+    std::vector<PyTuple*> updates;
+
+    // 1. Sync ball position to warp destination
+    SetBallPosition sbp;
+        sbp.entityID = mySE->GetID();
+        sbp.x = m_targetPoint.x;
+        sbp.y = m_targetPoint.y;
+        sbp.z = m_targetPoint.z;
+    updates.push_back(sbp.Encode());
+
+    // 2. Stop warp visual effect
+    OnSpecialFX10 sfx;
+        sfx.guid = "effects.Warping";
+        sfx.entityID = mySE->GetID();
+        sfx.isOffensive = false;
+        sfx.start = false;
+        sfx.active = false;
+    updates.push_back(sfx.Encode());
+
+    // 3. Set speed fraction to 0 + zero velocity (same as SendJumpInEffect)
+    CmdSetSpeedFraction ssf;
+        ssf.entityID = mySE->GetID();
+        ssf.fraction = 0.0;
+    updates.push_back(ssf.Encode());
+    SetBallVelocity sbv;
+        sbv.entityID = mySE->GetID();
+        sbv.x = 0.0;
+        sbv.y = 0.0;
+        sbv.z = 0.0;
+    updates.push_back(sbv.Encode());
+
+    // 4. Stop command to finalize STOP mode
+    CmdStop cs;
+        cs.entityID = mySE->GetID();
+    updates.push_back(cs.Encode());
+
+    SendDestinyUpdate(updates);
+    for (auto& up : updates)
+        PyDecRef(up);
 
     // resume autopilot follow after warp complete
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
