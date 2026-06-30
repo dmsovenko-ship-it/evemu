@@ -716,6 +716,10 @@ void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
 }
 
 void DroneAIMgr::LogisticsRepair(SystemEntity* pTarget) {
+    // Orbit the repair target for visual feedback (like combat drones orbit their target)
+    if (pTarget != nullptr)
+        m_pDrone->DestinyMgr()->Orbit(pTarget, m_entityOrbitRange);
+
     // Repair only OTHER ships, never the owner (matches real EVE mechanics)
     ShipSE* repairTarget = nullptr;
     if ((pTarget != nullptr) and pTarget->IsShipSE()) {
