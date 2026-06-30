@@ -309,9 +309,8 @@ bool Client::SelectCharacter(int32 charID/*0*/)
 
         MoveToLocation(m_locationID, m_loginWarpRandomPoint);
 
-        // Cloak the player and uncloak them as soon as they start the login
-        // warp.
-        pShipSE->DestinyMgr()->Cloak();
+        // cloak is deferred to Login state handler, after SetBallPark(),
+        // to avoid "No ballpark for update" from SendCloakFx().
     } else {
         MoveToLocation(m_locationID, pos);
         if (m_ship->typeID() == itemTypeCapsule) {
@@ -495,6 +494,8 @@ void Client::ProcessClient() {
                     m_login = false;
                     SetBallPark();
                     if (sDataMgr.IsSolarSystem(m_locationID)) {
+                        // cloak after ballpark is sent; avoids "No ballpark for update"
+                        pShipSE->DestinyMgr()->Cloak();
                         WarpIn();
                     }
                     m_ship->GetModuleManager()->UpdateChargeQty();  //  <<<< huge hack here....cant find another way to do it yet.
