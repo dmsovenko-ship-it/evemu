@@ -102,6 +102,7 @@ protected:
 
     // helpers
     ShipSE* GetOwnerShip();
+    double GetControlRange();
 
     int8 m_state;
 

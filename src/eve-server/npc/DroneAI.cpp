@@ -167,9 +167,7 @@ void DroneAIMgr::Process() {
     and (m_state != DroneAI::State::Mining)
     and (m_assignedShip != nullptr) and (m_assignedShip->DestinyMgr() != nullptr)) {
         double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
-        double controlRange = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
-        if (controlRange < 1.0)
-            controlRange = 25000.0; // default 25km if not set
+        double controlRange = GetControlRange();
         if (dist > controlRange * 1.1) {
             if (m_state != DroneAI::State::Incapacitated) {
                 _log(DRONE__AI_TRACE, "Drone %s(%u): Out of control range (%.0fm > %.0fm) ship=(%.0f,%.0f,%.0f) drone=(%.0f,%.0f,%.0f).  Incapacitated.",
@@ -324,11 +322,22 @@ void DroneAIMgr::SetIdle() {
              m_pDrone->GetName(), m_pDrone->GetID(), m_pDrone->GetFighterAmmo());
     }
     m_state = DroneAI::State::Idle;
-
-    // disable ewar timers
-    m_webifierTimer.Disable();
     m_beginFindTarget.Disable();
     m_mainAttackTimer.Disable();
+
+    // after reload, re-engage the last target if it still exists
+    SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
+    if (pTarget != nullptr) {
+        _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: re-engaging last target %s(%u) after reload.",
+             m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
+        // approach first regardless of distance — CheckDistance in Approaching state
+        // will keep chasing without clearing the target (flyRange only limits attack, not pursuit)
+        SetApproaching(pTarget);
+        return;
+    }
+
+    // disable ewar timers (only when no target to re-engage)
+    m_webifierTimer.Disable();
     m_warpScramblerTimer.Disable();
 
     // orbit assigned ship
@@ -340,8 +349,8 @@ void DroneAIMgr::SetEngaged(SystemEntity* pTarget) {
         return;
     _log(DRONE__AI_TRACE, "Drone %s(%u): SetEngaged: %s(%u) begin engaging.",
          m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
-    // actively fighting - keep max velocity to maintain pursuit of moving targets
-    float vel = m_chaseSpeed * (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::DroneNavigation));
+    // actively fighting — use cruise (orbit) speed while orbiting, not max chase speed
+    float vel = m_cruiseSpeed * (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::DroneNavigation));
     m_pDrone->DestinyMgr()->SetMaxVelocity(vel);
     m_pDrone->DestinyMgr()->Orbit(pTarget, m_entityOrbitRange);  //try to get inside orbit range
     m_state = DroneAI::State::Engaged;
@@ -357,6 +366,21 @@ void DroneAIMgr::SetApproaching(SystemEntity* pSE)
     m_pDrone->DestinyMgr()->SetMaxVelocity(vel);
     m_pDrone->DestinyMgr()->Follow(pSE, m_entityOrbitRange);
     m_state = DroneAI::State::Approaching;
+}
+
+double DroneAIMgr::GetControlRange() {
+    if (m_assignedShip == nullptr)
+        return 25000.0;
+
+    double range = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
+    if (range < 1.0)
+        range = 20000.0; // base 20km if attribute not set
+
+    // Fx system doesn't apply skill bonuses to ship attributes, add manually
+    range += GetOwnerSkillLevel(EvESkill::ScoutDroneOperation) * 5000;              // +5km/level
+    range += GetOwnerSkillLevel(EvESkill::ElectronicWarfareDroneInterfacing) * 3000; // +3km/level
+
+    return range;
 }
 
 void DroneAIMgr::CheckDistance(SystemEntity* pSE)
@@ -968,8 +992,7 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
 
     // check distance to ship — ore can't be transferred if too far
     double distToShip = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
-    double controlRange = m_assignedShip->GetSelf()->GetAttribute(AttrDroneControlDistance).get_float();
-    if (controlRange < 1.0) controlRange = 25000.0;
+    double controlRange = GetControlRange();
     if (distToShip > controlRange * 1.5)
         return; // too far, wait until ship gets closer
 
