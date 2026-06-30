@@ -36,5 +36,6 @@ if [ "$RUN_WITH_GDB" == "TRUE" ]; then
     gdb -ex run ./eve-server
 else
     echo "=== Running EVEmu normally ==="
+    ulimit -c unlimited
     ./eve-server
 fi
