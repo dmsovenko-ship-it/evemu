@@ -413,7 +413,7 @@ void DroneAIMgr::ClearAllTargets() {
 }
 
 void DroneAIMgr::Target(SystemEntity* pTarget) {
-    // Logistics drones repair the commanded target (if a valid ship) or fall back to owner
+    // Logistics drones repair the commanded target (if a valid ship other than owner)
 
     bool chase = false;
     if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(), (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(), m_entityFlyRange, chase)) {
@@ -716,17 +716,15 @@ void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
 }
 
 void DroneAIMgr::LogisticsRepair(SystemEntity* pTarget) {
-    // Repair the commanded target if it's a valid ship, otherwise fall back to owner
+    // Repair only OTHER ships, never the owner (matches real EVE mechanics)
     ShipSE* repairTarget = nullptr;
     if ((pTarget != nullptr) and pTarget->IsShipSE()) {
         repairTarget = pTarget->GetShipSE();
     }
-    if (repairTarget == nullptr) {
-        repairTarget = m_assignedShip;
-    }
-    if (repairTarget == nullptr) {
-        _log(DRONE__AI_TRACE, "Drone %s(%u): LogisticsRepair has no valid target to repair.",
-             m_pDrone->GetName(), m_pDrone->GetID());
+    if ((repairTarget == nullptr) or (repairTarget == m_assignedShip)) {
+        _log(DRONE__AI_TRACE, "Drone %s(%u): LogisticsRepair skipped (cannot repair self, target=%s).",
+             m_pDrone->GetName(), m_pDrone->GetID(),
+             repairTarget ? repairTarget->GetName() : "null");
         return;
     }
 
