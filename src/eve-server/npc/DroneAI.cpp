@@ -890,6 +890,20 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
     _log(DRONE__AI_TRACE, "Drone %s(%u): Added %.0f units of ore type %u to ship cargo.",
          m_pDrone->GetName(), m_pDrone->GetID(), oreUnits, oreTypeID);
 
+    // play mining visual effect on the asteroid
+    m_pDrone->DestinyMgr()->SendSpecialEffect(
+        m_pDrone->GetSelf()->itemID(),
+        m_pDrone->GetSelf()->itemID(),
+        m_pDrone->GetSelf()->typeID(),
+        pTarget->GetID(),
+        0,
+        "effects.Mining",
+        1, 1, 1,
+        m_attackSpeed,
+        0,
+        0
+    );
+
     // single cycle mode — return to orbit after one successful mine
     if (m_singleMineCycle) {
         m_pDrone->TargetMgr()->ClearTarget(pTarget);
