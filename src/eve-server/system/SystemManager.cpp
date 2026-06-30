@@ -59,6 +59,7 @@
 #include "system/DestinyManager.h"
 #include "system/SolarSystem.h"
 #include "system/SystemBubble.h"
+#include "system/SystemEntity.h"
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/BeltMgr.h"
@@ -463,6 +464,7 @@ bool SystemManager::LoadSystemStatics() {
 
     // Spawn sentry guns at gates and stations
     SpawnSentryGuns();
+    SpawnBillboards();
     SpawnConvoys();
 
     return true;
@@ -1867,6 +1869,42 @@ void SystemManager::SpawnSentryGuns()
             }
         }
     }
+}
+
+void SystemManager::SpawnBillboards()
+{
+    if (m_staticEntities.empty()) return;
+
+    uint32 count = 0;
+    for (auto& [id, pSE] : m_staticEntities) {
+        if (pSE == nullptr) continue;
+        uint32 group = pSE->GetSelf()->groupID();
+        if (group != EVEDB::invGroups::Stargate && group != EVEDB::invGroups::Station)
+            continue;
+
+        float dist = (group == EVEDB::invGroups::Stargate) ? 8000.0f : 12000.0f;
+        GPoint center = pSE->GetPosition();
+        float a = (float)(MakeRandomInt(0, 6283)) / 1000.0f;
+        GPoint pos(center.x + dist * cosf(a), center.y, center.z + dist * sinf(a));
+
+        char name[64];
+        snprintf(name, sizeof(name), "Billboard %s %u",
+                 (group == EVEDB::invGroups::Stargate) ? "SG" : "ST", id);
+
+        ItemData itemData(itemTypeBillboard, pSE->GetCorporationID(), m_data.systemID, flagNone, name, pos);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        if (iRef.get() == nullptr) continue;
+
+        ItemSystemEntity* billboard = new ItemSystemEntity(iRef, m_services, this);
+        if (billboard != nullptr) {
+            billboard->DestinyMgr()->SetPosition(pos);
+            AddEntity(billboard);
+            ++count;
+        }
+    }
+
+    _log(SERVER__INIT, "SystemManager::SpawnBillboards() - %u billboards spawned for %s(%u)",
+         count, m_data.name.c_str(), m_data.systemID);
 }
 
 void SystemManager::SpawnConvoys()
