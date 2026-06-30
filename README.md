@@ -9,7 +9,7 @@
   </picture>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/license-LGPLv3-8b5cf6?style=for-the-badge"/>
-    <img src="https://img.shields.io/badge/license-LGPLv3-7c3aed?style=for-the-badge"/>
+    <img src="https://img.shields.io/badge/license-LGPLv3-7c3aed?style-for-the-badge"/>
   </picture>
 </p>
 
@@ -18,6 +18,15 @@
 <p align="center">
   <b>EVE Online (Crucible era) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork with extended NPC, drone, warp, and infrastructure systems.
 </p>
+
+<br>
+
+> **⚠️ Educational project only** — built for studying C++, network protocols, and game server architecture.  
+> **Not intended for running public or private gaming servers.**  
+> *Только образовательный проект* — создан для изучения C++, сетевых протоколов и архитектуры игровых серверов.  
+> *Не предназначен для запуска игровых серверов.*
+
+---
 
 ---
 
