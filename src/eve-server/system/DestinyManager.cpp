@@ -1918,13 +1918,13 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         cs.entityID = mySE->GetID();
     updates.push_back(cs.Encode());
 
+    // Send the batch to all observers (no SendSetState — that destroys the
+    // ballpark and makes WarpLoop crash with ball.display = None).
+    // The client WarpLoop will see STOP mode + speed 0 on its next check
+    // and exit naturally.
     SendDestinyUpdate(updates);
     for (auto& up : updates)
         PyDecRef(up);
-
-    // Force full state sync to client — overrides any lingering WarpLoop
-    mySE->GetPilot()->SetStateSent(false);
-    SendSetState();
 
     // resume autopilot follow after warp complete
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
