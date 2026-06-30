@@ -1874,6 +1874,7 @@ void SystemManager::SpawnSentryGuns()
 void SystemManager::SpawnBillboards()
 {
     if (m_staticEntities.empty()) return;
+    if (m_data.securityRating <= 0.0f) return;
 
     uint32 count = 0;
     for (auto& [id, pSE] : m_staticEntities) {
