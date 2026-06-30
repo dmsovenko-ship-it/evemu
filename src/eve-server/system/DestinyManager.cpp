@@ -1860,6 +1860,14 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     m_position = m_targetPoint;
     SetPosition(m_position, true);
 
+    // Send CmdStop to signal the client to exit WarpLoop
+    // (Halt alone does not send any packet — client would stay in warp forever)
+    CmdStop du;
+        du.entityID = mySE->GetID();
+    PyTuple *up = du.Encode();
+    SendSingleDestinyUpdate(&up);
+    PyDecRef(up);
+
     // preserve follow target for autopilot (Halt clears m_targetEntity)
     uint32 followTargetID = m_targetEntity.first;
     uint32 followDist = m_stopDistance;
@@ -1867,7 +1875,6 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     // Jump directly to STOP mode — GOTO deceleration causes massive client
     // desync (234+ km) because the EVE client ignores SetBallPosition
     // updates during GOTO and runs its own physics simulation.
-    // Halt() also sends SetBallPosition + CmdStop to the client.
     Halt();
     m_targBubble = nullptr;
 
