@@ -345,12 +345,15 @@ PyResult LSCService::JoinChannels(PyCallArgs &call, PyList* channelIDs, PyLong* 
                 chjr.ok = 0;
             }
         } else {
-            ChannelJoinNotOK cjnok;
-            //{'FullPath': u'UI/Messages', 'messageID': 256739, 'label': u'LSCChannelIsJoinedBody'}(u'You are already in the channel ({displayName})', None, {u'{displayName}': {'conditionalValues': [], 'variableType': 10, 'propertyName': None, 'args': 0, 'kwargs': {}, 'variableName': 'displayName'}})
-                cjnok.Error = "LSCChannelIsJoined";
-                cjnok.rspDict = new PyDict();   // dunno what goes here...
-            chjr.JoinRsp = cjnok.Encode();
-            chjr.ok = 0;
+            // Already joined — return success instead of error to avoid
+            // localization crash when client receives LSCChannelIsJoined
+            // with an empty rspDict (missing {displayName} token).
+            ChannelJoinOK cjok;
+                cjok.ChannelInfo = channel->EncodeDynamicChannel(charID);
+                cjok.ChannelMods = channel->EncodeChannelMods();
+                cjok.ChannelChars = channel->EncodeChannelChars();
+            chjr.JoinRsp = cjok.Encode();
+            chjr.ok = 1;
         }
         ml->AddItem(chjr.Encode());
     }
