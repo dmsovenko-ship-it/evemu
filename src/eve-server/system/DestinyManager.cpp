@@ -1856,15 +1856,39 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         mySE->GetPilot()->SetLoginWarpComplete();
     }
 
-    // preserve follow target for autopilot (SetSpeedFraction -> Halt clears m_targetEntity)
+    // preserve follow target for autopilot
     uint32 followTargetID = m_targetEntity.first;
     uint32 followDist = m_stopDistance;
 
     SafeDelete(m_warpState);
 
-    // Transition WARP→GOTO via SetSpeedFraction(0), which sends CmdGotoDirection
-    // so the client exits WarpLoop and decelerates naturally.
-    SetSpeedFraction(0.0f);
+    // Stop the server-side ball immediately in STOP mode.
+    // Do NOT call Stop() — it calls SetPosition(m_position, true) which snaps
+    // the client ball to the server's warp position (~15m before target) and
+    // causes a visible jerk.
+    m_ballMode = Destiny::Ball::Mode::STOP;
+    m_stop = true;
+    m_accel = false;
+    m_decel = false;
+    m_turning = false;
+    m_maxSpeed = 0.0f;
+    m_velocity = GVector(NULL_ORIGIN);
+    m_activeSpeedFraction = 0.0f;
+    m_prevSpeed = 0.0f;
+    m_prevSpeedFraction = 0.0f;
+    m_userSpeedFraction = 0.0f;
+    m_timeFraction = 0.0f;
+
+    m_stateStamp = sEntityList.GetStamp();
+
+    // Send CmdStop to client — only this, no SetPosition.
+    // Client exits WarpLoop and stops at its OWN warp-computed position
+    // (at the destination), avoiding any position snap.
+    CmdStop du;
+        du.entityID = mySE->GetID();
+    PyTuple *up = du.Encode();
+    SendSingleDestinyUpdate(&up);
+    PyDecRef(up);
 
     // resume autopilot follow after warp complete
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
