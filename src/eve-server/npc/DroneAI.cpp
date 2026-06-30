@@ -349,10 +349,19 @@ void DroneAIMgr::SetEngaged(SystemEntity* pTarget) {
         return;
     _log(DRONE__AI_TRACE, "Drone %s(%u): SetEngaged: %s(%u) begin engaging.",
          m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
-    // actively fighting — use cruise (orbit) speed while orbiting, not max chase speed
-    float vel = m_cruiseSpeed * (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::DroneNavigation));
+    // use chase speed if far from carrier, cruise speed for close orbit
+    double distToShip = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
+    double controlRange = GetControlRange();
+    float skillBonus = 1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::DroneNavigation);
+    float vel;
+    if (distToShip > controlRange) {
+        vel = m_chaseSpeed * skillBonus;
+        m_pDrone->DestinyMgr()->Follow(pTarget, m_entityOrbitRange);
+    } else {
+        vel = m_cruiseSpeed * skillBonus;
+        m_pDrone->DestinyMgr()->Orbit(pTarget, m_entityOrbitRange);
+    }
     m_pDrone->DestinyMgr()->SetMaxVelocity(vel);
-    m_pDrone->DestinyMgr()->Orbit(pTarget, m_entityOrbitRange);  //try to get inside orbit range
     m_state = DroneAI::State::Engaged;
 }
 
