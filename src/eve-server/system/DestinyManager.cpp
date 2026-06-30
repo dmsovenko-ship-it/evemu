@@ -1922,6 +1922,10 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     for (auto& up : updates)
         PyDecRef(up);
 
+    // Force full state sync to client — overrides any lingering WarpLoop
+    mySE->GetPilot()->SetStateSent(false);
+    SendSetState();
+
     // resume autopilot follow after warp complete
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
         SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
