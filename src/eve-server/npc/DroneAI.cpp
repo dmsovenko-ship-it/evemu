@@ -413,8 +413,7 @@ void DroneAIMgr::ClearAllTargets() {
 }
 
 void DroneAIMgr::Target(SystemEntity* pTarget) {
-    // Logistics drones always target the assigned ship to repair
-    // The client sends CmdEngage with the owner's shipID, which we handle normally
+    // Logistics drones repair the commanded target (if a valid ship) or fall back to owner
 
     bool chase = false;
     if (!m_pDrone->TargetMgr()->StartTargeting(pTarget, m_pDrone->GetSelf()->GetAttribute(AttrScanSpeed).get_uint32(), (uint8)m_pDrone->GetSelf()->GetAttribute(AttrMaxAttackTargets).get_int(), m_entityFlyRange, chase)) {
@@ -717,16 +716,27 @@ void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
 }
 
 void DroneAIMgr::LogisticsRepair(SystemEntity* pTarget) {
-    // Logistics drones always repair their assigned (owner) ship, not the target
-    ShipSE* repairTarget = m_assignedShip;
+    // Repair the commanded target if it's a valid ship, otherwise fall back to owner
+    ShipSE* repairTarget = nullptr;
+    if ((pTarget != nullptr) and pTarget->IsShipSE()) {
+        repairTarget = pTarget->GetShipSE();
+    }
     if (repairTarget == nullptr) {
-        _log(DRONE__AI_TRACE, "Drone %s(%u): LogisticsRepair has no assigned ship to repair.",
+        repairTarget = m_assignedShip;
+    }
+    if (repairTarget == nullptr) {
+        _log(DRONE__AI_TRACE, "Drone %s(%u): LogisticsRepair has no valid target to repair.",
              m_pDrone->GetName(), m_pDrone->GetID());
         return;
     }
 
     InventoryItemRef targetShip = repairTarget->GetSelf();
     double amount = m_repairAmount;
+
+    // Apply Repair Drone Operation skill bonus (+5% per level)
+    if (m_pDrone->GetOwner() != nullptr) {
+        amount *= (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::RepairDroneOperation));
+    }
 
     // Determine if this is a shield or armor logistics drone based on own attributes
     // Player drones use AttrShieldBonus, NPCs use AttrEntityShieldBoostAmount
