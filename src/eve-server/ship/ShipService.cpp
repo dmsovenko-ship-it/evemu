@@ -361,11 +361,12 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                     std::vector<InventoryItemRef> modVec;
                     pClient->GetShipSE()->GetShipItemRef()->GetModuleManager()->GetModuleListOfRefsAsc(modVec);
                     for (auto mod : modVec) {
+                        _log(DRONE__AI_TRACE, "DCUdebug mod %u '%s' group=%u online=%d",
+                             mod->itemID(), mod->name(), mod->groupID(),
+                             mod->GetAttribute(AttrOnline).get_bool());
                         if (mod->groupID() == EVEDB::invGroups::Drone_Control_Unit) {
                             ++dcuCount;
                             if (mod->GetAttribute(AttrOnline).get_bool()) {
-                                // DCU modules may use AttrMaxActiveDrones (352),
-                                // AttrMaxActiveDroneBonus (353), or AttrMaxDroneBonus (354)
                                 uint32 bonus = mod->GetAttribute(AttrMaxActiveDrones).get_uint32();
                                 if (bonus == 0)
                                     bonus = mod->GetAttribute(AttrMaxActiveDroneBonus).get_uint32();
