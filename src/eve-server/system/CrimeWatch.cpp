@@ -10,6 +10,11 @@
 #include "system/SystemBubble.h"
 #include "standing/KillRightDB.h"
 
+// Character attribute IDs for HUD timers (from EVE static data)
+static const uint16 ATTR_AGGRESSION_TIMER = 258;
+static const uint16 ATTR_WEAPON_TIMER = 261;
+static const uint16 ATTR_NPC_TIMER = 264;
+
 // CONCORD ship typeIDs from EVE static data
 static const uint32 CONCORD_TYPEIDS[] = {
     1912, // Concord Police Battleship
@@ -57,9 +62,17 @@ void CrimeWatch::Process()
         ClearConcordShips();
     }
 
-    if (m_aggressionTimer.Enabled()) m_aggressionTimer.Check();
+    if (m_aggressionTimer.Enabled() and m_aggressionTimer.Check(false)) {
+        m_aggressionTimer.Disable();
+        if (m_client->GetChar())
+            m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, 0LL, true);
+    }
     if (m_criminalTimer.Enabled()) m_criminalTimer.Check();
-    if (m_weaponTimer.Enabled()) m_weaponTimer.Check();
+    if (m_weaponTimer.Enabled() and m_weaponTimer.Check(false)) {
+        m_weaponTimer.Disable();
+        if (m_client->GetChar())
+            m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, 0LL, true);
+    }
     if (m_limitedEngagementTimer.Enabled()) m_limitedEngagementTimer.Check();
 }
 
@@ -80,6 +93,10 @@ void CrimeWatch::OnWeaponFired()
     // EVE: weapon timer = 60 seconds after ANY weapon use (NPC or player)
     // Prevents docking and jumping during this time
     m_weaponTimer.Start(60000);
+    if (m_client->GetChar()) {
+        int64 endTime = static_cast<int64>(GetFileTimeNow()) + 60000LL * 1000LL;
+        m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, endTime, true);
+    }
 }
 
 void CrimeWatch::OnLooting()
@@ -88,6 +105,11 @@ void CrimeWatch::OnLooting()
     // Suspect flag: weapon timer + aggression timer for 15 min
     m_weaponTimer.Start(60000);
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
+    if (m_client->GetChar()) {
+        int64 now = static_cast<int64>(GetFileTimeNow());
+        m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, now + 60000LL * 1000LL, true);
+        m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, now + sConfig.crime.AggFlagTime * 1000LL * 1000LL, true);
+    }
     // -0.2 security penalty (already applied in InventoryBound::Add)
 }
 
@@ -131,6 +153,10 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
 
     // EVE: aggression timer = 15 minutes after PvP aggression
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
+    if (m_client->GetChar()) {
+        int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * 1000LL * 1000LL;
+        m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, endTime, true);
+    }
 
     // Highsec: criminal act + CONCORD response + kill right grant
     if (systemSecRating >= 0.5f) {
