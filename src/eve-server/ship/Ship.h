@@ -372,6 +372,11 @@ public:
     // returns current count of drones in space for this ship
     uint8 DroneCount()                                  { return m_drones.size(); }
 
+    // Fighter tube system (Crucible-era)
+    uint8 GetFighterTubeCount();        // 3 for Carrier, 6 for Supercarrier, 0 otherwise
+    uint8 GetActiveFighterCount();      // fighters in space limited by tubes
+    bool CanLaunchFighter();            // checks tubes and bandwidth
+
     bool GetFleetSMBUsage()                             { return m_allowFleetSMBUsage; }
     void SetFleetSMBUsage(bool set=false)               { m_allowFleetSMBUsage = set; }
 

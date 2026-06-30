@@ -44,6 +44,8 @@ namespace DroneAI {
         SubType_Logistics     = 4,
         SubType_CapDrain      = 5,
         SubType_Mining        = 6,
+        SubType_Fighter       = 8,
+        SubType_FighterBomber = 9,
         SubType_Unknown       = 7
     };
 }
@@ -95,6 +97,8 @@ protected:
     void LogisticsRepair(SystemEntity* pTarget);
     void CapDrainAttack(SystemEntity* pTarget);
     void MiningAttack(SystemEntity* pTarget);
+    void FighterAttack(SystemEntity* pTarget);
+    void FighterBomberAttack(SystemEntity* pTarget);
 
     // helpers
     ShipSE* GetOwnerShip();

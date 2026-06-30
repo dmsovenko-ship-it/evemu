@@ -293,7 +293,7 @@
       <!-- 4 -->
       <tupleInline>
         <!-- 0 -->
-        <string name="message" />
+        <wstring name="message" />
       </tupleInline>
     </tupleInline>
   </elementDef>

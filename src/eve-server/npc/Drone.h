@@ -114,6 +114,15 @@ public:
 
     ShipSE* GetHomeShip()                               { return m_pShipSE; }
 
+    // Fighter ammo management
+    bool IsFighter()                                    { return (m_fighterMaxAmmo > 0); }
+    bool IsFighterBomber()                              { return m_isFighterBomber; }
+    uint8 GetFighterAmmo()                              { return m_fighterAmmo; }
+    uint8 GetFighterMaxAmmo()                           { return m_fighterMaxAmmo; }
+    void SetFighterAmmo(uint8 ammo)                     { m_fighterAmmo = ammo; }
+    void ReloadFighter()                                { m_fighterAmmo = m_fighterMaxAmmo; }
+    bool ConsumeFighterAmmo()                           { if (m_fighterAmmo > 0) { --m_fighterAmmo; return true; } return false; }
+
 protected:
     Client* m_pClient;          //we do not own this
     DroneAIMgr* m_AI;           //we do own this
@@ -136,6 +145,11 @@ private:
     double m_armorDamage;
     double m_shieldCharge;
     double m_shieldCapacity;
+
+    // Fighter-specific fields (Crucible-era)
+    uint8  m_fighterAmmo;          // remaining shots before reload
+    uint8  m_fighterMaxAmmo;       // max shots per load (10 for Fighters, 5 for Bombers)
+    bool   m_isFighterBomber;      // true if Fighter_Bomber (1023), false if Fighter_Drone (549)
 };
 
 #endif /* !__DRONE__H__INCL__ */

@@ -98,6 +98,21 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
     m_shieldCharge = m_self->GetAttribute(AttrShieldCharge).get_float();
     m_shieldCapacity = m_self->GetAttribute(AttrShieldCapacity).get_float();
 
+    // Fighter ammo initialization
+    if (m_self->groupID() == EVEDB::invGroups::Fighter_Bomber) {
+        m_isFighterBomber = true;
+        m_fighterMaxAmmo = 5;
+        m_fighterAmmo = 5;
+    } else if (m_self->groupID() == EVEDB::invGroups::Fighter_Drone) {
+        m_isFighterBomber = false;
+        m_fighterMaxAmmo = 10;
+        m_fighterAmmo = 10;
+    } else {
+        m_isFighterBomber = false;
+        m_fighterMaxAmmo = 0;
+        m_fighterAmmo = 0;
+    }
+
     _log(DRONE__TRACE, "Created Drone object for %s (%u)", drone.get()->name(), drone.get()->itemID());
 }
 

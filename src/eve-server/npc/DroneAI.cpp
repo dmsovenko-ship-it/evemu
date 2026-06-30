@@ -100,8 +100,16 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
             m_subType = DroneAI::SubType_Mining;
             break;
         }
+        case EVEDB::invGroups::Fighter_Drone: {
+            m_subType = DroneAI::SubType_Fighter;
+            break;
+        }
+        case EVEDB::invGroups::Fighter_Bomber: {
+            m_subType = DroneAI::SubType_FighterBomber;
+            break;
+        }
         default: {
-            // Combat drones (Combat_Drone=100, Fighter_Drone=549, Fighter_Bomber=1023)
+            // Combat drones (Combat_Drone=100)
             m_subType = DroneAI::SubType_Combat;
             break;
         }
@@ -303,6 +311,18 @@ void DroneAIMgr::SetIdle() {
     // not doing anything....idle.
     _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: returning to idle.",
          m_pDrone->GetName(), m_pDrone->GetID());
+    // Reload fighter ammo on return to carrier
+    if (m_pDrone->IsFighter() and !m_pDrone->IsFighterBomber() and (m_pDrone->GetFighterAmmo() < m_pDrone->GetFighterMaxAmmo())) {
+        m_pDrone->ReloadFighter();
+        _log(DRONE__AI_TRACE, "Fighter %s(%u): Reloaded to %u ammo on return to carrier.",
+             m_pDrone->GetName(), m_pDrone->GetID(), m_pDrone->GetFighterAmmo());
+    }
+    // Bombers reload when scooped into bay (they need to dock for bomb reload)
+    if (m_pDrone->IsFighterBomber() and (m_pDrone->GetFighterAmmo() < m_pDrone->GetFighterMaxAmmo())) {
+        m_pDrone->ReloadFighter();
+        _log(DRONE__AI_TRACE, "Bomber %s(%u): Reloaded to %u ammo on return to carrier.",
+             m_pDrone->GetName(), m_pDrone->GetID(), m_pDrone->GetFighterAmmo());
+    }
     m_state = DroneAI::State::Idle;
 
     // disable ewar timers
@@ -580,6 +600,12 @@ void DroneAIMgr::AttackTarget(SystemEntity* pTarget) {
         case DroneAI::SubType_CapDrain:
             CapDrainAttack(pTarget);
             break;
+        case DroneAI::SubType_Fighter:
+            FighterAttack(pTarget);
+            break;
+        case DroneAI::SubType_FighterBomber:
+            FighterBomberAttack(pTarget);
+            break;
         case DroneAI::SubType_Combat:
         default:
             CombatAttack(pTarget);
@@ -640,6 +666,100 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
          d.GetTotal(),
          m_pDrone->GetKinetic(), m_pDrone->GetThermal(), m_pDrone->GetEM(), m_pDrone->GetExplosive(),
          dmgMult, skillMult, d.GetModifier(), sConfig.rates.damageRate);
+    pTarget->ApplyDamage(d);
+}
+
+void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
+    // Fighter: fire missile (consumes ammo), return to carrier when empty
+    if (!m_pDrone->ConsumeFighterAmmo()) {
+        // Out of ammo — return to carrier for reload
+        Return();
+        return;
+    }
+
+    std::string guid = "effects.Laser";
+    uint32 gfxID = 0;
+    if (m_pDrone->GetSelf()->HasAttribute(AttrGfxTurretID))
+        gfxID = m_pDrone->GetSelf()->GetAttribute(AttrGfxTurretID).get_uint32();
+    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->typeID(),
+                                             pTarget->GetID(),
+                                             0, guid, 1, 1, 1, m_attackSpeed, 0, gfxID);
+
+    Damage d(m_pDrone,
+             m_pDrone->GetSelf(),
+             m_pDrone->GetKinetic(),
+             m_pDrone->GetThermal(),
+             m_pDrone->GetEM(),
+             m_pDrone->GetExplosive(),
+             m_formula.GetDroneToHit(m_pDrone, pTarget),
+             EVEEffectID::targetAttack
+            );
+
+    float dmgMult = m_pDrone->GetSelf()->HasAttribute(AttrDamageMultiplier)
+        ? m_pDrone->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float() : 1.0f;
+    d *= dmgMult;
+
+    // Apply carrier pilot's fighter skills
+    if (m_pDrone->GetOwner() != nullptr) {
+        float skillMult = 1.0f;
+        skillMult *= (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::Fighters));
+        skillMult *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneInterfacing));
+        d *= skillMult;
+    }
+
+    d *= sConfig.rates.damageRate;
+    _log(DRONE__AI_TRACE, "Fighter %s(%u): FighterAttack -> %s(%u) total=%.2f ammo=%u/%u",
+         m_pDrone->GetName(), m_pDrone->GetID(),
+         pTarget->GetName(), pTarget->GetID(),
+         d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
+    pTarget->ApplyDamage(d);
+}
+
+void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
+    // Fighter Bomber: AoE bomb attack, return to carrier when empty
+    if (!m_pDrone->ConsumeFighterAmmo()) {
+        Return();
+        return;
+    }
+
+    // Bomb visual effect
+    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->typeID(),
+                                             pTarget->GetID(),
+                                             0, "effects.Laser", 1, 1, 1, m_attackSpeed, 0, 0);
+
+    // Bomber damage (higher base than regular fighters)
+    Damage d(m_pDrone,
+             m_pDrone->GetSelf(),
+             m_pDrone->GetKinetic(),
+             m_pDrone->GetThermal(),
+             m_pDrone->GetEM(),
+             m_pDrone->GetExplosive(),
+             m_formula.GetDroneToHit(m_pDrone, pTarget),
+             EVEEffectID::targetAttack
+            );
+
+    float dmgMult = m_pDrone->GetSelf()->HasAttribute(AttrDamageMultiplier)
+        ? m_pDrone->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float() : 1.0f;
+    d *= dmgMult;
+
+    if (m_pDrone->GetOwner() != nullptr) {
+        float skillMult = 1.0f;
+        skillMult *= (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::FighterBombers));
+        skillMult *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneInterfacing));
+        d *= skillMult;
+    }
+
+    d *= sConfig.rates.damageRate;
+
+    // Apply damage to target
+    _log(DRONE__AI_TRACE, "Bomber %s(%u): FighterBomberAttack -> %s(%u) total=%.2f ammo=%u/%u",
+         m_pDrone->GetName(), m_pDrone->GetID(),
+         pTarget->GetName(), pTarget->GetID(),
+         d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
     pTarget->ApplyDamage(d);
 }
 

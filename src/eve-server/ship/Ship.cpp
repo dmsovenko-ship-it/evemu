@@ -2919,4 +2919,37 @@ void ShipSE::RemoveDroneFromFlight(uint32 droneID) {
     if (it != m_drones.end())
         m_drones.erase(it);
 }
+
+// Fighter tube system (Crucible-era)
+uint8 ShipSE::GetFighterTubeCount() {
+    // Carriers have 3 tubes, Supercarriers have 6, others have 0
+    switch (m_self->groupID()) {
+        case EVEDB::invGroups::Carrier:
+        case EVEDB::invGroups::Mission_Amarr_Empire_Carrier:
+        case EVEDB::invGroups::Mission_Caldari_State_Carrier:
+        case EVEDB::invGroups::Mission_Gallente_Federation_Carrier:
+        case EVEDB::invGroups::Mission_Minmatar_Republic_Carrier:
+            return 3;
+        case EVEDB::invGroups::Supercarrier:
+            return 6;
+        default:
+            return 0;
+    }
+}
+
+uint8 ShipSE::GetActiveFighterCount() {
+    uint8 count = 0;
+    for (auto cur : m_drones) {
+        if (cur.second->groupID() == EVEDB::invGroups::Fighter_Drone
+         or cur.second->groupID() == EVEDB::invGroups::Fighter_Bomber)
+            ++count;
+    }
+    return count;
+}
+
+bool ShipSE::CanLaunchFighter() {
+    if (GetFighterTubeCount() == 0)
+        return false;
+    return GetActiveFighterCount() < GetFighterTubeCount();
+}
 //AttrDroneControlDistance

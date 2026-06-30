@@ -87,7 +87,20 @@ void GenericModule::Online()
          */
     }
     // check PG and CPU usage to see if we have enough to online this module
-    EvilNumber cpuNeed(m_shipRef->GetAttribute(AttrCpuLoad) + GetAttribute(AttrCpu));
+    EvilNumber cpuNeed = GetAttribute(AttrCpu);
+    // Drone Control Unit: 99% CPU reduction on carriers/supercarriers
+    if (m_modRef->groupID() == EVEDB::invGroups::Drone_Control_Unit) {
+        uint32 shipGroup = m_shipRef->groupID();
+        if ((shipGroup == EVEDB::invGroups::Carrier)
+         or (shipGroup == EVEDB::invGroups::Supercarrier)
+         or (shipGroup == EVEDB::invGroups::Mission_Amarr_Empire_Carrier)
+         or (shipGroup == EVEDB::invGroups::Mission_Caldari_State_Carrier)
+         or (shipGroup == EVEDB::invGroups::Mission_Gallente_Federation_Carrier)
+         or (shipGroup == EVEDB::invGroups::Mission_Minmatar_Republic_Carrier)) {
+            cpuNeed *= 0.01f;
+        }
+    }
+    cpuNeed += m_shipRef->GetAttribute(AttrCpuLoad);
     if (cpuNeed  > m_shipRef->GetAttribute(AttrCpuOutput)) {
         _log(MODULE__TRACE, "GenericModule::Online() %u(%s) - not enough CPU. (%.1f/%.1f)", \
                 itemID(), m_modRef->name(), cpuNeed.get_float(), m_shipRef->GetAttribute(AttrCpuOutput).get_float());
@@ -188,7 +201,19 @@ void GenericModule::Offline()
     m_ModuleState = Module::State::Deactivating;
 
     /* code for offlining module before MOD_OFFLINE state is set. */
-    EvilNumber cpuNeed(m_shipRef->GetAttribute(AttrCpuLoad) - GetAttribute(AttrCpu));
+    EvilNumber cpuReduction = GetAttribute(AttrCpu);
+    if (m_modRef->groupID() == EVEDB::invGroups::Drone_Control_Unit) {
+        uint32 shipGroup = m_shipRef->groupID();
+        if ((shipGroup == EVEDB::invGroups::Carrier)
+         or (shipGroup == EVEDB::invGroups::Supercarrier)
+         or (shipGroup == EVEDB::invGroups::Mission_Amarr_Empire_Carrier)
+         or (shipGroup == EVEDB::invGroups::Mission_Caldari_State_Carrier)
+         or (shipGroup == EVEDB::invGroups::Mission_Gallente_Federation_Carrier)
+         or (shipGroup == EVEDB::invGroups::Mission_Minmatar_Republic_Carrier)) {
+            cpuReduction *= 0.01f;
+        }
+    }
+    EvilNumber cpuNeed(m_shipRef->GetAttribute(AttrCpuLoad) - cpuReduction);
     EvilNumber pgNeed(m_shipRef->GetAttribute(AttrPowerLoad) - GetAttribute(AttrPower));
     m_shipRef->SetAttribute(AttrCpuLoad, cpuNeed);
     m_shipRef->SetAttribute(AttrPowerLoad, pgNeed);
