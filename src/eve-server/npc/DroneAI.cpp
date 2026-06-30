@@ -371,6 +371,9 @@ void DroneAIMgr::SetApproaching(SystemEntity* pSE)
         return;
     _log(DRONE__AI_TRACE, "Drone %s(%u): SetApproaching: %s(%u) begin pursuit.",
          m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID());
+    // Sync drone position to client before starting pursuit — prevents
+    // desync from orbit→follow transition when target is far away.
+    m_pDrone->DestinyMgr()->SetPosition(m_pDrone->GetPosition(), true);
     float vel = m_chaseSpeed * (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::DroneNavigation));
     m_pDrone->DestinyMgr()->SetMaxVelocity(vel);
     m_pDrone->DestinyMgr()->Follow(pSE, m_entityOrbitRange);
