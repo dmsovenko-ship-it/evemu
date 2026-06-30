@@ -96,6 +96,7 @@ protected:
     PyResult MarkMessagesRead(PyCallArgs& call, PyList* messageIDs);
     PyResult DeleteMessages(PyCallArgs& call, PyInt* channelID, PyList* messageIDs);
 
+public:
     LSCChannel *GetChannelByID(int32 channelID);
     LSCChannel *GetChannelByName(std::string  channelName);
 
