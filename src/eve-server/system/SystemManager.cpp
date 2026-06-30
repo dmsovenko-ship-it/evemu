@@ -464,7 +464,7 @@ bool SystemManager::LoadSystemStatics() {
 
     // Spawn sentry guns at gates and stations
     SpawnSentryGuns();
-    SpawnBillboards();
+    //SpawnBillboards();  // disabled for crash investigation
     SpawnConvoys();
 
     return true;
