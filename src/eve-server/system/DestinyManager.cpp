@@ -1861,6 +1861,12 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     SafeDelete(m_warpState);
 
+    // Snap server position to the exact target point. At trigger time the
+    // ship is ~100m from target — snapping avoids a position discrepancy
+    // vs the client (whose WarpLoop arrives at the exact destination).
+    m_position = m_targetPoint;
+    mySE->SetPosition(m_position);
+
     // Set server state to STOP but send NOTHING to the client.
     // The client's WarpLoop runs independently using its own warp simulation
     // and exits naturally when it reaches the destination. Sending CmdStop,
