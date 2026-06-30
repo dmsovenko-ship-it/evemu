@@ -68,9 +68,6 @@ void ModuleItem::SetOnline(bool online/*false*/, bool isRig/*false*/) {
         return;
     }
 
-    if (pClient->IsUndock())
-        return;
-
     GodmaEnvironment ge;
         ge.selfID = m_itemID;
         ge.charID = ownerID();
