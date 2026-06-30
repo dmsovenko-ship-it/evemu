@@ -666,7 +666,10 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
          d.GetTotal(),
          m_pDrone->GetKinetic(), m_pDrone->GetThermal(), m_pDrone->GetEM(), m_pDrone->GetExplosive(),
          dmgMult, skillMult, d.GetModifier(), sConfig.rates.damageRate);
-    pTarget->ApplyDamage(d);
+    if (pTarget->ApplyDamage(d)) {
+        ClearTarget(pTarget);
+        return;
+    }
 }
 
 void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
@@ -714,7 +717,10 @@ void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
          m_pDrone->GetName(), m_pDrone->GetID(),
          pTarget->GetName(), pTarget->GetID(),
          d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
-    pTarget->ApplyDamage(d);
+    if (pTarget->ApplyDamage(d)) {
+        ClearTarget(pTarget);
+        return;
+    }
 }
 
 void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
@@ -760,7 +766,10 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
          m_pDrone->GetName(), m_pDrone->GetID(),
          pTarget->GetName(), pTarget->GetID(),
          d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
-    pTarget->ApplyDamage(d);
+    if (pTarget->ApplyDamage(d)) {
+        ClearTarget(pTarget);
+        return;
+    }
 }
 
 void DroneAIMgr::WebAttack(SystemEntity* pTarget) {

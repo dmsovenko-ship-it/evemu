@@ -148,6 +148,8 @@ void SystemEntity::Killed(Damage& damage)
     if (m_targMgr != nullptr) {
         // loop thru list of all modules targeting this entity and let them know it has been killed.
         m_targMgr->Destroyed();
+        // notify all entities targeting us that we are gone, BEFORE deleting m_targMgr
+        m_targMgr->ClearFromTargets();
         // remove TargMgr here to avoid redundant calls upon object deletion
         SafeDelete(m_targMgr);
     }
