@@ -246,6 +246,7 @@ public:
     uint32                      GetOwnerID()            { return m_ownerID; }
     uint32                      GetFleetID()            { return m_fleetID; }
     void                        SetFleetID(uint32 set)  { m_fleetID = set; }
+    void                        SetOwnerData(uint32 ownerID, uint32 corpID, uint32 allyID = 0, uint32 warID = 0) { m_ownerID = ownerID; m_corpID = corpID; m_allyID = allyID; m_warID = warID; }
 
     int8                        GetHarmonic()           { return m_harmonic; }
     void                        SetHarmonic(int8 set)   { m_harmonic = set; }

@@ -1896,7 +1896,9 @@ void SystemManager::SpawnBillboards()
         InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
         if (iRef.get() == nullptr) continue;
 
-        ItemSystemEntity* billboard = new ItemSystemEntity(iRef, m_services, this);
+        ObjectSystemEntity* billboard = new ObjectSystemEntity(iRef, m_services, this);
+        billboard->SetOwnerData(iRef->ownerID(), iRef->ownerID());
+        billboard->DestinyMgr()->SetPosition(pos);
         AddEntity(billboard);
         ++count;
     }
