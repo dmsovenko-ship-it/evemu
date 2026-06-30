@@ -790,15 +790,9 @@ void ModuleManager::DamageModule(GenericModule* pMod, float amount)
     _log(MODULE__DAMAGE, "MM::DamageModule() - %s taking %.2f damage.  current damage %.2f",  \
                 pMod->GetSelf()->name(), amount, pMod->GetAttribute(AttrDamage).get_float());
     if (pMod->GetAttribute(AttrDamage) >= pMod->GetAttribute(AttrHP)) {
-        //  this is for offlining entire group...this isnt right.
-        /*
-        if (pMod->IsLinked()) {
-            // loop thru linked modules and offline all
-            pShipItem->GetPilot()->SendNotifyMsg("Your group of %s has gone offline due to damage.", pMod->GetSelf()->name());
-            pShipItem->OfflineGroup(pMod);
-        } else */
-        pShipItem->GetPilot()->SendNotifyMsg("Your %s in %s has gone offline due to damage.", pMod->GetSelf()->name(), sDataMgr.GetFlagName(pMod->flag()));
-        pMod->Offline();
+        // Cap damage at 99% — module still functions but shows severe damage.
+        // Full destruction (unfit & move to hangar) can be added later.
+        pMod->SetAttribute(AttrDamage, pMod->GetAttribute(AttrHP).get_float() * 0.99f);
     }
 }
 

@@ -367,6 +367,8 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                     }
                 }
                 uint32 droneLimit = charDrones + dcuBonus;
+                _log(DRONE__AI_TRACE, "Drone limit: %u = char(%u) + dcu(%u), launched: %u",
+                     droneLimit, charDrones, dcuBonus, pClient->GetShipSE()->DroneCount());
                 if (droneLimit < 1) {
                     throw UserError ("NoDroneManagementAbilities")
                             .AddFormatValue ("typeID", new PyInt (iRef->typeID ()));

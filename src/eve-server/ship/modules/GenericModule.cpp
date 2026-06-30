@@ -81,10 +81,9 @@ void GenericModule::Online()
 
     if (GetAttribute(AttrDamage) >= GetAttribute(AttrHP)) {
         m_shipRef->GetPilot()->SendNotifyMsg("Your %s is too damaged to be put online.", m_modRef->name());
+        // Clamp damage to 99% so module can come online after repair
+        SetAttribute(AttrDamage, GetAttribute(AttrHP).get_float() * 0.99f);
         return;
-        /*{'messageKey': 'ModuleTooDamagedToBeOnlined', 'dataID': 17878773, 'suppressable': False, 'bodyID': 257752, 'messageType': 'notify', 'urlAudio': '', 'urlIcon': '', 'titleID': None, 'messageID': 2303}
-         *   u'ModuleTooDamagedToBeOnlinedBody'}(u'The module is too damaged to be onlined'
-         */
     }
     // check PG and CPU usage to see if we have enough to online this module
     EvilNumber cpuNeed = GetAttribute(AttrCpu);
