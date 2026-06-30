@@ -68,13 +68,15 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
     }
 
     // Create default dynamic attributes in the AttributeMap:
+    m_self->SetAttribute(AttrInetia,              EvilOne, false);   // inertia (agility) — used by DestinyManager/Orbit
     m_self->SetAttribute(AttrInertia,             EvilOne, false);
     m_self->SetAttribute(AttrDamage,              EvilZero, false);
     m_self->SetAttribute(AttrArmorDamage,         EvilZero, false);
     m_self->SetAttribute(AttrWarpCapacitorNeed,   0.00001, false);
     m_self->SetAttribute(AttrOrbitRange,          m_orbitRange, false);
-    m_self->SetAttribute(AttrMass,                m_self->type().mass(), false);
-    m_self->SetAttribute(AttrRadius,              m_self->type().radius(), false);
+    // Ensure mass and radius are positive — zero values cause NaN in client physics (MassSector) and orbit calcs
+    m_self->SetAttribute(AttrMass,     std::max(m_self->type().mass(),    1000.0f), false);
+    m_self->SetAttribute(AttrRadius,   std::max(m_self->type().radius(),  1.0f), false);
     m_self->SetAttribute(AttrVolume,              m_self->type().volume(), false);
     m_self->SetAttribute(AttrCapacity,            m_self->type().capacity(), false);
     m_self->SetAttribute(AttrShieldCharge,        m_self->GetAttribute(AttrShieldCapacity), false);
@@ -176,16 +178,11 @@ void DroneSE::Launch(ShipSE* pShipSE) {
     GPoint pos(pShipSE->GetPosition());
     pos.MakeRandomPointOnSphere(50.0);
     m_self->SetPosition(pos);
+    m_destiny->SetPosition(pos);
 
-    // Add to bubble first so DestinyManager::SetPosition can broadcast
     m_system->AddEntity(this);
 
     assert (m_bubble != nullptr);
-
-    // Force broadcast SetBallPosition after AddEntity so all clients in bubble
-    // have valid coords before the first GOTO from IdleOrbit arrives.
-    // (Without this, bracket/OnMouseEnter computes nan position → crash.)
-    m_destiny->SetPosition(pos, true);
 }
 
 void DroneSE::Online(ShipSE* pShipSE/*nullptr*/) {
