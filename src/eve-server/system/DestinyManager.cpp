@@ -1856,27 +1856,15 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         mySE->GetPilot()->SetLoginWarpComplete();
     }
 
-    // snap position to target point exactly (prevent client desync)
-    m_position = m_targetPoint;
-    SetPosition(m_position, true);
-
-    // Send CmdStop to signal the client to exit WarpLoop
-    // (Halt alone does not send any packet — client would stay in warp forever)
-    CmdStop du;
-        du.entityID = mySE->GetID();
-    PyTuple *up = du.Encode();
-    SendSingleDestinyUpdate(&up);
-    PyDecRef(up);
-
-    // preserve follow target for autopilot (Halt clears m_targetEntity)
+    // preserve follow target for autopilot (SetSpeedFraction -> Halt clears m_targetEntity)
     uint32 followTargetID = m_targetEntity.first;
     uint32 followDist = m_stopDistance;
 
-    // Jump directly to STOP mode — GOTO deceleration causes massive client
-    // desync (234+ km) because the EVE client ignores SetBallPosition
-    // updates during GOTO and runs its own physics simulation.
-    Halt();
-    m_targBubble = nullptr;
+    SafeDelete(m_warpState);
+
+    // Transition WARP→GOTO via SetSpeedFraction(0), which sends CmdGotoDirection
+    // so the client exits WarpLoop and decelerates naturally.
+    SetSpeedFraction(0.0f);
 
     // resume autopilot follow after warp complete
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
@@ -1887,11 +1875,6 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
     }
-
-    // Post-warp deceleration is handled by SetSpeedFraction(0.0f) above,
-    // which set m_ballMode=GOTO and configured decel variables to match the
-    // client's own decel animation. Rapid re-warp is handled by the movement
-    // state reset in InitWarp().
 }
 
 //called whenever an entity is going away and can no longer be used as a target
