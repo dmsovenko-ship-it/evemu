@@ -302,6 +302,10 @@ bool SystemEntity::ApplyDamage(Damage &d) {
 
         m_killed = true;
 
+        if ((m_destiny == nullptr) or (m_bubble == nullptr)) {
+            _log(DAMAGE__ERROR, "%s(%u): Cannot process kill - destiny or bubble is null.", GetName(), GetID());
+            return true;
+        }
         // OnNotify:OnTransmission -  (235799, `You have killed this defenseless NPC, bully.  Also, you have killed this NPC and are receiving this message.`)
         m_destiny->SendTerminalExplosion(m_self->itemID(), m_bubble->GetID(), isGlobal());
 

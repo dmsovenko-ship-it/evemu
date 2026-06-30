@@ -488,8 +488,10 @@ void NPC::Killed(Damage &damage) {
     if (pClient != nullptr) {
         //award kill bounty.
         AwardBounty( pClient );
-        if (m_system->GetSystemSecurityRating() > 0)
-            AwardSecurityStatus(m_self, pClient->GetChar().get());  // this awards secStatusChange for npcs in empire space
+        if (pClient->GetChar().get() != nullptr) {
+            if (m_system->GetSystemSecurityRating() > 0)
+                AwardSecurityStatus(m_self, pClient->GetChar().get());  // this awards secStatusChange for npcs in empire space
+        }
 
         // Faction standing changes on NPC kill
         if (m_warID > 0) {
@@ -509,6 +511,10 @@ void NPC::Killed(Damage &damage) {
         }
     }
 
+    if (m_self.get() == nullptr) {
+        sLog.Error("NPC::Killed()", "Cannot create wreck - m_self is null");
+        return;
+    }
     GPoint wreckPosition = m_destiny->GetPosition();
     if (wreckPosition.isNaN()) {
         sLog.Error("NPC::Killed()", "Wreck Position is NaN");

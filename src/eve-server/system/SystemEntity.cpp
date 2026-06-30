@@ -220,6 +220,10 @@ void SystemEntity::DropLoot(WreckContainerRef wreckRef, uint32 groupID, uint32 o
 
 /** @todo (allan)  this doesnt need to be here */
 void SystemEntity::AwardSecurityStatus(InventoryItemRef iRef, Character* pChar) {
+    if (pChar == nullptr) {
+        _log(EFFECTS__ERROR, "AwardSecurityStatus() called with null Character");
+        return;
+    }
     //New Status = ((10 - Old Status) * Sec Incr) + Old Status
     double oldSec = pChar->GetSecurityRating();
     EvilNumber maxGain = 0;

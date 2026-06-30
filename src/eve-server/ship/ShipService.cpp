@@ -352,15 +352,30 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                     throw CustomError ("Drones are disabled.");
                 }
 
-                if (pClient->GetChar()->GetAttribute(AttrMaxActiveDrones).get_uint32() < 1) {
+                uint32 charDrones = pClient->GetChar()->GetAttribute(AttrMaxActiveDrones).get_uint32();
+                // DCU module bonus may not be reflected in character attribute via dogma
+                // modifier system; sum online DCU modules explicitly.
+                uint32 dcuBonus = 0;
+                {
+                    std::vector<InventoryItemRef> modVec;
+                    pClient->GetShipSE()->GetShipItemRef()->GetModuleManager()->GetModuleListOfRefsAsc(modVec);
+                    for (auto mod : modVec) {
+                        if (mod->groupID() == EVEDB::invGroups::Drone_Control_Unit
+                            && mod->GetAttribute(AttrOnline).get_bool()) {
+                            dcuBonus += mod->GetAttribute(AttrMaxActiveDrones).get_uint32();
+                        }
+                    }
+                }
+                uint32 droneLimit = charDrones + dcuBonus;
+                if (droneLimit < 1) {
                     throw UserError ("NoDroneManagementAbilities")
                             .AddFormatValue ("typeID", new PyInt (iRef->typeID ()));
                     //{'FullPath': u'UI/Messages', 'messageID': 259203, 'label': u'NoDroneManagementAbilitiesBody'}(u'You cannot launch {[item]typeID.nameWithArticle} because you do not have the ability to control any drones.', None, {u'{[item]typeID.nameWithArticle}': {'conditionalValues': [], 'variableType': 2, 'propertyName': 'nameWithArticle', 'args': 0, 'kwargs': {}, 'variableName': 'typeID'}})
                 }
-                if (pClient->GetChar()->GetAttribute(AttrMaxActiveDrones).get_uint32() <= pClient->GetShipSE()->DroneCount()) {
+                if (droneLimit <= pClient->GetShipSE()->DroneCount()) {
                     throw UserError ("NoDroneManagementAbilitiesLeft")
                             .AddFormatValue ("item", new PyInt (iRef->typeID ()))
-                            .AddFormatValue ("limit", new PyInt (pClient->GetChar ()->GetAttribute (AttrMaxActiveDrones).get_uint32()));
+                            .AddFormatValue ("limit", new PyInt (droneLimit));
                     //{'FullPath': u'UI/Messages', 'messageID': 259140, 'label': u'NoDroneManagementAbilitiesLeftBody'}(u'You cannot launch {[item]item.name} because you are already controlling {[numeric]limit} drones, as much as you have skill to.', None, {u'{[numeric]limit}': {'conditionalValues': [], 'variableType': 9, 'propertyName': None, 'args': 0, 'kwargs': {}, 'variableName': 'limit'}, u'{[item]item.name}': {'conditionalValues': [], 'variableType': 2, 'propertyName': 'name', 'args': 0, 'kwargs': {}, 'variableName': 'item'}})
                 }
 
