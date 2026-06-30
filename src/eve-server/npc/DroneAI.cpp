@@ -168,7 +168,7 @@ void DroneAIMgr::Process() {
     and (m_assignedShip != nullptr) and (m_assignedShip->DestinyMgr() != nullptr)) {
         double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
         double controlRange = GetControlRange();
-        if (dist > controlRange * 1.1) {
+        if (dist > controlRange * 3.0) {
             if (m_state != DroneAI::State::Incapacitated) {
                 _log(DRONE__AI_TRACE, "Drone %s(%u): Out of control range (%.0fm > %.0fm) ship=(%.0f,%.0f,%.0f) drone=(%.0f,%.0f,%.0f).  Incapacitated.",
                      m_pDrone->GetName(), m_pDrone->GetID(), dist, controlRange * 1.1,
@@ -325,23 +325,15 @@ void DroneAIMgr::SetIdle() {
     m_beginFindTarget.Disable();
     m_mainAttackTimer.Disable();
 
-    // after reload, re-engage the last target if it still exists and is within range
+    // after reload, re-engage the last target if it still exists
     SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
     if (pTarget != nullptr) {
-        double dist = m_pDrone->GetPosition().distance(pTarget->GetPosition());
-        double controlRange = GetControlRange();
-        if (dist < controlRange * 2.0) {
-            _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: re-engaging last target %s(%u) after reload (dist=%.0fm).",
-                 m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), dist);
-            // approach first regardless of distance — CheckDistance in Approaching state
-            // will keep chasing without clearing the target (flyRange only limits attack, not pursuit)
-            SetApproaching(pTarget);
-            return;
-        }
-        _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: target %s(%u) too far (%.0fm > %.0fm).  Orbiting carrier.",
-             m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), dist, controlRange * 2.0);
-        // clear the distant target so we don't re-acquire it later
-        m_pDrone->TargetMgr()->ClearTarget(pTarget);
+        _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: re-engaging last target %s(%u) after reload.",
+             m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
+        // approach first regardless of distance — CheckDistance in Approaching state
+        // will keep chasing without clearing the target (flyRange only limits attack, not pursuit)
+        SetApproaching(pTarget);
+        return;
     }
 
     // disable ewar timers (only when no target to re-engage)
