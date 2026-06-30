@@ -76,8 +76,14 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
         case EVEDB::invGroups::Repair_Drone: {
             m_subType = DroneAI::SubType_Logistics;
             // Determine repair type and amount
-            if (m_pDrone->GetSelf()->HasAttribute(AttrEntityShieldBoostAmount)) {
+            // Player drones use AttrShieldBonus (68) / AttrArmorDamageAmount (84),
+            // NPC entities use AttrEntityShieldBoostAmount (1532) / AttrEntityArmorRepairAmount (629).
+            if (m_pDrone->GetSelf()->HasAttribute(AttrShieldBonus)) {
+                m_repairAmount = m_pDrone->GetSelf()->GetAttribute(AttrShieldBonus).get_float();
+            } else if (m_pDrone->GetSelf()->HasAttribute(AttrEntityShieldBoostAmount)) {
                 m_repairAmount = m_pDrone->GetSelf()->GetAttribute(AttrEntityShieldBoostAmount).get_float();
+            } else if (m_pDrone->GetSelf()->HasAttribute(AttrArmorDamageAmount)) {
+                m_repairAmount = m_pDrone->GetSelf()->GetAttribute(AttrArmorDamageAmount).get_float();
             } else if (m_pDrone->GetSelf()->HasAttribute(AttrEntityArmorRepairAmount)) {
                 m_repairAmount = m_pDrone->GetSelf()->GetAttribute(AttrEntityArmorRepairAmount).get_float();
             }
@@ -723,7 +729,9 @@ void DroneAIMgr::LogisticsRepair(SystemEntity* pTarget) {
     double amount = m_repairAmount;
 
     // Determine if this is a shield or armor logistics drone based on own attributes
-    bool isShieldLogistics = m_pDrone->GetSelf()->HasAttribute(AttrEntityShieldBoostAmount);
+    // Player drones use AttrShieldBonus, NPCs use AttrEntityShieldBoostAmount
+    bool isShieldLogistics = m_pDrone->GetSelf()->HasAttribute(AttrShieldBonus)
+        || m_pDrone->GetSelf()->HasAttribute(AttrEntityShieldBoostAmount);
 
     _log(DRONE__AI_TRACE, "Drone %s(%u): LogisticsRepair on %s(%u), amount=%.2f, isShield=%d",
          m_pDrone->GetName(), m_pDrone->GetID(),
