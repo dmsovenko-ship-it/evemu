@@ -2846,6 +2846,14 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     AttrDroneBandwidthUsed = 1272, <-- drone attribute
     AttrDroneBandwidthLoad = 1273, <-- ship attribute  (current used)
     */
+    // Fighters use tubes, not drone bandwidth (Crucible-era)
+    bool isFighter = (dRef->groupID() == EVEDB::invGroups::Fighter_Drone)
+                  or (dRef->groupID() == EVEDB::invGroups::Fighter_Bomber);
+    if (isFighter) {
+        pDrone->Online();
+        pDrone->GetAI()->SetIdle();
+        return true;
+    }
     //  if ship doesnt have bandwidth for drone, it will not online after launch (inert)
     EvilNumber load = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
     load += dRef->GetAttribute(AttrDroneBandwidthUsed);
@@ -2865,9 +2873,13 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
 void ShipSE::ScoopDrone(SystemEntity* pSE) {
     m_drones.erase(pSE->GetID());
     pSE->GetDroneSE()->Offline();
-    EvilNumber load = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
-    load -= pSE->GetSelf()->GetAttribute(AttrDroneBandwidthUsed);
-    m_shipRef->SetAttribute(AttrDroneBandwidthLoad, load, false); // client dont care
+    // Fighters use tubes, not drone bandwidth
+    if (!(pSE->GetSelf()->groupID() == EVEDB::invGroups::Fighter_Drone
+       or pSE->GetSelf()->groupID() == EVEDB::invGroups::Fighter_Bomber)) {
+        EvilNumber load = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
+        load -= pSE->GetSelf()->GetAttribute(AttrDroneBandwidthUsed);
+        m_shipRef->SetAttribute(AttrDroneBandwidthLoad, load, false);
+    }
 }
 
 void ShipSE::UpdateDrones(std::map<int16, int8> &attribs) {
