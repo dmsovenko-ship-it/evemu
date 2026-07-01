@@ -1899,7 +1899,11 @@ void SystemManager::SpawnBillboards()
         ObjectSystemEntity* billboard = new ObjectSystemEntity(iRef, m_services, this);
         billboard->SetOwnerData(iRef->ownerID(), iRef->ownerID());
         billboard->DestinyMgr()->SetPosition(pos);
+        uint32 billID = iRef->itemID();
         AddEntity(billboard);
+        m_staticEntities[billID] = billboard;
+        if (m_loaded)
+            SendStaticBall(billboard);
         ++count;
     }
 

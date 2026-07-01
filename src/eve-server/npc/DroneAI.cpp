@@ -730,6 +730,10 @@ void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
         return;
     }
 
+    // Notify crime watch of weapon use
+    if (m_pDrone->GetOwner() != nullptr and m_pDrone->GetOwner()->GetCrimeWatch() != nullptr)
+        m_pDrone->GetOwner()->GetCrimeWatch()->OnWeaponFired();
+
     std::string guid = "effects.Laser";
     uint32 gfxID = 0;
     if (m_pDrone->GetSelf()->HasAttribute(AttrGfxTurretID))
@@ -786,6 +790,10 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
         Return();
         return;
     }
+
+    // Notify crime watch of weapon use
+    if (m_pDrone->GetOwner() != nullptr and m_pDrone->GetOwner()->GetCrimeWatch() != nullptr)
+        m_pDrone->GetOwner()->GetCrimeWatch()->OnWeaponFired();
 
     // Bomb visual effect
     m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
