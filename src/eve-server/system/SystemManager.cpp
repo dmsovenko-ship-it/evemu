@@ -1883,7 +1883,7 @@ void SystemManager::SpawnBillboards()
         if (group != EVEDB::invGroups::Stargate && group != EVEDB::invGroups::Station)
             continue;
 
-        float dist = (group == EVEDB::invGroups::Stargate) ? 8000.0f : 12000.0f;
+        float dist = (group == EVEDB::invGroups::Stargate) ? 45000.0f : 50000.0f;
         GPoint center = pSE->GetPosition();
         float a = (float)(MakeRandomInt(0, 6283)) / 1000.0f;
         GPoint pos(center.x + dist * cosf(a), center.y, center.z + dist * sinf(a));
