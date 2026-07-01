@@ -346,7 +346,6 @@ void DroneAIMgr::SetIdle() {
     if (m_pDrone->TargetMgr() != nullptr) {
         m_webifierTimer.Disable();
         m_warpScramblerTimer.Disable();
-        m_ewarTimer.Disable();
     }
 
     // orbit assigned ship (guard against stale m_assignedShip)
