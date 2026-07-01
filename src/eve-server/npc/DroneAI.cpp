@@ -190,7 +190,12 @@ void DroneAIMgr::Process() {
         } break;
         case DroneAI::State::Idle: {
             // orbiting controlling ship
-            // For logistics drones in idle, we could auto-repair, but currently just orbit
+            // Fighters: re-engage existing target after reload, or auto-aggro on carrier attackers
+            if (m_pDrone->IsFighter() and (m_pDrone->GetFighterAmmo() > 0)) {
+                SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
+                if (pTarget != nullptr and pTarget->SysBubble() != nullptr)
+                    Target(pTarget);
+            }
         } break;
         case DroneAI::State::Engaged:
         case DroneAI::State::Approaching: {
