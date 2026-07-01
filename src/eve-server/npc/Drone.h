@@ -128,6 +128,12 @@ public:
     void SetAssistTargetID(uint32 charID)               { m_assistTargetID = charID; }
     void ClearAssistTarget()                            { m_assistTargetID = 0; }
     bool IsAssisting()                                  { return (m_assistTargetID != 0); }
+    // Delegate control
+    uint32 GetDelegatedControllerID()                   { return m_delegatedControllerID; }
+    void SetDelegatedControllerID(uint32 charID)        { m_delegatedControllerID = charID; }
+    void ClearDelegatedController()                     { m_delegatedControllerID = 0; }
+    bool IsDelegated()                                  { return (m_delegatedControllerID != 0); }
+    bool CanCommand(uint32 charID)                      { return (charID == m_controllerOwnerID or charID == m_delegatedControllerID); }
 
 protected:
     Client* m_pClient;          //we do not own this
@@ -159,6 +165,7 @@ private:
 
     // Assist target (Crucible-era: only NPC targets, no PvP)
     uint32 m_assistTargetID;       // 0 = not assisting
+    uint32 m_delegatedControllerID; // 0 = not delegated, characterID of delegated controller
 };
 
 #endif /* !__DRONE__H__INCL__ */
