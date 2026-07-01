@@ -78,16 +78,16 @@ PyRep *AllianceDB::GetAlliance(uint32 allyID)
         // Return an empty CRowset for missing alliances (e.g. faction system sov with allianceID=0)
         DBRowDescriptor *header = new DBRowDescriptor();
         header->AddColumn("allianceID", DBTYPE_I4);
-        header->AddColumn("allianceName", DBTYPE_WSTR);
-        header->AddColumn("description", DBTYPE_WSTR);
+        header->AddColumn("allianceName", DBTYPE_STR);
+        header->AddColumn("description", DBTYPE_STR);
         header->AddColumn("typeID", DBTYPE_I4);
-        header->AddColumn("shortName", DBTYPE_WSTR);
+        header->AddColumn("shortName", DBTYPE_STR);
         header->AddColumn("executorCorpID", DBTYPE_I4);
         header->AddColumn("creatorCorpID", DBTYPE_I4);
         header->AddColumn("creatorCharID", DBTYPE_I8);
-        header->AddColumn("startDate", DBTYPE_FILE_TIME);
+        header->AddColumn("startDate", DBTYPE_FILETIME);
         header->AddColumn("memberCount", DBTYPE_I4);
-        header->AddColumn("url", DBTYPE_WSTR);
+        header->AddColumn("url", DBTYPE_STR);
         header->AddColumn("deleted", DBTYPE_BOOL);
         header->AddColumn("dictatorial", DBTYPE_BOOL);
         return new CRowSet(&header);
