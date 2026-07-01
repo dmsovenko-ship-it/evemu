@@ -190,8 +190,9 @@ void DroneAIMgr::Process() {
         } break;
         case DroneAI::State::Idle: {
             // orbiting controlling ship
-            // Fighters: re-engage existing target after reload, or auto-aggro on carrier attackers
-            if (m_pDrone->IsFighter() and (m_pDrone->GetFighterAmmo() > 0)) {
+            // Fighters: re-engage existing target after reload
+            if (m_pDrone->IsFighter() and (m_pDrone->GetFighterAmmo() > 0)
+            and (m_pDrone->TargetMgr() != nullptr)) {
                 SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
                 if (pTarget != nullptr and pTarget->SysBubble() != nullptr)
                     Target(pTarget);
@@ -331,22 +332,26 @@ void DroneAIMgr::SetIdle() {
     m_mainAttackTimer.Disable();
 
     // after reload, re-engage the last target if it still exists
-    SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
-    if (pTarget != nullptr) {
-        _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: re-engaging last target %s(%u) after reload.",
-             m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
-        // approach first regardless of distance — CheckDistance in Approaching state
-        // will keep chasing without clearing the target (flyRange only limits attack, not pursuit)
-        SetApproaching(pTarget);
-        return;
+    if (m_pDrone->TargetMgr() != nullptr) {
+        SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
+        if (pTarget != nullptr) {
+            _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: re-engaging last target %s(%u) after reload.",
+                 m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
+            SetApproaching(pTarget);
+            return;
+        }
     }
 
     // disable ewar timers (only when no target to re-engage)
-    m_webifierTimer.Disable();
-    m_warpScramblerTimer.Disable();
+    if (m_pDrone->TargetMgr() != nullptr) {
+        m_webifierTimer.Disable();
+        m_warpScramblerTimer.Disable();
+        m_ewarTimer.Disable();
+    }
 
-    // orbit assigned ship
-    m_pDrone->IdleOrbit(m_assignedShip);
+    // orbit assigned ship (guard against stale m_assignedShip)
+    if (m_assignedShip != nullptr and m_pDrone->DestinyMgr() != nullptr)
+        m_pDrone->IdleOrbit(m_assignedShip);
 }
 
 void DroneAIMgr::SetEngaged(SystemEntity* pTarget) {
