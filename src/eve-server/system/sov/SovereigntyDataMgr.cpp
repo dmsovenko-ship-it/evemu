@@ -13,6 +13,7 @@
 #include "database/EVEDBUtils.h"
 #include "packets/Sovereignty.h"
 #include "StaticDataMgr.h"
+#include "station/StationDataMgr.h"
 #include "Client.h"
 
 SovereigntyDataMgr::SovereigntyDataMgr()
@@ -133,10 +134,55 @@ PyRep *SovereigntyDataMgr::GetSystemSovereignty(uint32 systemID)
     sDataMgr.GetSystemData(systemID, sysData);
 
     if (sysData.factionID)
-    {   // If we have a factionID, the system is not claimable.
-        // We dont need to worry about FacWar Sov here, that is handled separately by Handle_GetSystemOccupier
-        _log(SOV__INFO, "SovereigntyDataMgr::GetSystemSovereignty(): Faction system %u found, Sending no SovData.", systemID);
-        return new PyNone();
+    {   // If we have a factionID, the system is not claimable by players.
+        // Send NPC corporation sovereignty data for empire systems.
+        _log(SOV__INFO, "SovereigntyDataMgr::GetSystemSovereignty(): Faction system %u found, sending NPC sov data.", systemID);
+        uint32 corpID = 0;
+        uint32 stationCount = 0;
+        std::vector<uint32> stationList;
+        if (sDataMgr.GetStationList(systemID, stationList)) {
+            stationCount = stationList.size();
+            if (stationCount > 0) {
+                StationData sData;
+                if (stDataMgr.GetStationData(stationList[0], sData)) {
+                    corpID = sData.corporationID;
+                }
+            }
+        }
+        if (corpID == 0) {
+            // No stations found — use faction default corp based on factionID
+            switch (sysData.factionID) {
+                case 500001: corpID = 1000167; break;   // Caldari State
+                case 500002: corpID = 1000164; break;   // Minmatar Republic
+                case 500003: corpID = 1000166; break;   // Amarr Empire
+                case 500004: corpID = 1000165; break;   // Gallente Federation
+                case 500005: corpID = 1000178; break;   // Jove Empire
+                case 500006: corpID = 1000178; break;   // CONCORD
+                case 500007: corpID = 1000178; break;   // Guristas
+                case 500008: corpID = 1000178; break;   // Angel Cartel
+                case 500009: corpID = 1000178; break;   // Blood Raiders
+                case 500010: corpID = 1000178; break;   // Sansha's Nation
+                case 500011: corpID = 1000178; break;   // Mordus Legion
+                case 500012: corpID = 1000178; break;   // Sisters of EVE
+                case 500013: corpID = 1000178; break;   // Khanid Kingdom
+                case 500014: corpID = 1000178; break;   // The Syndicate
+                case 500015: corpID = 1000178; break;   // The Society
+                case 500016: corpID = 1000178; break;   // Yulai
+                case 500017: corpID = 1000178; break;   // Servant Sisters
+                case 500018: corpID = 1000178; break;   // Mordu's Legion Command
+                case 500019: corpID = 1000178; break;   // (unknown)
+                case 500020: corpID = 1000178; break;   // (unknown)
+                default:     corpID = 1000178; break;   // Generic NPC corp
+            }
+        }
+        args->SetItemString("contested", new PyInt(0));
+        args->SetItemString("corporationID", new PyInt(corpID));
+        args->SetItemString("claimTime", new PyLong(0));
+        args->SetItemString("claimStructureID", new PyInt(0));
+        args->SetItemString("hubID", new PyInt(0));
+        args->SetItemString("allianceID", new PyInt(0));
+        args->SetItemString("solarSystemID", new PyInt(systemID));
+        return new PyObject("util.KeyVal", args);
     }
     else
     {
