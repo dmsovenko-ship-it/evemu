@@ -2821,6 +2821,15 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     Character* pChar = GetPilot()->GetChar().get();
     sLog.Magenta("ShipSE::LaunchDrone()","%s: Launching drone %u",  pChar->name(), dRef->itemID());
 
+    // If a stale DroneSE for this itemID still exists (scooped but pending removal),
+    // remove it now to prevent itemID collision
+    SystemEntity* staleSE = m_system->GetSE(dRef->itemID());
+    if (staleSE != nullptr and staleSE->IsDroneSE()) {
+        _log(DRONE__WARNING, "LaunchDrone: removing stale DroneSE %u before re-launch.", dRef->itemID());
+        m_system->RemoveEntity(staleSE);
+        SafeDelete(staleSE);
+    }
+
     dRef->Move(GetLocationID(), flagNone, true);
     dRef->ChangeSingleton(true);
 
