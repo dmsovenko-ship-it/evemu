@@ -258,7 +258,7 @@ public:
     void SetBubbleWait(bool wait=false)                 { m_bubbleWait = wait; }
     void SetLoginWarpComplete();
     void SetStateSent(bool set=false)                   { m_setStateSent = set; }
-    void SetSessionTimer()                              { m_sessionChangeActive = true; m_sessionTimer.Start(Player::Timer::Session); }
+    void SetSessionTimer()                              { m_sessionChangeActive = true; m_sessionTimer.Start(Player::Timer::Session); if (m_char) m_char->SetAttribute(259, int64(GetFileTimeNow() + 20LL * EvE::Time::Second), true); }
     void SetSessionChange(bool set=false)               { m_sessionChangeActive = set; }
     void SetBallPark();
     void StargateJump(uint32 fromGate, uint32 toGate);

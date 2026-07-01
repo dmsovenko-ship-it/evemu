@@ -376,6 +376,7 @@ void Client::ProcessClient() {
         _log(CLIENT__TIMER, "Client::ProcessClient():  SetSessionChange to false for %s(%u)", m_char->name(), m_char->itemID());
         m_sessionTimer.Disable();
         m_sessionChangeActive = false;
+        if (m_char) m_char->SetAttribute(259, int64(0), true);
     }
 
     /* Check Character Save Timer Expiry:  (not currently used  -allan 17May16)

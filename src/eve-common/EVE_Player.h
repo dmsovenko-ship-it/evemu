@@ -27,7 +27,7 @@ namespace Player {
             Jetcan              = 600000,  // used to delay jetcan creation.  10min default
             Logout              = 10000,    // used to hold client object until WarpOut finishes
             Login               = 4000,    // delay before sending SetState when client logs in undocked
-            Session             = 10000,   // used to prevent multiple session changes from occurring too fast
+            Session             = 20000,   // used to prevent multiple session changes from occurring too fast (Crucible: 20s)
             DockInvul           = 3000,
             Fleet               = 1500,
             JumpInvul           = 15000,   // increased from 5s

@@ -12,6 +12,7 @@
 
 // Character attribute IDs for HUD timers (from EVE static data)
 static const uint16 ATTR_AGGRESSION_TIMER = 258;
+static const uint16 ATTR_SESSION_TIMER = 259;
 static const uint16 ATTR_WEAPON_TIMER = 261;
 static const uint16 ATTR_NPC_TIMER = 264;
 
