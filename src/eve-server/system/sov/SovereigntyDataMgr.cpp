@@ -9,12 +9,14 @@
   */
 
 #include <boost/range/iterator_range.hpp>
+#include <set>
 #include "system/sov/SovereigntyDataMgr.h"
 #include "database/EVEDBUtils.h"
 #include "packets/Sovereignty.h"
 #include "StaticDataMgr.h"
 #include "station/StationDataMgr.h"
 #include "Client.h"
+#include "system/SystemDB.h"
 
 SovereigntyDataMgr::SovereigntyDataMgr()
 {
@@ -271,6 +273,8 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
     header->AddColumn("claimedFor", DBTYPE_I4);
     CRowSet *rowset = new CRowSet(&header);
 
+    std::set<uint32> seenLocationIDs;
+
     if (IsConstellationID(locationID))
     {
         for (SovereigntyData const &sData : boost::make_iterator_range(
@@ -283,6 +287,30 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
             row->SetField("militaryPoints", new PyInt(sData.militaryPoints));
             row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
             row->SetField("claimedFor", new PyInt(sData.allianceID));
+            seenLocationIDs.insert(sData.solarSystemID);
+        }
+        // Add faction systems in this constellation not covered by sov data
+        DBQueryResult fRes;
+        if (sDatabase.RunQuery(fRes,
+            "SELECT mss.solarSystemID"
+            " FROM mapSolarSystems AS mss"
+            " WHERE mss.constellationID = %u AND mss.factionID IS NOT NULL",
+            locationID))
+        {
+            DBResultRow fRow;
+            while (fRes.GetRow(fRow)) {
+                uint32 sysID = fRow.GetUInt(0);
+                if (seenLocationIDs.find(sysID) == seenLocationIDs.end()) {
+                    uint8 stCount = sDataMgr.GetStationCount(sysID);
+                    PyPackedRow *row = rowset->NewRow();
+                    row->SetField("locationID", new PyInt(sysID));
+                    row->SetField("allianceID", new PyInt(0));
+                    row->SetField("stationCount", new PyInt(stCount));
+                    row->SetField("militaryPoints", new PyInt(0));
+                    row->SetField("industrialPoints", new PyInt(0));
+                    row->SetField("claimedFor", new PyInt(0));
+                }
+            }
         }
     }
     //Get all unique alliances in the region who hold sovereignty
@@ -302,6 +330,29 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                 row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
                 row->SetField("claimedFor", new PyInt(sData.allianceID));
                 cv.push_back(sData.constellationID);
+                seenLocationIDs.insert(sData.constellationID);
+            }
+        }
+        // Add faction constellations in this region not covered by sov data
+        DBQueryResult fRes;
+        if (sDatabase.RunQuery(fRes,
+            "SELECT DISTINCT mss.constellationID"
+            " FROM mapSolarSystems AS mss"
+            " WHERE mss.regionID = %u AND mss.factionID IS NOT NULL",
+            locationID))
+        {
+            DBResultRow fRow;
+            while (fRes.GetRow(fRow)) {
+                uint32 constID = fRow.GetUInt(0);
+                if (seenLocationIDs.find(constID) == seenLocationIDs.end()) {
+                    PyPackedRow *row = rowset->NewRow();
+                    row->SetField("locationID", new PyInt(constID));
+                    row->SetField("allianceID", new PyInt(0));
+                    row->SetField("stationCount", new PyInt(0));
+                    row->SetField("militaryPoints", new PyInt(0));
+                    row->SetField("industrialPoints", new PyInt(0));
+                    row->SetField("claimedFor", new PyInt(0));
+                }
             }
         }
     }
@@ -317,6 +368,21 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
             row->SetField("militaryPoints", new PyInt(sData.militaryPoints));
             row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
             row->SetField("claimedFor", new PyInt(sData.allianceID));
+            seenLocationIDs.insert(sData.solarSystemID);
+        }
+        // Add this system if it's a faction system
+        SystemData sysData;
+        if (sDataMgr.GetSystemData(locationID, sysData) and sysData.factionID) {
+            if (seenLocationIDs.find(locationID) == seenLocationIDs.end()) {
+                uint8 stCount = sDataMgr.GetStationCount(locationID);
+                PyPackedRow *row = rowset->NewRow();
+                row->SetField("locationID", new PyInt(locationID));
+                row->SetField("allianceID", new PyInt(0));
+                row->SetField("stationCount", new PyInt(stCount));
+                row->SetField("militaryPoints", new PyInt(0));
+                row->SetField("industrialPoints", new PyInt(0));
+                row->SetField("claimedFor", new PyInt(0));
+            }
         }
     }
 
