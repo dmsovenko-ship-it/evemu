@@ -197,6 +197,24 @@ void DroneAIMgr::Process() {
                 if (pTarget != nullptr and pTarget->SysBubble() != nullptr)
                     Target(pTarget);
             }
+            // Assist mechanic: if this drone is assisting another player,
+            // check their current NPC target and engage it
+            if (m_pDrone->IsAssisting() and (m_assignedShip != nullptr)
+            and (m_assignedShip->DestinyMgr() != nullptr)) {
+                SystemEntity* pAssistSE = m_pDrone->SystemMgr()->GetSE(m_pDrone->GetAssistTargetID());
+                if (pAssistSE != nullptr and pAssistSE->TargetMgr() != nullptr) {
+                    SystemEntity* pAssistTarget = pAssistSE->TargetMgr()->GetFirstTarget(false);
+                    if (pAssistTarget != nullptr and pAssistTarget->SysBubble() != nullptr) {
+                        // Crucible-era: assisted drones do NOT attack other players (capsuleers)
+                        if (!pAssistTarget->HasPilot()) {
+                            _log(DRONE__AI_TRACE, "Drone %s(%u): Assist: engaging NPC target %s(%u).",
+                                 m_pDrone->GetName(), m_pDrone->GetID(),
+                                 pAssistTarget->GetName(), pAssistTarget->GetID());
+                            Target(pAssistTarget);
+                        }
+                    }
+                }
+            }
         } break;
         case DroneAI::State::Engaged:
         case DroneAI::State::Approaching: {

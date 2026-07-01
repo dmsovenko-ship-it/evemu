@@ -112,6 +112,7 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
         m_fighterMaxAmmo = 0;
         m_fighterAmmo = 0;
     }
+    m_assistTargetID = 0;
 
     _log(DRONE__TRACE, "Created Drone object for %s (%u)", drone.get()->name(), drone.get()->itemID());
 }

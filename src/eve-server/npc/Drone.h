@@ -123,6 +123,12 @@ public:
     void ReloadFighter()                                { m_fighterAmmo = m_fighterMaxAmmo; }
     bool ConsumeFighterAmmo()                           { if (m_fighterAmmo > 0) { --m_fighterAmmo; return true; } return false; }
 
+    // Assist mechanic (Crucible-era)
+    uint32 GetAssistTargetID()                          { return m_assistTargetID; }
+    void SetAssistTargetID(uint32 charID)               { m_assistTargetID = charID; }
+    void ClearAssistTarget()                            { m_assistTargetID = 0; }
+    bool IsAssisting()                                  { return (m_assistTargetID != 0); }
+
 protected:
     Client* m_pClient;          //we do not own this
     DroneAIMgr* m_AI;           //we do own this
@@ -150,6 +156,9 @@ private:
     uint8  m_fighterAmmo;          // remaining shots before reload
     uint8  m_fighterMaxAmmo;       // max shots per load (10 for Fighters, 5 for Bombers)
     bool   m_isFighterBomber;      // true if Fighter_Bomber (1023), false if Fighter_Drone (549)
+
+    // Assist target (Crucible-era: only NPC targets, no PvP)
+    uint32 m_assistTargetID;       // 0 = not assisting
 };
 
 #endif /* !__DRONE__H__INCL__ */

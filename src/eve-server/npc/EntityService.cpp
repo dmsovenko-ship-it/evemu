@@ -146,6 +146,7 @@ PyResult EntityBound::CmdEngage(PyCallArgs &call, PyList* droneIDs, PyInt* targe
         }
 
         _log(DRONE__TRACE, "CmdEngage: ordering drone %u to engage %u.", droneID, targetID->value());
+        pDrone->ClearAssistTarget();  // manual engagement cancels assist
         pDrone->SetTarget(pTarget);
         pDrone->GetAI()->Target(pTarget);   // initiates targeting and CheckDistance
         pDrone->StateChange();
@@ -174,11 +175,44 @@ PyResult EntityBound::CmdDelegateControl(PyCallArgs &call, PyList* droneIDs, PyI
 
 PyResult EntityBound::CmdAssist(PyCallArgs &call, PyInt* assistID, PyList* droneIDs) {
  // ret = entity.CmdAssist(assistID, droneIDs)
-    _log(DRONE__TRACE, "EntityBound::Handle_CmdAssist()");
+    _log(DRONE__TRACE, "EntityBound::CmdAssist()");
     call.Dump(DRONE__DUMP);
 
-    call.client->SendNotifyMsg("This drone command is not yet supported.");
-    return new PyDict();
+    uint32 assistCharID = assistID->value();
+    PyDict* errors = new PyDict();
+
+    // Validate assist target exists in this system
+    SystemEntity* pAssistSE = m_sysMgr->GetSE(assistCharID);
+    if (pAssistSE == nullptr) {
+        for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
+            uint32 droneID = PyRep::IntegerValueU32(*itr);
+            errors->SetItem(new PyInt(droneID), new PyString("Assist target not found in system."));
+        }
+        return errors;
+    }
+
+    for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
+        uint32 droneID = PyRep::IntegerValueU32(*itr);
+        SystemEntity* pSE = m_sysMgr->GetSE(droneID);
+        if (pSE == nullptr || !pSE->IsDroneSE()) {
+            _log(DRONE__WARNING, "CmdAssist: drone %u not found.", droneID);
+            continue;
+        }
+        DroneSE* pDrone = pSE->GetDroneSE();
+        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID()) {
+            _log(DRONE__WARNING, "CmdAssist: %s tried to command drone %u owned by %u.",
+                 call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
+            continue;
+        }
+        if (!pDrone->IsEnabled()) {
+            _log(DRONE__MESSAGE, "CmdAssist: drone %u is offline.", droneID);
+            continue;
+        }
+        // Crucible-era: assist only works for NPC targets, but we still set the assist target
+        pDrone->SetAssistTargetID(assistCharID);
+        _log(DRONE__TRACE, "CmdAssist: drone %u now assisting char %u.", droneID, assistCharID);
+    }
+    return errors;
 }
 
 PyResult EntityBound::CmdGuard(PyCallArgs &call, PyInt* guardID, PyList* droneIDs) {
@@ -292,6 +326,7 @@ PyResult EntityBound::CmdReturnHome(PyCallArgs &call, PyList* droneIDs) {
         }
 
         _log(DRONE__TRACE, "CmdReturnHome: ordering drone %u to return and orbit.", droneID);
+        pDrone->ClearAssistTarget();
         pDrone->GetAI()->Return();
         pDrone->StateChange();
     }
@@ -348,6 +383,7 @@ PyResult EntityBound::CmdReturnBay(PyCallArgs &call, PyList* droneIDs) {
         }
 
         _log(DRONE__TRACE, "CmdReturnBay: ordering drone %u to return to bay.", droneID);
+        pDrone->ClearAssistTarget();
         pDrone->GetAI()->ReturnBay();
         pDrone->StateChange();
     }
