@@ -33,9 +33,9 @@ namespace Player {
             JumpInvul           = 15000,   // increased from 5s
             WarpOutInvul        = 5000,
             WarpInInvul         = 18000,   // increased from 10s
-            UndockInvul         = 20000,
+            UndockInvul         = 30000,   // Crucible: 30s
             RestoringInvul      = 60000,
-            JumpCloak           = 30000,
+            JumpCloak           = 60000,   // Crucible: 60s
             LoginCloak          = 20000,
             UnCloak             = 5000     // not implemented yet
         };
