@@ -45,6 +45,7 @@ namespace DroneAI {
         SubType_CapDrain      = 5,
         SubType_Mining        = 6,
         SubType_Fighter       = 8,
+        SubType_Sentry        = 10,
         SubType_FighterBomber = 9,
         SubType_Unknown       = 7
     };

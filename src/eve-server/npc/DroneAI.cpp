@@ -110,7 +110,10 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
         }
         default: {
             // Combat drones (Combat_Drone=100)
-            m_subType = DroneAI::SubType_Combat;
+            // Sentry drones have zero max velocity — they don't move
+            m_subType = (m_pDrone->GetSelf()->GetAttribute(AttrMaxVelocity).get_float() <= 0.0f)
+                      ? DroneAI::SubType_Sentry
+                      : DroneAI::SubType_Combat;
             break;
         }
     }
@@ -715,8 +718,12 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
     float skillMult = 1.0f;
     if (m_pDrone->GetOwner() != nullptr) {
         skillMult = (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::Drones))
-                  * (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneInterfacing))
-                  * (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::HeavyDroneOperation));
+                  * (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneInterfacing));
+        // heavy vs sentry damage skill
+        if (m_subType == DroneAI::SubType_Sentry)
+            skillMult *= (1.0f + 0.02f * GetOwnerSkillLevel(EvESkill::SentryDroneInterfacing));
+        else
+            skillMult *= (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::HeavyDroneOperation));
         // racial specialization (+2% per level)
         int8 raceID = m_pDrone->GetSelf()->type().race();
         uint16 racialSkill = (raceID == 1 ? EvESkill::CaldariDroneSpecialization
