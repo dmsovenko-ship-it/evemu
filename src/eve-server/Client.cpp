@@ -644,7 +644,7 @@ void Client::WarpIn() {
 
     // Delay login warp by 3s so the client has time to initialize its
     // ballpark and receive SetState before the warp command arrives.
-    SetStateTimer(3000);
+    SetStateTimer(Player::State::LoginWarp, 3000);
 
     m_clientState = Player::State::LoginWarp;
 }

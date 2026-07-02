@@ -75,6 +75,7 @@ protected:
     PyResult CmdBeaconJumpAlliance(PyCallArgs& call, PyInt* beaconID, PyInt* solarSystemID);
     PyResult CmdFleetRegroup(PyCallArgs& call);
     PyResult CmdFleetTagTarget(PyCallArgs& call, PyInt* itemID, PyString* tag);
+    PyResult CmdSafeLogoff(PyCallArgs& call);
     
 private:
     BookmarkService* m_bookmark;

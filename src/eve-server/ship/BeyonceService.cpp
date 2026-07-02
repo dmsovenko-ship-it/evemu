@@ -699,6 +699,11 @@ PyResult BeyonceBound::CmdDock(PyCallArgs &call, PyInt* celestialID, PyInt* ship
         call.client->SendNotifyMsg("Session Change currently active.");
         return PyStatic.NewNone();
     }
+    // Aggression timer blocks docking
+    if (call.client->GetCrimeWatch() != nullptr and !call.client->GetCrimeWatch()->CanDock()) {
+        call.client->SendNotifyMsg("You cannot dock while you have an active aggression timer.");
+        return PyStatic.NewNone();
+    }
     DestinyManager* pDestiny = call.client->GetShipSE()->DestinyMgr();
     if (pDestiny == nullptr) {
         codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
@@ -770,6 +775,11 @@ PyResult BeyonceBound::CmdStargateJump(PyCallArgs &call, PyInt* fromStargateID, 
         return PyStatic.NewNone();
     }
 
+    // Aggression timer blocks gate jump
+    if (call.client->GetCrimeWatch() != nullptr and !call.client->GetCrimeWatch()->CanJump()) {
+        call.client->SendNotifyMsg("You cannot jump while you have an active aggression timer.");
+        return PyStatic.NewNone();
+    }
     /** @todo  check distance from ship to gate */
     call.client->StargateJump(fromStargateID->value(), toStargateID->value());
 
