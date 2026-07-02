@@ -1850,6 +1850,9 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         _log(DESTINY__WARP_TRACE, "Destiny::WarpStop(): %s(%u): Ship currently at %.2f,%.2f,%.2f.", \
                 mySE->GetName(), mySE->GetID(), m_position.x, m_position.y, m_position.z);
     }
+    // Force position sync for login warps BEFORE clearing login warp state
+    bool isLoginWarp = (mySE->IsShipSE() and mySE->GetPilot()->IsLoginWarping());
+
     if (mySE->IsShipSE()) {
         _log(AUTOPILOT__MESSAGE, "Destiny::WarpStop(): %s(%u) - Warp complete.", mySE->GetName(), mySE->GetID());
         mySE->GetPilot()->SetLoginWarpComplete();
@@ -1867,7 +1870,21 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);
 
-    // Set server state to STOP but send NOTHING to the client.
+    // Queue delayed position sync for login warps — ensures the client's
+    // ballpark is initialized before we send destiny updates.  Without this,
+    // the client's WarpLoop may still be active when AddBalls fires with
+    // STOP state (e.g. entering a station bubble), causing desync.
+    if (isLoginWarp and mySE->HasPilot()) {
+        SetBallPosition du;
+            du.entityID = mySE->GetID();
+            du.x = m_position.x;
+            du.y = m_position.y;
+            du.z = m_position.z;
+        PyTuple* up = du.Encode();
+        mySE->GetPilot()->QueueDestinyUpdate(&up);
+    }
+
+    // Set server state to STOP but send NOTHING to the client (for normal warps).
     // The client's WarpLoop runs independently using its own warp simulation
     // and exits naturally when it reaches the destination. Sending CmdStop,
     // CmdGotoDirection, or any position snap would either stop the ship
