@@ -28,6 +28,11 @@
 #include "imageserver/ImageServer.h"
 #include "imageserver/ImageServerListener.h"
 
+#include <unistd.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <cstring>
+
 const char *const ImageServer::FallbackURL = "http://image.eveonline.com/";
 
 const char *const ImageServer::Categories[] = {
@@ -41,8 +46,23 @@ const uint32 ImageServer::CategoryCount = 5;
 
 ImageServer::ImageServer()
 {
+    // Use configured image server hostname, but resolve if it's localhost so remote clients work
+    std::string host = sConfig.net.imageServer;
+    if (host.empty() or host == "localhost" or host == "0.0.0.0" or host == "127.0.0.1") {
+        char hostname[256] = {};
+        if (gethostname(hostname, sizeof(hostname)) == 0) {
+            struct addrinfo hints = {}, *info = nullptr;
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_STREAM;
+            if (getaddrinfo(hostname, nullptr, &hints, &info) == 0 and info != nullptr) {
+                struct sockaddr_in* addr = reinterpret_cast<struct sockaddr_in*>(info->ai_addr);
+                host = inet_ntoa(addr->sin_addr);
+                freeaddrinfo(info);
+            }
+        }
+    }
     std::stringstream urlBuilder;
-    urlBuilder << "http://" << sConfig.net.imageServer << ":" << sConfig.net.imageServerPort << "/";
+    urlBuilder << "http://" << host << ":" << sConfig.net.imageServerPort << "/";
     _url = urlBuilder.str();
 
     _basePath = sConfig.files.imageDir;
