@@ -668,13 +668,25 @@ void Client::WarpOut() {
         sLog.Green("Client::WarpOut()", "%s(%u): combat logoff — ship stays for 15min.", GetName(), m_char->itemID());
         return;
     }
-    // Non-aggression logoff: emergency warp-out after 60 seconds
+    // Non-aggression logoff: if stationary, safe logoff (immediate removal).
+    // Otherwise, emergency warp-out after 60 seconds.
     if (m_crimeWatch == nullptr or (!m_crimeWatch->IsAggressed() and !m_crimeWatch->HasWeaponTimer())) {
-        int64 expireTime = GetFileTimeNow() + 60LL * EvE::Time::Second;
-        m_system->AddGhostShip(pShipSE, expireTime, true);
-        pShipSE->SetPilot(nullptr);
-        pShipSE = nullptr;
-        sLog.Green("Client::WarpOut()", "%s(%u): safe logoff — emergency warp in 60s.", GetName(), m_char->itemID());
+        bool isStationary = (pShipSE->DestinyMgr() != nullptr
+                            and pShipSE->DestinyMgr()->GetSpeedFraction() < 0.01f);
+        if (isStationary) {
+            // Safe logoff: ship disappears immediately
+            m_system->AddGhostShip(pShipSE, GetFileTimeNow(), false);
+            pShipSE->SetPilot(nullptr);
+            pShipSE = nullptr;
+            sLog.Green("Client::WarpOut()", "%s(%u): safe logoff — stationary, immediate removal.", GetName(), m_char->itemID());
+        } else {
+            // Unsafe logoff: 60s emergency warp
+            int64 expireTime = GetFileTimeNow() + 60LL * EvE::Time::Second;
+            m_system->AddGhostShip(pShipSE, expireTime, true);
+            pShipSE->SetPilot(nullptr);
+            pShipSE = nullptr;
+            sLog.Green("Client::WarpOut()", "%s(%u): unsafe logoff — emergency warp in 60s.", GetName(), m_char->itemID());
+        }
         return;
     }
     DestroyShipSE();
