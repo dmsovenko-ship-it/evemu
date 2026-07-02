@@ -509,7 +509,8 @@ void Client::ProcessClient() {
                     // mismatch can trigger 'Unknown packet type' in AddBalls.
                     pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition(), true);
                     pShipSE->DestinyMgr()->UnCloak();
-                    pShipSE->DestinyMgr()->WarpTo(m_loginWarpPoint);
+                    // Use 2500m stop distance so ship lands outside station sphere
+                    pShipSE->DestinyMgr()->WarpTo(m_loginWarpPoint, 2500);
                     } break;
                 case Player::State::Jump: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Jump");
