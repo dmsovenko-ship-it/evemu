@@ -1186,10 +1186,38 @@ PyResult BeyonceBound::CmdBeaconJumpAlliance(PyCallArgs &call, PyInt* beaconID, 
 }
 
 PyResult BeyonceBound::CmdFleetRegroup(PyCallArgs &call) {
-    // not sure what this is supposed to do yet
-    _log(SHIP__WARNING, "BeyonceBound::Handle_CmdFleetRegroup");
+    // Fleet Regroup: warp all fleet members in system to fleet boss's position
+    _log(SHIP__MESSAGE, "BeyonceBound::CmdFleetRegroup");
     call.Dump(SHIP__WARNING);
-    return nullptr;
+
+    if (!call.client->InFleet()) {
+        call.client->SendErrorMsg("You are not in a fleet.");
+        return PyStatic.NewNone();
+    }
+    DestinyManager* pDestiny = call.client->GetShipSE()->DestinyMgr();
+    if (pDestiny == nullptr or pDestiny->IsWarping()) {
+        call.client->SendNotifyMsg("You cannot regroup while warping.");
+        return PyStatic.NewNone();
+    }
+    // Use the caller's current position with a small spread distance
+    GPoint regroupPoint = call.client->GetShipSE()->GetPosition();
+    int32 regroupDist = 5000;
+
+    std::vector<Client*> members;
+    sFltSvc.GetFleetClientsInSystem(call.client, members);
+    for (auto member : members) {
+        if (member == call.client) continue;
+        ShipSE* memberShip = member->GetShipSE();
+        if (memberShip == nullptr) continue;
+        DestinyManager* memberDestiny = memberShip->DestinyMgr();
+        if (memberDestiny == nullptr or memberDestiny->IsWarping()) continue;
+        if (memberDestiny->IsFrozen()) continue;
+        int32 memberDist = regroupDist + static_cast<int32>(memberShip->GetRadius() * 2);
+        memberDestiny->WarpTo(regroupPoint, memberDist);
+    }
+    sFltSvc.FleetBroadcast(call.client, call.client->GetCharacterID(),
+                           Fleet::BCast::Scope::System, Fleet::BCast::Group::All, "FleetWarp");
+    return PyStatic.NewNone();
 }
 
 PyResult BeyonceBound::CmdFleetTagTarget(PyCallArgs &call, PyInt* itemID, PyString* tag) {

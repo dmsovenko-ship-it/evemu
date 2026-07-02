@@ -152,6 +152,14 @@ float TurretFormulas::GetDroneToHit(DroneSE* pDrone, SystemEntity* pTarget)
         // Drone Sharpshooting (+10% optimal/falloff per level)
         float rangeMult = 1.0f + 0.10f * pOwner->GetChar()->GetSkillLevel(EvESkill::DroneSharpshooting);
         falloff *= rangeMult;
+        // Ship module bonuses (Drone Tracking Computer, etc.) from owner's ship
+        InventoryItemRef shipRef = pOwner->GetShip();
+        if (shipRef.get() != nullptr) {
+            if (shipRef->HasAttribute(AttrTrackingSpeedBonus))
+                trackingSpeed *= (1.0f + shipRef->GetAttribute(AttrTrackingSpeedBonus).get_float());
+            if (shipRef->HasAttribute(AttrFalloffBonus))
+                falloff *= (1.0f + shipRef->GetAttribute(AttrFalloffBonus).get_float());
+        }
     }
     float a = (transversalV / (distance * trackingSpeed));
     float b = (pDrone->GetSelf()->GetAttribute(AttrOptimalSigRadius).get_float() / pTarget->GetSelf()->GetAttribute(AttrSignatureRadius).get_float());
