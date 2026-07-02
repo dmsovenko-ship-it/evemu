@@ -199,6 +199,7 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Cheat_Module_Group:                      return (new ActiveModule(mRef, sRef));
 
             // Drone Damage Modules (Drone Damage Amplifier etc.)
+            case EVEDB::invGroups::Drone_Modules:
             case EVEDB::invGroups::Drone_Damage_Modules: {
                 return (new PassiveModule(mRef, sRef));
             }
@@ -215,7 +216,6 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Signature_Scrambling:
             case EVEDB::invGroups::Energy_Vampire_Slayer:
             case EVEDB::invGroups::Autopilot:
-            case EVEDB::invGroups::Drone_Modules:
             case EVEDB::invGroups::DroneBayExpander:
             case EVEDB::invGroups::Navigation_Computer:
             case EVEDB::invGroups::Super_Gang_Enhancer:
