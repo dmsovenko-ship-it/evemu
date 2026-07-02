@@ -1870,12 +1870,19 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);
 
-    // Send position sync for login warps so client and server are in sync
-    // before any AddBalls can fire (e.g. entering a station bubble).
-    // Without this, the client's WarpLoop may still be running when AddBalls
-    // arrives with STOP state, causing "Unknown packet type".
-    if (isLoginWarp)
-        SetPosition(m_position, true);
+    // Queue delayed position sync for login warps — ensures the client's
+    // ballpark is initialized before we send destiny updates.  Without this,
+    // the client's WarpLoop may still be active when AddBalls fires with
+    // STOP state (e.g. entering a station bubble), causing desync.
+    if (isLoginWarp and mySE->HasPilot()) {
+        SetBallPosition du;
+            du.entityID = mySE->GetID();
+            du.x = m_position.x;
+            du.y = m_position.y;
+            du.z = m_position.z;
+        PyTuple* up = du.Encode();
+        mySE->GetPilot()->QueueDestinyUpdate(&up);
+    }
 
     // Set server state to STOP but send NOTHING to the client (for normal warps).
     // The client's WarpLoop runs independently using its own warp simulation
