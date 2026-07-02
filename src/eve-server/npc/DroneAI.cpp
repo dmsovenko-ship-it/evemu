@@ -796,6 +796,8 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
                            : 0);
         if (racialSkill != 0)
             skillMult *= (1.0f + 0.02f * GetOwnerSkillLevel(racialSkill));
+        // Advanced Drone Interfacing (+2% per level, all drones)
+        skillMult *= (1.0f + 0.02f * GetOwnerSkillLevel(EvESkill::AdvancedDroneInterfacing));
     }
     d *= skillMult;
 
@@ -867,6 +869,7 @@ void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
         float skillMult = 1.0f;
         skillMult *= (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::Fighters));
         skillMult *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneInterfacing));
+        skillMult *= (1.0f + 0.02f * GetOwnerSkillLevel(EvESkill::AdvancedDroneInterfacing));
         d *= skillMult;
     }
 
@@ -932,6 +935,7 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
         float skillMult = 1.0f;
         skillMult *= (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::FighterBombers));
         skillMult *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneInterfacing));
+        skillMult *= (1.0f + 0.02f * GetOwnerSkillLevel(EvESkill::AdvancedDroneInterfacing));
         d *= skillMult;
     }
 
@@ -1066,9 +1070,33 @@ void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
     float ecmStr = m_ewarStrength;
     if (m_pDrone->GetOwner() != nullptr)
         ecmStr *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::ElectronicWarfareDroneInterfacing));
-    // ECM clears target's lock list if strength beats target's sensor strength
-    // (Simplified: always break locks for now — real ECM uses chance calc)
-    pTarget->TargetMgr()->ClearTargets();
+    // ECM chance calc: roll against target's strongest sensor type
+    InventoryItemRef targetRef = pTarget->GetSelf();
+    float maxSensorStr = 0.0f;
+    if (targetRef->HasAttribute(AttrScanGravimetricStrength))
+        maxSensorStr = EvE::max(maxSensorStr, targetRef->GetAttribute(AttrScanGravimetricStrength).get_float());
+    if (targetRef->HasAttribute(AttrScanRadarStrength))
+        maxSensorStr = EvE::max(maxSensorStr, targetRef->GetAttribute(AttrScanRadarStrength).get_float());
+    if (targetRef->HasAttribute(AttrScanMagnetometricStrength))
+        maxSensorStr = EvE::max(maxSensorStr, targetRef->GetAttribute(AttrScanMagnetometricStrength).get_float());
+    if (targetRef->HasAttribute(AttrScanLadarStrength))
+        maxSensorStr = EvE::max(maxSensorStr, targetRef->GetAttribute(AttrScanLadarStrength).get_float());
+    if (maxSensorStr > 0.0f) {
+        float chance = ecmStr / maxSensorStr;
+        if (MakeRandomFloat(0.0f, 1.0f) < chance) {
+            _log(DRONE__AI_TRACE, "Drone %s(%u): ECM success on %s(%u) (str=%.2f vs sensor=%.2f, chance=%.2f).",
+                 m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(),
+                 ecmStr, maxSensorStr, chance);
+            pTarget->TargetMgr()->ClearTargets();
+        } else {
+            _log(DRONE__AI_TRACE, "Drone %s(%u): ECM fail on %s(%u) (str=%.2f vs sensor=%.2f, chance=%.2f).",
+                 m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(),
+                 ecmStr, maxSensorStr, chance);
+        }
+    } else {
+        // Fallback: always break locks if no sensor strength found
+        pTarget->TargetMgr()->ClearTargets();
+    }
 }
 
 void DroneAIMgr::PaintAttack(SystemEntity* pTarget) {
@@ -1266,6 +1294,8 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
     // apply Mining Drone Operation bonus (+20% per level)
     int8 miningDroneSkill = GetOwnerSkillLevel(EvESkill::MiningDroneOperation);
     miningAmount *= (1.0f + 0.20f * miningDroneSkill);
+    // apply Mining Drone Specialization bonus (+2% per level)
+    miningAmount *= (1.0f + 0.02f * GetOwnerSkillLevel(EvESkill::MiningDroneSpecialization));
 
     // get asteroid ore volume
     InventoryItemRef roidRef = pTarget->GetSelf();
