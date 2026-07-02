@@ -650,15 +650,27 @@ void Client::WarpIn() {
 }
 
 void Client::WarpOut() {
-    sLog.Blue("Client::WarpOut()", "Client Destructor for %s(%u) called WarpOut().  Finish code here.", GetName(), m_char->itemID());
+    sLog.Blue("Client::WarpOut()", "%s(%u) called WarpOut().", GetName(), m_char->itemID());
     char ci[45];
     snprintf(ci, sizeof(ci), "Logout: %s(%u)", GetName(), m_char->itemID());
     m_ship->SetCustomInfo(ci);
     if (!InPod())
         m_ship->SetFlag(flagShipOffline);
+    // Save current position for login warp
     m_ship->SetPosition(pShipSE->DestinyMgr()->GetPosition());
+
+    // Combat logoff: keep ship in space while aggression timer is active
+    if (m_crimeWatch != nullptr and (m_crimeWatch->IsAggressed() or m_crimeWatch->HasWeaponTimer())) {
+        int64 expireTime = GetFileTimeNow() + 15LL * EvE::Time::Minute;
+        m_ship->SetAttribute(AttrOfflineTimestamp, expireTime, true);
+        // Detach pilot and transfer to system ghost list
+        m_system->AddGhostShip(pShipSE, expireTime);
+        pShipSE->SetPilot(nullptr);
+        pShipSE = nullptr;
+        sLog.Green("Client::WarpOut()", "%s(%u): combat logoff — ship stays for 15min.", GetName(), m_char->itemID());
+        return;
+    }
     DestroyShipSE();
-    return;
     /*
     SetInvulTimer(Player::Timer::WarpOutInvul);
     // We are logging out, so we need to warp to a random spot 1Mm away:

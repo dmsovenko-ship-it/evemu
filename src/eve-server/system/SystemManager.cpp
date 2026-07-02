@@ -273,6 +273,8 @@ bool SystemManager::ProcessTic() {
             cur.second->Process();
     }
 
+    ProcessGhostShips();
+
     if (sConfig.debug.UseProfiling)
         sProfiler.AddTime(Profile::system, GetTimeUSeconds() - profileStartTime);
 
@@ -1982,4 +1984,32 @@ void SystemManager::SpawnConvoys()
 
     _log(SERVER__INIT, "Convoy spawned in %s(%u) route %u-%u (%u ships)",
          m_data.name.c_str(), m_data.systemID, stationA, stationB, group->members.size());
+}
+
+void SystemManager::AddGhostShip(ShipSE* pShip, int64 expireTime) {
+    m_ghostShips[pShip] = expireTime;
+    _log(SE__MESSAGE, "SystemManager::AddGhostShip() — ship %s(%u) added, expires at %lld",
+         pShip->GetName(), pShip->GetID(), expireTime);
+}
+
+void SystemManager::ProcessGhostShips() {
+    if (m_ghostShips.empty())
+        return;
+    int64 now = GetFileTimeNow();
+    auto it = m_ghostShips.begin();
+    while (it != m_ghostShips.end()) {
+        if (now >= it->second) {
+            ShipSE* pShip = it->first;
+            _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — removing ghost ship %s(%u).",
+                 pShip->GetName(), pShip->GetID());
+            // Check if ship still exists in system
+            if (m_ticEntities.find(pShip->GetID()) != m_ticEntities.end()) {
+                RemoveEntity(pShip);
+                SafeDelete(pShip);
+            }
+            it = m_ghostShips.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
