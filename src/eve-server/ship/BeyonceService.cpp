@@ -42,6 +42,8 @@
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/ManagerDB.h"
+#include "fleet/FleetService.h"
+#include "fleet/FleetData.h"
 
 BeyonceService::BeyonceService(EVEServiceManager& mgr)
 : BindableService("beyonce", mgr, eAccessLevel_SolarSystem2)
@@ -452,11 +454,13 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
         call.client->SendErrorMsg("WarpToTutorial is not implemented at this time.");
         return PyStatic.NewNone();
     } else if (type->content() == "char") {
-    //  fleet warping
     // [warptomember] char, charid, minrange
     // [warpfleettomember] char, charid, minrange, fleet=1
-        call.client->SendErrorMsg("WarpToChar is not implemented at this time.");
-        return PyStatic.NewNone();
+        pSE = pSystem->GetSE(toID);
+        if (pSE == nullptr) {
+            call.client->SendErrorMsg("Warp target not found in this system.");
+            return PyStatic.NewNone();
+        }
     } else {
         sLog.Error( "BeyonceService::Handle_WarpToStuff()", "Unexpected type value: '%s'.", type->content().c_str() );
         return PyStatic.NewNone();
@@ -592,6 +596,23 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
     if (pSE != nullptr && pSE->IsStationSE() && distance < 2500)
         distance = 2500;
     pDestiny->WarpTo(warpToPoint, distance);
+
+    // Fleet warp: warp all fleet members in system to same destination
+    if (fleet and call.client->InFleet()) {
+        std::vector<Client*> members;
+        sFltSvc.GetFleetClientsInSystem(call.client, members);
+        for (auto member : members) {
+            if (member == call.client) continue;
+            ShipSE* memberShip = member->GetShipSE();
+            if (memberShip == nullptr) continue;
+            DestinyManager* memberDestiny = memberShip->DestinyMgr();
+            if (memberDestiny == nullptr or memberDestiny->IsWarping()) continue;
+            if (memberDestiny->IsFrozen()) continue;
+            int32 memberDist = distance + static_cast<int32>(memberShip->GetRadius() * 2);
+            memberDestiny->WarpTo(warpToPoint, memberDist);
+        }
+        sFltSvc.FleetBroadcast(call.client, toID, Fleet::BCast::Scope::System, Fleet::BCast::Group::All, "FleetWarp");
+    }
 
     return PyStatic.NewNone();
 }
