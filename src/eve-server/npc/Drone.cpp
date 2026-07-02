@@ -134,9 +134,10 @@ void DroneSE::RestoreOriginalOwner() {
     m_delegatedControllerID = 0;
 }
 
-void DroneSE::SetDisplayOwner(uint32 ownerID, uint32 controllerOwnerID) {
+void DroneSE::SetDisplayOwner(uint32 ownerID, uint32 controllerOwnerID, uint32 controllerID) {
     m_ownerID = ownerID;
     m_controllerOwnerID = controllerOwnerID;
+    m_controllerID = controllerID;
 }
 
 DroneSE::~DroneSE() {

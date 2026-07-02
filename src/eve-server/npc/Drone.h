@@ -137,7 +137,7 @@ public:
 
     void SaveOriginalOwner(uint32 ownerID, uint32 controllerOwnerID, uint32 controllerID);
     void RestoreOriginalOwner();
-    void SetDisplayOwner(uint32 ownerID, uint32 controllerOwnerID);
+    void SetDisplayOwner(uint32 ownerID, uint32 controllerOwnerID, uint32 controllerID);
 
 protected:
     Client* m_pClient;          //we do not own this

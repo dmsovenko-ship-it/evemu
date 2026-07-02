@@ -214,7 +214,7 @@ PyResult EntityBound::CmdDelegateControl(PyCallArgs &call, PyList* droneIDs, PyI
         if (pDelegatedClient != nullptr) {
             ShipSE* pDelegatedShip = pDelegatedClient->GetShipSE();
             if (pDelegatedShip != nullptr)
-                pDrone->SetDisplayOwner(newControllerCharID, pDelegatedShip->GetOwnerID());
+                pDrone->SetDisplayOwner(newControllerCharID, pDelegatedShip->GetOwnerID(), pDelegatedShip->GetID());
         }
         pDrone->StateChange();
         _log(DRONE__TRACE, "CmdDelegateControl: drone %u delegated to char %u.", droneID, newControllerCharID);
