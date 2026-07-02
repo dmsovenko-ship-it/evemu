@@ -215,6 +215,11 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     } else {
         m_warpScramChance = 0;
     }
+    if (m_self->HasAttribute(AttrWarpScrambleStrength)) {
+        m_warpScramStrength = m_self->GetAttribute(AttrWarpScrambleStrength).get_float();
+    } else {
+        m_warpScramStrength = 0;
+    }
 
     /*
     AttrWarpScrambleRange = 103,
@@ -395,6 +400,11 @@ void NPCAIMgr::WarpOut()
         m_state = NPCAI::State::Idle;
         return;
     }
+
+    // Check warp scramble — if scrambled, NPC cannot warp out
+    if (m_self->HasAttribute(AttrWarpScrambleStatus)
+        and m_self->GetAttribute(AttrWarpScrambleStatus) > 0)
+        return;
 
     m_state = NPCAI::State::WarpOut;
     SystemManager* pSys = m_npc->SystemMgr();
@@ -739,13 +749,32 @@ void NPCAIMgr::ClearTarget(SystemEntity* pSE) {
         SetIdle();
 }
 
-//also check for special effects and write code to implement them
-//modifyTargetSpeedRange, modifyTargetSpeedChance
-//entityWarpScrambleChance
 void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
     if (pSE == nullptr)
         return;
-    // put checks here for point/tackle
+    // Apply warp scramble if NPC has scrambler capability
+    if (m_warpScramRange > 0 and m_warpScramStrength > 0) {
+        double dist = m_npc->GetPosition().distance(pSE->GetPosition());
+        if (dist <= m_warpScramRange) {
+            if (!m_warpScramblerTimer.Enabled() or m_warpScramblerTimer.Check()) {
+                if (MakeRandomFloat() > m_warpScramChance) {
+                    InventoryItemRef targetRef = pSE->GetSelf();
+                    if (targetRef->HasAttribute(AttrWarpScrambleStatus)) {
+                        targetRef->SetAttribute(AttrWarpScrambleStatus, m_warpScramStrength);
+                    } else {
+                        targetRef->SetAttribute(AttrWarpScrambleStatus, m_warpScramStrength, false);
+                    }
+                    uint32 scramGfxID = 0;
+                    if (m_self->HasAttribute(AttrGfxBoosterID))
+                        scramGfxID = m_self->GetAttribute(AttrGfxBoosterID).get_uint32();
+                    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                                 pSE->GetID(), 0, "effects.WarpScramble",
+                                                 1, 1, 1, m_attackSpeed, 0, scramGfxID);
+                    m_warpScramblerTimer.Start(m_attackSpeed);
+                }
+            }
+        }
+    }
 
     // effects are listed in EVE_Effects.h
     std::string guid = "effects.Laser"; // client looks for 'turret' in ship.ball.modules for 'effects.laser'

@@ -140,6 +140,7 @@ private:
     uint32 m_warpScramRange;
 
     float m_warpScramChance;
+    float m_warpScramStrength;
     float m_armorRepairDelayChance;
     float m_shieldBoosterDelayChance;
 

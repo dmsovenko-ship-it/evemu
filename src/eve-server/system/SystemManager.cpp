@@ -2024,7 +2024,16 @@ void SystemManager::ProcessGhostShips() {
                 it = m_ghostShips.erase(it);
                 continue;
             }
-            // Ship is not warping and not stationary — initiate warp
+            // Ship is not warping and not stationary — check warp scramble status
+            if (pShip->GetShipItemRef()
+                and pShip->GetShipItemRef()->HasAttribute(AttrWarpScrambleStatus)
+                and pShip->GetShipItemRef()->GetAttribute(AttrWarpScrambleStatus) > 0) {
+                _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — %s(%u): emergency warp blocked by warp scramble.",
+                     pShip->GetName(), pShip->GetID());
+                ++it;  // warp scrambled — delay emergency warp until scramble ends
+                continue;
+            }
+            // Initiate emergency warp
             GPoint warpPoint(pShip->GetPosition());
             warpPoint.MakeRandomPointOnSphere(0.5 * ONE_AU_IN_METERS);
             pShip->DestinyMgr()->WarpTo(warpPoint);

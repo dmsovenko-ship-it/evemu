@@ -107,6 +107,7 @@ Things to verify after recent changes (2026-07-02 session). Check off each item 
 - [ ] **Safe logoff** — In space, stationary, no timers → disconnect. Ship should disappear immediately on relogin check.
 - [ ] **Unsafe logoff (moving)** — In space, moving, no timers → disconnect. Ship should stay 60s then warp out.
 - [ ] **Combat logoff** — In space with aggression → disconnect. Ship should stay 15 minutes.
+- [ ] **Warp scramble blocks emergency warp** — In space, moving, no timers → disconnect (60s emergency warp). Have an NPC or player warp-scramble you during those 60s. Ship should NOT initiate warp. After scrambler wears off, emergency warp should proceed.
 - [ ] **Timer reset on hit** — After combat logoff, have someone hit the ghost ship. 15min timer should reset.
 - [ ] **Ghost ship visible** — After combat logoff, other players in the system should still see the ship.
 

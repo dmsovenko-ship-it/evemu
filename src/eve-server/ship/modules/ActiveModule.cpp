@@ -679,6 +679,14 @@ uint32 ActiveModule::DoCycle() {
         case EVEDB::invGroups::Automated_Targeting_System: {
         } break;
         // these im not sure about yet
+        case EVEDB::invGroups::Warp_Scrambler: {
+            if (m_targetSE != nullptr) {
+                float scramStr = 1.0f;
+                if (m_modRef->HasAttribute(AttrWarpScrambleStrength))
+                    scramStr = m_modRef->GetAttribute(AttrWarpScrambleStrength).get_float();
+                m_targetSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, scramStr);
+            }
+        } break;
         case EVEDB::invGroups::ECM:
         case EVEDB::invGroups::ECCM:
         case EVEDB::invGroups::Cloaking_Device:
@@ -839,16 +847,10 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
                 SafeDelete(m_targetSE);
             }
         } break;
-        /*
         case EVEDB::invGroups::Warp_Scrambler: {
             if (m_targetSE != nullptr)
-                m_targetSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus);
+                m_targetSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, 0.0f);
         } break;
-        case EVEDB::invGroups::Warp_Core_Stabilizer: {
-            if (m_targetSE != nullptr)
-                m_targetSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus);
-        } break;
-        */
         case EVEDB::invGroups::Ship_Scanner:
         case EVEDB::invGroups::Cargo_Scanner:{
             if (m_targetSE != nullptr)
