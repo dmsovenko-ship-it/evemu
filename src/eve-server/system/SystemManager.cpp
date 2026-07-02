@@ -2001,27 +2001,47 @@ void SystemManager::ProcessGhostShips() {
         ShipSE* pShip = it->first;
         int64 expireTime = it->second.first;
         bool emergencyWarp = it->second.second;
-        if (now < expireTime) {
+        // Emergency warp: wait for timer, then initiate and monitor warp
+        if (emergencyWarp and pShip->DestinyMgr() != nullptr) {
+            if (now < expireTime) {
+                ++it;  // initial 60s timer hasn't expired yet
+                continue;
+            }
+            if (pShip->DestinyMgr()->IsWarping()) {
+                ++it;  // warp in progress — wait
+                continue;
+            }
+            // Ship not warping — check if warp completed or needs initiating
+            if (pShip->DestinyMgr()->GetState() == Destiny::Ball::Mode::STOP
+                and pShip->DestinyMgr()->GetSpeedFraction() < 0.01f) {
+                // Ship is stationary after warp (or never moved) — remove
+                _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — done, removing %s(%u).",
+                     pShip->GetName(), pShip->GetID());
+                if (m_ticEntities.find(pShip->GetID()) != m_ticEntities.end()) {
+                    RemoveEntity(pShip);
+                    SafeDelete(pShip);
+                }
+                it = m_ghostShips.erase(it);
+                continue;
+            }
+            // Ship is not warping and not stationary — initiate warp
+            GPoint warpPoint(pShip->GetPosition());
+            warpPoint.MakeRandomPointOnSphere(0.5 * ONE_AU_IN_METERS);
+            pShip->DestinyMgr()->WarpTo(warpPoint);
             ++it;
             continue;
         }
-        _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — removing ghost ship %s(%u).",
-             pShip->GetName(), pShip->GetID());
-        if (m_ticEntities.find(pShip->GetID()) != m_ticEntities.end()) {
-            // For emergency warp, initiate warp-out to random point before cleanup
-            if (emergencyWarp and pShip->DestinyMgr() != nullptr) {
-                GPoint warpPoint(pShip->GetPosition());
-                warpPoint.MakeRandomPointOnSphere(0.5 * ONE_AU_IN_METERS);
-                pShip->DestinyMgr()->WarpTo(warpPoint);
-                // Don't remove yet — give warp time to complete
-                it->second.second = false; // clear emergency flag so next pass removes
-                it->second.first = now + 15000000; // +15s for warp
-                ++it;
-                continue;
+        // Normal expiry (safe logoff or combat logoff): remove if time is up
+        if (now >= expireTime) {
+            _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — removing ghost ship %s(%u).",
+                 pShip->GetName(), pShip->GetID());
+            if (m_ticEntities.find(pShip->GetID()) != m_ticEntities.end()) {
+                RemoveEntity(pShip);
+                SafeDelete(pShip);
             }
-            RemoveEntity(pShip);
-            SafeDelete(pShip);
+            it = m_ghostShips.erase(it);
+        } else {
+            ++it;
         }
-        it = m_ghostShips.erase(it);
     }
 }
