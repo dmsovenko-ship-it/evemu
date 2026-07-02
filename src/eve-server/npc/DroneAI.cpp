@@ -383,6 +383,9 @@ void DroneAIMgr::SetEngaged(SystemEntity* pTarget) {
     double distToShip = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
     double controlRange = GetControlRange();
     float skillBonus = 1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::DroneNavigation);
+    // Ship module speed bonus (Drone Navigation Computer)
+    if (m_assignedShip != nullptr and m_assignedShip->GetSelf()->HasAttribute(AttrDroneMaxVelocityBonus))
+        skillBonus *= (1.0f + m_assignedShip->GetSelf()->GetAttribute(AttrDroneMaxVelocityBonus).get_float());
     float vel;
     if (distToShip > controlRange) {
         vel = m_chaseSpeed * skillBonus;
@@ -405,6 +408,9 @@ void DroneAIMgr::SetApproaching(SystemEntity* pSE)
     // desync from orbit→follow transition when target is far away.
     m_pDrone->DestinyMgr()->SetPosition(m_pDrone->GetPosition(), true);
     float vel = m_chaseSpeed * (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::DroneNavigation));
+    // Ship module speed bonus (Drone Navigation Computer)
+    if (m_assignedShip != nullptr and m_assignedShip->GetSelf()->HasAttribute(AttrDroneMaxVelocityBonus))
+        vel *= (1.0f + m_assignedShip->GetSelf()->GetAttribute(AttrDroneMaxVelocityBonus).get_float());
     m_pDrone->DestinyMgr()->SetMaxVelocity(vel);
     m_pDrone->DestinyMgr()->Follow(pSE, m_entityOrbitRange);
     m_state = DroneAI::State::Approaching;
@@ -421,6 +427,9 @@ double DroneAIMgr::GetControlRange() {
     // Fx system doesn't apply skill bonuses to ship attributes, add manually
     range += GetOwnerSkillLevel(EvESkill::ScoutDroneOperation) * 5000;              // +5km/level
     range += GetOwnerSkillLevel(EvESkill::ElectronicWarfareDroneInterfacing) * 3000; // +3km/level
+    // Ship module range bonus (Drone Control Range Module)
+    if (m_assignedShip->GetSelf()->HasAttribute(AttrDroneRangeBonus))
+        range *= (1.0f + m_assignedShip->GetSelf()->GetAttribute(AttrDroneRangeBonus).get_float());
 
     // Supercarrier bonus: double control range for fighter-bombers
     if (m_assignedShip->GetSelf()->groupID() == EVEDB::invGroups::Supercarrier) {
@@ -736,6 +745,13 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
     }
     d *= skillMult;
 
+    // Apply ship module bonuses (Drone Damage Amplifier, etc.)
+    if (m_assignedShip != nullptr) {
+        InventoryItemRef shipRef = m_assignedShip->GetSelf();
+        if (shipRef->HasAttribute(AttrDroneDamageBonus))
+            d *= (1.0f + shipRef->GetAttribute(AttrDroneDamageBonus).get_float());
+    }
+
     d *= sConfig.rates.damageRate;      /** @todo this should be a separate config value */
     _log(DRONE__AI_TRACE, "Drone %s(%u): CombatAttack -> %s(%u) total=%.2f (K:%.1f T:%.1f EM:%.1f E:%.1f mult=%.2f skill=%.2f hit=%.3f rate=%.3f)",
          m_pDrone->GetName(), m_pDrone->GetID(),
@@ -800,6 +816,13 @@ void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
         d *= skillMult;
     }
 
+    // Apply ship module bonuses (Drone Damage Amplifier, etc.)
+    if (m_assignedShip != nullptr) {
+        InventoryItemRef shipRef = m_assignedShip->GetSelf();
+        if (shipRef->HasAttribute(AttrDroneDamageBonus))
+            d *= (1.0f + shipRef->GetAttribute(AttrDroneDamageBonus).get_float());
+    }
+
     d *= sConfig.rates.damageRate;
     _log(DRONE__AI_TRACE, "Fighter %s(%u): FighterAttack -> %s(%u) total=%.2f ammo=%u/%u",
          m_pDrone->GetName(), m_pDrone->GetID(),
@@ -858,6 +881,13 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
         d *= skillMult;
     }
 
+    // Apply ship module bonuses (Drone Damage Amplifier, etc.)
+    if (m_assignedShip != nullptr) {
+        InventoryItemRef shipRef = m_assignedShip->GetSelf();
+        if (shipRef->HasAttribute(AttrDroneDamageBonus))
+            d *= (1.0f + shipRef->GetAttribute(AttrDroneDamageBonus).get_float());
+    }
+
     d *= sConfig.rates.damageRate;
 
     // Apply damage to target
@@ -901,11 +931,17 @@ void DroneAIMgr::WebAttack(SystemEntity* pTarget) {
             owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
         }
     }
-    // Apply web effect via WebbedMe using drone's own itemRef (must have AttrSpeedFactor)
+    // Apply Propulsion Jamming Drone Interfacing skill (+10% web strength per level)
+    float skillMult = 1.0f;
+    if (m_pDrone->GetOwner() != nullptr)
+        skillMult += 0.10f * GetOwnerSkillLevel(EvESkill::PropulsionJammingDroneInterfacing);
+    // Temporarily boost speed factor so WebbedMe reads the modified value
     InventoryItemRef droneRef = m_pDrone->GetSelf();
     if (droneRef->HasAttribute(AttrSpeedFactor)) {
+        float origFactor = droneRef->GetAttribute(AttrSpeedFactor).get_float();
+        droneRef->SetAttribute(AttrSpeedFactor, origFactor * skillMult, false);
         pTarget->DestinyMgr()->WebbedMe(droneRef, true);
-        // Set timer to remove web after one cycle (attackSpeed is cycle time in ms)
+        droneRef->SetAttribute(AttrSpeedFactor, origFactor, false);
         m_webifierTimer.Start(m_attackSpeed);
     }
 }
@@ -933,12 +969,16 @@ void DroneAIMgr::ScrambleAttack(SystemEntity* pTarget) {
             owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
         }
     }
+    // Apply Propulsion Jamming Drone Interfacing skill (+10% scramble strength per level)
+    float scrambleStr = m_ewarStrength;
+    if (m_pDrone->GetOwner() != nullptr)
+        scrambleStr *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::PropulsionJammingDroneInterfacing));
     // Set WarpScrambleStatus on target
     InventoryItemRef targetRef = pTarget->GetSelf();
     if (targetRef->HasAttribute(AttrWarpScrambleStatus)) {
-        targetRef->SetAttribute(AttrWarpScrambleStatus, m_ewarStrength);
+        targetRef->SetAttribute(AttrWarpScrambleStatus, scrambleStr);
     } else {
-        targetRef->SetAttribute(AttrWarpScrambleStatus, m_ewarStrength, false);
+        targetRef->SetAttribute(AttrWarpScrambleStatus, scrambleStr, false);
     }
 
     // Set timer to remove scramble after cycle time
@@ -968,10 +1008,13 @@ void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
             owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
         }
     }
-    // ECM clears target's lock list, breaking their targeting
+    // Apply Electronic Warfare Drone Interfacing skill to ECM strength
+    float ecmStr = m_ewarStrength;
+    if (m_pDrone->GetOwner() != nullptr)
+        ecmStr *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::ElectronicWarfareDroneInterfacing));
+    // ECM clears target's lock list if strength beats target's sensor strength
+    // (Simplified: always break locks for now — real ECM uses chance calc)
     pTarget->TargetMgr()->ClearTargets();
-    // Also clear anyone targeting the drone
-    // This simulates ECM breaking all locks on and by the target
 }
 
 void DroneAIMgr::LogisticsRepair(SystemEntity* pTarget) {
