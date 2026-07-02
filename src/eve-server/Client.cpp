@@ -503,12 +503,12 @@ void Client::ProcessClient() {
                     } break;
                 case Player::State::LoginWarp: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: LoginWarp");
-                    // Place ship directly at login position — no warp, no collision.
-                    // Warp-to-login is unreliable near stations (collision kick).
-                    pShipSE->DestinyMgr()->SetPosition(m_loginWarpPoint, true);
+                    // Use a safe stop distance so login warp doesn't land inside
+                    // a station sphere.  Stations can have radii up to ~60km.
+                    int32 safeDist = 50000;
+                    pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition(), true);
                     pShipSE->DestinyMgr()->UnCloak();
-                    SetLoginWarpComplete();
-                    pShipSE->DestinyMgr()->Stop();
+                    pShipSE->DestinyMgr()->WarpTo(m_loginWarpPoint, safeDist);
                     } break;
                 case Player::State::Jump: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Jump");
