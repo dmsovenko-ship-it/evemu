@@ -14,6 +14,8 @@
 #include "inventory/AttributeEnum.h"
 #include "ship/Missile.h"
 #include "ship/modules/ActiveModule.h"
+#include "ship/Ship.h"
+#include "fleet/FleetService.h"
 #include "ship/modules/ModuleItem.h"
 #include "ship/modules/Prospector.h"
 #include "system/Container.h"
@@ -654,6 +656,18 @@ uint32 ActiveModule::DoCycle() {
         } break;
         case EVEDB::invGroups::Artifacts_and_Prototypes: {
         } break;
+        // Gang Coordinator (warfare links) — set flag on ship and refresh fleet boost
+        case EVEDB::invGroups::Gang_Coordinator: {
+            ShipSE* shipSE = m_shipRef->GetPilot()->GetShipSE();
+            if (shipSE != nullptr and !shipSE->HasGangModuleActive()) {
+                shipSE->SetGangModuleActive(true);
+                if (m_shipRef->GetPilot()->InFleet()) {
+                    std::list<int32> wings, squads;
+                    sFltSvc.UpdateBoost(m_shipRef->GetPilot()->GetFleetID(), true, wings, squads);
+                }
+            }
+        } break;
+
         // these passive modules will need specific code
         case EVEDB::invGroups::Missile_Launcher_Defender:
         case EVEDB::invGroups::Countermeasure_Launcher:
@@ -667,7 +681,6 @@ uint32 ActiveModule::DoCycle() {
         // these im not sure about yet
         case EVEDB::invGroups::ECM:
         case EVEDB::invGroups::ECCM:
-        case EVEDB::invGroups::Gang_Coordinator:
         case EVEDB::invGroups::Cloaking_Device:
         case EVEDB::invGroups::Siege_Module:
         case EVEDB::invGroups::Super_Weapon:
@@ -747,6 +760,16 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
         case EVEDB::invGroups::Tractor_Beam: {
             if (m_targetSE != nullptr)
                 m_targetSE->DestinyMgr()->TractorBeamStop();
+        } break;
+        case EVEDB::invGroups::Gang_Coordinator: {
+            ShipSE* shipSE = m_shipRef->GetPilot()->GetShipSE();
+            if (shipSE != nullptr and shipSE->HasGangModuleActive()) {
+                shipSE->SetGangModuleActive(false);
+                if (m_shipRef->GetPilot()->InFleet()) {
+                    std::list<int32> wings, squads;
+                    sFltSvc.UpdateBoost(m_shipRef->GetPilot()->GetFleetID(), true, wings, squads);
+                }
+            }
         } break;
         case EVEDB::invGroups::Afterburner:
         case EVEDB::invGroups::Microwarpdrive: {

@@ -339,6 +339,8 @@ public:
     // fleet
     void ClearBoostData();
     bool IsBoosted()                                    { return m_boosted; }
+    void SetGangModuleActive(bool val)                  { m_gangModuleActive = val; }
+    bool HasGangModuleActive()                          { return m_gangModuleActive; }
     void SetBoost(bool set=false)                       { m_boosted = set; }
     void RemoveBoost();
     void ApplyBoost(BoostData& bData);
@@ -394,6 +396,7 @@ private:
     uint32 m_podShipID;
 
     bool m_allowFleetSMBUsage;
+    bool m_gangModuleActive = false;
 
     /*  boost data */
     BoostData m_boost = BoostData();

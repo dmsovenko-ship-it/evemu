@@ -611,22 +611,27 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
                     if (fItr->second.leader->GetSystemID() == fItr->second.booster->GetSystemID()) {
                         Character* pChar = fItr->second.booster->GetChar().get();
                         if (pChar != nullptr) {
+                            // Active gang module doubles the boost effectiveness
+                            float gangMult = 1.0f;
+                            if (fItr->second.booster->GetShipSE() != nullptr
+                            and fItr->second.booster->GetShipSE()->HasGangModuleActive())
+                                gangMult = 2.0f;
                             if (pChar->HasSkillTrainedToLevel(EvESkill::ArmoredWarfare, 1))
-                                fData.armored   = pChar->GetSkillLevel(EvESkill::ArmoredWarfare)
-                                                + pChar->GetSkillLevel(EvESkill::ArmoredWarfareSpecialist);
+                                fData.armored   = static_cast<int8>((pChar->GetSkillLevel(EvESkill::ArmoredWarfare)
+                                                + pChar->GetSkillLevel(EvESkill::ArmoredWarfareSpecialist)) * gangMult);
                             if (pChar->HasSkillTrainedToLevel(EvESkill::InformationWarfare, 1))
-                                fData.info      = pChar->GetSkillLevel(EvESkill::InformationWarfare)
-                                                + pChar->GetSkillLevel(EvESkill::InformationWarfareSpecialist);
+                                fData.info      = static_cast<int8>((pChar->GetSkillLevel(EvESkill::InformationWarfare)
+                                                + pChar->GetSkillLevel(EvESkill::InformationWarfareSpecialist)) * gangMult);
                             if (pChar->HasSkillTrainedToLevel(EvESkill::SiegeWarfare, 1))
-                                fData.siege     = pChar->GetSkillLevel(EvESkill::SiegeWarfare)
-                                                + pChar->GetSkillLevel(EvESkill::SiegeWarfareSpecialist);
+                                fData.siege     = static_cast<int8>((pChar->GetSkillLevel(EvESkill::SiegeWarfare)
+                                                + pChar->GetSkillLevel(EvESkill::SiegeWarfareSpecialist)) * gangMult);
                             if (pChar->HasSkillTrainedToLevel(EvESkill::SkirmishWarfare, 1))
-                                fData.skirmish  = pChar->GetSkillLevel(EvESkill::SkirmishWarfare)
-                                                + pChar->GetSkillLevel(EvESkill::SkirmishWarfareSpecialist);
-                            if (pChar->HasSkillTrainedToLevel(EvESkill::MiningForeman, 1)) {
-                                fData.mining    = pChar->GetSkillLevel(EvESkill::MiningForeman);
-                                fData.miningDirector = pChar->GetSkillLevel(EvESkill::MiningDirector);
-                            }
+                                fData.skirmish  = static_cast<int8>((pChar->GetSkillLevel(EvESkill::SkirmishWarfare)
+                                                + pChar->GetSkillLevel(EvESkill::SkirmishWarfareSpecialist)) * gangMult);
+                            if (pChar->HasSkillTrainedToLevel(EvESkill::MiningForeman, 1))
+                                fData.mining    = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningForeman) * gangMult);
+                            if (pChar->HasSkillTrainedToLevel(EvESkill::MiningDirector, 1))
+                                fData.miningDirector = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningDirector) * gangMult);
                             if (fData.armored or fData.info or fData.leader or fData.mining or fData.siege or fData.skirmish)
                                 fBoost = true;
                         }
