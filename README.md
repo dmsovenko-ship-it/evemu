@@ -133,11 +133,13 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Drones** | Re-engage after reload, cruise orbit speed, control range with skill bonuses, DCU fix, null-guard kill path, scoop cleanup, full skill tree, EWAR/logistics/mining subtypes |
 | **CONCORD** | Police ×25 HP, delay by sec, −0.2 penalty |
 | **Sentry** | Corp inheritance, nullsec standing check |
-| **CrimeWatch** | Timers, outlaw, suspect, criminal |
+| **CrimeWatch** | Timers, outlaw, suspect, criminal, CanDock/CanJump, combat logoff 15min, emergency warp 60s |
 | **Kill Rights** | Grant, auto-activation, Limited Engagement |
 | **Convoys** | Phased movement, sentry defense |
 | **Killmails** | XML blob, push notification |
 | **Mail** | Dual-write, Deflate |
+| **Fleet** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist skills, MiningDirector, Gang Coordinator modules |
+| **Image Server** | Auto-resolve URL, imageServerURL config, portrait gender fix |
 | **Build** | Docker Compose, ccache, 400 MB reduction |
 
 ---
@@ -148,6 +150,9 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 </p>
 
 <p align="center"><b>LGPL v3</b> — educational project. Not for public servers.</p>
+<p align="center">
+  📊 <a href="PROGRESS.md">Project Status</a> — detailed feature breakdown across all systems
+</p>
 
 ---
 
@@ -264,11 +269,13 @@ docker logs -f server          # ждать "Server started"
 | **Дроны** | Ре-энгадж после перезарядки, крейсерская орбита, дальность с бонусами навыков, DCU, нулл-гарды, подтипы AI |
 | **CONCORD** | Police ×25 HP, задержка по sec |
 | **Сентри** | Корпорация, рейтинг в нулях |
-| **CrimeWatch** | Таймеры, outlaw, suspect, criminal |
+| **CrimeWatch** | Таймеры, outlaw, suspect, criminal, CanDock/CanJump, combat logoff 15min, emergency warp 60s |
 | **Kill Rights** | Выдача, Limited Engagement |
 | **Конвои** | Фазы, защита сентри |
 | **Киллимейлы** | XML, push |
 | **Почта** | Двойная запись, Deflate |
+| **Флот** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist скиллы, MiningDirector, Gang Coordinator |
+| **Изображения** | ImageServer URL авторезолв, imageServerURL конфиг, portrait gender в cacheOwners |
 | **Сборка** | Docker Compose, ccache, −400 МБ |
 
 ---
@@ -279,3 +286,6 @@ docker logs -f server          # ждать "Server started"
 </p>
 
 <p align="center"><b>LGPL v3</b> — образовательный проект. Не предназначен для публичных серверов.</p>
+<p align="center">
+  📊 <a href="PROGRESS.md">Состояние проекта</a> — детальный разбор фич по всем системам
+</p>

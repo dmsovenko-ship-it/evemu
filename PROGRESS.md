@@ -1,6 +1,6 @@
 # EVEmu Crucible — Project Status
 
-> Last updated: 2026-07-02
+> Last updated: 2026-07-02 (end of session)
 > Based on codebase analysis of [dmsovenko-ship-it/evemu](https://github.com/dmsovenko-ship-it/evemu) (fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible))
 
 ---
@@ -22,6 +22,15 @@
 | Fleet warp (WarpFleetToMember) | ✅ Added | fleet=1 flag, warps all members in system |
 | Fleet Regroup | ✅ Added | `CmdFleetRegroup` — warps all members to boss |
 | Formation flight | ❌ Not implemented | `FORMATION` mode (12) exists but unused |
+
+### Login Warp
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Pending destiny update queue | ✅ Added | Defers updates until SetState sent — fixes `No ballpark` |
+| 3s delay before login warp | ✅ Added | Client ballpark initializes before warp command |
+| Station proximity detection | ✅ Added | Offsets target outside station sphere to prevent collision kick |
+| Safe logoff detection | ✅ Added | Stationary disconnect = immediate removal, no 60s warp |
 
 ---
 
@@ -123,6 +132,15 @@
 | Fleet MOTD | ✅ Working | |
 | Fleet Regroup | ✅ Added | Warps all fleet members to boss |
 
+### Fleet Warp
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Warp to Member | ✅ Added | `CmdWarpToStuff` type="char" resolves target in system |
+| Warp Fleet to Member | ✅ Added | fleet=1 flag warps entire fleet in system |
+| Fleet Regroup | ✅ Added | `CmdFleetRegroup` warps all members to boss position |
+| FleetWarp broadcast | ✅ Added | Notification sent via FleetBroadcast |
+
 ### Fleet Boosts
 
 | Feature | Status | Notes |
@@ -141,6 +159,20 @@
 | **Gang Coordinator modules** (warfare links) | ✅ Added | Active module doubles boost effectiveness |
 | Warfare Link Specialist | ❌ Not implemented | Module-based link bonuses |
 | OnFleetBoost push notification | ❌ Not implemented | Client recalculates on location change (timer-based) |
+
+### Crimewatch & Combat Relogin
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Weapon timer (60s) | ✅ Working | Set on `OnWeaponFired()`, blocks dock/jump |
+| Aggression timer (15min) | ✅ Working | Set on `OnAggression()`, resets on each hit |
+| CanDock / CanJump enforcement | ✅ Added | `CmdDock` / `CmdStargateJump` check `CrimeWatch` timers |
+| Combat logoff — ghost ship 15min | ✅ Added | Ship stays in system after disconnect with aggression |
+| Emergency warp-out 60s | ✅ Added | No aggression → 60s wait → warp to random point → disappear |
+| Safe logoff (stationary disconnect) | ✅ Added | Speed=0 on disconnect → immediate ship removal |
+| Ghost ship cleanup | ✅ Added | `SystemManager::ProcessGhostShips()` removes expired ships |
+| CmdSafeLogoff | ✅ Added | BeyonceService handler for client safe logoff request |
+| Warp scramble blocks emergency warp | ❌ Not connected to logoff | `AttrWarpScrambleStatus` checked in `CmdWarpToStuff` only |
 
 ---
 
@@ -228,6 +260,7 @@
 | Image upload (character creation) | ✅ Working | Via PhotoUploadService |
 | Image URL auto-resolution | ✅ Added | Resolves server IP when configured as localhost |
 | `imageServerURL` config option | ✅ Added | Explicit hostname override |
+| Portrait gender in `cacheOwners` | ✅ Fixed | LEFT JOIN with `chrCharacters` prevents fleet join crash |
 
 ---
 

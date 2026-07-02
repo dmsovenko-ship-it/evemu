@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes (0.8.7). Check off each item as you confirm it works.
+Things to verify after recent changes (2026-07-02 session). Check off each item as you confirm it works.
 
 ---
 
@@ -12,6 +12,14 @@ Things to verify after recent changes (0.8.7). Check off each item as you confir
 - [ ] **Return and orbit** — Right-click → Return and Orbit. Drones should fly back and resume orbiting the ship (not enter the bay).
 - [ ] **Abandon drone** — Right-click a drone → Abandon. It should go neutral in space.
 - [ ] **Reconnect to drones** — Log out with drones in space, log back in, use Reconnect to Drones. They should re-enter your control.
+- [ ] **Sentry drones** — Launch sentry drones, they should orbit at position (not move). Damage should include SentryDroneInterfacing bonus.
+- [ ] **Target Paint drones** — Launch a target painter drone, it should apply signature radius bonus to target.
+- [ ] **ECM drones** — Launch ECM drones against a target. ECM should have a chance-based success (not always break locks).
+- [ ] **Drone Assist** — Right-click a drone → Assist <player>. Drone should follow that player and attack their NPC target.
+- [ ] **Drone Guard** — Right-click a drone → Guard <player>. Drone should orbit that player and engage anyone targeting them.
+- [ ] **Drone Damage Amplifier** — Fit a DDA, launch drones. Damage should be higher than without the module.
+- [ ] **Advanced Drone Interfacing** — Train to lvl 5, drone damage should include +2%/lvl bonus.
+- [ ] **Mining Drone Specialization** — Train to lvl 5, mining drone yield should include +2%/lvl bonus.
 
 ---
 
@@ -79,6 +87,39 @@ Things to verify after recent changes (0.8.7). Check off each item as you confir
 - [ ] **NPC damage numbers** — When an NPC lands a hit on you, a combat log message like "[NPC name] hits you, doing X damage." should appear immediately. Messages should not be delayed or arrive in batches after you click something.
 
 ---
+
+## Fleet
+
+- [ ] **Fleet Regroup** — Form a fleet, fly to a different location, use Fleet Regroup. All members should warp to the boss.
+- [ ] **Warp to Member** — Right-click a fleet member → Warp To. Should warp to that member's position.
+- [ ] **Warp Fleet to Member** — As fleet boss, right-click a member → Warp Fleet to Member. Entire fleet should warp.
+- [ ] **Armored Warfare Specialist** — Train to lvl 5, set as fleet booster with module active. Fleet members should get +2%×5×2 armor HP.
+- [ ] **Information Warfare Specialist** — Train to lvl 5. Fleet members should get +2%×5 targeting range.
+- [ ] **Siege Warfare Specialist** — Train to lvl 5. Fleet members should get +2%×5 shield capacity.
+- [ ] **Skirmish Warfare Specialist** — Train to lvl 5. Fleet members should get +2%×5 agility.
+- [ ] **Mining Director** — Train to lvl 5, set as fleet booster. Fleet miners should get +10%×5 mining yield.
+- [ ] **Gang Coordinator module** — Fit and activate on fleet booster ship. Fleet boost values should double.
+- [ ] **CanDock with timer** — Fire weapons, then try to dock. Should be blocked while weapon timer is active.
+- [ ] **CanJump with timer** — Fire weapons, then try to jump gate. Should be blocked while weapon timer is active.
+
+## Combat Relogin
+
+- [ ] **Safe logoff** — In space, stationary, no timers → disconnect. Ship should disappear immediately on relogin check.
+- [ ] **Unsafe logoff (moving)** — In space, moving, no timers → disconnect. Ship should stay 60s then warp out.
+- [ ] **Combat logoff** — In space with aggression → disconnect. Ship should stay 15 minutes.
+- [ ] **Timer reset on hit** — After combat logoff, have someone hit the ghost ship. 15min timer should reset.
+- [ ] **Ghost ship visible** — After combat logoff, other players in the system should still see the ship.
+
+## Image Server
+
+- [ ] **Remote portrait fetch** — Log in from a different machine. Character portrait should load (not 404).
+- [ ] **Fleet portrait** — Join a fleet, open fleet window. All character portraits should display (no crash).
+
+## Login Warp
+
+- [ ] **Login in space** — Log out in space, log back in. Ship should appear at login position with no kick.
+- [ ] **Login near station** — Log out near a station, log back in. Ship should not get kicked 100km away.
+- [ ] **Multiple logins** — Repeat login/logout cycle 5+ times. Should be stable each time.
 
 ## Stability
 
