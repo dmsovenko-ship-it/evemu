@@ -133,7 +133,11 @@ public:
     void SetDelegatedControllerID(uint32 charID)        { m_delegatedControllerID = charID; }
     void ClearDelegatedController()                     { m_delegatedControllerID = 0; }
     bool IsDelegated()                                  { return (m_delegatedControllerID != 0); }
-    bool CanCommand(uint32 charID)                      { return (charID == m_controllerOwnerID or charID == m_delegatedControllerID); }
+    bool CanCommand(uint32 charID)                      { return (charID == m_originalOwnerID or charID == m_originalControllerOwnerID or charID == m_delegatedControllerID); }
+
+    void SaveOriginalOwner(uint32 ownerID, uint32 controllerOwnerID, uint32 controllerID);
+    void RestoreOriginalOwner();
+    void SetDisplayOwner(uint32 ownerID, uint32 controllerOwnerID);
 
 protected:
     Client* m_pClient;          //we do not own this
@@ -166,6 +170,11 @@ private:
     // Assist target (Crucible-era: only NPC targets, no PvP)
     uint32 m_assistTargetID;       // 0 = not assisting
     uint32 m_delegatedControllerID; // 0 = not delegated, characterID of delegated controller
+
+    // Original owner save/restore for delegation
+    uint32 m_originalOwnerID;
+    uint32 m_originalControllerOwnerID;
+    uint32 m_originalControllerID;
 };
 
 #endif /* !__DRONE__H__INCL__ */

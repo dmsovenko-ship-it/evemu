@@ -114,8 +114,29 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
     }
     m_assistTargetID = 0;
     m_delegatedControllerID = 0;
+    m_originalOwnerID = m_ownerID;
+    m_originalControllerOwnerID = m_controllerOwnerID;
+    m_originalControllerID = m_controllerID;
 
     _log(DRONE__TRACE, "Created Drone object for %s (%u)", drone.get()->name(), drone.get()->itemID());
+}
+
+void DroneSE::SaveOriginalOwner(uint32 ownerID, uint32 controllerOwnerID, uint32 controllerID) {
+    m_originalOwnerID = ownerID;
+    m_originalControllerOwnerID = controllerOwnerID;
+    m_originalControllerID = controllerID;
+}
+
+void DroneSE::RestoreOriginalOwner() {
+    m_ownerID = m_originalOwnerID;
+    m_controllerOwnerID = m_originalControllerOwnerID;
+    m_controllerID = m_originalControllerID;
+    m_delegatedControllerID = 0;
+}
+
+void DroneSE::SetDisplayOwner(uint32 ownerID, uint32 controllerOwnerID) {
+    m_ownerID = ownerID;
+    m_controllerOwnerID = controllerOwnerID;
 }
 
 DroneSE::~DroneSE() {
@@ -191,6 +212,8 @@ void DroneSE::Launch(ShipSE* pShipSE) {
 
     m_controllerID = pShipSE->GetID();
     m_controllerOwnerID = pShipSE->GetOwnerID();
+
+    SaveOriginalOwner(m_ownerID, m_controllerOwnerID, m_controllerID);
 
     GPoint pos(pShipSE->GetPosition());
     pos.MakeRandomPointOnSphere(50.0);

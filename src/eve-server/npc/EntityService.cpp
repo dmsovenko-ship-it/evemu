@@ -10,6 +10,7 @@
 #include "eve-server.h"
 
 #include "EVEServerConfig.h"
+#include "EntityList.h"
 #include "npc/Drone.h"
 #include "npc/EntityService.h"
 #include "ship/Ship.h"
@@ -135,7 +136,7 @@ PyResult EntityBound::CmdEngage(PyCallArgs &call, PyList* droneIDs, PyInt* targe
         }
         DroneSE* pDrone = pSE->GetDroneSE();
 
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID() and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) {
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
             _log(DRONE__WARNING, "CmdEngage: %s tried to command drone %u owned by %u.",
                  call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
             continue;
@@ -166,10 +167,10 @@ PyResult EntityBound::CmdRelinquishControl(PyCallArgs &call, PyList* IDs) {
         if (pSE == nullptr || !pSE->IsDroneSE()) continue;
         DroneSE* pDrone = pSE->GetDroneSE();
         // Only the original owner or the delegated controller can relinquish
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID()
-        and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) continue;
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) continue;
         // Return control to original owner
-        pDrone->ClearDelegatedController();
+        pDrone->RestoreOriginalOwner();
+        pDrone->StateChange();
         _log(DRONE__TRACE, "CmdRelinquishControl: drone %u control returned to original owner.", droneID);
     }
     return new PyDict();
@@ -191,8 +192,8 @@ PyResult EntityBound::CmdDelegateControl(PyCallArgs &call, PyList* droneIDs, PyI
             continue;
         }
         DroneSE* pDrone = pSE->GetDroneSE();
-        // Only the original owner can delegate
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID() and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) {
+        // Only the original owner or delegated controller can delegate
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
             _log(DRONE__WARNING, "CmdDelegateControl: %s tried to delegate drone %u owned by %u.",
                  call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
             continue;
@@ -203,8 +204,19 @@ PyResult EntityBound::CmdDelegateControl(PyCallArgs &call, PyList* droneIDs, PyI
         }
         // Clear assist on delegated drones
         pDrone->ClearAssistTarget();
+        // Save original owner if first delegation
+        if (!pDrone->IsDelegated())
+            pDrone->SaveOriginalOwner(pDrone->GetControllerOwnerID(), pDrone->GetControllerOwnerID(), pDrone->GetControllerID());
         // Transfer control to new controller
         pDrone->SetDelegatedControllerID(newControllerCharID);
+        // Update display owner so client shows delegated controller as owner
+        Client* pDelegatedClient = sEntityList.FindClientByCharID(newControllerCharID);
+        if (pDelegatedClient != nullptr) {
+            ShipSE* pDelegatedShip = pDelegatedClient->GetShipSE();
+            if (pDelegatedShip != nullptr)
+                pDrone->SetDisplayOwner(newControllerCharID, pDelegatedShip->GetOwnerID());
+        }
+        pDrone->StateChange();
         _log(DRONE__TRACE, "CmdDelegateControl: drone %u delegated to char %u.", droneID, newControllerCharID);
     }
     return errors;
@@ -236,7 +248,7 @@ PyResult EntityBound::CmdAssist(PyCallArgs &call, PyInt* assistID, PyList* drone
             continue;
         }
         DroneSE* pDrone = pSE->GetDroneSE();
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID() and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) {
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
             _log(DRONE__WARNING, "CmdAssist: %s tried to command drone %u owned by %u.",
                  call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
             continue;
@@ -279,7 +291,7 @@ PyResult EntityBound::CmdMine(PyCallArgs &call, PyList* droneIDs, PyInt* targetI
             continue;
         }
         DroneSE* pDrone = pSE->GetDroneSE();
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID() and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) {
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
             _log(DRONE__WARNING, "CmdMine: %s tried to command drone %u owned by %u.",
                  call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
             continue;
@@ -315,7 +327,7 @@ PyResult EntityBound::CmdMineRepeatedly(PyCallArgs &call, PyList* droneIDs, PyIn
         SystemEntity* pSE = m_sysMgr->GetSE(droneID);
         if (pSE == nullptr || !pSE->IsDroneSE()) continue;
         DroneSE* pDrone = pSE->GetDroneSE();
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID() and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) continue;
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) continue;
         if (!pDrone->IsEnabled()) continue;
         if (pDrone->GetAI()->GetSubType() != DroneAI::SubType_Mining) continue;
         pDrone->SetTarget(pTarget);
@@ -356,7 +368,7 @@ PyResult EntityBound::CmdReturnHome(PyCallArgs &call, PyList* droneIDs) {
             continue;
         }
         DroneSE* pDrone = pSE->GetDroneSE();
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID() and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) {
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
             _log(DRONE__WARNING, "CmdReturnHome: %s tried to command drone %u owned by %u.",
                  call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
             continue;
@@ -413,7 +425,7 @@ PyResult EntityBound::CmdReturnBay(PyCallArgs &call, PyList* droneIDs) {
             continue;
         }
         DroneSE* pDrone = pSE->GetDroneSE();
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID() and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) {
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
             _log(DRONE__WARNING, "CmdReturnBay: %s tried to command drone %u owned by %u.",
                  call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
             continue;
@@ -453,7 +465,7 @@ PyResult EntityBound::CmdAbandonDrone(PyCallArgs &call, PyList* droneIDs) {
             continue;
         }
         DroneSE* pDrone = pSE->GetDroneSE();
-        if (pDrone->GetControllerOwnerID() != call.client->GetCharacterID() and pDrone->GetDelegatedControllerID() != call.client->GetCharacterID()) {
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
             _log(DRONE__WARNING, "CmdAbandonDrone: %s tried to abandon drone %u owned by %u.",
                  call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
             continue;
@@ -495,7 +507,7 @@ PyResult EntityBound::CmdReconnectToDrones(PyCallArgs &call, PyList* droneCandid
         }
         DroneSE* pDrone = pSE->GetDroneSE();
         // Only reconnect drones that belong to this character or are delegated to them
-        if (pDrone->GetControllerOwnerID() != charID and pDrone->GetDelegatedControllerID() != charID) {
+        if (!pDrone->CanCommand(charID)) {
             _log(DRONE__WARNING, "CmdReconnectToDrones: drone %u is owned by %u, skipping.",
                  droneID, pDrone->GetControllerOwnerID());
             continue;
