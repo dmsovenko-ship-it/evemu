@@ -628,10 +628,9 @@ void Client::WarpIn() {
 
     UpdateBubble();
 
-    // This will queue up the login warp-in on the next server tick. Calling
-    // SetStateTimer allows it to be processed on the next tick instead of
-    // getting timed out and ignored by a session change timer.
-    SetStateTimer(0);
+    // Delay login warp by 3s so the client has time to initialize its
+    // ballpark and receive SetState before the warp command arrives.
+    SetStateTimer(3000);
 
     m_clientState = Player::State::LoginWarp;
 }
@@ -2242,6 +2241,12 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
         return;
     if (sDataMgr.IsStation(m_locationID))
         return;
+    // Defer destiny updates until SetState has been sent to avoid
+    // "No ballpark for update" errors on the client during login.
+    if (!IsSetState and !m_setStateSent) {
+        m_pendingUpdates.push_back(*update);
+        return;
+    }
     DoDestinyAction act;
         act.stamp = sEntityList.GetStamp();
     if (DoPackage/* or m_packaged*/) {
@@ -2991,6 +2996,32 @@ bool Client::IsLoginWarping() {
 // documentation for `Client::IsLoginWarping`.
 //
 // It is safe to repeatedly call this function without consequence.
+void Client::SetStateSent(bool set) {
+    m_setStateSent = set;
+    if (m_setStateSent)
+        FlushPendingDestinyUpdates();
+}
+
+void Client::FlushPendingDestinyUpdates() {
+    if (m_pendingUpdates.empty())
+        return;
+    // Package all pending updates into a single DoDestinyUpdate
+    DoDestinyUpdateMain_2 dum;
+        dum.updates = new PyList();
+        dum.waitForBubble = m_bubbleWait;
+    for (auto update : m_pendingUpdates) {
+        DoDestinyAction act;
+            act.stamp = sEntityList.GetStamp();
+            act.update = update;
+        dum.updates->AddItem(act.Encode());
+        PyDecRef(update);
+    }
+    PyTuple* t = dum.Encode();
+    SendNotification("DoDestinyUpdate", "clientID", &t, false);
+    PyDecRef(t);
+    m_pendingUpdates.clear();
+}
+
 void Client::SetLoginWarpComplete() {
     if (m_clientState == Player::State::LoginWarp) {
         m_clientState = Player::State::Idle;

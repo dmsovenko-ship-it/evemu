@@ -257,7 +257,8 @@ public:
     void SetUncloak(bool uncloak=false)                 { m_uncloak = uncloak; }
     void SetBubbleWait(bool wait=false)                 { m_bubbleWait = wait; }
     void SetLoginWarpComplete();
-    void SetStateSent(bool set=false)                   { m_setStateSent = set; }
+    void SetStateSent(bool set=false);
+    void FlushPendingDestinyUpdates();
     void SetSessionTimer()                              { m_sessionChangeActive = true; m_sessionTimer.Start(Player::Timer::Session); if (m_char) m_char->SetAttribute(259, int64(GetFileTimeNow() + 20LL * EvE::Time::Second), true); }
     void SetSessionChange(bool set=false)               { m_sessionChangeActive = set; }
     void SetBallPark();
@@ -380,6 +381,8 @@ protected:
     bool m_bubbleWait;
     bool m_setStateSent;
     bool m_sessionChangeActive; // used to delay actions requiring destiny updates
+    std::vector<PyTuple*> m_pendingUpdates;
+    std::vector<PyTuple*> m_pendingEvents;
 
     int32 m_wing;
     int32 m_squad;
