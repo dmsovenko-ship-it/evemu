@@ -503,10 +503,11 @@ void Client::ProcessClient() {
                     } break;
                 case Player::State::LoginWarp: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: LoginWarp");
-                    // Place ship directly at login position and sync to client.
+                    // Place ship directly at login position — no warp, no collision.
                     // Warp-to-login is unreliable near stations (collision kick).
                     pShipSE->DestinyMgr()->SetPosition(m_loginWarpPoint, true);
                     pShipSE->DestinyMgr()->UnCloak();
+                    SetLoginWarpComplete();
                     pShipSE->DestinyMgr()->Stop();
                     } break;
                 case Player::State::Jump: {
