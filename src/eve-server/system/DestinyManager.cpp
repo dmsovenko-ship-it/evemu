@@ -1850,6 +1850,9 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         _log(DESTINY__WARP_TRACE, "Destiny::WarpStop(): %s(%u): Ship currently at %.2f,%.2f,%.2f.", \
                 mySE->GetName(), mySE->GetID(), m_position.x, m_position.y, m_position.z);
     }
+    // Force position sync for login warps BEFORE clearing login warp state
+    bool isLoginWarp = (mySE->IsShipSE() and mySE->GetPilot()->IsLoginWarping());
+
     if (mySE->IsShipSE()) {
         _log(AUTOPILOT__MESSAGE, "Destiny::WarpStop(): %s(%u) - Warp complete.", mySE->GetName(), mySE->GetID());
         mySE->GetPilot()->SetLoginWarpComplete();
@@ -1867,7 +1870,14 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);
 
-    // Set server state to STOP but send NOTHING to the client.
+    // Send position sync for login warps so client and server are in sync
+    // before any AddBalls can fire (e.g. entering a station bubble).
+    // Without this, the client's WarpLoop may still be running when AddBalls
+    // arrives with STOP state, causing "Unknown packet type".
+    if (isLoginWarp)
+        SetPosition(m_position, true);
+
+    // Set server state to STOP but send NOTHING to the client (for normal warps).
     // The client's WarpLoop runs independently using its own warp simulation
     // and exits naturally when it reaches the destination. Sending CmdStop,
     // CmdGotoDirection, or any position snap would either stop the ship
