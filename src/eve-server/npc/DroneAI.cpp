@@ -313,15 +313,15 @@ void DroneAIMgr::Process() {
                 m_pDrone->DestinyMgr()->Orbit(pGuardSE, m_entityOrbitRange);
             // Check bubble for anyone attacking the guarded player
             if (pGuardSE->SysBubble() != nullptr) {
-                for (auto& cur : pGuardSE->SysBubble()->GetEntities()) {
+                std::map<uint32, SystemEntity*> bubbleEnts;
+                pGuardSE->SysBubble()->GetEntities(bubbleEnts);
+                for (auto& cur : bubbleEnts) {
                     SystemEntity* pEntity = cur.second;
                     if (pEntity == nullptr or pEntity == m_pDrone or pEntity == pGuardSE) continue;
                     if (pEntity->TargetMgr() == nullptr) continue;
                     if (pGuardSE->TargetMgr()->IsTargetedBy(pEntity)) {
-                        if (!pEntity->HasPilot() or m_formula.IsEnemy(m_pDrone, pEntity)) {
-                            Target(pEntity);
-                            break;
-                        }
+                        Target(pEntity);
+                        break;
                     }
                 }
             }
