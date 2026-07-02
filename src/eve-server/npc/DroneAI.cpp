@@ -168,6 +168,8 @@ void DroneAIMgr::Process() {
     and (m_state != DroneAI::State::Engaged)
     and (m_state != DroneAI::State::Approaching)
     and (m_state != DroneAI::State::Mining)
+    and (m_state != DroneAI::State::Assisting)
+    and (m_state != DroneAI::State::Guarding)
     and (m_assignedShip != nullptr) and (m_assignedShip->DestinyMgr() != nullptr)) {
         double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
         double controlRange = GetControlRange();
@@ -200,24 +202,11 @@ void DroneAIMgr::Process() {
                 if (pTarget != nullptr and pTarget->SysBubble() != nullptr)
                     Target(pTarget);
             }
-            // Assist mechanic: if this drone is assisting another player,
-            // check their current NPC target and engage it
-            if (m_pDrone->IsAssisting() and (m_assignedShip != nullptr)
-            and (m_assignedShip->DestinyMgr() != nullptr)) {
-                SystemEntity* pAssistSE = m_pDrone->SystemMgr()->GetSE(m_pDrone->GetAssistTargetID());
-                if (pAssistSE != nullptr and pAssistSE->TargetMgr() != nullptr) {
-                    SystemEntity* pAssistTarget = pAssistSE->TargetMgr()->GetFirstTarget(false);
-                    if (pAssistTarget != nullptr and pAssistTarget->SysBubble() != nullptr) {
-                        // Crucible-era: assisted drones do NOT attack other players (capsuleers)
-                        if (!pAssistTarget->HasPilot()) {
-                            _log(DRONE__AI_TRACE, "Drone %s(%u): Assist: engaging NPC target %s(%u).",
-                                 m_pDrone->GetName(), m_pDrone->GetID(),
-                                 pAssistTarget->GetName(), pAssistTarget->GetID());
-                            Target(pAssistTarget);
-                        }
-                    }
-                }
-            }
+            // Delegate to Assisting state if assisting, or Idle otherwise
+            if (m_pDrone->IsAssisting())
+                m_state = DroneAI::State::Assisting;
+            else if (m_pDrone->IsGuarding())
+                m_state = DroneAI::State::Guarding;
         } break;
         case DroneAI::State::Engaged:
         case DroneAI::State::Approaching: {
@@ -225,7 +214,13 @@ void DroneAIMgr::Process() {
             if (pTarget == nullptr) {
                 if (m_pDrone->TargetMgr()->HasNoTargets()) {
                     _log(DRONE__AI_TRACE, "Drone %s(%u): Stopped %s, GetFirstTarget() returned NULL.", m_pDrone->GetName(), m_pDrone->GetID(), GetStateName(m_state).c_str());
-                    SetIdle();
+                    // Return to assist/guard state instead of idle if applicable
+                    if (m_pDrone->IsAssisting())
+                        m_state = DroneAI::State::Assisting;
+                    else if (m_pDrone->IsGuarding())
+                        m_state = DroneAI::State::Guarding;
+                    else
+                        SetIdle();
                 }
                 return;
             } else if (pTarget->SysBubble() == nullptr) {
@@ -282,13 +277,54 @@ void DroneAIMgr::Process() {
                 MiningAttack(pTarget);
         } break;
 
-        // not sure how im gonna do these...
+        case DroneAI::State::Assisting: {
+            SystemEntity* pAssistSE = m_pDrone->SystemMgr()->GetSE(m_pDrone->GetAssistTargetID());
+            if (pAssistSE == nullptr or pAssistSE->DestinyMgr() == nullptr) {
+                SetIdle();
+                break;
+            }
+            // Orbit the assisted player
+            if (!m_pDrone->DestinyMgr()->IsOrbiting())
+                m_pDrone->DestinyMgr()->Orbit(pAssistSE, m_entityOrbitRange);
+            // Follow their NPC target
+            SystemEntity* pAssistTarget = pAssistSE->TargetMgr()->GetFirstTarget(false);
+            if (pAssistTarget != nullptr and !pAssistTarget->HasPilot()) {
+                m_pDrone->DestinyMgr()->Follow(pAssistTarget, m_entityOrbitRange);
+                Target(pAssistTarget);
+            }
+            CheckDistance(pAssistSE);
+        } break;
+
+        case DroneAI::State::Guarding: {
+            SystemEntity* pGuardSE = m_pDrone->SystemMgr()->GetSE(m_pDrone->GetGuardTargetID());
+            if (pGuardSE == nullptr) {
+                SetIdle();
+                break;
+            }
+            // Orbit the guarded player
+            if (!m_pDrone->DestinyMgr()->IsOrbiting())
+                m_pDrone->DestinyMgr()->Orbit(pGuardSE, m_entityOrbitRange);
+            // Check bubble for anyone attacking the guarded player
+            if (pGuardSE->SysBubble() != nullptr) {
+                for (auto& cur : pGuardSE->SysBubble()->GetEntities()) {
+                    SystemEntity* pEntity = cur.second;
+                    if (pEntity == nullptr or pEntity == m_pDrone or pEntity == pGuardSE) continue;
+                    if (pEntity->TargetMgr() == nullptr) continue;
+                    if (pGuardSE->TargetMgr()->IsTargetedBy(pEntity)) {
+                        if (!pEntity->HasPilot() or m_formula.IsEnemy(m_pDrone, pEntity)) {
+                            Target(pEntity);
+                            break;
+                        }
+                    }
+                }
+            }
+            CheckDistance(pGuardSE);
+        } break;
+
         case DroneAI::State::Fleeing:
         case DroneAI::State::Operating:
         case DroneAI::State::Unknown:
         case DroneAI::State::Incapacitated:
-        case DroneAI::State::Guarding:
-        case DroneAI::State::Assisting:
         case DroneAI::State::Combat:
         case DroneAI::State::Departing2:
         case DroneAI::State::Pursuit: {

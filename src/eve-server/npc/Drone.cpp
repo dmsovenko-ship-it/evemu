@@ -113,6 +113,7 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
         m_fighterAmmo = 0;
     }
     m_assistTargetID = 0;
+    m_guardTargetID = 0;
     m_delegatedControllerID = 0;
     m_originalOwnerID = m_ownerID;
     m_originalControllerOwnerID = m_controllerOwnerID;

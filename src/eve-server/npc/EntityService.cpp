@@ -266,11 +266,44 @@ PyResult EntityBound::CmdAssist(PyCallArgs &call, PyInt* assistID, PyList* drone
 
 PyResult EntityBound::CmdGuard(PyCallArgs &call, PyInt* guardID, PyList* droneIDs) {
  // ret = entity.CmdGuard(guardID, droneIDs)
-    _log(DRONE__TRACE, "EntityBound::Handle_CmdGuard()");
+    _log(DRONE__TRACE, "EntityBound::CmdGuard()");
     call.Dump(DRONE__DUMP);
 
-    call.client->SendNotifyMsg("This drone command is not yet supported.");
-    return new PyDict();
+    uint32 guardCharID = guardID->value();
+    PyDict* errors = new PyDict();
+
+    // Validate guard target exists in this system
+    SystemEntity* pGuardSE = m_sysMgr->GetSE(guardCharID);
+    if (pGuardSE == nullptr) {
+        for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
+            uint32 droneID = PyRep::IntegerValueU32(*itr);
+            errors->SetItem(new PyInt(droneID), new PyString("Guard target not found in system."));
+        }
+        return errors;
+    }
+
+    for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
+        uint32 droneID = PyRep::IntegerValueU32(*itr);
+        SystemEntity* pSE = m_sysMgr->GetSE(droneID);
+        if (pSE == nullptr || !pSE->IsDroneSE()) {
+            _log(DRONE__WARNING, "CmdGuard: drone %u not found.", droneID);
+            continue;
+        }
+        DroneSE* pDrone = pSE->GetDroneSE();
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
+            _log(DRONE__WARNING, "CmdGuard: %s tried to command drone %u owned by %u.",
+                 call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
+            continue;
+        }
+        if (!pDrone->IsEnabled()) {
+            _log(DRONE__MESSAGE, "CmdGuard: drone %u is offline.", droneID);
+            continue;
+        }
+        pDrone->ClearAssistTarget();
+        pDrone->SetGuardTargetID(guardCharID);
+        _log(DRONE__TRACE, "CmdGuard: drone %u now guarding char %u.", droneID, guardCharID);
+    }
+    return errors;
 }
 
 PyResult EntityBound::CmdMine(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {

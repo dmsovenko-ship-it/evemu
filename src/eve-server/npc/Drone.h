@@ -128,6 +128,11 @@ public:
     void SetAssistTargetID(uint32 charID)               { m_assistTargetID = charID; }
     void ClearAssistTarget()                            { m_assistTargetID = 0; }
     bool IsAssisting()                                  { return (m_assistTargetID != 0); }
+    // Guard mechanic
+    uint32 GetGuardTargetID()                           { return m_guardTargetID; }
+    void SetGuardTargetID(uint32 charID)                { m_guardTargetID = charID; }
+    void ClearGuardTarget()                             { m_guardTargetID = 0; }
+    bool IsGuarding()                                   { return (m_guardTargetID != 0); }
     // Delegate control
     uint32 GetDelegatedControllerID()                   { return m_delegatedControllerID; }
     void SetDelegatedControllerID(uint32 charID)        { m_delegatedControllerID = charID; }
@@ -169,6 +174,7 @@ private:
 
     // Assist target (Crucible-era: only NPC targets, no PvP)
     uint32 m_assistTargetID;       // 0 = not assisting
+    uint32 m_guardTargetID;        // 0 = not guarding
     uint32 m_delegatedControllerID; // 0 = not delegated, characterID of delegated controller
 
     // Original owner save/restore for delegation
