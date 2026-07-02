@@ -701,14 +701,10 @@ PyRep *ObjCacheDB::Generate_cacheLocations()
 PyRep *ObjCacheDB::Generate_cacheOwners()  //  FIXME   add gender checks  -allan
 {
     DBQueryResult res;
-    //const char *q = "SELECT ownerID, ownerName, typeID, gender, ownerNameID FROM cacheOwners";
-    const char *q = "SELECT ownerID, ownerName, typeID FROM cacheOwners";
-    /*
-    const char *q = "SELECT e.itemID AS ownerID, e.itemName AS ownerName, e.typeID, 0 AS gender, 0 AS locationNameID"
-    "  FROM entity AS e"
-    "  LEFT JOIN invTypes USING (typeID)"
-    " WHERE invTypes.groupID IN ( 1, 2, 19, 32 )";      //char, corp, faction, alliance
-    */
+    const char *q = "SELECT c.ownerID, c.ownerName, c.typeID,"
+    "  COALESCE(ch.gender, 0) AS gender, 0 AS ownerNameID"
+    " FROM cacheOwners c"
+    " LEFT JOIN chrCharacters ch ON (c.ownerID = ch.characterID)";
     if (!sDatabase.RunQuery(res, q))
     {
         _log(DATABASE__ERROR, "Error in query for cached object 'config.BulkData.owners': %s", res.error.c_str());
