@@ -343,6 +343,7 @@ public:
     void RemoveBoost();
     void ApplyBoost(BoostData& bData);
     uint8 GetMiningBoostAmount()                        { return m_boost.mining; }
+    uint8 GetMiningDirectorBoostAmount()                { return m_boost.miningDirector; }
 
     // misc
     void PayInsurance();

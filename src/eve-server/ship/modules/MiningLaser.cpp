@@ -387,13 +387,12 @@ float MiningLaser::GetMiningVolume()
         if (m_targetSE->GetGroupID() == m_crystalRoidGrp)
             cycleVol = GetAttribute(AttrSpecialtyMiningAmount).get_float();
 
-    // fleet involvement enhances mining amount using MiningForeman of highest member (3%/lvl)
-    // this should apply to modules/ship when boost activated, but this is easier at this time.
-    //  downside is client will have the original, lower cycle amount as this isnt set in module (but should be)
+    // fleet involvement enhances mining amount using MiningForeman (3%/lvl) and MiningDirector (10%/lvl)
     ShipSE* pShip(m_shipRef->GetPilot()->GetShipSE());
     if (pShip != nullptr)
         if (pShip->IsBoosted())
-            cycleVol *= (1 + (0.03f * pShip->GetMiningBoostAmount())); // 3% increase/level
+            cycleVol *= (1 + (0.03f * pShip->GetMiningBoostAmount())      // Mining Foreman
+                          + (0.10f * pShip->GetMiningDirectorBoostAmount()));  // Mining Director
 
     return cycleVol;
 }
