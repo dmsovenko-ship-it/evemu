@@ -262,6 +262,7 @@ EVEServerConfig::EVEServerConfig()
     net.port = 26000;
     net.imageServer = "localhost";
     net.imageServerPort = 26001;
+    net.imageServerURL = "";
 
     // threads  -not implemented
     threads.ConsoleThreads = 1;//P
@@ -660,12 +661,14 @@ bool EVEServerConfig::ProcessNet( const TiXmlElement* ele )
     AddValueParser( "port",             net.port );
     AddValueParser( "imageServerPort",  net.imageServerPort);
     AddValueParser( "imageServer",      net.imageServer);
+    AddValueParser( "imageServerURL",   net.imageServerURL);
 
     const bool result = ParseElementChildren( ele );
 
     RemoveParser( "port" );
     RemoveParser( "imageServerPort" );
     RemoveParser( "imageServer" );
+    RemoveParser( "imageServerURL" );
 
     return result;
 }

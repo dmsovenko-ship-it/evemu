@@ -26,6 +26,7 @@
 
 #include "eve-server.h"
 
+#include "imageserver/ImageServer.h"
 #include "../../eve-common/EVE_Character.h"
 
 
@@ -166,12 +167,7 @@ void CharMgrService::BoundReleased(CharMgrBound *bound) {
 
 PyResult CharMgrService::GetImageServerLink(PyCallArgs& call)
 {
-    // only called by billboard service for bounties...
-    //  serverLink = sm.RemoteSvc('charMgr').GetImageServerLink()
-    std::stringstream urlBuilder;
-    urlBuilder << "http://" << sConfig.net.imageServer << ":" << sConfig.net.imageServerPort << "/";
-
-    return new PyString(urlBuilder.str());
+    return new PyString(sImageServer.url());
 }
 
 PyResult CharMgrService::GetRecentShipKillsAndLosses(PyCallArgs& call, PyInt* num, std::optional<PyInt*> startIndex)

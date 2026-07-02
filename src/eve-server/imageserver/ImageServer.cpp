@@ -46,8 +46,8 @@ const uint32 ImageServer::CategoryCount = 5;
 
 ImageServer::ImageServer()
 {
-    // Use configured image server hostname, but resolve if it's localhost so remote clients work
-    std::string host = sConfig.net.imageServer;
+    // Use explicit imageServerURL if set, otherwise resolve from hostname
+    std::string host = sConfig.net.imageServerURL.empty() ? sConfig.net.imageServer : sConfig.net.imageServerURL;
     if (host.empty() or host == "localhost" or host == "0.0.0.0" or host == "127.0.0.1") {
         char hostname[256] = {};
         if (gethostname(hostname, sizeof(hostname)) == 0) {

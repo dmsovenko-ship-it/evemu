@@ -249,6 +249,8 @@ public:
         uint16 imageServerPort;
         /// the imageServer for char images. should be the evemu server external ip/host
         std::string imageServer;
+        /// Override image server URL hostname. If empty, auto-resolved from the server hostname.
+        std::string imageServerURL;
     } net;
 
     // From <thread>
