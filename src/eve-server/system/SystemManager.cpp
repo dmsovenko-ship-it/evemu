@@ -1986,10 +1986,10 @@ void SystemManager::SpawnConvoys()
          m_data.name.c_str(), m_data.systemID, stationA, stationB, group->members.size());
 }
 
-void SystemManager::AddGhostShip(ShipSE* pShip, int64 expireTime) {
-    m_ghostShips[pShip] = expireTime;
-    _log(SE__MESSAGE, "SystemManager::AddGhostShip() — ship %s(%u) added, expires at %lld",
-         pShip->GetName(), pShip->GetID(), expireTime);
+void SystemManager::AddGhostShip(ShipSE* pShip, int64 expireTime, bool emergencyWarp) {
+    m_ghostShips[pShip] = std::make_pair(expireTime, emergencyWarp);
+    _log(SE__MESSAGE, "SystemManager::AddGhostShip() — ship %s(%u) added, expires at %lld%s",
+         pShip->GetName(), pShip->GetID(), expireTime, emergencyWarp ? " (emergency warp)" : "");
 }
 
 void SystemManager::ProcessGhostShips() {
@@ -1998,18 +1998,30 @@ void SystemManager::ProcessGhostShips() {
     int64 now = GetFileTimeNow();
     auto it = m_ghostShips.begin();
     while (it != m_ghostShips.end()) {
-        if (now >= it->second) {
-            ShipSE* pShip = it->first;
-            _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — removing ghost ship %s(%u).",
-                 pShip->GetName(), pShip->GetID());
-            // Check if ship still exists in system
-            if (m_ticEntities.find(pShip->GetID()) != m_ticEntities.end()) {
-                RemoveEntity(pShip);
-                SafeDelete(pShip);
-            }
-            it = m_ghostShips.erase(it);
-        } else {
+        ShipSE* pShip = it->first;
+        int64 expireTime = it->second.first;
+        bool emergencyWarp = it->second.second;
+        if (now < expireTime) {
             ++it;
+            continue;
         }
+        _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — removing ghost ship %s(%u).",
+             pShip->GetName(), pShip->GetID());
+        if (m_ticEntities.find(pShip->GetID()) != m_ticEntities.end()) {
+            // For emergency warp, initiate warp-out to random point before cleanup
+            if (emergencyWarp and pShip->DestinyMgr() != nullptr) {
+                GPoint warpPoint(pShip->GetPosition());
+                warpPoint.MakeRandomPointOnSphere(0.5 * ONE_AU_IN_METERS);
+                pShip->DestinyMgr()->WarpTo(warpPoint);
+                // Don't remove yet — give warp time to complete
+                it->second.second = false; // clear emergency flag so next pass removes
+                it->second.first = now + 15000000; // +15s for warp
+                ++it;
+                continue;
+            }
+            RemoveEntity(pShip);
+            SafeDelete(pShip);
+        }
+        it = m_ghostShips.erase(it);
     }
 }

@@ -662,12 +662,19 @@ void Client::WarpOut() {
     // Combat logoff: keep ship in space while aggression timer is active
     if (m_crimeWatch != nullptr and (m_crimeWatch->IsAggressed() or m_crimeWatch->HasWeaponTimer())) {
         int64 expireTime = GetFileTimeNow() + 15LL * EvE::Time::Minute;
-        m_ship->SetAttribute(AttrOfflineTimestamp, expireTime, true);
-        // Detach pilot and transfer to system ghost list
-        m_system->AddGhostShip(pShipSE, expireTime);
+        m_system->AddGhostShip(pShipSE, expireTime, false);
         pShipSE->SetPilot(nullptr);
         pShipSE = nullptr;
         sLog.Green("Client::WarpOut()", "%s(%u): combat logoff — ship stays for 15min.", GetName(), m_char->itemID());
+        return;
+    }
+    // Non-aggression logoff: emergency warp-out after 60 seconds
+    if (m_crimeWatch == nullptr or (!m_crimeWatch->IsAggressed() and !m_crimeWatch->HasWeaponTimer())) {
+        int64 expireTime = GetFileTimeNow() + 60LL * EvE::Time::Second;
+        m_system->AddGhostShip(pShipSE, expireTime, true);
+        pShipSE->SetPilot(nullptr);
+        pShipSE = nullptr;
+        sLog.Green("Client::WarpOut()", "%s(%u): safe logoff — emergency warp in 60s.", GetName(), m_char->itemID());
         return;
     }
     DestroyShipSE();

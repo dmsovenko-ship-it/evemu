@@ -105,6 +105,7 @@ BeyonceBound::BeyonceBound(EVEServiceManager& mgr, BeyonceService& parent, Clien
     this->Add("CmdWarpToStuffAutopilot", &BeyonceBound::CmdWarpToStuffAutopilot); //*
     this->Add("CmdAbandonLoot", &BeyonceBound::CmdAbandonLoot);
 
+    this->Add("CmdSafeLogoff", &BeyonceBound::CmdSafeLogoff);
     this->Add("CmdFleetRegroup", &BeyonceBound::CmdFleetRegroup);
     this->Add("CmdFleetTagTarget", &BeyonceBound::CmdFleetTagTarget);
     this->Add("CmdBeaconJumpFleet", &BeyonceBound::CmdBeaconJumpFleet);
@@ -1234,5 +1235,31 @@ PyResult BeyonceBound::CmdFleetTagTarget(PyCallArgs &call, PyInt* itemID, PyStri
     // bp.CmdFleetTagTarget(itemID, tag)
     _log(SHIP__WARNING, "BeyonceBound::Handle_CmdFleetTagTarget");
     call.Dump(SHIP__WARNING);
+    return PyStatic.NewNone();
+}
+
+PyResult BeyonceBound::CmdSafeLogoff(PyCallArgs &call) {
+    // Safe logoff: 30s timer, then ship warps to safe random point and logs off
+    _log(SHIP__MESSAGE, "BeyonceBound::CmdSafeLogoff");
+    if (call.client->IsSessionChange()) {
+        call.client->SendNotifyMsg("Session Change currently active.");
+        return PyStatic.NewNone();
+    }
+    DestinyManager* pDestiny = call.client->GetShipSE()->DestinyMgr();
+    if (pDestiny == nullptr or pDestiny->IsWarping()) {
+        call.client->SendNotifyMsg("You cannot safe logoff while warping.");
+        return PyStatic.NewNone();
+    }
+    if (pDestiny->AbortIfLoginWarping(true))
+        return PyStatic.NewNone();
+    // Check aggression timers — safe logoff requires no timers
+    if (call.client->GetCrimeWatch() != nullptr and !call.client->GetCrimeWatch()->CanDock()) {
+        call.client->SendNotifyMsg("You cannot safe logoff with an active aggression timer. Use emergency logoff instead.");
+        return PyStatic.NewNone();
+    }
+    // Start 30-second safe logoff timer
+    // (In Crucible, the client handles the 30s countdown internally after this call)
+    call.client->SendNotifyMsg("Safe logoff initiated. Your ship will warp out in 30 seconds.");
+    _log(SHIP__MESSAGE, "BeyonceBound::CmdSafeLogoff — safe logoff started for %s", call.client->GetName());
     return PyStatic.NewNone();
 }

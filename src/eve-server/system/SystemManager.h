@@ -87,7 +87,7 @@ public:
     const float GetSystemSecurityRating()               { return m_data.securityRating; }
 
     EVEServiceManager& GetServiceMgr()                  { return m_services; }
-    void AddGhostShip(ShipSE* pShip, int64 expireTime);
+    void AddGhostShip(ShipSE* pShip, int64 expireTime, bool emergencyWarp = false);
     void ProcessGhostShips();
     void SpawnSentryGuns();
     void SpawnBillboards();
@@ -235,8 +235,8 @@ private:
     std::map<uint32, SystemEntity*> m_staticEntities;   // this list is for static entities to send in setstate
     std::map<uint32, SystemEntity*> m_opStaticEntities; // this list is for static entities which are operational and need to be initialized and operated upon even when system is empty
 
-    // ghost ships (combat logoff — ship persists while aggression timer runs)
-    std::map<ShipSE*, int64> m_ghostShips;
+    // ghost ships (logoff — ship persists before warp-out)
+    std::map<ShipSE*, std::pair<int64, bool>> m_ghostShips; // ship → (expireTime, emergencyWarp)
 
     // for bounty processing (20m timer)
     Timer m_bountyTimer;
