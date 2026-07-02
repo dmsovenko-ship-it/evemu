@@ -503,6 +503,11 @@ void Client::ProcessClient() {
                     } break;
                 case Player::State::LoginWarp: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: LoginWarp");
+                    // Sync position before warp so client's ballpark is at the
+                    // correct starting location.  Without this, the WarpLoop
+                    // starts from a stale position, and at warp exit a position
+                    // mismatch can trigger 'Unknown packet type' in AddBalls.
+                    pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition(), true);
                     pShipSE->DestinyMgr()->UnCloak();
                     pShipSE->DestinyMgr()->WarpTo(m_loginWarpPoint);
                     } break;
