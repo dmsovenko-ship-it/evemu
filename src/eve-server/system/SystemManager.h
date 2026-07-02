@@ -72,6 +72,7 @@ public:
 
     SystemEntity* GetSE(uint32 entityID) const;
     NPC* GetNPCSE(uint32 entityID) const;
+    const std::map<uint32, SystemEntity*>& GetStaticEntities() const { return m_staticEntities; }
     ShipItemRef GetShipFromInventory(uint32 shipID);
     StationItemRef GetStationFromInventory(uint32 stationID);
     CargoContainerRef GetContainerFromInventory(uint32 contID);

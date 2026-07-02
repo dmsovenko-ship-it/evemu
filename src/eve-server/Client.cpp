@@ -503,12 +503,22 @@ void Client::ProcessClient() {
                     } break;
                 case Player::State::LoginWarp: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: LoginWarp");
-                    // Use a safe stop distance so login warp doesn't land inside
-                    // a station sphere.  Stations can have radii up to ~60km.
-                    int32 safeDist = 50000;
+                    // Check if login point is inside any station sphere and adjust
+                    GPoint safePoint = m_loginWarpPoint;
+                    for (auto& cur : pShipSE->SystemMgr()->GetStaticEntities()) {
+                        if (!cur.second->IsStationSE()) continue;
+                        GVector offset(safePoint, cur.second->GetPosition());
+                        double dist = offset.length();
+                        double staRadius = cur.second->GetRadius() + 5000; // radius + margin
+                        if (dist < staRadius) {
+                            // Inside station sphere — push outside
+                            offset.normalize();
+                            safePoint = cur.second->GetPosition() + (offset * staRadius);
+                        }
+                    }
                     pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition(), true);
                     pShipSE->DestinyMgr()->UnCloak();
-                    pShipSE->DestinyMgr()->WarpTo(m_loginWarpPoint, safeDist);
+                    pShipSE->DestinyMgr()->WarpTo(safePoint, 2500);
                     } break;
                 case Player::State::Jump: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Jump");
