@@ -46,7 +46,10 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
   m_armorRepairDuration(who->GetSelf()->GetAttribute(AttrEntityArmorRepairDuration).get_int()),
   m_subType(DroneAI::SubType_Unknown),
   m_ewarStrength(0.0f),
-  m_repairAmount(0.0f)
+  m_repairAmount(0.0f),
+  m_paintTimer(0),
+  m_paintTargetID(0),
+  m_paintedSigRadius(0.0f)
 {
     m_processTimer.Start(5000);     //arbitrary.
 
@@ -65,11 +68,15 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
             break;
         }
         case EVEDB::invGroups::Electronic_Warfare_Drone: {
-            m_subType = DroneAI::SubType_ECM;
-            // ECM strength is based on scan strength vs target's sensor strength
-            // Store scan strength bonus as ewarStrength
-            if (m_pDrone->GetSelf()->HasAttribute(AttrScanStrengthBonus))
-                m_ewarStrength = m_pDrone->GetSelf()->GetAttribute(AttrScanStrengthBonus).get_float();
+            // Target painting drones have AttrSignatureRadiusBonus instead of AttrScanStrengthBonus
+            if (m_pDrone->GetSelf()->HasAttribute(AttrSignatureRadiusBonus)) {
+                m_subType = DroneAI::SubType_TargetPaint;
+                m_ewarStrength = m_pDrone->GetSelf()->GetAttribute(AttrSignatureRadiusBonus).get_float();
+            } else {
+                m_subType = DroneAI::SubType_ECM;
+                if (m_pDrone->GetSelf()->HasAttribute(AttrScanStrengthBonus))
+                    m_ewarStrength = m_pDrone->GetSelf()->GetAttribute(AttrScanStrengthBonus).get_float();
+            }
             break;
         }
         case EVEDB::invGroups::Logistic_Drone:
@@ -369,6 +376,14 @@ void DroneAIMgr::ReturnBay() {
 void DroneAIMgr::SetIdle() {
     if (m_state == DroneAI::State::Idle)
         return;
+    // Clean up target paint effect
+    if (m_paintTargetID != 0) {
+        SystemEntity* paintedSE = m_pDrone->SystemMgr()->GetSE(m_paintTargetID);
+        if (paintedSE != nullptr)
+            paintedSE->GetSelf()->SetAttribute(AttrSignatureRadius, m_paintedSigRadius, false);
+        m_paintTargetID = 0;
+        m_paintedSigRadius = 0.0f;
+    }
     // not doing anything....idle.
     _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: returning to idle.",
          m_pDrone->GetName(), m_pDrone->GetID());
@@ -712,6 +727,9 @@ void DroneAIMgr::AttackTarget(SystemEntity* pTarget) {
         case DroneAI::SubType_ECM:
             ECMAttack(pTarget);
             break;
+        case DroneAI::SubType_TargetPaint:
+            PaintAttack(pTarget);
+            break;
         case DroneAI::SubType_Logistics:
             LogisticsRepair(pTarget);
             break;
@@ -1051,6 +1069,50 @@ void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
     // ECM clears target's lock list if strength beats target's sensor strength
     // (Simplified: always break locks for now — real ECM uses chance calc)
     pTarget->TargetMgr()->ClearTargets();
+}
+
+void DroneAIMgr::PaintAttack(SystemEntity* pTarget) {
+    _log(DRONE__AI_TRACE, "Drone %s(%u): PaintAttack on %s(%u) with strength %.2f",
+         m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID(), m_ewarStrength);
+
+    // Send target painter visual effect
+    uint32 gfxID = 0;
+    if (m_pDrone->GetSelf()->HasAttribute(AttrGfxBoosterID))
+        gfxID = m_pDrone->GetSelf()->GetAttribute(AttrGfxBoosterID).get_uint32();
+    m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->itemID(),
+                                             m_pDrone->GetSelf()->typeID(),
+                                             pTarget->GetID(),
+                                             0, "effects.TargetPaint",
+                                             1, 1, 1, m_attackSpeed, 0, gfxID);
+
+    Client* owner = m_pDrone->GetOwner();
+    if (owner != nullptr) {
+        owner->GetCrimeWatch()->OnWeaponFired();
+        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
+            float sec = owner->SystemMgr()->GetSystemSecurityRating();
+            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
+        }
+    }
+    // Apply signature radius bonus to target
+    float paintStr = m_ewarStrength;
+    if (owner != nullptr)
+        paintStr *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::ElectronicWarfareDroneInterfacing));
+    InventoryItemRef targetRef = pTarget->GetSelf();
+    if (targetRef->HasAttribute(AttrSignatureRadius)) {
+        // Restore previous paint if we painted a different target last cycle
+        if (m_paintTargetID != 0 and m_paintTargetID != pTarget->GetID()) {
+            SystemEntity* oldTarget = m_pDrone->SystemMgr()->GetSE(m_paintTargetID);
+            if (oldTarget != nullptr) {
+                oldTarget->GetSelf()->SetAttribute(AttrSignatureRadius, m_paintedSigRadius, false);
+            }
+        }
+        // Save current as base, apply new paint
+        float currentSig = targetRef->GetAttribute(AttrSignatureRadius).get_float();
+        m_paintedSigRadius = currentSig;
+        m_paintTargetID = pTarget->GetID();
+        targetRef->SetAttribute(AttrSignatureRadius, currentSig * (1.0f + paintStr / 100.0f), false);
+    }
 }
 
 void DroneAIMgr::LogisticsRepair(SystemEntity* pTarget) {

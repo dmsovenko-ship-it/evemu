@@ -46,6 +46,7 @@ namespace DroneAI {
         SubType_Mining        = 6,
         SubType_Fighter       = 8,
         SubType_Sentry        = 10,
+        SubType_TargetPaint   = 11,
         SubType_FighterBomber = 9,
         SubType_Unknown       = 7
     };
@@ -95,6 +96,7 @@ protected:
     void WebAttack(SystemEntity* pTarget);
     void ScrambleAttack(SystemEntity* pTarget);
     void ECMAttack(SystemEntity* pTarget);
+    void PaintAttack(SystemEntity* pTarget);
     void LogisticsRepair(SystemEntity* pTarget);
     void CapDrainAttack(SystemEntity* pTarget);
     void MiningAttack(SystemEntity* pTarget);
@@ -144,6 +146,9 @@ private:
     Timer m_warpScramblerTimer;
     Timer m_webifierTimer;
     Timer m_miningTimer;
+    Timer m_paintTimer;         // cycle timer for target paint cleanup
+    uint32 m_paintTargetID;     // entityID of painted target (0 = none)
+    float m_paintedSigRadius;   // the sig radius we set (used to reverse on cleanup)
 };
 
 #endif  // __EVEMU_SHIP_DRONEAI_H__
