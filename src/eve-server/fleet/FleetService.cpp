@@ -706,8 +706,11 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
                 SquadData sData = SquadData();
                 GetSquadData(squadID, sData);
                 for (auto cur : sData.members)
-                    if ((sboost) and (cur.second->GetSystemID() == sData.booster->GetSystemID()))
-                        memberUpdateMap.emplace(cur.second->GetShipSE(), sData.boost);
+                    if ((sboost) and (cur.second->GetSystemID() == sData.booster->GetSystemID())) {
+                        ShipSE* pShipSE = cur.second->GetShipSE();
+                        if (pShipSE != nullptr)
+                            memberUpdateMap.emplace(pShipSE, sData.boost);
+                    }
             }
         }
     } else if (!squad.empty()) {
@@ -731,8 +734,11 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
             bool sboost(false);
             SetSquadBoostData(squadID, bData, sboost);
             for (auto cur : sData.members)
-                if (sboost and (cur.second->GetSystemID() == sData.booster->GetSystemID()))
-                    memberUpdateMap.emplace(cur.second->GetShipSE(), sData.boost);
+                if (sboost and (cur.second->GetSystemID() == sData.booster->GetSystemID())) {
+                    ShipSE* pShipSE = cur.second->GetShipSE();
+                    if (pShipSE != nullptr)
+                        memberUpdateMap.emplace(pShipSE, sData.boost);
+                }
         }
     }
 

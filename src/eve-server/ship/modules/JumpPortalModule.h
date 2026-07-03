@@ -23,20 +23,26 @@ public:
     /* ActiveModule overrides */
     virtual void Activate(uint16 effectID, uint32 targetID=0, int16 repeat=0);
     virtual void DeactivateCycle(bool abort=false);
+    virtual uint32 DoCycle();
     virtual bool CanActivate();
 
     // Accessors for bridge commands
-    bool IsPortalActive() { return IsActive(); }
+    bool IsPortalActive() { return (m_portalSE != nullptr); }
+    SystemEntity* GetPortalSE() { return m_portalSE; }
     uint32 GetBeaconID() { return m_beaconID; }
 
 protected:
     Client* pClient;
     ShipSE* pShipSE;
+    SystemEntity* m_portalSE;
 
+    bool m_firstRun;
     uint32 m_beaconID;          // target cyno beacon for the bridge
     uint32 m_targetSystemID;    // target solar system
     float m_shipVelocity;
 
+    void CreatePortal();
+    void RemovePortal();
     void SendOnJumpBeaconChange(bool active=false);
 };
 
