@@ -1026,7 +1026,7 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
     // Check jump range with Jump Drive Calibration skill (+5% range per level)
     float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
     int8 jumpDriveCalLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
-    maxRange *= (1.0f + 0.05f * jumpDriveCalLevel);
+    maxRange *= (1.0f + 0.25f * jumpDriveCalLevel);
     if (jumpDistance > maxRange) {
         call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
         return PyStatic.NewNone();
@@ -1149,11 +1149,11 @@ PyResult BeyonceBound::CmdJumpThroughAlliance(PyCallArgs &call, PyInt* otherShip
     GVector heading(startPosition, endPosition);
     double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
 
-    // Check jump range with Jump Drive Calibration skill (+5% range per level)
+    // Check jump range with Jump Drive Calibration skill (+25% range per level, Crucible era)
     {
         float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
         int8 jumpDriveCalLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
-        maxRange *= (1.0f + 0.05f * jumpDriveCalLevel);
+        maxRange *= (1.0f + 0.25f * jumpDriveCalLevel);
         if (jumpDistance > maxRange) {
             call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
             return PyStatic.NewNone();
@@ -1237,7 +1237,7 @@ PyResult BeyonceBound::CmdJumpThroughCorporationStructure(PyCallArgs &call, PyIn
     // Check jump range with Jump Drive Calibration skill (+5% range per level)
     float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
     int8 jumpDriveCalLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
-    maxRange *= (1.0f + 0.05f * jumpDriveCalLevel);
+    maxRange *= (1.0f + 0.25f * jumpDriveCalLevel);
     if (jumpDistance > maxRange) {
         call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
         return PyStatic.NewNone();
