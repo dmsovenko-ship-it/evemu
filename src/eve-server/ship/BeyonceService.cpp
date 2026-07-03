@@ -1024,6 +1024,19 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
     GVector heading(startPosition, endPosition);
     double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
 
+    // Range check (Crucible mechanics: base range + JDC 25%/level)
+    if (ship->HasAttribute(AttrJumpDriveRange)) {
+        float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
+        if (maxRange > 0.0f) {
+            int8 jdcLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
+            maxRange *= (1.0f + 0.25f * jdcLevel);
+            if (jumpDistance > maxRange) {
+                call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
+                return PyStatic.NewNone();
+            }
+        }
+    }
+
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
     if (fuelQuantity == 0)
@@ -1145,10 +1158,21 @@ PyResult BeyonceBound::CmdJumpThroughAlliance(PyCallArgs &call, PyInt* otherShip
     GVector heading(startPosition, endPosition);
     double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
 
+    if (ship->HasAttribute(AttrJumpDriveRange)) {
+        float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
+        if (maxRange > 0.0f) {
+            int8 jdcLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
+            maxRange *= (1.0f + 0.25f * jdcLevel);
+            if (jumpDistance > maxRange) {
+                call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
+                return PyStatic.NewNone();
+            }
+        }
+    }
+
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
     if (fuelQuantity == 0)
-        fuelQuantity = 1;
 
     ship->GetMyInventory()->GetItemsByFlag(flagFuelBay, fuelBayItems);
     uint32 quantity = 0;
@@ -1221,6 +1245,17 @@ PyResult BeyonceBound::CmdJumpThroughCorporationStructure(PyCallArgs &call, PyIn
     GVector heading(startPosition, endPosition);
     double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
 
+    if (ship->HasAttribute(AttrJumpDriveRange)) {
+        float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
+        if (maxRange > 0.0f) {
+            int8 jdcLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
+            maxRange *= (1.0f + 0.25f * jdcLevel);
+            if (jumpDistance > maxRange) {
+                call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
+                return PyStatic.NewNone();
+            }
+        }
+    }
 
     std::vector<InventoryItemRef> fuelBayItems;
     std::vector<InventoryItemRef> requiredItems;
