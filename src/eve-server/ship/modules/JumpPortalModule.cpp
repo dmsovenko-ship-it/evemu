@@ -15,8 +15,6 @@ JumpPortalModule::JumpPortalModule(ModuleItemRef mRef, ShipItemRef sRef)
 : ActiveModule(mRef, sRef),
 pClient(nullptr),
 pShipSE(nullptr),
-m_portalSE(nullptr),
-m_firstRun(true),
 m_beaconID(0),
 m_targetSystemID(0),
 m_shipVelocity(0.0f)
@@ -40,7 +38,6 @@ void JumpPortalModule::Activate(uint16 effectID, uint32 targetID, int16 repeat)
         m_targetSystemID = 0;
     }
 
-    m_firstRun = true;
     ActiveModule::Activate(effectID, targetID, repeat);
 
     if (m_Stop)
@@ -60,7 +57,6 @@ void JumpPortalModule::Activate(uint16 effectID, uint32 targetID, int16 repeat)
 void JumpPortalModule::DeactivateCycle(bool abort)
 {
     SendOnJumpBeaconChange(false);
-    RemovePortal();
     ActiveModule::DeactivateCycle(abort);
 
     pShipSE->GetSelf()->SetAttribute(AttrMaxVelocity, m_shipVelocity);
@@ -103,51 +99,10 @@ bool JumpPortalModule::CanActivate()
     return ActiveModule::CanActivate();
 }
 
-uint32 JumpPortalModule::DoCycle()
-{
-    uint32 retVal(0);
-    if (retVal = ActiveModule::DoCycle())
-        if (m_firstRun) {
-            m_firstRun = false;
-            CreatePortal();
-        }
-
-    return retVal;
-}
-
-void JumpPortalModule::CreatePortal()
-{
-    if (m_portalSE != nullptr)
-        return;
-
-    // Create a cynosural field as the portal visual entity
-    ItemData pData(EVEDB::invTypes::CynosuralFieldI, pClient->GetCharacterID(), m_sysMgr->GetID(), flagNone);
-    InventoryItemRef pRef = sItemFactory.SpawnItem(pData);
-
-    _log(MODULE__DEBUG, "Creating jump portal");
-
-    m_portalSE = new ItemSystemEntity(pRef, pClient->services(), m_sysMgr);
-    GPoint location(pShipSE->GetPosition());
-    location.MakeRandomPointOnSphere(2000.0f + pRef->type().radius());
-    m_portalSE->SetPosition(location);
-    pRef->SaveItem();
-    m_sysMgr->AddEntity(m_portalSE);
-}
-
-void JumpPortalModule::RemovePortal()
-{
-    if (m_portalSE != nullptr) {
-        m_portalSE->Delete();
-        SafeDelete(m_portalSE);
-    }
-}
-
 void JumpPortalModule::SendOnJumpBeaconChange(bool active/*false*/) {
     _log(MODULE__DEBUG, "JumpPortalModule: Sending OnJumpBeaconChange (active = %s)", active ? "true" : "false");
 
-    uint32 fieldID(0);
-    if (m_portalSE != nullptr)
-        fieldID = m_portalSE->GetID();
+    uint32 fieldID(pShipSE->GetID());
 
     PyTuple* data = new PyTuple(4);
         data->SetItem(0, new PyInt(pClient->GetCharacterID()));
