@@ -7,6 +7,8 @@
 
 #include "ship/modules/CovertCynoModule.h"
 #include "system/SystemManager.h"
+#include "pos/Tower.h"
+#include "system/sov/SovereigntyDataMgr.h"
 
 CovertCynoModule::CovertCynoModule(ModuleItemRef mRef, ShipItemRef sRef)
 : CynoModule(mRef, sRef)
