@@ -1035,6 +1035,8 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
 
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
+    if (fuelQuantity == 0)
+        fuelQuantity = 1;
 
     ship->GetMyInventory()->GetItemsByFlag(flagFuelBay, fuelBayItems);
     uint32 quantity = 0;
@@ -1051,11 +1053,13 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
         return PyStatic.NewNone();
     }
 
+    uint32 quantityLeft = fuelQuantity;
     for (auto cur : requiredItems) {
-        if (cur->quantity() > fuelQuantity) {
-            cur->AlterQuantity(-fuelQuantity, true);
+        if (cur->quantity() >= quantityLeft) {
+            cur->AlterQuantity(-quantityLeft, true);
             break;
         } else {
+            quantityLeft -= cur->quantity();
             cur->SetQuantity(0, true, true);
         }
     }
@@ -1163,6 +1167,8 @@ PyResult BeyonceBound::CmdJumpThroughAlliance(PyCallArgs &call, PyInt* otherShip
 
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
+    if (fuelQuantity == 0)
+        fuelQuantity = 1;
 
     ship->GetMyInventory()->GetItemsByFlag(flagFuelBay, fuelBayItems);
     uint32 quantity = 0;
@@ -1251,6 +1257,8 @@ PyResult BeyonceBound::CmdJumpThroughCorporationStructure(PyCallArgs &call, PyIn
 
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     uint32 fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
+    if (fuelQuantity == 0)
+        fuelQuantity = 1;
 
     ship->GetMyInventory()->GetItemsByFlag(flagFuelBay, fuelBayItems);
     uint32 quantity = 0;
@@ -1372,6 +1380,8 @@ PyResult BeyonceBound::CmdBeaconJumpFleet(PyCallArgs &call, PyInt* characterID, 
     } else {
         fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
     }
+    if (fuelQuantity == 0)
+        fuelQuantity = 1;
 
     ship->GetMyInventory()->GetItemsByFlag(flagFuelBay, fuelBayItems);
     uint32 quantity = 0;
@@ -1389,13 +1399,13 @@ PyResult BeyonceBound::CmdBeaconJumpFleet(PyCallArgs &call, PyInt* characterID, 
         return PyStatic.NewNone();
     }
 
+    uint32 quantityLeft = fuelQuantity;
     for (auto cur : requiredItems) {
-        if (cur->quantity() > fuelQuantity) {
-            //If we have all the quantity we need in the current stack, decrement the amount we need and break
-            cur->AlterQuantity(-fuelQuantity, true);
+        if (cur->quantity() >= quantityLeft) {
+            cur->AlterQuantity(-quantityLeft, true);
             break;
         } else {
-            //If the stack doesn't have the full amount delete item
+            quantityLeft -= cur->quantity();
             cur->SetQuantity(0, true, true);
         }
     }
@@ -1456,6 +1466,8 @@ PyResult BeyonceBound::CmdBeaconJumpAlliance(PyCallArgs &call, PyInt* beaconID, 
     } else {
         fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
     }
+    if (fuelQuantity == 0)
+        fuelQuantity = 1;
 
     ship->GetMyInventory()->GetItemsByFlag(flagFuelBay, fuelBayItems);
     uint32 quantity = 0;
@@ -1476,19 +1488,14 @@ PyResult BeyonceBound::CmdBeaconJumpAlliance(PyCallArgs &call, PyInt* beaconID, 
     uint32 quantityLeft = fuelQuantity;
     for (auto cur : requiredItems) {
         if (cur->quantity() >= quantityLeft) {
-            //If we have all the quantity we need in the current stack, decrement the amount we need and break
             cur->AlterQuantity(-quantityLeft, true);
             break;
         } else {
-            //If the stack doesn't have the full amount, decrement the quantity from what we need and zero out the stack
             quantityLeft -= cur->quantity();
-            // Delete item after we zero it's quantity
             cur->SetQuantity(0, true, true);
         }
     }
 
-    GPoint position = beacon->position();
-    position.MakeRandomPointOnSphere(2500.0);
     call.client->CynoJump(beacon);
 
     /* return error msg from this call, if applicable, else nodeid and timestamp */
