@@ -280,9 +280,14 @@ docker logs -f server          # ждать "Server started"
 | **Конвои** | Фазы, защита сентри |
 | **Киллимейлы** | XML, push |
 | **Почта** | Двойная запись, Deflate |
-| **Флот** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist скиллы, MiningDirector, Gang Coordinator |
+| **Флот** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist скиллы, MiningDirector, Gang Coordinator. Пофикшен краш ApplyBoost при анлоке во флоте |
 | **Изображения** | ImageServer URL авторезолв, imageServerURL конфиг, portrait gender в cacheOwners |
-| **Сборка** | Docker Compose, ccache, −400 МБ |
+| **Варп скрамбл** | Модули игрока, NPC AI, блокировка emergency warp, CmdSafeLogoff, очистка статуса |
+| **Цино** | Пофикшен джаммер (проверка существования структуры), пофикшена секьюрити (инвертированная m_secValue) |
+| **Коверт цино** | CovertCynoModule — без флота, хайсек, CovertCynosuralFieldI |
+| **Титан бридж** | JumpPortalModule — портал, прыжки флота/альянса, CmdBridgeToMember |
+| **Jump Drive** | Range check с JDC (+25%/lvl), минимальное топливо 1, quantityLeft |
+| **Сборка** | Docker Compose, ccache, −400 МБ. Добавлены CovertCynoModule + JumpPortalModule в CMakeLists |
 
 ---
 
