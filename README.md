@@ -139,12 +139,14 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Convoys** | Phased movement, sentry defense |
 | **Killmails** | XML blob, push notification |
 | **Mail** | Dual-write, Deflate |
-| **Fleet** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist skills, MiningDirector, Gang Coordinator modules |
+| **Fleet** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist skills, MiningDirector, Gang Coordinator modules. Fixed null ShipSE crash in ApplyBoost on undock |
 | **Image Server** | Auto-resolve URL, imageServerURL config, portrait gender fix |
-| **Covert Cyno** | `CovertCynoModule` — no fleet requirement, covert cyno field, high-sec allowed |
-| **Titan Bridge** | `JumpPortalModule` — portal creation, fleet/alliance bridge, `CmdJumpThroughFleet`/`CmdJumpThroughAlliance` |
-| **Jump Bridge** | Enhanced fuel calc (distance-based), range check via `AttrJumpDriveRange` |
-| **Build** | Docker Compose, ccache, 400 MB reduction |
+| **Cyno** | Fixed jammer check (verify entity exists), fixed security check (inverted m_secValue), fixed fleet requirement bypass |
+| **Covert Cyno** | `CovertCynoModule` — no fleet required, high-sec allowed, creates CovertCynosuralFieldI |
+| **Titan Bridge** | `JumpPortalModule` — portal effect, fleet/alliance jump, `CmdJumpThroughFleet`/`CmdJumpThroughAlliance`/`CmdBridgeToMember` |
+| **Jump Drive** | Range check with JDC skill (+25%/lvl Crucible), distance-based fuel, minimum fuel 1, quantityLeft consumption |
+| **Jump Bridge** | Enhanced fuel calc (distance-based), range check on bridge jumps |
+| **Build** | Docker Compose, ccache, 400 MB reduction. Added CovertCynoModule + JumpPortalModule to CMakeLists |
 
 ---
 

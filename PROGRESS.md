@@ -176,6 +176,28 @@
 | Scramble cleanup on NPC clear target | ✅ Added | `NPCAI::ClearTarget` clears `AttrWarpScrambleStatus` |
 | Scramble cleanup on drone idle | ✅ Added | `DroneAI::SetIdle` clears `AttrWarpScrambleStatus` on lingering target |
 
+### Cyno & Jump Systems
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **CynoModule** (regular) | ✅ Working | Fleet check, POS shield, jammer, sec check all fixed |
+| **CovertCynoModule** | ✅ Added | No fleet req, high-sec allowed, CovertCynosuralFieldI |
+| **JumpPortalModule** (titan bridge) | ✅ Added | Portal effect, fleet notification, ship freeze, JDC range |
+| **CmdJumpThroughFleet** | ✅ Added | Portal lookup, fleet validation, fuel calc, range check |
+| **CmdJumpThroughAlliance** | ✅ Added | Portal lookup, alliance validation, fuel calc, range check |
+| **CmdBridgeToMember** | ✅ Added | Sets bridge target on active JumpPortalModule |
+| **CmdJumpThroughCorporationStructure** | ✅ Enhanced | Distance-based fuel (static 500 LO → dynamic), range check |
+| **Jump range check** | ✅ Added | `AttrJumpDriveRange` × JDC (+25%/lvl, Crucible era), fallback if attr missing |
+| **Fuel consumption** | ✅ Fixed | Minimum 1 fuel, `quantityLeft` decrement in consumption loop |
+| **Cyno jammer check** | ✅ Fixed | Verifies jammer `StructureSE` exists in system via `GetSE()` |
+| **High-sec check** | ✅ Fixed | `m_secValue` is 0.1 (1.0 sec) to 2.0 (−0.9 sec), now correctly blocks ≥ 0.5 |
+
+### Fleet Boost Fix
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **ApplyBoost null guard** | ✅ Fixed | Added null ShipSE checks on all ApplyBoost call sites (prevents undock-in-fleet segfault) |
+
 ---
 
 ## NPC & Combat

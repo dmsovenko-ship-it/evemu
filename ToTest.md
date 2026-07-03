@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes (2026-07-02 session). Check off each item as you confirm it works.
+Things to verify after recent changes (2026-07-03 session). Check off each item as you confirm it works.
 
 ---
 
