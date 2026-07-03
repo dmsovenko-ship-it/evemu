@@ -214,6 +214,11 @@
 | ECM / ECCM | ✅ Working | ActiveModule |
 | Sensor booster / tracker computer | ✅ Working | ActiveModule |
 | Cynosural field gen | ✅ Working | CynoModule |
+| Covert cyno field | ✅ Added | CovertCynoModule — no fleet req, high-sec allowed, CovertCynosuralFieldI |
+| Jump portal (titan bridge) | ✅ Added | JumpPortalModule — portal creation, OnJumpBeaconChange, duration/effects |
+| CmdJumpThroughFleet | ✅ Added | Full implementation — portal lookup, fleet validation, fuel calc, CynoJump |
+| CmdJumpThroughAlliance | ✅ Added | Full implementation — portal lookup, alliance validation, fuel calc, CynoJump |
+| CmdJumpThroughCorporationStructure | ✅ Enhanced | Distance-based fuel, jump range check via AttrJumpDriveRange |
 | Probe launcher | ✅ Working | ProbeLauncher |
 | Rigs | ✅ Working | RigModule |
 | Subsystems (T3) | ✅ Working | SubSystemModule |

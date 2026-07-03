@@ -30,7 +30,7 @@ public:
     // this is a check for those active modules that need it (mining, weapons) and overridden as needed
     virtual bool CanActivate();
 
-private:
+protected:
     Client* pClient;
     ShipSE* pShipSE;
     SystemEntity* cSE;
@@ -40,7 +40,7 @@ private:
     float m_shipVelocity;
 
     void SendOnJumpBeaconChange(bool status=false);
-    void CreateCyno();
+    virtual void CreateCyno();
 };
 
 #endif  //_EVE_SHIP_MODULES_CYNO_MODULE_H_

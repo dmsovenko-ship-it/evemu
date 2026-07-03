@@ -141,6 +141,9 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Mail** | Dual-write, Deflate |
 | **Fleet** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist skills, MiningDirector, Gang Coordinator modules |
 | **Image Server** | Auto-resolve URL, imageServerURL config, portrait gender fix |
+| **Covert Cyno** | `CovertCynoModule` — no fleet requirement, covert cyno field, high-sec allowed |
+| **Titan Bridge** | `JumpPortalModule` — portal creation, fleet/alliance bridge, `CmdJumpThroughFleet`/`CmdJumpThroughAlliance` |
+| **Jump Bridge** | Enhanced fuel calc (distance-based), range check via `AttrJumpDriveRange` |
 | **Build** | Docker Compose, ccache, 400 MB reduction |
 
 ---

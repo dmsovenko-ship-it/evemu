@@ -119,6 +119,15 @@ Things to verify after recent changes (2026-07-02 session). Check off each item 
 - [ ] **Remote portrait fetch** — Log in from a different machine. Character portrait should load (not 404).
 - [ ] **Fleet portrait** — Join a fleet, open fleet window. All character portraits should display (no crash).
 
+## Cyno / Jump Bridge / Titan Bridge
+
+- [ ] **Covert cyno** — Fit a covert cyno gen to a covert ops ship. Activate it. Should create a covert cyno field (no fleet required, should work in high-sec).
+- [ ] **Regular cyno** — Fit a cyno gen to any ship. Must be in fleet and NOT in high-sec. Activate to create a cyno field.
+- [ ] **Titan bridge** — Titan pilot lights cyno, then activates Jump Portal Generator targeting it. Fleet members should see "Jump through" option on the titan.
+- [ ] **CmdJumpThroughFleet** — Fleet member clicks "Jump through" on titan. Should pay jump fuel and arrive at the cyno.
+- [ ] **CmdJumpThroughAlliance** — Alliance bridge: same flow but alliance-wide.
+- [ ] **POS Jump Bridge** — Install a jump bridge link between two POS towers. Jump through using CorpStructure option. Fuel should scale by distance.
+
 ## Login Warp
 
 - [ ] **Login in space** — Log out in space, log back in. Ship should appear at login position with no kick.
