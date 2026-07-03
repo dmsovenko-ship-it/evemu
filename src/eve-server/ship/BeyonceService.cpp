@@ -1024,7 +1024,6 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
     GVector heading(startPosition, endPosition);
     double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
 
-
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
     if (fuelQuantity == 0)
