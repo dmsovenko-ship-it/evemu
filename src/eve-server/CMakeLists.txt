@@ -506,6 +506,8 @@ SET( ship_modules_SOURCE
      "${TARGET_SOURCE_DIR}/ship/modules/TurretFormulas.cpp"
      "${TARGET_SOURCE_DIR}/ship/modules/TurretModule.cpp"
      "${TARGET_SOURCE_DIR}/ship/modules/CynoModule.cpp"
+     "${TARGET_SOURCE_DIR}/ship/modules/CovertCynoModule.cpp"
+     "${TARGET_SOURCE_DIR}/ship/modules/JumpPortalModule.cpp"
      "${TARGET_SOURCE_DIR}/ship/modules/ProbeLauncher.cpp" )
 
 SET( standing_INCLUDE
