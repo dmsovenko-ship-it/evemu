@@ -1257,6 +1257,12 @@ PyResult BeyonceBound::CmdSafeLogoff(PyCallArgs &call) {
         call.client->SendNotifyMsg("You cannot safe logoff with an active aggression timer. Use emergency logoff instead.");
         return PyStatic.NewNone();
     }
+    // Check warp scramble status — cannot safe logoff while scrambled
+    if (call.client->GetShip()->HasAttribute(AttrWarpScrambleStatus)
+        and call.client->GetShip()->GetAttribute(AttrWarpScrambleStatus) > 0) {
+        call.client->SendNotifyMsg("You cannot safe logoff while warp scrambled.");
+        return PyStatic.NewNone();
+    }
     // Start 30-second safe logoff timer
     // (In Crucible, the client handles the 30s countdown internally after this call)
     call.client->SendNotifyMsg("Safe logoff initiated. Your ship will warp out in 30 seconds.");

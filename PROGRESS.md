@@ -172,7 +172,9 @@
 | Safe logoff (stationary disconnect) | ✅ Added | Speed=0 on disconnect → immediate ship removal |
 | Ghost ship cleanup | ✅ Added | `SystemManager::ProcessGhostShips()` removes expired ships |
 | CmdSafeLogoff | ✅ Added | BeyonceService handler for client safe logoff request |
-| Warp scramble blocks emergency warp | ❌ Not connected to logoff | `AttrWarpScrambleStatus` checked in `CmdWarpToStuff` only |
+| Warp scramble blocks emergency warp | ✅ Connected | `ProcessGhostShips` checks scram, `CmdSafeLogoff` rejects while scrambled |
+| Scramble cleanup on NPC clear target | ✅ Added | `NPCAI::ClearTarget` clears `AttrWarpScrambleStatus` |
+| Scramble cleanup on drone idle | ✅ Added | `DroneAI::SetIdle` clears `AttrWarpScrambleStatus` on lingering target |
 
 ---
 

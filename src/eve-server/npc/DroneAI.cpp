@@ -418,6 +418,13 @@ void DroneAIMgr::SetIdle() {
     if (m_pDrone->TargetMgr() != nullptr) {
         m_webifierTimer.Disable();
         m_warpScramblerTimer.Disable();
+        // Clear warp scramble status on any lingering targets
+        SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
+        if (pTarget != nullptr) {
+            InventoryItemRef targetItem = pTarget->GetSelf();
+            if (targetItem and targetItem->HasAttribute(AttrWarpScrambleStatus))
+                targetItem->SetAttribute(AttrWarpScrambleStatus, 0.0f);
+        }
     }
 
     // orbit assigned ship (guard against stale m_assignedShip)

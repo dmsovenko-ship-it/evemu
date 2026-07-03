@@ -134,6 +134,7 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **CONCORD** | Police ×25 HP, delay by sec, −0.2 penalty |
 | **Sentry** | Corp inheritance, nullsec standing check |
 | **CrimeWatch** | Timers, outlaw, suspect, criminal, CanDock/CanJump, combat logoff 15min, emergency warp 60s |
+| **Warp Scramble** | Player modules, NPC AI scram, emergency warp block, CmdSafeLogoff check, scramble cleanup on NPC/drone target clear |
 | **Kill Rights** | Grant, auto-activation, Limited Engagement |
 | **Convoys** | Phased movement, sentry defense |
 | **Killmails** | XML blob, push notification |

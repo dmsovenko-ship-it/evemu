@@ -742,6 +742,12 @@ void NPCAIMgr::Attack(SystemEntity* pSE)
 }
 
 void NPCAIMgr::ClearTarget(SystemEntity* pSE) {
+    // Clear warp scramble status on target if this NPC has scrambler capability
+    if (m_warpScramStrength > 0 and pSE != nullptr) {
+        InventoryItemRef targetItem = pSE->GetSelf();
+        if (targetItem and targetItem->HasAttribute(AttrWarpScrambleStatus))
+            targetItem->SetAttribute(AttrWarpScrambleStatus, 0.0f);
+    }
     m_npc->TargetMgr()->ClearTarget(pSE);
     //m_npc->TargetMgr()->OnTarget(pSE, TargMgr::Mode::Lost);
 
