@@ -638,7 +638,7 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
                     }
                 // this is for FC only.  will always get own skill, and here they get their fleet boost, also
                 fData.leader = fItr->second.leader->GetChar()->GetSkillLevel(EvESkill::Leadership);
-                if (fItr->second.leader->IsInSpace())
+                if (fItr->second.leader->IsInSpace() and (fItr->second.leader->GetShipSE() != nullptr))
                     fItr->second.leader->GetShipSE()->ApplyBoost(fData);
             }
     }
@@ -745,7 +745,8 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
     // update boost effects on these members' ships using updated boost levels
     // this is for fleet boost only, as modules will apply/remove their effects using the FxSystem
     for (auto cur : memberUpdateMap)
-        cur.first->ApplyBoost(cur.second);
+        if (cur.first != nullptr)
+            cur.first->ApplyBoost(cur.second);
 
     _log( FLEET__TRACE, "FleetService::UpdateBoost() - Updated %lu members of fleetID: %u in %.2fus.  fleet: %s, wing: %s, squad: %s", \
             memberUpdateMap.size(), fleetID, GetTimeUSeconds() - start, (fleet ? "true" : "false"), (wing.empty() ? "false" : "true"), (squad.empty() ? "false" : "true"));
@@ -794,7 +795,8 @@ void FleetService::SetWingBoostData(uint32 wingID, BoostData& bData)
                 }
             // this is for WC only.  will always get own skill, and here they get their wing boost, also
             wItr->second.boost.leader   = leader;
-            wItr->second.leader->GetShipSE()->ApplyBoost(wItr->second.boost);
+            if (wItr->second.leader->IsInSpace() and (wItr->second.leader->GetShipSE() != nullptr))
+                wItr->second.leader->GetShipSE()->ApplyBoost(wItr->second.boost);
         }
 
     if (!boost)
