@@ -9,6 +9,7 @@
 #include "system/SystemManager.h"
 #include "fleet/FleetService.h"
 #include "pos/Tower.h"
+#include "pos/Structure.h"
 #include "system/sov/SovereigntyDataMgr.h"
 
 JumpPortalModule::JumpPortalModule(ModuleItemRef mRef, ShipItemRef sRef)
@@ -89,8 +90,10 @@ bool JumpPortalModule::CanActivate()
 
     SovereigntyData sovData = svDataMgr.GetSovereigntyData(pClient->GetLocationID());
     if (sovData.jammerID != 0) {
-        pClient->SendNotifyMsg("This system is currently being jammed.");
-        return false;
+        SystemEntity* jammerSE = pShipSE->SystemMgr()->GetSE(sovData.jammerID);
+        StructureSE* jammerStruct = dynamic_cast<StructureSE*>(jammerSE);
+        if (jammerStruct != nullptr and jammerStruct->IsJammerSE())
+            return false;
     }
 
     if (!sConfig.world.highSecCyno) {

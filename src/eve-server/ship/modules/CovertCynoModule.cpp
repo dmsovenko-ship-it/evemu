@@ -8,6 +8,7 @@
 #include "ship/modules/CovertCynoModule.h"
 #include "system/SystemManager.h"
 #include "pos/Tower.h"
+#include "pos/Structure.h"
 #include "system/sov/SovereigntyDataMgr.h"
 
 CovertCynoModule::CovertCynoModule(ModuleItemRef mRef, ShipItemRef sRef)
@@ -29,9 +30,11 @@ bool CovertCynoModule::CanActivate()
     /** @todo check for active cyno jammer */
 
     SovereigntyData sovData = svDataMgr.GetSovereigntyData(pClient->GetLocationID());
-    if (sovData.jammerID != 0) {
-        pClient->SendNotifyMsg("This system is currently being jammed.");
-        return false;
+    if (sovData.jammerID != 0 and pShipSE != nullptr) {
+        SystemEntity* jammerSE = pShipSE->SystemMgr()->GetSE(sovData.jammerID);
+        StructureSE* jammerStruct = dynamic_cast<StructureSE*>(jammerSE);
+        if (jammerStruct != nullptr and jammerStruct->IsJammerSE())
+            return false;
     }
 
     // Covert cyno can be used in high-sec (it's covert)

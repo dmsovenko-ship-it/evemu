@@ -9,6 +9,7 @@
 #include "system/SystemManager.h"
 #include "fleet/FleetService.h"
 #include "pos/Tower.h"
+#include "pos/Structure.h"
 #include "system/sov/SovereigntyDataMgr.h"
 
 CynoModule::CynoModule(ModuleItemRef mRef, ShipItemRef sRef)
@@ -73,16 +74,15 @@ bool CynoModule::CanActivate()
                 throw UserError("NoCynoInPOSShields");
     }
 
-    /** @todo check for active cyno jammer */
-
-    //if (m_sysMgr->HasCynoJammer())
-    //    throw UserError("CynosuralGenerationJammed");
-
-    //Send message if the system is being jammed
+    // Check for active cyno jammer — verify the jammer structure actually exists
     SovereigntyData sovData = svDataMgr.GetSovereigntyData(pClient->GetLocationID());
     if (sovData.jammerID != 0) {
-        pClient->SendNotifyMsg("This system is currently being jammed.");
-        return false;
+        SystemEntity* jammerSE = pShipSE->SystemMgr()->GetSE(sovData.jammerID);
+        StructureSE* jammerStruct = dynamic_cast<StructureSE*>(jammerSE);
+        if (jammerStruct != nullptr and jammerStruct->IsJammerSE()) {
+            pClient->SendNotifyMsg("This system is currently being jammed.");
+            return false;
+        }
     }
 
     //Make sure player is not in high-sec (configurable)
