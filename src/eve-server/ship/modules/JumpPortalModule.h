@@ -30,6 +30,8 @@ public:
     bool IsPortalActive() { return (m_portalSE != nullptr); }
     SystemEntity* GetPortalSE() { return m_portalSE; }
     uint32 GetBeaconID() { return m_beaconID; }
+    uint32 GetBridgeTargetID() { return m_bridgeTargetID; }
+    void SetBridgeTargetID(uint32 shipID) { m_bridgeTargetID = shipID; }
 
 protected:
     Client* pClient;
@@ -38,6 +40,7 @@ protected:
 
     bool m_firstRun;
     uint32 m_beaconID;          // target cyno beacon for the bridge
+    uint32 m_bridgeTargetID;    // target fleet member ship for bridge-to-member
     uint32 m_targetSystemID;    // target solar system
     float m_shipVelocity;
 

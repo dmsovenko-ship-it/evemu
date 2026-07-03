@@ -76,6 +76,7 @@ protected:
     PyResult CmdFleetRegroup(PyCallArgs& call);
     PyResult CmdFleetTagTarget(PyCallArgs& call, PyInt* itemID, PyString* tag);
     PyResult CmdSafeLogoff(PyCallArgs& call);
+    PyResult CmdBridgeToMember(PyCallArgs& call, PyInt* targetCharID, PyInt* targetShipID, PyInt* solarSystemID);
     
 private:
     BookmarkService* m_bookmark;

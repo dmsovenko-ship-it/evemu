@@ -115,6 +115,7 @@ BeyonceBound::BeyonceBound(EVEServiceManager& mgr, BeyonceService& parent, Clien
     this->Add("CmdJumpThroughFleet", &BeyonceBound::CmdJumpThroughFleet);
     this->Add("CmdJumpThroughAlliance", &BeyonceBound::CmdJumpThroughAlliance);
     this->Add("CmdJumpThroughCorporationStructure", &BeyonceBound::CmdJumpThroughCorporationStructure);
+    this->Add("CmdBridgeToMember", &BeyonceBound::CmdBridgeToMember);
 
     client->SetBeyonce(true);
     if (client->IsLogin() and !client->IsSetStateSent())
@@ -1279,6 +1280,46 @@ PyResult BeyonceBound::CmdJumpThroughCorporationStructure(PyCallArgs &call, PyIn
 
     call.client->CynoJump(beacon);
     return this->GetOID();
+}
+
+PyResult BeyonceBound::CmdBridgeToMember(PyCallArgs &call, PyInt* targetCharID, PyInt* targetShipID, PyInt* solarSystemID) {
+    _log(SHIP__MESSAGE, "BeyonceBound::CmdBridgeToMember — %s bridging to member %u ship %u",
+         call.client->GetName(), targetCharID->value(), targetShipID->value());
+
+    // Find the calling ship's active JumpPortalModule
+    ShipSE* pShipSE = call.client->GetShipSE();
+    if (pShipSE == nullptr) {
+        call.client->SendNotifyMsg("Source ship not found.");
+        return PyStatic.NewNone();
+    }
+
+    ShipItemRef shipRef = pShipSE->GetShipItemRef();
+    ModuleManager* pModMgr = shipRef->GetModuleManager();
+    if (pModMgr == nullptr) {
+        call.client->SendNotifyMsg("No module manager found.");
+        return PyStatic.NewNone();
+    }
+
+    std::vector<GenericModule*> highSlots;
+    pModMgr->GetModulesInBank(flagHiSlot0, highSlots);
+    JumpPortalModule* pPortal = nullptr;
+    for (auto mod : highSlots) {
+        if (mod != nullptr and mod->IsActive()) {
+            pPortal = dynamic_cast<JumpPortalModule*>(mod);
+            if (pPortal != nullptr)
+                break;
+        }
+    }
+
+    if (pPortal == nullptr) {
+        call.client->SendNotifyMsg("No active jump portal found.");
+        return PyStatic.NewNone();
+    }
+
+    // Set the bridge target to the member's ship
+    pPortal->SetBridgeTargetID(targetShipID->value());
+    call.client->SendNotifyMsg("Bridge target set to fleet member.");
+    return PyStatic.NewNone();
 }
 
 PyResult BeyonceBound::CmdBeaconJumpFleet(PyCallArgs &call, PyInt* characterID, PyInt* beaconID, PyInt* solarSystemID) {
