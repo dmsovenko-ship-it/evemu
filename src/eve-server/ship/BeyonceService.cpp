@@ -1023,6 +1023,15 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
     GVector heading(startPosition, endPosition);
     double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
 
+    // Check jump range with Jump Drive Calibration skill (+5% range per level)
+    float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
+    int8 jumpDriveCalLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
+    maxRange *= (1.0f + 0.05f * jumpDriveCalLevel);
+    if (jumpDistance > maxRange) {
+        call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
+        return PyStatic.NewNone();
+    }
+
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
 
@@ -1037,7 +1046,7 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
         }
     }
     if (quantity < fuelQuantity) {
-        ship->GetPilot()->SendNotifyMsg("This jump requires %u units of %s in your fuel bay.", fuelQuantity, sItemFactory.GetType(fuelType)->name().c_str());
+        call.client->SendNotifyMsg("This jump requires %u units of %s in your fuel bay.", fuelQuantity, sItemFactory.GetType(fuelType)->name().c_str());
         return PyStatic.NewNone();
     }
 
@@ -1140,6 +1149,17 @@ PyResult BeyonceBound::CmdJumpThroughAlliance(PyCallArgs &call, PyInt* otherShip
     GVector heading(startPosition, endPosition);
     double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
 
+    // Check jump range with Jump Drive Calibration skill (+5% range per level)
+    {
+        float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
+        int8 jumpDriveCalLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
+        maxRange *= (1.0f + 0.05f * jumpDriveCalLevel);
+        if (jumpDistance > maxRange) {
+            call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
+            return PyStatic.NewNone();
+        }
+    }
+
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     fuelQuantity = uint32(ceil(jumpDistance * fuelBaseConsumption * (1 - 0.1 * jumpFuelConservationLevel)));
 
@@ -1214,8 +1234,10 @@ PyResult BeyonceBound::CmdJumpThroughCorporationStructure(PyCallArgs &call, PyIn
     GVector heading(startPosition, endPosition);
     double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
 
-    // Check jump range
+    // Check jump range with Jump Drive Calibration skill (+5% range per level)
     float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
+    int8 jumpDriveCalLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpDriveCalibration);
+    maxRange *= (1.0f + 0.05f * jumpDriveCalLevel);
     if (jumpDistance > maxRange) {
         call.client->SendNotifyMsg("Jump distance exceeds maximum jump drive range.");
         return PyStatic.NewNone();
