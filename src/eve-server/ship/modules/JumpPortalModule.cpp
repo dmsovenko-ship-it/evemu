@@ -97,7 +97,7 @@ bool JumpPortalModule::CanActivate()
     }
 
     if (!sConfig.world.highSecCyno) {
-        if (pClient->SystemMgr()->GetSecValue() < 0.7f) {
+        if (pClient->SystemMgr()->GetSecValue() <= 0.6f) {
             pClient->SendNotifyMsg("This module may not be used in high security space.");
             return false;
         }
