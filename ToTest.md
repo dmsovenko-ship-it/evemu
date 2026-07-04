@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes (2026-07-03 session). Check off each item as you confirm it works.
+Things to verify after recent changes (2026-07-04 session — Cloak, Cyno, Portal/Bridge). Check off each item as you confirm it works.
 
 ---
 
@@ -119,14 +119,29 @@ Things to verify after recent changes (2026-07-03 session). Check off each item 
 - [ ] **Remote portrait fetch** — Log in from a different machine. Character portrait should load (not 404).
 - [ ] **Fleet portrait** — Join a fleet, open fleet window. All character portraits should display (no crash).
 
+## Covert Cloak
+
+- [ ] **Cloak fitting** — Fit Covert Ops Cloaking Device II to a Black Ops battleship. Client should NOT show "10000 tf" error (cpuNeed=0 in DB).
+- [ ] **Cloak online** — Click the power button on the cloak module. It should go online (cpu=100 in log).
+- [ ] **Cloak activate** — Right-click → Activate (or use the activation button). Should log "Cloak activated" and ship should visually cloak.
+- [ ] **Cloak button animation** — Module button should show active/pulsing state.
+- [ ] **Cloak deactivate** — Right-click → Deactivate (or power button). Should log "Cloak deactivated" and button state should return to normal (no red flash).
+- [ ] **Cloak re-activate** — After deactivation, should be able to activate again.
+- [ ] **Cloak offline** — Power button while active → cloak turns off, module goes offline.
+- [ ] **Cloak under jump** — Activate cloak, then warp/jump. Cloak should deactivate automatically (optional: expected EVE behavior).
+
 ## Cyno / Jump Bridge / Titan Bridge
 
-- [ ] **Covert cyno** — Fit a covert cyno gen to a covert ops ship. Activate it. Should create a covert cyno field (no fleet required, should work in high-sec).
-- [ ] **Regular cyno** — Fit a cyno gen to any ship. Must be in fleet and NOT in high-sec. Activate to create a cyno field.
+- [ ] **Covert cyno** — Fit a covert cyno gen to a covert ops ship. Activate it. Should create a **Covert** Cynosural Field (not regular). No fleet required, should work in high-sec.
+- [ ] **Covert cyno under cloak** — Activate cloak first, then activate covert cyno. Should work (no "DeniedActivateCloaked" error).
+- [ ] **Covert cyno visual** — Field should appear on overview as "Covert Cynosural Field", not regular.
+- [ ] **Regular cyno** — Fit a cyno gen to any ship. Must be in fleet and NOT in high-sec. Activate to create a regular cyno field.
 - [ ] **Titan bridge** — Titan pilot lights cyno, then activates Jump Portal Generator targeting it. Fleet members should see "Jump through" option on the titan.
+- [ ] **Covert bridge** — Black Ops ship has Covert Jump Portal Generator online. Fleet member right-clicks the Black Ops ship → should see "Bridge to..." option. Clicking it should open the portal (log "Bridge opened").
 - [ ] **CmdJumpThroughFleet** — Fleet member clicks "Jump through" on titan. Should pay jump fuel and arrive at the cyno.
 - [ ] **CmdJumpThroughAlliance** — Alliance bridge: same flow but alliance-wide.
 - [ ] **POS Jump Bridge** — Install a jump bridge link between two POS towers. Jump through using CorpStructure option. Fuel should scale by distance.
+- [ ] **Portal broadcast** — When any Jump Portal Generator goes online/offline, other ships in the same bubble should receive the module state change notification.
 
 ## Login Warp
 

@@ -141,11 +141,13 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Mail** | Dual-write, Deflate |
 | **Fleet** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist skills, MiningDirector, Gang Coordinator modules. Fixed null ShipSE crash in ApplyBoost on undock |
 | **Image Server** | Auto-resolve URL, imageServerURL config, portrait gender fix |
-| **Cyno** | Fixed jammer check (verify entity exists), fixed security check (inverted m_secValue), fixed fleet requirement bypass |
-| **Covert Cyno** | `CovertCynoModule` — no fleet required, high-sec allowed, creates CovertCynosuralFieldI |
+| **Cyno** | Fixed jammer check (verify entity exists), fixed security check (inverted m_secValue → `>= 0.5`), fixed fleet requirement bypass |
+| **Covert Cyno** | `CovertCynoModule` — no fleet required, high-sec allowed, creates CovertCynosuralFieldI (not regular). Can activate while cloaked |
+| **Covert Cloak** | `cpuNeed=0` migration bypasses client cache; `Cloak()`/`UnCloak()` via `DestinyMgr`; full activation/deactivation cycle with `ShowEffect` |
 | **Titan Bridge** | `JumpPortalModule` — portal effect, fleet/alliance jump, `CmdJumpThroughFleet`/`CmdJumpThroughAlliance`/`CmdBridgeToMember` |
 | **Jump Drive** | Range check with JDC skill (+25%/lvl Crucible), distance-based fuel, minimum fuel 1, quantityLeft consumption |
 | **Jump Bridge** | Enhanced fuel calc (distance-based), range check on bridge jumps |
+| **Portal broadcast** | `SetOnline()` now broadcasts `OnMultiEvent` to all clients in bubble — fleet members see module state changes |
 | **Build** | Docker Compose, ccache, 400 MB reduction. Added CovertCynoModule + JumpPortalModule to CMakeLists |
 
 ---
@@ -283,9 +285,11 @@ docker logs -f server          # ждать "Server started"
 | **Флот** | WarpToMember, WarpFleetToMember, FleetRegroup, Specialist скиллы, MiningDirector, Gang Coordinator. Пофикшен краш ApplyBoost при анлоке во флоте |
 | **Изображения** | ImageServer URL авторезолв, imageServerURL конфиг, portrait gender в cacheOwners |
 | **Варп скрамбл** | Модули игрока, NPC AI, блокировка emergency warp, CmdSafeLogoff, очистка статуса |
-| **Цино** | Пофикшен джаммер (проверка существования структуры), пофикшена секьюрити (инвертированная m_secValue) |
-| **Коверт цино** | CovertCynoModule — без флота, хайсек, CovertCynosuralFieldI |
+| **Цино** | Пофикшен джаммер, секьюрити (`>= 0.5` вместо `<= 0.6`), теперь блокирует только хайсек |
+| **Коверт цино** | CovertCynoModule — без флота, хайсек, CovertCynosuralFieldI. Можно активировать под клакой |
+| **Коверт клака** | `cpuNeed=0` в БД (клиентский кэш); `Cloak()`/`UnCloak()` через `DestinyMgr`; полный цикл с `ShowEffect` |
 | **Титан бридж** | JumpPortalModule — портал, прыжки флота/альянса, CmdBridgeToMember |
+| **Портал бридж** | `OpenBridge()` по команде флот-мембера; `SetOnline()` шлёт broadcast всем в бабле |
 | **Jump Drive** | Range check с JDC (+25%/lvl), минимальное топливо 1, quantityLeft |
 | **Сборка** | Docker Compose, ccache, −400 МБ. Добавлены CovertCynoModule + JumpPortalModule в CMakeLists |
 

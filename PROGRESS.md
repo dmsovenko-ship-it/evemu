@@ -1,6 +1,6 @@
 # EVEmu Crucible — Project Status
 
-> Last updated: 2026-07-02 (end of session)
+> Last updated: 2026-07-04 (end of session)
 > Based on codebase analysis of [dmsovenko-ship-it/evemu](https://github.com/dmsovenko-ship-it/evemu) (fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible))
 
 ---
@@ -182,15 +182,29 @@
 |---------|--------|-------|
 | **CynoModule** (regular) | ✅ Working | Fleet check, POS shield, jammer, sec check all fixed |
 | **CovertCynoModule** | ✅ Added | No fleet req, high-sec allowed, CovertCynosuralFieldI |
+| **Cyno under cloak** | ✅ Fixed | `DeniedActivateCloaked` now allows `cynosuralGeneration` (2857) and `cloakingWarpSafe` (980) effects |
 | **JumpPortalModule** (titan bridge) | ✅ Added | Portal effect, fleet notification, ship freeze, JDC range |
+| **Covert Jump Portal** (Black Ops bridge) | ✅ Added | `OpenBridge()` creates portal on-demand via `CmdBridgeToMember` |
 | **CmdJumpThroughFleet** | ✅ Added | Portal lookup, fleet validation, fuel calc, range check |
 | **CmdJumpThroughAlliance** | ✅ Added | Portal lookup, alliance validation, fuel calc, range check |
-| **CmdBridgeToMember** | ✅ Added | Sets bridge target on active JumpPortalModule |
+| **CmdBridgeToMember** | ✅ Enhanced | Now auto-activates portal via `OpenBridge()` if not already active |
 | **CmdJumpThroughCorporationStructure** | ✅ Enhanced | Distance-based fuel (static 500 LO → dynamic), range check |
+| **Jump Portal auto-activation** | ✅ Added | `SetOnline()` broadcasts `OnMultiEvent` to all clients in bubble (fleet sees module state change) |
 | **Jump range check** | ✅ Added | `AttrJumpDriveRange` × JDC (+25%/lvl, Crucible era), fallback if attr missing |
 | **Fuel consumption** | ✅ Fixed | Minimum 1 fuel, `quantityLeft` decrement in consumption loop |
 | **Cyno jammer check** | ✅ Fixed | Verifies jammer `StructureSE` exists in system via `GetSE()` |
 | **High-sec check** | ✅ Fixed | `m_secValue` is 0.1 (1.0 sec) to 2.0 (−0.9 sec), now correctly blocks ≥ 0.5 |
+
+### Cloak Systems
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Covert Ops Cloaking Device II fitting** | ✅ Fixed | `cpuNeed=0` migration bypasses EVE client cache; ship `cpuNeedBonus` applied in `Online()` |
+| **Cloak activation** | ✅ Added | `Cloak()` via `DestinyManager`; full activation/deactivation cycle in `ModuleManager` |
+| **Cloak visual state** | ✅ Added | `ShowEffect(true/false)` on activate/deactivate |
+| **Cloak deactivation** | ✅ Added | `UnCloak()` + `ShowEffect(false)` on both deactivate paths (normal + power btn) |
+| **Cloak stay-active** | ✅ Fixed | Skip `--m_repeat` auto-stop for `Cloaking_Device` group |
+| **Cloak under jump** | ⚠️ Expected | Cloak deactivates on jump (EVE standard behavior) |
 
 ### Fleet Boost Fix
 
@@ -237,10 +251,15 @@
 | Sensor booster / tracker computer | ✅ Working | ActiveModule |
 | Cynosural field gen | ✅ Working | CynoModule |
 | Covert cyno field | ✅ Added | CovertCynoModule — no fleet req, high-sec allowed, CovertCynosuralFieldI |
+| Covert cyno under cloak | ✅ Fixed | Effect 2857 (cynosuralGeneration) allowed while cloaked |
 | Jump portal (titan bridge) | ✅ Added | JumpPortalModule — portal creation, OnJumpBeaconChange, duration/effects |
+| Covert jump portal (Black Ops bridge) | ✅ Added | OpenBridge() called from CmdBridgeToMember — portal on demand |
+| Cloak activation | ✅ Added | Full cycle via ModuleManager: Cloak()/UnCloak(), ShowEffect, state management |
+| Cloak fitting fix | ✅ Fixed | cpuNeed=0 in DB, cpuNeedBonus applied server-side via Online() |
 | CmdJumpThroughFleet | ✅ Added | Full implementation — portal lookup, fleet validation, fuel calc, CynoJump |
 | CmdJumpThroughAlliance | ✅ Added | Full implementation — portal lookup, alliance validation, fuel calc, CynoJump |
 | CmdJumpThroughCorporationStructure | ✅ Enhanced | Distance-based fuel, jump range check via AttrJumpDriveRange |
+| Module online broadcast | ✅ Added | SetOnline() sends OnMultiEvent to all clients in bubble |
 | Probe launcher | ✅ Working | ProbeLauncher |
 | Rigs | ✅ Working | RigModule |
 | Subsystems (T3) | ✅ Working | SubSystemModule |
