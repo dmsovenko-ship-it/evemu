@@ -172,6 +172,11 @@ void JumpPortalModule::OpenBridge() {
     m_destinyMgr = pShipSE->DestinyMgr();
     m_effectID = EVEEffectID::jumpPortalGenerationBO;
     m_Stop = false;
+    // Start timer with portal duration (20s from SDE) so ShowEffect duration is valid
+    uint32 portalDuration = 20000;
+    if (HasAttribute(AttrJumpPortalDuration))
+        portalDuration = GetAttribute(AttrJumpPortalDuration).get_uint32();
+    SetTimer(portalDuration);
     // Apply active effect so client sees module as activated
     ApplyEffect(FX::State::Active, true);
     ShowEffect(true, false);
