@@ -126,8 +126,12 @@ void JumpPortalModule::CreatePortal()
     if (m_portalSE != nullptr)
         return;
 
-    // Create a cynosural field as the portal visual entity
-    ItemData pData(EVEDB::invTypes::CynosuralFieldI, pClient->GetCharacterID(), m_sysMgr->GetID(), flagNone);
+    // Covert Jump Portal creates a covert field (only Black Ops can use it)
+    bool isCovert = m_modRef->HasAttribute(AttrCanFitShipGroup1)
+                    and (m_modRef->GetAttribute(AttrCanFitShipGroup1).get_uint32() == EVEDB::invGroups::BlackOps);
+    uint32 fieldType = isCovert ? EVEDB::invTypes::CovertCynosuralFieldI : EVEDB::invTypes::CynosuralFieldI;
+
+    ItemData pData(fieldType, pClient->GetCharacterID(), m_sysMgr->GetID(), flagNone);
     InventoryItemRef pRef = sItemFactory.SpawnItem(pData);
 
     _log(MODULE__DEBUG, "Creating jump portal");

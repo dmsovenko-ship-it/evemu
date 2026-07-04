@@ -469,9 +469,12 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
      *                'scrambled': targetName})
      */
 
-    --m_repeat;
-    if (m_repeat < 1)
-        m_Stop = true;
+    // Cloaking device stays active until manually deactivated
+    if (groupID() != EVEDB::invGroups::Cloaking_Device) {
+        --m_repeat;
+        if (m_repeat < 1)
+            m_Stop = true;
+    }
 
     // check for one-hit kills and stop module after cycle completes
     if (m_needsTarget)
