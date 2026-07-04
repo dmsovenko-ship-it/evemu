@@ -112,9 +112,10 @@ public:
     void GetFleetClientsInSystem(Client* pClient, std::vector<Client*>& data);
     std::vector<Client *> GetFleetClients(uint32 fleetID);
 
-protected:
+public:
     void RemoveMember(Client* pClient);
 
+protected:
     void IncFleetSquads(uint32 fleetID, uint32 wingID);
     void DecFleetSquads(uint32 fleetID, uint32 wingID);
 
