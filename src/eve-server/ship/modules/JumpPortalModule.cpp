@@ -161,17 +161,15 @@ void JumpPortalModule::OnModuleOffline() {
 }
 
 void JumpPortalModule::OpenBridge() {
-    if (m_portalSE != nullptr)
+    if (IsPortalActive())
         return;
     if (!m_shipRef->HasPilot() or pClient->GetShipSE() == nullptr)
         return;
 
+    // Bridge point is the ship itself — no separate cyno field entity needed
     pShipSE = pClient->GetShipSE();
     m_sysMgr = pShipSE->SystemMgr();
-    m_bubble = pShipSE->SysBubble();
-    m_destinyMgr = pShipSE->DestinyMgr();
     m_Stop = false;
-    CreatePortal();
     SendOnJumpBeaconChange(true);
     SetModuleState(Module::State::Activated);
     _log(MODULE__MESSAGE, "Bridge opened for %s (%u)", m_modRef->name(), m_modRef->itemID());
