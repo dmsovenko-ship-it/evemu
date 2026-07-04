@@ -748,8 +748,12 @@ void ModuleManager::Deactivate(uint32 itemID, std::string effectName)
         // Uncloak before offlining if cloaking device
         if (pMod->groupID() == EVEDB::invGroups::Cloaking_Device) {
             DestinyManager* pDestiny = pShipItem->GetPilot()->GetShipSE()->DestinyMgr();
-            if (pDestiny != nullptr)
+            if (pDestiny != nullptr) {
                 pDestiny->UnCloak();
+                ActiveModule* pActive = dynamic_cast<ActiveModule*>(pMod);
+                if (pActive != nullptr)
+                    pActive->ShowEffect(false, true);
+            }
             _log(MODULE__MESSAGE, "Cloak deactivated for %s (%u)", pMod->GetSelf()->name(), pMod->itemID());
         }
         _log(MODULE__TRACE, "MM::Deactivate() - %s Offlining - '%s'", pMod->GetSelf()->name(), effectName.c_str());
@@ -764,6 +768,9 @@ void ModuleManager::Deactivate(uint32 itemID, std::string effectName)
         DestinyManager* pDestiny = pShipItem->GetPilot()->GetShipSE()->DestinyMgr();
         if (pDestiny != nullptr) {
             pDestiny->UnCloak();
+            ActiveModule* pActive = dynamic_cast<ActiveModule*>(pMod);
+            if (pActive != nullptr)
+                pActive->ShowEffect(false, true);
             _log(MODULE__MESSAGE, "Cloak deactivated for %s (%u)", pMod->GetSelf()->name(), pMod->itemID());
         }
         pMod->SetModuleState(Module::State::Online);
