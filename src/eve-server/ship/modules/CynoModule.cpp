@@ -117,11 +117,16 @@ void CynoModule::CreateCyno()
     if (cSE != nullptr)
         return;
 
-    // Create Cyno field here
-    ItemData cData(EVEDB::invTypes::CynosuralFieldI, pClient->GetCharacterID(), m_sysMgr->GetID(), flagNone);
+    // Covert cyno uses a different field type (only Black Ops can lock on)
+    uint32 fieldType = EVEDB::invTypes::CynosuralFieldI;
+    if (m_modRef->HasAttribute(AttrCanFitShipGroup1)
+        and m_modRef->GetAttribute(AttrCanFitShipGroup1).get_uint32() == EVEDB::invGroups::BlackOps)
+        fieldType = EVEDB::invTypes::CovertCynosuralFieldI;
+
+    ItemData cData(fieldType, pClient->GetCharacterID(), m_sysMgr->GetID(), flagNone);
     InventoryItemRef cRef = sItemFactory.SpawnItem(cData);
 
-    _log(MODULE__DEBUG, "Creating Cynosural field");
+    _log(MODULE__DEBUG, "Creating %s Cynosural field", fieldType == EVEDB::invTypes::CovertCynosuralFieldI ? "Covert" : "");
 
     cSE = new ItemSystemEntity(cRef, pClient->services(), m_sysMgr);
     GPoint location(pShipSE->GetPosition());
