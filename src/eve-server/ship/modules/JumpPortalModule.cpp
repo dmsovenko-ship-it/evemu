@@ -156,6 +156,9 @@ void JumpPortalModule::OnModuleOnline() {
     // Create portal automatically when module comes online
     if (m_portalSE == nullptr and m_shipRef->HasPilot() and pClient->GetShipSE() != nullptr) {
         pShipSE = pClient->GetShipSE();
+        m_sysMgr = pShipSE->SystemMgr();
+        m_bubble = pShipSE->SysBubble();
+        m_destinyMgr = pShipSE->DestinyMgr();
         CreatePortal();
         SendOnJumpBeaconChange(true);
     }
@@ -169,6 +172,9 @@ void JumpPortalModule::OnModuleOffline() {
 
 void JumpPortalModule::SendOnJumpBeaconChange(bool active/*false*/) {
     _log(MODULE__DEBUG, "JumpPortalModule: Sending OnJumpBeaconChange (active = %s)", active ? "true" : "false");
+
+    if (m_sysMgr == nullptr or pShipSE == nullptr)
+        return;
 
     uint32 fieldID(0);
     if (m_portalSE != nullptr)
