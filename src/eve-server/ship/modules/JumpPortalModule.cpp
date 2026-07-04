@@ -153,7 +153,13 @@ void JumpPortalModule::RemovePortal()
 }
 
 void JumpPortalModule::OnModuleOnline() {
-    // Create portal automatically when module comes online
+    // Only auto-create portal for Covert Jump Portal (Black Ops bridge)
+    // Titan portal requires a cyno beacon target (activated via right-click beacon)
+    bool isCovert = m_modRef->HasAttribute(AttrCanFitShipGroup1)
+                    and (m_modRef->GetAttribute(AttrCanFitShipGroup1).get_uint32() == EVEDB::invGroups::BlackOps);
+    if (!isCovert)
+        return;
+
     if (m_portalSE == nullptr and m_shipRef->HasPilot() and pClient->GetShipSE() != nullptr) {
         pShipSE = pClient->GetShipSE();
         m_sysMgr = pShipSE->SystemMgr();
@@ -168,7 +174,11 @@ void JumpPortalModule::OnModuleOnline() {
 }
 
 void JumpPortalModule::OnModuleOffline() {
-    // Remove portal when module goes offline
+    // Only handle Covert Jump Portal (Titan portal uses Activate/DeactivateCycle)
+    bool isCovert = m_modRef->HasAttribute(AttrCanFitShipGroup1)
+                    and (m_modRef->GetAttribute(AttrCanFitShipGroup1).get_uint32() == EVEDB::invGroups::BlackOps);
+    if (!isCovert)
+        return;
     RemovePortal();
     SendOnJumpBeaconChange(false);
 }
