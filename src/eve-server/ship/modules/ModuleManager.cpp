@@ -712,7 +712,10 @@ void ModuleManager::Activate(int32 itemID, uint16 effectID, int32 targetID, int3
         if (pMod->HasAttribute(AttrDisallowActivateOnWarp) or !sFxDataMgr.isWarpSafe(effectID))
             throw UserError ("DeniedActivateInWarp");
     } else if (pDestiny->IsCloaked()) {
-        throw UserError ("DeniedActivateCloaked");
+        // Covert cyno and cloak effects can be activated while cloaked
+        if (effectID != EVEEffectID::cloakingWarpSafe
+            and effectID != EVEEffectID::cynosuralGeneration)
+            throw UserError ("DeniedActivateCloaked");
     } else if (pShipItem->GetPilot()->IsJump()) {
         throw UserError ("DeniedActivateInJump");
     }

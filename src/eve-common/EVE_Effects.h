@@ -107,6 +107,7 @@ enum EVEEffectID {
     empWaveGrid =   2071,     // effects.EMPWaveGrid
     modifyActiveArmorResonanceAndNullifyPassiveResonance =   2098,     // effects.ArmorHardening
     modifyActiveShieldResonanceAndNullifyPassiveResonance =   2118,     // effects.ModifyShieldResonance
+    cynosuralGeneration =   2857,     // effects.CynosuralGeneration
     jumpPortalGeneration =   2152,     // effects.JumpPortal
     entityShieldBoostingSmall =   2192,     // effects.ShieldBoosting
     entityShieldBoostingMedium =   2193,     // effects.ShieldBoosting
