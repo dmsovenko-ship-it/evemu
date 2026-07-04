@@ -169,7 +169,12 @@ void JumpPortalModule::OpenBridge() {
     // Bridge point is the ship itself — no separate cyno field entity needed
     pShipSE = pClient->GetShipSE();
     m_sysMgr = pShipSE->SystemMgr();
+    m_destinyMgr = pShipSE->DestinyMgr();
+    m_effectID = EVEEffectID::jumpPortalGenerationBO;
     m_Stop = false;
+    // Apply active effect so client sees module as activated
+    ApplyEffect(FX::State::Active, true);
+    ShowEffect(true, false);
     SendOnJumpBeaconChange(true);
     SetModuleState(Module::State::Activated);
     _log(MODULE__MESSAGE, "Bridge opened for %s (%u)", m_modRef->name(), m_modRef->itemID());
