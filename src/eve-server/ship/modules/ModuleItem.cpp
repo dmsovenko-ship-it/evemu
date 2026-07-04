@@ -94,10 +94,28 @@ void ModuleItem::SetOnline(bool online/*false*/, bool isRig/*false*/) {
 
         shipEff.repeat = (online ? 1 : 0);
         shipEff.error = PyStatic.NewNone();
+    // Send to the module owner
     PyList* events = new PyList();
         events->AddItem(shipEff.Encode());
     Notify_OnMultiEvent multi;
         multi.events = events;
     PyTuple* tmp = multi.Encode();
     pClient->SendNotification("OnMultiEvent", "clientID", &tmp);
+
+    // Broadcast to all other clients in the same bubble so they see the module state change
+    ShipSE* pShipSE = pClient->GetShipSE();
+    if (pShipSE != nullptr) {
+        SystemBubble* bubble = pShipSE->SysBubble();
+        if (bubble != nullptr) {
+            std::vector<SystemEntity*> entities;
+            bubble->GetSEs(entities);
+            for (auto pSE : entities) {
+                if (pSE != nullptr and pSE->HasPilot()) {
+                    Client* otherClient = pSE->GetPilot();
+                    if (otherClient != nullptr and otherClient != pClient)
+                        otherClient->SendNotification("OnMultiEvent", "clientID", &tmp);
+                }
+            }
+        }
+    }
 }
