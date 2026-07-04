@@ -153,34 +153,28 @@ void JumpPortalModule::RemovePortal()
 }
 
 void JumpPortalModule::OnModuleOnline() {
-    // Only auto-create portal for Covert Jump Portal (Black Ops bridge)
-    // Titan portal requires a cyno beacon target (activated via right-click beacon)
-    bool isCovert = m_modRef->HasAttribute(AttrCanFitShipGroup1)
-                    and (m_modRef->GetAttribute(AttrCanFitShipGroup1).get_uint32() == EVEDB::invGroups::BlackOps);
-    if (!isCovert)
-        return;
-
-    if (m_portalSE == nullptr and m_shipRef->HasPilot() and pClient->GetShipSE() != nullptr) {
-        pShipSE = pClient->GetShipSE();
-        m_sysMgr = pShipSE->SystemMgr();
-        m_bubble = pShipSE->SysBubble();
-        m_destinyMgr = pShipSE->DestinyMgr();
-        m_Stop = false;
-        CreatePortal();
-        SendOnJumpBeaconChange(true);
-        // Mark as Activated so client recognizes it as an active bridge/portal
-        SetModuleState(Module::State::Activated);
-    }
+    // Portal is created on-demand via OpenBridge() or Activate()
 }
 
 void JumpPortalModule::OnModuleOffline() {
-    // Only handle Covert Jump Portal (Titan portal uses Activate/DeactivateCycle)
-    bool isCovert = m_modRef->HasAttribute(AttrCanFitShipGroup1)
-                    and (m_modRef->GetAttribute(AttrCanFitShipGroup1).get_uint32() == EVEDB::invGroups::BlackOps);
-    if (!isCovert)
+    // Portal is removed via DeactivateCycle() or explicitly
+}
+
+void JumpPortalModule::OpenBridge() {
+    if (m_portalSE != nullptr)
         return;
-    RemovePortal();
-    SendOnJumpBeaconChange(false);
+    if (!m_shipRef->HasPilot() or pClient->GetShipSE() == nullptr)
+        return;
+
+    pShipSE = pClient->GetShipSE();
+    m_sysMgr = pShipSE->SystemMgr();
+    m_bubble = pShipSE->SysBubble();
+    m_destinyMgr = pShipSE->DestinyMgr();
+    m_Stop = false;
+    CreatePortal();
+    SendOnJumpBeaconChange(true);
+    SetModuleState(Module::State::Activated);
+    _log(MODULE__MESSAGE, "Bridge opened for %s (%u)", m_modRef->name(), m_modRef->itemID());
 }
 
 void JumpPortalModule::SendOnJumpBeaconChange(bool active/*false*/) {

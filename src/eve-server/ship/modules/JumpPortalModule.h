@@ -34,6 +34,7 @@ public:
     uint32 GetBeaconID() { return m_beaconID; }
     uint32 GetBridgeTargetID() { return m_bridgeTargetID; }
     void SetBridgeTargetID(uint32 shipID) { m_bridgeTargetID = shipID; }
+    void OpenBridge();  // Activate portal for bridge mode (called from BeyonceService)
 
 protected:
     Client* pClient;

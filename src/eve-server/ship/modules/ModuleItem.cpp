@@ -11,6 +11,8 @@
 
 #include "Client.h"
 #include "EntityList.h"
+#include "system/SystemBubble.h"
+#include "system/SystemEntity.h"
 #include "ship/modules/ModuleItem.h"
 
 ModuleItem::ModuleItem(uint32 _modID, const ItemType& _type, const ItemData& _data)

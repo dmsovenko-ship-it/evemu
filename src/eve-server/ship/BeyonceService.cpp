@@ -1319,7 +1319,7 @@ PyResult BeyonceBound::CmdBridgeToMember(PyCallArgs &call, PyInt* targetCharID, 
     pModMgr->GetModulesInBank(flagHiSlot0, highSlots);
     JumpPortalModule* pPortal = nullptr;
     for (auto mod : highSlots) {
-        if (mod != nullptr and (mod->IsActive() or mod->isOnline() or mod->isOnline())) {
+        if (mod != nullptr and (mod->IsActive() or mod->isOnline())) {
             pPortal = dynamic_cast<JumpPortalModule*>(mod);
             if (pPortal != nullptr)
                 break;
@@ -1331,9 +1331,13 @@ PyResult BeyonceBound::CmdBridgeToMember(PyCallArgs &call, PyInt* targetCharID, 
         return PyStatic.NewNone();
     }
 
+    // Activate the portal for bridging
+    if (!pPortal->IsPortalActive())
+        pPortal->OpenBridge();
+
     // Set the bridge target to the member's ship
     pPortal->SetBridgeTargetID(targetShipID->value());
-    call.client->SendNotifyMsg("Bridge target set to fleet member.");
+    call.client->SendNotifyMsg("Bridge opened for fleet member.");
     return PyStatic.NewNone();
 }
 
