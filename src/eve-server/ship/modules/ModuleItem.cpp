@@ -111,12 +111,23 @@ void ModuleItem::SetOnline(bool online/*false*/, bool isRig/*false*/) {
         if (bubble != nullptr) {
             std::map< uint32, SystemEntity* > entities;
             bubble->GetEntities(entities);
+            // Build OnModuleAttributeChange for AttrOnline
+            Notify_OnModuleAttributeChange modChange;
+                modChange.ownerID = ownerID();
+                modChange.itemKey = new PyInt(m_itemID);
+                modChange.attributeID = AttrOnline;
+                modChange.time = GetFileTimeNow();
+                modChange.newValue = new PyInt(online ? 1 : 0);
+                modChange.oldValue = new PyInt(online ? 0 : 1);
+            PyTuple* attrChange = modChange.Encode();
             for (auto cur : entities) {
                 SystemEntity* pSE = cur.second;
                 if (pSE != nullptr and pSE->HasPilot()) {
                     Client* otherClient = pSE->GetPilot();
-                    if (otherClient != nullptr and otherClient != pClient)
+                    if (otherClient != nullptr and otherClient != pClient) {
                         otherClient->SendNotification("OnMultiEvent", "clientID", &tmp);
+                        otherClient->SendNotification("OnItemChange", "clientID", &attrChange);
+                    }
                 }
             }
         }
