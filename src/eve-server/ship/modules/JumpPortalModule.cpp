@@ -96,8 +96,11 @@ bool JumpPortalModule::CanActivate()
             return false;
     }
 
-    if (!sConfig.world.highSecCyno) {
-        if (pClient->SystemMgr()->GetSecValue() <= 0.6f) {
+    // Covert Jump Portal Generator (fitted only on Black Ops, group 898) can be used anywhere
+    bool isCovert = m_modRef->HasAttribute(AttrCanFitShipGroup1)
+                    and (m_modRef->GetAttribute(AttrCanFitShipGroup1).get_uint32() == EVEDB::invGroups::BlackOps);
+    if (!isCovert and !sConfig.world.highSecCyno) {
+        if (pClient->SystemMgr()->GetSecValue() >= 0.5f) {
             pClient->SendNotifyMsg("This module may not be used in high security space.");
             return false;
         }

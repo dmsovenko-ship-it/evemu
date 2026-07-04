@@ -449,6 +449,10 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
             if (m_targetSE != nullptr)
                 m_targetSE->DestinyMgr()->WebbedMe(m_modRef, true);
         } break;
+        case EVEDB::invGroups::Cloaking_Device: {
+            if (m_destinyMgr != nullptr)
+                m_destinyMgr->Cloak();
+        } break;
     }
     /*def OnSpecialFX
      *     if start and guid == 'effects.WarpScramble*':
@@ -858,6 +862,10 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
         } break;
         // not sure just how this works yet
         // case EVEDB::invGroups::System_Scanner:
+        case EVEDB::invGroups::Cloaking_Device: {
+            if (m_destinyMgr != nullptr)
+                m_destinyMgr->UnCloak();
+        } break;
     }
 
     Clear();
