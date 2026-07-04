@@ -159,8 +159,11 @@ void JumpPortalModule::OnModuleOnline() {
         m_sysMgr = pShipSE->SystemMgr();
         m_bubble = pShipSE->SysBubble();
         m_destinyMgr = pShipSE->DestinyMgr();
+        m_Stop = false;
         CreatePortal();
         SendOnJumpBeaconChange(true);
+        // Mark as Activated so client recognizes it as an active bridge/portal
+        SetModuleState(Module::State::Activated);
     }
 }
 
@@ -176,11 +179,8 @@ void JumpPortalModule::SendOnJumpBeaconChange(bool active/*false*/) {
     if (m_sysMgr == nullptr or pShipSE == nullptr)
         return;
 
-    uint32 fieldID(0);
-    if (m_portalSE != nullptr)
-        fieldID = m_portalSE->GetID();
-    else
-        fieldID = pShipSE->GetID();
+    // Bridge point is the ship itself, not the portal entity
+    uint32 fieldID = pShipSE->GetID();
 
     PyTuple* data = new PyTuple(4);
         data->SetItem(0, new PyInt(pClient->GetCharacterID()));
