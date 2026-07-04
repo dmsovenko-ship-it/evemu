@@ -152,6 +152,21 @@ void JumpPortalModule::RemovePortal()
     }
 }
 
+void JumpPortalModule::OnModuleOnline() {
+    // Create portal automatically when module comes online
+    if (m_portalSE == nullptr and m_shipRef->HasPilot() and pClient->GetShipSE() != nullptr) {
+        pShipSE = pClient->GetShipSE();
+        CreatePortal();
+        SendOnJumpBeaconChange(true);
+    }
+}
+
+void JumpPortalModule::OnModuleOffline() {
+    // Remove portal when module goes offline
+    RemovePortal();
+    SendOnJumpBeaconChange(false);
+}
+
 void JumpPortalModule::SendOnJumpBeaconChange(bool active/*false*/) {
     _log(MODULE__DEBUG, "JumpPortalModule: Sending OnJumpBeaconChange (active = %s)", active ? "true" : "false");
 

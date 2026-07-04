@@ -983,7 +983,7 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
     pModMgr->GetModulesInBank(flagHiSlot0, highSlots);
     JumpPortalModule* pPortal = nullptr;
     for (auto mod : highSlots) {
-        if (mod != nullptr and mod->IsActive()) {
+        if (mod != nullptr and mod->IsActive() or mod->isOnline()) {
             JumpPortalModule* pJPM = dynamic_cast<JumpPortalModule*>(mod);
             if (pJPM != nullptr and pJPM->GetBeaconID() == beaconID->value()) {
                 pPortal = pJPM;
@@ -1118,7 +1118,7 @@ PyResult BeyonceBound::CmdJumpThroughAlliance(PyCallArgs &call, PyInt* otherShip
     pModMgr->GetModulesInBank(flagHiSlot0, highSlots);
     JumpPortalModule* pPortal = nullptr;
     for (auto mod : highSlots) {
-        if (mod != nullptr and mod->IsActive()) {
+        if (mod != nullptr and mod->IsActive() or mod->isOnline()) {
             JumpPortalModule* pJPM = dynamic_cast<JumpPortalModule*>(mod);
             if (pJPM != nullptr and pJPM->GetBeaconID() == beaconID->value()) {
                 pPortal = pJPM;
@@ -1319,7 +1319,7 @@ PyResult BeyonceBound::CmdBridgeToMember(PyCallArgs &call, PyInt* targetCharID, 
     pModMgr->GetModulesInBank(flagHiSlot0, highSlots);
     JumpPortalModule* pPortal = nullptr;
     for (auto mod : highSlots) {
-        if (mod != nullptr and mod->IsActive()) {
+        if (mod != nullptr and (mod->IsActive() or mod->isOnline() or mod->isOnline())) {
             pPortal = dynamic_cast<JumpPortalModule*>(mod);
             if (pPortal != nullptr)
                 break;

@@ -25,6 +25,8 @@ public:
     virtual void DeactivateCycle(bool abort=false);
     virtual uint32 DoCycle();
     virtual bool CanActivate();
+    virtual void OnModuleOnline();
+    virtual void OnModuleOffline();
 
     // Accessors for bridge commands
     bool IsPortalActive() { return (m_portalSE != nullptr); }

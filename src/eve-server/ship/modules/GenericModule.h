@@ -111,6 +111,8 @@ public:
 
     /* generic access functions to be handled in derived classes (must override) */
     virtual void Process()                              { /* do nothing here */ }
+    virtual void OnModuleOnline()                       { /* do nothing here */ }
+    virtual void OnModuleOffline()                      { /* do nothing here */ }
     virtual void Deactivate(std::string effect="")      { /* do nothing here */ }
     virtual void AbortCycle()                           { /* do nothing here */ }
     // this will not move charge item.

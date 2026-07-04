@@ -164,6 +164,9 @@ void GenericModule::Online()
     m_shipRef->SetAttribute(AttrCpuLoad, cpuNeed, !m_shipRef->IsUndocking());
     m_shipRef->SetAttribute(AttrPowerLoad, pgNeed, !m_shipRef->IsUndocking());
     sFxProc.ApplyEffects(m_modRef.get(), m_shipRef->GetPilot()->GetChar().get(), m_shipRef.get(), !m_shipRef->IsUndocking());
+
+    // notify derived classes that module came online
+    OnModuleOnline();
 }
 
 void GenericModule::Offline()
@@ -245,6 +248,8 @@ void GenericModule::Offline()
     ProcessEffects(FX::State::Passive, false);
     ProcessEffects(FX::State::Online, false);
     sFxProc.ApplyEffects(m_modRef.get(), m_shipRef->GetPilot()->GetChar().get(), m_shipRef.get(), true);
+
+    OnModuleOffline();
 
     m_ModuleState = Module::State::Offline;
     m_modRef->SetOnline(false, isRig());
