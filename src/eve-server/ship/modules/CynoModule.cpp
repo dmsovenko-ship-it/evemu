@@ -86,9 +86,11 @@ bool CynoModule::CanActivate()
     }
 
     //Make sure player is not in high-sec (configurable)
+    // m_secValue uses INVERTED scale: 0.1 = 1.0 (high-sec), 2.0 = -0.9 (null-sec)
+    // high-sec = actual sec ≥ 0.5 → m_secValue ≤ 0.6
     // Covert cyno (CovertCynoModule) overrides CanActivate() and skips this check
     if (!sConfig.world.highSecCyno) {
-        if (pClient->SystemMgr()->GetSecValue() >= 0.5f) {
+        if (pClient->SystemMgr()->GetSecValue() <= 0.6f) {
             pClient->SendNotifyMsg("This module may not be used in high security space.");
             return false;
         }
