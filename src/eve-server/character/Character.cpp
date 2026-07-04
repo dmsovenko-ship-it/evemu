@@ -338,9 +338,8 @@ void Character::LogOut()
 {
     SaveFullCharacter();
     m_db.SetLogOffTime(m_itemID);
-    if (!sConsole.IsShutdown())
-        if (IsFleetID(m_fleetData.fleetID))
-            sFltSvc.LeaveFleet(m_pClient);
+    // Fleet membership persists across sessions (like in EVE Online)
+    // Do NOT leave fleet on logout - player rejoins on login
 
     pInventory->Unload();
 
