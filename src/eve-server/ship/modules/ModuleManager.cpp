@@ -717,6 +717,14 @@ void ModuleManager::Activate(int32 itemID, uint16 effectID, int32 targetID, int3
         throw UserError ("DeniedActivateInJump");
     }
 
+    // Cloaking device activation: handle directly to bypass ActiveModule issues
+    if (effectID == EVEEffectID::cloakingWarpSafe
+        and pMod->groupID() == EVEDB::invGroups::Cloaking_Device) {
+        pDestiny->Cloak();
+        _log(MODULE__MESSAGE, "Cloak activated for %s (%u)", pMod->GetSelf()->name(), pMod->itemID());
+        return;
+    }
+
     if (!pMod->IsLinked() or pMod->IsMaster())
         pMod->Activate(effectID, targetID, repeat);
 }
