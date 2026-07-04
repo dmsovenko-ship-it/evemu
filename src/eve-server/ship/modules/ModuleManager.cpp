@@ -722,6 +722,9 @@ void ModuleManager::Activate(int32 itemID, uint16 effectID, int32 targetID, int3
         and pMod->groupID() == EVEDB::invGroups::Cloaking_Device) {
         pDestiny->Cloak();
         pMod->SetModuleState(Module::State::Activated);
+        ActiveModule* pActive = dynamic_cast<ActiveModule*>(pMod);
+        if (pActive != nullptr)
+            pActive->ShowEffect(true, false);
         _log(MODULE__MESSAGE, "Cloak activated for %s (%u)", pMod->GetSelf()->name(), pMod->itemID());
         return;
     }
