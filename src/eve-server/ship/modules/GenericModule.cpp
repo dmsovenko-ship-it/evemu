@@ -99,6 +99,11 @@ void GenericModule::Online()
             cpuNeed *= 0.01f;
         }
     }
+    // Cloaking device CPU reduction from ship cpuNeedBonus (e.g. -99% on Black Ops)
+    if (m_modRef->groupID() == EVEDB::invGroups::Cloaking_Device) {
+        if (m_shipRef->HasAttribute(AttrCpuNeedBonus))
+            cpuNeed *= (EvilNumber(100) + m_shipRef->GetAttribute(AttrCpuNeedBonus)) / EvilNumber(100);
+    }
     cpuNeed += m_shipRef->GetAttribute(AttrCpuLoad);
     if (cpuNeed  > m_shipRef->GetAttribute(AttrCpuOutput)) {
         _log(MODULE__TRACE, "GenericModule::Online() %u(%s) - not enough CPU. (%.1f/%.1f)", \
@@ -211,6 +216,10 @@ void GenericModule::Offline()
          or (shipGroup == EVEDB::invGroups::Mission_Minmatar_Republic_Carrier)) {
             cpuReduction *= 0.01f;
         }
+    }
+    if (m_modRef->groupID() == EVEDB::invGroups::Cloaking_Device) {
+        if (m_shipRef->HasAttribute(AttrCpuNeedBonus))
+            cpuReduction *= (EvilNumber(100) + m_shipRef->GetAttribute(AttrCpuNeedBonus)) / EvilNumber(100);
     }
     EvilNumber cpuNeed(m_shipRef->GetAttribute(AttrCpuLoad) - cpuReduction);
     EvilNumber pgNeed(m_shipRef->GetAttribute(AttrPowerLoad) - GetAttribute(AttrPower));
