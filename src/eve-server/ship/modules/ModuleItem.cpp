@@ -107,9 +107,10 @@ void ModuleItem::SetOnline(bool online/*false*/, bool isRig/*false*/) {
     if (pShipSE != nullptr) {
         SystemBubble* bubble = pShipSE->SysBubble();
         if (bubble != nullptr) {
-            std::vector<SystemEntity*> entities;
-            bubble->GetSEs(entities);
-            for (auto pSE : entities) {
+            std::map< uint32, SystemEntity* > entities;
+            bubble->GetEntities(entities);
+            for (auto cur : entities) {
+                SystemEntity* pSE = cur.second;
                 if (pSE != nullptr and pSE->HasPilot()) {
                     Client* otherClient = pSE->GetPilot();
                     if (otherClient != nullptr and otherClient != pClient)
