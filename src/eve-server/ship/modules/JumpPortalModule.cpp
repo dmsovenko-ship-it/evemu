@@ -171,7 +171,9 @@ void JumpPortalModule::OpenBridge() {
     m_sysMgr = pShipSE->SystemMgr();
     m_destinyMgr = pShipSE->DestinyMgr();
     m_effectID = EVEEffectID::jumpPortalGenerationBO;
+    m_firstRun = false;  // prevent DoCycle from creating a cyno field entity
     m_Stop = false;
+    m_repeat = 1;  // single cycle, module deactivates after duration expires
     // Start timer with portal duration (20s from SDE) so ShowEffect duration is valid
     uint32 portalDuration = 20000;
     if (HasAttribute(AttrJumpPortalDuration))
