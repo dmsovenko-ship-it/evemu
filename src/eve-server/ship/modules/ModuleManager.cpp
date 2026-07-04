@@ -721,6 +721,7 @@ void ModuleManager::Activate(int32 itemID, uint16 effectID, int32 targetID, int3
     if (effectID == EVEEffectID::cloakingWarpSafe
         and pMod->groupID() == EVEDB::invGroups::Cloaking_Device) {
         pDestiny->Cloak();
+        pMod->SetModuleState(Module::State::Activated);
         _log(MODULE__MESSAGE, "Cloak activated for %s (%u)", pMod->GetSelf()->name(), pMod->itemID());
         return;
     }
@@ -739,12 +740,30 @@ void ModuleManager::Deactivate(uint32 itemID, std::string effectName)
 
     // test for effectName "online", which is sent thru rclick menu in HUD to offline module
     if (effectName.compare("online") == 0) {
+        // Uncloak before offlining if cloaking device
+        if (pMod->groupID() == EVEDB::invGroups::Cloaking_Device) {
+            DestinyManager* pDestiny = pShipItem->GetPilot()->GetShipSE()->DestinyMgr();
+            if (pDestiny != nullptr)
+                pDestiny->UnCloak();
+            _log(MODULE__MESSAGE, "Cloak deactivated for %s (%u)", pMod->GetSelf()->name(), pMod->itemID());
+        }
         _log(MODULE__TRACE, "MM::Deactivate() - %s Offlining - '%s'", pMod->GetSelf()->name(), effectName.c_str());
         pMod->Offline();
         return;
     }
     if (pMod->GetModuleState() != Module::State::Activated)  // we dont need an error msgs here....this is acceptable, as the module may not be active
         return;
+
+    // Cloak deactivation: handle directly
+    if (pMod->groupID() == EVEDB::invGroups::Cloaking_Device) {
+        DestinyManager* pDestiny = pShipItem->GetPilot()->GetShipSE()->DestinyMgr();
+        if (pDestiny != nullptr) {
+            pDestiny->UnCloak();
+            _log(MODULE__MESSAGE, "Cloak deactivated for %s (%u)", pMod->GetSelf()->name(), pMod->itemID());
+        }
+        pMod->SetModuleState(Module::State::Online);
+        return;
+    }
 
     _log(MODULE__TRACE, "MM::Deactivate() - %s Deactivating - '%s'", pMod->GetSelf()->name(), effectName.c_str());
     pMod->Deactivate(effectName);
