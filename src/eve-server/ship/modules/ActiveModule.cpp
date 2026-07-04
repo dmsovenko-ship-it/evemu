@@ -1292,7 +1292,8 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
     uint16 chgTypeID(((m_chargeRef.get() != nullptr) ? m_chargeRef->typeID() : 0));
     uint32 timeLeft(GetRemainingCycleTimeMS());
 
-    if (m_destinyMgr != nullptr)
+    // Skip sending OnSpecialFX if GUID is empty (prevents client errors)
+    if (m_destinyMgr != nullptr and !guidStr.empty())
         m_destinyMgr->SendSpecialEffect(
                 m_shipRef->itemID(),
                 m_modRef->itemID(),

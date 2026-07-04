@@ -724,9 +724,51 @@ PyResult FleetBound::ExcludeFromVoiceMute(PyCallArgs &call, PyInt* characterID, 
 }
 
 PyResult FleetBound::Reconnect(PyCallArgs &call) {
-    // no args
     sLog.Warning("FleetBound", "Handle_Reconnect()) size=%lli", call.tuple->size());
 
-    // returns nothing
+    Client* pClient = call.client;
+    if (pClient == nullptr)
+        return nullptr;
+
+    Character* pChar = pClient->GetChar().get();
+    if (pChar == nullptr)
+        return nullptr;
+
+    // Remove old member entry if exists, then re-register
+    sFltSvc.RemoveMember(pClient);
+    sFltSvc.AddMember(pClient, m_fleetID, pChar->wingID(), pChar->squadID(),
+                      pChar->fleetJob(), pChar->fleetRole(), pChar->fleetBooster());
+
+    // Send OnFleetJoin to the reconnecting client
+    JoinFleetRSP join;
+        join.charID = pClient->GetCharacterID();
+        join.clientID = pClient->GetClientID();
+        join.job = pChar->fleetJob();
+        join.role = pChar->fleetRole();
+        join.shipTypeID = pClient->GetShip()->typeID();
+        join.skillFleetCommand = pChar->GetSkillLevel(EvESkill::FleetCommand);
+        join.skillLeadership = pChar->GetSkillLevel(EvESkill::Leadership);
+        join.skillWingCommand = pChar->GetSkillLevel(EvESkill::WingCommand);
+        join.squadID = pChar->squadID();
+        join.roleBooster = pChar->fleetBooster();
+        join.solarSystemID = pClient->GetSystemID();
+        join.wingID = pChar->wingID();
+        join.timestamp = pChar->fleetJoinTime();
+    PyTuple* res = new PyTuple(1);
+        res->SetItem(0, join.Encode());
+    pClient->SendNotification("OnFleetJoin", "clientid", &res, true);
+
+    // Send OnFleetStateChange
+    PyDict* dict = new PyDict();
+        dict->SetItemString("targetTags", new PyDict());
+    PyTuple* obj = new PyTuple(1);
+        obj->SetItem(0, new PyObject("util.KeyVal", dict));
+    pClient->SendNotification("OnFleetStateChange", "clientid", obj, true);
+
+    // Send OnFleetActive
+    PyTuple* count = new PyTuple(1);
+        count->SetItem(0, new PyInt(254));
+    pClient->SendNotification("OnFleetActive", "clientid", count, true);
+
     return nullptr;
 }
