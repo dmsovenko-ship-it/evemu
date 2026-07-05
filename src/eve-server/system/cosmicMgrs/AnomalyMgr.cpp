@@ -358,6 +358,37 @@ void AnomalyMgr::CreateAnomaly(int8 typeID)
             sig.scanGroupID = Scanning::Group::Anomaly;
             sig.scanAttributeID = AttrScanAllStrength;
             sig.sigStrength = 1.0f;
+            // Assign proper anomaly name based on faction
+            const static std::map<uint32, std::vector<std::string>> anomNames = {
+                {500011, {"Angel Hideaway","Angel Hidden Hideaway","Angel Forlorn Hideaway",
+                          "Angel Burrow","Angel Refuge","Angel Den",
+                          "Angel Hidden Rally Point","Angel Forsaken Rally Point",
+                          "Angel Port","Angel Hub","Angel Hidden Hub","Angel Haven"}},
+                {500012, {"Blood Hideaway","Blood Forsaken Hideaway","Blood Refuge",
+                          "Blood Den","Blood Hidden Den","Blood Yard",
+                          "Blood Rally Point","Blood Port","Blood Hub","Blood Forsaken Hub"}},
+                {500014, {"Guristas Hideaway","Guristas Hidden Hideaway",
+                          "Guristas Forsaken Hideaway","Guristas Forlorn Hideaway",
+                          "Guristas Burrow","Guristas Refuge","Guristas Den",
+                          "Guristas Hub","Guristas Forlorn Hub"}},
+                {500019, {"Sansha Forsaken Den","Sansha Forlorn Den","Sansha Rally Point",
+                          "Sansha Hidden Rally Point","Sansha Forsaken Rally Point",
+                          "Sansha Forlorn Rally Point","Sansha Port",
+                          "Sansha Hidden Hub","Sansha Forsaken Hub","Sansha Forlorn Hub",
+                          "Sansha Hub","Sansha Haven","Sansha Sanctum"}},
+                {500013, {"Serpentis Hideaway","Serpentis Forsaken Hideaway",
+                          "Serpentis Forlorn Hideaway","Serpentis Burrow",
+                          "Serpentis Refuge","Serpentis Forsaken Rally Point",
+                          "Serpentis Forsaken Hub"}},
+                {500020, {"Drone Cluster","Drone Collection","Drone Assembly","Drone Horde"}}
+            };
+            auto it = anomNames.find(sig.ownerID);
+            if (it != anomNames.end() && !it->second.empty()) {
+                size_t idx = MakeRandomInt(0, it->second.size() - 1);
+                sig.sigName = it->second[idx];
+            } else {
+                sig.sigName = sDataMgr.GetFactionName(sig.ownerID) + " Anomaly";
+            }
         } break;
         case Dungeon::Type::Mission: {      // 1
             sig.sigTypeID = EVEDB::invTypes::CosmicSignature;
