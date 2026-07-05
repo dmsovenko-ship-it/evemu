@@ -1602,20 +1602,26 @@ void Client::ContrabandScan(uint32 fromGate)
         severe = true;
     }
 
-    // System-wide broadcast
-    std::vector<Client*> clients;
-    sysMgr->GetClientList(clients);
-    for (auto* c : clients) {
-        c->SendNotifyMsg("Customs officials have detected contraband on %s in %s.",
-            GetName(), GetSystemName().c_str());
-    }
+    // Private notification to the player only
+    SendNotifyMsg("Customs officials scan your cargo for contraband.");
 
     if (severe) {
         // Immediate penalty + NPC attack (no jettison window)
         ExecuteContrabandPenalty();
     } else {
-        // Start 60s timer — player can jettison to avoid penalty
-        m_contrabandTimer.Start(60000);
+        // Derive timer from DB data: more severe (higher standingLoss) = shorter window
+        // timer = 60s for mild, down to 10s for near-severe threshold
+        uint32 timerMs = 60000;
+        for (auto& item : cargoItems) {
+            auto it = contrabandTypes.find(item->typeID());
+            if (it == contrabandTypes.end()) continue;
+            ContrabandEntry& entry = it->second;
+            // Use the highest standingLoss found to determine timer
+            uint32 itemTimer = static_cast<uint32>(60000.0f - entry.standingLoss * 600000.0f);
+            if (itemTimer < 10000) itemTimer = 10000;
+            if (itemTimer < timerMs) timerMs = itemTimer;
+        }
+        m_contrabandTimer.Start(timerMs);
         m_contrabandActive = true;
     }
 }
@@ -1699,12 +1705,7 @@ void Client::ExecuteContrabandPenalty()
     }
 
     if (penaltyApplied) {
-        std::vector<Client*> clients;
-        sysMgr->GetClientList(clients);
-        for (auto* c : clients) {
-            c->SendNotifyMsg("Customs officials have engaged %s in %s.",
-                GetName(), GetSystemName().c_str());
-        }
+        SendNotifyMsg("Customs officials have engaged your ship.");
 
         // Make customs NPCs at the gate target and attack the player
         SystemEntity* pShipSE = GetShipSE();
