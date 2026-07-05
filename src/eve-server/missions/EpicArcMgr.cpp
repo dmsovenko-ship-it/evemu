@@ -137,23 +137,6 @@ void EpicArcMgr::AdvanceMission(uint32 charID, uint32 arcID)
         seq, charID, arcID);
 }
 
-void EpicArcMgr::CompleteArc(uint32 charID, uint32 arcID)
-{
-    int64 stateKey = (int64(charID) << 32) | arcID;
-    auto it = m_state.find(stateKey);
-    if (it == m_state.end())
-        return;
-
-    EpicArcState& state = it->second;
-    state.completed = true;
-    state.dateCompleted = GetFileTimeNow();
-
-    DBerror err;
-    sDatabase.RunQuery(err,
-        "UPDATE chrEpicArcState SET completed = 1, dateCompleted = %.0f WHERE characterID = %u AND arcID = %u",
-        state.dateCompleted, charID, arcID);
-}
-
 EpicArcMissionData* EpicArcMgr::GetNextMissionForChar(uint32 charID, uint32 arcID)
 {
     int64 stateKey = (int64(charID) << 32) | arcID;

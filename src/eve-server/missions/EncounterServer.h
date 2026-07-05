@@ -2,6 +2,7 @@
 #define _EVE_SERVER_MISSIONS_ENCOUNTER_SERVER_H__
 
 #include "../eve-server.h"
+#include "../services/ServiceManager.h"
 
 struct MissionEncounter {
     uint32 encounterID;
