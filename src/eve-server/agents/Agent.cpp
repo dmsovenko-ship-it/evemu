@@ -75,7 +75,7 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     uint8 misionType = Mission::Type::Encounter;
     switch (m_agentData.typeID) {
         case Agents::Type::Research: misionType = Mission::Type::Research; break;
-        case Agents::Type::FacWar:   misionType = Mission::Type::Courier;  break;
+        case Agents::Type::FacWar:   misionType = Mission::Type::Encounter; break;  // FW agents give combat missions
         case Agents::Type::EpicArc:  return; // Epic arc agents — no regular missions
         case Agents::Type::Cosmos:   misionType = Mission::Type::Cosmos;   break;
         default: {
@@ -768,6 +768,13 @@ bool Agent::CanUseAgent(Client* pClient)
     /** @todo this needs work!!  */
     if (m_agentData.typeID == Agents::Type::Aura)
         return true;
+    // FW agents require militia enlistment matching the agent's faction
+    if (m_agentData.facWar) {
+        if (pClient->GetWarFactionID() != m_agentData.factionID)
+            return false;
+        if (m_agentData.level == 1)
+            return true;
+    }
     if (m_agentData.level == 1)
         if (m_agentData.typeID != Agents::Type::Research)
             return true;

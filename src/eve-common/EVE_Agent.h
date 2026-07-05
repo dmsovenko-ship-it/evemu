@@ -13,6 +13,7 @@ struct AgentData {
     bool locator;
     bool research;
     bool cosmos;
+    bool facWar;
     int8 quality;
     uint8 level;
     uint8 raceID;
