@@ -44,6 +44,21 @@ void CynoModule::Activate(uint16 effectID, uint32 targetID, int16 repeat)
 
     _log(MODULE__DEBUG, "Cynosural field generator activated by %s in %s", pClient->GetName(), m_sysMgr->GetName());
 
+    // Send OnSpecialFX manually — the SDE is missing the GUID for
+    // effectID 2857 (cynosuralGeneration), so ShowEffect() in the base
+    // class skipped it. Without this, the client never sees the module
+    // as active and ignores OnJumpBeaconChange.
+    std::string guidStr = sFxDataMgr.GetEffectGuid(m_effectID);
+    if (guidStr.empty() and m_destinyMgr != nullptr) {
+        uint32 timeLeft = GetRemainingCycleTimeMS();
+        m_destinyMgr->SendSpecialEffect(
+            m_shipRef->itemID(), m_modRef->itemID(), m_modRef->typeID(),
+            m_shipRef->itemID(), 0,
+            "effects.CynosuralGeneration",
+            false, true, true, timeLeft, m_repeat
+        );
+    }
+
     // hack to disable ship movement here
     m_shipVelocity = pShipSE->DestinyMgr()->GetMaxVelocity();
     pShipSE->DestinyMgr()->SetFrozen(true);
