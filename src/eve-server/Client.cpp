@@ -1602,8 +1602,13 @@ void Client::ContrabandScan(uint32 fromGate)
         severe = true;
     }
 
-    // Private notification to the player only
-    SendNotifyMsg("Customs officials scan your cargo for contraband.");
+    // System-wide broadcast
+    std::vector<Client*> clients;
+    sysMgr->GetClientList(clients);
+    for (auto* c : clients) {
+        c->SendNotifyMsg("Customs officials have detected contraband on %s in %s.",
+            GetName(), GetSystemName().c_str());
+    }
 
     if (severe) {
         // Immediate penalty + NPC attack (no jettison window)
@@ -1705,7 +1710,12 @@ void Client::ExecuteContrabandPenalty()
     }
 
     if (penaltyApplied) {
-        SendNotifyMsg("Customs officials have engaged your ship.");
+        std::vector<Client*> clients;
+        sysMgr->GetClientList(clients);
+        for (auto* c : clients) {
+            c->SendNotifyMsg("Customs officials have engaged %s in %s.",
+                GetName(), GetSystemName().c_str());
+        }
 
         // Make customs NPCs at the gate target and attack the player
         SystemEntity* pShipSE = GetShipSE();
