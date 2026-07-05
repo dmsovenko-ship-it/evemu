@@ -1,6 +1,6 @@
 # EVEmu Crucible — Project Status
 
-> Last updated: 2026-07-04 (end of session)
+> Last updated: 2026-07-05 (end of session)
 > Based on codebase analysis of [dmsovenko-ship-it/evemu](https://github.com/dmsovenko-ship-it/evemu) (fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible))
 
 ---
@@ -183,9 +183,9 @@
 | **CynoModule** (regular) | ✅ Working | Fleet check, POS shield, jammer, sec check all fixed |
 | **CovertCynoModule** | ✅ Added | No fleet req, high-sec allowed, CovertCynosuralFieldI |
 | **Cyno under cloak** | ✅ Fixed | `DeniedActivateCloaked` now allows `cynosuralGeneration` (2857) and `cloakingWarpSafe` (980) effects |
-| **JumpPortalModule** (titan bridge) | ✅ Added | Portal effect, fleet notification, ship freeze, JDC range |
+| **JumpPortalModule** (titan bridge) | ✅ Working | Portal effect, fleet notification, ship freeze, JDC range |
 | **Covert Jump Portal** (Black Ops bridge) | ✅ Added | `OpenBridge()` creates portal on-demand via `CmdBridgeToMember` |
-| **CmdJumpThroughFleet** | ✅ Added | Portal lookup, fleet validation, fuel calc, range check |
+| **CmdJumpThroughFleet** | ✅ Working | Portal lookup, fleet validation, fuel calc, range check |
 | **CmdJumpThroughAlliance** | ✅ Added | Portal lookup, alliance validation, fuel calc, range check |
 | **CmdBridgeToMember** | ✅ Enhanced | Now auto-activates portal via `OpenBridge()` if not already active |
 | **CmdJumpThroughCorporationStructure** | ✅ Enhanced | Distance-based fuel (static 500 LO → dynamic), range check |
@@ -194,6 +194,9 @@
 | **Fuel consumption** | ✅ Fixed | Minimum 1 fuel, `quantityLeft` decrement in consumption loop |
 | **Cyno jammer check** | ✅ Fixed | Verifies jammer `StructureSE` exists in system via `GetSE()` |
 | **High-sec check** | ✅ Fixed | `m_secValue` is 0.1 (1.0 sec) to 2.0 (−0.9 sec), now correctly blocks ≥ 0.5 |
+| **Cyno OnSpecialFX** | ✅ Fixed | `GetEffectGuid()` fallback for effectID 2857 missing from SDE; `ShowEffect()` made virtual; `CynoModule::ShowEffect()` sets targetID to cyno field entity |
+| **Cyno field global visibility** | ✅ Fixed | `AttrIsGlobal=true` on cyno field entity — visible across bubbles |
+| **Same-system beacon jump menu** | ❌ Known limitation | Cyno in the same system does not appear in fleet right-click jump menu. Only inter-system hyperjump works. Client-side (`menusvc.py` / fleet service). |
 
 ### Cloak Systems
 

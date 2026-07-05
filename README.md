@@ -122,6 +122,7 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 - `MailService::SendMail()` — delivery incomplete
 - Killmail push notifications — not implemented
 - Fighter/bomber aggro — only on last target or when fired upon (no idle scan)
+- **Same-system beacon jump** — cyno/covert-cyno field in the same system as the jumping ship does not appear in the fleet right-click jump menu (inter-system hyperjump works). Client-side limitation in `menusvc.py` / fleet service beacon filtering.
 
 ---
 
@@ -266,6 +267,7 @@ docker logs -f server          # ждать "Server started"
 - `MailService::SendMail()` — неполная доставка
 - Push-уведомления киллимейлов — не реализованы
 - Аггро файтеров — только на последнюю цель или при атаке (нет сканирования в Idle)
+- **Прыжок к маяку в той же системе** — цино/коверт-цино в одной системе с кораблём не появляется в меню прыжка флота (межсистемный гиперпрыжок работает). Ограничение на стороне клиента — `menusvc.py` / fleet service.
 
 ---
 

@@ -132,16 +132,23 @@ Things to verify after recent changes (2026-07-04 session — Cloak, Cyno, Porta
 
 ## Cyno / Jump Bridge / Titan Bridge
 
-- [ ] **Covert cyno** — Fit a covert cyno gen to a covert ops ship. Activate it. Should create a **Covert** Cynosural Field (not regular). No fleet required, should work in high-sec.
-- [ ] **Covert cyno under cloak** — Activate cloak first, then activate covert cyno. Should work (no "DeniedActivateCloaked" error).
-- [ ] **Covert cyno visual** — Field should appear on overview as "Covert Cynosural Field", not regular.
-- [ ] **Regular cyno** — Fit a cyno gen to any ship. Must be in fleet and NOT in high-sec. Activate to create a regular cyno field.
-- [ ] **Titan bridge** — Titan pilot lights cyno, then activates Jump Portal Generator targeting it. Fleet members should see "Jump through" option on the titan.
-- [ ] **Covert bridge** — Black Ops ship has Covert Jump Portal Generator online. Fleet member right-clicks the Black Ops ship → should see "Bridge to..." option. Clicking it should open the portal (log "Bridge opened").
-- [ ] **CmdJumpThroughFleet** — Fleet member clicks "Jump through" on titan. Should pay jump fuel and arrive at the cyno.
-- [ ] **CmdJumpThroughAlliance** — Alliance bridge: same flow but alliance-wide.
+- [x] **Covert cyno** — Fit a covert cyno gen to a covert ops ship. Activate it. Should create a **Covert** Cynosural Field (not regular). No fleet required, should work in high-sec.
+- [x] **Covert cyno under cloak** — Activate cloak first, then activate covert cyno. Should work (no "DeniedActivateCloaked" error).
+- [x] **Covert cyno visual** — Field should appear on overview as "Covert Cynosural Field", not regular.
+- [x] **Regular cyno** — Fit a cyno gen to any ship. Must be in fleet and NOT in high-sec. Activate to create a regular cyno field.
+- [x] **Titan bridge (cross-system)** — Titan pilot lights cyno, then activates Jump Portal Generator targeting it. Fleet members should see "Jump through" option on the titan.
+- [x] **Covert bridge (cross-system)** — Black Ops ship has Covert Jump Portal Generator online. Fleet member right-clicks the Black Ops ship → should see "Bridge to..." option. Clicking it should open the portal (log "Bridge opened").
+- [x] **CmdJumpThroughFleet** — Fleet member clicks "Jump through" on titan. Should pay jump fuel and arrive at the cyno.
+- [x] **CmdJumpThroughAlliance** — Alliance bridge: same flow but alliance-wide.
+- [x] **Hyperjump to cyno (cross-system)** — Fleet member right-clicks cyno pilot in fleet → hyperjump. Works with fuel consumption.
+- [x] **Fuel consumption** — Jump consumes isotope fuel from fuel bay based on distance. Verified.
 - [ ] **POS Jump Bridge** — Install a jump bridge link between two POS towers. Jump through using CorpStructure option. Fuel should scale by distance.
-- [ ] **Portal broadcast** — When any Jump Portal Generator goes online/offline, other ships in the same bubble should receive the module state change notification.
+- [x] **Portal broadcast** — When any Jump Portal Generator goes online/offline, other ships in the same bubble should receive the module state change notification.
+- [ ] **OnSpecialFX for cyno** — Module activation effect visible on source ship (guid empty error fixed via GetEffectGuid fallback).
+- [ ] **Cyno field global visibility** — Cyno entity visible across bubbles (AttrIsGlobal fix).
+
+> ⚠️ **Known limitation — same-system beacon jump**: When the cyno/covert-cyno field is in the **same solar system** as the jumping ship, the fleet right-click menu does **not** show the hyperjump/bridge option. Only inter-system jumps work through the fleet menu. This is a client-side limitation (`menusvc.py` / fleet service beacon filtering).  
+> *Цино/коверт-цино в одной системе с кораблём — меню прыжка во флоте не появляется. Только межсистемные прыжки.*
 
 ## Login Warp
 
