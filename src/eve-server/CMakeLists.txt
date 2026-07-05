@@ -57,6 +57,7 @@ SET( account_INCLUDE
      "${TARGET_INCLUDE_DIR}/account/InfoGatheringMgr.h"
      "${TARGET_INCLUDE_DIR}/account/TutorialDB.h"
      "${TARGET_INCLUDE_DIR}/account/TutorialService.h"
+     "${TARGET_INCLUDE_DIR}/account/TutorialLocationService.h"
      "${TARGET_INCLUDE_DIR}/account/UserService.h" )
 SET( account_SOURCE
      "${TARGET_SOURCE_DIR}/account/AccountDB.cpp"
@@ -67,6 +68,7 @@ SET( account_SOURCE
      "${TARGET_SOURCE_DIR}/account/InfoGatheringMgr.cpp"
      "${TARGET_SOURCE_DIR}/account/TutorialDB.cpp"
      "${TARGET_SOURCE_DIR}/account/TutorialService.cpp"
+     "${TARGET_SOURCE_DIR}/account/TutorialLocationService.cpp"
      "${TARGET_SOURCE_DIR}/account/UserService.cpp" )
 
 SET( admin_INCLUDE
