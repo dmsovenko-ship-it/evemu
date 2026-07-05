@@ -11,7 +11,7 @@
 
 #include "effects/EffectsDataMgr.h"
 #include "effects/EffectsProcessor.h"
-#include "eve-common/EVE_Effects.h"
+#include "EVE_Effects.h"
 
 
 FxDataMgr::FxDataMgr()
