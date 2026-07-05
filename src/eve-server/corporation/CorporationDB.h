@@ -104,6 +104,7 @@ public:
     void AddContact(uint32 ownerID, int32 contactID, int32 relationshipID);
     void UpdateContact(int32 relationshipID, uint32 contactID, uint32 ownerID);
     void RemoveContact(uint32 contactID, uint32 ownerID);
+    void UpdateContactLabelMask(uint32 ownerID, uint32 contactID, uint32 mask, bool add);
 
     PyRep* GetLabels(uint32 corpID);
     void SetLabel(uint32 corpID, uint32 color, std::string name);

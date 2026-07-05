@@ -1173,6 +1173,22 @@ void CorporationDB::RemoveContact(uint32 contactID, uint32 ownerID)
          contactID, ownerID);
 }
 
+void CorporationDB::UpdateContactLabelMask(uint32 ownerID, uint32 contactID, uint32 mask, bool add)
+{
+    DBerror err;
+    if (add) {
+        sDatabase.RunQuery(err,
+            "UPDATE crpContacts SET labelMask = labelMask | %u"
+            " WHERE contactID=%u AND ownerID=%u",
+            mask, contactID, ownerID);
+    } else {
+        sDatabase.RunQuery(err,
+            "UPDATE crpContacts SET labelMask = labelMask & ~%u"
+            " WHERE contactID=%u AND ownerID=%u",
+            mask, contactID, ownerID);
+    }
+}
+
 // should this be cached?     ...yes
 PyObject *CorporationDB::GetEveOwners(uint32 corpID) {
     DBQueryResult res;
@@ -2585,7 +2601,10 @@ void CorporationDB::SetLabel(uint32 corpID, uint32 color, std::string name)
 
 void CorporationDB::DeleteLabel(uint32 corpID, uint32 labelID)
 {
-    // not used yet
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM crpLabels WHERE ownerID = %u AND labelID = %u",
+        corpID, labelID);
 }
 
 int32 CorporationDB::GetCorpIDforChar(int32 charID)

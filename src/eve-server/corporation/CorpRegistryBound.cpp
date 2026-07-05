@@ -2266,43 +2266,56 @@ PyResult CorpRegistryBound::ExecuteActions(PyCallArgs &call, PyList* targetIDs, 
 }
 
 PyResult CorpRegistryBound::CreateLabel(PyCallArgs &call, PyRep* name, PyRep* color) {
-    // return self.GetCorpRegistry().CreateLabel(name, color)
     _log(CORP__CALL, "CorpRegistryBound::Handle_CreateLabel() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
-
-    return nullptr;
+    uint32 corpID = call.client->GetCorporationID();
+    uint32 colorVal = (color->IsInt() ? color->AsInt()->value() : 0);
+    std::string nameStr = (name->IsString() ? name->AsString()->content() : "Label");
+    m_db.SetLabel(corpID, colorVal, nameStr);
+    return PyStatic.NewOne();
 }
 
 PyResult CorpRegistryBound::DeleteLabel(PyCallArgs &call, PyInt* labelID) {
-    // self.GetCorpRegistry().DeleteLabel(labelID)
     _log(CORP__CALL, "CorpRegistryBound::Handle_DeleteLabel() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
-
-    return nullptr;
+    uint32 corpID = call.client->GetCorporationID();
+    m_db.DeleteLabel(corpID, labelID->value());
+    return PyStatic.NewTrue();
 }
 
 PyResult CorpRegistryBound::EditLabel(PyCallArgs &call, PyInt* labelID, PyRep* name, PyRep* color) {
-    // self.GetCorpRegistry().EditLabel(labelID, name, color)
     _log(CORP__CALL, "CorpRegistryBound::Handle_EditLabel() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
-
-    return nullptr;
+    uint32 corpID = call.client->GetCorporationID();
+    uint32 colorVal = (color->IsInt() ? color->AsInt()->value() : 0);
+    std::string nameStr = (name->IsString() ? name->AsString()->content() : "Label");
+    m_db.EditLabel(corpID, labelID->value(), colorVal, nameStr);
+    return PyStatic.NewTrue();
 }
 
 PyResult CorpRegistryBound::AssignLabels(PyCallArgs &call, PyList* contactIDs, PyInt* labelMask) {
-    // self.GetCorpRegistry().AssignLabels(contactIDs, labelMask)
     _log(CORP__CALL, "CorpRegistryBound::Handle_AssignLabels() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
-
-    return nullptr;
+    uint32 corpID = call.client->GetCorporationID();
+    uint32 mask = labelMask->value();
+    for (size_t i = 0; i < contactIDs->size(); ++i) {
+        PyRep* item = contactIDs->GetItem(i);
+        if (item->IsInt()) {
+            uint32 contactID = item->AsInt()->value();
+            m_db.UpdateContactLabelMask(corpID, contactID, mask, true);
+        }
+    }
+    return PyStatic.NewTrue();
 }
 
 PyResult CorpRegistryBound::RemoveLabels(PyCallArgs &call, PyList* contactIDs, PyInt* labelMask) {
-    // self.GetCorpRegistry().RemoveLabels(contactIDs, labelMask)
     _log(CORP__CALL, "CorpRegistryBound::Handle_RemoveLabels() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
-
-    return nullptr;
+    uint32 corpID = call.client->GetCorporationID();
+    uint32 mask = labelMask->value();
+    for (size_t i = 0; i < contactIDs->size(); ++i) {
+        PyRep* item = contactIDs->GetItem(i);
+        if (item->IsInt()) {
+            uint32 contactID = item->AsInt()->value();
+            m_db.UpdateContactLabelMask(corpID, contactID, mask, false);
+        }
+    }
+    return PyStatic.NewTrue();
 }
 
 PyResult CorpRegistryBound::CreateAlliance(PyCallArgs &call, PyRep* allianceName, PyRep* shortName, PyRep* description, PyRep* url) {

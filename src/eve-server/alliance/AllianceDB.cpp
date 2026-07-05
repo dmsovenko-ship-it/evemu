@@ -281,6 +281,22 @@ void AllianceDB::RemoveContact(uint32 contactID, uint32 ownerID)
                        contactID, ownerID);
 }
 
+void AllianceDB::UpdateContactLabelMask(uint32 ownerID, uint32 contactID, uint32 mask, bool add)
+{
+    DBerror err;
+    if (add) {
+        sDatabase.RunQuery(err,
+            "UPDATE alnContacts SET labelMask = labelMask | %u"
+            " WHERE contactID=%u AND ownerID=%u",
+            mask, contactID, ownerID);
+    } else {
+        sDatabase.RunQuery(err,
+            "UPDATE alnContacts SET labelMask = labelMask & ~%u"
+            " WHERE contactID=%u AND ownerID=%u",
+            mask, contactID, ownerID);
+    }
+}
+
 PyRep *AllianceDB::GetLabels(uint32 allyID)
 {
     DBQueryResult res;

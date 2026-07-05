@@ -467,50 +467,58 @@ PyResult AllianceBound::EditContactsRelationshipID(PyCallArgs &call, PyList* con
 
 PyResult AllianceBound::GetLabels(PyCallArgs &call)
 {
-    //   return self.GetMoniker().GetLabels()
     _log(ALLY__CALL, "AllianceBound::Handle_GetLabels() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
-    return nullptr;
+    PyRep* result = m_db.GetLabels(m_allyID);
+    if (result == nullptr)
+        return new PyList();
+    return result;
 }
 
 PyResult AllianceBound::CreateLabel(PyCallArgs &call, PyString* name, std::optional<PyInt*> color)
 {
-    //   return self.GetMoniker().CreateLabel(name, color)
     _log(ALLY__CALL, "AllianceBound::Handle_CreateLabel() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
-    return nullptr;
+    uint32 colorVal = color.has_value() ? color.value()->value() : 0;
+    m_db.SetLabel(m_allyID, colorVal, name->content());
+    return PyStatic.NewOne();
 }
 
 PyResult AllianceBound::DeleteLabel(PyCallArgs &call, PyInt* labelID)
 {
-    //   self.GetMoniker().DeleteLabel(labelID)
     _log(ALLY__CALL, "AllianceBound::Handle_DeleteLabel() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
-    return nullptr;
+    m_db.DeleteLabel(m_allyID, labelID->value());
+    return PyStatic.NewTrue();
 }
 
 PyResult AllianceBound::EditLabel(PyCallArgs &call, PyInt* labelID, PyString* name, std::optional<PyInt*> color)
 {
-    //   self.GetMoniker().EditLabel(labelID, name, color)
     _log(ALLY__CALL, "AllianceBound::Handle_EditLabel() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
-    return nullptr;
+    uint32 colorVal = color.has_value() ? color.value()->value() : 0;
+    m_db.EditLabel(m_allyID, labelID->value(), colorVal, name->content());
+    return PyStatic.NewTrue();
 }
 
 PyResult AllianceBound::AssignLabels(PyCallArgs &call, PyList* contactIDs, PyInt* labelMask)
 {
-    //   self.GetMoniker().AssignLabels(contactIDs, labelMask)
     _log(ALLY__CALL, "AllianceBound::Handle_AssignLabels() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
-    return nullptr;
+    uint32 mask = labelMask->value();
+    for (size_t i = 0; i < contactIDs->size(); ++i) {
+        PyRep* item = contactIDs->GetItem(i);
+        if (item->IsInt())
+            m_db.UpdateContactLabelMask(m_allyID, item->AsInt()->value(), mask, true);
+    }
+    return PyStatic.NewTrue();
 }
 
 PyResult AllianceBound::RemoveLabels(PyCallArgs &call, PyList* contactIDs, PyInt* labelMask)
 {
-    //   self.GetMoniker().RemoveLabels(contactIDs, labelMask)
     _log(ALLY__CALL, "AllianceBound::Handle_RemoveLabels() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
-    return nullptr;
+    uint32 mask = labelMask->value();
+    for (size_t i = 0; i < contactIDs->size(); ++i) {
+        PyRep* item = contactIDs->GetItem(i);
+        if (item->IsInt())
+            m_db.UpdateContactLabelMask(m_allyID, item->AsInt()->value(), mask, false);
+    }
+    return PyStatic.NewTrue();
 }
 
 PyResult AllianceBound::UpdateAlliance(PyCallArgs &call, PyWString* description, PyWString* url)
