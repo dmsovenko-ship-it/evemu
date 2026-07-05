@@ -444,7 +444,7 @@ PyObject* Agent::GetInfoServiceDetails()
     // standings info for this agent.
     /** @todo  finish this.... */
     std::string msg = "Your personal standings must be ";
-    msg += GetMinReqStanding(m_agentData.level);
+    msg += GetMinReqStanding(m_agentData.level, m_agentData.cosmos);
     msg += " or higher toward this agent, its faction, or its corporation in order to use this agent's services.";
     res->SetItemString("incompatible", new PyString(msg));
 
@@ -468,24 +468,23 @@ PyObject* Agent::GetInfoServiceDetails()
     return new PyObject("util.KeyVal", res);
 }
 
-std::string Agent::GetMinReqStanding(uint8 level)
+std::string Agent::GetMinReqStanding(uint8 level, bool cosmos)
 {
+    // COSMOS agents require +1.0 standing
+    float base = 0.0f;
     switch(level) {
-        // these are agentCorp -> char
-        case 1:     return "-2.0";
-        case 2:     return "1.0";
-        case 3:     return "3.0";
-        case 4:     return "5.0";
-        case 5:     return "7.0";
-        //these are agent/corp/faction -> char
-        case 11:     return "-1.0";
-        case 12:     return "1.5";
-        case 13:     return "3.5";
-        case 14:     return "5.5";
-        case 15:     return "7.5";
+        case 1:  base = -2.0f; break;
+        case 2:  base =  1.0f; break;
+        case 3:  base =  3.0f; break;
+        case 4:  base =  5.0f; break;
+        case 5:  base =  7.0f; break;
+        default: base = -0.5f; break;
     };
-
-    return "-0.5";
+    if (cosmos and level > 1)
+        base += 1.0f;
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%.1f", base);
+    return std::string(buf);
 }
 
 
@@ -797,6 +796,9 @@ bool Agent::CanUseAgent(Client* pClient)
         charChr = (1.0 - (1.0 - charChr / 10.0) * (1.0 - charBonus / 10.0)) * 10.0;
 
     float m = (m_agentData.level - 1) * 2.0f - 1.0f;
+    // COSMOS agents require +1.0 standing (2/4/6 instead of 1/3/5)
+    if (m_agentData.cosmos and m_agentData.level > 1)
+        m += 1.0f;
 
     _log(AGENT__DEBUG, "%s(%u) CanUseAgent() - charSkills(con:%u,dip:%u,cri:%u), stand(%f, %f, %f)",\
                 m_agentData.name.c_str(), m_agentID, sConn, sDiplo, sCrim, charStanding, bonus, standing);
