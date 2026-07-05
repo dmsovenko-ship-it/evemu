@@ -231,22 +231,22 @@ PyResult TutorialService::GetTutorialAgents(PyCallArgs &call, PyList* agentIDs) 
     sLog.White("TutorialService::GetTutorialAgents()", "size=%lu", call.tuple->size());
 
     // Build list of agent IDs from the call argument
-    std::vector<uint32> agentIDs;
+    std::vector<uint32> ids;
     for (size_t i = 0; i < agentIDs->size(); ++i) {
         PyRep* item = agentIDs->GetItem(i);
         if (item->IsInt())
-            agentIDs.push_back(item->AsInt()->value());
+            ids.push_back(item->AsInt()->value());
     }
 
-    if (agentIDs.empty())
+    if (ids.empty())
         return new PyList();
 
     // Query agtAgents for the requested agent IDs
     DBQueryResult res;
     std::string idList;
-    for (size_t i = 0; i < agentIDs.size(); ++i) {
+    for (size_t i = 0; i < ids.size(); ++i) {
         if (i > 0) idList += ",";
-        idList += std::to_string(agentIDs[i]);
+        idList += std::to_string(ids[i]);
     }
     sDatabase.RunQuery(res,
         "SELECT agt.agentID, agt.agentTypeID, agt.divisionID, agt.level, "
