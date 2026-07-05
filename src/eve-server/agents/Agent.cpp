@@ -72,14 +72,13 @@ bool Agent::Load() {
 void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
 {
     // Determine mission type from agent division and type
-    // Divisions: 1-15 Security (Encounter), 16-20 Mining, 21-24 Distribution (Courier)
     uint8 misionType = Mission::Type::Encounter;
     switch (m_agentData.typeID) {
-        case 4:  misionType = Mission::Type::Research; break;
-        case 9:  misionType = Mission::Type::Courier;  break;  // Faction Warfare
-        case 10: return; // Epic arc agents — no regular missions
+        case Agents::Type::Research: misionType = Mission::Type::Research; break;
+        case Agents::Type::FacWar:   misionType = Mission::Type::Courier;  break;
+        case Agents::Type::EpicArc:  return; // Epic arc agents — no regular missions
+        case Agents::Type::Cosmos:   misionType = Mission::Type::Cosmos;   break;
         default: {
-            // BasicAgent (2), TutorialAgent (3), CONCORDAgent (5), etc.
             if (m_agentData.divisionID >= 16 and m_agentData.divisionID <= 20)
                 misionType = Mission::Type::Mining;
             else if (m_agentData.divisionID >= 21)

@@ -74,6 +74,7 @@ void AgentDB::LoadAgentData(uint32 agentID, AgentData& data)
         data.raceID         = sDataMgr.GetFactionRace(data.factionID);
         data.name           = row.GetText(15);
         data.research       = (data.typeID == Agents::Type::Research);
+        data.cosmos         = (data.typeID == Agents::Type::Cosmos);
     }
 }
 

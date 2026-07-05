@@ -12,6 +12,7 @@ struct AgentData {
     bool gender;
     bool locator;
     bool research;
+    bool cosmos;
     int8 quality;
     uint8 level;
     uint8 raceID;
@@ -50,7 +51,8 @@ namespace Agents {
             Event               = 8,
             FacWar              = 9,
             EpicArc             = 10,
-            Aura                = 11
+            Aura                = 11,
+            Cosmos              = 12
         };
     }
 

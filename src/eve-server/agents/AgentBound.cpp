@@ -336,6 +336,15 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         }
                     }
                 }
+                // COSMOS one-time completion tracking
+                if (offer.typeID == Mission::Type::Cosmos) {
+                    uint32 charID = pchar->itemID();
+                    DBerror err;
+                    sDatabase.RunQuery(err,
+                        "INSERT INTO chrCosmosState (characterID, missionID, agentID, completed, dateCompleted)"
+                        " VALUES (%u, %u, %u, 1, %.0f) ON DUPLICATE KEY UPDATE completed = 1, dateCompleted = %.0f",
+                        charID, offer.missionID, m_agent->GetID(), GetFileTimeNow(), GetFileTimeNow());
+                }
                 if (offer.courierTypeID) {
                     // remove item from player possession
                     call.client->RemoveMissionItem(offer.courierTypeID, offer.courierAmount);

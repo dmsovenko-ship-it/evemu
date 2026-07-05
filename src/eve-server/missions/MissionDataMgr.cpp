@@ -612,7 +612,7 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             }
         } break;
         case Mission::Type::Cosmos: {
-            // COSMOS missions — use unsorted mission pool by level
+            // COSMOS missions — pick from pool, one-time tracking done in AgentBound::Complete
             std::vector<MissionData> cVec;
             auto itr = m_missions.equal_range(level);
             for (auto it = itr.first; it != itr.second; ++it)
