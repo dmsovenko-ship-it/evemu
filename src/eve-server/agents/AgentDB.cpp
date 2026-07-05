@@ -52,27 +52,27 @@ void AgentDB::LoadAgentData(uint32 agentID, AgentData& data)
     /** @todo  there may be some errors here with agents in space or NOT in stations....will have to test and fix as they come up.  */
     DBResultRow row;
     if (res.GetRow(row)) {
-        if (row.GetUInt(10) == 0) {
+        if (row.IsNull(10) or row.GetUInt(10) == 0) {
             _log(DATABASE__MESSAGE, "No charTypeID for Agent %u", agentID);
             return;
         }
         data.typeID         = row.GetUInt(0);
         data.divisionID     = row.GetUInt(1);
         data.level          = row.GetUInt(2);
-        data.quality        = row.GetInt(3);
+        data.quality        = row.IsNull(3) ? 0 : row.GetInt(3);
         data.corporationID  = row.GetUInt(4);
         data.locationID     = row.GetUInt(5);
-        data.locator        = row.GetBool(6);
+        data.locator        = (row.IsNull(6) ? false : row.GetBool(6));
         data.solarSystemID  = row.GetUInt(7);
         data.stationID      = row.GetUInt(8);
-        data.gender         = row.GetBool(9);
+        data.gender         = (row.IsNull(9) ? false : row.GetBool(9));
         data.bloodlineID    = row.GetUInt(10);
         data.locationTypeID = row.GetUInt(11);
         data.friendCorp     = (row.IsNull(12) ? 0 : row.GetInt(12));
         data.enemyCorp      = (row.IsNull(13) ? 0 : row.GetInt(13));
-        data.factionID      = row.GetInt(14);
+        data.factionID      = (row.IsNull(14) ? 0 : row.GetInt(14));
         data.raceID         = sDataMgr.GetFactionRace(data.factionID);
-        data.name           = row.GetText(15);
+        data.name           = (row.IsNull(15) ? "" : row.GetText(15));
         data.research       = (data.typeID == Agents::Type::Research);
         data.cosmos         = (data.typeID == Agents::Type::Cosmos);
         data.facWar         = (data.typeID == Agents::Type::FacWar);
