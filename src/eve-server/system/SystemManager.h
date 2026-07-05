@@ -92,6 +92,7 @@ public:
     void SpawnSentryGuns();
     void SpawnBillboards();
     void SpawnConvoys();
+    void SpawnCustomsNPCs();
     Inventory* GetSystemInv()                           { return m_solarSystemRef->GetMyInventory(); }
     SolarSystemRef GetSystemRef()                       { return m_solarSystemRef; }
 
@@ -168,6 +169,9 @@ public:
 
     SystemEntity* GetPlanet(uint32 planetID);
 
+    // customs NPC gate tracking
+    void AddCustomsGate(uint32 gateID)                  { m_customsGates.insert(gateID); }
+    bool HasCustomsAtGate(uint32 gateID) const          { return m_customsGates.find(gateID) != m_customsGates.end(); }
 
 protected:
     /** @todo  this needs more work */
@@ -213,6 +217,9 @@ private:
     std::vector<uint32> m_beltVector;
     SpawnBubbleMap m_ratBubbles;  // map of id/bubble with rat spawns  - not actually used yet
     SpawnBubbleMap m_roidBubbles;  // map of id/bubble with roid spawns  - not actually used yet
+
+    // customs NPC gate tracking
+    std::set<uint32> m_customsGates;
 
     // for POS system       -allan 23July17
     std::map<uint32, SystemEntity*> m_moonMap;        // our container, but we DONT own the SE*

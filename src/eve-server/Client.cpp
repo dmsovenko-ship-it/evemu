@@ -47,6 +47,7 @@
 #include "map/MapDB.h"
 #include "missions/MissionDataMgr.h"
 #include "npc/NPC.h"
+#include "npc/NPCAI.h"
 //#include "npc/Drone.h"
 //#include "npc/DroneAI.h"
 #include "station/StationDataMgr.h"
@@ -90,7 +91,7 @@ Client::Client(EVEServiceManager& services, EVETCPConnection** con)
   m_uncloakTimer(0),
   m_contrabandTimer(0),
   m_contrabandActive(false),
-  m_contrabandFactionID(0),
+
   m_destinyEventQueue(new PyList()),
   m_destinyUpdateQueue(new PyList()),
     m_nextNotifySequence(0)
@@ -1478,7 +1479,7 @@ PyRep *Client::GetAggressors() const {
 }
 
 void Client::StargateJump(uint32 fromGate, uint32 toGate) {
-    ContrabandScan();
+    ContrabandScan(fromGate);
 
     if ((m_clientState != Player::State::Idle) or m_stateTimer.Enabled()) {
         sLog.Error("Client","%s: StargateJump called when a move is already pending. Ignoring.", m_char->name());
@@ -1526,30 +1527,31 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
     SetStateTimer(Player::State::Jump, Player::Timer::Jumping);
 }
 
-void Client::ContrabandScan()
+void Client::ContrabandScan(uint32 fromGate)
 {
     if (m_contrabandActive) {
-        return;
+        return;  // already under customs scrutiny — 60s timer active
     }
     if (!IsInSpace()) {
         return;
     }
-    ShipItemRef ship = GetShip();
-    if (ship.get() == nullptr) {
-        return;
+    // Check if customs NPCs are at this gate
+    SystemManager* sysMgr = SystemMgr();
+    if (sysMgr == nullptr) return;
+    if (!sysMgr->HasCustomsAtGate(fromGate)) {
+        return;  // no customs NPCs at this gate — no scan
     }
-    SolarSystemRef sysRef = SystemMgr()->GetSystemRef();
-    if (sysRef.get() == nullptr) {
-        return;
-    }
+    SolarSystemRef sysRef = sysMgr->GetSystemRef();
+    if (sysRef.get() == nullptr) return;
     float sysSec = static_cast<float>(sysRef->security());
-    if (sysSec < 0.5f) {
-        return; // only highsec
-    }
+    if (sysSec < 0.5f) return;  // only highsec
     uint32 factionID = sysRef->factionID();
-    if (factionID == 0) {
-        return;
-    }
+    if (factionID == 0) return;
+
+    ShipItemRef ship = GetShip();
+    if (ship.get() == nullptr) return;
+
+    // Query contraband types with severity data for this faction
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT typeID, standingLoss, confiscateMinSec, fineByValue, attackMinSec"
@@ -1558,78 +1560,8 @@ void Client::ContrabandScan()
         sLog.Error("Client", "ContrabandScan: DB query failed for factionID %u", factionID);
         return;
     }
-    if (res.GetRowCount() == 0) {
-        return;
-    }
-    std::set<uint32> contrabandTypeIDs;
-    DBResultRow row;
-    while (res.GetRow(row)) {
-        contrabandTypeIDs.insert(row.GetUInt(0));
-    }
-    std::vector<InventoryItemRef> cargoItems;
-    ship->GetMyInventory()->GetItemsByFlag(flagCargoHold, cargoItems);
-    int8 smuggLvl = GetChar()->GetSkillLevel(EvESkill::Smuggling);
-    float detectionChance = 0.5f * (1.0f - smuggLvl * 0.1f);
-    bool foundContraband = false;
-    for (auto& item : cargoItems) {
-        if (contrabandTypeIDs.find(item->typeID()) == contrabandTypeIDs.end()) {
-            continue;
-        }
-        if (MakeRandomFloat(0.0, 1.0) < detectionChance) {
-            foundContraband = true;
-            break;
-        }
-    }
-    if (!foundContraband) {
-        return;
-    }
-    // System-wide broadcast
-    std::vector<Client*> clients;
-    SystemMgr()->GetClientList(clients);
-    for (auto* c : clients) {
-        c->SendNotifyMsg("Customs officials have detected contraband on %s in %s.",
-            GetName(), GetSystemName().c_str());
-    }
-    // Start 60s timer for penalty
-    m_contrabandTimer.Start(60000);
-    m_contrabandActive = true;
-    m_contrabandFactionID = factionID;
-}
+    if (res.GetRowCount() == 0) return;
 
-void Client::ExecuteContrabandPenalty()
-{
-    m_contrabandActive = false;
-    m_contrabandFactionID = 0;
-
-    if (!IsInSpace()) {
-        return;
-    }
-    ShipItemRef ship = GetShip();
-    if (ship.get() == nullptr) {
-        return;
-    }
-    SolarSystemRef sysRef = SystemMgr()->GetSystemRef();
-    if (sysRef.get() == nullptr) {
-        return;
-    }
-    float sysSec = static_cast<float>(sysRef->security());
-    if (sysSec < 0.5f) {
-        return; // escaped to lowsec/nullsec, customs can't enforce
-    }
-    uint32 factionID = sysRef->factionID();
-    if (factionID == 0) {
-        return;
-    }
-    DBQueryResult res;
-    if (!sDatabase.RunQuery(res,
-        "SELECT typeID, standingLoss, confiscateMinSec, fineByValue, attackMinSec"
-        " FROM invContrabandTypes WHERE factionID = %u", factionID))
-    {
-        return;
-    }
-    if (res.GetRowCount() == 0) {
-        return;
-    }
     struct ContrabandEntry {
         float standingLoss;
         float confiscateMinSec;
@@ -1646,91 +1578,149 @@ void Client::ExecuteContrabandPenalty()
         entry.attackMinSec     = row.GetFloat(4);
         contrabandTypes[row.GetUInt(0)] = entry;
     }
+
+    // Scan cargo for contraband
+    std::vector<InventoryItemRef> cargoItems;
+    ship->GetMyInventory()->GetItemsByFlag(flagCargoHold, cargoItems);
+    int8 smuggLvl = GetChar()->GetSkillLevel(EvESkill::Smuggling);
+    float detectionChance = 0.5f * (1.0f - smuggLvl * 0.1f);
+
+    bool severe = false;
+    for (auto& item : cargoItems) {
+        auto it = contrabandTypes.find(item->typeID());
+        if (it == contrabandTypes.end()) continue;
+        if (MakeRandomFloat(0.0, 1.0) >= detectionChance) continue;
+
+        ContrabandEntry& entry = it->second;
+        // Severe: heavy drugs (standingLoss >= 0.05) or large quantity (>= 10)
+        if (entry.standingLoss >= 0.05f || item->quantity() >= 10) {
+            severe = true;
+        }
+    }
+    if (!severe && m_contrabandActive) {
+        // Repeat offense with mild contraband — escalate to severe
+        severe = true;
+    }
+
+    // System-wide broadcast
+    std::vector<Client*> clients;
+    sysMgr->GetClientList(clients);
+    for (auto* c : clients) {
+        c->SendNotifyMsg("Customs officials have detected contraband on %s in %s.",
+            GetName(), GetSystemName().c_str());
+    }
+
+    if (severe) {
+        // Immediate penalty + NPC attack (no jettison window)
+        ExecuteContrabandPenalty();
+    } else {
+        // Start 60s timer — player can jettison to avoid penalty
+        m_contrabandTimer.Start(60000);
+        m_contrabandActive = true;
+    }
+}
+
+void Client::ExecuteContrabandPenalty()
+{
+    m_contrabandActive = false;
+
+    if (!IsInSpace()) return;
+    SystemManager* sysMgr = SystemMgr();
+    if (sysMgr == nullptr) return;
+    SolarSystemRef sysRef = sysMgr->GetSystemRef();
+    if (sysRef.get() == nullptr) return;
+    float sysSec = static_cast<float>(sysRef->security());
+    if (sysSec < 0.5f) return;  // escaped to lowsec/nullsec
+    uint32 factionID = sysRef->factionID();
+    if (factionID == 0) return;
+
+    ShipItemRef ship = GetShip();
+    if (ship.get() == nullptr) return;
+
+    // Re-query contraband types
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT typeID, standingLoss, confiscateMinSec, fineByValue, attackMinSec"
+        " FROM invContrabandTypes WHERE factionID = %u", factionID))
+    {
+        return;
+    }
+    if (res.GetRowCount() == 0) return;
+
+    struct ContrabandEntry {
+        float standingLoss;
+        float confiscateMinSec;
+        float fineByValue;
+        float attackMinSec;
+    };
+    std::map<uint32, ContrabandEntry> contrabandTypes;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        ContrabandEntry entry;
+        entry.standingLoss     = row.GetFloat(1);
+        entry.confiscateMinSec = row.GetFloat(2);
+        entry.fineByValue      = row.GetFloat(3);
+        entry.attackMinSec     = row.GetFloat(4);
+        contrabandTypes[row.GetUInt(0)] = entry;
+    }
+
     std::vector<InventoryItemRef> cargoItems;
     ship->GetMyInventory()->GetItemsByFlag(flagCargoHold, cargoItems);
     bool penaltyApplied = false;
     for (auto& item : cargoItems) {
         auto it = contrabandTypes.find(item->typeID());
-        if (it == contrabandTypes.end()) {
-            continue;
-        }
+        if (it == contrabandTypes.end()) continue;
         penaltyApplied = true;
         ContrabandEntry& entry = it->second;
+
+        // Standing loss
         if (entry.standingLoss > 0.0f && factionID != 0) {
             StandingDB::SaveStandingChanges(
                 GetCharID(), factionID,
-                126, // ContrabandTrafficking
+                126,  // ContrabandTrafficking
                 -entry.standingLoss,
                 "Contraband trafficking"
             );
         }
-        std::string itemName = item->itemName();
+
+        // Calculate fine BEFORE confiscation (item ref may be invalid after Delete)
         int32 quantity = item->quantity();
         double fine = item->type().basePrice() * entry.fineByValue * quantity;
+
+        // Confiscation
         if (sysSec >= entry.confiscateMinSec) {
             item->Delete();
         }
+
+        // ISK fine
         if (fine > 0.0) {
             AddBalance(-fine);
         }
-        if (sysSec >= entry.attackMinSec) {
-            SpawnCustomsPolice(factionID);
-        }
     }
+
     if (penaltyApplied) {
         std::vector<Client*> clients;
-        SystemMgr()->GetClientList(clients);
+        sysMgr->GetClientList(clients);
         for (auto* c : clients) {
-            c->SendNotifyMsg("Customs officials have engaged %s in %s.", GetName(), GetSystemName().c_str());
+            c->SendNotifyMsg("Customs officials have engaged %s in %s.",
+                GetName(), GetSystemName().c_str());
+        }
+
+        // Make customs NPCs at the gate target and attack the player
+        SystemEntity* pShipSE = GetShipSE();
+        if (pShipSE != nullptr) {
+            auto entities = sysMgr->GetEntities();
+            for (auto& [eid, pSE] : entities) {
+                if (pSE == nullptr || !pSE->IsNPCSE()) continue;
+                NPC* npc = pSE->GetNPCSE();
+                if (npc == nullptr) continue;
+                if (npc->GetSelf()->groupID() == EVEDB::invGroups::Customs_Official) {
+                    npc->GetAIMgr()->Target(pShipSE);
+                    npc->GetAIMgr()->StartAttackCycle(2000);
+                }
+            }
         }
     }
-}
-
-void Client::SpawnCustomsPolice(uint32 factionID)
-{
-    static const std::map<uint32, uint16> s_customsTypes = {
-        { 500001, 19367 }, // Caldari Customs Commissioner
-        { 500002, 19370 }, // Minmatar Customs Commander
-        { 500003, 19371 }, // Amarr Customs General
-        { 500004, 19369 }, // Gallente Customs Major
-    };
-    auto it = s_customsTypes.find(factionID);
-    if (it == s_customsTypes.end()) {
-        return; // no customs ship defined for this faction
-    }
-    uint16 typeID = it->second;
-
-    uint32 corpID = sDataMgr.GetFactionCorp(factionID);
-    if (corpID == 0) {
-        switch (factionID) {
-            case 500002: corpID = 1000051; break; // Minmatar Republic Fleet
-            default:     corpID = 1000125; break; // CONCORD
-        }
-    }
-
-    ShipItemRef ship = GetShip();
-    if (ship.get() == nullptr) return;
-    SystemManager* sysMgr = SystemMgr();
-    if (sysMgr == nullptr) return;
-
-    GPoint pos = GetShipSE()->GetPosition();
-    pos.MakeRandomPointOnSphereLayer(5000.0, 12000.0);
-
-    ItemData itemData(typeID, corpID, sysMgr->GetID(), flagNone, "Customs Police", pos);
-    InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
-    if (iRef.get() == nullptr) return;
-
-    FactionData fData;
-    fData.allianceID = factionID;
-    fData.corporationID = corpID;
-    fData.factionID = factionID;
-    fData.ownerID = corpID;
-
-    NPC* npc = new NPC(iRef, services(), sysMgr, fData);
-    if (npc == nullptr) return;
-    npc->Load();
-    npc->DestinyMgr()->SetPosition(pos);
-    sysMgr->AddNPC(npc);
 }
 
 void Client::CynoJump(InventoryItemRef beacon) {

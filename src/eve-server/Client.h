@@ -263,9 +263,8 @@ public:
     void SetSessionChange(bool set=false)               { m_sessionChangeActive = set; }
     void SetBallPark();
     void StargateJump(uint32 fromGate, uint32 toGate);
-    void ContrabandScan();
+    void ContrabandScan(uint32 fromGate);
     void ExecuteContrabandPenalty();
-    void SpawnCustomsPolice(uint32 factionID);
     void CynoJump(InventoryItemRef beacon);
     void WormholeJump(InventoryItemRef wormhole);
 
@@ -411,9 +410,8 @@ protected:
     Timer m_logoutTimer;     // used to hold client object until WarpOut finishes
     Timer m_sessionTimer;    // used to prevent multiple session changes from occurring too fast
     Timer m_ballparkTimer;   // this is to properly send SetState data after a delay (cant do it correctly otherwise)
-    Timer m_contrabandTimer; // 60s timer for contraband customs penalty
+    Timer m_contrabandTimer; // 60s timer for contraband jettison window
     bool  m_contrabandActive;
-    uint32 m_contrabandFactionID;
 
     // this is GPoint on jump and dock heading on undock
     GPoint m_movePoint;

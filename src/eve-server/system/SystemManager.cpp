@@ -32,6 +32,7 @@
 #include "exploration/Probes.h"
 #include "map/MapData.h"
 #include "map/MapDB.h"
+#include "npc/CustomsNPCManager.h"
 #include "npc/Drone.h"
 #include "npc/NPC.h"
 #include "npc/ConvoyAI.h"
@@ -468,6 +469,7 @@ bool SystemManager::LoadSystemStatics() {
     SpawnSentryGuns();
     SpawnBillboards();
     SpawnConvoys();
+    SpawnCustomsNPCs();
 
     return true;
 }
@@ -1984,6 +1986,11 @@ void SystemManager::SpawnConvoys()
 
     _log(SERVER__INIT, "Convoy spawned in %s(%u) route %u-%u (%u ships)",
          m_data.name.c_str(), m_data.systemID, stationA, stationB, group->members.size());
+}
+
+void SystemManager::SpawnCustomsNPCs()
+{
+    CustomsNPCManager::SpawnCustomsNPCs(this);
 }
 
 void SystemManager::AddGhostShip(ShipSE* pShip, int64 expireTime, bool emergencyWarp) {
