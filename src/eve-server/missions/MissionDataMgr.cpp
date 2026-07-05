@@ -565,6 +565,24 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         case Mission::Type::Tutorial: {
         } break;
         case Mission::Type::Encounter: {
+            std::vector<CourierData> cVec;
+            auto itr = m_encounter.equal_range(level);
+            for (auto it = itr.first; it != itr.second; ++it)
+                cVec.push_back(it->second);
+            if (!cVec.empty()) {
+                CourierData cData = cVec[MakeRandomInt(0, (cVec.size() - 1))];
+                data.name               = cData.name;
+                data.typeID             = Mission::Type::Encounter;
+                data.bonusISK           = cData.bonusISK;
+                data.rewardISK          = cData.rewardISK;
+                data.bonusTime          = cData.bonusTime;
+                data.important          = cData.important;
+                data.storyline          = cData.storyline;
+                data.missionID          = cData.missionID;
+                data.briefingID         = cData.briefingID;
+                data.rewardItemID       = cData.rewardItemID;
+                data.rewardItemQty      = cData.rewardItemQty;
+            }
         } break;
         case Mission::Type::Trade: {
         } break;
