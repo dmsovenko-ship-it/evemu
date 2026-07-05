@@ -400,14 +400,89 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 // not sure what to do here.
             } break;
             case StartResearch: {   //12
-                // not sure what to do here.
-            } break;
+                // Show research field choices from agent's agtResearchAgents
+                if (m_agent->GetResearchFields().empty()) {
+                    agentSays->SetItem(0, new PyString("I have no research fields available for you."));
+                    agentSays->SetItem(1, PyStatic.NewNone());
+                } else {
+                    PyList* choices = new PyList();
+                    for (uint16 skillID : m_agent->GetResearchFields()) {
+                        PyTuple* choice = new PyTuple(2);
+                        choice->SetItem(0, new PyInt(skillID));
+                        choice->SetItem(1, new PyInt(skillID));
+                        choices->AddItem(choice);
+                    }
+                    // Check if character already researching with this agent
+                    uint32 charID = pchar->itemID();
+                    bool alreadyResearching = false;
+                    DBQueryResult res;
+                    sDatabase.RunQuery(res, "SELECT skillTypeID FROM chrResearch WHERE characterID = %u AND agentID = %u",
+                        charID, m_agent->GetID());
+                    if (res.GetRowCount() > 0)
+                        alreadyResearching = true;
+
+                    if (alreadyResearching) {
+                        agentSays->SetItem(0, new PyString("You are already conducting research with me."));
+                        agentSays->SetItem(1, PyStatic.NewNone());
+                    } else {
+                        // Return the list of research fields for the client to display
+                        PyDict* researchData = new PyDict();
+                        researchData->SetItemString("skillTypeID", choices);
+                        agentSays->SetItem(0, new PyString("What field of research interests you?"));
+                        agentSays->SetItem(1, researchData);
+                    }
+                }
+              } break;
             case CancelResearch: {  //13
-                // not sure what to do here.
-            } break;
+                uint32 charID = pchar->itemID();
+                DBerror err;
+                sDatabase.RunQuery(err, "DELETE FROM chrResearch WHERE characterID = %u AND agentID = %u",
+                    charID, m_agent->GetID());
+                agentSays->SetItem(0, new PyString("Research connection terminated. Any unspent research points have been lost."));
+                agentSays->SetItem(1, PyStatic.NewNone());
+              } break;
             case BuyDatacores: {    //14
-                // not sure what to do here.
-            } break;
+                uint32 charID = pchar->itemID();
+                DBQueryResult res;
+                sDatabase.RunQuery(res,
+                    "SELECT skillTypeID, points FROM chrResearch WHERE characterID = %u AND agentID = %u",
+                    charID, m_agent->GetID());
+                DBResultRow row;
+                if (res.GetRow(row)) {
+                    uint16 skillID = row.GetInt(0);
+                    double points = row.GetDouble(1);
+                    // Each datacore costs 100 RP + 10k ISK
+                    uint32 maxBuy = (uint32)(points / 100.0);
+                    uint32 iskBalance = call.client->GetBalance();
+                    uint32 affordable = iskBalance / 10000;
+                    if (affordable < maxBuy)
+                        maxBuy = affordable;
+
+                    if (maxBuy < 1) {
+                        agentSays->SetItem(0, new PyString("You don't have enough research points or ISK to buy datacores."));
+                        agentSays->SetItem(1, PyStatic.NewNone());
+                    } else {
+                        // Buy one datacore for simplicity
+                        points -= 100.0;
+                        call.client->AddBalance(-10000);
+                        sDatabase.RunQuery(res,
+                            "UPDATE chrResearch SET points = %.2f WHERE characterID = %u AND agentID = %u",
+                            points, charID, m_agent->GetID());
+                        // Create datacore item in hangar
+                        sItemFactory.SetUsingClient(call.client);
+                        ItemData itemData(skillID, charID, locTemp, flagHangar, 1);
+                        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+                        sItemFactory.UnsetUsingClient();
+                        if (iRef.get() != nullptr) {
+                            agentSays->SetItem(0, new PyString("Here is your datacore. Thank you for your contribution to science!"));
+                            agentSays->SetItem(1, PyStatic.NewNone());
+                        }
+                    }
+                } else {
+                    agentSays->SetItem(0, new PyString("You are not currently researching with me."));
+                    agentSays->SetItem(1, PyStatic.NewNone());
+                }
+              } break;
             case LocateCharacter:   //15
             case LocateAccept: {    //16
                 // not sure what to do here.

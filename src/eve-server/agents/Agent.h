@@ -41,6 +41,7 @@ public:
     uint32 GetLocTypeID()                               { return m_agentData.locationTypeID; }
     uint32 GetFactionID()                               { return m_agentData.factionID; }
     uint32 MakeButtonID()                               { return ++m_buttonID; }
+    const std::vector<uint16>& GetResearchFields()      { return m_researchFields; }
 
     bool HasMission(uint32 charID);
     bool HasMission(uint32 charID, MissionOffer& offer);
@@ -70,6 +71,7 @@ protected:
     AgentData m_agentData;
 
     std::map<uint16, uint8>             m_skills;       // skillID/level
+    std::vector<uint16>                 m_researchFields; // skillTypeIDs for research (agtResearchAgents)
     std::map<uint32, MissionOffer>      m_offers;       // charID/data      -- shouldnt this be in mission data??
     std::map<uint16, AgentActions>      m_actions;      // buttonID/data
 

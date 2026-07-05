@@ -55,8 +55,14 @@ bool Agent::Load() {
     AgentDB::LoadAgentData(m_agentID, m_agentData);
     sMissionDataMgr.LoadAgentOffers(m_agentID, m_offers);
 
-    if (m_agentData.research)
+    if (m_agentData.research) {
         AgentDB::LoadAgentSkills(m_agentID, m_skills);
+        DBQueryResult res;
+        sDatabase.RunQuery(res, "SELECT typeID FROM agtResearchAgents WHERE agentID = %u", m_agentID);
+        DBResultRow row;
+        while (res.GetRow(row))
+            m_researchFields.push_back(row.GetInt(0));
+    }
 
     _log(AGENT__TRACE, "Data Loaded for Agent %u - bl: %u, level: %u, locationID: %u, systemID: %u", \
                 m_agentID, m_agentData.bloodlineID, m_agentData.level, m_agentData.locationID, m_agentData.solarSystemID);

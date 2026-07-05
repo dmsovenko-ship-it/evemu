@@ -61,12 +61,12 @@ INSERT INTO `epicArcMission` (`arcID`, `chapterNumber`, `sequenceNumber`, `missi
 -- Merge
 (3, 2, 8, 80071, 'Dominus', 0, 500000, 0),
 (3, 2, 9, 80072, 'The Lesser of Two', 0, 450000, 0),
--- Chapter 3: Paradise (branch: 1a/2a vs b)
+-- Chapter 3: Paradise (branch: 1=Irichi, 2=Kori)
 (3, 3, 10, 80073, 'Situation Normal', 1, 400000, 0),
-(3, 3, 10, 80074, 'Breaking the Lock', 1, 400000, 0),
+(3, 3, 11, 80074, 'Breaking the Lock', 1, 400000, 0),
 (3, 3, 10, 80075, 'Data Destruction', 2, 400000, 0),
 -- Merge to final
-(3, 3, 11, 80076, 'Fear of Angels', 0, 1000000, 0.3);
+(3, 3, 12, 80076, 'Fear of Angels', 0, 1000000, 0.3);
 
 -- +migrate Down
 DELETE FROM `epicArcMission` WHERE `arcID` = 3;

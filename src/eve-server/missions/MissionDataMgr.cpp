@@ -569,6 +569,16 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         case Mission::Type::Trade: {
         } break;
         case Mission::Type::Research: {
+            // R&D agents give a small courier/trade mission for bonus RP
+            data.name = "Research Material Delivery";
+            data.typeID = Mission::Type::Research;
+            data.rewardISK = level * 5000 + 5000;
+            data.bonusISK = level * 1000;
+            data.bonusTime = 12; // 12h cooldown
+            data.storyline = false;
+            data.range = level > 2 ? 5 : 3;
+            data.courierTypeID = 0;
+            data.courierAmount = 0;
         } break;
         case Mission::Type::Data: {
         } break;
