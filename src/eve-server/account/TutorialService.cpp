@@ -39,6 +39,9 @@ TutorialService::TutorialService() :
     this->Add("GetCharacterTutorialState", &TutorialService::GetCharacterTutorialState);
     this->Add("GetTutorialsAndConnections", &TutorialService::GetTutorialsAndConnections);
     this->Add("GetCareerAgents", &TutorialService::GetCareerAgents);
+    this->Add("LogStarted", &TutorialService::LogStarted);
+    this->Add("LogCompleted", &TutorialService::LogCompleted);
+    this->Add("LogAborted", &TutorialService::LogAborted);
 }
 
 PyResult TutorialService::GetTutorials(PyCallArgs &call) {
@@ -319,6 +322,21 @@ PyResult TutorialService::GetTutorialsAndConnections(PyCallArgs& call) {
     uint8 raceID = call.client->GetChar()->race();
     return (m_db.GetTutorialsAndConnections(raceID));
     */
+    return PyStatic.NewNone();
+}
+
+PyResult TutorialService::LogStarted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time) {
+    sLog.White("TutorialService::LogStarted()", "tutorialID=%u pageNo=%u", tutorialID->value(), pageNo->value());
+    return PyStatic.NewNone();
+}
+
+PyResult TutorialService::LogCompleted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time) {
+    sLog.White("TutorialService::LogCompleted()", "tutorialID=%u pageNo=%u", tutorialID->value(), pageNo->value());
+    return PyStatic.NewNone();
+}
+
+PyResult TutorialService::LogAborted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time) {
+    sLog.White("TutorialService::LogAborted()", "tutorialID=%u pageNo=%u", tutorialID->value(), pageNo->value());
     return PyStatic.NewNone();
 }
 

@@ -45,6 +45,7 @@
 #include "account/ClientStatMgrService.h"
 #include "account/InfoGatheringMgr.h"
 #include "account/TutorialService.h"
+#include "account/TutorialLocationService.h"
 #include "account/UserService.h"
 // admin services
 #include "admin/AlertService.h"
@@ -713,6 +714,7 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new HoloscreenMgrService());
     newSvcMgr.Register(new Standing());
     newSvcMgr.Register(new TutorialService());
+    newSvcMgr.Register(new TutorialLocationService());
     newSvcMgr.Register(new VoucherService(newSvcMgr));
     newSvcMgr.Register(new zActionServer());
     newSvcMgr.Register(new RepairService(newSvcMgr));

@@ -46,6 +46,9 @@ protected:
     PyResult GetCharacterTutorialState(PyCallArgs& call);
     PyResult GetTutorialsAndConnections(PyCallArgs& call);
     PyResult GetCareerAgents(PyCallArgs& call);
+    PyResult LogStarted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time);
+    PyResult LogCompleted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time);
+    PyResult LogAborted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time);
 };
 
 #endif
