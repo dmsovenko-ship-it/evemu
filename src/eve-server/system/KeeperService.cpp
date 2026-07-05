@@ -42,6 +42,8 @@
 #include "eve-server.h"
 
 #include "system/KeeperService.h"
+#include "inventory/ItemFactory.h"
+#include "inventory/AttributeEnum.h"
 #include "system/SystemManager.h"
 #include "dungeon/DungeonDB.h"
 #include "services/ServiceManager.h"
@@ -101,6 +103,18 @@ PyResult KeeperService::ActivateAccelerationGate(PyCallArgs &call, PyInt* itemID
     call.Dump(DUNG__CALL_DUMP);
 
     Client *pClient(call.client);
+
+    // Check ship group restriction (attrId 909 = maxShipGroupActiveID)
+    InventoryItemRef gateItem = sItemFactory.GetItemRef(itemID->value());
+    if (gateItem.get() != nullptr && gateItem->HasAttribute(AttrMaxShipGroupActiveID)) {
+        uint32 maxGroup = gateItem->GetAttribute(AttrMaxShipGroupActiveID).get_int();
+        uint32 shipGroup = pClient->GetShipSE()->GetSelf()->groupID();
+        if (shipGroup > maxGroup) {
+            _log(DUNG__WARNING, "ActivateAccelerationGate: ship group %u > gate max %u for char %u",
+                 shipGroup, maxGroup, pClient->GetCharacterID());
+            throw CustomError("Your ship is too large to use this acceleration gate.");
+        }
+    }
 
     // Send gate activation effect
     pClient->GetShipSE()->DestinyMgr()->SendSpecialEffect10(itemID->value(), 0, "effects.WarpGateEffect", 0, 1, 0);
