@@ -3,8 +3,8 @@
 -- +migrate Up
 
 -- COSMOS market group
-INSERT IGNORE INTO `invMarketGroups` (`marketGroupID`, `parentGroupID`, `marketGroupName`, `description`, `iconID`, `hasTypes`) VALUES
-(99000, 0, 'COSMOS Mission Items', 'Unique items required for COSMOS missions.', 0, 1);
+INSERT IGNORE INTO `invMarketGroups` (`marketGroupID`, `parentGroupID`, `marketGroupName`, `description`, `graphicID`, `iconID`, `hasTypes`, `dataID`, `marketGroupNameID`, `descriptionID`) VALUES
+(99000, 0, 'COSMOS Mission Items', 'Unique items required for COSMOS missions.', 0, 0, 1, 0, 0, 0);
 
 -- COSMOS mission items
 INSERT IGNORE INTO `invTypes` (`typeID`, `groupID`, `typeName`, `description`, `mass`, `volume`, `capacity`, `portionSize`, `raceID`, `basePrice`, `marketGroupID`, `published`) VALUES
