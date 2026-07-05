@@ -38,24 +38,6 @@ void CynoModule::Activate(uint16 effectID, uint32 targetID, int16 repeat)
     m_firstRun = true;
     ActiveModule::Activate(effectID, targetID, repeat);
 
-    // Send OnSpecialFX manually before checking m_Stop — the SDE is
-    // missing the GUID for effectID 2857 (cynosuralGeneration), so
-    // ShowEffect() in the base class skipped it. Without this, the
-    // client never sees the module as active and ignores
-    // OnJumpBeaconChange.
-    if (m_destinyMgr != nullptr) {
-        std::string guidStr = sFxDataMgr.GetEffectGuid(m_effectID);
-        if (guidStr.empty()) {
-            uint32 timeLeft = GetRemainingCycleTimeMS();
-            m_destinyMgr->SendSpecialEffect(
-                m_shipRef->itemID(), m_modRef->itemID(), m_modRef->typeID(),
-                m_shipRef->itemID(), 0,
-                "effects.CynosuralGeneration",
-                false, true, true, timeLeft, m_repeat
-            );
-        }
-    }
-
     // check to see if Activate() was denied.
     if (m_Stop)
         return;
@@ -65,6 +47,18 @@ void CynoModule::Activate(uint16 effectID, uint32 targetID, int16 repeat)
     // hack to disable ship movement here
     m_shipVelocity = pShipSE->DestinyMgr()->GetMaxVelocity();
     pShipSE->DestinyMgr()->SetFrozen(true);
+}
+
+void CynoModule::ShowEffect(bool active, bool abort)
+{
+    // The client expects the OnSpecialFX targetID to be the cyno
+    // field entity, not the ship. cSE is already set at this point
+    // because DoCycle() → CreateCyno() runs before ShowEffect().
+    uint32 savedTarget = m_targetID;
+    if (cSE != nullptr)
+        m_targetID = cSE->GetID();
+    ActiveModule::ShowEffect(active, abort);
+    m_targetID = savedTarget;
 }
 
 void CynoModule::DeactivateCycle(bool abort)

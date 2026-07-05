@@ -11,6 +11,7 @@
 
 #include "effects/EffectsDataMgr.h"
 #include "effects/EffectsProcessor.h"
+#include "eve-common/EVE_Effects.h"
 
 
 FxDataMgr::FxDataMgr()
@@ -217,6 +218,15 @@ std::string FxDataMgr::GetEffectGuid(uint16 eID)
     effectMapType::const_iterator itr = m_effectMap.find(eID);
     if (itr != m_effectMap.end())
         return itr->second.guid;
+    // Hardcoded fallbacks for effects that are missing from the SDE.
+    switch (eID) {
+        case EVEEffectID::cynosuralGeneration:
+            return "effects.CynosuralGeneration";
+        case EVEEffectID::jumpPortalGenerationBO:
+            return "effects.JumpPortalBO";
+        default:
+            break;
+    }
     return "";   // default to 'nothing' if effectID not found
 }
 

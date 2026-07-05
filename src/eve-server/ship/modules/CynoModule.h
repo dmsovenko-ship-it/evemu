@@ -24,6 +24,7 @@ public:
 
     /* ActiveModule overrides */
     virtual void Activate(uint16 effectID, uint32 targetID=0, int16 repeat=0);
+    virtual void ShowEffect(bool active=false, bool abort=false);
     virtual void DeactivateCycle(bool abort=false);
     virtual uint32      DoCycle();
 

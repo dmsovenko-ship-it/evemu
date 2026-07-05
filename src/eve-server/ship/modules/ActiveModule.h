@@ -71,7 +71,7 @@ public:
     /* new effects processing code and updates */
     void                ApplyEffect(int8 state, bool active=false);
     /* common method for all modules that have a visual effect when active */
-    void                ShowEffect(bool active=false, bool abort=false);
+    virtual void        ShowEffect(bool active=false, bool abort=false);
 
 protected:
     // we do not own any of these next 5
