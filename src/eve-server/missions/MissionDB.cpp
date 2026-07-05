@@ -83,6 +83,23 @@ void MissionDB::UpdateMissionOffer(MissionOffer& data)
     }
 }
 
+void MissionDB::LoadEncounterData(DBQueryResult& res)
+{
+    if (!sDatabase.RunQuery(res,
+        "SELECT id, briefingID, name, level, typeID, important, storyline, sysRange, raceID, dungeonID, rewardISK, rewardItemID, rewardItemQty, bonusISK, bonusTime"
+        " FROM qstEncounter WHERE rewardISK > 0"))
+        codelog(DATABASE__ERROR, "Error in LoadEncounterData query: %s", res.error.c_str());
+}
+
+void MissionDB::LoadStorylineData(DBQueryResult& res)
+{
+    if (!sDatabase.RunQuery(res,
+        "SELECT id, briefingID, name, level, typeID, important, storyline,"
+        " itemTypeID, itemQty, rewardISK, rewardItemID, rewardItemQty, bonusISK, bonusTime, sysRange, raceID"
+        " FROM qstCourier WHERE typeID = 8 AND rewardISK > 0"))
+        codelog(DATABASE__ERROR, "Error in LoadStorylineData query: %s", res.error.c_str());
+}
+
 void MissionDB::LoadOpenOffers(DBQueryResult& res)
 {
     if (!sDatabase.RunQuery(res,

@@ -189,10 +189,58 @@ void MissionDataMgr::Populate()
     sLog.Cyan("   MissionDataMgr", "%lu(%lu) Mining Mission Data Sets loaded in %.3fms.", m_mining.size(), m_miningImp.size(), (GetTimeMSeconds() - start));
 
     start = GetTimeMSeconds();
-    sLog.Cyan("   MissionDataMgr", "0(0) Encounter Mission Data Sets loaded in %.3fms.", (GetTimeMSeconds() - start));
+    MissionDB::LoadEncounterData(*res);
+    while (res->GetRow(row)) {
+        CourierData data = CourierData();
+        data.missionID     = row.GetInt(0);
+        data.briefingID    = row.GetInt(1);
+        data.name          = row.GetText(2);
+        data.level         = row.GetInt(3);
+        data.typeID        = row.GetInt(4);
+        data.important     = row.GetBool(5);
+        data.storyline     = row.GetBool(6);
+        data.range         = row.GetInt(7);
+        data.raceID        = row.GetInt(8);
+        data.rewardISK     = row.GetInt(10);
+        data.rewardItemID  = row.GetInt(11);
+        data.rewardItemQty = row.GetInt(12);
+        data.bonusISK      = row.GetInt(13);
+        data.bonusTime     = row.GetInt(14);
+        if (data.important) {
+            m_encounterImp.emplace(row.GetInt(3), data);
+        } else {
+            m_encounter.emplace(row.GetInt(3), data);
+        }
+    }
+    sLog.Cyan("   MissionDataMgr", "%lu(%lu) Encounter Mission Data Sets loaded in %.3fms.", m_encounter.size(), m_encounterImp.size(), (GetTimeMSeconds() - start));
 
     start = GetTimeMSeconds();
-    sLog.Cyan("   MissionDataMgr", "0(0) Storyline Mission Data Sets loaded in %.3fms.", (GetTimeMSeconds() - start));
+    MissionDB::LoadStorylineData(*res);
+    while (res->GetRow(row)) {
+        CourierData data = CourierData();
+        data.missionID     = row.GetInt(0);
+        data.briefingID    = row.GetInt(1);
+        data.name          = row.GetText(2);
+        data.level         = row.GetInt(3);
+        data.typeID        = row.GetInt(4);
+        data.important     = row.GetBool(5);
+        data.storyline     = row.GetBool(6);
+        data.itemTypeID    = row.GetInt(7);
+        data.itemQty       = row.GetInt(8);
+        data.rewardISK     = row.GetInt(9);
+        data.rewardItemID  = row.GetInt(10);
+        data.rewardItemQty = row.GetInt(11);
+        data.bonusISK      = row.GetInt(12);
+        data.bonusTime     = row.GetInt(13);
+        data.range         = row.GetInt(14);
+        data.raceID        = row.GetInt(15);
+        if (data.important) {
+            m_storylineImp.emplace(row.GetInt(3), data);
+        } else {
+            m_storyline.emplace(row.GetInt(3), data);
+        }
+    }
+    sLog.Cyan("   MissionDataMgr", "%lu(%lu) Storyline Mission Data Sets loaded in %.3fms.", m_storyline.size(), m_storylineImp.size(), (GetTimeMSeconds() - start));
 
     start = GetTimeMSeconds();
     sLog.Cyan("   MissionDataMgr", "0(0) Tutorial Mission Data Sets loaded in %.3fms.", (GetTimeMSeconds() - start));
@@ -525,6 +573,33 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         case Mission::Type::Data: {
         } break;
         case Mission::Type::Storyline: {
+            std::vector<CourierData> cVec;
+            auto itr = m_storyline.equal_range(level);
+            for (auto it = itr.first; it != itr.second; ++it)
+                cVec.push_back(it->second);
+            if (cVec.empty()) {
+                // fallback to encounter-type storylines
+                auto itr2 = m_encounter.equal_range(level);
+                for (auto it = itr2.first; it != itr2.second; ++it)
+                    cVec.push_back(it->second);
+            }
+            if (!cVec.empty()) {
+                CourierData cData = cVec[MakeRandomInt(0, (cVec.size() -1))];
+                data.name               = cData.name;
+                data.typeID             = Mission::Type::Storyline;
+                data.bonusISK           = cData.bonusISK;
+                data.rewardISK          = cData.rewardISK;
+                data.bonusTime          = cData.bonusTime;
+                data.important          = cData.important;
+                data.storyline          = true;
+                data.missionID          = cData.missionID;
+                data.briefingID         = cData.briefingID;
+                data.rewardItemID       = cData.rewardItemID;
+                data.rewardItemQty      = cData.rewardItemQty;
+                data.courierTypeID      = cData.itemTypeID;
+                data.courierAmount      = cData.itemQty;
+                data.range              = cData.range;
+            }
         } break;
         case Mission::Type::Cosmos: {
         } break;

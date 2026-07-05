@@ -57,6 +57,10 @@ private:
     std::multimap<uint8, CourierData> m_courierImp;    // level/data
     std::multimap<uint8, CourierData> m_mining;     // level/data
     std::multimap<uint8, CourierData> m_miningImp;     // level/data
+    std::multimap<uint8, CourierData> m_encounter;  // level/data
+    std::multimap<uint8, CourierData> m_encounterImp;  // level/data
+    std::multimap<uint8, CourierData> m_storyline;  // level/data (from qstCourier where typeID=8)
+    std::multimap<uint8, CourierData> m_storylineImp;  // level/data
     std::multimap<uint8, MissionData> m_missions;   // level/data
     std::multimap<uint8, MissionData> m_missionsImp;   // level/data
     std::multimap<uint32, MissionOffer> m_offers;   // charID/data      current mission offers by charID
