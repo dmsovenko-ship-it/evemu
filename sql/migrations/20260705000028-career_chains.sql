@@ -5,17 +5,17 @@
 -- ============================================================
 -- Making Mountains of Molehills — Gallente Industry (10 missions)
 -- ============================================================
-INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`, `dataID`) VALUES
-(1011, 'Industry: Mission 1 - Mining 101', 1012, 3, 0),
-(1012, 'Industry: Mission 2 - Tritanium Delivery', 1013, 3, 0),
-(1013, 'Industry: Mission 3 - Afterburner Assembly', 1014, 3, 0),
-(1014, 'Industry: Mission 4 - Bulk Mining', 1015, 3, 0),
-(1015, 'Industry: Mission 5 - Electronic Parts', 1016, 3, 0),
-(1016, 'Industry: Mission 6 - Cap Boosters', 1017, 3, 0),
-(1017, 'Industry: Mission 7 - Courier Run', 1018, 3, 0),
-(1018, 'Industry: Mission 8 - Shuttle Manufacturing', 1019, 3, 0),
-(1019, 'Industry: Mission 9 - Production Assistant', 1020, 3, 0),
-(1020, 'Industry: Mission 10 - Navitas Construction', 0, 3, 0);
+INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`) VALUES
+(1011, 'Industry: Mission 1 - Mining 101', 1012, 3),
+(1012, 'Industry: Mission 2 - Tritanium Delivery', 1013, 3),
+(1013, 'Industry: Mission 3 - Afterburner Assembly', 1014, 3),
+(1014, 'Industry: Mission 4 - Bulk Mining', 1015, 3),
+(1015, 'Industry: Mission 5 - Electronic Parts', 1016, 3),
+(1016, 'Industry: Mission 6 - Cap Boosters', 1017, 3),
+(1017, 'Industry: Mission 7 - Courier Run', 1018, 3),
+(1018, 'Industry: Mission 8 - Shuttle Manufacturing', 1019, 3),
+(1019, 'Industry: Mission 9 - Production Assistant', 1020, 3),
+(1020, 'Industry: Mission 10 - Navitas Construction', 0, 3);
 
 INSERT IGNORE INTO `tutorial_pages` (`pageID`, `tutorialID`, `pageNumber`, `pageName`, `text`, `imagePath`, `audioPath`) VALUES
 (2011, 1011, 1, 'Mining 101',
@@ -54,17 +54,17 @@ INSERT IGNORE INTO `tutorial_rewards` (`tutorialID`, `pageID`, `iskAmount`, `typ
 -- ============================================================
 -- Balancing the Books — Gallente Business (10 missions)
 -- ============================================================
-INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`, `dataID`) VALUES
-(1031, 'Business: Mission 1 - Data Delivery', 1032, 4, 0),
-(1032, 'Business: Mission 2 - Find the Black Box', 1033, 4, 0),
-(1033, 'Business: Mission 3 - Reprocessing', 1034, 4, 0),
-(1034, 'Business: Mission 4 - Encrypted Data', 1035, 4, 0),
-(1035, 'Business: Mission 5 - Courier Delivery', 1036, 4, 0),
-(1036, 'Business: Mission 6 - Tracking Computer', 1037, 4, 0),
-(1037, 'Business: Mission 7 - Datacore Recovery', 1038, 4, 0),
-(1038, 'Business: Mission 8 - Central Core', 1039, 4, 0),
-(1039, 'Business: Mission 9 - Afterburners', 1040, 4, 0),
-(1040, 'Business: Mission 10 - Ammo Manufacturing', 0, 4, 0);
+INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`) VALUES
+(1031, 'Business: Mission 1 - Data Delivery', 1032, 4),
+(1032, 'Business: Mission 2 - Find the Black Box', 1033, 4),
+(1033, 'Business: Mission 3 - Reprocessing', 1034, 4),
+(1034, 'Business: Mission 4 - Encrypted Data', 1035, 4),
+(1035, 'Business: Mission 5 - Courier Delivery', 1036, 4),
+(1036, 'Business: Mission 6 - Tracking Computer', 1037, 4),
+(1037, 'Business: Mission 7 - Datacore Recovery', 1038, 4),
+(1038, 'Business: Mission 8 - Central Core', 1039, 4),
+(1039, 'Business: Mission 9 - Afterburners', 1040, 4),
+(1040, 'Business: Mission 10 - Ammo Manufacturing', 0, 4);
 
 INSERT IGNORE INTO `tutorial_pages` (`pageID`, `tutorialID`, `pageNumber`, `pageName`, `text`, `imagePath`, `audioPath`) VALUES
 (2031, 1031, 1, 'Data Delivery',
@@ -103,12 +103,12 @@ INSERT IGNORE INTO `tutorial_rewards` (`tutorialID`, `pageID`, `iskAmount`, `typ
 -- ============================================================
 -- Exploration — Gallente Exploration (5 missions)
 -- ============================================================
-INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`, `dataID`) VALUES
-(1041, 'Exploration: Mission 1 - Cosmic Anomalies', 1042, 5, 0),
-(1042, 'Exploration: Mission 2 - Combat Scan', 1043, 5, 0),
-(1043, 'Exploration: Mission 3 - Data Sites', 1044, 5, 0),
-(1044, 'Exploration: Mission 4 - Relic Sites', 1045, 5, 0),
-(1045, 'Exploration: Mission 5 - Final Report', 0, 5, 0);
+INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`) VALUES
+(1041, 'Exploration: Mission 1 - Cosmic Anomalies', 1042, 5),
+(1042, 'Exploration: Mission 2 - Combat Scan', 1043, 5),
+(1043, 'Exploration: Mission 3 - Data Sites', 1044, 5),
+(1044, 'Exploration: Mission 4 - Relic Sites', 1045, 5),
+(1045, 'Exploration: Mission 5 - Final Report', 0, 5);
 
 INSERT IGNORE INTO `tutorial_pages` (`pageID`, `tutorialID`, `pageNumber`, `pageName`, `text`, `imagePath`, `audioPath`) VALUES
 (2041, 1041, 1, 'Cosmic Anomalies',
@@ -135,17 +135,17 @@ INSERT IGNORE INTO `tutorial_rewards` (`tutorialID`, `pageID`, `iskAmount`, `typ
 -- ============================================================
 -- Advanced Military — 10 missions (tutorialID 1051-1060)
 -- ============================================================
-INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`, `dataID`) VALUES
-(1051, 'AdvMil: Mission 1 - The Swap', 1052, 2, 0),
-(1052, 'AdvMil: Mission 2 - Angel of Mercy', 1053, 2, 0),
-(1053, 'AdvMil: Mission 3 - Your Undivided Attention', 1054, 2, 0),
-(1054, 'AdvMil: Mission 4 - A Friend in Need', 1055, 2, 0),
-(1055, 'AdvMil: Mission 5 - The Stand', 1056, 2, 0),
-(1056, 'AdvMil: Mission 6 - Don\'t Look Back', 1057, 2, 0),
-(1057, 'AdvMil: Mission 7 - Weapon of Choice', 1058, 2, 0),
-(1058, 'AdvMil: Mission 8 - The Pacifist', 1059, 2, 0),
-(1059, 'AdvMil: Mission 9 - Glue', 1060, 2, 0),
-(1060, 'AdvMil: Mission 10 - The Exam', 0, 2, 0);
+INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`) VALUES
+(1051, 'AdvMil: Mission 1 - The Swap', 1052, 2),
+(1052, 'AdvMil: Mission 2 - Angel of Mercy', 1053, 2),
+(1053, 'AdvMil: Mission 3 - Your Undivided Attention', 1054, 2),
+(1054, 'AdvMil: Mission 4 - A Friend in Need', 1055, 2),
+(1055, 'AdvMil: Mission 5 - The Stand', 1056, 2),
+(1056, 'AdvMil: Mission 6 - Don\'t Look Back', 1057, 2),
+(1057, 'AdvMil: Mission 7 - Weapon of Choice', 1058, 2),
+(1058, 'AdvMil: Mission 8 - The Pacifist', 1059, 2),
+(1059, 'AdvMil: Mission 9 - Glue', 1060, 2),
+(1060, 'AdvMil: Mission 10 - The Exam', 0, 2);
 
 INSERT IGNORE INTO `tutorial_pages` (`pageID`, `tutorialID`, `pageNumber`, `pageName`, `text`, `imagePath`, `audioPath`) VALUES
 (2051, 1051, 1, 'The Swap',

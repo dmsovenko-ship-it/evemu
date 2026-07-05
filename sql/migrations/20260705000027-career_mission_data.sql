@@ -23,83 +23,31 @@ CREATE TABLE IF NOT EXISTS `tutorial_rewards` (
   PRIMARY KEY (`tutorialID`,`pageID`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
--- Tutorial categories
-CREATE TABLE IF NOT EXISTS `tutorial_categories` (
-  `categoryID` int(11) NOT NULL DEFAULT 0,
-  `categoryName` varchar(128) NOT NULL DEFAULT '',
-  `description` text,
-  `dataID` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`categoryID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+-- Tutorial categories (structure from SDE)
 
-INSERT IGNORE INTO `tutorial_categories` (`categoryID`, `categoryName`, `description`, `dataID`) VALUES
-(1, 'Tutorial', 'Core tutorial system', 0),
-(2, 'Career', 'Career agent missions', 0),
-(3, 'Industrial', 'Industrial career path', 0),
-(4, 'Business', 'Business career path', 0),
-(5, 'Exploration', 'Exploration career path', 0);
+INSERT IGNORE INTO `tutorial_categories` (`categoryID`, `categoryName`, `description`) VALUES
+(1, 'Tutorial', 'Core tutorial system'),
+(2, 'Career', 'Career agent missions'),
+(3, 'Industrial', 'Industrial career path'),
+(4, 'Business', 'Business career path'),
+(5, 'Exploration', 'Exploration career path');
 
--- Tutorials table
-CREATE TABLE IF NOT EXISTS `tutorials` (
-  `tutorialID` int(11) NOT NULL DEFAULT 0,
-  `tutorialName` varchar(128) NOT NULL DEFAULT '',
-  `nextTutorialID` int(11) NOT NULL DEFAULT 0,
-  `categoryID` int(11) NOT NULL DEFAULT 0,
-  `dataID` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`tutorialID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- Tutorial pages
-CREATE TABLE IF NOT EXISTS `tutorial_pages` (
-  `pageID` int(11) NOT NULL DEFAULT 0,
-  `tutorialID` int(11) NOT NULL DEFAULT 0,
-  `pageNumber` int(11) NOT NULL DEFAULT 1,
-  `pageName` varchar(128) NOT NULL DEFAULT '',
-  `text` text,
-  `imagePath` varchar(256) NOT NULL DEFAULT '',
-  `audioPath` varchar(256) NOT NULL DEFAULT '',
-  PRIMARY KEY (`pageID`),
-  KEY `tutorialID` (`tutorialID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- Tutorial criteria
-CREATE TABLE IF NOT EXISTS `tutorial_criteria` (
-  `criteriaID` int(11) NOT NULL DEFAULT 0,
-  `criteriaName` varchar(128) NOT NULL DEFAULT '',
-  `messageText` text,
-  `audioPath` varchar(256) NOT NULL DEFAULT '',
-  `dataID` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`criteriaID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- Tutorial page criteria linking
-CREATE TABLE IF NOT EXISTS `tutorial_page_criteria` (
-  `pageID` int(11) NOT NULL DEFAULT 0,
-  `criteriaID` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`pageID`,`criteriaID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- Tutorials-criterias linking
-CREATE TABLE IF NOT EXISTS `tutorials_criterias` (
-  `tutorialID` int(11) NOT NULL DEFAULT 0,
-  `criteriaID` int(11) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`tutorialID`,`criteriaID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+-- Tutorials, tutorial_pages, tutorial_criteria, tutorial_page_criteria, tutorials_criterias — from SDE
 
 -- ============================================================
 -- Cash Flow for Capsuleers — Caldari Military career (10 missions)
 -- ============================================================
-INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`, `dataID`) VALUES
-(1001, 'Cash Flow: Mission 1 - Clear the Pirates', 1002, 2, 0),
-(1002, 'Cash Flow: Mission 2 - Rescue the Miner', 1003, 2, 0),
-(1003, 'Cash Flow: Mission 3 - Secret Documents', 1004, 2, 0),
-(1004, 'Cash Flow: Mission 4 - Approach the Stargate', 1005, 2, 0),
-(1005, 'Cash Flow: Mission 5 - Pirate Meet', 1006, 2, 0),
-(1006, 'Cash Flow: Mission 6 - Destroy the Outpost', 1007, 2, 0),
-(1007, 'Cash Flow: Mission 7 - Convoy Ambush', 1008, 2, 0),
-(1008, 'Cash Flow: Mission 8 - Retrieve the VIPs', 1009, 2, 0),
-(1009, 'Cash Flow: Mission 9 - Narcotics Warehouse', 1010, 2, 0),
-(1010, 'Cash Flow: Mission 10 - Tahamar', 0, 2, 0);
+INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`) VALUES
+(1001, 'Cash Flow: Mission 1 - Clear the Pirates', 1002, 2),
+(1002, 'Cash Flow: Mission 2 - Rescue the Miner', 1003, 2),
+(1003, 'Cash Flow: Mission 3 - Secret Documents', 1004, 2),
+(1004, 'Cash Flow: Mission 4 - Approach the Stargate', 1005, 2),
+(1005, 'Cash Flow: Mission 5 - Pirate Meet', 1006, 2),
+(1006, 'Cash Flow: Mission 6 - Destroy the Outpost', 1007, 2),
+(1007, 'Cash Flow: Mission 7 - Convoy Ambush', 1008, 2),
+(1008, 'Cash Flow: Mission 8 - Retrieve the VIPs', 1009, 2),
+(1009, 'Cash Flow: Mission 9 - Narcotics Warehouse', 1010, 2),
+(1010, 'Cash Flow: Mission 10 - Tahamar', 0, 2);
 
 -- Pages for each tutorial
 INSERT IGNORE INTO `tutorial_pages` (`pageID`, `tutorialID`, `pageNumber`, `pageName`, `text`, `imagePath`, `audioPath`) VALUES
@@ -135,11 +83,11 @@ INSERT IGNORE INTO `tutorial_pages` (`pageID`, `tutorialID`, `pageNumber`, `page
  '', '');
 
 -- Completion criteria (generic type: kill/loot/approach)
-INSERT IGNORE INTO `tutorial_criteria` (`criteriaID`, `criteriaName`, `messageText`, `audioPath`, `dataID`) VALUES
-(1, 'Destroy Ships', 'Destroy the target ships', '', 0),
-(2, 'Loot Item', 'Loot the required item from the wreck', '', 0),
-(3, 'Approach Object', 'Approach the target object', '', 0),
-(4, 'Navigate Gate', 'Activate the acceleration gate', '', 0);
+INSERT IGNORE INTO `tutorial_criteria` (`criteriaID`, `criteriaName`, `messageText`, `audioPath`) VALUES
+(1, 'Destroy Ships', 'Destroy the target ships', ''),
+(2, 'Loot Item', 'Loot the required item from the wreck', ''),
+(3, 'Approach Object', 'Approach the target object', ''),
+(4, 'Navigate Gate', 'Activate the acceleration gate', '');
 
 INSERT IGNORE INTO `tutorials_criterias` (`tutorialID`, `criteriaID`) VALUES
 (1001, 1), (1002, 1), (1002, 2), (1003, 1), (1003, 2),
@@ -166,11 +114,6 @@ DELETE FROM `tutorial_criteria` WHERE `criteriaID` BETWEEN 1 AND 4;
 DELETE FROM `tutorial_page_criteria` WHERE `pageID` BETWEEN 2001 AND 2010;
 DELETE FROM `tutorial_pages` WHERE `tutorialID` BETWEEN 1001 AND 1010;
 DELETE FROM `tutorials` WHERE `tutorialID` BETWEEN 1001 AND 1010;
+DELETE FROM `tutorial_categories` WHERE `categoryID` BETWEEN 1 AND 5;
 DROP TABLE IF EXISTS `characterTutorialState`;
 DROP TABLE IF EXISTS `tutorial_rewards`;
-DROP TABLE IF EXISTS `tutorial_page_criteria`;
-DROP TABLE IF EXISTS `tutorial_pages`;
-DROP TABLE IF EXISTS `tutorials_criterias`;
-DROP TABLE IF EXISTS `tutorial_criteria`;
-DROP TABLE IF EXISTS `tutorials`;
-DROP TABLE IF EXISTS `tutorial_categories`;

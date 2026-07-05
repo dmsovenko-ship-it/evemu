@@ -3,31 +3,31 @@
 -- +migrate Up
 
 -- Main Aura tutorial chain
-INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`, `dataID`) VALUES
-(215, 'Covering the Basics (part 1)', 217, 1, 0),
-(217, 'Covering the Basics (part 2)', 136, 1, 0),
-(136, 'Camera Movement', 249, 1, 0),
-(249, 'Camera Movement (cont)', 110, 1, 0),
-(110, 'Basic Commands', 137, 1, 0),
-(137, 'Ship Movement', 204, 1, 0),
-(204, 'Looting', 117, 1, 0),
-(117, 'Mission 1 Complete', 250, 1, 0),
-(250, 'Continue', 234, 1, 0),
-(234, 'Your Next Mission', 226, 1, 0),
-(226, 'Fitting your ship', 224, 1, 0),
-(224, 'Undocking Instantly', 228, 1, 0),
-(228, 'Weapons: Hybrids', 210, 1, 0),
-(210, 'Target Practice', 112, 1, 0),
-(112, 'Basic Combat', 222, 1, 0),
-(222, 'Mission 2 Complete', 251, 1, 0),
-(251, 'Continue (2)', 221, 1, 0),
-(221, 'Interstellar Travel', 212, 1, 0),
-(212, 'Inside the Academy', 230, 1, 0),
-(230, 'The Mission Journal', 231, 1, 0),
-(231, 'Further Training', 232, 1, 0),
-(232, 'Moving Onwards', 252, 1, 0),
-(252, 'Continue (3)', 233, 1, 0),
-(233, 'Career Agents', 0, 1, 0);
+INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`) VALUES
+(215, 'Covering the Basics (part 1)', 217, 1),
+(217, 'Covering the Basics (part 2)', 136, 1),
+(136, 'Camera Movement', 249, 1),
+(249, 'Camera Movement (cont)', 110, 1),
+(110, 'Basic Commands', 137, 1),
+(137, 'Ship Movement', 204, 1),
+(204, 'Looting', 117, 1),
+(117, 'Mission 1 Complete', 250, 1),
+(250, 'Continue', 234, 1),
+(234, 'Your Next Mission', 226, 1),
+(226, 'Fitting your ship', 224, 1),
+(224, 'Undocking Instantly', 228, 1),
+(228, 'Weapons: Hybrids', 210, 1),
+(210, 'Target Practice', 112, 1),
+(112, 'Basic Combat', 222, 1),
+(222, 'Mission 2 Complete', 251, 1),
+(251, 'Continue (2)', 221, 1),
+(221, 'Interstellar Travel', 212, 1),
+(212, 'Inside the Academy', 230, 1),
+(230, 'The Mission Journal', 231, 1),
+(231, 'Further Training', 232, 1),
+(232, 'Moving Onwards', 252, 1),
+(252, 'Continue (3)', 233, 1),
+(233, 'Career Agents', 0, 1);
 
 -- Pages for each tutorial
 INSERT IGNORE INTO `tutorial_pages` (`pageID`, `tutorialID`, `pageNumber`, `pageName`, `text`, `imagePath`, `audioPath`) VALUES
