@@ -216,7 +216,7 @@ uint16 FxDataMgr::GetEffectID(std::string effectName)
 std::string FxDataMgr::GetEffectGuid(uint16 eID)
 {
     effectMapType::const_iterator itr = m_effectMap.find(eID);
-    if (itr != m_effectMap.end())
+    if (itr != m_effectMap.end() and !itr->second.guid.empty())
         return itr->second.guid;
     // Hardcoded fallbacks for effects that are missing from the SDE.
     switch (eID) {
