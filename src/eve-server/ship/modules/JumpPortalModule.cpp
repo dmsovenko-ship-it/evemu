@@ -138,6 +138,7 @@ void JumpPortalModule::CreatePortal()
 
     _log(MODULE__DEBUG, "Creating jump portal");
 
+    pRef->SetAttribute(AttrIsGlobal, true);
     m_portalSE = new ItemSystemEntity(pRef, pClient->services(), m_sysMgr);
     GPoint location(pShipSE->GetPosition());
     location.MakeRandomPointOnSphere(2000.0f + pRef->type().radius());

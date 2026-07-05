@@ -130,6 +130,7 @@ void CynoModule::CreateCyno()
 
     _log(MODULE__DEBUG, "Creating %s Cynosural field", fieldType == EVEDB::invTypes::CovertCynosuralFieldI ? "Covert" : "");
 
+    cRef->SetAttribute(AttrIsGlobal, true);
     cSE = new ItemSystemEntity(cRef, pClient->services(), m_sysMgr);
     GPoint location(pShipSE->GetPosition());
     location.MakeRandomPointOnSphere(1500.0f + cRef->type().radius());

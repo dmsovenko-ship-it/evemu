@@ -54,6 +54,7 @@ void CovertCynoModule::CreateCyno()
 
     _log(MODULE__DEBUG, "Creating Covert Cynosural field");
 
+    cRef->SetAttribute(AttrIsGlobal, true);
     cSE = new ItemSystemEntity(cRef, pClient->services(), m_sysMgr);
     GPoint location(pShipSE->GetPosition());
     location.MakeRandomPointOnSphere(1500.0f + cRef->type().radius());
