@@ -225,10 +225,62 @@ PyResult TutorialService::GetTutorialAgents(PyCallArgs &call, PyList* agentIDs) 
             ["corporationID" => <0> [I4]]
             ["gender" => <1> [Bool]]
                 */
-    sLog.White( "TutorialService::Handle_GetTutorialAgents()", "size=%lu", call.tuple->size());
-    call.Dump(SERVICE__CALL_DUMP);
+    sLog.White("TutorialService::GetTutorialAgents()", "size=%lu", call.tuple->size());
 
-    return new PyInt( 0 );
+    // Build list of agent IDs from the call argument
+    std::vector<uint32> agentIDs;
+    for (size_t i = 0; i < agentIDs->size(); ++i) {
+        PyRep* item = agentIDs->GetItem(i);
+        if (item->IsInt())
+            agentIDs.push_back(item->AsInt()->value());
+    }
+
+    if (agentIDs.empty())
+        return new PyList();
+
+    // Query agtAgents for the requested agent IDs
+    DBQueryResult res;
+    std::string idList;
+    for (size_t i = 0; i < agentIDs.size(); ++i) {
+        if (i > 0) idList += ",";
+        idList += std::to_string(agentIDs[i]);
+    }
+    sDatabase.RunQuery(res,
+        "SELECT agt.agentID, agt.agentTypeID, agt.divisionID, agt.level, "
+        "  agt.locationID AS stationID, chr.bloodlineID, agt.quality, "
+        "  agt.corporationID, chr.gender"
+        " FROM agtAgents AS agt"
+        " LEFT JOIN chrNPCCharacters AS chr ON chr.characterID = agt.agentID"
+        " WHERE agt.agentID IN (%s)", idList.c_str());
+
+    // Build DBRowDescriptor matching the client's expected columns
+    DBRowDescriptor* header = new DBRowDescriptor();
+    header->AddColumn("agentID",       DBTYPE_I4);
+    header->AddColumn("agentTypeID",   DBTYPE_I4);
+    header->AddColumn("divisionID",    DBTYPE_I4);
+    header->AddColumn("level",         DBTYPE_UI1);
+    header->AddColumn("stationID",     DBTYPE_I4);
+    header->AddColumn("bloodlineID",   DBTYPE_UI1);
+    header->AddColumn("quality",       DBTYPE_I4);
+    header->AddColumn("corporationID", DBTYPE_I4);
+    header->AddColumn("gender",        DBTYPE_BOOL);
+
+    DBResultRow row;
+    PyList* result = new PyList();
+    while (res.GetRow(row)) {
+        PyPackedRow* packed = new PyPackedRow(header);
+        packed->SetField("agentID",       new PyInt(row.GetUInt(0)));
+        packed->SetField("agentTypeID",   new PyInt(row.GetUInt(1)));
+        packed->SetField("divisionID",    new PyInt(row.GetUInt(2)));
+        packed->SetField("level",         new PyInt(row.GetUInt(3)));
+        packed->SetField("stationID",     new PyInt(row.GetUInt(4)));
+        packed->SetField("bloodlineID",   new PyInt(row.GetUInt(5)));
+        packed->SetField("quality",       new PyInt(row.GetInt(6)));
+        packed->SetField("corporationID", new PyInt(row.GetUInt(7)));
+        packed->SetField("gender",        row.GetUInt(8) ? PyStatic.NewTrue() : PyStatic.NewFalse());
+        result->AddItem(packed);
+    }
+    return result;
 }
 
 PyResult TutorialService::GetCriterias(PyCallArgs &call) {
@@ -271,23 +323,11 @@ PyResult TutorialService::GetTutorialsAndConnections(PyCallArgs& call) {
 }
 
 PyResult TutorialService::GetCareerAgents(PyCallArgs& call) {
-  /*  Empty Call  */
-  /**
-        agentMapping = sm.RemoteSvc('tutorialSvc').GetCareerAgents()
-        for careerType in agentMapping:
-            agentIDs = []
-            if careerType not in self.careerAgents:
-                self.careerAgents[careerType] = {}
-                self.careerAgents[careerType]['agent'] = {}
-                self.careerAgents[careerType]['station'] = {}
-            agentIDs = agentMapping.get(careerType, [])
-            agents = sm.RemoteSvc('tutorialSvc').GetTutorialAgents(agentIDs)
-            for agent in agents:
-                self.careerAgents[careerType]['agent'][agent.agentID] = agent
-                self.careerAgents[careerType]['station'][agent.agentID] = sm.GetService('map').GetStation(agent.stationID)
-*/
-
-    return PyStatic.NewNone();
+    sLog.White("TutorialService::GetCareerAgents()", "");
+    PyRep* mapping = m_db.GetCareerAgentMapping();
+    if (mapping == nullptr)
+        return PyStatic.NewNone();
+    return mapping;
 }
 
 

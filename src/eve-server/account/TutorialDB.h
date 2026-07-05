@@ -42,6 +42,7 @@ public:
     PyRep *GetAllCriterias();
     PyRep *GetCategories();
     PyRep *GetTutorialsAndConnections(uint8 raceID);
+    PyRep *GetCareerAgentMapping();
 };
 
 #endif
