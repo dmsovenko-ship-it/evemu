@@ -250,10 +250,11 @@ PyResult TutorialService::GetTutorialAgents(PyCallArgs &call, PyList* agentIDs) 
     }
     sDatabase.RunQuery(res,
         "SELECT agt.agentID, agt.agentTypeID, agt.divisionID, agt.level, "
-        "  agt.locationID AS stationID, chr.bloodlineID, agt.quality, "
+        "  agt.locationID AS stationID, COALESCE(bl.bloodlineID, 0) AS bloodlineID, agt.quality, "
         "  agt.corporationID, chr.gender"
         " FROM agtAgents AS agt"
         " LEFT JOIN chrNPCCharacters AS chr ON chr.characterID = agt.agentID"
+        " LEFT JOIN bloodlineTypes AS bl ON bl.typeID = chr.typeID"
         " WHERE agt.agentID IN (%s)", idList.c_str());
 
     // Build DBRowDescriptor matching the client's expected columns
