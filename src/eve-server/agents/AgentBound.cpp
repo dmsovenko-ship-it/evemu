@@ -23,6 +23,7 @@
  */
 
 #include "eve-server.h"
+#include "../../eve-common/EVE_Agent.h"
 #include "../../eve-common/EVE_Missions.h"
 //#include "../../eve-common/EVE_Skills.h"
 #include "../../eve-common/EVE_Standings.h"
@@ -133,6 +134,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     agentSays->SetItem(1, new PyInt(offer.characterID));
                 } else {
                     // Check for epic arc
+                    bool hasArc = false;
                     EpicArcData* arc = sEpicArcMgr.GetArcByAgent(m_agent->GetID());
                     if (arc != nullptr) {
                         if (sEpicArcMgr.IsOnArc(pchar->itemID(), arc->arcID)) {
@@ -140,17 +142,29 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                                 arcButton->SetItem(0, new PyInt(Dialog::Button::EpicArcStart));
                                 arcButton->SetItem(1, new PyString("Continue Epic Arc"));
                             dialog->AddItem(arcButton);
+                            hasArc = true;
                         } else if (sEpicArcMgr.CanStartArc(pchar->itemID(), arc->arcID)) {
                             PyTuple* arcButton = new PyTuple(2);
                                 arcButton->SetItem(0, new PyInt(Dialog::Button::EpicArcStart));
                                 arcButton->SetItem(1, new PyString("Epic Arc"));
                             dialog->AddItem(arcButton);
+                            hasArc = true;
                         }
                     }
-                    PyTuple* button2 = new PyTuple(2);
-                        button2->SetItem(0, new PyInt(RequestMission));
-                        button2->SetItem(1, new PyInt(RequestMission));
-                    dialog->AddItem(button2);
+                    // Show RequestMission only for agent types that can give missions
+                    if (m_agent->GetTypeID() == Agents::Type::Basic or
+                        m_agent->GetTypeID() == Agents::Type::None or
+                        m_agent->GetTypeID() == Agents::Type::Research or
+                        m_agent->GetTypeID() == Agents::Type::GenericStoryLine or
+                        m_agent->GetTypeID() == Agents::Type::StoryLine or
+                        m_agent->GetTypeID() == Agents::Type::FacWar or
+                        m_agent->GetTypeID() == Agents::Type::Cosmos or
+                        m_agent->GetTypeID() == Agents::Type::Tutorial) {
+                        PyTuple* button2 = new PyTuple(2);
+                            button2->SetItem(0, new PyInt(RequestMission));
+                            button2->SetItem(1, new PyInt(RequestMission));
+                        dialog->AddItem(button2);
+                    }
                     response = "Why the fuck am I looking at you again, ";
                     response += call.client->GetName();
                     response += "?";

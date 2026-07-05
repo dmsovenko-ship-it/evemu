@@ -35,6 +35,7 @@ public:
     int8 GetQuality()                                   { return m_agentData.quality; }
 
     uint32 GetID()                                      { return m_agentID; }
+    uint8 GetTypeID()                                   { return m_agentData.typeID; }
     uint32 GetCorpID()                                  { return m_agentData.corporationID; }
     uint32 GetSystemID()                                { return m_agentData.solarSystemID; }
     uint32 GetStationID()                               { return m_agentData.stationID; }
