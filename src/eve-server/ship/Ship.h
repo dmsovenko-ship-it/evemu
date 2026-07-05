@@ -85,6 +85,7 @@ public:
     // this checks destination flag vs item type/group/category for proper placement
     void VerifyHoldType(EVEItemFlags flag, InventoryItemRef iRef, Client* pClient=nullptr);     // this will throw on error.
     bool ValidateItemSpecifics(InventoryItemRef iRef);
+    bool IsChargeCompatible(uint32 modGroupID, uint32 chargeGroupID);
 
     bool IsPopped()                                     { return m_isPopped; }
     void SetPopped(bool set=false)                      { m_isPopped = set; }

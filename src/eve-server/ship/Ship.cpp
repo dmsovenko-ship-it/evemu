@@ -1968,6 +1968,66 @@ std::string ShipItem::GetShipDNA()
     return dna.str();
 }
 
+bool ShipItem::IsChargeCompatible(uint32 modGroupID, uint32 chargeGroupID)
+{
+    // Hardcoded weapon->ammo group compatibility for Crucible-era SDE
+    // (used when dgmTypeAttributes lack chargeGroup1-5 attributes)
+    //
+    // Projectile weapon groups -> Ammo groups
+    //   Projectile_Weapon(55) -> Ammo(83), Advanced_Autocannon_Ammo(372), Advanced_Artillery_Ammo(376)
+    // Hybrid weapon groups -> Hybrid ammo groups
+    //   Hybrid_Weapon(74) -> Hybrid_Ammo(85), Advanced_Blaster_Ammo(377), Advanced_Railgun_Ammo(373)
+    // Energy weapon groups -> Frequency Crystal groups
+    //   Energy_Weapon(53) -> Frequency_Crystal(86), Advanced_Beam_Laser_Crystal(374), Advanced_Pulse_Laser_Crystal(375)
+    // Missile launcher groups -> Missile groups
+    //   Missile_Launcher(56) -> various missile groups (384-387, 476, 648, 653-657, 772...)
+    // Capacitor_Booster(76) -> Capacitor_Booster_Charge(87)
+
+    switch (modGroupID) {
+        case EVEDB::invGroups::Projectile_Weapon:
+            return (chargeGroupID == EVEDB::invGroups::Ammo)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Autocannon_Ammo)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Artillery_Ammo);
+        case EVEDB::invGroups::Hybrid_Weapon:
+            return (chargeGroupID == EVEDB::invGroups::Hybrid_Ammo)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Blaster_Ammo)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Railgun_Ammo);
+        case EVEDB::invGroups::Energy_Weapon:
+            return (chargeGroupID == EVEDB::invGroups::Frequency_Crystal)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Beam_Laser_Crystal)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Pulse_Laser_Crystal);
+        case EVEDB::invGroups::Missile_Launcher:
+            // Standard, Heavy, Cruise, Rocket, Assault, Siege, Citadel, Defender, Bomb, FoF, Snowball, HeavyAssault
+            return (chargeGroupID == EVEDB::invGroups::Missile)
+                or (chargeGroupID == EVEDB::invGroups::Light_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Heavy_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Cruise_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Rocket)
+                or (chargeGroupID == EVEDB::invGroups::Torpedo)
+                or (chargeGroupID == EVEDB::invGroups::Defender_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Rocket)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Light_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Assault_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Heavy_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Cruise_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Advanced_Torpedo)
+                or (chargeGroupID == EVEDB::invGroups::FoF_Light_Missile)
+                or (chargeGroupID == EVEDB::invGroups::FoF_Heavy_Missile)
+                or (chargeGroupID == EVEDB::invGroups::FoF_Cruise_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Assault_Missile)
+                or (chargeGroupID == EVEDB::invGroups::Missile_Launcher_Heavy_Assault);
+        case EVEDB::invGroups::Capacitor_Booster:
+            return (chargeGroupID == EVEDB::invGroups::Capacitor_Booster_Charge);
+        default:
+            // For unknown module groups, accept T1 charge groups only
+            return (chargeGroupID == EVEDB::invGroups::Ammo)
+                or (chargeGroupID == EVEDB::invGroups::Hybrid_Ammo)
+                or (chargeGroupID == EVEDB::invGroups::Frequency_Crystal)
+                or (chargeGroupID == EVEDB::invGroups::Missile)
+                or (chargeGroupID == EVEDB::invGroups::Torpedo);
+    }
+}
+
 void ShipItem::VerifyHoldType(EVEItemFlags flag, InventoryItemRef iRef, Client* pClient/*nullptr*/)
 {
     // if *this ship isnt active, it wont have a pilot to send errors to.  test and set as needed.
@@ -2119,7 +2179,6 @@ void ShipItem::VerifyHoldType(EVEItemFlags flag, InventoryItemRef iRef, Client* 
                 if (iRef->categoryID() == EVEDB::invCategories::Charge) {
                     GenericModule* pMod(m_ModuleManager->GetModule(flag));
                     if (pMod != nullptr) {
-                        // note:  this is also checked in client before calling Load()
                         if (iRef->HasAttribute(AttrChargeSize))
                             if (pMod->GetAttribute(AttrChargeSize) != iRef->GetAttribute(AttrChargeSize)) {
                                 sLog.Error("ShipItem::VerifyHoldType", "Charge size %u for %s does not match Module size %u for %s.",\
@@ -2127,6 +2186,7 @@ void ShipItem::VerifyHoldType(EVEItemFlags flag, InventoryItemRef iRef, Client* 
                                         pMod->GetAttribute(AttrChargeSize).get_uint32(), pMod->GetSelf()->name());
                                 throw CustomError ("Incorrect charge size for this module.");
                             }
+                        if (pMod->HasAttribute(AttrChargeGroup1)) {
                             if ((pMod->GetAttribute(AttrChargeGroup1) != iRef->groupID())
                             and (pMod->GetAttribute(AttrChargeGroup2) != iRef->groupID())
                             and (pMod->GetAttribute(AttrChargeGroup3) != iRef->groupID())
@@ -2134,7 +2194,9 @@ void ShipItem::VerifyHoldType(EVEItemFlags flag, InventoryItemRef iRef, Client* 
                             and (pMod->GetAttribute(AttrChargeGroup5) != iRef->groupID())) {
                                 throw CustomError ("Incorrect charge type for this module.");
                             }
-                        // NOTE: Module Manager will check for actual room to load charges and make stack splits, or reject loading altogether
+                        } else if (!IsChargeCompatible(pMod->groupID(), iRef->groupID())) {
+                            throw CustomError ("Incorrect charge type for this module.");
+                        }
                     } else {
                         throw CustomError ("There is no module in %s.  Ref: ServerError 25162.", sDataMgr.GetFlagName(flag));
                     }
