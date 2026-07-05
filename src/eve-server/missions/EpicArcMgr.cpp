@@ -128,47 +128,80 @@ void EpicArcMgr::AdvanceMission(uint32 charID, uint32 arcID)
         return;
 
     EpicArcState& state = it->second;
-    EpicArcData* arc = GetArc(arcID);
-    if (arc == nullptr)
+    uint32 seq = state.lastMissionID;
+    state.lastMissionID = seq;
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE chrEpicArcState SET lastMissionID = %u WHERE characterID = %u AND arcID = %u",
+        seq, charID, arcID);
+}
+
+void EpicArcMgr::CompleteArc(uint32 charID, uint32 arcID)
+{
+    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    auto it = m_state.find(stateKey);
+    if (it == m_state.end())
         return;
 
-    auto range = m_missions.equal_range((uint64(arcID) << 32) | (uint64(state.chapterNumber) << 16));
-    EpicArcMissionData* next = nullptr;
-    uint32 highestSeq = 0;
-    for (auto mit = range.first; mit != range.second; ++mit) {
-        EpicArcMissionData& m = mit->second;
-        if (m.sequenceNumber > state.lastMissionID % 100) {
-            if (m.branchID == 0 || m.branchID == state.branchChoice) {
-                if (next == nullptr || m.sequenceNumber < next->sequenceNumber) {
-                    next = &m;
-                }
-            }
-        }
-        if (m.sequenceNumber > highestSeq)
-            highestSeq = m.sequenceNumber;
-    }
+    EpicArcState& state = it->second;
+    state.completed = true;
+    state.dateCompleted = GetFileTimeNow();
 
-    if (next != nullptr) {
-        state.lastMissionID = next->missionID;
-        DBerror err;
-        sDatabase.RunQuery(err,
-            "UPDATE chrEpicArcState SET lastMissionID = %u WHERE characterID = %u AND arcID = %u",
-            next->missionID, charID, arcID);
-    } else {
-        // Check if chapter complete
-        if (state.lastMissionID / 100 >= highestSeq) {
-            state.chapterNumber++;
-            if (state.chapterNumber > 7) {
-                state.completed = true;
-                state.dateCompleted = GetFileTimeNow();
-            }
-            DBerror err;
-            sDatabase.RunQuery(err,
-                "UPDATE chrEpicArcState SET chapterNumber = %u, completed = %u, dateCompleted = %.0f"
-                " WHERE characterID = %u AND arcID = %u",
-                state.chapterNumber, state.completed ? 1 : 0, state.dateCompleted, charID, arcID);
-        }
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE chrEpicArcState SET completed = 1, dateCompleted = %.0f WHERE characterID = %u AND arcID = %u",
+        state.dateCompleted, charID, arcID);
+}
+
+EpicArcMissionData* EpicArcMgr::GetNextMissionForChar(uint32 charID, uint32 arcID)
+{
+    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    auto it = m_state.find(stateKey);
+    if (it == m_state.end())
+        return nullptr;
+
+    EpicArcState& state = it->second;
+    return GetNextMission(arcID, state.chapterNumber, state.lastMissionID, state.branchChoice);
+}
+
+uint8 EpicArcMgr::GetCurrentChapter(uint32 charID, uint32 arcID)
+{
+    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    auto it = m_state.find(stateKey);
+    if (it == m_state.end())
+        return 0;
+    return it->second.chapterNumber;
+}
+
+bool EpicArcMgr::IsOnArc(uint32 charID, uint32 arcID)
+{
+    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    auto it = m_state.find(stateKey);
+    return (it != m_state.end() && !it->second.completed);
+}
+
+void EpicArcMgr::GetCharacterArcs(uint32 charID, std::vector<EpicArcState>& states)
+{
+    for (auto& pair : m_state) {
+        EpicArcState& s = pair.second;
+        if (s.characterID == charID)
+            states.push_back(s);
     }
+}
+
+void EpicArcMgr::SetBranchChoice(uint32 charID, uint32 arcID, int8 branch)
+{
+    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    auto it = m_state.find(stateKey);
+    if (it == m_state.end())
+        return;
+
+    it->second.branchChoice = branch;
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE chrEpicArcState SET branchChoice = %u WHERE characterID = %u AND arcID = %u",
+        branch, charID, arcID);
 }
 
 void EpicArcMgr::CompleteArc(uint32 charID, uint32 arcID)

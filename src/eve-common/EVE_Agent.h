@@ -163,7 +163,8 @@ namespace Dialog {
             LocateReject        = 17,
             Yes                 = 18,
             No                  = 19,
-            Admin               = 20    // added for 'admin' menu
+            Admin               = 20,   // added for 'admin' menu
+            EpicArcStart        = 100,  // epic arc button
         };
     }
 

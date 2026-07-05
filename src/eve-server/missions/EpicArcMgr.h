@@ -51,9 +51,14 @@ public:
 
     bool AgentHasArc(uint32 agentID);
     bool CanStartArc(uint32 charID, uint32 arcID);
+    bool IsOnArc(uint32 charID, uint32 arcID);
     void StartArc(uint32 charID, uint32 arcID, uint32 agentID);
+    EpicArcMissionData* GetNextMissionForChar(uint32 charID, uint32 arcID);
     void AdvanceMission(uint32 charID, uint32 arcID);
     void CompleteArc(uint32 charID, uint32 arcID);
+    uint8 GetCurrentChapter(uint32 charID, uint32 arcID);
+    void GetCharacterArcs(uint32 charID, std::vector<EpicArcState>& states);
+    void SetBranchChoice(uint32 charID, uint32 arcID, int8 branch);
 
 private:
     void Populate();

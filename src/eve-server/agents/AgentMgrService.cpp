@@ -284,7 +284,29 @@ PyResult AgentMgrService::GetMyEpicJournalDetails(PyCallArgs& call)
     //no args
   _log(AGENT__INFO, "AgentMgrBound::Handle_GetMyEpicJournalDetails() - size=%lli", call.tuple->size());
 
-    return new PyList();
+    uint32 charID = call.client->GetCharID();
+    PyList* result = new PyList();
+
+    std::vector<EpicArcState> states;
+    sEpicArcMgr.GetCharacterArcs(charID, states);
+
+    for (auto& state : states) {
+        EpicArcData* arc = sEpicArcMgr.GetArc(state.arcID);
+        if (arc == nullptr)
+            continue;
+
+        PyDict* entry = new PyDict();
+        entry->SetItem(new PyString("arcID"), new PyInt(arc->arcID));
+        entry->SetItem(new PyString("agentID"), new PyInt(arc->startingAgentID));
+        entry->SetItem(new PyString("arcName"), new PyString(arc->arcName));
+        entry->SetItem(new PyString("chapterNumber"), new PyInt(state.chapterNumber));
+        entry->SetItem(new PyString("completed"), state.completed ? PyStatic.NewTrue() : PyStatic.NewFalse());
+        entry->SetItem(new PyString("dateStarted"), new PyLong(state.dateStarted));
+        entry->SetItem(new PyString("dateCompleted"), new PyLong(state.dateCompleted));
+        result->AddItem(entry);
+    }
+
+    return result;
 }
 
 PyResult AgentMgrService::GetCareerAgents(PyCallArgs &call)

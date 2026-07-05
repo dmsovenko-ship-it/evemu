@@ -34,6 +34,7 @@
 #include "agents/AgentMgrService.h"
 #include "station/Station.h"
 #include "services/ServiceManager.h"
+#include "missions/EpicArcMgr.h"
 
 AgentBound::AgentBound(EVEServiceManager& mgr, AgentMgrService& parent, Agent *agt) :
     EVEBoundObject(mgr, parent),
@@ -112,14 +113,14 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
         dialog->AddItem(adminButton);
     }
 
-    if (m_agent->CanUseAgent(call.client)) {
+                if (m_agent->CanUseAgent(call.client)) {
         switch (actionID.has_value() ? actionID.value()->value() : 0) {
             case 0: {
                 //  if char has current mission with this agent, add this one.
                 MissionOffer offer = MissionOffer();
                 if (m_agent->HasMission(pchar->itemID(), offer)) {
                     PyTuple* button1 = new PyTuple(2);
-                        button1->SetItem(0, new PyInt(ViewMission)); // this are buttonIDs which are unique and sequential to each agent, regardless of chars
+                        button1->SetItem(0, new PyInt(ViewMission));
                         button1->SetItem(1, new PyInt(ViewMission));
                     dialog->AddItem(button1);
                     if (call.client->IsMissionComplete(offer))  {
@@ -131,20 +132,30 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     agentSays->SetItem(0, new PyInt(offer.briefingID));
                     agentSays->SetItem(1, new PyInt(offer.characterID));
                 } else {
-                    // dialogue data.  if RequestMission is only option, client auto-responds with DoAction(RequestMission optionID)
+                    // Check for epic arc
+                    EpicArcData* arc = sEpicArcMgr.GetArcByAgent(m_agent->GetID());
+                    if (arc != nullptr) {
+                        if (sEpicArcMgr.IsOnArc(pchar->itemID(), arc->arcID)) {
+                            PyTuple* arcButton = new PyTuple(2);
+                                arcButton->SetItem(0, new PyInt(Dialog::Button::EpicArcStart));
+                                arcButton->SetItem(1, new PyString("Continue Epic Arc"));
+                            dialog->AddItem(arcButton);
+                        } else if (sEpicArcMgr.CanStartArc(pchar->itemID(), arc->arcID)) {
+                            PyTuple* arcButton = new PyTuple(2);
+                                arcButton->SetItem(0, new PyInt(Dialog::Button::EpicArcStart));
+                                arcButton->SetItem(1, new PyString("Epic Arc"));
+                            dialog->AddItem(arcButton);
+                        }
+                    }
                     PyTuple* button2 = new PyTuple(2);
                         button2->SetItem(0, new PyInt(RequestMission));
                         button2->SetItem(1, new PyInt(RequestMission));
                     dialog->AddItem(button2);
-                // response as string for custom data.  response as pyint to use client data (using getlocale shit)
-                    // default initial agent response based on agent location, level, bloodline, quality, and char/agent standings
-                    //  this will be modeled after UO speech data, in tiers and levels.
-                    // if RequestMission is only option, this is ignored.  see note under 'dialog data'
                     response = "Why the fuck am I looking at you again, ";
                     response += call.client->GetName();
                     response += "?";
-                    agentSays->SetItem(0, new PyString(response));  //msgInfo  -- if tuple[0].string then return msgInfo
-                    agentSays->SetItem(1, PyStatic.NewNone());      // ContentID  -- PyNone used when msgInfo is string (mostly for initial greetings)
+                    agentSays->SetItem(0, new PyString(response));
+                    agentSays->SetItem(1, PyStatic.NewNone());
                 }
 
                 // if agent does location, add this one...
@@ -161,6 +172,48 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         button4->SetItem(0, new PyInt(StartResearch));
                         button4->SetItem(1, new PyInt(StartResearch));
                     dialog->AddItem(button4);
+                }
+            } break;
+            case EpicArcStart: { //100
+                EpicArcData* arc = sEpicArcMgr.GetArcByAgent(m_agent->GetID());
+                if (arc != nullptr) {
+                    uint32 charID = pchar->itemID();
+                    if (!sEpicArcMgr.IsOnArc(charID, arc->arcID)) {
+                        if (sEpicArcMgr.CanStartArc(charID, arc->arcID))
+                            sEpicArcMgr.StartArc(charID, arc->arcID, m_agent->GetID());
+                    }
+                    MissionOffer offer = MissionOffer();
+                    m_agent->MakeOffer(charID, offer);
+                    // Override with epic arc mission data
+                    EpicArcMissionData* nextMission = sEpicArcMgr.GetNextMissionForChar(charID, arc->arcID);
+                    if (nextMission != nullptr) {
+                        offer.name = nextMission->missionName;
+                        offer.missionID = nextMission->missionID;
+                        offer.rewardISK = nextMission->rewardISK;
+                        offer.bonusISK = nextMission->rewardISK * 0.2;
+                        offer.typeID = Mission::Type::EpicArc;
+                        offer.storyline = true;
+                        offer.characterID = charID;
+                        offer.agentID = m_agent->GetID();
+                        offer.originID = m_agent->GetStationID();
+                        offer.originOwnerID = m_agent->GetCorpID();
+                        offer.originSystemID = m_agent->GetSystemID();
+                        offer.dateIssued = GetFileTimeNow();
+                        offer.expiryTime = GetFileTimeNow() + EvE::Time::Day * 90;
+                        offer.stateID = Mission::State::Allocated;
+                        sMissionDataMgr.AddMissionOffer(charID, offer);
+                        m_agent->SendMissionUpdate(call.client, "offered");
+                        agentSays->SetItem(0, new PyInt(nextMission->missionID));
+                        agentSays->SetItem(1, new PyInt(charID));
+                        PyTuple* button1 = new PyTuple(2);
+                            button1->SetItem(0, new PyInt(Accept));
+                            button1->SetItem(1, new PyInt(Accept));
+                        dialog->AddItem(button1);
+                        PyTuple* button2 = new PyTuple(2);
+                            button2->SetItem(0, new PyInt(Decline));
+                            button2->SetItem(1, new PyInt(Decline));
+                        dialog->AddItem(button2);
+                    }
                 }
             } break;
             case RequestMission: {  //2
@@ -256,6 +309,33 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 m_agent->SendMissionUpdate(call.client, "completed");
                 agentSays->SetItem(0, new PyInt(m_agent->GetCompleteRsp(pchar->itemID())));
                 agentSays->SetItem(1, new PyInt(pchar->itemID()));
+                // Epic arc completion handling
+                if (offer.typeID == Mission::Type::EpicArc) {
+                    EpicArcData* arc = sEpicArcMgr.GetArcByAgent(m_agent->GetID());
+                    if (arc != nullptr) {
+                        uint32 charID = pchar->itemID();
+                        // Final mission (80056 = Our Man Dagan) awards faction standing
+                        if (offer.missionID == 80056) {
+                            EpicArcState state;
+                            std::vector<EpicArcState> states;
+                            sEpicArcMgr.GetCharacterArcs(charID, states);
+                            for (auto& s : states) {
+                                if (s.arcID == arc->arcID) {
+                                    // Apply faction standing without derived penalties
+                                    // Standing reward: 0.7 * (1 + SocialSkill * 0.05)
+                                    uint8 socialLvl = pchar->GetSkillLevel(EvESkill::Social);
+                                    float standingReward = 0.7f * (1.0f + 0.05f * socialLvl);
+                                    StandingDB::SaveStandingChanges(charID, arc->factionID, 126,
+                                        standingReward, "The Blood-Stained Stars completion");
+                                    sEpicArcMgr.CompleteArc(charID, arc->arcID);
+                                    break;
+                                }
+                            }
+                        } else {
+                            sEpicArcMgr.AdvanceMission(charID, arc->arcID);
+                        }
+                    }
+                }
                 if (offer.courierTypeID) {
                     // remove item from player possession
                     call.client->RemoveMissionItem(offer.courierTypeID, offer.courierAmount);
