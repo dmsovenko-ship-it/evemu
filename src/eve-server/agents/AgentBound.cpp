@@ -604,6 +604,7 @@ PyResult AgentBound::GetMissionBriefingInfo(PyCallArgs &call) {
             case Mission::Type::Mining:
                 briefingInfo->SetItemString("Mission Image", sMissionDataMgr.GetMiningRes()); break;
             case Mission::Type::Encounter:
+            default:
                 briefingInfo->SetItemString("Mission Image", sMissionDataMgr.GetKillRes()); break;
         }
         // decline time OR expiration time.  if not decline then expiration
@@ -753,6 +754,7 @@ PyResult AgentBound::GetMissionJournalInfo(PyCallArgs &call, std::optional <PyIn
         case Mission::Type::Mining:
             journalInfo->SetItemString("missionImage", sMissionDataMgr.GetMiningRes()); break;
         case Mission::Type::Encounter:
+        default:
             journalInfo->SetItemString("missionImage", sMissionDataMgr.GetKillRes()); break;
     }
 
