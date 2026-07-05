@@ -34,6 +34,7 @@
 #include "StaticDataMgr.h"
 #include "StatisticMgr.h"
 #include "missions/MissionDataMgr.h"
+#include "missions/EpicArcMgr.h"
 //console commands
 #include "ConsoleCommands.h"
 // account services
@@ -808,6 +809,8 @@ int main( int argc, char* argv[] )
     sDataMgr.Initialize();
     std::printf("\n");     // spacer
     sMissionDataMgr.Initialize();
+    std::printf("\n");     // spacer
+    sEpicArcMgr.Initialize();
     std::printf("\n");     // spacer
     sFxDataMgr.Initialize();
     std::printf("\n");     // spacer

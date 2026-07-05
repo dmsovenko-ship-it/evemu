@@ -55,6 +55,7 @@
 #include "agents/AgentBound.h"
 #include "agents/AgentMgrService.h"
 #include "missions/MissionDataMgr.h"
+#include "missions/EpicArcMgr.h"
 #include "services/ServiceManager.h"
 
 AgentMgrService::AgentMgrService(EVEServiceManager& mgr) :
@@ -305,9 +306,7 @@ PyResult EpicArcService::AgentHasEpicMissionsForCharacter(PyCallArgs &call, PyIn
      epicArcStatusSvc = sm.RemoteSvc('epicArcStatus').AgentHasEpicMissionsForCharacter(agent.agentID):
      */
     _log(AGENT__INFO, "EpicArcService::Handle_AgentHasEpicMissionsForCharacter() - size=%lli", call.tuple->size());
-    call.Dump(AGENT__DUMP);
 
-    // return boolean
-    return PyStatic.NewFalse();
-
+    bool hasArc = sEpicArcMgr.AgentHasArc(agentID->value());
+    return hasArc ? PyStatic.NewTrue() : PyStatic.NewFalse();
 }
