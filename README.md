@@ -82,7 +82,10 @@
 | **Convoys** | Guard + hauler between stations (sec 0.5–0.7), phased movement, wake-up on attack, sentry defense |
 | **Killmails** | XML blob (dropped + destroyed), push via mail + combat log |
 | **Agent Missions** | Distribution, kill, courier — with skill/standing requirements |
-| **Dungeons** | Cosmic anomalies, combat sites, gate spawns |
+| **Dungeons** | Cosmic anomalies, combat sites, gate spawns, JSON-defined rooms |
+| **Encounter Spawner** | `encounterSpawnServer` service spawns pirate NPCs (Guristas/Angel/Serpentis/Blood/Sansha/Rogue Drone) on activation |
+| **Storyline Missions** | 144 missions across all levels — Courier + Encounter types |
+| **Epic Arc** | The Blood-Stained Stars (SoE) — 58 missions, 7 chapters, branching, standing reward |
 
 ### 📬 Infrastructure
 
@@ -154,7 +157,16 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Portal broadcast** | `SetOnline()` now broadcasts `OnMultiEvent` to all clients in bubble — fleet members see module state changes |
 | **Customs Scan** | `ContrabandScan()` on gate jump — highsec only, system-wide broadcast, 60s timer, faction standing loss, item confiscation, ISK fine |
 | **Customs Police** | `SpawnCustomsPolice()` spawns faction-specific NPC (group 446 Customs_Official) near player. NPCAI auto-engages contraband runners |
-| **Build** | Docker Compose, ccache, 400 MB reduction. Added CovertCynoModule + JumpPortalModule to CMakeLists |
+| **Epic Arc (SoE)** | The Blood-Stained Stars — 58 `agtMissions` (80000-80057), 7 chapters, branching, +0.7 faction standing final reward |
+| **Epic Arc Mgr** | `EpicArcMgr` singleton — arc/chapter/mission data, 90-day cooldown, `GetMyEpicJournalDetails` returns real state |
+| **Agent dialog** | `DoAction(EpicArcStart)` — epic arc button for arc agents, mission chain progression on Complete |
+| **Storyline Missions** | 144 missions via `qstEncounter` table + `qstCourier` typeID=8; encounter/courier storylines |
+| **Encounter Server** | `encounterSpawnServer` registered — `RequestActivateEncounters` spawns pirate NPCs with NPCAI; `RequestDeactivateEncounters` cleans up |
+| **MissionDataMgr** | `m_encounter`/`m_storyline` maps loaded at startup; `CreateMissionOffer` handles Storyline type |
+| **Implant/Booster effects** | `Character::ProcessEffects()` now processes `flagImplant` and `flagBooster` items |
+| **Warp speed bonuses** | `AttrWarpSpeedBonus` (601) applied as multiplier; `WarpDriveOperation` removed from warp speed (Crucible-accurate) |
+| **Charge compatibility** | `IsChargeCompatible()` fallback when SDE `chargeGroup1-5` missing — supports T2 ammo for all weapon types |
+| **Build** | Docker Compose, ccache, 400 MB reduction. Added CovertCynoModule + JumpPortalModule + CustomsNPCManager + EpicArcMgr + EncounterServer to CMakeLists |
 
 ---
 
@@ -232,7 +244,10 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Конвои** | Охрана + грузовоз между станциями, фазы, пробуждение при атаке, защита сентри |
 | **Киллимейлы** | XML (дроп + уничтожено), push в почту + combat log |
 | **Миссии** | Distribution, kill, courier — скиллы/рейтинг |
-| **Данжи** | Аномалии, combat sites, спавн у гейтов |
+| **Данжи** | Аномалии, combat sites, спавн у гейтов, JSON-комнаты |
+| **Encounter Server** | Сервис `encounterSpawnServer` — спавн пиратских NPC (Guristas/Angel/Serpentis/Blood/Sansha/Rogue Drone) при активации |
+| **Storyline миссии** | 144 миссии всех уровней — Courier + Encounter типы |
+| **Epic Arc (SoE)** | The Blood-Stained Stars — 58 миссий, 7 глав, бранчинг, награда +0.7 faction standing |
 
 ### 📬 Инфраструктура
 
@@ -302,8 +317,17 @@ docker logs -f server          # ждать "Server started"
 | **Портал бридж** | `OpenBridge()` по команде флот-мембера; `SetOnline()` шлёт broadcast всем в бабле |
 | **Jump Drive** | Range check с JDC (+25%/lvl), минимальное топливо 1, quantityLeft |
 | **Таможня** | `ContrabandScan()` на прыжке — хайсек, глобальное уведомление, 60s таймер, штраф стояния, конфискация, штраф ISK |
-| **Полиция фракции** | `SpawnCustomsPolice()` спавнит NPC таможни (группа 446 Customs_Official) у игрока. NPCAI атакует контрабандистов |
-| **Сборка** | Docker Compose, ccache, −400 МБ. Добавлены CovertCynoModule + JumpPortalModule в CMakeLists |
+| **Полиция фракции** | `SpawnCustomsNPCs()` — NPC таможни (группа 446) у гейтов в хайсеке; орбита 8-12 км |
+| **Epic Arc (SoE)** | The Blood-Stained Stars — 58 `agtMissions` (80000-80057), 7 глав, бранчинг, финальная награда +0.7 standing |
+| **Epic Arc Mgr** | Singleton — загрузка арки/глав/миссий, 90-day кулдаун, `GetMyEpicJournalDetails` |
+| **Агентский диалог** | `DoAction(EpicArcStart)` — кнопка эпик арки, цепочка миссий, награда при Complete |
+| **Storyline миссии** | 144 миссии через `qstEncounter` + `qstCourier` typeID=8 |
+| **Encounter Server** | `encounterSpawnServer` — `RequestActivateEncounters` спавнит NPC; `RequestDeactivateEncounters` убирает |
+| **MissionDataMgr** | `m_encounter`/`m_storyline` карты; `CreateMissionOffer` обрабатывает Storyline тип |
+| **Импланты/бустеры** | `Character::ProcessEffects()` обрабатывает `flagImplant` и `flagBooster` |
+| **Варп скорость** | `AttrWarpSpeedBonus` (601) как мультипликатор; WarpDriveOperation убран со скорости (как в Crucible) |
+| **Заряды T2** | `IsChargeCompatible()` fallback при отсутствии `chargeGroup1-5` в SDE — T2 аммо для всех типов оружия |
+| **Сборка** | Docker Compose, ccache, −400 МБ. Добавлены новые файлы в CMakeLists |
 
 ---
 

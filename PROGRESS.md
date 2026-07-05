@@ -1,6 +1,6 @@
 # EVEmu Crucible — Project Status
 
-> Last updated: 2026-07-05 (contraband session)
+> Last updated: 2026-07-05 (epic arcs + encounter + warp bonuses session)
 > Based on codebase analysis of [dmsovenko-ship-it/evemu](https://github.com/dmsovenko-ship-it/evemu) (fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible))
 
 ---
@@ -332,6 +332,62 @@
 
 ---
 
+## Missions & Encounters
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Agent missions (Courier) | ✅ Working | Basic courier, cargo delivery |
+| Agent missions (Mining) | ✅ Working | Mining mission offers |
+| Agent missions (Encounter) | ⚠️ Partial | EncounterSpawnServer registered, NPC spawning works, no dungeon rooms |
+| Agent missions (Storyline) | ✅ Added | 144 missions (qstEncounter + qstCourier typeID=8), CreateMissionOffer handles Storyline |
+| Encounter NPC spawning | ✅ Added | Pirate NPCs by faction: Guristas/Angel/Serpentis/Blood/Sansha/Rogue Drone |
+| Encounter despawn | ✅ Added | Clean removal of spawned entities |
+| `encounterSpawnServer` service | ✅ Added | GetMyEncounters, RequestActivate, RequestDeactivate — all work |
+
+### Epic Arcs
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| EpicArcMgr singleton | ✅ Added | Loads arc/chapter/mission data from DB |
+| The Blood-Stained Stars | ✅ Added | 58 agtMissions (80000-80057), 7 chapters |
+| Branching (Chapter 4) | ✅ Added | Two paths: Queen tracking vs Blood route |
+| Branching (Chapter 7) | ✅ Added | Four commander choices (Amarr/Caldari/Gallente/Minmatar) |
+| Agent dialog | ✅ Added | EpicArcStart button (ID=100) for arc agents |
+| Mission chain | ✅ Added | Next mission offered on Complete; auto-advance |
+| Final reward (+0.7 standing) | ✅ Added | Applied via SaveStandingChanges, scaled by Social skill, no derived penalties |
+| 90-day cooldown | ✅ Added | CanStartArc checks dateCompleted |
+| GetMyEpicJournalDetails | ✅ Added | Returns real arc state data |
+
+## Implant & Booster Effects
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Implant processing | ✅ Added | Character::ProcessEffects iterates flagImplant |
+| Booster processing | ✅ Added | Character::ProcessEffects iterates flagBooster |
+| Dogma effects on implants | ✅ Working | Same pipeline as skills (categoryID Implant → skill=true) |
+
+## Warp Speed
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Base warp speed (AttrWarpSpeedMultiplier) | ✅ Working | From SDE ship attribute |
+| AttrWarpSpeedBonus (601) | ✅ Added | Applied as multiplicative bonus for rigs/implants |
+| WarpDriveOperation skill | ❌ Not warp speed | Only cap reduction (−10%/lvl) — Crucible-accurate |
+| Navigation skill | ❌ Not warp speed | Only sub-warp velocity — Crucible-accurate |
+
+## Charge Compatibility
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| SDE chargeGroup check | ✅ Working | When chargeGroup1-5 present in dgmTypeAttributes |
+| Fallback IsChargeCompatible | ✅ Added | Hardcoded weapon→ammo group map for old SDE |
+| T2 ammo loading | ✅ Added | Advanced_Autocannon_Ammo etc. now load into turrets |
+| Projectile weapons | ✅ Supported | Ammo(83) + Advanced_Autocannon(372) + Advanced_Artillery(376) |
+| Hybrid weapons | ✅ Supported | Hybrid_Ammo(85) + Advanced_Blaster(377) + Advanced_Railgun(373) |
+| Energy weapons | ✅ Supported | Frequency_Crystal(86) + Advanced_Beam(374) + Advanced_Pulse(375) |
+| Missile launchers | ✅ Supported | All missile groups including T2 variants |
+| Capacitor boosters | ✅ Supported | Capacitor_Booster_Charge(87) |
+
 ## Other Systems
 
 | Feature | Status | Notes |
@@ -339,7 +395,7 @@
 | Station docking | ✅ Working | |
 | Stargate jumping | ✅ Working | |
 | Bookmarks | ✅ Working | |
-| Agent missions | ⚠️ Partial | Basic agent service, warp-to-location not implemented |
+| Agent missions | ✅ Extended | Courier/Mining/Encounter/Storyline/EpicArc — full offer flow |
 | Wormholes | ✅ Working | Jump, mass, lifetime, visual states |
 | Sovereignty | ✅ Working | NPC corp sov data |
 | Market / orders | ✅ Working | Multi-region seeding |
