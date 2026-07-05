@@ -272,6 +272,7 @@ PyResult TutorialService::GetTutorialAgents(PyCallArgs &call, PyList* agentIDs) 
     PyList* result = new PyList();
     while (res.GetRow(row)) {
         PyPackedRow* packed = new PyPackedRow(header);
+        PyIncRef(header); // extra ref — each PackedRow shares the header; dtor will DecRef
         packed->SetField("agentID",       new PyInt(row.GetUInt(0)));
         packed->SetField("agentTypeID",   new PyInt(row.GetUInt(1)));
         packed->SetField("divisionID",    new PyInt(row.GetUInt(2)));
