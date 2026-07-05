@@ -1606,7 +1606,7 @@ void Client::ContrabandScan(uint32 fromGate)
     std::vector<Client*> clients;
     sysMgr->GetClientList(clients);
     for (auto* c : clients) {
-        c->SendNotifyMsg("Customs officials have detected contraband on %s in %s.",
+        c->SendNotifyMsg("%s attempted to smuggle contraband through customs in %s.",
             GetName(), GetSystemName().c_str());
     }
 
