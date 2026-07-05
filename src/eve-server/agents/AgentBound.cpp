@@ -956,14 +956,14 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
                 cargo->SetItemString("hasCargo", new PyBool(pClient->ContainsTypeQty(offer.courierTypeID, offer.courierAmount)));
                 cargo->SetItemString("typeID", new PyInt(offer.courierTypeID));
                 cargo->SetItemString("quantity", new PyInt(offer.courierAmount));
-                cargo->SetItemString("volume", new PyFloat(offer.courierItemVolume * offer.courierAmount));    // calculated shipment volume.  *this is direct to window*
+                cargo->SetItemString("volume", new PyFloat(offer.courierItemVolume * offer.courierAmount));
             PyTuple* objData = new PyTuple(5);
                 objData->SetItem(0, new PyInt(offer.originOwnerID));
-                objData->SetItem(1, pickupLocation/*m_agent->GetLocationWrap()*/);
+                objData->SetItem(1, pickupLocation);
                 objData->SetItem(2, new PyInt(offer.destinationOwnerID));
-                objData->SetItem(3, dropoffLocation/*m_agent->GetLocationWrap()*/);
+                objData->SetItem(3, dropoffLocation);
                 objData->SetItem(4, cargo);
-            PyTuple* objType = new PyTuple(2);   // this is list of tuple(2)    objType, objData
+            PyTuple* objType = new PyTuple(2);
                 objType->SetItem(0, new PyString("transport"));
                 objType->SetItem(1, objData);
             objectives->SetItem(0, objType);
@@ -974,12 +974,12 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
                 cargo->SetItemString("hasCargo", new PyBool(pClient->ContainsTypeQty(offer.courierTypeID, offer.courierAmount)));
                 cargo->SetItemString("typeID", new PyInt(offer.courierTypeID));
                 cargo->SetItemString("quantity", new PyInt(offer.courierAmount));
-                cargo->SetItemString("volume", new PyFloat(offer.courierItemVolume * offer.courierAmount));    // calculated shipment volume.  *this is direct to window*
+                cargo->SetItemString("volume", new PyFloat(offer.courierItemVolume * offer.courierAmount));
             PyTuple* objData = new PyTuple(3);
                 objData->SetItem(0, new PyInt(offer.destinationOwnerID));
-                objData->SetItem(1, dropoffLocation/*m_agent->GetLocationWrap()*/);
+                objData->SetItem(1, dropoffLocation);
                 objData->SetItem(2, cargo);
-            PyTuple* objType = new PyTuple(2);   // this is list of tuple(2)    objType, objData
+            PyTuple* objType = new PyTuple(2);
                 objType->SetItem(0, new PyString("fetch"));
                 objType->SetItem(1, objData);
             objectives->SetItem(0, objType);
@@ -993,7 +993,7 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         case Mission::Type::Storyline:
         case Mission::Type::Tutorial:
         default: {
-            objectives->SetItem(0, PyStatic.NewNone());
+            objectives->SetItem(0, new PyList());
         } break;
     }
 

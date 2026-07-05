@@ -75,14 +75,18 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     uint8 misionType = Mission::Type::Encounter;
     switch (m_agentData.typeID) {
         case Agents::Type::Research: misionType = Mission::Type::Research; break;
-        case Agents::Type::FacWar:   misionType = Mission::Type::Encounter; break;  // FW agents give combat missions
+        case Agents::Type::FacWar:   misionType = Mission::Type::Encounter; break;
         case Agents::Type::EpicArc:  return; // Epic arc agents — no regular missions
         case Agents::Type::Cosmos:   misionType = Mission::Type::Cosmos;   break;
+        case Agents::Type::Event:    return; // Event agents — no regular missions
+        case Agents::Type::Aura:     return; // Aura — tutorial, not missions
         default: {
             if (m_agentData.divisionID >= 16 and m_agentData.divisionID <= 20)
                 misionType = Mission::Type::Mining;
             else if (m_agentData.divisionID >= 21)
                 misionType = Mission::Type::Courier;
+            else if (m_agentData.typeID != Agents::Type::Basic and m_agentData.typeID != Agents::Type::None)
+                return; // Unknown agent types — skip
             else
                 misionType = Mission::Type::Encounter;
         }
