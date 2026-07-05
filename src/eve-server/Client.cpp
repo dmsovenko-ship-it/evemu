@@ -61,6 +61,7 @@
 #include "station/TradeService.h"
 #include "pos/Tower.h"
 #include "system/cosmicMgrs/WormholeMgr.h"
+#include "standing/StandingDB.h"
 
 static const uint32 PING_INTERVAL_MS = 600000; //10m
 
@@ -87,6 +88,9 @@ Client::Client(EVEServiceManager& services, EVETCPConnection** con)
   m_jetcanTimer(0),
   m_sessionTimer(0),
   m_uncloakTimer(0),
+  m_contrabandTimer(0),
+  m_contrabandActive(false),
+  m_contrabandFactionID(0),
   m_destinyEventQueue(new PyList()),
   m_destinyUpdateQueue(new PyList()),
     m_nextNotifySequence(0)
@@ -575,6 +579,12 @@ void Client::ProcessClient() {
                     }
             }
             pShipSE->ApplyBoost(bData);
+        }
+
+    if (m_contrabandTimer.Enabled())
+        if (m_contrabandTimer.Check(false)) {
+            m_contrabandTimer.Disable();
+            ExecuteContrabandPenalty();
         }
 
     if (sConfig.debug.UseProfiling)
@@ -1468,6 +1478,8 @@ PyRep *Client::GetAggressors() const {
 }
 
 void Client::StargateJump(uint32 fromGate, uint32 toGate) {
+    ContrabandScan();
+
     if ((m_clientState != Player::State::Idle) or m_stateTimer.Enabled()) {
         sLog.Error("Client","%s: StargateJump called when a move is already pending. Ignoring.", m_char->name());
         return;
@@ -1512,6 +1524,213 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
     m_moveSystemID = toData.systemID;
 
     SetStateTimer(Player::State::Jump, Player::Timer::Jumping);
+}
+
+void Client::ContrabandScan()
+{
+    if (m_contrabandActive) {
+        return;
+    }
+    if (!IsInSpace()) {
+        return;
+    }
+    ShipItemRef ship = GetShip();
+    if (ship.get() == nullptr) {
+        return;
+    }
+    SolarSystemRef sysRef = SystemMgr()->GetSystemRef();
+    if (sysRef.get() == nullptr) {
+        return;
+    }
+    float sysSec = static_cast<float>(sysRef->security());
+    if (sysSec < 0.5f) {
+        return; // only highsec
+    }
+    uint32 factionID = sysRef->factionID();
+    if (factionID == 0) {
+        return;
+    }
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT typeID, standingLoss, confiscateMinSec, fineByValue, attackMinSec"
+        " FROM invContrabandTypes WHERE factionID = %u", factionID))
+    {
+        sLog.Error("Client", "ContrabandScan: DB query failed for factionID %u", factionID);
+        return;
+    }
+    if (res.GetRowCount() == 0) {
+        return;
+    }
+    std::set<uint32> contrabandTypeIDs;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        contrabandTypeIDs.insert(row.GetUInt(0));
+    }
+    std::vector<InventoryItemRef> cargoItems;
+    ship->GetMyInventory()->GetItemsByFlag(flagCargoHold, cargoItems);
+    int8 smuggLvl = GetChar()->GetSkillLevel(EvESkill::Smuggling);
+    float detectionChance = 0.5f * (1.0f - smuggLvl * 0.1f);
+    bool foundContraband = false;
+    for (auto& item : cargoItems) {
+        if (contrabandTypeIDs.find(item->typeID()) == contrabandTypeIDs.end()) {
+            continue;
+        }
+        if (MakeRandomFloat(0.0, 1.0) < detectionChance) {
+            foundContraband = true;
+            break;
+        }
+    }
+    if (!foundContraband) {
+        return;
+    }
+    // System-wide broadcast
+    std::vector<Client*> clients;
+    SystemMgr()->GetClientList(clients);
+    for (auto* c : clients) {
+        c->SendNotifyMsg("Customs officials have detected contraband on %s in %s.",
+            GetName(), GetSystemName().c_str());
+    }
+    // Start 60s timer for penalty
+    m_contrabandTimer.Start(60000);
+    m_contrabandActive = true;
+    m_contrabandFactionID = factionID;
+}
+
+void Client::ExecuteContrabandPenalty()
+{
+    m_contrabandActive = false;
+    m_contrabandFactionID = 0;
+
+    if (!IsInSpace()) {
+        return;
+    }
+    ShipItemRef ship = GetShip();
+    if (ship.get() == nullptr) {
+        return;
+    }
+    SolarSystemRef sysRef = SystemMgr()->GetSystemRef();
+    if (sysRef.get() == nullptr) {
+        return;
+    }
+    float sysSec = static_cast<float>(sysRef->security());
+    if (sysSec < 0.5f) {
+        return; // escaped to lowsec/nullsec, customs can't enforce
+    }
+    uint32 factionID = sysRef->factionID();
+    if (factionID == 0) {
+        return;
+    }
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT typeID, standingLoss, confiscateMinSec, fineByValue, attackMinSec"
+        " FROM invContrabandTypes WHERE factionID = %u", factionID))
+    {
+        return;
+    }
+    if (res.GetRowCount() == 0) {
+        return;
+    }
+    struct ContrabandEntry {
+        float standingLoss;
+        float confiscateMinSec;
+        float fineByValue;
+        float attackMinSec;
+    };
+    std::map<uint32, ContrabandEntry> contrabandTypes;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        ContrabandEntry entry;
+        entry.standingLoss     = row.GetFloat(1);
+        entry.confiscateMinSec = row.GetFloat(2);
+        entry.fineByValue      = row.GetFloat(3);
+        entry.attackMinSec     = row.GetFloat(4);
+        contrabandTypes[row.GetUInt(0)] = entry;
+    }
+    std::vector<InventoryItemRef> cargoItems;
+    ship->GetMyInventory()->GetItemsByFlag(flagCargoHold, cargoItems);
+    bool penaltyApplied = false;
+    for (auto& item : cargoItems) {
+        auto it = contrabandTypes.find(item->typeID());
+        if (it == contrabandTypes.end()) {
+            continue;
+        }
+        penaltyApplied = true;
+        ContrabandEntry& entry = it->second;
+        if (entry.standingLoss > 0.0f && factionID != 0) {
+            StandingDB::SaveStandingChanges(
+                GetCharID(), factionID,
+                126, // ContrabandTrafficking
+                -entry.standingLoss,
+                "Contraband trafficking"
+            );
+        }
+        std::string itemName = item->itemName();
+        int32 quantity = item->quantity();
+        double fine = item->type().basePrice() * entry.fineByValue * quantity;
+        if (sysSec >= entry.confiscateMinSec) {
+            item->Delete();
+        }
+        if (fine > 0.0) {
+            AddBalance(-fine);
+        }
+        if (sysSec >= entry.attackMinSec) {
+            SpawnCustomsPolice(factionID);
+        }
+    }
+    if (penaltyApplied) {
+        std::vector<Client*> clients;
+        SystemMgr()->GetClientList(clients);
+        for (auto* c : clients) {
+            c->SendNotifyMsg("Customs officials have engaged %s in %s.", GetName(), GetSystemName().c_str());
+        }
+    }
+}
+
+void Client::SpawnCustomsPolice(uint32 factionID)
+{
+    static const std::map<uint32, uint16> s_customsTypes = {
+        { 500001, 19367 }, // Caldari Customs Commissioner
+        { 500002, 19370 }, // Minmatar Customs Commander
+        { 500003, 19371 }, // Amarr Customs General
+        { 500004, 19369 }, // Gallente Customs Major
+    };
+    auto it = s_customsTypes.find(factionID);
+    if (it == s_customsTypes.end()) {
+        return; // no customs ship defined for this faction
+    }
+    uint16 typeID = it->second;
+
+    uint32 corpID = sDataMgr.GetFactionCorp(factionID);
+    if (corpID == 0) {
+        switch (factionID) {
+            case 500002: corpID = 1000051; break; // Minmatar Republic Fleet
+            default:     corpID = 1000125; break; // CONCORD
+        }
+    }
+
+    ShipItemRef ship = GetShip();
+    if (ship.get() == nullptr) return;
+    SystemManager* sysMgr = SystemMgr();
+    if (sysMgr == nullptr) return;
+
+    GPoint pos = GetShipSE()->GetPosition();
+    pos.MakeRandomPointOnSphereLayer(5000.0, 12000.0);
+
+    ItemData itemData(typeID, corpID, sysMgr->GetID(), flagNone, "Customs Police", pos);
+    InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+    if (iRef.get() == nullptr) return;
+
+    FactionData fData;
+    fData.allianceID = factionID;
+    fData.corporationID = corpID;
+    fData.factionID = factionID;
+    fData.ownerID = corpID;
+
+    NPC* npc = new NPC(iRef, services(), sysMgr, fData);
+    if (npc == nullptr) return;
+    npc->Load();
+    npc->DestinyMgr()->SetPosition(pos);
+    sysMgr->AddNPC(npc);
 }
 
 void Client::CynoJump(InventoryItemRef beacon) {

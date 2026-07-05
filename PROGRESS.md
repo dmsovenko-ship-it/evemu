@@ -1,6 +1,6 @@
 # EVEmu Crucible — Project Status
 
-> Last updated: 2026-07-05 (end of session)
+> Last updated: 2026-07-05 (contraband session)
 > Based on codebase analysis of [dmsovenko-ship-it/evemu](https://github.com/dmsovenko-ship-it/evemu) (fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible))
 
 ---
@@ -214,6 +214,23 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | **ApplyBoost null guard** | ✅ Fixed | Added null ShipSE checks on all ApplyBoost call sites (prevents undock-in-fleet segfault) |
+
+### Contraband / Customs
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **ContrabandScan** (gate jump) | ✅ Added | Scans cargo for contraband per `invContrabandTypes` per faction |
+| **Highsec-only** | ✅ Added | Systems with sec ≥ 0.5 only |
+| **System-wide broadcast** | ✅ Added | `GetClientList()` — all pilots in system get notified |
+| **60s penalty timer** | ✅ Added | `m_contrabandTimer` in `ProcessClient()`, player may jettison cargo to avoid penalty |
+| **Standing loss** | ✅ Added | `StandingDB::SaveStandingChanges()` — faction standing penalty on expiry |
+| **Item confiscation** | ✅ Added | `item->Delete()` on contraband stacks when sec ≥ `confiscateMinSec` |
+| **ISK fine** | ✅ Added | `AddBalance(-fine)` — fine = `basePrice × fineByValue × quantity` |
+| **Customs police NPC spawn** | ✅ Added | `SpawnCustomsPolice()` — faction-specific NPC type (group 446) near player position |
+| **NPC AI engagement** | ✅ Working | NPCAIMgr auto-targets and attacks contraband runner |
+| **Faction mapping** | ✅ Added | Caldari (19367), Minmatar (19370), Amarr (19371), Gallente (19369) |
+| **NPC corporation** | ✅ Added | `GetFactionCorp()` with fallback to CONCORD (1000125) |
+| **Smuggling skill** | ✅ Added | −10% detection chance per level |
 
 ---
 

@@ -72,6 +72,8 @@
 | **CrimeWatch** | Weapon (60 s), aggression (15 min), criminal (15 min highsec), suspect on loot |
 | **Outlaw** | SS ≤ −5.0 — no dock/jump, sentries engage |
 | **Kill Rights** | Grant on criminal aggression / pod kill, 30-day expiry, auto-activate → Limited Engagement |
+| **Contraband** | Gate scan (highsec), per-stack detection × Smuggling skill, 60s jettison timer, standing loss + fine + confiscation |
+| **Customs Police** | Faction-specific NPC (group 446) spawned on timer expiry, auto-engages contraband runner (not instant kill — faction police, not CONCORD) |
 
 ### 🤖 NPC Systems
 
@@ -123,6 +125,7 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 - Killmail push notifications — not implemented
 - Fighter/bomber aggro — only on last target or when fired upon (no idle scan)
 - **Same-system beacon jump** — cyno/covert-cyno field in the same system as the jumping ship does not appear in the fleet right-click jump menu (inter-system hyperjump works). Client-side limitation in `menusvc.py` / fleet service beacon filtering.
+- **Customs NPC AI** — spawned customs police NPC targets but may not use faction-specific EWAR/weapon attributes from SDE (uses default NPC combat fallbacks).
 
 ---
 
@@ -149,6 +152,8 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Jump Drive** | Range check with JDC skill (+25%/lvl Crucible), distance-based fuel, minimum fuel 1, quantityLeft consumption |
 | **Jump Bridge** | Enhanced fuel calc (distance-based), range check on bridge jumps |
 | **Portal broadcast** | `SetOnline()` now broadcasts `OnMultiEvent` to all clients in bubble — fleet members see module state changes |
+| **Customs Scan** | `ContrabandScan()` on gate jump — highsec only, system-wide broadcast, 60s timer, faction standing loss, item confiscation, ISK fine |
+| **Customs Police** | `SpawnCustomsPolice()` spawns faction-specific NPC (group 446 Customs_Official) near player. NPCAI auto-engages contraband runners |
 | **Build** | Docker Compose, ccache, 400 MB reduction. Added CovertCynoModule + JumpPortalModule to CMakeLists |
 
 ---
@@ -217,6 +222,8 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **CrimeWatch** | Weapon (60 с), aggression (15 мин), criminal (15 мин хайсек), suspect на луте |
 | **Outlaw** | SS ≤ −5.0 — нет дока/джампа, сентри атакуют |
 | **Kill Rights** | Выдача при агрессии / подкилле, 30 дней, авто → Limited Engagement |
+| **Контрабанда** | Скан на гейте (хайсек), шанс обнаружения × Smuggling, 60s на выброс груза, штраф + конфискация + стояние |
+| **Таможня** | NPC фракции (группа 446) спавнится по таймеру, атакует нарушителя (не CONCORD — обычный NPC) |
 
 ### 🤖 NPC системы
 
@@ -268,6 +275,7 @@ docker logs -f server          # ждать "Server started"
 - Push-уведомления киллимейлов — не реализованы
 - Аггро файтеров — только на последнюю цель или при атаке (нет сканирования в Idle)
 - **Прыжок к маяку в той же системе** — цино/коверт-цино в одной системе с кораблём не появляется в меню прыжка флота (межсистемный гиперпрыжок работает). Ограничение на стороне клиента — `menusvc.py` / fleet service.
+- **AI таможни** — спавн NPC работает, но атрибуты оружия/EWAR могут быть дефолтными (не из SDE) — использует стандартные NPC-заглушки.
 
 ---
 
@@ -293,6 +301,8 @@ docker logs -f server          # ждать "Server started"
 | **Титан бридж** | JumpPortalModule — портал, прыжки флота/альянса, CmdBridgeToMember |
 | **Портал бридж** | `OpenBridge()` по команде флот-мембера; `SetOnline()` шлёт broadcast всем в бабле |
 | **Jump Drive** | Range check с JDC (+25%/lvl), минимальное топливо 1, quantityLeft |
+| **Таможня** | `ContrabandScan()` на прыжке — хайсек, глобальное уведомление, 60s таймер, штраф стояния, конфискация, штраф ISK |
+| **Полиция фракции** | `SpawnCustomsPolice()` спавнит NPC таможни (группа 446 Customs_Official) у игрока. NPCAI атакует контрабандистов |
 | **Сборка** | Docker Compose, ccache, −400 МБ. Добавлены CovertCynoModule + JumpPortalModule в CMakeLists |
 
 ---

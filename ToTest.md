@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes (2026-07-04 session — Cloak, Cyno, Portal/Bridge). Check off each item as you confirm it works.
+Things to verify after recent changes. Check off each item as you confirm it works.
 
 ---
 
@@ -144,11 +144,24 @@ Things to verify after recent changes (2026-07-04 session — Cloak, Cyno, Porta
 - [x] **Fuel consumption** — Jump consumes isotope fuel from fuel bay based on distance. Verified.
 - [ ] **POS Jump Bridge** — Install a jump bridge link between two POS towers. Jump through using CorpStructure option. Fuel should scale by distance.
 - [x] **Portal broadcast** — When any Jump Portal Generator goes online/offline, other ships in the same bubble should receive the module state change notification.
-- [ ] **OnSpecialFX for cyno** — Module activation effect visible on source ship (guid empty error fixed via GetEffectGuid fallback).
-- [ ] **Cyno field global visibility** — Cyno entity visible across bubbles (AttrIsGlobal fix).
+- [x] **OnSpecialFX for cyno** — Module activation effect visible on source ship (guid empty error fixed via GetEffectGuid fallback).
+- [x] **Cyno field global visibility** — Cyno entity visible across bubbles (AttrIsGlobal fix).
 
 > ⚠️ **Known limitation — same-system beacon jump**: When the cyno/covert-cyno field is in the **same solar system** as the jumping ship, the fleet right-click menu does **not** show the hyperjump/bridge option. Only inter-system jumps work through the fleet menu. This is a client-side limitation (`menusvc.py` / fleet service beacon filtering).  
 > *Цино/коверт-цино в одной системе с кораблём — меню прыжка во флоте не появляется. Только межсистемные прыжки.*
+
+## Customs / Contraband
+
+- [ ] **Contraband detection** — Load contraband items (drugs/boosters) into cargo. Jump a gate in highsec. Should get "Customs officials have detected contraband" system-wide message.
+- [ ] **Highsec only** — In lowsec or nullsec, jump with contraband. Should NOT trigger scan.
+- [ ] **No contraband in cargo** — Jump gate with no contraband in highsec. Should NOT trigger scan.
+- [ ] **60s timer** — After scan, wait 60s in highsec with contraband still in cargo. Should get "Customs officials have engaged" message and penalties applied.
+- [ ] **Jettison avoids penalty** — After scan, jettison all contraband from cargo within 60s. Timer should fire but no penalty (no contraband in cargo).
+- [ ] **Smuggling skill** — Train Smuggling to lvl 5. Detection chance should be visibly lower.
+- [ ] **Standing loss** — After penalty, check faction standings. Should have decreased.
+- [ ] **ISK fine** — After penalty, wallet should show a deduction of `basePrice × fineByValue × quantity`.
+- [ ] **Item confiscation** — After penalty, contraband items should be gone from cargo.
+- [ ] **Customs police NPC spawn** — After penalty, a customs NPC ship should appear near your ship and start attacking (not instant kill — faction police, not CONCORD).
 
 ## Login Warp
 
