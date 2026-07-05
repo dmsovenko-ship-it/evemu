@@ -993,8 +993,11 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         case Mission::Type::Storyline:
         case Mission::Type::Tutorial:
         default: {
-            // safety net — set a valid default to prevent NULL slot
-            objectives->SetItem(0, new PyDict());
+            // safety net for unknown/invalid mission types
+            PyTuple* objType = new PyTuple(2);
+                objType->SetItem(0, new PyString("none"));
+                objType->SetItem(1, new PyDict());
+            objectives->SetItem(0, objType);
         } break;
     }
 
