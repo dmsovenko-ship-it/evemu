@@ -26,8 +26,7 @@ public:
     void RemoveEncounter(uint32 encounterID);
 
 private:
-    uint32 SpawnNPCs(uint32 charID, uint32 systemID, const std::string& faction);
-    void DespawnNPCs(uint32 encounterID);
+    void DespawnEncounters(uint32 encounterID);
 
     std::map<uint32, MissionEncounter> m_encounters;
     uint32 m_nextEncounterID;
