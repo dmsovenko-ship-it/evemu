@@ -714,7 +714,6 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new Standing());
     newSvcMgr.Register(new TutorialService());
     newSvcMgr.Register(new VoucherService(newSvcMgr));
-    newSvcMgr.Register(new encounterSpawnServer());
     newSvcMgr.Register(new zActionServer());
     newSvcMgr.Register(new RepairService(newSvcMgr));
     newSvcMgr.Register(new CorporationService());

@@ -54,6 +54,10 @@ class AnomalyMgr
 
     void RegisterExitWH(CosmicSignature &sig);
 
+    // FW mission anomaly visibility
+    void AddFWAnomaly(const std::string& sigID, GPoint pos, const std::string& name, uint32 ownerID);
+    void RemoveFWAnomaly(const std::string& sigID);
+
     // Called by DungeonMgr when an expired site is cleaned up; re-queues type for respawn
     void QueueRespawn(int8 dungeonType)         { m_typeList.push_back(dungeonType); }
 

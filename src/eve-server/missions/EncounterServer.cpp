@@ -5,10 +5,12 @@
 #include "system/SystemManager.h"
 #include "system/SystemBubble.h"
 #include "system/DestinyManager.h"
+#include "system/cosmicMgrs/AnomalyMgr.h"
 #include "inventory/ItemFactory.h"
 #include "EntityList.h"
 #include "StaticDataMgr.h"
 #include "EVE_Corp.h"
+#include "EVE_Agent.h"
 
 // Pirate NPC typeIDs for encounter missions
 static const std::vector<uint32> s_guristasNPCs = { 5832, 5833, 5834, 5835 };
@@ -31,13 +33,14 @@ EncounterSpawnServer::~EncounterSpawnServer()
 {
 }
 
-void EncounterSpawnServer::AddEncounter(uint32 charID, uint32 missionID, uint32 agentID, const std::string& name)
+void EncounterSpawnServer::AddEncounter(uint32 charID, uint32 missionID, uint32 agentID, uint8 agentTypeID, const std::string& name)
 {
     MissionEncounter enc;
     enc.encounterID = m_nextEncounterID++;
     enc.missionID = missionID;
     enc.agentID = agentID;
     enc.charID = charID;
+    enc.agentTypeID = agentTypeID;
     enc.encounterName = name;
     enc.active = false;
     m_encounters.emplace(enc.encounterID, enc);
@@ -165,6 +168,16 @@ PyResult EncounterSpawnServer::RequestActivateEncounters(PyCallArgs& call, PyLis
                 SafeDelete(npc);
             }
         }
+        // FW mission: add visible anomaly in system
+        if (enc.agentTypeID == Agents::Type::FacWar) {
+            AnomalyMgr* anomMgr = pSystem->GetAnomMgr();
+            if (anomMgr != nullptr) {
+                enc.anomSigID = sEntityList.GetAnomalyID();
+                std::string anomName = enc.encounterName + " (FW)";
+                anomMgr->AddFWAnomaly(enc.anomSigID, spawnPos, anomName, factionID);
+            }
+        }
+
         result->AddItem(new PyInt(encID));
     }
 
@@ -220,6 +233,16 @@ void EncounterSpawnServer::DespawnEncounters(uint32 encounterID)
             }
         }
     }
+    // FW mission: remove anomaly
+    if (!it->second.anomSigID.empty()) {
+        SystemManager* pSys = sEntityList.FindOrBootSystem(systemID);
+        if (pSys != nullptr) {
+            AnomalyMgr* anomMgr = pSys->GetAnomMgr();
+            if (anomMgr != nullptr)
+                anomMgr->RemoveFWAnomaly(it->second.anomSigID);
+        }
+    }
+
     it->second.spawnedEntities.clear();
     it->second.active = false;
 }

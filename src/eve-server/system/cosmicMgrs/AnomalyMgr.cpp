@@ -631,6 +631,47 @@ void AnomalyMgr::RemoveSignal(uint32 itemID)
     }
 }
 
+void AnomalyMgr::AddFWAnomaly(const std::string& sigID, GPoint pos, const std::string& name, uint32 ownerID)
+{
+    CosmicSignature sig;
+    sig.systemID = m_system->GetID();
+    sig.sigID = sigID;
+    sig.sigItemID = 0;
+    sig.sigName = name;
+    sig.sigStrength = 1.0f;
+    sig.ownerID = ownerID;
+    sig.dungeonType = Dungeon::Type::Mission;
+    sig.position = pos;
+    sig.sigTypeID = EVEDB::invTypes::CosmicAnomaly;
+    sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
+    sig.scanGroupID = Scanning::Group::Anomaly;
+    sig.scanAttributeID = AttrScanAllStrength;
+
+    m_sigBySigID.emplace(sig.sigID, sig);
+    m_anomByItemID.emplace(++m_Anoms, sig);
+
+    _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::AddFWAnomaly() - added FW site %s at (%.0f,%.0f,%.0f)",
+         sig.sigName.c_str(), sig.position.x, sig.position.y, sig.position.z);
+}
+
+void AnomalyMgr::RemoveFWAnomaly(const std::string& sigID)
+{
+    auto it = m_sigBySigID.find(sigID);
+    if (it != m_sigBySigID.end()) {
+        if (m_Anoms > 0) --m_Anoms;
+        m_sigBySigID.erase(it);
+    }
+    for (auto it2 = m_anomByItemID.begin(); it2 != m_anomByItemID.end(); ) {
+        if (it2->second.sigID == sigID) {
+            m_anomByItemID.erase(it2);
+            break;
+        } else {
+            ++it2;
+        }
+    }
+    _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::RemoveFWAnomaly() - removed FW site %s", sigID.c_str());
+}
+
 const char* AnomalyMgr::GetScanGroupName(uint8 groupID/*0*/) {
     using namespace Scanning::Group;
     switch(groupID) {

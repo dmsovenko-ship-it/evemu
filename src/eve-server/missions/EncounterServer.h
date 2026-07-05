@@ -10,7 +10,9 @@ struct MissionEncounter {
     uint32 agentID;
     uint32 charID;
     uint32 systemID;
+    uint8 agentTypeID;
     std::string encounterName;
+    std::string anomSigID;  // anomaly sigID for FW mission visibility
     std::vector<uint32> spawnedEntities;
     bool active;
 };
@@ -24,7 +26,7 @@ public:
     PyResult RequestActivateEncounters(PyCallArgs& call, PyList* encounterList);
     PyResult RequestDeactivateEncounters(PyCallArgs& call, PyList* encounterList);
 
-    void AddEncounter(uint32 charID, uint32 missionID, uint32 agentID, const std::string& name);
+    void AddEncounter(uint32 charID, uint32 missionID, uint32 agentID, uint8 agentTypeID, const std::string& name);
     void RemoveEncounter(uint32 encounterID);
 
 private:
