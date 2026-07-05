@@ -65,8 +65,23 @@ bool Agent::Load() {
 
 void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
 {
-    // this will be based on agent type eventually
-    uint8 misionType = Mission::Type::Courier;
+    // Determine mission type from agent division and type
+    // Divisions: 1-15 Security (Encounter), 16-20 Mining, 21-24 Distribution (Courier)
+    uint8 misionType = Mission::Type::Encounter;
+    switch (m_agentData.typeID) {
+        case 4:  misionType = Mission::Type::Research; break;
+        case 9:  misionType = Mission::Type::Courier;  break;  // Faction Warfare
+        case 10: return; // Epic arc agents — no regular missions
+        default: {
+            // BasicAgent (2), TutorialAgent (3), CONCORDAgent (5), etc.
+            if (m_agentData.divisionID >= 16 and m_agentData.divisionID <= 20)
+                misionType = Mission::Type::Mining;
+            else if (m_agentData.divisionID >= 21)
+                misionType = Mission::Type::Courier;
+            else
+                misionType = Mission::Type::Encounter;
+        }
+    }
 
     sMissionDataMgr.CreateMissionOffer(misionType, m_agentData.level, m_agentData.raceID, m_important, offer);
 
