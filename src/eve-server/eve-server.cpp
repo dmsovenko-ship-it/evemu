@@ -35,6 +35,7 @@
 #include "StatisticMgr.h"
 #include "missions/MissionDataMgr.h"
 #include "missions/EpicArcMgr.h"
+#include "missions/EncounterServer.h"
 //console commands
 #include "ConsoleCommands.h"
 // account services
@@ -703,6 +704,7 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new AggressionMgrService(newSvcMgr));
     newSvcMgr.Register(new BillMgr());
     newSvcMgr.Register(new MissionMgrService());
+    newSvcMgr.Register(new EncounterSpawnServer());
     newSvcMgr.Register(new NotificationMgrService());
     newSvcMgr.Register(new DungeonExplorationMgrService());
     newSvcMgr.Register(new DevToolsProviderService());
