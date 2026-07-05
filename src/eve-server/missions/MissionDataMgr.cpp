@@ -602,6 +602,34 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             }
         } break;
         case Mission::Type::Cosmos: {
+            // COSMOS missions — 3-5 mission chains, one-time completion
+            // Use unsorted mission pool, filtered by typeID=9 and level
+            std::vector<MissionData> cVec;
+            auto itr = m_missions.equal_range(level);
+            for (auto it = itr.first; it != itr.second; ++it)
+                if (it->second.typeID == Mission::Type::Cosmos or !important)
+                    cVec.push_back(it->second);
+            if (cVec.empty()) {
+                // fallback: any COSMOS-level mission
+                auto itr2 = m_missions.equal_range(level);
+                for (auto it = itr2.first; it != itr2.second; ++it)
+                    cVec.push_back(it->second);
+            }
+            if (!cVec.empty()) {
+                MissionData mData = cVec[MakeRandomInt(0, (cVec.size() -1))];
+                data.name               = mData.name;
+                data.typeID             = Mission::Type::Cosmos;
+                data.missionID          = mData.missionID;
+                data.briefingID         = mData.briefingID;
+                data.rewardISK          = mData.rewardISK;
+                data.bonusISK          = mData.bonusISK;
+                data.bonusTime         = mData.bonusTime;
+                data.important          = mData.important;
+                data.storyline          = false;
+                data.range              = 1;
+                data.courierTypeID      = 0;
+                data.courierAmount      = 0;
+            }
         } break;
         case Mission::Type::EpicArc: {
         } break;
