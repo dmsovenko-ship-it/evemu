@@ -679,7 +679,8 @@ void AnomalyMgr::AddFWAnomaly(const std::string& sigID, GPoint pos, const std::s
     sig.scanAttributeID = AttrScanAllStrength;
 
     m_sigBySigID.emplace(sig.sigID, sig);
-    m_anomByItemID.emplace(++m_Anoms, sig);
+    m_anomByItemID.emplace(sig.sigItemID, sig);
+    ++m_Anoms;
 
     _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::AddFWAnomaly() - added FW site %s at (%.0f,%.0f,%.0f)",
          sig.sigName.c_str(), sig.position.x, sig.position.y, sig.position.z);
