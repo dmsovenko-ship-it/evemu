@@ -667,7 +667,7 @@ void AnomalyMgr::AddFWAnomaly(const std::string& sigID, GPoint pos, const std::s
     CosmicSignature sig;
     sig.systemID = m_system->GetID();
     sig.sigID = sigID;
-    sig.sigItemID = m_system->GetID() * 1000000 + m_Anoms + m_Sigs + m_WH + 1;
+    sig.sigItemID = 0;
     sig.sigName = name;
     sig.sigStrength = 1.0f;
     sig.ownerID = ownerID;
@@ -679,8 +679,7 @@ void AnomalyMgr::AddFWAnomaly(const std::string& sigID, GPoint pos, const std::s
     sig.scanAttributeID = AttrScanAllStrength;
 
     m_sigBySigID.emplace(sig.sigID, sig);
-    m_anomByItemID.emplace(sig.sigItemID, sig);
-    ++m_Anoms;
+    m_anomByItemID.emplace(++m_Anoms, sig);
 
     _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::AddFWAnomaly() - added FW site %s at (%.0f,%.0f,%.0f)",
          sig.sigName.c_str(), sig.position.x, sig.position.y, sig.position.z);
