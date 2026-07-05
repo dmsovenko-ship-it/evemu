@@ -9,6 +9,7 @@ struct MissionEncounter {
     uint32 missionID;
     uint32 agentID;
     uint32 charID;
+    uint32 systemID;
     std::string encounterName;
     std::vector<uint32> spawnedEntities;
     bool active;

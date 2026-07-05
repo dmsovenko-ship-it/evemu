@@ -6,6 +6,7 @@
 #include "system/SystemBubble.h"
 #include "system/DestinyManager.h"
 #include "inventory/ItemFactory.h"
+#include "EntityList.h"
 #include "StaticDataMgr.h"
 #include "EVE_Corp.h"
 
@@ -107,7 +108,7 @@ PyResult EncounterSpawnServer::RequestActivateEncounters(PyCallArgs& call, PyLis
 
     Client* pClient = call.client;
     SystemManager* pSystem = pClient->SystemMgr();
-    GPoint playerPos = pClient->GetPosition();
+    GPoint playerPos = pClient->GetShipSE()->GetPosition();
 
     for (size_t i = 0; i < encounterList->size(); ++i) {
         PyRep* item = encounterList->GetItem(i);
@@ -120,6 +121,7 @@ PyResult EncounterSpawnServer::RequestActivateEncounters(PyCallArgs& call, PyLis
 
         MissionEncounter& enc = it->second;
         enc.active = true;
+        enc.systemID = pSystem->GetID();
 
         // Determine faction from mission (default Guristas)
         uint32 factionID = 500014;
@@ -200,11 +202,22 @@ void EncounterSpawnServer::DespawnEncounters(uint32 encounterID)
     auto it = m_encounters.find(encounterID);
     if (it == m_encounters.end()) return;
 
+    uint32 systemID = it->second.systemID;
+    SystemManager* pSystem = sEntityList.FindOrBootSystem(systemID);
+    if (pSystem == nullptr) return;
+
     for (uint32 entityID : it->second.spawnedEntities) {
-        SystemEntity* pSE = sEntityList.FindByID(entityID);
-        if (pSE != nullptr) {
-            pSE->Remove();
-            _log(AGENT__MESSAGE, "Despawned encounter entity %u", entityID);
+        NPC* pNPC = pSystem->GetNPCSE(entityID);
+        if (pNPC != nullptr) {
+            pSystem->RemoveNPC(pNPC);
+            _log(AGENT__MESSAGE, "Despawned encounter NPC %u", entityID);
+        } else {
+            // Try generic entity removal
+            SystemEntity* pSE = pSystem->GetSE(entityID);
+            if (pSE != nullptr) {
+                pSystem->RemoveEntity(pSE);
+                _log(AGENT__MESSAGE, "Despawned encounter entity %u", entityID);
+            }
         }
     }
     it->second.spawnedEntities.clear();
