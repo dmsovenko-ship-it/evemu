@@ -2756,11 +2756,6 @@ Battleships 0.155
         m_shipWarpSpeed = sRef->GetAttribute(AttrWarpSpeedMultiplier).get_float();
     if (sRef->HasAttribute(AttrWarpSpeedBonus))
         m_shipWarpSpeed *= (1.0f + sRef->GetAttribute(AttrWarpSpeedBonus).get_float());
-    if (mySE->HasPilot() and (m_shipWarpSpeed > 0)) {
-        float warpOpLvl = static_cast<float>(mySE->GetPilot()->GetChar()->GetSkillLevel(EvESkill::WarpDriveOperation));
-        if (warpOpLvl > 0)
-            m_shipWarpSpeed *= (1.0f + 0.05f * warpOpLvl);
-    }
     if (sRef->HasAttribute(AttrInetia))
         m_shipInertia = sRef->GetAttribute(AttrInetia).get_float();
     if (sRef->HasAttribute(AttrMaxVelocity))

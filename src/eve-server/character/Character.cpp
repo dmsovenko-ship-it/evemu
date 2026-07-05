@@ -505,17 +505,27 @@ void Character::ProcessEffects(ShipItem* pShip)
 
     Effect curEffect = Effect();
     std::vector<TypeEffects> typeFx;
-    for (auto curSkill : allSkills) {
+    auto processItem = [&](InventoryItemRef item) {
         typeFx.clear();
-        sFxDataMgr.GetTypeEffect(curSkill->typeID(), typeFx);
+        sFxDataMgr.GetTypeEffect(item->typeID(), typeFx);
         for (auto curFx : typeFx) {
             curEffect = sFxDataMgr.GetEffect(curFx.effectID);
             fxData data = fxData();
             data.action = FX::Action::Invalid;
-            data.srcRef = curSkill;
+            data.srcRef = item;
             sFxProc.ParseExpression(this, sFxDataMgr.GetExpression(curEffect.preExpression), data);
         }
-    }
+    };
+    for (auto curSkill : allSkills)
+        processItem(curSkill);
+    std::vector<InventoryItemRef> implants;
+    pInventory->GetItemsByFlag(flagImplant, implants);
+    for (auto curImplant : implants)
+        processItem(curImplant);
+    std::vector<InventoryItemRef> boosters;
+    pInventory->GetItemsByFlag(flagBooster, boosters);
+    for (auto curBooster : boosters)
+        processItem(curBooster);
     // apply processed char effects
     sFxProc.ApplyEffects(this, this, pShip);
 }
