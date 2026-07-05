@@ -132,7 +132,56 @@ INSERT IGNORE INTO `tutorial_rewards` (`tutorialID`, `pageID`, `iskAmount`, `typ
 -- Link career agents to tutorial categories for the mapping service
 -- (In addition to the tutorial_career_agents table)
 
+-- ============================================================
+-- Advanced Military — 10 missions (tutorialID 1051-1060)
+-- ============================================================
+INSERT IGNORE INTO `tutorials` (`tutorialID`, `tutorialName`, `nextTutorialID`, `categoryID`, `dataID`) VALUES
+(1051, 'AdvMil: Mission 1 - The Swap', 1052, 2, 0),
+(1052, 'AdvMil: Mission 2 - Angel of Mercy', 1053, 2, 0),
+(1053, 'AdvMil: Mission 3 - Your Undivided Attention', 1054, 2, 0),
+(1054, 'AdvMil: Mission 4 - A Friend in Need', 1055, 2, 0),
+(1055, 'AdvMil: Mission 5 - The Stand', 1056, 2, 0),
+(1056, 'AdvMil: Mission 6 - Don\'t Look Back', 1057, 2, 0),
+(1057, 'AdvMil: Mission 7 - Weapon of Choice', 1058, 2, 0),
+(1058, 'AdvMil: Mission 8 - The Pacifist', 1059, 2, 0),
+(1059, 'AdvMil: Mission 9 - Glue', 1060, 2, 0),
+(1060, 'AdvMil: Mission 10 - The Exam', 0, 2, 0);
+
+INSERT IGNORE INTO `tutorial_pages` (`pageID`, `tutorialID`, `pageNumber`, `pageName`, `text`, `imagePath`, `audioPath`) VALUES
+(2051, 1051, 1, 'The Swap',
+ 'Clear out a small gang of pirates to re-familiarize yourself with combat. This mission serves as a warm-up for the Advanced Military career path. Use your weapons and shield booster to defeat the pirates.', '', ''),
+(2052, 1052, 1, 'Angel of Mercy',
+ 'Your agent has fitted a frigate with an explosive payload. Your mission is to fly this ship into a pirate starbase. The ship is on a one-way trip - make it count. Warp to the starbase and get as close as possible before detonation.', '', ''),
+(2053, 1053, 1, 'Your Undivided Attention',
+ 'Use a Warp Disruptor on a fleeing pirate vessel to prevent it from warping away. The disruptor must be activated while the target is within range and locked. This teaches the importance of warp disruption in PvP.', '', ''),
+(2054, 1054, 1, 'A Friend in Need',
+ 'Find the stranded agent\'s vessel and repair it using a Remote Armor Repairer or Shield Transporter. This teaches remote repair mechanics, essential for fleet support roles.', '', ''),
+(2055, 1055, 1, 'The Stand',
+ 'Fight pirate ships until your ship is destroyed. Your agent has provided a disposable frigate for this mission. Do not warp out - fight until you lose your ship. This teaches you about pod recovery and ship loss.', '', ''),
+(2056, 1056, 1, 'Don\'t Look Back',
+ 'Use an Afterburner to fly through a hazard cloud at maximum speed. The cloud damages ships that remain inside, so sustained Afterburner use is essential to pass through safely.', '', ''),
+(2057, 1057, 1, 'Weapon of Choice',
+ 'Use the granted weapon to destroy an enemy ship. This mission teaches you to use racial weapon systems effectively. The weapon provided is appropriate for your race.', '', ''),
+(2058, 1058, 1, 'The Pacifist',
+ 'Follow CONCORD\'s orders to introduce you to basic fleet operations. Do not fire on anyone - this mission is about following orders and understanding fleet hierarchy.', '', ''),
+(2059, 1059, 1, 'Glue',
+ 'Use the granted Stasis Webifier on a pirate ship to slow it down. The webifier reduces the target\'s velocity, making it easier for you and your fleet to track and destroy it.', '', ''),
+(2060, 1060, 1, 'The Exam',
+ 'Engage in combat with an enemy that uses stasis webifiers and warp scramblers. This final exam tests everything you\'ve learned. Destroy the enemy to complete the Advanced Military career path.', '', '');
+
+INSERT IGNORE INTO `tutorial_rewards` (`tutorialID`, `pageID`, `iskAmount`, `typeID`, `quantity`, `skillTypeID`) VALUES
+(1051, 2051, 64000,  0, 0, 0),
+(1052, 2052, 123000, 0, 0, 0),
+(1053, 2053, 101000, 0, 0, 0),
+(1054, 2054, 20000,  0, 0, 0),
+(1055, 2055, 142000, 0, 0, 0),
+(1056, 2056, 27000,  0, 0, 0),
+(1057, 2057, 60000,  0, 0, 0),
+(1058, 2058, 20000,  0, 0, 0),
+(1059, 2059, 30000,  0, 0, 0),
+(1060, 2060, 175000, 0, 0, 0);
+
 -- +migrate Down
-DELETE FROM `tutorial_rewards` WHERE `tutorialID` BETWEEN 1011 AND 1045;
-DELETE FROM `tutorial_pages` WHERE `tutorialID` BETWEEN 1011 AND 1045;
-DELETE FROM `tutorials` WHERE `tutorialID` BETWEEN 1011 AND 1045;
+DELETE FROM `tutorial_rewards` WHERE `tutorialID` BETWEEN 1011 AND 1060;
+DELETE FROM `tutorial_pages` WHERE `tutorialID` BETWEEN 1011 AND 1060;
+DELETE FROM `tutorials` WHERE `tutorialID` BETWEEN 1011 AND 1060;
