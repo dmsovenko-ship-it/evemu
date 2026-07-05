@@ -55,6 +55,15 @@ bool Agent::Load() {
     AgentDB::LoadAgentData(m_agentID, m_agentData);
     sMissionDataMgr.LoadAgentOffers(m_agentID, m_offers);
 
+    // Event and Aura agents should not have mission offers
+    if (m_agentData.typeID == Agents::Type::Event or m_agentData.typeID == Agents::Type::Aura) {
+        if (!m_offers.empty()) {
+            _log(AGENT__MESSAGE, "Clearing %lu stale offers for non-mission agent %u (type %u)",
+                 m_offers.size(), m_agentID, m_agentData.typeID);
+            m_offers.clear();
+        }
+    }
+
     if (m_agentData.research) {
         AgentDB::LoadAgentSkills(m_agentID, m_skills);
         DBQueryResult res;
