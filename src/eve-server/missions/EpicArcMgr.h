@@ -65,8 +65,8 @@ private:
 
     std::map<uint32, EpicArcData> m_arcs;
     std::map<uint32, uint32> m_agentToArc;
-    std::multimap<uint64, EpicArcMissionData> m_missions;
-    std::map<uint64, EpicArcState> m_state;
+    std::multimap<int64, EpicArcMissionData> m_missions;
+    std::map<int64, EpicArcState> m_state;
 };
 
 #define sEpicArcMgr \

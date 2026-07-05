@@ -54,7 +54,7 @@ void EpicArcMgr::Populate()
         data.branchID = row.GetInt(5);
         data.rewardISK = row.GetInt(6);
         data.rewardStanding = row.GetFloat(7);
-        uint64 key = (uint64(data.arcID) << 32) | (uint64(data.chapterNumber) << 16) | data.sequenceNumber;
+        int64 key = (int64(data.arcID) << 32) | (int64(data.chapterNumber) << 16) | data.sequenceNumber;
         m_missions.emplace(key, data);
     }
     sLog.Cyan("   EpicArcMgr", "%lu Epic Arc Missions loaded in %.3fms.", m_missions.size(), (GetTimeMSeconds() - start));
@@ -85,7 +85,7 @@ bool EpicArcMgr::AgentHasArc(uint32 agentID)
 
 bool EpicArcMgr::CanStartArc(uint32 charID, uint32 arcID)
 {
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
     if (it == m_state.end())
         return true;
@@ -110,7 +110,7 @@ void EpicArcMgr::StartArc(uint32 charID, uint32 arcID, uint32 agentID)
     state.dateCompleted = 0;
     state.completed = false;
 
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     m_state[stateKey] = state;
 
     DBerror err;
@@ -122,7 +122,7 @@ void EpicArcMgr::StartArc(uint32 charID, uint32 arcID, uint32 agentID)
 
 void EpicArcMgr::AdvanceMission(uint32 charID, uint32 arcID)
 {
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
     if (it == m_state.end())
         return;
@@ -139,7 +139,7 @@ void EpicArcMgr::AdvanceMission(uint32 charID, uint32 arcID)
 
 void EpicArcMgr::CompleteArc(uint32 charID, uint32 arcID)
 {
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
     if (it == m_state.end())
         return;
@@ -156,7 +156,7 @@ void EpicArcMgr::CompleteArc(uint32 charID, uint32 arcID)
 
 EpicArcMissionData* EpicArcMgr::GetNextMissionForChar(uint32 charID, uint32 arcID)
 {
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
     if (it == m_state.end())
         return nullptr;
@@ -167,7 +167,7 @@ EpicArcMissionData* EpicArcMgr::GetNextMissionForChar(uint32 charID, uint32 arcI
 
 uint8 EpicArcMgr::GetCurrentChapter(uint32 charID, uint32 arcID)
 {
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
     if (it == m_state.end())
         return 0;
@@ -176,7 +176,7 @@ uint8 EpicArcMgr::GetCurrentChapter(uint32 charID, uint32 arcID)
 
 bool EpicArcMgr::IsOnArc(uint32 charID, uint32 arcID)
 {
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
     return (it != m_state.end() && !it->second.completed);
 }
@@ -192,7 +192,7 @@ void EpicArcMgr::GetCharacterArcs(uint32 charID, std::vector<EpicArcState>& stat
 
 void EpicArcMgr::SetBranchChoice(uint32 charID, uint32 arcID, int8 branch)
 {
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
     if (it == m_state.end())
         return;
@@ -206,7 +206,7 @@ void EpicArcMgr::SetBranchChoice(uint32 charID, uint32 arcID, int8 branch)
 
 void EpicArcMgr::CompleteArc(uint32 charID, uint32 arcID)
 {
-    uint64 stateKey = (uint64(charID) << 32) | arcID;
+    int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
     if (it == m_state.end())
         return;
@@ -224,7 +224,7 @@ void EpicArcMgr::CompleteArc(uint32 charID, uint32 arcID)
 std::vector<EpicArcMissionData> EpicArcMgr::GetChapterMissions(uint32 arcID, uint8 chapter, int8 branch)
 {
     std::vector<EpicArcMissionData> result;
-    auto range = m_missions.equal_range((uint64(arcID) << 32) | (uint64(chapter) << 16));
+    auto range = m_missions.equal_range((int64(arcID) << 32) | (int64(chapter) << 16));
     for (auto it = range.first; it != range.second; ++it) {
         if (it->second.branchID == 0 || it->second.branchID == branch)
             result.push_back(it->second);
@@ -234,7 +234,7 @@ std::vector<EpicArcMissionData> EpicArcMgr::GetChapterMissions(uint32 arcID, uin
 
 EpicArcMissionData* EpicArcMgr::GetNextMission(uint32 arcID, uint8 chapter, uint32 lastMissionID, int8 branch)
 {
-    auto range = m_missions.equal_range((uint64(arcID) << 32) | (uint64(chapter) << 16));
+    auto range = m_missions.equal_range((int64(arcID) << 32) | (int64(chapter) << 16));
     uint32 lastSeq = lastMissionID % 100;
     for (auto it = range.first; it != range.second; ++it) {
         if (it->second.sequenceNumber > lastSeq && (it->second.branchID == 0 || it->second.branchID == branch))
