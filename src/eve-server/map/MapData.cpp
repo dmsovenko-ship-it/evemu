@@ -147,6 +147,7 @@ void MapData::GetMissionDestination(Agent* pAgent, uint8 misionType, MissionOffe
                 if (sysList.empty()) {
                     StationData data = StationData();
                     stDataMgr.GetStationData(pAgent->GetStationID(), data);
+                    offer.destinationID         = pAgent->GetStationID();
                     offer.destinationOwnerID    = data.corporationID;
                     offer.destinationSystemID   = data.systemID;
                     offer.destinationTypeID     = data.typeID;
@@ -163,8 +164,8 @@ void MapData::GetMissionDestination(Agent* pAgent, uint8 misionType, MissionOffe
                     }
                     if (run and (count > sysList.size())) {
                         // problem....no station found within one jump
-                        offer.destinationID = 0;
-                        _log(AGENT__ERROR, "Agent::GetMissionDestination() - no station found within 1 jump." );
+                        offer.destinationID = pAgent->GetStationID();
+                        _log(AGENT__ERROR, "Agent::GetMissionDestination() - no station found within 1 jump, using agent station %u.", offer.destinationID);
                         return;
                     }
                     sysList.erase(sysList.begin() + randomIndex); // If we have searched a system already then do not try it again
@@ -227,9 +228,10 @@ void MapData::GetMissionDestination(Agent* pAgent, uint8 misionType, MissionOffe
         } break;
     }
 
-    // Fallback for non-station, non-ship missions (Encounter/Mining/etc.)
-    if ((offer.destinationID == 0) and !station and !ship) {
+    // Fallback if no destination was determined
+    if (offer.destinationID == 0) {
         offer.destinationID = pAgent->GetSystemID();
+        offer.destinationSystemID = pAgent->GetSystemID();
     }
 
     if (sDataMgr.IsStation(offer.destinationID)) {
