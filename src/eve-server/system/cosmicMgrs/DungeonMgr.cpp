@@ -85,8 +85,6 @@ void DungeonDataMgr::GetRandomDungeon(Dungeon::Dungeon& dungeon, uint8 archetype
     // Calculate the number of dungeons in the range
     uint32 count = std::distance(range.first, range.second);
     // If there are no dungeons with the specified archetype, return
-    _log(COSMIC_MGR__ERROR, "DEBUG GetRandomDungeon(archetype=%u) - found %u dungeons, total in container %u", \
-        archetype, count, m_dungeons.size());
     if (count == 0) {
         return;
     }
@@ -369,9 +367,6 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
         sig.bubbleID = cSE->SysBubble()->GetID();
 
         _log(COSMIC_MGR__TRACE, "DungeonMgr::Create() - %s using dungeonID %u", sig.sigName.c_str(), dData.dungeonID);
-    _log(COSMIC_MGR__ERROR, "DEBUG DungeonMgr::Create() - %s has %u rooms, %u objects in first room", \
-        sig.sigName.c_str(), dData.rooms.size(), \
-        (dData.rooms.size() > 0 ? dData.rooms.begin()->second.objects.size() : 0));
 
         // Create the new live dungeon
         Dungeon::LiveDungeon newDungeon;
@@ -410,8 +405,6 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 Inv::GrpData objGroup;
                 sDataMgr.GetType(object.typeID, objType);
                 sDataMgr.GetGroup(objType.groupID, objGroup);
-                _log(COSMIC_MGR__ERROR, "DEBUG MakeDungeon - room=%u obj=%u typeID=%u groupID=%u catID=%u", \
-                    roomCounter, object.objectID, object.typeID, objType.groupID, objGroup.catID);
                 if (objGroup.catID == EVEDB::invCategories::Ship || objGroup.catID == EVEDB::invCategories::Drone) {
                     m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID);
                 } 

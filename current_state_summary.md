@@ -1,0 +1,3 @@
+- **Empty anomalies FIXED**: Root cause was wrong groupIDs in `invTypes` — NPC types used Entity-category groups (catID=11), but `MakeDungeon` checks for Ship (catID=6) or Drone (catID=18). Changed to standard ship groups: 25(Frigate), 26(Cruiser), 27(Battleship), 419(Battlecruiser), 100(CombatDrone). Created fixup migration `20260706000002-anomaly_npc_group_fix.sql`. NPCs now appear in space and can be targeted.
+- **Client crash on anomaly warp**: NPCs appear but client throws `KeyError: ('RecordNotFound', 33001)` — local client cache doesn't know about new typeIDs. Need to clear client cache folder.
+- **GetPathBetween fix**: Applied to `GetMissionDestination` and `Agent::MakeOffer` to prevent `destinationID=0` — status unknown (pending user test)
