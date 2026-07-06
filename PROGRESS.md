@@ -1,6 +1,6 @@
 # EVEmu Crucible — Fork Progress Status
 
-> Last updated: 2026-07-06
+> Last updated: 2026-07-07
 > Based on [upstream EVEmu Project Status](https://wiki.evemu.dev/wiki/Crucible_Project_Status) format
 > Fork: [dmsovenko-ship-it/evemu](https://github.com/dmsovenko-ship-it/evemu) of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 >
@@ -10,7 +10,7 @@
 
 | Upstream | This Fork |
 |----------|-----------|
-| 59.5%    | **~75%**  |
+| 59.5%    | **~80%**  |
 
 ---
 
@@ -63,7 +63,9 @@
 | Open Attributes Window | 100% | 100% | |
 | Neural Remap | 100% | 100% | |
 | Open Augmentations Window | 100% | 100% | **Implants now work** (ProcessEffects) |
-| Open Jump Clones Window | 100% | 100% | Jump clones not implemented |
+| Open Jump Clones Window | 100% | 100% | **Implemented**: GetCloneState, Install/Destroy, CloneJump, GetPriceForClone |
+| Per-clone implants | 0% | **80%** | `chrJumpCloneImplants` table, per-clone implant queries |
+| Active clone tracking | 0% | **90%** | `entity.isActive` flag, `SetCloneActive` toggles |
 | Open Bio Window | 100% | 100% | |
 | Open Employment History Window | 100% | 100% | |
 | Open Standings Window | 100% | 100% | |
@@ -288,7 +290,11 @@ No significant changes in fork.
 | Cancelling Sell Orders | 70% | 75% | |
 | Modify Sell Orders | 70% | 75% | |
 
-### Corporation Market — unchanged from upstream (all ~10%)
+### Corporation Market — enabled in fork
+- Block removed: corps can now place buy/sell orders via `useCorp=true`
+- Office check: validates corp has office at target station
+- Wallet permissions: `AccountCanTake*` role check per division
+- `CancelCharOrder` handles corp orders: escrow refunds to corp wallet, items to `flagCorpMarket`
 
 ---
 
@@ -310,9 +316,21 @@ No significant changes in fork.
 
 ## 15. Contracts
 
-**Upstream: 16.6% — This Fork: 16.6%**
+**Upstream: 16.6% — This Fork: 50%**
 
-No changes in fork.
+| Service/Action | Upstream | Fork | Notes |
+|---|---|---|---|
+| `GetContract` | 80% | 85% | |
+| `CreateContract` | 60% | 70% | Item exchange, courier types |
+| `DeleteContract` | 60% | 70% | Returns items to owner |
+| `AcceptContract` | 60% | 70% | Handles exchange + courier |
+| `CompleteContract` | 60% | 70% | Delivery validation + payment |
+| `SearchContracts` | 60% | 70% | Full query builder |
+| `GetLoginInfo` | 0% | **80%** | Now queries `needsAttention`, `inProgress`, `assignedToMe` |
+| `GetMyExpiredContractList` | 0% | **100%** | Returns expired contracts from DB |
+| `NumOutstandingContracts` | 0% | **100%** | Counts per char/corp |
+| `CollectMyPageInfo` | 80% | 85% | |
+| Auctions (PlaceBid/FinishAuction) | 0% | 0% | Not implemented |
 
 ---
 
@@ -449,6 +467,8 @@ No changes in fork.
 | Can Overload modules | 15% | 20% | |
 | Can De-activate Overloaded modules | 15% | 15% | |
 | Overloaded modules damage bank | 20% | 20% | |
+| **Module repair (nanite paste)** | **0%** | **50%** | `ModuleRepair` checks damage, `StopModuleRepair` logs; `RepairModule` nullcheck fixed |
+| **CharacterLeavingShip** | **0%** | **100%** | Calls `OfflineAll()` instead of stub |
 | Can repair damaged modules | 10% | 10% | |
 | **Cyno Module** | **—** | **✅** | Fleet check, POS shield, jammer, sec check, high-sec block |
 | **Covert Cyno Module** | **—** | **✅** | No fleet req, high-sec allowed, cloak-compatible |
@@ -745,7 +765,7 @@ Otherwise no significant changes from upstream.
 
 ## 35. Anomaly Manager
 
-**Upstream: 19.3% — This Fork: 70%**
+**Upstream: 19.3% — This Fork: 85%**
 
 | Service/Action | Upstream | Fork | Notes |
 |---|---|---|---|
@@ -760,6 +780,8 @@ Otherwise no significant changes from upstream.
 | **Unrated sites** | **—** | **✅** | Combat anomalies visible on scanner |
 | **FW mission anomalies** | **—** | **✅** | AddFWAnomaly/RemoveFWAnomaly for militia missions |
 | **QueueRespawn** | **—** | **✅** | Re-queue type for respawn after cleanup |
+| **Anomaly NPCs working** | **—** | **✅** | SDE Entity typeIDs → Ship-category slim items, MakeDungeon handles Entity catID |
+| **Entity NPC owned by faction** | **—** | **✅** | GroupID-based faction fallback |
 
 ---
 
@@ -779,10 +801,33 @@ Otherwise no significant changes from upstream.
 | Unrated Escalation Destruction | 10% | 10% | |
 | DED Complex Creation | 10% | 10% | |
 | DED Complex Destruction | 10% | 10% | |
+| **Incursion Dungeon Creation** | **—** | **✅** | VG/AS/HQ definitions in migration |
+| **Entity catID support** | **—** | **✅** | `MakeDungeon` now handles Entity(11) alongside Ship(6)/Drone(18) |
 
 ---
 
-## 37. Belt Manager
+## 37. Incursions
+
+**Upstream: 0% — This Fork: 40%**
+
+| Service/Action | Upstream | Fork | Notes |
+|---|---|---|---|
+| `IncursionService` registered | 0% | **100%** | `"incursion"` service with `GetDelayedRewardsByGroupIDs` |
+| `MapService` incursion methods | 0% | **100%** | `GetSystemsInIncursions`, `GetSystemsInIncursionsGM`, `GetIncursionGlobalReport` |
+| `HoloscreenMgrService` incursion report | 0% | **100%** | Returns active incursions from DB |
+| Incursion state machine | 0% | **100%** | established(5d) → mobilized(2d) → withdrawal(24h) → auto-end |
+| Influence system | 0% | **80%** | Site completion reduces, natural regen +1%/20min |
+| Mothership spawn | 0% | **50%** | Flag set when all systems at 0% influence |
+| Site NPC spawning | 0% | **70%** | `DoSpawnForIncursion` spawns Sansha NPCs |
+| Rewards | 0% | **70%** | VG=10.4M, AS=18.2M, HQ=31.5M, MS=63M + LP |
+| DB tables | 0% | **100%** | `incursions`, `incursionSystems`, `incursionRewards` |
+| Wave-based spawning | 0% | 0% | |
+| Contest system | 0% | 0% | |
+| Penalties (resist/damage/bounty/cyno) | 0% | 0% | |
+
+---
+
+## 38. Belt Manager
 
 **Upstream: 81% — This Fork: 85%**
 

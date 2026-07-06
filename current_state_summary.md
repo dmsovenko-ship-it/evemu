@@ -1,76 +1,121 @@
-# Session: Corps/Alliances/Wars/Bills/Mail + Anomaly NPCs
+# Session: Full System — Clones/Wars/Mail/Anomaly NPCs/Corp Market/Contracts/Incursions/Modules
 
-## Part 1: Anomaly NPCs (done)
-- **Root cause of empty anomalies**: NPC typeIDs (33001+) assigned Entity-category groups (catID=11), but `MakeDungeon` checks for Ship (catID=6) / Drone (catID=18)
-- **Migration consolidation**: Single file `20260705000037-anomaly_npcs_final.sql` — ALTER TABLE, INSERT types (33001+), DELETE old objects, INSERT correct typeIDs
-- **groupID fix**: Changed Entity groups (562,566,567,565...) → Ship groups (25=Frigate, 26=Cruiser, 27=Battleship, 419=Battlecruiser), Drone group (100=CombatDrone)
-- **graphicID/radius fix**: Added to all 24 NPC types to prevent client `RecordNotFound` KeyError and server marshal crash
-- **Temp TYPEID FORCE** in DungeonMgr.cpp: force-spawn all 33000+ room objects as NPCs (removable after fresh DB install)
-- **DB issue on existing install**: `dunRoomObjects` empty for rooms 2000-2093, `dunDungeons`/`dunRooms` may be missing → need fresh DB (`docker-compose down -v` + `docker-compose up --build -d`)
+## Part 1: Anomaly NPCs — Fixed (done)
+- **Custom typeIDs (33001-33103) → SDE Entity typeIDs**: Switched from custom Ship-category types to real SDE Entity-category pirate NPC typeIDs (since client never caches custom types)
+- **NPC::MakeSlimItem**: Override categoryID→6 (Ship) and map Entity groupIDs→Ship groups (25/26/27/419) so client renders models correctly
+- **NPC::MakeSlimItem**: Added `charID=None`, `bounty=0`, `securityStatus=0.0`, `modules=[]` for Ship-category client expectations
+- **DoSpawnForAnomaly**: Disabled warp-in for Entity-category NPCs, fixed warp speed range
+- **DoSpawnForAnomaly**: GroupID-based faction fallback for `ownerID` when race-lookup fails
+- **DungeonMgr**: Added `catID == Entity(11)` check for NPC spawns (alongside Ship/Drone)
+- **Client cache**: `bulkDataChangeID` unchanged (reverted after accidental increment); `ObjCacheService` always regenerates `config.BulkData.types` from DB
+- **published=1** migration for SDE types to ensure client loads them
+- **Migrations consolidated**: Final SDE typeIDs used in `dunRoomObjects` (Angel/Blood/Guristas/Sansha/Serpentis/Rogue Drone)
+- **TYPEID FORCE hack**: Removed from DungeonMgr.cpp
+- **Debug logging**: Removed from DungeonMgr.cpp, reduced in SpawnMgr.cpp
 
 ## Part 2: Bills (done)
-- `CharPayBill(billID)` — checks balance, deducts via `AccountService::TransferFunds`, marks bill paid
-- `CharGetBills()` / `CharGetBillsReceivable()` — queries from `billsPayable`/`billsReceivable` for character
-- `PayCorporationBill(billID, fromAccountKey)` — checks corp wallet via `AccountDB::GetCorpBalance`, transfers via TransferFunds
-- `SendAutomaticPaySettings(dict)` — parses 6 bill type settings, saves to `crpAutoPay` via REPLACE INTO
-- `CorporationDB::SetAutoPay()` — was empty, now implemented
-- `CorporationDB::GetCorporationBills()` — fixed SQL bug: `paid externalID2` → `externalID2, paid`
+- `CharPayBill(billID)` — balance check, TransferFunds, mark paid
+- `CharGetBills()` / `CharGetBillsReceivable()` — DB queries
+- `PayCorporationBill(billID, fromAccountKey)` — corp wallet, TransferFunds
+- `SendAutomaticPaySettings(dict)` — 6 bill types, REPLACE INTO crpAutoPay
+- `CorporationDB::SetAutoPay()` — implemented
+- `CorporationDB::GetCorporationBills()` — fixed SQL bug
 
 ## Part 3: Alliance Wars (done)
-- `DeclareWarAgainst(againstID)` — checks war registry for existing war, deducts ISK (50M default), creates `warRegistry` record, creates `billsPayable` entry (weekly bill = 25% of declaration cost)
-- `RetractWar(againstID)` — marks war as retracted with timestamp
-- `ChangeMutualWarFlag(warID, mutual)` — updates mutual flag
-- `GetCostOfWarAgainst(ownerID)` — returns 50M ISK
-- `GetWars(ownerID)` — now reads from `warRegistry` table (was returning empty rowset)
-- Table `warRegistry` auto-created via `CREATE TABLE IF NOT EXISTS`
+- `DeclareWarAgainst`, `RetractWar`, `ChangeMutualWarFlag`
+- `GetCostOfWarAgainst` — configurable via `eve-server.xml <rates><warCost>50000000</warCost></rates>`
+- `GetWars` — returns all wars (active + historical)
+- War bills auto-created (25% of declaration cost/week)
+- War decay via unpaid bills system
 
 ## Part 4: War-aware CONCORD/Sentry (done)
-- **CrimeWatch::OnAggression()** — added war check before setting criminal flag, spawning CONCORD, or granting kill rights
-- Checks corporation-level war first, then alliance-level war
+- `CrimeWatch::OnAggression()` — war check before CONCORD/criminal
 - `warRegistry WHERE retracted=0 AND timeFinished=0` = active war
-- War targets: no criminal flag, no CONCORD, no sec status loss, sentries don't aggro
+- No criminal flag, no CONCORD, no sec loss for war targets
 
 ## Part 5: AllianceDB (done)
-- `DeleteLabel(allyID, labelID)` — was empty, now deletes from `alnLabels`
-- `EditLabel(allyID, labelID, color, name)` — was empty, now updates `alnLabels`
+- `DeleteLabel`, `EditLabel` — implemented
 
 ## Part 6: Corporation Mail (done)
-- `MailDB::SendMail()` — `toCorpOrAllianceID` now delivers to corp/alliance members
-- Queries `chrCharacters` by `corporationID` or `allianceID`
-- Sets `labelMask = 4` (Corp) or `8` (Alliance) in `mailStatus`
-- Checks online members first, falls back to all members
+- `MailDB::SendMail` — corp/alliance delivery via `toCorpOrAllianceID`
+- Online-first delivery, offline fallback
+- corp=4 / alliance=8 label masks
 
-## Part 7: PROGRESS.md updated
-- Alliance Bulletins: 20% → 40%
-- Alliance Wars: 10% → 40%
-- Corp Mail: 0% → 30%
+## Part 7: Clones / Jump Clones (done)
+- **Per-clone implants**: Created `chrJumpCloneImplants` table, `entity.isActive` flag
+- `GetCloneState` / `GetStationCloneState` — reads per-clone implants from `chrJumpCloneImplants`
+- `GetPriceForClone` — real prices: Alpha=free, Beta=100k, Gamma=500k, Delta=5M, Epsilon=50M, Zeta=100M
+- `InstallCloneInStation` — creates jump clone (max 5), checks duplicates, isActive=0
+- `DestroyInstalledClone` — deletes clone + its implant entries
+- `CloneJump` — uses `SetCloneActive()` to switch active clone (no longer moves ALL clones)
+- `SetCloneActive` — deactivates all, activates target
+- `GetShipCloneState` — returns empty list (ship clone bay not implemented yet)
 
-## TODO (next session)
+## Part 8: Modules — Bugfixes (done)
+- `RepairModule()` — fixed inverted nullptr check (was crashing)
+- `ModuleRepair()` — now checks actual module damage, allows repair in space
+- `StopModuleRepair()` — logging
+- `CharacterLeavingShip()` — calls OfflineAll()
+- `LaunchSnowBall()` — still stub (low priority)
 
-### High Priority
-1. **Clones / Jump Clones** — ALL 10 methods in `JumpCloneService` are stubs:
-   - `CloneJump(locationID)` — implement jump clone travel
-   - `InstallCloneInStation()` — install jump clone at station
-   - `DestroyInstalledClone(cloneID)` — remove jump clone
-   - `GetCloneState()` / `GetStationCloneState()` — return real DB data
-   - `GetShipCloneState()` — ship clone bay support
-   - `GetPriceForClone()` — real price calculation
-   - `OfferShipCloneInstallation` / `AcceptShipCloneInstallation` / `CancelShipCloneInstallation` — ship clone transfer workflow
-   - Implant management: `CharAddImplant`, `RemoveImplantFromCharacter`, `GetCharacterAttributeModifiers`
-   - Clone death: destroy implants, check SP vs clone grade, adjust skills
-   - Jump clone cooldown, max clone limit, facility checks
-   - Send notification events: `OnJumpCloneCacheInvalidated`, etc.
+## Part 9: Corporation Market — Enabled (done)
+- **Removed block**: "Corporation Market transactions are not available" → now allowed
+- **Office check**: Corp must have office in target station
+- **NPC corp check**: Can't trade for NPC corps
+- **Wallet permissions**: `AccountCanTake*` role check for corp wallet divisions
+- `CancelCharOrder` for corp orders: escrow refunded to corp wallet, items returned to `flagCorpMarket`
 
-### Medium Priority
-2. **Corporation Mail** — implement missing mail features (send to corp group from corp UI)
-3. **Alliance Wars** — add war cost config option, war decay, war history
+## Part 10: Alliance Wars Config (done)
+- `rates.warCost` in `eve-server.xml` (default 50M ISK)
+- `GetCostOfWarAgainst` / `DeclareWarAgainst` read from config
 
-### Low Priority
-4. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations work on clean DB
-5. **Remove TYPEID FORCE hack** from DungeonMgr.cpp after fresh DB confirms groupIDs are correct
-6. **Remove debug logging** from DungeonMgr.cpp and SpawnMgr.cpp
+## Part 11: Contracts — Stubs Implemented (done)
+- `GetMyExpiredContractList` — returns expired contracts from DB
+- `NumOutstandingContracts` — counts per character/corp
+- `GetLoginInfo` — queries `needsAttention`, `inProgress`, `assignedToMe` from `ctrContracts`
 
-### Code Review Needed
-- Verify `WarRegistryService.cpp` compiles and runs (uses `RunQueryLID` instead of `GetLastInsertID`)
-- Verify `AccountService::TransferFunds` works for corp wallet deductions in `PayCorporationBill`
-- Verify corp member lookup in `MailDB::SendMail` works correctly
+## Part 12: Incursions — Base System (done)
+- **SQL tables**: `incursions`, `incursionSystems`, `incursionRewards`
+- **IncursionService** (registered as "incursion"): `GetDelayedRewardsByGroupIDs` returns rewards from DB
+- **IncursionMgr** (singleton): 60s timer for state machine + influence updates
+- **State machine**: established (5d) → mobilized (2d) → withdrawal (24h) → auto-end
+- **Influence**: site completion reduces (VG=1%, AS=2%, HQ=4%), natural regen +1%/20min
+- **Mothership**: spawns when all systems at 0% influence (hasBoss=1)
+- **MapService**: `GetSystemsInIncursions`, `GetSystemsInIncursionsGM`, `GetIncursionGlobalReport` — all query real DB
+- **HoloscreenMgrService**: `incursionReport` returns active incursions from DB
+- **Incursion dungeons**: Vanguard (2100-2103), Assault (2110-2112), Headquarters (2120-2122) in migration
+- **DoSpawnForIncursion**: spawns Sansha NPCs (10025/10030/11913/23383)
+- **SpawnKilled incursion**: rewards ISK, updates influence via `OnSiteCompleted`
+- **Rewards seeded**: VG=10.4M+1400LP, AS=18.2M+3500LP, HQ=31.5M+7000LP, Mothership=63M+14000LP
+
+## Part 13: Crash Fixes (done)
+- **FlushPendingDestinyUpdates** — null-check in loop to prevent nullptr crash in `DoDestinyUpdate`
+- **NPC::EncodeDestiny** — works for SDE Entity types with categoryID=6 override
+- **Entity-category NPC warp-in** disabled (was causing `Unknown packet type` with negative warp speed)
+
+# TODO (next session)
+
+## High Priority
+1. **Incursion content** — wave-based spawning, mothership fight, proper contest system
+2. **Jump clone ship bay** — `AcceptShipCloneInstallation`, `OfferShipCloneInstallation`, `CancelShipCloneInstallation`
+3. **Implant management** — `CharAddImplant`, `RemoveImplantFromCharacter`, per-clone implant assignment through UI
+4. **Clone death** — implant destruction, SP check vs clone grade, skill adjustment
+
+## Medium Priority
+5. **LaunchSnowBall** — implement snowball launcher module
+6. **War decay timer** — auto-check unpaid war bills and end wars
+7. **Contract PlaceBid / FinishAuction** — auction support
+8. **Corp Mail groups** — send mail to corp role groups (Directors, Officers, etc.)
+9. **Remove debug logging** from SpawnMgr.cpp (DoSpawnForAnomaly DEBUG lines)
+
+## Low Priority
+10. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
+11. **Ship clone bay** — full ship-to-ship clone transfer workflow
+12. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
+
+## Code Review Needed
+- Verify `RepairModule(nullptr check)` fix doesn't cause regression
+- Verify `CharacterLeavingShip()` calling `OfflineAll()` doesn't break capsule transitions
+- Verify corp market wallet permissions work for all 7 wallet divisions
+- Verify IncursionService responds correctly when no incursions active
+- Verify `DoSpawnForIncursion` entity cleanup on incursion end
