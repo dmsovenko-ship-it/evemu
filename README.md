@@ -75,6 +75,16 @@
 | **Contraband** | Gate scan (highsec), per-stack detection × Smuggling skill, 60s jettison timer, standing loss + fine + confiscation |
 | **Customs Police** | Faction-specific NPC (group 446) spawned on timer expiry, auto-engages contraband runner (not instant kill — faction police, not CONCORD) |
 
+### 🧬 Clone & Jump Clone
+
+| Feature | Detail |
+|---------|--------|
+| **Jump Clones** | Install, destroy, clone jump — all 10 `JumpCloneBound` methods implemented |
+| **Per-clone implants** | `chrJumpCloneImplants` table — each clone has its own implant set |
+| **Active clone** | `entity.isActive` flag tracks which clone is active (respawn point) |
+| **Clone pricing** | Alpha=free, Beta=100k, Gamma=500k, Delta=5M, Epsilon=50M, Zeta=100M ISK |
+| **Clone jump** | `SetCloneActive` toggles active clone instead of moving all clones |
+
 ### 🤖 NPC Systems
 
 | System | Detail |
@@ -129,6 +139,8 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 - Fighter/bomber aggro — only on last target or when fired upon (no idle scan)
 - **Same-system beacon jump** — cyno/covert-cyno field in the same system as the jumping ship does not appear in the fleet right-click jump menu (inter-system hyperjump works). Client-side limitation in `menusvc.py` / fleet service beacon filtering.
 - **Customs NPC AI** — spawned customs police NPC targets but may not use faction-specific EWAR/weapon attributes from SDE (uses default NPC combat fallbacks).
+- **NPC rendering** — Entity-category NPC models override categoryID to Ship in slim items; graphics render correctly but some ship groupID mappings may affect UI behavior (right-click menu, info window).
+- **Destiny crash with Entity NPCs** — some Entity-category NPCs may cause `Unknown packet type` if warp-in is triggered with invalid speed (mitigated: warp-in disabled for non-Ship category).
 
 ---
 
@@ -167,6 +179,14 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Warp speed bonuses** | `AttrWarpSpeedBonus` (601) applied as multiplier; `WarpDriveOperation` removed from warp speed (Crucible-accurate) |
 | **Charge compatibility** | `IsChargeCompatible()` fallback when SDE `chargeGroup1-5` missing — supports T2 ammo for all weapon types |
 | **Build** | Docker Compose, ccache, 400 MB reduction. Added CovertCynoModule + JumpPortalModule + CustomsNPCManager + EpicArcMgr + EncounterServer to CMakeLists |
+| **Jump Clones** | All 10 `JumpCloneBound` methods implemented: `GetCloneState`, `GetStationCloneState`, `GetShipCloneState`, `GetPriceForClone` (real prices), `InstallCloneInStation`, `DestroyInstalledClone`, `CloneJump` (uses `SetCloneActive` instead of moving all clones). Per-clone implants via `chrJumpCloneImplants` table. Active clone tracking via `entity.isActive` |
+| **Anomaly NPCs** | Switched from custom typeIDs (33001-33103) to SDE Entity pirate typeIDs. `NPC::MakeSlimItem` overrides `categoryID=6` (Ship) and maps Entity groups to Ship groups (25/26/27/419). `MakeDungeon` handles Entity catID(11) alongside Ship(6)/Drone(18). Fixed warp-in for Entity NPCs. GroupID-based faction fallback for ownerID |
+| **Corp Market** | Enabled — removed blocking error. Office check, NPC corp check, wallet division permissions. `CancelCharOrder` handles corp orders (escrow to corp wallet, items to `flagCorpMarket`) |
+| **Contracts** | `GetMyExpiredContractList`, `NumOutstandingContracts`, `GetLoginInfo` now query real DB data instead of returning empty/null |
+| **Incursions** | Base system: `IncursionService` registered, `IncursionMgr` singleton with 60s timer. State machine (established→mobilized→withdrawal). Influence tracking (site completion reduces, +1%/20min regen). Mothership spawn on 0% influence. DoSpawnForIncursion spawns Sansha NPCs. Rewards seeded (VG=10.4M / AS=18.2M / HQ=31.5M / MS=63M ISK + LP). DB tables: `incursions`, `incursionSystems`, `incursionRewards` |
+| **Module Management** | Fixed `RepairModule()` inverted nullptr check. `ModuleRepair()` now checks actual module damage. `StopModuleRepair()` logs. `CharacterLeavingShip()` calls `OfflineAll()` |
+| **War Registry** | `rates.warCost` config option (eve-server.xml), `GetWars` returns historical wars |
+| **Destiny** | Null-check in `FlushPendingDestinyUpdates` prevents crash from null update |
 
 ---
 
@@ -237,6 +257,16 @@ Full reference: [doc/admin_reference.md](doc/admin_reference.md)
 | **Контрабанда** | Скан на гейте (хайсек), шанс обнаружения × Smuggling, 60s на выброс груза, штраф + конфискация + стояние |
 | **Таможня** | NPC фракции (группа 446) спавнится по таймеру, атакует нарушителя (не CONCORD — обычный NPC) |
 
+### 🧬 Клоны и Jump Clones
+
+| Система | Детали |
+|---------|--------|
+| **Jump Clones** | Все 10 методов: установка, удаление, прыжок между клонами |
+| **Импланты на клон** | Таблица `chrJumpCloneImplants` — у каждого клона свой набор |
+| **Активный клон** | `entity.isActive` — точка респавна |
+| **Цены** | Alpha=0, Beta=100k, Gamma=500k, Delta=5M, Epsilon=50M, Zeta=100M |
+| **Прыжок** | `SetCloneActive` переключает активный клон, не двигая все |
+
 ### 🤖 NPC системы
 
 | Система | Детали |
@@ -291,6 +321,8 @@ docker logs -f server          # ждать "Server started"
 - Аггро файтеров — только на последнюю цель или при атаке (нет сканирования в Idle)
 - **Прыжок к маяку в той же системе** — цино/коверт-цино в одной системе с кораблём не появляется в меню прыжка флота (межсистемный гиперпрыжок работает). Ограничение на стороне клиента — `menusvc.py` / fleet service.
 - **AI таможни** — спавн NPC работает, но атрибуты оружия/EWAR могут быть дефолтными (не из SDE) — использует стандартные NPC-заглушки.
+- **Рендеринг NPC** — Entity-категория NPC рендерится с categoryID=6 (Ship); модели отображаются корректно, но UI может неверно определять группу корабля.
+- **Destiny краш** — Entity NPC могут вызывать `Unknown packet type` при варп-ине с невалидной скоростью (фикс: варп-ин отключён для non-Ship категорий).
 
 ---
 
@@ -328,6 +360,14 @@ docker logs -f server          # ждать "Server started"
 | **Варп скорость** | `AttrWarpSpeedBonus` (601) как мультипликатор; WarpDriveOperation убран со скорости (как в Crucible) |
 | **Заряды T2** | `IsChargeCompatible()` fallback при отсутствии `chargeGroup1-5` в SDE — T2 аммо для всех типов оружия |
 | **Сборка** | Docker Compose, ccache, −400 МБ. Добавлены новые файлы в CMakeLists |
+| **Jump Clones** | Все 10 методов `JumpCloneBound` реализованы: `GetCloneState`, `GetStationCloneState`, `GetShipCloneState`, `GetPriceForClone` (реальные цены), `InstallCloneInStation`, `DestroyInstalledClone`, `CloneJump` (через `SetCloneActive`). Импланты на клон через таблицу `chrJumpCloneImplants`. Флаг `entity.isActive` для отслеживания активного клона |
+| **Аномалии NPC** | Переход с кастомных typeID (33001-33103) на SDE Entity пиратские typeID. `NPC::MakeSlimItem` шлёт `categoryID=6` (Ship). `MakeDungeon` обрабатывает Entity catID(11). Отключён варп-ин для Entity NPC. OwnerID через groupID→faction fallback |
+| **Корп маркет** | Включён — убрана заглушка. Проверка офиса корпы, wallet division permissions. `CancelCharOrder` для корп-ордеров |
+| **Контракты** | `GetMyExpiredContractList`, `NumOutstandingContracts`, `GetLoginInfo` — реальные данные из БД |
+| **Инкурсии** | Базовая система: `IncursionService`, `IncursionMgr` с 60s таймером. Стейт-машина (established→mobilized→withdrawal). Влияние (сайты ↓, реген +1%/20мин). Мазершип при 0% влияния. `DoSpawnForIncursion` спавнит Sansha. Реварды (VG=10.4M / AS=18.2M / HQ=31.5M / MS=63M ISK + LP). Таблицы: `incursions`, `incursionSystems`, `incursionRewards` |
+| **Модули** | Пофикшен `RepairModule()` (инвертированный nullptr check). `ModuleRepair()` проверяет повреждения. `CharacterLeavingShip()` вызывает `OfflineAll()` |
+| **Войны** | `rates.warCost` в eve-server.xml. `GetWars` возвращает исторические войны |
+| **Destiny** | Null-check в `FlushPendingDestinyUpdates` предотвращает краш |
 
 ---
 
