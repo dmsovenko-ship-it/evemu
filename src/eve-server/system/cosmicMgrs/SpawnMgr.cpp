@@ -379,12 +379,11 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
                 pNPC->DestinyMgr()->SetPosition(startPos);
 
-                // For large ships, warp them in from a distance
-                if (iRef->GetAttribute(AttrMass) > 10000000) {
-                    // adjust warpIn point so show some variation instead of a straight line.
+                // For large ships, warp them in from a distance (disabled for Entity-category types)
+                if ((iRef->categoryID() == EVEDB::invCategories::Ship) && (iRef->GetAttribute(AttrMass) > 10000000)) {
                     GPoint warpTo(warpToPoint);
-                    warpTo.MakeRandomPointOnSphere(rand()%(12) *1000);  // random point (1-12) x 1k from center
-                    pNPC->DestinyMgr()->WarpTo(warpTo, (MakeRandomInt(-5, 10) *1000));
+                    warpTo.MakeRandomPointOnSphere(rand()%(12) *1000);
+                    pNPC->DestinyMgr()->WarpTo(warpTo, (MakeRandomInt(1, 10) *1000));
                 }
 
                 // Temporary: generate random spawn class
