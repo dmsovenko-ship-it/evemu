@@ -25,29 +25,29 @@
 
 #include "eve-server.h"
 
-
-
 #include "station/JumpCloneService.h"
+#include "station/StationDB.h"
 #include "services/ServiceManager.h"
+#include "character/CharacterDB.h"
 
 JumpCloneService::JumpCloneService(EVEServiceManager& mgr) :
     BindableService("jumpCloneSvc", mgr)
-{ 
+{
 }
 
 BoundDispatcher* JumpCloneService::BindObject (Client* client, PyRep* bindParameters)
 {
     return new JumpCloneBound(this->GetServiceManager(), *this, &m_db, client->GetLocationID());
 }
+
 void JumpCloneService::BoundReleased (JumpCloneBound* bound) {
-
-
 }
+
 JumpCloneBound::JumpCloneBound (EVEServiceManager& mgr, JumpCloneService& parent, StationDB* db, uint32 locationID) :
     EVEBoundObject(mgr, parent),
     m_db(db),
-    m_locationID(locationID),                 // station or ship
-    m_locGroupID(EVEDB::invGroups::Station)   // solarsystem(for ship) or station
+    m_locationID(locationID),
+    m_locGroupID(EVEDB::invGroups::Station)
 {
     this->Add("GetCloneState", &JumpCloneBound::GetCloneState);
     this->Add("GetShipCloneState", &JumpCloneBound::GetShipCloneState);
@@ -59,108 +59,177 @@ JumpCloneBound::JumpCloneBound (EVEServiceManager& mgr, JumpCloneService& parent
     this->Add("AcceptShipCloneInstallation", &JumpCloneBound::AcceptShipCloneInstallation);
     this->Add("CancelShipCloneInstallation", &JumpCloneBound::CancelShipCloneInstallation);
     this->Add("CloneJump", &JumpCloneBound::CloneJump);
-    /*
-     _ _notifyevents__ = ['OnShipJumpCloneIns*tallationOffered',
-     'OnShipJumpCloneInstallationDone',
-     'OnJumpCloneCacheInvalidated',
-     'OnShipJumpCloneCacheInvalidated',
-     'OnStationJumpCloneCacheInvalidated',
-     'OnShipJumpCloneInstallationCanceled']
-     */
 
     if (sDataMgr.IsStation(m_locationID))
         m_locGroupID = EVEDB::invGroups::Solar_System;
 }
 
-PyResult JumpCloneBound::InstallCloneInStation(PyCallArgs &call) {
-    //19:02:15 W JumpCloneBound::Handle_InstallCloneInStation(): size= 0
-
-  return nullptr;
-}
-
 PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
-    /*  stationClones{jumpCloneID, locationID}
-     * shipClones{jumpCloneID, ownerID, locationID}
-     * cloneImplants{jumpCloneID, implants}
-     */
+    uint32 charID = call.client->GetCharacterID();
+
+    DBQueryResult res;
+    m_db->GetClones(charID, res);
+
+    PyDict* clones = new PyDict();
+    PyDict* implants = new PyDict();
+
+    DBResultRow row;
+    std::vector<uint32> cloneIDs;
+    while (res.GetRow(row)) {
+        uint32 cloneID = row.GetUInt(0);
+        uint32 locID = row.GetUInt(2);
+        clones->SetItem(new PyInt(cloneID), new PyInt(locID));
+        cloneIDs.push_back(cloneID);
+    }
+
+    DBQueryResult implantRes;
+    m_db->GetImplants(charID, implantRes);
+
+    std::vector<uint32> implantTypeIDs;
+    while (implantRes.GetRow(row))
+        implantTypeIDs.push_back(row.GetUInt(1));
+
+    for (auto cloneID : cloneIDs) {
+        PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
+        for (size_t i = 0; i < implantTypeIDs.size(); ++i)
+            implantTuple->SetItem(i, new PyInt(implantTypeIDs[i]));
+        implants->SetItem(new PyInt(cloneID), implantTuple);
+    }
 
     PyDict* dict = new PyDict();
-    PyDict* clones = new PyDict();  //jumpCloneID, locationID [, ownerID - for shipClones only]
-    PyDict* implants = new PyDict();  //jumpCloneID, implants{tuple of implantID?, typeID}
-    //PyTuple* implants = new PyTuple(2);
+    dict->SetItemString("clones", clones);
+    dict->SetItemString("implants", implants);
+    dict->SetItemString("timeLastJump", new PyLong(GetFileTimeNow() - (EvE::Time::Hour * MakeRandomFloat(1, 23))));
 
-    dict->SetItemString( "clones", clones );
-    dict->SetItemString( "implants", implants );
-    dict->SetItemString( "timeLastJump", new PyLong(GetFileTimeNow() -(EvE::Time::Hour *MakeRandomFloat(1, 23))) );   /** @todo fix this to call.client->GetChar()->LastJumpTime()*/
-
-    return new PyObject( "util.KeyVal", dict );
-}
-
-PyResult JumpCloneBound::GetShipCloneState(PyCallArgs &call) {
-    _log(CHARACTER__INFO, "JumpCloneBound::Handle_GetShipCloneState()");
-
-    //Define PyList for ship clones (not dict since client is looking to index through list)
-    PyList* clones = new PyList();
-
-    // returns list
-    return clones;
+    return new PyObject("util.KeyVal", dict);
 }
 
 PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
-    _log(CHARACTER__INFO, "JumpCloneBound::Handle_GetStationCloneState()");
+    uint32 charID = call.client->GetCharacterID();
+
+    DBQueryResult res;
+    m_db->GetClones(charID, res);
+
+    PyDict* clones = new PyDict();
+    PyDict* implants = new PyDict();
+
+    DBResultRow row;
+    std::vector<uint32> cloneIDs;
+    while (res.GetRow(row)) {
+        uint32 cloneID = row.GetUInt(0);
+        uint32 locID = row.GetUInt(2);
+        if (locID == m_locationID) {
+            clones->SetItem(new PyInt(cloneID), new PyInt(locID));
+            cloneIDs.push_back(cloneID);
+        }
+    }
+
+    DBQueryResult implantRes;
+    m_db->GetImplants(charID, implantRes);
+
+    std::vector<uint32> implantTypeIDs;
+    while (implantRes.GetRow(row))
+        implantTypeIDs.push_back(row.GetUInt(1));
+
+    for (auto cloneID : cloneIDs) {
+        PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
+        for (size_t i = 0; i < implantTypeIDs.size(); ++i)
+            implantTuple->SetItem(i, new PyInt(implantTypeIDs[i]));
+        implants->SetItem(new PyInt(cloneID), implantTuple);
+    }
 
     PyDict* dict = new PyDict();
-    PyDict* clones = new PyDict();  //jumpCloneID, locationID [, ownerID - for shipClones only]
-    PyDict* implants = new PyDict();  //jumpCloneID, implants{tuple of implantID?, typeID}
-    //PyTuple* implants = new PyTuple(2);
+    dict->SetItemString("clones", clones);
+    dict->SetItemString("implants", implants);
+    dict->SetItemString("timeLastJump", new PyLong(GetFileTimeNow() - (EvE::Time::Hour * MakeRandomFloat(1, 23))));
+    dict->SetItemString("isShipCloneBayInstalled", PyStatic.NewFalse());
 
-    dict->SetItemString( "clones", clones );
-    dict->SetItemString( "implants", implants );
-    dict->SetItemString( "timeLastJump", new PyLong(GetFileTimeNow() -(EvE::Time::Hour *MakeRandomFloat(1, 23))) );   /** @todo fix this to call.client->GetChar()->LastJumpTime()*/
+    return new PyObject("util.KeyVal", dict);
+}
 
-    return new PyObject( "util.KeyVal", dict );
+PyResult JumpCloneBound::GetShipCloneState(PyCallArgs &call) {
+    PyList* clones = new PyList();
+    return clones;
 }
 
 PyResult JumpCloneBound::GetPriceForClone(PyCallArgs &call) {
-    /*        kwargs = {'amount': None, 'player': 140000038}
-     * TypeError: Numeric Formatter expects floating point or signed integer types.
-     */
-
-    return new PyInt(1000000);
+    return new PyInt(100000);
 }
 
-PyResult JumpCloneBound::OfferShipCloneInstallation(PyCallArgs &call, PyInt* characterID) {
-    //    OfferShipCloneInstallation(charID)  //offeringCharID, targetCharID, shipID, b (b=unknown)
-    _log(CHARACTER__INFO, "JumpCloneBound::Handle_OfferShipCloneInstallation()");
+PyResult JumpCloneBound::InstallCloneInStation(PyCallArgs &call) {
+    uint32 charID = call.client->GetCharacterID();
+    uint32 stationID = call.client->GetStationID();
 
-    return nullptr;
+    if (stationID == 0)
+        return PyStatic.NewFalse();
+
+    DBQueryResult res;
+    m_db->GetClones(charID, res);
+
+    int cloneCount = 0;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        if (row.GetUInt(2) == stationID)
+            return PyStatic.NewFalse();
+        ++cloneCount;
+    }
+
+    const int MAX_JUMP_CLONES = 5;
+    if (cloneCount >= MAX_JUMP_CLONES)
+        return PyStatic.NewFalse();
+
+    std::string customInfo = "Jump clone installed at station ";
+    customInfo += std::to_string(stationID);
+
+    uint32 newCloneID = m_db->CreateClone(charID, itemCloneAlpha, stationID, "Clone Grade Alpha", customInfo.c_str());
+    if (newCloneID == 0)
+        return PyStatic.NewFalse();
+
+    return new PyInt(newCloneID);
 }
 
 PyResult JumpCloneBound::DestroyInstalledClone(PyCallArgs &call, PyInt* cloneID) {
-    //    lm.DestroyInstalledClone(cloneID)
-    _log(CHARACTER__INFO, "JumpCloneBound::Handle_DestroyInstalledClone()");
+    m_db->DeleteClone(cloneID->value());
+    return PyStatic.NewTrue();
+}
 
+PyResult JumpCloneBound::CloneJump(PyCallArgs &call, PyInt* locationID) {
+    uint32 charID = call.client->GetCharacterID();
+    uint32 destLocationID = locationID->value();
+
+    DBQueryResult res;
+    m_db->GetClones(charID, res);
+
+    DBResultRow row;
+    bool found = false;
+    while (res.GetRow(row)) {
+        if (row.GetUInt(2) == destLocationID) {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found)
+        return PyStatic.NewFalse();
+
+    if (!CharacterDB::ChangeCloneLocation(charID, destLocationID))
+        return PyStatic.NewFalse();
+
+    PyTuple* payload = new PyTuple(0);
+    call.client->SendNotification("OnJumpCloneCacheInvalidated", "clientID", payload, false);
+
+    return PyStatic.NewTrue();
+}
+
+PyResult JumpCloneBound::OfferShipCloneInstallation(PyCallArgs &call, PyInt* characterID) {
     return nullptr;
 }
 
 PyResult JumpCloneBound::AcceptShipCloneInstallation(PyCallArgs &call) {
-    //lm.AcceptShipCloneInstallation()
-    _log(CHARACTER__INFO, "JumpCloneBound::Handle_AcceptShipCloneInstallation()");
-
     return nullptr;
 }
 
 PyResult JumpCloneBound::CancelShipCloneInstallation(PyCallArgs &call) {
-    //lm.CancelShipCloneInstallation()
-    _log(CHARACTER__INFO, "JumpCloneBound::Handle_CancelShipCloneInstallation()");
-
-    return nullptr;
-}
-
-PyResult JumpCloneBound::CloneJump(PyCallArgs &call, PyInt* locationID) {
-    //lm.CloneJump, destLocationID
-_log(CHARACTER__INFO, "JumpCloneBound::Handle_CloneJump()");
-
     return nullptr;
 }
 

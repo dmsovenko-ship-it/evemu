@@ -382,3 +382,68 @@ void StationDB::GetOutpostImprovements(uint32 stationID, DBQueryResult& res)
     "FROM staImprovementsInstalled "
     "WHERE stationID=%u", stationID);
 }
+
+void StationDB::GetClones(uint32 ownerID, DBQueryResult& res)
+{
+    sDatabase.RunQuery(res,
+        "SELECT itemID, typeID, locationID, itemName, customInfo"
+        " FROM entity"
+        " WHERE ownerID = %u AND flag = %u",
+        ownerID, (uint16)flagClone);
+}
+
+void StationDB::GetImplants(uint32 ownerID, DBQueryResult& res)
+{
+    sDatabase.RunQuery(res,
+        "SELECT itemID, typeID FROM entity"
+        " WHERE ownerID = %u AND flag = %u",
+        ownerID, (uint16)flagImplant);
+}
+
+uint32 StationDB::CreateClone(uint32 ownerID, uint32 typeID, uint32 locationID, const char* itemName, const char* customInfo)
+{
+    std::string nameEsc, customInfoEsc;
+    sDatabase.DoEscapeString(nameEsc, itemName);
+    sDatabase.DoEscapeString(customInfoEsc, customInfo);
+
+    DBerror err;
+    uint32 uid = 0;
+    if (!sDatabase.RunQueryLID(err, uid,
+        "INSERT INTO entity (itemName, typeID, ownerID, locationID, flag, quantity, customInfo)"
+        " VALUES ('%s', %u, %u, %u, %u, 1, '%s')",
+        nameEsc.c_str(), typeID, ownerID, locationID, (uint16)flagClone, customInfoEsc.c_str()))
+    {
+        codelog(DATABASE__ERROR, "Error in CreateClone query: %s", err.c_str());
+    }
+    return uid;
+}
+
+bool StationDB::DeleteClone(uint32 cloneID)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID = %u AND flag = %u", cloneID, (uint16)flagClone)) {
+        codelog(DATABASE__ERROR, "Error in DeleteClone query: %s", err.c_str());
+        return false;
+    }
+    return true;
+}
+
+bool StationDB::GetCloneInfo(uint32 cloneID, uint32& typeID, uint32& locationID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT typeID, locationID FROM entity WHERE itemID = %u AND flag = %u",
+        cloneID, (uint16)flagClone))
+    {
+        codelog(DATABASE__ERROR, "Error in GetCloneInfo query: %s", res.error.c_str());
+        return false;
+    }
+
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return false;
+
+    typeID = row.GetUInt(0);
+    locationID = row.GetUInt(1);
+    return true;
+}

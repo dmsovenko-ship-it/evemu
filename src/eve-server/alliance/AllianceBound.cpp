@@ -342,38 +342,77 @@ PyResult AllianceBound::AddToVoiceChat(PyCallArgs &call, PyString* channelName)
 
 PyResult AllianceBound::PayBill(PyCallArgs &call, PyInt* billID, PyInt* fromAccountKey)
 {
-    //   return self.GetMoniker().PayBill(billID, fromAccountKey)
     _log(ALLY__CALL, "AllianceBound::Handle_PayBill() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT amount, creditorID FROM billsPayable WHERE billID = %u AND debtorID = %u",
+        billID->value(), m_allyID);
+
+    DBResultRow row;
+    if (res.GetRow(row)) {
+        int64 amount = row.GetInt64(0);
+        uint32 creditorID = row.GetUInt(1);
+        // Transfer funds
+        AccountService::TransferFunds(m_allyID, creditorID, amount, "Bill payment",
+                                      Journal::EntryType::Undefined, billID->value(),
+                                      fromAccountKey->value(), Account::KeyType::Cash);
+        // Mark bill as paid
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE billsPayable SET paid = 1 WHERE billID = %u",
+            billID->value());
+    }
+
+    return PyStatic.NewTrue();
 }
 
 PyResult AllianceBound::GetBillBalance(PyCallArgs &call, PyInt* billID)
 {
-    //   return self.GetMoniker().GetBillBalance(billID)
     _log(ALLY__CALL, "AllianceBound::Handle_GetBillBalance() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT amount FROM billsPayable WHERE billID = %u",
+        billID->value());
+
+    DBResultRow row;
+    if (res.GetRow(row))
+        return new PyLong(row.GetInt64(0));
+
+    return new PyLong(0);
 }
 
 PyResult AllianceBound::GetBills(PyCallArgs &call)
 {
-    //   return self.GetMoniker().GetBills()
     _log(ALLY__CALL, "AllianceBound::Handle_GetBills() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT billID, billTypeID, debtorID, creditorID, amount, dueDateTime, "
+        " interest, externalID, paid, externalID2"
+        " FROM billsPayable WHERE debtorID = %u", m_allyID))
+    {
+        return new PyList();
+    }
+
+    return DBResultToRowset(res);
 }
 
 PyResult AllianceBound::GetBillsReceivable(PyCallArgs &call)
 {
-    //   return self.GetMoniker().GetBillsReceivable()
     _log(ALLY__CALL, "AllianceBound::Handle_GetBillsReceivable() size=%lli", call.tuple->size());
-    call.Dump(ALLY__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT billID, billTypeID, debtorID, creditorID, amount, dueDateTime, "
+        " interest, externalID, paid, externalID2"
+        " FROM billsReceivable WHERE creditorID = %u", m_allyID))
+    {
+        return new PyList();
+    }
+
+    return DBResultToRowset(res);
 }
 
 PyResult AllianceBound::AddBulletin(PyCallArgs &call, PyWString* title, PyWString* body)

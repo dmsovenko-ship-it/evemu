@@ -49,6 +49,12 @@ public:
     static void GetOutpostImprovementStaticData(DBQueryResult& res);
     static void GetOutpostImprovements(uint32 stationID, DBQueryResult& res);
 
+    static void GetClones(uint32 ownerID, DBQueryResult& res);
+    static void GetImplants(uint32 ownerID, DBQueryResult& res);
+    static uint32 CreateClone(uint32 ownerID, uint32 typeID, uint32 locationID, const char* itemName, const char* customInfo);
+    static bool DeleteClone(uint32 cloneID);
+    static bool GetCloneInfo(uint32 cloneID, uint32& typeID, uint32& locationID);
+
 };
 
 #endif  // EVE_STATION_STATIONDB_H
