@@ -72,24 +72,24 @@ PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
 
     PyDict* clones = new PyDict();
     PyDict* implants = new PyDict();
+    PyDict* shipClones = new PyDict();
 
     DBResultRow row;
-    std::vector<uint32> cloneIDs;
     while (res.GetRow(row)) {
         uint32 cloneID = row.GetUInt(0);
         uint32 locID = row.GetUInt(2);
+        uint8 isActive = row.GetUInt(5);
+
         clones->SetItem(new PyInt(cloneID), new PyInt(locID));
-        cloneIDs.push_back(cloneID);
-    }
 
-    DBQueryResult implantRes;
-    m_db->GetImplants(charID, implantRes);
+        // Load per-clone implants from chrJumpCloneImplants
+        DBQueryResult implantRes;
+        m_db->GetCloneImplants(cloneID, implantRes);
 
-    std::vector<uint32> implantTypeIDs;
-    while (implantRes.GetRow(row))
-        implantTypeIDs.push_back(row.GetUInt(1));
+        std::vector<uint32> implantTypeIDs;
+        while (implantRes.GetRow(row))
+            implantTypeIDs.push_back(row.GetUInt(0));
 
-    for (auto cloneID : cloneIDs) {
         PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
         for (size_t i = 0; i < implantTypeIDs.size(); ++i)
             implantTuple->SetItem(i, new PyInt(implantTypeIDs[i]));
@@ -98,6 +98,7 @@ PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
 
     PyDict* dict = new PyDict();
     dict->SetItemString("clones", clones);
+    dict->SetItemString("shipClones", shipClones);
     dict->SetItemString("implants", implants);
     dict->SetItemString("timeLastJump", new PyLong(GetFileTimeNow() - (EvE::Time::Hour * MakeRandomFloat(1, 23))));
 
@@ -114,28 +115,24 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
     PyDict* implants = new PyDict();
 
     DBResultRow row;
-    std::vector<uint32> cloneIDs;
     while (res.GetRow(row)) {
         uint32 cloneID = row.GetUInt(0);
         uint32 locID = row.GetUInt(2);
         if (locID == m_locationID) {
             clones->SetItem(new PyInt(cloneID), new PyInt(locID));
-            cloneIDs.push_back(cloneID);
+
+            DBQueryResult implantRes;
+            m_db->GetCloneImplants(cloneID, implantRes);
+
+            std::vector<uint32> implantTypeIDs;
+            while (implantRes.GetRow(row))
+                implantTypeIDs.push_back(row.GetUInt(0));
+
+            PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
+            for (size_t i = 0; i < implantTypeIDs.size(); ++i)
+                implantTuple->SetItem(i, new PyInt(implantTypeIDs[i]));
+            implants->SetItem(new PyInt(cloneID), implantTuple);
         }
-    }
-
-    DBQueryResult implantRes;
-    m_db->GetImplants(charID, implantRes);
-
-    std::vector<uint32> implantTypeIDs;
-    while (implantRes.GetRow(row))
-        implantTypeIDs.push_back(row.GetUInt(1));
-
-    for (auto cloneID : cloneIDs) {
-        PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
-        for (size_t i = 0; i < implantTypeIDs.size(); ++i)
-            implantTuple->SetItem(i, new PyInt(implantTypeIDs[i]));
-        implants->SetItem(new PyInt(cloneID), implantTuple);
     }
 
     PyDict* dict = new PyDict();
@@ -153,7 +150,15 @@ PyResult JumpCloneBound::GetShipCloneState(PyCallArgs &call) {
 }
 
 PyResult JumpCloneBound::GetPriceForClone(PyCallArgs &call) {
-    return new PyInt(100000);
+    // Client passes the clone typeID to check price
+    // If no typeID provided, default to Clone Grade Alpha
+    uint32 typeID = itemCloneAlpha;
+    if (call.byname.find("typeID") != call.byname.end())
+        typeID = PyRep::IntegerValueU32(call.byname.find("typeID")->second);
+    else if (call.tuple->size() > 0)
+        typeID = PyRep::IntegerValueU32(call.tuple->GetItem(0));
+
+    return new PyInt(m_db->GetClonePrice(typeID));
 }
 
 PyResult JumpCloneBound::InstallCloneInStation(PyCallArgs &call) {
@@ -189,6 +194,8 @@ PyResult JumpCloneBound::InstallCloneInStation(PyCallArgs &call) {
 }
 
 PyResult JumpCloneBound::DestroyInstalledClone(PyCallArgs &call, PyInt* cloneID) {
+    DBerror err;
+    sDatabase.RunQuery(err, "DELETE FROM chrJumpCloneImplants WHERE jumpCloneID = %u", cloneID->value());
     m_db->DeleteClone(cloneID->value());
     return PyStatic.NewTrue();
 }
@@ -201,19 +208,22 @@ PyResult JumpCloneBound::CloneJump(PyCallArgs &call, PyInt* locationID) {
     m_db->GetClones(charID, res);
 
     DBResultRow row;
-    bool found = false;
+    uint32 targetCloneID = 0;
     while (res.GetRow(row)) {
         if (row.GetUInt(2) == destLocationID) {
-            found = true;
+            targetCloneID = row.GetUInt(0);
             break;
         }
     }
 
-    if (!found)
+    if (targetCloneID == 0)
         return PyStatic.NewFalse();
 
-    if (!CharacterDB::ChangeCloneLocation(charID, destLocationID))
-        return PyStatic.NewFalse();
+    // Deactivate old active clone, activate new one
+    m_db->SetCloneActive(charID, targetCloneID);
+
+    // Update character's home station to destination
+    CharacterDB::ChangeCloneLocation(charID, destLocationID);
 
     PyTuple* payload = new PyTuple(0);
     call.client->SendNotification("OnJumpCloneCacheInvalidated", "clientID", payload, false);

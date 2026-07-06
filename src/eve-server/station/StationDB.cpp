@@ -386,7 +386,7 @@ void StationDB::GetOutpostImprovements(uint32 stationID, DBQueryResult& res)
 void StationDB::GetClones(uint32 ownerID, DBQueryResult& res)
 {
     sDatabase.RunQuery(res,
-        "SELECT itemID, typeID, locationID, itemName, customInfo"
+        "SELECT itemID, typeID, locationID, itemName, customInfo, isActive"
         " FROM entity"
         " WHERE ownerID = %u AND flag = %u",
         ownerID, (uint16)flagClone);
@@ -409,8 +409,8 @@ uint32 StationDB::CreateClone(uint32 ownerID, uint32 typeID, uint32 locationID, 
     DBerror err;
     uint32 uid = 0;
     if (!sDatabase.RunQueryLID(err, uid,
-        "INSERT INTO entity (itemName, typeID, ownerID, locationID, flag, quantity, customInfo)"
-        " VALUES ('%s', %u, %u, %u, %u, 1, '%s')",
+        "INSERT INTO entity (itemName, typeID, ownerID, locationID, flag, quantity, customInfo, isActive)"
+        " VALUES ('%s', %u, %u, %u, %u, 1, '%s', 0)",
         nameEsc.c_str(), typeID, ownerID, locationID, (uint16)flagClone, customInfoEsc.c_str()))
     {
         codelog(DATABASE__ERROR, "Error in CreateClone query: %s", err.c_str());
@@ -446,4 +446,54 @@ bool StationDB::GetCloneInfo(uint32 cloneID, uint32& typeID, uint32& locationID)
     typeID = row.GetUInt(0);
     locationID = row.GetUInt(1);
     return true;
+}
+
+void StationDB::GetCloneImplants(uint32 cloneID, DBQueryResult& res)
+{
+    sDatabase.RunQuery(res,
+        "SELECT typeID FROM chrJumpCloneImplants WHERE jumpCloneID = %u",
+        cloneID);
+}
+
+bool StationDB::GetActiveCloneID(uint32 ownerID, uint32& cloneID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT itemID FROM entity WHERE ownerID = %u AND flag = %u AND isActive = 1",
+        ownerID, (uint16)flagClone))
+    {
+        codelog(DATABASE__ERROR, "Error in GetActiveCloneID query: %s", res.error.c_str());
+        return false;
+    }
+
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return false;
+
+    cloneID = row.GetUInt(0);
+    return true;
+}
+
+void StationDB::SetCloneActive(uint32 ownerID, uint32 cloneID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE entity SET isActive = 0 WHERE ownerID = %u AND flag = %u",
+        ownerID, (uint16)flagClone);
+    sDatabase.RunQuery(err,
+        "UPDATE entity SET isActive = 1 WHERE itemID = %u AND flag = %u",
+        cloneID, (uint16)flagClone);
+}
+
+uint32 StationDB::GetClonePrice(uint32 typeID)
+{
+    switch (typeID) {
+        case 164:   return 0;         // Clone Grade Alpha (starter, free)
+        case 9941:  return 100000;    // Clone Grade Beta
+        case 9942:  return 500000;    // Clone Grade Gamma
+        case 9943:  return 5000000;   // Clone Grade Delta
+        case 9944:  return 50000000;  // Clone Grade Epsilon
+        case 9945:  return 100000000; // Clone Grade Zeta
+        default:    return 1000000;   // Unknown clone grade
+    }
 }

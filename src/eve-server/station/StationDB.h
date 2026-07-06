@@ -51,9 +51,13 @@ public:
 
     static void GetClones(uint32 ownerID, DBQueryResult& res);
     static void GetImplants(uint32 ownerID, DBQueryResult& res);
+    static void GetCloneImplants(uint32 cloneID, DBQueryResult& res);
     static uint32 CreateClone(uint32 ownerID, uint32 typeID, uint32 locationID, const char* itemName, const char* customInfo);
     static bool DeleteClone(uint32 cloneID);
     static bool GetCloneInfo(uint32 cloneID, uint32& typeID, uint32& locationID);
+    static bool GetActiveCloneID(uint32 ownerID, uint32& cloneID);
+    static void SetCloneActive(uint32 ownerID, uint32 cloneID);
+    static uint32 GetClonePrice(uint32 typeID);
 
 };
 
