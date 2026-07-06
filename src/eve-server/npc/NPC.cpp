@@ -240,7 +240,9 @@ PyDict* NPC::MakeSlimItem()
     slim->SetItemString("corpID",          IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
     slim->SetItemString("allianceID",      IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
     slim->SetItemString("warFactionID",    IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
-    slim->SetItemString("categoryID",      new PyInt(m_self->categoryID()));
+    // Override categoryID to Ship (6) so client parses destiny ball data correctly.
+    // Entity (11) NPC types have correct graphics but client expects Ship-format destiny data.
+    slim->SetItemString("categoryID",      new PyInt(6));
     slim->SetItemString("groupID",         new PyInt(m_self->groupID()));
     return slim;
 }
