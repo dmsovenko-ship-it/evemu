@@ -408,6 +408,10 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 if (objGroup.catID == EVEDB::invCategories::Ship || objGroup.catID == EVEDB::invCategories::Drone) {
                     _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly calling typeID=%u catID=%u", object.typeID, objGroup.catID);
                     m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID);
+                } else if (object.typeID >= 33000) {
+                    // TEMP: spawn all 33000+ dungeon objects as NPCs regardless of catID
+                    _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly calling typeID=%u catID=%u (TYPEID FORCE)", object.typeID, objGroup.catID);
+                    m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID);
                 } 
                 
                 // Otherwise, spawn as a normal celestial object
