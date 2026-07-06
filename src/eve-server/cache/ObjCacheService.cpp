@@ -312,7 +312,10 @@ bool ObjCacheService::_LoadCachableObject(const PyRep *objectID) {
 
     const std::string objectID_string = CachedObjectMgr::OIDToString(objectID);
 
-    if (!m_cacheDir.empty())
+    // Always regenerate config.BulkData.types from DB to pick up new typeIDs from migrations
+    bool alwaysRegen = (objectID_string == "config.BulkData.types");
+
+    if (!alwaysRegen && !m_cacheDir.empty())
     {
         if ( m_cache.LoadCachedFromFile( m_cacheDir, objectID ) )
         {
