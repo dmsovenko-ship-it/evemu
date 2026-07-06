@@ -201,38 +201,31 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
     //TODO: verify the validity of args.stationID (range vs. skill)
 
     if (useCorp->value()) {
-        _log(MARKET__MESSAGE, "Denying Corp Market use for %s", call.client->GetName());
-        call.client->SendErrorMsg("Corporation Market transactions are not available at this time.");
-        return nullptr;
+        // Verify corp has an office in the target station
+        if (!IsPlayerCorp(call.client->GetCorporationID())) {
+            call.client->SendErrorMsg("You cannot trade on behalf of an NPC corporation.");
+            return nullptr;
+        }
+
+        // Check corp has an office at this station
+        bool hasOffice = false;
+        {
+            DBQueryResult officeRes;
+            sDatabase.RunQuery(officeRes,
+                "SELECT itemID FROM staOffices WHERE corporationID = %u AND stationID = %u",
+                call.client->GetCorporationID(), stationID->value());
+            hasOffice = officeRes.GetRowCount() > 0;
+        }
+        if (!hasOffice) {
+            call.client->SendErrorMsg("Your corporation does not have an office at this station.");
+            return nullptr;
+        }
+
+        accountKey = call.client->GetCorpAccountKey();
     }
 
-    /** @todo  update for corporate use
-     * check corp has office in target station for item delivery
-     * check player can use given corp acct (get current division from char data)
-     * check corp wallet division has funds (get current division from char data)
-     * code to handle 'located' as sent
-     *   ...more?
-     * corp checks coded for ram/reproc.  use as template
-     */
-
     if (bid->value() and (itemID.has_value () == false || itemID.value()->value() == 0)) {  // buy
-        // check for corp usage and get standings with station owners
         float fStanding(0), cStanding(0);
-        if (useCorp->value()) {
-            // it is. perform checks and set needed variables for corp use
-            if (!IsPlayerCorp(call.client->GetCorporationID())) {
-                // cant buy items for npc corp...
-                call.client->SendErrorMsg("You cannot buy items for an NPC corp.");
-                return nullptr;
-            }
-
-            // this is a corp transaction. verify char can buy things for corp...
-            // some corp error msgs in inventory.h, corp.h and market.h
-            //   will need corp methods to determine member access rights for item location and roles....
-            //   these may be written already.  will have to check
-
-            accountKey = call.client->GetCorpAccountKey();
-        }
 
         // is this standing order or immediate?
         if (duration->value() == 0) {
@@ -390,15 +383,10 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
         // verify right to sell this thing..
         if (useCorp->value()) {
             if (!IsPlayerCorp(call.client->GetCorporationID())) {
-                // cant sell npc corp items...
                 call.client->SendErrorMsg("You cannot sell items for an NPC corp.");
                 return nullptr;
             }
 
-            // this is a corp transaction.  verify char can sell corp shit...
-            // some corp error msgs in inventory.h, corp.h and market.h
-            //   will need corp methods to determine member access rights for item location and roles....
-            //   these may be written already.  will have to check
             accountKey = call.client->GetCorpAccountKey();
         } else {
             if ( iRef->ownerID() != call.client->GetCharacterID()) {
@@ -682,27 +670,46 @@ PyResult MarketProxyService::CancelCharOrder(PyCallArgs &call, PyInt* orderID, P
     }
 
     if (oInfo.isBuy) {
-        // buy order only refunds escrow
         float money = oInfo.price * oInfo.quantity;
-        // send wallet blink event and record the transaction in their journal.
         std::string reason = "DESC:  Canceling Market Order #";
         reason += std::to_string(orderID->value());
 
-        AccountService::TransferFunds(
-            stDataMgr.GetOwnerID(oInfo.stationID),
-            call.client->GetCharID(),
-            money,
-            reason.c_str(),
-            Journal::EntryType::MarketEscrow,
-            orderID->value(),
-            Account::KeyType::Escrow,
-            Account::KeyType::Cash
-        );
+        if (oInfo.isCorp) {
+            AccountService::TransferFunds(
+                stDataMgr.GetOwnerID(oInfo.stationID),
+                call.client->GetCorporationID(),
+                money,
+                reason.c_str(),
+                Journal::EntryType::MarketEscrow,
+                orderID->value(),
+                Account::KeyType::Escrow,
+                oInfo.accountKey,
+                call.client
+            );
+        } else {
+            AccountService::TransferFunds(
+                stDataMgr.GetOwnerID(oInfo.stationID),
+                call.client->GetCharID(),
+                money,
+                reason.c_str(),
+                Journal::EntryType::MarketEscrow,
+                orderID->value(),
+                Account::KeyType::Escrow,
+                Account::KeyType::Cash
+            );
+        }
     } else {
-        ItemData idata(oInfo.typeID, ownerStation, locTemp, flagHangar, oInfo.quantity);
-        InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
-        if (iRef.get() != nullptr)
-            iRef->Donate(call.client->GetCharacterID(), oInfo.stationID, flagHangar, true);
+        if (oInfo.isCorp) {
+            ItemData idata(oInfo.typeID, call.client->GetCorporationID(), locTemp, flagCorpMarket, oInfo.quantity);
+            InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+            if (iRef.get() != nullptr)
+                iRef->Donate(call.client->GetCorporationID(), oInfo.stationID, flagCorpMarket, true);
+        } else {
+            ItemData idata(oInfo.typeID, ownerStation, locTemp, flagHangar, oInfo.quantity);
+            InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+            if (iRef.get() != nullptr)
+                iRef->Donate(call.client->GetCharacterID(), oInfo.stationID, flagHangar, true);
+        }
     }
 
     PyRep* order(MarketDB::GetOrderRow(orderID->value()));
