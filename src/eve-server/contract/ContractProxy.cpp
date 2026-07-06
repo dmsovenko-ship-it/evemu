@@ -784,30 +784,25 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
 
 
 PyResult ContractProxy::GetMyExpiredContractList(PyCallArgs &call) {
-  sLog.White( "ContractProxy::Handle_GetMyExpiredContractList()", "size=%lu", call.tuple->size());
-    call.Dump(SERVICE__CALL_DUMP);
-/*
-      [PySubStream 530 bytes]
-        [PyObjectData Name: util.KeyVal]
-          [PyDict 3 kvp]
-            [PyString "contracts"]
-            [PyObjectEx Type2]
-              [PyTuple 2 items]
-                [PyTuple 1 items]
-                  [PyToken dbutil.CRowset]
-                [PyDict 1 kvp]
-                  [PyString "header"]
-                  [PyObjectEx Normal]
-                    [PyTuple 2 items]
-                      [PyToken blue.DBRowDescriptor]
-                      [PyTuple 1 items]
-                        [PyTuple 28 items]
-                          [PyTuple 2 items]
-                            [PyString "contractID"]
-                            [PyInt 3]
-                          [PyTuple 2 items]
-                            [PyString "type"]
-                            [PyInt 17]
+    uint32 charID = call.client->GetCharacterID();
+    double now = GetFileTimeNow();
+
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT contractId, contractType AS type, issuerID, issuerCorpID, forCorp, "
+        "isPrivate, assigneeID, acceptorID, dateIssued, dateExpired, dateAccepted, "
+        "expireTimeInMinutes, duration, numDays, dateCompleted, startStationID, "
+        "startSolarSystemID, startRegionID, endStationID, endSolarSystemID, endRegionID, "
+        "price, reward, collateral, title, description, status, volume "
+        "FROM ctrContracts "
+        "WHERE (issuerID = %u OR assigneeID = %u) AND dateExpired < %.0f AND dateExpired > 0 "
+        "AND status NOT IN (6, 8)",
+        charID, charID, now);
+
+    PyDict* dict = new PyDict();
+    dict->SetItemString("contracts", DBResultToCRowset(res));
+    return new PyObject("util.KeyVal", dict);
+}
                           [PyTuple 2 items]
                             [PyString "issuerID"]
                             [PyInt 3]
@@ -895,22 +890,49 @@ PyResult ContractProxy::GetMyExpiredContractList(PyCallArgs &call) {
 }
 
 PyResult ContractProxy::NumOutstandingContracts(PyCallArgs &call) {
-    sLog.White( "ContractProxy::Handle_NumOutstandingContracts()", "size=%lu", call.tuple->size());
-    call.Dump(SERVICE__CALL_DUMP);
-    /*
-      [PySubStream 87 bytes]
-        [PyObjectData Name: util.KeyVal]
-          [PyDict 4 kvp]
-            [PyString "nonCorpForMyChar"]
-            [PyInt 0]
-            [PyString "myCorpTotal"]
-            [PyInt 0]
-            [PyString "nonCorpForMyCorp"]
-            [PyInt 0]
-            [PyString "myCharTotal"]
-            [PyInt 0]
-            */
-    return nullptr;
+    uint32 charID = call.client->GetCharacterID();
+    uint32 corpID = call.client->GetCorporationID();
+
+    DBQueryResult res;
+    DBResultRow row;
+
+    uint32 myCharTotal = 0, myCorpTotal = 0;
+    uint32 nonCorpForMyChar = 0, nonCorpForMyCorp = 0;
+
+    if (sDatabase.RunQuery(res,
+        "SELECT COUNT(*) FROM ctrContracts WHERE issuerID = %u AND status = 0",
+        charID))
+    {
+        if (res.GetRow(row)) myCharTotal = row.GetUInt(0);
+    }
+
+    if (sDatabase.RunQuery(res,
+        "SELECT COUNT(*) FROM ctrContracts WHERE issuerCorpID = %u AND forCorp = 1 AND status = 0",
+        corpID))
+    {
+        if (res.GetRow(row)) myCorpTotal = row.GetUInt(0);
+    }
+
+    if (sDatabase.RunQuery(res,
+        "SELECT COUNT(*) FROM ctrContracts WHERE assigneeID = %u AND status = 0",
+        charID))
+    {
+        if (res.GetRow(row)) nonCorpForMyChar = row.GetUInt(0);
+    }
+
+    if (sDatabase.RunQuery(res,
+        "SELECT COUNT(*) FROM ctrContracts WHERE assigneeID = %u AND forCorp = 1 AND status = 0",
+        corpID))
+    {
+        if (res.GetRow(row)) nonCorpForMyCorp = row.GetUInt(0);
+    }
+
+    PyDict* dict = new PyDict();
+    dict->SetItemString("nonCorpForMyChar", new PyInt(nonCorpForMyChar));
+    dict->SetItemString("myCorpTotal",      new PyInt(myCorpTotal));
+    dict->SetItemString("nonCorpForMyCorp", new PyInt(nonCorpForMyCorp));
+    dict->SetItemString("myCharTotal",      new PyInt(myCharTotal));
+    return new PyObject("util.KeyVal", dict);
 }
 
 PyResult ContractProxy::GetItemsInStation(PyCallArgs &call, PyInt* stationID, std::optional<PyInt*> forCorp) {
@@ -1173,7 +1195,8 @@ PyResult ContractProxy::GetContractListForOwner(PyCallArgs &call, PyInt* ownerID
 
 PyResult ContractProxy::GetLoginInfo(PyCallArgs &call)
 {
-    // currently a stub as I need to redesign or change some sub systems for this.
+    uint32 charID = call.client->GetCharacterID();
+    double now = GetFileTimeNow();
 
     /* create needsAttention row descriptor */
     DBRowDescriptor *needsAttentionHeader = new DBRowDescriptor();
@@ -1195,6 +1218,59 @@ PyResult ContractProxy::GetLoginInfo(PyCallArgs &call)
     CRowSet *needsAttention_rowset = new CRowSet( &needsAttentionHeader );
     CRowSet *inProgress_rowset = new CRowSet( &inProgressHeader );
     CRowSet *assignedToMe_rowset = new CRowSet( &assignedToMeHeader );
+
+    // Query needsAttention: contracts assigned to character that need action
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT contractId, 0 FROM ctrContracts "
+            "WHERE assigneeID = %u AND status IN (0, 1) AND dateExpired > %.0f",
+            charID, now))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                PyPackedRow* pRow = needsAttention_rowset->NewRow();
+                pRow->SetField("contractID", new PyInt(row.GetUInt(0)));
+                pRow->SetField("",           new PyInt(row.GetUInt(1)));
+            }
+        }
+    }
+
+    // Query inProgress: contracts issued by character that are in progress
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT contractId, startStationID, endStationID, dateExpired "
+            "FROM ctrContracts WHERE issuerID = %u AND status = 1",
+            charID))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                PyPackedRow* pRow = inProgress_rowset->NewRow();
+                pRow->SetField("contractID",     new PyInt(row.GetUInt(0)));
+                pRow->SetField("startStationID", new PyInt(row.GetUInt(1)));
+                pRow->SetField("endStationID",   new PyInt(row.GetUInt(2)));
+                pRow->SetField("expires",        new PyLong(row.GetUInt(3)));
+            }
+        }
+    }
+
+    // Query assignedToMe: contracts assigned to character
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT contractId, issuerID FROM ctrContracts "
+            "WHERE assigneeID = %u AND status = 0",
+            charID))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                PyPackedRow* pRow = assignedToMe_rowset->NewRow();
+                pRow->SetField("contractID", new PyInt(row.GetUInt(0)));
+                pRow->SetField("issuerID",   new PyInt(row.GetUInt(1)));
+            }
+        }
+    }
 
     PyDict* args = new PyDict;
         args->SetItemString( "needsAttention",          needsAttention_rowset );
