@@ -140,9 +140,12 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     //offer.dungeonSolarSystemID   = 0;
     sMapData.GetMissionDestination(this, misionType, offer);
     if (offer.destinationID == 0) {
-        // make error here and reset
-        sEntityList.FindClientByCharID(charID)->SendErrorMsg("Internal Server Error. Ref: ServerError 07208.");
-        //return;
+        // Fallback: ensure we never send destinationID=0 to the client
+        offer.destinationID = m_agentData.stationID;
+        if (offer.destinationID == 0)
+            offer.destinationID = m_agentData.solarSystemID;
+        offer.destinationSystemID = m_agentData.solarSystemID;
+        _log(AGENT__ERROR, "MakeOffer: destinationID still 0 after GetMissionDestination, fallback to station=%u system=%u.", offer.destinationID, offer.destinationSystemID);
     }
 
     // not sure how this is checked/set
