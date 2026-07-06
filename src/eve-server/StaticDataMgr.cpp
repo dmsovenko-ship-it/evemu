@@ -245,8 +245,8 @@ void StaticDataMgr::Populate()
             data.race                   = row.GetUInt(9);
             data.basePrice              = row.GetDouble(10);
             data.published              = (sConfig.server.AllowNonPublished ? true : row.GetBool(11));
-            data.marketGroupID          = (row.IsNull(11) ? 0 : row.GetUInt(12));
-            data.chanceOfDuplicating    = row.GetFloat(13);
+            data.marketGroupID          = (row.IsNull(12) ? 0 : row.GetUInt(12));
+            data.chanceOfDuplicating    = (row.IsNull(13) ? 0.0f : row.GetFloat(13));
             data.metaLvl                = (row.IsNull(14) ? 0 : row.GetUInt(14));
             // these will take a bit of work, but will eliminate multiple db hits on inventory/menu loading ingame
             data.isRecyclable           = FactoryDB::IsRecyclable(data.id);   // +5s to startup
