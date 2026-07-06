@@ -46,9 +46,13 @@ INSERT IGNORE INTO `dunRoomObjects` (`roomID`, `typeID`, `groupID`, `x`, `y`, `z
 (2121,11913,0,0,0,1500),(2121,23383,0,1500,0,-750),(2121,11913,0,-1500,0,0),(2121,23383,0,0,0,-3000),(2121,11913,0,2500,0,0),(2121,23383,0,-2500,0,0),(2121,11913,0,0,3000,0),
 (2122,11913,0,0,0,1500),(2122,23383,0,1500,0,-750),(2122,23383,0,-1500,0,0),(2122,11913,0,0,0,-3000),(2122,23383,0,2500,0,0),(2122,11913,0,-2500,0,0),(2122,23383,0,0,3000,0),(2122,11913,0,0,-3000,0);
 
--- Seed incursion rewards
+-- Seed incursion rewards (Sansha incursions)
+-- Vanguard: ~10M ISK + 1400 LP, Assault: ~18M ISK + 3500 LP, HQ: ~31M ISK + 7000 LP, Mothership: ~63M + 14000 LP
 INSERT IGNORE INTO incursionRewards (rewardGroupID, rewardTypeID, rewardQuantity, lpTypeID, lpAmount) VALUES
-(192, 0, 0, 0, 0); -- default Sansha incursion (placeholder)
+(1,  0, 10395000,  0, 1400),   -- Vanguard
+(2,  0, 18200000,  0, 3500),   -- Assault
+(3,  0, 31500000,  0, 7000),   -- Headquarters
+(4,  0, 63000000,  0, 14000);  -- Mothership (Kundalini Manifest)
 
 -- +migrate Down
 DELETE FROM `dunRoomObjects` WHERE `roomID` BETWEEN 2100 AND 2122;

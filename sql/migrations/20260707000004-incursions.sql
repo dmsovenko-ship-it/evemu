@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS incursionRewards (
 
 -- Seed a default Sansha incursion in a lowsec constellation
 INSERT IGNORE INTO incursions (incursionID, factionID, stagingSolarSystemID, constellationID, regionID, state, influence, hasBoss, rewardGroupID, taleID, graceTime, decayRate) VALUES
-(1, 500019, 30004323, 20000383, 10000045, 0, 0.0, 0, 192, 192, 30, 0.01);
+(1, 500019, 30004323, 20000383, 10000045, 0, 0.0, 0, 3, 192, 30, 0.01);
 
 -- +migrate Down
 DROP TABLE IF EXISTS incursionRewards;
