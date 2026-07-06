@@ -165,7 +165,46 @@ int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID,
             }
         }
     }
-    // TODO(groove) corp/alliance mails
+    // Deliver to corp or alliance members
+    if (toCorpOrAllianceID > 0) {
+        DBQueryResult memberRes;
+        // Try corporation members first
+        bool isAlliance = false;
+        if (!sDatabase.RunQuery(memberRes,
+            "SELECT characterID FROM chrCharacters "
+            "WHERE corporationID = %u AND online = 1", toCorpOrAllianceID))
+        {
+            // Fallback: try alliance members
+            isAlliance = true;
+            sDatabase.RunQuery(memberRes,
+                "SELECT characterID FROM chrCharacters "
+                "WHERE allianceID = %u AND online = 1", toCorpOrAllianceID);
+        }
+        // If no online members, get all members
+        if (!memberRes.GetRowCount()) {
+            if (isAlliance) {
+                sDatabase.RunQuery(memberRes,
+                    "SELECT characterID FROM chrCharacters "
+                    "WHERE allianceID = %u", toCorpOrAllianceID);
+            } else {
+                sDatabase.RunQuery(memberRes,
+                    "SELECT characterID FROM chrCharacters "
+                    "WHERE corporationID = %u", toCorpOrAllianceID);
+            }
+        }
+        uint32 label = isAlliance ? mailLabelAlliance : mailLabelCorporation;
+        DBResultRow mRow;
+        while (memberRes.GetRow(mRow)) {
+            uint32 id = mRow.GetInt(0);
+            if (!sDatabase.RunQuery(err,
+                " INSERT INTO mailStatus "
+                " (messageID, characterID, statusMask, labelMask)"
+                " VALUES (%u, %u, %u, %u)", messageID, id, 0, label))
+            {
+                codelog(DATABASE__ERROR, " Failed to insert mailStatus for corp/alliance member" );
+            }
+        }
+    }
 
     return messageID;
 }

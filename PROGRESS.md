@@ -253,7 +253,7 @@
 
 | Service/Action | Upstream | Fork | Notes |
 |---|---|---|---|
-| All corp mail features | 0% | 0% | |
+| All corp mail features | 0% | **30%** | `SendMail` toCorpOrAllianceID delivers to corp/alliance members, sets correct labelMask |
 
 ---
 
@@ -709,7 +709,7 @@ No significant changes in fork.
 | Join Alliance | 95% | 95% | |
 | Alliance Bulletins | 10% | **40%** | Create/Read/Delete via AllianceBound, Edit/Delete fixed in AllianceDB, label CRUD |
 | Alliance History (Corp Employment) | 15% | 20% | |
-| Alliance Wars | 10% | 10% | |
+| Alliance Wars | 10% | **40%** | DeclareWarAgainst, RetractWar, ChangeMutualWarFlag, GetCostOfWarAgainst, warRegistry DB table, war bills |
 | **Alliance bridge jump (CmdJumpThroughAlliance)** | **—** | **✅** | Portal lookup, alliance validation, fuel calc |
 
 ---
