@@ -2,6 +2,8 @@
 
 #include "incursion/IncursionMgr.h"
 #include "EVE_Incursion.h"
+#include "EntityList.h"
+#include "Client.h"
 
 IncursionMgr::IncursionMgr()
     : m_timer(60000)  // check every 60s
