@@ -53,9 +53,26 @@ PyResult HoloscreenMgrService::GetTwoHourCache(PyCallArgs& call)
 {
     PyDict* agents = new PyDict();
         agents->SetItemString("Agent_DUMMY", new PyDict());
+
+    PyList* incursionReport = new PyList();
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT stagingSolarSystemID, influence FROM incursions WHERE state > 0"))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                PyDict* entry = new PyDict();
+                entry->SetItemString("stagingSolarSystemID", new PyInt(row.GetUInt(0)));
+                entry->SetItemString("influence", new PyFloat(row.GetDouble(1)));
+                incursionReport->AddItem(new PyObject("util.KeyVal", entry));
+            }
+        }
+    }
+
     PyDict* args = new PyDict();
         args->SetItemString("careerAgents", agents);
-        args->SetItemString("incursionReport", new PyList());
+        args->SetItemString("incursionReport", incursionReport);
         args->SetItemString("epicArcAgents", new PyDict());
         args->SetItemString("sovChangesReport", new PyList());
     return new PyObject("util.KeyVal", args);
@@ -65,9 +82,26 @@ PyResult HoloscreenMgrService::GetRuntimeCache(PyCallArgs& call)
 {
     PyDict* agents = new PyDict();
         agents->SetItemString("Agent_DUMMY", new PyDict());
+
+    PyList* incursionReport = new PyList();
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT stagingSolarSystemID, influence FROM incursions WHERE state > 0"))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                PyDict* entry = new PyDict();
+                entry->SetItemString("stagingSolarSystemID", new PyInt(row.GetUInt(0)));
+                entry->SetItemString("influence", new PyFloat(row.GetDouble(1)));
+                incursionReport->AddItem(new PyObject("util.KeyVal", entry));
+            }
+        }
+    }
+
     PyDict* args = new PyDict();
         args->SetItemString("careerAgents", agents);
-        args->SetItemString("incursionReport", new PyList());
+        args->SetItemString("incursionReport", incursionReport);
         args->SetItemString("epicArcAgents", new PyDict());
         args->SetItemString("sovChangesReport", new PyList());
     return new PyObject("util.KeyVal", args);
