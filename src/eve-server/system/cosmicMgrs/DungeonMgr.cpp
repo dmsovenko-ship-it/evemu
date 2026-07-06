@@ -405,17 +405,11 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 Inv::GrpData objGroup;
                 sDataMgr.GetType(object.typeID, objType);
                 sDataMgr.GetGroup(objType.groupID, objGroup);
-                if (objGroup.catID == EVEDB::invCategories::Ship || objGroup.catID == EVEDB::invCategories::Drone) {
-                    _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly calling typeID=%u catID=%u", object.typeID, objGroup.catID);
+                if (objGroup.catID == EVEDB::invCategories::Ship || 
+                    objGroup.catID == EVEDB::invCategories::Drone ||
+                    objGroup.catID == EVEDB::invCategories::Entity) {
                     m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID);
-                } else if (object.typeID >= 33000) {
-                    // TEMP: spawn all 33000+ dungeon objects as NPCs regardless of catID
-                    _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly calling typeID=%u catID=%u (TYPEID FORCE)", object.typeID, objGroup.catID);
-                    m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID);
-                } 
-                
-                // Otherwise, spawn as a normal celestial object
-                else {
+                } else {
                     // Define ItemData object for each RoomObject
                     ItemData dData(object.typeID, sig.ownerID, sig.systemID, flagNone, sDataMgr.GetTypeName(object.typeID), pos);
 
