@@ -30,6 +30,7 @@
 #include "StaticDataMgr.h"
 #include "map/MapData.h"
 #include "map/MapService.h"
+#include "EVE_Incursion.h"
 #include "system/SystemManager.h"
 #include "system/sov/SovereigntyDataMgr.h"
 
@@ -233,113 +234,67 @@ PyResult MapService::GetDeadspaceComplexMap(PyCallArgs &call, PyInt* languageID)
 }
 
 PyResult MapService::GetSystemsInIncursions(PyCallArgs &call) {
-    /**  EVE_Incursion.h
-     *        participatingSystems = ms.GetSystemsInIncursions()
-     *        for solarSystemID, sceneType in participatingSystems:
-     *            -- (sceneType = staging, vanguard)
-     */
-
-    // copy format from GetLinkableJumpArrays()
     DBQueryResult res;
-    //PosMgrDB::GetAllianceBeacons(call.client->GetCorporationID(), res);
     PyList* list = new PyList();
-    DBResultRow row;
-    while (res.GetRow(row)) {
-        // SELECT systemID, sceneType
-        PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(row.GetInt(0)));   //solarSystemID
-        tuple->SetItem(1, new PyInt(row.GetInt(1)));   //sceneType
-        list->AddItem(tuple);
+    if (sDatabase.RunQuery(res,
+        "SELECT solarSystemID, sceneType FROM incursionSystems "
+        "WHERE sceneType IN (%u, %u)",
+        Incursion::scenesType::staging, Incursion::scenesType::vanguard))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            PyTuple* tuple = new PyTuple(2);
+            tuple->SetItem(0, new PyInt(row.GetInt(0)));
+            tuple->SetItem(1, new PyInt(row.GetInt(1)));
+            list->AddItem(tuple);
+        }
     }
-
     return list;
 }
 
 PyResult MapService::GetSystemsInIncursionsGM(PyCallArgs &call) {
-    /**
-     *        participatingSystems = ms.GetSystemsInIncursionsGM()
-     *        for solarSystemID, sceneType in participatingSystems:
-     *            -- (sceneType = staging, vanguard, assault, headquarters)
-     */
-
-    // copy format from GetLinkableJumpArrays()
     DBQueryResult res;
-    //PosMgrDB::GetAllianceBeacons(call.client->GetCorporationID(), res);
     PyList* list = new PyList();
-    DBResultRow row;
-    while (res.GetRow(row)) {
-        // SELECT systemID, sceneType
-        PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(row.GetInt(0)));    //solarSystemID
-        tuple->SetItem(1, new PyInt(row.GetInt(1)));    //sceneType
-        list->AddItem(tuple);
+    if (sDatabase.RunQuery(res,
+        "SELECT solarSystemID, sceneType FROM incursionSystems"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            PyTuple* tuple = new PyTuple(2);
+            tuple->SetItem(0, new PyInt(row.GetInt(0)));
+            tuple->SetItem(1, new PyInt(row.GetInt(1)));
+            list->AddItem(tuple);
+        }
     }
-
     return list;
 }
 
-//05:52:07 L MapService::Handle_GetIncursionGlobalReport(): size= 0
 PyResult MapService::GetIncursionGlobalReport(PyCallArgs &call) {
-  /**
-            report = sm.RemoteSvc('map').GetIncursionGlobalReport()
-            rewardGroupIDs = [ r.rewardGroupID for r in report ]
-            delayedRewards = sm.GetService('incursion').GetDelayedRewardsByGroupIDs(rewardGroupIDs)
-            scrolllist = []
-            factionsToPrime = set()
-            for data in report:
-                data.jumps = GetJumps(data.stagingSolarSystemID)
-                data.influenceData = util.KeyVal(influence=data.influence, lastUpdated=data.lastUpdated, graceTime=data.graceTime, decayRate=data.decayRate)
-                ssitem = map.GetItem(data.stagingSolarSystemID)
-                data.stagingSolarSystemName = ssitem.itemName
-                data.security = map.GetSecurityStatus(data.stagingSolarSystemID)
-                data.constellationID = ssitem.locationID
-                data.constellationName = map.GetItem(ssitem.locationID).itemName
-                data.factionID = ssitem.factionID or starmap.GetAllianceSolarSystems().get(data.stagingSolarSystemID, None)
-                factionsToPrime.add(data.factionID)
-                rewards = delayedRewards.get(data.rewardGroupID, None)
-                data.loyaltyPoints = rewards[0].rewardQuantity if rewards else 0
-                scrolllist.append(listentry.Get('GlobalIncursionReportEntry', data))
-*/
-  /*
-      [PySubStream 1128 bytes]
-        [PyObjectData Name: objectCaching.CachedMethodCallResult]
-          [PyTuple 3 items]
-            [PyDict 1 kvp]
-              [PyString "versionCheck"]
-              [PyTuple 3 items]
-                [PyNone]
-                [PyNone]
-                [PyString "15 minutes"]
-            [PySubStream 1027 bytes]
-              [PyList 7 items]
-                [PyObjectData Name: util.KeyVal]
-                  [PyDict 9 kvp]
-                    [PyString "graceTime"]
-                    [PyFloat 30]
-                    [PyString "decayRate"]
-                    [PyFloat 0.00999999977648258]
-                    [PyString "influence"]
-                    [PyFloat 0.0145000005140901]
-                    [PyString "lastUpdated"]
-                    [PyIntegerVar 129492976800000000]
-                    [PyString "state"]
-                    [PyInt 1]
-                    [PyString "hasBoss"]
-                    [PyInt 0]
-                    [PyString "stagingSolarSystemID"]
-                    [PyInt 30004323]
-                    [PyString "rewardGroupID"]
-                    [PyInt 192]
-                    [PyString "taleID"]
-                    [PyInt 192]
-            [PyList 2 items]
-              [PyIntegerVar 129493861959830226]
-              [PyInt -950263469]
-              */
-    sLog.Warning( "MapService::Handle_GetIncursionGlobalReport()", "size=%lu", call.tuple->size());
-    call.Dump(SERVICE__CALL_DUMP);
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT stagingSolarSystemID, state, influence, hasBoss, rewardGroupID, taleID, "
+        "graceTime, decayRate, lastUpdated FROM incursions WHERE state > 0"))
+    {
+        return new PyList();
+    }
 
-    return PyStatic.NewNone();
+    PyList* report = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* entry = new PyDict();
+        entry->SetItemString("stagingSolarSystemID", new PyInt(row.GetUInt(0)));
+        entry->SetItemString("state",                new PyInt(row.GetUInt(1)));
+        entry->SetItemString("influence",            new PyFloat(row.GetDouble(2)));
+        entry->SetItemString("hasBoss",              new PyInt(row.GetUInt(3)));
+        entry->SetItemString("rewardGroupID",        new PyInt(row.GetUInt(4)));
+        entry->SetItemString("taleID",               new PyInt(row.GetUInt(5)));
+        entry->SetItemString("graceTime",            new PyFloat(static_cast<double>(row.GetUInt(6))));
+        entry->SetItemString("decayRate",            new PyFloat(row.GetDouble(7)));
+        entry->SetItemString("lastUpdated",          new PyLong(row.GetInt64(8)));
+        report->AddItem(new PyObject("util.KeyVal", entry));
+    }
+
+    return report;
 }
 
 //   factional warfare shit

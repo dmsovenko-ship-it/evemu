@@ -87,6 +87,8 @@
 #include "config/LocalizationServerService.h"
 // contract services
 #include "contract/ContractProxy.h"
+// incursion services
+#include "incursion/IncursionService.h"
 // corporation services
 #include "corporation/BillMgr.h"
 #include "corporation/CorpBookmarkMgr.h"
@@ -688,6 +690,7 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new DungeonService());
     newSvcMgr.Register(new LookupService());
     newSvcMgr.Register(new MapService());
+    newSvcMgr.Register(new IncursionService());
     newSvcMgr.Register(new CalendarMgrService());
     newSvcMgr.Register(new AgentMgrService(newSvcMgr));
     newSvcMgr.Register(new ScanMgrService(newSvcMgr));
