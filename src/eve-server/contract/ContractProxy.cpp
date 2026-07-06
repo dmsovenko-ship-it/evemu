@@ -800,7 +800,8 @@ PyResult ContractProxy::GetMyExpiredContractList(PyCallArgs &call) {
         charID, charID, now);
 
     PyDict* dict = new PyDict();
-    dict->SetItemString("contracts", DBResultToCRowset(res));
+    PyRep* contracts = DBResultToCRowset(res);
+    dict->SetItemString("contracts", contracts ? contracts : PyStatic.NewNone());
     return new PyObject("util.KeyVal", dict);
 }
                           [PyTuple 2 items]
