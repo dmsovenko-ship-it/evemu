@@ -296,7 +296,7 @@ PyObject* CorporationDB::GetCorporationBills(uint32 corpID, bool payable)
     if (payable) {
         if (!sDatabase.RunQuery(res,
             "SELECT billID, billTypeID, debtorID, creditorID, amount, dueDateTime, interest,"
-            "externalID, paid externalID2 FROM billsPayable WHERE debtorID = %u", corpID))
+            "externalID, externalID2, paid FROM billsPayable WHERE debtorID = %u", corpID))
         {
             codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
             return nullptr;
@@ -304,7 +304,7 @@ PyObject* CorporationDB::GetCorporationBills(uint32 corpID, bool payable)
     } else {
         if (!sDatabase.RunQuery(res,
             "SELECT billID, billTypeID, debtorID, creditorID, amount, dueDateTime, interest,"
-            "externalID, paid externalID2 FROM billsReceivable WHERE creditorID = %u", corpID))
+            "externalID, externalID2, paid FROM billsReceivable WHERE creditorID = %u", corpID))
         {
             codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
             return nullptr;
@@ -1965,9 +1965,13 @@ void CorporationDB::GetAutoPay(uint32 corpID, DBQueryResult& res)
     sDatabase.RunQuery(res, "SELECT market, rental, broker, war, alliance, sov FROM crpAutoPay WHERE corporationID = %u", corpID);
 }
 
-void CorporationDB::SetAutoPay()
+void CorporationDB::SetAutoPay(uint32 corpID, bool market, bool rental, bool broker, bool war, bool alliance, bool sov)
 {
-    //UPDATE crpAutoPay SET corporationID=[value-1],market=[value-2],rental=[value-3],broker=[value-4],war=[value-5],alliance=[value-6],sov=[value-7] WHERE 1
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "REPLACE INTO crpAutoPay (corporationID, market, rental, broker, war, alliance, sov) "
+        "VALUES (%u, %u, %u, %u, %u, %u, %u)",
+        corpID, market, rental, broker, war, alliance, sov);
 }
 
 void CorporationDB::AddItemEvent(uint32 corpID, uint32 charID, uint16 eTypeID)

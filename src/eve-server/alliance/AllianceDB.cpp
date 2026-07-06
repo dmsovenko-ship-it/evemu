@@ -320,10 +320,20 @@ void AllianceDB::SetLabel(uint32 allyID, uint32 color, std::string name)
 
 void AllianceDB::DeleteLabel(uint32 allyID, uint32 labelID)
 {
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM alnLabels WHERE ownerID = %u AND labelID = %u",
+        allyID, labelID);
 }
 
 void AllianceDB::EditLabel(uint32 allyID, uint32 labelID, uint32 color, std::string name)
 {
+    std::string escaped;
+    sDatabase.DoEscapeString(escaped, name);
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE alnLabels SET color = %u, name = '%s' WHERE ownerID = %u AND labelID = %u",
+        color, escaped.c_str(), allyID, labelID);
 }
 
 bool AllianceDB::AddEmployment(uint32 allyID, uint32 corpID)

@@ -29,6 +29,8 @@
 
 #include "StaticDataMgr.h"
 #include "cache/ObjCacheService.h"
+#include "account/AccountDB.h"
+#include "account/AccountService.h"
 #include "corporation/BillMgr.h"
 
 BillMgr::BillMgr() :
@@ -59,69 +61,154 @@ PyResult BillMgr::GetCorporationBillsReceivable(PyCallArgs &call) {
 
 
 PyResult BillMgr::CharPayBill(PyCallArgs &call, PyInt* billID) {
-    //   sm.RemoteSvc('billMgr').CharPayBill(bill.billID)
-    sLog.Warning("BillMgr", "Handle_CharPayBill() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
+    _log(CORP__CALL, "BillMgr::Handle_CharPayBill() size=%lli", call.tuple->size());
+    uint32 charID = call.client->GetCharacterID();
+    uint32 bill = billID->value();
 
-    // returns nothing
-    return nullptr;
+    DBQueryResult res;
+    DBResultRow row;
+    if (!sDatabase.RunQuery(res,
+        "SELECT debtorID, creditorID, billTypeID, amount FROM billsPayable WHERE billID = %u AND paid = 0", bill))
+    {
+        call.client->SendErrorMsg("Bill not found or already paid.");
+        return PyStatic.NewNone();
+    }
+    if (!res.GetRow(row) or row.GetUInt(0) != charID) {
+        call.client->SendErrorMsg("Bill not found.");
+        return PyStatic.NewNone();
+    }
+    uint32 creditorID = row.GetUInt(1);
+    uint32 billType = row.GetUInt(2);
+    double amount = row.GetDouble(3);
+
+    if (call.client->GetBalance(Account::CreditType::ISK) < amount) {
+        call.client->SendErrorMsg("Insufficient funds to pay this bill.");
+        return PyStatic.NewNone();
+    }
+
+    // Transfer funds and create journal entry
+    AccountService::TransferFunds(charID, creditorID, amount,
+        "Bill payment", billType, bill, Account::KeyType::Cash, Account::KeyType::Cash, call.client);
+
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE billsPayable SET paid = 1 WHERE billID = %u", bill);
+
+    _log(CORP__MESSAGE, "BillMgr::CharPayBill() - char %u paid bill %u for %.2f ISK", charID, bill, amount);
+    return PyStatic.NewNone();
 }
 
 PyResult BillMgr::CharGetBills(PyCallArgs &call) {
-    //   return sm.RemoteSvc('billMgr').CharGetBills()
-    sLog.Warning("BillMgr", "Handle_CharGetBills() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
-
-    // returns nothing
-    return nullptr;
+    _log(CORP__CALL, "BillMgr::Handle_CharGetBills() size=%lli", call.tuple->size());
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT billID, billTypeID, debtorID, creditorID, amount, dueDateTime, interest, "
+        "externalID, paid FROM billsPayable WHERE debtorID = %u", call.client->GetCharacterID()))
+    {
+        codelog(DATABASE__ERROR, "Error in CharGetBills query: %s", res.error.c_str());
+        return new PyList();
+    }
+    return DBResultToRowset(res);
 }
 
 PyResult BillMgr::CharGetBillsReceivable(PyCallArgs &call) {
-    //   bills = sm.RemoteSvc('billMgr').CharGetBillsReceivable()
-    sLog.Warning("BillMgr", "Handle_CharGetBillsReceivable() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
-
-    // returns nothing
-    return nullptr;
+    _log(CORP__CALL, "BillMgr::Handle_CharGetBillsReceivable() size=%lli", call.tuple->size());
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT billID, billTypeID, debtorID, creditorID, amount, dueDateTime, interest, "
+        "externalID, paid FROM billsReceivable WHERE creditorID = %u", call.client->GetCharacterID()))
+    {
+        codelog(DATABASE__ERROR, "Error in CharGetBillsReceivable query: %s", res.error.c_str());
+        return new PyList();
+    }
+    return DBResultToRowset(res);
 }
 
 PyResult BillMgr::PayCorporationBill(PyCallArgs &call, PyInt* billID) {
-    //  sm.RemoteSvc('billMgr').PayCorporationBill(bill.billID, fromAccountKey=eve.session.corpAccountKey)
-    sLog.Warning("BillMgr", "Handle_PayCorporationBill() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
+    _log(CORP__CALL, "BillMgr::Handle_PayCorporationBill() size=%lli", call.tuple->size());
 
-    // returns nothing
-    return nullptr;
+    uint32 corpID = call.client->GetCorporationID();
+    uint32 bill = billID->value();
+
+    uint32 accountKey = call.client->GetCorpAccountKey();
+    if (call.byname.find("fromAccountKey") != call.byname.end())
+        accountKey = PyRep::IntegerValueU32(call.byname.find("fromAccountKey")->second);
+
+    DBQueryResult res;
+    DBResultRow row;
+    if (!sDatabase.RunQuery(res,
+        "SELECT debtorID, creditorID, billTypeID, amount FROM billsPayable WHERE billID = %u AND paid = 0", bill))
+    {
+        call.client->SendErrorMsg("Bill not found or already paid.");
+        return PyStatic.NewNone();
+    }
+    if (!res.GetRow(row) or row.GetUInt(0) != corpID) {
+        call.client->SendErrorMsg("Bill not found.");
+        return PyStatic.NewNone();
+    }
+    uint32 creditorID = row.GetUInt(1);
+    uint32 billType = row.GetUInt(2);
+    double amount = row.GetDouble(3);
+
+    // Check corp wallet balance
+    double balance = AccountDB::GetCorpBalance(corpID, accountKey);
+    if (balance < amount) {
+        call.client->SendErrorMsg("Insufficient corporation funds to pay this bill.");
+        return PyStatic.NewNone();
+    }
+
+    // Transfer from corp wallet to creditor
+    AccountService::TransferFunds(corpID, creditorID, amount,
+        "Corporation bill payment", billType, bill, accountKey, Account::KeyType::Cash, call.client);
+
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE billsPayable SET paid = 1 WHERE billID = %u", bill);
+
+    _log(CORP__MESSAGE, "BillMgr::PayCorporationBill() - corp %u paid bill %u for %.2f ISK from account %u", corpID, bill, amount, accountKey);
+    return PyStatic.NewNone();
 }
 
 
 PyResult BillMgr::SendAutomaticPaySettings(PyCallArgs &call, PyDict* automaticPaymentSettings) {
-    //    sm.RemoteSvc('billMgr').SendAutomaticPaySettings(self.automaticPaymentSettings)
+    _log(CORP__CALL, "BillMgr::Handle_SendAutomaticPaySettings() size=%lli", call.tuple->size());
 
-    // if corp in alliance, get settings for all 6, else ignore AllianceMaintainanceBill (5)
+    uint32 corpID = call.client->GetCorporationID();
+    // Format: { corpID: { billTypeID: bool, ..., 'divisionID': int } }
+    // We extract the inner dict for our corpID
+    PyDict* settings = nullptr;
+    PyDict::const_iterator itr = automaticPaymentSettings->begin();
+    if (itr != automaticPaymentSettings->end()) {
+        PyRep* val = itr->second;
+        if (val->IsDict())
+            settings = val->AsDict();
+    }
+    if (settings == nullptr)
+        return PyStatic.NewNone();
 
-    /*
-     * 19:07:55 [CorpCallDump]   Call Arguments:
-     * 19:07:55 [CorpCallDump]      Tuple: 1 elements
-     * 19:07:55 [CorpCallDump]       [ 0]  Dictionary: 1 entries
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0]   Key:    Integer: 98000001
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:  Dictionary: 6 entries
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 0]   Key:    Integer: 6
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 0] Value:    Boolean: false
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 1]   Key:    Integer: 4
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 1] Value:    Boolean: true
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 2]   Key:     String: 'divisionID'  << wallet to use
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 2] Value:    Integer: 1003
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 3]   Key:    Integer: 3
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 3] Value:    Boolean: true
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 4]   Key:    Integer: 2
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 4] Value:    Boolean: true
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 5]   Key:    Integer: 1
-     * 19:07:55 [CorpCallDump]       [ 0]   [ 0] Value:   [ 5] Value:    Boolean: false
-     */
+    bool market = false, rental = false, broker = false, war = false, alliance = false, sov = false;
+    PyDict::const_iterator sitr, send = settings->end();
+    for (sitr = settings->begin(); sitr != send; ++sitr) {
+        if (!sitr->first->IsInt() or !sitr->second->IsBool())
+            continue;
+        uint32 type = sitr->first->AsInt()->value();
+        bool val = sitr->second->AsBool()->value();
+        switch (type) {
+            case Corp::BillType::MarketFine:              market = val; break;
+            case Corp::BillType::RentalBill:              rental = val; break;
+            case Corp::BillType::BrokerBill:              broker = val; break;
+            case Corp::BillType::WarBill:                  war = val; break;
+            case Corp::BillType::AllianceMaintainanceBill: alliance = val; break;
+            case Corp::BillType::SovereigntyMarker:        sov = val; break;
+        }
+    }
 
-    // returns nothing
-    return nullptr;
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "REPLACE INTO crpAutoPay (corporationID, market, rental, broker, war, alliance, sov) "
+        "VALUES (%u, %u, %u, %u, %u, %u, %u)",
+        corpID, market, rental, broker, war, alliance, sov);
+
+    _log(CORP__MESSAGE, "BillMgr::SendAutomaticPaySettings() - corp %u saved", corpID);
+    return PyStatic.NewNone();
 }
 
 PyResult BillMgr::GetAutomaticPaySettings(PyCallArgs &call) {

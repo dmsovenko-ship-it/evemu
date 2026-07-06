@@ -707,7 +707,7 @@ No significant changes in fork.
 |---|---|---|---|
 | Creating Alliance | 95% | 95% | |
 | Join Alliance | 95% | 95% | |
-| Alliance Bulletins | 10% | 20% | |
+| Alliance Bulletins | 10% | **40%** | Create/Read/Delete via AllianceBound, Edit/Delete fixed in AllianceDB, label CRUD |
 | Alliance History (Corp Employment) | 15% | 20% | |
 | Alliance Wars | 10% | 10% | |
 | **Alliance bridge jump (CmdJumpThroughAlliance)** | **—** | **✅** | Portal lookup, alliance validation, fuel calc |

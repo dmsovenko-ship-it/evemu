@@ -92,7 +92,7 @@ public:
     PyRep* GetSanctionedItems(uint32 corpID, uint8 status=0);
 
     void GetAutoPay(uint32 corpID, DBQueryResult& res);
-    void SetAutoPay();
+    void SetAutoPay(uint32 corpID, bool market, bool rental, bool broker, bool war, bool alliance, bool sov);
 
     //PyObject *ListStationOffices(uint32 station_id);
     PyObject *ListStationCorps(uint32 station_id);
