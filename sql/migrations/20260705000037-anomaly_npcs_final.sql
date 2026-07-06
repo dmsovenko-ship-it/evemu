@@ -5,33 +5,34 @@
 ALTER TABLE invTypes MODIFY typeID int(10) NOT NULL DEFAULT '0';
 
 -- Insert new ship typeIDs for anomaly NPCs
-INSERT IGNORE INTO invTypes (typeID, groupID, typeName, description, mass, volume, capacity, portionSize, raceID, basePrice, published) VALUES
+INSERT IGNORE INTO invTypes (typeID, groupID, typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published) VALUES
 -- Using standard ship groups (catID=6) and drone groups (catID=18) instead of entity groups (catID=11)
 -- Frigate(25), Cruiser(26), Battleship(27), Battlecruiser(419), CombatDrone(100)
-(33001,25,'Guristas Scout','Guristas frigate.',1500100,15001,45,1,1,0,0),
-(33002,26,'Guristas Raider','Guristas cruiser.',2500000,25000,100,1,1,0,0),
-(33003,27,'Guristas Warlord','Guristas battleship.',5000000,50000,200,1,1,0,0),
-(33004,419,'Guristas Baron','Guristas battlecruiser.',3500000,35000,150,1,1,0,0),
-(33020,25,'Angel Ruffian','Angel frigate.',2250000,22500,75,1,2,0,0),
-(33021,26,'Angel Marauder','Angel cruiser.',3000000,30000,120,1,2,0,0),
-(33022,27,'Angel Warlord','Angel battleship.',6000000,60000,250,1,2,0,0),
-(33023,419,'Angel Baron','Angel battlecruiser.',4000000,40000,180,1,2,0,0),
-(33040,25,'Serpentis Scout','Serpentis frigate.',2450000,24500,60,1,8,0,0),
-(33041,26,'Serpentis Raider','Serpentis cruiser.',3200000,32000,130,1,8,0,0),
-(33042,27,'Serpentis Warlord','Serpentis battleship.',5500000,55000,220,1,8,0,0),
-(33043,419,'Serpentis Baron','Serpentis battlecruiser.',3800000,38000,160,1,8,0,0),
-(33060,25,'Blood Scout','Blood frigate.',2000000,20000,55,1,4,0,0),
-(33061,26,'Blood Raider','Blood cruiser.',2800000,28000,110,1,4,0,0),
-(33062,27,'Blood Warlord','Blood battleship.',5200000,52000,210,1,4,0,0),
-(33063,419,'Blood Baron','Blood battlecruiser.',3600000,36000,155,1,4,0,0),
-(33080,25,'Sansha Scout','Sansha frigate.',1900000,19000,50,1,16,0,0),
-(33081,26,'Sansha Raider','Sansha cruiser.',2700000,27000,105,1,16,0,0),
-(33082,27,'Sansha Warlord','Sansha battleship.',5100000,51000,200,1,16,0,0),
-(33083,419,'Sansha Baron','Sansha battlecruiser.',3500000,35000,150,1,16,0,0),
-(33100,100,'Rogue Drone Scout','Rogue drone.',1800000,18000,40,1,0,0,0),
-(33101,100,'Rogue Drone Raider','Rogue drone.',2600000,26000,90,1,0,0,0),
-(33102,100,'Rogue Drone Warlord','Rogue drone.',4900000,49000,180,1,0,0,0),
-(33103,100,'Rogue Drone Baron','Rogue drone.',3400000,34000,140,1,0,0,0);
+-- graphicIDs from existing SDE pirate ships: Guristas(1823-1968), Angel(335-345), Sansha(1236-2295), Blood(1760-2122), Rogue Drone(2078)
+(33001,25,'Guristas Scout','Guristas frigate.',1827,50,1500100,15001,45,1,1,0,0),
+(33002,26,'Guristas Raider','Guristas cruiser.',1823,150,2500000,25000,100,1,1,0,0),
+(33003,27,'Guristas Warlord','Guristas battleship.',2158,350,5000000,50000,200,1,1,0,0),
+(33004,419,'Guristas Baron','Guristas battlecruiser.',1825,250,3500000,35000,150,1,1,0,0),
+(33020,25,'Angel Ruffian','Angel frigate.',342,50,2250000,22500,75,1,2,0,0),
+(33021,26,'Angel Marauder','Angel cruiser.',337,150,3000000,30000,120,1,2,0,0),
+(33022,27,'Angel Warlord','Angel battleship.',335,350,6000000,60000,250,1,2,0,0),
+(33023,419,'Angel Baron','Angel battlecruiser.',336,250,4000000,40000,180,1,2,0,0),
+(33040,25,'Serpentis Scout','Serpentis frigate.',1821,50,2450000,24500,60,1,8,0,0),
+(33041,26,'Serpentis Raider','Serpentis cruiser.',1812,150,3200000,32000,130,1,8,0,0),
+(33042,27,'Serpentis Warlord','Serpentis battleship.',2156,350,5500000,55000,220,1,8,0,0),
+(33043,419,'Serpentis Baron','Serpentis battlecruiser.',1813,250,3800000,38000,160,1,8,0,0),
+(33060,25,'Blood Scout','Blood frigate.',1766,50,2000000,20000,55,1,4,0,0),
+(33061,26,'Blood Raider','Blood cruiser.',1760,150,2800000,28000,110,1,4,0,0),
+(33062,27,'Blood Warlord','Blood battleship.',2121,350,5200000,52000,210,1,4,0,0),
+(33063,419,'Blood Baron','Blood battlecruiser.',1758,250,3600000,36000,155,1,4,0,0),
+(33080,25,'Sansha Scout','Sansha frigate.',1237,50,1900000,19000,50,1,16,0,0),
+(33081,26,'Sansha Raider','Sansha cruiser.',1236,150,2700000,27000,105,1,16,0,0),
+(33082,27,'Sansha Warlord','Sansha battleship.',2295,350,5100000,51000,200,1,16,0,0),
+(33083,419,'Sansha Baron','Sansha battlecruiser.',2289,250,3500000,35000,150,1,16,0,0),
+(33100,100,'Rogue Drone Scout','Rogue drone.',2078,50,1800000,18000,40,1,0,0,0),
+(33101,100,'Rogue Drone Raider','Rogue drone.',2078,150,2600000,26000,90,1,0,0,0),
+(33102,100,'Rogue Drone Warlord','Rogue drone.',2078,350,4900000,49000,180,1,0,0,0),
+(33103,100,'Rogue Drone Baron','Rogue drone.',2078,250,3400000,34000,140,1,0,0,0);
 
 -- Delete old NPC objects (in case of re-run) then re-insert with correct typeIDs
 DELETE FROM dunRoomObjects WHERE roomID BETWEEN 2000 AND 2093;
