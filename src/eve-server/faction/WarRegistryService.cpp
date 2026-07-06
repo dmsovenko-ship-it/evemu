@@ -190,15 +190,12 @@ PyResult WarRegistryBound::DeclareWarAgainst(PyCallArgs& args, PyInt* againstID)
     // Create a bill for the war (weekly maintenance)
     uint32 billID = 0;
     double billAmount = warCost * 0.25; // 25% of declaration cost per week
-    double dueTime = GetFileTimeNow() + 7 * 24 * 60 * 60 * 10000000LL; // 1 week in Win32 FILETIME
+    double dueTime = (double)(GetFileTimeNow() + 7LL * 24LL * 60LL * 60LL * 10000000LL); // 1 week in Win32 FILETIME
     DBerror dberr;
-    if (sDatabase.RunQuery(dberr,
+    sDatabase.RunQueryLID(dberr, billID,
         "INSERT INTO billsPayable (billTypeID, debtorID, creditorID, amount, dueDateTime, interest, externalID, externalID2, paid) "
         "VALUES (%u, %u, 1, %.2f, %.0f, 0, %u, 0, 0)",
-        Corp::BillType::WarBill, attackerID, billAmount, dueTime, warID))
-    {
-        billID = sDatabase.GetLastInsertID();
-    }
+        Corp::BillType::WarBill, attackerID, billAmount, dueTime, warID);
 
     // Update war record with billID
     sDatabase.RunQuery(dberr,
@@ -229,24 +226,21 @@ PyResult WarRegistryBound::GetCostOfWarAgainst(PyCallArgs& args, PyInt* ownerID)
 
 uint32 WarRegistryBound::CreateWarRecord(uint32 declaredByID, uint32 againstID) {
     DBerror err;
-    DBQueryResult res;
-    uint64 now = GetFileTimeNow();
-    sDatabase.RunQuery(err,
+    uint32 warID = 0;
+    double now = (double)GetFileTimeNow();
+    sDatabase.RunQueryLID(err, warID,
         "INSERT INTO warRegistry (declaredByID, againstID, timeDeclared, mutual) "
-        "VALUES (%u, %u, %.0f, 0)", declaredByID, againstID, (double)now);
-
-    // Get the auto-generated warID
-    uint32 warID = (uint32)sDatabase.GetLastInsertID();
+        "VALUES (%u, %u, %.0f, 0)", declaredByID, againstID, now);
 
     _log(FACWAR__TRACE, "WarRegistryBound::CreateWarRecord() - created war %u", warID);
     return warID;
 }
 
 void WarRegistryBound::EndWar(uint32 warID, uint32 retractedBy) {
-    uint64 now = GetFileTimeNow();
+    double now = (double)GetFileTimeNow();
     DBerror err;
     sDatabase.RunQuery(err,
         "UPDATE warRegistry SET retracted = %.0f, retractedBy = %u, timeFinished = %.0f "
         "WHERE warID = %u",
-        (double)now, retractedBy, (double)now, warID);
+        now, retractedBy, now, warID);
 }
