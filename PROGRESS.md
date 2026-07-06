@@ -1,6 +1,6 @@
 # EVEmu Crucible — Project Status
 
-> Last updated: 2026-07-05 (epic arcs + encounter + warp bonuses session)
+> Last updated: 2026-07-06 (missions, epic arcs, COSMOS, career, faction warfare, LP store, research, tutorial, anomaly respawn, customs NPC)
 > Based on codebase analysis of [dmsovenko-ship-it/evemu](https://github.com/dmsovenko-ship-it/evemu) (fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible))
 
 ---
@@ -245,6 +245,9 @@
 | CONCORD | ✅ Working | |
 | Bounty / sec status | ✅ Working | |
 | NPC spawn / respawn | ✅ Working | Anomaly and belt spawners |
+| Customs police NPC | ✅ Added | Faction-specific police (group 446) spawn near contraband runner |
+| Customs NPC faction mapping | ✅ Added | Caldari (19367), Amarr (19371), Gallente (19369), Minmatar (19370) |
+| Customs NPC corp fallback | ✅ Added | Falls back to CONCORD (1000125) if faction corp not found |
 
 ### Drones (NPC)
 
@@ -279,7 +282,9 @@
 | CmdJumpThroughFleet | ✅ Added | Full implementation — portal lookup, fleet validation, fuel calc, CynoJump |
 | CmdJumpThroughAlliance | ✅ Added | Full implementation — portal lookup, alliance validation, fuel calc, CynoJump |
 | CmdJumpThroughCorporationStructure | ✅ Enhanced | Distance-based fuel, jump range check via AttrJumpDriveRange |
+| CmdBridgeToMember | ✅ Enhanced | Auto-activates portal via OpenBridge() if not already active |
 | Module online broadcast | ✅ Added | SetOnline() sends OnMultiEvent to all clients in bubble |
+| Cloak stay-active fix | ✅ Fixed | Skip --m_repeat auto-stop for Cloaking_Device group |
 | Probe launcher | ✅ Working | ProbeLauncher |
 | Rigs | ✅ Working | RigModule |
 | Subsystems (T3) | ✅ Working | SubSystemModule |
@@ -338,11 +343,19 @@
 |---------|--------|-------|
 | Agent missions (Courier) | ✅ Working | Basic courier, cargo delivery |
 | Agent missions (Mining) | ✅ Working | Mining mission offers |
-| Agent missions (Encounter) | ⚠️ Partial | EncounterSpawnServer registered, NPC spawning works, no dungeon rooms |
+| Agent missions (Encounter) | ✅ Working | EncounterSpawnServer — full NPC spawning, activate/deactivate |
 | Agent missions (Storyline) | ✅ Added | 144 missions (qstEncounter + qstCourier typeID=8), CreateMissionOffer handles Storyline |
+| Agent missions (Distribution) | ✅ Added | Distribution missions via agent type |
+| Agent missions (Mining) — full | ✅ Added | Mining mission offers with rewards |
 | Encounter NPC spawning | ✅ Added | Pirate NPCs by faction: Guristas/Angel/Serpentis/Blood/Sansha/Rogue Drone |
-| Encounter despawn | ✅ Added | Clean removal of spawned entities |
+| Encounter despawn | ✅ Added | Clean removal of spawned entities on deactivate |
 | `encounterSpawnServer` service | ✅ Added | GetMyEncounters, RequestActivate, RequestDeactivate — all work |
+| Agent dialog (accept/complete/decline) | ✅ Working | Full mission lifecycle |
+| Agent dialog — Epic Arc Start button (ID=100) | ✅ Added | Shows for epic arc starting agents |
+| Agent DB query handling | ✅ Enhanced | Multiple agentTypes: 1/2/3/4/5/6/7/8 |
+| Agent `GetMyJournalDetails` | ✅ Enhanced | Returns mission state, timer data |
+| Storyline faction selection | ✅ Added | `CmdOfferMission` validates faction for storyline |
+| Storyline derived standings | ✅ Added | Faction/Corp standing adjustments on storyline completion |
 
 ### Epic Arcs
 
@@ -352,11 +365,52 @@
 | The Blood-Stained Stars | ✅ Added | 58 agtMissions (80000-80057), 7 chapters |
 | Branching (Chapter 4) | ✅ Added | Two paths: Queen tracking vs Blood route |
 | Branching (Chapter 7) | ✅ Added | Four commander choices (Amarr/Caldari/Gallente/Minmatar) |
-| Agent dialog | ✅ Added | EpicArcStart button (ID=100) for arc agents |
+| Agent dialog — EpicArcStart | ✅ Added | Button ID=100 for arc agents, GetPendingMissions integration |
 | Mission chain | ✅ Added | Next mission offered on Complete; auto-advance |
 | Final reward (+0.7 standing) | ✅ Added | Applied via SaveStandingChanges, scaled by Social skill, no derived penalties |
 | 90-day cooldown | ✅ Added | CanStartArc checks dateCompleted |
 | GetMyEpicJournalDetails | ✅ Added | Returns real arc state data |
+| GetAgentMissionState | ✅ Enhanced | Handles epic arc mission state lookup |
+| CreateMissionOffer for arc agents | ✅ Added | EpicArcStart → CreateMissionOffer = first mission |
+| Arc completion + cleanup | ✅ Added | CompleteArc sets dateCompleted, clears state |
+
+### COSMOS Missions
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| COSMOS agents | ✅ Added | 42 agents across all factions |
+| COSMOS mission data | ✅ Added | Items, rewards, locations per agent |
+| COSMOS lowsec items | ✅ Added | 13 agent-specific items |
+| COSMOS Caldari arc | ✅ Added | 10-mission chain |
+| COSMOS Amarr arc | ✅ Added | 10-mission chain |
+| COSMOS Gallente arc | ✅ Added | 4-mission chain (Basic + 3 advanced) |
+| COSMOS Angel arc | ✅ Added | 12-mission chain |
+| COSMOS Blood arc | ✅ Added | 10-mission chain |
+| COSMOS Pirate agents | ✅ Added | Serpentis, Guristas, Sansha — gate/officer agents |
+| COSMOS Ani (artifact) missions | ✅ Added | Exploration items, cultural artifacts |
+
+### Career Agents
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Career agent data | ✅ Added | 29 career agents across 4 factions |
+| Career mission data | ✅ Added | All career mission steps with items/rewards |
+| Career chains | ✅ Added | 4 career paths per faction with sequential progression |
+| Aura tutorial | ✅ Added | Starting tutorial with station navigation steps |
+
+### Faction Warfare
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Faction warfare system | ✅ Added | FW data, faction standings, militia joins |
+| FW mission anomalies | ✅ Added | `AddFWAnomaly`/`RemoveFWAnomaly` in AnomalyMgr — visible on scanner |
+
+### LP Store
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| LP Store data | ✅ Added | All loyalty point store offers per corporation |
+| LP Store offers | ✅ Added | Items grouped by corp with LP/ISK requirements |
 
 ## Implant & Booster Effects
 
@@ -388,6 +442,48 @@
 | Missile launchers | ✅ Supported | All missile groups including T2 variants |
 | Capacitor boosters | ✅ Supported | Capacitor_Booster_Charge(87) |
 
+## Anomaly System
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Cosmic Anomalies (combat sites) | ✅ Working | Visible on scanner without probes |
+| Signatures (Grav/Mag/Radar/Ladar) | ✅ Working | Probable signatures |
+| Site respawn after expiry | ✅ Added | QueueRespawn re-queues type for respawn after cleanup |
+| FW mission anomaly visibility | ✅ Added | `AddFWAnomaly`/`RemoveFWAnomaly` — Faction Warfare missions visible on scanner |
+| Multiple site types per system | ✅ Working | Variety of types up to system max |
+
+## Tutorial
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Aura tutorial (station navigation) | ✅ Added | Starting tutorial steps — dock, open windows, undock |
+| Tutorial Goodies service | ✅ Added | `TutorialLocationService::GiveTutorialGoodies` — starting items/ships at step milestones |
+| Career agents — all factions | ✅ Added | 29 career agents, 4 paths per faction, sequential mission chains |
+
+## Research Agents
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Research agent data | ✅ Added | 21 research agents across all empires |
+| Research fields per agent | ✅ Added | Tech fields mapped to agents |
+| Research level/quality | ✅ Added | Agent level, quality, and field assignments |
+
+## Faction Warfare
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Faction militia join | ✅ Added | FW faction assignments |
+| FW standings | ✅ Added | Faction standing checks for militia |
+| FW mission anomalies | ✅ Added | Visible on scanner via AnomalyMgr |
+
+## LP Store
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| LP Store offers per corp | ✅ Added | All offers with item ID, LP cost, ISK cost |
+| LP offer groupings | ✅ Added | Multiple offers per corporation |
+| Market group fix | ✅ Added | `fix_market_group_null` migration for LP items |
+
 ## Other Systems
 
 | Feature | Status | Notes |
@@ -395,13 +491,12 @@
 | Station docking | ✅ Working | |
 | Stargate jumping | ✅ Working | |
 | Bookmarks | ✅ Working | |
-| Agent missions | ✅ Extended | Courier/Mining/Encounter/Storyline/EpicArc — full offer flow |
+| Agent missions | ✅ Extended | Courier/Mining/Encounter/Storyline/EpicArc/COSMOS/Career — full offer flow |
 | Wormholes | ✅ Working | Jump, mass, lifetime, visual states |
 | Sovereignty | ✅ Working | NPC corp sov data |
 | Market / orders | ✅ Working | Multi-region seeding |
 | Planetary interaction | ⚠️ Partial | Basic infrastructure |
 | POS (Player Owned Structures) | ✅ Working | Towers, modules, fuel |
-| Tutorial (Career Agents) | ⚠️ Partial | Basic service |
 | Skill training | ✅ Working | SP accumulation, skill queue |
 | Character creation | ✅ Working | Paperdoll, portrait upload |
 | Corp management | ✅ Working | |

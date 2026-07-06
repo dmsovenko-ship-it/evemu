@@ -169,6 +169,65 @@ Things to verify after recent changes. Check off each item as you confirm it wor
 - [ ] **Login near station** — Log out near a station, log back in. Ship should not get kicked 100km away.
 - [ ] **Multiple logins** — Repeat login/logout cycle 5+ times. Should be stable each time.
 
+## Missions
+
+- [ ] **Courier mission** — Accept a courier mission from an agent. Deliver cargo to destination station. Complete mission for reward.
+- [ ] **Encounter mission** — Accept a combat encounter mission. Activate it, fly to the encounter location. Kill the spawned NPCs. Complete mission.
+- [ ] **Mining mission** — Accept a mining mission. Mine required ore. Deliver to agent.
+- [ ] **Distribution mission** — Accept a distribution (delivery) mission. Deliver items to target station in the same region. Complete mission.
+- [ ] **Storyline mission** — Complete enough standard missions to trigger a storyline offer. Accept it, complete it. Should get derived standing adjustments.
+- [ ] **Mission completion flow** — After mission objectives are met, agent window should show "Complete" button. Clicking it should give reward (ISK + standing) and allow accepting next mission.
+- [ ] **Decline mission** — Agent offers a mission, click decline. Should not damage standing (Crucible behavior).
+- [ ] **Agent dialog** — Right-click an agent in station → Conversation. Should show mission offer if available. "Epic Arc Start" button should appear for epic arc agents.
+
+## Epic Arcs
+
+- [ ] **Start epic arc** — Go to the starting agent for "The Blood-Stained Stars" (e.g., Sister Alitura in Arnon). Conversation should show "Epic Arc Start" button. Click it to begin.
+- [ ] **Chapter progression** — Complete chapter missions. Next chapter should auto-offer (GetPendingMissions should show next agent).
+- [ ] **Branching choice (Ch 4)** — In Chapter 4, choose between tracking and Blood route. Chapter 5 missions should differ based on choice.
+- [ ] **Branching choice (Ch 7)** — In Chapter 7, choose a faction commander. Final mission should match.
+- [ ] **Final reward** — Complete the final arc mission. Should receive +0.7 faction standing (scaled by Social skill).
+- [ ] **Epic journal** — Open Epic Journal window. Should show arc progress, chapter status, mission counts.
+- [ ] **90-day cooldown** — After completing the arc, attempting to start again should fail with "cooldown active" message.
+- [ ] **Mission state persistence** — Log out mid-arc, log back in. Arc state should persist (GetMyEpicJournalDetails returns correct data).
+
+## Career Agents
+
+- [ ] **Career agent dialog** — Visit a career agent (e.g., Caldari Military). Should offer career path missions.
+- [ ] **Career progression** — Complete first career mission; next mission should auto-offer. Complete all 4 career paths.
+- [ ] **Career rewards** — After finishing career path, should receive rewards (ISK + items).
+- [ ] **Aura tutorial** — New character logs in for first time. Aura should prompt with tutorial steps.
+- [ ] **Tutorial goodies** — Complete tutorial steps. Should receive starting items/ships at milestones.
+
+## COSMOS Missions
+
+- [ ] **COSMOS agent availability** — Fly to a COSMOS agent station. Agent should offer missions.
+- [ ] **COSMOS Caldari arc** — Complete all 10 Caldari COSMOS missions in sequence.
+- [ ] **COSMOS Amarr arc** — Complete all 10 Amarr COSMOS missions.
+- [ ] **COSMOS Gallente arc** — Start with Basic, then proceed through 3 advanced missions.
+- [ ] **COSMOS pirate agents** — Find Serpentis/Guristas/Sansha COSMOS agents. Should offer missions.
+- [ ] **COSMOS artifact (Ani) missions** — Accept artifact recovery missions. Use exploration items to complete.
+
+## Research Agents
+
+- [ ] **Research agent dialog** — Visit a research agent. Conversation should show research offer.
+- [ ] **Start research** — Accept research. Should start accumulating research points per field.
+- [ ] **Research fields** — Agent should offer research in their assigned tech fields.
+
+## Faction Warfare
+
+- [ ] **Join militia** — Enlist in a faction militia. Should see FW standings update.
+- [ ] **FW mission anomalies** — After joining, FW mission anomalies should appear on scanner.
+
+## LP Store
+
+- [ ] **LP Store access** — Open LP Store (Nexus → Loyalty Point Store or via corp station service). Should show offers.
+- [ ] **LP Store items** — Items should display correct LP cost and ISK cost. (Cannot purchase — store is data-only without the client-side LP store service.)
+
+## Anomalies
+
+- [ ] **Site respawn after expiry** — Wait for anomaly to expire (~2 hours). New anomaly of the same type should respawn automatically. *(For testing: can temporarily reduce expiry timer in DungeonMgr::MakeDungeon.)*
+
 ## Stability
 
 - [ ] **No crash on combat** — Engage NPCs with modules active and drones out. Killing NPCs or having modules deactivate mid-combat should not crash the server.
