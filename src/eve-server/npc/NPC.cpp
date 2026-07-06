@@ -244,6 +244,11 @@ PyDict* NPC::MakeSlimItem()
     // Entity (11) NPC types have correct graphics but client expects Ship-format destiny data.
     slim->SetItemString("categoryID",      new PyInt(6));
     slim->SetItemString("groupID",         new PyInt(m_self->groupID()));
+    slim->SetItemString("charID",          PyStatic.NewNone());
+    slim->SetItemString("bounty",          new PyLong(0));
+    slim->SetItemString("securityStatus",  new PyFloat(0.0));
+    // Empty module list for hi-slot (required for Ship-category slim items)
+    slim->SetItemString("modules",         new PyList());
     return slim;
 }
 
