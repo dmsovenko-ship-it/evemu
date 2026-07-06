@@ -891,10 +891,6 @@ PyRep* ModuleManager::ModuleRepair(uint32 modID)
     return PyStatic.NewTrue();
 }
 
-    //return PyStatic.NewTrue();  // can repair
-    return PyStatic.NewFalse(); // cannot repair (for whatever reason)  do they/we send msgs based on why here?
-}
-
 void ModuleManager::StopModuleRepair(uint32 modID)
 {
     GenericModule* pMod = GetModule(modID);
