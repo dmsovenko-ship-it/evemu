@@ -3280,6 +3280,8 @@ void Client::FlushPendingDestinyUpdates() {
         dum.updates = new PyList();
         dum.waitForBubble = m_bubbleWait;
     for (auto update : m_pendingUpdates) {
+        if (update == nullptr)
+            continue;
         DoDestinyAction act;
             act.stamp = sEntityList.GetStamp();
             act.update = update;
