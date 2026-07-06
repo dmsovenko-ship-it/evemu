@@ -342,10 +342,10 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
         // Fallback: map Entity groupID ranges to pirate factions
         if (corpID == 0) {
             uint16 gID = objType.groupID;
-            if      ((gID >= 550 && gID <= 576) || gID == 575) { factionID = factionAngelCartel; }
-            else if ((gID >= 555 && gID <= 558) || gID == 577 || gID == 578) { factionID = factionBloodRaiders; }
+            if      ((gID >= 550 && gID <= 554) || gID == 575 || gID == 576) { factionID = factionAngel; }
+            else if ((gID >= 555 && gID <= 558) || gID == 577 || gID == 578) { factionID = factionBloodRaider; }
             else if ((gID >= 560 && gID <= 563) || gID == 579 || gID == 580) { factionID = factionGuristas; }
-            else if ((gID >= 565 && gID <= 568) || gID == 581 || gID == 582) { factionID = factionSanshasNation; }
+            else if ((gID >= 565 && gID <= 568) || gID == 581 || gID == 582) { factionID = factionSanshas; }
             else if ((gID >= 570 && gID <= 573) || gID == 583 || gID == 584) { factionID = factionSerpentis; }
             else if (gID >= 755 && gID <= 761) { factionID = factionRogueDrones; }
             if (factionID != 0)
