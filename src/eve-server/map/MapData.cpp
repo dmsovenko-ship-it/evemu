@@ -185,6 +185,9 @@ void MapData::GetMissionDestination(Agent* pAgent, uint8 misionType, MissionOffe
                 }
             } else if (ship) {
                 ;  // code here for agent in ship
+            } else {
+                // Encounter/Mining/Storyline - destination is the solar system
+                offer.destinationID = systemID;
             }
         } break;
 
@@ -220,6 +223,13 @@ void MapData::GetMissionDestination(Agent* pAgent, uint8 misionType, MissionOffe
         } break;
         case NearestCareerHub: {    //12
         } break;
+        default: {
+        } break;
+    }
+
+    // Fallback for non-station, non-ship missions (Encounter/Mining/etc.)
+    if ((offer.destinationID == 0) and !station and !ship) {
+        offer.destinationID = pAgent->GetSystemID();
     }
 
     if (sDataMgr.IsStation(offer.destinationID)) {
