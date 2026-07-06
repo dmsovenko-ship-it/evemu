@@ -194,6 +194,13 @@ SET( contract_SOURCE
      "${TARGET_SOURCE_DIR}/contract/ContractProxy.cpp"
      "${TARGET_SOURCE_DIR}/contract/ContractUtils.cpp" )
 
+SET( incursion_INCLUDE
+     "${TARGET_INCLUDE_DIR}/incursion/IncursionService.h"
+     "${TARGET_INCLUDE_DIR}/incursion/IncursionMgr.h" )
+SET( incursion_SOURCE
+     "${TARGET_SOURCE_DIR}/incursion/IncursionService.cpp"
+     "${TARGET_SOURCE_DIR}/incursion/IncursionMgr.cpp" )
+
 SET( corporation_INCLUDE
      "${TARGET_INCLUDE_DIR}/corporation/BillMgr.h"
      "${TARGET_INCLUDE_DIR}/corporation/CorpBookmarkMgr.h"
@@ -666,6 +673,7 @@ SOURCE_GROUP( "src\\character"     FILES ${character_INCLUDE} )
 SOURCE_GROUP( "src\\chat"          FILES ${chat_INCLUDE} )
 SOURCE_GROUP( "src\\config"        FILES ${config_INCLUDE} )
 SOURCE_GROUP( "src\\contract"      FILES ${contract_INCLUDE} )
+SOURCE_GROUP( "src\\incursion"     FILES ${incursion_INCLUDE} )
 SOURCE_GROUP( "src\\corporation"   FILES ${corporation_INCLUDE} )
 SOURCE_GROUP( "src\\dogmaim"       FILES ${dogmaim_INCLUDE} )
 SOURCE_GROUP( "src\\dungeon"       FILES ${dungeon_INCLUDE} )
@@ -705,6 +713,7 @@ SOURCE_GROUP( "src\\character"     FILES ${character_SOURCE} )
 SOURCE_GROUP( "src\\chat"          FILES ${chat_SOURCE} )
 SOURCE_GROUP( "src\\config"        FILES ${config_SOURCE} )
 SOURCE_GROUP( "src\\contract"      FILES ${contract_SOURCE} )
+SOURCE_GROUP( "src\\incursion"     FILES ${incursion_SOURCE} )
 SOURCE_GROUP( "src\\corporation"   FILES ${corporation_SOURCE} )
 SOURCE_GROUP( "src\\dogmaim"       FILES ${dogmaim_SOURCE} )
 SOURCE_GROUP( "src\\dungeon"       FILES ${dungeon_SOURCE} )
@@ -746,6 +755,7 @@ ADD_EXECUTABLE( "${TARGET_NAME}"
                 ${config_INCLUDE}         ${config_SOURCE}
                 ${contract_INCLUDE}       ${contract_SOURCE}
                 ${corporation_INCLUDE}    ${corporation_SOURCE}
+                ${incursion_INCLUDE}      ${incursion_SOURCE}
                 ${dogmaim_INCLUDE}        ${dogmaim_SOURCE}
                 ${dungeon_INCLUDE}        ${dungeon_SOURCE}
                 ${effects_INCLUDE}        ${effects_SOURCE}
