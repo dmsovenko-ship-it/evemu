@@ -941,12 +941,21 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
 PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
 {
     // set mission objectiveData based on mission type.
+    uint32 destSysID = offer.destinationSystemID;
+    if (destSysID == 0) {
+        destSysID = m_agent->GetSystemID();
+    }
     PyDict* dropoffLocation = new PyDict();
     if (sDataMgr.IsStation(offer.destinationID)) {
         dropoffLocation->SetItemString("typeID", new PyInt(offer.destinationTypeID) );
         dropoffLocation->SetItemString("locationID", new PyInt(offer.destinationID) );
-        dropoffLocation->SetItemString("solarsystemID", new PyInt(offer.destinationSystemID) );
+        dropoffLocation->SetItemString("locationType", new PyNone());
+        dropoffLocation->SetItemString("solarsystemID", new PyInt(destSysID) );
     } else {
+        dropoffLocation->SetItemString("typeID", new PyInt(offer.destinationTypeID) );
+        dropoffLocation->SetItemString("locationID", new PyInt(destSysID) );
+        dropoffLocation->SetItemString("locationType", new PyNone());
+        dropoffLocation->SetItemString("solarsystemID", new PyInt(destSysID) );
         dropoffLocation->SetItemString("shipTypeID", new PyInt(offer.destinationTypeID) );
         dropoffLocation->SetItemString("agentID", new PyInt(offer.destinationOwnerID) );
         // get agent in space location and set here
@@ -965,6 +974,7 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
             PyDict* pickupLocation = new PyDict();
                 pickupLocation->SetItemString("typeID", new PyInt(m_agent->GetLocTypeID()) );
                 pickupLocation->SetItemString("locationID", new PyInt(offer.originID) );
+                pickupLocation->SetItemString("locationType", new PyNone());
                 pickupLocation->SetItemString("solarsystemID", new PyInt(offer.originSystemID) );
             PyDict* cargo = new PyDict();
                 cargo->SetItemString("hasCargo", new PyBool(pClient->ContainsTypeQty(offer.courierTypeID, offer.courierAmount)));
