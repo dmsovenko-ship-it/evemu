@@ -1,13 +1,10 @@
 -- COMPREHENSIVE FIX: anomaly NPCs + dungeon rooms + groupIDs
 -- Run this ONCE after base DB install
 
--- 1. Remove bad schema_migrations entries that block new migrations
-DELETE FROM schema_migrations WHERE version IN (20260706000001, 20260705000037);
+-- Create dungeon records for anomaly rooms (rooms 2000-2093)
+-- These connect dunDungeons -> dunRooms -> dunRoomObjects via INNER JOIN
 
--- 2. Create dungeon records for anomaly rooms (rooms 2000-2093)
---    These connect dunDungeons -> dunRooms -> dunRoomObjects via INNER JOIN
-
--- Ensure dunDungeons table exists
+-- Ensure dunDungeons table exists (if not already created by previous migrations)
 CREATE TABLE IF NOT EXISTS `dunDungeons` (
   `dungeonID` int(10) NOT NULL DEFAULT '0',
   `dungeonName` text COLLATE utf8_unicode_ci,
@@ -18,7 +15,7 @@ CREATE TABLE IF NOT EXISTS `dunDungeons` (
   `createDateTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
--- Ensure dunRooms table exists
+-- Ensure dunRooms table exists (if not already created by previous migrations)
 CREATE TABLE IF NOT EXISTS `dunRooms` (
   `roomID` int(10) NOT NULL DEFAULT '0',
   `roomName` text COLLATE utf8_unicode_ci,
@@ -176,6 +173,30 @@ INSERT IGNORE INTO `dunRoomObjects` (`roomID`, `typeID`, `groupID`, `x`, `y`, `z
 (2092,33101,0,0,0,1500),(2092,33102,0,1500,0,-750),(2092,33103,0,-1500,0,0),(2092,33102,0,0,0,-3000),(2092,33101,0,2500,0,0),(2092,33103,0,-2500,0,0),(2092,33102,0,0,3000,0),(2092,33100,0,0,-3000,0),
 (2093,33100,0,0,0,1500),(2093,33101,0,1500,0,-750),(2093,33102,0,-1500,0,0),(2093,33103,0,0,0,-3000),(2093,33103,0,2500,0,0),(2093,33102,0,-2500,0,0),(2093,33101,0,0,3000,0),(2093,33100,0,0,-3000,0),(2093,33103,0,3000,1500,0),(2093,33102,0,-3000,-1500,0);
 
--- Mark schema_migrations so runner doesn't retry
-INSERT IGNORE INTO schema_migrations (version, dirty) VALUES (20260705000037, false);
-INSERT IGNORE INTO schema_migrations (version, dirty) VALUES (20260706000002, false);
+-- Update invTypes groupIDs to Ship/Drone categories
+--    Entity groups (catID=11) don't match the catID == Ship(6) || Drone(18) check
+--    Also set graphicID, radius, soundID to prevent client KeyError
+UPDATE invTypes SET groupID = 25,  graphicID = 1827, radius = 50,  soundID = 20073 WHERE typeID = 33001;
+UPDATE invTypes SET groupID = 26,  graphicID = 1823, radius = 150, soundID = 20073 WHERE typeID = 33002;
+UPDATE invTypes SET groupID = 27,  graphicID = 2158, radius = 350, soundID = 20073 WHERE typeID = 33003;
+UPDATE invTypes SET groupID = 419, graphicID = 1825, radius = 250, soundID = 20073 WHERE typeID = 33004;
+UPDATE invTypes SET groupID = 25,  graphicID = 342,  radius = 50,  soundID = 20073 WHERE typeID = 33020;
+UPDATE invTypes SET groupID = 26,  graphicID = 337,  radius = 150, soundID = 20073 WHERE typeID = 33021;
+UPDATE invTypes SET groupID = 27,  graphicID = 335,  radius = 350, soundID = 20073 WHERE typeID = 33022;
+UPDATE invTypes SET groupID = 419, graphicID = 336,  radius = 250, soundID = 20073 WHERE typeID = 33023;
+UPDATE invTypes SET groupID = 25,  graphicID = 1821, radius = 50,  soundID = 20073 WHERE typeID = 33040;
+UPDATE invTypes SET groupID = 26,  graphicID = 1812, radius = 150, soundID = 20073 WHERE typeID = 33041;
+UPDATE invTypes SET groupID = 27,  graphicID = 2156, radius = 350, soundID = 20073 WHERE typeID = 33042;
+UPDATE invTypes SET groupID = 419, graphicID = 1813, radius = 250, soundID = 20073 WHERE typeID = 33043;
+UPDATE invTypes SET groupID = 25,  graphicID = 1766, radius = 50,  soundID = 20073 WHERE typeID = 33060;
+UPDATE invTypes SET groupID = 26,  graphicID = 1760, radius = 150, soundID = 20073 WHERE typeID = 33061;
+UPDATE invTypes SET groupID = 27,  graphicID = 2121, radius = 350, soundID = 20073 WHERE typeID = 33062;
+UPDATE invTypes SET groupID = 419, graphicID = 1758, radius = 250, soundID = 20073 WHERE typeID = 33063;
+UPDATE invTypes SET groupID = 25,  graphicID = 1237, radius = 50,  soundID = 20073 WHERE typeID = 33080;
+UPDATE invTypes SET groupID = 26,  graphicID = 1236, radius = 150, soundID = 20073 WHERE typeID = 33081;
+UPDATE invTypes SET groupID = 27,  graphicID = 2295, radius = 350, soundID = 20073 WHERE typeID = 33082;
+UPDATE invTypes SET groupID = 419, graphicID = 2289, radius = 250, soundID = 20073 WHERE typeID = 33083;
+UPDATE invTypes SET groupID = 100, graphicID = 2078, radius = 50,  soundID = 20073 WHERE typeID = 33100;
+UPDATE invTypes SET groupID = 100, graphicID = 2078, radius = 150, soundID = 20073 WHERE typeID = 33101;
+UPDATE invTypes SET groupID = 100, graphicID = 2078, radius = 350, soundID = 20073 WHERE typeID = 33102;
+UPDATE invTypes SET groupID = 100, graphicID = 2078, radius = 250, soundID = 20073 WHERE typeID = 33103;
