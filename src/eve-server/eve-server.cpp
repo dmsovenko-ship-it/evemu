@@ -181,6 +181,7 @@
 // cosmic managers
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/CivilianMgr.h"
+#include "incursion/IncursionMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "system/cosmicMgrs/SpawnMgr.h"
 #include "system/cosmicMgrs/WormholeMgr.h"
@@ -796,6 +797,9 @@ int main( int argc, char* argv[] )
         sLog.Warning(" Wormhole Manager", "Wormhole Manager Disabled.");
     }
     std::printf("\n");     // spacer
+
+    sLog.Green(" Incursion Manager", "Incursion Manager Enabled.");
+    sIncursionMgr.Process(); // trigger singleton creation
 
     // Create In-Memory Database Objects for Critical and High-Use Systems:
     sLog.Yellow("       ServerInit", "Loading Static Database Table Objects...");
