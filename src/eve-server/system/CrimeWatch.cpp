@@ -121,6 +121,9 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     if (!sConfig.crime.Enabled)
         return;
 
+    uint32 attackerID = m_client->GetCharacterID();
+    uint32 victimID = pTarget->GetCharacterID();
+
     // Check legal attack conditions FIRST — before aggression timer or any flags
     // (sentries check IsAggressed/IsCriminal, so these must be checked first)
     {
@@ -132,8 +135,6 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
             return;
         // Check if attacker has a free Kill Right against the target
         DBQueryResult krRes;
-        uint32 attackerID = m_client->GetCharacterID();
-        uint32 victimID = pTarget->GetCharacterID();
         if (sDatabase.RunQuery(krRes,
             " SELECT rightID, price FROM chrKillRights "
             " WHERE ownerID = %u AND targetID = %u AND used = 0 AND expiryDate > %lli",
@@ -148,6 +149,36 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
                         pTarget->GetCrimeWatch()->SetLimitedEngagement();
                     return;
                 }
+            }
+        }
+        // Check if attacker and target (or their corps) are at war
+        // War targets are legal everywhere — no CONCORD, no sentries, no criminal flag
+        DBQueryResult warRes;
+        if (sDatabase.RunQuery(warRes,
+            "SELECT warID FROM warRegistry "
+            "WHERE retracted = 0 AND timeFinished = 0 "
+            "AND ((declaredByID = %u AND againstID = %u) "
+            "     OR (declaredByID = %u AND againstID = %u))",
+            m_client->GetCorporationID(), pTarget->GetCorporationID(),
+            pTarget->GetCorporationID(), m_client->GetCorporationID()))
+        {
+            DBResultRow warRow;
+            if (warRes.GetRow(warRow))
+                return; // at war — legal attack, no flags
+        }
+        // Also check alliance-level wars
+        if (m_client->GetAllianceID() != 0 && pTarget->GetAllianceID() != 0) {
+            if (sDatabase.RunQuery(warRes,
+                "SELECT warID FROM warRegistry "
+                "WHERE retracted = 0 AND timeFinished = 0 "
+                "AND ((declaredByID = %u AND againstID = %u) "
+                "     OR (declaredByID = %u AND againstID = %u))",
+                m_client->GetAllianceID(), pTarget->GetAllianceID(),
+                pTarget->GetAllianceID(), m_client->GetAllianceID()))
+            {
+                DBResultRow warRow;
+                if (warRes.GetRow(warRow))
+                    return; // alliance war — legal attack, no flags
             }
         }
     }
