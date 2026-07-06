@@ -766,7 +766,7 @@ PyRep *ObjCacheDB::Generate_invTypes()
             dbCount = row.GetUInt(0);
     }
     PyRep* result = DBResultToCRowset(res);
-    _log(CACHE__INFO, "Generate_invTypes: DB has %u typeIDs, CRowset generated", dbCount);
+    sLog.Warning("Generate_invTypes", "DB has %u typeIDs, CRowset generated", dbCount);
     return result;
 }
 
