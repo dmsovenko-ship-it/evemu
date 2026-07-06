@@ -465,20 +465,9 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID)
         return;
     pBubble->SetIncursion();
 
-    // Use Sansha incursion NPC typeIDs based on difficulty
-    // 10025=Sansha Frigate, 10030=Sansha Cruiser, 11913=Sansha BS, 23383=Sansha BC
-    std::vector<uint16> incursionTypes;
-    uint8 level = GetRandLevel();
-    if (level < 3) {
-        incursionTypes = {10025, 10030, 10030, 10025};
-    } else if (level < 5) {
-        incursionTypes = {10030, 11913, 10030, 11913};
-    } else {
-        incursionTypes = {11913, 23383, 11913, 23383};
-    }
-
-    GPoint spawnPos = pBubble->GetPosition();
-    spawnPos.MakeRandomPointOnSphere(500.0);
+    // Sansha incursion NPCs: mix of frigates, cruisers, battleships
+    uint16 typeIDs[] = {10025, 10030, 11913, 10030, 10025, 11913, 23383, 10030};
+    GPoint basePos(MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000));
 
     uint32 factionID = factionSanshas;
     uint32 corpID = sDataMgr.GetFactionCorp(factionID);
@@ -489,10 +478,13 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID)
         data.factionID = factionID;
         data.ownerID = corpID;
 
-    for (uint16 typeID : incursionTypes) {
-        spawnPos.MakeRandomPointOnSphere(500.0);
-        ItemData idata(typeID, corpID, m_system->GetID(), flagNone, "",
-                       m_system->GetPosition() + spawnPos, sDataMgr.GetTypeName(typeID));
+    for (uint16 typeID : typeIDs) {
+        GPoint spawnPos(basePos.x + MakeRandomFloat(-500, 500),
+                        basePos.y + MakeRandomFloat(-500, 500),
+                        basePos.z + MakeRandomFloat(-500, 500));
+
+        ItemData idata(typeID, corpID, m_system->GetID(), flagNone, "", spawnPos,
+                       sDataMgr.GetTypeName(typeID));
 
         InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
         if (iRef.get() == nullptr)
@@ -505,10 +497,9 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID)
         }
 
         m_system->AddNPC(pNPC);
-        pNPC->DestinyMgr()->SetPosition(iRef->position());
     }
 
-    _log(SPAWN__MESSAGE, "DoSpawnForIncursion - Spawned %zu Sansha ships in bubble", incursionTypes.size());
+    _log(SPAWN__MESSAGE, "DoSpawnForIncursion - Spawned Sansha NPCs in bubble");
 }
 
 void SpawnMgr::DoSpawnForMission(SystemBubble* pBubble, uint32 regionID)
