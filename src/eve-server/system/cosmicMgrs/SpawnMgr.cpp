@@ -321,6 +321,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
     SpawnGroup group;
     group.quantity = 1;
     group.typeID = typeID;
+    m_toSpawn.push_back(group);
 
     if (m_toSpawn.size() > 0) {
         if (is_log_enabled(SPAWN__MESSAGE)) {
