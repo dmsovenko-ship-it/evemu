@@ -758,7 +758,16 @@ PyRep *ObjCacheDB::Generate_invTypes()
         _log(DATABASE__ERROR, "Error in query for cached object 'config.BulkData.types': %s", res.error.c_str());
         return nullptr;
     }
-    return DBResultToCRowset(res);
+    uint32 dbCount = 0;
+    DBQueryResult resCount;
+    if (sDatabase.RunQuery(resCount, "SELECT COUNT(*) FROM invTypes")) {
+        DBResultRow row;
+        if (resCount.GetRow(row))
+            dbCount = row.GetUInt(0);
+    }
+    PyRep* result = DBResultToCRowset(res);
+    _log(CACHE__INFO, "Generate_invTypes: DB has %u typeIDs, CRowset generated", dbCount);
+    return result;
 }
 
 PyRep *ObjCacheDB::Generate_invMetaTypes()
