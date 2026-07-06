@@ -18,6 +18,9 @@
 #include "system/SystemBubble.h"
 #include "system/cosmicMgrs/SpawnMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
+#include "incursion/IncursionMgr.h"
+#include "EVE_Incursion.h"
+#include "EVE_Corp.h"
 
 /** @todo  this can be updated to spawn mission, anomaly and deadspace rats.
  *   change all *roidRat* to *somethingelse* to better explain/describe the maps and how they're used.
@@ -293,7 +296,19 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
          */
     } else if (pBubble->IsIncursion()) {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Incursion - called by %u.", itemID);
-        // placeholder - not coded yet.
+        // All NPCs killed — reward and update influence
+        DBQueryResult incRes;
+        if (sDatabase.RunQuery(incRes,
+            "SELECT incursionID FROM incursions WHERE regionID = %u AND state > 0",
+            m_system->GetRegionID()))
+        {
+            DBResultRow incRow;
+            if (incRes.GetRow(incRow)) {
+                uint32 incursionID = incRow.GetUInt(0);
+                sIncursionMgr.OnSiteCompleted(incursionID, m_system->GetID(),
+                    Incursion::scenesType::vanguard);
+            }
+        }
     } else {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Other - called by %u.", itemID);
         RemoveSpawn(pBubble->GetID(), itemID);
@@ -449,7 +464,51 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID)
     if (!IsRegionID(regionID))
         return;
     pBubble->SetIncursion();
-    // unknown parameters at this time
+
+    // Use Sansha incursion NPC typeIDs based on difficulty
+    // 10025=Sansha Frigate, 10030=Sansha Cruiser, 11913=Sansha BS, 23383=Sansha BC
+    std::vector<uint16> incursionTypes;
+    uint8 level = GetRandLevel();
+    if (level < 3) {
+        incursionTypes = {10025, 10030, 10030, 10025};
+    } else if (level < 5) {
+        incursionTypes = {10030, 11913, 10030, 11913};
+    } else {
+        incursionTypes = {11913, 23383, 11913, 23383};
+    }
+
+    GPoint spawnPos = pBubble->GetPosition();
+    spawnPos.MakeRandomPointOnSphere(500.0);
+
+    uint32 factionID = factionSanshas;
+    uint32 corpID = sDataMgr.GetFactionCorp(factionID);
+
+    FactionData data = FactionData();
+        data.allianceID = factionID;
+        data.corporationID = corpID;
+        data.factionID = factionID;
+        data.ownerID = corpID;
+
+    for (uint16 typeID : incursionTypes) {
+        spawnPos.MakeRandomPointOnSphere(500.0);
+        ItemData idata(typeID, corpID, m_system->GetID(), flagNone, "",
+                       m_system->GetPosition() + spawnPos, sDataMgr.GetTypeName(typeID));
+
+        InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+        if (iRef.get() == nullptr)
+            continue;
+
+        NPC* pNPC = new NPC(iRef, m_services, m_system, data, this);
+        if (pNPC == nullptr || !pNPC->Load()) {
+            if (pNPC) pNPC->Delete();
+            continue;
+        }
+
+        m_system->AddNPC(pNPC);
+        pNPC->DestinyMgr()->SetPosition(iRef->position());
+    }
+
+    _log(SPAWN__MESSAGE, "DoSpawnForIncursion - Spawned %zu Sansha ships in bubble", incursionTypes.size());
 }
 
 void SpawnMgr::DoSpawnForMission(SystemBubble* pBubble, uint32 regionID)
