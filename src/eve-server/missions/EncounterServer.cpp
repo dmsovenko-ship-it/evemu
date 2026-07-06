@@ -13,12 +13,12 @@
 #include "EVE_Agent.h"
 
 // Pirate NPC typeIDs for encounter missions
-static const std::vector<uint32> s_guristasNPCs = { 5832, 5833, 5834, 5835 };
-static const std::vector<uint32> s_angelNPCs    = { 5861, 5862, 5863, 5864 };
-static const std::vector<uint32> s_serpentisNPCs= { 5878, 5879, 5880, 5881 };
-static const std::vector<uint32> s_bloodRaiderNPCs = { 5891, 5892, 5893, 5894 };
-static const std::vector<uint32> s_sanshaNPCs   = { 5905, 5906, 5907, 5908 };
-static const std::vector<uint32> s_rogueDroneNPCs = { 5911, 5912, 5913, 5914 };
+static const std::vector<uint32> s_guristasNPCs = { 33001, 33002, 33003, 33004 };
+static const std::vector<uint32> s_angelNPCs    = { 33020, 33021, 33022, 33023 };
+static const std::vector<uint32> s_serpentisNPCs= { 33040, 33041, 33042, 33043 };
+static const std::vector<uint32> s_bloodRaiderNPCs = { 33060, 33061, 33062, 33063 };
+static const std::vector<uint32> s_sanshaNPCs   = { 33080, 33081, 33082, 33083 };
+static const std::vector<uint32> s_rogueDroneNPCs = { 33100, 33101, 33102, 33103 };
 
 EncounterSpawnServer::EncounterSpawnServer()
 : Service("encounterSpawnServer"),
