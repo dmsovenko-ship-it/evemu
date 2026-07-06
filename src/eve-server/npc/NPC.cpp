@@ -242,8 +242,34 @@ PyDict* NPC::MakeSlimItem()
     slim->SetItemString("warFactionID",    IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
     // Override categoryID to Ship (6) so client parses destiny ball data correctly.
     // Entity (11) NPC types have correct graphics but client expects Ship-format destiny data.
+    // Also map Entity groupIDs to Ship groups so client renders the 3D model.
     slim->SetItemString("categoryID",      new PyInt(6));
-    slim->SetItemString("groupID",         new PyInt(m_self->groupID()));
+    {
+        // Map Entity ship groups to proper Ship groups for client model rendering
+        uint16 gID = m_self->groupID();
+        switch (gID) {
+            // Frigate groups -> 25
+            case 550: case 557: case 562: case 567: case 572: case 759:
+                gID = 25; break;
+            // Cruiser groups -> 26
+            case 551: case 555: case 561: case 566: case 571: case 757:
+                gID = 26; break;
+            // Battleship groups -> 27
+            case 552: case 556: case 560: case 565: case 570: case 756:
+                gID = 27; break;
+            // Battlecruiser groups -> 419
+            case 576: case 578: case 580: case 582: case 584: case 755:
+                gID = 419; break;
+            // Destroyer groups -> 420
+            case 575: case 579: case 581: case 583: case 577:
+                gID = 420; break;
+            // Hauler groups -> 28 (Industrial)
+            case 554: case 558: case 563: case 568: case 573: case 760:
+                gID = 28; break;
+            default: break;
+        }
+        slim->SetItemString("groupID",     new PyInt(gID));
+    }
     slim->SetItemString("charID",          PyStatic.NewNone());
     slim->SetItemString("bounty",          new PyLong(0));
     slim->SetItemString("securityStatus",  new PyFloat(0.0));
