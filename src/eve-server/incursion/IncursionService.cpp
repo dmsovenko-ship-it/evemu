@@ -1,7 +1,6 @@
 #include "eve-server.h"
 
 #include "incursion/IncursionService.h"
-#include "EVEDBUtils.h"
 
 IncursionService::IncursionService() :
     Service("incursion")
