@@ -132,6 +132,8 @@ public:
         float SentryCritChance;
         float DroneCritChance;
         float ConcordCritChance;
+        /// Cost to declare war against another corporation.
+        uint32 warCost;
     } rates;
 
     // from <market>

@@ -166,8 +166,8 @@ PyResult WarRegistryBound::DeclareWarAgainst(PyCallArgs& args, PyInt* againstID)
         }
     }
 
-    // Get war cost and check balance
-    double warCost = 50000000.0; // 50M ISK default (half of typical EVE cost for dev/testing)
+    // Get war cost from config
+    double warCost = sConfig.rates.warCost;
 
     if (args.client->GetBalance(Account::CreditType::ISK) < warCost) {
         args.client->SendErrorMsg("Insufficient funds to declare war.");
@@ -220,8 +220,7 @@ PyResult WarRegistryBound::ChangeMutualWarFlag(PyCallArgs& args, PyInt* warID, P
 
 PyResult WarRegistryBound::GetCostOfWarAgainst(PyCallArgs& args, PyInt* ownerID) {
     _log(FACWAR__CALL, "WarRegistryBound::Handle_GetCostOfWarAgainst() size=%lli", args.tuple->size());
-    // Return fixed cost for now (50000000 ISK)
-    return new PyFloat(50000000.0);
+    return new PyFloat(static_cast<double>(sConfig.rates.warCost));
 }
 
 uint32 WarRegistryBound::CreateWarRecord(uint32 declaredByID, uint32 againstID) {
