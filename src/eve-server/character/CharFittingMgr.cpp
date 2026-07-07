@@ -26,9 +26,9 @@ PyResult CharFittingMgr::GetFittings(PyCallArgs &call, PyInt* ownerID) {
     while (res.GetRow(row)) {
         PyDict* entry = new PyDict();
         entry->SetItemString("fittingID", PyStatic.NewInt(row.GetUInt(0)));
-        entry->SetItemString("shipID", PyStatic.NewInt(row.GetUInt(1)));
+        entry->SetItemString("shipTypeID", PyStatic.NewInt(row.GetUInt(1)));
         entry->SetItemString("shipDNA", new PyString(row.GetText(2)));
-        entry->SetItemString("fittingName", new PyString(row.GetText(3)));
+        entry->SetItemString("name", new PyString(row.GetText(3)));
         entry->SetItemString("description", new PyString(row.GetText(4)));
         fittings->AddItem(new PyObject("util.KeyVal", entry));
     }
@@ -41,9 +41,9 @@ PyResult CharFittingMgr::SaveFitting(PyCallArgs &call, PyInt* ownerID, PyObject*
     PyDict* fDict = fitting->arguments()->AsDict();
     if (fDict == nullptr) return PyStatic.NewZero();
 
-    PyRep* shipID_r = fDict->GetItemString("shipID");
+    PyRep* shipID_r = fDict->GetItemString("shipTypeID");
     PyRep* shipDNA_r = fDict->GetItemString("shipDNA");
-    PyRep* name_r = fDict->GetItemString("fittingName");
+    PyRep* name_r = fDict->GetItemString("name");
     PyRep* desc_r = fDict->GetItemString("description");
     if (shipID_r == nullptr || shipDNA_r == nullptr) return PyStatic.NewZero();
 
@@ -82,9 +82,9 @@ PyResult CharFittingMgr::SaveManyFittings(PyCallArgs &call, PyInt* ownerID, PyDi
         PyDict* fDict = fitting->arguments()->AsDict();
         if (fDict == nullptr) continue;
 
-        PyRep* shipID_r = fDict->GetItemString("shipID");
+        PyRep* shipID_r = fDict->GetItemString("shipTypeID");
         PyRep* shipDNA_r = fDict->GetItemString("shipDNA");
-        PyRep* name_r = fDict->GetItemString("fittingName");
+        PyRep* name_r = fDict->GetItemString("name");
         if (shipID_r == nullptr || shipDNA_r == nullptr) continue;
 
         uint32 shipID = PyRep::IntegerValueU32(shipID_r);
