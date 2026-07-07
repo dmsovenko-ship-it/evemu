@@ -1,16 +1,4 @@
-
-/**
- * @name CivilianMgr.cpp
- *     Civilian (non-combatant NPC) management system for EVEmu
- *
- * @Author:        Allan
- * @date:          12 Feb 2017
- *
- */
-
-
 #include "eve-server.h"
-
 #include "EVEServerConfig.h"
 #include "EntityList.h"
 #include "StaticDataMgr.h"
@@ -23,57 +11,45 @@
 #include "system/cosmicMgrs/CivilianMgr.h"
 #include "ship/Ship.h"
 
-#include <set>
-
-/*  this class will be in charge of all non-combatant npcs ingame, hereinafter refered to as NC.
- * the purpose here is to simulate civilian actions by having ships travel from station to station.
- * this will also include jumping systems
- *
- *  mostly, it's simple AI to run an NC from point A to point B to simulate normal system traffic.
- *  Process() will check for player activity before creating/moving NCs.
- * NCs jumping into empty system will be deleted. (no reason to simulate traffic in empty system)
- * any NCs in system are 'paused' if last player jumps out.  processing will continue if a player enters system.
- * system creation will create NCs, configure their routing and begin processing
- * system unloading will delete any NCs in that system and remove their routing
- *
- *  as the system matures, it may be possible for 'shadier' npcs to travel to unknown areas (to do their deeds in secret locations)
- *    (the astute capsuleer will notice the ship NOT traveling to a planet, gate, or station, and will then know the general area to scan)
- *
- *  this will be a singleton class, in order for ships to correctly span multiple systems.
- */
-
-
 CivilianMgr::CivilianMgr()
+: m_db(nullptr), m_processTimer(nullptr), m_initalized(false)
 {
-    m_initalized = false;
-    m_processTimer = nullptr;
+}
+
+CivilianMgr::~CivilianMgr() {
+    SafeDelete(m_processTimer);
+    for (auto& [sysID, group] : m_systemCivs) {
+        for (NPC* npc : group->members) {
+            if (npc != nullptr && !npc->IsDead()) {
+                npc->SystemMgr()->RemoveNPC(npc);
+                npc->Delete();
+            }
+        }
+        SafeDelete(group);
+    }
+    m_systemCivs.clear();
 }
 
 void CivilianMgr::Initialize() {
     m_initalized = true;
     m_processTimer = new Timer(60000);
     m_processTimer->Start(60000);
-    sLog.Blue(" Civilian Manager", "Civilian Manager Initialized.");
+    sLog.Blue(" Civilian Manager", "Civilian Manager initialized.");
 }
 
 void CivilianMgr::Process() {
     if (!m_initalized) return;
-    if (!m_processTimer->Check()) return;
+    if (m_processTimer == nullptr || !m_processTimer->Check()) return;
 
-    // Get all systems with active players
-    std::map<uint32, SystemManager*> systems;
-    sEntityList.GetSystems(systems);
-
+    const auto& systems = sEntityList.GetSystems();
     for (auto& [sysID, sysMgr] : systems) {
         if (sysMgr == nullptr) continue;
         if (sysMgr->PlayerCount() == 0) {
             RemoveSystemCivilians(sysID);
             continue;
         }
-        // Check if we already have civilians in this system
         if (m_systemCivs.find(sysID) != m_systemCivs.end())
             continue;
-
         SpawnSystemCivilians(sysMgr);
     }
 }
@@ -81,11 +57,15 @@ void CivilianMgr::Process() {
 void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
     uint32 sysID = sysMgr->GetID();
 
-    // Pick two random stations or gates as route endpoints
+    // Find stations and stargates for route endpoints
     std::vector<SystemEntity*> routePoints;
-    std::map<uint32, SystemEntity*> entities = sysMgr->GetEntities();
+    auto entities = sysMgr->GetEntities();
     for (auto& [id, ent] : entities) {
-        if (ent != nullptr && (ent->IsStationSE() || ent->IsStargateSE()))
+        if (ent == nullptr) continue;
+        InventoryItemRef eRef = ent->GetSelf();
+        if (eRef.get() == nullptr) continue;
+        uint16 gID = eRef->groupID();
+        if (ent->IsStationSE() || gID == EVEDB::invGroups::Stargate)
             routePoints.push_back(ent);
     }
     if (routePoints.size() < 2) return;
@@ -95,12 +75,11 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
     while (ptB == ptA)
         ptB = routePoints[MakeRandomInt(0, routePoints.size() - 1)]->GetID();
 
-    // Pick a civilian freighter typeID
-    uint16 freighterTypes[] = {582, 583, 584, 585, 586, 587, 589, 590};
-    uint16 typeID = freighterTypes[MakeRandomInt(0, 7)];
+    // Industrial ship typeIDs for civilian traffic
+    uint16 industrialTypes[] = {582, 583, 584, 585, 586, 587};
+    uint16 typeID = industrialTypes[MakeRandomInt(0, 5)];
 
-    // Create 3-5 civilian NPCs as a convoy
-    uint8 count = MakeRandomInt(3, 5);
+    uint8 count = MakeRandomInt(2, 4);
     bool sameCorp = MakeRandomFloat() > 0.5f;
     ConvoyGroup* group = new ConvoyGroup(ptA, ptB, sameCorp);
 
@@ -128,10 +107,9 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
         sysMgr->AddNPC(npc);
         npc->DestinyMgr()->SetPosition(pos);
 
-        ConvoyAI* ai = new ConvoyAI(npc, group, i);
+        new ConvoyAI(npc, group, i);
         group->members.push_back(npc);
 
-        // Disable standard NPC AI for civilians
         NPCAI* npcAI = npc->GetAIMgr();
         if (npcAI != nullptr)
             npcAI->Disable();
@@ -156,4 +134,3 @@ void CivilianMgr::RemoveSystemCivilians(uint32 sysID) {
     m_systemCivs.erase(it);
     sLog.Warning("CivilianMgr", "Removed civilian convoy from system %u", sysID);
 }
-

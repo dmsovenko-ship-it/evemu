@@ -16,27 +16,36 @@
 
 #include "ServiceDB.h"
 #include "utils/Singleton.h"
+#include "utils/Timer.h"
+
+#include <map>
 
 /* this class will control all aspects of
  * non-combatant civilians
  */
 
 class EVEServiceManager;
+class SystemManager;
+struct ConvoyGroup;
 
 class CivilianMgr
 : public Singleton<CivilianMgr>
 {
 public:
     CivilianMgr();
-    ~CivilianMgr()                              { /* do nothing here */ }
+    ~CivilianMgr();
 
     void Initialize();
     void Process();
 
 private:
-    ServiceDB* m_db;
+    void SpawnSystemCivilians(SystemManager* sysMgr);
+    void RemoveSystemCivilians(uint32 sysID);
 
+    ServiceDB* m_db;
+    Timer* m_processTimer;
     bool m_initalized;
+    std::map<uint32, ConvoyGroup*> m_systemCivs;
 
 };
 
