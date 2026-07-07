@@ -806,9 +806,11 @@ int main( int argc, char* argv[] )
     // Create In-Memory Database Objects for Critical and High-Use Systems:
     sLog.Yellow("       ServerInit", "Loading Static Database Table Objects...");
     std::printf("\n");     // spacer
-    /** @note  this is NOT used correctly yet...  */
-    //sLog.Green("       ServerInit", "Priming cached objects.");
-    //pyServMgr.cache_service->PrimeCache();
+    /** @note  PrimeCache pre-loads all cached objects (types, groups, etc.) into server memory.
+     *  Required for config.BulkData.types to be served to clients.
+     *  Without this, the server never generates the types cache and clients use their built-in SDE only. */
+    sLog.Green("       ServerInit", "Priming cached objects.");
+    pyServMgr.cache_service->PrimeCache();
     sLog.Green("       ServerInit", "Initializing BulkData");
     if (sConfig.server.BulkDataOD) {
         sLog.Yellow("      BulkDataMgr", "PreLoading Disabled. BulkData will load on first call.");
