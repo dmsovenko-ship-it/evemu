@@ -12,11 +12,8 @@
 RigModule::RigModule(ModuleItemRef mRef, ShipItemRef sRef)
 : PassiveModule(mRef, sRef)
 {
-
 }
 
-
-//not much to do here... hopefully there won't be
 int8 RigModule::GetModulePowerLevel()
 {
     return Module::Bank::Rig;

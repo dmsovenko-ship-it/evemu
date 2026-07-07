@@ -13,8 +13,9 @@
 PassiveModule::PassiveModule(ModuleItemRef mRef, ShipItemRef sRef)
 : GenericModule(mRef, sRef)
 {
+    // Passive modules (cargo expanders, damage controls, tracking enhancers, etc.)
+    // apply their effects through the dogma system and don't need activation logic.
+    // Subclasses: RigModule, SubSystemModule
 }
-
-//  set up cargo expanders to expand specialized cargo on higher-tier ships
 
 
