@@ -52,7 +52,7 @@ public:
 
     template<typename Y>
     RefPtr& operator=(const RefPtr<Y>& oth) {
-        mPtr = oth.get();
+        mPtr = oth.mPtr;
         return *this;
     }
 
