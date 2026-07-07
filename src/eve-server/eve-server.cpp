@@ -732,7 +732,8 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new Search());
     newSvcMgr.Register(new SovereigntyMgrService());
     newSvcMgr.Register(new VoiceMgrService());
-    newSvcMgr.Register(new ObjCacheService(sConfig.files.cacheDir.c_str()));
+    ObjCacheService* pCacheSvc = new ObjCacheService(sConfig.files.cacheDir.c_str());
+    newSvcMgr.Register(pCacheSvc);
     newSvcMgr.Register(new NetService(newSvcMgr));
     newSvcMgr.Register(new StationService());
     newSvcMgr.Register(new StationSvc(newSvcMgr));
@@ -810,7 +811,7 @@ int main( int argc, char* argv[] )
      *  Required for config.BulkData.types to be served to clients.
      *  Without this, the server never generates the types cache and clients use their built-in SDE only. */
     sLog.Green("       ServerInit", "Priming cached objects.");
-    pyServMgr.cache_service->PrimeCache();
+    pCacheSvc->PrimeCache();
     sLog.Green("       ServerInit", "Initializing BulkData");
     if (sConfig.server.BulkDataOD) {
         sLog.Yellow("      BulkDataMgr", "PreLoading Disabled. BulkData will load on first call.");
