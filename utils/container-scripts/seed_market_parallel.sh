@@ -71,6 +71,11 @@ ALTER TABLE mktOrders
     DROP INDEX IF EXISTS idx_region_bid;
 SQL
 
+# ── Clear the entire table once before parallel seeding ─────────────────────
+# Single DELETE avoids gap-lock deadlocks between concurrent per-region DELETEs.
+echo "[SEED] Clearing mktOrders..."
+${MYSQL_BASE} -e "DELETE FROM mktOrders;" 2>/dev/null
+
 # ── Per-region seed function (runs in a subshell via xargs) ──────────────────
 seed_region() {
     local region_name="$1"
@@ -106,9 +111,6 @@ SET @lim = (SELECT ROUND(COUNT(stationID) * ${SAT_DECIMAL}) FROM staStations WHE
 SET @i = 0;
 -- Current time as Windows FILETIME (100-ns intervals since 1601-01-01), matching evedbtool behaviour.
 SET @issued = (UNIX_TIMESTAMP() + 11644473600) * 10000000;
-
--- Remove any partial data from a previous failed attempt in this range.
-DELETE FROM mktOrders WHERE orderID BETWEEN ${start_id} AND ${end_id};
 
 CREATE TEMPORARY TABLE tStations (
     stationID     INT,
