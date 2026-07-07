@@ -110,9 +110,7 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
         new ConvoyAI(npc, group, i);
         group->members.push_back(npc);
 
-        NPCAIMgr* npcAI = npc->GetAIMgr();
-        if (npcAI != nullptr)
-            npcAI->Disable();
+        // Civilians use ConvoyAI for movement; NPCAIMgr is not needed
     }
 
     m_systemCivs[sysID] = group;
