@@ -357,6 +357,10 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         // Spawn the dungeon
         bool spawned = dMgr->MakeDungeon(sig, dungeonID);
         if (spawned) {
+            // Register with AnomalyMgr so it appears on scanner
+            SystemEntity* siteSE = sMgr->GetSE(sig.sigItemID);
+            if (siteSE != nullptr)
+                sMgr->GetAnomMgr()->AddSignal(siteSE);
             sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u)",
                 dungeonID, solarSystemID, sceneType);
         } else {
