@@ -300,40 +300,48 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
             continue;
         }
 
+        // Pick dungeonID based on sceneType
+        uint32 dungeonID = 0;
+        switch (sceneType) {
+            case Incursion::scenesType::vanguard:      dungeonID = 2100 + MakeRandomInt(0, 3); break;
+            case Incursion::scenesType::assault:        dungeonID = 2110 + MakeRandomInt(0, 2); break;
+            case Incursion::scenesType::headquarters:   dungeonID = 2120 + MakeRandomInt(0, 2); break;
+            case Incursion::scenesType::staging:        dungeonID = 2100 + MakeRandomInt(0, 3); break;
+            default: continue;
+        }
+
         GPoint pos;
         pos.x = MakeRandomFloat(-1.0e12, 1.0e12);
         pos.y = MakeRandomFloat(-1.0e12, 1.0e12);
         pos.z = MakeRandomFloat(-1.0e12, 1.0e12);
 
-        uint32 ownerID = sDataMgr.GetFactionCorp(factionSanshas);
+        // Use MakeDungeon to spawn full site (NPCs + static objects from room definitions)
+        // dunRoomObjects already use Ship-category typeIDs (33500+) after migration
+        CosmicSignature sig;
+        sig.systemID = solarSystemID;
+        sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
+        sig.ownerID = sDataMgr.GetFactionCorp(factionSanshas);
+        sig.dungeonType = 7; // Anomaly archetype
+        sig.position = pos;
+        sig.sigName = "Incursion Site";
+        sig.sigTypeID = EVEDB::invTypes::CosmicAnomaly;
+        sig.sigStrength = 100.0f;
 
-        // Create CelestialSE marker for scanner
-        ItemData iData(EVEDB::invTypes::CosmicAnomaly, ownerID, solarSystemID,
-                       flagNone, "Incursion Site", pos);
-        InventoryItemRef iRef = sItemFactory.SpawnItem(iData);
-        if (iRef.get() == nullptr)
+        DungeonMgr* dMgr = sMgr->GetDungMgr();
+        if (dMgr == nullptr)
             continue;
 
-        iRef->SetAttribute(AttrSignatureRadius, 1000.0, false);
-        iRef->SetCustomInfo("incursion_site");
-        iRef->SaveItem();
+        if (dMgr->MakeDungeon(sig, dungeonID)) {
+            // Register with AnomalyMgr so it appears on scanner
+            AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
+            SystemEntity* siteSE = (anomMgr != nullptr) ? sMgr->GetSE(sig.sigItemID) : nullptr;
+            if (siteSE != nullptr)
+                anomMgr->AddSignal(siteSE);
 
-        CelestialSE* cSE = new CelestialSE(iRef, sMgr->GetServiceMgr(), sMgr);
-        sMgr->AddEntity(cSE, false);
-
-        AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
-        if (anomMgr != nullptr)
-            anomMgr->AddSignal(cSE);
-
-        // Spawn NPCs in the same bubble
-        SystemBubble* bubble = cSE->SysBubble();
-        if (bubble != nullptr)
-            sMgr->GetSpawnMgr()->DoSpawnForIncursion(bubble, regionID, sceneType, incursionID);
-
-        m_activeSystems.insert(solarSystemID);
-
-        sLog.Warning("IncursionMgr", "Spawned incursion site in system %u (sceneType=%u marker=%u)",
-            solarSystemID, sceneType, iRef->itemID());
+            m_activeSystems.insert(solarSystemID);
+            sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u)",
+                dungeonID, solarSystemID, sceneType);
+        }
     }
 }
 
