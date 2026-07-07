@@ -130,7 +130,7 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
             m_db->GetCloneImplants(cloneID, implantRes);
 
             std::vector<uint32> implantTypeIDs;
-            while (implantRes.GetRow(row)))
+            while (implantRes.GetRow(row))
                 implantTypeIDs.push_back(row.GetUInt(0));
 
             PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
