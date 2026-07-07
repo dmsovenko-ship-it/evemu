@@ -12,6 +12,7 @@ class RefObject
 {
 public:
     RefObject() = default;
+    RefObject(uint16 /*initRefCount*/) {}
     virtual ~RefObject() = default;
     // No-op stubs for legacy code that calls IncRef/DecRef directly
     void IncRef() const {}
