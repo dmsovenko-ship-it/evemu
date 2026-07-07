@@ -54,7 +54,9 @@ public:
 
 protected:
     StructureItem(uint32 _structureID, const ItemType &_itemType, const ItemData &_data);
+public:
     virtual ~StructureItem();
+protected:
 
     using InventoryItem::_Load;
     virtual bool _Load();

@@ -85,7 +85,9 @@ protected:
         // SolarSystem stuff:
         const SolarSystemData &_ssData
     );
+public:
     virtual ~SolarSystem();
+protected:
 
     /*
      * Member functions:
