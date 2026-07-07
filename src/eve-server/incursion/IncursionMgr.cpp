@@ -352,23 +352,11 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
             else
                 sig.sigTypeID = 1; // fallback
         }
-        sig.scanGroupID = EVEDB::invGroups::Cosmic_Anomaly;
         sig.sigStrength = 100.0f;
-        // Generate unique sigID for scanner visibility
-        sig.sigID = "INC-" + std::to_string(incursionID) + "-" + std::to_string(solarSystemID) + "-" + std::to_string(GetFileTimeNow());
 
         // Spawn the dungeon
         bool spawned = dMgr->MakeDungeon(sig, dungeonID);
         if (spawned) {
-            // Register with scanner by saving to sysSignatures
-            DBerror err;
-            sDatabase.RunQuery(err,
-                "INSERT IGNORE INTO sysSignatures"
-                " (sigID,sigItemID,dungeonType,sigName,systemID,sigTypeID,sigGroupID,scanGroupID,scanAttributeID,x,y,z)"
-                " VALUES ('%s', %u, %u, '%s', %u, %u, %u, %u, %u, %f, %f, %f)",
-                sig.sigID.c_str(), sig.sigItemID, sig.dungeonType, sig.sigName.c_str(), sig.systemID,
-                sig.sigTypeID, sig.sigGroupID, sig.scanGroupID, sig.scanAttributeID,
-                sig.position.x, sig.position.y, sig.position.z);
             sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u)",
                 dungeonID, solarSystemID, sceneType);
         } else {
