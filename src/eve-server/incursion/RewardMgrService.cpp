@@ -48,7 +48,7 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
             }
             PyDict* groupData = new PyDict();
             groupData->SetItemString("entries", entries);
-            result->SetItem(item, new PyObject("util.KeyVal", groupData));
+            result->SetItem(item, groupData);
         }
     }
     return result;
