@@ -16,6 +16,8 @@ IncursionMgr::IncursionMgr()
 
 void IncursionMgr::Process()
 {
+    sLog.Warning("IncursionMgr", "Process() called");
+
     // Check if any incursions exist, auto-start one if none active
     DBQueryResult activeRes;
     bool hasActive = false;
@@ -28,7 +30,6 @@ void IncursionMgr::Process()
     }
 
     if (!hasActive) {
-        // Auto-start a Sansha incursion in a random lowsec constellation
         sLog.Warning("IncursionMgr", "No active incursions, starting new one...");
         DBQueryResult constRes;
         if (sDatabase.RunQuery(constRes,
@@ -240,6 +241,8 @@ void IncursionMgr::UpdateInfluence(uint32 incursionID)
 
 void IncursionMgr::SpawnSites(uint32 incursionID)
 {
+    sLog.Warning("IncursionMgr", "SpawnSites called for incursion %u", incursionID);
+
     // Spawn incursion sites in systems where players are present
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
@@ -287,8 +290,10 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
 
         spawnChance = static_cast<uint8>(std::min<uint32>(spawnChance * playerCount, 80));
 
-        if (MakeRandomInt(0, 100) > spawnChance)
+        if (MakeRandomInt(0, 100) > spawnChance) {
+            sLog.Warning("IncursionMgr", "SpawnSites: roll failed for system %u (chance=%u)", solarSystemID, spawnChance);
             continue;
+        }
 
         // Create a cosmic signature for the incursion site
         CosmicSignature sig;
