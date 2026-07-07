@@ -1210,7 +1210,7 @@ public:
     PyInt* NewInt(int32 val) {
         if (val >= (-intOffset) && val <= maxCachedVal) {
             PyIncRef(m_intCache[val + intOffset]);
-            return m_intCache[val + intOffset];
+            return static_cast<PyInt*>(m_intCache[val + intOffset]);
         }
         return new PyInt(val);
     }
