@@ -351,6 +351,42 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
     }
 }
 
+bool IncursionMgr::IsIncursionSystem(uint32 solarSystemID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT COUNT(*) FROM incursionSystems iss "
+        "JOIN incursions i ON iss.incursionID = i.incursionID "
+        "WHERE iss.solarSystemID = %u AND i.state > 0",
+        solarSystemID))
+        return false;
+    DBResultRow row;
+    if (res.GetRow(row))
+        return row.GetUInt(0) > 0;
+    return false;
+}
+
+uint8 IncursionMgr::GetSceneType(uint32 solarSystemID, uint32 incursionID)
+{
+    DBQueryResult res;
+    if (incursionID > 0) {
+        sDatabase.RunQuery(res,
+            "SELECT sceneType FROM incursionSystems "
+            "WHERE incursionID = %u AND solarSystemID = %u",
+            incursionID, solarSystemID);
+    } else {
+        sDatabase.RunQuery(res,
+            "SELECT iss.sceneType FROM incursionSystems iss "
+            "JOIN incursions i ON iss.incursionID = i.incursionID "
+            "WHERE iss.solarSystemID = %u AND i.state > 0 LIMIT 1",
+            solarSystemID);
+    }
+    DBResultRow row;
+    if (res.GetRow(row))
+        return row.GetUInt(0);
+    return 0;
+}
+
 void IncursionMgr::SpawnMothership(uint32 incursionID, uint32 solarSystemID)
 {
     SystemManager* sMgr = sEntityList.FindOrBootSystem(solarSystemID);

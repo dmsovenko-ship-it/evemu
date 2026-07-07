@@ -43,6 +43,7 @@
 #include "system/DestinyManager.h"
 #include "station/Station.h"
 #include "system/SystemBubble.h"
+#include "incursion/IncursionMgr.h"
 #include "system/SystemEntity.h"
 #include "system/SystemManager.h"
 
@@ -793,6 +794,10 @@ void DynamicSystemEntity::AwardBounty(Client* pClient)
     bounty *= sConfig.rates.npcBountyMultiply;
     if (bounty < 1)
         return;
+
+    // Apply incursion bounty penalty (-25% in incursion systems)
+    if (sIncursionMgr.IsIncursionSystem(m_system->GetID()))
+        bounty *= 0.75;
 
     // add data to StatisticMgr
     sStatMgr.Add(Stat::npcBounties, bounty);

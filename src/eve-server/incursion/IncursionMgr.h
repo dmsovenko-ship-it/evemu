@@ -18,6 +18,8 @@ public:
     void EndIncursion(uint32 incursionID);
     void OnSiteCompleted(uint32 incursionID, uint32 solarSystemID, uint8 sceneType);
     void SpawnMothership(uint32 incursionID, uint32 solarSystemID);
+    static bool IsIncursionSystem(uint32 solarSystemID);
+    static uint8 GetSceneType(uint32 solarSystemID, uint32 incursionID = 0);
 
 private:
     void ProgressStateMachine(uint32 incursionID);

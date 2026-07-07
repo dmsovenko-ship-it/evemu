@@ -21,6 +21,8 @@
 #include "incursion/IncursionMgr.h"
 #include "EVE_Incursion.h"
 #include "EVE_Corp.h"
+#include "account/AccountService.h"
+#include "corporation/LPService.h"
 
 /** @todo  this can be updated to spawn mission, anomaly and deadspace rats.
  *   change all *roidRat* to *somethingelse* to better explain/describe the maps and how they're used.
@@ -364,9 +366,47 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                     sceneType = incRow.GetUInt(1);
                 }
             }
-            if (incursionID > 0)
-                sIncursionMgr.OnSiteCompleted(incursionID, m_system->GetID(), sceneType);
-        }
+                if (incursionID > 0) {
+                    sIncursionMgr.OnSiteCompleted(incursionID, m_system->GetID(), sceneType);
+
+                    // Distribute contest rewards to all players in the bubble
+                    // Reward is based on sceneType (VG/AS/HQ) from incursionRewards table
+                    DBQueryResult rewRes;
+                    if (sDatabase.RunQuery(rewRes,
+                        "SELECT ri.rewardTypeID, ri.rewardQuantity, ri.lpAmount"
+                        " FROM incursionRewards ri"
+                        " JOIN incursions i ON i.rewardGroupID = ri.rewardGroupID"
+                        " WHERE i.incursionID = %u", incursionID))
+                    {
+                        DBResultRow rewRow;
+                        if (rewRes.GetRow(rewRow)) {
+                            uint32 iskReward = rewRow.GetUInt(1);
+                            uint32 lpAmount = rewRow.GetUInt(2);
+
+                            // Distribute to all players in the bubble
+                            std::vector<Client*> players;
+                            pBubble->GetPlayers(players);
+                            if (!players.empty()) {
+                                iskReward /= players.size();
+                                lpAmount /= players.size();
+                                for (auto client : players) {
+                                    if (client == nullptr) continue;
+                                    // ISK reward
+                                    AccountService::TransferFunds(
+                                        corpCONCORD, client->GetCharacterID(),
+                                        iskReward,
+                                        "DESC: Incursion site completion reward",
+                                        Journal::EntryType::IncursionReward,
+                                        incursionID);
+                                    // LP reward (CONCORD LP)
+                                    LPService lps;
+                                    lps.AddLP(client->GetCharacterID(), corpCONCORD, lpAmount);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         // else: still NPCs alive in current wave, do nothing
     } else {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Other - called by %u.", itemID);

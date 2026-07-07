@@ -11,6 +11,7 @@
 #include "pos/Tower.h"
 #include "pos/Structure.h"
 #include "system/sov/SovereigntyDataMgr.h"
+#include "incursion/IncursionMgr.h"
 
 CynoModule::CynoModule(ModuleItemRef mRef, ShipItemRef sRef)
 : ActiveModule(mRef, sRef),
@@ -95,6 +96,12 @@ bool CynoModule::CanActivate()
             pClient->SendNotifyMsg("This system is currently being jammed.");
             return false;
         }
+    }
+
+    // Check if system is an incursion system (cyno jamming)
+    if (sIncursionMgr.IsIncursionSystem(pClient->GetSystemID())) {
+        pClient->SendNotifyMsg("Cynosural field generation is not possible in incursion systems.");
+        return false;
     }
 
     //Make sure player is not in high-sec (configurable)
