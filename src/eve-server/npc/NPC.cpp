@@ -286,8 +286,12 @@ void NPC::Process() {
     /*  Enable base call to Process Targeting and Movement  */
     SystemEntity::Process();
 
-    m_AI->Process();
-    if (m_convoyAI != nullptr) m_convoyAI->Process();
+    // Convoy/civilian NPCs use simple route movement — skip heavy NPCAIMgr
+    if (m_convoyAI != nullptr) {
+        m_convoyAI->Process();
+    } else {
+        m_AI->Process();
+    }
 
     if (sConfig.debug.UseProfiling)
         sProfiler.AddTime(Profile::npc, GetTimeUSeconds() - profileStartTime);

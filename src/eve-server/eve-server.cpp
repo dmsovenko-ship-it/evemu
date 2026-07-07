@@ -783,15 +783,13 @@ int main( int argc, char* argv[] )
     std::printf("\n");     // spacer
 
     sLog.Blue("     ServerConfig", "Cosmic Manager Settings");
-    if (false) { // Temporarily disabled for performance testing
-        if (sConfig.cosmic.CiviliansEnabled) {
-            sLog.Green(" Civilian Manager", "Civilian Manager Enabled.");
-            /* create the CivilianMgr singleton */
-            sLog.Green("       ServerInit", "Starting Civilian Manager");
-            sCivMgr.Initialize();
-        } else {
-            sLog.Warning(" Civilian Manager", "Civilian Manager Disabled.");
-        }
+    if (sConfig.cosmic.CiviliansEnabled) {
+        sLog.Green(" Civilian Manager", "Civilian Manager Enabled.");
+        /* create the CivilianMgr singleton */
+        sLog.Green("       ServerInit", "Starting Civilian Manager");
+        sCivMgr.Initialize();
+    } else {
+        sLog.Warning(" Civilian Manager", "Civilian Manager Disabled.");
     }
     if (sConfig.cosmic.WormHoleEnabled) {
         sLog.Green(" Wormhole Manager", "Wormhole Manager Enabled.");
