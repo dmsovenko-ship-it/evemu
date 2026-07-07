@@ -4,6 +4,9 @@
 #include "EVE_Incursion.h"
 #include "EntityList.h"
 #include "Client.h"
+#include "system/SystemManager.h"
+#include "system/cosmicMgrs/DungeonMgr.h"
+#include "system/cosmicMgrs/SpawnMgr.h"
 
 IncursionMgr::IncursionMgr()
     : m_timer(60000)  // check every 60s
@@ -96,7 +99,15 @@ void IncursionMgr::EndIncursion(uint32 incursionID)
 
 void IncursionMgr::OnSiteCompleted(uint32 incursionID, uint32 solarSystemID, uint8 sceneType)
 {
-    // Reduce influence based on site type
+    // Reduce influence based on site type and wave progress
+    // VG = small hit, AS = medium, HQ = big, Staging = small
+    // Mothership (sceneType=1000001) ends the incursion
+    if (sceneType == Incursion::scenesType::boss) {
+        // Mothership killed - end the incursion
+        EndIncursion(incursionID);
+        return;
+    }
+
     float reduction = 0.0f;
     switch (sceneType) {
         case Incursion::scenesType::vanguard:      reduction = 0.01f; break;
@@ -192,13 +203,148 @@ void IncursionMgr::UpdateInfluence(uint32 incursionID)
 
 void IncursionMgr::SpawnSites(uint32 incursionID)
 {
-    // Sites are spawned on-demand when a player enters an incursion system
-    // The DungeonMgr handles this via the incursion archetype
-    // This method ensures dungeon definitions are loaded for incursion systems
+    // Spawn incursion sites in systems where players are present
     DBQueryResult res;
-    sDatabase.RunQuery(res,
-        "SELECT solarSystemID, sceneType FROM incursionSystems WHERE incursionID = %u",
-        incursionID);
+    if (!sDatabase.RunQuery(res,
+        "SELECT iss.solarSystemID, iss.sceneType, iss.influence "
+        "FROM incursionSystems iss "
+        "JOIN incursions i ON iss.incursionID = i.incursionID "
+        "WHERE iss.incursionID = %u AND i.state > 0",
+        incursionID))
+        return;
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 solarSystemID = row.GetUInt(0);
+        uint8 sceneType = row.GetUInt(1);
+        float influence = row.GetFloat(2);
+
+        // Only spawn if influence > 0 (systems at 0% have been cleared)
+        if (influence <= 0.0f)
+            continue;
+
+        // Find system manager for this system
+        SystemManager* sMgr = sEntityList.FindOrBootSystem(solarSystemID);
+        if (sMgr == nullptr)
+            continue;
+
+        // Check if there are players in this system
+        if (sMgr->PlayerCount() == 0)
+            continue;
+
+        // Skip if dungeon manager already has active incursion dungeon for this system
+        DungeonMgr* dMgr = sMgr->GetDungMgr();
+        if (dMgr == nullptr)
+            continue;
+
+        // Randomly spawn a site based on sceneType
+        // Staging sceneType spawns at a lower rate
+        uint8 spawnChance = 25;
+        if (sceneType == Incursion::scenesType::staging)
+            spawnChance = 10;
+
+        // Check if we should spawn based on players online
+        uint32 playerCount = sMgr->PlayerCount();
+        if (playerCount == 0)
+            continue;
+
+        spawnChance = static_cast<uint8>(std::min<uint32>(spawnChance * playerCount, 80));
+
+        if (MakeRandomInt(0, 100) > spawnChance)
+            continue;
+
+        // Create a cosmic signature for the incursion site
+        CosmicSignature sig;
+        sig.systemID = solarSystemID;
+        sig.groupID = EVEDB::invGroups::Cosmic_Anomaly;
+        sig.ownerID = sDataMgr.GetFactionCorp(factionSanshas);
+
+        // Pick appropriate dungeonID based on sceneType
+        uint32 dungeonID = 0;
+        switch (sceneType) {
+            case Incursion::scenesType::vanguard:
+                sig.dungeonType = 7; // Anomaly archetype
+                dungeonID = 2100 + MakeRandomInt(0, 3);
+                break;
+            case Incursion::scenesType::assault:
+                sig.dungeonType = 7;
+                dungeonID = 2110 + MakeRandomInt(0, 2);
+                break;
+            case Incursion::scenesType::headquarters:
+                sig.dungeonType = 7;
+                dungeonID = 2120 + MakeRandomInt(0, 2);
+                break;
+            case Incursion::scenesType::staging:
+                sig.dungeonType = 7;
+                dungeonID = 2100 + MakeRandomInt(0, 3);
+                break;
+            default:
+                continue;
+        }
+
+        // Check if mothership should spawn instead
+        DBQueryResult bossRes;
+        if (sDatabase.RunQuery(bossRes,
+            "SELECT hasBoss FROM incursions WHERE incursionID = %u", incursionID))
+        {
+            DBResultRow bossRow;
+            if (bossRes.GetRow(bossRow) && bossRow.GetUInt(0) == 1) {
+                // Mothership override for HQ sceneType
+                if (sceneType == Incursion::scenesType::headquarters) {
+                    SpawnMothership(incursionID, solarSystemID);
+                    continue;
+                }
+            }
+        }
+
+        // Pick a random position within the system
+        GPoint pos;
+        pos.x = MakeRandomFloat(-1.0e12, 1.0e12);
+        pos.y = MakeRandomFloat(-1.0e12, 1.0e12);
+        pos.z = MakeRandomFloat(-1.0e12, 1.0e12);
+        sig.position = pos;
+
+        sig.sigName = "Incursion Site";
+
+        // Spawn the dungeon
+        dMgr->MakeDungeon(sig, dungeonID);
+
+        sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u)",
+            dungeonID, solarSystemID, sceneType);
+    }
+}
+
+void IncursionMgr::SpawnMothership(uint32 incursionID, uint32 solarSystemID)
+{
+    SystemManager* sMgr = sEntityList.FindOrBootSystem(solarSystemID);
+    if (sMgr == nullptr)
+        return;
+
+    // Create a bubble at a random position in the system
+    GPoint pos;
+    pos.x = MakeRandomFloat(-1.0e12, 1.0e12);
+    pos.y = MakeRandomFloat(-1.0e12, 1.0e12);
+    pos.z = MakeRandomFloat(-1.0e12, 1.0e12);
+
+    // Use SpawnMgr to spawn the mothership NPCs
+    SpawnMgr* spawnMgr = sMgr->GetSpawnMgr();
+    if (spawnMgr == nullptr)
+        return;
+
+    // Create a temporary bubble for the mothership encounter
+    SystemBubble* bubble = sBubbleMgr.FindBubble(solarSystemID, pos);
+    if (bubble == nullptr)
+        return;
+
+    // Spawn mothership NPCs with boss sceneType
+    spawnMgr->DoSpawnMothership(bubble, incursionID);
+
+    sLog.Warning("IncursionMgr", "Spawned incursion mothership in system %u", solarSystemID);
+
+    // Reset hasBoss so it doesn't re-spawn every tick
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE incursions SET hasBoss = 2 WHERE incursionID = %u", incursionID);
 }
 
 void IncursionMgr::DespawnSites(uint32 incursionID)

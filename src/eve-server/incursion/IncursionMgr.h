@@ -3,6 +3,10 @@
 
 #include "utils/Singleton.h"
 #include "utils/timer.h"
+#include <map>
+#include <set>
+
+class SystemManager;
 
 class IncursionMgr : public Singleton<IncursionMgr>
 {
@@ -13,6 +17,7 @@ public:
     void StartIncursion(uint32 factionID, uint32 constellationID);
     void EndIncursion(uint32 incursionID);
     void OnSiteCompleted(uint32 incursionID, uint32 solarSystemID, uint8 sceneType);
+    void SpawnMothership(uint32 incursionID, uint32 solarSystemID);
 
 private:
     void ProgressStateMachine(uint32 incursionID);

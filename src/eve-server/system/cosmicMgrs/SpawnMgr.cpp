@@ -296,19 +296,78 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
          */
     } else if (pBubble->IsIncursion()) {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Incursion - called by %u.", itemID);
-        // All NPCs killed — reward and update influence
-        DBQueryResult incRes;
-        if (sDatabase.RunQuery(incRes,
-            "SELECT incursionID FROM incursions WHERE regionID = %u AND state > 0",
-            m_system->GetRegionID()))
-        {
-            DBResultRow incRow;
-            if (incRes.GetRow(incRow)) {
-                uint32 incursionID = incRow.GetUInt(0);
-                sIncursionMgr.OnSiteCompleted(incursionID, m_system->GetID(),
-                    Incursion::scenesType::vanguard);
+        // Wave-based incursion spawning
+        if (m_spawns.count(pBubble->GetID()) == 1) {
+            // Last NPC in current wave - spawn next wave or complete site
+            SpawnEntryDef::iterator itr = m_spawns.find(pBubble->GetID());
+            if (itr != m_spawns.end()) {
+                // Determine sceneType from the system's incursion data
+                uint8 sceneType = Incursion::scenesType::vanguard;
+                uint32 incursionID = 0;
+                DBQueryResult incRes;
+                if (sDatabase.RunQuery(incRes,
+                    "SELECT i.incursionID, iss.sceneType "
+                    "FROM incursions i "
+                    "JOIN incursionSystems iss ON i.incursionID = iss.incursionID "
+                    "WHERE i.regionID = %u AND i.state > 0 AND iss.solarSystemID = %u",
+                    m_system->GetRegionID(), m_system->GetID()))
+                {
+                    DBResultRow incRow;
+                    if (incRes.GetRow(incRow)) {
+                        incursionID = incRow.GetUInt(0);
+                        sceneType = incRow.GetUInt(1);
+                    }
+                }
+
+                if (incursionID > 0) {
+                    // Check if mothership (hasBoss=1) or just normal wave
+                    DBQueryResult bossRes;
+                    uint8 hasBoss = 0;
+                    if (sDatabase.RunQuery(bossRes,
+                        "SELECT hasBoss FROM incursions WHERE incursionID = %u", incursionID))
+                    {
+                        DBResultRow bossRow;
+                        if (bossRes.GetRow(bossRow))
+                            hasBoss = bossRow.GetUInt(0);
+                    }
+
+                    if (hasBoss == 1) {
+                        // Mothership encounter - spawn it
+                        DoSpawnMothership(pBubble, incursionID);
+                        m_spawns.erase(itr);
+                    } else {
+                        // Spawn next wave at increased level
+                        uint8 nextLevel = itr->second.level + 1;
+                        MakeSpawn(pBubble, itr->second.factionID,
+                                  itr->second.spawnClass, nextLevel);
+                        m_spawns.erase(itr);
+                    }
+                } else {
+                    m_spawns.erase(itr);
+                }
             }
+        } else if (m_spawns.count(pBubble->GetID()) < 1) {
+            // All waves complete - site is done
+            uint32 incursionID = 0;
+            uint8 sceneType = Incursion::scenesType::vanguard;
+            DBQueryResult incRes;
+            if (sDatabase.RunQuery(incRes,
+                "SELECT i.incursionID, iss.sceneType "
+                "FROM incursions i "
+                "JOIN incursionSystems iss ON i.incursionID = iss.incursionID "
+                "WHERE i.regionID = %u AND i.state > 0 AND iss.solarSystemID = %u",
+                m_system->GetRegionID(), m_system->GetID()))
+            {
+                DBResultRow incRow;
+                if (incRes.GetRow(incRow)) {
+                    incursionID = incRow.GetUInt(0);
+                    sceneType = incRow.GetUInt(1);
+                }
+            }
+            if (incursionID > 0)
+                sIncursionMgr.OnSiteCompleted(incursionID, m_system->GetID(), sceneType);
         }
+        // else: still NPCs alive in current wave, do nothing
     } else {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Other - called by %u.", itemID);
         RemoveSpawn(pBubble->GetID(), itemID);
@@ -457,7 +516,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
     return;
 }
 
-void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID)
+void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8 sceneType, uint32 incursionID)
 {
     if (pBubble == nullptr)
         return;
@@ -465,18 +524,51 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID)
         return;
     pBubble->SetIncursion();
 
-    // Sansha incursion NPCs: mix of frigates, cruisers, battleships
-    uint16 typeIDs[] = {10025, 10030, 11913, 10030, 10025, 11913, 23383, 10030};
-    GPoint basePos(MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000));
-
     uint32 factionID = factionSanshas;
     uint32 corpID = sDataMgr.GetFactionCorp(factionID);
+    GPoint basePos(MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000));
 
     FactionData data = FactionData();
         data.allianceID = factionID;
         data.corporationID = corpID;
         data.factionID = factionID;
         data.ownerID = corpID;
+
+    // Determine NPC composition based on sceneType
+    // Vanguard: mostly frigates + some cruisers
+    // Assault: cruisers + some battleships
+    // Headquarters: battleships + elite cruisers
+    // Staging: light mix
+    std::vector<uint16> typeIDs;
+    switch (sceneType) {
+        case Incursion::scenesType::vanguard: {
+            // Frigates (10025) + light cruisers (10030)
+            for (int i = 0; i < 6; i++) typeIDs.push_back(10025); // Sansha Frigate
+            for (int i = 0; i < 3; i++) typeIDs.push_back(10030); // Sansha Cruiser
+            break;
+        }
+        case Incursion::scenesType::assault: {
+            // Cruisers + battleships
+            for (int i = 0; i < 4; i++) typeIDs.push_back(10030); // Sansha Cruiser
+            for (int i = 0; i < 3; i++) typeIDs.push_back(11913); // Sansha Battleship
+            for (int i = 0; i < 2; i++) typeIDs.push_back(23383); // Sansha Elite
+            break;
+        }
+        case Incursion::scenesType::headquarters: {
+            // Heavy battleships
+            for (int i = 0; i < 4; i++) typeIDs.push_back(11913); // Sansha Battleship
+            for (int i = 0; i < 4; i++) typeIDs.push_back(23383); // Sansha Elite
+            break;
+        }
+        case Incursion::scenesType::staging: {
+            // Light defence force
+            for (int i = 0; i < 3; i++) typeIDs.push_back(10025); // Sansha Frigate
+            for (int i = 0; i < 2; i++) typeIDs.push_back(10030); // Sansha Cruiser
+            break;
+        }
+        default:
+            return;
+    }
 
     for (uint16 typeID : typeIDs) {
         GPoint spawnPos(basePos.x + MakeRandomFloat(-500, 500),
@@ -499,7 +591,55 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID)
         m_system->AddNPC(pNPC);
     }
 
-    _log(SPAWN__MESSAGE, "DoSpawnForIncursion - Spawned Sansha NPCs in bubble");
+    _log(SPAWN__MESSAGE, "DoSpawnForIncursion - Spawned sceneType=%u NPCs in bubble", sceneType);
+}
+
+void SpawnMgr::DoSpawnMothership(SystemBubble* pBubble, uint32 incursionID)
+{
+    if (pBubble == nullptr)
+        return;
+    pBubble->SetIncursion();
+
+    uint32 factionID = factionSanshas;
+    uint32 corpID = sDataMgr.GetFactionCorp(factionID);
+    GPoint basePos(MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000));
+
+    FactionData data = FactionData();
+        data.allianceID = factionID;
+        data.corporationID = corpID;
+        data.factionID = factionID;
+        data.ownerID = corpID;
+
+    // Mothership encounter: Kundalini Manifest + elite escorts
+    // typeID 23383 = Sansha Elite, 11913 = Sansha Battleship
+    std::vector<uint16> typeIDs;
+    typeIDs.push_back(23383); // Mothership/Kundalini (use high-end Sansha)
+    for (int i = 0; i < 4; i++) typeIDs.push_back(11913); // Escort battleships
+    for (int i = 0; i < 6; i++) typeIDs.push_back(23383); // Elite guards
+    for (int i = 0; i < 4; i++) typeIDs.push_back(10030); // Support cruisers
+
+    for (uint16 typeID : typeIDs) {
+        GPoint spawnPos(basePos.x + MakeRandomFloat(-1000, 1000),
+                        basePos.y + MakeRandomFloat(-1000, 1000),
+                        basePos.z + MakeRandomFloat(-1000, 1000));
+
+        ItemData idata(typeID, corpID, m_system->GetID(), flagNone, "", spawnPos,
+                       sDataMgr.GetTypeName(typeID));
+
+        InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+        if (iRef.get() == nullptr)
+            continue;
+
+        NPC* pNPC = new NPC(iRef, m_services, m_system, data, this);
+        if (pNPC == nullptr || !pNPC->Load()) {
+            if (pNPC) pNPC->Delete();
+            continue;
+        }
+
+        m_system->AddNPC(pNPC);
+    }
+
+    _log(SPAWN__MESSAGE, "DoSpawnMothership - Spawned mothership NPCs for incursion %u", incursionID);
 }
 
 void SpawnMgr::DoSpawnForMission(SystemBubble* pBubble, uint32 regionID)

@@ -43,7 +43,8 @@ public:
     bool DoSpawnForBubble(SystemBubble* pBubble);
     void DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID);
     void DoSpawnForMission(SystemBubble* pBubble, uint32 regionID);
-    void DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID);
+    void DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8 sceneType = 3, uint32 incursionID = 0);
+    void DoSpawnMothership(SystemBubble* pBubble, uint32 incursionID);
 
     // primitive test for chained spawns
     bool IsChaining(uint16 bubbleID);

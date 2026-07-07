@@ -110,27 +110,34 @@
 - **AcceptShipCloneInstallation** — stub, returns false (not implemented)
 - **CancelShipCloneInstallation** — sends `OnShipJumpCloneInstallationCanceled` notification
 
+## Part 17: Incursion Wave Spawning / Mothership / SceneTypes (done)
+- **SpawnSites()** — больше не пустышка: спавнит данжи вторжений (2100-2122) в системах где есть игроки
+- **SceneType-зависимый спавн** — VG (фрегаты), AS (крейсера+линкоры), HQ (тяжелые линкоры)
+- **Волновой спавн** — `SpawnKilled` для инкурсий теперь переключает волны через `MakeSpawn()`
+- **Mothership** — `SpawnMothership()` спавнит эскорт + босс при `hasBoss=1`
+- **Фикс hardcoded sceneType** — `SpawnKilled` читает реальный `sceneType` из `incursionSystems`
+- **Staging defence** — сайты появляются и в staging-системе
+
 # TODO (next session)
 
 ## High Priority
-1. **Incursion content** — wave-based spawning, mothership fight, proper contest system
-2. **Jump clone ship bay** — full AcceptShipCloneInstallation/OfferShipCloneInstallation workflow
-3. **Per-clone implants through UI** — assign implants to specific jump clones from clone window
-4. **Ship clone bay** — full ship-to-ship clone transfer (Rorqual etc.)
+1. **Jump clone ship bay** — full AcceptShipCloneInstallation/OfferShipCloneInstallation workflow
+2. **Per-clone implants through UI** — assign implants to specific jump clones from clone window
+3. **Ship clone bay** — full ship-to-ship clone transfer (Rorqual etc.)
 
 ## Medium Priority
-5. **LaunchSnowBall** — implement snowball launcher module
-6. **War decay timer** — auto-check unpaid war bills and end wars
-7. **Contract PlaceBid / FinishAuction** — auction support
-8. **Corp Mail groups** — send mail to corp role groups (Directors, Officers, etc.)
-9. **Remove debug logging** from SpawnMgr.cpp (DoSpawnForAnomaly DEBUG lines)
+4. **Contest system** — player contest mechanics for incursions
+5. **Incursion penalties** — resistance/damage/bounty/cyno penalties in incursion systems
+6. **LaunchSnowBall** — implement snowball launcher module
+7. **War decay timer** — auto-check unpaid war bills and end wars
+8. **Contract PlaceBid / FinishAuction** — auction support
+9. **Corp Mail groups** — send mail to corp role groups (Directors, Officers, etc.)
 
 ## Low Priority
 10. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
 11. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
 
 ## Code Review Needed
-- Verify `CharAddImplant` Move to flagImplant works with inventory system
-- Verify `GetCharacterAttributeModifiers` parses implant effects correctly
-- Verify implant deletion on pod death doesn't leak memory
-- Verify `GetShipCloneState` empty list doesn't crash client on Clone Bay ships
+- Verify incursion dungeon spawning works across multiple systems simultaneously
+- Verify wave progression doesn't stall on incursion sites
+- Verify mothership encounter triggers correctly when hasBoss=1
