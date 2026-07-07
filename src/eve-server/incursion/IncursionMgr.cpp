@@ -358,6 +358,10 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         // Spawn the dungeon
         bool spawned = dMgr->MakeDungeon(sig, dungeonID);
         if (spawned) {
+            // Set signature radius so anomaly appears on scanner with proper strength
+            InventoryItemRef rootItem = sItemFactory.GetItemRef(sig.sigItemID);
+            if (rootItem.get() != nullptr)
+                rootItem->SetAttribute(AttrSignatureRadius, 500.0, false);
             // Register with AnomalyMgr so it appears on scanner
             AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
             SystemEntity* siteSE = (anomMgr != nullptr) ? sMgr->GetSE(sig.sigItemID) : nullptr;
