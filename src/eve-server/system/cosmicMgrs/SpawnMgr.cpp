@@ -610,6 +610,14 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8
             return;
     }
 
+    float dmgMult = 1.0f;
+    switch (sceneType) {
+        case Incursion::scenesType::vanguard:      dmgMult = 1.2f; break;
+        case Incursion::scenesType::assault:        dmgMult = 1.4f; break;
+        case Incursion::scenesType::headquarters:   dmgMult = 1.6f; break;
+        case Incursion::scenesType::staging:        dmgMult = 1.1f; break;
+    }
+
     for (uint16 typeID : typeIDs) {
         GPoint spawnPos(basePos.x + MakeRandomFloat(-500, 500),
                         basePos.y + MakeRandomFloat(-500, 500),
@@ -629,13 +637,6 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8
         }
 
         // Apply incursion damage bonus based on sceneType
-        float dmgMult = 1.0f;
-        switch (sceneType) {
-            case Incursion::scenesType::vanguard:      dmgMult = 1.2f; break;
-            case Incursion::scenesType::assault:        dmgMult = 1.4f; break;
-            case Incursion::scenesType::headquarters:   dmgMult = 1.6f; break;
-            case Incursion::scenesType::staging:        dmgMult = 1.1f; break;
-        }
         // Boost existing damage attributes
         if (iRef->HasAttribute(AttrDamageMultiplier))
             iRef->SetAttribute(AttrDamageMultiplier, iRef->GetAttribute(AttrDamageMultiplier).get_float() * dmgMult, false);
