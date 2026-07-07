@@ -2,7 +2,6 @@
 #define __INCURSION_MGR_H_INCL__
 
 #include "utils/Singleton.h"
-#include "utils/timer.h"
 #include <map>
 #include <set>
 
@@ -27,8 +26,6 @@ private:
     void SpawnSites(uint32 incursionID);
     void DespawnSites(uint32 incursionID);
     void NotifyClients(uint32 incursionID);
-
-    Timer m_timer;
 };
 
 #define sIncursionMgr \

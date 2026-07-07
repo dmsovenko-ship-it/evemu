@@ -9,9 +9,7 @@
 #include "system/cosmicMgrs/SpawnMgr.h"
 
 IncursionMgr::IncursionMgr()
-    : m_timer(60000)  // check every 60s
 {
-    m_timer.Start();  // start timer immediately
 }
 
 void IncursionMgr::Process()
@@ -49,12 +47,6 @@ void IncursionMgr::Process()
         return;
     }
 
-    if (!m_timer.Check()) {
-        sLog.Warning("IncursionMgr", "Process: timer not ready yet");
-        return;
-    }
-
-    sLog.Warning("IncursionMgr", "Process: timer ready, querying incursions");
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT incursionID, state, lastUpdated FROM incursions WHERE state > 0"))
