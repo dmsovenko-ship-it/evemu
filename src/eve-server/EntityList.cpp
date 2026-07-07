@@ -271,7 +271,7 @@ void EntityList::Process() {
         }
 
         // these need 1Hz tics
-        sCivMgr.Process();
+        // sCivMgr.Process();  // temporarily disabled
         sBubbleMgr.Process();
 
         // these minute tics do not need to be precise
