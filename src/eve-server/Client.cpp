@@ -1607,7 +1607,18 @@ void Client::ContrabandScan(uint32 fromGate)
     std::vector<InventoryItemRef> cargoItems;
     ship->GetMyInventory()->GetItemsByFlag(flagCargoHold, cargoItems);
     int8 smuggLvl = GetChar()->GetSkillLevel(EvESkill::Smuggling);
-    float detectionChance = 0.5f * (1.0f - smuggLvl * 0.1f);
+    // Base 90% detection, Smuggling skill reduces by 10%/lvl
+    float detectionChance = 0.9f * (1.0f - smuggLvl * 0.1f);
+    // Freight skills further reduce detection: -10%/lvl each, base 60%
+    int8 freightSkillLevels = 0;
+    freightSkillLevels += GetChar()->GetSkillLevel(EvESkill::StarshipFreight);
+    freightSkillLevels += GetChar()->GetSkillLevel(EvESkill::MineralFreight);
+    freightSkillLevels += GetChar()->GetSkillLevel(EvESkill::MunitionsFreight);
+    freightSkillLevels += GetChar()->GetSkillLevel(EvESkill::DroneFreight);
+    freightSkillLevels += GetChar()->GetSkillLevel(EvESkill::RawMaterialFreight);
+    freightSkillLevels += GetChar()->GetSkillLevel(EvESkill::ConsumableFreight);
+    freightSkillLevels += GetChar()->GetSkillLevel(EvESkill::HazardousMaterialFreight);
+    detectionChance *= (1.0f - std::min<float>(1.0f, freightSkillLevels * 0.1f));
 
     bool severe = false;
     bool found = false;
