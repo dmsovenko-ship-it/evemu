@@ -4,7 +4,7 @@
 #include "StaticDataMgr.h"
 #include "npc/NPC.h"
 #include "npc/ConvoyAI.h"
-#include "npc/NPCAI.h"
+#include "npc/NPCAIMgr.h"
 #include "system/DestinyManager.h"
 #include "system/SystemManager.h"
 #include "system/SystemBubble.h"
@@ -110,7 +110,7 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
         new ConvoyAI(npc, group, i);
         group->members.push_back(npc);
 
-        NPCAI* npcAI = npc->GetAIMgr();
+        NPCAIMgr* npcAI = npc->GetAIMgr();
         if (npcAI != nullptr)
             npcAI->Disable();
     }
