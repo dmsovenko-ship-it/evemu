@@ -836,27 +836,71 @@ void MailDB::SetMailingListDefaultAccess(int32 listID, int32 defaultAccess, int3
 
 void MailDB::DeleteMailingList(uint32 characterID, int32 listID)
 {
-    // not used yet.
+    DBerror err;
+    // Only owner can delete
+    sDatabase.RunQuery(err, "DELETE FROM mailListUsers WHERE listID = %u AND characterID = %u AND role = %u",
+                       listID, characterID, mailingListMemberOwner);
+    sDatabase.RunQuery(err, "DELETE FROM mailList WHERE id = %u", listID);
 }
 
 void MailDB::JoinMailingList(uint32 characterID, std::string name)
 {
-    // not used yet.
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT id, defaultAccess, defaultMemberAccess FROM mailList WHERE displayName = '%s'",
+        name.c_str()))
+        return;
+
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return;
+
+    int32 listID = row.GetInt(0);
+    int8 defaultAccess = row.GetInt(1);
+    int8 defaultMemberAccess = row.GetInt(2);
+
+    // Check if already a member
+    DBQueryResult checkRes;
+    if (sDatabase.RunQuery(checkRes,
+        "SELECT characterID FROM mailListUsers WHERE listID = %u AND characterID = %u",
+        listID, characterID))
+    {
+        DBResultRow checkRow;
+        if (checkRes.GetRow(checkRow))
+            return; // already joined
+    }
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT IGNORE INTO mailListUsers (listID, characterID, role, access) "
+        "VALUES (%u, %u, %u, %u)",
+        listID, characterID, mailingListMemberDefault, defaultAccess);
 }
 
 void MailDB::LeaveMailingList(uint32 characterID, int32 listID)
 {
-    // not used yet.
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM mailListUsers WHERE listID = %u AND characterID = %u",
+        listID, characterID);
 }
 
 void MailDB::MailingListClearEntityAccess(int32 entity, int32 listID)
 {
-    // not used yet.
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM mailListUsers WHERE listID = %u AND characterID = %u",
+        listID, entity);
 }
 
 void MailDB::MailingListSetEntityAccess(int32 entity, int32 access, int32 listID)
 {
-    // not used yet.
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO mailListUsers (listID, characterID, role, access) "
+        "VALUES (%u, %u, %u, %u) "
+        "ON DUPLICATE KEY UPDATE access = %u",
+        listID, entity, mailingListMemberDefault, access, access);
 }
 
 void MailDB::MoveFromTrash(int32 messageID)
