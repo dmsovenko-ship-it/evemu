@@ -275,19 +275,25 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
 
         // Randomly spawn a site based on sceneType
         // Staging sceneType spawns at a lower rate
-        uint8 spawnChance = 50;
-        if (sceneType == Incursion::scenesType::staging)
-            spawnChance = 25;
-
         // Check if we should spawn based on players online
         uint32 playerCount = sMgr->PlayerCount();
-        if (playerCount == 0)
+        if (playerCount == 0) {
+            sLog.Warning("IncursionMgr", "SpawnSites: no players in system %u", solarSystemID);
             continue;
+        }
 
-        spawnChance = static_cast<uint8>(std::min<uint32>(spawnChance * playerCount, 80));
+        // 75% base chance for VG/AS/HQ, 40% for staging
+        uint8 spawnChance = 75;
+        if (sceneType == Incursion::scenesType::staging)
+            spawnChance = 40;
 
-        if (MakeRandomInt(0, 100) > spawnChance)
+        // Increase with more players
+        spawnChance = static_cast<uint8>(std::min<uint32>(spawnChance + (playerCount - 1) * 10, 95));
+
+        if (MakeRandomInt(0, 100) > spawnChance) {
+            sLog.Warning("IncursionMgr", "SpawnSites: roll failed sys=%u chance=%u", solarSystemID, spawnChance);
             continue;
+        }
 
         // Create a cosmic signature for the incursion site
         CosmicSignature sig;
