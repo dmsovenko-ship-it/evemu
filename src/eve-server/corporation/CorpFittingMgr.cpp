@@ -18,10 +18,10 @@ PyResult CorpFittingMgr::GetFittings(PyCallArgs &call, PyInt* ownerID) {
         "SELECT id, shipID, shipDNA, fittingName, description FROM chrShipFittings WHERE characterID = %u",
         corpID))
     {
-        return new PyList();
+        return new PyDict();
     }
 
-    PyList* fittings = new PyList();
+    PyDict* fittings = new PyDict();
     DBResultRow row;
     while (res.GetRow(row)) {
         PyDict* entry = new PyDict();
@@ -30,7 +30,7 @@ PyResult CorpFittingMgr::GetFittings(PyCallArgs &call, PyInt* ownerID) {
         entry->SetItemString("shipDNA", new PyString(row.GetText(2)));
         entry->SetItemString("name", new PyString(row.GetText(3)));
         entry->SetItemString("description", new PyString(row.GetText(4)));
-        fittings->AddItem(new PyObject("util.KeyVal", entry));
+        fittings->SetItem(new PyInt(row.GetUInt(0)), new PyObject("util.KeyVal", entry));
     }
     return fittings;
 }
