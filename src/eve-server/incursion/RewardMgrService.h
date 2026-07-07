@@ -8,7 +8,7 @@ class RewardMgrService : public Service<RewardMgrService>
 public:
     RewardMgrService();
 protected:
-    PyResult GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyList* rewardGroupIDs);
+    PyResult GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* rewardGroupIDs);
 };
 
 #endif

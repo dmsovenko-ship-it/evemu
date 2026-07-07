@@ -8,15 +8,27 @@ RewardMgrService::RewardMgrService() :
     this->Add("GetDelayedRewardsByGroupIDs", &RewardMgrService::GetDelayedRewardsByGroupIDs);
 }
 
-PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyList* rewardGroupIDs)
+PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* rewardGroupIDs)
 {
-    // Returns incursion rewards grouped by rewardGroupID
     PyDict* result = new PyDict();
-    for (auto itr = rewardGroupIDs->begin(); itr != rewardGroupIDs->end(); ++itr) {
-        if (!(*itr)->IsInt())
+
+    // Client may send PyList or PyTuple
+    std::vector<PyRep*> items;
+    if (rewardGroupIDs->IsList()) {
+        PyList* list = rewardGroupIDs->AsList();
+        for (auto itr = list->begin(); itr != list->end(); ++itr)
+            items.push_back(*itr);
+    } else if (rewardGroupIDs->IsTuple()) {
+        PyTuple* tuple = rewardGroupIDs->AsTuple();
+        for (size_t i = 0; i < tuple->size(); ++i)
+            items.push_back(tuple->GetItem(i));
+    }
+
+    for (auto& item : items) {
+        if (!item->IsInt())
             continue;
 
-        uint32 groupID = (*itr)->AsInt()->value();
+        uint32 groupID = item->AsInt()->value();
         DBQueryResult res;
         if (sDatabase.RunQuery(res,
             "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount "
@@ -32,7 +44,7 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyList*
                 reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
                 rewardList->AddItem(new PyObject("util.KeyVal", reward));
             }
-            result->SetItem(*itr, rewardList);
+            result->SetItem(item, rewardList);
         }
     }
     return result;
