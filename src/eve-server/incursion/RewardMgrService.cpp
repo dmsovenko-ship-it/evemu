@@ -59,8 +59,8 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
     uint32 id = rewardID->value();
 
     DBQueryResult res;
-    PyList* immediateRewards = new PyList();
-    PyList* delayedRewards = new PyList();
+    PyDict* immediateRewards = new PyDict();
+    PyDict* delayedRewards = new PyDict();
 
     if (sDatabase.RunQuery(res,
         "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount"
@@ -68,12 +68,13 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
     {
         DBResultRow row;
         while (res.GetRow(row)) {
+            uint32 rewardTypeID = row.GetUInt(0);
             PyDict* reward = new PyDict();
-            reward->SetItemString("rewardTypeID",  new PyInt(row.GetUInt(0)));
+            reward->SetItemString("rewardTypeID",  new PyInt(rewardTypeID));
             reward->SetItemString("rewardQuantity", new PyInt(row.GetUInt(1)));
             reward->SetItemString("lpTypeID",      new PyInt(row.GetUInt(2)));
             reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
-            immediateRewards->AddItem(new PyObject("util.KeyVal", reward));
+            immediateRewards->SetItem(new PyInt(rewardTypeID), new PyObject("util.KeyVal", reward));
         }
     }
 
