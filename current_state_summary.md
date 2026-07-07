@@ -118,6 +118,13 @@
 - **Фикс hardcoded sceneType** — `SpawnKilled` читает реальный `sceneType` из `incursionSystems`
 - **Staging defence** — сайты появляются и в staging-системе
 
+## Part 18: Incursion Penalties / NPC Damage / LP Store (done)
+- **NPC damage boost** — VG 1.2x, AS 1.4x, HQ 1.6x, Mothership 2.0x (resistances penalty simulation)
+- **Remote repair penalty** — −70% эффективности ремоут-репа в инкурсионных системах
+- **Cyno jamming** — цино не активируется в системах вторжения
+- **Bounty penalty** — −25% к баунти выплатам
+- **CONCORD LP Store** — миграция с LP-офферами для CONCORD (импланты, скины)
+
 # TODO (next session)
 
 ## High Priority
@@ -126,16 +133,14 @@
 3. **Ship clone bay** — full ship-to-ship clone transfer (Rorqual etc.)
 
 ## Medium Priority
-4. **Contest system** — player contest mechanics for incursions
-5. **Incursion penalties** — resistance/damage/bounty/cyno penalties in incursion systems
-6. **LaunchSnowBall** — implement snowball launcher module
-7. **War decay timer** — auto-check unpaid war bills and end wars
-8. **Contract PlaceBid / FinishAuction** — auction support
-9. **Corp Mail groups** — send mail to corp role groups (Directors, Officers, etc.)
+4. **LaunchSnowBall** — implement snowball launcher module
+5. **War decay timer** — auto-check unpaid war bills and end wars
+6. **Contract PlaceBid / FinishAuction** — auction support
+7. **Corp Mail groups** — send mail to corp role groups (Directors, Officers, etc.)
 
 ## Low Priority
-10. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
-11. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
+8. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
+9. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
 
 ## Code Review Needed
 - Verify incursion dungeon spawning works across multiple systems simultaneously
