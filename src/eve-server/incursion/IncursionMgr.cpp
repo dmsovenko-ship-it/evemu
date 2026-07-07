@@ -256,7 +256,7 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         // Create a cosmic signature for the incursion site
         CosmicSignature sig;
         sig.systemID = solarSystemID;
-        sig.groupID = EVEDB::invGroups::Cosmic_Anomaly;
+        sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
         sig.ownerID = sDataMgr.GetFactionCorp(factionSanshas);
 
         // Pick appropriate dungeonID based on sceneType
