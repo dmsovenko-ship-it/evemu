@@ -783,7 +783,7 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
 }
 
 
-PyResult ContractProxy::GetMyExpiredContractList(PyCallArgs &call) {
+PyResult ContractProxy::GetMyExpiredContractList(PyCallArgs &call, PyBool* fromCorp) {
     uint32 charID = call.client->GetCharacterID();
     double now = GetFileTimeNow();
 

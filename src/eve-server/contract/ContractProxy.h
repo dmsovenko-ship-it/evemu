@@ -50,7 +50,7 @@ protected:
     PyResult GetLoginInfo(PyCallArgs& call);
     PyResult SearchContracts(PyCallArgs& call);
     PyResult CollectMyPageInfo(PyCallArgs& call);
-    PyResult GetMyExpiredContractList(PyCallArgs& call);
+    PyResult GetMyExpiredContractList(PyCallArgs& call, PyBool* fromCorp);
     PyResult GetContractListForOwner(PyCallArgs& call, PyInt* ownerID, PyInt* contractStatus, std::optional <PyInt*> contractType, std::optional <PyBool*> issuedToBy);
 };
 
