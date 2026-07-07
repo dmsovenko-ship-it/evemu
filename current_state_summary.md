@@ -140,6 +140,13 @@
 - **Groups mapped**: Frigate→25, Cruiser→26, Battleship→27, BattleCruiser→419, Destroyer→420, Industrial→28 (same mapping as `NPC::MakeSlimItem`)
 - **Result**: Client now sees NPCs as Ship-category objects → renders targeting crosshairs + proper selection effects ✅
 
+## Part 21: Live API Verification Session (done)
+- **CONCORD LP store**: Fixed corpID 1000125 (was 1000131), seeded with real live offers (implants + CONCORD BPCs) ✅
+- **Incursion rewards**: Values (10.4M/18.2M/31.5M/63M) reasonable for Crucible era, no change needed ✅
+- **NPC stats**: All Sansha NPC attributes verified against live ESI, match ✅
+- **damageControl effect (2302)**: Found bug! effect_category was 1 (passive) instead of 4 (active) — fixed ✅
+- **All pirate NPC effects**: 2192-2197 (shield/armor rep), 1871-1879 (EWAR) verified, match live ✅
+
 # TODO (next session)
 
 ## High Priority
