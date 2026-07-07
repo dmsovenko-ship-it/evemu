@@ -612,6 +612,9 @@ void NPC::Killed(Damage &damage) {
         return;
     }
     m_destiny->SendJettisonPacket();
+
+    m_killed = true;
+    m_system->RemoveNPC(this);
 }
 
 void NPC::CmdDropLoot()
