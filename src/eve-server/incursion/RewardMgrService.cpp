@@ -6,6 +6,7 @@ RewardMgrService::RewardMgrService() :
     Service("rewardMgr")
 {
     this->Add("GetDelayedRewardsByGroupIDs", &RewardMgrService::GetDelayedRewardsByGroupIDs);
+    this->Add("GetRewardData", &RewardMgrService::GetRewardData);
 }
 
 PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* rewardGroupIDs)
@@ -48,4 +49,37 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
         }
     }
     return result;
+}
+
+PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
+{
+    // Returns reward data keyed by rewardID
+    // Client expects immediateRewards/delayedRewards lists
+
+    uint32 id = rewardID->value();
+
+    DBQueryResult res;
+    PyList* immediateRewards = new PyList();
+    PyList* delayedRewards = new PyList();
+
+    if (sDatabase.RunQuery(res,
+        "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount"
+        " FROM incursionRewards WHERE rewardGroupID = %u", id))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            PyDict* reward = new PyDict();
+            reward->SetItemString("rewardTypeID",  new PyInt(row.GetUInt(0)));
+            reward->SetItemString("rewardQuantity", new PyInt(row.GetUInt(1)));
+            reward->SetItemString("lpTypeID",      new PyInt(row.GetUInt(2)));
+            reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
+            immediateRewards->AddItem(new PyObject("util.KeyVal", reward));
+        }
+    }
+
+    PyDict* result = new PyDict();
+    result->SetItemString("immediateRewards", immediateRewards);
+    result->SetItemString("delayedRewards", delayedRewards);
+    result->SetItemString("rewardID", new PyInt(id));
+    return new PyObject("util.KeyVal", result);
 }
