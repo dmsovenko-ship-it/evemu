@@ -195,7 +195,56 @@ void StandingDB::SaveStandingChanges(uint32 fromID, uint32 toID, uint16 eventTyp
 
 PyRep *StandingDB::GetStandingCompositions(uint32 fromID, uint32 toID)
 {
-    // ownerID, standing ...
+    // Returns list of tuples: (ownerID, standing) showing standing derivation chain
+    PyList* result = new PyList();
+    int idx = 0;
 
-    return PyStatic.NewNone();
+    // Direct standing: fromID -> toID
+    {
+        float dir = GetStanding(fromID, toID);
+        PyTuple* t = new PyTuple(2);
+        t->SetItem(0, PyStatic.NewInt(fromID));
+        t->SetItem(1, new PyFloat(dir));
+        result->SetItem(idx++, t);
+    }
+
+    // Derived standing via corporation (if fromID has a corp)
+    DBQueryResult corpRes;
+    if (sDatabase.RunQuery(corpRes,
+        "SELECT corporationID FROM chrCharacters WHERE characterID = %u", fromID))
+    {
+        DBResultRow row;
+        if (corpRes.GetRow(row)) {
+            uint32 corpID = row.GetUInt(0);
+            float corpStand = GetStanding(corpID, toID);
+            if (corpStand != 0.0f) {
+                PyTuple* t = new PyTuple(2);
+                t->SetItem(0, PyStatic.NewInt(corpID));
+                t->SetItem(1, new PyFloat(corpStand));
+                result->SetItem(idx++, t);
+            }
+        }
+    }
+
+    // Derived standing via faction (if fromID has a faction)
+    DBQueryResult facRes;
+    if (sDatabase.RunQuery(facRes,
+        "SELECT factionID FROM chrCharacters WHERE characterID = %u", fromID))
+    {
+        DBResultRow row;
+        if (facRes.GetRow(row)) {
+            uint32 facID = row.GetUInt(0);
+            if (facID > 0) {
+                float facStand = GetStanding(facID, toID);
+                if (facStand != 0.0f) {
+                    PyTuple* t = new PyTuple(2);
+                    t->SetItem(0, PyStatic.NewInt(facID));
+                    t->SetItem(1, new PyFloat(facStand));
+                    result->SetItem(idx++, t);
+                }
+            }
+        }
+    }
+
+    return result;
 }
