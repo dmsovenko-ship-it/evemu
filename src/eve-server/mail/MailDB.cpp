@@ -78,7 +78,7 @@ PyRep* MailDB::GetMailHeaders(int charId, std::vector<int32> messageIDs)
     return DBResultToCRowset(res);
 }
 
-int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID, int toCorpOrAllianceID, const std::string& title, const std::string& body, int isReplyTo, int isForwardedFrom)
+int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID, int toCorpOrAllianceID, const std::string& title, const std::string& body, int isReplyTo, int isForwardedFrom, uint32 roleMask/*0*/)
 {
     // build a string with ',' seperated char ids
     std::string toStr;
@@ -168,18 +168,35 @@ int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID,
     // Deliver to corp or alliance members
     if (toCorpOrAllianceID > 0) {
         DBQueryResult memberRes;
-        // Try corporation members first
         bool isAlliance = false;
-        if (!sDatabase.RunQuery(memberRes,
-            "SELECT characterID FROM chrCharacters "
-            "WHERE corporationID = %u AND online = 1", toCorpOrAllianceID))
-        {
-            // Fallback: try alliance members
-            isAlliance = true;
-            sDatabase.RunQuery(memberRes,
-                "SELECT characterID FROM chrCharacters "
-                "WHERE allianceID = %u AND online = 1", toCorpOrAllianceID);
+        std::string corpQuery;
+
+        if (roleMask > 0) {
+            // Filter by role mask: only deliver to members with matching roles
+            if (roleMask & 0xFFFFFFFF) {
+                // Use chrCharacters joined with crpRoles for role filtering
+                corpQuery = "SELECT c.characterID FROM chrCharacters c "
+                    "JOIN crpRoles r ON c.characterID = r.characterID "
+                    "WHERE c.corporationID = %u AND (r.roleID & %u) = %u AND c.online = 1";
+            }
         }
+
+        if (corpQuery.empty()) {
+            // Try corporation members first
+            if (!sDatabase.RunQuery(memberRes,
+                "SELECT characterID FROM chrCharacters "
+                "WHERE corporationID = %u AND online = 1", toCorpOrAllianceID))
+            {
+                // Fallback: try alliance members
+                isAlliance = true;
+                sDatabase.RunQuery(memberRes,
+                    "SELECT characterID FROM chrCharacters "
+                    "WHERE allianceID = %u AND online = 1", toCorpOrAllianceID);
+            }
+        } else {
+            sDatabase.RunQuery(memberRes, corpQuery.c_str(), toCorpOrAllianceID, roleMask, roleMask);
+        }
+
         // If no online members, get all members
         if (!memberRes.GetRowCount()) {
             if (isAlliance) {

@@ -79,6 +79,11 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
     }
 
     int sender = call.client->GetCharacterID();
+    // Check for optional roleMask parameter (used for corp mail role groups)
+    uint32 roleMask = 0;
+    if (call.byname.find("roleMask") != call.byname.end())
+        roleMask = PyRep::IntegerValueU32(call.byname.find("roleMask")->second);
+
     return new PyInt(
         m_db.SendMail(
             sender, characters,
@@ -86,7 +91,8 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
             toCorpOrAllianceID.has_value() ? toCorpOrAllianceID.value()->value() : -1,
             title->content(), body->content(),
             isReplyTo->value(),
-            isForwardedFrom->value()
+            isForwardedFrom->value(),
+            roleMask
         )
     );
 }

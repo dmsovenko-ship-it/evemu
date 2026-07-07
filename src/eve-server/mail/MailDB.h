@@ -107,7 +107,7 @@ public:
     void RemoveLabelMask(int32 messageID, int mask);
     void RemoveLabelMasks(std::vector<int32> messageIDs, int mask);
 
-    int SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID, int toCorpOrAllianceID, const std::string& title, const std::string& body, int isReplyTo, int isForwardedFrom);
+    int SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID, int toCorpOrAllianceID, const std::string& title, const std::string& body, int isReplyTo, int isForwardedFrom, uint32 roleMask = 0);
     PyRep* GetNewMail(int charId);
     PyRep* GetMailHeaders(int charId, std::vector<int32> messageIDs);
     PyRep* GetMailStatus(int charId);
