@@ -9,15 +9,13 @@
 #include "system/cosmicMgrs/SpawnMgr.h"
 
 IncursionMgr::IncursionMgr()
-    : m_timer(1000)  // first check in 1s, then every 60s
+    : m_timer(60000)  // check every 60s
 {
+    m_timer.Start();  // start timer immediately
 }
 
 void IncursionMgr::Process()
 {
-    if (!m_timer.Check())
-        return;
-
     // Check if any incursions exist, auto-start one if none active
     DBQueryResult activeRes;
     bool hasActive = false;
@@ -31,7 +29,6 @@ void IncursionMgr::Process()
 
     if (!hasActive) {
         // Auto-start a Sansha incursion in a random lowsec constellation
-        // Prefer constellations in lowsec (sec 0.0 to 0.4) near NPC nullsec regions
         sLog.Warning("IncursionMgr", "No active incursions, starting new one...");
         DBQueryResult constRes;
         if (sDatabase.RunQuery(constRes,
@@ -50,6 +47,9 @@ void IncursionMgr::Process()
         }
         return;
     }
+
+    if (!m_timer.Check())
+        return;
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
