@@ -125,6 +125,17 @@
 - **Bounty penalty** — −25% к баунти выплатам
 - **CONCORD LP Store** — миграция с LP-офферами для CONCORD (импланты, скины)
 
+## Part 19: SDE vs Live API Verification (done)
+- **Sansha NPC graphicIDs** verified against live ESI: 1236, 1238, 2295 all present in both `eveGraphics` and `graphics` tables ✅
+- **Entity NPC types** (10025, 10030, 11913, 23383) have correct groupIDs (565-567, 582), all catID=11 (Entity) ✅
+- **Entity effects** verified: 2192-2197 (shield/armor rep), 1871-1879 (EWAR), all present in `dgmEffects` ✅
+- **groupIDs 565/566/567/582** all `published=false`, category=Entity ✅
+- **soundID 31** (pirate chatter) exists in `sounds` table ✅
+- **Old custom type flaw**: 33083 Sansha Baron used graphicID 2289 (Dual80mmAutoCannon turret, not a ship model) — fixed by migration to SDE typeIDs
+- **soundID 20073** used by custom types — does NOT exist in `sounds` table — fixed by migration to SDE typeIDs (now using soundID=31)
+- **graphicID 2289** = `mmp131` (turret) — only used by old custom types (now deleted)
+- **graphicID 2295** = `res:/Model/Ship/Sansha/Battleship/SB1/SB1_T1.red` — Sansha Battleship model ✅
+
 # TODO (next session)
 
 ## High Priority
@@ -141,8 +152,3 @@
 ## Low Priority
 8. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
 9. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
-
-## Code Review Needed
-- Verify incursion dungeon spawning works across multiple systems simultaneously
-- Verify wave progression doesn't stall on incursion sites
-- Verify mothership encounter triggers correctly when hasBoss=1
