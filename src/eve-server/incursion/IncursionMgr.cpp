@@ -359,10 +359,15 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         bool spawned = dMgr->MakeDungeon(sig, dungeonID);
         if (spawned) {
             // Register with AnomalyMgr so it appears on scanner
-            SystemEntity* siteSE = sMgr->GetSE(sig.sigItemID);
-            if (siteSE != nullptr)
-                sMgr->GetAnomMgr()->AddSignal(siteSE);
-            sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u)",
+            AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
+            SystemEntity* siteSE = (anomMgr != nullptr) ? sMgr->GetSE(sig.sigItemID) : nullptr;
+            if (siteSE != nullptr) {
+                anomMgr->AddSignal(siteSE);
+                sLog.Warning("IncursionMgr", "AddSignal OK for site %u", sig.sigItemID);
+            } else {
+                sLog.Warning("IncursionMgr", "AddSignal FAILED - no entity %u or anomMgr null", sig.sigItemID);
+            }
+            sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u sigItem=%u)",
                 dungeonID, solarSystemID, sceneType);
         } else {
             sLog.Warning("IncursionMgr", "FAILED to spawn incursion site dungeonID=%u in system %u",
