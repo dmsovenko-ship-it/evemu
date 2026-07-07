@@ -49,9 +49,12 @@ void IncursionMgr::Process()
         return;
     }
 
-    if (!m_timer.Check())
+    if (!m_timer.Check()) {
+        sLog.Warning("IncursionMgr", "Process: timer not ready yet");
         return;
+    }
 
+    sLog.Warning("IncursionMgr", "Process: timer ready, querying incursions");
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT incursionID, state, lastUpdated FROM incursions WHERE state > 0"))
