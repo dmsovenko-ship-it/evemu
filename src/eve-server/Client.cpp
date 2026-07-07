@@ -505,7 +505,6 @@ void Client::ProcessClient() {
                         pShipSE->DestinyMgr()->Cloak();
                         WarpIn();
                     }
-                    m_ship->GetModuleManager()->UpdateChargeQty();  //  <<<< huge hack here....cant find another way to do it yet.
                     } break;
                 case Player::State::LoginWarp: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: LoginWarp");
