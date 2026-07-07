@@ -166,14 +166,15 @@
 - **SP loss on T3 pod kill**: When a Strategic Cruiser is destroyed, 5% SP is removed from the pilot's Strategic Cruiser skill (minimum 500 SP retained) ✅
 - **Existing infrastructure verified**: SubSystemModule class, InstallSubSystem, ModuleFactory dispatch, all 5 subsystem groups (954-958), flags (125-132), T3 hulls (29984/29986/29988/29990), all SDE data present ✅
 
-## Part 25: Mega-Session — NPC Cache, Fittings, Civilian, Invention, Mailing Lists (done)
-- **Server cache fix**: `alwaysRegen` for `config.BulkData.types` checked BEFORE `HaveCached()` — server served stale types ✅
-- **NPC Ship-category typeIDs**: 33500-33523 for all 6 pirate factions (was 37000) ✅
+## Part 25: Mega-Session (done)
+- **Server cache fix**: `alwaysRegen` before `HaveCached()` — server served stale types ✅
+- **NPC Ship-category typeIDs**: 33500-33523 for all 6 pirate factions ✅
 - **Wreck mappings**: `invTypesToWrecks` for 33500+ types ✅
 - **`/killallnpcs` fix**: `m_killed=true` + `RemoveNPC()` ✅
-- **IsInteractive flag removed**: from `NPC::EncodeDestiny` — caused `Unknown packet type` ✅
-- **Incursion waves**: `DoSpawnForAnomaly` accepts `isIncursion`, MakeDungeon passes it for IDs 2100-2122 ✅
-- **Ship Fittings Manager**: full CRUD (10% → 100%) ✅
+- **IsInteractive flag removed**: from `NPC::EncodeDestiny` — fix `Unknown packet type` ✅
+- **Incursion waves**: `DoSpawnForAnomaly` accepts `isIncursion` flag ✅
+- **Incursion contest**: damage tracking per player per bubble, proportional rewards ✅
+- **Ship Fittings Manager**: full CRUD ✅
 - **CorpFittingMgr**: full CRUD ✅
 - **Civilian Manager**: basic NPC traffic using ConvoyAI ✅
 - **GetStandingCompositions**: direct + corp + faction standings ✅
@@ -189,3 +190,18 @@
 - **GM commands: dogma, tr, status, siglist** ✅
 
 # TODO (next session)
+
+## High Priority
+1. **POS reinforcement** — shield < 25% → reinforced timer → invulnerable → exit with 0% shield
+2. **Standings** — decay mechanic, character-to-character (PnP) standings
+3. **EvE Mail** — notification delivery, spam filters
+
+## Medium Priority
+4. **Calendar** — event creation, invitations, reminders
+5. **Market** — price history data seeding, corp market escrow
+6. **Contract** — full auction lifecycle (item transfer on completion)
+
+## Low Priority
+7. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
+8. **PyRep memory management** — valgrind leak fixes
+9. **Civilian Manager** — extend to multi-system routes and more ship types

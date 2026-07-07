@@ -228,6 +228,17 @@ Things to verify after recent changes. Check off each item as you confirm it wor
 
 - [ ] **Site respawn after expiry** — Wait for anomaly to expire (~2 hours). New anomaly of the same type should respawn automatically. *(For testing: can temporarily reduce expiry timer in DungeonMgr::MakeDungeon.)*
 
+## New Features (2026-07-08)
+
+- [ ] **Incursion contest** — Join an incursion site, deal damage, complete site. Rewards should be proportional to damage dealt (not equal split). Check wallet for varying reward amounts.
+- [ ] **Incursion waves** — Clear NPCs in an incursion site. Next wave should spawn with harder NPCs. After final wave, site should be marked complete.
+- [ ] **Ship Fittings** — Open fitting window, save a fitting. Log out, log back in. Fitting should appear in saved fittings list. Rename and delete should work.
+- [ ] **Civilian traffic** — Enter a system with 2+ gates/stations. Civilian ships should appear and move between them. Leaving system → civilians despawn.
+- [ ] **Invention** — Place a T1 BPC in a lab with datacores. Start invention job. On completion, receive T2 BPC (or failure message).
+- [ ] **Contract auctions** — Create an auction contract. Place a bid. Finish the auction. Winner should receive item, seller should receive ISK (minus tax).
+- [ ] **Mailing lists** — Create a mailing list. Join it. Send mail to the list. All members should receive it. Leave the list.
+- [ ] **CONCORD LP store** — Check LP store for CONCORD (corpID 1000125). Should show implants and CONCORD BPCs with correct LP/ISK costs.
+
 ## Stability
 
 - [ ] **No crash on combat** — Engage NPCs with modules active and drones out. Killing NPCs or having modules deactivate mid-combat should not crash the server.
