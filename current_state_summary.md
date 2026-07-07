@@ -166,4 +166,26 @@
 - **SP loss on T3 pod kill**: When a Strategic Cruiser is destroyed, 5% SP is removed from the pilot's Strategic Cruiser skill (minimum 500 SP retained) ✅
 - **Existing infrastructure verified**: SubSystemModule class, InstallSubSystem, ModuleFactory dispatch, all 5 subsystem groups (954-958), flags (125-132), T3 hulls (29984/29986/29988/29990), all SDE data present ✅
 
+## Part 25: Mega-Session — NPC Cache, Fittings, Civilian, Invention, Mailing Lists (done)
+- **Server cache fix**: `alwaysRegen` for `config.BulkData.types` checked BEFORE `HaveCached()` — server served stale types ✅
+- **NPC Ship-category typeIDs**: 33500-33523 for all 6 pirate factions (was 37000) ✅
+- **Wreck mappings**: `invTypesToWrecks` for 33500+ types ✅
+- **`/killallnpcs` fix**: `m_killed=true` + `RemoveNPC()` ✅
+- **IsInteractive flag removed**: from `NPC::EncodeDestiny` — caused `Unknown packet type` ✅
+- **Incursion waves**: `DoSpawnForAnomaly` accepts `isIncursion`, MakeDungeon passes it for IDs 2100-2122 ✅
+- **Ship Fittings Manager**: full CRUD (10% → 100%) ✅
+- **CorpFittingMgr**: full CRUD ✅
+- **Civilian Manager**: basic NPC traffic using ConvoyAI ✅
+- **GetStandingCompositions**: direct + corp + faction standings ✅
+- **Invention**: chance calculation + T2 BPC creation ✅
+- **Mailing lists**: Join/Leave/Delete/Kick/EntityAccess + PK fix ✅
+- **LaunchSnowBall, Per-clone implants, War decay, Ship clone bay** ✅
+- **Contract auctions + ISK transfer** ✅
+- **CONCORD LP store fix, damageControl fix** ✅
+- **Contraband: 90% base + freight skills** ✅
+- **PyInt cache (-10..255) + bulk replace in 33 files** ✅
+- **Agent portrait fix (images.evetech.net)** ✅
+- **Login warp: removed UpdateChargeQty hack** ✅
+- **GM commands: dogma, tr, status, siglist** ✅
+
 # TODO (next session)
