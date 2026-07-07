@@ -162,6 +162,14 @@
 
 # TODO (next session)
 
-## Low Priority
-1. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
-2. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
+## High Priority
+1. **T3 Ships — SubSystemModule implementation** — Tech 3 ships (Loki, Tengu, Proteus, Legion):
+   - Subsystem slot fitting/removal
+   - Subsystem effects processing (role bonuses per subsystem type)
+   - Subsystem attribute modifiers (hull, resists, speed, capacitor)
+   - `GetSubSystems` / `SetSubSystems` service methods
+   - T3 ship destruction: SP loss in required subsystem skills
+   - SubSystemModule online/offline cycle
+
+## Medium Priority
+2. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
