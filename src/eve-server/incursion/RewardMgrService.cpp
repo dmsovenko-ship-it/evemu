@@ -74,7 +74,10 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
             reward->SetItemString("rewardQuantity", new PyInt(row.GetUInt(1)));
             reward->SetItemString("lpTypeID",      new PyInt(row.GetUInt(2)));
             reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
-            immediateRewards->SetItem(new PyInt(rewardTypeID), new PyObject("util.KeyVal", reward));
+            // Wrap in a list so client can iterate
+            PyList* rewardList = new PyList();
+            rewardList->AddItem(new PyObject("util.KeyVal", reward));
+            immediateRewards->SetItem(new PyInt(rewardTypeID), rewardList);
         }
     }
 
