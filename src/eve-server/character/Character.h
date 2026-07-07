@@ -390,7 +390,9 @@ protected:
         const CharacterData& _charData,
         const CorpData& _corpData
     );
+public:
     virtual ~Character();
+protected:
 
     void LoadBookmarks();
 

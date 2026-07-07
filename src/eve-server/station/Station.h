@@ -117,7 +117,9 @@ public:
 
 protected:
     StationItem(uint32 stationID, const StationType &type, const ItemData &data, const CelestialObjectData &cData);
+public:
     virtual ~StationItem();
+protected:
     /*
      * Member functions:
      */

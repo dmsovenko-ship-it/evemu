@@ -50,9 +50,10 @@ class ShipItem
 
 protected:
     ShipItem(uint32 shipID, const ItemType &type, const ItemData &data);
+public:
     ~ShipItem() noexcept;
 
-public:
+    /* class type pointer querys. */
     /* class type pointer querys. */
     virtual ShipItem* GetShipItem()                     { return this; }
     /* class type tests. */
