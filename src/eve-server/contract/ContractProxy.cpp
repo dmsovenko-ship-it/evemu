@@ -1353,12 +1353,28 @@ PyResult ContractProxy::FinishAuction(PyCallArgs& call, PyInt* contractID) {
         "SELECT bidderID, amount FROM ctrBids WHERE contractID = %u ORDER BY amount DESC LIMIT 1", cID))
         return PyStatic.NewFalse();
 
+    DBQueryResult issuerRes;
+    uint32 issuerID = 0;
+    if (sDatabase.RunQuery(issuerRes, "SELECT issuerID FROM ctrContracts WHERE contractId = %u", cID))
+        if (issuerRes.GetRow(row))
+            issuerID = row.GetUInt(0);
+
     DBerror err;
     if (bidRes.GetRow(bidRow)) {
         uint32 winnerID = bidRow.GetUInt(0);
+        double amount = bidRow.GetDouble(1);
+
         sDatabase.RunQuery(err,
             "UPDATE ctrContracts SET status = 4, dateCompleted = %.0f, acceptorID = %u WHERE contractId = %u",
             GetFileTimeNow(), winnerID, cID);
+
+        // Transfer winning bid from winner to issuer (minus 1% tax to CONCORD)
+        double tax = amount * 0.01;
+        AccountService::TransferFunds(winnerID, issuerID, amount - tax,
+            "Auction payment", Journal::EntryType::ContractAuctionWon, cID);
+        AccountService::TransferFunds(winnerID, corpCONCORD, tax,
+            "Auction tax", Journal::EntryType::ContractAuctionTax, cID);
+
         Client* winner = sEntityList.FindClientByCharID(winnerID);
         if (winner != nullptr) {
             PyTuple* payload = new PyTuple(1);
