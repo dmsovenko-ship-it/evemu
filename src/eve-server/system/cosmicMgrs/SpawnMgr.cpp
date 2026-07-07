@@ -456,11 +456,17 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
         // Fallback: map Entity groupID ranges to pirate factions
         if (corpID == 0) {
             uint16 gID = objType.groupID;
+            // Angel: 550-554, 575-576
             if      ((gID >= 550 && gID <= 554) || gID == 575 || gID == 576) { factionID = factionAngel; }
+            // Blood Raiders: 555-558, 577-578
             else if ((gID >= 555 && gID <= 558) || gID == 577 || gID == 578) { factionID = factionBloodRaider; }
-            else if ((gID >= 560 && gID <= 563) || gID == 579 || gID == 580) { factionID = factionGuristas; }
-            else if ((gID >= 565 && gID <= 568) || gID == 581 || gID == 582) { factionID = factionSanshas; }
+            // Guristas: 560-561, 563, 579-580 (NOT 562)
+            else if ((gID == 560 || gID == 561 || gID == 563) || gID == 579 || gID == 580) { factionID = factionGuristas; }
+            // Sansha: 562, 566-568, 581-582 (NOT 560-561 or 563)
+            else if ((gID == 562 || (gID >= 566 && gID <= 568)) || gID == 581 || gID == 582) { factionID = factionSanshas; }
+            // Serpentis: 570-573, 583-584
             else if ((gID >= 570 && gID <= 573) || gID == 583 || gID == 584) { factionID = factionSerpentis; }
+            // Rogue Drones: 755-761
             else if (gID >= 755 && gID <= 761) { factionID = factionRogueDrones; }
             if (factionID != 0)
                 corpID = sDataMgr.GetFactionCorp(factionID);
