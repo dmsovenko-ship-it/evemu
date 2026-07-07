@@ -80,7 +80,11 @@ PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
         uint32 locID = row.GetUInt(2);
         uint8 isActive = row.GetUInt(5);
 
-        clones->SetItem(new PyInt(cloneID), new PyInt(locID));
+        PyDict* cloneData = new PyDict();
+        cloneData->SetItemString("locationID", new PyInt(locID));
+        cloneData->SetItemString("isActive", new PyInt(isActive));
+        cloneData->SetItemString("typeID", new PyInt(row.GetUInt(1)));
+        clones->SetItem(new PyInt(cloneID), new PyObject("util.KeyVal", cloneData));
 
         // Load per-clone implants from chrJumpCloneImplants
         DBQueryResult implantRes;
