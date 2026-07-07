@@ -68,18 +68,18 @@ PyResult Command_siglist(Client* pClient, CommandDB* db, EVEServiceManager& serv
     int count = sig.size();
     std::ostringstream str;
     str.clear();
-    str << "There are currently %u active signals in %s(%u)<br>"; //80
-    str << "aID iID bubbleID type 'Name'<br>"; //30
+    str << "<font color=0xffff8800>Signals in %s(%u):</font> %u found<br>"; //80
+    str << "<font color=0xffff8800>ID</font> | <font color=0xffff8800>Item</font> | <font color=0xffff8800>Bubble</font> | <font color=0xffff8800>Type</font> | <font color=0xffff8800>Name</font><br>"; //30
 
-    for (auto sigs : sig) {
-        // sysSignatures (sigID,sigItemID,dungeonType,sigName,systemID,sigTypeID,sigGroupID,scanGroupID,scanAttributeID,x,y,z)
-        str << sigs.sigID.c_str() << " "  << sigs.sigItemID << " " << sigs.bubbleID << " " << pAM->GetScanGroupName(sigs.scanGroupID) << " '" << sigs.sigName.c_str() << "'<br>"; //120
+    for (auto& sigs : sig) {
+        str << sigs.sigID.c_str() << " | "  << sigs.sigItemID << " | " << sigs.bubbleID << " | "
+            << pAM->GetScanGroupName(sigs.scanGroupID) << " | '" << sigs.sigName.c_str() << "'<br>"; //120
     }
 
-    int size(120);
-    size += count * 120;
+    int size(140);
+    size += count * 130;
     char* reply = Memory::Allocator::NewArray<char>(&sAllocators.tickAllocator, size);
-    snprintf(reply, size, str.str().c_str(), count, pClient->SystemMgr()->GetName(), pClient->SystemMgr()->GetID());
+    snprintf(reply, size, str.str().c_str(), pClient->SystemMgr()->GetName(), pClient->SystemMgr()->GetID(), count);
 
     pClient->SendInfoModalMsg(reply);
     return new PyString(reply);
@@ -136,20 +136,20 @@ PyResult Command_status(Client* pClient, CommandDB* db, EVEServiceManager &servi
 
     ShipItem* pShip = pClient->GetShip().get();
 
-    char reply[150];
-    snprintf(reply, 150,
-             "PG: %.2f(%.3f)<br>" //25
-             "Cap: %.2f(%.3f)<br>" //28
-             "CPU: %.2f(%.3f)<br>" //28
-             "Hull: %.2f(%.3f)<br>" //32
-             "Armor: %.2f(%.3f)<br>" //27
-             "Shield: %.2f(%.3f)", //28
-             pShip->GetShipPGLevel(), pShip->GetShipPGPercent().get_float(),
-             pShip->GetShipCapacitorLevel(), pShip->GetShipCapacitorPercent().get_float(),
-             pShip->GetShipCPULevel(), pShip->GetShipCPUPercent().get_float(),
-             pShip->GetShipHullHP(), pShip->GetShipHullPercent().get_float(),
-             pShip->GetShipArmorHP(), pShip->GetShipArmorPercent().get_float(),
-             pShip->GetShipShieldHP(), pShip->GetShipShieldPercent().get_float()
+    char reply[200];
+    snprintf(reply, 200,
+             "<font color=0xffff8800>PG:</font> %.2f (%.1f%%)<br>"
+             "<font color=0xffff8800>Cap:</font> %.2f (%.1f%%)<br>"
+             "<font color=0xffff8800>CPU:</font> %.2f (%.1f%%)<br>"
+             "<font color=0xffff8800>Hull:</font> %.2f (%.1f%%)<br>"
+             "<font color=0xffff8800>Armor:</font> %.2f (%.1f%%)<br>"
+             "<font color=0xffff8800>Shield:</font> %.2f (%.1f%%)",
+             pShip->GetShipPGLevel(), pShip->GetShipPGPercent().get_float() * 100,
+             pShip->GetShipCapacitorLevel(), pShip->GetShipCapacitorPercent().get_float() * 100,
+             pShip->GetShipCPULevel(), pShip->GetShipCPUPercent().get_float() * 100,
+             pShip->GetShipHullHP(), pShip->GetShipHullPercent().get_float() * 100,
+             pShip->GetShipArmorHP(), pShip->GetShipArmorPercent().get_float() * 100,
+             pShip->GetShipShieldHP(), pShip->GetShipShieldPercent().get_float() * 100
     );
 
     pClient->SendInfoModalMsg(reply);
