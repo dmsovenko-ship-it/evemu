@@ -70,10 +70,20 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
     }
     if (routePoints.size() < 2) return;
 
-    uint32 ptA = routePoints[MakeRandomInt(0, routePoints.size() - 1)]->GetID();
+    uint32 idxA = MakeRandomInt(0, routePoints.size() - 1);
+    SystemEntity* entA = routePoints[idxA];
+    if (entA == nullptr) return;
+    uint32 ptA = entA->GetID();
+
     uint32 ptB = ptA;
-    while (ptB == ptA)
-        ptB = routePoints[MakeRandomInt(0, routePoints.size() - 1)]->GetID();
+    uint8 maxTries = 10;
+    while (ptB == ptA && --maxTries > 0) {
+        uint32 idxB = MakeRandomInt(0, routePoints.size() - 1);
+        SystemEntity* entB = routePoints[idxB];
+        if (entB != nullptr)
+            ptB = entB->GetID();
+    }
+    if (ptB == ptA) return;
 
     // Industrial ship typeIDs for civilian traffic
     uint16 industrialTypes[] = {582, 583, 584, 585, 586, 587};
