@@ -28,6 +28,8 @@
 
 #include "character/SkillMgrService.h"
 #include "account/AccountService.h"
+#include "effects/EffectsDataMgr.h"
+#include "inventory/Inventory.h"
 
 SkillMgrService::SkillMgrService(EVEServiceManager& mgr)
 : BindableService("skillMgr", mgr, eAccessLevel_Character)
@@ -254,30 +256,30 @@ PyResult SkillMgrBound::GetCharacterAttributeModifiers(PyCallArgs &call, PyInt* 
     CharacterRef cRef(call.client->GetChar());
     PyList* list = new PyList();
 
+    // Return equipped implants with their itemID/typeID and modifier info
+    // The client already knows implant bonuses from cached dgmTypeAttributes
     std::vector<InventoryItemRef> implants;
     cRef->GetMyInventory()->GetItemsByFlag(flagImplant, implants);
 
     for (auto& implant : implants) {
-        // For each implant, check if it has an effect modifier for this attribute
-        // The modifier data is stored in the item's attributes via dgmTypeAttributes
-        // We need to query type effects for this implant
+        // Check if this implant has an effect that modifies the requested attribute
         std::vector<TypeEffects> typeFx;
         sFxDataMgr.GetTypeEffect(implant->typeID(), typeFx);
 
         for (auto& curFx : typeFx) {
             Effect fx = sFxDataMgr.GetEffect(curFx.effectID);
-            if (fx.effectCategory != Effect::Category::Passive)
-                continue;
-            // Parse the effect expression to find modifiers for the requested attribute
-            // For now, return the implant as a modifier with value from its attribute
-            // This simplified approach passes implant itemID/typeID and lets the client calculate
-            if (implant->HasAttribute((uint16)attr->value())) {
-                PyTuple* tuple = new PyTuple(4);
-                    tuple->SetItem(0, new PyInt(implant->itemID()));
-                    tuple->SetItem(1, new PyInt(implant->typeID()));
-                    tuple->SetItem(2, PyStatic.NewOne());    // operation = add
-                    tuple->SetItem(3, new PyReal(implant->GetAttribute((uint16)attr->value()).get_double()));
-                list->AddItem(tuple);
+            // Passive effects (effectState == 1) are always-active modifiers like implant bonuses
+            // Skip non-passive effects (activation, online, etc.)
+            if (fx.effectState == 1) {
+                // For the requested attribute, check if the implant directly modifies it
+                if (implant->HasAttribute((uint16)attr->value())) {
+                    PyTuple* tuple = new PyTuple(4);
+                        tuple->SetItem(0, new PyInt(implant->itemID()));
+                        tuple->SetItem(1, new PyInt(implant->typeID()));
+                        tuple->SetItem(2, new PyInt(1));    // operation = PreAssign (add)
+                        tuple->SetItem(3, new PyFloat(implant->GetAttribute((uint16)attr->value()).get_double()));
+                    list->AddItem(tuple);
+                }
             }
         }
     }
