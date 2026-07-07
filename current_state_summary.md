@@ -129,12 +129,16 @@
 - **Sansha NPC graphicIDs** verified against live ESI: 1236, 1238, 2295 all present in both `eveGraphics` and `graphics` tables ✅
 - **Entity NPC types** (10025, 10030, 11913, 23383) have correct groupIDs (565-567, 582), all catID=11 (Entity) ✅
 - **Entity effects** verified: 2192-2197 (shield/armor rep), 1871-1879 (EWAR), all present in `dgmEffects` ✅
-- **groupIDs 565/566/567/582** all `published=false`, category=Entity ✅
+- **All pirate NPCs** (Angel/Blood/Guristas/Serpentis/RogueDrone) verified: graphicIDs, effects, groups all match live API ✅
 - **soundID 31** (pirate chatter) exists in `sounds` table ✅
 - **Old custom type flaw**: 33083 Sansha Baron used graphicID 2289 (Dual80mmAutoCannon turret, not a ship model) — fixed by migration to SDE typeIDs
 - **soundID 20073** used by custom types — does NOT exist in `sounds` table — fixed by migration to SDE typeIDs (now using soundID=31)
-- **graphicID 2289** = `mmp131` (turret) — only used by old custom types (now deleted)
-- **graphicID 2295** = `res:/Model/Ship/Sansha/Battleship/SB1/SB1_T1.red` — Sansha Battleship model ✅
+
+## Part 20: Entity NPC Client Rendering Fix (done)
+- **Problem**: Entity-category NPCs (catID=11) showed targeting brackets but no crosshair reticle because client cached them as Entity, not Ship
+- **Fix**: `Generate_invTypes()` now overrides groupIDs for Entity NPC groups (550-584, 755-761) to Ship groups (25/26/27/419/420/28) in the `config.BulkData.types` cache sent to client
+- **Groups mapped**: Frigate→25, Cruiser→26, Battleship→27, BattleCruiser→419, Destroyer→420, Industrial→28 (same mapping as `NPC::MakeSlimItem`)
+- **Result**: Client now sees NPCs as Ship-category objects → renders targeting crosshairs + proper selection effects ✅
 
 # TODO (next session)
 
