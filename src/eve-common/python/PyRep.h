@@ -1178,47 +1178,57 @@ public:
     pyStatic()
     {
         m_none = new PyNone();
-        m_zero = new PyInt(0);
-        m_one = new PyInt(1);
-        m_negone = new PyInt(-1);
         m_true = new PyBool(true);
         m_false = new PyBool(false);
         m_dict = new PyDict();
         m_list = new PyList();
         m_tuple = new PyTuple(0);
+        // Pre-allocate small integers for caching (reduces heap allocations in Encode calls)
+        for (int i = 0; i < cacheSize; ++i)
+            m_intCache[i] = new PyInt(i - intOffset);
     }
 
    ~pyStatic()
    {
        PyDecRef(m_none);
-       PyDecRef(m_zero);
-       PyDecRef(m_one);
-       PyDecRef(m_negone);
        PyDecRef(m_true);
        PyDecRef(m_false);
        PyDecRef(m_dict);
        PyDecRef(m_list);
        PyDecRef(m_tuple);
+       for (int i = 0; i < cacheSize; ++i)
+           PyDecRef(m_intCache[i]);
     }
 
     PyRep* NewNone()            { PyIncRef(m_none); return m_none; }
-    PyRep* NewZero()            { PyIncRef(m_zero); return m_zero; }
-    PyRep* NewOne()             { PyIncRef(m_one); return m_one; }
-    PyRep* NewNegOne()          { PyIncRef(m_negone); return m_negone; }
+    PyRep* NewZero()            { PyIncRef(m_intCache[0 + intOffset]); return m_intCache[0 + intOffset]; }
+    PyRep* NewOne()             { PyIncRef(m_intCache[1 + intOffset]); return m_intCache[1 + intOffset]; }
+    PyRep* NewNegOne()          { PyIncRef(m_intCache[-1 + intOffset]); return m_intCache[-1 + intOffset]; }
     PyRep* NewTrue()            { PyIncRef(m_true); return m_true; }
     PyRep* NewFalse()           { PyIncRef(m_false); return m_false; }
+
+    PyRep* NewInt(int32 val) {
+        if (val >= (-intOffset) && val <= maxCachedVal) {
+            PyIncRef(m_intCache[val + intOffset]);
+            return m_intCache[val + intOffset];
+        }
+        return new PyInt(val);
+    }
 
     PyDict* mtDict()            { PyIncRef(m_dict); return m_dict; }
     PyList* mtList()            { PyIncRef(m_list); return m_list; }
     PyTuple* mtTuple()          { PyIncRef(m_tuple); return m_tuple; }
 
 private:
+    static const int intOffset = 10;      // cache -10 .. maxCachedVal
+    static const int maxCachedVal = 255;   // upper bound inclusive
+    static const int cacheSize = maxCachedVal + intOffset + 1; // 266
+
     PyRep* m_none;
-    PyRep* m_zero;
-    PyRep* m_one;
-    PyRep* m_negone;
     PyRep* m_true;
     PyRep* m_false;
+
+    PyRep* m_intCache[cacheSize];  // indexes 0..265 → values -10..255
 
     PyDict* m_dict;
     PyList* m_list;
