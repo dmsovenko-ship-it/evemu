@@ -73,8 +73,8 @@ PyResult CharFittingMgr::SaveManyFittings(PyCallArgs &call, PyInt* ownerID, PyDi
     uint32 charID = ownerID->value();
     // fittingsToSave is dict mapping tempID -> fitting KeyVal
     PyList* result = new PyList();
-    PyDict::iterator itr;
-    for (itr = fittingsToSave->begin(); itr != fittingsToSave->end(); ++itr) {
+    auto itr = fittingsToSave->begin();
+    for (; itr != fittingsToSave->end(); ++itr) {
         PyRep* tempID = itr->first;
         PyObject* fitting = itr->second->AsObject();
         if (fitting == nullptr) continue;

@@ -415,14 +415,17 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
 }
 
 // Spawn an individual enemy inside a dungeon (called by dungeonMgr)
-void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID)
+void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion)
 {
     _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly entered typeID=%u bubble=%p", typeID, (void*)pBubble);
     if (pBubble == nullptr) {
         _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly FAILED - bubble is null for typeID=%u", typeID);
         return;
     }
-    pBubble->SetAnomaly();
+    if (isIncursion)
+        pBubble->SetIncursion();
+    else
+        pBubble->SetAnomaly();
 
     float secRating = m_system->GetSecValue();
 

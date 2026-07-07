@@ -68,8 +68,8 @@ PyResult CorpFittingMgr::SaveFitting(PyCallArgs &call, PyInt* ownerID, PyObject*
 PyResult CorpFittingMgr::SaveManyFittings(PyCallArgs &call, PyInt* ownerID, PyDict* fittingsToSave) {
     uint32 corpID = ownerID->value();
     PyList* result = new PyList();
-    PyDict::iterator itr;
-    for (itr = fittingsToSave->begin(); itr != fittingsToSave->end(); ++itr) {
+    auto itr = fittingsToSave->begin();
+    for (; itr != fittingsToSave->end(); ++itr) {
         PyRep* tempID = itr->first;
         PyObject* fitting = itr->second->AsObject();
         if (fitting == nullptr) continue;
