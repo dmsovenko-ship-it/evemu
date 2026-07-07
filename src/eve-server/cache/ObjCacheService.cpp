@@ -307,13 +307,14 @@ PySubStream* ObjCacheService::LoadCachedFile(const char *filename, const char *o
 
 
 bool ObjCacheService::_LoadCachableObject(const PyRep *objectID) {
-    if (m_cache.HaveCached(objectID))
-        return true;
-
     const std::string objectID_string = CachedObjectMgr::OIDToString(objectID);
 
     // Always regenerate config.BulkData.types from DB to pick up new typeIDs from migrations
+    // This check must come BEFORE HaveCached(), otherwise the in-memory cache is never refreshed
     bool alwaysRegen = (objectID_string == "config.BulkData.types");
+
+    if (!alwaysRegen && m_cache.HaveCached(objectID))
+        return true;
 
     if (!alwaysRegen && !m_cacheDir.empty())
     {
