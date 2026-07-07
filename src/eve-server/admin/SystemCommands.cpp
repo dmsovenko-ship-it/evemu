@@ -127,19 +127,17 @@ PyResult Command_tr(Client* pClient, CommandDB* db, EVEServiceManager &services,
             // tr <me> to locationID
             locationID = atoi(args.arg(1).c_str());
         } else if (strcmp(args.arg(1).c_str(), Help) == 0) {
-            //  {.tr help}  will display the following list of options in notification window
-            std::ostringstream str; // for 'help' printing
-            str << ".tr [required first arg] [optional second arg] [optional third arg] [optional fourth arg]<br>"; //120
-            str << "1st arg = help|me|fleet|player name|shipID|itemID|locationID<br>"; //45
-            str << "2nd arg = help|me|fleet|home|last|shipID|itemID|locationID|x coord|moon|planet<br>";  //85
-            str << "3ed arg = me|fleet|home|last|shipID|itemID|locationID|y coords|moon|planet <br>"; //80
-            str << "4th arg = fleet|home|last|shipID|itemID|locationID|z coords|moon|planet <br>"; //77
-            str << "typical use is .tr locationID<br>";  //35
-            str << "<br>As there are too many options to explain in this msg, a full usage list can be found on our forums.<br>";  //105
-            int size = 500;
-            char* reply = Memory::Allocator::NewArray<char>(&sAllocators.tickAllocator, size);
-            snprintf(reply, size, str.str().c_str());
-            pClient->SendInfoModalMsg(reply);
+            //  {.tr help}  — display options
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>help</font> — this help");
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>locationID</font> — translocate to system/station");
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>player</font> <font color=0xffff8800>location</font> — move player to location");
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>me</font> <font color=0xffff8800>home</font> — return to home station");
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>me</font> <font color=0xffff8800>last</font> — return to last station");
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>me</font> <font color=0xffff8800>moon</font> — to random moon in system");
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>me</font> <font color=0xffff8800>planet</font> — to random planet in system");
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>shipID</font> <font color=0xffff8800>me</font> — move ship owner to you");
+            pClient->SendNotifyMsg(".tr <font color=0xffff8800>fleet</font> <font color=0xffff8800>locationID</font> — move fleet to location (WIP)");
+            pClient->SendNotifyMsg("Use <font color=0xffff8800>.tr help</font> for this list.");
             return nullptr;
         } else {
             // tr <me> to <locationName>?
