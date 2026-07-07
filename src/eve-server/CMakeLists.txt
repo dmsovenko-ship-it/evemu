@@ -196,10 +196,12 @@ SET( contract_SOURCE
 
 SET( incursion_INCLUDE
      "${TARGET_INCLUDE_DIR}/incursion/IncursionService.h"
-     "${TARGET_INCLUDE_DIR}/incursion/IncursionMgr.h" )
+     "${TARGET_INCLUDE_DIR}/incursion/IncursionMgr.h"
+     "${TARGET_INCLUDE_DIR}/incursion/RewardMgrService.h" )
 SET( incursion_SOURCE
      "${TARGET_SOURCE_DIR}/incursion/IncursionService.cpp"
-     "${TARGET_SOURCE_DIR}/incursion/IncursionMgr.cpp" )
+     "${TARGET_SOURCE_DIR}/incursion/IncursionMgr.cpp"
+     "${TARGET_SOURCE_DIR}/incursion/RewardMgrService.cpp" )
 
 SET( corporation_INCLUDE
      "${TARGET_INCLUDE_DIR}/corporation/BillMgr.h"

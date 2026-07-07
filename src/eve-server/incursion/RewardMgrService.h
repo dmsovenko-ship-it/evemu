@@ -1,0 +1,14 @@
+#ifndef __REWARDMGR_SERVICE_H_INCL__
+#define __REWARDMGR_SERVICE_H_INCL__
+
+#include "services/Service.h"
+
+class RewardMgrService : public Service<RewardMgrService>
+{
+public:
+    RewardMgrService();
+protected:
+    PyResult GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyList* rewardGroupIDs);
+};
+
+#endif
