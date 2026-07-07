@@ -7,6 +7,7 @@ RewardMgrService::RewardMgrService() :
 {
     this->Add("GetDelayedRewardsByGroupIDs", &RewardMgrService::GetDelayedRewardsByGroupIDs);
     this->Add("GetRewardData", &RewardMgrService::GetRewardData);
+    this->Add("GetRewardLPLogs", &RewardMgrService::GetRewardLPLogs);
 }
 
 PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* rewardGroupIDs)
@@ -35,7 +36,7 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
             "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount "
             "FROM incursionRewards WHERE rewardGroupID = %u", groupID))
         {
-            PyList* rewardList = new PyList();
+            PyList* entries = new PyList();
             DBResultRow row;
             while (res.GetRow(row)) {
                 PyDict* reward = new PyDict();
@@ -43,9 +44,11 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
                 reward->SetItemString("rewardQuantity", new PyInt(row.GetUInt(1)));
                 reward->SetItemString("lpTypeID",      new PyInt(row.GetUInt(2)));
                 reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
-                rewardList->AddItem(new PyObject("util.KeyVal", reward));
+                entries->AddItem(new PyObject("util.KeyVal", reward));
             }
-            result->SetItem(item, rewardList);
+            PyDict* groupData = new PyDict();
+            groupData->SetItemString("entries", entries);
+            result->SetItem(item, new PyObject("util.KeyVal", groupData));
         }
     }
     return result;
@@ -86,4 +89,11 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
     result->SetItemString("delayedRewards", delayedRewards);
     result->SetItemString("rewardID", new PyInt(id));
     return new PyObject("util.KeyVal", result);
+}
+
+PyResult RewardMgrService::GetRewardLPLogs(PyCallArgs& call)
+{
+    // Returns LP reward logs for incursion participation
+    // Client expects a list of LP log entries
+    return new PyList();
 }
