@@ -1207,7 +1207,7 @@ public:
     PyRep* NewTrue()            { PyIncRef(m_true); return m_true; }
     PyRep* NewFalse()           { PyIncRef(m_false); return m_false; }
 
-    PyRep* NewInt(int32 val) {
+    PyInt* NewInt(int32 val) {
         if (val >= (-intOffset) && val <= maxCachedVal) {
             PyIncRef(m_intCache[val + intOffset]);
             return m_intCache[val + intOffset];
