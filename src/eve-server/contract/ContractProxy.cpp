@@ -1368,12 +1368,9 @@ PyResult ContractProxy::FinishAuction(PyCallArgs& call, PyInt* contractID) {
             "UPDATE ctrContracts SET status = 4, dateCompleted = %.0f, acceptorID = %u WHERE contractId = %u",
             GetFileTimeNow(), winnerID, cID);
 
-        // Transfer winning bid from winner to issuer (minus 1% tax to CONCORD)
-        double tax = amount * 0.01;
-        AccountService::TransferFunds(winnerID, issuerID, amount - tax,
-            "Auction payment", Journal::EntryType::ContractAuctionWon, cID);
-        AccountService::TransferFunds(winnerID, corpCONCORD, tax,
-            "Auction tax", Journal::EntryType::ContractAuctionTax, cID);
+        // Transfer winning bid from winner to issuer
+        AccountService::TransferFunds(winnerID, issuerID, amount,
+            "Auction payment", Journal::EntryType::ContractAuctionSold, cID);
 
         Client* winner = sEntityList.FindClientByCharID(winnerID);
         if (winner != nullptr) {

@@ -369,40 +369,45 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                 if (incursionID > 0) {
                     sIncursionMgr.OnSiteCompleted(incursionID, m_system->GetID(), sceneType);
 
-                    // Distribute contest rewards to all players in the bubble
-                    // Reward is based on sceneType (VG/AS/HQ) from incursionRewards table
+                    // Contest-based reward distribution
                     DBQueryResult rewRes;
                     if (sDatabase.RunQuery(rewRes,
-                        "SELECT ri.rewardTypeID, ri.rewardQuantity, ri.lpAmount"
+                        "SELECT ri.rewardQuantity, ri.lpAmount"
                         " FROM incursionRewards ri"
                         " JOIN incursions i ON i.rewardGroupID = ri.rewardGroupID"
                         " WHERE i.incursionID = %u", incursionID))
                     {
                         DBResultRow rewRow;
                         if (rewRes.GetRow(rewRow)) {
-                            uint32 iskReward = rewRow.GetUInt(1);
-                            uint32 lpAmount = rewRow.GetUInt(2);
+                            double totalISK = rewRow.GetDouble(0);
+                            uint32 totalLP = rewRow.GetUInt(1);
 
-                            // Distribute to all players in the bubble
-                            std::vector<Client*> players;
-                            pBubble->GetPlayers(players);
-                            if (!players.empty()) {
-                                iskReward /= players.size();
-                                lpAmount /= players.size();
-                                for (auto client : players) {
+                            // Sum damage across all participants
+                            auto& bubbleDamage = sIncursionMgr.GetBubbleDamage(pBubble->GetID());
+                            double totalDamage = 0.0;
+                            for (auto& [charID, dmg] : bubbleDamage)
+                                totalDamage += dmg;
+
+                            if (totalDamage > 0.0 && !bubbleDamage.empty()) {
+                                for (auto& [charID, dmg] : bubbleDamage) {
+                                    double share = dmg / totalDamage;
+                                    Client* client = sEntityList.FindClientByCharID(charID);
                                     if (client == nullptr) continue;
-                                    // ISK reward
+
+                                    uint32 iskShare = static_cast<uint32>(totalISK * share);
+                                    uint32 lpShare = static_cast<uint32>(totalLP * share);
+                                    if (iskShare < 1) iskShare = 1;
+                                    if (lpShare < 1) lpShare = 1;
+
                                     AccountService::TransferFunds(
-                                        corpCONCORD, client->GetCharacterID(),
-                                        iskReward,
-                                        "DESC: Incursion site completion reward",
-                                        Journal::EntryType::MissionCompletion,
-                                        incursionID);
-                                    // LP reward (CONCORD LP)
+                                        corpCONCORD, charID, iskShare,
+                                        "Incursion contest reward",
+                                        Journal::EntryType::MissionCompletion, incursionID);
                                     LPService lps;
-                                    lps.AddLP(client->GetCharacterID(), corpCONCORD, lpAmount);
+                                    lps.AddLP(charID, corpCONCORD, lpShare);
                                 }
                             }
+                            sIncursionMgr.ClearDamageData(pBubble->GetID());
                         }
                     }
                 }

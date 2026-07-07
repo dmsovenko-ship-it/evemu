@@ -32,6 +32,7 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "EVEServerConfig.h"
+#include "incursion/IncursionMgr.h"
 #include "manufacturing/Blueprint.h"
 #include "map/MapDB.h"
 #include "npc/NPC.h"
@@ -105,6 +106,11 @@ bool SystemEntity::ApplyDamage(Damage &d) {
     // Null source guard (e.g. sentry gun damage)
     if (d.srcSE == nullptr) {
         d.srcSE = this; // Damage originates from self (no attribution)
+    }
+
+    // Track damage contribution for incursion contest rewards
+    if (d.srcSE->HasPilot() && this->IsNPCSE() && m_bubble != nullptr && m_bubble->IsIncursion()) {
+        sIncursionMgr.RecordDamage(m_bubble->GetID(), d.srcSE->GetPilot()->GetCharacterID(), d.GetTotal());
     }
 
     // Standing loss when a player attacks a convoy NPC

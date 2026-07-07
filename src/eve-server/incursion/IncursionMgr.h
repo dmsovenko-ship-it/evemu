@@ -4,6 +4,7 @@
 #include "utils/Singleton.h"
 #include <map>
 #include <set>
+#include <unordered_map>
 
 class SystemManager;
 
@@ -20,6 +21,11 @@ public:
     static bool IsIncursionSystem(uint32 solarSystemID);
     static uint8 GetSceneType(uint32 solarSystemID, uint32 incursionID = 0);
 
+    // Incursion contest: track damage per player per bubble
+    void RecordDamage(uint32 bubbleID, uint32 charID, double damage);
+    std::map<uint32, double>& GetBubbleDamage(uint32 bubbleID);
+    void ClearDamageData(uint32 bubbleID);
+
 private:
     void ProgressStateMachine(uint32 incursionID);
     void UpdateInfluence(uint32 incursionID);
@@ -28,6 +34,8 @@ private:
     void NotifyClients(uint32 incursionID);
 
     std::set<uint32> m_activeSystems;  // solarSystemIDs that currently have active incursion sites
+    // Per-bubble damage tracking for contest rewards: bubbleID -> (charID -> totalDamage)
+    std::map<uint32, std::map<uint32, double>> m_bubbleDamage;
 };
 
 #define sIncursionMgr \

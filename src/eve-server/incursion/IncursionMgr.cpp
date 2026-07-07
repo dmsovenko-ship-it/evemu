@@ -421,6 +421,18 @@ void IncursionMgr::DespawnSites(uint32 incursionID)
         "DELETE FROM incursionSystems WHERE incursionID = %u", incursionID);
 }
 
+void IncursionMgr::RecordDamage(uint32 bubbleID, uint32 charID, double damage) {
+    m_bubbleDamage[bubbleID][charID] += damage;
+}
+
+std::map<uint32, double>& IncursionMgr::GetBubbleDamage(uint32 bubbleID) {
+    return m_bubbleDamage[bubbleID];
+}
+
+void IncursionMgr::ClearDamageData(uint32 bubbleID) {
+    m_bubbleDamage.erase(bubbleID);
+}
+
 void IncursionMgr::NotifyClients(uint32 incursionID)
 {
     // Notify all online clients about incursion state change
