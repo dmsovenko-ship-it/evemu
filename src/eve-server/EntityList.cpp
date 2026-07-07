@@ -186,6 +186,29 @@ void EntityList::RemovePlayer(Client* pClient)
 }
 
 
+void CheckWarDecay()
+{
+    // End wars where the war bill is overdue and unpaid
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT wr.warID FROM warRegistry wr "
+        "JOIN billsPayable bp ON wr.billID = bp.billID "
+        "WHERE bp.paid = 0 AND bp.dueDateTime < %.0f AND wr.timeFinished = 0",
+        GetFileTimeNow()))
+        return;
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 warID = row.GetUInt(0);
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE warRegistry SET timeFinished = %.0f, retracted = 1 WHERE warID = %u",
+            GetFileTimeNow(), warID);
+        sLog.Warning("WarDecay", "War %u ended due to unpaid bill", warID);
+    }
+}
+
+
 void EntityList::Process() {
     Client* pClient(nullptr);
     std::vector<Client*>::iterator citr = m_clients.begin();
@@ -256,6 +279,7 @@ void EntityList::Process() {
             ++m_minutes;
             sMissionDataMgr.Process();  // 1m
             sIncursionMgr.Process();    // 1m
+            CheckWarDecay();
 
             if (m_minutes % 5 == 0) { // ~5m
                 sWHMgr.Process();
