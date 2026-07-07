@@ -114,6 +114,7 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
             continue;
         }
 
+        npc->SetIsCivilian(true);
         sysMgr->AddNPC(npc);
         npc->DestinyMgr()->SetPosition(pos);
 

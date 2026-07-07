@@ -51,6 +51,7 @@ m_AI(new NPCAIMgr(this))
     m_warID = data.factionID;
     m_corpID = data.corporationID;
     m_ownerID = data.ownerID;
+    m_isCivilian = false;
 
     // Create default dynamic attributes in the AttributeMap:
     m_self->SetAttribute(AttrInetia,              1.0f, false);
@@ -286,11 +287,14 @@ void NPC::Process() {
     /*  Enable base call to Process Targeting and Movement  */
     SystemEntity::Process();
 
-    // Convoy/civilian NPCs use simple route movement — skip heavy NPCAIMgr
-    if (m_convoyAI != nullptr) {
-        m_convoyAI->Process();
+    // Civilian NPCs skip NPCAIMgr (no combat) — only ConvoyAI handles movement
+    if (m_isCivilian) {
+        if (m_convoyAI != nullptr)
+            m_convoyAI->Process();
     } else {
         m_AI->Process();
+        if (m_convoyAI != nullptr)
+            m_convoyAI->Process();
     }
 
     if (sConfig.debug.UseProfiling)

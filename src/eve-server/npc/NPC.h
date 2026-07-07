@@ -88,6 +88,8 @@ public:
     bool IsConvoy() const;
     bool IsConvoyUnderAttack() const;
     void SetConvoyAI(ConvoyAI* ai)                      { m_convoyAI = ai; }
+    bool IsCivilian() const                             { return m_isCivilian; }
+    void SetIsCivilian(bool val)                        { m_isCivilian = val; }
 
     /* for command dropLoot - commands all npcs in bubble to jettison loot */
     void CmdDropLoot();
@@ -99,6 +101,7 @@ protected:
 
 private:
     uint32 m_orbitingID;
+    bool   m_isCivilian;
 
     float m_emDamage;
     float m_expDamage;
