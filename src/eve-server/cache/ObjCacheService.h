@@ -54,6 +54,7 @@ public:
     ObjCacheService(const char *cacheDir);
 
     void PrimeCache();
+    void PrimeSingleObject(const PyRep* objectID) { _LoadCachableObject(objectID); }
 
     //function provided to other services:
     typedef enum {
