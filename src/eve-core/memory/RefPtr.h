@@ -28,6 +28,8 @@ public:
 template<typename X>
 class RefPtr
 {
+    template<typename Y>
+    friend class RefPtr;
 public:
     explicit RefPtr(X* p = nullptr)
     : mPtr(p) {}
@@ -45,7 +47,7 @@ public:
 
     virtual ~RefPtr() = default;
 
-    RefPtr& operator=(const RefPtr&& oth) = default;
+    RefPtr& operator=(RefPtr&& oth) = default;
     RefPtr& operator=(const RefPtr& oth) = default;
 
     template<typename Y>
