@@ -59,6 +59,7 @@ JumpCloneBound::JumpCloneBound (EVEServiceManager& mgr, JumpCloneService& parent
     this->Add("AcceptShipCloneInstallation", &JumpCloneBound::AcceptShipCloneInstallation);
     this->Add("CancelShipCloneInstallation", &JumpCloneBound::CancelShipCloneInstallation);
     this->Add("CloneJump", &JumpCloneBound::CloneJump);
+    this->Add("AdjustCloneImplant", &JumpCloneBound::AdjustCloneImplant);
 
     if (sDataMgr.IsStation(m_locationID))
         m_locGroupID = EVEDB::invGroups::Solar_System;
@@ -284,6 +285,23 @@ PyResult JumpCloneBound::CancelShipCloneInstallation(PyCallArgs &call) {
     // Cancel a pending ship clone installation offer
     PyTuple* payload = new PyTuple(0);
     call.client->SendNotification("OnShipJumpCloneInstallationCanceled", "clientID", payload, false);
+    return PyStatic.NewTrue();
+}
+
+PyResult JumpCloneBound::AdjustCloneImplant(PyCallArgs &call, PyInt* cloneID, PyInt* typeID, PyBool* add) {
+    uint32 cID = cloneID->value();
+    uint32 tID = typeID->value();
+
+    if (add->value()) {
+        m_db->AddCloneImplant(cID, tID);
+    } else {
+        m_db->RemoveCloneImplant(cID, tID);
+    }
+
+    // Notify client to refresh clone state
+    PyTuple* payload = new PyTuple(0);
+    call.client->SendNotification("OnJumpCloneCacheInvalidated", "clientID", payload, false);
+
     return PyStatic.NewTrue();
 }
 

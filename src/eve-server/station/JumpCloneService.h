@@ -64,6 +64,7 @@ protected:
     PyResult AcceptShipCloneInstallation(PyCallArgs& call);
     PyResult CancelShipCloneInstallation(PyCallArgs& call);
     PyResult CloneJump(PyCallArgs& call, PyInt* locationID);
+    PyResult AdjustCloneImplant(PyCallArgs& call, PyInt* cloneID, PyInt* typeID, PyBool* add);
 
 protected:
     StationDB *const m_db;        //we do not own this

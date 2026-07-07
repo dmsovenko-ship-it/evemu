@@ -455,6 +455,22 @@ void StationDB::GetCloneImplants(uint32 cloneID, DBQueryResult& res)
         cloneID);
 }
 
+bool StationDB::AddCloneImplant(uint32 cloneID, uint32 typeID)
+{
+    DBerror err;
+    return sDatabase.RunQuery(err,
+        "INSERT INTO chrJumpCloneImplants (jumpCloneID, typeID) VALUES (%u, %u)",
+        cloneID, typeID);
+}
+
+bool StationDB::RemoveCloneImplant(uint32 cloneID, uint32 typeID)
+{
+    DBerror err;
+    return sDatabase.RunQuery(err,
+        "DELETE FROM chrJumpCloneImplants WHERE jumpCloneID = %u AND typeID = %u LIMIT 1",
+        cloneID, typeID);
+}
+
 bool StationDB::GetActiveCloneID(uint32 ownerID, uint32& cloneID)
 {
     DBQueryResult res;

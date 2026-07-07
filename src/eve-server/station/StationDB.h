@@ -52,6 +52,8 @@ public:
     static void GetClones(uint32 ownerID, DBQueryResult& res);
     static void GetImplants(uint32 ownerID, DBQueryResult& res);
     static void GetCloneImplants(uint32 cloneID, DBQueryResult& res);
+    static bool AddCloneImplant(uint32 cloneID, uint32 typeID);
+    static bool RemoveCloneImplant(uint32 cloneID, uint32 typeID);
     static uint32 CreateClone(uint32 ownerID, uint32 typeID, uint32 locationID, const char* itemName, const char* customInfo);
     static bool DeleteClone(uint32 cloneID);
     static bool GetCloneInfo(uint32 cloneID, uint32& typeID, uint32& locationID);
