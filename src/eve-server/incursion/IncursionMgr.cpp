@@ -5,9 +5,11 @@
 #include "EntityList.h"
 #include "Client.h"
 #include "system/SystemManager.h"
+#include "system/SystemBubble.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "system/cosmicMgrs/SpawnMgr.h"
+#include "system/Celestial.h"
 
 IncursionMgr::IncursionMgr()
 {
@@ -127,17 +129,20 @@ void IncursionMgr::EndIncursion(uint32 incursionID)
     sDatabase.RunQuery(err,
         "DELETE FROM incursionSystems WHERE incursionID = %u", incursionID);
 
+    m_activeSystems.clear();
     NotifyClients(incursionID);
     sLog.Warning("IncursionMgr", "Incursion %u ended", incursionID);
 }
 
 void IncursionMgr::OnSiteCompleted(uint32 incursionID, uint32 solarSystemID, uint8 sceneType)
 {
+    m_activeSystems.erase(solarSystemID);
+
     // Reduce influence based on site type and wave progress
     // VG = small hit, AS = medium, HQ = big, Staging = small
     // Mothership (sceneType=1000001) ends the incursion
+
     if (sceneType == Incursion::scenesType::boss) {
-        // Mothership killed - end the incursion
         EndIncursion(incursionID);
         return;
     }
@@ -239,10 +244,9 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
 {
     sLog.Warning("IncursionMgr", "SpawnSites called for incursion %u", incursionID);
 
-    // Spawn incursion sites in systems where players are present
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT iss.solarSystemID, iss.sceneType, iss.influence "
+        "SELECT iss.solarSystemID, iss.sceneType, iss.influence, i.regionID "
         "FROM incursionSystems iss "
         "JOIN incursions i ON iss.incursionID = i.incursionID "
         "WHERE iss.incursionID = %u AND i.state > 0",
@@ -254,135 +258,80 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         uint32 solarSystemID = row.GetUInt(0);
         uint8 sceneType = row.GetUInt(1);
         float influence = row.GetFloat(2);
+        uint32 regionID = row.GetUInt(3);
 
-        // Only spawn if influence > 0 (systems at 0% have been cleared)
         if (influence <= 0.0f)
             continue;
 
-        // Find system manager for this system
+        if (m_activeSystems.find(solarSystemID) != m_activeSystems.end())
+            continue;
+
         SystemManager* sMgr = sEntityList.FindOrBootSystem(solarSystemID);
         if (sMgr == nullptr)
             continue;
 
-        // Check if there are players in this system
-        if (sMgr->PlayerCount() == 0)
-            continue;
-
-        // Skip if dungeon manager already has active incursion dungeon for this system
-        DungeonMgr* dMgr = sMgr->GetDungMgr();
-        if (dMgr == nullptr)
-            continue;
-
-        // Randomly spawn a site based on sceneType
-        // Staging sceneType spawns at a lower rate
-        // Check if we should spawn based on players online
         uint32 playerCount = sMgr->PlayerCount();
-        if (playerCount == 0) {
-            sLog.Warning("IncursionMgr", "SpawnSites: no players in system %u", solarSystemID);
+        if (playerCount == 0)
             continue;
-        }
 
-        // 75% base chance for VG/AS/HQ, 40% for staging
         uint8 spawnChance = 75;
         if (sceneType == Incursion::scenesType::staging)
             spawnChance = 40;
-
-        // Increase with more players
         spawnChance = static_cast<uint8>(std::min<uint32>(spawnChance + (playerCount - 1) * 10, 95));
 
-        if (MakeRandomInt(0, 100) > spawnChance) {
-            sLog.Warning("IncursionMgr", "SpawnSites: roll failed sys=%u chance=%u", solarSystemID, spawnChance);
+        if (MakeRandomInt(0, 100) > spawnChance)
             continue;
-        }
 
-        // Create a cosmic signature for the incursion site
-        CosmicSignature sig;
-        sig.systemID = solarSystemID;
-        sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
-        sig.ownerID = sDataMgr.GetFactionCorp(factionSanshas);
-
-        // Pick appropriate dungeonID based on sceneType
-        uint32 dungeonID = 0;
-        switch (sceneType) {
-            case Incursion::scenesType::vanguard:
-                sig.dungeonType = 7; // Anomaly archetype
-                dungeonID = 2100 + MakeRandomInt(0, 3);
-                break;
-            case Incursion::scenesType::assault:
-                sig.dungeonType = 7;
-                dungeonID = 2110 + MakeRandomInt(0, 2);
-                break;
-            case Incursion::scenesType::headquarters:
-                sig.dungeonType = 7;
-                dungeonID = 2120 + MakeRandomInt(0, 2);
-                break;
-            case Incursion::scenesType::staging:
-                sig.dungeonType = 7;
-                dungeonID = 2100 + MakeRandomInt(0, 3);
-                break;
-            default:
-                continue;
-        }
-
-        // Check if mothership should spawn instead
         DBQueryResult bossRes;
+        uint8 hasBoss = 0;
         if (sDatabase.RunQuery(bossRes,
             "SELECT hasBoss FROM incursions WHERE incursionID = %u", incursionID))
         {
             DBResultRow bossRow;
-            if (bossRes.GetRow(bossRow) && bossRow.GetUInt(0) == 1) {
-                // Mothership override for HQ sceneType
-                if (sceneType == Incursion::scenesType::headquarters) {
-                    SpawnMothership(incursionID, solarSystemID);
-                    continue;
-                }
-            }
+            if (bossRes.GetRow(bossRow))
+                hasBoss = bossRow.GetUInt(0);
         }
 
-        // Pick a random position within the system
+        if (hasBoss == 1 && sceneType == Incursion::scenesType::headquarters) {
+            SpawnMothership(incursionID, solarSystemID);
+            m_activeSystems.insert(solarSystemID);
+            continue;
+        }
+
         GPoint pos;
         pos.x = MakeRandomFloat(-1.0e12, 1.0e12);
         pos.y = MakeRandomFloat(-1.0e12, 1.0e12);
         pos.z = MakeRandomFloat(-1.0e12, 1.0e12);
-        sig.position = pos;
 
-        sig.sigName = "Incursion Site";
-        // Get a valid Cosmic Anomaly typeID for the marker item
-        {
-            DBQueryResult typeRes;
-            sDatabase.RunQuery(typeRes,
-                "SELECT typeID FROM invTypes WHERE groupID = %u LIMIT 1",
-                EVEDB::invGroups::Cosmic_Anomaly);
-            DBResultRow typeRow;
-            if (typeRes.GetRow(typeRow))
-                sig.sigTypeID = typeRow.GetUInt(0);
-            else
-                sig.sigTypeID = 1; // fallback
-        }
-        sig.sigStrength = 100.0f;
+        uint32 ownerID = sDataMgr.GetFactionCorp(factionSanshas);
 
-        // Spawn the dungeon
-        bool spawned = dMgr->MakeDungeon(sig, dungeonID);
-        if (spawned) {
-            // Set signature radius so anomaly appears on scanner with proper strength
-            InventoryItemRef rootItem = sItemFactory.GetItemRef(sig.sigItemID);
-            if (rootItem.get() != nullptr)
-                rootItem->SetAttribute(AttrSignatureRadius, 500.0, false);
-            // Register with AnomalyMgr so it appears on scanner
-            AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
-            SystemEntity* siteSE = (anomMgr != nullptr) ? sMgr->GetSE(sig.sigItemID) : nullptr;
-            if (siteSE != nullptr) {
-                anomMgr->AddSignal(siteSE);
-                sLog.Warning("IncursionMgr", "AddSignal OK for site %u", sig.sigItemID);
-            } else {
-                sLog.Warning("IncursionMgr", "AddSignal FAILED - no entity %u or anomMgr null", sig.sigItemID);
-            }
-            sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u sigItem=%u)",
-                dungeonID, solarSystemID, sceneType);
-        } else {
-            sLog.Warning("IncursionMgr", "FAILED to spawn incursion site dungeonID=%u in system %u",
-                dungeonID, solarSystemID);
-        }
+        // Create CelestialSE marker for scanner
+        ItemData iData(EVEDB::invTypes::CosmicAnomaly, ownerID, solarSystemID,
+                       flagNone, "Incursion Site", pos);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(iData);
+        if (iRef.get() == nullptr)
+            continue;
+
+        iRef->SetAttribute(AttrSignatureRadius, 1000.0, false);
+        iRef->SetCustomInfo("incursion_site");
+        iRef->SaveItem();
+
+        CelestialSE* cSE = new CelestialSE(iRef, sMgr->GetServiceMgr(), sMgr);
+        sMgr->AddEntity(cSE, false);
+
+        AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
+        if (anomMgr != nullptr)
+            anomMgr->AddSignal(cSE);
+
+        // Spawn NPCs in the same bubble
+        SystemBubble* bubble = cSE->SysBubble();
+        if (bubble != nullptr)
+            sMgr->GetSpawnMgr()->DoSpawnForIncursion(bubble, regionID, sceneType, incursionID);
+
+        m_activeSystems.insert(solarSystemID);
+
+        sLog.Warning("IncursionMgr", "Spawned incursion site in system %u (sceneType=%u marker=%u)",
+            solarSystemID, sceneType, iRef->itemID());
     }
 }
 

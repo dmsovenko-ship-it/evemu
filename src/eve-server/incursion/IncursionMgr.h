@@ -26,6 +26,8 @@ private:
     void SpawnSites(uint32 incursionID);
     void DespawnSites(uint32 incursionID);
     void NotifyClients(uint32 incursionID);
+
+    std::set<uint32> m_activeSystems;  // solarSystemIDs that currently have active incursion sites
 };
 
 #define sIncursionMgr \
