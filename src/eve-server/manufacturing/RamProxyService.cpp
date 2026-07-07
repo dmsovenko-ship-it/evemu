@@ -661,14 +661,9 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                         baseChance = 0.34f; // module/rig/ammo
                     }
 
-                    // Skill modifiers: Encryption skill * datacore skills
-                    int8 encSkill = installedItem->GetPilot()->GetSkillLevel(EvESkill::AmarrEncryption);
-                    int8 dc1Skill = installedItem->GetPilot()->GetSkillLevel(EvESkill::AmarrDatacore);
-                    int8 dc2Skill = installedItem->GetPilot()->GetSkillLevel(EvESkill::AmarrDatacore);
-                    // Use player's actual encryption/datacore skills
-                    // For now, estimate from skills that exist on character
-                    float skillMod = 1.0f + (0.01f * encSkill);
-                    float dcMod = 1.0f + (0.01f * (dc1Skill + dc2Skill));
+                    // Skill modifiers: use base modifier (invention skills are race-specific)
+                    float skillMod = 1.1f;
+                    float dcMod = 1.1f;
 
                     float chance = baseChance * skillMod * dcMod;
                     success = (MakeRandomFloat() < chance);
