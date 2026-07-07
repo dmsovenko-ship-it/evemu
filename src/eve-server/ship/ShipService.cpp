@@ -735,7 +735,7 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
             dict->SetItem(new PyInt(iRef->itemID()), list);
         } else {
             PyTuple* err = new PyTuple(3);
-            err->SetItem(0, new PyInt(1));
+            err->SetItem(0, PyStatic.NewInt(1));
             err->SetItem(1, new PyString("unsure"));
             err->SetItem(2, new PyString("misc error"));
             dict->SetItem(new PyInt(iRef->itemID()), err);

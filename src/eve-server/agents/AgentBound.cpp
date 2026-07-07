@@ -794,7 +794,7 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
     }
     objectiveData->SetItemString("missionState", new PyInt(offer.stateID /*Mission::State::Offered*/));   // Mission::State:: data here for agentGift populating.  Accepted/failed to display gift items as accepted
     objectiveData->SetItemString("loyaltyPoints", new PyInt(offer.rewardLP));
-    objectiveData->SetItemString("researchPoints", new PyInt(0));
+    objectiveData->SetItemString("researchPoints", PyStatic.NewInt(0));
 
     /*  this puts title/msg at bottom of right pane
     if (offer.stateID == Mission::State::Accepted)
@@ -908,7 +908,7 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
         dunData->SetItemString("briefingMessage", new PyInt());
         dunData->SetItemString("objectiveCompleted", new PyBool(false));
         dunData->SetItemString("ownerID", new PyInt(m_agent->GetID()));
-        dunData->SetItemString("shipRestrictions", new PyInt(0));   // 0=normal 1=special with link to *something else*
+        dunData->SetItemString("shipRestrictions", PyStatic.NewInt(0));   // 0=normal 1=special with link to *something else*
         dunData->SetItemString("location", m_agent->GetLocationWrap());
     */
     objectiveData->SetItemString("dungeons", dunList);

@@ -351,7 +351,7 @@ PyDict *StationSE::MakeSlimItem() {
         slim->SetItemString("ownerID",          new PyInt(m_ownerID));
         slim->SetItemString("categoryID",       new PyInt(m_self->categoryID()));
         slim->SetItemString("itemID",           new PyLong(m_self->itemID()));
-        slim->SetItemString("incapacitated",    new PyInt(0));
+        slim->SetItemString("incapacitated",    PyStatic.NewInt(0));
         slim->SetItemString("online",           PyStatic.NewOne());
     return slim;
 }

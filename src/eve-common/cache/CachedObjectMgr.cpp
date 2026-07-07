@@ -68,7 +68,7 @@
         data->SetItem(2, new PyInt(704421)); //unknown - nodeID?
         data->SetItem(3, PyStatic.NewOne()); //unknown
         data->SetItem(4, new PySubStream(new PyString("https://evemu.dev/")));
-        data->SetItem(5, new PyInt(0)); //unknown
+        data->SetItem(5, PyStatic.NewInt(0)); //unknown
         data->SetItem(6, second);
     return new PyObject( "objectCaching.CachedMethodCallResult", data );
 

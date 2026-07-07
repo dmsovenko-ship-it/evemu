@@ -145,7 +145,7 @@ PyDict* AnomalySE::MakeSlimItem()
     PyDict *slim = new PyDict();
         slim->SetItemString("itemID",           new PyLong(m_self->itemID()));
         slim->SetItemString("typeID",           new PyInt(m_self->typeID()));
-        slim->SetItemString("dungeonDataID",    new PyInt(0)); //?  seen 2990651
+        slim->SetItemString("dungeonDataID",    PyStatic.NewInt(0)); //?  seen 2990651
         slim->SetItemString("ownerID",          new PyInt(m_ownerID));
     return slim;
 }

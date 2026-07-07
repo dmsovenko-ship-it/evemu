@@ -988,7 +988,7 @@ void StructureSE::SendSlimUpdate()
     slim->SetItemString("warFactionID", IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
     slim->SetItemString("posTimestamp", new PyLong(m_data.timestamp));
     slim->SetItemString("posState", new PyInt(m_data.state));
-    slim->SetItemString("incapacitated", new PyInt(0));
+    slim->SetItemString("incapacitated", PyStatic.NewInt(0));
     slim->SetItemString("posDelayTime", new PyInt(m_delayTime));
     PyTuple *shipData = new PyTuple(2);
     shipData->SetItem(0, new PyLong(m_data.itemID));

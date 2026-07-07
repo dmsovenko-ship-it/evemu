@@ -1004,10 +1004,10 @@ PyTuple *EVENotificationStream::Encode() {
         t4->SetItem(0, PyStatic.NewOne());
         t4->SetItem(1, args);       // no need to clone here.  set actual rep in item, and it will be cleaned up by d'tor later
     PyTuple *t3 = new PyTuple(2);
-        t3->SetItem(0, new PyInt(0));
+        t3->SetItem(0, PyStatic.NewInt(0));
         t3->SetItem(1, t4);
     PyTuple *t2 = new PyTuple(2);
-        t2->SetItem(0, new PyInt(0));
+        t2->SetItem(0, PyStatic.NewInt(0));
         t2->SetItem(1, new PySubStream(t3));
     PyTuple *t1 = new PyTuple(1);
         t1->SetItem(0, t2);

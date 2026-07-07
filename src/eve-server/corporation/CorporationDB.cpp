@@ -2011,11 +2011,11 @@ PyRep* CorporationDB::GetItemEvents(uint32 corpID, uint32 charID, int64 fromDate
         }
     } else {
         PyDict* dict = new PyDict();
-        dict->SetItemString("eventID", new PyInt(0));
-        dict->SetItemString("corporationID", new PyInt(0));
-        dict->SetItemString("characterID", new PyInt(0));
-        dict->SetItemString("eventTypeID", new PyInt(0));
-        dict->SetItemString("eventDateTime", new PyInt(0));
+        dict->SetItemString("eventID", PyStatic.NewInt(0));
+        dict->SetItemString("corporationID", PyStatic.NewInt(0));
+        dict->SetItemString("characterID", PyStatic.NewInt(0));
+        dict->SetItemString("eventTypeID", PyStatic.NewInt(0));
+        dict->SetItemString("eventDateTime", PyStatic.NewInt(0));
         list->AddItem(dict);
     }
 
@@ -2062,12 +2062,12 @@ PyRep* CorporationDB::GetRoleHistroy(uint32 corpID, uint32 charID, int64 fromDat
         }
     } else {
         PyDict* dict = new PyDict();
-            dict->SetItemString("corporationID", new PyInt(0));
-            dict->SetItemString("charID", new PyInt(0));
-            dict->SetItemString("issuerID", new PyInt(0));
-            dict->SetItemString("changeTime", new PyInt(0));
-            dict->SetItemString("oldRoles", new PyInt(0));
-            dict->SetItemString("newRoles", new PyInt(0));
+            dict->SetItemString("corporationID", PyStatic.NewInt(0));
+            dict->SetItemString("charID", PyStatic.NewInt(0));
+            dict->SetItemString("issuerID", PyStatic.NewInt(0));
+            dict->SetItemString("changeTime", PyStatic.NewInt(0));
+            dict->SetItemString("oldRoles", PyStatic.NewInt(0));
+            dict->SetItemString("newRoles", PyStatic.NewInt(0));
             dict->SetItemString("grantable", new PyBool(false));
         list->AddItem(dict);
     }

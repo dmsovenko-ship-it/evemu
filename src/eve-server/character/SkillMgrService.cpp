@@ -276,7 +276,7 @@ PyResult SkillMgrBound::GetCharacterAttributeModifiers(PyCallArgs &call, PyInt* 
                     PyTuple* tuple = new PyTuple(4);
                         tuple->SetItem(0, new PyInt(implant->itemID()));
                         tuple->SetItem(1, new PyInt(implant->typeID()));
-                        tuple->SetItem(2, new PyInt(1));    // operation = PreAssign (add)
+                        tuple->SetItem(2, PyStatic.NewInt(1));    // operation = PreAssign (add)
                         tuple->SetItem(3, new PyFloat(implant->GetAttribute((uint16)attr->value()).get_double()));
                     list->AddItem(tuple);
                 }

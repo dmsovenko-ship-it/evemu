@@ -243,7 +243,7 @@ PyDict* NPC::MakeSlimItem()
     // Override categoryID to Ship (6) so client parses destiny ball data correctly.
     // Entity (11) NPC types have correct graphics but client expects Ship-format destiny data.
     // Also map Entity groupIDs to Ship groups so client renders the 3D model.
-    slim->SetItemString("categoryID",      new PyInt(6));
+    slim->SetItemString("categoryID",      PyStatic.NewInt(6));
     {
         // Map Entity ship groups to proper Ship groups for client model rendering
         uint16 gID = m_self->groupID();

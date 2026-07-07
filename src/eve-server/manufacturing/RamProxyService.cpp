@@ -697,11 +697,11 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                 if (1) {
                     dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamInventionJobSucceeded"));
                     dict->SetItemString("jobCompletedSuccessfully", new PyBool(true));
-                    dict->SetItemString("outputME", new PyInt(0));
-                    dict->SetItemString("outputPE", new PyInt(0));
-                    dict->SetItemString("outputRuns", new PyInt(0));
-                    dict->SetItemString("outputTypeID", new PyInt(0));
-                    dict->SetItemString("outputItemID", new PyInt(0));
+                    dict->SetItemString("outputME", PyStatic.NewInt(0));
+                    dict->SetItemString("outputPE", PyStatic.NewInt(0));
+                    dict->SetItemString("outputRuns", PyStatic.NewInt(0));
+                    dict->SetItemString("outputTypeID", PyStatic.NewInt(0));
+                    dict->SetItemString("outputItemID", PyStatic.NewInt(0));
                 } else {
                     dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamInventionJobFailed"));
                     dict->SetItemString("jobCompletedSuccessfully", new PyBool(false));
@@ -770,8 +770,8 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                 eve.Message(result.message.msg, result.message.args)
                 */
                 PyDict* msg = new PyDict();
-                    msg->SetItemString("msg", new PyInt(0));
-                    msg->SetItemString("args", new PyInt(0));
+                    msg->SetItemString("msg", PyStatic.NewInt(0));
+                    msg->SetItemString("args", PyStatic.NewInt(0));
                 dict->SetItemString("message", msg);
                 return dict;
             } break;

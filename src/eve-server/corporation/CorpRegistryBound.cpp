@@ -467,8 +467,8 @@ PyResult CorpRegistryBound::GetMembersPaged(PyCallArgs &call, PyInt* page) {
         PyDict* dict = new PyDict();
         dict->SetItemString( "characterID",             new PyInt(row.GetInt(0)));
         dict->SetItemString( "corporationID",           new PyInt(row.GetInt(1)));
-        dict->SetItemString( "divisionID",              new PyInt(0));
-        dict->SetItemString( "squadronID",              new PyInt(0));
+        dict->SetItemString( "divisionID",              PyStatic.NewInt(0));
+        dict->SetItemString( "squadronID",              PyStatic.NewInt(0));
         dict->SetItemString( "title",                   new PyInt(row.GetInt(2)));
         dict->SetItemString( "roles",                   new PyLong(row.GetInt64(3)));
         dict->SetItemString( "grantableRoles",          new PyInt(row.GetInt(4)));

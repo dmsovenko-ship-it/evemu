@@ -143,9 +143,9 @@ PyList* LiveUpdateDB::GenerateUpdates()
         packedRow->SetField(static_cast<uint32>(0), static_cast<PyRep*>(new PyInt(999)));
         packedRow->SetField(static_cast<uint32>(1), static_cast<PyRep*>(new PyWString(std::string("NewsTicker"))));
         packedRow->SetField(static_cast<uint32>(2), static_cast<PyRep*>(new PyWString(std::string("Shows latest Git commit in news ticker"))));
-        packedRow->SetField(static_cast<uint32>(3), static_cast<PyRep*>(new PyInt(0)));
+        packedRow->SetField(static_cast<uint32>(3), static_cast<PyRep*>(PyStatic.NewInt(0)));
         packedRow->SetField(static_cast<uint32>(4), static_cast<PyRep*>(new PyInt(999999)));
-        packedRow->SetField(static_cast<uint32>(5), static_cast<PyRep*>(new PyInt(0)));
+        packedRow->SetField(static_cast<uint32>(5), static_cast<PyRep*>(PyStatic.NewInt(0)));
         packedRow->SetField(static_cast<uint32>(6), static_cast<PyRep*>(new PyInt(999999)));
 
         LiveUpdateInner inner;

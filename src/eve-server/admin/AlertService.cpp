@@ -65,7 +65,7 @@ PyResult AlertService::BeanCount(PyCallArgs &call, PyRep* ignored) {
         result->items[0] = new PyInt(34135);    //ErrorID
     }
 
-    result->items[1] = new PyInt(0);        //loggingMode, 0=local, 1=DB (Capt: This isn't correct at all as it seems..)
+    result->items[1] = PyStatic.NewInt(0);        //loggingMode, 0=local, 1=DB (Capt: This isn't correct at all as it seems..)
 
     return (PyRep*)result;
 }

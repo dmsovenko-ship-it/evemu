@@ -439,8 +439,8 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
                 classList->AddItem( new PyInt(830));
             slim->SetItemString("dunShipClasses", classList);   //?
             PyList* dirList = new PyList();
-                dirList->AddItem(new PyInt(5));     //234
-                dirList->AddItem(new PyInt(-1));
+                dirList->AddItem(PyStatic.NewInt(5));     //234
+                dirList->AddItem(PyStatic.NewInt(-1));
                 dirList->AddItem(PyStatic.NewZero());
             slim->SetItemString("dunDirection", dirList);
             slim->SetItemString("dunKeyLock", PyStatic.NewNone());   //?

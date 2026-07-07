@@ -732,7 +732,7 @@ PyInt* StaticDataMgr::GetAgentSystemID(int32 agentID)
         return new PyInt(itr->second);
 
     _log(DATA__WARNING, "Failed to query system info for agent %u: Agent not found.", agentID);
-    return new PyInt(0);
+    return PyStatic.NewInt(0);
 }
 
 void StaticDataMgr::GetSalvage(uint32 factionID, std::vector<uint32> &itemList) {
@@ -1503,7 +1503,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
                 into->SetField((uint32)2, from->GetField(2));
             }
         Manufacturing->SetItemString("extras", rowset);     // have to build a crowset for this
-        rsp->SetItem(new PyInt(1), new PyObject("util.KeyVal", Manufacturing));
+        rsp->SetItem(PyStatic.NewInt(1), new PyObject("util.KeyVal", Manufacturing));
     }
     if (tech) {        //activityResearchingTechnology = 2
         // not used.  not defined in client.  no data for this activity
@@ -1514,7 +1514,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             ResearchTime->SetItemString("rawMaterials", matlListTE);
             PyIncRef(mtCRowSet);
         ResearchTime->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(new PyInt(3), new PyObject("util.KeyVal", ResearchTime));
+        rsp->SetItem(PyStatic.NewInt(3), new PyObject("util.KeyVal", ResearchTime));
     }
     if (me) {        //activityResearchingMaterialProductivity = 4
         PyDict* ResearchMaterial = new PyDict();
@@ -1522,7 +1522,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             ResearchMaterial->SetItemString("rawMaterials", matlListME);
             PyIncRef(mtCRowSet);
         ResearchMaterial->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(new PyInt(4), new PyObject("util.KeyVal", ResearchMaterial));
+        rsp->SetItem(PyStatic.NewInt(4), new PyObject("util.KeyVal", ResearchMaterial));
     }
     if (copy) {        //activityCopying = 5
         PyDict* Copying = new PyDict();
@@ -1530,7 +1530,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             Copying->SetItemString("rawMaterials", matlListCopy);
             PyIncRef(mtCRowSet);
         Copying->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(new PyInt(5), new PyObject("util.KeyVal", Copying));
+        rsp->SetItem(PyStatic.NewInt(5), new PyObject("util.KeyVal", Copying));
     }
     if (dup) {       //activityDuplicating = 6
         // no longer used...updated to "copying" after RMR
@@ -1547,7 +1547,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
                 into->SetField((uint32)2, from->GetField(2));
             }
         Duplicating->SetItemString("extras", rowset);    // have to build a crowset for this
-        rsp->SetItem(new PyInt(6), new PyObject("util.KeyVal", Duplicating));
+        rsp->SetItem(PyStatic.NewInt(6), new PyObject("util.KeyVal", Duplicating));
     }
     if (re) {        //activityReverseEngineering = 7
         PyDict* ReverseEngineering = new PyDict();
@@ -1555,7 +1555,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             ReverseEngineering->SetItemString("rawMaterials", matlListRE);
             PyIncRef(mtCRowSet);
         ReverseEngineering->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(new PyInt(7), new PyObject("util.KeyVal", ReverseEngineering));
+        rsp->SetItem(PyStatic.NewInt(7), new PyObject("util.KeyVal", ReverseEngineering));
     }
     if (invent) {     //activityInvention = 8
         PyDict* Invention = new PyDict();
@@ -1563,7 +1563,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             Invention->SetItemString("rawMaterials", matlListInvent);
             PyIncRef(mtCRowSet);
         Invention->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(new PyInt(8), new PyObject("util.KeyVal", Invention));
+        rsp->SetItem(PyStatic.NewInt(8), new PyObject("util.KeyVal", Invention));
     }
 
     /**

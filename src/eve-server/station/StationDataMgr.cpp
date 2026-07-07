@@ -250,7 +250,7 @@ PyRep* StationDataMgr::GetStationItemBits(uint32 stationID)
             if ((itr2 = m_serviceMask.find(itr->second.operationID)) != m_serviceMask.end()) {
                 result->SetItem(3, new PyInt(itr2->second));
             } else {
-                result->SetItem(3, new PyInt(0));
+                result->SetItem(3, PyStatic.NewInt(0));
             }
             result->SetItem(4, new PyInt(itr->second.typeID));
         return result;
@@ -309,7 +309,7 @@ void StationDataMgr::LoadStationPyData()
 
             dict->SetItemString("serviceMask", new PyInt(cur.second.serviceMask));
             dict->SetItemString("conquerable", new PyBool(cur.second.conquerable));
-            dict->SetItemString("upgradeLevel", new PyInt(0));  // outposts only. others are 0
+            dict->SetItemString("upgradeLevel", PyStatic.NewInt(0));  // outposts only. others are 0
             dict->SetItemString("standingOwnerID", new PyInt(cur.second.corporationID));
             dict->SetItemString("hangarGraphicID", new PyInt(cur.second.hangarGraphicID));
             dict->SetItemString("officeRentalCost", new PyInt(cur.second.officeRentalFee));

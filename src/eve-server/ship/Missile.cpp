@@ -220,7 +220,7 @@ PyDict* Missile::MakeSlimItem() {
         slim->SetItemString("securityStatus",           new PyFloat(0/*pChar->GetSecurityRating()*/)); /** @todo (allan) fix this */
         slim->SetItemString("ownerID",                  new PyInt(m_ownerID)); // this is corp ID??
         slim->SetItemString("numLaunchers",             PyStatic.NewOne());  /** @todo (allan) fix this */
-        slim->SetItemString("nameID",                   new PyInt(0));  /** @todo (allan) fix this */
+        slim->SetItemString("nameID",                   PyStatic.NewInt(0));  /** @todo (allan) fix this */
     return(slim);
 }
 

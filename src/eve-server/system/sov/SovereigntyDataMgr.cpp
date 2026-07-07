@@ -177,12 +177,12 @@ PyRep *SovereigntyDataMgr::GetSystemSovereignty(uint32 systemID)
                 default:     corpID = 1000178; break;   // Generic NPC corp
             }
         }
-        args->SetItemString("contested", new PyInt(0));
+        args->SetItemString("contested", PyStatic.NewInt(0));
         args->SetItemString("corporationID", new PyInt(corpID));
         args->SetItemString("claimTime", new PyLong(0));
-        args->SetItemString("claimStructureID", new PyInt(0));
-        args->SetItemString("hubID", new PyInt(0));
-        args->SetItemString("allianceID", new PyInt(0));
+        args->SetItemString("claimStructureID", PyStatic.NewInt(0));
+        args->SetItemString("hubID", PyStatic.NewInt(0));
+        args->SetItemString("allianceID", PyStatic.NewInt(0));
         args->SetItemString("solarSystemID", new PyInt(systemID));
         return new PyObject("util.KeyVal", args);
     }
@@ -304,11 +304,11 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                     uint8 stCount = sDataMgr.GetStationCount(sysID);
                     PyPackedRow *row = rowset->NewRow();
                     row->SetField("locationID", new PyInt(sysID));
-                    row->SetField("allianceID", new PyInt(0));
+                    row->SetField("allianceID", PyStatic.NewInt(0));
                     row->SetField("stationCount", new PyInt(stCount));
-                    row->SetField("militaryPoints", new PyInt(0));
-                    row->SetField("industrialPoints", new PyInt(0));
-                    row->SetField("claimedFor", new PyInt(0));
+                    row->SetField("militaryPoints", PyStatic.NewInt(0));
+                    row->SetField("industrialPoints", PyStatic.NewInt(0));
+                    row->SetField("claimedFor", PyStatic.NewInt(0));
                 }
             }
         }
@@ -347,11 +347,11 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                 if (seenLocationIDs.find(constID) == seenLocationIDs.end()) {
                     PyPackedRow *row = rowset->NewRow();
                     row->SetField("locationID", new PyInt(constID));
-                    row->SetField("allianceID", new PyInt(0));
-                    row->SetField("stationCount", new PyInt(0));
-                    row->SetField("militaryPoints", new PyInt(0));
-                    row->SetField("industrialPoints", new PyInt(0));
-                    row->SetField("claimedFor", new PyInt(0));
+                    row->SetField("allianceID", PyStatic.NewInt(0));
+                    row->SetField("stationCount", PyStatic.NewInt(0));
+                    row->SetField("militaryPoints", PyStatic.NewInt(0));
+                    row->SetField("industrialPoints", PyStatic.NewInt(0));
+                    row->SetField("claimedFor", PyStatic.NewInt(0));
                 }
             }
         }
@@ -377,11 +377,11 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                 uint8 stCount = sDataMgr.GetStationCount(locationID);
                 PyPackedRow *row = rowset->NewRow();
                 row->SetField("locationID", new PyInt(locationID));
-                row->SetField("allianceID", new PyInt(0));
+                row->SetField("allianceID", PyStatic.NewInt(0));
                 row->SetField("stationCount", new PyInt(stCount));
-                row->SetField("militaryPoints", new PyInt(0));
-                row->SetField("industrialPoints", new PyInt(0));
-                row->SetField("claimedFor", new PyInt(0));
+                row->SetField("militaryPoints", PyStatic.NewInt(0));
+                row->SetField("industrialPoints", PyStatic.NewInt(0));
+                row->SetField("claimedFor", PyStatic.NewInt(0));
             }
         }
     }

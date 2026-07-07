@@ -39,7 +39,7 @@ PyResult InfoGatheringMgr::GetStateAndConfig(PyCallArgs &call) {
     PyDict *rsp = new PyDict();
 
     rsp->SetItemString("clientWorkerInterval", new PyInt(600000)); //Default From packetlogs is 600000
-    rsp->SetItemString("isEnabled", new PyInt(0)); //0 = Disabled, 1 = Enabled. Set to 0 becuase jsut gettting rid of exception.
+    rsp->SetItemString("isEnabled", PyStatic.NewInt(0)); //0 = Disabled, 1 = Enabled. Set to 0 becuase jsut gettting rid of exception.
 
     rsp->SetItemString("infoTypeAggregates", PyStatic.NewNone());
     rsp->SetItemString("infoTypesOncePerRun", PyStatic.NewNone());

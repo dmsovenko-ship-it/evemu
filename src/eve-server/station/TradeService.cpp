@@ -389,7 +389,7 @@ PyResult TradeBound::GetItem(PyCallArgs &call) {
         row->SetField("ownerID",       PyStatic.NewOne());      // EvE_System
         row->SetField("locationID",    new PyInt(pTSes->m_tradeSession.stationID));
         row->SetField("flagID",        PyStatic.NewNone());
-        row->SetField("quantity",      new PyInt(-1));     // singleton
+        row->SetField("quantity",      PyStatic.NewInt(-1));     // singleton
         row->SetField("groupID",       new PyInt(EVEDB::invGroups::Trade_Session ) );
         row->SetField("categoryID",    new PyInt(EVEDB::invCategories::Trading));
         row->SetField("customInfo",    PyStatic.NewNone());

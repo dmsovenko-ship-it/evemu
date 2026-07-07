@@ -2776,7 +2776,7 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
     // this doesnt work as i want it to.
     //  sending '2' will have client use hashed pass.
     //  sending '1' will have client send hashed pass first, then a second authentication packet using plain pass
-    PyRep* res = new PyInt(2);
+    PyRep* res = PyStatic.NewInt(2);
     mNet->QueueRep(res);
 
     std::string failMsg = "Login Authorization Invalid.";

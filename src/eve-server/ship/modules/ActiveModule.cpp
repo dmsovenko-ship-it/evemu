@@ -1365,7 +1365,7 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
         if ((groupID() == EVEDB::invGroups::Salvager) and IsSuccess()) {
             // Create Destiny Updates:
             PyTuple* type = new PyTuple(2);
-                type->SetItem(0, new PyInt(4));
+                type->SetItem(0, PyStatic.NewInt(4));
                 type->SetItem(1, new PyInt(m_targetSE->GetTypeID()));
             PyDict* dict = new PyDict;
                 dict->SetItemString("type", type);

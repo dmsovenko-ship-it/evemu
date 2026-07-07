@@ -251,9 +251,9 @@ PyRep* CharacterDB::ValidateCharNameRep(std::string name)
     // *name  is sent from client WITHOUT leading space, if there is one, and will not allow more than one space.
 
     if (name.empty())
-        return new PyInt(-1);
+        return PyStatic.NewInt(-1);
     if (name.length() < 3)
-        return new PyInt(-1);
+        return PyStatic.NewInt(-1);
     if (name.length() > 37)    //client caps at 24
         return new PyInt(-2);
 

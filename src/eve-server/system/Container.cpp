@@ -590,7 +590,7 @@ PyDict *WreckSE::MakeSlimItem() {
     PyTuple* nameID = new PyTuple(2);
         nameID->SetItem(0,  new PyString("UI/Inflight/WreckNameShipName"));
     PyDict* shipName = new PyDict();
-        shipName->SetItem("shipName", new PyInt(0));    // does this need data here?
+        shipName->SetItem("shipName", PyStatic.NewInt(0));    // does this need data here?
         nameID->SetItem(1, shipName);
     */
     PyDict *slim = new PyDict();
@@ -610,7 +610,7 @@ PyDict *WreckSE::MakeSlimItem() {
         slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
         slim->SetItemString("isEmpty",          new PyBool(m_contRef->IsEmpty()));
         slim->SetItemString("launcherID",       new PyLong(m_launchedByID));
-        slim->SetItemString("securityStatus",   new PyInt(0));  //FIXME TODO
+        slim->SetItemString("securityStatus",   PyStatic.NewInt(0));  //FIXME TODO
         slim->SetItemString("ownerID",          new PyInt(m_ownerID));
         PyDict* dict = new PyDict;
             dict->SetItemString("WreckTypeID",  new PyInt(m_self->typeID()));

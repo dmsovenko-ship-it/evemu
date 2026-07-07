@@ -351,15 +351,15 @@ PyObject* Agent::GetInfoServiceDetails()
     if (m_agentData.research) {
         PyTuple* skill1 = new PyTuple(2);
             skill1->SetItem(0, new PyInt(11452)); // Mechanical Engineering
-            skill1->SetItem(1, new PyInt(4));
+            skill1->SetItem(1, PyStatic.NewInt(4));
         PyTuple* skill2 = new PyTuple(2);
             skill2->SetItem(0, new PyInt(11453));  //Electronic Engineering
-            skill2->SetItem(1, new PyInt(3));
+            skill2->SetItem(1, PyStatic.NewInt(3));
         PyList* skillList = new PyList();
             skillList->AddItem(skill1);
             skillList->AddItem(skill2);
         PyDict* researchData = new PyDict();
-            researchData->SetItemString("rpMultiplier", new PyInt(2));
+            researchData->SetItemString("rpMultiplier", PyStatic.NewInt(2));
             researchData->SetItemString("skillTypeID", new PyInt(11452));   // this is player research field with this agent.  not sure how to make "none" yet
             researchData->SetItemString("points", new PyInt(150));
             researchData->SetItemString("pointsPerDay", new PyInt(30));
@@ -415,19 +415,19 @@ PyObject* Agent::GetInfoServiceDetails()
     PyDict* locate = new PyDict();
     if (m_agentData.locator) {
         PyTuple* sameSystem = new PyTuple(3);
-            sameSystem->SetItem(0, new PyInt(0));
-            sameSystem->SetItem(1, new PyInt(10));
+            sameSystem->SetItem(0, PyStatic.NewInt(0));
+            sameSystem->SetItem(1, PyStatic.NewInt(10));
             sameSystem->SetItem(2, new PyInt(20000));
         PyTuple* sameConst = new PyTuple(3);
             sameConst->SetItem(0, PyStatic.NewOne());
             sameConst->SetItem(1, new PyInt(30));
             sameConst->SetItem(2, new PyInt(200000));
         PyTuple* sameRegion = new PyTuple(3);
-            sameRegion->SetItem(0, new PyInt(2));
+            sameRegion->SetItem(0, PyStatic.NewInt(2));
             sameRegion->SetItem(1, new PyInt(60));
             sameRegion->SetItem(2, new PyInt(2000000));
         PyTuple* otherRegion = new PyTuple(3);
-            otherRegion->SetItem(0, new PyInt(3));
+            otherRegion->SetItem(0, PyStatic.NewInt(3));
             otherRegion->SetItem(1, new PyInt(120));
             otherRegion->SetItem(2, new PyInt(20000000));
         PyTuple* delays = new PyTuple(4);
@@ -439,8 +439,8 @@ PyObject* Agent::GetInfoServiceDetails()
         locate->SetItemString("agentServiceType", new PyString("locate"));
         locate->SetItemString("frequency", new PyInt(1200));  // if this is PyNone (or 0?) agent location isnt avalible (client parsed msg)
         locate->SetItemString("delays", delays);
-        locate->SetItemString("callbackID", new PyInt(2));
-        locate->SetItemString("lastUsed", new PyInt(0));
+        locate->SetItemString("callbackID", PyStatic.NewInt(2));
+        locate->SetItemString("lastUsed", PyStatic.NewInt(0));
     } else {
         locate->SetItemString("agentServiceType", PyStatic.NewNone());
     }
@@ -678,7 +678,7 @@ void Agent::UpdateStandings(Client* pClient, uint8 eventID, bool important/*fals
                 agent->SetItem(0, new PyInt(m_agentID));
                 agent->SetItem(1, new PyInt(cur->GetCharacterID()));
                 agent->SetItem(2, new PyFloat(fleetStanding));
-                agent->SetItem(3, new PyInt(-1));
+                agent->SetItem(3, PyStatic.NewInt(-1));
                 agent->SetItem(4, PyStatic.NewOne());
             PyList* list = new PyList();
                 list->AddItem(agent);
@@ -703,19 +703,19 @@ void Agent::UpdateStandings(Client* pClient, uint8 eventID, bool important/*fals
         agent->SetItem(0, new PyInt(m_agentID));
         agent->SetItem(1, new PyInt(charID));
         agent->SetItem(2, new PyFloat(newStanding));
-        agent->SetItem(3, new PyInt(-1));
+        agent->SetItem(3, PyStatic.NewInt(-1));
         agent->SetItem(4, PyStatic.NewOne());
     PyTuple* corp = new PyTuple(5);
         corp->SetItem(0, new PyInt(m_agentData.corporationID));
         corp->SetItem(1, new PyInt(charID));
         corp->SetItem(2, new PyFloat(newStanding /4));
-        corp->SetItem(3, new PyInt(-1));
+        corp->SetItem(3, PyStatic.NewInt(-1));
         corp->SetItem(4, PyStatic.NewOne());
     PyTuple* faction = new PyTuple(5);
         faction->SetItem(0, new PyInt(m_agentData.factionID));
         faction->SetItem(1, new PyInt(charID));
         faction->SetItem(2, new PyFloat(newStanding /8));
-        faction->SetItem(3, new PyInt(-1));
+        faction->SetItem(3, PyStatic.NewInt(-1));
         faction->SetItem(4, PyStatic.NewOne());
     PyList* list = new PyList();
         list->AddItem(agent);

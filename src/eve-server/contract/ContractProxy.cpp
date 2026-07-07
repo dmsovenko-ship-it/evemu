@@ -196,7 +196,7 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
         PyDict* response = new PyDict;
         PyList* contracts = ContractUtils::GetContractEntries(contractIDs);
         response->SetItemString("contracts", contracts ? contracts : new PyList);
-        response->SetItemString("numFound", contracts ? new PyInt(contracts->size()) : new PyInt(0));
+        response->SetItemString("numFound", contracts ? new PyInt(contracts->size()) : PyStatic.NewInt(0));
         response->SetItemString("searchTime", new PyInt(153));  // Since search time is of no relevance to the client, we simply hard-code it
         response->SetItemString("maxResults", new PyInt(1000)); // Same here - we do not limit the list of contracts queried, so we leave this value hard-coded
 
@@ -920,8 +920,8 @@ PyResult ContractProxy::CollectMyPageInfo(PyCallArgs &call) {
     vals->SetItemString("outstandingContracts", oustandingContractsList);
     vals->SetItemString("numRequiresAttention", new PyInt(row.GetInt(5)));
     vals->SetItemString("numRequiresAttentionCorp", new PyInt(row.GetInt(6)));
-    vals->SetItemString("numBiddingOn", new PyInt(0));      // Left hard-coded until bidding is implemented
-    vals->SetItemString("numBiddingOnCorp", new PyInt(0));  // Left hard-coded until bidding is implemented
+    vals->SetItemString("numBiddingOn", PyStatic.NewInt(0));      // Left hard-coded until bidding is implemented
+    vals->SetItemString("numBiddingOnCorp", PyStatic.NewInt(0));  // Left hard-coded until bidding is implemented
 
     return new PyObject("util.KeyVal", vals);
 }

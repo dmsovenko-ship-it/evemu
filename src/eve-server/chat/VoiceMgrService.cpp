@@ -36,7 +36,7 @@ VoiceMgrService::VoiceMgrService() :
 
 PyResult VoiceMgrService::VoiceEnabled(PyCallArgs &call) {
     //maybe in future, but not now ...
-    return(new PyInt(0));
+    return(PyStatic.NewInt(0));
 }
 
 /*

@@ -1186,8 +1186,8 @@ void InventoryItem::GetItemRow(PyPackedRow* into) const
     /*
     if (m_type.categoryID() == EVEDB::invCategories::Blueprint) {
         if (sItemFactory.GetBlueprintRef(m_itemID)->copy()) {
-            into->SetField("stacksize",    new PyInt(1));
-            into->SetField("singleton",    new PyInt(2));
+            into->SetField("stacksize",    PyStatic.NewInt(1));
+            into->SetField("singleton",    PyStatic.NewInt(2));
         } else {
             into->SetField("stacksize",    new PyInt(m_data.singleton? -1 : m_data.quantity));
             into->SetField("singleton",    new PyInt(m_data.singleton?1:0));
