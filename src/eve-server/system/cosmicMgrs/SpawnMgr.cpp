@@ -572,7 +572,7 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8
 
     uint32 factionID = factionSanshas;
     uint32 corpID = sDataMgr.GetFactionCorp(factionID);
-    GPoint basePos(MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000));
+    GPoint basePos = pBubble->GetCenter();
 
     FactionData data = FactionData();
         data.allianceID = factionID;
@@ -669,7 +669,7 @@ void SpawnMgr::DoSpawnMothership(SystemBubble* pBubble, uint32 incursionID)
 
     uint32 factionID = factionSanshas;
     uint32 corpID = sDataMgr.GetFactionCorp(factionID);
-    GPoint basePos(MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000), MakeRandomFloat(-50000, 50000));
+    GPoint basePos = pBubble->GetCenter();
 
     FactionData data = FactionData();
         data.allianceID = factionID;
