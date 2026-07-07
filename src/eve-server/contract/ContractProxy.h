@@ -52,6 +52,8 @@ protected:
     PyResult CollectMyPageInfo(PyCallArgs& call);
     PyResult GetMyExpiredContractList(PyCallArgs& call, PyBool* fromCorp);
     PyResult GetContractListForOwner(PyCallArgs& call, PyInt* ownerID, PyInt* contractStatus, std::optional <PyInt*> contractType, std::optional <PyBool*> issuedToBy);
+    PyResult PlaceBid(PyCallArgs& call, PyInt* contractID, PyFloat* bid, std::optional<PyBool*> forCorp);
+    PyResult FinishAuction(PyCallArgs& call, PyInt* contractID);
 };
 
 #endif /* !__CONTRACT_PROXY_H__INCL__ */

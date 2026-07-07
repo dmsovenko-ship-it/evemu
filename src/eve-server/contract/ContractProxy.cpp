@@ -58,6 +58,8 @@ ContractProxy::ContractProxy () :
     this->Add("GetItemsInStation", &ContractProxy::GetItemsInStation);
     this->Add("GetContractListForOwner", &ContractProxy::GetContractListForOwner);
     this->Add("GetMyExpiredContractList", &ContractProxy::GetMyExpiredContractList);
+    this->Add("PlaceBid", &ContractProxy::PlaceBid);
+    this->Add("FinishAuction", &ContractProxy::FinishAuction);
     /*
      *
             ret = self.contractSvc.CompleteContract(contractID, const.conStatusFinished)
@@ -1294,4 +1296,79 @@ PyResult ContractProxy::GetLoginInfo(PyCallArgs &call)
                           [PyTuple 2 items]
                             [PyString "issuerID"]
                             [PyInt 3]
-*/
+ */
+
+PyResult ContractProxy::PlaceBid(PyCallArgs& call, PyInt* contractID, PyFloat* bid, std::optional<PyBool*> forCorp) {
+    uint32 cID = contractID->value();
+    uint32 bidderID = call.client->GetCharacterID();
+    double amount = bid->value();
+
+    DBQueryResult res;
+    DBResultRow row;
+    if (!sDatabase.RunQuery(res, "SELECT contractType, status, price FROM ctrContracts WHERE contractId = %u", cID))
+        return PyStatic.NewFalse();
+    if (!res.GetRow(row))
+        return PyStatic.NewFalse();
+
+    uint8 contractType = row.GetUInt(0);
+    uint8 status = row.GetUInt(1);
+    double minPrice = row.GetDouble(2);
+
+    if (contractType != 4 || status != 0)
+        return PyStatic.NewFalse();
+    if (amount < minPrice) {
+        call.client->SendErrorMsg("Bid of %.2f ISK is below minimum %.2f ISK.", amount, minPrice);
+        return PyStatic.NewFalse();
+    }
+    if (call.client->GetBalance() < amount) {
+        call.client->SendErrorMsg("Insufficient funds.");
+        return PyStatic.NewFalse();
+    }
+
+    bool isCorp = forCorp.has_value() && forCorp.value()->value();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO ctrBids (contractID, bidderID, amount, timeBid, isCorp) "
+        "VALUES (%u, %u, %.2f, %.0f, %u)",
+        cID, bidderID, amount, GetFileTimeNow(), isCorp ? 1 : 0);
+    return PyStatic.NewTrue();
+}
+
+PyResult ContractProxy::FinishAuction(PyCallArgs& call, PyInt* contractID) {
+    uint32 cID = contractID->value();
+
+    DBQueryResult res;
+    DBResultRow row;
+    if (!sDatabase.RunQuery(res, "SELECT contractType, status FROM ctrContracts WHERE contractId = %u", cID))
+        return PyStatic.NewFalse();
+    if (!res.GetRow(row))
+        return PyStatic.NewFalse();
+
+    if (row.GetUInt(0) != 4 || row.GetUInt(1) != 0)
+        return PyStatic.NewFalse();
+
+    DBQueryResult bidRes;
+    DBResultRow bidRow;
+    if (!sDatabase.RunQuery(bidRes,
+        "SELECT bidderID, amount FROM ctrBids WHERE contractID = %u ORDER BY amount DESC LIMIT 1", cID))
+        return PyStatic.NewFalse();
+
+    DBerror err;
+    if (bidRes.GetRow(bidRow)) {
+        uint32 winnerID = bidRow.GetUInt(0);
+        sDatabase.RunQuery(err,
+            "UPDATE ctrContracts SET status = 4, dateCompleted = %.0f, acceptorID = %u WHERE contractId = %u",
+            GetFileTimeNow(), winnerID, cID);
+        Client* winner = sEntityList.FindClientByCharID(winnerID);
+        if (winner != nullptr) {
+            PyTuple* payload = new PyTuple(1);
+            payload->SetItem(0, new PyInt(cID));
+            winner->SendNotification("OnAuctionWon", "clientID", payload, false);
+        }
+    } else {
+        sDatabase.RunQuery(err,
+            "UPDATE ctrContracts SET status = 6, dateCompleted = %.0f WHERE contractId = %u",
+            GetFileTimeNow(), cID);
+    }
+    return PyStatic.NewTrue();
+}
