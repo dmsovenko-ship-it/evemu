@@ -62,7 +62,7 @@
 | Open Decorations Window | 100% | 100% | |
 | Open Attributes Window | 100% | 100% | |
 | Neural Remap | 100% | 100% | |
-| Open Augmentations Window | 100% | 100% | **Implants now work** (ProcessEffects) |
+| Open Augmentations Window | 100% | 100% | **Implants now work** (ProcessEffects + CharAddImplant/RemoveImplantFromCharacter) |
 | Open Jump Clones Window | 100% | 100% | **Implemented**: GetCloneState, Install/Destroy, CloneJump, GetPriceForClone |
 | Per-clone implants | 0% | **80%** | `chrJumpCloneImplants` table, per-clone implant queries |
 | Active clone tracking | 0% | **90%** | `entity.isActive` flag, `SetCloneActive` toggles |
@@ -142,7 +142,9 @@
 | LP Services | 10% | **50%** | LP Store data added |
 | Clone upgrade | 100% | 100% | |
 | Clone transfer | 10% | 10% | |
-| Jump clone installation | 10% | 10% | |
+| Jump clone installation | 10% | **100%** | InstallCloneInStation with ISK cost, DestroyInstalledClone, jump cooldown |
+| **Implant management** | **0%** | **80%** | CharAddImplant, RemoveImplantFromCharacter, GetCharacterAttributeModifiers implemented |
+| **Clone death (implants)** | **0%** | **80%** | Implants destroyed on pod death, SP vs clone grade check |
 | Items window | 100% | 100% | |
 | Can merge/stack/split items | 100% | 100% | |
 | Can trash items | 100% | 100% | |

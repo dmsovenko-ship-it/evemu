@@ -145,7 +145,13 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
 }
 
 PyResult JumpCloneBound::GetShipCloneState(PyCallArgs &call) {
+    // Ship clone bay - for ships with clone bay (Rorqual, etc.)
+    // Returns list of clones installed in the current ship
     PyList* clones = new PyList();
+
+    // TODO: ship clone bay not implemented yet
+    // Need to query entity table for clones with locationID = shipID and flag = flagClone
+
     return clones;
 }
 
@@ -232,14 +238,40 @@ PyResult JumpCloneBound::CloneJump(PyCallArgs &call, PyInt* locationID) {
 }
 
 PyResult JumpCloneBound::OfferShipCloneInstallation(PyCallArgs &call, PyInt* characterID) {
-    return nullptr;
+    // Offer to install a jump clone in this ship for the target character
+    uint32 targetCharID = characterID->value();
+    uint32 shipID = call.client->GetShipID();
+
+    if (shipID == 0)
+        return PyStatic.NewFalse();
+
+    // Notify the target character of the offer
+    PyDict* args = new PyDict();
+        args->SetItemString("characterID", new PyInt(call.client->GetCharacterID()));
+        args->SetItemString("shipID", new PyInt(shipID));
+        args->SetItemString("locationID", new PyInt(call.client->GetLocationID()));
+
+    PyTuple* payload = new PyTuple(1);
+        payload->SetItem(0, new PyObject("util.KeyVal", args));
+
+    Client* targetClient = sEntityList.FindClientByCharID(targetCharID);
+    if (targetClient != nullptr)
+        targetClient->SendNotification("OnShipJumpCloneInstallationOffered", "clientID", payload, false);
+
+    return PyStatic.NewTrue();
 }
 
 PyResult JumpCloneBound::AcceptShipCloneInstallation(PyCallArgs &call) {
-    return nullptr;
+    // Accept a ship clone installation offer
+    // This creates a jump clone in the offering ship's clone bay
+    // For now, basic implementation
+    return PyStatic.NewFalse();
 }
 
 PyResult JumpCloneBound::CancelShipCloneInstallation(PyCallArgs &call) {
-    return nullptr;
+    // Cancel a pending ship clone installation offer
+    PyTuple* payload = new PyTuple(0);
+    call.client->SendNotification("OnShipJumpCloneInstallationCanceled", "clientID", payload, false);
+    return PyStatic.NewTrue();
 }
 

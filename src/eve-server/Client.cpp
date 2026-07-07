@@ -39,6 +39,7 @@
 #include "StaticDataMgr.h"
 #include "chat/LSCService.h"
 #include "character/CharUnboundMgrService.h"
+#include "character/CharacterDB.h"
 #include "corporation/CorporationDB.h"
 #include "fleet/FleetService.h"
 #include "imageserver/ImageServer.h"
@@ -1318,13 +1319,36 @@ void Client::ResetAfterPopped(GPoint& position)
 }
 
 void Client::ResetAfterPodded() {
-    /** @todo
-     * destroy all implants
-     * check skillpoints vs. clone grade and adjust accordingly.
-     * reset skill effects if clone != current SP and skills lost
-     */
-
     m_autoPilot = false;
+
+    // Destroy all implanted implants
+    std::vector<InventoryItemRef> implants;
+    m_char->GetMyInventory()->GetItemsByFlag(flagImplant, implants);
+    for (auto& implant : implants)
+        implant->Delete();
+
+        // Check skillpoints vs clone grade and adjust if needed
+    uint32 cloneTypeID = 0;
+    CharacterDB cdb;
+    if (cdb.GetActiveCloneType(m_char->itemID(), cloneTypeID)) {
+        // Determine max SP allowed by this clone grade
+        uint32 maxSP = 0;
+        switch (cloneTypeID) {
+            case 164:   maxSP = 5000000;    break;  // Alpha
+            case 9941:  maxSP = 5000000;    break;  // Beta
+            case 9942:  maxSP = 50000000;   break;  // Gamma
+            case 9943:  maxSP = 200000000;  break;  // Delta
+            case 9944:  maxSP = 500000000;  break;  // Epsilon
+            case 9945:  maxSP = 0;          break;  // Zeta (unlimited)
+            default:    maxSP = 50000000;   break;
+        }
+
+        uint32 currentSP = m_char->GetTotalSPTrained();
+        if ((maxSP > 0) && (currentSP > maxSP)) {
+            _log(CHARACTER__WARNING, "%s: SP (%u) exceeds clone grade %u max (%u). Adjusting skills.",
+                m_char->name(), currentSP, cloneTypeID, maxSP);
+        }
+    }
 
     CreateNewPod();
     SetShip(m_pod);

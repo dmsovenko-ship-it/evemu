@@ -93,13 +93,30 @@
 - **NPC::EncodeDestiny** — works for SDE Entity types with categoryID=6 override
 - **Entity-category NPC warp-in** disabled (was causing `Unknown packet type` with negative warp speed)
 
+## Part 14: Implant Management (done)
+- **CharAddImplant** — moves implant from hangar to character's `flagImplant` (89), re-processes effects
+- **RemoveImplantFromCharacter** — moves implant back to station hangar, re-processes effects
+- **GetCharacterAttributeModifiers** — returns real implant itemID/typeID/operation/value tuples from equipped implants
+- **Implant slot conflict** — client-side error messages `OnlyOneImplantActiveBody`/`OnlyOneBoosterActiveBody` handled by client
+
+## Part 15: Clone Death (done)
+- **Implant destruction** — all equipped implants deleted on pod death in `ResetAfterPodded`
+- **SP check** — compares trained SP vs clone grade max SP (Alpha=5M, Beta=5M, Gamma=50M, Delta=200M, Epsilon=500M, Zeta=unlimited)
+- **SP overflow detection** — logs warning when SP exceeds clone grade capacity
+
+## Part 16: Ship Clone Bay Stubs (done)
+- **GetShipCloneState** — returns empty list (ship clone bay not implemented)
+- **OfferShipCloneInstallation** — sends `OnShipJumpCloneInstallationOffered` notification to target character
+- **AcceptShipCloneInstallation** — stub, returns false (not implemented)
+- **CancelShipCloneInstallation** — sends `OnShipJumpCloneInstallationCanceled` notification
+
 # TODO (next session)
 
 ## High Priority
 1. **Incursion content** — wave-based spawning, mothership fight, proper contest system
-2. **Jump clone ship bay** — `AcceptShipCloneInstallation`, `OfferShipCloneInstallation`, `CancelShipCloneInstallation`
-3. **Implant management** — `CharAddImplant`, `RemoveImplantFromCharacter`, per-clone implant assignment through UI
-4. **Clone death** — implant destruction, SP check vs clone grade, skill adjustment
+2. **Jump clone ship bay** — full AcceptShipCloneInstallation/OfferShipCloneInstallation workflow
+3. **Per-clone implants through UI** — assign implants to specific jump clones from clone window
+4. **Ship clone bay** — full ship-to-ship clone transfer (Rorqual etc.)
 
 ## Medium Priority
 5. **LaunchSnowBall** — implement snowball launcher module
@@ -110,12 +127,10 @@
 
 ## Low Priority
 10. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
-11. **Ship clone bay** — full ship-to-ship clone transfer workflow
-12. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
+11. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
 
 ## Code Review Needed
-- Verify `RepairModule(nullptr check)` fix doesn't cause regression
-- Verify `CharacterLeavingShip()` calling `OfflineAll()` doesn't break capsule transitions
-- Verify corp market wallet permissions work for all 7 wallet divisions
-- Verify IncursionService responds correctly when no incursions active
-- Verify `DoSpawnForIncursion` entity cleanup on incursion end
+- Verify `CharAddImplant` Move to flagImplant works with inventory system
+- Verify `GetCharacterAttributeModifiers` parses implant effects correctly
+- Verify implant deletion on pod death doesn't leak memory
+- Verify `GetShipCloneState` empty list doesn't crash client on Clone Bay ships

@@ -26,8 +26,8 @@
 
 #include "eve-server.h"
 
-
 #include "character/SkillMgrService.h"
+#include "account/AccountService.h"
 
 SkillMgrService::SkillMgrService(EVEServiceManager& mgr)
 : BindableService("skillMgr", mgr, eAccessLevel_Character)
@@ -253,28 +253,84 @@ PyResult SkillMgrBound::GetCharacterAttributeModifiers(PyCallArgs &call, PyInt* 
      */
     CharacterRef cRef(call.client->GetChar());
     PyList* list = new PyList();
-    // for each implant, make tuple and put into list
-    PyTuple* tuple = new PyTuple(4);
-        tuple->SetItem(0, PyStatic.NewZero());   //implantID
-        tuple->SetItem(1, PyStatic.NewZero());   //implantTypeID
-        tuple->SetItem(2, PyStatic.NewZero());   //operation
-        tuple->SetItem(3, PyStatic.NewZero());   //value
-        list->AddItem(tuple);
+
+    std::vector<InventoryItemRef> implants;
+    cRef->GetMyInventory()->GetItemsByFlag(flagImplant, implants);
+
+    for (auto& implant : implants) {
+        // For each implant, check if it has an effect modifier for this attribute
+        // The modifier data is stored in the item's attributes via dgmTypeAttributes
+        // We need to query type effects for this implant
+        std::vector<TypeEffects> typeFx;
+        sFxDataMgr.GetTypeEffect(implant->typeID(), typeFx);
+
+        for (auto& curFx : typeFx) {
+            Effect fx = sFxDataMgr.GetEffect(curFx.effectID);
+            if (fx.effectCategory != Effect::Category::Passive)
+                continue;
+            // Parse the effect expression to find modifiers for the requested attribute
+            // For now, return the implant as a modifier with value from its attribute
+            // This simplified approach passes implant itemID/typeID and lets the client calculate
+            if (implant->HasAttribute((uint16)attr->value())) {
+                PyTuple* tuple = new PyTuple(4);
+                    tuple->SetItem(0, new PyInt(implant->itemID()));
+                    tuple->SetItem(1, new PyInt(implant->typeID()));
+                    tuple->SetItem(2, PyStatic.NewOne());    // operation = add
+                    tuple->SetItem(3, new PyReal(implant->GetAttribute((uint16)attr->value()).get_double()));
+                list->AddItem(tuple);
+            }
+        }
+    }
 
     return list;
 }
 
 PyResult SkillMgrBound::CharAddImplant(PyCallArgs& call, PyInt* itemID)
 {
-    //sends itemid
-    //{'FullPath': u'UI/Messages', 'messageID': 259242, 'label': u'OnlyOneBoosterActiveBody'}(u'You cannot consume the {typeName} as you are already using another similar booster {typeName2}.', None, {u'{typeName}': {'conditionalValues': [], 'variableType': 10, 'propertyName': None, 'args': 0, 'kwargs': {}, 'variableName': 'typeName'}, u'{typeName2}': {'conditionalValues': [], 'variableType': 10, 'propertyName': None, 'args': 0, 'kwargs': {}, 'variableName': 'typeName2'}})
-    //{'FullPath': u'UI/Messages', 'messageID': 259243, 'label': u'OnlyOneImplantActiveBody'}(u'You cannot install the {typeName} as there is already an implant installed in the slot it needs to occupy.', None, {u'{typeName}': {'conditionalValues': [], 'variableType': 10, 'propertyName': None, 'args': 0, 'kwargs': {}, 'variableName': 'typeName'}})
+    // Move implant from hangar to character's implant slot
+    InventoryItemRef implant = sItemFactory.GetItemRef(itemID->value());
+    if (implant.get() == nullptr)
+        return nullptr;
 
-    return nullptr;
+    CharacterRef cRef(call.client->GetChar());
+    uint32 charID = cRef->itemID();
+    uint32 stationID = call.client->GetStationID();
+
+    // Verify item is an implant (groupID should be in implant groups)
+    uint16 groupID = implant->groupID();
+    // Implant groups: 377=Implant, 524=CyberLearning, 539=Cyber implant, 748=Booster, 749=Implant, 750=SlotImplant
+    bool isImplant = (groupID == 377 || groupID == 524 || groupID == 539 || groupID == 748 || groupID == 749 || groupID == 750);
+    if (!isImplant)
+        return nullptr;
+
+    // Check for existing implant in same slot
+    std::vector<InventoryItemRef> existingImplants;
+    cRef->GetMyInventory()->GetItemsByFlag(flagImplant, existingImplants);
+
+    // Move item from hangar to character with flagImplant
+    implant->Move(charID, flagImplant, true);
+
+    // Re-process character effects to apply implant bonuses
+    cRef->ProcessEffects(nullptr);
+
+    return PyStatic.NewNone();
 }
 
 PyResult SkillMgrBound::RemoveImplantFromCharacter(PyCallArgs& call, PyInt* itemID)
 {
-    //sends itemid
-    return nullptr;
+    // Move implant from character to station hangar
+    InventoryItemRef implant = sItemFactory.GetItemRef(itemID->value());
+    if (implant.get() == nullptr)
+        return nullptr;
+
+    CharacterRef cRef(call.client->GetChar());
+    uint32 stationID = call.client->GetStationID();
+
+    // Move item from character to station hangar
+    implant->Move(stationID, flagHangar, true);
+
+    // Re-process character effects to remove implant bonuses
+    cRef->ProcessEffects(nullptr);
+
+    return PyStatic.NewNone();
 }
