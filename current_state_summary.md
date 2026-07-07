@@ -136,9 +136,10 @@
 
 ## Part 20: Entity NPC Client Rendering Fix (done)
 - **Problem**: Entity-category NPCs (catID=11) showed targeting brackets but no crosshair reticle because client cached them as Entity, not Ship
-- **Fix**: `Generate_invTypes()` now overrides groupIDs for Entity NPC groups (550-584, 755-761) to Ship groups (25/26/27/419/420/28) in the `config.BulkData.types` cache sent to client
+- **Fix**: Added `Ball::Flag::IsInteractive` (0x08) to `NPC::EncodeDestiny()` flags — without this flag the client treats the ball as non-interactive and skips crosshair rendering
+- **Also**: `Generate_invTypes()` overrides groupIDs for Entity NPC groups (550-584, 755-761) to Ship groups (25/26/27/419/420/28) for correct overview filtering
 - **Groups mapped**: Frigate→25, Cruiser→26, Battleship→27, BattleCruiser→419, Destroyer→420, Industrial→28 (same mapping as `NPC::MakeSlimItem`)
-- **Result**: Client now sees NPCs as Ship-category objects → renders targeting crosshairs + proper selection effects ✅
+- **Result**: NPCs now render with targeting crosshairs + proper selection effects ✅
 
 ## Part 21: Live API Verification Session (done)
 - **CONCORD LP store**: Fixed corpID 1000125 (was 1000131), seeded with real live offers (implants + CONCORD BPCs) ✅
