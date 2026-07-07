@@ -38,7 +38,7 @@ PyResult CharFittingMgr::GetFittings(PyCallArgs &call, PyInt* ownerID) {
 PyResult CharFittingMgr::SaveFitting(PyCallArgs &call, PyInt* ownerID, PyObject* fitting) {
     uint32 charID = ownerID->value();
     // fitting is util.KeyVal with: shipID, shipDNA, name, description, items
-    PyDict* fDict = fitting->AsDict();
+    PyDict* fDict = fitting->arguments()->AsDict();
     if (fDict == nullptr) return PyStatic.NewZero();
 
     PyRep* shipID_r = fDict->GetItemString("shipID");
@@ -79,7 +79,7 @@ PyResult CharFittingMgr::SaveManyFittings(PyCallArgs &call, PyInt* ownerID, PyDi
         PyObject* fitting = itr->second->AsObject();
         if (fitting == nullptr) continue;
 
-        PyDict* fDict = fitting->AsDict();
+        PyDict* fDict = fitting->arguments()->AsDict();
         if (fDict == nullptr) continue;
 
         PyRep* shipID_r = fDict->GetItemString("shipID");
