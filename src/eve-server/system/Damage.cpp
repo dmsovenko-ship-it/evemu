@@ -564,8 +564,8 @@ void ShipSE::Killed(Damage &fatal_blow) {
                 }
 
                 blob << "<i t=" << cur.second->typeID() << " f=" << cur.second->flag() << " q=" << q << " s=" << s ;
-                // all contained items have 50% chance of drop, except rigs, which do not survive
-                if (IsRigSlot(cur.second->flag())) {
+                // all contained items have 50% chance of drop, except rigs and subsystems, which do not survive
+                if (IsRigSlot(cur.second->flag()) || IsSubSystem(cur.second->flag())) {
                     /* just avoiding survive check */;
                 } else if (IsEven(MakeRandomInt(0, 100))) {
                     // item survived.  check qty for drop
@@ -668,6 +668,25 @@ void ShipSE::Killed(Damage &fatal_blow) {
             } else if (is_log_enabled(PHYSICS__TRACE)) {
                 _log(PHYSICS__TRACE, "Ship::Killed() - Pod %s(%u) Position: %.2f,%.2f,%.2f.  Corpse %s(%u) Position: %.2f,%.2f,%.2f.", \
                     GetName(), GetID(), x(), y(), z(), corpseItemRef->name(), corpseItemRef->itemID(), wreckPosition.x, wreckPosition.y, wreckPosition.z);
+            }
+        }
+
+        // T3 ship hull loss — inflict SP loss on strategic cruiser skill (5% per pod kill)
+        if (m_self->groupID() == EVEDB::invGroups::StrategicCruiser) {
+            Character* pChar = pPilot->GetChar();
+            uint32 t3Skills[] = {
+                EvESkill::AmarrStrategicCruiser, EvESkill::CaldariStrategicCruiser,
+                EvESkill::GallenteStrategicCruiser, EvESkill::MinmatarStrategicCruiser
+            };
+            for (uint32 skillID : t3Skills) {
+                SkillRef skillRef = pChar->GetCharSkillRef(skillID);
+                if (skillRef.get() != nullptr) {
+                    uint32 sp = skillRef->GetCurrentSP(pChar);
+                    if (sp > 500) {
+                        sp = std::max<uint32>(500, sp - (sp / 20));
+                        skillRef->SetAttribute(AttrSkillPoints, sp, true);
+                    }
+                }
             }
         }
 

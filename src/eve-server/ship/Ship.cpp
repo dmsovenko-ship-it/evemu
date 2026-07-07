@@ -2800,7 +2800,8 @@ PyDict* ShipSE::MakeSlimItem() {
     //encode the hiSlot and Subsystem modules list ONLY
     std::vector<InventoryItemRef> items;
     m_self->GetMyInventory()->GetItemsByFlagRange(flagHiSlot0, flagHiSlot7, items);
-    //m_self->GetMyInventory()->GetItemsByFlagRange(flagSubSystem0, flagSubSystem7, items);
+    // Include fitted subsystems in slim item for client T3 UI
+    m_self->GetMyInventory()->GetItemsByFlagRange(flagSubSystem0, flagSubSystem7, items);
     if (!items.empty()) {
         PyList *list = new PyList();
         for (auto cur : items)
