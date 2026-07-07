@@ -673,15 +673,15 @@ void ShipSE::Killed(Damage &fatal_blow) {
 
         // T3 ship hull loss — inflict SP loss on strategic cruiser skill (5% per pod kill)
         if (m_self->groupID() == EVEDB::invGroups::StrategicCruiser) {
-            Character* pChar = pPilot->GetChar();
+            CharacterRef cRef = pPilot->GetChar();
             uint32 t3Skills[] = {
                 EvESkill::AmarrStrategicCruiser, EvESkill::CaldariStrategicCruiser,
                 EvESkill::GallenteStrategicCruiser, EvESkill::MinmatarStrategicCruiser
             };
             for (uint32 skillID : t3Skills) {
-                SkillRef skillRef = pChar->GetCharSkillRef(skillID);
+                SkillRef skillRef = cRef->GetCharSkillRef(skillID);
                 if (skillRef.get() != nullptr) {
-                    uint32 sp = skillRef->GetCurrentSP(pChar);
+                    uint32 sp = skillRef->GetCurrentSP(cRef.get());
                     if (sp > 500) {
                         sp = std::max<uint32>(500, sp - (sp / 20));
                         skillRef->SetAttribute(AttrSkillPoints, sp, true);
