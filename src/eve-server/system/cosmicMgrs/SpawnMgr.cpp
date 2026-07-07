@@ -628,10 +628,30 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8
             continue;
         }
 
+        // Apply incursion damage bonus based on sceneType
+        float dmgMult = 1.0f;
+        switch (sceneType) {
+            case Incursion::scenesType::vanguard:      dmgMult = 1.2f; break;
+            case Incursion::scenesType::assault:        dmgMult = 1.4f; break;
+            case Incursion::scenesType::headquarters:   dmgMult = 1.6f; break;
+            case Incursion::scenesType::staging:        dmgMult = 1.1f; break;
+        }
+        // Boost existing damage attributes
+        if (iRef->HasAttribute(AttrDamageMultiplier))
+            iRef->SetAttribute(AttrDamageMultiplier, iRef->GetAttribute(AttrDamageMultiplier).get_float() * dmgMult, false);
+        if (iRef->HasAttribute(AttrEmDamage))
+            iRef->SetAttribute(AttrEmDamage, iRef->GetAttribute(AttrEmDamage).get_float() * dmgMult, false);
+        if (iRef->HasAttribute(AttrKineticDamage))
+            iRef->SetAttribute(AttrKineticDamage, iRef->GetAttribute(AttrKineticDamage).get_float() * dmgMult, false);
+        if (iRef->HasAttribute(AttrThermalDamage))
+            iRef->SetAttribute(AttrThermalDamage, iRef->GetAttribute(AttrThermalDamage).get_float() * dmgMult, false);
+        if (iRef->HasAttribute(AttrExplosiveDamage))
+            iRef->SetAttribute(AttrExplosiveDamage, iRef->GetAttribute(AttrExplosiveDamage).get_float() * dmgMult, false);
+
         m_system->AddNPC(pNPC);
     }
 
-    _log(SPAWN__MESSAGE, "DoSpawnForIncursion - Spawned sceneType=%u NPCs in bubble", sceneType);
+    _log(SPAWN__MESSAGE, "DoSpawnForIncursion - Spawned sceneType=%u NPCs in bubble (dmgMult=%.1f)", sceneType, dmgMult);
 }
 
 void SpawnMgr::DoSpawnMothership(SystemBubble* pBubble, uint32 incursionID)
@@ -675,6 +695,18 @@ void SpawnMgr::DoSpawnMothership(SystemBubble* pBubble, uint32 incursionID)
             if (pNPC) pNPC->Delete();
             continue;
         }
+
+        // Mothership NPCs deal 2x damage
+        if (iRef->HasAttribute(AttrDamageMultiplier))
+            iRef->SetAttribute(AttrDamageMultiplier, iRef->GetAttribute(AttrDamageMultiplier).get_float() * 2.0f, false);
+        if (iRef->HasAttribute(AttrEmDamage))
+            iRef->SetAttribute(AttrEmDamage, iRef->GetAttribute(AttrEmDamage).get_float() * 2.0f, false);
+        if (iRef->HasAttribute(AttrKineticDamage))
+            iRef->SetAttribute(AttrKineticDamage, iRef->GetAttribute(AttrKineticDamage).get_float() * 2.0f, false);
+        if (iRef->HasAttribute(AttrThermalDamage))
+            iRef->SetAttribute(AttrThermalDamage, iRef->GetAttribute(AttrThermalDamage).get_float() * 2.0f, false);
+        if (iRef->HasAttribute(AttrExplosiveDamage))
+            iRef->SetAttribute(AttrExplosiveDamage, iRef->GetAttribute(AttrExplosiveDamage).get_float() * 2.0f, false);
 
         m_system->AddNPC(pNPC);
     }

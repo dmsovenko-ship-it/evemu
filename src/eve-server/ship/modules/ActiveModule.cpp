@@ -20,6 +20,7 @@
 #include "ship/modules/Prospector.h"
 #include "system/Container.h"
 #include "system/cosmicMgrs/BeltMgr.h"
+#include "incursion/IncursionMgr.h"
 
 
 ActiveModule::ActiveModule(ModuleItemRef mRef, ShipItemRef sRef)
@@ -1053,11 +1054,27 @@ void ActiveModule::ApplyEffect(int8 state, bool active/*false*/)
     sFxProc.ApplyEffects(m_modRef.get(), m_shipRef->GetPilot()->GetChar().get(), m_shipRef.get(), true);
 }
 
+// Check if a target ship is in an incursion system and return repair penalty multiplier
+static float GetRemoteRepairPenalty(SystemEntity* targetSE)
+{
+    if (targetSE == nullptr)
+        return 1.0f;
+    uint32 sysID = targetSE->SystemMgr()->GetID();
+    if (sIncursionMgr.IsIncursionSystem(sysID))
+        return 0.3f;  // 70% penalty on remote repair in incursion systems
+    return 1.0f;
+}
+
 void ActiveModule::UpdateCharge(uint16 attrID, uint16 testAttrID, uint16 srcAttrID, InventoryItemRef iRef)
 {
     // Apply boost amount:
+    EvilNumber amount = GetAttribute(srcAttrID);
+    // Apply incursion remote repair penalty if this is a remote transfer
+    if (iRef.get() != m_shipRef.get())
+        amount = amount.get_float() * GetRemoteRepairPenalty(m_targetSE);
+
     EvilNumber newValue = iRef->GetAttribute(attrID);
-    newValue += GetAttribute(srcAttrID);
+    newValue += amount;
     if (newValue > iRef->GetAttribute(testAttrID)) {
         newValue = iRef->GetAttribute(testAttrID);
         if (m_shipRef->GetPilot()->AutoStop())
@@ -1071,8 +1088,13 @@ void ActiveModule::UpdateCharge(uint16 attrID, uint16 testAttrID, uint16 srcAttr
 
 void ActiveModule::UpdateDamage(uint16 attrID, uint16 srcAttrID, InventoryItemRef iRef)
 {
+    EvilNumber amount = GetAttribute(srcAttrID);
+    // Apply incursion remote repair penalty if this is a remote repair
+    if (iRef.get() != m_shipRef.get())
+        amount = amount.get_float() * GetRemoteRepairPenalty(m_targetSE);
+
     EvilNumber newValue = iRef->GetAttribute(attrID);
-    newValue -= GetAttribute(srcAttrID);
+    newValue -= amount;
     if (newValue < EvilZero) {
         newValue = EvilZero;
         if (m_shipRef->GetPilot()->AutoStop())
