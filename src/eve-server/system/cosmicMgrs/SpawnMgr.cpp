@@ -461,8 +461,8 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
         std::string name = objType.name;
 
         uint32 corpID = sDataMgr.GetFactionCorp(factionID);
-        // Fallback: map Entity groupID ranges to pirate factions
-        if (corpID == 0) {
+        // Override faction for pirate NPCs: SDE raceID maps to empire, but we need pirate faction
+        {
             uint16 gID = objType.groupID;
             // Angel: 550-554, 575-576
             if      ((gID >= 550 && gID <= 554) || gID == 575 || gID == 576) { factionID = factionAngel; }
@@ -476,7 +476,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
             else if ((gID >= 570 && gID <= 573) || gID == 583 || gID == 584) { factionID = factionSerpentis; }
             // Rogue Drones: 755-761
             else if (gID >= 755 && gID <= 761) { factionID = factionRogueDrones; }
-            if (factionID != 0)
+            if (corpID == 0)
                 corpID = sDataMgr.GetFactionCorp(factionID);
         }
         FactionData data = FactionData();
