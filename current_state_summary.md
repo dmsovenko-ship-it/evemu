@@ -160,16 +160,10 @@
 - **Corp mail role groups**: `roleMask` param in `SendMail` — filters corp members by role when sending mail to corp/alliance ✅
 - **NPC crosshair fix**: Added `Ball::Flag::IsInteractive` (0x08) to `NPC::EncodeDestiny` + bumped `bulkDataChangeID` ✅
 
+## Part 24: T3 Ships — Subsystem Implementation (done)
+- **MakeSlimItem**: Uncommented `GetItemsByFlagRange(flagSubSystem0, flagSubSystem7)` — client now receives fitted subsystems in slim item ✅
+- **Subsystem destruction**: Added `IsSubSystem()` check alongside `IsRigSlot()` — subsystems no longer survive ship destruction (0% drop like rigs) ✅
+- **SP loss on T3 pod kill**: When a Strategic Cruiser is destroyed, 5% SP is removed from the pilot's Strategic Cruiser skill (minimum 500 SP retained) ✅
+- **Existing infrastructure verified**: SubSystemModule class, InstallSubSystem, ModuleFactory dispatch, all 5 subsystem groups (954-958), flags (125-132), T3 hulls (29984/29986/29988/29990), all SDE data present ✅
+
 # TODO (next session)
-
-## High Priority
-1. **T3 Ships — SubSystemModule implementation** — Tech 3 ships (Loki, Tengu, Proteus, Legion):
-   - Subsystem slot fitting/removal
-   - Subsystem effects processing (role bonuses per subsystem type)
-   - Subsystem attribute modifiers (hull, resists, speed, capacitor)
-   - `GetSubSystems` / `SetSubSystems` service methods
-   - T3 ship destruction: SP loss in required subsystem skills
-   - SubSystemModule online/offline cycle
-
-## Medium Priority
-2. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
