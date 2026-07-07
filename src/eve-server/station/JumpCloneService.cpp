@@ -70,9 +70,9 @@ PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
     DBQueryResult res;
     m_db->GetClones(charID, res);
 
-    PyDict* clones = new PyDict();
+    PyList* clones = new PyList();
     PyDict* implants = new PyDict();
-    PyDict* shipClones = new PyDict();
+    PyList* shipClones = new PyList();
 
     DBResultRow row;
     while (res.GetRow(row)) {
@@ -80,11 +80,13 @@ PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
         uint32 locID = row.GetUInt(2);
         uint8 isActive = row.GetUInt(5);
 
-        PyDict* cloneData = new PyDict();
-        cloneData->SetItemString("locationID", new PyInt(locID));
-        cloneData->SetItemString("isActive", new PyInt(isActive));
-        cloneData->SetItemString("typeID", new PyInt(row.GetUInt(1)));
-        clones->SetItem(new PyInt(cloneID), new PyObject("util.KeyVal", cloneData));
+        // Return each clone as util.KeyVal with cloneID and locationID
+        PyDict* entry = new PyDict();
+        entry->SetItemString("cloneID", new PyInt(cloneID));
+        entry->SetItemString("locationID", new PyInt(locID));
+        entry->SetItemString("isActive", new PyInt(isActive));
+        entry->SetItemString("typeID", new PyInt(row.GetUInt(1)));
+        clones->AddItem(new PyObject("util.KeyVal", entry));
 
         // Load per-clone implants from chrJumpCloneImplants
         DBQueryResult implantRes;
@@ -115,7 +117,7 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
     DBQueryResult res;
     m_db->GetClones(charID, res);
 
-    PyDict* clones = new PyDict();
+    PyList* clones = new PyList();
     PyDict* implants = new PyDict();
 
     DBResultRow row;
@@ -124,11 +126,12 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
         uint32 locID = row.GetUInt(2);
         uint8 isActive = row.GetUInt(5);
         if (locID == m_locationID) {
-            PyDict* cloneData = new PyDict();
-            cloneData->SetItemString("locationID", new PyInt(locID));
-            cloneData->SetItemString("isActive", new PyInt(isActive));
-            cloneData->SetItemString("typeID", new PyInt(row.GetUInt(1)));
-            clones->SetItem(new PyInt(cloneID), new PyObject("util.KeyVal", cloneData));
+            PyDict* entry = new PyDict();
+            entry->SetItemString("cloneID", new PyInt(cloneID));
+            entry->SetItemString("locationID", new PyInt(locID));
+            entry->SetItemString("isActive", new PyInt(isActive));
+            entry->SetItemString("typeID", new PyInt(row.GetUInt(1)));
+            clones->AddItem(new PyObject("util.KeyVal", entry));
 
             DBQueryResult implantRes;
             m_db->GetCloneImplants(cloneID, implantRes);

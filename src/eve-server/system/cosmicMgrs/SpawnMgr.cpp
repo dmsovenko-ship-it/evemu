@@ -396,7 +396,7 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                                         corpCONCORD, client->GetCharacterID(),
                                         iskReward,
                                         "DESC: Incursion site completion reward",
-                                        Journal::EntryType::IncursionReward,
+                                        Journal::EntryType::MissionCompletion,
                                         incursionID);
                                     // LP reward (CONCORD LP)
                                     LPService lps;
