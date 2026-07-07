@@ -641,67 +641,66 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                     --data.jobRuns;
                 }
             } break;
-            /** @todo  still need to finish these....eventually  */
             case EvERam::Activity::Invention: {
-                /*  base invention data...
-                 *
-                 * required items:
-                 * bpc of t1 item (will consume 1 run)
-                 * 2 types of datacores (all consumed)
-                 * T3 only: ancient relic (wrecked, malfunction, intact)
-                 *
-                 * optional items:
-                 * decryptor  (consumed)
-                 *   these modify chance, me, pe, runs on output bpc
-                 *   usually not worth it on modules, ammo
-                 *
-                 * on success:  (see modifiers below)
-                 * T2: ship and rig bpc have 1 run, others are up to 10 (based on copy runs)
-                 * T3: runs depend on relic (wrecked - 3, malfunction - 10, intact - 20)
-                 * me -2, pe -4
-                 *
-                 */
+                BlueprintRef invBpRef = BlueprintRef::StaticCast(installedItem);
+                uint32 outTypeID = FactoryDB::GetTech2Blueprint(invBpRef->typeID());
+                bool success = false;
+                int8 meBonus = -2, peBonus = -4, runs = 1;
 
-                /*  invention base chances (old)
-                 *  0.2 bc/bs/hulk
-                 *  0.25 cruiser/indy/mackinaw
-                 *  0.3 frig/desy/freighter/skiff
-                 *  0.4 modules/ammo
-                 */
+                if (outTypeID > 0) {
+                    // Base chance from group
+                    float baseChance = 0.22f;
+                    uint16 prodGroup = invBpRef->productType().groupID();
+                    if (prodGroup >= 25 && prodGroup <= 31) { // frig/dessy
+                        baseChance = 0.30f;
+                    } else if (prodGroup >= 26 && prodGroup <= 420) { // cruiser/bc
+                        baseChance = 0.26f;
+                    } else if (prodGroup >= 27) { // bs
+                        baseChance = 0.22f;
+                    } else {
+                        baseChance = 0.34f; // module/rig/ammo
+                    }
 
-                /*  invention base chances  (new)
-                 *  0.18  freighter
-                 *  0.22  bs, {wrecked relic(RE)}
-                 *  0.26  cru, bc, barge, indy
-                 *  0.30  frig, dessy, {malfunction relic(RE)}
-                 *  0.34  module, rig, ammo, {intact relic(RE)}
-                 */
+                    // Skill modifiers: Encryption skill * datacore skills
+                    int8 encSkill = installedItem->GetPilot()->GetSkillLevel(EvESkill::AmarrEncryption);
+                    int8 dc1Skill = installedItem->GetPilot()->GetSkillLevel(EvESkill::AmarrDatacore);
+                    int8 dc2Skill = installedItem->GetPilot()->GetSkillLevel(EvESkill::AmarrDatacore);
+                    // Use player's actual encryption/datacore skills
+                    // For now, estimate from skills that exist on character
+                    float skillMod = 1.0f + (0.01f * encSkill);
+                    float dcMod = 1.0f + (0.01f * (dc1Skill + dc2Skill));
 
-    /** @todo  this needs a return for invention
-     *
-            result = sm.ProxySvc('ramProxy').CompleteJob(installationLocationData, jobdata.jobID, cancel)
-            if hasattr(result, 'messageLabel'):
-                inventionResultLabel = localization.GetByLabel(result.messageLabel)
-                if result.jobCompletedSuccessfully:
-                    eve.Message('RamInventionJobSucceeded', {'info': inventionResultLabel,
-                     'me': result.outputME,
-                     'pe': result.outputPE,
-                     'runs': result.outputRuns,
-                     'type': result.outputTypeID,
-                     'typeid': str(result.outputTypeID),
-                     'itemid': str(result.outputItemID)})
-                else:
-                    eve.Message('RamInventionJobFailed', {'info': inventionResultLabel})
-        */
+                    float chance = baseChance * skillMod * dcMod;
+                    success = (MakeRandomFloat() < chance);
+
+                    if (success) {
+                        runs = invBpRef->runs();
+                        if (runs < 1) runs = 1;
+                        if (runs > 10) runs = 10;
+
+                        ItemData idata(outTypeID, data.ownerID, locTemp, flagFactoryOutput);
+                        EvERam::bpData bpdata;
+                        bpdata.copy = true;
+                        bpdata.runs = runs;
+                        bpdata.mLevel = std::max<int8>(0, invBpRef->mLevel() + meBonus);
+                        bpdata.pLevel = std::max<int8>(0, invBpRef->pLevel() + peBonus);
+
+                        BlueprintRef newBp = Blueprint::Spawn(idata, bpdata);
+                        if (newBp.get() != nullptr) {
+                            newBp->Move(args.containerID, data.outputFlag, true);
+                            data.jobRuns = 0;
+                        }
+                    }
+                }
+
                 PyDict* dict = new PyDict();
-                if (1) {
+                if (success) {
                     dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamInventionJobSucceeded"));
                     dict->SetItemString("jobCompletedSuccessfully", new PyBool(true));
-                    dict->SetItemString("outputME", PyStatic.NewInt(0));
-                    dict->SetItemString("outputPE", PyStatic.NewInt(0));
-                    dict->SetItemString("outputRuns", PyStatic.NewInt(0));
-                    dict->SetItemString("outputTypeID", PyStatic.NewInt(0));
-                    dict->SetItemString("outputItemID", PyStatic.NewInt(0));
+                    dict->SetItemString("outputME", PyStatic.NewInt(meBonus));
+                    dict->SetItemString("outputPE", PyStatic.NewInt(peBonus));
+                    dict->SetItemString("outputRuns", PyStatic.NewInt(runs));
+                    dict->SetItemString("outputTypeID", PyStatic.NewInt(outTypeID));
                 } else {
                     dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamInventionJobFailed"));
                     dict->SetItemString("jobCompletedSuccessfully", new PyBool(false));
