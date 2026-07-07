@@ -593,29 +593,28 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8
     // Assault: cruisers + some battleships
     // Headquarters: battleships + elite cruisers
     // Staging: light mix
-    // Use Ship-category clone typeIDs (34000+) for client crosshair rendering
-    // Entity-category types (10025, 10030, 11913, 23383) don't show crosshairs
+    // Use original Entity-category typeIDs — slim item overrides categoryID=6 for crosshairs
     std::vector<uint16> typeIDs;
     switch (sceneType) {
         case Incursion::scenesType::vanguard: {
-            for (int i = 0; i < 6; i++) typeIDs.push_back(33500); // Sansha Frigate
-            for (int i = 0; i < 3; i++) typeIDs.push_back(33501); // Sansha Cruiser
+            for (int i = 0; i < 6; i++) typeIDs.push_back(10025); // Sansha Frigate
+            for (int i = 0; i < 3; i++) typeIDs.push_back(10030); // Sansha Cruiser
             break;
         }
         case Incursion::scenesType::assault: {
-            for (int i = 0; i < 4; i++) typeIDs.push_back(33501); // Sansha Cruiser
-            for (int i = 0; i < 3; i++) typeIDs.push_back(33502); // Sansha Battleship
-            for (int i = 0; i < 2; i++) typeIDs.push_back(33503); // Sansha Battlecruiser
+            for (int i = 0; i < 4; i++) typeIDs.push_back(10030); // Sansha Cruiser
+            for (int i = 0; i < 3; i++) typeIDs.push_back(11913); // Sansha Battleship
+            for (int i = 0; i < 2; i++) typeIDs.push_back(23383); // Sansha Battlecruiser
             break;
         }
         case Incursion::scenesType::headquarters: {
-            for (int i = 0; i < 4; i++) typeIDs.push_back(33502); // Sansha Battleship
-            for (int i = 0; i < 4; i++) typeIDs.push_back(33503); // Sansha Battlecruiser
+            for (int i = 0; i < 4; i++) typeIDs.push_back(11913); // Sansha Battleship
+            for (int i = 0; i < 4; i++) typeIDs.push_back(23383); // Sansha Battlecruiser
             break;
         }
         case Incursion::scenesType::staging: {
-            for (int i = 0; i < 3; i++) typeIDs.push_back(33500); // Sansha Frigate
-            for (int i = 0; i < 2; i++) typeIDs.push_back(33501); // Sansha Cruiser
+            for (int i = 0; i < 3; i++) typeIDs.push_back(10025); // Sansha Frigate
+            for (int i = 0; i < 2; i++) typeIDs.push_back(10030); // Sansha Cruiser
             break;
         }
         default:
@@ -685,10 +684,10 @@ void SpawnMgr::DoSpawnMothership(SystemBubble* pBubble, uint32 incursionID)
 
     // Mothership encounter: Kundalini Manifest + elite escorts
     std::vector<uint16> typeIDs;
-    typeIDs.push_back(33503); // Mothership
-    for (int i = 0; i < 4; i++) typeIDs.push_back(33502); // Escort battleships
-    for (int i = 0; i < 6; i++) typeIDs.push_back(33503); // Elite guards
-    for (int i = 0; i < 4; i++) typeIDs.push_back(33501); // Support cruisers
+    typeIDs.push_back(23383); // Mothership (battlecruiser hull)
+    for (int i = 0; i < 4; i++) typeIDs.push_back(11913); // Escort battleships
+    for (int i = 0; i < 6; i++) typeIDs.push_back(23383); // Elite guards
+    for (int i = 0; i < 4; i++) typeIDs.push_back(10030); // Support cruisers
 
     for (uint16 typeID : typeIDs) {
         GPoint spawnPos(basePos.x + MakeRandomFloat(-1000, 1000),

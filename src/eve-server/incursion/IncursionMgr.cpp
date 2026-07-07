@@ -316,7 +316,7 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         pos.z = MakeRandomFloat(-1.0e12, 1.0e12);
 
         // Use MakeDungeon to spawn full site (NPCs + static objects from room definitions)
-        // dunRoomObjects already use Ship-category typeIDs (33500+) after migration
+        // Original Entity-category typeIDs from SDE — slim item overrides categoryID=6 for crosshairs
         CosmicSignature sig;
         sig.systemID = solarSystemID;
         sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
