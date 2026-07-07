@@ -137,9 +137,14 @@ void ImageServerConnection::Redirect()
 void ImageServerConnection::RedirectLocation()
 {
     sLog.Error("     Image Server"," RedirectLocation() called.");
-    std::string extension = _category == "Character" ? "jpg" : "png";
     std::stringstream url;
-    url << ImageServer::FallbackURL << _category << "/" << _id << "_" << _size << "." << extension;
+    if (_category == "Character") {
+        // EVE image API: https://images.evetech.net/characters/{id}/portrait?size={size}
+        url << "https://images.evetech.net/characters/" << _id << "/portrait?size=" << _size;
+    } else {
+        std::string extension = _category == "Character" ? "jpg" : "png";
+        url << ImageServer::FallbackURL << _category << "/" << _id << "_" << _size << "." << extension;
+    }
     _redirectUrl = url.str();
     boost::asio::async_write(_socket, boost::asio::buffer(_redirectUrl), boost::asio::transfer_all(), std::bind(&ImageServerConnection::RedirectFinalize, shared_from_this()));
 }
