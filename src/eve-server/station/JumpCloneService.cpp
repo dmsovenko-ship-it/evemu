@@ -160,10 +160,24 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
 PyResult JumpCloneBound::GetShipCloneState(PyCallArgs &call) {
     // Ship clone bay - for ships with clone bay (Rorqual, etc.)
     // Returns list of clones installed in the current ship
-    PyList* clones = new PyList();
+    uint32 shipID = call.client->GetShipID();
 
-    // TODO: ship clone bay not implemented yet
-    // Need to query entity table for clones with locationID = shipID and flag = flagClone
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT itemID, typeID, ownerID FROM entity "
+        "WHERE locationID = %u AND flag = %u",
+        shipID, (uint16)flagClone);
+
+    PyList* clones = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* entry = new PyDict();
+        entry->SetItemString("cloneID", new PyInt(row.GetUInt(0)));
+        entry->SetItemString("typeID", new PyInt(row.GetUInt(1)));
+        entry->SetItemString("ownerID", new PyInt(row.GetUInt(2)));
+        entry->SetItemString("locationID", new PyInt(shipID));
+        clones->AddItem(new PyObject("util.KeyVal", entry));
+    }
 
     return clones;
 }
@@ -276,9 +290,51 @@ PyResult JumpCloneBound::OfferShipCloneInstallation(PyCallArgs &call, PyInt* cha
 
 PyResult JumpCloneBound::AcceptShipCloneInstallation(PyCallArgs &call) {
     // Accept a ship clone installation offer
-    // This creates a jump clone in the offering ship's clone bay
-    // For now, basic implementation
-    return PyStatic.NewFalse();
+    // Creates a jump clone in the offering ship's clone bay
+    // The offer contains: characterID (offerer), shipID, locationID
+    // Stored in call.byname from the client's cached offer data
+    uint32 charID = call.client->GetCharacterID();
+    uint32 offererCharID = 0;
+    uint32 shipID = 0;
+    uint32 locationID = 0;
+
+    if (call.byname.find("characterID") != call.byname.end())
+        offererCharID = PyRep::IntegerValueU32(call.byname.find("characterID")->second);
+    if (call.byname.find("shipID") != call.byname.end())
+        shipID = PyRep::IntegerValueU32(call.byname.find("shipID")->second);
+    if (call.byname.find("locationID") != call.byname.end())
+        locationID = PyRep::IntegerValueU32(call.byname.find("locationID")->second);
+
+    if (offererCharID == 0 || shipID == 0)
+        return PyStatic.NewFalse();
+
+    // Create a jump clone in the ship's clone bay (flagClone = 30)
+    uint32 cloneTypeID = itemCloneAlpha;
+    DBerror err;
+    uint32 newCloneID = 0;
+    sDatabase.RunQueryLID(err, newCloneID,
+        "INSERT INTO entity (ownerID, typeID, locationID, flag, name, itemName, "
+        "positionX, positionY, positionZ, entityCustomInfo) "
+        "VALUES (%u, %u, %u, %u, 'Ship Clone', 'Ship Clone', 0, 0, 0, 'shipClone')",
+        charID, cloneTypeID, shipID, (uint16)flagClone);
+
+    if (newCloneID == 0)
+        return PyStatic.NewFalse();
+
+    // Clone starts with no implants; the DB table chrJumpCloneImplants is queried separately
+
+    // Notify the offerer that their offer was accepted
+    Client* offererClient = sEntityList.FindClientByCharID(offererCharID);
+    if (offererClient != nullptr) {
+        PyTuple* payload = new PyTuple(0);
+        offererClient->SendNotification("OnShipJumpCloneInstallationAccepted", "clientID", payload, false);
+    }
+
+    // Refresh caller's clone state
+    PyTuple* notify = new PyTuple(0);
+    call.client->SendNotification("OnJumpCloneCacheInvalidated", "clientID", notify, false);
+
+    return PyStatic.NewTrue();
 }
 
 PyResult JumpCloneBound::CancelShipCloneInstallation(PyCallArgs &call) {
