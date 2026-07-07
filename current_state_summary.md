@@ -147,19 +147,21 @@
 - **damageControl effect (2302)**: Found bug! effect_category was 1 (passive) instead of 4 (active) — fixed ✅
 - **All pirate NPC effects**: 2192-2197 (shield/armor rep), 1871-1879 (EWAR) verified, match live ✅
 
+## Part 22: Feature Implementation — Snowballs, Clones, War Decay (done)
+- **LaunchSnowBall**: Implemented — snowball missile entity creation and launch (follows LaunchMissile pattern) ✅
+- **Per-clone implants**: Added `AdjustCloneImplant` service method + `StationDB::AddCloneImplant`/`RemoveCloneImplant` for per-clone implant management ✅
+- **War decay timer**: `CheckWarDecay()` called every minute — auto-ends wars where the weekly bill is overdue and unpaid ✅
+
 # TODO (next session)
 
 ## High Priority
 1. **Jump clone ship bay** — full AcceptShipCloneInstallation/OfferShipCloneInstallation workflow
-2. **Per-clone implants through UI** — assign implants to specific jump clones from clone window
-3. **Ship clone bay** — full ship-to-ship clone transfer (Rorqual etc.)
+2. **Ship clone bay** — full ship-to-ship clone transfer (Rorqual etc.)
+3. **Contract PlaceBid / FinishAuction** — auction support
 
 ## Medium Priority
-4. **LaunchSnowBall** — implement snowball launcher module
-5. **War decay timer** — auto-check unpaid war bills and end wars
-6. **Contract PlaceBid / FinishAuction** — auction support
-7. **Corp Mail groups** — send mail to corp role groups (Directors, Officers, etc.)
+4. **Corp Mail groups** — send mail to corp role groups (Directors, Officers, etc.)
 
 ## Low Priority
-8. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
-9. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
+5. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
+6. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
