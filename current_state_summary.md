@@ -153,16 +153,15 @@
 - **Per-clone implants**: Added `AdjustCloneImplant` service method + `StationDB::AddCloneImplant`/`RemoveCloneImplant` for per-clone implant management ✅
 - **War decay timer**: `CheckWarDecay()` called every minute — auto-ends wars where the weekly bill is overdue and unpaid ✅
 
+## Part 23: Ship Clone Bay, Auction Contracts, Corp Mail Roles (done)
+- **Jump clone ship bay**: `AcceptShipCloneInstallation` — creates a jump clone in the offering ship's clone bay (entity flagClone=30) ✅
+- **Ship clone state**: `GetShipCloneState` — returns clones stored in current ship via DB query ✅
+- **Contract auctions**: `PlaceBid` + `FinishAuction` — `ctrBids` table, escrow check, bid tracking, winner notification ✅
+- **Corp mail role groups**: `roleMask` param in `SendMail` — filters corp members by role when sending mail to corp/alliance ✅
+- **NPC crosshair fix**: Added `Ball::Flag::IsInteractive` (0x08) to `NPC::EncodeDestiny` + bumped `bulkDataChangeID` ✅
+
 # TODO (next session)
 
-## High Priority
-1. **Jump clone ship bay** — full AcceptShipCloneInstallation/OfferShipCloneInstallation workflow
-2. **Ship clone bay** — full ship-to-ship clone transfer (Rorqual etc.)
-3. **Contract PlaceBid / FinishAuction** — auction support
-
-## Medium Priority
-4. **Corp Mail groups** — send mail to corp role groups (Directors, Officers, etc.)
-
 ## Low Priority
-5. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
-6. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
+1. **Fresh DB rebuild** — `docker-compose down -v && docker-compose up --build -d` to verify all migrations
+2. **Various header stub cleanup** — `PassiveModule()`, `RigModule()`, `SubSystemModule()` empty constructors
