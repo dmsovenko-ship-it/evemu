@@ -34,7 +34,7 @@ PyResult IncursionService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
             "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount "
             "FROM incursionRewards WHERE rewardGroupID = %u", groupID))
         {
-            PyList* entries = new PyList();
+            PyList* rewardList = new PyList();
             DBResultRow row;
             while (res.GetRow(row)) {
                 PyDict* reward = new PyDict();
@@ -42,11 +42,9 @@ PyResult IncursionService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
                 reward->SetItemString("rewardQuantity", new PyInt(row.GetUInt(1)));
                 reward->SetItemString("lpTypeID",      new PyInt(row.GetUInt(2)));
                 reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
-                entries->AddItem(new PyObject("util.KeyVal", reward));
+                rewardList->AddItem(new PyObject("util.KeyVal", reward));
             }
-            PyDict* groupData = new PyDict();
-            groupData->SetItemString("entries", entries);
-            result->SetItem(item, groupData);
+            result->SetItem(item, rewardList);
         }
     }
     return result;
