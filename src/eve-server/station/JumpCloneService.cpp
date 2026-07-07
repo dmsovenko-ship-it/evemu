@@ -83,7 +83,7 @@ PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
 
         // Return each clone as util.KeyVal with cloneID and locationID
         PyDict* entry = new PyDict();
-        entry->SetItemString("cloneID", new PyInt(cloneID));
+        entry->SetItemString("jumpCloneID", new PyInt(cloneID));
         entry->SetItemString("locationID", new PyInt(locID));
         entry->SetItemString("isActive", new PyInt(isActive));
         entry->SetItemString("typeID", new PyInt(row.GetUInt(1)));
@@ -128,7 +128,7 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
         uint8 isActive = row.GetUInt(5);
         if (locID == m_locationID) {
             PyDict* entry = new PyDict();
-            entry->SetItemString("cloneID", new PyInt(cloneID));
+            entry->SetItemString("jumpCloneID", new PyInt(cloneID));
             entry->SetItemString("locationID", new PyInt(locID));
             entry->SetItemString("isActive", new PyInt(isActive));
             entry->SetItemString("typeID", new PyInt(row.GetUInt(1)));
@@ -172,7 +172,7 @@ PyResult JumpCloneBound::GetShipCloneState(PyCallArgs &call) {
     DBResultRow row;
     while (res.GetRow(row)) {
         PyDict* entry = new PyDict();
-        entry->SetItemString("cloneID", new PyInt(row.GetUInt(0)));
+        entry->SetItemString("jumpCloneID", new PyInt(row.GetUInt(0)));
         entry->SetItemString("typeID", new PyInt(row.GetUInt(1)));
         entry->SetItemString("ownerID", new PyInt(row.GetUInt(2)));
         entry->SetItemString("locationID", new PyInt(shipID));
