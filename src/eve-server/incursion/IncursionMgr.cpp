@@ -9,7 +9,7 @@
 #include "system/cosmicMgrs/SpawnMgr.h"
 
 IncursionMgr::IncursionMgr()
-    : m_timer(60000)  // check every 60s
+    : m_timer(1000)  // first check in 1s, then every 60s
 {
 }
 
@@ -17,6 +17,39 @@ void IncursionMgr::Process()
 {
     if (!m_timer.Check())
         return;
+
+    // Check if any incursions exist, auto-start one if none active
+    DBQueryResult activeRes;
+    bool hasActive = false;
+    if (sDatabase.RunQuery(activeRes,
+        "SELECT COUNT(*) FROM incursions WHERE state > 0"))
+    {
+        DBResultRow activeRow;
+        if (activeRes.GetRow(activeRow))
+            hasActive = (activeRow.GetUInt(0) > 0);
+    }
+
+    if (!hasActive) {
+        // Auto-start a Sansha incursion in a random lowsec constellation
+        // Prefer constellations in lowsec (sec 0.0 to 0.4) near NPC nullsec regions
+        sLog.Warning("IncursionMgr", "No active incursions, starting new one...");
+        DBQueryResult constRes;
+        if (sDatabase.RunQuery(constRes,
+            "SELECT constellationID, regionID FROM mapConstellations "
+            "WHERE constellationID IN (20000383, 20000267, 20000341, 20000446, 20000370, "
+            "20000432, 20000034, 20000066, 20000106, 20000134, 20000208) "
+            "AND constellationID NOT IN (SELECT constellationID FROM incursions WHERE state > 0) "
+            "ORDER BY RAND() LIMIT 1"))
+        {
+            DBResultRow constRow;
+            if (constRes.GetRow(constRow)) {
+                StartIncursion(factionSanshas, constRow.GetUInt(0));
+            } else {
+                sLog.Warning("IncursionMgr", "Could not find valid constellation for incursion");
+            }
+        }
+        return;
+    }
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
@@ -53,12 +86,16 @@ void IncursionMgr::StartIncursion(uint32 factionID, uint32 constellationID)
     uint32 regionID = row.GetUInt(1);
     double now = GetFileTimeNow();
 
+    // Pick rewardGroupID based on state progression
+    // state 1 (established) = rewardGroup 1 (VG), state 2 (mobilized) = rewardGroup 3 (HQ)
+    uint32 rewardGroupID = 1;
+
     DBerror err;
     sDatabase.RunQuery(err,
         "INSERT INTO incursions (factionID, stagingSolarSystemID, constellationID, regionID, "
         "state, influence, hasBoss, rewardGroupID, taleID, graceTime, decayRate, lastUpdated) "
-        "VALUES (%u, %u, %u, %u, 1, 1.0, 0, 0, 0, 30, 0.01, %.0f)",
-        factionID, stagingSystem, constellationID, regionID, now);
+        "VALUES (%u, %u, %u, %u, 1, 1.0, 0, %u, 0, 30, 0.01, %.0f)",
+        factionID, stagingSystem, constellationID, regionID, rewardGroupID, now);
 
     // Mark all systems in constellation as incursion systems
     DBQueryResult sysRes;
