@@ -9,6 +9,7 @@ public:
     IncursionService();
 protected:
     PyResult GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyList* rewardGroupIDs);
+    PyResult GetIncursions(PyCallArgs& call);
 };
 
 #endif

@@ -33,6 +33,7 @@ HoloscreenMgrService::HoloscreenMgrService() :
     this->Add("GetRecentEpicArcCompletions", &HoloscreenMgrService::GetRecentEpicArcCompletions);
     this->Add("GetTwoHourCache", &HoloscreenMgrService::GetTwoHourCache);
     this->Add("GetRuntimeCache", &HoloscreenMgrService::GetRuntimeCache);
+    this->Add("GetNewsTickerData", &HoloscreenMgrService::GetNewsTickerData);
 }
 
 //those objects should be cached
@@ -105,6 +106,11 @@ PyResult HoloscreenMgrService::GetRuntimeCache(PyCallArgs& call)
         args->SetItemString("epicArcAgents", new PyDict());
         args->SetItemString("sovChangesReport", new PyList());
     return new PyObject("util.KeyVal", args);
+}
+
+PyResult HoloscreenMgrService::GetNewsTickerData(PyCallArgs& call)
+{
+    return PyStatic.NewNone();
 }
 
 /*  sovChangesReport
