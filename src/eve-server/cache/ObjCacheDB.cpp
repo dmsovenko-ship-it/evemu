@@ -752,7 +752,24 @@ PyRep *ObjCacheDB::Generate_eveGraphics()
 PyRep *ObjCacheDB::Generate_invTypes()
 {
     DBQueryResult res;
-    const char *q = "SELECT typeID, groupID, typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID FROM invTypes";
+    // Override Entity NPC groupIDs (cat 11) to Ship groups so client renders targeting crosshairs
+    const char *q = "SELECT typeID, "
+        "CASE "
+        "  WHEN groupID IN (550,551,552,553,554,555,556,557,558,560,561,562,563,565,566,567,568,570,571,572,573,575,576,577,578,579,580,581,582,583,584,755,756,757,758,759,760,761) "
+        "  THEN "
+        "    CASE "
+        "      WHEN groupID IN (550,557,562,567,572,759) THEN 25 "
+        "      WHEN groupID IN (551,555,561,566,571,757) THEN 26 "
+        "      WHEN groupID IN (552,556,560,565,570,756) THEN 27 "
+        "      WHEN groupID IN (576,578,580,582,584,755) THEN 419 "
+        "      WHEN groupID IN (575,579,581,583,577) THEN 420 "
+        "      WHEN groupID IN (554,558,563,568,573,760) THEN 28 "
+        "      ELSE groupID "
+        "    END "
+        "  ELSE groupID "
+        "END as groupID, "
+        "typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID "
+        "FROM invTypes";
     if (!sDatabase.RunQuery(res, q))
     {
         _log(DATABASE__ERROR, "Error in query for cached object 'config.BulkData.types': %s", res.error.c_str());
