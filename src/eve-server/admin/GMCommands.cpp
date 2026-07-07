@@ -835,39 +835,73 @@ PyResult Command_repairmodules(Client* who, CommandDB* db, EVEServiceManager &se
 
 PyResult Command_dogma(Client* who, CommandDB* db, EVEServiceManager &services, const Seperator& args)
 {
-    //"dogma" "140019878" "agility" "=" "0.2"
+    // Usage:
+    //   /dogma [itemID|me] list              — list all attributes
+    //   /dogma [itemID|me] [attrName]        — get attribute value
+    //   /dogma [itemID|me] [attrName] = val  — set attribute value
 
-    if (!(args.argCount() == 5)) {
-        throw CustomError ("Correct Usage: /dogma [itemID|me] [attributeName] = [value]");
-    }
+    if (args.argCount() < 3)
+        throw CustomError ("Correct Usage: /dogma [itemID|me] [attributeName|list] [= value]");
 
-    // First argument could be both
-    if (args.isNumber(2)) {
+    if (args.isNumber(2))
         throw CustomError ("/dogma Second argument must be a string");
-    }
-
-    if (args.arg(3) != "=") {
-        throw CustomError ("/dogma You didn't use an '=' in between your attribute name and value.");
-    }
-    if (!args.isNumber(4)) {
-        throw CustomError ("/dogma The last argument must be a number");
-    }
-
-    const char *attributeName = args.arg(2).c_str();
-    float attributeValue = atof(args.arg(4).c_str());
 
     InventoryItemRef i;
     if (args.arg(1) == "me") {
-        i = sItemFactory.GetItemRef(who->GetShip().get()->itemID());
+        ShipItemRef ship = who->GetShip();
+        if (ship.get() == nullptr)
+            throw CustomError ("You don't have a ship");
+        i = sItemFactory.GetItemRef(ship->itemID());
     } else {
         i = sItemFactory.GetItemRef(atoi(args.arg(1).c_str()));
     }
 
+    if (i.get() == nullptr)
+        throw CustomError ("Item not found");
 
-    i->SetAttribute(db->GetAttributeID(attributeName), attributeValue);
-    /** @todo  for modules and ships, this will need to call some kind of 'reload' to reset the attrib mem object before new attrib takes affect.  */
+    // List all attributes
+    if (args.arg(2) == "list") {
+        std::string attrList;
+        std::map<uint16, EvilNumber> attrMap;
+        i->GetAttributeMap()->CopyAttributes(attrMap);
+        for (auto& attr : attrMap) {
+            std::string name = db->GetAttributeName(attr.first);
+            if (name.empty())
+                name = "attr_" + std::to_string(attr.first);
+            attrList += name + " = " + std::to_string(attr.second.get_float()) + "\n";
+        }
+        who->SendInfoModalMsg(attrList.c_str());
+        return nullptr;
+    }
 
-    return nullptr;
+    const char *attributeName = args.arg(2).c_str();
+    uint32 attrID = db->GetAttributeID(attributeName);
+
+    // Get attribute value (3 args only, no "=")
+    if (args.argCount() == 3) {
+        if (!i->HasAttribute(attrID))
+            throw CustomError ("Attribute '%s' not found on item.", attributeName);
+
+        EvilNumber val = i->GetAttribute(attrID);
+        who->SendNotifyMsg("%s(%u): %s = %.4f", i->name(), i->itemID(), attributeName, val.get_float());
+        return nullptr;
+    }
+
+    // Set attribute value (5 args: cmd itemID attr = val)
+    if (args.argCount() == 5) {
+        if (args.arg(3) != "=")
+            throw CustomError ("Use '=' between attribute name and value");
+        if (!args.isNumber(4))
+            throw CustomError ("Value must be a number");
+
+        float attributeValue = atof(args.arg(4).c_str());
+        i->SetAttribute(attrID, attributeValue);
+
+        who->SendNotifyMsg("Set %s(%u): %s = %.4f", i->name(), i->itemID(), attributeName, attributeValue);
+        return nullptr;
+    }
+
+    throw CustomError ("Invalid arguments. Usage: /dogma [itemID|me] [attrName|list] [= value]");
 }
 
 PyResult Command_kick(Client* who, CommandDB* db, EVEServiceManager &services, const Seperator& args)

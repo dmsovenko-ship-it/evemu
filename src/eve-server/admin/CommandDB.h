@@ -38,6 +38,7 @@ class CommandDB
     bool ItemSearch(uint32 typeID, uint32 &actualTypeID, std::string &actualTypeName,
                     uint32 &actualGroupID, uint32 &actualCategoryID, double &actualRadius);
     int GetAttributeID(const char *attributeName);
+    const char* GetAttributeName(uint32 attributeID);
     int GetAccountID(std::string name);
     bool FullSkillList(std::vector<uint32> &skillList);
     static bool NotFullyLearnedSkillList(charSkillStates &skillList, uint32 charID);

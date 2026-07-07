@@ -190,6 +190,21 @@ int CommandDB::GetAttributeID(const char *attributeName) {
 
 }
 
+const char* CommandDB::GetAttributeName(uint32 attributeID) {
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        " SELECT attributeName FROM dgmAttributeTypes WHERE attributeID = %u ", attributeID))
+    {
+        return "";
+    }
+
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return "";
+
+    return row.GetText(0);
+}
+
 int CommandDB::GetAccountID(std::string name) {
 
     if (!sDatabase.IsSafeString(name))
