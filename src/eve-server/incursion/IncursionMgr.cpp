@@ -342,12 +342,28 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         sig.position = pos;
 
         sig.sigName = "Incursion Site";
+        // Get a valid Cosmic Anomaly typeID for the marker item
+        {
+            DBQueryResult typeRes;
+            sDatabase.RunQuery(typeRes,
+                "SELECT typeID FROM invTypes WHERE groupID = %u LIMIT 1",
+                EVEDB::invGroups::Cosmic_Anomaly);
+            DBResultRow typeRow;
+            if (typeRes.GetRow(typeRow))
+                sig.sigTypeID = typeRow.GetUInt(0);
+            else
+                sig.sigTypeID = 1; // fallback
+        }
 
         // Spawn the dungeon
-        dMgr->MakeDungeon(sig, dungeonID);
-
-        sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u)",
-            dungeonID, solarSystemID, sceneType);
+        bool spawned = dMgr->MakeDungeon(sig, dungeonID);
+        if (spawned) {
+            sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u)",
+                dungeonID, solarSystemID, sceneType);
+        } else {
+            sLog.Warning("IncursionMgr", "FAILED to spawn incursion site dungeonID=%u in system %u",
+                dungeonID, solarSystemID);
+        }
     }
 }
 
