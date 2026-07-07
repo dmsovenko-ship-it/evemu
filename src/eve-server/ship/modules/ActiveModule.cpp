@@ -1553,5 +1553,43 @@ void ActiveModule::LaunchProbe()
 
 void ActiveModule::LaunchSnowBall()
 {
-    // not used yet
+    Client* pClient = m_shipRef->GetPilot();
+    if (pClient == nullptr)
+        return;
+    if (m_targetSE == nullptr)
+        return;
+    if (m_chargeRef.get() == nullptr)
+        return;
+
+    ItemData idata(m_chargeRef->typeID(), pClient->GetCharacterID(),
+                   pClient->GetLocationID(), flagMissile,
+                   m_chargeRef->name(), m_shipRef->position());
+    InventoryItemRef snowRef = sItemFactory.SpawnItem(idata);
+    if (snowRef.get() == nullptr) {
+        AbortCycle();
+        return;
+    }
+
+    SystemManager* pSystem = pClient->SystemMgr();
+    Missile* pSnow = new Missile(snowRef, pSystem->GetServiceMgr(), pSystem,
+                                  m_modRef, m_targetSE,
+                                  m_shipRef->GetPilot()->GetShipSE(), this);
+    if (pSnow == nullptr) {
+        AbortCycle();
+        return;
+    }
+
+    float distance = pSnow->GetSelf()->position().distance(m_targetSE->GetPosition());
+    float speed = pSnow->GetSelf()->GetAttribute(AttrMaxVelocity).get_float();
+    if (speed < 1.0f)
+        speed = 1.0f;
+    float travelTime = (distance / speed);
+    if (travelTime < 1)
+        travelTime = 1;
+    pSnow->SetSpeed(speed);
+    pSnow->SetHitTimer(travelTime * 1000);
+    pSnow->DestinyMgr()->MakeMissile(pSnow);
+
+    ConsumeCharge();
+    sStatMgr.Increment(Stat::pcMissiles);
 }
