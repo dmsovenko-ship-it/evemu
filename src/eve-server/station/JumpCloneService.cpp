@@ -118,14 +118,19 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
     while (res.GetRow(row)) {
         uint32 cloneID = row.GetUInt(0);
         uint32 locID = row.GetUInt(2);
+        uint8 isActive = row.GetUInt(5);
         if (locID == m_locationID) {
-            clones->SetItem(new PyInt(cloneID), new PyInt(locID));
+            PyDict* cloneData = new PyDict();
+            cloneData->SetItemString("locationID", new PyInt(locID));
+            cloneData->SetItemString("isActive", new PyInt(isActive));
+            cloneData->SetItemString("typeID", new PyInt(row.GetUInt(1)));
+            clones->SetItem(new PyInt(cloneID), new PyObject("util.KeyVal", cloneData));
 
             DBQueryResult implantRes;
             m_db->GetCloneImplants(cloneID, implantRes);
 
             std::vector<uint32> implantTypeIDs;
-            while (implantRes.GetRow(row))
+            while (implantRes.GetRow(row)))
                 implantTypeIDs.push_back(row.GetUInt(0));
 
             PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
