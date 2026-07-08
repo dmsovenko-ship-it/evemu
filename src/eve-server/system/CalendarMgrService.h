@@ -47,7 +47,6 @@ protected:
     PyResult EditPersonalEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
     PyResult EditCorporationEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
     PyResult EditAllianceEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
-    PyResult UpdateEventParticipants(PyCallArgs& call, PyInt* eventID, PyList* charsToAdd, PyList* charsToRemove);
 };
 
 #endif // EVEMU_SYSTEM_CALENDARMGR_H__
