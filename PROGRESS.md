@@ -28,6 +28,11 @@
 
 ## Detailed Breakdown
 
+> _Легенда:_ ✅ реализовано · 🟡 частично · ❌ не реализовано  
+> После каждой секции — **«Что осталось до 100%»**
+
+---
+
 ### 1. Account & Character Management `██████████████████░` 97%
 
 | Feature | |
@@ -41,6 +46,10 @@
 | KillMail (XML blob, push notification) | ✅ |
 | Image server (portrait/logo serving) | ✅ |
 
+_Что осталось:_ единичные edge-кейсы (перенос персонажа между аккаунтами, удаление)
+
+---
+
 ### 2. Skills & Certificates `███████████████████` 99%
 
 | Feature | |
@@ -49,6 +58,10 @@
 | Certificate awarding | ✅ |
 | Implant/booster processing | ✅ |
 | SP loss on T3 pod kill | ✅ |
+
+_Что осталось:_ ничего существенного
+
+---
 
 ### 3. Ship Navigation `██████████████████` 95%
 
@@ -62,6 +75,10 @@
 | Warp alignment fix (no WARP→GOTO cancel) | ✅ |
 | Warp exit crash fix (no SetBallPosition during WarpLoop) | ✅ |
 
+_Что осталось:_ редкие баги синхронизации позиции при флот-варпе, улучшение автопилота
+
+---
+
 ### 4. Combat `███████████████████` 99%
 
 | Feature | |
@@ -71,6 +88,10 @@
 | CONCORD (×25 HP, delay by sec, −0.2 penalty) | ✅ |
 | Sentry guns, kill rights | ✅ |
 | Combat logoff (15min ghost, 60s emergency) | ✅ |
+
+_Что осталось:_ ничего существенного
+
+---
 
 ### 5. Modules & Overheating `██████████████████` 95%
 
@@ -85,6 +106,10 @@
 | Module repair (nanite paste) | ✅ |
 | Drone modules (DDA, nav, tracking, range) | ✅ |
 
+_Что осталось:_ полноценный цикл нагрева корабля (сейчас за флагом `testing.ShipHeat`), визуальные эффекты
+
+---
+
 ### 6. Drones `█████████████████░` 90%
 
 | Feature | |
@@ -94,6 +119,10 @@
 | Subtypes: Combat, Sentry, EWAR, Logistics, Cap Drain, Mining, Fighter | ✅ |
 | Skills: all drone skills implemented | ✅ |
 | Control range, bandwidth, damage bonuses | ✅ |
+
+_Что осталось:_ Fighter bomber AI, продвинутые drone-команды (страж, пассивный режим), дроны-логисты с ремонтом
+
+---
 
 ### 7. NPC AI & Spawning `████████████████░░` 80%
 
@@ -106,6 +135,10 @@
 | NPC repair visuals (shield/armor beams) | ✅ |
 | Anomaly NPCs (Ship-category typeIDs) | ✅ |
 
+_Что осталось:_ FW NPCs, более сложное поведение (эвакуация, запрос подкреплений), овервью-специфичные группы
+
+---
+
 ### 8. Agents & Missions `████████████████░` 85%
 
 | Feature | |
@@ -116,6 +149,10 @@
 | Career agents (29, 4 factions), COSMOS agents | ✅ |
 | Research agents (21, tech fields) | ✅ |
 | LP store (faction + CONCORD) | ✅ |
+
+_Что осталось:_ оставшиеся типы миссий (FW, event), полная поддержка COSMOS
+
+---
 
 ### 9. Market `████████████████░` 85%
 
@@ -131,6 +168,10 @@
 | ModifyCharOrder — corp-aware escrow handling | ✅ |
 | Expired auctions auto-finish (1m tick) | ✅ |
 
+_Что осталось:_ AUR/plex транзакции, полная валидация MarginTrading при исполнении, модификаторы комиссии от cтанийдингов
+
+---
+
 ### 10. Contracts `████████████████░` 85%
 
 | Feature | |
@@ -141,6 +182,10 @@
 | Auction item transfer — items to winner, refund losers | ✅ |
 | Auction notifications — OnAuctionWon, OnAuctionCompleted | ✅ |
 | Auto-finish expired auctions — 1m scheduled task | ✅ |
+
+_Что осталось:_ полная имплементация курьерских контрактов (crateID, доставка, коллатерал)
+
+---
 
 ### 11. Corporation & Alliance `████████████████░░` 80% / `████████████░░░░░░` 60%
 
@@ -153,7 +198,11 @@
 | Corp mail role filtering (crpRoles table + seeding) | ✅ |
 | Faction Warfare corp/alliance join/leave | ✅ |
 
-### 12. Science & Industry `██████████░░░░░░░░` 50%
+_Что осталось:_ **Corp:** голосования, заявки полный цикл, страхование, дивиденды. **Alliance:** заявки, голосования, полное SOV-взаимодействие
+
+---
+
+### 12. Science & Industry `████████████░░░░░░` 50%
 
 | Feature | |
 |---------|-|
@@ -161,6 +210,10 @@
 | Invention (chance calc + T2 BPC) | ✅ |
 | Reverse Engineering — ActivityCheck, Calculate, CompleteJob | ✅ |
 | Blueprint management (ME/PE/runs) | ✅ |
+
+_Что осталось:_ полный цикл RE с datacore-скиллами, компоненты для T2/T3, POS-реакторы для материалов
+
+---
 
 ### 13. POS `██████████████████` 95%
 
@@ -180,6 +233,10 @@
 | Fuel notifications (threshold tracking) | ✅ |
 | FieldSE crash fix (IsGlobal flag, shield charge init) | ✅ |
 
+_Что осталось:_ полноценные эффекты Cyno/Jammer, POS siege-режим, полный цикл лунного майнинга с реакциями
+
+---
+
 ### 14. Overheating `██████████████████` 95%
 
 | Feature | |
@@ -191,6 +248,10 @@
 | Nanite Paste repair | ✅ |
 | OverloadRack/StopOverloadRack | ✅ |
 
+_Что осталось:_ включение `testing.ShipHeat` по умолчанию после стабилизации, визуальные heat-эффекты на HUD
+
+---
+
 ### 15. Wormholes `████████████████░░` 80%
 
 | Feature | |
@@ -200,6 +261,10 @@
 | Jump through (mass restriction, position sync) | ✅ |
 | Collapse (mass/time depletion) | ✅ |
 
+_Что осталось:_ wormhole-эффекты (фрекас, пульсар, катализатор), продвинутое позиционирование K162
+
+---
+
 ### 16. Fleet `██████████████████` 98%
 
 | Feature | |
@@ -208,6 +273,10 @@
 | Fleet warp, regroup | ✅ |
 | Fleet boosts (specialist skills, gang coordinator) | ✅ |
 | Broadcasts, watch list, fleet chat | ✅ |
+
+_Что осталось:_ ничего существенного
+
+---
 
 ### 17. Incursions `██████████████░░░░` 75%
 
@@ -220,6 +289,10 @@
 | Sansha incursion dungeons (VG/AS/HQ) | ✅ |
 | CONCORD LP store integration | ✅ |
 
+_Что осталось:_ больше вариаций сайтов, FW incursions, полная поддержка всех стадий withdraw
+
+---
+
 ### 18. Scanning `███████████████████` 99%
 
 | Feature | |
@@ -227,6 +300,10 @@
 | Launch/move probes, scan signatures | ✅ |
 | Bookmark/warp to scan result | ✅ |
 | Cosmic anomalies, signatures, D-scan | ✅ |
+
+_Что осталось:_ ничего существенного
+
+---
 
 ### 19. LSC (Chat) `████████████████░` 85%
 
@@ -236,6 +313,10 @@
 | Private conversations (Invite, custom temp channel, OnLSC notify) | ✅ |
 | Channel creation (CreateChannel, Configure, Destroy) | ✅ |
 | Mailing lists (Join, Leave, Create, GetJoinedLists) | ✅ |
+
+_Что осталось:_ история чата, офлайн-доставка, полный Channel access control
+
+---
 
 ### 20. EvE Mail & Notifications `██████████████████` 95%
 
@@ -251,6 +332,10 @@
 | Corp mail role filtering — crpRoles + roleMask | ✅ |
 | Notification sources: bills, towers, agents, corps, structures | ✅ |
 
+_Что осталось:_ шаблоны нотификаций, полная поддержка всех 120+ `Notify::Types`
+
+---
+
 ### 21. Standings `████████████████░` 85%
 
 | Feature | |
@@ -264,6 +349,10 @@
 | Security status (CONCORD awards/penalties) | ✅ |
 | Used by FW enemy checks | ✅ |
 
+_Что осталось:_ derived modifications (килл друзей → корп-штраф), интеграция с Crimewatch
+
+---
+
 ### 22. Calendar `█████████████████░` 90%
 
 | Feature | |
@@ -275,6 +364,10 @@
 | SendEventResponse (accept/decline/maybe) | ✅ |
 | Event list + details via CalendarProxy | ✅ |
 | PyWString→PyRep fix for client compatibility | ✅ |
+
+_Что осталось:_ система напоминаний (reminders), авто-очистка просроченных событий
+
+---
 
 ### 23. Faction Warfare `████████████████░░` 80%
 
@@ -290,6 +383,10 @@
 | GetStats_Character (kills, losses, VP) | ✅ |
 | Notifications (FWCorpJoin, FWCorpLeave) | ✅ |
 
+_Что осталось:_ LP store для FW, спавн FW-сайтов (plexes), захват систем по LP/VP
+
+---
+
 ### 24. Reverse Engineering `████████░░░░░░░░░░` 60%
 
 | Feature | |
@@ -301,6 +398,10 @@
 | Skill checks (ReverseEngineering 3408) | ✅ |
 | Datacore skill modifier | 🟡 |
 
+_Что осталось:_ интеграция datacore-скиллов в формулу шанса, RE-таблицы для кэша клиента, полный список RE-рецептов из SDE
+
+---
+
 ### 25. Effects System `█████████████████░` 88%
 
 | Feature | |
@@ -309,16 +410,22 @@
 | Implant/booster processing | ✅ |
 | Subsystem effect processing | 🟡 |
 
+_Что осталось:_ полная обработка эффектов подсистем T3, резисты в режиме онлайн/офлайн
+
+---
+
 ### 26. Cosmic Managers
 
-| Manager | % | Bar | Notes |
-|---------|---|-----|-------|
-| Anomaly Manager | 85% | `████████████████░` | All site types, FW anomalies, QueueRespawn |
-| Dungeon Manager | 70% | `████████████░░░░` | Anomaly/mission/unrated/incursion dungeons |
-| Spawn Manager | 75% | `██████████████░░` | Dynamic/static spawning, wave progression |
-| Wormhole Manager | 80% | `████████████████░░` | Full lifecycle |
-| Belt Manager | 85% | `████████████████░` | Asteroid distribution |
-| Civilian Manager | 10% | `██░░░░░░░░░░░░░░` | Basic NPC traffic (ConvoyAI) |
+| Manager | % | Bar | Notes | Что осталось |
+|---------|---|-----|-------|-------------|
+| Anomaly Manager | 85% | `████████████████░` | All site types, FW anomalies, QueueRespawn | FW-специфичные аномалии |
+| Dungeon Manager | 70% | `████████████░░░░` | Anomaly/mission/unrated/incursion | больше типов данжей |
+| Spawn Manager | 75% | `██████████████░░` | Dynamic/static, wave progression | продвинутые волны с триггерами |
+| Wormhole Manager | 80% | `████████████████░░` | Full lifecycle | эффекты, K162 позиционирование |
+| Belt Manager | 85% | `████████████████░` | Asteroid distribution | динамический респаун |
+| Civilian Manager | 10% | `██░░░░░░░░░░░░░░` | Basic ConvoyAI | полноценный трафик между станциями |
+
+---
 
 ### 27. Memory Management `████░░░░░░░░░░░░░░` 20%
 
@@ -328,6 +435,8 @@
 | `new PyInt` → `PyStatic.NewInt()` in hot paths | ✅ |
 | RefPtr→shared_ptr migration (planning) | 🟡 |
 | Valgrind leak tracking | 🟡 |
+
+_Что осталось:_ RefPtr→shared_ptr рефакторинг (сложный, затрагивает ~400 файлов), valgrind-чистка
 
 ---
 
