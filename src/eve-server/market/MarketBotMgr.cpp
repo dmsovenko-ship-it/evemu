@@ -121,7 +121,7 @@ void MarketBotMgr::Process(bool overrideTimer) {
     codelog(MARKET__TRACE, ">> Entered MarketBotMgr::Process()");
 
     if (!m_initalized) {
-        sLog.Error("     MarketBotMgr", "MarketBotMgr not initialized — skipping run\n");
+        sLog.Error("     MarketBotMgr", "MarketBotMgr not initialized ï¿½ skipping run\n");
         codelog(MARKET__ERROR, "Process() called but MarketBotMgr is not initialized.");
         return;
     }
@@ -130,7 +130,7 @@ void MarketBotMgr::Process(bool overrideTimer) {
         auto timeLeft = std::chrono::duration_cast<std::chrono::milliseconds>(m_nextRunTime - now).count();
         if (timeLeft > 0) {
             sLog.Green("     Trader Joe", "Update timer not ready yet. Next run in %lld seconds.", timeLeft / 1000);
-            codelog(MARKET__TRACE, "Trader Joe waiting — next run in %lld seconds.", timeLeft);
+            codelog(MARKET__TRACE, "Trader Joe waiting ï¿½ next run in %lld seconds.", timeLeft);
             return;
         }
     }
@@ -171,7 +171,7 @@ void MarketBotMgr::ForceRun(bool resetTimer) {
     sLog.Warning("     ForceRun", "Manually starting Trader Joe.");
 
     if (!m_initalized) {
-        sLog.Yellow("     Trader Joe", "MarketBotMgr not initialized — skipping run.");
+        sLog.Yellow("     Trader Joe", "MarketBotMgr not initialized ï¿½ skipping run.");
         return;
     }
 
@@ -234,14 +234,31 @@ int MarketBotMgr::PlaceBuyOrders(uint32 systemID) {
     std::shuffle(availableStations.begin(), availableStations.end(), std::mt19937{std::random_device{}()});
 
     int orderCount = 0;
+    uint8 maxBuyOrders = sMBotConf.buy.OrdersPerSystem;
+    if (maxBuyOrders == 0) maxBuyOrders = sMBotConf.main.OrdersPerRefresh;
 
-    for (size_t i = 0; i < std::min<size_t>(stationLimit, sMBotConf.main.OrdersPerRefresh); ++i) {
+    for (size_t i = 0; i < std::min<size_t>(stationLimit, maxBuyOrders); ++i) {
         uint32 stationID = availableStations[i];
         uint32 itemID = SelectRandomItemID();
         const ItemType* type = sItemFactory.GetType(itemID);
         if (!type) continue;
 
+        // duplicate check per system
+        if (sMBotConf.buy.DupeOrdersPerSystem > 0) {
+            DBQueryResult dupeRes;
+            sDatabase.RunQuery(dupeRes,
+                "SELECT COUNT(*) FROM mktOrders WHERE typeID = %u AND ownerID = %u"
+                " AND solarSystemID = %u AND bid = 1",
+                itemID, BOT_OWNER_ID, systemID);
+            DBResultRow dupeRow;
+            if (dupeRes.GetRow(dupeRow) and dupeRow.GetUInt(0) >= sMBotConf.buy.DupeOrdersPerSystem)
+                continue;
+        }
+
         uint32 quantity = GetRandomQuantity(type->groupID());
+        // enforce min buy amount
+        if (sMBotConf.buy.MinBuyAmount > 0 and quantity < sMBotConf.buy.MinBuyAmount)
+            quantity = sMBotConf.buy.MinBuyAmount;
         double price = CalculateBuyPrice(itemID);
 
         if (price * quantity > sMBotConf.main.MaxISKPerOrder) {
@@ -303,7 +320,7 @@ int MarketBotMgr::PlaceSellOrders(uint32 systemID) {
     std::vector<uint32> availableStations;
 
     if (!sDataMgr.GetStationListForSystem(systemID, availableStations)) {
-        codelog(MARKET__ERROR, "Trader Joe: No stations found for system %u — skipping order creation.", systemID);
+        codelog(MARKET__ERROR, "Trader Joe: No stations found for system %u ï¿½ skipping order creation.", systemID);
         return 0;
     } else {
         codelog(MARKET__TRACE, "Trader Joe: Found %zu stations in system %u", availableStations.size(), systemID);
@@ -314,14 +331,31 @@ int MarketBotMgr::PlaceSellOrders(uint32 systemID) {
     std::shuffle(availableStations.begin(), availableStations.end(), std::mt19937{std::random_device{}()});
 
     int orderCount = 0;
+    uint8 maxSellOrders = sMBotConf.sell.OrdersPerSystem;
+    if (maxSellOrders == 0) maxSellOrders = sMBotConf.main.OrdersPerRefresh;
 
-    for (size_t i = 0; i < std::min<size_t>(stationLimit, sMBotConf.main.OrdersPerRefresh); ++i) {
+    for (size_t i = 0; i < std::min<size_t>(stationLimit, maxSellOrders); ++i) {
         uint32 stationID = availableStations[i];
         uint32 itemID = SelectRandomItemID();
         const ItemType* type = sItemFactory.GetType(itemID);
         if (!type) continue;
 
+        // duplicate check per system
+        if (sMBotConf.sell.DupeOrdersPerSystem > 0) {
+            DBQueryResult dupeRes;
+            sDatabase.RunQuery(dupeRes,
+                "SELECT COUNT(*) FROM mktOrders WHERE typeID = %u AND ownerID = %u"
+                " AND solarSystemID = %u AND bid = 0",
+                itemID, BOT_OWNER_ID, systemID);
+            DBResultRow dupeRow;
+            if (dupeRes.GetRow(dupeRow) and dupeRow.GetUInt(0) >= sMBotConf.sell.DupeOrdersPerSystem)
+                continue;
+        }
+
         uint32 quantity = GetRandomQuantity(type->groupID());
+        // enforce min sell amount
+        if (sMBotConf.sell.MinSellAmount > 0 and quantity < sMBotConf.sell.MinSellAmount)
+            quantity = sMBotConf.sell.MinSellAmount;
         double price = CalculateSellPrice(itemID);
 
         if (price * quantity > sMBotConf.main.MaxISKPerOrder) {
