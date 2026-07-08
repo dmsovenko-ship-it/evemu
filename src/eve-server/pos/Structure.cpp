@@ -21,6 +21,7 @@
 
 #include "Client.h"
 #include "EntityList.h"
+#include "EVE_Mail.h"
 #include "EVEServerConfig.h"
 #include "StaticDataMgr.h"
 #include "manufacturing/Blueprint.h"
@@ -1329,7 +1330,13 @@ void StructureSE::Killed(Damage &damage)
 
     /* populate kill data for killMail and save to db  -allan 01May16  --updated 13July17 */
     /** @todo  check for tower/tcu/sbu/jammer and make killmail */
-    /** @todo send pos mail/notification to corp members */
+    // notify corp of structure loss
+    if (m_corpID > 0) {
+        PyDict* notifData = new PyDict();
+            notifData->SetItemString("structureID", new PyInt(m_data.itemID));
+            notifData->SetItemString("solarSystemID", new PyInt(m_system->GetID()));
+        sEntityList.CreateNotification(m_corpID, Notify::Types::CorpStructLost, m_data.itemID, notifData);
+    }
     KillData data = KillData();
     data.solarSystemID = m_system->GetID();
     data.victimCharacterID = 0; // charID = 0 means strucuture/item
