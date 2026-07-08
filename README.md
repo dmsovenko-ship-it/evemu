@@ -97,17 +97,17 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 |-----------------------|:---:|-----------------------|:---:|
 | Account & Character   | 97% | Skills & Certificates | 99% |
 | Ship Navigation       | 95% | Combat                | 99% |
-| Modules + Overheating | 95% | Drones                | 90% |
+| Ship Navigation       | 95% | Combat                | 99% |
+| Modules & Overheating | 95% | Drones                | 90% |
 | NPC AI & Spawning     | 80% | Agents & Missions     | 85% |
-| **POS**               | 95% | Overheating           | 85% |
-| Market                | 85% | Contracts             | 85% |
-| Corporation           | 80% | Alliance              | 40% |
+| **POS**               | 95% | Market                | 85% |
 | **Incursions**        | 75% | Fleet                 | 98% |
 | **Wormholes**         | 80% | Scanning              | 99% |
 | **Notifications**     | 95% | **Standings**         | 85% |
 | **Faction Warfare**   | 80% | Calendar              | 90% |
-| Mail & LSC            | 85% | Sovereignty           | 80% |
-| Science & Industry    | 50% | LSC Chat              | 85% |
+| Mail & LSC            | 85% | Contracts             | 85% |
+| Corporation           | 80% | Alliance              | 40% |
+| Sovereignty           | 80% | Science & Industry    | 50% |
 | Bookmark System       | 95% | Effects System        | 88% |
 | Anomaly Manager       | 85% | Spawn Manager         | 75% |
 | Dungeon Manager       | 70% | Civilian Manager      | 10% |
