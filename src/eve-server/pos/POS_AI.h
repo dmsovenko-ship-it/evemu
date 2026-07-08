@@ -12,7 +12,8 @@
 #define EVEMU_POS_POS_AI_H_
 
 
-class SystemEntity;
+#include "system/SystemEntity.h"
+
 class TowerSE;
 class WeaponSE;
 
