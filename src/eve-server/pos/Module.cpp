@@ -58,6 +58,14 @@ void ReactorSE::InitData() {
     m_db.SaveReactorData(pData, m_data);
 }
 
+void ReactorSE::AddConnection(EVEPOS::POS_Connections& conn) {
+    pData->AddConnection(conn);
+}
+
+void ReactorSE::ClearConnections() {
+    pData->ClearConnections();
+}
+
 void ReactorSE::Process()
 {
     /* called by EntityList::Process on every loop */
