@@ -1,6 +1,6 @@
 # EVEmu Crucible — Fork Progress
 
-> **Overall: `██████████░░░░░░░░` 96%** (upstream: 59.5%)  
+> **Overall: `███████████████████░` 96%** (upstream: 59.5%)  
 > Last updated: 2026-07-09  
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
