@@ -22,6 +22,7 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "EVEServerConfig.h"
+#include "inventory/Inventory.h"
 #include "planet/Moon.h"
 #include "pos/Tower.h"
 #include "system/Container.h"
@@ -122,6 +123,12 @@ m_pShieldSE(nullptr)
 
     m_tdata = EVEPOS::TowerData();
 
+    m_fuelTypeID = 4247;        // Fuel Blocks
+    m_fuelPerHour = m_tsize * 10;  // 10/20/40 for S/M/L
+    m_strontTypeID = 16275;     // Strontium Clathrates
+    m_strontPerHour = m_tsize * 100; // 100/200/400 for S/M/L
+    m_lastFuelCheck = GetFileTimeNow();
+
     /** @note these are defined, but i dunno what they are
      * AttrControlTowerMinimumDistance
      *
@@ -158,16 +165,14 @@ void TowerSE::Init()
         assert(0);
     m_bubble->SetTowerSE(this);
 
-    /** @todo
-     * will have to check if Online or Operating
-     *   in these two cases, remove resources based on time running.
-     * if resources run out, reset state and set timer accordingly.
-     * if reinforced, remove resources and continue until timer runs out.
-     *
-     * timer is in base StructureSE code.
-     */
+    // initialize fuel data
+    InitFuelData();
 
-    // take resources, move items, process reactions or whatever needs to be done (follow PI proc code)
+    // if we were online/operating when server went down, calculate elapsed fuel
+    if ((m_data.state >= EVEPOS::StructureState::Online) and (m_data.state <= EVEPOS::StructureState::Operating)) {
+        // fuel will be consumed on next Process() tick
+        m_lastFuelCheck = GetFileTimeNow();
+    }
 }
 
 void TowerSE::InitData() {
@@ -197,6 +202,104 @@ void TowerSE::Process()
 
     /*  Enable base call to Process Anchoring, Targeting and Movement  */
     StructureSE::Process();
+
+    // consume fuel while online or operating
+    if ((m_data.state >= EVEPOS::StructureState::Online)
+    and (m_data.state <= EVEPOS::StructureState::Operating)) {
+        CheckFuel();
+    }
+}
+
+void TowerSE::InitFuelData()
+{
+    // Load fuel requirements from invControlTowerResources for this tower type.
+    // Fall back to defaults (Fuel Blocks, sized-based) if no DB data found.
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+            "SELECT resourceTypeID, quantity, purpose"
+            " FROM invControlTowerResources"
+            " WHERE controlTowerTypeID = %u AND (purpose = 1 OR purpose = 4)"
+            " ORDER BY purpose",
+            m_self->typeID()))
+    {
+        // query failed; keep defaults set in constructor
+        return;
+    }
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 purpose = row.GetInt(2);
+        if (purpose == 1) {
+            // online fuel
+            m_fuelTypeID = row.GetInt(0);
+            m_fuelPerHour = row.GetInt(1);
+        } else if (purpose == 4) {
+            // reinforced fuel (strontium)
+            m_strontTypeID = row.GetInt(0);
+            m_strontPerHour = row.GetInt(1);
+        }
+    }
+}
+
+bool TowerSE::CheckFuel()
+{
+    int64 now = GetFileTimeNow();
+    int64 elapsed = now - m_lastFuelCheck;
+
+    // check roughly once per minute
+    if (elapsed < EvE::Time::Minute)
+        return true;
+
+    m_lastFuelCheck = now;
+
+    double hoursPassed = (double)elapsed / (double)EvE::Time::Hour;
+    uint32 fuelNeeded = (uint32)(hoursPassed * m_fuelPerHour);
+    if (fuelNeeded < 1)
+        return true;
+
+    Inventory* inv = m_self->GetMyInventory();
+    if (inv == nullptr)
+        return false;
+
+    // collect all fuel items from cargo
+    std::vector<InventoryItemRef> items;
+    inv->GetItemsByFlag(flagCargo, items);
+
+    uint32 fuelFound = 0;
+    std::vector<InventoryItemRef> fuelItems;
+    for (auto& item : items) {
+        if (item->typeID() == m_fuelTypeID) {
+            fuelFound += item->quantity();
+            fuelItems.push_back(item);
+        }
+    }
+
+    if (fuelFound >= fuelNeeded) {
+        // consume fuel, oldest stacks first
+        uint32 toConsume = fuelNeeded;
+        for (auto& item : fuelItems) {
+            if (toConsume == 0)
+                break;
+            uint32 qty = item->quantity();
+            if (qty <= toConsume) {
+                toConsume -= qty;
+                item->Delete();
+            } else {
+                item->SetQuantity(qty - toConsume);
+                item->SaveItem();
+                toConsume = 0;
+            }
+        }
+        return true;
+    }
+
+    // not enough fuel - enter reinforced mode
+    _log(POS__MESSAGE, "TowerSE::CheckFuel() - Tower %s(%u) has run out of fuel!  Entering reinforced mode.",
+            GetName(), m_self->itemID());
+
+    /** @todo send pos mail/notification to corp members */
+    ReinforceTower();
+    return false;
 }
 
 /*
@@ -290,8 +393,47 @@ void TowerSE::Operating()
 
 void TowerSE::ReinforceTower()
 {
-    //  see how many stront is in tower and set timer accordingly
-    // Strontium Clathrates   s:100  m:200  l:400
+    // shut down force field
+    if (m_hasShield) {
+        m_pShieldSE->Delete();
+        SafeDelete(m_pShieldSE);
+        m_hasShield = false;
+    }
+
+    // check strontium in cargo to calculate reinforced duration
+    Inventory* inv = m_self->GetMyInventory();
+    uint32 strontHours = 0;
+    if (inv != nullptr) {
+        std::vector<InventoryItemRef> items;
+        inv->GetItemsByFlag(flagCargo, items);
+        for (auto& item : items) {
+            if (item->typeID() == m_strontTypeID) {
+                strontHours += item->quantity() / m_strontPerHour;
+                // consume all stront
+                item->Delete();
+            }
+        }
+    }
+
+    // minimum 1 hour, maximum 48 hours
+    if (strontHours < 1)
+        strontHours = 1;
+    if (strontHours > 48)
+        strontHours = 48;
+
+    _log(POS__MESSAGE, "TowerSE::ReinforceTower() - Tower %s(%u) reinforced for %u hours with %u stront units.",
+            GetName(), m_self->itemID(), strontHours, strontHours * m_strontPerHour);
+
+    // set state reinforced
+    m_self->SetFlag(flagStructureInactive);
+    m_data.state = EVEPOS::StructureState::Reinforced;
+    m_procState = EVEPOS::ProcState::Reinforcing;
+    // convert hours to ms for timer
+    SetTimer(strontHours * 3600000);
+
+    SendSlimUpdate();
+    m_db.UpdateBaseData(m_data);
+    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.StructureOffline", 0, 0, 0, -1, 0);
 }
 
 void TowerSE::Reinforced()

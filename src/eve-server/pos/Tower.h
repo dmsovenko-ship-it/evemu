@@ -114,6 +114,13 @@ public:
     float GetPGLoad()                                   { return m_pg; }
     float GetCPULoad()                                  { return m_cpu; }
 
+    // fuel consumption
+    void InitFuelData();
+    bool CheckFuel();
+    uint32 GetFuelTypeID()                              { return m_fuelTypeID; }
+    uint32 GetFuelPerHour()                             { return m_fuelPerHour; }
+    uint32 GetStrontPerHour()                           { return m_strontPerHour; }
+
 protected:
     EVEPOS::TowerData m_tdata;
 
@@ -131,6 +138,12 @@ private:
     float m_cpu;
 
     uint16 m_soi;   // Sphere Of Influence, 45km max
+
+    uint32 m_fuelTypeID;        // typeID of fuel consumed (e.g. 4247 = Fuel Blocks)
+    uint32 m_fuelPerHour;       // fuel units consumed per hour (10/20/40 for S/M/L)
+    uint32 m_strontTypeID;      // typeID of strontium for reinforced (16275)
+    uint32 m_strontPerHour;     // strontium consumed per reinforced hour (100/200/400)
+    int64  m_lastFuelCheck;     // FileTime of last fuel consumption check
 
     std::map<uint32, StructureSE*> m_structs;  // structID/pSSE
 

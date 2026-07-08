@@ -532,28 +532,30 @@ void StructureSE::Process()
             Operating();
         }
         break;
-        // those below are not coded yet
         case ProcState::Reinforcing:
         case ProcState::SheildReinforcing:
         case ProcState::ArmorReinforcing:
         {
-            m_self->SetFlag(flagStructureInactive);
-            m_data.state = StructureState::Invulnerable;
-            //m_data.state = StructureState::Reinforced;
+            if (!m_tower) {
+                // non-tower structures: become invulnerable for the timer duration
+                m_self->SetFlag(flagStructureInactive);
+                m_data.state = StructureState::Invulnerable;
+                m_db.UpdateBaseData(m_data);
+                break;
+            }
+
+            // tower reinforced timer expired → transition back to Online
+            _log(POS__MESSAGE, "StructureSE::Process() - Tower %s(%u) reinforced timer expired, returning to Online.",
+                    GetName(), m_data.itemID);
+
+            m_self->SetFlag(flagStructureActive);
+            m_data.state = StructureState::Online;
+            m_procState = ProcState::Online;
+            SetTimer(m_duration);
+
+            SendSlimUpdate();
             m_db.UpdateBaseData(m_data);
-            // set timer for time to come out of reinforced
-            /*Reinforcement is an established system in EVE where a structure becomes invulnerable for a period of time.
-                 * The purpose is for the defending corporation to have a chance to react when their structure is attacked.
-                 * The Control Tower enters reinforced mode when it reaches 25% shield and exits reinforcement somewhere
-                 * within the time of day, specified by the owner at least 24 hours after it entered reinforcement.
-                 * So if you set the reinforcement time to “23.00 – 01.00” that means that the Control Tower will, if attacked,
-                 * exit reinforcement at some time between 23.00 and 01.00 the day after the attack was initiated.
-                 * Your corporation will receive notification if your Control Tower enters reinforcement mode and that leaves you
-                 * at least 24 hours to plan the defense.
-                 * In order to reset the reinforcement cycle, the Control Tower Shield must be repaired back above 25%;
-                 * note that it exits reinforcement with 0% shield.
-                 *
-                 */
+            m_destiny->SendSpecialEffect(m_data.itemID, m_data.itemID, m_self->typeID(), 0, 0, "effects.StructureOnlined", 0, 1, 1, -1, 0);
         }
         break;
         default:
