@@ -477,40 +477,46 @@ PyResult LSCService::Invite(PyCallArgs& call, PyInt* characterID, PyInt* channel
 
     LSCChannel* channel(nullptr);
 
-    uint32 char_ID = call.client->GetCharacterID();
+    uint32 inviterID = call.client->GetCharacterID();
+    uint32 inviteeID = characterID->value();
 
-    if (m_channels.find(channelID->value()) != m_channels.end()) {
-        channel = m_channels[channelID->value()];
+    // Generate deterministic negative channel ID for private conversations
+    uint32 a = inviterID, b = inviteeID;
+    if (a > b) std::swap(a, b);
+    int64 convID = -((int64)(((int64)a << 32) | (int64)b));
 
-        if (!channel->IsJoined(characterID->value())) {
-            // SOMEHOW SEND A JOIN COMMAND/REQUEST TO THE TARGET CLIENT FOR invited_char_ID
-            /*    OnLSC_JoinChannel join;
-             *            join.sender = channel->_MakeSenderInfo(call.client);
-             *            join.member_count = 1;
-             *            join.channelID = channel->EncodeID();
-             *            PyTuple *answer = join.Encode();
-             *            MulticastTarget mct;
-             *            //LSCChannelChar *invitor;
-             *            //LSCChannelChar *invitee;
-             *            if (!channel->IsJoined(char_ID))
-             *            {
-             *                //invitor = new LSCChannelChar(channel,0,char_ID,call.client->GetCharName(),0,0,0,0);
-             *                mct.characters.insert(char_ID);
-        }
-        //invitee = new LSCChannelChar(channel,0,invited_char_ID,entityList().FindCharacter(invited_char_ID)->GetCharName(),0,0,0,0);
-        mct.characters.insert(invited_char_ID);
-        entityList().Multicast("OnLSC", channel->GetTypeString(), &answer, mct);
-        //entityList().Unicast(invited_char_ID,"OnLSC",channel->GetTypeString(),&answer,false);
-        */
+    auto it = m_channels.find(convID);
+    if (it != m_channels.end())
+        channel = it->second;
 
-            // ********** TODO **********
-            // Figure out how to send the ChatInvite packet to the client running the character with id = 'invited_char_ID'
-            // in order for that character's client to then issue the JoinChannels call to the server with the chat channel
-            // ID equal to that of this channel, be it either a private convo (temporary==1) or an existing user-created chat.
-            // **************************
+    if (channel == nullptr) {
+        channel = new LSCChannel(this, convID, LSC::Type::custom, inviterID,
+                                 call.client->GetCharName(), nullptr, "",
+                                 false, nullptr, false, 0, true, false, 0, 0);
+        m_channels[convID] = channel;
+    }
 
-            //ChatInvite chatInvitePacket;
-            //chatInvitePacket.integer1 = 1;
+    if (!channel->IsJoined(inviterID))
+        channel->JoinChannel(call.client);
+
+    if (!channel->IsJoined(inviteeID)) {
+        PyDict* dict = new PyDict();
+            dict->SetItemString("channelID", channel->EncodeID());
+            dict->SetItemString("inviterID", new PyInt(inviterID));
+            dict->SetItemString("inviterName", new PyString(call.client->GetCharName()));
+            dict->SetItemString("displayName", new PyString(call.client->GetCharName()));
+        PyTuple* payload = new PyTuple(1);
+        payload->SetItem(0, new PyObject("util.KeyVal", dict));
+        Client* target = sEntityList.FindClientByCharID(inviteeID);
+        if (target != nullptr)
+            target->SendNotification("OnLSC", "clientID", payload, false);
+    }
+
+    return PyStatic.NewOne();
+}
+
+PyResult LSCService::Configure(PyCallArgs& call, PyInt* channelID)
+{
             //chatInvitePacket.integer2 = invited_char_ID;
             //chatInvitePacket.boolean = true;
             //chatInvitePacket.displayName = call.tuple->GetItem(2)->AsString()->content();
