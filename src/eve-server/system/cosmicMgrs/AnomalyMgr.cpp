@@ -612,7 +612,7 @@ void AnomalyMgr::AddSignal(SystemEntity* pSE, uint32 id/*0*/)
             sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
             sig.scanGroupID = Scanning::Group::Anomaly;
             sig.scanAttributeID = AttrScanAllStrength;  // Unknown
-            //sig.sigStrength = 1.0;      // this will need to be adjusted for entity/celestial types
+            sig.sigStrength = 1.0f;     // CosmicAnomaly has no AttrSignatureRadius — force 100%
         } break;
     }
 
