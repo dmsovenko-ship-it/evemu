@@ -246,11 +246,11 @@ PyResult FactionWarMgrService::GetCharacterRankInfo(PyCallArgs &call, PyInt* cha
     rs.header.push_back("highestRank");
     rs.header.push_back("factionID");
     rs.header.push_back("lastModified");
-    rs.line.push_back(new PyList());
-    rs.line.back()->AddItem(new PyInt(row.GetInt(0)));
-    rs.line.back()->AddItem(new PyInt(row.GetInt(1)));
-    rs.line.back()->AddItem(new PyInt(row.GetInt(2)));
-    rs.line.back()->AddItem(new PyLong(GetFileTimeNow()));
+    rs.lines.push_back(new PyList());
+    rs.lines.back()->AddItem(new PyInt(row.GetInt(0)));
+    rs.lines.back()->AddItem(new PyInt(row.GetInt(1)));
+    rs.lines.back()->AddItem(new PyInt(row.GetInt(2)));
+    rs.lines.back()->AddItem(new PyLong(GetFileTimeNow()));
     return rs.Encode();
 }
 
