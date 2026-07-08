@@ -38,6 +38,7 @@ public:
     uint32 GetFactionMilitiaCorporation(const uint32 factionID);
     bool IsValidFaction(uint32 factionID);
     std::string GetFactionName(uint32 factionID);
+    void RemoveCharacter(uint32 charID);
 };
 
 #endif /* __FACTION_WAR_MGR_DB__H__INCL__ */

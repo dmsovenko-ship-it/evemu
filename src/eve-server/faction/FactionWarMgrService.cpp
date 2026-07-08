@@ -318,23 +318,35 @@ PyResult FactionWarMgrService::GetCorporationWarFactionID(PyCallArgs &call, PyIn
 }
 
 PyResult FactionWarMgrService::GetSystemsConqueredThisRun(PyCallArgs &call) {
-    /*
-        systemsThatWillSwitchNextDownTime = self.GetSystemsConqueredThisRun()
-        cfg.evelocations.Prime([ d['solarsystemID'] for d in systemsThatWillSwitchNextDownTime ])
-        cfg.eveowners.Prime([ d['occupierID'] for d in systemsThatWillSwitchNextDownTime ])
-        */
-    _log(FACWAR__CALL, "FacWarMgr::Handle_GetSystemsConqueredThisRun()");
-    call.Dump(FACWAR__CALL_DUMP);
+    // return list of systems that will switch at next downtime (>50% contested)
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT fws.systemID, fws.factionID AS occupierID"
+        " FROM facWarSystems fws"
+        " JOIN mapSystemSovInfo ssi ON ssi.solarSystemID = fws.systemID"
+        " WHERE ssi.contested = 1");
 
-    return nullptr;
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* dict = new PyDict();
+            dict->SetItemString("solarSystemID", new PyInt(row.GetInt(0)));
+            dict->SetItemString("occupierID", new PyInt(row.GetInt(1)));
+        list->AddItem(new PyObject("util.KeyVal", dict));
+    }
+    return list;
 }
 
 PyResult FactionWarMgrService::GetFactionCorporations(PyCallArgs &call, PyInt* factionID) {
-    //return self.facWarMgr.GetFactionCorporations(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_GetFactionCorporations()");
-    call.Dump(FACWAR__CALL_DUMP);
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT corporationID FROM crpCorporations WHERE warFactionID = %u", factionID->value());
 
-    return nullptr;
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row))
+        list->AddItem(new PyInt(row.GetInt(0)));
+    return list;
 }
 
 PyResult FactionWarMgrService::JoinFactionAsCharacterRecommendationLetter(PyCallArgs &call, PyInt* factionID, PyInt* itemID) {
@@ -381,11 +393,19 @@ PyResult FactionWarMgrService::GetStats_TopAndAllKillsAndVPs(PyCallArgs &call) {
 }
 
 PyResult FactionWarMgrService::GetStats_Character(PyCallArgs &call) {
-    //for k, v in self.facWarMgr.GetStats_Character().items():
-    _log(FACWAR__CALL, "FacWarMgr::Handle_GetStats_Character()");
-    call.Dump(FACWAR__CALL_DUMP);
+    uint32 charID = call.client->GetCharacterID();
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT kills, losses, victoryPoints FROM facWarStats WHERE characterID = %u", charID);
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return new PyDict();
 
-    return nullptr;
+    PyDict* dict = new PyDict();
+        dict->SetItemString("kills", new PyInt(row.GetInt(0)));
+        dict->SetItemString("losses", new PyInt(row.GetInt(1)));
+        dict->SetItemString("victoryPoints", new PyFloat(row.GetDouble(2)));
+    return dict;
 }
 
 PyResult FactionWarMgrService::GetStats_Corp(PyCallArgs &call) {

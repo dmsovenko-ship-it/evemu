@@ -106,3 +106,12 @@ uint32 FactionWarMgrDB::GetFactionMilitiaCorporation(const uint32 factionID) {
     return row.GetUInt(0);
 }
 
+void FactionWarMgrDB::RemoveCharacter(uint32 charID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM facWarCharacters WHERE characterID = %u", charID);
+    sDatabase.RunQuery(err,
+        "UPDATE chrCharacters SET warFactionID = 0 WHERE characterID = %u", charID);
+}
+
