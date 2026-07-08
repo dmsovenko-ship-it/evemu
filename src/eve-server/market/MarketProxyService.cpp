@@ -198,7 +198,26 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
 
     _log(MARKET__DUMP, "Mkt::PlaceCharOrder()");
 
-    //TODO: verify the validity of args.stationID (range vs. skill)
+    // skill-based order count check
+    if (duration->value() > 0) {
+        CharacterRef ch = call.client->GetChar();
+        int8 tradeLevel   = ch->GetSkillLevel(EvESkill::Trade);
+        int8 retailLevel  = ch->GetSkillLevel(EvESkill::Retail);
+        int8 wholeLevel   = ch->GetSkillLevel(EvESkill::Wholesale);
+        int8 tycoonLevel  = ch->GetSkillLevel(EvESkill::Tycoon);
+        uint32 maxOrders  = 5 + tradeLevel*4 + retailLevel*8 + wholeLevel*16 + tycoonLevel*32;
+
+        DBQueryResult cntRes;
+        uint32 ownerID = useCorp->value() ? call.client->GetCorporationID() : call.client->GetCharacterID();
+        sDatabase.RunQuery(cntRes,
+            "SELECT COUNT(*) FROM mktOrders WHERE ownerID = %u AND duration > 0",
+            ownerID);
+        DBResultRow cntRow;
+        if (cntRes.GetRow(cntRow) and (uint32)cntRow.GetInt(0) >= maxOrders) {
+            call.client->SendErrorMsg("You have reached the maximum number of market orders (%u). Train Trade/Retail/Wholesale/Tycoon skills to increase this limit.", maxOrders);
+            return nullptr;
+        }
+    }
 
     if (useCorp->value()) {
         // Verify corp has an office in the target station
@@ -276,8 +295,20 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
             return nullptr;
         }
 
-        // determine escrow amount
-        float money(price->value()  * quantity->value());
+        // range validation: Procurement skill limits buy order range
+        int8 procurementLevel = call.client->GetChar()->GetSkillLevel(EvESkill::Procurement);
+        // jumpsPerSkillLevel: [5, 10, 20, 40, 60] -> skill 0 = 5 jump, skill 5 = 60
+        static const uint8 buyRangeBySkill[] = { 5, 5, 10, 20, 40, 60 };
+        uint8 maxBuyRange = (procurementLevel < 6) ? buyRangeBySkill[procurementLevel] : 60;
+        if (orderRange->value() >= 0 and (uint32)orderRange->value() > maxBuyRange) {
+            call.client->SendErrorMsg("Your Procurement skill only allows buy orders within %u jumps.", maxBuyRange);
+            return nullptr;
+        }
+
+        // determine escrow amount (reduced by Margin Trading skill)
+        int8 marginLevel = call.client->GetChar()->GetSkillLevel(EvESkill::MarginTrading);
+        float escrowFraction = powf(0.75f, marginLevel);
+        float money = (price->value() * quantity->value()) * escrowFraction;
 
         // set save data
         Market::SaveData data = Market::SaveData();
@@ -500,6 +531,17 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
             return nullptr;
         }
 
+        // range validation: Marketing skill limits sell order range
+        if (duration->value() > 0) {
+            int8 marketingLevel = call.client->GetChar()->GetSkillLevel(EvESkill::Marketing);
+            static const uint8 sellRangeBySkill[] = { 5, 5, 10, 20, 40, 60 };
+            uint8 maxSellRange = (marketingLevel < 6) ? sellRangeBySkill[marketingLevel] : 60;
+            if (orderRange->value() >= 0 and (uint32)orderRange->value() > maxSellRange) {
+                call.client->SendErrorMsg("Your Marketing skill only allows sell orders within %u jumps.", maxSellRange);
+                return nullptr;
+            }
+        }
+
         // they will be placing a sell order:
 
         // set save data
@@ -640,14 +682,16 @@ PyResult MarketProxyService::ModifyCharOrder(PyCallArgs &call, PyInt* orderID, P
     std::string reason = "DESC:  Altering Market Order #";
     reason += std::to_string(orderID->value());
 
+    uint32 fromID = oInfo.isCorp ? call.client->GetCorporationID() : call.client->GetCharID();
+    uint16 fromKey = oInfo.isCorp ? oInfo.accountKey : Account::KeyType::Cash;
     AccountService::TransferFunds(
-        call.client->GetCharID(),
+        fromID,
         stDataMgr.GetOwnerID(stationID->value()),
         money,
         reason.c_str(),
         Journal::EntryType::MarketEscrow,
         orderID->value(),
-        Account::KeyType::Cash,
+        fromKey,
         Account::KeyType::Escrow
     );
 
