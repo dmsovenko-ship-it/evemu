@@ -170,15 +170,30 @@ int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID,
         DBQueryResult memberRes;
         bool isAlliance = false;
 
-        // Try corporation members first, then alliance
-        if (!sDatabase.RunQuery(memberRes,
-            "SELECT characterID FROM chrCharacters "
-            "WHERE corporationID = %u AND online = 1", toCorpOrAllianceID))
-        {
-            isAlliance = true;
-            sDatabase.RunQuery(memberRes,
+        if (roleMask > 0) {
+            // Filter by role mask: only deliver to members with matching roles
+            if (!sDatabase.RunQuery(memberRes,
+                "SELECT c.characterID FROM chrCharacters c "
+                "JOIN crpRoles r ON c.characterID = r.characterID "
+                "WHERE c.corporationID = %u AND (r.roleID & %u) = %u AND c.online = 1",
+                toCorpOrAllianceID, roleMask, roleMask))
+            {
+                // Fallback to all online corp members if crpRoles fails
+                sDatabase.RunQuery(memberRes,
+                    "SELECT characterID FROM chrCharacters "
+                    "WHERE corporationID = %u AND online = 1", toCorpOrAllianceID);
+            }
+        } else {
+            // Try corporation members first, then alliance
+            if (!sDatabase.RunQuery(memberRes,
                 "SELECT characterID FROM chrCharacters "
-                "WHERE allianceID = %u AND online = 1", toCorpOrAllianceID);
+                "WHERE corporationID = %u AND online = 1", toCorpOrAllianceID))
+            {
+                isAlliance = true;
+                sDatabase.RunQuery(memberRes,
+                    "SELECT characterID FROM chrCharacters "
+                    "WHERE allianceID = %u AND online = 1", toCorpOrAllianceID);
+            }
         }
 
         // If no online members, get all members
@@ -193,10 +208,6 @@ int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID,
                     "WHERE corporationID = %u", toCorpOrAllianceID);
             }
         }
-
-        /** @todo roleMask filtering: when roleMask > 0, query crpRoles or equivalent
-         *  to only deliver to members with matching roles. Currently crpRoles table
-         *  does not exist, so all corp/alliance members receive the mail. */
         uint32 label = isAlliance ? mailLabelAlliance : mailLabelCorporation;
         DBResultRow mRow;
         while (memberRes.GetRow(mRow)) {
