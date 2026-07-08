@@ -127,7 +127,7 @@ LSC__RSP_DUMP=0
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-const int cspa = 2950; // CONCORD Spam Prevention Act
+const int cspa = 250; // CONCORD Spam Prevention Act (reduced to fit DB SMALLINT)
 
 
 PyResult LSCService::GetChannels(PyCallArgs &call)
