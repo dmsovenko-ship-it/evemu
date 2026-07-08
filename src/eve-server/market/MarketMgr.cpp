@@ -72,7 +72,8 @@ void MarketMgr::Populate()
     DBResultRow histRow;
     if (histCheck.GetRow(histRow) and histRow.GetInt(0) == 0) {
         _log(MARKET__MESSAGE, "MarketMgr::Populate() - mktHistory is empty, seeding from CruciblePriceHistory.");
-        sDatabase.RunQuery(DBerror(),
+        DBerror err;
+        sDatabase.RunQuery(err,
             "INSERT IGNORE INTO mktHistory (regionID, typeID, historyDate, lowPrice, highPrice, avgPrice, volume, orders)"
             " SELECT r.regionID, c.typeID, %lli, c.avgPrice * 0.95, c.avgPrice * 1.05, c.avgPrice,"
             "        FLOOR(RAND() * 100) + 1, FLOOR(RAND() * 10) + 1"
@@ -97,11 +98,6 @@ void MarketMgr::Process()
 {
     if (NeedsUpdate())
         UpdatePriceHistory();
-}
-
-bool MarketMgr::NeedsUpdate()
-{
-    return (m_timeStamp < GetFileTimeNow());
 }
 
 void MarketMgr::SystemStartup(SolarSystemData& data)
