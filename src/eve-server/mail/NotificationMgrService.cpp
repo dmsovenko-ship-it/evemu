@@ -25,6 +25,7 @@
 
 #include "eve-server.h"
 
+#include "Client.h"
 #include "mail/NotificationMgrService.h"
 
 // this service is part of mail and used with the 'notifications' tab of mail window

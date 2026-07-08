@@ -66,6 +66,21 @@ void MarketMgr::Populate()
 
     Process();
 
+    // seed price history if table is empty
+    DBQueryResult histCheck;
+    sDatabase.RunQuery(histCheck, "SELECT COUNT(*) FROM mktHistory");
+    DBResultRow histRow;
+    if (histCheck.GetRow(histRow) and histRow.GetInt(0) == 0) {
+        _log(MARKET__MESSAGE, "MarketMgr::Populate() - mktHistory is empty, seeding from CruciblePriceHistory.");
+        sDatabase.RunQuery(DBerror(),
+            "INSERT IGNORE INTO mktHistory (regionID, typeID, historyDate, lowPrice, highPrice, avgPrice, volume, orders)"
+            " SELECT r.regionID, c.typeID, %lli, c.avgPrice * 0.95, c.avgPrice * 1.05, c.avgPrice,"
+            "        FLOOR(RAND() * 100) + 1, FLOOR(RAND() * 10) + 1"
+            " FROM cruciblePriceHistory c, mapRegions r"
+            " WHERE c.avgPrice > 0",
+            (int64)(GetFileTimeNow() - EvE::Time::Day * 7));
+    }
+
     // market orders stored as {regionID/typeID}    --do we want to store orders in memory for loaded region??
     // MarketDB::GetOrders(call.client->GetRegionID(), args.arg);
 
@@ -80,10 +95,13 @@ void MarketMgr::GetInfo()
 
 void MarketMgr::Process()
 {
-    // make cache timer of xx(time) then invalidate the price history cache
+    if (NeedsUpdate())
+        UpdatePriceHistory();
+}
 
-    //if (m_timeStamp > GetFileTimeNow())
-    //    UpdatePriceHistory();
+bool MarketMgr::NeedsUpdate()
+{
+    return (m_timeStamp < GetFileTimeNow());
 }
 
 void MarketMgr::SystemStartup(SolarSystemData& data)
@@ -122,8 +140,8 @@ void MarketMgr::UpdatePriceHistory()
             "    SUM(quantity),"
             "    COUNT(transactionID)"
             " FROM mktTransactions"
-            " WHERE transactionType=%u AND transactionDate < %lli",
-            //" GROUP BY regionID, typeID, transactionDate",
+            " WHERE transactionType=%u AND transactionDate < %lli"
+            " GROUP BY regionID, typeID, transactionDate",
             Market::Type::Sell, cutoff_time);
 
     /** @todo  this doesnt belong here...  */
