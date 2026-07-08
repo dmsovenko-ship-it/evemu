@@ -309,11 +309,7 @@ bool Client::SelectCharacter(int32 charID/*0*/)
     if (sDataMgr.IsSolarSystem(m_locationID)) {
         pos = m_ship->position();
 
-        m_loginWarpPoint = pos;
-        m_loginWarpRandomPoint = m_ship->position();
-        m_loginWarpRandomPoint.MakeRandomPointOnSphere(0.5*ONE_AU_IN_METERS);
-
-        MoveToLocation(m_locationID, m_loginWarpRandomPoint);
+        MoveToLocation(m_locationID, pos);
     } else {
         MoveToLocation(m_locationID, pos);
         if (m_ship->typeID() == itemTypeCapsule) {
@@ -504,22 +500,8 @@ void Client::ProcessClient() {
                     } break;
                 case Player::State::LoginWarp: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: LoginWarp");
-                    // Check if login point is inside any station sphere and adjust
-                    GPoint safePoint = m_loginWarpPoint;
-                    for (auto& cur : pShipSE->SystemMgr()->GetStaticEntities()) {
-                        if (!cur.second->IsStationSE()) continue;
-                        GVector offset(safePoint, cur.second->GetPosition());
-                        double dist = offset.length();
-                        double staRadius = cur.second->GetRadius() + 5000; // radius + margin
-                        if (dist < staRadius) {
-                            // Inside station sphere — push outside
-                            offset.normalize();
-                            safePoint = cur.second->GetPosition() + (offset * staRadius);
-                        }
-                    }
-                    pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition());
                     pShipSE->DestinyMgr()->UnCloak();
-                    pShipSE->DestinyMgr()->WarpTo(safePoint, 2500);
+                    SetLoginWarpComplete();
                     } break;
                 case Player::State::Jump: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Jump");
@@ -3276,7 +3258,7 @@ void Client::SelfChatMessage(const char* fmt, ...)
 // (in which case the login warp would not have been triggered in the first
 // place).
 bool Client::IsLoginWarping() {
-    return m_clientState == Player::State::Login || m_clientState == Player::State::LoginWarp || !m_loginWarpPoint.isZero() || !m_loginWarpRandomPoint.isZero();
+    return m_clientState == Player::State::Login || m_clientState == Player::State::LoginWarp;
 }
 
 // For context and guidelines on how to use this function, see the code
@@ -3312,10 +3294,6 @@ void Client::FlushPendingDestinyUpdates() {
 }
 
 void Client::SetLoginWarpComplete() {
-    if (m_clientState == Player::State::LoginWarp) {
+    if (m_clientState == Player::State::LoginWarp)
         m_clientState = Player::State::Idle;
-    }
-
-    m_loginWarpPoint = NULL_ORIGIN;
-    m_loginWarpRandomPoint = NULL_ORIGIN;
 }
