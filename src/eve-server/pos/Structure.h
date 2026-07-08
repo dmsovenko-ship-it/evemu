@@ -226,6 +226,9 @@ protected:
     GVector                     m_rotation;             /* direction to planet (for correct orientation) */
     uint32                      m_anchorPointID;
 
+protected:
+    uint32 m_controllerID;      // charID of current controller (0 = nobody)
+
 private:
     uint32 m_duration;              // module duration in ms
 
@@ -244,8 +247,6 @@ private:
     bool m_reactor :1;
     bool m_platform :1;         // Outpost construction platform
     bool m_cargo :1;            // cargo container
-
-    uint32 m_controllerID;      // charID of current controller (0 = nobody)
 };
 
 #endif  // EVEMU_POS_STRUCTURE_H_
