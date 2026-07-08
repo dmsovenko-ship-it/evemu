@@ -18,9 +18,11 @@ class CalendarDB {
 
       static void DeleteEvent(uint32 eventID);
       static uint32 SaveSystemEvent(uint32 ownerID, uint32 creatorID, int64 startDateTime, uint8 autoEventType,
-                                    std::string title, std::string description, bool important=false);
+                                     std::string title, std::string description, bool important=false);
       static void SaveEventResponse(uint32 charID, uint32 eventID, uint32 response);
-      static void UpdateEventParticipants(); // TODO: implement this
+      static void UpdateEventParticipants(uint32 eventID, PyList* charsToAdd, PyList* charsToRemove);
+      static void UpdateEvent(uint32 eventID, int64 dateTime, int32 duration,
+                              std::string title, std::string description, int32 important);
 
       static PyRep* SaveNewEvent(uint32 ownerID, Call_CreateEventWithInvites &args);
       static PyRep* SaveNewEvent(uint32 ownerID, uint32 creatorID, Call_CreateEvent &args);

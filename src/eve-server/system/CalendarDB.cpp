@@ -276,9 +276,99 @@ PyRep* CalendarDB::GetResponsesToEvent(uint32 eventID)
     return list;
 }
 
-void CalendarDB::UpdateEventParticipants()
+void CalendarDB::UpdateEventParticipants(uint32 eventID, PyList* charsToAdd, PyList* charsToRemove)
 {
     DBerror err;
+
+    // add new participants
+    if (charsToAdd != nullptr) {
+        // get current invitee list
+        DBQueryResult res;
+        sDatabase.RunQuery(res, "SELECT inviteeList FROM sysCalendarInvitees WHERE eventID = %u", eventID);
+        DBResultRow row;
+        std::string invitees;
+        if (res.GetRow(row))
+            invitees = row.GetText(0);
+
+        PyList::const_iterator itr = charsToAdd->begin();
+        while (itr != charsToAdd->end()) {
+            uint32 charID = PyRep::IntegerValueU32(*itr);
+            std::string idStr = std::to_string(charID);
+
+            // check if already in list
+            if (invitees.find(idStr) == std::string::npos) {
+                if (!invitees.empty()) invitees += ",";
+                invitees += idStr;
+            }
+            ++itr;
+        }
+
+        if (!invitees.empty()) {
+            std::string escaped;
+            sDatabase.DoEscapeString(escaped, invitees);
+            sDatabase.RunQuery(err,
+                "INSERT INTO sysCalendarInvitees (eventID, inviteeList) VALUES (%u, '%s')"
+                " ON DUPLICATE KEY UPDATE inviteeList = '%s'",
+                eventID, escaped.c_str(), escaped.c_str());
+        }
+    }
+
+    // remove participants
+    if (charsToRemove != nullptr) {
+        PyList::const_iterator itr = charsToRemove->begin();
+        while (itr != charsToRemove->end()) {
+            uint32 charID = PyRep::IntegerValueU32(*itr);
+            // delete response if any
+            sDatabase.RunQuery(err, "DELETE FROM sysCalendarResponses WHERE eventID = %u AND charID = %u",
+                               eventID, charID);
+            ++itr;
+        }
+        // rebuild invitee list minus removed chars
+        DBQueryResult res;
+        sDatabase.RunQuery(res, "SELECT inviteeList FROM sysCalendarInvitees WHERE eventID = %u", eventID);
+        DBResultRow row;
+        if (res.GetRow(row)) {
+            std::string invitees = row.GetText(0);
+            PyList::const_iterator itr2 = charsToRemove->begin();
+            while (itr2 != charsToRemove->end()) {
+                std::string idStr = std::to_string(PyRep::IntegerValueU32(*itr2));
+                size_t pos;
+                while ((pos = invitees.find(idStr)) != std::string::npos) {
+                    // remove the ID and surrounding comma
+                    if (pos > 0 and invitees[pos - 1] == ',') pos--;
+                    size_t end = invitees.find(',', pos + idStr.length());
+                    if (end == std::string::npos)
+                        invitees.erase(pos);
+                    else
+                        invitees.erase(pos, end - pos + 1);
+                }
+                ++itr2;
+            }
+            std::string escaped;
+            sDatabase.DoEscapeString(escaped, invitees);
+            sDatabase.RunQuery(err,
+                "UPDATE sysCalendarInvitees SET inviteeList = '%s' WHERE eventID = %u",
+                escaped.c_str(), eventID);
+        }
+    }
+}
+
+void CalendarDB::UpdateEvent(uint32 eventID, int64 dateTime, int32 duration,
+                             std::string title, std::string description, int32 important)
+{
+    DBerror err;
+    std::string titleEsc, descEsc;
+    sDatabase.DoEscapeString(titleEsc, title);
+    sDatabase.DoEscapeString(descEsc, description);
+
+    sDatabase.RunQuery(err,
+        "UPDATE sysCalendarEvents SET"
+        " eventDateTime = %lli, eventDuration = %u, dateModified = %lli,"
+        " importance = %u, eventTitle = '%s', eventText = '%s'"
+        " WHERE eventID = %u",
+        dateTime, duration, (int64)GetFileTimeNow(),
+        important ? 1 : 0, titleEsc.c_str(), descEsc.c_str(),
+        eventID);
 }
 
 
