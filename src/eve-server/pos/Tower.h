@@ -103,16 +103,17 @@ public:
     void RemoveResist(uint16 type, float amount)        { /* do nothing here */ }
 
     // resource methods
-    void OnlineModule(StructureSE* pSE)                 { /* do nothing here */ }
-    void OfflineModule(StructureSE* pSE)                { /* do nothing here */ }
+    void OnlineModule(StructureSE* pSE);
+    void OfflineModule(StructureSE* pSE);
+    void RecalcResources();
 
-    // not coded yet
-    bool HasPG(float amount)                            { return true; }
-    // not coded yet
-    bool HasCPU(float amount)                           { return true; }
+    bool HasPG(float amount);
+    bool HasCPU(float amount);
 
-    float GetPGLoad()                                   { return m_pg; }
-    float GetCPULoad()                                  { return m_cpu; }
+    float GetPGLoad()                                   { return m_pgUsed; }
+    float GetCPULoad()                                  { return m_cpuUsed; }
+    float GetPGTotal()                                  { return m_pg; }
+    float GetCPUTotal()                                 { return m_cpu; }
 
     // fuel consumption
     void InitFuelData();
@@ -138,6 +139,9 @@ private:
     float m_cpu;
 
     uint16 m_soi;   // Sphere Of Influence, 45km max
+
+    float m_pgUsed;             // current PG usage from online modules
+    float m_cpuUsed;            // current CPU usage from online modules
 
     uint32 m_fuelTypeID;        // typeID of fuel consumed (e.g. 4247 = Fuel Blocks)
     uint32 m_fuelPerHour;       // fuel units consumed per hour (10/20/40 for S/M/L)

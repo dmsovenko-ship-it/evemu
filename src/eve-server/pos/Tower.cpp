@@ -129,6 +129,9 @@ m_pShieldSE(nullptr)
     m_strontPerHour = m_tsize * 100; // 100/200/400 for S/M/L
     m_lastFuelCheck = GetFileTimeNow();
 
+    m_pgUsed = 0.0f;
+    m_cpuUsed = 0.0f;
+
     /** @note these are defined, but i dunno what they are
      * AttrControlTowerMinimumDistance
      *
@@ -167,6 +170,9 @@ void TowerSE::Init()
 
     // initialize fuel data
     InitFuelData();
+
+    // recalculate PG/CPU load from all existing modules
+    RecalcResources();
 
     // if we were online/operating when server went down, calculate elapsed fuel
     if ((m_data.state >= EVEPOS::StructureState::Online) and (m_data.state <= EVEPOS::StructureState::Operating)) {
@@ -300,6 +306,68 @@ bool TowerSE::CheckFuel()
     /** @todo send pos mail/notification to corp members */
     ReinforceTower();
     return false;
+}
+
+void TowerSE::RecalcResources()
+{
+    m_pgUsed = 0.0f;
+    m_cpuUsed = 0.0f;
+
+    for (auto& cur : m_structs) {
+        StructureSE* pSE = cur.second;
+        // only count online/operating modules
+        if (pSE->GetState() < EVEPOS::StructureState::Online)
+            continue;
+
+        InventoryItemRef itemRef = pSE->GetSelf();
+        if (itemRef->HasAttribute(AttrPower))
+            m_pgUsed += itemRef->GetAttribute(AttrPower).get_float();
+        if (itemRef->HasAttribute(AttrCpu))
+            m_cpuUsed += itemRef->GetAttribute(AttrCpu).get_float();
+    }
+
+    _log(POS__DEBUG, "TowerSE::RecalcResources() - Tower %s(%u): PG %.0f/%.0f, CPU %.0f/%.0f",
+            GetName(), m_self->itemID(), m_pgUsed, m_pg, m_cpuUsed, m_cpu);
+}
+
+void TowerSE::OnlineModule(StructureSE* pSE)
+{
+    InventoryItemRef itemRef = pSE->GetSelf();
+    if (itemRef->HasAttribute(AttrPower))
+        m_pgUsed += itemRef->GetAttribute(AttrPower).get_float();
+    if (itemRef->HasAttribute(AttrCpu))
+        m_cpuUsed += itemRef->GetAttribute(AttrCpu).get_float();
+
+    _log(POS__MESSAGE, "TowerSE::OnlineModule() - %s(%u) online on Tower %s(%u).  PG %.0f/%.0f, CPU %.0f/%.0f",
+            pSE->GetName(), pSE->GetID(), GetName(), m_self->itemID(),
+            m_pgUsed, m_pg, m_cpuUsed, m_cpu);
+}
+
+void TowerSE::OfflineModule(StructureSE* pSE)
+{
+    InventoryItemRef itemRef = pSE->GetSelf();
+    if (itemRef->HasAttribute(AttrPower))
+        m_pgUsed -= itemRef->GetAttribute(AttrPower).get_float();
+    if (itemRef->HasAttribute(AttrCpu))
+        m_cpuUsed -= itemRef->GetAttribute(AttrCpu).get_float();
+
+    // prevent negative values from rounding errors
+    if (m_pgUsed < 0.0f) m_pgUsed = 0.0f;
+    if (m_cpuUsed < 0.0f) m_cpuUsed = 0.0f;
+
+    _log(POS__MESSAGE, "TowerSE::OfflineModule() - %s(%u) offline on Tower %s(%u).  PG %.0f/%.0f, CPU %.0f/%.0f",
+            pSE->GetName(), pSE->GetID(), GetName(), m_self->itemID(),
+            m_pgUsed, m_pg, m_cpuUsed, m_cpu);
+}
+
+bool TowerSE::HasPG(float amount)
+{
+    return ((m_pg - m_pgUsed) >= amount);
+}
+
+bool TowerSE::HasCPU(float amount)
+{
+    return ((m_cpu - m_cpuUsed) >= amount);
 }
 
 /*
