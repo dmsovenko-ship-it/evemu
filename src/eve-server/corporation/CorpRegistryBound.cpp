@@ -14,6 +14,7 @@
 #include "cache/ObjCacheService.h"
 #include "chat/LSCService.h"
 #include "corporation/CorpRegistryService.h"
+#include "EntityList.h"
 #include "corporation/CorpRegistryBound.h"
 #include "corporation/OfficeSparseBound.h"
 #include "station/StationDB.h"
@@ -1481,6 +1482,9 @@ PyResult CorpRegistryBound::InsertApplication(PyCallArgs &call, PyInt* corporati
         onn.senderID = charID;
         onn.typeID  = Notify::Types::CorpAppNew;
     sEntityList.CorpNotify(corporationID->value(), Notify::Types::CorpAppNew, "OnNotificationReceived", "clientID", onn.Encode());
+
+    // also persist to DB for offline corp members
+    sEntityList.CreateNotification(corporationID->value(), Notify::Types::CorpAppNew, charID, dict);
 
     /// Reply: ~\x00\x00\x00\x00\x01
     //returns none
