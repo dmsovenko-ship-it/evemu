@@ -293,7 +293,7 @@ void CustomsSE::SendSlimUpdate()
 }
 
 
-void CustomsSE::SetAnchor(Client* pClient, GPoint& pos)
+void CustomsSE::SetAnchor(Client* pClient, const GPoint& pos)
 {
     if (m_cData.status > EVEPOS::StructureState::Unanchored) {
         pClient->SendErrorMsg("The %s is already anchored", m_self->name());

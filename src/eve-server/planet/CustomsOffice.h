@@ -49,7 +49,7 @@ public:
     virtual void     MissileLaunched(Missile* pMissile) { /* Do nothing here */ }
 
     /* specific functions handled in this class. */
-    void                        SetAnchor(Client* pClient, GPoint& pos);
+    void                        SetAnchor(Client* pClient, const GPoint& pos);
     void                        PullAnchor();
     PlanetSE*                   GetPlanetSE()           { return m_planetSE; }
     void                        Reinforced()            { /* do nothing here yet */ }
@@ -75,11 +75,10 @@ public:
 
     void    VerifyAddItem(InventoryItemRef iRef);   // this must throw on failure
 
-protected:
     void                        SendSlimUpdate();
     void                        SendEffectUpdate(int16 effectID, bool active);
 
-private:
+protected:
     PosMgrDB                    m_db;
 
     EVEPOS::CustomsData         m_cData;

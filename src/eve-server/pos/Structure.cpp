@@ -901,6 +901,17 @@ void StructureSE::SetOnline()
     }
 }
 
+void StructureSE::SetOnlining()
+{
+    m_procState = EVEPOS::ProcState::Onlining;
+    m_data.state = EVEPOS::StructureState::Onlining;
+    m_data.timestamp = GetFileTimeNow();
+    SetTimer(m_self->GetAttribute(AttrOnliningDelay).get_uint32());
+    m_db.UpdateBaseData(m_data);
+    SendSlimUpdate();
+    m_destiny->SendSpecialEffect(m_data.itemID, m_data.itemID, m_self->typeID(), 0, 0, "effects.StructureOnline", 0, 1, 1, -1, 0);
+}
+
 void StructureSE::SetOffline()
 {
     m_self->SetFlag(flagStructureInactive);

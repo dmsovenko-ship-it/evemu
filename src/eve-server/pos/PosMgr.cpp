@@ -896,7 +896,7 @@ PyResult PosMgrBound::GMUpgradeOrbital(PyCallArgs &call, PyInt* itemID) {
      */
     _log(POS__TRACE,  "PosMgrBound::Handle_GMUpgradeOrbital()");
 
-    if (!call.client->IsGameMaster())
+    if (!(call.client->GetRole() & 1))
         return PyStatic.NewFalse();
 
     SystemManager* pSystem = call.client->SystemMgr();
@@ -938,7 +938,7 @@ PyResult PosMgrBound::CompleteOrbitalStateChange(PyCallArgs &call, PyInt* itemID
 
     CustomsSE* pCOSE = pSE->GetCOSE();
     if (pCOSE != nullptr) {
-        switch (pCOSE->GetState()) {
+        switch (static_cast<int8>(pCOSE->GetState())) {
             case EVEPOS::EntityState::Onlining:
                 pCOSE->SetState(EVEPOS::EntityState::Idle);
                 pCOSE->SendSlimUpdate();

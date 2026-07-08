@@ -149,6 +149,7 @@ public:
 
     /* basic structure processing methods */
     virtual void                SetOnline();
+    virtual void                SetOnlining();
     virtual void                SetOffline();
     virtual void                SetInvulnerable();
     virtual void                SetVulnerable();
