@@ -21,6 +21,8 @@
 
 #include "eve-server.h"
 
+#include "planet/CustomsOffice.h"
+
 
 
 #include "planet/Moon.h"
@@ -693,10 +695,29 @@ PyResult PosMgrBound::AnchorOrbital(PyCallArgs &call, PyInt* itemID) {
      *      posMgr.AnchorOrbital(itemID)
      */
 
-    _log(POS__TRACE,  "PosMgrBound::Handle_()");
-    call.Dump(POS__DUMP);
+    _log(POS__TRACE,  "PosMgrBound::Handle_AnchorOrbital()");
 
-    return PyStatic.NewNone();
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    CustomsSE* pCOSE = pSE->GetCOSE();
+    if (pCOSE != nullptr) {
+        pCOSE->SetAnchor(call.client, pCOSE->GetPosition());
+        return PyStatic.NewTrue();
+    }
+
+    StructureSE* pPOSSE = pSE->GetPOSSE();
+    if (pPOSSE != nullptr) {
+        pPOSSE->Anchor();
+        return PyStatic.NewTrue();
+    }
+
+    return PyStatic.NewFalse();
 }
 
 PyResult PosMgrBound::UnanchorOrbital(PyCallArgs &call, PyInt* itemID) {
@@ -706,16 +727,56 @@ PyResult PosMgrBound::UnanchorOrbital(PyCallArgs &call, PyInt* itemID) {
      *      posMgr.UnanchorOrbital(itemID)
      */
     _log(POS__TRACE,  "PosMgrBound::Handle_UnanchorOrbital()");
-    call.Dump(POS__DUMP);
 
-    return PyStatic.NewNone();
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    CustomsSE* pCOSE = pSE->GetCOSE();
+    if (pCOSE != nullptr) {
+        pCOSE->PullAnchor();
+        return PyStatic.NewTrue();
+    }
+
+    StructureSE* pPOSSE = pSE->GetPOSSE();
+    if (pPOSSE != nullptr) {
+        pPOSSE->Offline();
+        return PyStatic.NewTrue();
+    }
+
+    return PyStatic.NewFalse();
 }
 
 PyResult PosMgrBound::OnlineOrbital(PyCallArgs &call, PyInt* itemID) {
     _log(POS__TRACE,  "PosMgrBound::Handle_OnlineOrbital()");
-    call.Dump(POS__DUMP);
 
-    return PyStatic.NewNone();
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    CustomsSE* pCOSE = pSE->GetCOSE();
+    if (pCOSE != nullptr) {
+        pCOSE->SetState(EVEPOS::EntityState::Onlining);
+        pCOSE->SendSlimUpdate();
+        pCOSE->SendEffectUpdate(-5, true);
+        return PyStatic.NewTrue();
+    }
+
+    StructureSE* pPOSSE = pSE->GetPOSSE();
+    if (pPOSSE != nullptr) {
+        pPOSSE->SetOnlining();
+        return PyStatic.NewTrue();
+    }
+
+    return PyStatic.NewFalse();
 }
 
 PyResult PosMgrBound::ChangeStructureProvisionType(PyCallArgs &call, PyInt* towerID, PyInt* itemID, PyInt* typeID) {
@@ -764,9 +825,29 @@ PyResult PosMgrBound::GMUpgradeOrbital(PyCallArgs &call, PyInt* itemID) {
      *      posMgr.GMUpgradeOrbital(itemID)
      */
     _log(POS__TRACE,  "PosMgrBound::Handle_GMUpgradeOrbital()");
-    call.Dump(POS__DUMP);
 
-    return PyStatic.NewNone();
+    if (!call.client->IsGameMaster())
+        return PyStatic.NewFalse();
+
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    CustomsSE* pCOSE = pSE->GetCOSE();
+    if (pCOSE != nullptr) {
+        uint8 newLevel = pCOSE->GetLevel() + 1;
+        if (newLevel > 2)
+            newLevel = 2;
+        pCOSE->SetLevel(newLevel);
+        pCOSE->SendSlimUpdate();
+        return PyStatic.NewTrue();
+    }
+
+    return PyStatic.NewFalse();
 }
 
 PyResult PosMgrBound::CompleteOrbitalStateChange(PyCallArgs &call, PyInt* itemID) {
@@ -776,8 +857,38 @@ PyResult PosMgrBound::CompleteOrbitalStateChange(PyCallArgs &call, PyInt* itemID
      *      posMgr.CompleteOrbitalStateChange(itemID)
      */
     _log(POS__TRACE,  "PosMgrBound::Handle_CompleteOrbitalStateChange()");
-    call.Dump(POS__DUMP);
 
-    return PyStatic.NewNone();
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    CustomsSE* pCOSE = pSE->GetCOSE();
+    if (pCOSE != nullptr) {
+        switch (pCOSE->GetState()) {
+            case EVEPOS::EntityState::Onlining:
+                pCOSE->SetState(EVEPOS::EntityState::Idle);
+                pCOSE->SendSlimUpdate();
+                pCOSE->SendEffectUpdate(-5, false);
+                pCOSE->SendEffectUpdate(0, true);
+                break;
+            case EVEPOS::EntityState::Anchoring:
+                pCOSE->SetState(EVEPOS::EntityState::Anchored);
+                pCOSE->SendSlimUpdate();
+                break;
+            case EVEPOS::EntityState::Unanchoring:
+                pCOSE->SetState(EVEPOS::EntityState::Unanchored);
+                pCOSE->SendSlimUpdate();
+                break;
+            default:
+                break;
+        }
+        return PyStatic.NewTrue();
+    }
+
+    return PyStatic.NewFalse();
 }
 

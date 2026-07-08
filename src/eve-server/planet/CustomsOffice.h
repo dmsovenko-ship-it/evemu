@@ -59,9 +59,14 @@ public:
     bool                        IsReinforced()          { return false; }   /** @todo  finish this...not sure how yet. */
 
     // for orbital infrastructure
-    void                     SetPlanet(uint32 planetID) { m_oData.planetID = planetID; }
+    void                        SetPlanet(uint32 planetID) { m_oData.planetID = planetID; }
     uint32                      GetPlanetID()           { return m_oData.planetID; }
     float                       GetTaxRate(Client* pClient);
+
+    // state management
+    void                        SetState(int8 state)    { m_cData.state = state; m_cData.timestamp = GetFileTimeNow(); }
+    int8                        GetLevel()              { return m_oData.level; }
+    void                        SetLevel(uint8 level)   { m_oData.level = level; }
 
     PyRep*                      GetSettingsInfo();
     void     GetSettingsInfo(EVEPOS::CustomsData &data) { data = m_cData; }
