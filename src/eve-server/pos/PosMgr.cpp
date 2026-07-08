@@ -23,6 +23,7 @@
 
 #include "character/Character.h"
 #include "planet/CustomsOffice.h"
+#include "pos/Module.h"
 
 
 // helper: check all RequiredSkill attributes on an item against the character
@@ -931,7 +932,8 @@ PyResult PosMgrBound::GMUpgradeOrbital(PyCallArgs &call, PyInt* itemID) {
      */
     _log(POS__TRACE,  "PosMgrBound::Handle_GMUpgradeOrbital()");
 
-    if (!(call.client->GetRole() & 1))
+    // GM-only: check for admin role
+    if (!(call.client->GetAccountRole() & 1))
         return PyStatic.NewFalse();
 
     SystemManager* pSystem = call.client->SystemMgr();

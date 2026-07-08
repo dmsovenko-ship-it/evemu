@@ -106,35 +106,41 @@ void POS_AI::FindTarget()
     if (sightRange < 1.0f)
         sightRange = 250000.0f;
 
-    std::vector<Client*> players;
-    pBubble->GetPlayers(players);
+    std::map<uint32, SystemEntity*> entities;
+    pBubble->GetEntities(entities);
 
-    Client* bestTarget = nullptr;
+    SystemEntity* bestTarget = nullptr;
     float bestRange = 0.0f;
 
-    for (auto pClient : players) {
-        if (!IsValidTarget(pClient))
+    for (auto& cur : entities) {
+        SystemEntity* pEntity = cur.second;
+        if (!IsValidTarget(pEntity))
             continue;
 
-        if (pClient->GetShipSE() == nullptr)
-            continue;
-
-        float dist = m_pWeapon->GetPosition().distance(pClient->GetShipSE()->GetPosition());
+        float dist = m_pWeapon->GetPosition().distance(pEntity->GetPosition());
         if (dist > sightRange)
             continue;
 
         if (bestTarget == nullptr or dist < bestRange) {
-            bestTarget = pClient;
+            bestTarget = pEntity;
             bestRange = dist;
         }
     }
 
     if (bestTarget != nullptr)
-        m_targetID = bestTarget->GetCharacterID();
+        m_targetID = bestTarget->GetID();
 }
 
-bool POS_AI::IsValidTarget(Client* pClient)
+bool POS_AI::IsValidTarget(SystemEntity* pEntity)
 {
+    if (pEntity == nullptr)
+        return false;
+
+    // only target players with a client
+    if (!pEntity->HasPilot())
+        return false;
+
+    Client* pClient = pEntity->GetPilot();
     if (pClient == nullptr)
         return false;
 

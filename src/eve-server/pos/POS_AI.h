@@ -12,10 +12,6 @@
 #define EVEMU_POS_POS_AI_H_
 
 
-#include "system/TargetManager.h"
-
-
-class Client;
 class SystemEntity;
 class TowerSE;
 class WeaponSE;
@@ -32,7 +28,7 @@ public:
 
 protected:
     void FindTarget();
-    bool IsValidTarget(Client* pClient);
+    bool IsValidTarget(SystemEntity* pEntity);
     void FireWeapon(SystemEntity* pTarget);
     float GetRangeTo(SystemEntity* pTarget);
 
