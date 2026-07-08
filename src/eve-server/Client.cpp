@@ -606,22 +606,9 @@ void Client::UpdateBubble() {
 // `WarpIn` is executed upon player login, but should only be executed if the
 // player was in space when they last logged out.
 //
-// The login warp-in process is a multi-step process. First, the player's ship
-// is immediately moved to a position around 0.5 AU away from their logged-out
-// position.
-//
-// However, merely setting the position isn't enough. The client needs to
-// subsequently synchronize the state of the player & the surrounding bubble
-// with the server, so `UpdateBubble` is called. This is important because
-// during the process of establishing the warp vector, the player's ship is
-// going to be aligning to warp for a few seconds, and so the client needs to
-// know what's in its current bubble for that duration.
-//
-// During the development of `WarpIn()`, it was observed that the behavior of
-// the ship was inconsistent if `Destiny->WarpTo()` was called immediately after
-// the above position change and `UpdateBubble` calls. So instead, the session
-// state timer is set to 0, and the player's client state is set to `LoginWarp`,
-// which allows the warp to get processed on the next server tick.
+// The login process places the ship at its saved position (cloaked), sends
+// the ballpark/SetState to the client, then sets a 3-second timer. After
+// the timer expires the ship uncloaks — no warp, no 0.5 AU random-point jump.
 //
 // See: `Client::IsLoginWarping`
 //
