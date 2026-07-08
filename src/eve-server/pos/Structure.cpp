@@ -216,6 +216,7 @@ StructureSE::StructureSE(StructureItemRef structure, EVEServiceManager&services,
     m_module(false),
     m_reactor(false),
     m_duration(0),
+    m_controllerID(0),
     m_anchorPointID(0),
     m_delayTime(0),
     /** @todo  this is direction from customs office to planet and set when co is created */

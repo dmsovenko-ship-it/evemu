@@ -605,20 +605,49 @@ PyResult PosMgrBound::AssumeStructureControl(PyCallArgs &call, PyInt* itemID) {
     /*
         posMgr = moniker.GetPOSMgr()
         posMgr.AssumeStructureControl(item.itemID)
-
-        02:02:07 W PosMgrBound::Handle_AssumeStructureControl(): size=1
-        02:02:07 [POS:Dump]   Call Arguments:
-        02:02:07 [POS:Dump]      Tuple: 1 elements
-        02:02:07 [POS:Dump]       [ 0]    Integer: 140000311
-
-        'OnAssumeStructureControl',
-        'OnRelinquishStructureControl',
-
     */
     _log(POS__TRACE,  "PosMgrBound::Handle_AssumeStructureControl()");
-    call.Dump(POS__DUMP);
 
-    return PyStatic.NewNone();
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    TowerSE* pTSE = pSE->GetTowerSE();
+    if (pTSE == nullptr)
+        return PyStatic.NewFalse();
+
+    // notify old controller
+    uint32 oldControllerID = pTSE->GetControllerID();
+    if (oldControllerID > 0) {
+        Client* oldClient = sEntityList.FindClientByCharID(oldControllerID);
+        if (oldClient != nullptr) {
+            PyDict* args = new PyDict();
+            args->SetItemString("itemID", new PyInt(itemID->value()));
+            PyTuple* payload = new PyTuple(1);
+            payload->SetItem(0, new PyObject("util.KeyVal", args));
+            oldClient->SendNotification("OnRelinquishStructureControl", "clientID", payload, false);
+        }
+    }
+
+    // set new controller
+    pTSE->SetControllerID(call.client->GetCharacterID());
+    pTSE->SendSlimUpdate();
+
+    // notify new controller
+    PyDict* args = new PyDict();
+    args->SetItemString("itemID", new PyInt(itemID->value()));
+    PyTuple* payload = new PyTuple(1);
+    payload->SetItem(0, new PyObject("util.KeyVal", args));
+    call.client->SendNotification("OnAssumeStructureControl", "clientID", payload, false);
+
+    _log(POS__MESSAGE, "PosMgrBound::AssumeStructureControl() - %s assumed control of structure %u.",
+            call.client->GetName(), itemID->value());
+
+    return PyStatic.NewTrue();
 }
 
 PyResult PosMgrBound::RelinquishStructureControl(PyCallArgs &call, PyInt* itemID) {
@@ -627,9 +656,34 @@ PyResult PosMgrBound::RelinquishStructureControl(PyCallArgs &call, PyInt* itemID
         posMgr.RelinquishStructureControl(item.itemID)
     */
     _log(POS__TRACE,  "PosMgrBound::Handle_RelinquishStructureControl()");
-    call.Dump(POS__DUMP);
 
-    return PyStatic.NewNone();
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    TowerSE* pTSE = pSE->GetTowerSE();
+    if (pTSE == nullptr)
+        return PyStatic.NewFalse();
+
+    // clear controller
+    pTSE->SetControllerID(0);
+    pTSE->SendSlimUpdate();
+
+    // notify caller
+    PyDict* args = new PyDict();
+    args->SetItemString("itemID", new PyInt(itemID->value()));
+    PyTuple* payload = new PyTuple(1);
+    payload->SetItem(0, new PyObject("util.KeyVal", args));
+    call.client->SendNotification("OnRelinquishStructureControl", "clientID", payload, false);
+
+    _log(POS__MESSAGE, "PosMgrBound::RelinquishStructureControl() - %s relinquished control of structure %u.",
+            call.client->GetName(), itemID->value());
+
+    return PyStatic.NewTrue();
 }
 
 PyResult PosMgrBound::AnchorOrbital(PyCallArgs &call, PyInt* itemID) {

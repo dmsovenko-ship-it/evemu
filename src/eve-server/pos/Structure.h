@@ -195,6 +195,10 @@ public:
     // for targetMgr
     bool                        IsReinforced()          { return (m_data.state == EVEPOS::StructureState::Reinforced); }
 
+    // controller (who is currently controlling this structure's defenses)
+    void                        SetControllerID(uint32 charID)  { m_controllerID = charID; }
+    uint32                      GetControllerID() const         { return m_controllerID; }
+
     void                        SendSlimUpdate();
 
 protected:
@@ -240,6 +244,8 @@ private:
     bool m_reactor :1;
     bool m_platform :1;         // Outpost construction platform
     bool m_cargo :1;            // cargo container
+
+    uint32 m_controllerID;      // charID of current controller (0 = nobody)
 };
 
 #endif  // EVEMU_POS_STRUCTURE_H_

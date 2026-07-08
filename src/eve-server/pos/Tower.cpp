@@ -733,6 +733,7 @@ PyDict* TowerSE::MakeSlimItem()
     slim->SetItemString("posState",                 new PyInt(m_data.state));
     slim->SetItemString("incapacitated",            new PyInt((m_data.state == EVEPOS::StructureState::Incapacitated) ? 1 : 0));
     slim->SetItemString("posDelayTime",             new PyInt(m_delayTime));
+    slim->SetItemString("controllerID",             (m_controllerID > 0) ? new PyInt(m_controllerID) : PyStatic.NewNone());
 
     if (is_log_enabled(POS__SLIMITEM)) {
         _log( POS__SLIMITEM, "TowerSE::MakeSlimItem() - %s(%u)", GetName(), GetID());
