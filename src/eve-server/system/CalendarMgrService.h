@@ -40,12 +40,13 @@ protected:
     PyResult GetResponsesToEvent(PyCallArgs& call, PyInt* eventID, PyInt* ownerID);
     PyResult DeleteEvent(PyCallArgs& call, PyInt* eventID, PyInt* ownerID);
     PyResult SendEventResponse(PyCallArgs& call, PyInt* eventID, PyInt* ownerID, PyInt* response);
-    PyResult CreatePersonalEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important, PyList* invitees);
-    PyResult CreateCorporationEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important);
-    PyResult CreateAllianceEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important);
-    PyResult EditPersonalEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important);
-    PyResult EditCorporationEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important);
-    PyResult EditAllianceEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important);
+    PyResult CreatePersonalEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important, PyList* invitees);
+    PyResult CreateCorporationEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
+    PyResult CreateAllianceEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
+    PyResult UpdateEventParticipants(PyCallArgs& call, PyInt* eventID, PyList* charsToAdd, PyList* charsToRemove);
+    PyResult EditPersonalEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
+    PyResult EditCorporationEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
+    PyResult EditAllianceEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
     PyResult UpdateEventParticipants(PyCallArgs& call, PyInt* eventID, PyList* charsToAdd, PyList* charsToRemove);
 };
 

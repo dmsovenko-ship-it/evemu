@@ -75,7 +75,17 @@ PyResult CalendarMgrService::SendEventResponse(PyCallArgs& call, PyInt* eventID,
     return nullptr;
 }
 
-PyResult CalendarMgrService::CreatePersonalEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important, PyList* invitees)
+// helper: extract string content from PyString or PyWString
+static std::string GetStringContent(PyRep* rep)
+{
+    if (rep->IsWString())
+        return rep->AsWString()->content();
+    if (rep->IsString())
+        return rep->AsString()->content();
+    return "";
+}
+
+PyResult CalendarMgrService::CreatePersonalEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important, PyList* invitees)
 {
     // newEventID = self.calendarMgr.CreatePersonalEvent(dateTime, duration, title, description, important, invitees)
 
@@ -93,7 +103,7 @@ PyResult CalendarMgrService::CreatePersonalEvent(PyCallArgs& call, PyLong* dateT
     return CalendarDB::SaveNewEvent(call.client->GetCharacterID(), args);
 }
 
-PyResult CalendarMgrService::CreateCorporationEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important)
+PyResult CalendarMgrService::CreateCorporationEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important)
 {
     // TODO: update this to not use xmlpktgen, too many changes just for the services update
     Call_CreateEvent args;
@@ -106,7 +116,7 @@ PyResult CalendarMgrService::CreateCorporationEvent(PyCallArgs& call, PyLong* da
     return CalendarDB::SaveNewEvent(call.client->GetCorporationID(), call.client->GetCharacterID(), args);
 }
 
-PyResult CalendarMgrService::CreateAllianceEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important)
+PyResult CalendarMgrService::CreateAllianceEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important)
 {
     // TODO: update this to not use xmlpktgen, too many changes just for the services update
     Call_CreateEvent args;
@@ -119,31 +129,31 @@ PyResult CalendarMgrService::CreateAllianceEvent(PyCallArgs& call, PyLong* dateT
     return CalendarDB::SaveNewEvent(call.client->GetAllianceID(), call.client->GetCharacterID(), args);
 }
 
-PyResult CalendarMgrService::EditPersonalEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important)
+PyResult CalendarMgrService::EditPersonalEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important)
 {
     int32 imp = important->IsInt() ? important->AsInt()->value() : (important->IsBool() && important->AsBool()->value() ? 1 : 0);
     CalendarDB::UpdateEvent(eventID->value(), dateTime->value(), duration->value(),
-                            title->content(), description->content(), imp);
+                            GetStringContent(title), GetStringContent(description), imp);
 
     call.client->SendNotification("OnReloadCalendar", "charid", new PyTuple(0), false);
     return nullptr;
 }
 
-PyResult CalendarMgrService::EditCorporationEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important)
+PyResult CalendarMgrService::EditCorporationEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important)
 {
     int32 imp = important->IsInt() ? important->AsInt()->value() : (important->IsBool() && important->AsBool()->value() ? 1 : 0);
     CalendarDB::UpdateEvent(eventID->value(), dateTime->value(), duration->value(),
-                            title->content(), description->content(), imp);
+                            GetStringContent(title), GetStringContent(description), imp);
 
     call.client->SendNotification("OnReloadCalendar", "charid", new PyTuple(0), false);
     return nullptr;
 }
 
-PyResult CalendarMgrService::EditAllianceEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important)
+PyResult CalendarMgrService::EditAllianceEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important)
 {
     int32 imp = important->IsInt() ? important->AsInt()->value() : (important->IsBool() && important->AsBool()->value() ? 1 : 0);
     CalendarDB::UpdateEvent(eventID->value(), dateTime->value(), duration->value(),
-                            title->content(), description->content(), imp);
+                            GetStringContent(title), GetStringContent(description), imp);
 
     call.client->SendNotification("OnReloadCalendar", "charid", new PyTuple(0), false);
     return nullptr;
