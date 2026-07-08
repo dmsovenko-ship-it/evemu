@@ -218,9 +218,8 @@
 3. **Market bot** — utilize full config (Trader Joe)
 
 ## Medium Priority
-4. **Notification sources** — extend CreateNotification to more events (struct damage, FW, sov, standings derived mods)
-5. **Standings derived modifications** — kill a corp-mate → derived corp standing penalty
-6. **Corp mail roles** — enforce roleMask in SendMail
+4. **Notification sources** — extend CreateNotification to more events (FW, sov)
+5. **Corp mail roles** — enforce roleMask in SendMail (crpRoles table required)
 
 ## Low Priority
 7. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
