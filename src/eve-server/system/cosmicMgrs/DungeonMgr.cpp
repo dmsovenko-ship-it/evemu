@@ -77,24 +77,29 @@ void DungeonDataMgr::UpdateDungeon(uint32 dungeonID)
     SafeDelete(res);
 }
 
-void DungeonDataMgr::GetRandomDungeon(Dungeon::Dungeon& dungeon, uint8 archetype) {
+void DungeonDataMgr::GetRandomDungeon(Dungeon::Dungeon& dungeon, uint8 archetype, uint32 factionID /*=0*/) {
     // Get the index for the archetype ID
     auto& archetypeIndex = m_dungeons.get<Dungeon::DungeonsByArchetype>();
     // Get the range of all dungeons with the specified archetype ID
     auto range = archetypeIndex.equal_range(archetype);
-    // Calculate the number of dungeons in the range
-    uint32 count = std::distance(range.first, range.second);
-    // If there are no dungeons with the specified archetype, return
-    if (count == 0) {
+    // Collect dungeons matching the faction (or all if factionID == 0)
+    std::vector<Dungeon::Dungeon> candidates;
+    for (auto it = range.first; it != range.second; ++it) {
+        if (factionID == 0 || it->factionID == factionID)
+            candidates.push_back(*it);
+    }
+    // If there are no matching dungeons, fall back to any dungeon of this archetype
+    if (candidates.empty()) {
+        for (auto it = range.first; it != range.second; ++it)
+            candidates.push_back(*it);
+    }
+    // If still no dungeons, return
+    if (candidates.empty()) {
         return;
     }
-    // Generate a random number within the range of the number of dungeons
-    uint32 randomIndex = rand() % count;
-    // Get the iterator to the random dungeon
-    auto it = range.first;
-    std::advance(it, randomIndex);
-    // Assign the selected dungeon to the output parameter
-    dungeon = *it;
+    // Pick a random dungeon from candidates
+    uint32 randomIndex = rand() % candidates.size();
+    dungeon = candidates[randomIndex];
 }
 
 void DungeonDataMgr::GetDungeon(Dungeon::Dungeon& dungeon, uint32 dungeonID) {
@@ -341,7 +346,7 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
 
     // If we are given a dungeonID, use it otherwise pick a random dungeon based on archetype
     if (dungeonID == 0) {
-        sDunDataMgr.GetRandomDungeon(dData, sig.dungeonType);
+        sDunDataMgr.GetRandomDungeon(dData, sig.dungeonType, sig.ownerID);
     } else {
         sDunDataMgr.GetDungeon(dData, dungeonID);
     }
