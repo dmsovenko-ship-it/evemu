@@ -28,6 +28,7 @@
 
 
 #include "StaticDataMgr.h"
+#include "EVE_Mail.h"
 #include "cache/ObjCacheService.h"
 #include "account/AccountDB.h"
 #include "account/AccountService.h"
