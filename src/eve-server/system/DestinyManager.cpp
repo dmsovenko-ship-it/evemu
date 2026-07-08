@@ -2113,7 +2113,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     if (autoPilot) {
         Follow(pSE, distance);
     } else {
-        GotoPoint(where);
+        m_targetPoint = where;
     }
 
     m_targetEntity.first = 0;
