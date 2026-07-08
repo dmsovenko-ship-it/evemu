@@ -89,7 +89,13 @@ void RamMethods::ActivityCheck(Client* const pClient, const Call_InstallJob& arg
 
             pType = &bpRef->productType();
         } break;
-        case EvERam::Activity::ReverseEngineering:  // RE is ONLY at experimental POS module...cannot do RE in stations.  right now, this will never hit.
+        case EvERam::Activity::ReverseEngineering: {
+            // RE takes a T1 item (relic) and produces a T2 BPC
+            // The installed blueprint is the "source" blueprint that defines the output
+            if (bpRef->runs() < 1)
+                throw UserError ("RamTooManyProductionsRuns");
+            pType = &bpRef->type();
+        } break;
         case EvERam::Activity::ResearchTech:    // cannot find any reference to this.  not used?
         case EvERam::Activity::Duplicating:     // ancient pre-apoc 'copy' activity.  no longer used.
         default: {
@@ -478,10 +484,13 @@ bool RamMethods::Calculate(const Call_InstallJob &args, BlueprintRef bpRef, Char
         case EvERam::Activity::ReverseEngineering: {
             pType = &bpRef->type();
             FactoryDB::GetMultipliers(args.AssemblyLineID, pType, into);
-            // base research time for RE is one hour
-            into.productionTime = 3600; // in seconds
+            // RE base time from blueprint's researchTechTime
+            uint32 baseTime = bpRef->type().researchTechTime();
+            if (baseTime < 60) baseTime = 3600; // default 1h
+            into.productionTime = EvEMath::RAM::InventionTime(baseTime,
+                pChar->GetSkillLevel(EvESkill::AdvancedLaboratoryOperation),
+                into.timeMultiplier);
             into.productionTime *= sConfig.ram.ReTime;
-            //bpRef->type().chanceOfRE();
         } break;
     }
 

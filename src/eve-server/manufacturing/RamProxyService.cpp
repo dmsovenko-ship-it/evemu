@@ -770,9 +770,59 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                 return dict;
             } break;
 
-            /* unsupported */
-            case EvERam::Activity::ReverseEngineering:
-                //bpRef->type().chanceOfRE();
+            case EvERam::Activity::ReverseEngineering: {
+                BlueprintRef reBpRef = BlueprintRef::StaticCast(installedItem);
+                float baseChance = reBpRef->type().chanceOfRE();
+                if (baseChance < 0.01f) baseChance = 0.20f;
+
+                uint8 reSkill = pChar->GetSkillLevel(EvESkill::ReverseEngineering);
+                float skillMod = 1.0f + 0.01f * reSkill;
+                float chance = baseChance * skillMod;
+                bool success = (MakeRandomFloat() < chance);
+
+                PyDict* dict = new PyDict();
+                if (success) {
+                    // Determine output blueprint typeID from parentBlueprintTypeID
+                    uint32 outTypeID = reBpRef->type().parentBlueprintTypeID();
+                    if (outTypeID == 0)
+                        outTypeID = FactoryDB::GetTech2Blueprint(reBpRef->typeID());
+
+                    if (outTypeID > 0) {
+                        int8 runs = std::max(1, reBpRef->runs() / 10);
+                        if (runs > 10) runs = 10;
+
+                        ItemData idata(outTypeID, data.ownerID, locTemp, flagFactoryOutput);
+                        EvERam::bpData bpdata;
+                        bpdata.copy = true;
+                        bpdata.runs = runs;
+                        bpdata.mLevel = 0;
+                        bpdata.pLevel = 0;
+
+                        BlueprintRef newBp = Blueprint::Spawn(idata, bpdata);
+                        if (newBp.get() != nullptr) {
+                            newBp->Move(args.containerID, data.outputFlag, true);
+                            data.jobRuns = 0;
+                        }
+
+                        dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamReverseEngineeringJobSucceeded"));
+                        dict->SetItemString("jobCompletedSuccessfully", new PyBool(true));
+                        dict->SetItemString("outputRuns", PyStatic.NewInt(runs));
+                        dict->SetItemString("outputTypeID", PyStatic.NewInt(outTypeID));
+                    } else {
+                        dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamReverseEngineeringTaskFailed"));
+                        dict->SetItemString("jobCompletedSuccessfully", new PyBool(false));
+                    }
+                } else {
+                    dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamReverseEngineeringTaskFailed"));
+                    dict->SetItemString("jobCompletedSuccessfully", new PyBool(false));
+                }
+
+                PyDict* msg = new PyDict();
+                    msg->SetItemString("msg", PyStatic.NewInt(0));
+                    msg->SetItemString("args", PyStatic.NewInt(0));
+                dict->SetItemString("message", msg);
+                return dict;
+            } break;
 
             /* depreciated */
             case EvERam::Activity::ResearchTech:
