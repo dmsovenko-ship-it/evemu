@@ -75,14 +75,14 @@ public:
         uint32 QuantityMax;        // default 500
     } sell;
 
+    std::vector<uint32> validGroups;
+
 protected:
     bool ProcessBotConf( const TiXmlElement* ele );
     bool ProcessMain( const TiXmlElement* ele );
     bool ProcessBuy( const TiXmlElement* ele );
     bool ProcessSell( const TiXmlElement* ele );
     bool ProcessGroups( const TiXmlElement* ele );
-
-    std::vector<uint32> validGroups;
 
 };
 

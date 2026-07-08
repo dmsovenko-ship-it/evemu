@@ -775,7 +775,7 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                 float baseChance = reBpRef->type().chanceOfRE();
                 if (baseChance < 0.01f) baseChance = 0.20f;
 
-                uint8 reSkill = pChar->GetSkillLevel(EvESkill::ReverseEngineering);
+                uint8 reSkill = call.client->GetChar()->GetSkillLevel(EvESkill::ReverseEngineering);
                 float skillMod = 1.0f + 0.01f * reSkill;
                 float chance = baseChance * skillMod;
                 bool success = (MakeRandomFloat() < chance);
