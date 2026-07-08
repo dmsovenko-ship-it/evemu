@@ -327,7 +327,7 @@ void ContractUtils::FillBidData(DBResultRow *bidRow, PyPackedRow *targetRow) {
     targetRow->SetField("contractId", new PyInt(bidRow->GetInt(0)));
     targetRow->SetField("amount", new PyInt(bidRow->GetInt(1)));
     targetRow->SetField("bidderID", new PyInt(bidRow->GetInt(2)));
-    targetRow->SetField("bidDateTime", new PyLong(bidRow->GetInt64(3)));
+    targetRow->SetField("timeBid", new PyLong(bidRow->GetInt64(3)));
 }
 
 /**

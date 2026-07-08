@@ -29,6 +29,9 @@
 #include <algorithm>    // Added to prevent std::find from freaking out
 #include "eve-server.h"
 
+#include "EntityList.h"
+#include "EVE_Wallet.h"
+#include "inventory/ItemFactory.h"
 
 #include "contract/ContractProxy.h"
 #include "station/Station.h"
@@ -1372,16 +1375,79 @@ PyResult ContractProxy::FinishAuction(PyCallArgs& call, PyInt* contractID) {
         AccountService::TransferFunds(winnerID, issuerID, amount,
             "Auction payment", Journal::EntryType::ContractAuctionSold, cID);
 
+        // Transfer items to winner
+        DBQueryResult itemRes;
+        sDatabase.RunQuery(itemRes,
+            "SELECT itemID, quantity FROM ctrItems WHERE contractId = %u AND inCrate = 1", cID);
+        DBResultRow itemRow;
+        while (itemRes.GetRow(itemRow)) {
+            uint32 itemID = itemRow.GetUInt(0);
+            InventoryItemRef iRef = sItemFactory.GetItemRef(itemID);
+            if (iRef.get() != nullptr) {
+                iRef->ChangeOwner(winnerID, true);
+                // award to winner's station hangar
+                DBQueryResult stationRes;
+                sDatabase.RunQuery(stationRes,
+                    "SELECT startStationID FROM ctrContracts WHERE contractId = %u", cID);
+                DBResultRow stationRow;
+                uint32 stationID = 0;
+                if (stationRes.GetRow(stationRow))
+                    stationID = stationRow.GetUInt(0);
+                if (stationID > 0)
+                    iRef->Move(stationID, flagHangar, true);
+            }
+        }
+
         Client* winner = sEntityList.FindClientByCharID(winnerID);
         if (winner != nullptr) {
             PyTuple* payload = new PyTuple(1);
             payload->SetItem(0, new PyInt(cID));
             winner->SendNotification("OnAuctionWon", "clientID", payload, false);
         }
+
+        // notify issuer
+        Client* issuer = sEntityList.FindClientByCharID(issuerID);
+        if (issuer != nullptr) {
+            PyTuple* payload = new PyTuple(1);
+            payload->SetItem(0, new PyInt(cID));
+            issuer->SendNotification("OnAuctionCompleted", "clientID", payload, false);
+        }
+
+        // refund non-winning bidders
+        DBQueryResult loserRes;
+        sDatabase.RunQuery(loserRes,
+            "SELECT bidderID, amount FROM ctrBids WHERE contractID = %u AND bidderID != %u",
+            cID, winnerID);
+        DBResultRow loserRow;
+        while (loserRes.GetRow(loserRow)) {
+            AccountService::TransferFunds(loserRow.GetUInt(0), loserRow.GetUInt(0), loserRow.GetDouble(1),
+                "Auction bid refund", Journal::EntryType::ContractAuctionRefund, cID);
+        }
     } else {
         sDatabase.RunQuery(err,
             "UPDATE ctrContracts SET status = 6, dateCompleted = %.0f WHERE contractId = %u",
             GetFileTimeNow(), cID);
+
+        // no bids — return items to issuer
+        DBQueryResult itemRes;
+        sDatabase.RunQuery(itemRes,
+            "SELECT itemID FROM ctrItems WHERE contractId = %u AND inCrate = 1", cID);
+        DBResultRow itemRow;
+        while (itemRes.GetRow(itemRow)) {
+            InventoryItemRef iRef = sItemFactory.GetItemRef(itemRow.GetUInt(0));
+            if (iRef.get() != nullptr) {
+                iRef->ChangeOwner(issuerID, true);
+                DBQueryResult stationRes;
+                sDatabase.RunQuery(stationRes,
+                    "SELECT startStationID FROM ctrContracts WHERE contractId = %u", cID);
+                DBResultRow stationRow;
+                uint32 stationID = 0;
+                if (stationRes.GetRow(stationRow))
+                    stationID = stationRow.GetUInt(0);
+                if (stationID > 0)
+                    iRef->Move(stationID, flagHangar, true);
+            }
+        }
     }
     return PyStatic.NewTrue();
 }
