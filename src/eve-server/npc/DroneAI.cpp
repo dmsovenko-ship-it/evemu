@@ -688,7 +688,7 @@ void DroneAIMgr::Attack(SystemEntity* pSE)
             return;
         // Check to see if the target still in the bubble (Client warped out)
         // fighters/bombers are able to follow.
-        if (!m_pDrone->SysBubble()->InBubble(pSE->GetPosition())) {
+        if (m_pDrone->SysBubble() == nullptr or !m_pDrone->SysBubble()->InBubble(pSE->GetPosition())) {
             _log(DRONE__AI_TRACE, "Drone %s(%u): Target %s(%u) no longer in bubble.  Clear target and move on",
                  m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID());
             ClearTarget(pSE);

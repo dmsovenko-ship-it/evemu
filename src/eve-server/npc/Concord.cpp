@@ -594,7 +594,7 @@ void ConcordAI::Attack(SystemEntity* pSE)
     if (m_mainAttackTimer.Check()) {
         if (!pSE) return;
         // Check to see if the target still in the bubble (Client warped out)
-        if (!m_npc->SysBubble()->InBubble(pSE->GetPosition())) {
+        if (m_npc->SysBubble() == nullptr or !m_npc->SysBubble()->InBubble(pSE->GetPosition())) {
             _log(CONCORD__AI_TRACE, "%s(%u): Target %s(%u) no longer in bubble.  Clear target and move on",
                  m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID());
 

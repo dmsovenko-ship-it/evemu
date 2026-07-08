@@ -442,7 +442,7 @@ void NPCAIMgr::SetWander()
     SystemBubble* pBubble = m_npc->SysBubble();
 
     // wandering.  nothing to shoot.  look for target.
-    if (pBubble->IsAnomaly() or pBubble->IsIncursion() or pBubble->IsMission()) {
+    if (pBubble == nullptr or pBubble->IsAnomaly() or pBubble->IsIncursion() or pBubble->IsMission()) {
         return;
     } else if (pBubble->HasDynamics() and pBubble->IsBelt()) {
         // pick random entity and loosely orbit it.  if no entity found, orbit center of belt
@@ -488,7 +488,7 @@ void NPCAIMgr::SetIdle() {
 
     SystemBubble* pBubble = m_npc->SysBubble();
     //disallow warpout if anomaly, incursion or mission rat
-    if (pBubble->IsAnomaly() or pBubble->IsIncursion() or pBubble->IsMission())
+    if (pBubble != nullptr and (pBubble->IsAnomaly() or pBubble->IsIncursion() or pBubble->IsMission()))
         return;
 
     //disallow warpout by NOT setting timer.
@@ -714,7 +714,7 @@ void NPCAIMgr::Attack(SystemEntity* pSE)
         return;
     if (m_mainAttackTimer.Check()) {
         // Check to see if the target still in the bubble (Client warped out)
-        if (!m_npc->SysBubble()->InBubble(pSE->GetPosition())) {
+        if (m_npc->SysBubble() == nullptr or !m_npc->SysBubble()->InBubble(pSE->GetPosition())) {
             _log(NPC__AI_TRACE, "%s(%u): Target %s(%u) no longer in bubble.  Clear target and move on",
                     m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID());
             m_missileTimer.Disable();

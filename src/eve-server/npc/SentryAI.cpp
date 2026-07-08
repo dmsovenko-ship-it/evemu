@@ -281,7 +281,7 @@ void SentryAI::Attack(SystemEntity* pTarget)
     if (m_mainAttackTimer.Check()) {
         if (!pTarget) return;
         // Check to see if the target still in the bubble (Client warped out)
-        if (!m_npc->SysBubble()->InBubble(pTarget->GetPosition())) {
+        if (m_npc->SysBubble() == nullptr or !m_npc->SysBubble()->InBubble(pTarget->GetPosition())) {
             _log(NPC__AI_TRACE, "%s(%u): Target %s(%u) no longer in bubble.  Clear target and move on",
                  m_npc->GetName(), m_npc->GetID(), pTarget->GetName(), pTarget->GetID());
             ClearTarget(pTarget);
