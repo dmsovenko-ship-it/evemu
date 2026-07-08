@@ -213,15 +213,16 @@
 # TODO (next session)
 
 ## High Priority
-1. **Standings** — decay mechanic, character-to-character (PnP) standings
-2. **EvE Mail** — notification delivery, spam filters
-3. **Market** — price history data seeding, corp market escrow
+1. **Calendar** — event creation, invitations, reminders (CalendarDB stubs exist)
+2. **Contract** — full auction lifecycle (item transfer on completion)
+3. **Market bot** — utilize full config (Trader Joe)
 
 ## Medium Priority
-4. **Calendar** — event creation, invitations, reminders
-5. **Contract** — full auction lifecycle (item transfer on completion)
+4. **Notification sources** — extend CreateNotification to more events (struct damage, FW, sov, standings derived mods)
+5. **Standings derived modifications** — kill a corp-mate → derived corp standing penalty
+6. **Corp mail roles** — enforce roleMask in SendMail
 
 ## Low Priority
-6. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
-7. **PyRep memory management** — valgrind leak fixes
-8. **Civilian Manager** — extend to multi-system routes and more ship types
+7. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
+8. **PyRep memory management** — valgrind leak fixes
+9. **Civilian Manager** — extend to multi-system routes and more ship types

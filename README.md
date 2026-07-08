@@ -41,6 +41,7 @@
 | **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
 | **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, assume/relinquish control, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
 | **Overheating** — heat dmg per slot, Thermodynamics skill check, Nanite Paste repair | **Перегрев** — урон по слотам, проверка Thermodynamics, ремонт Nanite Paste |
+| **Notifications** — persistent DB + live push, bill/tower/agent/corp sources | **Нотификации** — БД + live push, счета/POS/агенты/корп |
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
 | **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
 | **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг,encounter, storyline, эпик арки |
@@ -88,7 +89,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Estimated overall: ~85%** (upstream: 59.5%)
+**Estimated overall: ~88%** (upstream: 59.5%)
 
 | System | % | System | % |
 |--------|---|--------|---|
@@ -96,7 +97,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | Ship Navigation | 95% | Combat | 99.5% |
 | Modules | 92% | Module Management | 80% |
 | **Drones** | **90%** | **NPC AI & Spawning** | **80%** |
-| Market | 55% | Contracts | 50% |
+| Market | 70% | Contracts | 50% |
 | Corporation | 70% | Alliance | 30% |
 | Science & Industry | 40% | **Incursions** | **75%** |
 | **Wormholes** | **80%** | Fleet | 98% |
@@ -106,7 +107,8 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | EvE Mail | 45% | | |
 | Bookmark System | 95% | Effects System | 88% |
 | Scanning | 99% | Planetary Interaction | 72% |
-| Standings | 40% | Anomaly Manager | 85% |
+| Standings | 70% | Notifications | 80% |
+| Anomaly Manager | 85% | | |
 | Dungeon Manager | 70% | Spawn Manager | 75% |
 
 See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  
