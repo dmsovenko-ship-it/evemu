@@ -91,7 +91,7 @@ void POS_AI::Process()
 
         if ((now - m_lastAttackTime) > (int64)attackDelay * EvE::Time::mSecond) {
             m_lastAttackTime = now;
-            FireWeapon(pTarget);
+            FireWeapon(m_targetID);
         }
     }
 }
@@ -114,7 +114,7 @@ void POS_AI::FindTarget()
 
     for (auto& cur : entities) {
         SystemEntity* pEntity = cur.second;
-        if (!IsValidTarget(pEntity))
+        if (!IsValidTargetInternal(pEntity, m_pTower))
             continue;
 
         float dist = m_pWeapon->GetPosition().distance(pEntity->GetPosition());
@@ -131,12 +131,11 @@ void POS_AI::FindTarget()
         m_targetID = bestTarget->GetID();
 }
 
-bool POS_AI::IsValidTarget(SystemEntity* pEntity)
+static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower)
 {
     if (pEntity == nullptr)
         return false;
 
-    // only target players with a client
     if (!pEntity->HasPilot())
         return false;
 
@@ -147,17 +146,24 @@ bool POS_AI::IsValidTarget(SystemEntity* pEntity)
     if (pClient->IsCloaked())
         return false;
 
-    // same corporation - don't shoot
-    if (m_pTower != nullptr) {
-        if (pClient->GetCorporationID() == m_pTower->GetCorporationID())
+    if (pTower != nullptr) {
+        if (pClient->GetCorporationID() == pTower->GetCorporationID())
             return false;
     }
 
     return true;
 }
 
-void POS_AI::FireWeapon(SystemEntity* pTarget)
+void POS_AI::FireWeapon(uint32 targetID)
 {
+    SystemManager* pSystem = m_pWeapon->SystemMgr();
+    if (pSystem == nullptr)
+        return;
+
+    SystemEntity* pTarget = pSystem->GetSE(targetID);
+    if (pTarget == nullptr)
+        return;
+
     InventoryItemRef weaponRef = m_pWeapon->GetSelf();
 
     float dmgMult = weaponRef->GetAttribute(AttrDamageMultiplier).get_float();
@@ -194,8 +200,8 @@ void POS_AI::FireWeapon(SystemEntity* pTarget)
     }
 }
 
-void POS_AI::TargetLost(SystemEntity* who)
+void POS_AI::TargetLost(uint32 entityID)
 {
-    if (who != nullptr and who->GetID() == m_targetID)
+    if (entityID == m_targetID)
         m_targetID = 0;
 }

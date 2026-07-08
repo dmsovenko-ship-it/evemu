@@ -56,10 +56,10 @@ void WeaponSE::Process()
         m_ai->Process();
 }
 
-void WeaponSE::TargetLost(SystemEntity* who)
+void WeaponSE::TargetLost(uint32 entityID)
 {
     if (m_ai != nullptr)
-        m_ai->TargetLost(who);
+        m_ai->TargetLost(entityID);
 }
 
 

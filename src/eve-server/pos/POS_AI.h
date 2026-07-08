@@ -12,8 +12,6 @@
 #define EVEMU_POS_POS_AI_H_
 
 
-#include "system/SystemEntity.h"
-
 class TowerSE;
 class WeaponSE;
 
@@ -25,13 +23,11 @@ public:
 
     void Process();
 
-    void TargetLost(SystemEntity* who);
+    void                        TargetLost(uint32 entityID);
 
 protected:
     void FindTarget();
-    bool IsValidTarget(SystemEntity* pEntity);
-    void FireWeapon(SystemEntity* pTarget);
-    float GetRangeTo(SystemEntity* pTarget);
+    void FireWeapon(uint32 targetID);
 
 private:
     WeaponSE* m_pWeapon;

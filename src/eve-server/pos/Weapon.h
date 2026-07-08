@@ -37,7 +37,7 @@ public:
     virtual void Init();
 
     // AI
-    void                        TargetLost(SystemEntity* who);
+    void                        TargetLost(uint32 entityID);
 
 private:
     POS_AI*                     m_ai;
