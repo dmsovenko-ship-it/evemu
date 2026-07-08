@@ -30,17 +30,17 @@ INSERT IGNORE INTO `dunDungeons` (`dungeonID`, `dungeonName`, `dungeonStatus`, `
 (2028, 'Blood Hub', 3, 500012, 7, 'blood-anom-hub'),
 (2029, 'Blood Forsaken Hub', 3, 500012, 7, 'blood-anom-fhub');
 
--- ====== Guristas (500014) ======
+-- ====== Guristas (500010) ======
 INSERT IGNORE INTO `dunDungeons` (`dungeonID`, `dungeonName`, `dungeonStatus`, `factionID`, `archetypeID`, `dungeonUUID`) VALUES
-(2040, 'Guristas Hideaway', 3, 500014, 7, 'guristas-anom-hideaway'),
-(2041, 'Guristas Hidden Hideaway', 3, 500014, 7, 'guristas-anom-hidden'),
-(2042, 'Guristas Forsaken Hideaway', 3, 500014, 7, 'guristas-anom-forsaken'),
-(2043, 'Guristas Forlorn Hideaway', 3, 500014, 7, 'guristas-anom-forlorn'),
-(2044, 'Guristas Burrow', 3, 500014, 7, 'guristas-anom-burrow'),
-(2045, 'Guristas Refuge', 3, 500014, 7, 'guristas-anom-refuge'),
-(2046, 'Guristas Den', 3, 500014, 7, 'guristas-anom-den'),
-(2047, 'Guristas Hub', 3, 500014, 7, 'guristas-anom-hub'),
-(2048, 'Guristas Forlorn Hub', 3, 500014, 7, 'guristas-anom-fhub');
+(2040, 'Guristas Hideaway', 3, 500010, 7, 'guristas-anom-hideaway'),
+(2041, 'Guristas Hidden Hideaway', 3, 500010, 7, 'guristas-anom-hidden'),
+(2042, 'Guristas Forsaken Hideaway', 3, 500010, 7, 'guristas-anom-forsaken'),
+(2043, 'Guristas Forlorn Hideaway', 3, 500010, 7, 'guristas-anom-forlorn'),
+(2044, 'Guristas Burrow', 3, 500010, 7, 'guristas-anom-burrow'),
+(2045, 'Guristas Refuge', 3, 500010, 7, 'guristas-anom-refuge'),
+(2046, 'Guristas Den', 3, 500010, 7, 'guristas-anom-den'),
+(2047, 'Guristas Hub', 3, 500010, 7, 'guristas-anom-hub'),
+(2048, 'Guristas Forlorn Hub', 3, 500010, 7, 'guristas-anom-fhub');
 
 -- ====== Sansha's Nation (500019) ======
 INSERT IGNORE INTO `dunDungeons` (`dungeonID`, `dungeonName`, `dungeonStatus`, `factionID`, `archetypeID`, `dungeonUUID`) VALUES
@@ -68,12 +68,12 @@ INSERT IGNORE INTO `dunDungeons` (`dungeonID`, `dungeonName`, `dungeonStatus`, `
 (2085, 'Serpentis Forsaken Rally Point', 3, 500013, 7, 'serp-anom-frp'),
 (2086, 'Serpentis Forsaken Hub', 3, 500013, 7, 'serp-anom-fhub');
 
--- ====== Rogue Drones (500020) ======
+-- ====== Rogue Drones (500022) ======
 INSERT IGNORE INTO `dunDungeons` (`dungeonID`, `dungeonName`, `dungeonStatus`, `factionID`, `archetypeID`, `dungeonUUID`) VALUES
-(2090, 'Drone Cluster', 3, 500020, 7, 'drone-anom-cluster'),
-(2091, 'Drone Collection', 3, 500020, 7, 'drone-anom-collection'),
-(2092, 'Drone Assembly', 3, 500020, 7, 'drone-anom-assembly'),
-(2093, 'Drone Horde', 3, 500020, 7, 'drone-anom-horde');
+(2090, 'Drone Cluster', 3, 500022, 7, 'drone-anom-cluster'),
+(2091, 'Drone Collection', 3, 500022, 7, 'drone-anom-collection'),
+(2092, 'Drone Assembly', 3, 500022, 7, 'drone-anom-assembly'),
+(2093, 'Drone Horde', 3, 500022, 7, 'drone-anom-horde');
 
 -- Rooms for each dungeon
 INSERT IGNORE INTO `dunRooms` (`roomID`, `roomName`, `dungeonID`) VALUES
