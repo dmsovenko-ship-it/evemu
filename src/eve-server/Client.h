@@ -417,6 +417,10 @@ protected:
     GPoint m_movePoint;
     // dock location in space (absolute)
     GPoint m_dockPoint;
+    // upon login, the player needs to warp to a location, but the warp
+    // has to be queued to the next tick after login events have been processed
+    GPoint m_loginWarpPoint;
+    GPoint m_loginWarpRandomPoint;
 
     std::set<LSCChannel*>   m_channels;    //we do not own these.
     std::map<uint32, bool>  m_hangarLoaded;
