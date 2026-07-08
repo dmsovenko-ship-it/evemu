@@ -889,18 +889,13 @@ PyResult DogmaIMBound::Deactivate(PyCallArgs& call, PyInt* itemID, PyWString* ef
 }
 
 PyResult DogmaIMBound::Overload(PyCallArgs& call, PyInt* itemID, PyInt* effectID) {
-    /*
-     * 23:52:45 L DogmaIMBound::Handle_Overload(): size=2
-     * 23:52:45 [SvcCallDump]   Call Arguments:
-     * 23:52:45 [SvcCallDump]       Tuple: 2 elements
-     * 23:52:45 [SvcCallDump]         [ 0] Integer field: 140002542
-     * 23:52:45 [SvcCallDump]         [ 1] Integer field: 3035
-     */
-    // self.GetDogmaLM().Overload(itemID, effectID)
-
     Client* pClient(call.client);
-    //TODO:  need to verify pilot can OL modules
-    // AttrRequiredThermoDynamicsSkill
+
+    // Thermodynamics skill required to overload any module
+    if (!pClient->GetChar()->HasSkillTrainedToLevel(EvESkill::Thermodynamics, 1)) {
+        throw CustomError("You need Thermodynamics level 1 to overload modules.");
+    }
+
     pClient->GetShip()->Overload(itemID->value());
     return nullptr;
 }

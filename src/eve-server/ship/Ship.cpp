@@ -1269,41 +1269,74 @@ Slt  Att   Damage chance multiplier at distance from overheated module (in %)
 //Cycles to burnout = total module HP/ (hp heat damage per cycle - (hp heat damage per cycle*thermodynamics level*5/100))
 void ShipItem::HeatDamageCheck(GenericModule* pMod)
 {
-    if (pMod->IsLinked())       // linked slaves will contribute to heat calculation, but not individually.
-        if (!pMod->IsMaster())  // heat is calculated by master and multiplied by #linked modules
+    if (pMod->IsLinked())
+        if (!pMod->IsMaster())
             return;
 
-    // check ship's current bank heat to determine chance for pMod to take heat damage.
-    //  damage to other modules based on table above.
-    float curHeat(0.0f), damChance(0.0f);
+    // determine rack and base heat damage per cycle
+    float curHeat(0.0f), baseDamage(0.0f);
+    EVEItemFlags bankFlag = flagLowSlot0;
     if (pMod->isHighPower()) {
         curHeat = GetAttribute(AttrHeatHi).get_float();
-        damChance = GetAttribute(AttrHeatAttenuationHi).get_float();
+        baseDamage = pMod->GetSelf()->GetAttribute(AttrHeatDamage).get_float();
+        bankFlag = flagHiSlot0;
     } else if (pMod->isMediumPower()) {
         curHeat = GetAttribute(AttrHeatMed).get_float();
-        damChance = GetAttribute(AttrHeatAttenuationMed).get_float();
+        baseDamage = pMod->GetSelf()->GetAttribute(AttrHeatDamage).get_float();
+        bankFlag = flagMidSlot0;
     } else if (pMod->isLowPower()) {
         curHeat = GetAttribute(AttrHeatLow).get_float();
-        damChance = GetAttribute(AttrHeatAttenuationLow).get_float();
+        baseDamage = pMod->GetSelf()->GetAttribute(AttrHeatDamage).get_float();
+        bankFlag = flagLowSlot0;
     }
 
-    std::vector<uint32> modVec;
-    // if this module is grouped, all modules will take same damage.
-    if (pMod->IsLinked()) {
-        // not used yet
-    } else {
-        // module not linked.  continue with default heat damage calc's
-        // determine position and get adjacent modules
-        uint8 flag = pMod->flag();
+    if (baseDamage < 0.01f)
+        baseDamage = 1.0f; // default 1 HP per cycle if no heatDamage attr
 
-        // determine modules to damage and add to list
-        uint32 moduleID(0);
+    // Thermodynamics skill reduces heat damage by 5% per level
+    uint8 thermoLevel = 0;
+    if (HasPilot())
+        thermoLevel = GetPilot()->GetChar()->GetSkillLevel(EvESkill::Thermodynamics);
+    float skillReduction = 1.0f - (thermoLevel * 0.05f);
+    if (skillReduction < 0.0f) skillReduction = 0.0f;
 
-        //modVec.push_back(moduleID);
+    // slot-based damage spread
+    uint8 mySlot = pMod->flag() - bankFlag;
+
+    // get all modules in this bank
+    std::vector<GenericModule*> bankMods;
+    m_ModuleManager->GetModulesInBank(bankFlag, bankMods);
+
+    for (auto targetMod : bankMods) {
+        if (targetMod == nullptr)
+            continue;
+
+        uint8 targetSlot = targetMod->flag() - bankFlag;
+        int8 slotDist = abs((int8)targetSlot - (int8)mySlot);
+
+        float damageMultiplier;
+        if (slotDist == 0) {
+            // self - full damage
+            damageMultiplier = 1.0f;
+        } else if (slotDist == 1) {
+            damageMultiplier = 0.25f;
+        } else if (slotDist == 2) {
+            damageMultiplier = 0.10f;
+        } else {
+            damageMultiplier = 0.05f;
+        }
+
+        // heat scaling: more heat = more damage
+        float heatScale = curHeat / 100.0f;
+        if (heatScale < 0.1f) heatScale = 0.1f;
+
+        float finalDamage = baseDamage * damageMultiplier * heatScale * skillReduction;
+        if (finalDamage > 0.01f) {
+            m_ModuleManager->DamageModule(targetMod, finalDamage);
+            _log(SHIP__HEAT, "HeatDamageCheck - %s slot %u taking %.2f heat damage (dist=%i, heat=%.1f)",
+                    targetMod->GetSelf()->name(), targetSlot, finalDamage, slotDist, curHeat);
+        }
     }
-
-    for (auto cur : modVec)
-        DamageModule(cur);
 }
 
 void ShipItem::StripFitting()

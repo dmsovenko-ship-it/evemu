@@ -887,7 +887,46 @@ PyRep* ModuleManager::ModuleRepair(uint32 modID)
         return PyStatic.NewFalse();
     }
 
-    _log(MODULE__DAMAGE, "MM::ModuleRepair() - %s can be repaired (damage=%.2f).", pMod->GetSelf()->name(), damage.get_float());
+    // consume nanite paste and apply repair
+    Inventory* cargo = pShipItem->GetMyInventory();
+    if (cargo == nullptr) {
+        _log(MODULE__ERROR, "MM::ModuleRepair() - no cargo access.");
+        return PyStatic.NewFalse();
+    }
+
+    // find nanite paste (typeID 24694) in cargo
+    InventoryItemRef pasteRef = cargo->GetItemByTypeFlag(24694, flagCargoHold);
+    if (pasteRef.get() == nullptr) {
+        _log(MODULE__DAMAGE, "MM::ModuleRepair() - no nanite paste in cargo.");
+        return PyStatic.NewFalse();
+    }
+
+    // determine repair amount: base 10% per cycle, modified by Nanite Engineering skill
+    float repairPct = 0.10f;
+    if (HasPilot() and GetPilot() != nullptr) {
+        uint8 nanoLevel = GetPilot()->GetChar()->GetSkillLevel(EvESkill::NaniteEngineering);
+        repairPct += nanoLevel * 0.05f; // +5% per level
+    }
+    if (repairPct > 0.50f) repairPct = 0.50f;
+
+    EvilNumber repairAmount = EvilNumber(repairPct);
+    if (repairAmount > damage)
+        repairAmount = damage;
+
+    // consume one nanite paste
+    uint32 pasteQty = pasteRef->quantity();
+    if (pasteQty <= 1) {
+        pasteRef->Delete();
+    } else {
+        pasteRef->SetQuantity(pasteQty - 1);
+        pasteRef->SaveItem();
+    }
+
+    // apply repair
+    pMod->Repair(repairAmount);
+
+    _log(MODULE__DAMAGE, "MM::ModuleRepair() - %s repaired by %.2f (damage now %.2f). Nanite paste consumed.",
+            pMod->GetSelf()->name(), repairPct, (damage - repairAmount).get_float());
     return PyStatic.NewTrue();
 }
 
