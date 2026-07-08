@@ -35,8 +35,7 @@
 #include "system/cosmicMgrs/AnomalyMgr.h"
 
 Scan::Scan(Client* pClient)
-: m_client(pClient),
-  m_system(pClient->SystemMgr())
+: m_client(pClient)
 {
     m_probeScan = false;
     m_probeMap.clear();
@@ -249,11 +248,11 @@ void Scan::ShipScanResult() {
     // client scan data found in EVE_Scanning.h
     std::vector<CosmicSignature> anom;
     if (m_client->IsShowall()) {
-        m_system->GetAllEntities(anom);
+        GetSystem()->GetAllEntities(anom);
         // bubble centers only populate when bubble markers are enabled.
-        sBubbleMgr.GetBubbleCenterMarkers(m_system->GetID(), anom);
+        sBubbleMgr.GetBubbleCenterMarkers(GetSystem()->GetID(), anom);
     } else {
-        m_system->GetAnomMgr()->GetAnomalyList(anom);
+        GetSystem()->GetAnomMgr()->GetAnomalyList(anom);
     }
 
     PyList* resultList = new PyList();
@@ -301,7 +300,7 @@ void Scan::ProbeScanResult()
     std::vector<CosmicSignature> sig, anom;
 
     // are anomalies shown in probe scan results?  config option?
-    m_system->GetAnomMgr()->GetAnomalyList(anom);
+    GetSystem()->GetAnomMgr()->GetAnomalyList(anom);
     for (auto anoms : anom) {
         SystemScanResult ssr;
             ssr.typeID = anoms.sigTypeID;
@@ -345,7 +344,7 @@ void Scan::ProbeScanResult()
         resultList->AddItem(ssr.Encode());
     }
 
-    m_system->GetAnomMgr()->GetSignatureList(sig);
+    GetSystem()->GetAnomMgr()->GetSignatureList(sig);
     for (auto sigs : sig) {
         SignalData data = SignalData();
             data.sig = sigs;
@@ -504,7 +503,7 @@ struct CosmicSignature {
     }
 
     _log(SCAN__TRACE, "Scan::GetProbeDataForSig()  probeVec size: %u for signal %s (%s)", \
-            probeVec.size(), data.sig.sigName.c_str(), m_system->GetAnomMgr()->GetScanGroupName(data.sig.scanGroupID));
+            probeVec.size(), data.sig.sigName.c_str(), GetSystem()->GetAnomMgr()->GetScanGroupName(data.sig.scanGroupID));
 
     if (probeVec.empty())
         return false;
