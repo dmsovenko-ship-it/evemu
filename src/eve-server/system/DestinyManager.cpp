@@ -376,7 +376,7 @@ void DestinyManager::SetSpeedFraction(float fraction/*1.0*/, bool startMovement/
         UpdateVelocity(false);
     }
 
-    if (m_ballMode == Destiny::Ball::Mode::WARP) {
+    if ((m_ballMode == Destiny::Ball::Mode::WARP) and (m_warpState != nullptr)) {
         // set state to Ball::Mode::GOTO after setting warp decel variables, so warp completion will decel properly
         m_ballMode = Destiny::Ball::Mode::GOTO;
         // Tell client warp has ended and ship is decelerating in current heading direction.

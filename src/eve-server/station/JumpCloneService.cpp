@@ -72,7 +72,7 @@ PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
     m_db->GetClones(charID, res);
 
     PyList* clones = new PyList();
-    PyDict* implants = new PyDict();
+    PyList* implants = new PyList();
     PyList* shipClones = new PyList();
 
     DBResultRow row;
@@ -90,17 +90,16 @@ PyResult JumpCloneBound::GetCloneState(PyCallArgs &call) {
         clones->AddItem(new PyObject("util.KeyVal", entry));
 
         // Load per-clone implants from chrJumpCloneImplants
+        // Return as list of KeyVal with jumpCloneID and typeID so client can .Filter()
         DBQueryResult implantRes;
         m_db->GetCloneImplants(cloneID, implantRes);
 
-        std::vector<uint32> implantTypeIDs;
-        while (implantRes.GetRow(row))
-            implantTypeIDs.push_back(row.GetUInt(0));
-
-        PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
-        for (size_t i = 0; i < implantTypeIDs.size(); ++i)
-            implantTuple->SetItem(i, new PyInt(implantTypeIDs[i]));
-        implants->SetItem(new PyInt(cloneID), implantTuple);
+        while (implantRes.GetRow(row)) {
+            PyDict* implantEntry = new PyDict();
+            implantEntry->SetItemString("jumpCloneID", new PyInt(cloneID));
+            implantEntry->SetItemString("typeID", new PyInt(row.GetUInt(0)));
+            implants->AddItem(new PyObject("util.KeyVal", implantEntry));
+        }
     }
 
     PyDict* dict = new PyDict();
@@ -119,7 +118,7 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
     m_db->GetClones(charID, res);
 
     PyList* clones = new PyList();
-    PyDict* implants = new PyDict();
+    PyList* implants = new PyList();
 
     DBResultRow row;
     while (res.GetRow(row)) {
@@ -137,14 +136,12 @@ PyResult JumpCloneBound::GetStationCloneState(PyCallArgs &call) {
             DBQueryResult implantRes;
             m_db->GetCloneImplants(cloneID, implantRes);
 
-            std::vector<uint32> implantTypeIDs;
-            while (implantRes.GetRow(row))
-                implantTypeIDs.push_back(row.GetUInt(0));
-
-            PyTuple* implantTuple = new PyTuple(implantTypeIDs.size());
-            for (size_t i = 0; i < implantTypeIDs.size(); ++i)
-                implantTuple->SetItem(i, new PyInt(implantTypeIDs[i]));
-            implants->SetItem(new PyInt(cloneID), implantTuple);
+            while (implantRes.GetRow(row)) {
+                PyDict* implantEntry = new PyDict();
+                implantEntry->SetItemString("jumpCloneID", new PyInt(cloneID));
+                implantEntry->SetItemString("typeID", new PyInt(row.GetUInt(0)));
+                implants->AddItem(new PyObject("util.KeyVal", implantEntry));
+            }
         }
     }
 
