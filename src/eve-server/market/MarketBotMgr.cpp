@@ -31,39 +31,7 @@ extern SystemManager* sSystemMgr;
 static constexpr int64 FILETIME_TICKS_PER_DAY = 864000000000;  // 100ns ticks per day; for expelorders to be removed prematurally
 
 static const uint32 MARKETBOT_MAX_ITEM_ID = 30000;
-static const std::vector<uint32> VALID_GROUPS = {
-    // Ores & Mining
-    18,                                    // Minerals
-    450, 451, 452, 453, 454, 455, 456,     // Raw ores (part 1)
-    457, 458, 459, 460, 461, 462,
-    465, 466, 467, 468, 469,              // Raw ores (part 2)
-    479,                                  // Scanner Probe
-    482,                                  // Mining Crystals
-    492,                                  // Survey Probe
-    538,                                  // Data Miners
-    548,                                  // Interdiction Probe
-    663,                                  // Mercoxit Mining Crystals
-
-    // Ammo / Charges
-    83,                                   // Projectile Ammo
-    84,                                   // Missiles
-    85,                                   // Hybrid Charges
-    86,                                   // Frequency Crystals
-    87,                                   // Cap Booster Charges
-    88,                                   // Defender Missiles
-    89,                                   // Torpedoes
-    90,                                   // Bombs
-    92,                                   // Mines
-    372, 373, 374, 375, 376, 377,         // Advanced Ammo
-    384, 385, 386, 387, 388, 389,         // Extended Missiles (part 1)
-    390, 391, 392, 393, 394, 395, 396,    // Extended Missiles (part 2)
-    648,                                  // Advanced Rocket
-    653, 654, 655, 656, 657,              // Advanced Missiles
-    772,                                  // Assault Missiles
-
-    // Boosters for Implants
-    303
-};
+// VALID_GROUPS now read from MarketBotConf XML config
 
 static constexpr uint32 BOT_OWNER_ID = 1000125; // NPC corp owner, default CONCORD
 
@@ -431,7 +399,7 @@ uint32 MarketBotMgr::SelectRandomItemID() {
         itemID = GetRandomInt(10, MARKETBOT_MAX_ITEM_ID);
         type = sItemFactory.GetType(itemID);
 
-        if (type && std::find(VALID_GROUPS.begin(), VALID_GROUPS.end(), type->groupID()) != VALID_GROUPS.end()) {
+        if (type && std::find(sMBotConf.validGroups.begin(), sMBotConf.validGroups.end(), type->groupID()) != sMBotConf.validGroups.end()) {
             codelog(MARKET__TRACE, "Selected itemID %u after %u attempts", itemID, tries);
             return itemID;
         }

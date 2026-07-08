@@ -80,6 +80,9 @@ protected:
     bool ProcessMain( const TiXmlElement* ele );
     bool ProcessBuy( const TiXmlElement* ele );
     bool ProcessSell( const TiXmlElement* ele );
+    bool ProcessGroups( const TiXmlElement* ele );
+
+    std::vector<uint32> validGroups;
 
 };
 

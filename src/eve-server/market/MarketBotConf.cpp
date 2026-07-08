@@ -11,6 +11,10 @@
 
 
 
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include "market/MarketBotConf.h"
 
 
@@ -67,6 +71,13 @@ MarketBotConf::MarketBotConf()
     sell.PriceMultiplierMax = 1.3f;
     sell.QuantityMin = 10;
     sell.QuantityMax = 500;
+
+    // default valid groups (minerals, ores, ammo, charges, probes, boosters)
+    uint32 defaultGroups[] = {18,83,84,85,86,87,88,89,90,92,372,373,374,375,376,377,
+        384,385,386,387,388,389,390,391,392,393,394,395,396,648,653,654,655,656,657,772,
+        450,451,452,453,454,455,456,457,458,459,460,461,462,465,466,467,468,469,
+        479,482,492,538,548,663,303};
+    validGroups.assign(defaultGroups, defaultGroups + sizeof(defaultGroups)/sizeof(uint32));
 }
 
 bool MarketBotConf::ProcessBotConf(const TiXmlElement* ele)
@@ -75,6 +86,7 @@ bool MarketBotConf::ProcessBotConf(const TiXmlElement* ele)
     AddMemberParser( "main",      &MarketBotConf::ProcessMain );
     AddMemberParser( "buy",       &MarketBotConf::ProcessBuy );
     AddMemberParser( "sell",      &MarketBotConf::ProcessSell );
+    AddMemberParser( "groups",    &MarketBotConf::ProcessGroups );
 
     // parse the element
     const bool result = ParseElementChildren( ele );
@@ -83,9 +95,37 @@ bool MarketBotConf::ProcessBotConf(const TiXmlElement* ele)
     RemoveParser( "main" );
     RemoveParser( "buy" );
     RemoveParser( "sell" );
+    RemoveParser( "groups" );
 
     // return status of parsing
     return result;
+}
+
+bool MarketBotConf::ProcessGroups(const TiXmlElement* ele)
+{
+    const char* text = ele->GetText();
+    if (text == nullptr)
+        return true;
+
+    validGroups.clear();
+    std::string groupsStr(text);
+    std::stringstream ss(groupsStr);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        // trim whitespace
+        token.erase(0, token.find_first_not_of(" \t"));
+        token.erase(token.find_last_not_of(" \t") + 1);
+        if (!token.empty()) {
+            try {
+                uint32 groupID = static_cast<uint32>(std::stoul(token));
+                if (groupID > 0)
+                    validGroups.push_back(groupID);
+            } catch (...) {
+                // skip invalid tokens
+            }
+        }
+    }
+    return true;
 }
 
 bool MarketBotConf::ProcessMain(const TiXmlElement* ele)
