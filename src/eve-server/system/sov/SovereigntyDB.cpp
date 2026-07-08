@@ -120,3 +120,33 @@ void SovereigntyDB::SetBeaconID(uint32 systemID, uint32 beaconID)
         codelog(SOV__ERROR, "Error in changing Beacon ID: %s", err.c_str());
     }
 }
+
+void SovereigntyDB::GetUpgradeData(DBQueryResult& res)
+{
+    sDatabase.RunQuery(res,
+        "SELECT upgradeID, systemID, typeID, level, state"
+        " FROM sovUpgrades");
+}
+
+void SovereigntyDB::GetUpgradesForSystem(DBQueryResult& res, uint32 systemID)
+{
+    sDatabase.RunQuery(res,
+        "SELECT upgradeID, typeID, level, state"
+        " FROM sovUpgrades WHERE systemID = %u", systemID);
+}
+
+void SovereigntyDB::AddSystemUpgrade(uint32 systemID, uint32 upgradeID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT IGNORE INTO sovUpgrades (systemID, typeID) VALUES (%u, %u)",
+        systemID, upgradeID);
+}
+
+void SovereigntyDB::RemoveSystemUpgrade(uint32 systemID, uint32 upgradeID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM sovUpgrades WHERE systemID = %u AND upgradeID = %u",
+        systemID, upgradeID);
+}

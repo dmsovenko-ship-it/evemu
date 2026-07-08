@@ -1,0 +1,12 @@
+-- +migrate Up
+CREATE TABLE IF NOT EXISTS `sovUpgrades` (
+    `upgradeID` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `systemID` INT UNSIGNED NOT NULL,
+    `typeID` INT UNSIGNED NOT NULL,
+    `level` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    `state` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    KEY `systemID` (`systemID`)
+) ENGINE=InnoDB;
+
+-- +migrate Down
+DROP TABLE IF EXISTS `sovUpgrades`;

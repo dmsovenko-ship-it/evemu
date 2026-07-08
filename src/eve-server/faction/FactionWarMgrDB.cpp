@@ -70,6 +70,20 @@ PyRep* FactionWarMgrDB::GetFacWarSystems()
     return result;
 }
 
+bool FactionWarMgrDB::IsValidFaction(uint32 factionID) {
+    DBQueryResult res;
+    sDatabase.RunQuery(res, "SELECT factionID FROM facFactions WHERE factionID = %u AND militiaCorporationID IS NOT NULL", factionID);
+    return res.GetRowCount() > 0;
+}
+
+std::string FactionWarMgrDB::GetFactionName(uint32 factionID) {
+    DBQueryResult res;
+    sDatabase.RunQuery(res, "SELECT factionName FROM facFactions WHERE factionID = %u", factionID);
+    DBResultRow row;
+    if (res.GetRow(row)) return row.GetText(0);
+    return "Unknown Faction";
+}
+
 uint32 FactionWarMgrDB::GetFactionMilitiaCorporation(const uint32 factionID) {
     DBQueryResult res;
 

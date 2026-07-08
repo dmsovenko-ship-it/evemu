@@ -26,7 +26,9 @@
 
 #include "eve-server.h"
 
-
+#include "EntityList.h"
+#include "EVE_Mail.h"
+#include "standing/StandingDB.h"
 #include "cache/ObjCacheService.h"
 #include "faction/FactionWarMgrService.h"
 
@@ -216,62 +218,103 @@ PyResult FactionWarMgrService::GetSystemStatus(PyCallArgs &call, PyInt* solarsys
 
 // these next two should use static data or cached data to avoid db hits
 PyResult FactionWarMgrService::IsEnemyFaction(PyCallArgs &call, PyInt* enemyID, PyInt* factionID) {
-    //  return self.facWarMgr.IsEnemyFaction(enemyID, factionID)
-    /*
-     * 05:39:09 L FactionWarMgrService::Handle_IsEnemyFaction(): size=2
-     * 05:39:09 [SvcCall]   Call Arguments:
-     * 05:39:09 [SvcCall]       Tuple: 2 elements
-     * 05:39:09 [SvcCall]         [ 0] Integer field: 500002
-     * 05:39:09 [SvcCall]         [ 1] Integer field: 500001   <- this one changes
-     */
-    _log(FACWAR__CALL, "FacWarMgr::Handle_IsEnemyFaction()");
-    call.Dump(FACWAR__CALL_DUMP);
-
-    // return boolean
-    return PyStatic.NewFalse();
+    float standing = StandingDB::GetStanding(enemyID->value(), factionID->value());
+    return new PyBool(standing < 0.0f);
 }
 
 PyResult FactionWarMgrService::IsEnemyCorporation(PyCallArgs &call, PyInt* enemyID, PyInt* factionID) {
-    //return self.facWarMgr.IsEnemyCorporation(enemyID, factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_IsEnemyCorporation()");
-    call.Dump(FACWAR__CALL_DUMP);
-
-    // return boolean
-    return PyStatic.NewFalse();
+    DBQueryResult res;
+    sDatabase.RunQuery(res, "SELECT warFactionID FROM crpCorporations WHERE corporationID = %u", enemyID->value());
+    DBResultRow row;
+    if (!res.GetRow(row) or row.GetUInt(0) == 0)
+        return PyStatic.NewFalse();
+    float standing = StandingDB::GetStanding(row.GetUInt(0), factionID->value());
+    return new PyBool(standing < 0.0f);
 }
-
-/**     ***********************************************************************
- * @note   these do absolutely nothing at this time....
- */
 
 PyResult FactionWarMgrService::GetCharacterRankInfo(PyCallArgs &call, PyInt* characterID) {
-  _log(FACWAR__CALL, "FacWarMgr::Handle_GetCharacterRankInfo()");
-  call.Dump(FACWAR__CALL_DUMP);
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT currentRank, highestRank, factionID FROM facWarCharacters WHERE characterID = %u",
+        characterID->value());
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return PyStatic.NewNone();
 
-  return nullptr;
+    util_Rowset rs;
+    rs.header.push_back("currentRank");
+    rs.header.push_back("highestRank");
+    rs.header.push_back("factionID");
+    rs.header.push_back("lastModified");
+    rs.line.push_back(new PyList());
+    rs.line.back()->AddItem(new PyInt(row.GetInt(0)));
+    rs.line.back()->AddItem(new PyInt(row.GetInt(1)));
+    rs.line.back()->AddItem(new PyInt(row.GetInt(2)));
+    rs.line.back()->AddItem(new PyLong(GetFileTimeNow()));
+    return rs.Encode();
 }
 
-//22:48:28 L FactionWarMgrService::Handle_GetFactionalWarStatus(): size= 0
 PyResult FactionWarMgrService::GetFactionalWarStatus(PyCallArgs &call) {
-  _log(FACWAR__CALL, "FacWarMgr::Handle_GetFactionalWarStatus()");
-  call.Dump(FACWAR__CALL_DUMP);
-
-  return nullptr;
+    uint32 charID = call.client->GetCharacterID();
+    DBQueryResult res;
+    sDatabase.RunQuery(res, "SELECT factionID, joined, currentRank FROM facWarCharacters WHERE characterID = %u", charID);
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return PyStatic.NewNone();
+    PyDict* dict = new PyDict();
+        dict->SetItemString("factionID", new PyInt(row.GetInt(0)));
+        dict->SetItemString("joined", new PyLong(row.GetInt64(1)));
+        dict->SetItemString("currentRank", new PyInt(row.GetInt(2)));
+    return new PyObject("util.KeyVal", dict);
 }
 
 PyResult FactionWarMgrService::JoinFactionAsCharacter(PyCallArgs &call, PyInt* factionID) {
-  _log(FACWAR__CALL, "FacWarMgr::Handle_JoinFactionAsCharacter()");
-  call.Dump(FACWAR__CALL_DUMP);
+    uint32 charID = call.client->GetCharacterID();
+    uint32 fID = factionID->value();
 
-  return nullptr;
+    // validate faction
+    if (!m_db.IsValidFaction(fID)) {
+        call.client->SendErrorMsg("Invalid faction.");
+        return PyStatic.NewFalse();
+    }
+
+    // check not already in FW
+    DBQueryResult curRes;
+    sDatabase.RunQuery(curRes, "SELECT characterID FROM facWarCharacters WHERE characterID = %u", charID);
+    if (curRes.GetRowCount() > 0) {
+        call.client->SendErrorMsg("You are already enlisted in Faction Warfare.");
+        return PyStatic.NewFalse();
+    }
+
+    DBerror err;
+    int64 now = GetFileTimeNow();
+    sDatabase.RunQuery(err,
+        "INSERT INTO facWarCharacters (characterID, factionID, joined, lastActive, currentRank, highestRank)"
+        " VALUES (%u, %u, %lli, %lli, 1, 1)",
+        charID, fID, now, now);
+
+    // update character's warFactionID
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = %u WHERE characterID = %u", fID, charID);
+
+    // notification
+    PyDict* data = new PyDict();
+        data->SetItemString("factionID", new PyInt(fID));
+        data->SetItemString("charID", new PyInt(charID));
+    sEntityList.CreateNotification(charID, Notify::Types::FWCorpJoin, fID, data);
+
+    call.client->SendNotifyMsg("You have joined the %s militia.", m_db.GetFactionName(fID).c_str());
+    return PyStatic.NewTrue();
 }
 
 PyResult FactionWarMgrService::GetCorporationWarFactionID(PyCallArgs &call, PyInt* corporationID) {
-    //ret = self.facWarMgr.GetCorporationWarFactionID(corpID)
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetCorporationWarFactionID()");
-    call.Dump(FACWAR__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    sDatabase.RunQuery(res, "SELECT warFactionID FROM crpCorporations WHERE corporationID = %u", corporationID->value());
+    DBResultRow row;
+    if (res.GetRow(row) and row.GetUInt(0) > 0)
+        return new PyInt(row.GetUInt(0));
+    return PyStatic.NewNone();
 }
 
 PyResult FactionWarMgrService::GetSystemsConqueredThisRun(PyCallArgs &call) {

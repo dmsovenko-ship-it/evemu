@@ -36,6 +36,8 @@ public:
     PyRep *GetWarFactions();
     PyRep *GetFacWarSystems();
     uint32 GetFactionMilitiaCorporation(const uint32 factionID);
+    bool IsValidFaction(uint32 factionID);
+    std::string GetFactionName(uint32 factionID);
 };
 
 #endif /* __FACTION_WAR_MGR_DB__H__INCL__ */
