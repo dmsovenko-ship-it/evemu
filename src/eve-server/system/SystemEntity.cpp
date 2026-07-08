@@ -522,7 +522,7 @@ void FieldSE::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = 0 /*(m_harmonic > EVEPOS::Harmonic::Offline ? Ball::Flag::IsMassive : 0)*/; // leave this as 0 to disable client-side bump checks for now
+        head.flags = Ball::Flag::IsGlobal;
     into.Append( head );
     MassSector mass = MassSector();
         mass.mass = 10000000000;    // as seen in packets
