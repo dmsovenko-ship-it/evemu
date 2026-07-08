@@ -210,18 +210,55 @@
 - **Warp exit crash**: `SetPosition(false)` in `WarpUpdate` — no `SetBallPosition` sent while client WarpLoop is active (fixes `ValueError: Unknown packet type`) ✅
 - **Jump clone implants**: returned as `PyList` of `KeyVal(jumpCloneID, typeID)` instead of `dict` — client `.Filter()` works ✅
 
+## Part 29: Standings Decay + PnP + Market History + Trade Skills (done)
+- **Standings decay**: `StandingMgr::ProcessDecay()` runs every hour from main loop, `new = old * (1-0.0000278)^hours` (~2%/30d toward 0), skips inactive players (>60d), logs to `repStandingChanges` ✅
+- **PnP standing**: `Standing::SetStanding()` RPC — clamp [-10,10], max ±2 per tx, UPSERT + `lastModified`, `OnStandingSet` + `OnStandingsModified` notifications ✅
+- **SQL migration**: `lastModified` column on `repStandings` ✅
+- **Market history**: `UpdatePriceHistory` `GROUP BY` uncommented, `Process()` wired to call it on `NeedsUpdate()`, seed from `CruciblePriceHistory` on empty table ✅
+- **Trade skills**: `PlaceCharOrder` — order count (`Trade*4+Retail*8+Wholesale*16+Tycoon*32`), range validation (`Marketing`/`Procurement`), `MarginTrading` escrow reduction (`escrow = total * 0.75^level`) ✅
+- **ModifyCharOrder**: fixed for corp orders — uses `oInfo.isCorp` + `accountKey` instead of hardcoded `charID`/`Cash` ✅
+
+## Part 30: Notifications — DB + Live Push (done)
+- **CreateNotification helper**: `EntityList::CreateNotification()` — inserts into `notification` + `notificationText` tables, sends `OnNotificationReceived` live push ✅
+- **Sources connected**: `CharPayBill` → `BillPaidChar`, `CheckFuel` → `TowerAlert`, `OfferMission` → `ResearchMissionAvailable`, `CorpRegistryBound` → `CorpAppNew`, `Structure::Killed` → `CorpStructLost` ✅
+- **NotificationText**: marshal PyDict via `Marshal()` for DB storage ✅
+
+## Part 31: Calendar + Contracts + Market Bot (done)
+- **Calendar**: `EditPersonalEvent`/`EditCorporationEvent`/`EditAllianceEvent` — UPDATE + `OnReloadCalendar`, `UpdateEventParticipants` — add/remove invitees, `SendEventResponse` — now sends reload notification ✅
+- **Calendar DB**: `UpdateEventParticipants()` + `UpdateEvent()` methods on `CalendarDB` ✅
+- **Contracts**: `FinishAuction` — item transfer to winner (`ChangeOwner` + `Move`), refund non-winning bidders, notify issuer, return items on no-bids ✅
+- **Contracts**: `PlaceBid` — refund previous highest bidder, `FillBidData` column fix (`bidDateTime` → `timeBid`) ✅
+- **Market bot**: `buy.OrdersPerSystem`/`sell.OrdersPerSystem`, `buy.DupeOrdersPerSystem`/`sell.DupeOrdersPerSystem`, `buy.MinBuyAmount`/`sell.MinSellAmount` from config ✅
+
+## Part 32: Corp Mail Roles + More Notifications (done)
+- **crpRoles table**: SQL migration creates `crpRoles(characterID, roleID)` for role-based mail filtering ✅
+- **MailDB roleMask**: `SendMail` now queries `crpRoles` when `roleMask > 0` to filter recipients by role ✅
+- **Structure kill notification**: `CorpStructLost` via `CreateNotification` on `StructureSE::Killed` ✅
+
+## Part 33: POS Full Overhaul + Overheating + Warp Fixes (done)
+- **POS fuel**: tower burns fuel from cargo, reinforced at empty, stront timer, auto-return to Online ✅
+- **POS CPU/PG**: `RecalcResources()`, `OnlineModule`/`OfflineModule` track real usage ✅
+- **POS orbitals**: `AnchorOrbital`/`UnanchorOrbital`/`OnlineOrbital`/`CompleteOrbitalStateChange`/`GMUpgradeOrbital` ✅
+- **POS reactors**: `LinkResourceForTower` + `RunMoonProcessCycleforTower` ✅
+- **POS weapon AI**: `POS_AI` class — bubble scan, corp validation, falloff to-hit ✅
+- **POS assume/relinquish control**: `m_controllerID`, slim item, notifications ✅
+- **POS skill checks**: `CheckStructureSkills()` validates `RequiredSkill1-6` ✅
+- **Overheating**: Thermodynamics skill check, `HeatDamageCheck` slot-based spread, Nanite Paste consumption ✅
+- **Warp fixes**: alignment no longer cancels warp, `SetPosition(false)` during WarpUpdate prevents client crash ✅
+
 # TODO (next session)
 
-## High Priority
-1. **Calendar** — event creation, invitations, reminders (CalendarDB stubs exist)
-2. **Contract** — full auction lifecycle (item transfer on completion)
-3. **Market bot** — utilize full config (Trader Joe)
+## 🔴 High Priority
+1. **FW/SOV notification sources** — когда FactionWar / Sovereignty будут доделаны, подключить `CreateNotification` к `FWCorpJoin`/`SovClaim` и т.д.
+2. **crpRoles seeding** — автоматически обновлять `crpRoles` при изменении корп-ролей через CorpRegistryBound
 
-## Medium Priority
-4. **Notification sources** — extend CreateNotification to more events (FW, sov)
-5. **Corp mail roles** — enforce roleMask in SendMail (crpRoles table required)
+## 🟡 Medium Priority
+3. **Market bot** — `VALID_GROUPS` сделать конфигурируемым; цены и количества — через конфиг
+4. **Market** — MarginTrading escrow validation при исполнении ордера
+5. **Contracts** — авто-завершение просроченных аукционов (scheduled task)
 
-## Low Priority
-7. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
-8. **PyRep memory management** — valgrind leak fixes
-9. **Civilian Manager** — extend to multi-system routes and more ship types
+## 🟢 Low Priority
+6. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
+7. **PyRep memory management** — valgrind leak fixes
+8. **Civilian Manager** — extend to multi-system routes and more ship types
+9. **Overheat rack** — `OverloadRack`/`StopOverloadRack` stubs

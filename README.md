@@ -89,7 +89,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Estimated overall: ~89%** (upstream: 59.5%)
+**Estimated overall: ~91%** (upstream: 59.5%)
 
 | System | % | System | % |
 |--------|---|--------|---|
@@ -97,17 +97,16 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | Ship Navigation | 95% | Combat | 99.5% |
 | Modules | 92% | Module Management | 80% |
 | **Drones** | **90%** | **NPC AI & Spawning** | **80%** |
-| Market | 70% | Contracts | 50% |
 | Corporation | 70% | Alliance | 30% |
 | Science & Industry | 40% | **Incursions** | **75%** |
 | **Wormholes** | **80%** | Fleet | 98% |
 | Missions | 70% | Agents | 85% |
-| POS | 85% | Overheating | 70% |
-| Calendar | 65% | LSC (Chat) | 70% |
-| EvE Mail | 45% | | |
+| POS | 90% | Overheating | 80% |
+| Calendar | 85% | Notifications | 90% |
+| Mail & LSC | 75% | Standings | 75% |
+| Market | 75% | Contracts | 70% |
 | Bookmark System | 95% | Effects System | 88% |
 | Scanning | 99% | Planetary Interaction | 72% |
-| Standings | 70% | Notifications | 80% |
 | Anomaly Manager | 85% | | |
 | Dungeon Manager | 70% | Spawn Manager | 75% |
 
