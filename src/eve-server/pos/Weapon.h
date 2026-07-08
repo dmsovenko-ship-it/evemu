@@ -15,12 +15,14 @@
 #include "pos/Structure.h"
 
 
+class POS_AI;
+
 class WeaponSE
 : public StructureSE
 {
 public:
     WeaponSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& data);
-    virtual ~WeaponSE()                                 { /* do nothing here */ }
+    virtual ~WeaponSE();
 
     /* class type pointer querys. */
     virtual WeaponSE*           GetWeaponSE()           { return this; }
@@ -34,6 +36,11 @@ public:
     /* virtual functions default to base class and overridden as needed */
     virtual void Init();
 
+    // AI
+    void                        TargetLost(SystemEntity* who);
+
+private:
+    POS_AI*                     m_ai;
 
 };
 

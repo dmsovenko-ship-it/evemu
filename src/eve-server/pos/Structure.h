@@ -172,6 +172,7 @@ public:
     int8                        GetState() const        { return m_data.state; }
     int8                        GetProcState()          { return m_procState; }
     int8                        GetStatus()             { return m_data.status; }
+    int32                       GetTowerID() const      { return m_data.towerID; }
     MoonSE*                     GetMoonSE()             { return m_moonSE; }
     PlanetSE*                   GetPlanetSE()           { return m_planetSE; } //Planets are required for sovereignty structures
     StargateSE*                 GetGateSE()             { return m_gateSE; }

@@ -19,6 +19,7 @@
  */
 
 
+#include "pos/POS_AI.h"
 #include "pos/Weapon.h"
 
 
@@ -29,14 +30,21 @@
  * 872     disallowOffensiveModifiers  NULL    1
  */
 WeaponSE::WeaponSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& data)
-: StructureSE(structure, services, system, data)
+: StructureSE(structure, services, system, data),
+  m_ai(nullptr)
 {
 
+}
+
+WeaponSE::~WeaponSE()
+{
+    SafeDelete(m_ai);
 }
 
 void WeaponSE::Init()
 {
     StructureSE::Init();
+    m_ai = new POS_AI(this);
 }
 
 void WeaponSE::Process()
@@ -44,7 +52,14 @@ void WeaponSE::Process()
     /* called by EntityList::Process on every loop */
     /*  Enable base call to Process state changes  */
     StructureSE::Process();
-    /** @todo (Allan)  will need some form of AI to engage defensive modules if/when any structure is attacked */
+    if (m_ai != nullptr)
+        m_ai->Process();
+}
+
+void WeaponSE::TargetLost(SystemEntity* who)
+{
+    if (m_ai != nullptr)
+        m_ai->TargetLost(who);
 }
 
 
