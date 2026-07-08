@@ -15,6 +15,7 @@
 #include "StaticDataMgr.h"
 #include "pos/POS_AI.h"
 #include "pos/Tower.h"
+#include "ship/Ship.h"
 #include "pos/Weapon.h"
 #include "system/Damage.h"
 #include "system/SystemBubble.h"
@@ -96,6 +97,31 @@ void POS_AI::Process()
     }
 }
 
+static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower)
+{
+    if (pEntity == nullptr)
+        return false;
+
+    if (!pEntity->HasPilot())
+        return false;
+
+    Client* pClient = pEntity->GetPilot();
+    if (pClient == nullptr)
+        return false;
+
+    // check if cloaked (via ship's destiny manager)
+    ShipSE* pShip = pClient->GetShipSE();
+    if (pShip != nullptr and pShip->DestinyMgr() != nullptr and pShip->DestinyMgr()->IsCloaked())
+        return false;
+
+    if (pTower != nullptr) {
+        if (pClient->GetCorporationID() == pTower->GetCorporationID())
+            return false;
+    }
+
+    return true;
+}
+
 void POS_AI::FindTarget()
 {
     SystemBubble* pBubble = m_pWeapon->SysBubble();
@@ -129,29 +155,6 @@ void POS_AI::FindTarget()
 
     if (bestTarget != nullptr)
         m_targetID = bestTarget->GetID();
-}
-
-static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower)
-{
-    if (pEntity == nullptr)
-        return false;
-
-    if (!pEntity->HasPilot())
-        return false;
-
-    Client* pClient = pEntity->GetPilot();
-    if (pClient == nullptr)
-        return false;
-
-    if (pClient->IsCloaked())
-        return false;
-
-    if (pTower != nullptr) {
-        if (pClient->GetCorporationID() == pTower->GetCorporationID())
-            return false;
-    }
-
-    return true;
 }
 
 void POS_AI::FireWeapon(uint32 targetID)
