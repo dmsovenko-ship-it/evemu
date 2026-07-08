@@ -24,6 +24,7 @@
 #include "EVEServerConfig.h"
 #include "inventory/Inventory.h"
 #include "planet/Moon.h"
+#include "pos/Module.h"
 #include "pos/Tower.h"
 #include "system/Container.h"
 #include "system/Damage.h"
@@ -328,6 +329,23 @@ void TowerSE::RecalcResources()
 
     _log(POS__DEBUG, "TowerSE::RecalcResources() - Tower %s(%u): PG %.0f/%.0f, CPU %.0f/%.0f",
             GetName(), m_self->itemID(), m_pgUsed, m_pg, m_cpuUsed, m_cpu);
+}
+
+void TowerSE::ToggleProcessCycle()
+{
+    // toggle active flag on all moon miners and reactors
+    for (auto& cur : m_structs) {
+        StructureSE* pSE = cur.second;
+        if (pSE->IsReactorSE()) {
+            ReactorSE* pReactor = pSE->GetReactorSE();
+            if (pReactor != nullptr) {
+                pReactor->SetActive(!pReactor->IsActive());
+                _log(POS__MESSAGE, "TowerSE::ToggleProcessCycle() - Reactor %s(%u) is now %s.",
+                        pSE->GetName(), pSE->GetID(), pReactor->IsActive() ? "active" : "inactive");
+            }
+        }
+        // future: handle moon miners here
+    }
 }
 
 void TowerSE::OnlineModule(StructureSE* pSE)

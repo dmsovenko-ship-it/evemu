@@ -25,6 +25,18 @@ public:
     void Init();
     void Clear();
 
+    bool IsActive() const                               { return active; }
+    void SetActive(bool set)                            { active = set; }
+    void AddConnection(EVEPOS::POS_Connections& conn);
+    void ClearConnections()                             { connections.clear(); }
+    std::map<uint32, EVEPOS::POS_Connections>& GetConnections()     { return connections; }
+    std::map<uint32, EVEPOS::POS_Resource>& GetDemands()            { return demands; }
+    std::map<uint32, EVEPOS::POS_Resource>& GetSupplies()           { return supplies; }
+    int16 GetReaction() const                           { return reaction; }
+    void SetReaction(int16 react)                       { reaction = react; }
+    int32 GetItemID() const                             { return itemID; }
+    void SetItemID(int32 id)                            { itemID = id; }
+
 private:
     bool active;
     int32 itemID;

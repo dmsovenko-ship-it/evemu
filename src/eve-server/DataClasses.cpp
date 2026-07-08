@@ -37,6 +37,11 @@ void ReactorData::Init()
     reaction = 0;
 }
 
+void ReactorData::AddConnection(EVEPOS::POS_Connections& conn)
+{
+    connections[conn.sourceID] = conn;
+}
+
 /*
 PI_CCPin::PI_CCPin()
 {

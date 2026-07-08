@@ -59,6 +59,11 @@ public:
     virtual void                Init();
     virtual void                InitData();
 
+    // reactor resource linking
+    void                        AddConnection(EVEPOS::POS_Connections& conn);
+    void                        ClearConnections();
+    bool                        IsActive()              { return pData->IsActive(); }
+    void                        SetActive(bool set)     { pData->SetActive(set); }
 
 private:
     ReactorData*                pData; //ReactorData class

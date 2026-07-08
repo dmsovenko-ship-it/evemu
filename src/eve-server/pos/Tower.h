@@ -115,6 +115,9 @@ public:
     float GetPGTotal()                                  { return m_pg; }
     float GetCPUTotal()                                 { return m_cpu; }
 
+    // process cycle (moon mining / reactions)
+    void ToggleProcessCycle();
+
     // fuel consumption
     void InitFuelData();
     bool CheckFuel();

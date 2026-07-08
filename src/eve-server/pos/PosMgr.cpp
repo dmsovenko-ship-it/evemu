@@ -798,10 +798,63 @@ PyResult PosMgrBound::ChangeStructureProvisionType(PyCallArgs &call, PyInt* towe
 }
 
 PyResult PosMgrBound::LinkResourceForTower(PyCallArgs &call, PyInt* itemID, PyList* connections) {
+    // links resources between POS structures on a tower
+    // connections = list of (sourceID, typeID) tuples
     _log(POS__TRACE,  "PosMgrBound::Handle_LinkResourceForTower()");
-    call.Dump(POS__DUMP);
 
-    return PyStatic.NewNone();
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    TowerSE* pTSE = pSE->GetTowerSE();
+    if (pTSE == nullptr)
+        return PyStatic.NewFalse();
+
+    // iterate connections and update reactor data for each linked structure
+    PyList::const_iterator itr = connections->begin();
+    while (itr != connections->end()) {
+        PyRep* entry = *itr;
+        if (!entry->IsTuple()) {
+            ++itr;
+            continue;
+        }
+
+        PyTuple* conn = entry->AsTuple();
+        if (conn->size() < 2) {
+            ++itr;
+            continue;
+        }
+
+        uint32 sourceID = PyRep::IntegerValueU32(conn->GetItem(0));
+        uint32 typeID = PyRep::IntegerValueU32(conn->GetItem(1));
+
+        // find the source structure and update its reactor data
+        SystemEntity* sourceSE = pSystem->GetSE(sourceID);
+        if (sourceSE == nullptr) {
+            ++itr;
+            continue;
+        }
+
+        ReactorSE* pReactor = sourceSE->GetReactorSE();
+        if (pReactor != nullptr) {
+            // update reactor connections
+            EVEPOS::POS_Connections connData;
+            connData.sourceID = sourceID;
+            connData.toID = typeID;
+            pReactor->AddConnection(connData);
+        }
+
+        ++itr;
+    }
+
+    _log(POS__MESSAGE, "PosMgrBound::LinkResourceForTower() - %s linked resources for tower %u.",
+            call.client->GetName(), itemID->value());
+
+    return PyStatic.NewTrue();
 }
 
 PyResult PosMgrBound::RunMoonProcessCycleforTower(PyCallArgs &call, PyInt* itemID) {
@@ -813,9 +866,26 @@ PyResult PosMgrBound::RunMoonProcessCycleforTower(PyCallArgs &call, PyInt* itemI
      * 03:14:25 [POS:Dump]       [ 0]    Integer: 140000061     <-- towerID
      */
     _log(POS__TRACE,  "PosMgrBound::Handle_RunMoonProcessCycleforTower()");
-    call.Dump(POS__DUMP);
 
-    return PyStatic.NewNone();
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr)
+        return PyStatic.NewFalse();
+
+    TowerSE* pTSE = pSE->GetTowerSE();
+    if (pTSE == nullptr)
+        return PyStatic.NewFalse();
+
+    // toggle active state for all moon miners and reactors on this tower
+    pTSE->ToggleProcessCycle();
+
+    _log(POS__MESSAGE, "PosMgrBound::RunMoonProcessCycleforTower() - %s toggled process cycle for tower %u.",
+            call.client->GetName(), itemID->value());
+
+    return PyStatic.NewTrue();
 }
 
 PyResult PosMgrBound::GMUpgradeOrbital(PyCallArgs &call, PyInt* itemID) {
