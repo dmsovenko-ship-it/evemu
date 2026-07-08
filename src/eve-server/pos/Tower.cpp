@@ -21,6 +21,7 @@
 
 #include "Client.h"
 #include "EntityList.h"
+#include "EVE_Mail.h"
 #include "EVEServerConfig.h"
 #include "inventory/Inventory.h"
 #include "planet/Moon.h"
@@ -330,15 +331,14 @@ bool TowerSE::CheckFuel()
 
     // not enough fuel - enter reinforced mode
     _log(POS__MESSAGE, "TowerSE::CheckFuel() - Tower %s(%u) has run out of fuel!  Entering reinforced mode.",
+            GetName(), m_self->itemID());
 
     // notify corp
     PyDict* fuelData = new PyDict();
         fuelData->SetItemString("towerID", new PyInt(m_self->itemID()));
         fuelData->SetItemString("solarSystemID", new PyInt(m_system->GetID()));
     sEntityList.CreateNotification(m_corpID, Notify::Types::TowerAlert, m_self->itemID(), fuelData);
-            GetName(), m_self->itemID());
 
-    /** @todo send pos mail/notification to corp members */
     ReinforceTower();
     return false;
 }
