@@ -920,22 +920,63 @@ PyResult DogmaIMBound::CancelOverloading(PyCallArgs& call, PyInt* itemID) {
 }
 
 PyResult DogmaIMBound::OverloadRack(PyCallArgs& call, PyInt* itemID) {
-    /* moduleIDs = self.GetDogmaLM().OverloadRack(itemID)
-     *   moduleIDs is list of modules in rack.
-     */
     Client* pClient(call.client);
-    // not supported yet
+    ShipItemRef ship = pClient->GetShip();
+    if (ship.get() == nullptr)
+        return new PyList();
+
+    // Find the module to determine which rack
+    GenericModule* mod = ship->GetModuleManager()->GetModule(itemID->value());
+    if (mod == nullptr)
+        return new PyList();
+
+    // Determine rack flag from module
+    EVEItemFlags bankFlag;
+    if (mod->isHighPower())      bankFlag = flagHiSlot0;
+    else if (mod->isMediumPower()) bankFlag = flagMidSlot0;
+    else if (mod->isLowPower())    bankFlag = flagLowSlot0;
+    else return new PyList();
+
+    // Get all modules in this rack and overload them
+    std::vector<GenericModule*> rackMods;
+    ship->GetModuleManager()->GetModulesInBank(bankFlag, rackMods);
+
     PyList* list = new PyList();
+    for (auto rackMod : rackMods) {
+        if (rackMod != nullptr) {
+            rackMod->Overload();
+            list->AddItem(new PyInt(rackMod->GetSelf()->itemID()));
+        }
+    }
     return list;
 }
 
 PyResult DogmaIMBound::StopOverloadRack(PyCallArgs& call, PyInt* itemID) {
-    /* moduleIDs = self.GetDogmaLM().StopOverloadRack(itemID)
-     *   moduleIDs is list of modules in rack.
-     */
     Client* pClient(call.client);
-    // not supported yet
+    ShipItemRef ship = pClient->GetShip();
+    if (ship.get() == nullptr)
+        return new PyList();
+
+    GenericModule* mod = ship->GetModuleManager()->GetModule(itemID->value());
+    if (mod == nullptr)
+        return new PyList();
+
+    EVEItemFlags bankFlag;
+    if (mod->isHighPower())      bankFlag = flagHiSlot0;
+    else if (mod->isMediumPower()) bankFlag = flagMidSlot0;
+    else if (mod->isLowPower())    bankFlag = flagLowSlot0;
+    else return new PyList();
+
+    std::vector<GenericModule*> rackMods;
+    ship->GetModuleManager()->GetModulesInBank(bankFlag, rackMods);
+
     PyList* list = new PyList();
+    for (auto rackMod : rackMods) {
+        if (rackMod != nullptr) {
+            rackMod->DeOverload();
+            list->AddItem(new PyInt(rackMod->GetSelf()->itemID()));
+        }
+    }
     return list;
 }
 
