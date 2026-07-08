@@ -606,7 +606,11 @@ void AnomalyMgr::AddSignal(SystemEntity* pSE, uint32 id/*0*/)
             return;     // we're not adding roids to list
         };
         case EVEDB::invCategories::Entity:
-        case EVEDB::invCategories::Celestial:       //wrecks
+        case EVEDB::invCategories::Celestial: {
+            // Wrecks should not appear on scanner as anomalies
+            if (iRef->groupID() == EVEDB::invGroups::Wreck)
+                return;
+        } // fall through to default
         default:  {
             sig.sigTypeID = EVEDB::invTypes::CosmicAnomaly;
             sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
