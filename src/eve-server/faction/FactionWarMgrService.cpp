@@ -361,19 +361,117 @@ PyResult FactionWarMgrService::JoinFactionAsCharacterRecommendationLetter(PyCall
 }
 
 PyResult FactionWarMgrService::JoinFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
-    //self.facWarMgr.JoinFactionAsAlliance(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_JoinFactionAsAlliance()");
-    call.Dump(FACWAR__CALL_DUMP);
+    // Alliance join requires vote - for now set alliance warFactionID
+    uint32 allyID = call.client->GetAllianceID();
+    if (allyID == 0)
+        throw UserError("AllianceRequiredForAction");
 
-    return nullptr;
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE alnAlliance SET warFactionID = %u WHERE allianceID = %u",
+        factionID->value(), allyID);
+    // update all member corps and characters
+    sDatabase.RunQuery(err,
+        "UPDATE crpCorporation SET warFactionID = %u WHERE allianceID = %u",
+        factionID->value(), allyID);
+    sDatabase.RunQuery(err,
+        "UPDATE chrCharacters SET warFactionID = %u WHERE allianceID = %u",
+        factionID->value(), allyID);
+
+    call.client->SendNotifyMsg("Alliance has joined faction warfare.");
+    PyDict* data = new PyDict();
+        data->SetItemString("factionID", new PyInt(factionID->value()));
+        data->SetItemString("allianceID", new PyInt(allyID));
+    sEntityList.CreateNotification(allyID, Notify::Types::FWCorpJoin, factionID->value(), data);
+    return PyStatic.NewTrue();
 }
 
 PyResult FactionWarMgrService::JoinFactionAsCorporation(PyCallArgs &call, PyInt* factionID) {
-    //self.facWarMgr.JoinFactionAsCorporation(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_JoinFactionAsCorporation()");
-    call.Dump(FACWAR__CALL_DUMP);
+    // corp join - director/CEO only (check role & 8192 = Director)
+    if (!(call.client->GetCorpRole() & 8192))
+        throw UserError("CrpAccessDenied").AddFormatValue("reason", new PyString("Only directors can join faction warfare."));
 
-    return nullptr;
+    uint32 corpID = call.client->GetCorporationID();
+    uint32 fID = factionID->value();
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE crpCorporations SET warFactionID = %u WHERE corporationID = %u", fID, corpID);
+    // update all corp members
+    sDatabase.RunQuery(err,
+        "UPDATE chrCharacters SET warFactionID = %u WHERE corporationID = %u", fID, corpID);
+
+    call.client->SendNotifyMsg("Corporation has joined the %s militia.", m_db.GetFactionName(fID).c_str());
+    PyDict* data = new PyDict();
+        data->SetItemString("factionID", new PyInt(fID));
+        data->SetItemString("corpID", new PyInt(corpID));
+    sEntityList.CreateNotification(corpID, Notify::Types::FWCorpJoin, fID, data);
+    return PyStatic.NewTrue();
+}
+
+PyResult FactionWarMgrService::LeaveFactionAsCorporation(PyCallArgs &call, PyInt* factionID) {
+    if (!(call.client->GetCorpRole() & 8192))
+        throw UserError("CrpAccessDenied").AddFormatValue("reason", new PyString("Only directors can leave faction warfare."));
+
+    uint32 corpID = call.client->GetCorporationID();
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE crpCorporations SET warFactionID = 0 WHERE corporationID = %u", corpID);
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = 0 WHERE corporationID = %u", corpID);
+
+    call.client->SendNotifyMsg("Corporation has left faction warfare.");
+    PyDict* data = new PyDict();
+        data->SetItemString("factionID", new PyInt(factionID->value()));
+        data->SetItemString("corpID", new PyInt(corpID));
+    sEntityList.CreateNotification(corpID, Notify::Types::FWCorpLeave, corpID, data);
+    return PyStatic.NewTrue();
+}
+
+PyResult FactionWarMgrService::LeaveFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
+    uint32 allyID = call.client->GetAllianceID();
+    if (allyID == 0)
+        throw UserError("AllianceRequiredForAction");
+
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE alnAlliance SET warFactionID = 0 WHERE allianceID = %u", allyID);
+    sDatabase.RunQuery(err, "UPDATE crpCorporations SET warFactionID = 0 WHERE allianceID = %u", allyID);
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = 0 WHERE allianceID = %u", allyID);
+
+    call.client->SendNotifyMsg("Alliance has left faction warfare.");
+    return PyStatic.NewTrue();
+}
+
+PyResult FactionWarMgrService::WithdrawJoinFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
+    uint32 allyID = call.client->GetAllianceID();
+    if (allyID == 0)
+        throw UserError("AllianceRequiredForAction");
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE alnAlliance SET warFactionID = 0 WHERE allianceID = %u", allyID);
+    sDatabase.RunQuery(err, "UPDATE crpCorporations SET warFactionID = 0 WHERE allianceID = %u", allyID);
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = 0 WHERE allianceID = %u", allyID);
+    call.client->SendNotifyMsg("Alliance faction warfare join withdrawn.");
+    return PyStatic.NewTrue();
+}
+
+PyResult FactionWarMgrService::WithdrawJoinFactionAsCorporation(PyCallArgs &call, PyInt* factionID) {
+    if (!(call.client->GetCorpRole() & 8192))
+        throw UserError("CrpAccessDenied");
+    uint32 corpID = call.client->GetCorporationID();
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE crpCorporations SET warFactionID = 0 WHERE corporationID = %u", corpID);
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = 0 WHERE corporationID = %u", corpID);
+    call.client->SendNotifyMsg("Corporation faction warfare join withdrawn.");
+    return PyStatic.NewTrue();
+}
+
+PyResult FactionWarMgrService::WithdrawLeaveFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
+    // re-set warFactionID from DB
+    call.client->SendNotifyMsg("Faction warfare leave withdrawn (stub).");
+    return PyStatic.NewTrue();
+}
+
+PyResult FactionWarMgrService::WithdrawLeaveFactionAsCorporation(PyCallArgs &call, PyInt* factionID) {
+    call.client->SendNotifyMsg("Faction warfare leave withdrawn (stub).");
+    return PyStatic.NewTrue();
 }
 
 PyResult FactionWarMgrService::GetStats_FactionInfo(PyCallArgs &call) {
@@ -435,54 +533,6 @@ PyResult FactionWarMgrService::GetStats_Militia(PyCallArgs &call) {
 PyResult FactionWarMgrService::GetStats_CorpPilots(PyCallArgs &call) {
     //return self.facWarMgr.GetStats_CorpPilots()
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetStats_CorpPilots()");
-    call.Dump(FACWAR__CALL_DUMP);
-
-    return nullptr;
-}
-
-PyResult FactionWarMgrService::LeaveFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
-    //self.facWarMgr.LeaveFactionAsAlliance(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_LeaveFactionAsAlliance()");
-    call.Dump(FACWAR__CALL_DUMP);
-
-    return nullptr;
-}
-
-PyResult FactionWarMgrService::LeaveFactionAsCorporation(PyCallArgs &call, PyInt* factionID) {
-    //self.facWarMgr.LeaveFactionAsCorporation(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_LeaveFactionAsCorporation()");
-    call.Dump(FACWAR__CALL_DUMP);
-
-    return nullptr;
-}
-
-PyResult FactionWarMgrService::WithdrawJoinFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
-    //self.facWarMgr.WithdrawJoinFactionAsAlliance(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_WithdrawJoinFactionAsAlliance()");
-    call.Dump(FACWAR__CALL_DUMP);
-
-    return nullptr;
-}
-
-PyResult FactionWarMgrService::WithdrawJoinFactionAsCorporation(PyCallArgs &call, PyInt* factionID) {
-    //self.facWarMgr.WithdrawJoinFactionAsCorporation(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_WithdrawJoinFactionAsCorporation()");
-    call.Dump(FACWAR__CALL_DUMP);
-
-    return nullptr;
-}
-
-PyResult FactionWarMgrService::WithdrawLeaveFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
-    //self.facWarMgr.WithdrawLeaveFactionAsAlliance(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_WithdrawLeaveFactionAsAlliance()");
-    call.Dump(FACWAR__CALL_DUMP);
-
-    return nullptr;
-}
-
-PyResult FactionWarMgrService::WithdrawLeaveFactionAsCorporation(PyCallArgs &call, PyInt* factionID) {
-    //self.facWarMgr.WithdrawLeaveFactionAsCorporation(factionID)
-    _log(FACWAR__CALL, "FacWarMgr::Handle_WithdrawLeaveFactionAsCorporation()");
     call.Dump(FACWAR__CALL_DUMP);
 
     return nullptr;
