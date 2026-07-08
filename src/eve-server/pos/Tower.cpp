@@ -269,7 +269,7 @@ bool TowerSE::CheckFuel()
 
     // collect all fuel items from cargo
     std::vector<InventoryItemRef> items;
-    inv->GetItemsByFlag(flagCargo, items);
+    inv->GetItemsByFlag(flagCargoHold, items);
 
     uint32 fuelFound = 0;
     std::vector<InventoryItemRef> fuelItems;
@@ -473,7 +473,7 @@ void TowerSE::ReinforceTower()
     uint32 strontHours = 0;
     if (inv != nullptr) {
         std::vector<InventoryItemRef> items;
-        inv->GetItemsByFlag(flagCargo, items);
+        inv->GetItemsByFlag(flagCargoHold, items);
         for (auto& item : items) {
             if (item->typeID() == m_strontTypeID) {
                 strontHours += item->quantity() / m_strontPerHour;
