@@ -1421,7 +1421,7 @@ PyResult ContractProxy::FinishAuction(PyCallArgs& call, PyInt* contractID) {
         DBResultRow loserRow;
         while (loserRes.GetRow(loserRow)) {
             AccountService::TransferFunds(loserRow.GetUInt(0), loserRow.GetUInt(0), loserRow.GetDouble(1),
-                "Auction bid refund", Journal::EntryType::ContractAuctionRefund, cID);
+                "Auction bid refund", Journal::EntryType::ContractAuctionBidRefund, cID);
         }
     } else {
         sDatabase.RunQuery(err,
