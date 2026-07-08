@@ -127,7 +127,7 @@ LSC__RSP_DUMP=0
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-const int cspa = 250; // CONCORD Spam Prevention Act (reduced to fit DB SMALLINT)
+const int cspa = 100; // CONCORD Spam Prevention Act (fits DB TINYINT signed max 127)
 
 
 PyResult LSCService::GetChannels(PyCallArgs &call)
@@ -613,7 +613,9 @@ PyResult LSCService::Configure(PyCallArgs& call, PyInt* channelID)
                 _log(LSC__ERROR, "%s: incorrect oldPassword supplied. Password NOT changed.", call.client->GetName());
                 return nullptr;
             }
-        } else if (call.byname.find("oldPassword")->second->IsNone()) {
+        } else if (call.byname.find("oldPassword")->second->IsNone()
+                or (call.byname.find("oldPassword")->second->IsString()
+                    && call.byname.find("oldPassword")->second->AsString()->content() == "None")) {
             if (call.byname.find("newPassword") != call.byname.end()) {
                 if (call.byname.find("newPassword")->second->IsWString()) {
                     channel->SetPassword(call.byname.find("newPassword")->second->AsWString()->content());
@@ -623,7 +625,7 @@ PyResult LSCService::Configure(PyCallArgs& call, PyInt* channelID)
                 }
             }
         } else {
-            _log(LSC__ERROR, "%s: oldPassword is of an unexpected type: '%s'", call.client->GetName(), call.byname.find("newPassword")->second->TypeString());
+            _log(LSC__ERROR, "%s: oldPassword is of an unexpected type: '%s'", call.client->GetName(), call.byname.find("oldPassword")->second->TypeString());
             return nullptr;
         }
     }
