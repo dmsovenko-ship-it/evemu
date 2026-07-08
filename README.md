@@ -39,7 +39,8 @@
 | **Corporation & Alliance** — corp management, alliance wars, bulletins, bills, LP store | **Корпорации и альянсы** — управление, войны, бюллетени, счета, LP магазин |
 | **Market** — buy/sell orders, corp market, market bots (Trader Joe) | **Маркет** — ордера, корп-маркет, маркет-боты |
 | **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
-| **POS** — towers, force fields, modules, reinforcement cycle | **POS** — тауэры, форсфилды, модули, reinforcement |
+| **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, assume/relinquish control, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
+| **Overheating** — heat dmg per slot, Thermodynamics skill check, Nanite Paste repair | **Перегрев** — урон по слотам, проверка Thermodynamics, ремонт Nanite Paste |
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
 | **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
 | **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг,encounter, storyline, эпик арки |
@@ -87,7 +88,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Estimated overall: ~82%** (upstream: 59.5%)
+**Estimated overall: ~85%** (upstream: 59.5%)
 
 | System | % | System | % |
 |--------|---|--------|---|
@@ -100,8 +101,9 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | Science & Industry | 40% | **Incursions** | **75%** |
 | **Wormholes** | **80%** | Fleet | 98% |
 | Missions | 70% | Agents | 85% |
-| POS | 65% | Calendar | 65% |
-| LSC (Chat) | 70% | EvE Mail | 45% |
+| POS | 85% | Overheating | 70% |
+| Calendar | 65% | LSC (Chat) | 70% |
+| EvE Mail | 45% | | |
 | Bookmark System | 95% | Effects System | 88% |
 | Scanning | 99% | Planetary Interaction | 72% |
 | Standings | 40% | Anomaly Manager | 85% |

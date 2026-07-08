@@ -189,19 +189,39 @@
 - **Login warp: removed UpdateChargeQty hack** ✅
 - **GM commands: dogma, tr, status, siglist** ✅
 
+## Part 26: POS Fuel & Reinforced (done)
+- **Fuel consumption**: tower burns fuel blocks from cargo every ~60s based on `invControlTowerResources` or size-based defaults (10/20/40 per hour) ✅
+- **Reinforced mode**: fuel runs out → force field drops, stront consumed, reinforced timer set (1-48h), timer expiry → auto-return to Online ✅
+- **CPU/PG tracking**: `RecalcResources()`, `OnlineModule/OfflineModule` update PG/CPU load from `AttrPower`/`AttrCpu` ✅
+- **Assume/Relinquish control**: `m_controllerID` on StructureSE, slim item includes `controllerID`, notifications sent to both old and new controller ✅
+- **Orbitals**: `AnchorOrbital`/`UnanchorOrbital`/`OnlineOrbital`/`CompleteOrbitalStateChange`/`GMUpgradeOrbital` — all methods target `CustomsSE` or `StructureSE` ✅
+- **Reactor linking**: `LinkResourceForTower` maps connections to `ReactorData`, `RunMoonProcessCycleforTower` toggles process cycle on all reactors/moon miners ✅
+- **POS Weapon AI**: `POS_AI` class — bubble scan, corp validation, falloff-based to-hit, `Damage` application with effects ✅
+- **Fuel notifications**: percentage tracking with thresholds (50/25/10/5%), calendar event stub ✅
+- **Skill checks**: `CheckStructureSkills()` validates `AttrRequiredSkill1-6` before anchor/online operations ✅
+
+## Part 27: Overheating & Nanite Repair (done)
+- **Thermodynamics skill check**: `DogmaIMBound::Overload()` requires Thermodynamics level 1 ✅
+- **HeatDamageCheck**: slot-based damage spread — self 100%, adjacent 25%, distance 2: 10%, further 5%; scaled by rack heat and reduced by Thermodynamics skill (5%/level) ✅
+- **Nanite Paste repair**: `ModuleManager::ModuleRepair()` consumes typeID 24694 from cargo, heals 10% + 5%/level of Nanite Engineering per paste ✅
+
+## Part 28: Warp & Client Crash Fixes (done)
+- **Warp alignment**: `SetSpeedFraction` no longer converts WARP→GOTO during pre-warp acceleration — ship actually enters warp ✅
+- **Warp exit crash**: `SetPosition(false)` in `WarpUpdate` — no `SetBallPosition` sent while client WarpLoop is active (fixes `ValueError: Unknown packet type`) ✅
+- **Jump clone implants**: returned as `PyList` of `KeyVal(jumpCloneID, typeID)` instead of `dict` — client `.Filter()` works ✅
+
 # TODO (next session)
 
 ## High Priority
-1. **POS reinforcement** — shield < 25% → reinforced timer → invulnerable → exit with 0% shield
-2. **Standings** — decay mechanic, character-to-character (PnP) standings
-3. **EvE Mail** — notification delivery, spam filters
+1. **Standings** — decay mechanic, character-to-character (PnP) standings
+2. **EvE Mail** — notification delivery, spam filters
+3. **Market** — price history data seeding, corp market escrow
 
 ## Medium Priority
 4. **Calendar** — event creation, invitations, reminders
-5. **Market** — price history data seeding, corp market escrow
-6. **Contract** — full auction lifecycle (item transfer on completion)
+5. **Contract** — full auction lifecycle (item transfer on completion)
 
 ## Low Priority
-7. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
-8. **PyRep memory management** — valgrind leak fixes
-9. **Civilian Manager** — extend to multi-system routes and more ship types
+6. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
+7. **PyRep memory management** — valgrind leak fixes
+8. **Civilian Manager** — extend to multi-system routes and more ship types
