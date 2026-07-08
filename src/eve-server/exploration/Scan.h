@@ -63,7 +63,7 @@ private:
     ManagerDB* m_db;
     Client* m_client;
 
-    SystemManager* GetSystem() { return m_client->SystemMgr(); }
+    SystemManager* GetSystem();
 
     void CalcProbeAngles(GPoint& sigPos, std::vector<ProbeSE*>& probeVec, std::map<float, std::pair<ProbeSE*, ProbeSE*>>& angleMap);
 

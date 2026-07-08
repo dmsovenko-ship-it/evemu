@@ -34,6 +34,8 @@
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 
+SystemManager* Scan::GetSystem() { return m_client->SystemMgr(); }
+
 Scan::Scan(Client* pClient)
 : m_client(pClient)
 {
