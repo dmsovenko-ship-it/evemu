@@ -121,9 +121,9 @@ PyResult CalendarMgrService::CreateAllianceEvent(PyCallArgs& call, PyLong* dateT
 
 PyResult CalendarMgrService::EditPersonalEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important)
 {
+    int32 imp = important->IsInt() ? important->AsInt()->value() : (important->IsBool() && important->AsBool()->value() ? 1 : 0);
     CalendarDB::UpdateEvent(eventID->value(), dateTime->value(), duration->value(),
-                            title->content(), description->content(),
-                            important->IsTrue() ? 1 : 0);
+                            title->content(), description->content(), imp);
 
     call.client->SendNotification("OnReloadCalendar", "charid", new PyTuple(0), false);
     return nullptr;
@@ -131,9 +131,9 @@ PyResult CalendarMgrService::EditPersonalEvent(PyCallArgs& call, PyInt* eventID,
 
 PyResult CalendarMgrService::EditCorporationEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important)
 {
+    int32 imp = important->IsInt() ? important->AsInt()->value() : (important->IsBool() && important->AsBool()->value() ? 1 : 0);
     CalendarDB::UpdateEvent(eventID->value(), dateTime->value(), duration->value(),
-                            title->content(), description->content(),
-                            important->IsTrue() ? 1 : 0);
+                            title->content(), description->content(), imp);
 
     call.client->SendNotification("OnReloadCalendar", "charid", new PyTuple(0), false);
     return nullptr;
@@ -141,9 +141,9 @@ PyResult CalendarMgrService::EditCorporationEvent(PyCallArgs& call, PyInt* event
 
 PyResult CalendarMgrService::EditAllianceEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyWString* title, PyWString* description, PyRep* important)
 {
+    int32 imp = important->IsInt() ? important->AsInt()->value() : (important->IsBool() && important->AsBool()->value() ? 1 : 0);
     CalendarDB::UpdateEvent(eventID->value(), dateTime->value(), duration->value(),
-                            title->content(), description->content(),
-                            important->IsTrue() ? 1 : 0);
+                            title->content(), description->content(), imp);
 
     call.client->SendNotification("OnReloadCalendar", "charid", new PyTuple(0), false);
     return nullptr;
