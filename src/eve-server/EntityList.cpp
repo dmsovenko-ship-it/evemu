@@ -817,13 +817,6 @@ void EntityList::RemoveSID ( int64 sessionID ) {
 
 uint32 EntityList::CreateNotification(uint32 receiverID, uint8 typeID, uint32 senderID, PyDict* data)
 {
-    // serialize data dict to XML string for DB storage
-    std::string dataStr;
-    if (data != nullptr) {
-        PyRep* rep = data;
-        PyRep::SaveToXML(data, dataStr);
-    }
-
     // insert notification record
     DBerror err;
     uint32 notifyID = 0;
@@ -831,15 +824,6 @@ uint32 EntityList::CreateNotification(uint32 receiverID, uint8 typeID, uint32 se
         "INSERT INTO notification (typeID, senderID, receiverID, processed, created, deleted)"
         " VALUES (%u, %u, %u, 0, %lli, 0)",
         typeID, senderID, receiverID, (int64)GetFileTimeNow());
-
-    // insert notification text
-    if (notifyID > 0 and !dataStr.empty()) {
-        std::string escapedData = dataStr;
-        sDatabase.DoEscapeString(escapedData, dataStr.c_str());
-        sDatabase.RunQuery(err,
-            "INSERT INTO notificationText (notificationID, data) VALUES (%u, '%s')",
-            notifyID, escapedData.c_str());
-    }
 
     // send live push if receiver is online
     Client* pClient = FindClientByCharID(receiverID);
