@@ -27,6 +27,7 @@
 #include "eve-server.h"
 
 #include "EVE_Mail.h"
+#include "marshal/EVEMarshal.h"
 
 #include "Client.h"
 #include "ConsoleCommands.h"
@@ -824,6 +825,19 @@ uint32 EntityList::CreateNotification(uint32 receiverID, uint8 typeID, uint32 se
         "INSERT INTO notification (typeID, senderID, receiverID, processed, created, deleted)"
         " VALUES (%u, %u, %u, 0, %lli, 0)",
         typeID, senderID, receiverID, (int64)GetFileTimeNow());
+
+    // marshal data dict and store in notificationText
+    if (notifyID > 0 and data != nullptr) {
+        Buffer dataBuf;
+        if (Marshal(data, dataBuf)) {
+            std::string dataStr(dataBuf.begin<char>(), dataBuf.end<char>());
+            std::string dataEscaped;
+            sDatabase.DoEscapeString(dataEscaped, dataStr);
+            sDatabase.RunQuery(err,
+                "INSERT INTO notificationText (notificationID, data) VALUES (%u, '%s')",
+                notifyID, dataEscaped.c_str());
+        }
+    }
 
     // send live push if receiver is online
     Client* pClient = FindClientByCharID(receiverID);
