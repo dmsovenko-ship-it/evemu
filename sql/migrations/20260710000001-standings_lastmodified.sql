@@ -1,4 +1,6 @@
--- Add lastModified column to repStandings for decay tracking
+-- +migrate Up
 ALTER TABLE repStandings ADD COLUMN `lastModified` BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER `standing`;
--- Set initial lastModified to current time for all existing rows
 UPDATE repStandings SET lastModified = UNIX_TIMESTAMP() * 10000000;
+
+-- +migrate Down
+ALTER TABLE repStandings DROP COLUMN `lastModified`;

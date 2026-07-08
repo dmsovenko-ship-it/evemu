@@ -1,4 +1,4 @@
--- Notification tables for the EVE mail notification system
+-- +migrate Up
 CREATE TABLE IF NOT EXISTS `notification` (
     `notificationID` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `typeID` INT UNSIGNED NOT NULL DEFAULT 0,
@@ -17,3 +17,7 @@ CREATE TABLE IF NOT EXISTS `notificationText` (
     `data` TEXT NOT NULL,
     PRIMARY KEY (`notificationID`)
 ) ENGINE=InnoDB;
+
+-- +migrate Down
+DROP TABLE IF EXISTS `notificationText`;
+DROP TABLE IF EXISTS `notification`;

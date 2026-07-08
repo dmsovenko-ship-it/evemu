@@ -75,10 +75,11 @@ void MarketMgr::Populate()
         DBerror err;
         sDatabase.RunQuery(err,
             "INSERT IGNORE INTO mktHistory (regionID, typeID, historyDate, lowPrice, highPrice, avgPrice, volume, orders)"
-            " SELECT r.regionID, c.typeID, %lli, c.avgPrice * 0.95, c.avgPrice * 1.05, c.avgPrice,"
+            " SELECT r.regionID, t.typeID, %lli, t.basePrice * 0.90, t.basePrice * 1.10, t.basePrice,"
             "        FLOOR(RAND() * 100) + 1, FLOOR(RAND() * 10) + 1"
-            " FROM cruciblePriceHistory c, mapRegions r"
-            " WHERE c.avgPrice > 0",
+            " FROM invTypes t, mapRegions r"
+            " WHERE t.basePrice > 0"
+            " LIMIT 5000",
             (int64)(GetFileTimeNow() - EvE::Time::Day * 7));
     }
 
