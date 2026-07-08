@@ -310,11 +310,10 @@ bool Client::SelectCharacter(int32 charID/*0*/)
         pos = m_ship->position();
 
         m_loginWarpPoint = pos;
+        m_loginWarpRandomPoint = m_ship->position();
+        m_loginWarpRandomPoint.MakeRandomPointOnSphere(0.5*ONE_AU_IN_METERS);
 
-        MoveToLocation(m_locationID, pos);
-
-        // cloak is deferred to Login state handler, after SetBallPark(),
-        // to avoid "No ballpark for update" from SendCloakFx().
+        MoveToLocation(m_locationID, m_loginWarpRandomPoint);
     } else {
         MoveToLocation(m_locationID, pos);
         if (m_ship->typeID() == itemTypeCapsule) {
@@ -497,17 +496,30 @@ void Client::ProcessClient() {
                 case Player::State::Login: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Login");
                     m_login = false;
-                    SetBallPark();
-                    if (sDataMgr.IsSolarSystem(m_locationID)) {
-                        // cloak after ballpark is sent; avoids "No ballpark for update"
+                    if (sDataMgr.IsSolarSystem(m_locationID))
                         pShipSE->DestinyMgr()->Cloak();
+                    SetBallPark();
+                    if (sDataMgr.IsSolarSystem(m_locationID))
                         WarpIn();
-                    }
                     } break;
                 case Player::State::LoginWarp: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: LoginWarp");
+                    // Check if login point is inside any station sphere and adjust
+                    GPoint safePoint = m_loginWarpPoint;
+                    for (auto& cur : pShipSE->SystemMgr()->GetStaticEntities()) {
+                        if (!cur.second->IsStationSE()) continue;
+                        GVector offset(safePoint, cur.second->GetPosition());
+                        double dist = offset.length();
+                        double staRadius = cur.second->GetRadius() + 5000; // radius + margin
+                        if (dist < staRadius) {
+                            // Inside station sphere — push outside
+                            offset.normalize();
+                            safePoint = cur.second->GetPosition() + (offset * staRadius);
+                        }
+                    }
+                    pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition());
                     pShipSE->DestinyMgr()->UnCloak();
-                    SetLoginWarpComplete();
+                    pShipSE->DestinyMgr()->WarpTo(safePoint, 2500);
                     } break;
                 case Player::State::Jump: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Jump");
@@ -3264,7 +3276,7 @@ void Client::SelfChatMessage(const char* fmt, ...)
 // (in which case the login warp would not have been triggered in the first
 // place).
 bool Client::IsLoginWarping() {
-    return m_clientState == Player::State::Login || m_clientState == Player::State::LoginWarp || !m_loginWarpPoint.isZero();
+    return m_clientState == Player::State::Login || m_clientState == Player::State::LoginWarp || !m_loginWarpPoint.isZero() || !m_loginWarpRandomPoint.isZero();
 }
 
 // For context and guidelines on how to use this function, see the code
