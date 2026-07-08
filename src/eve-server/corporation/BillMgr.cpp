@@ -94,6 +94,14 @@ PyResult BillMgr::CharPayBill(PyCallArgs &call, PyInt* billID) {
     sDatabase.RunQuery(err, "UPDATE billsPayable SET paid = 1 WHERE billID = %u", bill);
 
     _log(CORP__MESSAGE, "BillMgr::CharPayBill() - char %u paid bill %u for %.2f ISK", charID, bill, amount);
+
+    // create notification for creditor
+    PyDict* data = new PyDict();
+        data->SetItemString("billID", new PyInt(bill));
+        data->SetItemString("debtorID", new PyInt(charID));
+        data->SetItemString("amount", new PyFloat(amount));
+    sEntityList.CreateNotification(creditorID, Notify::Types::BillPaidChar, charID, data);
+
     return PyStatic.NewNone();
 }
 
