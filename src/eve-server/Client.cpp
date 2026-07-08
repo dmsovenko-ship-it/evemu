@@ -3314,9 +3314,6 @@ void Client::FlushPendingDestinyUpdates() {
 void Client::SetLoginWarpComplete() {
     if (m_clientState == Player::State::LoginWarp) {
         m_clientState = Player::State::Idle;
-        // Re-send state so client overview recalculates for actual position
-        if (pShipSE != nullptr and pShipSE->DestinyMgr() != nullptr)
-            pShipSE->DestinyMgr()->SendSetState();
     }
 
     m_loginWarpPoint = NULL_ORIGIN;
