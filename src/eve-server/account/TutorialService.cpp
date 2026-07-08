@@ -282,7 +282,7 @@ PyResult TutorialService::GetTutorialAgents(PyCallArgs &call, PyList* agentIDs) 
         packed->SetField("bloodlineID",   new PyInt(row.GetUInt(5)));
         packed->SetField("quality",       new PyInt(row.GetInt(6)));
         packed->SetField("corporationID", new PyInt(row.GetUInt(7)));
-        packed->SetField("gender",        row.GetUInt(8) ? PyStatic.NewTrue() : PyStatic.NewFalse());
+        packed->SetField("gender",        (row.IsNull(8) ? false : row.GetUInt(8)) ? PyStatic.NewTrue() : PyStatic.NewFalse());
         result->AddItem(packed);
     }
     return result;
