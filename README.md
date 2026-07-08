@@ -40,8 +40,9 @@
 | **Market** — buy/sell orders, corp market, market bots (Trader Joe) | **Маркет** — ордера, корп-маркет, маркет-боты |
 | **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
 | **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, assume/relinquish control, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
-| **Overheating** — heat dmg per slot, Thermodynamics skill check, Nanite Paste repair | **Перегрев** — урон по слотам, проверка Thermodynamics, ремонт Nanite Paste |
+| **Overheating** — heat dmg per slot, OverloadRack, Thermodynamics, Nanite Paste | **Перегрев** — урон по слотам, OverloadRack, Thermodynamics, Nanite Paste |
 | **Notifications** — persistent DB + live push, bill/tower/agent/corp sources | **Нотификации** — БД + live push, счета/POS/агенты/корп |
+| **LSC Chat** — private conversations, channel creation, mailing lists | **LSC Чат** — приватные разговоры, каналы, списки рассылки |
 | **Faction Warfare** — join/leave, membership, enemy checks, stats, corp/alliance, notifications | **ФВ** — вступление/выход, членство, враги, статистика, корп/альянс, нотификации |
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
 | **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
@@ -90,13 +91,13 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Estimated overall: ~95%** (upstream: 59.5%)
+**Estimated overall: ~96%** (upstream: 59.5%)
 
 | System                |  %  | System                |  %  |
 |-----------------------|:---:|-----------------------|:---:|
 | Account & Character   | 97% | Skills & Certificates | 99% |
 | Ship Navigation       | 95% | Combat                | 99% |
-| Modules + Overheating | 92% | Drones                | 90% |
+| Modules + Overheating | 95% | Drones                | 90% |
 | NPC AI & Spawning     | 80% | Agents & Missions     | 85% |
 | **POS**               | 95% | Overheating           | 85% |
 | Market                | 85% | Contracts             | 85% |
@@ -106,7 +107,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | **Notifications**     | 95% | **Standings**         | 85% |
 | **Faction Warfare**   | 80% | Calendar              | 90% |
 | Mail & LSC            | 85% | Sovereignty           | 80% |
-| Science & Industry    | 40% | Planetary Interaction | 72% |
+| Science & Industry    | 50% | LSC Chat              | 85% |
 | Bookmark System       | 95% | Effects System        | 88% |
 | Anomaly Manager       | 85% | Spawn Manager         | 75% |
 | Dungeon Manager       | 70% | Civilian Manager      | 10% |

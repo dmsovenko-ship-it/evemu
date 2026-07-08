@@ -267,9 +267,16 @@
 
 ## 🔴 Nothing urgent — all major systems implemented
 
+## Part 36: Reverse Engineering + OverloadRack + LSC Private Conversations (done)
+- **Reverse Engineering**: `ActivityCheck` allows RE at POS labs, `Calculate` uses `researchTechTime` + `AdvancedLaboratoryOperation`, `CompleteJob` uses `chanceOfRE` + `ReverseEngineering` skill (+1%/lvl), produces T2 BPC ✅
+- **OverloadRack/StopOverloadRack**: finds rack from module flag, overloads/deoverloads all modules via `GetModulesInBank` ✅
+- **LSC Private Conversations**: `Invite` creates temp channel with negative deterministic ID (`-(min<<32|max)`), adds inviter, sends `OnLSC` notification to invitee ✅
+
+# TODO
+
 ## 🟡 If desired
-1. **OverloadRack** — rack-wide overload toggling stubs
-2. **Civilian Manager** — multi-system routes
+1. **Civilian Manager** — multi-system routes
+2. **Datacore skills for RE** — when FactoryDB::GetRequiredItems is available
 
 ## 🟢 Eventually
 3. **RefPtr → shared_ptr** — major refactoring
