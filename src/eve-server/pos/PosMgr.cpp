@@ -21,7 +21,35 @@
 
 #include "eve-server.h"
 
+#include "character/Character.h"
 #include "planet/CustomsOffice.h"
+
+
+// helper: check all RequiredSkill attributes on an item against the character
+static void CheckStructureSkills(InventoryItemRef item, CharacterRef ch)
+{
+    uint32 skillAttrIds[] = { AttrRequiredSkill1, AttrRequiredSkill2, AttrRequiredSkill3,
+                              AttrRequiredSkill4, AttrRequiredSkill5, AttrRequiredSkill6 };
+    uint32 levelAttrIds[] = { AttrRequiredSkill1Level, AttrRequiredSkill2Level, AttrRequiredSkill3Level,
+                              AttrRequiredSkill4Level, AttrRequiredSkill5Level, AttrRequiredSkill6Level };
+
+    for (int i = 0; i < 6; ++i) {
+        if (!item->HasAttribute(skillAttrIds[i]))
+            continue;
+        uint32 skillID = item->GetAttribute(skillAttrIds[i]).get_uint32();
+        if (skillID == 0)
+            continue;
+
+        uint8 requiredLevel = 1;
+        if (item->HasAttribute(levelAttrIds[i]))
+            requiredLevel = item->GetAttribute(levelAttrIds[i]).get_uint32();
+
+        if (!ch->HasSkillTrainedToLevel(skillID, requiredLevel)) {
+            throw CustomError("You do not have the required skills to anchor this structure.  "
+                              "Requires %s level %u.", sDataMgr.GetTypeName(skillID), requiredLevel);
+        }
+    }
+}
 
 
 
@@ -575,6 +603,9 @@ PyResult PosMgrBound::AnchorStructure(PyCallArgs &call, PyInt* structureID, PyTu
     if (pTSE == nullptr)
         return PyStatic.NewNone();
 
+    // skill check
+    CheckStructureSkills(pTSE->GetSelf(), call.client->GetChar());
+
     GPoint pos(posX, posY, posZ);
     pTSE->SetAnchor(call.client, pos);
 
@@ -707,12 +738,14 @@ PyResult PosMgrBound::AnchorOrbital(PyCallArgs &call, PyInt* itemID) {
 
     CustomsSE* pCOSE = pSE->GetCOSE();
     if (pCOSE != nullptr) {
+        CheckStructureSkills(pCOSE->GetSelf(), call.client->GetChar());
         pCOSE->SetAnchor(call.client, pCOSE->GetPosition());
         return PyStatic.NewTrue();
     }
 
     StructureSE* pPOSSE = pSE->GetPOSSE();
     if (pPOSSE != nullptr) {
+        CheckStructureSkills(pPOSSE->GetSelf(), call.client->GetChar());
         pPOSSE->Anchor();
         return PyStatic.NewTrue();
     }
@@ -764,6 +797,7 @@ PyResult PosMgrBound::OnlineOrbital(PyCallArgs &call, PyInt* itemID) {
 
     CustomsSE* pCOSE = pSE->GetCOSE();
     if (pCOSE != nullptr) {
+        CheckStructureSkills(pCOSE->GetSelf(), call.client->GetChar());
         pCOSE->SetState(EVEPOS::EntityState::Onlining);
         pCOSE->SendSlimUpdate();
         pCOSE->SendEffectUpdate(-5, true);
@@ -772,6 +806,7 @@ PyResult PosMgrBound::OnlineOrbital(PyCallArgs &call, PyInt* itemID) {
 
     StructureSE* pPOSSE = pSE->GetPOSSE();
     if (pPOSSE != nullptr) {
+        CheckStructureSkills(pPOSSE->GetSelf(), call.client->GetChar());
         pPOSSE->SetOnlining();
         return PyStatic.NewTrue();
     }
