@@ -521,7 +521,7 @@ void Client::ProcessClient() {
                             safePoint = cur.second->GetPosition() + (offset * staRadius);
                         }
                     }
-                    pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition(), true);
+                    pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition());
                     pShipSE->DestinyMgr()->UnCloak();
                     pShipSE->DestinyMgr()->WarpTo(safePoint, 2500);
                     } break;
