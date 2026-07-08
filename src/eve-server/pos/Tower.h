@@ -151,6 +151,7 @@ private:
     uint32 m_strontTypeID;      // typeID of strontium for reinforced (16275)
     uint32 m_strontPerHour;     // strontium consumed per reinforced hour (100/200/400)
     int64  m_lastFuelCheck;     // FileTime of last fuel consumption check
+    float  m_lastFuelPct;       // last fuel percentage (for notification thresholds)
 
     std::map<uint32, StructureSE*> m_structs;  // structID/pSSE
 

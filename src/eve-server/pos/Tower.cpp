@@ -129,6 +129,7 @@ m_pShieldSE(nullptr)
     m_strontTypeID = 16275;     // Strontium Clathrates
     m_strontPerHour = m_tsize * 100; // 100/200/400 for S/M/L
     m_lastFuelCheck = GetFileTimeNow();
+    m_lastFuelPct = 100.0f;
 
     m_pgUsed = 0.0f;
     m_cpuUsed = 0.0f;
@@ -297,6 +298,33 @@ bool TowerSE::CheckFuel()
                 toConsume = 0;
             }
         }
+
+        // check fuel percentage for low-fuel notifications
+        uint32 fuelRemaining = fuelFound - fuelNeeded;
+        float fuelPct = (float)fuelRemaining / (float)(fuelRemaining + m_fuelPerHour);
+        if (fuelPct > 1.0f) fuelPct = 1.0f;
+
+        if (m_tdata.sendFuelNotifications and (fuelPct < m_lastFuelPct)) {
+            // send notification at thresholds: 50%, 25%, 10%, 5%
+            if ((fuelPct < 0.05f and m_lastFuelPct >= 0.05f)
+            or  (fuelPct < 0.10f and m_lastFuelPct >= 0.10f)
+            or  (fuelPct < 0.25f and m_lastFuelPct >= 0.25f)
+            or  (fuelPct < 0.50f and m_lastFuelPct >= 0.50f)) {
+                _log(POS__MESSAGE, "TowerSE::CheckFuel() - Tower %s(%u) fuel at %.0f%%.", GetName(), m_self->itemID(), fuelPct * 100.0f);
+                /** @todo send EVE mail notification to corp members */
+            }
+        }
+
+        // create calendar event for fuel expiry if enabled
+        if (m_tdata.showInCalendar and (m_lastFuelPct < 0.90f) and (fuelPct > 0.0f)) {
+            // calculate when fuel runs out
+            double hoursRemaining = (double)fuelRemaining / (double)m_fuelPerHour;
+            double expiryTime = GetFileTimeNow() + (hoursRemaining * EvE::Time::Hour);
+            // CalendarDB::SaveSystemEvent(m_corpID, m_self->itemID(), (int64)expiryTime,
+            //    Calendar::AutoEvent::PosFuel, "Fuel Expiration", "...", true);
+        }
+
+        m_lastFuelPct = fuelPct;
         return true;
     }
 
