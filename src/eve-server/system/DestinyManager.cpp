@@ -1830,7 +1830,10 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
 
         m_targBubble->Add(mySE);
 
-        SetPosition(m_position, true);
+        // Do NOT send SetBallPosition here — the client's WarpLoop runs independently
+        // and any position snap during active warp crashes the client with
+        // "ValueError: Unknown packet type" or causes endless jerking.
+        SetPosition(m_position, false);
     } else {
         _log(
             DESTINY__WARP_TRACE,
