@@ -1,6 +1,6 @@
 # EVEmu Crucible — Fork Progress
 
-> **Overall: ~95%** (upstream: 59.5%)  
+> **Overall: ~96%** (upstream: 59.5%)  
 > Last updated: 2026-07-08  
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
@@ -50,7 +50,7 @@
 | Sentry guns, kill rights | ✅ |
 | Combat logoff (15min ghost, 60s emergency) | ✅ |
 
-## 5. Modules & Module Management — 92%
+## 5. Modules & Module Management — 95%
 
 | Feature | Status |
 |---------|--------|
@@ -59,6 +59,7 @@
 | **Overheating** — Thermodynamics skill check | ✅ |
 | **Overheating** — HeatDamageCheck slot-based damage spread | ✅ |
 | **Overheating** — Nanite Paste repair (consumes typeID 24694) | ✅ |
+| **OverloadRack/StopOverloadRack** — rack-wide overload toggling | ✅ |
 | Module repair (nanite paste) | ✅ |
 | Drone modules (DDA, nav, tracking, range) | ✅ |
 
@@ -94,20 +95,22 @@
 | Research agents (21, tech fields) | ✅ |
 | LP store (faction + CONCORD) | ✅ |
 
-## 9. Market — 75%
+## 9. Market — 85%
 
 | Feature | Status |
 |---------|--------|
 | Buy/sell orders, immediate transactions | ✅ |
 | Corporation market (office/permission checks) | ✅ |
-| Market bots (Trader Joe — config-driven) | ✅ |
+| Market bots (Trader Joe — config-driven: prices, quantities, groups) | ✅ |
 | Multi-region seeding (empire + NPC null-sec) | ✅ |
 | Price history (GROUP BY fix, timer, seed data) | ✅ |
 | Escrow handling (MarginTrading reduction) | ✅ |
 | **Trade skills** — order count, range validation | ✅ |
 | **ModifyCharOrder** — corp-aware escrow handling | ✅ |
+| **VALID_GROUPS** configurable via XML `<groups>` | ✅ |
+| **Expired auctions** auto-finish (1m tick) | ✅ |
 
-## 10. Contracts — 70%
+## 10. Contracts — 85%
 
 | Feature | Status |
 |---------|--------|
@@ -116,8 +119,9 @@
 | Auction contracts (PlaceBid/FinishAuction) | ✅ |
 | **Auction item transfer** — items to winner, refund losers | ✅ |
 | **Auction notifications** — OnAuctionWon, OnAuctionCompleted | ✅ |
+| **Auto-finish expired auctions** — 1m scheduled task | ✅ |
 
-## 11. Corporation & Alliance — 70%
+## 11. Corporation & Alliance — 80%
 
 | Feature | Status |
 |---------|--------|
@@ -125,18 +129,19 @@
 | Office rental, bills, wallet divisions | ✅ |
 | Alliance creation, wars, bulletins, labels, contacts | ✅ |
 | Alliance war decay timer | ✅ |
-| Corp mail role filtering (crpRoles table) | ✅ |
+| Corp mail role filtering (crpRoles table + seeding) | ✅ |
+| Faction Warfare corp/alliance join/leave | ✅ |
 
-## 12. Science & Industry — 40%
+## 12. Science & Industry — 50%
 
 | Feature | Status |
 |---------|--------|
 | Manufacturing, copying, research (ME/PE) | ✅ |
 | Invention (chance calc + T2 BPC) | ✅ |
-| Reverse engineering | 🟡 |
+| **Reverse Engineering** — ActivityCheck, Calculate, CompleteJob with chanceOfRE + skill | ✅ |
 | Blueprint management (ME/PE/runs) | ✅ |
 
-## 13. POS — 90%
+## 13. POS — 95%
 
 | Feature | Status |
 |---------|--------|
@@ -151,9 +156,10 @@
 | **Weapon AI** (POS_AI — bubble scan, corp validation, damage) | ✅ |
 | **Assume/Relinquish control** (controllerID, notifications) | ✅ |
 | **Skill checks** (RequiredSkill1-6 for anchor/online) | ✅ |
-| **Fuel notifications** (threshold tracking, calendar stub) | ✅ |
+| **Fuel notifications** (threshold tracking) | ✅ |
+| **FieldSE crash fix** (IsGlobal flag, shield charge init) | ✅ |
 
-## 14. Overheating — 80%
+## 14. Overheating — 95%
 
 | Feature | Status |
 |---------|--------|
@@ -163,7 +169,7 @@
 | **HeatDamageCheck** — slot-based damage spread | ✅ |
 | **Thermodynamics skill check** before overload | ✅ |
 | **Nanite Paste repair** (consumes typeID 24694 from cargo) | ✅ |
-| OverloadRack/StopOverloadRack | 🟡 |
+| **OverloadRack/StopOverloadRack** — rack-wide toggle | ✅ |
 
 ## 15. Wormholes — 80%
 
@@ -202,12 +208,13 @@
 | bookmark/warp to scan result | ✅ |
 | Cosmic anomalies, signatures, D-scan | ✅ |
 
-## 19. LSC (Chat) — 70%
+## 19. LSC (Chat) — 85%
 
 | Feature | Status |
 |---------|--------|
 | Local, corp, alliance channels | ✅ |
-| Private conversations, channel creation | 🟡 |
+| **Private conversations** (Invite, custom temp channel, OnLSC notify) | ✅ |
+| Channel creation (CreateChannel, Configure, Destroy) | ✅ |
 
 ## 20. EvE Mail & Notifications — 90%
 
@@ -223,7 +230,7 @@
 | **Corp mail role filtering** — crpRoles + roleMask | ✅ |
 | Notification sources: bills, towers, agents, corps, structures | ✅ |
 
-## 21. Standings — 75%
+## 21. Standings — 85%
 
 | Feature | Status |
 |---------|--------|
@@ -234,8 +241,9 @@
 | **Character↔character (PnP) standings** | ✅ |
 | **SetStanding RPC** — clamp, max ±2, notifications | ✅ |
 | Security status (CONCORD awards/penalties) | ✅ |
+| Used by FW enemy checks (IsEnemyFaction/Corporation) | ✅ |
 
-## 22. Calendar — 85%
+## 22. Calendar — 90%
 
 | Feature | Status |
 |---------|--------|
@@ -245,9 +253,39 @@
 | Event deletion (soft delete) | ✅ |
 | SendEventResponse (accept/decline/maybe) | ✅ |
 | Event list + details via CalendarProxy | ✅ |
-| Reminder system | 🟡 |
+| PyWString→PyRep fix for client compatibility | ✅ |
 
-## 23. Effects System — 88%
+## 23. Faction Warfare — 80%
+
+| Feature | Status |
+|---------|--------|
+| Join/Leave as character (membership table + warFactionID) | ✅ |
+| Join/Leave as corp (Director role check, cascading update) | ✅ |
+| Join/Leave as alliance | ✅ |
+| Withdraw join/leave (corp + alliance) | ✅ |
+| IsEnemyFaction (via StandingDB) | ✅ |
+| IsEnemyCorporation (via warFactionID → standing) | ✅ |
+| GetFactionalWarStatus (factionID, joined, rank) | ✅ |
+| GetCharacterRankInfo (util_Rowset) | ✅ |
+| GetCorporationWarFactionID | ✅ |
+| GetFactionCorporations | ✅ |
+| GetSystemsConqueredThisRun (contested systems) | ✅ |
+| GetStats_Character (kills, losses, VP) | ✅ |
+| Notifications (FWCorpJoin, FWCorpLeave) | ✅ |
+| facWarCharacters + facWarStats tables | ✅ |
+
+## 24. Reverse Engineering — 60%
+
+| Feature | Status |
+|---------|--------|
+| ActivityCheck (RE allowed at POS labs) | ✅ |
+| Time calculation (researchTechTime + AdvLabOps skill) | ✅ |
+| CompleteJob (chanceOfRE + RE skill +1%/lvl) | ✅ |
+| T2 BPC output via parentBlueprintTypeID | ✅ |
+| Skill checks (ReverseEngineering 3408) | ✅ |
+| Datacore skill modifier | 🟡 |
+
+## 25. Effects System — 88%
 
 | Feature | Status |
 |---------|--------|
@@ -281,16 +319,18 @@
 
 | Feature | Added |
 |---------|-------|
-| POS — fuel, reinforced, CPU/PG, orbitals, reactors, weapon AI, assume control, skill checks | ✅ |
-| Overheating — Thermodynamics check, slot heat damage, Nanite Paste repair | ✅ |
-| Notifications — CreateNotification, NotificationMgrService, bill/tower/agent/corp/struct sources | ✅ |
+| POS — full overhaul (fuel, reinforced, CPU/PG, orbitals, reactors, weapon AI, control, skills, FieldSE fix) | ✅ |
+| Overheating — Thermodynamics, slot heat damage, Nanite Paste, OverloadRack | ✅ |
+| Notifications — CreateNotification + 6 sources | ✅ |
 | Standings decay + PnP SetStanding RPC | ✅ |
-| Market — price history seed+GROUP BY+timer, trade skills (count/range/MarginTrading), ModifyCharOrder corp fix | ✅ |
-| Calendar — EditEvent, UpdateEventParticipants, SendEventResponse | ✅ |
-| Contracts — FinishAuction item transfer + bid refund + notifications | ✅ |
-| Market bot — config-driven OrdersPerSystem, DupeOrdersPerSystem, MinBuy/SellAmount | ✅ |
+| Market — price history, trade skills, bot config (groups/prices/quantities), MarginTrading, expired auctions | ✅ |
+| Calendar — EditEvent, UpdateEventParticipants, SendEventResponse, PyWString fix | ✅ |
+| Contracts — FinishAuction item transfer + bid refund + auto-finish | ✅ |
 | Corp mail roles — crpRoles table + roleMask filtering | ✅ |
 | Warp alignment + warp exit crash fix | ✅ |
+| Faction Warfare — full implementation (membership, join/leave, corp/alliance, stats, notifications) | ✅ |
+| Reverse Engineering — ActivityCheck, Calculate, CompleteJob with chanceOfRE + skill | ✅ |
+| LSC — private conversations (Invite, custom channel, OnLSC notify) | ✅ |
 | NPC Ship-category typeIDs (33500-33523) | ✅ |
 | Crimewatch full implementation | ✅ |
 | CONCORD + sentry + sec loss | ✅ |
