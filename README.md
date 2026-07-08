@@ -91,24 +91,23 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 **Estimated overall: ~91%** (upstream: 59.5%)
 
-| System | % | System | % |
-|--------|---|--------|---|
-| Account & Character | 97% | Skills & Certificates | 99% |
-| Ship Navigation | 95% | Combat | 99.5% |
-| Modules | 92% | Module Management | 80% |
-| **Drones** | **90%** | **NPC AI & Spawning** | **80%** |
-| Corporation | 70% | Alliance | 30% |
-| Science & Industry | 40% | **Incursions** | **75%** |
-| **Wormholes** | **80%** | Fleet | 98% |
-| Missions | 70% | Agents | 85% |
-| POS | 90% | Overheating | 80% |
-| Calendar | 85% | Notifications | 90% |
-| Mail & LSC | 75% | Standings | 75% |
-| Market | 75% | Contracts | 70% |
-| Bookmark System | 95% | Effects System | 88% |
-| Scanning | 99% | Planetary Interaction | 72% |
-| Anomaly Manager | 85% | | |
-| Dungeon Manager | 70% | Spawn Manager | 75% |
+| System                |  %  | System                |  %  |
+|-----------------------|:---:|-----------------------|:---:|
+| Account & Character   | 97% | Skills & Certificates | 99% |
+| Ship Navigation       | 95% | Combat                | 99% |
+| Modules + Overheating | 92% | Drones                | 90% |
+| NPC AI & Spawning     | 80% | Agents & Missions     | 85% |
+| **POS**               | 90% | Overheating           | 80% |
+| Market                | 75% | Contracts             | 70% |
+| Corporation           | 70% | Alliance              | 30% |
+| **Incursions**        | 75% | Fleet                 | 98% |
+| **Wormholes**         | 80% | Scanning              | 99% |
+| **Notifications**     | 90% | **Standings**         | 75% |
+| Mail & LSC            | 75% | Calendar              | 85% |
+| Science & Industry    | 40% | Planetary Interaction | 72% |
+| Bookmark System       | 95% | Effects System        | 88% |
+| Anomaly Manager       | 85% | Spawn Manager         | 75% |
+| Dungeon Manager       | 70% | Civilian Manager      | 10% |
 
 See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  
 Полная раскладка — в [`PROGRESS.md`](PROGRESS.md).
