@@ -62,11 +62,9 @@ LABEL description="EVEmu Server"
 COPY --from=app-build /src/utils/ /src/utils
 COPY --from=app-build /app/ /app
 
-# Add SQL loading tools
+# Add SQL loading tools (includes vendored evedbtool binary)
 ADD /sql/ /src/sql
-
-# Run SQL tool script
-RUN cd /src/sql && ./get_evedbtool.sh
+RUN chmod +x /src/sql/evedbtool
 
 # Expose server ports
 EXPOSE 26000

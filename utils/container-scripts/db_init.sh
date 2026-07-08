@@ -34,27 +34,6 @@ sed -i "s/database_name/$MARIADB_DATABASE/" /src/utils/config/eve-server.xml
 sed -i "s/database_port/$MARIADB_PORT/" /src/utils/config/eve-server.xml
 
 
-# Download EVEDBTool if missing (network may fail during build but work at runtime)
-if [ ! -f "/src/sql/evedbtool" ]; then
-    echo "EVEDBTool not found, downloading..."
-    cd /src/sql
-    arch=$(arch)
-    if [[ $arch == x86_64* ]]; then
-        URL="https://github.com/EvEmu-Project/EVEDBTool/releases/download/0.0.6/evedbtool"
-    elif [[ $arch == aarch64* ]]; then
-        URL="https://github.com/EvEmu-Project/EVEDBTool/releases/download/0.0.6/evedb_aarch64"
-    else
-        echo "Unsupported arch: $arch"
-        exit 1
-    fi
-    if curl --output evedbtool -s -L -f "$URL"; then
-        chmod +x evedbtool
-        echo "EVEDBTool downloaded."
-    else
-        echo "WARNING: Failed to download EVEDBTool from $URL"
-    fi
-fi
-
 # Write evedb.yaml based upon above variables
 cd /src/sql
 cat >/src/sql/evedb.yaml <<EOF
