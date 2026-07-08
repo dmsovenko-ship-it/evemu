@@ -25,7 +25,6 @@
 
 #include "eve-server.h"
 
-
 #include "mail/NotificationMgrService.h"
 
 // this service is part of mail and used with the 'notifications' tab of mail window
@@ -45,88 +44,125 @@ NotificationMgrService::NotificationMgrService() :
 
 PyResult NotificationMgrService::GetByGroupID(PyCallArgs &call, PyInt* groupID)
 {
+    uint32 charID = call.client->GetCharacterID();
 
-    sLog.White("NotificationMgrService", "Handle_GetByGroupID() size=%lli", call.tuple->size());
-    call.Dump(MAIL__DUMP);
-    /*
-            [PyString "GetByGroupID"]
-            [PyTuple 1 items]
-              [PyInt 9]
-        {returns}
-        [PyObjectEx Type2]
-          [PyTuple 2 items]
-            [PyTuple 1 items]
-              [PyToken dbutil.CRowset]
-            [PyDict 1 kvp]
-              [PyString "header"]
-              [PyObjectEx Normal]
-                [PyTuple 2 items]
-                  [PyToken blue.DBRowDescriptor]
-                  [PyTuple 1 items]
-                    [PyTuple 8 items]
-                      [PyTuple 2 items]
-                        [PyString "notificationID"]
-                        [PyInt 3]
-                      [PyTuple 2 items]
-                        [PyString "typeID"]
-                        [PyInt 3]
-                      [PyTuple 2 items]
-                        [PyString "senderID"]
-                        [PyInt 3]
-                      [PyTuple 2 items]
-                        [PyString "receiverID"]
-                        [PyInt 3]
-                      [PyTuple 2 items]
-                        [PyString "processed"]
-                        [PyInt 11]
-                      [PyTuple 2 items]
-                        [PyString "created"]
-                        [PyInt 64]
-                      [PyTuple 2 items]
-                        [PyString "data"]
-                        [PyInt 130]
-                      [PyTuple 2 items]
-                        [PyString "deleted"]
-                        [PyInt 11]
-              */
-              // yes, i have the packet, but wtf is this?
-    return new PyTuple(0);
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT n.notificationID, n.typeID, n.senderID, n.receiverID,"
+        "       n.processed, n.created, t.data, n.deleted"
+        " FROM notification n"
+        " LEFT JOIN notificationText t ON t.notificationID = n.notificationID"
+        " WHERE n.receiverID = %u AND n.deleted = 0"
+        " ORDER BY n.created DESC"
+        " LIMIT 200",
+        charID);
+
+    return DBResultToCRowset(res);
 }
 
 PyResult NotificationMgrService::GetUnprocessed(PyCallArgs &call)
 {
-    // called when mail window's notifications tab opened
-    // see /journal/GetUnprocessed for info..
+    uint32 charID = call.client->GetCharacterID();
 
-    return new PyTuple(0);
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT n.notificationID, n.typeID, n.senderID, n.receiverID,"
+        "       n.processed, n.created, t.data, n.deleted"
+        " FROM notification n"
+        " LEFT JOIN notificationText t ON t.notificationID = n.notificationID"
+        " WHERE n.receiverID = %u AND n.processed = 0 AND n.deleted = 0"
+        " ORDER BY n.created DESC"
+        " LIMIT 100",
+        charID);
+
+    return DBResultToCRowset(res);
 }
 
 PyResult NotificationMgrService::MarkGroupAsProcessed(PyCallArgs &call, PyInt* groupID)
 {
-    return nullptr;
+    uint32 charID = call.client->GetCharacterID();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE notification SET processed = 1"
+        " WHERE receiverID = %u AND deleted = 0",
+        charID);
+    return PyStatic.NewNone();
 }
 
 PyResult NotificationMgrService::MarkAllAsProcessed(PyCallArgs &call)
 {
-    return nullptr;
+    uint32 charID = call.client->GetCharacterID();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE notification SET processed = 1"
+        " WHERE receiverID = %u AND deleted = 0",
+        charID);
+    return PyStatic.NewNone();
 }
 
 PyResult NotificationMgrService::MarkAsProcessed(PyCallArgs &call, PyList* notificationIDsToMarkAsRead)
 {
-    return nullptr;
+    uint32 charID = call.client->GetCharacterID();
+    if (notificationIDsToMarkAsRead == nullptr or notificationIDsToMarkAsRead->size() == 0)
+        return PyStatic.NewNone();
+
+    // build comma-separated list of IDs
+    std::string ids;
+    PyList::const_iterator itr = notificationIDsToMarkAsRead->begin();
+    while (itr != notificationIDsToMarkAsRead->end()) {
+        if (!ids.empty()) ids += ",";
+        ids += std::to_string(PyRep::IntegerValueU32(*itr));
+        ++itr;
+    }
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE notification SET processed = 1"
+        " WHERE notificationID IN (%s) AND receiverID = %u",
+        ids.c_str(), charID);
+    return PyStatic.NewNone();
 }
 
 PyResult NotificationMgrService::DeleteGroupNotifications(PyCallArgs &call, PyInt* groupID)
 {
-    return nullptr;
+    uint32 charID = call.client->GetCharacterID();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE notification SET deleted = 1"
+        " WHERE receiverID = %u AND deleted = 0",
+        charID);
+    return PyStatic.NewNone();
 }
 
 PyResult NotificationMgrService::DeleteAllNotifications(PyCallArgs &call)
 {
-    return nullptr;
+    uint32 charID = call.client->GetCharacterID();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE notification SET deleted = 1"
+        " WHERE receiverID = %u AND deleted = 0",
+        charID);
+    return PyStatic.NewNone();
 }
 
 PyResult NotificationMgrService::DeleteNotifications(PyCallArgs &call, PyList* notificatinIDs)
 {
-    return nullptr;
+    uint32 charID = call.client->GetCharacterID();
+    if (notificatinIDs == nullptr or notificatinIDs->size() == 0)
+        return PyStatic.NewNone();
+
+    std::string ids;
+    PyList::const_iterator itr = notificatinIDs->begin();
+    while (itr != notificatinIDs->end()) {
+        if (!ids.empty()) ids += ",";
+        ids += std::to_string(PyRep::IntegerValueU32(*itr));
+        ++itr;
+    }
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE notification SET deleted = 1"
+        " WHERE notificationID IN (%s) AND receiverID = %u",
+        ids.c_str(), charID);
+    return PyStatic.NewNone();
 }

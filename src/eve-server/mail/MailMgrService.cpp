@@ -23,6 +23,8 @@
     Author:        Luck, caytchen
 */
 
+#include <set>
+
 #include "eve-server.h"
 
 
@@ -79,22 +81,88 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
     }
 
     int sender = call.client->GetCharacterID();
+
+    // rate limit: max 5 messages per minute
+    DBQueryResult rateRes;
+    sDatabase.RunQuery(rateRes,
+        "SELECT COUNT(*) FROM mailMessage"
+        " WHERE senderID = %u AND created > %lli",
+        sender, (int64)(GetFileTimeNow() - EvE::Time::Minute));
+    DBResultRow rateRow;
+    if (rateRes.GetRow(rateRow) and rateRow.GetInt(0) >= mailMaxMessagePerMinute) {
+        call.client->SendErrorMsg("You have reached the maximum number of messages per minute.");
+        return new PyInt(0);
+    }
+
+    // recipient limit
+    size_t totalRecipients = characters.size();
+    if (listID.has_value()) {
+        DBQueryResult listRes;
+        sDatabase.RunQuery(listRes, "SELECT COUNT(*) FROM mailListUsers WHERE listID = %u", listID.value()->value());
+        DBResultRow listRow;
+        if (listRes.GetRow(listRow))
+            totalRecipients += listRow.GetInt(0);
+    }
+    if (totalRecipients > mailMaxRecipients) {
+        call.client->SendErrorMsg("Too many recipients. Maximum is %u.", mailMaxRecipients);
+        return new PyInt(0);
+    }
+
+    // blocked-contacts filter: remove recipients who have blocked the sender
+    if (!characters.empty()) {
+        std::string blockedSQL = "SELECT contactID FROM chrContacts WHERE blocked = 1 AND ownerID IN (";
+        for (size_t i = 0; i < characters.size(); ++i) {
+            if (i > 0) blockedSQL += ",";
+            blockedSQL += std::to_string(characters[i]);
+        }
+        blockedSQL += ")";
+        DBQueryResult blockedRes;
+        sDatabase.RunQuery(blockedRes, blockedSQL.c_str());
+
+        std::set<uint32> blockedIDs;
+        DBResultRow blockedRow;
+        while (blockedRes.GetRow(blockedRow))
+            blockedIDs.insert(blockedRow.GetUInt(0));
+
+        if (!blockedIDs.empty()) {
+            std::vector<int32> filtered;
+            for (int32 id : characters) {
+                if (blockedIDs.find((uint32)id) == blockedIDs.end())
+                    filtered.push_back(id);
+            }
+            characters.swap(filtered);
+        }
+    }
+
     // Check for optional roleMask parameter (used for corp mail role groups)
     uint32 roleMask = 0;
     if (call.byname.find("roleMask") != call.byname.end())
         roleMask = PyRep::IntegerValueU32(call.byname.find("roleMask")->second);
 
-    return new PyInt(
-        m_db.SendMail(
-            sender, characters,
-            listID.has_value() ? listID.value()->value() : -1,
-            toCorpOrAllianceID.has_value() ? toCorpOrAllianceID.value()->value() : -1,
-            title->content(), body->content(),
-            isReplyTo->value(),
-            isForwardedFrom->value(),
-            roleMask
-        )
+    int32 mailID = m_db.SendMail(
+        sender, characters,
+        listID.has_value() ? listID.value()->value() : -1,
+        toCorpOrAllianceID.has_value() ? toCorpOrAllianceID.value()->value() : -1,
+        title->content(), body->content(),
+        isReplyTo->value(),
+        isForwardedFrom->value(),
+        roleMask
     );
+
+    // push notification to online recipients
+    if (mailID > 0) {
+        for (int32 charID : characters) {
+            Client* targetClient = sEntityList.FindClientByCharID(charID);
+            if (targetClient != nullptr) {
+                PyTuple* payload = new PyTuple(2);
+                payload->SetItem(0, new PyInt(mailID));
+                payload->SetItem(1, new PyInt(sender));
+                targetClient->SendNotification("OnMessage", "clientID", payload, false);
+            }
+        }
+    }
+
+    return new PyInt(mailID);
 }
 
 PyResult MailMgrService::PrimeOwners(PyCallArgs &call, PyList* ownerIDs)
