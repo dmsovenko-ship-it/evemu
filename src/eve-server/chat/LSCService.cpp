@@ -490,8 +490,8 @@ PyResult LSCService::Invite(PyCallArgs& call, PyInt* characterID, PyInt* channel
         channel = it->second;
 
     if (channel == nullptr) {
-        channel = new LSCChannel(this, convID, LSC::Type::custom, inviterID,
-                                 call.client->GetCharName(), nullptr, "",
+        channel = new LSCChannel(this, (int32)convID, LSC::Type::custom, inviterID,
+                                 call.client->GetCharName().c_str(), nullptr, std::string(""),
                                  false, nullptr, false, 0, true, false, 0, 0);
         m_channels[convID] = channel;
     }
@@ -510,28 +510,6 @@ PyResult LSCService::Invite(PyCallArgs& call, PyInt* characterID, PyInt* channel
         Client* target = sEntityList.FindClientByCharID(inviteeID);
         if (target != nullptr)
             target->SendNotification("OnLSC", "clientID", payload, false);
-    }
-
-    return PyStatic.NewOne();
-}
-
-PyResult LSCService::Configure(PyCallArgs& call, PyInt* channelID)
-{
-            //chatInvitePacket.integer2 = invited_char_ID;
-            //chatInvitePacket.boolean = true;
-            //chatInvitePacket.displayName = call.tuple->GetItem(2)->AsString()->content();
-            //chatInvitePacket.integer3 = 1;
-            //chatInvitePacket.integer4 = 0;
-            //chatInvitePacket.integer5 = 1;
-            //PyTuple *tuple = chatInvitePacket.Encode();
-            //entityList().Unicast(invited_char_ID, "", "", &tuple, false);
-        } else {
-            _log(LSC__ERROR, "%s: Character %u is already joined to channel %u.", call.client->GetName(), characterID->value(), channelID->value());
-            return nullptr;
-        }
-    } else {
-        _log(LSC__ERROR, "%s: Cannot find channel %u.", call.client->GetName(), channelID->value());
-        return nullptr;
     }
 
     return PyStatic.NewOne();
