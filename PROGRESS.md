@@ -142,7 +142,7 @@
 | Auction notifications — OnAuctionWon, OnAuctionCompleted | ✅ |
 | Auto-finish expired auctions — 1m scheduled task | ✅ |
 
-### 11. Corporation & Alliance `████████████████░░` 80%
+### 11. Corporation & Alliance `████████████████░░` 80% / `████████████░░░░░░` 60%
 
 | Feature | |
 |---------|-|
