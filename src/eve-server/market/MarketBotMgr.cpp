@@ -443,47 +443,30 @@ uint32 MarketBotMgr::SelectRandomItemID() {
 }
 
 uint32 MarketBotMgr::GetRandomQuantity(uint32 groupID) {
-    // Large-quantity bulk groups: minerals, ammo, ores, charges, etc.
+    // Large-quantity bulk groups
     if (
-        groupID == 18 ||                      // Minerals
-        (groupID >= 83 && groupID <= 92) ||   // Basic ammo/charges
-        (groupID >= 372 && groupID <= 377) || // Advanced ammo
-        (groupID >= 384 && groupID <= 396) || // More missiles
-        groupID == 479 ||                     // Scanner Probes
-        groupID == 482 ||                     // Mining Crystals
-        groupID == 492 ||                     // Survey Probes
-        groupID == 538 ||                     // Data Miners
-        groupID == 548 ||                     // Interdiction Probe
-        groupID == 648 ||                     // Advanced Rocket
-        (groupID >= 653 && groupID <= 657) || // Advanced Missiles
-        groupID == 663 ||                     // Mercoxit Mining Crystals
-        groupID == 772 ||                     // Assault Missiles
-        (groupID >= 450 && groupID <= 462) || // Raw ores (part 1)
-        (groupID >= 465 && groupID <= 469)    // Raw ores (part 2)
+        groupID == 18 ||
+        (groupID >= 83 && groupID <= 92) ||
+        (groupID >= 372 && groupID <= 377) ||
+        (groupID >= 384 && groupID <= 396) ||
+        groupID == 479 || groupID == 482 || groupID == 492 ||
+        groupID == 538 || groupID == 548 || groupID == 648 ||
+        (groupID >= 653 && groupID <= 657) ||
+        groupID == 663 || groupID == 772 ||
+        (groupID >= 450 && groupID <= 462) ||
+        (groupID >= 465 && groupID <= 469)
     ) {
-        return GetRandomInt(1000, 1000000);  // Large stack sizes
+        return GetRandomInt(sMBotConf.main.QuantityLargeMin, sMBotConf.main.QuantityLargeMax);
     }
-
-    // Medium-volume: modules, rigs, etc.; way to many to list... disabled for the time being
-    // leaving below as an example.
-    /*if (
-        groupID == 62 ||  // Armor Repairers
-        groupID == 63 ||  // Hull Repair
-        groupID == 205    // Heat Sink
-    ) {
-        return GetRandomInt(10, 100);
-    }*/
-
-    // Fallback for anything else
-    return GetRandomInt(10, 500);
+    return GetRandomInt(sMBotConf.main.QuantitySmallMin, sMBotConf.main.QuantitySmallMax);
 }
 
 double MarketBotMgr::CalculateBuyPrice(uint32 itemID) {
     const ItemType* type = sItemFactory.GetType(itemID);
-    return type ? type->basePrice() * GetRandomFloat(0.8f, 1.1f) : 1000.0;
+    return type ? type->basePrice() * GetRandomFloat(sMBotConf.buy.PriceMultiplierMin, sMBotConf.buy.PriceMultiplierMax) : 1000.0;
 }
 
 double MarketBotMgr::CalculateSellPrice(uint32 itemID) {
     const ItemType* type = sItemFactory.GetType(itemID);
-    return type ? type->basePrice() * GetRandomFloat(1.0f, 1.3f) : 1000.0;
+    return type ? type->basePrice() * GetRandomFloat(sMBotConf.sell.PriceMultiplierMin, sMBotConf.sell.PriceMultiplierMax) : 1000.0;
 }

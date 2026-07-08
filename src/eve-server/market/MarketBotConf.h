@@ -31,6 +31,10 @@ public:
         uint8 OrderLifetime;
         uint16 OrdersPerRefresh;
         uint32 MaxISKPerOrder;
+        uint32 QuantityLargeMin;    // default 1000
+        uint32 QuantityLargeMax;    // default 1000000
+        uint32 QuantitySmallMin;    // default 10
+        uint32 QuantitySmallMax;    // default 500
     } main;
 
     // From <buy/>
@@ -46,6 +50,10 @@ public:
         uint8 DupeOrdersPerConst;
         uint8 DupeOrdersPerSystem;
         uint8 MinBuyAmount;
+        float PriceMultiplierMin;  // default 0.8
+        float PriceMultiplierMax;  // default 1.1
+        uint32 QuantityMin;        // default 1000
+        uint32 QuantityMax;        // default 1000000
     } buy;
 
     // From <sell/>
@@ -61,6 +69,10 @@ public:
         uint8 SellItemMetaLevelMin;
         uint8 SellItemMetaLevelMax;
         uint8 MinSellAmount;
+        float PriceMultiplierMin;  // default 1.0
+        float PriceMultiplierMax;  // default 1.3
+        uint32 QuantityMin;        // default 10
+        uint32 QuantityMax;        // default 500
     } sell;
 
 protected:
@@ -68,6 +80,7 @@ protected:
     bool ProcessMain( const TiXmlElement* ele );
     bool ProcessBuy( const TiXmlElement* ele );
     bool ProcessSell( const TiXmlElement* ele );
+
 };
 
 

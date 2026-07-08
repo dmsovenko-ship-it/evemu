@@ -32,6 +32,9 @@
 #include "Client.h"
 #include "ConsoleCommands.h"
 #include "EntityList.h"
+#include "EVE_Wallet.h"
+#include "account/AccountService.h"
+#include "inventory/ItemFactory.h"
 #include "EVEServerConfig.h"
 #include "ServiceDB.h"
 #include "agents/Agent.h"
@@ -215,6 +218,105 @@ void CheckWarDecay()
     }
 }
 
+void CheckExpiredAuctions()
+{
+    // Find expired auction contracts (type=4, status=0=Outstanding, dateExpired < now)
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT contractId FROM ctrContracts"
+        " WHERE contractType = 4 AND status = 0 AND dateExpired < %.0f",
+        GetFileTimeNow()))
+        return;
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 cID = row.GetUInt(0);
+
+        // Check if there are any bids
+        DBQueryResult bidRes;
+        DBResultRow bidRow;
+        if (sDatabase.RunQuery(bidRes,
+            "SELECT bidderID, amount FROM ctrBids WHERE contractID = %u ORDER BY amount DESC LIMIT 1", cID))
+        {
+            if (bidRes.GetRow(bidRow)) {
+                // Has bids — finish auction with winner
+                uint32 winnerID = bidRow.GetUInt(0);
+                double amount = bidRow.GetDouble(1);
+
+                // Get issuer
+                DBQueryResult issuerRes;
+                DBResultRow issuerRow;
+                uint32 issuerID = 0;
+                if (sDatabase.RunQuery(issuerRes,
+                    "SELECT issuerID FROM ctrContracts WHERE contractId = %u", cID))
+                    if (issuerRes.GetRow(issuerRow)) issuerID = issuerRow.GetUInt(0);
+
+                // Update status
+                DBerror err;
+                sDatabase.RunQuery(err,
+                    "UPDATE ctrContracts SET status = 4, dateCompleted = %.0f, acceptorID = %u WHERE contractId = %u",
+                    GetFileTimeNow(), winnerID, cID);
+
+                // Pay issuer
+                AccountService::TransferFunds(winnerID, issuerID, amount,
+                    "Auction payment", Journal::EntryType::ContractAuctionSold, cID);
+
+                // Transfer items to winner
+                DBQueryResult itemRes;
+                sDatabase.RunQuery(itemRes,
+                    "SELECT itemID FROM ctrItems WHERE contractId = %u AND inCrate = 1", cID);
+                DBResultRow itemRow;
+                while (itemRes.GetRow(itemRow)) {
+                    InventoryItemRef iRef = sItemFactory.GetItemRef(itemRow.GetUInt(0));
+                    if (iRef.get() != nullptr) {
+                        iRef->ChangeOwner(winnerID, true);
+                        DBQueryResult stationRes;
+                        sDatabase.RunQuery(stationRes,
+                            "SELECT startStationID FROM ctrContracts WHERE contractId = %u", cID);
+                        DBResultRow stationRow;
+                        uint32 stationID = 0;
+                        if (stationRes.GetRow(stationRow))
+                            stationID = stationRow.GetUInt(0);
+                        if (stationID > 0)
+                            iRef->Move(stationID, flagHangar, true);
+                    }
+                }
+
+                sLog.Warning("ExpiredAuction", "Auction %u finished - winner %u paid %.2f ISK", cID, winnerID, amount);
+            } else {
+                // No bids — reject
+                DBerror err;
+                sDatabase.RunQuery(err,
+                    "UPDATE ctrContracts SET status = 6, dateCompleted = %.0f WHERE contractId = %u",
+                    GetFileTimeNow(), cID);
+
+                // Return items to issuer
+                DBQueryResult itemRes;
+                sDatabase.RunQuery(itemRes,
+                    "SELECT itemID FROM ctrItems WHERE contractId = %u AND inCrate = 1", cID);
+                DBResultRow itemRow;
+                while (itemRes.GetRow(itemRow)) {
+                    InventoryItemRef iRef = sItemFactory.GetItemRef(itemRow.GetUInt(0));
+                    if (iRef.get() != nullptr) {
+                        DBQueryResult stationRes;
+                        sDatabase.RunQuery(stationRes,
+                            "SELECT issuerID, startStationID FROM ctrContracts WHERE contractId = %u", cID);
+                        DBResultRow stationRow;
+                        uint32 issuerID = 0, stationID = 0;
+                        if (stationRes.GetRow(stationRow)) {
+                            issuerID = stationRow.GetUInt(0);
+                            stationID = stationRow.GetUInt(1);
+                        }
+                        if (issuerID > 0) iRef->ChangeOwner(issuerID, true);
+                        if (stationID > 0) iRef->Move(stationID, flagHangar, true);
+                    }
+                }
+                sLog.Warning("ExpiredAuction", "Auction %u expired with no bids - items returned", cID);
+            }
+        }
+    }
+}
+
 
 void EntityList::Process() {
     Client* pClient(nullptr);
@@ -287,6 +389,7 @@ void EntityList::Process() {
             sMissionDataMgr.Process();  // 1m
             sIncursionMgr.Process();    // 1m
             CheckWarDecay();
+            CheckExpiredAuctions();
 
             if (m_minutes % 5 == 0) { // ~5m
                 sWHMgr.Process();

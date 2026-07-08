@@ -31,6 +31,10 @@ MarketBotConf::MarketBotConf()
     main.OrderLifetime = 5/*d*/;//N
     main.OrdersPerRefresh = 10;//N
     main.MaxISKPerOrder = 1500000000;//N
+    main.QuantityLargeMin = 1000;
+    main.QuantityLargeMax = 1000000;
+    main.QuantitySmallMin = 10;
+    main.QuantitySmallMax = 500;
 
     // buy
     buy.RegionJumps = 10;//N
@@ -43,6 +47,10 @@ MarketBotConf::MarketBotConf()
     buy.DupeOrdersPerConst = 5;//N
     buy.DupeOrdersPerSystem = 2;//N
     buy.MinBuyAmount = 1;//N
+    buy.PriceMultiplierMin = 0.8f;
+    buy.PriceMultiplierMax = 1.1f;
+    buy.QuantityMin = 1000;
+    buy.QuantityMax = 1000000;
 
     // sell
     sell.SellNamedItem = false;//N
@@ -55,6 +63,10 @@ MarketBotConf::MarketBotConf()
     sell.SellItemMetaLevelMin = 0;//N
     sell.SellItemMetaLevelMax = 4;//N
     sell.MinSellAmount = 1;//N
+    sell.PriceMultiplierMin = 1.0f;
+    sell.PriceMultiplierMax = 1.3f;
+    sell.QuantityMin = 10;
+    sell.QuantityMax = 500;
 }
 
 bool MarketBotConf::ProcessBotConf(const TiXmlElement* ele)
@@ -84,6 +96,10 @@ bool MarketBotConf::ProcessMain(const TiXmlElement* ele)
     AddValueParser( "OrderLifetime",            main.OrderLifetime );
     AddValueParser( "OrdersPerRefresh",         main.OrdersPerRefresh );
     AddValueParser( "MaxISKPerOrder",           main.MaxISKPerOrder );
+    AddValueParser( "QuantityLargeMin",          main.QuantityLargeMin );
+    AddValueParser( "QuantityLargeMax",          main.QuantityLargeMax );
+    AddValueParser( "QuantitySmallMin",          main.QuantitySmallMin );
+    AddValueParser( "QuantitySmallMax",          main.QuantitySmallMax );
 
     const bool result = ParseElementChildren( ele );
 
@@ -93,6 +109,10 @@ bool MarketBotConf::ProcessMain(const TiXmlElement* ele)
     RemoveParser( "OrderLifetime" );
     RemoveParser( "OrdersPerRefresh" );
     RemoveParser( "MaxISKPerOrder" );
+    RemoveParser( "QuantityLargeMin" );
+    RemoveParser( "QuantityLargeMax" );
+    RemoveParser( "QuantitySmallMin" );
+    RemoveParser( "QuantitySmallMax" );
 
     return result;
 }
@@ -109,6 +129,10 @@ bool MarketBotConf::ProcessBuy(const TiXmlElement* ele)
     AddValueParser( "DupeOrdersPerRegion",      buy.DupeOrdersPerRegion );
     AddValueParser( "DupeOrdersPerConst",       buy.DupeOrdersPerConst );
     AddValueParser( "DupeOrdersPerSystem",      buy.DupeOrdersPerSystem );
+    AddValueParser( "PriceMultiplierMin",        buy.PriceMultiplierMin );
+    AddValueParser( "PriceMultiplierMax",        buy.PriceMultiplierMax );
+    AddValueParser( "QuantityMin",              buy.QuantityMin );
+    AddValueParser( "QuantityMax",              buy.QuantityMax );
 
     const bool result = ParseElementChildren( ele );
 
@@ -122,6 +146,10 @@ bool MarketBotConf::ProcessBuy(const TiXmlElement* ele)
     RemoveParser( "DupeOrdersPerRegion" );
     RemoveParser( "DupeOrdersPerConst" );
     RemoveParser( "DupeOrdersPerSystem" );
+    RemoveParser( "PriceMultiplierMin" );
+    RemoveParser( "PriceMultiplierMax" );
+    RemoveParser( "QuantityMin" );
+    RemoveParser( "QuantityMax" );
 
     return result;
 }
@@ -138,6 +166,10 @@ bool MarketBotConf::ProcessSell(const TiXmlElement* ele)
     AddValueParser( "DupeOrdersPerSystem",      sell.DupeOrdersPerSystem );
     AddValueParser( "SellItemMetaLevelMin",     sell.SellItemMetaLevelMin );
     AddValueParser( "SellItemMetaLevelMax",     sell.SellItemMetaLevelMax );
+    AddValueParser( "PriceMultiplierMin",        sell.PriceMultiplierMin );
+    AddValueParser( "PriceMultiplierMax",        sell.PriceMultiplierMax );
+    AddValueParser( "QuantityMin",              sell.QuantityMin );
+    AddValueParser( "QuantityMax",              sell.QuantityMax );
 
     const bool result = ParseElementChildren( ele );
 
@@ -151,6 +183,10 @@ bool MarketBotConf::ProcessSell(const TiXmlElement* ele)
     RemoveParser( "DupeOrdersPerSystem" );
     RemoveParser( "SellItemMetaLevelMax" );
     RemoveParser( "SellItemMetaLevelMin" );
+    RemoveParser( "PriceMultiplierMin" );
+    RemoveParser( "PriceMultiplierMax" );
+    RemoveParser( "QuantityMin" );
+    RemoveParser( "QuantityMax" );
 
     return result;
 }
