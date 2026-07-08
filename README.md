@@ -89,7 +89,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Estimated overall: ~91%** (upstream: 59.5%)
+**Estimated overall: ~93%** (upstream: 59.5%)
 
 | System                |  %  | System                |  %  |
 |-----------------------|:---:|-----------------------|:---:|

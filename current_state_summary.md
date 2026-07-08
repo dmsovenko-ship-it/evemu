@@ -246,19 +246,25 @@
 - **Overheating**: Thermodynamics skill check, `HeatDamageCheck` slot-based spread, Nanite Paste consumption ✅
 - **Warp fixes**: alignment no longer cancels warp, `SetPosition(false)` during WarpUpdate prevents client crash ✅
 
+## Part 34: Faction Warfare + Sovereignty Upgrades (done)
+- **FW membership**: `facWarCharacters` + `facWarStats` tables, `JoinFactionAsCharacter` with validation + notification ✅
+- **FW enemy checks**: `IsEnemyFaction` via `StandingDB`, `IsEnemyCorporation` via `warFactionID` → standing ✅
+- **FW status**: `GetFactionalWarStatus` (KeyVal), `GetCharacterRankInfo` (Rowset), `GetCorporationWarFactionID` ✅
+- **FW corp/alliance**: `Join/Leave/Withdraw` for corp (Director role) and alliance, cascading `warFactionID` update ✅
+- **FW queries**: `GetFactionCorporations`, `GetSystemsConqueredThisRun` (contested), `GetStats_Character` ✅
+- **FW notifications**: `FWCorpJoin`, `FWCorpLeave` via `CreateNotification` ✅
+- **SOV upgrades**: `sovUpgrades` table + `GetUpgradeData/System`, `Add/RemoveSystemUpgrade` ✅
+- **crpRoles seeding**: startup seed via `EntityList::Initialize`, auto-update via `CharacterDB::SetCorpRole` ✅
+
 # TODO (next session)
 
-## 🔴 High Priority
-1. **FW/SOV notification sources** — когда FactionWar / Sovereignty будут доделаны, подключить `CreateNotification` к `FWCorpJoin`/`SovClaim` и т.д.
-2. **crpRoles seeding** — автоматически обновлять `crpRoles` при изменении корп-ролей через CorpRegistryBound
-
 ## 🟡 Medium Priority
-3. **Market bot** — `VALID_GROUPS` сделать конфигурируемым; цены и количества — через конфиг
-4. **Market** — MarginTrading escrow validation при исполнении ордера
-5. **Contracts** — авто-завершение просроченных аукционов (scheduled task)
+1. **Market bot** — `VALID_GROUPS`, цены и количества вынести в XML конфиг
+2. **Market** — MarginTrading escrow validation при исполнении ордера
+3. **Contracts** — авто-завершение просроченных аукционов (scheduled task)
 
 ## 🟢 Low Priority
-6. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
-7. **PyRep memory management** — valgrind leak fixes
-8. **Civilian Manager** — extend to multi-system routes and more ship types
-9. **Overheat rack** — `OverloadRack`/`StopOverloadRack` stubs
+4. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
+5. **PyRep memory management** — valgrind leak fixes
+6. **Civilian Manager** — extend to multi-system routes and more ship types
+7. **Overheat rack** — `OverloadRack`/`StopOverloadRack` stubs
