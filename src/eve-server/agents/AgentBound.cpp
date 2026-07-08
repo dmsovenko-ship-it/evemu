@@ -25,6 +25,7 @@
 #include "eve-server.h"
 #include "EntityList.h"
 #include "../../eve-common/EVE_Agent.h"
+#include "../../eve-common/EVE_Mail.h"
 #include "../../eve-common/EVE_Missions.h"
 //#include "../../eve-common/EVE_Skills.h"
 #include "../../eve-common/EVE_Standings.h"
@@ -220,9 +221,9 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         m_agent->SendMissionUpdate(call.client, "offered");
                         // persistent notification
                         PyDict* notifData = new PyDict();
-                            notifData->SetItemString("agentID", new PyInt(m_agent->GetAgentID()));
+                            notifData->SetItemString("agentID", new PyInt(m_agent->GetID()));
                             notifData->SetItemString("missionName", new PyString(offer.name));
-                        sEntityList.CreateNotification(charID, Notify::Types::ResearchMissionAvailable, m_agent->GetAgentID(), notifData);
+                        sEntityList.CreateNotification(charID, Notify::Types::ResearchMissionAvailable, m_agent->GetID(), notifData);
                         agentSays->SetItem(0, new PyInt(nextMission->missionID));
                         agentSays->SetItem(1, new PyInt(charID));
                         PyTuple* button1 = new PyTuple(2);
