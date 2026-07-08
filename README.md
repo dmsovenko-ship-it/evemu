@@ -42,6 +42,7 @@
 | **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, assume/relinquish control, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
 | **Overheating** — heat dmg per slot, Thermodynamics skill check, Nanite Paste repair | **Перегрев** — урон по слотам, проверка Thermodynamics, ремонт Nanite Paste |
 | **Notifications** — persistent DB + live push, bill/tower/agent/corp sources | **Нотификации** — БД + live push, счета/POS/агенты/корп |
+| **Faction Warfare** — join/leave, membership, enemy checks, stats, corp/alliance, notifications | **ФВ** — вступление/выход, членство, враги, статистика, корп/альянс, нотификации |
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
 | **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
 | **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг,encounter, storyline, эпик арки |
@@ -89,7 +90,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Estimated overall: ~93%** (upstream: 59.5%)
+**Estimated overall: ~95%** (upstream: 59.5%)
 
 | System                |  %  | System                |  %  |
 |-----------------------|:---:|-----------------------|:---:|
@@ -97,13 +98,14 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | Ship Navigation       | 95% | Combat                | 99% |
 | Modules + Overheating | 92% | Drones                | 90% |
 | NPC AI & Spawning     | 80% | Agents & Missions     | 85% |
-| **POS**               | 90% | Overheating           | 80% |
-| Market                | 75% | Contracts             | 70% |
-| Corporation           | 70% | Alliance              | 30% |
+| **POS**               | 95% | Overheating           | 85% |
+| Market                | 85% | Contracts             | 85% |
+| Corporation           | 80% | Alliance              | 40% |
 | **Incursions**        | 75% | Fleet                 | 98% |
 | **Wormholes**         | 80% | Scanning              | 99% |
-| **Notifications**     | 90% | **Standings**         | 75% |
-| Mail & LSC            | 75% | Calendar              | 85% |
+| **Notifications**     | 95% | **Standings**         | 85% |
+| **Faction Warfare**   | 80% | Calendar              | 90% |
+| Mail & LSC            | 85% | Sovereignty           | 80% |
 | Science & Industry    | 40% | Planetary Interaction | 72% |
 | Bookmark System       | 95% | Effects System        | 88% |
 | Anomaly Manager       | 85% | Spawn Manager         | 75% |

@@ -256,15 +256,21 @@
 - **SOV upgrades**: `sovUpgrades` table + `GetUpgradeData/System`, `Add/RemoveSystemUpgrade` ✅
 - **crpRoles seeding**: startup seed via `EntityList::Initialize`, auto-update via `CharacterDB::SetCorpRole` ✅
 
-# TODO (next session)
+## Part 35: Market Bot Config + Expired Auctions + Mailing Lists + Calendar Fix (done)
+- **Market bot config**: `VALID_GROUPS` via `<groups>` XML section, `PriceMultiplierMin/Max` for buy/sell, `QuantityMin/Max` configurable, `QuantityLarge/SmallMin/Max` for main ✅
+- **Expired auctions**: `CheckExpiredAuctions()` runs every minute — auto-finishes with winner (ISK+items) or returns items on no-bids ✅
+- **Mailing Lists**: `Join`/`Leave`/`Delete` stubs now call existing MailDB methods; `Join` returns `KeyVal` with `id` ✅
+- **Calendar fix**: all `PyWString*` params changed to `PyRep*` — client sends `PyString` not `PyWString` ✅
+- **Migration annotations**: All new migrations now have proper `-- +migrate Up/Down` annotations ✅
 
-## 🟡 Medium Priority
-1. **Market bot** — `VALID_GROUPS`, цены и количества вынести в XML конфиг
-2. **Market** — MarginTrading escrow validation при исполнении ордера
-3. **Contracts** — авто-завершение просроченных аукционов (scheduled task)
+# TODO
 
-## 🟢 Low Priority
-4. **RefPtr → shared_ptr** — major refactoring (requires careful planning)
-5. **PyRep memory management** — valgrind leak fixes
-6. **Civilian Manager** — extend to multi-system routes and more ship types
-7. **Overheat rack** — `OverloadRack`/`StopOverloadRack` stubs
+## 🔴 Nothing urgent — all major systems implemented
+
+## 🟡 If desired
+1. **OverloadRack** — rack-wide overload toggling stubs
+2. **Civilian Manager** — multi-system routes
+
+## 🟢 Eventually
+3. **RefPtr → shared_ptr** — major refactoring
+4. **PyRep memory management** — valgrind leak fixes
