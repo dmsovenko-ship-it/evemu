@@ -75,28 +75,38 @@ PyResult MailingListMgrService::Create(PyCallArgs& call, PyWString* name, PyInt*
 
 PyResult MailingListMgrService::Join(PyCallArgs& call, PyRep* listName)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called Join stub" );
+    std::string listNameStr = PyRep::StringContent(listName);
 
-    std::string listNameStr = PyRep::StringContent (listName);
-    // returns mailing list object
-    return nullptr;
+    // find list by name
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT id, displayName, defaultAccess, defaultMemberAccess FROM mailList WHERE displayName = '%s'",
+        listNameStr.c_str());
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return PyStatic.NewNone();
+
+    m_db.JoinMailingList(call.client->GetCharacterID(), listNameStr);
+
+    // return mailing list object with .id for client
+    PyDict* dict = new PyDict();
+        dict->SetItemString("id", new PyInt(row.GetInt(0)));
+        dict->SetItemString("displayName", new PyString(row.GetText(1)));
+        dict->SetItemString("defaultAccess", new PyInt(row.GetInt(2)));
+        dict->SetItemString("defaultMemberAccess", new PyInt(row.GetInt(3)));
+    return new PyObject("util.KeyVal", dict);
 }
 
 PyResult MailingListMgrService::Leave(PyCallArgs& call, PyInt* listID)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called Leave stub" );
-    // no return values
-    return nullptr;
+    m_db.LeaveMailingList(call.client->GetCharacterID(), listID->value());
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::Delete(PyCallArgs& call, PyInt* listID)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called Delete stub" );
-    // no return values
-    return nullptr;
+    m_db.DeleteMailingList(call.client->GetCharacterID(), listID->value());
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::KickMembers(PyCallArgs& call, PyInt* listID, PyList* memberIDs)
