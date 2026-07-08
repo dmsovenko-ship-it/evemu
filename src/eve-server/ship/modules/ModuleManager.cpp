@@ -903,8 +903,8 @@ PyRep* ModuleManager::ModuleRepair(uint32 modID)
 
     // determine repair amount: base 10% per cycle, modified by Nanite Engineering skill
     float repairPct = 0.10f;
-    if (HasPilot() and GetPilot() != nullptr) {
-        uint8 nanoLevel = GetPilot()->GetChar()->GetSkillLevel(EvESkill::NaniteEngineering);
+    if (pShipItem->HasPilot() and pShipItem->GetPilot() != nullptr) {
+        uint8 nanoLevel = pShipItem->GetPilot()->GetChar()->GetSkillLevel(EvESkill::NaniteEngineering);
         repairPct += nanoLevel * 0.05f; // +5% per level
     }
     if (repairPct > 0.50f) repairPct = 0.50f;
