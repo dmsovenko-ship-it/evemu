@@ -928,6 +928,7 @@ int main( int argc, char* argv[] )
             sEntityList.Add(new Client(newSvcMgr, &tcpc));
 
         sEntityList.Process();
+        sStandingMgr.ProcessDecay();
 
         /*  process console commands, if any, and check for 'exit' command */
         m_run = sConsole.Process();

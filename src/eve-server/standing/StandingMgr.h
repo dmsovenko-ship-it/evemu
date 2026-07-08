@@ -19,6 +19,8 @@
 
 #include "standing/StandingDB.h"
 
+#include "utils/timer.h"
+
 
 class StandingMgr
 : public Singleton< StandingMgr >
@@ -35,15 +37,18 @@ public:
 
     PyObjectEx*         GetFactionStandings()           { PyIncRef(m_factionStandings); return m_factionStandings; }
 
-
-
     void                UpdateStandings(uint32 fromID, uint32 toID, uint16 eventType, double amount, std::string msg);
+
+    // decay
+    void                ProcessDecay();
+    void                SetDecayTimer();
 
 protected:
     void                Populate();
 
 private:
     PyObjectEx*         m_factionStandings;
+    Timer               m_decayTimer;
 
 };
 

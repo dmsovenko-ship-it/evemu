@@ -59,6 +59,7 @@ Standing::Standing() :
     this->Add("ActivateKillRightByTarget", &Standing::ActivateKillRightByTarget);
     this->Add("GetStandingTransactions", &Standing::GetStandingTransactions);
     this->Add("GetStandingCompositions", &Standing::GetStandingCompositions);
+    this->Add("SetStanding", &Standing::SetStanding);
 }
 
 PyResult Standing::GetCharStandings(PyCallArgs &call) {
@@ -250,4 +251,66 @@ PyResult Standing::GetStandingCompositions(PyCallArgs &call, PyInt* fromID, PyIn
     call.Dump(STANDING__DUMP);
 
     return m_db.GetStandingCompositions(fromID->value(), toID->value());
+}
+
+PyResult Standing::SetStanding(PyCallArgs &call, PyInt* toID, PyFloat* standing) {
+    // Player-to-Player (PnP) standing set
+    uint32 fromID = call.client->GetCharacterID();
+    uint32 targetID = toID->value();
+    float newStanding = standing->value();
+
+    // clamp to [-10, 10]
+    if (newStanding < -10.0f) newStanding = -10.0f;
+    if (newStanding > 10.0f) newStanding = 10.0f;
+
+    // get old value for delta
+    float oldStanding = StandingDB::GetStanding(fromID, targetID);
+    float delta = newStanding - oldStanding;
+
+    // enforce max change per transaction (prevent instant -10 to 10)
+    if (delta > 2.0f) delta = 2.0f;
+    if (delta < -2.0f) delta = -2.0f;
+    newStanding = oldStanding + delta;
+
+    // save to DB (UPSERT with explicit value, not delta)
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO repStandings (fromID, toID, standing, lastModified)"
+        " VALUES (%u, %u, %f, %lli)"
+        " ON DUPLICATE KEY UPDATE standing = %f, lastModified = %lli",
+        fromID, targetID, newStanding, (int64)GetFileTimeNow(),
+        newStanding, (int64)GetFileTimeNow());
+
+    // log change
+    StandingDB::SaveStandingChanges(fromID, targetID, Standings::PlayerSet, delta,
+        "Character standing set by player.");
+
+    // notify both parties
+    PyDict* args = new PyDict();
+    args->SetItemString("fromID", new PyInt(fromID));
+    args->SetItemString("toID", new PyInt(targetID));
+    args->SetItemString("standing", new PyFloat(newStanding));
+    PyTuple* payload = new PyTuple(1);
+    payload->SetItem(0, new PyObject("util.KeyVal", args));
+    call.client->SendNotification("OnStandingSet", "clientID", payload, false);
+
+    // also send OnStandingsModified to both
+    PyDict* modArgs = new PyDict();
+    modArgs->SetItemString("fromID", new PyInt(fromID));
+    modArgs->SetItemString("toID", new PyInt(targetID));
+    modArgs->SetItemString("standing", new PyFloat(newStanding));
+    modArgs->SetItemString("change", new PyFloat(delta));
+    modArgs->SetItemString("eventType", new PyInt(Standings::PlayerSet));
+    PyTuple* modPayload = new PyTuple(1);
+    modPayload->SetItem(0, new PyObject("util.KeyVal", modArgs));
+    call.client->SendNotification("OnStandingsModified", "clientID", modPayload, false);
+
+    Client* targetClient = sEntityList.FindClientByCharID(targetID);
+    if (targetClient != nullptr)
+        targetClient->SendNotification("OnStandingsModified", "clientID", modPayload, false);
+
+    _log(STANDING__MESSAGE, "Standing::SetStanding() - %s set standing to %.2f for %u.",
+            call.client->GetName(), newStanding, targetID);
+
+    return new PyBool(true);
 }
