@@ -92,6 +92,12 @@ void EntityList::Initialize() {
     if (is_log_enabled(SERVER__STACKTRACE))
         sConfig.debug.StackTrace = true;
 
+    // seed crpRoles from existing characters
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT IGNORE INTO crpRoles (characterID, roleID)"
+        " SELECT characterID, corpRole FROM chrCharacters WHERE corpRole > 0");
+
     sLog.Blue("       EntityList", "Entity Manager Initialized.");
 }
 

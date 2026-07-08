@@ -1761,6 +1761,11 @@ void CharacterDB::SetCorpRole(uint32 charID, int64 role)
 {
     DBerror err;
     sDatabase.RunQuery(err, "UPDATE chrCharacters SET corpRole = %lli WHERE characterID = %u", role, charID);
+    // keep crpRoles in sync
+    sDatabase.RunQuery(err,
+        "INSERT INTO crpRoles (characterID, roleID) VALUES (%u, %lli)"
+        " ON DUPLICATE KEY UPDATE roleID = %lli",
+        charID, role, role);
 }
 
 int64 CharacterDB::GetCorpRole(uint32 charID)
