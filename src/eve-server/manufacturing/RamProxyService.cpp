@@ -777,7 +777,19 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
 
                 uint8 reSkill = call.client->GetChar()->GetSkillLevel(EvESkill::ReverseEngineering);
                 float skillMod = 1.0f + 0.01f * reSkill;
-                float chance = baseChance * skillMod;
+
+                // datacore skill modifier: read RAM requirements for this RE blueprint
+                float dcMod = 1.0f;
+                std::vector<EvERam::RequiredItem> reqItems;
+                sDataMgr.GetRamRequiredItems(reBpRef->typeID(), EvERam::Activity::ReverseEngineering, reqItems);
+                for (auto& req : reqItems) {
+                    if (req.isSkill and req.typeID != EvESkill::ReverseEngineering) {
+                        uint8 dcLevel = call.client->GetChar()->GetSkillLevel(req.typeID);
+                        if (dcLevel > 0)
+                            dcMod = 1.0f + dcLevel * 0.05f; // +5% per datacore skill level
+                    }
+                }
+                float chance = baseChance * skillMod * dcMod;
                 bool success = (MakeRandomFloat() < chance);
 
                 PyDict* dict = new PyDict();
