@@ -342,7 +342,7 @@ void NPC::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = Ball::Flag::IsInteractive | Ball::Flag::IsFree;
+        head.flags = Ball::Flag::IsInteractive | Ball::Flag::IsFree | Ball::Flag::IsMassive;
     into.Append( head );
     _log(SE__DESTINY, "NPC::EncodeDestiny: %s(%u) flags=0x%X mode=%u", GetName(), GetID(), head.flags, head.mode);
     MassSector mass = MassSector();
