@@ -518,11 +518,11 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
                 _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly NPC Load OK for type %u, npcID=%u", cur.typeID, pNPC->GetID());
 
-                // Scale NPC stats by site level (1-5): level 1 = base, level 5 = ~2.0x
+                // Scale NPC stats by site level (1-5): level 1 = ~0.4x, level 5 = ~2.0x
                 {
-                    float scale = 0.5f + level * 0.3f;
-                    if (scale < 0.5f) scale = 0.5f;
-                    if (scale > 2.5f) scale = 2.5f;
+                    float scale = 0.2f + level * 0.36f;
+                    if (scale < 0.2f) scale = 0.2f;
+                    if (scale > 3.0f) scale = 3.0f;
                     InventoryItemRef s = pNPC->GetSelf();
                     s->SetAttribute(AttrShieldCharge, s->GetAttribute(AttrShieldCapacity).get_float() * scale);
                     s->SetAttribute(AttrShieldCapacity, s->GetAttribute(AttrShieldCapacity).get_float() * scale);

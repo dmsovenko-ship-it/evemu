@@ -496,8 +496,7 @@ int8 DungeonMgr::GetRandLevel()
         if (r < 0.85) return 2;
         return 1;
     }
-    // High-sec (0.5 to 1.0)
-    if (r < 0.10) return 3;
-    if (r < 0.30) return 2;
+    // High-sec (0.5 to 1.0) — almost always level 1, never above 2
+    if (r < 0.05) return 2;
     return 1;
 }
