@@ -387,12 +387,39 @@
 ## Part 56: Network Crash Fix (done)
 - **__cxa_pure_virtual**: `ProcessReceivedData` made non-pure virtual with default no-op ✅
 
+## Part 57: Corp Window & Service Fixes (done)
+- **UpdateCorporation**: accept 4th param `allowAccess` (client sends PyInt for tax) ✅
+- **GetRecentKillsAndLosses**: `offset` optional (client sends PyNone) ✅
+- **CreateRecruitmentAd**: `PyWString*` → `PyRep*` (client sends PyString) ✅
+- **GetRecruitmentAdsByCriteria**: `PyBool*` → `PyInt*` ✅
+- **PyVisitor kMaxDepth**: 4096→128 (stack overflow prevention) ✅
+
+## Part 58: Civilian NPC Fixes (done)
+- **GetStationPosition**: search both `m_entities` and `m_staticEntities` (stations/gates) ✅
+- **ConvoyAI timer**: `Check(false)` instead of `Check(true)` (timer was never one-shot) ✅
+- **ResetAfterTransit**: reset phase/timers after cross-system jump ✅
+- **Entity-category Convoy types**: use group 297 instead of Ship-category 582-594 (avoids dogma crash) ✅
+- **Random civilian names**: from agent names + bloodline surnames ✅
+
+## Part 59: Anomaly NPC Crosshairs + Difficulty (done)
+- **Sleeper groups**: 959-961,982-987 added to `Generate_invTypes` and `MakeSlimItem` ✅
+- **IsMassive flag**: added to NPC and DSE `EncodeDestiny` (flags 0x07) ✅
+- **SendSetState after spawn**: forces full ball re-init for all players in bubble ✅
+- **Warp-to-0 distance**: reduced from 1000m to 0m ✅
+- **NPC stat scaling by level**: `0.2 + level * 0.36` (L1=0.56x, L5=2.0x) ✅
+- **Anomaly tier selection**: `minSecurity`/`maxSecurity`/`difficulty` columns on `dunDungeons` ✅
+- **GetRandomDungeon**: filters by security, weighted by difficulty ✅
+- **GetRandLevel**: weighted by system security (highsec→L1, nullsec→L3-5) ✅
+- **Periodic sync**: `SetBallPosition` every 20 tics for player ships only ✅
+- **Player pushback fix**: removed periodic sync for NPCs ✅
+
 # TODO
 
 ## 🟡 If desired
 1. **Autopilot** — не работает, требуется диагностика
 2. **FW LP earning** — подключить `LPService::AddLP` к FW-активностям (plex captures, FW kills)
+3. **NPC crosshairs** — если `SendSetState` не решил, требуется исследование клиента Crucible
 
 ## 🟢 Eventually
-3. **RefPtr → shared_ptr** — major refactoring across ~400 files
-4. **PyRep memory management** — valgrind leak fixes
+4. **RefPtr → shared_ptr** — major refactoring ~400 files
+5. **PyRep memory management** — valgrind leak fixes
