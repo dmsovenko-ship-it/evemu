@@ -91,25 +91,23 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Estimated overall: ~97%** (upstream: 59.5%)
+**Our fork: ~97%** · **Upstream: ~59.5%**
 
-| System                |  %  | System                |  %  |
-|-----------------------|:---:|-----------------------|:---:|
-| Account & Character   | 97% | Skills & Certificates | 99% |
-| Ship Navigation       | 75% | Combat                | 99% |
-| Modules & Overheating | 95% | Drones                | 90% |
-| NPC AI & Spawning     | 80% | Agents & Missions     | 85% |
-| **POS**               | 97% | Market                | 85% |
-| **Incursions**        | 75% | Fleet                 | 98% |
-| **Wormholes**         | 90% | Scanning              | 99% |
-| **Notifications**     | 95% | **Standings**         | 85% |
-| **Faction Warfare**   | 90% | Calendar              | 90% |
-| Mail & LSC            | 85% | Contracts             | 95% |
-| Corporation           | 87% | Alliance              | 85% |
-| Sovereignty           | 90% | Science & Industry    | 55% |
-| Bookmark System       | 95% | Effects System        | 95% |
-| Anomaly Manager       | 85% | Spawn Manager         | 75% |
-| Dungeon Manager       | 75% | Civilian Manager      | 90% |
+| System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
+|--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
+| Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
+| Ship Navigation | 70% | 75% | +5% | Combat | 90% | 99% | +9% |
+| Modules & Overheating | 85% | 95% | +10% | Drones | 75% | 90% | +15% |
+| NPC AI & Spawning | 60% | 80% | +20% | Agents & Missions | 70% | 85% | +15% |
+| **POS** | 70% | **97%** | +27% | Market | 60% | 85% | +25% |
+| **Incursions** | 0% | **75%** | +75% | Fleet | 75% | 98% | +23% |
+| **Wormholes** | 60% | **90%** | +30% | Scanning | 80% | 99% | +19% |
+| **Notifications** | 60% | **95%** | +35% | **Standings** | 60% | 85% | +25% |
+| **Faction Warfare** | 50% | **90%** | +40% | Calendar | 60% | 90% | +30% |
+| Mail & LSC | 60% | 85% | +25% | Contracts | 60% | 95% | +35% |
+| Corporation | 65% | 87% | +22% | **Alliance** | 55% | **85%** | +30% |
+| **Sovereignty** | 60% | **90%** | +30% | Science & Industry | 45% | 55% | +10% |
+| Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **95%** | +30% |
 
 See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  
 Полная раскладка — в [`PROGRESS.md`](PROGRESS.md).
