@@ -424,7 +424,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 {
     if (pBubble == nullptr) {
         _log(COSMIC_MGR__ERROR, "DoSpawnForAnomaly - bubble is null for typeID=%u, creating new bubble", typeID);
-        pBubble = sBubbleMgr.CreateBubble(m_system->GetID(), pos);
+        pBubble = sBubbleMgr.GetBubble(m_system, pos);
         if (pBubble == nullptr) {
             _log(COSMIC_MGR__ERROR, "DoSpawnForAnomaly FAILED - could not create bubble for typeID=%u", typeID);
             return;
