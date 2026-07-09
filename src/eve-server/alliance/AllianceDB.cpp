@@ -706,10 +706,15 @@ bool AllianceDB::AddVoteCase(uint32 allyID, const std::string& voteCaseText, con
     if (voteCaseOptions != nullptr && voteCaseOptions->IsObjectEx()) {
         PyObjectEx* obj = voteCaseOptions->AsObjectEx();
         if (obj != nullptr) {
-            PyDict* kv = obj->GetArgs();
+            PyRep* args = obj->arguments();
+            if (args == nullptr || !args->IsDict()) return true;
+            PyDict* kv = args->AsDict();
             PyList* lines = nullptr;
-            if (kv != nullptr)
-                lines = kv->GetItem("lines")->AsList();
+            if (kv != nullptr) {
+                PyRep* linesRep = kv->GetItem(new PyString("lines"));
+                if (linesRep != nullptr)
+                    lines = linesRep->AsList();
+            }
             if (lines != nullptr) {
                 for (size_t i = 0; i < lines->size(); ++i) {
                     PyList* optLine = lines->GetItem(i)->AsList();
