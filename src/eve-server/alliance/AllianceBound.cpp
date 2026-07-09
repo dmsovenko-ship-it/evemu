@@ -66,6 +66,13 @@ AllianceBound::AllianceBound(EVEServiceManager& mgr, AllianceRegistry& parent, A
     this->Add("EditContactsRelationshipID", &AllianceBound::EditContactsRelationshipID);
     this->Add("UpdateAlliance", &AllianceBound::UpdateAlliance);
     this->Add("SetTaxRate", &AllianceBound::SetTaxRate);
+    this->Add("CanViewVotes", &AllianceBound::CanViewVotes);
+    this->Add("CanVote", &AllianceBound::CanVote);
+    this->Add("InsertVoteCase", &AllianceBound::InsertVoteCase);
+    this->Add("GetVoteCasesByCorporation", &AllianceBound::GetVoteCasesByCorporation);
+    this->Add("GetVoteCaseOptions", &AllianceBound::GetVoteCaseOptions);
+    this->Add("GetVotes", &AllianceBound::GetVotes);
+    this->Add("InsertVote", &AllianceBound::InsertVote);
 
     m_allyID = allyID;
     this->m_cache = this->GetServiceManager().Lookup <ObjCacheService>("objectCaching");
@@ -603,4 +610,97 @@ PyResult AllianceBound::SetTaxRate(PyCallArgs &call, PyFloat* taxRate)
     call.client->SendNotification("OnAllianceChanged", "clientID", ac.Encode(), false);
 
     return nullptr;
+}
+
+PyResult AllianceBound::CanViewVotes(PyCallArgs &call)
+{
+    // All alliance members can view votes
+    return PyStatic.NewTrue();
+}
+
+PyResult AllianceBound::CanVote(PyCallArgs &call, PyInt* corporationID)
+{
+    // CEO or Director can vote (CEO has role 1)
+    uint32 role = call.client->GetCorpRole();
+    if (role & 1)  // roleDirector
+        return PyStatic.NewTrue();
+    return PyStatic.NewFalse();
+}
+
+PyResult AllianceBound::InsertVoteCase(PyCallArgs &call)
+{
+    // self.GetMoniker().InsertVoteCase(voteCaseText, description, allianceID, voteType, voteCaseOptions, startDateTime, endDateTime)
+    _log(ALLY__CALL, "AllianceBound::Handle_InsertVoteCase() size=%lli", call.tuple->size());
+    call.Dump(ALLY__CALL_DUMP);
+
+    if (call.tuple->size() < 7)
+        return nullptr;
+
+    std::string voteCaseText = PyRep::StringContent(call.tuple->GetItem(0));
+    std::string description = PyRep::StringContent(call.tuple->GetItem(1));
+    // item 2 is allianceID (same as m_allyID)
+    uint32 voteType = PyRep::IntegerValue(call.tuple->GetItem(3));
+    PyRep* options = call.tuple->GetItem(4);
+    int64 startDateTime = PyRep::IntegerValue(call.tuple->GetItem(5));
+    int64 endDateTime = PyRep::IntegerValue(call.tuple->GetItem(6));
+
+    if (!m_db.AddVoteCase(m_allyID, voteCaseText, description, voteType, startDateTime, endDateTime, options))
+    {
+        call.client->SendErrorMsg("Failed to create vote case.");
+        return nullptr;
+    }
+
+    // Notify all alliance members
+    OnAllianceChanged ac;
+    ac.allianceID = m_allyID;
+    call.client->SendNotification("OnAllianceChanged", "clientID", ac.Encode(), false);
+
+    return nullptr;
+}
+
+PyResult AllianceBound::GetVoteCasesByCorporation(PyCallArgs &call, PyInt* corporationID,
+                                                     std::optional<PyInt*> status, std::optional<PyInt*> maxLen)
+{
+    _log(ALLY__CALL, "AllianceBound::Handle_GetVoteCasesByCorporation() size=%lli", call.tuple->size());
+    uint32 statusVal = status.has_value() ? status.value()->value() : 0;
+    uint32 maxLenVal = maxLen.has_value() ? maxLen.value()->value() : 0;
+
+    PyRep* result = m_db.GetVoteItems(m_allyID, statusVal, maxLenVal);
+    if (result == nullptr)
+        return new PyDict();
+    return result;
+}
+
+PyResult AllianceBound::GetVoteCaseOptions(PyCallArgs &call, PyInt* voteCaseID)
+{
+    _log(ALLY__CALL, "AllianceBound::Handle_GetVoteCaseOptions() size=%lli", call.tuple->size());
+    PyRep* result = m_db.GetVoteOptions(voteCaseID->value());
+    if (result == nullptr)
+        return new PyList();
+    return result;
+}
+
+PyResult AllianceBound::GetVotes(PyCallArgs &call, PyInt* voteCaseID)
+{
+    _log(ALLY__CALL, "AllianceBound::Handle_GetVotes() size=%lli", call.tuple->size());
+    PyRep* result = m_db.GetVotes(voteCaseID->value());
+    if (result == nullptr)
+        return new PyList();
+    return result;
+}
+
+PyResult AllianceBound::InsertVote(PyCallArgs &call, PyInt* corporationID, PyInt* voteCaseID, PyInt* voteValue)
+{
+    _log(ALLY__CALL, "AllianceBound::Handle_InsertVote() size=%lli", call.tuple->size());
+
+    if (!m_db.CastVote(call.client->GetCorporationID(), m_allyID, voteCaseID->value(), voteValue->value()))
+    {
+        call.client->SendErrorMsg("Failed to cast vote.");
+        return PyStatic.NewFalse();
+    }
+
+    // Process vote expiry - check if this vote should be resolved
+    m_db.ProcessVoteExpiry(m_allyID);
+
+    return PyStatic.NewNone();
 }

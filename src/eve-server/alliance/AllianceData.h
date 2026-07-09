@@ -36,6 +36,15 @@ namespace Alliance {
         std::string appText;
     };
 
+    struct VoteCaseOptions {
+        int8 optionID;
+        int32 parameter;
+        int32 parameter1;
+        int32 parameter2;
+        int32 votesFor;
+        std::string optionText;
+    };
+
 }
 
 #endif  // EVEMU_SRC_CORP_DATA_H_

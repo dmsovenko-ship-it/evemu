@@ -63,6 +63,15 @@ protected:
     PyResult UpdateAlliance(PyCallArgs& call, PyWString* description, PyWString* url);
     PyResult SetTaxRate(PyCallArgs& call, PyFloat* taxRate);
 
+    // Alliance voting
+    PyResult CanViewVotes(PyCallArgs& call);
+    PyResult CanVote(PyCallArgs& call, PyInt* corporationID);
+    PyResult InsertVoteCase(PyCallArgs& call);
+    PyResult GetVoteCasesByCorporation(PyCallArgs& call, PyInt* corporationID, std::optional<PyInt*> status, std::optional<PyInt*> maxLen);
+    PyResult GetVoteCaseOptions(PyCallArgs& call, PyInt* voteCaseID);
+    PyResult GetVotes(PyCallArgs& call, PyInt* voteCaseID);
+    PyResult InsertVote(PyCallArgs& call, PyInt* corporationID, PyInt* voteCaseID, PyInt* voteValue);
+
     AllianceDB& m_db;
     ObjCacheService* m_cache;
     LSCService* m_lsc;

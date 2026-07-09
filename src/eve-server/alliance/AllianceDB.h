@@ -73,6 +73,16 @@ public:
 
     static uint32 GetExecutorID(uint32 allyID);
     bool CreateAllianceChangePacket(OnAllianceChanged &ac, uint32 oldAllyID, uint32 newAllyID);
+
+    // Alliance voting
+    bool AddVoteCase(uint32 allyID, const std::string& voteCaseText, const std::string& description,
+                     uint32 voteType, int64 startDateTime, int64 endDateTime, PyRep* options);
+    PyRep* GetVoteItems(uint32 allyID, uint32 status, uint32 maxLen);
+    PyRep* GetVoteOptions(uint32 voteCaseID);
+    PyRep* GetVotes(uint32 voteCaseID);
+    bool CastVote(uint32 corpID, uint32 allyID, uint32 voteCaseID, uint8 optionID);
+    bool ResolveVote(uint32 voteCaseID);
+    void ProcessVoteExpiry(uint32 allyID);
 };
 
 #endif  // EVE_ALLIANCE_ALLIANCEDB_H

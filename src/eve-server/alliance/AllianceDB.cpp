@@ -684,3 +684,159 @@ bool AllianceDB::CreateAllianceChangePacket(OnAllianceChanged &ac, uint32 oldAll
 
     return true;
 }
+
+// ── Alliance Voting ──────────────────────────────────────────────
+
+bool AllianceDB::AddVoteCase(uint32 allyID, const std::string& voteCaseText, const std::string& description,
+                             uint32 voteType, int64 startDateTime, int64 endDateTime, PyRep* options)
+{
+    DBerror err;
+    uint32 voteCaseID = 0;
+    if (!sDatabase.RunQueryLID(err, voteCaseID,
+        "INSERT INTO alnVoteItems (allianceID, voteType, voteCaseText, description, inEffect, status,"
+        " startDateTime, endDateTime, actedUpon, timeActedUpon, rescended, timeRescended, votesMade, votesProxied)"
+        " VALUES (%u, %u, '%s', '%s', 1, 2, %lli, %lli, 0, 0, 0, 0, 0, 0)",
+        allyID, voteType, voteCaseText.c_str(), description.c_str(), startDateTime, endDateTime))
+    {
+        codelog(ALLY__DB_ERROR, "AddVoteCase: %s", err.c_str());
+        return false;
+    }
+
+    if (options != nullptr && options->IsObject()) {
+        PyObjectEx* obj = options->AsObject();
+        PyDict* args = obj->GetArgs();
+        PyList* lines = nullptr;
+        PyDictEntry* entry = args->GetEntry("lines");
+        if (entry != nullptr && entry->second != nullptr)
+            lines = entry->second->AsList();
+        if (lines != nullptr) {
+            for (size_t i = 0; i < lines->size(); ++i) {
+                PyList* optLine = lines->GetItem(i)->AsList();
+                if (optLine == nullptr || optLine->size() < 5) continue;
+                std::string optText = PyRep::StringContent(optLine->GetItem(0));
+                int8 optID = (int8)PyRep::IntegerValue(optLine->GetItem(1));
+                int32 param = PyRep::IntegerValue(optLine->GetItem(2));
+                int32 param1 = PyRep::IntegerValue(optLine->GetItem(3));
+                int32 param2 = PyRep::IntegerValue(optLine->GetItem(4));
+                sDatabase.RunQuery(err,
+                    "INSERT INTO alnVoteOptions (voteCaseID, optionID, optionText, parameter,"
+                    " parameter1, parameter2, votesFor) VALUES (%u, %u, '%s', %i, %i, %i, 0)",
+                    voteCaseID, optID, optText.c_str(), param, param1, param2);
+            }
+        }
+    }
+    return true;
+}
+
+PyRep* AllianceDB::GetVoteItems(uint32 allyID, uint32 status, uint32 maxLen)
+{
+    DBQueryResult res;
+    std::string query = "SELECT voteCaseID, voteType, voteCaseText, description, inEffect, status,"
+                        " actedUpon, timeActedUpon, rescended, timeRescended, startDateTime, endDateTime"
+                        " FROM alnVoteItems WHERE allianceID = " + std::to_string(allyID);
+    if (status != 0)
+        query += " AND status = " + std::to_string(status);
+    query += " ORDER BY voteCaseID DESC";
+    if (maxLen != 0)
+        query += " LIMIT " + std::to_string(maxLen);
+
+    if (!sDatabase.RunQuery(res, query.c_str())) {
+        codelog(ALLY__DB_ERROR, "GetVoteItems: %s", res.error.c_str());
+        return nullptr;
+    }
+    return DBResultToPackedRowDict(res, "voteCaseID");
+}
+
+PyRep* AllianceDB::GetVoteOptions(uint32 voteCaseID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT voteCaseID, optionID, optionText, parameter, votesFor,"
+        " 0 AS votesMade, 0 AS votesProxied, parameter1, parameter2"
+        " FROM alnVoteOptions WHERE voteCaseID = %u", voteCaseID))
+    {
+        codelog(ALLY__DB_ERROR, "GetVoteOptions: %s", res.error.c_str());
+        return nullptr;
+    }
+    return DBResultToIndexRowset(res, "optionID");
+}
+
+PyRep* AllianceDB::GetVotes(uint32 voteCaseID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT corpID, voteCaseID, optionID FROM alnVotes WHERE voteCaseID = %u", voteCaseID))
+    {
+        codelog(ALLY__DB_ERROR, "GetVotes: %s", res.error.c_str());
+        return nullptr;
+    }
+    return DBResultToCIndexedRowset(res, "corpID");
+}
+
+bool AllianceDB::CastVote(uint32 corpID, uint32 allyID, uint32 voteCaseID, uint8 optionID)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+        "UPDATE alnVoteItems SET votesMade = votesMade + 1 WHERE voteCaseID = %u", voteCaseID))
+    {
+        codelog(ALLY__DB_ERROR, "CastVote items: %s", err.c_str());
+        return false;
+    }
+    if (!sDatabase.RunQuery(err,
+        "UPDATE alnVoteOptions SET votesFor = votesFor + 1 WHERE voteCaseID = %u AND optionID = %u",
+        voteCaseID, optionID))
+    {
+        codelog(ALLY__DB_ERROR, "CastVote options: %s", err.c_str());
+        return false;
+    }
+    if (!sDatabase.RunQuery(err,
+        "INSERT INTO alnVotes (corpID, allianceID, voteCaseID, optionID) VALUES (%u, %u, %u, %u)",
+        corpID, allyID, voteCaseID, optionID))
+    {
+        codelog(ALLY__DB_ERROR, "CastVote insert: %s", err.c_str());
+        return false;
+    }
+    return true;
+}
+
+bool AllianceDB::ResolveVote(uint32 voteCaseID)
+{
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT optionID, parameter, votesFor FROM alnVoteOptions WHERE voteCaseID = %u"
+        " ORDER BY votesFor DESC LIMIT 1", voteCaseID);
+    DBResultRow row;
+    if (!res.GetRow(row)) return false;
+
+    uint32 winnerID = row.GetUInt(1);
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE alnVoteItems SET status = 0, actedUpon = 1, timeActedUpon = %f WHERE voteCaseID = %u",
+        GetFileTimeNow(), voteCaseID);
+
+    sDatabase.RunQuery(res, "SELECT allianceID, voteType FROM alnVoteItems WHERE voteCaseID = %u", voteCaseID);
+    if (!res.GetRow(row)) return false;
+    uint32 allyID = row.GetUInt(0);
+    uint32 voteType = row.GetUInt(1);
+
+    if (voteType == 0 && winnerID > 0) {
+        sDatabase.RunQuery(err,
+            "UPDATE alnAlliance SET executorCorpID = %u WHERE allianceID = %u", winnerID, allyID);
+        sDatabase.RunQuery(err,
+            "UPDATE crpCorporation SET chosenExecutorID = %u WHERE allianceID = %u", winnerID, allyID);
+    }
+    return true;
+}
+
+void AllianceDB::ProcessVoteExpiry(uint32 allyID)
+{
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT voteCaseID FROM alnVoteItems"
+        " WHERE allianceID = %u AND inEffect = 1 AND endDateTime > 0 AND endDateTime < %f",
+        allyID, GetFileTimeNow());
+
+    DBResultRow row;
+    while (res.GetRow(row))
+        ResolveVote(row.GetUInt(0));
+}
