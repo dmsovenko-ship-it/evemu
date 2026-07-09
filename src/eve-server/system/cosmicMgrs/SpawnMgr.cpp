@@ -527,6 +527,17 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
                     GPoint warpTo(warpToPoint);
                     warpTo.MakeRandomPointOnSphere(rand()%(12) *1000);
                     pNPC->DestinyMgr()->WarpTo(warpTo, (MakeRandomInt(1, 10) *1000));
+                } else {
+                    // Send Warping effect to force client crosshair initialization
+                    // (belt rats get this via WarpTo; anomaly NPCs need it explicitly)
+                    OnSpecialFX10 sfx;
+                    sfx.guid = "effects.Warping";
+                    sfx.entityID = pNPC->GetID();
+                    sfx.isOffensive = false;
+                    sfx.start = true;
+                    sfx.active = true;
+                    PyTuple* t = sfx.Encode();
+                    pNPC->DestinyMgr()->SendSingleDestinyUpdate(&t);
                 }
 
                 // Temporary: generate random spawn class
