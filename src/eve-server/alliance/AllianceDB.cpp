@@ -688,7 +688,7 @@ bool AllianceDB::CreateAllianceChangePacket(OnAllianceChanged &ac, uint32 oldAll
 // ── Alliance Voting ──────────────────────────────────────────────
 
 bool AllianceDB::AddVoteCase(uint32 allyID, const std::string& voteCaseText, const std::string& description,
-                             uint32 voteType, int64 startDateTime, int64 endDateTime, PyRep* options)
+                             uint32 voteType, int64 startDateTime, int64 endDateTime, PyRep* voteCaseOptions)
 {
     DBerror err;
     uint32 voteCaseID = 0;
@@ -702,26 +702,28 @@ bool AllianceDB::AddVoteCase(uint32 allyID, const std::string& voteCaseText, con
         return false;
     }
 
-    if (options != nullptr && options->IsObject()) {
-        PyObjectEx* obj = options->AsObject();
-        PyDict* args = obj->GetArgs();
-        PyList* lines = nullptr;
-        PyDictEntry* entry = args->GetEntry("lines");
-        if (entry != nullptr && entry->second != nullptr)
-            lines = entry->second->AsList();
-        if (lines != nullptr) {
-            for (size_t i = 0; i < lines->size(); ++i) {
-                PyList* optLine = lines->GetItem(i)->AsList();
-                if (optLine == nullptr || optLine->size() < 5) continue;
-                std::string optText = PyRep::StringContent(optLine->GetItem(0));
-                int8 optID = (int8)PyRep::IntegerValue(optLine->GetItem(1));
-                int32 param = PyRep::IntegerValue(optLine->GetItem(2));
-                int32 param1 = PyRep::IntegerValue(optLine->GetItem(3));
-                int32 param2 = PyRep::IntegerValue(optLine->GetItem(4));
-                sDatabase.RunQuery(err,
-                    "INSERT INTO alnVoteOptions (voteCaseID, optionID, optionText, parameter,"
-                    " parameter1, parameter2, votesFor) VALUES (%u, %u, '%s', %i, %i, %i, 0)",
-                    voteCaseID, optID, optText.c_str(), param, param1, param2);
+    // Parse voteCaseOptions: a util.Rowset (PyObjectEx) with header+lines
+    if (voteCaseOptions != nullptr && voteCaseOptions->IsObjectEx()) {
+        PyObjectEx* obj = voteCaseOptions->AsObjectEx();
+        if (obj != nullptr) {
+            PyDict* kv = obj->GetArgs();
+            PyList* lines = nullptr;
+            if (kv != nullptr)
+                lines = kv->GetItem("lines")->AsList();
+            if (lines != nullptr) {
+                for (size_t i = 0; i < lines->size(); ++i) {
+                    PyList* optLine = lines->GetItem(i)->AsList();
+                    if (optLine == nullptr || optLine->size() < 5) continue;
+                    std::string optText = PyRep::StringContent(optLine->GetItem(0));
+                    int8 optID = (int8)PyRep::IntegerValue(optLine->GetItem(1));
+                    int32 param = PyRep::IntegerValue(optLine->GetItem(2));
+                    int32 param1 = PyRep::IntegerValue(optLine->GetItem(3));
+                    int32 param2 = PyRep::IntegerValue(optLine->GetItem(4));
+                    sDatabase.RunQuery(err,
+                        "INSERT INTO alnVoteOptions (voteCaseID, optionID, optionText, parameter,"
+                        " parameter1, parameter2, votesFor) VALUES (%u, %u, '%s', %i, %i, %i, 0)",
+                        voteCaseID, optID, optText.c_str(), param, param1, param2);
+                }
             }
         }
     }

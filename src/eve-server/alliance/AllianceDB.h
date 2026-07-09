@@ -76,7 +76,7 @@ public:
 
     // Alliance voting
     bool AddVoteCase(uint32 allyID, const std::string& voteCaseText, const std::string& description,
-                     uint32 voteType, int64 startDateTime, int64 endDateTime, PyRep* options);
+                     uint32 voteType, int64 startDateTime, int64 endDateTime, PyRep* voteCaseOptions);
     PyRep* GetVoteItems(uint32 allyID, uint32 status, uint32 maxLen);
     PyRep* GetVoteOptions(uint32 voteCaseID);
     PyRep* GetVotes(uint32 voteCaseID);
