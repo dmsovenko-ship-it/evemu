@@ -186,7 +186,9 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
         data.factionID = factionID;
         data.ownerID = corpID;
 
-        ItemData idata(typeID, corpID, sysID, flagNone, "Civilian", pos);
+        char nameBuf[64];
+        snprintf(nameBuf, sizeof(nameBuf), "Civilian %u", i);
+        ItemData idata(typeID, corpID, sysID, flagNone, nameBuf, pos, "CivilianTraffic");
         InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
         if (iRef.get() == nullptr) continue;
 
@@ -197,8 +199,9 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
         }
 
         npc->SetIsCivilian(true);
-        sysMgr->AddNPC(npc);
+        // Set position BEFORE AddNPC so BubbleManager assigns correct bubble
         npc->DestinyMgr()->SetPosition(pos);
+        sysMgr->AddNPC(npc);
 
         new ConvoyAI(npc, group, i);
         group->members.push_back(npc);
