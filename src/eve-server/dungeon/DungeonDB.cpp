@@ -86,14 +86,14 @@ void DungeonDB::GetAllDungeonDataByDungeonID(DBQueryResult& res, uint32 dungeonI
 
 void DungeonDB::GetDungeons(DBQueryResult& res)
 {
-    if (!sDatabase.RunQuery(res, "SELECT dungeonID, dungeonName, dungeonStatus, NULL as dungeonNameID, factionID, archetypeID "
+    if (!sDatabase.RunQuery(res, "SELECT dungeonID, dungeonName, dungeonStatus, dungeonID as dungeonNameID, factionID, archetypeID "
     "FROM dunDungeons"))
     _log(DATABASE__ERROR, "Error in GetFactions query: %s", res.error.c_str());
 }
 
 void DungeonDB::GetDungeons(uint32 dungeonID, DBQueryResult& res)
 {
-    if (!sDatabase.RunQuery(res, "SELECT dungeonID, dungeonName, dungeonStatus, NULL as dungeonNameID, factionID, archetypeID "
+    if (!sDatabase.RunQuery(res, "SELECT dungeonID, dungeonName, dungeonStatus, dungeonID as dungeonNameID, factionID, archetypeID "
     "FROM dunDungeons "
     "WHERE dungeonID=%u", dungeonID))
     _log(DATABASE__ERROR, "Error in GetFactions query: %s", res.error.c_str());
@@ -101,7 +101,7 @@ void DungeonDB::GetDungeons(uint32 dungeonID, DBQueryResult& res)
 
 void DungeonDB::GetDungeons(uint32 archetypeID, uint32 factionID, DBQueryResult& res)
 {
-    if (!sDatabase.RunQuery(res, "SELECT dungeonID, dungeonName, dungeonStatus, NULL as dungeonNameID, factionID, archetypeID "
+    if (!sDatabase.RunQuery(res, "SELECT dungeonID, dungeonName, dungeonStatus, dungeonID as dungeonNameID, factionID, archetypeID "
     "FROM dunDungeons "
     "WHERE archetypeID=%u AND factionID=%u", archetypeID, factionID))
     _log(DATABASE__ERROR, "Error in GetFactions query: %s", res.error.c_str());
