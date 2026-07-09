@@ -36,9 +36,27 @@ SovereigntyMgrService::SovereigntyMgrService() :
     Service("sovMgr")
 {
     this->Add("GetSystemSovereigntyInfo", &SovereigntyMgrService::GetSystemSovereigntyInfo);
+    this->Add("GetSystemUpgrades", &SovereigntyMgrService::GetSystemUpgrades);
+    this->Add("InstallUpgrade", &SovereigntyMgrService::InstallUpgrade);
+    this->Add("RemoveUpgrade", &SovereigntyMgrService::RemoveUpgrade);
 }
 
-// this is only call to this service
 PyResult SovereigntyMgrService::GetSystemSovereigntyInfo(PyCallArgs &call, PyInt* systemID) {
     return svDataMgr.GetSystemSovereignty(systemID->value());
+}
+
+PyResult SovereigntyMgrService::GetSystemUpgrades(PyCallArgs& call, PyInt* systemID) {
+    DBQueryResult res;
+    SovereigntyDB::GetUpgradesForSystem(res, systemID->value());
+    return DBResultToCRowset(res);
+}
+
+PyResult SovereigntyMgrService::InstallUpgrade(PyCallArgs& call, PyInt* systemID, PyInt* upgradeTypeID) {
+    SovereigntyDB::AddSystemUpgrade(systemID->value(), upgradeTypeID->value());
+    return PyStatic.NewNone();
+}
+
+PyResult SovereigntyMgrService::RemoveUpgrade(PyCallArgs& call, PyInt* systemID, PyInt* upgradeID) {
+    SovereigntyDB::RemoveSystemUpgrade(systemID->value(), upgradeID->value());
+    return PyStatic.NewNone();
 }
