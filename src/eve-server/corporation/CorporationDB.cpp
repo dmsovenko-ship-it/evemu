@@ -1032,19 +1032,47 @@ PyRep* CorporationDB::GetCorpRoleGroups()
         " FROM crpRoleGroups"))
     {
         codelog(CORP__DB_ERROR, "Error in query: %s", res.error.c_str());
-        DBRowDescriptor *header = new DBRowDescriptor();
-        header->AddColumn("roleGroupID", DBTYPE_I4);
-        header->AddColumn("roleGroupName", DBTYPE_STR);
-        header->AddColumn("roleGroupNameID", DBTYPE_I4);
-        header->AddColumn("roleMask", DBTYPE_I8);
-        header->AddColumn("appliesTo", DBTYPE_STR);
-        header->AddColumn("appliesToGrantable", DBTYPE_STR);
-        header->AddColumn("isLocational", DBTYPE_BOOL);
-        header->AddColumn("isDivisional", DBTYPE_BOOL);
-        return new CRowSet(&header);
     }
 
-    return DBResultToCRowset(res);
+    // Build CRowSet manually so we can append 'columns' as a proper Python list
+    DBRowDescriptor *header = new DBRowDescriptor();
+    header->AddColumn("roleGroupID", DBTYPE_I4);
+    header->AddColumn("roleGroupName", DBTYPE_STR);
+    header->AddColumn("roleGroupNameID", DBTYPE_I4);
+    header->AddColumn("roleMask", DBTYPE_I8);
+    header->AddColumn("appliesTo", DBTYPE_STR);
+    header->AddColumn("appliesToGrantable", DBTYPE_STR);
+    header->AddColumn("isLocational", DBTYPE_BOOL);
+    header->AddColumn("isDivisional", DBTYPE_BOOL);
+    header->AddColumn("columns", DBTYPE_STR);  // keep header in sync with data rows
+
+    CRowSet* rowset = new CRowSet(&header);
+
+    if (res.GetRowCount() > 0) {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            PyPackedRow* pRow = rowset->NewRow();
+            pRow->SetField("roleGroupID", new PyInt(row.GetInt(0)));
+            pRow->SetField("roleGroupName", new PyString(row.GetText(1)));
+            pRow->SetField("roleGroupNameID", new PyInt(row.GetInt(2)));
+            pRow->SetField("roleMask", new PyLong(row.GetInt64(3)));
+            pRow->SetField("appliesTo", new PyString(row.GetText(4)));
+            pRow->SetField("appliesToGrantable", new PyString(row.GetText(5)));
+            pRow->SetField("isLocational", new PyBool(row.GetInt(6) != 0));
+            pRow->SetField("isDivisional", new PyBool(row.GetInt(7) != 0));
+            // 'columns' must be a Python list — the client iterates over it
+            if (row.GetInt(7) != 0) {
+                PyList* cols = new PyList();
+                for (int d = 1; d <= 7; ++d)
+                    cols->AddItemInt(d);
+                pRow->SetField("columns", cols);
+            } else {
+                pRow->SetField("columns", new PyList());
+            }
+        }
+    }
+
+    return rowset;
 }
 
 void CorporationDB::DeleteTitle(uint32 corpID, uint16 titleID)
