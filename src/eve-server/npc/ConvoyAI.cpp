@@ -72,7 +72,14 @@ GPoint ConvoyAI::GetStationPosition(uint32 stationID)
 {
     SystemManager* sys = m_npc->SystemMgr();
     if (sys == nullptr) return GPoint(0, 0, 0);
+    // Search both dynamic (m_entities) and static (m_staticEntities) maps
     SystemEntity* se = sys->GetSE(stationID);
+    if (se == nullptr) {
+        const auto& staticEnts = sys->GetStaticEntities();
+        auto it = staticEnts.find(stationID);
+        if (it != staticEnts.end())
+            se = it->second;
+    }
     if (se == nullptr) return GPoint(0, 0, 0);
     return se->GetPosition();
 }
