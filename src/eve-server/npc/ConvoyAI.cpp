@@ -5,10 +5,12 @@
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
 #include "system/SystemManager.h"
+#include "system/cosmicMgrs/CivilianMgr.h"
 
 ConvoyGroup::ConvoyGroup(uint32 a, uint32 b, bool sameCorpFlag)
-: stationA(a), stationB(b), goToB(true), sameCorp(sameCorpFlag),
-  phase(0), phaseTimer(nullptr), attackTimer(nullptr), refCount(0)
+: stationA(a), stationB(b), destSystemID(0), sourceGateID(0), destGateID(0),
+  goToB(true), sameCorp(sameCorpFlag), phase(0), factionID(0),
+  phaseTimer(nullptr), attackTimer(nullptr), transitTimer(nullptr), refCount(0)
 {
 }
 
@@ -16,6 +18,7 @@ ConvoyGroup::~ConvoyGroup()
 {
     SafeDelete(phaseTimer);
     SafeDelete(attackTimer);
+    SafeDelete(transitTimer);
     members.clear();
 }
 
@@ -47,7 +50,7 @@ void ConvoyGroup::WakeUpAll(SystemEntity* attacker)
 }
 
 ConvoyAI::ConvoyAI(NPC* who, ConvoyGroup* group, uint32 idx)
-: m_npc(who), m_group(group), m_index(idx), m_startTimer(nullptr)
+: m_npc(who), m_group(group), m_index(idx), m_startTimer(nullptr), m_transferRequested(false)
 {
     m_group->refCount++;
     uint32 interval = 15000 + MakeRandomInt(0, 30000);
@@ -146,9 +149,16 @@ void ConvoyAI::Process()
         double dist = m_npc->GetPosition().distance(GetStationPosition(targetStation));
         if (dist < 100000.0) {
             if (m_index == m_group->members.size() - 1) {
-                m_group->phase = 3;
-                m_group->phaseTimer = new Timer(120000);
-                m_group->phaseTimer->Start(120000);
+                // Cross-system: arriving at stargate triggers gate jump
+                if (m_group->IsCrossSystem()) {
+                    m_group->phase = 4;
+                    m_group->transitTimer = new Timer(MakeRandomInt(30000, 60000));
+                    m_group->transitTimer->Start(MakeRandomInt(30000, 60000));
+                } else {
+                    m_group->phase = 3;
+                    m_group->phaseTimer = new Timer(120000);
+                    m_group->phaseTimer->Start(120000);
+                }
             }
         }
         return;
@@ -161,6 +171,15 @@ void ConvoyAI::Process()
             m_group->phase = 0;
             uint32 interval = 15000 + MakeRandomInt(0, 30000);
             m_startTimer->Start(interval * (m_index + 1));
+        }
+        return;
+    }
+
+    // Phase 4: Gate jump — remove from current system, transfer to destination
+    if (phase == 4) {
+        if (m_index == 0 && !m_transferRequested) {
+            m_transferRequested = true;
+            sCivMgr.TransferCrossSystem(m_group);
         }
         return;
     }
