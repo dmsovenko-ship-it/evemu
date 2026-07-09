@@ -6,6 +6,7 @@
 #include "system/SystemManager.h"
 #include "inventory/InventoryItem.h"
 #include "ship/Ship.h"
+#include "Client.h"
 
 #include <algorithm>
 
@@ -207,7 +208,7 @@ void SystemEffectMgr::OnLeaveSystem(Client* client, uint32 systemID)
 void SystemEffectMgr::ApplyEffect(InventoryItemRef ship, const WHEffectDef* effect)
 {
     for (auto& [attrID, op, value] : effect->modifiers) {
-        double current = ship->GetAttribute(attrID);
+        double current = ship->GetAttribute(attrID).get_float();
         if (std::isnan(current) || current <= 0.0)
             continue;
 
@@ -219,14 +220,14 @@ void SystemEffectMgr::ApplyEffect(InventoryItemRef ship, const WHEffectDef* effe
         }
 
         ship->SetAttribute(attrID, newVal);
-        _log(SERVICE__TRACE, "SystemEffectMgr:   attr %u: %.2f -> %.2f", attrID, current, newVal);
+        _log(SERVICE__MESSAGE, "SystemEffectMgr:   attr %u: %.2f -> %.2f", attrID, current, newVal);
     }
 }
 
 void SystemEffectMgr::RemoveEffect(InventoryItemRef ship, const WHEffectDef* effect)
 {
     for (auto& [attrID, op, value] : effect->modifiers) {
-        double current = ship->GetAttribute(attrID);
+        double current = ship->GetAttribute(attrID).get_float();
         if (std::isnan(current) || current <= 0.0)
             continue;
 
@@ -239,6 +240,6 @@ void SystemEffectMgr::RemoveEffect(InventoryItemRef ship, const WHEffectDef* eff
         }
 
         ship->SetAttribute(attrID, newVal);
-        _log(SERVICE__TRACE, "SystemEffectMgr:   revert attr %u: %.2f -> %.2f", attrID, current, newVal);
+        _log(SERVICE__MESSAGE, "SystemEffectMgr:   revert attr %u: %.2f -> %.2f", attrID, current, newVal);
     }
 }

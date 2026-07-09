@@ -33,14 +33,14 @@ void CivilianMgr::Initialize() {
     sLog.Blue(" Civilian Manager", "Civilian Manager initialized.");
 }
 
-uint8 CivilianMgr::GetFactionForSystem(uint32 systemID) {
+uint32 CivilianMgr::GetFactionForSystem(uint32 systemID) {
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
         "SELECT factionID FROM mapSolarSystems WHERE solarSystemID = %u", systemID))
     {
         DBResultRow row;
         if (res.GetRow(row) && !row.IsNull(0))
-            return (uint8)row.GetUInt(0);
+            return row.GetUInt(0);
     }
     return factionMinmatar;
 }
@@ -115,7 +115,7 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
     // Need at least one station and one gate for route variety
     if (stations.empty()) return;
 
-    uint8 factionID = GetFactionForSystem(sysID);
+    uint32 factionID = GetFactionForSystem(sysID);
     if (factionID == 0) factionID = factionMinmatar;
 
     // Pick faction-appropriate industrial ship types

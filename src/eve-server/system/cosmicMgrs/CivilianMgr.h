@@ -43,7 +43,7 @@ private:
     void RemoveConvoy(ConvoyGroup* group);
     void ResumeCrossSystem(ConvoyGroup* group);
 
-    uint8 GetFactionForSystem(uint32 systemID);
+    uint32 GetFactionForSystem(uint32 systemID);
 
     ServiceDB* m_db;
     Timer* m_processTimer;

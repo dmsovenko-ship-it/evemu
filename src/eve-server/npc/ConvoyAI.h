@@ -15,7 +15,7 @@ struct ConvoyGroup {
     bool goToB;
     bool sameCorp; // both stations belong to same corporation
     int8 phase; // 0=FormUp, 1=Departure, 2=Warping, 3=Waiting, 4=GateJump
-    uint8 factionID;
+    uint32 factionID;
     Timer* phaseTimer;
     Timer* attackTimer;
     Timer* transitTimer;        // cross-system transit countdown

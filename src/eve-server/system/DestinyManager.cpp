@@ -1253,7 +1253,7 @@ void DestinyManager::Orbit() {
     // distances checks for orbit calculations
     GPoint mPos(NULL_ORIGIN);
     float mPosAdj(0.0f);
-    double refDist = std::max(m_followDistance, m_targetDistance);
+    double refDist = std::max<double>(m_followDistance, m_targetDistance);
     // check distances for this tic
     if (edges > refDist * 1.5) {
         if (m_orbiting == Destiny::Ball::Orbit::TooFar) {
@@ -2440,8 +2440,7 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
         GPoint Tp(pSE->GetPosition());
         double centers = m_position.distance(Tp);
         double edges = centers - m_radius - pSE->GetRadius();
-        // Use m_targetDistance (commanded) as the reference, not m_followDistance (physics-calc'd)
-        double refDist = std::max(m_followDistance, m_targetDistance);
+        double refDist = std::max<double>(static_cast<double>(m_followDistance), m_targetDistance);
         if (edges > refDist * 1.5) {
             m_orbiting = Destiny::Ball::Orbit::TooFar;
         } else if (centers < refDist * 0.5) {
@@ -2449,7 +2448,6 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
         } else {
             m_orbiting = Destiny::Ball::Orbit::Orbiting;
         }
-    }
         if (is_log_enabled(DESTINY__ORBIT_TRACE))
             _log(DESTINY__ORBIT_TRACE, "%s(%u) - Orbit initial state: %u (centers:%.2f, edges:%.2f, follow:%u)", \
                 mySE->GetName(), mySE->GetID(), m_orbiting, centers, edges, m_followDistance);
