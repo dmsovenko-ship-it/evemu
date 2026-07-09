@@ -154,14 +154,15 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
     uint32 factionID = GetFactionForSystem(sysID);
     if (factionID == 0) factionID = factionMinmatar;
 
-    // Pick faction-appropriate industrial ship types
+    // Pick faction-appropriate convoy hauler types (Entity-category, group 297 Convoy)
+    // These avoid ShipItem dogma issues and render as industrials via MakeSlimItem override
     uint16 typeID;
     switch (factionID) {
-        case 500001: { static uint16 c[] = {582,583,584}; typeID = c[MakeRandomInt(0,2)]; break; } // Caldari
-        case 500002: { static uint16 m[] = {585,586,587}; typeID = m[MakeRandomInt(0,2)]; break; } // Minmatar
-        case 500003: { static uint16 a[] = {589,590,591}; typeID = a[MakeRandomInt(0,2)]; break; } // Amarr
-        case 500004: { static uint16 g[] = {592,593,594}; typeID = g[MakeRandomInt(0,2)]; break; } // Gallente
-        default:     { static uint16 d[] = {582,583,584,585,586,587}; typeID = d[MakeRandomInt(0,5)]; }
+        case 500001: { static uint16 c[] = {10114,10115,10116}; typeID = c[MakeRandomInt(0,2)]; break; } // Caldari
+        case 500002: { static uint16 m[] = {10117,10118,10823}; typeID = m[MakeRandomInt(0,2)]; break; } // Minmatar
+        case 500003: { static uint16 a[] = {10824,10825,10826}; typeID = a[MakeRandomInt(0,2)]; break; } // Amarr
+        case 500004: { static uint16 g[] = {10827,10828,10829}; typeID = g[MakeRandomInt(0,2)]; break; } // Gallente
+        default:     { static uint16 d[] = {10043,10044,10045,10114,10115,10116,10117,10118}; typeID = d[MakeRandomInt(0,7)]; }
     }
 
     uint8 count = MakeRandomInt(2, 4);

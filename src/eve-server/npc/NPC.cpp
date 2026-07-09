@@ -257,8 +257,8 @@ PyDict* NPC::MakeSlimItem()
                 gID = 419; break; // Battlecruiser
             case 575: case 579: case 581: case 583: case 577:
                 gID = 420; break; // Battleship
-            case 554: case 558: case 563: case 568: case 573: case 760:
-                gID = 28; break;  // Industrial
+            case 297: case 554: case 558: case 563: case 568: case 573: case 760:
+                gID = 28; break;  // Industrial / Convoy
             case 553:
                 gID = 25; break;  // Frigate (Sansha)
             case 758:
