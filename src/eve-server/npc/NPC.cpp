@@ -248,10 +248,13 @@ PyDict* NPC::MakeSlimItem()
         uint16 gID = m_self->groupID();
         switch (gID) {
             case 550: case 557: case 562: case 567: case 572: case 759:
+            case 961: case 986: case 987:
                 gID = 25; break;  // Frigate
             case 551: case 555: case 561: case 566: case 571: case 757:
+            case 960: case 984: case 985:
                 gID = 26; break;  // Destroyer
             case 552: case 556: case 560: case 565: case 570: case 756:
+            case 959: case 982: case 983:
                 gID = 27; break;  // Cruiser
             case 576: case 578: case 580: case 582: case 584: case 755:
                 gID = 419; break; // Battlecruiser
