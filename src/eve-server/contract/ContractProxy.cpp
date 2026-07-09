@@ -484,7 +484,7 @@ PyResult ContractProxy::GetContract(PyCallArgs &call, PyInt* contractID) {
 PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std::optional<PyBool*> forCorp) {
 
     bool acceptForCorp = forCorp.has_value() and forCorp.value()->value();
-    uint8 walletKey = acceptForCorp ? Account::KeyType::Corporate : Account::KeyType::Cash;
+    uint8 walletKey = Account::KeyType::Cash;
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res, "SELECT contractType, status, price, reward, collateral, volume, startStationID, issuerID, forCorp, startSolarSystemID, endSolarSystemID FROM ctrContracts WHERE contractId = %u", contractID->value()))
@@ -523,9 +523,6 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                 bool iskRequirementMet(true), rewardRequirementMet(true), requestedItemsRequirementsMet(true);
 
                 uint32 acceptorID = acceptForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
-                double acceptorBalance = acceptForCorp
-                    ? sItemFactory.GetCorporationRef(call.client->GetCorporationID())->balance(Account::KeyType::Corporate)
-                    : call.client->GetBalance();
 
                 if (price > 0) {
                     if (acceptorBalance < price) {
@@ -599,18 +596,15 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
             {
                 // Courier contract
                 uint32 acceptorID = acceptForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
-                double acceptorBalance = acceptForCorp
-                    ? sItemFactory.GetCorporationRef(call.client->GetCorporationID())->balance(Account::KeyType::Corporate)
-                    : call.client->GetBalance();
 
                 if (collateral > 0) {
-                    if (acceptorBalance < collateral) {
-                        call.client->SendNotifyMsg("You do not have enough ISK to pay collateral");
-                        return nullptr;
-                    }
                     if (acceptForCorp) {
-                        AccountService::TransferFunds(call.client->GetCorporationID(), 1, collateral, "Collateral for courier contract", Journal::EntryType::ContractPrice, contractID->value(), Account::KeyType::Corporate, Account::KeyType::Cash);
+                        AccountService::TransferFunds(call.client->GetCorporationID(), 1, collateral, "Collateral for courier contract", Journal::EntryType::ContractPrice, contractID->value(), Account::KeyType::Cash, Account::KeyType::Cash);
                     } else {
+                        if (call.client->GetBalance() < collateral) {
+                            call.client->SendNotifyMsg("You do not have enough ISK to pay collateral");
+                            return nullptr;
+                        }
                         call.client->AddBalance(-collateral);
                     }
                 }
@@ -734,14 +728,14 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
 
                 // Then, we return the collateral (if any) and pay the reward (if any)
                 if (collateral > 0) {
-                    if (acceptorWalletKey == Account::KeyType::Corporate)
-                        AccountService::TransferFunds(1, call.client->GetCorporationID(), collateral, "Collateral return for courier contract", Journal::EntryType::ContractCollateral, contractID->value(), Account::KeyType::Cash, Account::KeyType::Corporate);
+                    if (acceptorWalletKey == Account::KeyType::Cash)
+                        AccountService::TransferFunds(1, call.client->GetCorporationID(), collateral, "Collateral return for courier contract", Journal::EntryType::ContractCollateral, contractID->value(), Account::KeyType::Cash, Account::KeyType::Cash);
                     else
                         call.client->AddBalance(collateral);
                 }
                 if (reward > 0) {
-                    if (acceptorWalletKey == Account::KeyType::Corporate)
-                        AccountService::TransferFunds(issuerID, call.client->GetCorporationID(), reward, "Reward for courier contract", Journal::EntryType::ContractReward, contractID->value(), Account::KeyType::Cash, Account::KeyType::Corporate);
+                    if (acceptorWalletKey == Account::KeyType::Cash)
+                        AccountService::TransferFunds(issuerID, call.client->GetCorporationID(), reward, "Reward for courier contract", Journal::EntryType::ContractReward, contractID->value(), Account::KeyType::Cash, Account::KeyType::Cash);
                     else
                         call.client->AddBalance(reward);
                 }
@@ -763,8 +757,8 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
         case 7: {
             // Fail - collateral paid to issuer as penalty
             if (collateral > 0) {
-                if (acceptorWalletKey == Account::KeyType::Corporate) {
-                    AccountService::TransferFunds(call.client->GetCorporationID(), issuerID, collateral, "Collateral payment for failed contract", Journal::EntryType::ContractCollateral, contractID->value(), Account::KeyType::Corporate, Account::KeyType::Cash);
+                if (acceptorWalletKey == Account::KeyType::Cash) {
+                    AccountService::TransferFunds(call.client->GetCorporationID(), issuerID, collateral, "Collateral payment for failed contract", Journal::EntryType::ContractCollateral, contractID->value(), Account::KeyType::Cash, Account::KeyType::Cash);
                 } else {
                     call.client->AddBalance(collateral);
                     AccountService::TransferFunds(call.client->GetCharacterID(), issuerID, collateral, "Collateral payment for failed contract", Journal::EntryType::ContractCollateral, contractID->value());
