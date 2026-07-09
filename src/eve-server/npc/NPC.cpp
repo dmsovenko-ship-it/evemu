@@ -341,6 +341,7 @@ void NPC::EncodeDestiny( Buffer& into )
         head.posZ = z();
         head.flags = Ball::Flag::IsInteractive | Ball::Flag::IsFree;
     into.Append( head );
+    _log(SE__DESTINY, "NPC::EncodeDestiny: %s(%u) flags=0x%X mode=%u", GetName(), GetID(), head.flags, head.mode);
     MassSector mass = MassSector();
         mass.mass = m_destiny->GetMass();
         mass.cloak = (m_destiny->IsCloaked() ? 1 : 0);
