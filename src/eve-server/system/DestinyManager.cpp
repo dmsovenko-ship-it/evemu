@@ -1253,20 +1253,20 @@ void DestinyManager::Orbit() {
     // distances checks for orbit calculations
     GPoint mPos(NULL_ORIGIN);
     float mPosAdj(0.0f);
+    double refDist = std::max(m_followDistance, m_targetDistance);
     // check distances for this tic
-    if ((edges / 2) > m_followDistance) {
+    if (edges > refDist * 1.5) {
         if (m_orbiting == Destiny::Ball::Orbit::TooFar) {
             MoveObject();
             return;
         }
         // too far to realistically orbit.
         m_orbiting = Destiny::Ball::Orbit::TooFar;
-        // TODO: update this to determine orbit and set heading/target to smoothly go from turn into orbit trajectory
         // set point to side of target (based on current position), to avoid near-zero angular velocity
         double radTarg = atan2(Tp.z - m_position.z, Tp.x - m_position.x);  // rad from '0' to target
-        radTarg += atan2(m_followDistance, edges);  // rad from 'distance line' to target 'offset'
-        mPos.x = m_followDistance * cos(radTarg);
-        mPos.z = m_followDistance * sin(radTarg);
+        radTarg += atan2(refDist, edges);  // rad from 'distance line' to target 'offset'
+        mPos.x = refDist * cos(radTarg);
+        mPos.z = refDist * sin(radTarg);
         if (Tp.y > m_position.y) { // target is above us.  set point below target using calculated distance
             mPos.y = Tp.y - m_position.y;
         } else { // opposite of above
@@ -1280,7 +1280,7 @@ void DestinyManager::Orbit() {
                 radTarg, m_shipHeading.x, m_shipHeading.y, m_shipHeading.z);
         MoveObject();
         return;
-    } else if ( (centers + m_targetDistance / 3) < m_followDistance) {
+    } else if (centers < refDist * 0.5) {
         if (m_orbiting == Destiny::Ball::Orbit::TooClose) {
             MoveObject();
             return;
@@ -1289,9 +1289,8 @@ void DestinyManager::Orbit() {
         m_orbiting = Destiny::Ball::Orbit::TooClose;
         // set point to side of target (based on current position), to avoid near-zero angular velocity
         double radTarg = atan2(Tp.z - m_position.z, Tp.x - m_position.x);  // rad from '0' to target
-        //radTarg += atan2(m_followDistance, edges);  // rad from 'distance line' to target 'offset'
-        mPos.x = m_followDistance * cos(radTarg);
-        mPos.z = m_followDistance * sin(radTarg);
+        mPos.x = refDist * cos(radTarg);
+        mPos.z = refDist * sin(radTarg);
         if (Tp.y > m_position.y) {  // target is above us.  set point below target using calculated distance
             mPos.y = Tp.y - m_position.y;
         } else { // opposite of above
@@ -1305,18 +1304,14 @@ void DestinyManager::Orbit() {
                 radTarg, m_shipHeading.x, m_shipHeading.y, m_shipHeading.z);
         MoveObject();
         return;
-    } else if ((edges - m_targetDistance / 4) > m_followDistance) {
+    } else if (edges > refDist * 1.1) {
         m_orbiting = Destiny::Ball::Orbit::Far;
-        // fudge distance for a smaller orbit
-        // modify this based on calculated distance
-        mPosAdj = -m_followDistance / 25;
-        _log(DESTINY__ORBIT_TRACE, "2 - too far");
-    } else if (centers < m_followDistance) {
+        mPosAdj = -refDist / 50;
+        _log(DESTINY__ORBIT_TRACE, "2 - slightly far (edges=%.0f ref=%.0f)", edges, refDist);
+    } else if (centers < refDist * 0.9) {
         m_orbiting = Destiny::Ball::Orbit::Close;
-        // fudge distance for larger orbit
-        // modify this based on calculated distance
-        mPosAdj = m_followDistance / 25;
-        _log(DESTINY__ORBIT_TRACE, "2 - too close");
+        mPosAdj = refDist / 50;
+        _log(DESTINY__ORBIT_TRACE, "2 - slightly close (centers=%.0f ref=%.0f)", centers, refDist);
     } else {
         m_orbiting = Destiny::Ball::Orbit::Orbiting;
         _log(DESTINY__ORBIT_TRACE, "2 - within tolerance");
@@ -2362,11 +2357,9 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
      */
     // Guard against Rc <= 0 which produces NaN in the orbit radius formula
     if (Rc <= 1.0) {
-        _log(DESTINY__ERROR, "%s(%u) - Orbit Rc=%.2f is too small (distance=%u, radius=%.1f, targetRadius=%.1f). Clamping.",
+        _log(DESTINY__ERROR, "%s(%u) - Orbit Rc=%.2f is too small (distance=%u, radius=%.1f, targetRadius=%.1f). Using target distance.",
              mySE->GetName(), mySE->GetID(), Rc, distance, m_radius, pSE->GetRadius());
-        m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
-        if (m_followDistance < 1.0)
-            m_followDistance = 500.0;
+        m_followDistance = distance;
     } else {
         double one = (108 * t2 * Vm2 * Rc2);
         double two = (12 * t2 * Vm2 *  std::pow(Rc,10));
@@ -2375,21 +2368,17 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
         double five =  std::cbrt( std::sqrt(three *  std::pow(Rc,8) + two));
         double six = (one + (8 * Rc2) + (12 * five));
         if (std::abs(six) < 1e-10) {
-            _log(DESTINY__ERROR, "%s(%u) - Orbit formula 'six' is zero (%.10f). Clamping to fallback.", mySE->GetName(), mySE->GetID(), six);
-            m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
-            if (m_followDistance < 1.0)
-                m_followDistance = 500.0;
+            _log(DESTINY__ERROR, "%s(%u) - Orbit formula 'six' is zero (%.10f). Using target distance.", mySE->GetName(), mySE->GetID(), six);
+            m_followDistance = distance;
         } else {
             m_followDistance =  std::sqrt(four + (24 *  std::pow(Rc, 4) / six) + 12 * Rc2) / 6;
         }
     }
 
     if (std::isnan(m_followDistance) or (m_followDistance <= 0.0)) {
-        _log(DESTINY__ERROR, "%s(%u) - Orbit followDistance is %s. Clamping to fallback.",
+        _log(DESTINY__ERROR, "%s(%u) - Orbit followDistance is %s. Using target distance.",
              mySE->GetName(), mySE->GetID(), std::isnan(m_followDistance) ? "NaN" : "<=0");
-        m_followDistance = (distance + m_radius + pSE->GetRadius()) / 6;
-        if (m_followDistance < 1.0)
-            m_followDistance = 500.0;
+        m_followDistance = distance;
     }
     double velocity = m_maxShipSpeed * ((distance / m_followDistance) + 0.065);
     if (std::isnan(velocity) or (velocity <= 0.0)) {
@@ -2451,13 +2440,16 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
         GPoint Tp(pSE->GetPosition());
         double centers = m_position.distance(Tp);
         double edges = centers - m_radius - pSE->GetRadius();
-        if ((edges / 2) > m_followDistance) {
+        // Use m_targetDistance (commanded) as the reference, not m_followDistance (physics-calc'd)
+        double refDist = std::max(m_followDistance, m_targetDistance);
+        if (edges > refDist * 1.5) {
             m_orbiting = Destiny::Ball::Orbit::TooFar;
-        } else if ((centers + m_targetDistance / 3) < m_followDistance) {
+        } else if (centers < refDist * 0.5) {
             m_orbiting = Destiny::Ball::Orbit::TooClose;
         } else {
             m_orbiting = Destiny::Ball::Orbit::Orbiting;
         }
+    }
         if (is_log_enabled(DESTINY__ORBIT_TRACE))
             _log(DESTINY__ORBIT_TRACE, "%s(%u) - Orbit initial state: %u (centers:%.2f, edges:%.2f, follow:%u)", \
                 mySE->GetName(), mySE->GetID(), m_orbiting, centers, edges, m_followDistance);
