@@ -546,14 +546,9 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
                 } else {
                     // Send Warping effect to force client crosshair initialization
                     // (belt rats get this via WarpTo; anomaly NPCs need it explicitly)
-                    OnSpecialFX10 sfx;
-                    sfx.guid = "effects.Warping";
-                    sfx.entityID = pNPC->GetID();
-                    sfx.isOffensive = false;
-                    sfx.start = true;
-                    sfx.active = true;
-                    PyTuple* t = sfx.Encode();
-                    pNPC->DestinyMgr()->SendSingleDestinyUpdate(&t);
+                    // Force full state re-init for all players in bubble (crosshair fix)
+                    if (pNPC->DestinyMgr() != nullptr)
+                        pNPC->DestinyMgr()->SendSetState();
                 }
 
                 // Temporary: generate random spawn class
@@ -1165,15 +1160,9 @@ void SpawnMgr::MakeSpawn(SystemBubble* pBubble, uint32 factionID, uint8 sClass, 
                 warpTo.MakeRandomPointOnSphere(sClass *1000);  // random point <class (1-12)> x 1k from center
                 pNPC->DestinyMgr()->WarpTo(warpTo, (MakeRandomInt(-5, 10) *1000));
             } else if (anomaly) {
-                // anomaly NPCs: send Warping effect for crosshair initialization
-                OnSpecialFX10 sfx;
-                sfx.guid = "effects.Warping";
-                sfx.entityID = pNPC->GetID();
-                sfx.isOffensive = false;
-                sfx.start = true;
-                sfx.active = true;
-                PyTuple* t = sfx.Encode();
-                pNPC->DestinyMgr()->SendSingleDestinyUpdate(&t);
+                // Force full state re-init for all players in bubble (crosshair fix)
+                if (pNPC->DestinyMgr() != nullptr)
+                    pNPC->DestinyMgr()->SendSetState();
             }
 
             SpawnEntry se = SpawnEntry();
