@@ -2332,7 +2332,7 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
     // Target (orbited object)
     double Tr = pSE->GetRadius();
     double Tm = pSE->GetSelf()->GetAttribute(AttrMass).get_float();
-    if (Tm != 0.0)
+    if (Tm == 0.0)
         Tm = pSE->GetSelf()->type().mass();
 
     if (is_log_enabled(DESTINY__ORBIT_TRACE))
@@ -3535,11 +3535,13 @@ void DestinyManager::SendDestinyUpdate( std::vector<PyTuple*>& updates, std::vec
             mySE->GetID()
         );
 
-        // if (sConfig.debug.IsTestServer) {
-        //     EvE::traceStack();
-        // }
+        if (sConfig.debug.IsTestServer) {
+            EvE::traceStack();
+        }
 
-        //sBubbleMgr.Add(mySE);
-        //mySE->SysBubble()->BubblecastDestiny( updates, events, "destiny" );
+        _log(DESTINY__ERROR, "[%u] Adding entity %u to bubble manager as fallback.", sEntityList.GetStamp(), mySE->GetID());
+        sBubbleMgr.Add(mySE);
+        if (mySE->SysBubble() != nullptr)
+            mySE->SysBubble()->BubblecastDestiny( updates, events, "destiny" );
     }
 }

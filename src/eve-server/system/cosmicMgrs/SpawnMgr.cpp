@@ -518,9 +518,9 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
                 _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly NPC Load OK for type %u, npcID=%u", cur.typeID, pNPC->GetID());
 
-                m_system->AddNPC(pNPC);
-
                 pNPC->DestinyMgr()->SetPosition(startPos);
+
+                m_system->AddNPC(pNPC);
 
                 // For large ships, warp them in from a distance (disabled for Entity-category types)
                 if ((iRef->categoryID() == EVEDB::invCategories::Ship) && (iRef->GetAttribute(AttrMass) > 10000000)) {
@@ -1128,9 +1128,9 @@ void SpawnMgr::MakeSpawn(SystemBubble* pBubble, uint32 factionID, uint8 sClass, 
                 continue;
             }
 
-            m_system->AddNPC(pNPC);
-
             pNPC->DestinyMgr()->SetPosition(startPos);
+
+            m_system->AddNPC(pNPC);
             //  begin warp - timing of rat fleet is ensured by destiny
             if (sClass <= Spawn::Class::Officer) {   // ratspawn will warp in, others will not.
                 // adjust warpIn point so show some variation instead of a straight line.
