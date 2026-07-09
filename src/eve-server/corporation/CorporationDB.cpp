@@ -993,7 +993,13 @@ PyRep* CorporationDB::GetCorpRoles()
     DBQueryResult res;
     if (!sDatabase.RunQuery( res, "SELECT roleID, roleName, shortDescriptionID, descriptionID, roleIID FROM crpRoles")) {
         codelog(CORP__DB_ERROR, "Error in query: %s", res.error.c_str());
-        return nullptr;
+        DBRowDescriptor *header = new DBRowDescriptor();
+        header->AddColumn("roleID", DBTYPE_I8);
+        header->AddColumn("roleName", DBTYPE_STR);
+        header->AddColumn("shortDescriptionID", DBTYPE_I4);
+        header->AddColumn("descriptionID", DBTYPE_I4);
+        header->AddColumn("roleIID", DBTYPE_I4);
+        return new CRowSet(&header);
     }
 
     return DBResultToCRowset(res);
