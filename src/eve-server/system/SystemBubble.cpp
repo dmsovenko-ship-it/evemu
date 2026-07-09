@@ -813,9 +813,9 @@ void SystemBubble::AddBallExclusive( SystemEntity* pSE ) {
 
     Buffer* destinyBuffer = new Buffer();
 
-    //create AddBalls header
+    //create AddBalls header — use type 0 (full state) to force client re-init with crosshairs
     Destiny::AddBall_header head = Destiny::AddBall_header();
-        head.packet_type = 1;   // 0 = full state   1 = balls
+        head.packet_type = 0;   // 0 = full state   1 = balls
         head.stamp = sEntityList.GetStamp();
     destinyBuffer->Append( head );
 
