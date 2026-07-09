@@ -481,8 +481,10 @@ PyResult ContractProxy::GetContract(PyCallArgs &call, PyInt* contractID) {
     return ContractUtils::GetContractEntry(contractID->value());
 }
 
-PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID) {
-    // For the time being - we ignore the second value in tuple (forCorp), since it's not yet functional.
+PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std::optional<PyBool*> forCorp) {
+
+    bool acceptForCorp = forCorp.has_value() and forCorp.value()->value();
+    uint8 walletKey = acceptForCorp ? Account::KeyType::Corporate : Account::KeyType::Cash;
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res, "SELECT contractType, status, price, reward, collateral, volume, startStationID, issuerID, forCorp, startSolarSystemID, endSolarSystemID FROM ctrContracts WHERE contractId = %u", contractID->value()))
@@ -513,16 +515,20 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID) {
         switch (contractType) {
             case 1: {
                 // Item Exchange
-                // We start off by gathering traded and requested items
                 std::vector<int> tradedItems;
                 std::map<int, int> requestedItems;
                 ContractUtils::GetContractItemIDs(contractID->value(), &tradedItems);
                 ContractUtils::GetRequestedItems(contractID->value(), &requestedItems);
 
-                // Next, we perform checks to make sure we fit all contract requirements. I won't do it by nesting if loops - i'll just use trigger booleans;
                 bool iskRequirementMet(true), rewardRequirementMet(true), requestedItemsRequirementsMet(true);
+
+                uint32 acceptorID = acceptForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
+                double acceptorBalance = acceptForCorp
+                    ? sItemFactory.GetCorporationRef(call.client->GetCorporationID())->balance(Account::KeyType::Corporate)
+                    : call.client->GetBalance();
+
                 if (price > 0) {
-                    if (call.client->GetBalance() < price) {
+                    if (acceptorBalance < price) {
                         iskRequirementMet = false;
                     }
                 }
@@ -533,52 +539,43 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID) {
                 }
                 if (!requestedItems.empty()) {
                     for (const auto& entry : requestedItems) {
-                        // Since we don't have a direct way to find items by typeID, we go over all items on current station and checking whether we have any of correct type and quantity
-                        // TODO: Implement forCorp loop when corp contracts are unblocked.
                         if (sItemFactory.GetStationRef(startStationID)->GetMyInventory()->ContainsTypeStackQtyByFlag(entry.first, EVEItemFlags::flagHangar, entry.second) == 0) {
                             requestedItemsRequirementsMet = false;
                         }
                     }
                 }
 
-                // Then, we go for acceptance
                 if (iskRequirementMet && rewardRequirementMet && requestedItemsRequirementsMet) {
-                    // If we have a reward value - then contract's WTB
                     if (reward > 0) {
-                        AccountService::TransferFunds(issuerID, call.client->GetCharacterID(), reward, "Payment for accepted contract", Journal::EntryType::ContractReward, contractID->value());
+                        AccountService::TransferFunds(issuerID, acceptorID, reward, "Payment for accepted contract", Journal::EntryType::ContractReward, contractID->value(), Account::KeyType::Cash, walletKey);
                     }
 
-                    // If we have price value - then contract's WTS
                     if (price > 0) {
-                        AccountService::TransferFunds(call.client->GetCharacterID(), issuerID, price, "Payment for accepted contract", Journal::EntryType::ContractPrice, contractID->value());
+                        AccountService::TransferFunds(acceptorID, issuerID, price, "Payment for accepted contract", Journal::EntryType::ContractPrice, contractID->value(), walletKey, Account::KeyType::Cash);
                     }
 
-                    // Then, we go for requested items
                     if (!requestedItems.empty()) {
                         for (auto entry : requestedItems) {
                             int entityID = sItemFactory.GetStationRef(startStationID)->GetMyInventory()->ContainsTypeStackQtyByFlag(entry.first, flagHangar, entry.second);
                             if (sItemFactory.GetStationRef(startStationID)->GetMyInventory()->GetByID(entityID)->quantity() > entry.second) {
-                                // If located stack contains more than we need, we split it and transfer the required amount.
                                 sItemFactory.GetStationRef(startStationID)->GetMyInventory()->GetByID(entityID)->Split(entry.second)->ChangeOwner(issuerID, true);
                             } else {
-                                // If not - we simply transfer it to issuer.
                                 sItemFactory.GetItemRef(entityID)->ChangeOwner(issuerID, true);
                             }
                         }
                     }
 
-                    // And finally, we go for traded items
                     if (!tradedItems.empty()) {
+                        uint32 newOwnerID = acceptForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
                         for (auto item : tradedItems) {
-                            sItemFactory.GetItemRef(item)->ChangeOwner(call.client->GetCharacterID(), true);
+                            sItemFactory.GetItemRef(item)->ChangeOwner(newOwnerID, true);
                         }
                     }
 
-                    // Once all manipulations are done, we update contract status. Response is sent outside the switch clause;
                     DBerror err;
                     if (!sDatabase.RunQuery(err,
-                                            "UPDATE ctrContracts SET status = 4, dateAccepted = %lli, dateCompleted = %lli, acceptorID = %u WHERE contractId = %u",
-                                            timestamp, timestamp, call.client->GetCharacterID(), contractID))
+                                            "UPDATE ctrContracts SET status = 4, dateAccepted = %lli, dateCompleted = %lli, acceptorID = %u, acceptorWalletKey = %u WHERE contractId = %u",
+                                            timestamp, timestamp, call.client->GetCharacterID(), walletKey, contractID))
                     {
                         codelog(DATABASE__ERROR, "Failed to update contract : %s", err.c_str());
                     }
@@ -601,30 +598,27 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID) {
             case 3:
             {
                 // Courier contract
-                // First off, we validate if contract has a collateral. If yes - we check if player has enough ISK to pay. If not - we send a notification and quit
+                uint32 acceptorID = acceptForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
+                double acceptorBalance = acceptForCorp
+                    ? sItemFactory.GetCorporationRef(call.client->GetCorporationID())->balance(Account::KeyType::Corporate)
+                    : call.client->GetBalance();
+
                 if (collateral > 0) {
-                    if (call.client->GetBalance() < collateral) {
+                    if (acceptorBalance < collateral) {
                         call.client->SendNotifyMsg("You do not have enough ISK to pay collateral");
                         return nullptr;
                     }
-                    // If we have enough - we take it
-                    call.client->AddBalance(-collateral);
+                    if (acceptForCorp) {
+                        AccountService::TransferFunds(call.client->GetCorporationID(), 1, collateral, "Collateral for courier contract", Journal::EntryType::ContractPrice, contractID->value(), Account::KeyType::Corporate, Account::KeyType::Cash);
+                    } else {
+                        call.client->AddBalance(-collateral);
+                    }
                 }
 
-                /**
-                 * Courier contract acceptance includes following steps:
-                 * - Create a plastic wrap container
-                 * - Set capacity and volume attribute to the volume of the contracted items
-                 * - Move all items inside this container
-                 * -
-                 * - Give that container to the character
-                 * - Update contract entry - move it to In Progress and leave a time-stamp when it was accepted.
-                 */
-                // Create container and set capacity and volume attributes;
                 std::string containerName = sItemFactory.GetSolarSystemRef(startSolarSystemID)->name();
                 containerName = containerName + " -> " + sItemFactory.GetSolarSystemRef(endSolarSystemID)->name() + "(" + std::to_string(volume) + "m3)";
 
-                ItemData itemData(itemPlasticWrap, call.client->GetCharacterID(), locTemp, flagNone);
+                ItemData itemData(itemPlasticWrap, acceptorID, locTemp, flagNone);
                 itemData.name = containerName;
                 InventoryItemRef plasticWrap = sItemFactory.SpawnItem(itemData);
                 if (plasticWrap.get() != nullptr) {
@@ -632,24 +626,22 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID) {
                     plasticWrap->SetAttribute(AttrCapacity, volume);
                 }
                 plasticWrap->SaveItem();
-                // Then, move all required items into it
+
                 std::vector<int> items;
                 ContractUtils::GetContractItemIDs(contractID->value(), &items);
                 for (auto item : items) {
                     InventoryItemRef itm = sItemFactory.GetItemRef(item);
                     if (itm.get() != nullptr) {
                         itm->Move(plasticWrap->itemID(), flagNone, true);
-                        itm->ChangeOwner(call.client->GetCharacterID());
+                        itm->ChangeOwner(acceptorID);
                     }
                 }
-                // And we give the container to the player
-                plasticWrap->Move(startStationID, flagHangar, true);
+                plasticWrap->Move(startStationID, acceptForCorp ? flagCorpHangar1 : flagHangar, true);
 
-                // Finally, we update DB entry
                 DBerror err;
                 if (!sDatabase.RunQuery(err,
-                                        "UPDATE ctrContracts SET status = 1, dateAccepted = %lli, acceptorID = %u, crateID = %u WHERE contractId = %u",
-                                        timestamp, call.client->GetCharacterID(), plasticWrap->itemID(), contractID))
+                                        "UPDATE ctrContracts SET status = 1, dateAccepted = %lli, acceptorID = %u, crateID = %u, acceptorWalletKey = %u WHERE contractId = %u",
+                                        timestamp, call.client->GetCharacterID(), plasticWrap->itemID(), walletKey, contractID))
                 {
                     codelog(DATABASE__ERROR, "Failed to update contract : %s", err.c_str());
                 }
@@ -687,7 +679,7 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
     call.Dump(SERVICE__CALL_DUMP);
 
     DBQueryResult res;
-    if (!sDatabase.RunQuery(res, "SELECT contractType, status, price, reward, collateral, volume, startStationID, endStationID, issuerID, forCorp, crateID FROM ctrContracts WHERE contractId = %u", contractID))
+    if (!sDatabase.RunQuery(res, "SELECT contractType, status, price, reward, collateral, volume, startStationID, endStationID, issuerID, forCorp, crateID, acceptorWalletKey FROM ctrContracts WHERE contractId = %u", contractID))
     {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
         return new PyBool(false);
@@ -706,6 +698,7 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
     int issuerID = row.GetInt(8);
     bool forCorp = row.GetBool(9);
     int crateID = row.GetInt(10);
+    uint8 acceptorWalletKey = row.GetUInt(11);
 
     int64 timestamp = int64(GetFileTimeNow());
     switch (completionStatus->value()) {
@@ -741,10 +734,16 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
 
                 // Then, we return the collateral (if any) and pay the reward (if any)
                 if (collateral > 0) {
-                    call.client->AddBalance(collateral);
+                    if (acceptorWalletKey == Account::KeyType::Corporate)
+                        AccountService::TransferFunds(1, call.client->GetCorporationID(), collateral, "Collateral return for courier contract", Journal::EntryType::ContractCollateral, contractID->value(), Account::KeyType::Cash, Account::KeyType::Corporate);
+                    else
+                        call.client->AddBalance(collateral);
                 }
                 if (reward > 0) {
-                    call.client->AddBalance(reward);
+                    if (acceptorWalletKey == Account::KeyType::Corporate)
+                        AccountService::TransferFunds(issuerID, call.client->GetCorporationID(), reward, "Reward for courier contract", Journal::EntryType::ContractReward, contractID->value(), Account::KeyType::Cash, Account::KeyType::Corporate);
+                    else
+                        call.client->AddBalance(reward);
                 }
 
                 // Then, we update the contract as Completed.
@@ -762,12 +761,14 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
             break;
         }
         case 7: {
-            // Fail
-            // We pay the collateral to issuer and update the contract as failed.
+            // Fail - collateral paid to issuer as penalty
             if (collateral > 0) {
-                // Since we've taken the collateral prior to it and left it "hanging in the air" we put it back into acceptor's wallet and then issue a transfer
-                call.client->AddBalance(collateral);
-                AccountService::TransferFunds(call.client->GetCharacterID(), issuerID, collateral, "Collateral payment for failed contract", Journal::EntryType::ContractCollateral, contractID->value());
+                if (acceptorWalletKey == Account::KeyType::Corporate) {
+                    AccountService::TransferFunds(call.client->GetCorporationID(), issuerID, collateral, "Collateral payment for failed contract", Journal::EntryType::ContractCollateral, contractID->value(), Account::KeyType::Corporate, Account::KeyType::Cash);
+                } else {
+                    call.client->AddBalance(collateral);
+                    AccountService::TransferFunds(call.client->GetCharacterID(), issuerID, collateral, "Collateral payment for failed contract", Journal::EntryType::ContractCollateral, contractID->value());
+                }
             }
             // Then, we update the contract as Афшдув.
             DBerror err;
