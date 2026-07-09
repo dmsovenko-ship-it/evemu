@@ -110,7 +110,26 @@ PyResult HoloscreenMgrService::GetRuntimeCache(PyCallArgs& call)
 
 PyResult HoloscreenMgrService::GetNewsTickerData(PyCallArgs& call)
 {
-    return PyStatic.NewNone();
+    // Build XML news feed from recent git commits
+    std::string xml = "<?xml version=\"1.0\"?><news>";
+
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT title, description, date FROM srvNewsItems"
+        " ORDER BY date DESC LIMIT 10"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "<item>";
+            xml += "<title>" + row.GetText(0) + "</title>";
+            xml += "<text>" + row.GetText(1) + "</text>";
+            xml += "<date>" + row.GetText(2) + "</date>";
+            xml += "</item>";
+        }
+    }
+
+    xml += "</news>";
+    return new PyString(xml);
 }
 
 /*  sovChangesReport

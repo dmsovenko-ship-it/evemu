@@ -124,7 +124,16 @@ PyList* LiveUpdateDB::GenerateUpdates()
         }
 
         std::string pyCode =
+            "import service\n"
+            "import util\n"
             "def GetNewsTickerData(self):\n"
+            "    try:\n"
+            "        from xml.dom.minidom import parseString\n"
+            "        xml = sm.RemoteSvc('holoscreenMgr').GetNewsTickerData()\n"
+            "        if xml:\n"
+            "            return parseString(xml)\n"
+            "    except Exception as e:\n"
+            "        pass\n"
             "    import blue\n"
             "    from xml.dom.minidom import parseString\n"
             "    msg = '" + safeMsg + "'\n"
