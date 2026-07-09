@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
-> **Overall: `███████████████████░` 96%** (upstream: 59.5%)  
-> Last updated: 2026-07-09  
+> **Overall: `███████████████████░` 97%** (upstream: 59.5%)  
+> Last updated: 2026-07-10  
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -18,10 +18,10 @@
 | **Incursions** | 75% | `██████████████░░░░` | Fleet | 98% | `██████████████████` |
 | **Wormholes** | 80% | `████████████████░░` | Scanning | 99% | `███████████████████` |
 | **Notifications** | 95% | `██████████████████` | **Standings** | 85% | `████████████████░` |
-| **Faction Warfare** | 80% | `████████████████░░` | Calendar | 90% | `█████████████████░` |
-| Mail & LSC | 85% | `████████████████░` | Contracts | 85% | `████████████████░` |
-| Corporation | 80% | `████████████████░░` | Alliance | 60% | `████████████░░░░░░` |
-| Sovereignty | 80% | `████████████████░░` | Science & Industry | 50% | `██████████░░░░░░░░` |
+| **Faction Warfare** | 85% | `████████████████░` | Calendar | 90% | `█████████████████░` |
+| Mail & LSC | 85% | `████████████████░` | Contracts | 90% | `█████████████████░` |
+| Corporation | 85% | `████████████████░` | Alliance | 70% | `████████████████░░` |
+| Sovereignty | 85% | `████████████████░` | Science & Industry | 55% | `████████████░░░░░░` |
 | Bookmark System | 95% | `██████████████████` | Effects System | 88% | `█████████████████░` |
 
 ---
@@ -172,7 +172,7 @@ _Что осталось:_ AUR/plex транзакции, полная вали�
 
 ---
 
-### 10. Contracts `████████████████░` 85%
+### 10. Contracts `█████████████████░` 90%
 
 | Feature | |
 |---------|-|
@@ -182,12 +182,16 @@ _Что осталось:_ AUR/plex транзакции, полная вали�
 | Auction item transfer — items to winner, refund losers | ✅ |
 | Auction notifications — OnAuctionWon, OnAuctionCompleted | ✅ |
 | Auto-finish expired auctions — 1m scheduled task | ✅ |
+| Courier crateID (plastic wrap), delivery validation, collateral | ✅ |
+| GetCourierContractFromItemID — lookup contract by crateID | ✅ |
+| forCorp support — corp wallet/hangar on accept and complete | ✅ |
+| SearchContracts type 10 — includes courier (was only 1,2) | ✅ |
 
-_Что осталось:_ полная имплементация курьерских контрактов (crateID, доставка, коллатерал)
+_Что осталось:_ nested containers в crate, forCorp при DeleteContract, SplitStack
 
 ---
 
-### 11. Corporation & Alliance `████████████████░░` 80% / `████████████░░░░░░` 60%
+### 11. Corporation & Alliance `████████████████░` 85% / `████████████████░░` 70%
 
 | Feature | |
 |---------|-|
@@ -197,21 +201,28 @@ _Что осталось:_ полная имплементация курьер�
 | Alliance war decay timer | ✅ |
 | Corp mail role filtering (crpRoles table + seeding) | ✅ |
 | Faction Warfare corp/alliance join/leave | ✅ |
+| Corp voting (CreateVoteCase, CastVote, GetVotes) | ✅ |
+| CanVote + CanViewVotes — proper corp membership check | ✅ |
+| Vote expiry processing (CheckVoteExpiry — CEO type updates ceoID) | ✅ |
+| OnCorporationVoteCaseChanged notifications to all corp members | ✅ |
+| Alliance tax rate (SetTaxRate + alnAlliance.taxRate) | ✅ |
+| Alliance executor change (DeclareExecutorSupport) | ✅ |
 
-_Что осталось:_ **Corp:** голосования, заявки полный цикл, страхование, дивиденды. **Alliance:** заявки, голосования, полное SOV-взаимодействие
+_Что осталось:_ **Corp:** страхование, дивиденды. **Alliance:** полное SOV-взаимодействие, интеграция executor voting
 
 ---
 
-### 12. Science & Industry `████████████░░░░░░` 50%
+### 12. Science & Industry `████████████░░░░░░` 55%
 
 | Feature | |
 |---------|-|
 | Manufacturing, copying, research (ME/PE) | ✅ |
 | Invention (chance calc + T2 BPC) | ✅ |
 | Reverse Engineering — ActivityCheck, Calculate, CompleteJob | ✅ |
+| RE datacore skill modifier (+5%/lvl from ramTypeRequirements skills) | ✅ |
 | Blueprint management (ME/PE/runs) | ✅ |
 
-_Что осталось:_ полный цикл RE с datacore-скиллами, компоненты для T2/T3, POS-реакторы для материалов
+_Что осталось:_ RE-таблицы для кэша клиента, компоненты для T2/T3, POS-реакторы для материалов
 
 ---
 
@@ -369,7 +380,7 @@ _Что осталось:_ система напоминаний (reminders), а
 
 ---
 
-### 23. Faction Warfare `████████████████░░` 80%
+### 23. Faction Warfare `████████████████░` 85%
 
 | Feature | |
 |---------|-|
@@ -382,12 +393,15 @@ _Что осталось:_ система напоминаний (reminders), а
 | GetFactionCorporations, GetSystemsConqueredThisRun | ✅ |
 | GetStats_Character (kills, losses, VP) | ✅ |
 | Notifications (FWCorpJoin, FWCorpLeave) | ✅ |
+| GetSystemStatus — real contestation status (facWarSystems + sov) | ✅ |
+| LP store — TakeOffer removes required items from hangar | ✅ |
+| FW plex auto-spawning in loaded FW systems (2-3 per system) | ✅ |
 
-_Что осталось:_ LP store для FW, спавн FW-сайтов (plexes), захват систем по LP/VP
+_Что осталось:_ захват систем по LP/VP, NPC-спавн внутри плексов, FW LP/VP за击杀
 
 ---
 
-### 24. Reverse Engineering `████████░░░░░░░░░░` 60%
+### 24. Reverse Engineering `████████████░░░░░░` 65%
 
 | Feature | |
 |---------|-|
@@ -396,9 +410,9 @@ _Что осталось:_ LP store для FW, спавн FW-сайтов (plexe
 | CompleteJob (chanceOfRE + RE skill +1%/lvl) | ✅ |
 | T2 BPC output via parentBlueprintTypeID | ✅ |
 | Skill checks (ReverseEngineering 3408) | ✅ |
-| Datacore skill modifier | 🟡 |
+| Datacore skill modifier (reads required skills from ramTypeRequirements) | ✅ |
 
-_Что осталось:_ интеграция datacore-скиллов в формулу шанса, RE-таблицы для кэша клиента, полный список RE-рецептов из SDE
+_Что осталось:_ RE-таблицы для кэша клиента (1800008/1800009), полный список RE-рецептов из SDE
 
 ---
 
@@ -418,7 +432,7 @@ _Что осталось:_ полная обработка эффектов по
 
 | Manager | % | Bar | Notes | Что осталось |
 |---------|---|-----|-------|-------------|
-| Anomaly Manager | 85% | `████████████████░` | All site types, FW anomalies, QueueRespawn | FW-специфичные аномалии |
+| Anomaly Manager | 90% | `█████████████████░` | All site types, FW anomalies, QueueRespawn, FW plex auto-spawn | NPC-спавн в плексах |
 | Dungeon Manager | 70% | `████████████░░░░` | Anomaly/mission/unrated/incursion | больше типов данжей |
 | Spawn Manager | 75% | `██████████████░░` | Dynamic/static, wave progression | продвинутые волны с триггерами |
 | Wormhole Manager | 80% | `████████████████░░` | Full lifecycle | эффекты, K162 позиционирование |
@@ -451,10 +465,14 @@ _Что осталось:_ RefPtr→shared_ptr рефакторинг (слож�
 | Market — price history, trade skills, bot config, MarginTrading, expired auctions | ✅ |
 | Calendar — EditEvent, UpdateEventParticipants, PyWString fix | ✅ |
 | Contracts — FinishAuction item transfer + bid refund + auto-finish | ✅ |
+| Contracts — courier crateID, delivery, forCorp, GetCourierContractFromItemID | ✅ |
 | Corp mail roles — crpRoles table + roleMask filtering | ✅ |
 | Warp alignment + warp exit crash fix | ✅ |
-| Faction Warfare — full implementation | ✅ |
-| Reverse Engineering — ActivityCheck, Calculate, CompleteJob | ✅ |
+| Corp voting — CanVote, CheckVoteExpiry, OnCorporationVoteCaseChanged | ✅ |
+| Alliance tax rate (SetTaxRate) + executor support | ✅ |
+| Faction Warfare — full implementation + GetSystemStatus + plex spawning | ✅ |
+| Reverse Engineering — ActivityCheck, Calculate, CompleteJob + datacore modifier | ✅ |
+| Sovereignty — GetAllDevelopmentIndices + upgrade management (Install/Remove) | ✅ |
 | LSC — private conversations (Invite, OnLSC notify) | ✅ |
 | NPC Ship-category typeIDs (33500-33523) | ✅ |
 | Crimewatch full implementation | ✅ |
