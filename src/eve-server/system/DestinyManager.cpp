@@ -1920,8 +1920,9 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 //called whenever an entity is going away and can no longer be used as a target
 void DestinyManager::EntityRemoved(SystemEntity *pSE) {
     if (m_targetEntity.second == pSE) {
-    // Force final position to client (prevents desync drift after warp decel)
-    SetPosition(m_position, true);
+    // Force final position to client only if still in a bubble
+    if (mySE->SysBubble() != nullptr)
+        SetPosition(m_position, true);
 
     m_targetEntity.first = 0;
         m_targetEntity.second = nullptr;
