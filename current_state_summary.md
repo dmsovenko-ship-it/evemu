@@ -309,16 +309,56 @@
 - **NPC crosshair groupIDs**: added 550-584, 755-761 group ranges for Entity-category NPCs in dungeons ✅
 
 ## Part 43: Alliance Member Info + Role Groups Fix (done)
-- **Alliance member info**: `GetMembers()` now returns `ceoID, memberCount, tickerName, taxRate, stationID, allianceMemberStartDate` alongside existing fields ✅
-- **Alliance details pane**: `GetAllianceMembers()` enriched with the same additional corp info ✅
-- **Role groups fix**: Added computed `columns` field (`1,2,3,4,5,6,7`) to `GetCorpRoleGroups()` — fixes client `KeyError: 1` crash when opening corporation members tab ✅
+- **Alliance member info**: `GetMembers()` now returns `ceoID, memberCount, tickerName, taxRate, stationID, allianceMemberStartDate` ✅
+- **Role groups fix**: added computed `columns` to `GetCorpRoleGroups()` ✅
+
+## Part 44: VDS Deployment + Desync Fixes (done)
+- **Prod deployment**: `prod/docker-compose.yml`, `prod/deploy.sh`, `prod/.env.example` ✅
+- **Orbit desync fix**: `m_followDistance` fallback divided by 6 instead of using `distance` (ship pulled into gate center) ✅
+- **Periodic position sync**: `m_moveSyncCounter` in `MoveObject()` — sends `SetBallPosition` every 5 tics to prevent drift ✅
+
+## Part 45: Civilian Manager — Multi-System Routes + Faction Variety (done)
+- **Cross-system routes**: stargate-to-stargate via `mapJumps`, `TransferCrossSystem`/`ResumeCrossSystem` in `CivilianMgr` ✅
+- **Phase 4 GateJump**: `ConvoyAI` transfers NPCs between systems when reaching stargate ✅
+- **Faction-aware ships**: Caldari/Minmatar/Amarr/Gallente industrial types per region ✅
+- **StargateLinks**: helper queries connected systems via `mapJumps` ✅
+
+## Part 46: Wormhole System Effects — Pulsar/Magnetar/BlackHole etc (done)
+- **SystemEffectMgr**: applies attribute modifiers on system enter, removes on leave ✅
+- **6 effect types**: Pulsar, Magnetar, Cataclysmic, Black Hole, Red Giant, Wolf-Rayet ✅
+- **WH class mapping**: C4-C6 systems get effects based on systemID hash ✅
+- **Client hook**: `OnEnterSystem`/`OnLeaveSystem` in `Client::MoveToLocation()` ✅
+
+## Part 47: Alliance Executor Voting (done)
+- **SQL tables**: `alnVoteItems`, `alnVoteOptions`, `alnVotes` (mirroring corp voting) ✅
+- **AllianceDB**: `AddVoteCase`, `GetVoteItems`, `GetVoteOptions`, `GetVotes`, `CastVote`, `ResolveVote`, `ProcessVoteExpiry` ✅
+- **AllianceBound**: 7 vote methods registered — `CanViewVotes`, `CanVote`, `InsertVoteCase`, `GetVoteCasesByCorporation`, `GetVoteCaseOptions`, `GetVotes`, `InsertVote` ✅
+- **Auto-resolve**: executor vote winner → `alnAlliance.executorCorpID` updated ✅
+
+## Part 48: FW LP Store + Exchange Rates (done)
+- **LP exchange rates**: `GetLPExchangeRates` returns static rates for CONCORD, FW militia, navy corps ✅
+- **FW militia LP stores**: ~350 offers each (1000179-1000182) already in base `lpStore.sql.gz` ✅
+
+## Part 49: POS Reactions Full Cycle (done)
+- **Reaction cycle engine**: `ReactorSE::ProcessReactionCycle()` with configurable timer ✅
+- **invTypeReactions**: lookup reaction formula from SDE data, consume inputs, produce outputs ✅
+- **DB persistence**: `posReactorData` table, `GetReactorData`/`SaveReactorData`/`UpdateReactorData` ✅
+- **GetProcessInfo**: returns real active/reaction/connections/demands/supplies ✅
+
+## Part 50: Sovereignty Upgrade Effects (done)
+- **Effect system extended**: `SystemEffectMgr` queries `sovUpgrades` and applies upgrade modifiers ✅
+- **OnEnterSystem/OnLeaveSystem**: sovereignty effects applied alongside wormhole effects ✅
+- **Upgrade type definitions**: Cynosural Navigation, Suppression, Logistics Network, Supercapital Facilities ✅
+
+## Part 51: Courier Contracts Full Implementation (done)
+- **Nested containers**: `GetCrateContentsRecursive` validates items inside containers within crates ✅
+- **forCorp in DeleteContract**: returns items to corp hangar when contract was issued for corp ✅
+- **Recursive completion validation**: `CompleteContract` checks both top-level and nested items ✅
+- **Petition stub**: `GetMyPetitionsEx` returns empty list (fixes client crash) ✅
+- **FW GetFactionalWarStatus**: added `status` field to returned KeyVal ✅
 
 # TODO
 
-## 🟡 If desired
-1. **Civilian Manager** — multi-system routes (currently basic ConvoyAI, needs full multi-system traffic)
-2. **Wormhole effects** — pulsar, magnetar, cataclysmic variable effects on ships/modules
-
 ## 🟢 Eventually
-3. **RefPtr → shared_ptr** — major refactoring across ~400 files
-4. **PyRep memory management** — valgrind leak fixes
+1. **RefPtr → shared_ptr** — major refactoring across ~400 files
+2. **PyRep memory management** — valgrind leak fixes

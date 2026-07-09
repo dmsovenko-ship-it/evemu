@@ -91,7 +91,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Estimated overall: ~97%** (upstream: 59.5%)
+**Estimated overall: ~98.5%** (upstream: 59.5%)
 
 | System                |  %  | System                |  %  |
 |-----------------------|:---:|-----------------------|:---:|
@@ -99,17 +99,17 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | Ship Navigation       | 95% | Combat                | 99% |
 | Modules & Overheating | 95% | Drones                | 90% |
 | NPC AI & Spawning     | 80% | Agents & Missions     | 85% |
-| **POS**               | 95% | Market                | 85% |
+| **POS**               | 97% | Market                | 85% |
 | **Incursions**        | 75% | Fleet                 | 98% |
-| **Wormholes**         | 80% | Scanning              | 99% |
+| **Wormholes**         | 90% | Scanning              | 99% |
 | **Notifications**     | 95% | **Standings**         | 85% |
-| **Faction Warfare**   | 85% | Calendar              | 90% |
-| Mail & LSC            | 85% | Contracts             | 90% |
-| Corporation           | 87% | Alliance              | 75% |
-| Sovereignty           | 85% | Science & Industry    | 55% |
-| Bookmark System       | 95% | Effects System        | 88% |
+| **Faction Warfare**   | 90% | Calendar              | 90% |
+| Mail & LSC            | 85% | Contracts             | 95% |
+| Corporation           | 87% | Alliance              | 85% |
+| Sovereignty           | 90% | Science & Industry    | 55% |
+| Bookmark System       | 95% | Effects System        | 95% |
 | Anomaly Manager       | 85% | Spawn Manager         | 75% |
-| Dungeon Manager       | 75% | Civilian Manager      | 80% |
+| Dungeon Manager       | 75% | Civilian Manager      | 90% |
 
 See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  
 Полная раскладка — в [`PROGRESS.md`](PROGRESS.md).
