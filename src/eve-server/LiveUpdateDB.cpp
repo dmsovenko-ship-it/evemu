@@ -172,7 +172,7 @@ PyList* LiveUpdateDB::GenerateUpdates()
 
             LiveUpdateInner inner;
             inner.code = pyCode;
-            inner.codeType = "python";
+            inner.codeType = "";  // unrecognized → client exec's it as raw Python
             inner.objectID = "";
             inner.methodName = "";
             packedRow->SetField(uint32(7), inner.Encode());
