@@ -1913,9 +1913,9 @@ PyResult CorpRegistryBound::InsertVoteCase(PyCallArgs &call, PyRep* voteCaseText
 
     m_db.AddVoteCase(m_corpID, call.client->GetCharacterID(), args);
 
-    //  OnCorporationVoteCaseChanged
-
-    // send notification to online corp memebers
+    // notify online corp members to refresh vote panel
+    PyTuple* payload = new PyTuple(0);
+    sEntityList.CorpNotify(m_corpID, Notify::Types::CorpVote, "OnCorporationVoteCaseChanged", "corpid", payload);
     //def OnNotificationReceived(self, notificationID, typeID, senderID, created, data = {}):
     /*
      * ==================== Sent from Server 161 bytes
@@ -2168,8 +2168,9 @@ PyResult CorpRegistryBound::GetSanctionedActionsByCorporation(PyCallArgs &call, 
 PyResult CorpRegistryBound::CanVote(PyCallArgs &call, PyInt* corporationID) {
     // canVote = sm.GetService('corp').CanVote(self.corpID)
     _log(CORP__CALL, "CorpRegistryBound::Handle_CanVote() size=%lli", call.tuple->size());
-    call.Dump(CORP__CALL_DUMP);
 
+    if (call.client->GetCorporationID() == corporationID->value())
+        return PyStatic.NewTrue();
     return PyStatic.NewFalse();
 }
 

@@ -606,15 +606,9 @@ void EntityList::CorpNotify(uint32 corpID, uint8 bCastType, const char* notifyTy
             }
         } break;
         case CorpVote: {
-            // any member that can vote (has shares)
-            //  damn...dunno if i wanna do this one like this....hit db every loop here??  fukin nuts!
-            // this is another vote for putting "corp shares" in character.corpData
-            //    well, then we'd have to hit db for offine chars.....omg
-            CorporationDB mdb;
+            // all corp members can vote
             while (itr != end) {
-                // if (itr->first->GetChar()->HasShares())  // not written, no underlying code yet
-                if (mdb.HasShares(itr->first->GetCharacterID(), corpID))
-                    cMap.emplace(itr->first->GetCharacterID(), itr->first);
+                cMap.emplace(itr->first->GetCharacterID(), itr->first);
                 ++itr;
             }
         } break;
