@@ -284,8 +284,10 @@ void DestinyManager::SetSpeedFraction(float fraction/*1.0*/, bool startMovement/
     // this sets current speed fraction for object.
 
     // if orbiting, call Orbit() and let code reset the variables
-    if (m_orbiting != 0)
+    if (m_orbiting != 0 && m_targetEntity.second != nullptr)
         Orbit(m_targetEntity.second, m_targetDistance);
+    else if (m_orbiting != 0)
+        m_orbiting = 0;  // target vanished, stop orbiting
 
     if ((fraction == m_userSpeedFraction) and (!startMovement) and (m_ballMode != Destiny::Ball::Mode::WARP)) {
         // no change.
@@ -2310,6 +2312,12 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 }
 
 void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
+    if (pSE == nullptr) {
+        _log(DESTINY__ERROR, "%s(%u) - Orbit() called with null target. Stopping orbit.", mySE->GetName(), mySE->GetID());
+        Halt();
+        m_orbiting = 0;
+        return;
+    }
     if ((m_ballMode == Destiny::Ball::Mode::ORBIT)
     and (m_targetEntity.second == pSE)
     and (m_targetDistance == static_cast<double>(distance)))
