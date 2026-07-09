@@ -95,6 +95,42 @@ void CivilianMgr::Process() {
     }
 }
 
+std::string CivilianMgr::GenerateCivilianName(uint32 seed) {
+    // Pick random agent first name + bloodline last name for variety
+    DBQueryResult res;
+    std::string firstName = "Pilot";
+    std::string lastName = "";
+
+    // Random agent first name
+    if (sDatabase.RunQuery(res,
+        "SELECT agentName FROM agtAgents ORDER BY RAND(%u) LIMIT 1", seed))
+    {
+        DBResultRow row;
+        if (res.GetRow(row)) {
+            std::string full = row.GetText(0);
+            // Split at space, take first part
+            auto space = full.find(' ');
+            if (space != std::string::npos)
+                firstName = full.substr(0, space);
+            else
+                firstName = full;
+        }
+    }
+
+    // Random bloodline last name
+    if (sDatabase.RunQuery(res,
+        "SELECT lastName FROM chrBloodlineNames ORDER BY RAND(%u) LIMIT 1", seed + 1))
+    {
+        DBResultRow row;
+        if (res.GetRow(row))
+            lastName = row.GetText(0);
+    }
+
+    if (lastName.empty())
+        return firstName;
+    return firstName + " " + lastName;
+}
+
 void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
     uint32 sysID = sysMgr->GetID();
 
@@ -186,9 +222,8 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
         data.factionID = factionID;
         data.ownerID = corpID;
 
-        char nameBuf[64];
-        snprintf(nameBuf, sizeof(nameBuf), "Civilian %u", i);
-        ItemData idata(typeID, corpID, sysID, flagNone, nameBuf, pos, "CivilianTraffic");
+        std::string civName = GenerateCivilianName(sysID + i);
+        ItemData idata(typeID, corpID, sysID, flagNone, civName.c_str(), pos, "CivilianTraffic");
         InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
         if (iRef.get() == nullptr) continue;
 

@@ -44,6 +44,7 @@ private:
     void ResumeCrossSystem(ConvoyGroup* group);
 
     uint32 GetFactionForSystem(uint32 systemID);
+    std::string GenerateCivilianName(uint32 seed);
 
     ServiceDB* m_db;
     Timer* m_processTimer;
