@@ -41,7 +41,6 @@ private:
     void SpawnSystemCivilians(SystemManager* sysMgr);
     void RemoveSystemCivilians(uint32 sysID);
     void RemoveConvoy(ConvoyGroup* group);
-    void TransferCrossSystem(ConvoyGroup* group);
     void ResumeCrossSystem(ConvoyGroup* group);
 
     uint8 GetFactionForSystem(uint32 systemID);
