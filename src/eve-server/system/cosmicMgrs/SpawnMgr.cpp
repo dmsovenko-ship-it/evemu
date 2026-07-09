@@ -422,10 +422,13 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
 // Spawn an individual enemy inside a dungeon (called by dungeonMgr)
 void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion)
 {
-    _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly entered typeID=%u bubble=%p", typeID, (void*)pBubble);
     if (pBubble == nullptr) {
-        _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly FAILED - bubble is null for typeID=%u", typeID);
-        return;
+        _log(COSMIC_MGR__ERROR, "DoSpawnForAnomaly - bubble is null for typeID=%u, creating new bubble", typeID);
+        pBubble = sBubbleMgr.CreateBubble(m_system->GetID(), pos);
+        if (pBubble == nullptr) {
+            _log(COSMIC_MGR__ERROR, "DoSpawnForAnomaly FAILED - could not create bubble for typeID=%u", typeID);
+            return;
+        }
     }
     if (isIncursion)
         pBubble->SetIncursion();

@@ -247,17 +247,23 @@ PyDict* NPC::MakeSlimItem()
         uint16 gID = m_self->groupID();
         switch (gID) {
             case 550: case 557: case 562: case 567: case 572: case 759:
-                gID = 25; break;
+                gID = 25; break;  // Frigate
             case 551: case 555: case 561: case 566: case 571: case 757:
-                gID = 26; break;
+                gID = 26; break;  // Destroyer
             case 552: case 556: case 560: case 565: case 570: case 756:
-                gID = 27; break;
+                gID = 27; break;  // Cruiser
             case 576: case 578: case 580: case 582: case 584: case 755:
-                gID = 419; break;
+                gID = 419; break; // Battlecruiser
             case 575: case 579: case 581: case 583: case 577:
-                gID = 420; break;
+                gID = 420; break; // Battleship
             case 554: case 558: case 563: case 568: case 573: case 760:
-                gID = 28; break;
+                gID = 28; break;  // Industrial
+            case 553:
+                gID = 25; break;  // Frigate (Sansha)
+            case 758:
+                gID = 420; break; // Battleship (Rogue Drone)
+            case 761:
+                gID = 419; break; // Battlecruiser (Rogue Drone)
             default: break;
         }
         slim->SetItemString("groupID",     new PyInt(gID));
