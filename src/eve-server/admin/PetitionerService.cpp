@@ -34,6 +34,7 @@ PetitionerService::PetitionerService() :
     this->Add("GetCategories", &PetitionerService::GetCategories);
     this->Add("GetCategoryHierarchicalInfo", &PetitionerService::GetCategoryHierarchicalInfo);
     this->Add("GetUnreadMessages", &PetitionerService::GetUnreadMessages);
+    this->Add("GetMyPetitionsEx", &PetitionerService::GetMyPetitionsEx);
 }
 
 /*
@@ -121,5 +122,12 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo( PyCallArgs& call )
 PyResult PetitionerService::GetUnreadMessages( PyCallArgs& call )
 {
     //unknown...
+    return new PyList();
+}
+
+PyResult PetitionerService::GetMyPetitionsEx( PyCallArgs& call )
+{
+    // Returns list of petitions for current character — empty for now
+    // Client expects [petitionID, categoryID, status, title, createdDateTime, ...]
     return new PyList();
 }

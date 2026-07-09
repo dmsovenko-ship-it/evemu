@@ -1010,12 +1010,20 @@ PyRep* CorporationDB::GetCorpRoleGroups()
     DBQueryResult res;
     if (!sDatabase.RunQuery( res,
         "SELECT roleGroupID, roleGroupName, roleGroupNameID, roleMask,"
-        "       appliesTo, appliesToGrantable, isLocational, isDivisional,"
-        "       CASE WHEN isDivisional = 1 THEN '1,2,3,4,5,6,7' ELSE '' END AS `columns`"
+        "       appliesTo, appliesToGrantable, isLocational, isDivisional"
         " FROM crpRoleGroups"))
     {
         codelog(CORP__DB_ERROR, "Error in query: %s", res.error.c_str());
-        return nullptr;
+        DBRowDescriptor *header = new DBRowDescriptor();
+        header->AddColumn("roleGroupID", DBTYPE_I4);
+        header->AddColumn("roleGroupName", DBTYPE_STR);
+        header->AddColumn("roleGroupNameID", DBTYPE_I4);
+        header->AddColumn("roleMask", DBTYPE_I8);
+        header->AddColumn("appliesTo", DBTYPE_STR);
+        header->AddColumn("appliesToGrantable", DBTYPE_STR);
+        header->AddColumn("isLocational", DBTYPE_BOOL);
+        header->AddColumn("isDivisional", DBTYPE_BOOL);
+        return new CRowSet(&header);
     }
 
     return DBResultToCRowset(res);

@@ -36,6 +36,7 @@ protected:
     PyResult GetCategories(PyCallArgs& call);
     PyResult GetCategoryHierarchicalInfo(PyCallArgs& call);
     PyResult GetUnreadMessages(PyCallArgs& call);
+    PyResult GetMyPetitionsEx(PyCallArgs& call);
 };
 
 #endif

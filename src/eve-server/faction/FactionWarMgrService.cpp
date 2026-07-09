@@ -285,6 +285,7 @@ PyResult FactionWarMgrService::GetFactionalWarStatus(PyCallArgs &call) {
         dict->SetItemString("factionID", new PyInt(row.GetInt(0)));
         dict->SetItemString("joined", new PyLong(row.GetInt64(1)));
         dict->SetItemString("currentRank", new PyInt(row.GetInt(2)));
+        dict->SetItemString("status", new PyInt(1));  // 1 = enlisted, 0 = not enlisted
     return new PyObject("util.KeyVal", dict);
 }
 
