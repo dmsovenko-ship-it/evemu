@@ -90,6 +90,20 @@ GPoint ConvoyAI::GetDeparturePoint()
     return GPoint(dep.x - dir.x * behind, dep.y, dep.z - dir.z * behind);
 }
 
+void ConvoyAI::ResetAfterTransit()
+{
+    // Reset state after cross-system jump complete
+    m_group->phase = 0;
+    m_group->goToB = !m_group->goToB;
+    m_transferRequested = false;
+
+    // Restart staggered departure timer
+    SafeDelete(m_startTimer);
+    uint32 interval = 15000 + MakeRandomInt(0, 30000);
+    m_startTimer = new Timer(interval * (m_index + 1));
+    m_startTimer->Start(interval * (m_index + 1));
+}
+
 void ConvoyAI::Process()
 {
     if (m_npc == nullptr || m_npc->DestinyMgr() == nullptr || m_npc->IsDead())

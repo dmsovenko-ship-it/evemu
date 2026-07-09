@@ -43,6 +43,7 @@ public:
     uint32 GetStationB() const { return m_group->stationB; }
     bool GetSameCorp() const { return m_group->sameCorp; }
     ConvoyGroup* GetGroup() const { return m_group; }
+    void ResetAfterTransit();  // reset state after cross-system jump
 
 private:
     NPC* m_npc;

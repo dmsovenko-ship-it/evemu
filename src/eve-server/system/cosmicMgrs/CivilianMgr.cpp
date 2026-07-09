@@ -280,14 +280,44 @@ void CivilianMgr::ResumeCrossSystem(ConvoyGroup* group) {
         npc->DestinyMgr()->SetPosition(spawnPos);
         destSys->AddNPC(npc);
 
+        // Reset ConvoyAI state after transit jump
+        if (npc->GetConvoyAI() != nullptr)
+            npc->GetConvoyAI()->ResetAfterTransit();
+
         // Spawn at random offset from gate
         GPoint offset = spawnPos;
         offset.MakeRandomPointOnSphere(3000.0);
         npc->DestinyMgr()->SetPosition(offset);
     }
 
-    // Track in destination system's civilian list
+    // Update route endpoints for destination system:
+    // old source gate → new dest gate as start, find a station as destination
+    group->stationA = group->destGateID;
+    group->stationB = group->destGateID;
+    for (auto& [id, ent] : entities) {
+        if (ent != nullptr && ent->IsStationSE()) {
+            group->stationB = ent->GetID();
+            break;
+        }
+    }
+    // If no station found, use a gate that's not the arrival gate
+    if (group->stationB == group->destGateID) {
+        for (auto& [id, ent] : entities) {
+            if (ent != nullptr && ent->GetID() != group->destGateID &&
+                ent->GetSelf().get() != nullptr &&
+                ent->GetSelf()->groupID() == EVEDB::invGroups::Stargate) {
+                group->stationB = ent->GetID();
+                break;
+            }
+        }
+    }
+    // Track in destination system's civilian list (before clearing destSystemID)
     m_systemCivs[group->destSystemID] = group;
+
+    // Clear cross-system flags — now it's a same-system convoy in the destination
+    group->destSystemID = 0;
+    group->sourceGateID = 0;
+    group->destGateID = 0;
     sLog.Warning("CivilianMgr", "Convoy arrived in system %u (%u ships)",
                  group->destSystemID, group->members.size());
 }

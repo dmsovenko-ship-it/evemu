@@ -88,6 +88,7 @@ public:
     bool IsConvoy() const;
     bool IsConvoyUnderAttack() const;
     void SetConvoyAI(ConvoyAI* ai)                      { m_convoyAI = ai; }
+    ConvoyAI* GetConvoyAI() const                       { return m_convoyAI; }
     bool IsCivilian() const                             { return m_isCivilian; }
     void SetIsCivilian(bool val)                        { m_isCivilian = val; }
 
