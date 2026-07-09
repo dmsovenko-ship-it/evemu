@@ -1013,58 +1013,14 @@ void CorporationDB::GetMemberIDs(uint32 corpID, std::vector< uint32 >& ids, bool
 PyRep* CorporationDB::GetCorpRoles()
 {
     // crpRoles table was replaced by migration 20260710000003 (now holds char→role assignments)
-    // Return hardcoded role definitions with proper CRowSet format
+    // Return empty CRowSet with correct header — client builds role groupings from roleGroups data
     DBRowDescriptor *header = new DBRowDescriptor();
     header->AddColumn("roleID", DBTYPE_I8);
     header->AddColumn("roleName", DBTYPE_STR);
     header->AddColumn("shortDescriptionID", DBTYPE_I4);
     header->AddColumn("descriptionID", DBTYPE_I4);
     header->AddColumn("roleIID", DBTYPE_I4);
-    CRowSet* rowset = new CRowSet(&header);
-
-    // Seed with known roleIDs from the original schema
-    struct { int64 roleID; const char* name; int32 descID; int32 iid; } roles[] = {
-        {1,                    "Director",              60126, 1},
-        {128,                  "Personnel Manager",     60127, 2},
-        {256,                  "Accountant",            60128, 3},
-        {512,                  "Security Officer",      60129, 4},
-        {1024,                 "Factory Manager",       60130, 5},
-        {2048,                 "Station Manager",       60131, 6},
-        {4096,                 "Auditor",               60132, 7},
-        {8192,                 "Hangar Take [1]",       60133, 8},
-        {16384,                "Hangar Take [2]",       60134, 9},
-        {32768,                "Hangar Take [3]",       60135, 10},
-        {65536,                "Hangar Take [4]",       60136, 11},
-        {131072,               "Hangar Take [5]",       60137, 12},
-        {262144,               "Hangar Take [6]",       60138, 13},
-        {524288,               "Hangar Take [7]",       60139, 14},
-        {1048576,              "Hangar Query [1]",     60140, 15},
-        {2097152,              "Hangar Query [2]",     60141, 16},
-        {4194304,              "Hangar Query [3]",     60142, 17},
-        {8388608,              "Hangar Query [4]",     60143, 18},
-        {16777216,             "Hangar Query [5]",     60144, 19},
-        {33554432,             "Hangar Query [6]",     60145, 20},
-        {67108864,             "Hangar Query [7]",     60146, 21},
-        {134217728,            "Account Take [1]",     60147, 22},
-        {268435456,            "Account Take [2]",     60148, 23},
-        {536870912,            "Account Take [3]",     60149, 24},
-        {1073741824,           "Account Take [4]",     60150, 25},
-        {2147483648,           "Account Take [5]",     60151, 26},
-        {4294967296,           "Account Take [6]",     60152, 27},
-        {8589934592,           "Account Take [7]",     60153, 28},
-        {17179869184,          "Diplomat",              60202, 29},
-    };
-
-    for (auto& r : roles) {
-        PyPackedRow* row = rowset->NewRow();
-        row->SetField("roleID", new PyLong(r.roleID));
-        row->SetField("roleName", new PyString(r.name));
-        row->SetField("shortDescriptionID", new PyInt(r.descID));
-        row->SetField("descriptionID", new PyInt(r.descID));
-        row->SetField("roleIID", new PyInt(r.iid));
-    }
-
-    return rowset;
+    return new CRowSet(&header);
 }
 
 PyRep* CorporationDB::GetCorpRoleGroups()
