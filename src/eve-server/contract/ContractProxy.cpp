@@ -484,7 +484,7 @@ PyResult ContractProxy::GetContract(PyCallArgs &call, PyInt* contractID) {
 PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std::optional<PyBool*> forCorp) {
 
     bool acceptForCorp = forCorp.has_value() and forCorp.value()->value();
-    uint8 walletKey = Account::KeyType::Cash;
+    uint16 walletKey = Account::KeyType::Cash;
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res, "SELECT contractType, status, price, reward, collateral, volume, startStationID, issuerID, forCorp, startSolarSystemID, endSolarSystemID FROM ctrContracts WHERE contractId = %u", contractID->value()))
@@ -505,7 +505,7 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
     float volume = row.GetFloat(5);
     int startStationID = row.GetInt(6);
     int issuerID = row.GetInt(7);
-    bool forCorp = row.GetBool(8);
+    bool dbForCorp = row.GetBool(8);
     int startSolarSystemID = row.GetInt(9);
     int endSolarSystemID = row.GetInt(10);
 
@@ -525,7 +525,7 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                 uint32 acceptorID = acceptForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
 
                 if (price > 0) {
-                    if (acceptorBalance < price) {
+                    if (call.client->GetBalance() < price) {
                         iskRequirementMet = false;
                     }
                 }
@@ -630,7 +630,7 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                         itm->ChangeOwner(acceptorID);
                     }
                 }
-                plasticWrap->Move(startStationID, acceptForCorp ? flagCorpHangar1 : flagHangar, true);
+                plasticWrap->Move(startStationID, flagHangar, true);
 
                 DBerror err;
                 if (!sDatabase.RunQuery(err,
@@ -692,7 +692,7 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
     int issuerID = row.GetInt(8);
     bool forCorp = row.GetBool(9);
     int crateID = row.GetInt(10);
-    uint8 acceptorWalletKey = row.GetUInt(11);
+    uint16 acceptorWalletKey = row.GetUInt(11);
 
     int64 timestamp = int64(GetFileTimeNow());
     switch (completionStatus->value()) {
