@@ -423,7 +423,7 @@ _Что осталось:_ полная обработка эффектов по
 | Spawn Manager | 75% | `██████████████░░` | Dynamic/static, wave progression | продвинутые волны с триггерами |
 | Wormhole Manager | 80% | `████████████████░░` | Full lifecycle | эффекты, K162 позиционирование |
 | Belt Manager | 85% | `████████████████░` | Asteroid distribution | динамический респаун |
-| Civilian Manager | 10% | `██░░░░░░░░░░░░░░` | Basic ConvoyAI | полноценный трафик между станциями |
+| Civilian Manager | 80% | `████████████████░░` | Spawns/despawns civilian convoys with ConvoyAI on 60s timer | более сложные маршруты, реакция на игроков |
 
 ---
 
