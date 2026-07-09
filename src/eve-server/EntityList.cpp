@@ -52,6 +52,8 @@
 #include "system/cosmicMgrs/WormholeMgr.h"
 #include "system/cosmicMgrs/ManagerDB.h"
 #include "corporation/CorporationDB.h"
+#include "EVE_Corp.h"
+#include "alliance/AllianceDB.h"
 
 EntityList::EntityList()
 : m_services(nullptr),
@@ -317,6 +319,66 @@ void CheckExpiredAuctions()
     }
 }
 
+void CheckVoteExpiry()
+{
+    // find expired corp votes that haven't been processed yet
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        " SELECT voteCaseID, corporationID, voteType, endDateTime"
+        " FROM crpVoteItems"
+        " WHERE inEffect = 0 AND endDateTime < %.0f",
+        GetFileTimeNow()))
+        return;
+
+    DBResultRow row;
+    while (res.GetRow(row))
+    {
+        uint32 voteCaseID = row.GetUInt(0);
+        uint32 corpID = row.GetUInt(1);
+        uint32 voteType = row.GetUInt(2);
+
+        // count votes per option, pick winner
+        DBQueryResult optRes;
+        sDatabase.RunQuery(optRes,
+            " SELECT optionID, votesFor, parameter FROM crpVoteOptions"
+            " WHERE voteCaseID = %u"
+            " ORDER BY votesFor DESC LIMIT 1",
+            voteCaseID);
+
+        DBResultRow optRow;
+        if (!optRes.GetRow(optRow) or optRow.GetUInt(1) == 0)
+        {
+            // no votes cast, mark as expired with no effect
+            DBerror err;
+            sDatabase.RunQuery(err,
+                "UPDATE crpVoteItems SET inEffect = 0, actedUpon = 1, timeActedUpon = %.0f"
+                " WHERE voteCaseID = %u",
+                GetFileTimeNow(), voteCaseID);
+            continue;
+        }
+
+        uint32 targetParam = optRow.GetUInt(2);
+
+        // execute the vote result based on type
+        if (voteType == Corp::VoteType::CEO)
+        {
+            // targetParam is the new CEO characterID
+            DBerror err;
+            sDatabase.RunQuery(err,
+                " UPDATE crpCorporation SET ceoID = %u"
+                " WHERE corporationID = %u",
+                targetParam, corpID);
+        }
+
+        // mark vote as passed and acted upon
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE crpVoteItems SET inEffect = 1, actedUpon = 1, timeActedUpon = %.0f"
+            " WHERE voteCaseID = %u",
+            GetFileTimeNow(), voteCaseID);
+    }
+}
+
 
 void EntityList::Process() {
     Client* pClient(nullptr);
@@ -390,6 +452,7 @@ void EntityList::Process() {
             sIncursionMgr.Process();    // 1m
             CheckWarDecay();
             CheckExpiredAuctions();
+            CheckVoteExpiry();
 
             if (m_minutes % 5 == 0) { // ~5m
                 sWHMgr.Process();
