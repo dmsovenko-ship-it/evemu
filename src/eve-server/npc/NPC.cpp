@@ -246,6 +246,7 @@ PyDict* NPC::MakeSlimItem()
     slim->SetItemString("categoryID",      PyStatic.NewInt(6));
     {
         uint16 gID = m_self->groupID();
+        switch (gID) {
             case 550: case 557: case 562: case 567: case 572: case 759:
                 gID = 25; break;  // Frigate
             case 551: case 555: case 561: case 566: case 571: case 757:
