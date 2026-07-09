@@ -288,9 +288,12 @@ PyResult CorpRegistryBound::GetCorporations(PyCallArgs &call, PyInt* corporation
     return m_db.GetCorporations(corporationID->value());
 }
 
-PyResult CorpRegistryBound::GetRecentKillsAndLosses(PyCallArgs &call, PyInt* number, PyInt* offset)
-{   // working
-    return m_db.GetKillsAndLosses(m_corpID, number->value(), offset->value());
+PyResult CorpRegistryBound::GetRecentKillsAndLosses(PyCallArgs &call, PyInt* number, std::optional<PyInt*> offset)
+{
+    _log(CORP__CALL, "CorpRegistryBound::Handle_GetRecentKillsAndLosses() size=%lli", call.tuple->size());
+    call.Dump(SERVICE__CALL_DUMP);
+    uint32 offsetVal = offset.has_value() ? offset.value()->value() : 0;
+    return m_db.GetKillsAndLosses(m_corpID, number->value(), offsetVal);
 }
 
 PyResult CorpRegistryBound::GetMember(PyCallArgs &call, PyInt* characterID)

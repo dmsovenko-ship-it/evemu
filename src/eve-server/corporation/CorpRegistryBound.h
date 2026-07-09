@@ -102,7 +102,7 @@ protected:
     PyResult DeleteBulletin(PyCallArgs& call, PyInt* bulletinID);
 
     PyResult GetLocationalRoles(PyCallArgs& call);
-    PyResult GetRecentKillsAndLosses(PyCallArgs& call, PyInt* number, PyInt* offset);
+    PyResult GetRecentKillsAndLosses(PyCallArgs& call, PyInt* number, std::optional<PyInt*> offset);
     PyResult UpdateMember(PyCallArgs& call,
         PyInt* characterID, PyRep* title, PyRep* divisionID, PyRep* squadronID,
         PyLong* roles, PyLong* grantableRoles, PyLong* rolesAtHQ, PyLong* grantableRolesAtHQ,
