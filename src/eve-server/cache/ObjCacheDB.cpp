@@ -768,10 +768,10 @@ PyRep *ObjCacheDB::Generate_invTypes()
         "    END "
         "  ELSE groupID "
         "END as groupID, "
+        "typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID, "
         "CASE WHEN groupID IN (550,551,552,553,554,555,556,557,558,560,561,562,563,565,566,567,568,570,571,572,573,575,576,577,578,579,580,581,582,583,584,755,756,757,758,759,760,761) "
         "  THEN 6 ELSE categoryID "
-        "END as categoryID, "
-        "typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID "
+        "END as categoryID "
         "FROM invTypes";
     if (!sDatabase.RunQuery(res, q))
     {
