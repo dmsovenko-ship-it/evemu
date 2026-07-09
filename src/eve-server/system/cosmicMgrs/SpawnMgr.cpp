@@ -1148,6 +1148,16 @@ void SpawnMgr::MakeSpawn(SystemBubble* pBubble, uint32 factionID, uint8 sClass, 
                 GPoint warpTo(warpToPoint);
                 warpTo.MakeRandomPointOnSphere(sClass *1000);  // random point <class (1-12)> x 1k from center
                 pNPC->DestinyMgr()->WarpTo(warpTo, (MakeRandomInt(-5, 10) *1000));
+            } else if (anomaly) {
+                // anomaly NPCs: send Warping effect for crosshair initialization
+                OnSpecialFX10 sfx;
+                sfx.guid = "effects.Warping";
+                sfx.entityID = pNPC->GetID();
+                sfx.isOffensive = false;
+                sfx.start = true;
+                sfx.active = true;
+                PyTuple* t = sfx.Encode();
+                pNPC->DestinyMgr()->SendSingleDestinyUpdate(&t);
             }
 
             SpawnEntry se = SpawnEntry();
