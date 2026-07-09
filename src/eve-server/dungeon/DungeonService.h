@@ -36,7 +36,7 @@ public:
 
 protected:
     PyResult IsObjectLocked(PyCallArgs& call, PyInt* objectID);
-    PyResult AddObject(PyCallArgs& call, PyInt* roomID, PyInt* tupeID, PyFloat* x, PyFloat* y, PyFloat* z, PyFloat* pitch, PyFloat* roll, PyFloat* radius);
+    PyResult AddObject(PyCallArgs& call, PyInt* roomID, PyInt* tupeID, PyFloat* x, PyFloat* y, PyFloat* z, std::optional<PyNone*> yaw, std::optional<PyNone*> pitch, std::optional<PyNone*> roll, std::optional<PyNone*> radius);
     PyResult RemoveObject(PyCallArgs& call, PyInt* objectID);
     PyResult CopyObject(PyCallArgs& call, PyInt* objectID, PyInt* roomID, PyFloat* offsetX, PyFloat* offsetY, PyFloat* offsetZ);
     PyResult EditObject(PyCallArgs& call);

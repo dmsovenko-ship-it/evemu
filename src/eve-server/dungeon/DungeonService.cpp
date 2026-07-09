@@ -92,9 +92,10 @@ PyResult DungeonService::IsObjectLocked(PyCallArgs& call, PyInt* objectID)
     return result;
 }
 
-PyResult DungeonService::AddObject(PyCallArgs& call, PyInt* roomID, PyInt* tupeID, PyFloat* x, PyFloat* y, PyFloat* z, PyFloat* pitch, PyFloat* roll, PyFloat* radius)
+PyResult DungeonService::AddObject(PyCallArgs& call, PyInt* roomID, PyInt* tupeID, PyFloat* x, PyFloat* y, PyFloat* z, std::optional<PyNone*> yaw, std::optional<PyNone*> pitch, std::optional<PyNone*> roll, std::optional<PyNone*> radius)
 {
     // (newObjectID, revisionID,) = sm.RemoteSvc('dungeon').AddObject(roomID, typeID, x, y, z, yaw, pitch, roll, radius)
+    // rotation params can be None when not set
 
     _log(DUNG__CALL,  "DungeonService::Handle_AddObject size: %lli", call.tuple->size());
     call.Dump(DUNG__CALL_DUMP);
@@ -110,10 +111,10 @@ PyResult DungeonService::AddObject(PyCallArgs& call, PyInt* roomID, PyInt* tupeI
     newObject.x = PyRep::FloatValue(call.tuple->GetItem(2));
     newObject.y = PyRep::FloatValue(call.tuple->GetItem(3));
     newObject.z = PyRep::FloatValue(call.tuple->GetItem(4));
-    newObject.yaw = PyRep::FloatValue(call.tuple->GetItem(5));
-    newObject.pitch = PyRep::FloatValue(call.tuple->GetItem(6));
-    newObject.roll = PyRep::FloatValue(call.tuple->GetItem(7));
-    newObject.radius = PyRep::FloatValue(call.tuple->GetItem(8));
+    newObject.yaw = (call.tuple->GetItem(5)->IsNone() ? 0.0 : PyRep::FloatValue(call.tuple->GetItem(5)));
+    newObject.pitch = (call.tuple->GetItem(6)->IsNone() ? 0.0 : PyRep::FloatValue(call.tuple->GetItem(6)));
+    newObject.roll = (call.tuple->GetItem(7)->IsNone() ? 0.0 : PyRep::FloatValue(call.tuple->GetItem(7)));
+    newObject.radius = (call.tuple->GetItem(8)->IsNone() ? 0.0 : PyRep::FloatValue(call.tuple->GetItem(8)));
 
     uint32 groupID = DungeonDB::GetFirstGroupForRoom(newObject.roomID);
 
