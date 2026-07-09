@@ -286,7 +286,7 @@ protected:
     //Destiny::Ball::timeStamp m_timeStamp; //mode and timestamp of when current mode began
     uint32 m_stateStamp;                //statestamp of when current state began, in seconds
 
-    uint8 m_moveSyncCounter;            //tic counter — sends SetBallPosition every 5 tics to prevent desync drift
+    uint8 m_moveSyncCounter;            //tic counter — sends SetBallPosition periodically for player ships
 
     float m_orbitTime;                  //in s - time to complete one orbit using current variables
     float m_orbitRadTic;                //in rad/sec  - radians around orbit per tic

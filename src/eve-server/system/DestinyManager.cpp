@@ -926,7 +926,13 @@ void DestinyManager::MoveObject() {
         _log(DESTINY__ERROR, "%s(%u) - New position would be NaN! Skipping tic.", mySE->GetName(), mySE->GetID());
         return;
     }
-    SetPosition(newPos, sConfig.debug.PositionHack);
+    // Periodic position sync for player ships only — corrects physics drift without jerking NPCs
+    if (mySE->HasPilot() && ++m_moveSyncCounter >= 20) {
+        m_moveSyncCounter = 0;
+        SetPosition(newPos, true);
+    } else {
+        SetPosition(newPos, sConfig.debug.PositionHack);
+    }
 
     if (is_log_enabled(DESTINY__MOVE_DEBUG))
         _log(DESTINY__MOVE_DEBUG, "Destiny::MoveObject() - %s(%u) Pos:%.2f,%.2f,%.2f  Vel:%.3f,%.3f,%.3f  Head:%.3f,%.3f,%.3f", \
