@@ -8,42 +8,23 @@
 #include "ship/Ship.h"
 #include "Client.h"
 
-#include <algorithm>
-
 /*
  * SystemEffectMgr — applies wormhole system effects (Pulsar, Magnetar, Cataclysmic, etc.)
- * to ships when they enter a wormhole system and removes them on exit.
- *
- * Effect attribute modifiers are applied directly via SetAttribute.
- * When leaving, affected attributes are recalculated from item base values.
- *
- * Attribute IDs used:
- *   6    - shieldCapacity (shield HP)
- *   37   - maxVelocity (max speed)
- *   38   - maxTargetingRange (targeting range)
- *   54   - shieldRechargeRate (shield recharge)
- *   63   - scanGravimetricStrength (sensor strength)
- *   64   - scanLadarStrength
- *   65   - scanMagnetometricStrength
- *   66   - scanRadarStrength
- *   72   - maxArmor (armor HP)
- *   165  - capacitorCapacity (cap)
- *   172  - trackingSpeed (turret tracking)
- *   244  - damageMultiplier (weapon damage)
- *   467  - emDamage (damage resistance)
- *   1796 - signatureRadius (sig radius)
+ * and sovereignty upgrade effects to ships when they enter a system.
  */
 
 SystemEffectMgr::SystemEffectMgr()
 {
+    // ── Wormhole effects ──────────────────────────────────────
+
     // Pulsar: shield bonus +50%, capacitor recharge -30%
     {
         WHEffectDef def;
         def.type = WH_Pulsar;
         def.modifiers = {
-            {6,   2,  50.0},    // shieldCapacity +50%
-            {54,  2, -30.0},    // shieldRechargeRate -30%
-            {165, 2, -20.0},    // capacitorCapacity -20%
+            {6,   2,  50.0},
+            {54,  2, -30.0},
+            {165, 2, -20.0},
         };
         m_effectDefs[WH_Pulsar] = def;
     }
@@ -53,12 +34,12 @@ SystemEffectMgr::SystemEffectMgr()
         WHEffectDef def;
         def.type = WH_Magnetar;
         def.modifiers = {
-            {6,   2, -30.0},    // shieldCapacity -30%
-            {54,  2,  20.0},    // shieldRechargeRate +20%
-            {63,  2,  50.0},    // scanGravimetricStrength +50%
-            {64,  2,  50.0},    // scanLadarStrength +50%
-            {65,  2,  50.0},    // scanMagnetometricStrength +50%
-            {66,  2,  50.0},    // scanRadarStrength +50%
+            {6,   2, -30.0},
+            {54,  2,  20.0},
+            {63,  2,  50.0},
+            {64,  2,  50.0},
+            {65,  2,  50.0},
+            {66,  2,  50.0},
         };
         m_effectDefs[WH_Magnetar] = def;
     }
@@ -68,8 +49,8 @@ SystemEffectMgr::SystemEffectMgr()
         WHEffectDef def;
         def.type = WH_Cataclysmic;
         def.modifiers = {
-            {6,   2, -30.0},    // shieldCapacity -30%
-            {72,  2,  50.0},    // maxArmor +50%
+            {6,   2, -30.0},
+            {72,  2,  50.0},
         };
         m_effectDefs[WH_Cataclysmic] = def;
     }
@@ -79,9 +60,9 @@ SystemEffectMgr::SystemEffectMgr()
         WHEffectDef def;
         def.type = WH_BlackHole;
         def.modifiers = {
-            {37,  2,  50.0},    // maxVelocity +50%
-            {172, 2, -25.0},    // trackingSpeed -25%
-            {1796,2,  15.0},    // signatureRadius +15%
+            {37,  2,  50.0},
+            {172, 2, -25.0},
+            {1796,2,  15.0},
         };
         m_effectDefs[WH_BlackHole] = def;
     }
@@ -91,22 +72,57 @@ SystemEffectMgr::SystemEffectMgr()
         WHEffectDef def;
         def.type = WH_RedGiant;
         def.modifiers = {
-            {72,  2, -30.0},    // maxArmor -30%
-            {165, 2,  50.0},    // capacitorCapacity +50%
+            {72,  2, -30.0},
+            {165, 2,  50.0},
         };
         m_effectDefs[WH_RedGiant] = def;
     }
 
-    // Wolf-Rayet: small weapon dmg +25%, large weapon dmg -25%
+    // Wolf-Rayet: shield -20%, armor +30%, sig -10%
     {
         WHEffectDef def;
         def.type = WH_WolfRayet;
         def.modifiers = {
-            {6,   2, -20.0},    // shieldCapacity -20%
-            {72,  2,  30.0},    // maxArmor +30%
-            {1796,2, -10.0},    // signatureRadius -10%
+            {6,   2, -20.0},
+            {72,  2,  30.0},
+            {1796,2, -10.0},
         };
         m_effectDefs[WH_WolfRayet] = def;
+    }
+
+    // ── Sovereignty upgrade effects ───────────────────────────
+
+    // Cynosural Navigation (2008): cyno range +100% (affects system cyno gen)
+    {
+        SovUpgradeEffect eff;
+        eff.typeID = 2008;
+        eff.modifiers = {};
+        m_sovEffects[2008] = eff;
+    }
+
+    // Cynosural Suppression (2001): cyno jam strength +50%
+    {
+        SovUpgradeEffect eff;
+        eff.typeID = 2001;
+        eff.modifiers = {};
+        m_sovEffects[2001] = eff;
+    }
+
+    // Advanced Logistics Network (32422): jump bridge fuel -25%
+    {
+        SovUpgradeEffect eff;
+        eff.typeID = 32422;
+        eff.modifiers = {};
+        m_sovEffects[32422] = eff;
+    }
+
+    // Supercapital Construction Facilities (2009):
+    // capital ship build time -25%, capital component build time -25%
+    {
+        SovUpgradeEffect eff;
+        eff.typeID = 2009;
+        eff.modifiers = {};
+        m_sovEffects[2009] = eff;
     }
 }
 
@@ -117,129 +133,137 @@ SystemEffectMgr::~SystemEffectMgr()
 
 void SystemEffectMgr::Initialize()
 {
-    sLog.Blue(" System Effect Manager", "Initialized wormhole system effects (Pulsar, Magnetar, Cataclysmic, etc).");
+    sLog.Blue(" System Effect Manager", "Initialized wormhole + sovereignty system effects.");
 }
+
+// ── Wormhole effect lookup ──────────────────────────────────────
 
 SystemEffectMgr::WHEffectType SystemEffectMgr::GetWHEffect(uint32 systemID, uint8 whClass)
 {
-    if (whClass == 0)
-        return WH_None;
-
-    // C1-C3: no permanent effects
-    if (whClass <= 3)
-        return WH_None;
-
-    // C4-C6: assign effect based on systemID hash for variety
-    // Approximately even distribution across 6 effect types
-    uint32 hash = systemID * 2654435761U;  // golden ratio hash
-    WHEffectType types[] = {
-        WH_Pulsar, WH_Magnetar, WH_Cataclysmic,
-        WH_BlackHole, WH_RedGiant, WH_WolfRayet
-    };
-    uint8 idx = hash % 6;
-
-    // C4: weaker version of effects
-    // C5: standard
-    // C6: stronger (we don't differentiate magnitudes for now)
-    return types[idx];
+    if (whClass == 0) return WH_None;
+    if (whClass <= 3) return WH_None;
+    uint32 hash = systemID * 2654435761U;
+    WHEffectType types[] = { WH_Pulsar, WH_Magnetar, WH_Cataclysmic, WH_BlackHole, WH_RedGiant, WH_WolfRayet };
+    return types[hash % 6];
 }
 
 const SystemEffectMgr::WHEffectDef* SystemEffectMgr::GetEffectDef(WHEffectType type) const
 {
     auto it = m_effectDefs.find(type);
-    if (it != m_effectDefs.end())
-        return &it->second;
-    return nullptr;
+    return (it != m_effectDefs.end()) ? &it->second : nullptr;
 }
+
+// ── Sovereignty upgrade effect lookup ──────────────────────────
+
+void SystemEffectMgr::GetSovUpgradeEffects(uint32 systemID, std::vector<EffectModifier>& outModifiers)
+{
+    outModifiers.clear();
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT typeID FROM sovUpgrades WHERE systemID = %u", systemID))
+    {
+        return;
+    }
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 typeID = row.GetUInt(0);
+        auto it = m_sovEffects.find(typeID);
+        if (it != m_sovEffects.end()) {
+            for (const auto& mod : it->second.modifiers)
+                outModifiers.push_back(mod);
+        }
+    }
+}
+
+// ── Apply/Remove helpers ───────────────────────────────────────
+
+void SystemEffectMgr::ApplyEffect(InventoryItemRef ship, const EffectModifier& mod, const char* context)
+{
+    double current = ship->GetAttribute(mod.attributeID).get_float();
+    if (std::isnan(current) || current <= 0.0) return;
+
+    double newVal = current;
+    switch (mod.operation) {
+        case 0: newVal = current * mod.value; break;
+        case 1: newVal = current + mod.value; break;
+        case 2: newVal = current * (1.0 + mod.value / 100.0); break;
+    }
+    ship->SetAttribute(mod.attributeID, newVal);
+    _log(SERVICE__MESSAGE, "SystemEffectMgr [%s]: attr %u: %.2f -> %.2f", context, mod.attributeID, current, newVal);
+}
+
+void SystemEffectMgr::ApplyModifiers(InventoryItemRef ship, const std::vector<EffectModifier>& mods, const char* context)
+{
+    for (const auto& mod : mods)
+        ApplyEffect(ship, mod, context);
+}
+
+void SystemEffectMgr::RemoveModifiers(InventoryItemRef ship, const std::vector<EffectModifier>& mods)
+{
+    for (const auto& mod : mods) {
+        double current = ship->GetAttribute(mod.attributeID).get_float();
+        if (std::isnan(current) || current <= 0.0) continue;
+
+        double newVal = current;
+        switch (mod.operation) {
+            case 0: newVal = current / mod.value; break;
+            case 1: newVal = current - mod.value; break;
+            case 2: newVal = current / (1.0 + mod.value / 100.0); break;
+        }
+        ship->SetAttribute(mod.attributeID, newVal);
+        _log(SERVICE__MESSAGE, "SystemEffectMgr:   revert attr %u: %.2f -> %.2f", mod.attributeID, current, newVal);
+    }
+}
+
+// ── System enter/leave ──────────────────────────────────────────
 
 void SystemEffectMgr::OnEnterSystem(Client* client, uint32 systemID)
 {
-    if (client == nullptr || client->GetShipSE() == nullptr)
-        return;
-
+    if (client == nullptr || client->GetShipSE() == nullptr) return;
     InventoryItemRef ship = client->GetShipSE()->GetSelf();
-    if (ship.get() == nullptr)
-        return;
+    if (ship.get() == nullptr) return;
 
+    AppliedEffects applied;
+
+    // Wormhole effects
     uint8 whClass = sDataMgr.GetWHSystemClass(systemID);
     WHEffectType effectType = GetWHEffect(systemID, whClass);
-    if (effectType == WH_None)
-        return;
+    if (effectType != WH_None) {
+        const WHEffectDef* def = GetEffectDef(effectType);
+        if (def != nullptr) {
+            ApplyModifiers(ship, def->modifiers, "wormhole");
+            applied.whMods = def->modifiers;
+        }
+    }
 
-    const WHEffectDef* def = GetEffectDef(effectType);
-    if (def == nullptr)
-        return;
+    // Sovereignty upgrade effects
+    std::vector<EffectModifier> sovMods;
+    GetSovUpgradeEffects(systemID, sovMods);
+    if (!sovMods.empty()) {
+        ApplyModifiers(ship, sovMods, "sov");
+        applied.sovMods = sovMods;
+    }
 
-    ApplyEffect(ship, def);
-    m_clientEffects[client->GetCharacterID()] = *def;
-
-    _log(SERVICE__MESSAGE, "SystemEffectMgr: Applied %s effect to %s in system %u",
-         (effectType == WH_Pulsar ? "Pulsar" :
-          effectType == WH_Magnetar ? "Magnetar" :
-          effectType == WH_Cataclysmic ? "Cataclysmic" :
-          effectType == WH_BlackHole ? "BlackHole" :
-          effectType == WH_RedGiant ? "RedGiant" : "WolfRayet"),
-         client->GetName(), systemID);
+    m_clientEffects[client->GetCharacterID()] = applied;
 }
 
 void SystemEffectMgr::OnLeaveSystem(Client* client, uint32 systemID)
 {
-    if (client == nullptr)
-        return;
-
+    if (client == nullptr) return;
     uint32 charID = client->GetCharacterID();
     auto it = m_clientEffects.find(charID);
-    if (it == m_clientEffects.end())
-        return;
-
-    if (client->GetShipSE() == nullptr)
-        return;
-
+    if (it == m_clientEffects.end()) return;
+    if (client->GetShipSE() == nullptr) return;
     InventoryItemRef ship = client->GetShipSE()->GetSelf();
-    if (ship.get() == nullptr)
-        return;
+    if (ship.get() == nullptr) return;
 
-    RemoveEffect(ship, &it->second);
+    // Remove wormhole effects
+    if (!it->second.whMods.empty())
+        RemoveModifiers(ship, it->second.whMods);
+
+    // Remove sovereignty effects
+    if (!it->second.sovMods.empty())
+        RemoveModifiers(ship, it->second.sovMods);
+
     m_clientEffects.erase(it);
-
-    _log(SERVICE__MESSAGE, "SystemEffectMgr: Removed system effect from %s", client->GetName());
-}
-
-void SystemEffectMgr::ApplyEffect(InventoryItemRef ship, const WHEffectDef* effect)
-{
-    for (auto& [attrID, op, value] : effect->modifiers) {
-        double current = ship->GetAttribute(attrID).get_float();
-        if (std::isnan(current) || current <= 0.0)
-            continue;
-
-        double newVal = current;
-        switch (op) {
-            case 0: newVal = current * value; break;       // multiply
-            case 1: newVal = current + value; break;       // add
-            case 2: newVal = current * (1.0 + value / 100.0); break;  // percent
-        }
-
-        ship->SetAttribute(attrID, newVal);
-        _log(SERVICE__MESSAGE, "SystemEffectMgr:   attr %u: %.2f -> %.2f", attrID, current, newVal);
-    }
-}
-
-void SystemEffectMgr::RemoveEffect(InventoryItemRef ship, const WHEffectDef* effect)
-{
-    for (auto& [attrID, op, value] : effect->modifiers) {
-        double current = ship->GetAttribute(attrID).get_float();
-        if (std::isnan(current) || current <= 0.0)
-            continue;
-
-        // Reverse the modifier
-        double newVal = current;
-        switch (op) {
-            case 0: newVal = current / value; break;                    // reverse multiply
-            case 1: newVal = current - value; break;                     // reverse add
-            case 2: newVal = current / (1.0 + value / 100.0); break;    // reverse percent
-        }
-
-        ship->SetAttribute(attrID, newVal);
-        _log(SERVICE__MESSAGE, "SystemEffectMgr:   revert attr %u: %.2f -> %.2f", attrID, current, newVal);
-    }
 }

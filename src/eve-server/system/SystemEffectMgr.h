@@ -34,24 +34,40 @@ private:
         WH_WolfRayet
     };
 
+    struct EffectModifier {
+        uint16 attributeID;
+        uint8 operation;   // 0=multiply, 1=add, 2=percent
+        double value;
+    };
+
     struct WHEffectDef {
         WHEffectType type;
-        // Attribute modifiers: { attributeID, operation, value }
-        // operation: 0=multiply, 1=add, 2=percent
-        std::vector<std::tuple<uint16, uint8, double>> modifiers;
+        std::vector<EffectModifier> modifiers;
+    };
+
+    struct SovUpgradeEffect {
+        uint32 typeID;
+        std::vector<EffectModifier> modifiers;
     };
 
     WHEffectType GetWHEffect(uint32 systemID, uint8 whClass);
     const WHEffectDef* GetEffectDef(WHEffectType type) const;
+    void GetSovUpgradeEffects(uint32 systemID, std::vector<EffectModifier>& outModifiers);
 
-    void ApplyEffect(InventoryItemRef ship, const WHEffectDef* effect);
-    void RemoveEffect(InventoryItemRef ship, const WHEffectDef* effect);
+    void ApplyEffect(InventoryItemRef ship, const EffectModifier& mod, const char* context);
+    void ApplyModifiers(InventoryItemRef ship, const std::vector<EffectModifier>& mods, const char* context);
+    void RemoveModifiers(InventoryItemRef ship, const std::vector<EffectModifier>& mods);
 
-    // Track which client has which effect applied (clientID → effect copy)
-    std::map<uint32, WHEffectDef> m_clientEffects;
+    // Track which client has which effect applied
+    struct AppliedEffects {
+        std::vector<EffectModifier> whMods;    // wormhole effect modifiers
+        std::vector<EffectModifier> sovMods;   // sovereignty upgrade modifiers
+    };
+    std::map<uint32, AppliedEffects> m_clientEffects;
 
     // Effect definitions
     std::map<WHEffectType, WHEffectDef> m_effectDefs;
+    std::map<uint32, SovUpgradeEffect> m_sovEffects;
 };
 
 #define sSystemEffectMgr \
