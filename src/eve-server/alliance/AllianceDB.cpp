@@ -702,17 +702,15 @@ bool AllianceDB::AddVoteCase(uint32 allyID, const std::string& voteCaseText, con
         return false;
     }
 
-    // Parse voteCaseOptions: a util.Rowset (PyObjectEx) with header+lines
+    // Parse voteCaseOptions: a util.Rowset (PyObjectEx Type2) — keywords dict has 'lines'
     if (voteCaseOptions != nullptr && voteCaseOptions->IsObjectEx()) {
         PyObjectEx* obj = voteCaseOptions->AsObjectEx();
         if (obj != nullptr) {
-            PyRep* args = obj->arguments();
-            if (args == nullptr || !args->IsDict()) return true;
-            PyDict* kv = args->AsDict();
+            PyDict* kv = &obj->dict();
             PyList* lines = nullptr;
             if (kv != nullptr) {
                 PyRep* linesRep = kv->GetItem(new PyString("lines"));
-                if (linesRep != nullptr)
+                if (linesRep != nullptr && linesRep->IsList())
                     lines = linesRep->AsList();
             }
             if (lines != nullptr) {
