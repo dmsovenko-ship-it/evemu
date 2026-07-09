@@ -29,6 +29,7 @@
 #include "corporation/LPService.h"
 #include "account/AccountService.h"
 #include "station/Station.h"
+#include "inventory/Inventory.h"
 
 LPService::LPService() :
     Service("LPSvc", eAccessLevel_Character)
