@@ -62,9 +62,9 @@ PyList* LiveUpdateDB::GenerateUpdates()
     header->AddColumn("buildNumberMax", DBTYPE_I4);
     header->AddColumn("code", DBTYPE_STR);
 
-    // count rows + 1 for news ticker patch
+    // count rows + 2 for news ticker patch (holoscreen patch + RPC fallback)
     uint32 rowCount = res.GetRowCount();
-    PyList* list = new PyList(rowCount + 1);
+    PyList* list = new PyList(rowCount + 2);
     int listIndex = 0;
     DBResultRow row;
     while (res.GetRow(row))
