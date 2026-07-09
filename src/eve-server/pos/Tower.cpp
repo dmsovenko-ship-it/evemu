@@ -757,12 +757,12 @@ PyRep* TowerSE::GetProcessInfo()
         if (sSE->IsReactorSE()) {
             ReactorData* rData = sSE->GetReactorSE()->GetReactorData();
 
-            // Connections
+            // Connections: tuple (sourceID, toID)
             PyList* connList = new PyList();
             for (auto& [connItemID, conn] : rData->GetConnections()) {
                 PyTuple* connTuple = new PyTuple(2);
                 connTuple->SetItem(0, new PyInt(conn.sourceID));
-                connTuple->SetItem(1, new PyInt(conn.sTypeID));
+                connTuple->SetItem(1, new PyInt(conn.toID));
                 connList->AddItem(connTuple);
             }
             tuple->SetItem(3, connList);

@@ -56,7 +56,7 @@ void ReactorSE::Init()
     // Start cycle timer (default 60 min cycle, read from AttrOperationalDuration)
     uint32 cycleSecs = 3600;
     EvilNumber duration = m_self->GetAttribute(AttrOperationalDuration);
-    if (!duration.is_int())
+    if (!duration.isInt())
         cycleSecs = duration.get_int();
     m_cycleTimer = new Timer(cycleSecs * 1000);
     m_cycleTimer->Start(cycleSecs * 1000);
@@ -89,7 +89,7 @@ int32 ReactorSE::LookupReactionType()
     // Moon miners (group 416) have AttrHarvesterType set to the moon material typeID
     // Reactors (group 438) have AttrConsumptionType set to the input material typeID
     EvilNumber consumeType = m_self->GetAttribute(AttrConsumptionType);
-    if (consumeType.is_int())
+    if (consumeType.isInt())
         return consumeType.get_int();
     return 0;
 }
