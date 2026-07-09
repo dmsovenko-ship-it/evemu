@@ -43,7 +43,7 @@ protected:
     PyResult GetFactionInfo(PyCallArgs& call);
     PyResult GetCorpInfo(PyCallArgs& call, PyInt* corporationID);
     PyResult GetRecruitmentAdRegistryData(PyCallArgs& call);
-    PyResult GetRecruitmentAdsByCriteria(PyCallArgs& call, PyInt* typeMask, PyBool* inAlliance, std::optional<PyInt*> minMembers, std::optional<PyInt*> maxMembers);
+    PyResult GetRecruitmentAdsByCriteria(PyCallArgs& call, PyInt* typeMask, PyInt* inAlliance, std::optional<PyInt*> minMembers, std::optional<PyInt*> maxMembers);
     PyResult GetRecruitmentAdsForCorporation(PyCallArgs& call);
     PyResult CreateMedal(PyCallArgs& call, PyWString* name, PyWString* description, PyList* medalData);
     PyResult GetMedalsReceived(PyCallArgs& call, PyInt* characterID);

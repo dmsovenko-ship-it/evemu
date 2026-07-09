@@ -113,7 +113,7 @@ PyResult CorporationService::GetRecruitmentAdRegistryData(PyCallArgs& call)
     return args;
 }
 
-PyResult CorporationService::GetRecruitmentAdsByCriteria(PyCallArgs& call, PyInt* typeMask, PyBool* inAlliance, std::optional<PyInt*> minMembers, std::optional<PyInt*> maxMembers)
+PyResult CorporationService::GetRecruitmentAdsByCriteria(PyCallArgs& call, PyInt* typeMask, PyInt* inAlliance, std::optional<PyInt*> minMembers, std::optional<PyInt*> maxMembers)
 {    //   return sm.RemoteSvc('corporationSvc').GetRecruitmentAdsByCriteria(typeMask, isInAlliance, minMembers, maxMembers)
     _log(CORP__CALL, "CorporationService::Handle_GetRecruitmentAdsByCriteria()");
     call.Dump(CORP__CALL_DUMP);

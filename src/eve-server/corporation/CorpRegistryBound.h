@@ -39,7 +39,7 @@ protected:
     PyResult GetOffices(PyCallArgs& call);
     PyResult GetStations(PyCallArgs& call);
 
-    PyResult CreateRecruitmentAd(PyCallArgs& call, PyInt* days, PyInt* typeMask, std::optional <PyInt*> allianceID, PyWString* description, PyInt* channelID, PyList* recruiterIDs, PyWString* title);
+    PyResult CreateRecruitmentAd(PyCallArgs& call, PyInt* days, PyInt* typeMask, std::optional <PyInt*> allianceID, PyRep* description, PyInt* channelID, PyList* recruiterIDs, PyRep* title);
     PyResult UpdateRecruitmentAd(PyCallArgs& call, PyInt* adID, PyInt* typeMask, PyWString* description, PyInt* channelID, PyList* recruiterIDs, PyWString* title, PyInt* addedDays);
     PyResult DeleteRecruitmentAd(PyCallArgs& call, PyInt* adID);
     PyResult GetRecruiters(PyCallArgs& call, PyInt* corpID, PyInt* adID);
