@@ -104,7 +104,7 @@ void ConvoyAI::ResetAfterTransit()
     m_group->goToB = !m_group->goToB;
     m_transferRequested = false;
 
-    // Restart staggered departure timer
+    // Restart staggered departure timer (one-shot, Check(false) disables after fire)
     SafeDelete(m_startTimer);
     uint32 interval = 15000 + MakeRandomInt(0, 30000);
     m_startTimer = new Timer(interval * (m_index + 1));
@@ -125,7 +125,7 @@ void ConvoyAI::Process()
     GPoint depPoint = GetDeparturePoint();
 
     if (phase == 0) {
-        if (m_startTimer->Enabled() && !m_startTimer->Check())
+        if (m_startTimer->Enabled() && !m_startTimer->Check(false))
             return;
         if (m_index == 0) {
             dest->GotoPoint(depPoint);
@@ -186,7 +186,7 @@ void ConvoyAI::Process()
     }
 
     if (phase == 3) {
-        if (m_index == 0 && m_group->phaseTimer != nullptr && m_group->phaseTimer->Check()) {
+        if (m_index == 0 && m_group->phaseTimer != nullptr && m_group->phaseTimer->Check(false)) {
             SafeDelete(m_group->phaseTimer);
             m_group->goToB = !m_group->goToB;
             m_group->phase = 0;
