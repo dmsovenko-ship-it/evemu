@@ -52,6 +52,7 @@ class PyPackedRow;
 class PyVisitor
 {
 public:
+    PyVisitor() : m_depth(0) {}
     virtual ~PyVisitor() {}
 
     //! primitive data visitors
@@ -81,6 +82,16 @@ public:
     virtual bool VisitSubStruct( const PySubStruct* rep );
     virtual bool VisitSubStream( const PySubStream* rep );
     virtual bool VisitChecksumedStream( const PyChecksumedStream* rep );
+
+    static const uint32 kMaxDepth = 4096;
+
+protected:
+    struct DepthGuard {
+        DepthGuard(uint32& d) : depth(d) { ++depth; }
+        ~DepthGuard() { --depth; }
+        uint32& depth;
+    };
+    uint32 m_depth;
 };
 
 class PyPfxVisitor : public PyVisitor

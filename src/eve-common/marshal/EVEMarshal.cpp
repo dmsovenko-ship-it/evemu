@@ -218,6 +218,10 @@ bool MarshalStream::VisitToken( const PyToken* rep )
 
 bool MarshalStream::VisitTuple( const PyTuple* rep )
 {
+    if (m_depth >= PyVisitor::kMaxDepth) {
+        Put<uint8>( Op_PyEmptyTuple );
+        return true;
+    }
     uint32 size(rep->size());
     if ( size == 0 ) {
         Put<uint8>( Op_PyEmptyTuple );
@@ -235,6 +239,10 @@ bool MarshalStream::VisitTuple( const PyTuple* rep )
 
 bool MarshalStream::VisitList( const PyList* rep )
 {
+    if (m_depth >= PyVisitor::kMaxDepth) {
+        Put<uint8>( Op_PyEmptyList );
+        return true;
+    }
     uint32 size(rep->size());
     if ( size == 0 ) {
         Put<uint8>( Op_PyEmptyList );
@@ -250,6 +258,11 @@ bool MarshalStream::VisitList( const PyList* rep )
 
 bool MarshalStream::VisitDict( const PyDict* rep )
 {
+    if (m_depth >= PyVisitor::kMaxDepth) {
+        Put<uint8>( Op_PyDict );
+        PutSizeEx( 0 );
+        return true;
+    }
     uint32 size(rep->size());
     Put<uint8>( Op_PyDict );
     PutSizeEx( size );
@@ -268,12 +281,16 @@ bool MarshalStream::VisitDict( const PyDict* rep )
 
 bool MarshalStream::VisitObject( const PyObject* rep )
 {
+    if (m_depth >= PyVisitor::kMaxDepth)
+        return true;
     Put<uint8>( Op_PyObject );
     return PyVisitor::VisitObject( rep );
 }
 
 bool MarshalStream::VisitObjectEx( const PyObjectEx* rep )
 {
+    if (m_depth >= PyVisitor::kMaxDepth)
+        return true;
     if (rep->isType2())
         Put<uint8>( Op_PyObjectEx2 );
     else
@@ -457,6 +474,8 @@ bool MarshalStream::VisitPackedRow( const PyPackedRow* pyPackedRow )
 
 bool MarshalStream::VisitSubStruct( const PySubStruct* rep )
 {
+    if (m_depth >= PyVisitor::kMaxDepth)
+        return true;
     Put<uint8>(Op_PySubStruct);
     return PyVisitor::VisitSubStruct( rep );
 }
@@ -492,6 +511,8 @@ bool MarshalStream::VisitSubStream( const PySubStream* rep )
 // we should never visit a checksummed stream... NEVER...
 bool MarshalStream::VisitChecksumedStream( const PyChecksumedStream* rep )
 {
+    if (m_depth >= PyVisitor::kMaxDepth)
+        return true;
     assert(false && "MarshalStream on the server side should never send checksummed objects");
 
     Put<uint8>(Op_PyChecksumedStream);

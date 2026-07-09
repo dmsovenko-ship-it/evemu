@@ -35,9 +35,10 @@
 /************************************************************************/
 bool PyVisitor::VisitTuple(const PyTuple* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     PyTuple::const_iterator itr = rep->begin(), end = rep->end();
     for (;  itr != end; ++itr) {
-        //  if/when segfault here and (*itr) == 0x0 then tuple count != tuple->SetItem()
         if (!(*itr)->visit(*this))
             return false;
     }
@@ -46,6 +47,8 @@ bool PyVisitor::VisitTuple(const PyTuple* rep)
 
 bool PyVisitor::VisitList(const PyList* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     PyList::const_iterator itr = rep->begin(), end = rep->end();
     for (;  itr != end; ++itr)
         if (!(*itr)->visit(*this))
@@ -56,8 +59,10 @@ bool PyVisitor::VisitList(const PyList* rep)
 
 bool PyVisitor::VisitDict(const PyDict* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     PyDict::const_iterator itr = rep->begin(), end = rep->end();
-    for (;  itr != end; ++itr) {
+    for (; itr != end; ++itr) {
         if (!itr->first->visit(*this))
             return false;
         if (!itr->second->visit(*this))
@@ -68,6 +73,8 @@ bool PyVisitor::VisitDict(const PyDict* rep)
 
 bool PyVisitor::VisitObject(const PyObject* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     if (!rep->type()->visit(*this))
         return false;
     if (!rep->arguments()->visit(*this))
@@ -77,6 +84,8 @@ bool PyVisitor::VisitObject(const PyObject* rep)
 
 bool PyVisitor::VisitObjectEx(const PyObjectEx* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     if (!rep->header()->visit(*this))
         return false;
 
@@ -98,6 +107,8 @@ bool PyVisitor::VisitObjectEx(const PyObjectEx* rep)
 
 bool PyVisitor::VisitPackedRow(const PyPackedRow* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     if (!rep->header()->visit(*this))
         return false;
 
@@ -111,6 +122,8 @@ bool PyVisitor::VisitPackedRow(const PyPackedRow* rep)
 
 bool PyVisitor::VisitSubStruct(const PySubStruct* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     if (!rep->sub()->visit(*this))
         return false;
     return true;
@@ -118,6 +131,8 @@ bool PyVisitor::VisitSubStruct(const PySubStruct* rep)
 
 bool PyVisitor::VisitSubStream(const PySubStream* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     if (rep->decoded() == nullptr)  {
         if (rep->data() == nullptr)
             return false;
@@ -132,6 +147,8 @@ bool PyVisitor::VisitSubStream(const PySubStream* rep)
 
 bool PyVisitor::VisitChecksumedStream(const PyChecksumedStream* rep)
 {
+    if (m_depth >= kMaxDepth) return true;
+    DepthGuard dg(m_depth);
     if (!rep->stream()->visit(*this))
         return false;
     return true;
