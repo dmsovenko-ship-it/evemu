@@ -126,45 +126,78 @@ PyList* LiveUpdateDB::GenerateUpdates()
         std::string pyCode =
             "import service\n"
             "import util\n"
-            "def GetNewsTickerData(self):\n"
-            "    try:\n"
-            "        from xml.dom.minidom import parseString\n"
-            "        xml = sm.RemoteSvc('holoscreenMgr').GetNewsTickerData()\n"
-            "        if xml:\n"
-            "            return parseString(xml)\n"
-            "    except Exception as e:\n"
-            "        pass\n"
-            "    import blue\n"
-            "    from xml.dom.minidom import parseString\n"
-            "    msg = '" + safeMsg + "'\n"
-            "    now = blue.os.GetWallclockTime()\n"
-            "    xml = '<?xml version=\"1.0\"?>'\n"
-            "    xml += '<news><item>'\n"
-            "    xml += '<title>EVEmu Crucible</title>'\n"
-            "    xml += '<text>' + msg + '</text>'\n"
-            "    xml += '<date>' + str(blue.os.GetTimeParts(now)[:3]) + '</date>'\n"
-            "    xml += '</item></news>'\n"
-            "    return parseString(xml)\n";
+            "try:\n"
+            "    # Patch the client-side holoscreen service to call server RPC for news\n"
+            "    svc = sm.GetService('holoscreen')\n"
+            "    if svc:\n"
+            "        orig = svc.GetNewsTickerData\n"
+            "        def _patched_news(self):\n"
+            "            try:\n"
+            "                from xml.dom.minidom import parseString\n"
+            "                xml = sm.RemoteSvc('holoscreenMgr').GetNewsTickerData()\n"
+            "                if xml and len(xml):\n"
+            "                    return parseString(xml)\n"
+            "            except:\n"
+            "                pass\n"
+            "            return orig()\n"
+            "        svc.GetNewsTickerData = _patched_news.__get__(svc, type(svc))\n"
+            "except:\n"
+            "    pass\n";
+        // Fallback: also replace the holoscreenMgr RPC method
+        std::string rpcCode =
+            "from xml.dom.minidom import parseString\n"
+            "import blue\n"
+            "msg = '" + safeMsg + "'\n"
+            "now = blue.os.GetWallclockTime()\n"
+            "xml = '<?xml version=\"1.0\"?>'\n"
+            "xml += '<news><item>'\n"
+            "xml += '<title>EVEmu Crucible</title>'\n"
+            "xml += '<text>' + msg + '</text>'\n"
+            "xml += '<date>' + str(blue.os.GetTimeParts(now)[:3]) + '</date>'\n"
+            "xml += '</item></news>'\n"
+            "return parseString(xml)\n";
 
         uint32 now = static_cast<uint32>(GetFileTimeNow() / 10000000LL - 11644473600LL);
 
-        PyPackedRow* packedRow = new PyPackedRow(header);
-        packedRow->SetField(static_cast<uint32>(0), static_cast<PyRep*>(new PyInt(999)));
-        packedRow->SetField(static_cast<uint32>(1), static_cast<PyRep*>(new PyWString(std::string("NewsTicker"))));
-        packedRow->SetField(static_cast<uint32>(2), static_cast<PyRep*>(new PyWString(std::string("Shows latest Git commit in news ticker"))));
-        packedRow->SetField(static_cast<uint32>(3), static_cast<PyRep*>(PyStatic.NewInt(0)));
-        packedRow->SetField(static_cast<uint32>(4), static_cast<PyRep*>(new PyInt(999999)));
-        packedRow->SetField(static_cast<uint32>(5), static_cast<PyRep*>(PyStatic.NewInt(0)));
-        packedRow->SetField(static_cast<uint32>(6), static_cast<PyRep*>(new PyInt(999999)));
+        // Row 1: Patch client-side holoscreen service to call server RPC for news
+        {
+            PyPackedRow* packedRow = new PyPackedRow(header);
+            packedRow->SetField(0, static_cast<PyRep*>(new PyInt(998)));
+            packedRow->SetField(1, static_cast<PyRep*>(new PyWString("HoloscreenPatch")));
+            packedRow->SetField(2, static_cast<PyRep*>(new PyWString("Patches holoscreenSvc.GetNewsTickerData to call server RPC")));
+            packedRow->SetField(3, static_cast<PyRep*>(PyStatic.NewInt(0)));
+            packedRow->SetField(4, static_cast<PyRep*>(new PyInt(999999)));
+            packedRow->SetField(5, static_cast<PyRep*>(PyStatic.NewInt(0)));
+            packedRow->SetField(6, static_cast<PyRep*>(new PyInt(999999)));
 
-        LiveUpdateInner inner;
-        inner.code = pyCode;
-        inner.codeType = "method";
-        inner.objectID = "holoscreenMgr";
-        inner.methodName = "GetNewsTickerData";
-        packedRow->SetField(static_cast<uint32>(7), inner.Encode());
+            LiveUpdateInner inner;
+            inner.code = pyCode;
+            inner.codeType = "python";  // execute as-is, not as method override
+            inner.objectID = "";
+            inner.methodName = "";
+            packedRow->SetField(7, inner.Encode());
+            list->SetItem(listIndex++, packedRow);
+        }
 
-        list->SetItem(listIndex++, packedRow);
+        // Row 2: RPC method fallback (keeps holoscreenMgr.GetNewsTickerData working)
+        {
+            PyPackedRow* packedRow = new PyPackedRow(header);
+            packedRow->SetField(0, static_cast<PyRep*>(new PyInt(999)));
+            packedRow->SetField(1, static_cast<PyRep*>(new PyWString("NewsTicker")));
+            packedRow->SetField(2, static_cast<PyRep*>(new PyWString("Server news ticker data provider")));
+            packedRow->SetField(3, static_cast<PyRep*>(PyStatic.NewInt(0)));
+            packedRow->SetField(4, static_cast<PyRep*>(new PyInt(999999)));
+            packedRow->SetField(5, static_cast<PyRep*>(PyStatic.NewInt(0)));
+            packedRow->SetField(6, static_cast<PyRep*>(new PyInt(999999)));
+
+            LiveUpdateInner inner;
+            inner.code = rpcCode;
+            inner.codeType = "method";
+            inner.objectID = "holoscreenMgr";
+            inner.methodName = "GetNewsTickerData";
+            packedRow->SetField(7, inner.Encode());
+            list->SetItem(listIndex++, packedRow);
+        }
     }
 
     list->Dump(NET__PRES_DEBUG, "    ");
