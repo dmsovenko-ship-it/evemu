@@ -354,11 +354,45 @@
 - **Nested containers**: `GetCrateContentsRecursive` validates items inside containers within crates ✅
 - **forCorp in DeleteContract**: returns items to corp hangar when contract was issued for corp ✅
 - **Recursive completion validation**: `CompleteContract` checks both top-level and nested items ✅
-- **Petition stub**: `GetMyPetitionsEx` returns empty list (fixes client crash) ✅
+- **Petition stub**: `GetMyPetitionsEx` returns empty list ✅
 - **FW GetFactionalWarStatus**: added `status` field to returned KeyVal ✅
+
+## Part 52: Corp Window & Role Groups Fixes (done)
+- **GetCorpRoleGroups**: manual CRowSet with `columns` as `PyList` instead of SQL string ✅
+- **GetCorpRoles**: empty CRowSet with correct header (crpRoles table overwritten by migration) ✅
+- **GetRoles/GetRoleGroups**: return empty CRowSet instead of nullptr on SQL failure ✅
+- **COALESCE division names**: `GetCorporation` returns default names when `crpWalletDivisons` row missing ✅
+
+## Part 53: Orbit Desync Fix + Stability (done)
+- **Orbit distance fallback**: `m_followDistance = distance` instead of `(distance+radius+Tr)/6` ✅
+- **Distance thresholds**: use `max(m_followDistance, m_targetDistance)` as reference ✅
+- **Periodic position sync**: `SetBallPosition` every 5 tics in `MoveObject` to prevent drift ✅
+- **Login warp overview**: skip `SendSetState` during login (conflicts with WarpLoop), send after warp complete ✅
+- **Orbit crash fix**: null target check in `Orbit()` and `SetSpeedFraction` ✅
+- **NaN guards**: velocity and newPos NaN checks in `MoveObject` ✅
+
+## Part 54: NPC Crosshair Fixes (done)
+- **CategoryID in type cache**: `Generate_invTypes` now includes `categoryID=6` for Entity NPC types ✅
+- **BulkDataChangeID auto**: computed from migration timestamps, no manual bumps ✅
+- **AddBallExclusive packet_type=0**: full state instead of incremental, forces client re-init ✅
+- **Civilian AddNPC order**: `SetPosition` before `AddNPC` for correct bubble assignment ✅
+- **Civilian unique names**: per-ship names + customInfo "CivilianTraffic" ✅
+
+## Part 55: News Ticker + LiveUpdate (done)
+- **srvNewsItems table**: stores news items with title/description/date ✅
+- **GetNewsTickerData**: returns XML from DB via `holoscreenMgr` RPC ✅
+- **LiveUpdate injection**: patches client `holoscreenSvc.GetNewsTickerData` to call server RPC ✅
+- **seed_news.sh**: populates news from git log (`bash utils/seed_news.sh`) ✅
+
+## Part 56: Network Crash Fix (done)
+- **__cxa_pure_virtual**: `ProcessReceivedData` made non-pure virtual with default no-op ✅
 
 # TODO
 
+## 🟡 If desired
+1. **Autopilot** — не работает, требуется диагностика
+2. **FW LP earning** — подключить `LPService::AddLP` к FW-активностям (plex captures, FW kills)
+
 ## 🟢 Eventually
-1. **RefPtr → shared_ptr** — major refactoring across ~400 files
-2. **PyRep memory management** — valgrind leak fixes
+3. **RefPtr → shared_ptr** — major refactoring across ~400 files
+4. **PyRep memory management** — valgrind leak fixes

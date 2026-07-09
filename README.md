@@ -96,7 +96,7 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | System                |  %  | System                |  %  |
 |-----------------------|:---:|-----------------------|:---:|
 | Account & Character   | 97% | Skills & Certificates | 99% |
-| Ship Navigation       | 95% | Combat                | 99% |
+| Ship Navigation       | 75% | Combat                | 99% |
 | Modules & Overheating | 95% | Drones                | 90% |
 | NPC AI & Spawning     | 80% | Agents & Missions     | 85% |
 | **POS**               | 97% | Market                | 85% |

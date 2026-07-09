@@ -11,7 +11,7 @@
 | System | % | Bar | System | % | Bar |
 |--------|---|-----|--------|---|-----|
 | Account & Character | 97% | `██████████████████░` | Skills & Certificates | 99% | `███████████████████` |
-| Ship Navigation | 95% | `██████████████████` | Combat | 99% | `███████████████████` |
+| Ship Navigation | 75% | `████████████████░░` | Combat | 99% | `███████████████████` |
 | Modules & Overheating | 95% | `██████████████████` | Drones | 90% | `█████████████████░` |
 | NPC AI & Spawning | 80% | `████████████████░░` | Agents & Missions | 85% | `████████████████░` |
 | **POS** | 97% | `██████████████████░` | Market | 85% | `████████████████░` |
@@ -63,19 +63,19 @@ _Что осталось:_ ничего существенного
 
 ---
 
-### 3. Ship Navigation `██████████████████` 95%
+### 3. Ship Navigation `████████████████░░` 75%
 
 | Feature | |
 |---------|-|
 | Stargate jump, orbit, follow, approach | ✅ |
 | Warp-to-0, fleet warp | ✅ |
-| Autopilot chain (preserved across jumps) | ✅ |
 | Login warp-in, combat logoff, emergency warp | ✅ |
 | Warp scramble blocks logoff/emergency warp | ✅ |
 | Warp alignment fix (no WARP→GOTO cancel) | ✅ |
 | Warp exit crash fix (no SetBallPosition during WarpLoop) | ✅ |
+| Autopilot chain (preserved across jumps) | ❌ не работает |
 
-_Что осталось:_ редкие баги синхронизации позиции при флот-варпе, улучшение автопилота
+_Что осталось:_ автопилот не работает, баги синхронизации позиции при флот-варпе
 
 ---
 
