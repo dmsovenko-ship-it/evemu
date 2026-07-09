@@ -162,33 +162,33 @@ PyList* LiveUpdateDB::GenerateUpdates()
         // Row 1: Patch client-side holoscreen service to call server RPC for news
         {
             PyPackedRow* packedRow = new PyPackedRow(header);
-            packedRow->SetField(0, static_cast<PyRep*>(new PyInt(998)));
-            packedRow->SetField(1, static_cast<PyRep*>(new PyWString("HoloscreenPatch")));
-            packedRow->SetField(2, static_cast<PyRep*>(new PyWString("Patches holoscreenSvc.GetNewsTickerData to call server RPC")));
-            packedRow->SetField(3, static_cast<PyRep*>(PyStatic.NewInt(0)));
-            packedRow->SetField(4, static_cast<PyRep*>(new PyInt(999999)));
-            packedRow->SetField(5, static_cast<PyRep*>(PyStatic.NewInt(0)));
-            packedRow->SetField(6, static_cast<PyRep*>(new PyInt(999999)));
+            packedRow->SetField(uint32(0), static_cast<PyRep*>(new PyInt(998)));
+            packedRow->SetField(uint32(1), static_cast<PyRep*>(new PyWString(std::string("HoloscreenPatch"))));
+            packedRow->SetField(uint32(2), static_cast<PyRep*>(new PyWString(std::string("Patches holoscreenSvc.GetNewsTickerData to call server RPC"))));
+            packedRow->SetField(uint32(3), static_cast<PyRep*>(PyStatic.NewInt(0)));
+            packedRow->SetField(uint32(4), static_cast<PyRep*>(new PyInt(999999)));
+            packedRow->SetField(uint32(5), static_cast<PyRep*>(PyStatic.NewInt(0)));
+            packedRow->SetField(uint32(6), static_cast<PyRep*>(new PyInt(999999)));
 
             LiveUpdateInner inner;
             inner.code = pyCode;
-            inner.codeType = "python";  // execute as-is, not as method override
+            inner.codeType = "python";
             inner.objectID = "";
             inner.methodName = "";
-            packedRow->SetField(7, inner.Encode());
+            packedRow->SetField(uint32(7), inner.Encode());
             list->SetItem(listIndex++, packedRow);
         }
 
         // Row 2: RPC method fallback (keeps holoscreenMgr.GetNewsTickerData working)
         {
             PyPackedRow* packedRow = new PyPackedRow(header);
-            packedRow->SetField(0, static_cast<PyRep*>(new PyInt(999)));
-            packedRow->SetField(1, static_cast<PyRep*>(new PyWString("NewsTicker")));
-            packedRow->SetField(2, static_cast<PyRep*>(new PyWString("Server news ticker data provider")));
-            packedRow->SetField(3, static_cast<PyRep*>(PyStatic.NewInt(0)));
-            packedRow->SetField(4, static_cast<PyRep*>(new PyInt(999999)));
-            packedRow->SetField(5, static_cast<PyRep*>(PyStatic.NewInt(0)));
-            packedRow->SetField(6, static_cast<PyRep*>(new PyInt(999999)));
+            packedRow->SetField(uint32(0), static_cast<PyRep*>(new PyInt(999)));
+            packedRow->SetField(uint32(1), static_cast<PyRep*>(new PyWString(std::string("NewsTicker"))));
+            packedRow->SetField(uint32(2), static_cast<PyRep*>(new PyWString(std::string("Server news ticker data provider"))));
+            packedRow->SetField(uint32(3), static_cast<PyRep*>(PyStatic.NewInt(0)));
+            packedRow->SetField(uint32(4), static_cast<PyRep*>(new PyInt(999999)));
+            packedRow->SetField(uint32(5), static_cast<PyRep*>(PyStatic.NewInt(0)));
+            packedRow->SetField(uint32(6), static_cast<PyRep*>(new PyInt(999999)));
 
             LiveUpdateInner inner;
             inner.code = rpcCode;
