@@ -30,6 +30,7 @@ RUN ln -s /usr/include/mariadb /usr/include/mysql \
 # Build stage
 FROM base AS app-build
 
+ARG CMAKE_BUILD_TYPE=Debug
 ENV CCACHE_DIR=/ccache
 ENV PATH=/usr/lib/ccache:$PATH
 RUN ccache --max-size=5G && mkdir -p /ccache
@@ -49,7 +50,7 @@ RUN mkdir -p /src/build /app /app/logs /app/server_cache /app/image_cache /ccach
 WORKDIR /src/build
 
 # Configure and build the project
-RUN cmake -DCMAKE_INSTALL_PREFIX=/app -DCMAKE_BUILD_TYPE=Debug ..
+RUN cmake -DCMAKE_INSTALL_PREFIX=/app -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} ..
 RUN make -j$(nproc)
 RUN make install
 

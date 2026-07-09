@@ -1,0 +1,78 @@
+# EVEmu Production Override
+# Deploy with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+services:
+  server:
+    build:
+      context: .
+      args:
+        # Release build — smaller binary, no debug symbols, faster
+        CMAKE_BUILD_TYPE: Release
+    restart: always
+    # Adjust memory limit based on your VDS (4 GB minimum, 8 GB recommended)
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 5
+    # Core dump for post-mortem analysis (optional)
+    ulimits:
+      core: 0
+    environment:
+      - RUN_WITH_GDB=FALSE
+      - IMAGE_SERVER_HOST=${IMAGE_SERVER_HOST:-127.0.0.1}
+
+  db:
+    image: mariadb:11.8
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 5
+    # Production MariaDB tuning
+    command:
+      # InnoDB buffer pool — set to ~50% of available RAM (e.g., 4 GB on an 8 GB VDS)
+      - --innodb-buffer-pool-size=4G
+      # Redo log — 256 MB minimum, 1 GB recommended for large DBs
+      - --innodb-log-file-size=512M
+      # Flush every 1 second (safe — full ACID compliance with a 1s window)
+      - --innodb-flush-log-at-trx-commit=2
+      # Prevent packet size errors on bulk operations
+      - --max-allowed-packet=64M
+      # Per-thread buffer for INSERT...SELECT
+      - --bulk-insert-buffer-size=64M
+      # Temp table size (helps with large queries)
+      - --tmp-table-size=64M
+      - --max-heap-table-size=64M
+    volumes:
+      - db:/var/lib/mysql
+      # Optional: automated backups via host-mounted volume
+      # - ./backups:/backups
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "evemu", "-p${MARIADB_PASSWORD:-evemu}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  db:
+    # Production: use a local driver with auto-backup or a cloud-backed volume driver
+    driver: local
+  server_cache:
+    driver: local
+  image_cache:
+    driver: local
+  # ccache volume not needed at runtime — build-time only
