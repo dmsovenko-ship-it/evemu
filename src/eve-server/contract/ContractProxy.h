@@ -44,7 +44,7 @@ protected:
     PyResult GetContract(PyCallArgs& call, PyInt* contractID);
     PyResult AcceptContract(PyCallArgs& call, PyInt* contractID, std::optional<PyBool*> forCorp);
     PyResult CompleteContract(PyCallArgs& call, PyInt* contractID, PyInt* completionStatus);
-    PyResult DeleteContract(PyCallArgs& call, PyInt* contractID);
+    PyResult DeleteContract(PyCallArgs& call, PyInt* contractID, std::optional<PyBool*> forCorp);
     PyResult NumOutstandingContracts(PyCallArgs& call);
     PyResult GetItemsInStation(PyCallArgs& call, PyInt* stationID, std::optional<PyInt*> forCorp);
     PyResult GetLoginInfo(PyCallArgs& call);

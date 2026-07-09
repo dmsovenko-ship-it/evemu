@@ -447,9 +447,12 @@ PyResult ContractProxy::CreateContract(PyCallArgs &call,
     return new PyInt((int) contractId);
 }
 
-PyResult ContractProxy::DeleteContract(PyCallArgs &call, PyInt* contractID) {
+PyResult ContractProxy::DeleteContract(PyCallArgs &call, PyInt* contractID, std::optional<PyBool*> forCorp) {
     sLog.White( "ContractProxy::Handle_DeleteContract()", "size=%lu", call.tuple->size());
     call.Dump(SERVICE__CALL_DUMP);
+
+    bool isForCorp = forCorp.has_value() && forCorp.value()->value();
+    uint32 ownerID = isForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
 
     // In order to return items back to the owner, we need a full list of entityID's to return. We gather them using utils function
     std::vector<int> entityIds;
@@ -460,7 +463,7 @@ PyResult ContractProxy::DeleteContract(PyCallArgs &call, PyInt* contractID) {
             // We have to check if we actually got the item ref - in case of invalid entity ID specified.
             InventoryItemRef ref = sItemFactory.GetItemRef(entityID);
             if (ref) {
-                ref->ChangeOwner(call.client->GetCharacterID(), true);
+                ref->ChangeOwner(ownerID, true);
             } else {
                 continue;
             }
@@ -704,8 +707,13 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
                 return new PyBool(false);
             }
             // Then, we validate the presence of all expected items
+            // Check top-level items + nested container contents
             std::map<int, int> expectedItems;
             ContractUtils::GetContractItemIDsAndQuantities(contractID->value(), &expectedItems);
+
+            std::map<int, int> crateContents;
+            ContractUtils::GetCrateContentsRecursive(crateID, &crateContents);
+
             bool allItemsPresent(true);
             for (const auto& entry : expectedItems) {
                 InventoryItemRef item = sItemFactory.GetItemRef(entry.first);
@@ -713,6 +721,11 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
                     if (item->quantity() == entry.second && item->locationID() == crateID) {
                         continue;
                     }
+                }
+                // Check if item is inside a container within the crate
+                auto crateIt = crateContents.find(entry.first);
+                if (crateIt != crateContents.end() && crateIt->second >= entry.second) {
+                    continue;
                 }
                 allItemsPresent = false;
             }

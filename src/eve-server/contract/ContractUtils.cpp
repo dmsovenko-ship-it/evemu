@@ -388,4 +388,44 @@ void ContractUtils::GetContractItemIDsAndQuantities(int contractId, std::map<int
     }
 }
 
+void ContractUtils::GetCrateContentsRecursive(uint32 crateID, std::map<int, int>* into)
+{
+    // Query all items located inside the crate (or inside containers in the crate)
+    std::vector<uint32> toProcess;
+    toProcess.push_back(crateID);
+
+    while (!toProcess.empty()) {
+        uint32 parentID = toProcess.back();
+        toProcess.pop_back();
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT itemID, quantity, typeID, groupID"
+            " FROM entity"
+            "  LEFT JOIN invTypes USING (typeID)"
+            " WHERE locationID = %u", parentID))
+        {
+            continue;
+        }
+
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            uint32 itemID = row.GetUInt(0);
+            uint32 qty = row.GetUInt(1);
+            uint32 typeID = row.GetUInt(2);
+            uint32 groupID = row.GetUInt(3);
+
+            into->insert(std::pair<int, int>(itemID, qty));
+
+            // If this item is a container, recurse into it
+            // Container groups include: 9=CargoContainer, 12=SecureContainer,
+            // 20=AuditLogSecureContainer, 340=FreightContainer, 448=AuditLogSecureContainer
+            if (groupID == 9 || groupID == 12 || groupID == 20 ||
+                groupID == 340 || groupID == 448 || groupID == 649) {
+                toProcess.push_back(itemID);
+            }
+        }
+    }
+}
+
 
