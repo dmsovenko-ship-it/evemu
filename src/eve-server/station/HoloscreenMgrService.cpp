@@ -121,9 +121,9 @@ PyResult HoloscreenMgrService::GetNewsTickerData(PyCallArgs& call)
         DBResultRow row;
         while (res.GetRow(row)) {
             xml += "<item>";
-            xml += "<title>" + row.GetText(0) + "</title>";
-            xml += "<text>" + row.GetText(1) + "</text>";
-            xml += "<date>" + row.GetText(2) + "</date>";
+            xml += std::string("<title>") + row.GetText(0) + "</title>";
+            xml += std::string("<text>") + row.GetText(1) + "</text>";
+            xml += std::string("<date>") + row.GetText(2) + "</date>";
             xml += "</item>";
         }
     }
