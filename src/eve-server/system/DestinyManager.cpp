@@ -914,14 +914,24 @@ void DestinyManager::MoveObject() {
         m_shipHeading = NULL_ORIGIN_V;
     }
     m_velocity = m_shipHeading * speed;
+    // Guard against NaN velocity (e.g., speed=0 with NaN heading → 0*NaN=NaN)
+    if (m_velocity.isNaN()) {
+        _log(DESTINY__ERROR, "%s(%u) - Velocity is NaN! Clamping.", mySE->GetName(), mySE->GetID());
+        m_velocity = NULL_ORIGIN_V;
+    }
+    GPoint newPos = m_position + m_velocity;
+    if (newPos.isNaN()) {
+        _log(DESTINY__ERROR, "%s(%u) - New position would be NaN! Skipping tic.", mySE->GetName(), mySE->GetID());
+        return;
+    }
     // Periodic position sync to prevent client desync:
     // every 5 tics (~5s) send SetBallPosition even without PositionHack,
     // so local drift from physics simulation mismatch is corrected.
     if (++m_moveSyncCounter >= 5) {
         m_moveSyncCounter = 0;
-        SetPosition(m_position + m_velocity, true);
+        SetPosition(newPos, true);
     } else {
-        SetPosition(m_position + m_velocity, sConfig.debug.PositionHack);
+        SetPosition(newPos, sConfig.debug.PositionHack);
     }
 
     if (is_log_enabled(DESTINY__MOVE_DEBUG))
