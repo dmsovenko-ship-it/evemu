@@ -56,6 +56,7 @@
 #include "system/DestinyManager.h"
 #include "system/SystemManager.h"
 #include "system/SystemBubble.h"
+#include "system/SystemEffectMgr.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/WormholeMgr.h"
 #include "exploration/Scan.h"
@@ -758,6 +759,8 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
 
         m_system->RemoveClient(this, (count = true), IsJump());
 
+        sSystemEffectMgr.OnLeaveSystem(this, m_system->GetID());
+
         m_system = nullptr;
     }
 
@@ -868,6 +871,9 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
         */
 
         SetDestiny(pt);
+
+        // Apply wormhole system effects when ship enters space in a new system
+        sSystemEffectMgr.OnEnterSystem(this, m_systemData.systemID);
 
         if (IsJump() and !m_autoPilot) {
             pShipSE->DestinyMgr()->Stop();

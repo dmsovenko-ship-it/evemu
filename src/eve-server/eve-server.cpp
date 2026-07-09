@@ -186,6 +186,7 @@
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "system/cosmicMgrs/SpawnMgr.h"
 #include "system/cosmicMgrs/WormholeMgr.h"
+#include "system/SystemEffectMgr.h"
 // database cleaner service
 #include "DBCleaner.h"
 
@@ -799,6 +800,8 @@ int main( int argc, char* argv[] )
     } else {
         sLog.Warning(" Wormhole Manager", "Wormhole Manager Disabled.");
     }
+    /* Initialize system effect manager (wormhole effects, etc.) */
+    sSystemEffectMgr.Initialize();
     std::printf("\n");     // spacer
 
     sLog.Green(" Incursion Manager", "Incursion Manager Enabled.");

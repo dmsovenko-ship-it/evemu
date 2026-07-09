@@ -586,12 +586,13 @@ SET( system_INCLUDE
      "${TARGET_INCLUDE_DIR}/system/ScenarioService.h"
      "${TARGET_INCLUDE_DIR}/system/SolarSystem.h"
      "${TARGET_INCLUDE_DIR}/system/SystemBubble.h"
-     "${TARGET_INCLUDE_DIR}/system/SystemDB.h"
-     "${TARGET_INCLUDE_DIR}/system/SystemEntity.h"
-     "${TARGET_INCLUDE_DIR}/system/SystemManager.h"
-     "${TARGET_INCLUDE_DIR}/system/TargetManager.h"
-     "${TARGET_INCLUDE_DIR}/system/WorldSpaceServer.h"
-     "${TARGET_INCLUDE_DIR}/system/WormholeSvc.h" )
+      "${TARGET_INCLUDE_DIR}/system/SystemDB.h"
+      "${TARGET_INCLUDE_DIR}/system/SystemEffectMgr.h"
+      "${TARGET_INCLUDE_DIR}/system/SystemEntity.h"
+      "${TARGET_INCLUDE_DIR}/system/SystemManager.h"
+      "${TARGET_INCLUDE_DIR}/system/TargetManager.h"
+      "${TARGET_INCLUDE_DIR}/system/WorldSpaceServer.h"
+      "${TARGET_INCLUDE_DIR}/system/WormholeSvc.h" )
 SET( system_SOURCE
      "${TARGET_SOURCE_DIR}/system/Asteroid.cpp"
      "${TARGET_SOURCE_DIR}/system/BookmarkDB.cpp"
@@ -610,12 +611,13 @@ SET( system_SOURCE
      "${TARGET_SOURCE_DIR}/system/ScenarioService.cpp"
      "${TARGET_SOURCE_DIR}/system/SolarSystem.cpp"
      "${TARGET_SOURCE_DIR}/system/SystemBubble.cpp"
-     "${TARGET_SOURCE_DIR}/system/SystemDB.cpp"
-     "${TARGET_SOURCE_DIR}/system/SystemEntity.cpp"
-     "${TARGET_SOURCE_DIR}/system/SystemManager.cpp"
-     "${TARGET_SOURCE_DIR}/system/TargetManager.cpp"
-     "${TARGET_SOURCE_DIR}/system/WorldSpaceServer.cpp"
-     "${TARGET_SOURCE_DIR}/system/WormholeSvc.cpp")
+      "${TARGET_SOURCE_DIR}/system/SystemDB.cpp"
+      "${TARGET_SOURCE_DIR}/system/SystemEffectMgr.cpp"
+      "${TARGET_SOURCE_DIR}/system/SystemEntity.cpp"
+      "${TARGET_SOURCE_DIR}/system/SystemManager.cpp"
+      "${TARGET_SOURCE_DIR}/system/TargetManager.cpp"
+      "${TARGET_SOURCE_DIR}/system/WorldSpaceServer.cpp"
+      "${TARGET_SOURCE_DIR}/system/WormholeSvc.cpp")
 
 SET( system_sov_INCLUDE
      "${TARGET_INCLUDE_DIR}/system/sov/SovereigntyMgrService.h"
