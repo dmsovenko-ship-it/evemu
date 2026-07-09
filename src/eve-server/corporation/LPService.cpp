@@ -169,7 +169,31 @@ PyResult LPService::GetLPExchangeRates(PyCallArgs& call)
 05:42:04 [SvcCall]     Argument 'machoVersion':
 05:42:04 [SvcCall]         Integer field: 1
 */
-    return new PyList;
+    // Return basic static exchange rates: 1000 LP = 1,000,000 ISK
+    // Format: list of tuples (corporationID, rate)
+    PyList* rates = new PyList();
+    // CONCORD: 1000 LP → 750k ISK
+    PyList* concord = new PyList();
+    concord->AddItemInt(1000125);  // corpID
+    concord->AddItemInt(750000);   // ISK per 1000 LP
+    rates->AddItem(concord);
+    // FW militia corps: 1000 LP → 500k ISK
+    uint32 fwCorps[] = {1000179, 1000180, 1000181, 1000182};
+    for (uint32 corpID : fwCorps) {
+        PyList* entry = new PyList();
+        entry->AddItemInt(corpID);
+        entry->AddItemInt(500000);
+        rates->AddItem(entry);
+    }
+    // NPC navy corps: 1000 LP → 1M ISK
+    uint32 navyCorps[] = {1000047, 1000048, 1000049, 1000050};
+    for (uint32 corpID : navyCorps) {
+        PyList* entry = new PyList();
+        entry->AddItemInt(corpID);
+        entry->AddItemInt(1000000);
+        rates->AddItem(entry);
+    }
+    return rates;
 }
 
 //18:46:38 L CharMgrService::Handle_GetLPForCharacterCorp(): size= 1, 0=Integer(1000049)
