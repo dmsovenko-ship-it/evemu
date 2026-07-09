@@ -454,6 +454,45 @@ void EntityList::Process() {
             CheckExpiredAuctions();
             CheckVoteExpiry();
 
+            // spawn FW plexes in loaded FW systems (every 5 minutes to catch newly loaded systems)
+            if (m_minutes % 5 == 0) {
+                static std::set<uint32> fwSystems;
+                static uint32 lastRefresh = 0;
+                if (fwSystems.empty() or (m_minutes - lastRefresh) > 30) {
+                    fwSystems.clear();
+                    DBQueryResult fwRes;
+                    sDatabase.RunQuery(fwRes, "SELECT systemID FROM facWarSystems");
+                    DBResultRow fwRow;
+                    while (fwRes.GetRow(fwRow))
+                        fwSystems.insert(fwRow.GetUInt(0));
+                    lastRefresh = m_minutes;
+                }
+                std::map<uint32, SystemManager*>::iterator sysItr = m_systems.begin();
+                while (sysItr != m_systems.end()) {
+                    uint32 sysID = sysItr->first;
+                    if (fwSystems.find(sysID) == fwSystems.end()) {
+                        ++sysItr;
+                        continue;
+                    }
+                    AnomalyMgr* anom = sysItr->second->GetAnomMgr();
+                    if (anom == nullptr or anom->HasFWAnomalies()) {
+                        ++sysItr;
+                        continue;
+                    }
+                    uint8 plexCount = (sysItr->second->GetSystemSecurityRating() > 0.45f) ? 2 : 3;
+                    for (uint8 i = 0; i < plexCount; ++i) {
+                        GPoint pos(
+                            MakeRandomFloat(-1e9f, 1e9f),
+                            MakeRandomFloat(-1e9f, 1e9f),
+                            MakeRandomFloat(-1e9f, 1e9f)
+                        );
+                        std::string name = "FW Plex " + std::to_string(i + 1);
+                        anom->AddFWAnomaly("FW_" + std::to_string(sysID) + "_" + std::to_string(i), pos, name, 0);
+                    }
+                    ++sysItr;
+                }
+            }
+
             if (m_minutes % 5 == 0) { // ~5m
                 sWHMgr.Process();
                 // write something to tic corps vote cases.

@@ -709,6 +709,14 @@ void AnomalyMgr::RemoveFWAnomaly(const std::string& sigID)
     _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::RemoveFWAnomaly() - removed FW site %s", sigID.c_str());
 }
 
+bool AnomalyMgr::HasFWAnomalies()
+{
+    for (auto it = m_sigBySigID.begin(); it != m_sigBySigID.end(); ++it)
+        if (it->first.find("FW_") == 0)
+            return true;
+    return false;
+}
+
 const char* AnomalyMgr::GetScanGroupName(uint8 groupID/*0*/) {
     using namespace Scanning::Group;
     switch(groupID) {
