@@ -106,7 +106,7 @@
 // Changes when a new migration is added, forcing client cache refresh.
 int bulkDataChangeID = 1007072026;  // default fallback
 
-static void ComputeBulkDataChangeID() {
+void ComputeBulkDataChangeID() {
     namespace fs = std::filesystem;
     std::string dir = "/src/sql/migrations";
     uint64_t hash = 0;

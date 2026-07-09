@@ -42,5 +42,8 @@ private:
     };
 };
 
+// Called at server startup to compute bulkDataChangeID from migration timestamps
+void ComputeBulkDataChangeID();
+
 #endif
 

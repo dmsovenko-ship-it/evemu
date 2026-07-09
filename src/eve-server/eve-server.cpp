@@ -66,7 +66,6 @@
 // cache services
 #include "cache/BulkDB.h"
 #include "cache/BulkMgrService.h"
-void ComputeBulkDataChangeID();  // in BulkMgrService.cpp
 #include "cache/ObjCacheService.h"
 // character services
 #include "character/AggressionMgrService.h"
