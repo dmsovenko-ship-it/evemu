@@ -101,9 +101,11 @@ std::string CivilianMgr::GenerateCivilianName(uint32 seed) {
     std::string firstName = "Pilot";
     std::string lastName = "";
 
-    // Random agent first name
+    // Random agent first name (agtAgents → chrNPCCharacters)
     if (sDatabase.RunQuery(res,
-        "SELECT agentName FROM agtAgents ORDER BY RAND(%u) LIMIT 1", seed))
+        "SELECT c.characterName FROM agtAgents a"
+        "  JOIN chrNPCCharacters c ON a.agentID = c.characterID"
+        " ORDER BY RAND(%u) LIMIT 1", seed))
     {
         DBResultRow row;
         if (res.GetRow(row)) {
