@@ -1023,7 +1023,7 @@ PyRep* CorporationDB::GetCorpRoles()
     CRowSet* rowset = new CRowSet(&header);
 
     // Seed with known roleIDs from the original schema
-    struct { uint64 roleID; const char* name; int32 descID; int32 iid; } roles[] = {
+    struct { int64 roleID; const char* name; int32 descID; int32 iid; } roles[] = {
         {1,                    "Director",              60126, 1},
         {128,                  "Personnel Manager",     60127, 2},
         {256,                  "Accountant",            60128, 3},
