@@ -62,7 +62,8 @@ PyRep *AllianceDB::GetAlliance(uint32 allyID)
     if (!sDatabase.RunQuery(res,
                             " SELECT "
                             " a.allianceID, a.allianceName, a.description, a.typeID, a.shortName, a.executorCorpID, a.creatorCorpID, "
-                            " a.creatorCharID, a.startDate, a.memberCount, a.url, a.deleted, 0 as dictatorial " //Dictatorial is not used in Crucible but must be set
+                            " a.creatorCharID, a.startDate, a.memberCount, a.url, a.deleted, 0 as dictatorial, "
+                            " COALESCE(a.taxRate, 0.0) as taxRate "
                             " FROM alnAlliance AS a"
                             " WHERE allianceID = %u",
                             allyID))
@@ -90,6 +91,7 @@ PyRep *AllianceDB::GetAlliance(uint32 allyID)
         header->AddColumn("url", DBTYPE_STR);
         header->AddColumn("deleted", DBTYPE_BOOL);
         header->AddColumn("dictatorial", DBTYPE_BOOL);
+        header->AddColumn("taxRate", DBTYPE_R8);
         return new CRowSet(&header);
     }
 
@@ -459,10 +461,24 @@ void AllianceDB::UpdateAlliance(uint32 allyID, std::string description, std::str
     if (!sDatabase.RunQuery(err,
                             " UPDATE alnAlliance "
                             "  SET description='%s', url='%s' "
-                            " WHERE allyID=%u ",
+                            " WHERE allianceID=%u ",
                             aDesc.c_str(), aURL.c_str(), allyID))
     {
         codelog(ALLY__DB_ERROR, "Error in UpdateAlliance query: %s", err.c_str());
+    }
+}
+
+void AllianceDB::SetTaxRate(uint32 allyID, double taxRate)
+{
+    DBerror err;
+    taxRate = std::clamp(taxRate, 0.0, 1.0);
+    if (!sDatabase.RunQuery(err,
+                            " UPDATE alnAlliance "
+                            "  SET taxRate=%.2f "
+                            " WHERE allianceID=%u ",
+                            taxRate, allyID))
+    {
+        codelog(ALLY__DB_ERROR, "Error in SetTaxRate query: %s", err.c_str());
     }
 }
 

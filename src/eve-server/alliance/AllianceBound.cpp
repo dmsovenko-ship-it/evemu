@@ -65,6 +65,7 @@ AllianceBound::AllianceBound(EVEServiceManager& mgr, AllianceRegistry& parent, A
     this->Add("RemoveAllianceContacts", &AllianceBound::RemoveAllianceContacts);
     this->Add("EditContactsRelationshipID", &AllianceBound::EditContactsRelationshipID);
     this->Add("UpdateAlliance", &AllianceBound::UpdateAlliance);
+    this->Add("SetTaxRate", &AllianceBound::SetTaxRate);
 
     m_allyID = allyID;
     this->m_cache = this->GetServiceManager().Lookup <ObjCacheService>("objectCaching");
@@ -581,6 +582,25 @@ PyResult AllianceBound::UpdateAlliance(PyCallArgs &call, PyWString* description,
     //Send notification to the client about the alliance change which just occurred
     call.client->SendNotification("OnAllianceChanged", "clientID", ac.Encode(), false);
     _log(SOV__DEBUG, "OnAllianceChanged sent to %s(%u)", call.client->GetName(), call.client->GetCharID());
+
+    return nullptr;
+}
+
+PyResult AllianceBound::SetTaxRate(PyCallArgs &call, PyFloat* taxRate)
+{
+    _log(ALLY__CALL, "AllianceBound::Handle_SetTaxRate() size=%lli", call.tuple->size());
+
+    m_db.SetTaxRate(m_allyID, taxRate->value());
+
+    OnAllianceChanged ac;
+    ac.allianceID = m_allyID;
+    if (!m_db.CreateAllianceChangePacket(ac, 0, m_allyID))
+    {
+        codelog(SERVICE__ERROR, "Failed to create OnAllianceChanged notification for tax rate.");
+        call.client->SendErrorMsg("Unable to notify about alliance tax change.");
+        return nullptr;
+    }
+    call.client->SendNotification("OnAllianceChanged", "clientID", ac.Encode(), false);
 
     return nullptr;
 }

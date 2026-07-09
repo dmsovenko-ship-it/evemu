@@ -61,6 +61,7 @@ protected:
     PyResult EditContactsRelationshipID(PyCallArgs& call, PyList* contactIDs, PyInt* relationshipID);
     PyResult GetAlliance(PyCallArgs& call);
     PyResult UpdateAlliance(PyCallArgs& call, PyWString* description, PyWString* url);
+    PyResult SetTaxRate(PyCallArgs& call, PyFloat* taxRate);
 
     AllianceDB& m_db;
     ObjCacheService* m_cache;
