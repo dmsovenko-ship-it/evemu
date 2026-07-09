@@ -723,20 +723,78 @@ PyRep* TowerSE::GetProcessInfo()
 
     PyList* list = new PyList();
     for (auto cur : m_structs) {
-        switch (cur.second->GetSelf()->groupID()) {
-            case EVEDB::invGroups::Moon_Mining:
-            case EVEDB::invGroups::Silo:
-            case EVEDB::invGroups::Mobile_Reactor: {
-                PyTuple* tuple = new PyTuple(6);
-                tuple->SetItem(0, new PyInt(cur.first));
-                tuple->SetItem(1, new PyBool(false));
-                tuple->SetItem(2, PyStatic.NewNone());
-                tuple->SetItem(3, new PyList());
-                tuple->SetItem(4, new PyList());
-                tuple->SetItem(5, new PyList());
-                list->AddItem(tuple);
-            }
+        StructureSE* sSE = cur.second;
+        if (sSE == nullptr) continue;
+        uint32 gID = sSE->GetSelf()->groupID();
+        if (gID != EVEDB::invGroups::Moon_Mining &&
+            gID != EVEDB::invGroups::Silo &&
+            gID != EVEDB::invGroups::Mobile_Reactor)
+            continue;
+
+        PyTuple* tuple = new PyTuple(6);
+        tuple->SetItem(0, new PyInt(cur.first));
+
+        // Active state
+        bool active = false;
+        if (sSE->IsReactorSE()) {
+            ReactorSE* rSE = sSE->GetReactorSE();
+            active = rSE->IsActive();
         }
+        tuple->SetItem(1, new PyBool(active));
+
+        // Reaction type
+        if (sSE->IsReactorSE()) {
+            int32 reactionType = sSE->GetReactorSE()->GetReactorData()->GetReaction();
+            if (reactionType > 0)
+                tuple->SetItem(2, new PyInt(reactionType));
+            else
+                tuple->SetItem(2, PyStatic.NewNone());
+        } else {
+            tuple->SetItem(2, PyStatic.NewNone());
+        }
+
+        // Connections, demands, supplies
+        if (sSE->IsReactorSE()) {
+            ReactorData* rData = sSE->GetReactorSE()->GetReactorData();
+
+            // Connections
+            PyList* connList = new PyList();
+            for (auto& [connItemID, conn] : rData->GetConnections()) {
+                PyTuple* connTuple = new PyTuple(2);
+                connTuple->SetItem(0, new PyInt(conn.sourceID));
+                connTuple->SetItem(1, new PyInt(conn.sTypeID));
+                connList->AddItem(connTuple);
+            }
+            tuple->SetItem(3, connList);
+
+            // Demands (inputs needed)
+            PyList* demList = new PyList();
+            for (auto& [resID, res] : rData->GetDemands()) {
+                PyTuple* demTuple = new PyTuple(2);
+                demTuple->SetItem(0, new PyInt(res.typeID));
+                demTuple->SetItem(1, new PyInt(res.quantity));
+                demList->AddItem(demTuple);
+            }
+            tuple->SetItem(4, demList);
+
+            // Supplies (outputs available)
+            PyList* supList = new PyList();
+            for (auto& [resID, res] : rData->GetSupplies()) {
+                if (res.quantity > 0) {
+                    PyTuple* supTuple = new PyTuple(2);
+                    supTuple->SetItem(0, new PyInt(res.typeID));
+                    supTuple->SetItem(1, new PyInt(res.quantity));
+                    supList->AddItem(supTuple);
+                }
+            }
+            tuple->SetItem(5, supList);
+        } else {
+            tuple->SetItem(3, new PyList());
+            tuple->SetItem(4, new PyList());
+            tuple->SetItem(5, new PyList());
+        }
+
+        list->AddItem(tuple);
     }
 
     if (is_log_enabled(POS__RSP_DUMP))

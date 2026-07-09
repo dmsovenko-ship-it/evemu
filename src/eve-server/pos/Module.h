@@ -46,27 +46,26 @@ public:
     ReactorSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& data);
     virtual ~ReactorSE();
 
-    /* class type pointer querys. */
     virtual ReactorSE*          GetReactorSE()          { return this; }
-
-    /* class type tests. */
     virtual bool                IsReactorSE()           { return true; }
-
-    /* SystemEntity interface */
     virtual void                Process();
-
-    /* virtual functions default to base class and overridden as needed */
     virtual void                Init();
     virtual void                InitData();
 
-    // reactor resource linking
     void                        AddConnection(EVEPOS::POS_Connections& conn);
     void                        ClearConnections();
     bool                        IsActive()              { return pData->IsActive(); }
     void                        SetActive(bool set)     { pData->SetActive(set); }
+    ReactorData*                GetReactorData()        { return pData; }
 
 private:
-    ReactorData*                pData; //ReactorData class
+    void                        ProcessReactionCycle();
+    int32                       LookupReactionType();
+    bool                        ConsumeInputs(int32 reactionTypeID);
+    void                        ProduceOutputs(int32 reactionTypeID, int32 qty);
+
+    ReactorData*                pData;
+    Timer*                      m_cycleTimer;       // reaction cycle timer
 
 };
 

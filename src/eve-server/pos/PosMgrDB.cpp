@@ -292,24 +292,33 @@ void PosMgrDB::UninstallRemoteBridgeLink(uint32 itemID) //Removes a link from th
 
 bool PosMgrDB::GetReactorData(ReactorData* pData, EVEPOS::StructureData& sData)
 {
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT active, reaction FROM posReactorData WHERE itemID = %u", sData.itemID))
+    {
+        return false;
+    }
+    DBResultRow row;
+    if (!res.GetRow(row)) return false;
+    pData->SetActive(row.GetInt(0) != 0);
+    pData->SetReaction((int16)row.GetInt(1));
     return true;
 }
 
 void PosMgrDB::SaveReactorData(ReactorData* pData, EVEPOS::StructureData& sData)
 {
-    /*
-    bool active;
-    int32 itemID;
-    int16 reaction;     // bp typeID?
-    std::map<uint32, EVEPOS::POS_Connections> connections;  // itemID, data
-    std::map<uint32, EVEPOS::POS_Resource> demands;         // itemID, resourceData(typeID/quantity)
-    std::map<uint32, EVEPOS::POS_Resource> supplies;        // itemID, resourceData(typeID/quantity)
-*/
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO posReactorData (itemID, active, reaction) VALUES (%u, %u, %u)",
+        sData.itemID, pData->IsActive() ? 1 : 0, pData->GetReaction());
 }
 
 void PosMgrDB::UpdateReactorData(ReactorData* pData, EVEPOS::StructureData& sData)
 {
-    // not used yet.
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE posReactorData SET active = %u, reaction = %u WHERE itemID = %u",
+        pData->IsActive() ? 1 : 0, pData->GetReaction(), sData.itemID);
 }
 
 bool PosMgrDB::GetCustomsData(EVEPOS::CustomsData& cData, EVEPOS::OrbitalData& oData)

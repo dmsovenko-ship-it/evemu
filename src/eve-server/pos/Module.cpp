@@ -9,7 +9,10 @@
 
 
 #include "pos/Module.h"
-
+#include "pos/PosMgrDB.h"
+#include "system/SystemManager.h"
+#include "inventory/InventoryItem.h"
+#include "StaticDataMgr.h"
 
 ModuleSE::ModuleSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& data)
 : StructureSE(structure, services, system, data)
@@ -24,15 +27,13 @@ void ModuleSE::Init()
 
 void ModuleSE::Process()
 {
-    /* called by EntityList::Process on every loop */
-    /*  Enable base call to Process state changes  */
     StructureSE::Process();
 }
 
 
 ReactorSE::ReactorSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& data)
 : StructureSE(structure, services, system, data),
-pData(new ReactorData())
+pData(new ReactorData()), m_cycleTimer(nullptr)
 {
 
 }
@@ -40,6 +41,7 @@ pData(new ReactorData())
 ReactorSE::~ReactorSE()
 {
     SafeDelete(pData);
+    SafeDelete(m_cycleTimer);
 }
 
 void ReactorSE::Init()
@@ -48,9 +50,16 @@ void ReactorSE::Init()
 
     if (!m_db.GetReactorData(pData, m_data)) {
         _log(SE__TRACE, "ReactorSE %s(%u) has no saved data.  Initializing default set.", m_self->name(), m_self->itemID());
-        // invalid data....init to 0 as this will only hit for currently-launching items (or errors)
         InitData();
     }
+
+    // Start cycle timer (default 60 min cycle, read from AttrOperationalDuration)
+    uint32 cycleSecs = 3600;
+    EvilNumber duration = m_self->GetAttribute(AttrOperationalDuration);
+    if (!duration.is_int())
+        cycleSecs = duration.get_int();
+    m_cycleTimer = new Timer(cycleSecs * 1000);
+    m_cycleTimer->Start(cycleSecs * 1000);
 }
 
 void ReactorSE::InitData() {
@@ -68,9 +77,114 @@ void ReactorSE::ClearConnections() {
 
 void ReactorSE::Process()
 {
-    /* called by EntityList::Process on every loop */
-    /*  Enable base call to Process state changes  */
     StructureSE::Process();
+
+    // Process reaction cycle when timer fires and reactor is active
+    if (m_cycleTimer != nullptr && m_cycleTimer->Check() && pData->IsActive())
+        ProcessReactionCycle();
+}
+
+int32 ReactorSE::LookupReactionType()
+{
+    // Moon miners (group 416) have AttrHarvesterType set to the moon material typeID
+    // Reactors (group 438) have AttrConsumptionType set to the input material typeID
+    EvilNumber consumeType = m_self->GetAttribute(AttrConsumptionType);
+    if (consumeType.is_int())
+        return consumeType.get_int();
+    return 0;
+}
+
+bool ReactorSE::ConsumeInputs(int32 reactionTypeID)
+{
+    // Query invTypeReactions for inputs of this reaction
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT typeID, quantity FROM invTypeReactions"
+        " WHERE reactionTypeID = %u AND input = 1", reactionTypeID))
+    {
+        return false;
+    }
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 inputTypeID = row.GetUInt(0);
+        uint32 inputQty = row.GetUInt(1);
+
+        // Find this input in connected supplies (silos)
+        bool found = false;
+        for (auto& [itemID, resource] : pData->GetSupplies()) {
+            if (resource.typeID == inputTypeID && resource.quantity >= inputQty) {
+                // Consume from supply
+                resource.quantity -= inputQty;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            _log(SE__ERROR, "ReactorSE %s(%u): missing input type %u x%u",
+                 m_self->name(), m_self->itemID(), inputTypeID, inputQty);
+            return false;
+        }
+    }
+    return true;
+}
+
+void ReactorSE::ProduceOutputs(int32 reactionTypeID, int32 qty)
+{
+    // Query invTypeReactions for outputs of this reaction
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT typeID, quantity FROM invTypeReactions"
+        " WHERE reactionTypeID = %u AND input = 0", reactionTypeID))
+    {
+        return;
+    }
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 outputTypeID = row.GetUInt(0);
+        uint32 outputQty = row.GetUInt(1) * qty;
+
+        // Add to first connected silo's supplies, or spawn in space
+        bool placed = false;
+        for (auto& [itemID, resource] : pData->GetSupplies()) {
+            if (resource.typeID == outputTypeID || resource.quantity == 0) {
+                resource.typeID = outputTypeID;
+                resource.quantity += outputQty;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            // Spawn item in space near the reactor
+            ItemData idata(outputTypeID, m_self->ownerID(), m_system->GetID(),
+                           flagNone, "Reaction Output", m_self->position());
+            InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+            if (iRef.get() != nullptr) {
+                iRef->AlterQuantity(outputQty - 1);
+                iRef->SaveItem();
+            }
+        }
+    }
+}
+
+void ReactorSE::ProcessReactionCycle()
+{
+    if (!pData->IsActive()) return;
+
+    int32 reactionTypeID = LookupReactionType();
+    if (reactionTypeID == 0) return;
+
+    // Try to process one cycle
+    if (ConsumeInputs(reactionTypeID)) {
+        ProduceOutputs(reactionTypeID, 1);
+
+        // Persist updated reactor data
+        m_db.UpdateReactorData(pData, m_data);
+
+        _log(SE__MESSAGE, "ReactorSE %s(%u): completed reaction cycle for type %u",
+             m_self->name(), m_self->itemID(), reactionTypeID);
+    }
 }
 
 /** @note  basic notes on player owned structures
