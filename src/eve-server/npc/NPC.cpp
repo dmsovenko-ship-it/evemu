@@ -233,6 +233,7 @@ bool NPC::IsConvoyUnderAttack() const
 
 PyDict* NPC::MakeSlimItem()
 {
+    _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u) typeID=%u cat=%u", m_self->itemName(), m_self->itemID(), m_self->typeID(), m_self->categoryID());
     PyDict* slim = new PyDict();
     slim->SetItemString("itemID",          new PyLong(m_self->itemID()));
     slim->SetItemString("typeID",          new PyInt(m_self->typeID()));
@@ -245,7 +246,6 @@ PyDict* NPC::MakeSlimItem()
     slim->SetItemString("categoryID",      PyStatic.NewInt(6));
     {
         uint16 gID = m_self->groupID();
-        switch (gID) {
             case 550: case 557: case 562: case 567: case 572: case 759:
                 gID = 25; break;  // Frigate
             case 551: case 555: case 561: case 566: case 571: case 757:

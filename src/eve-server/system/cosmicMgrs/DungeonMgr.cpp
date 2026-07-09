@@ -413,10 +413,11 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 if (objGroup.catID == EVEDB::invCategories::Ship || 
                     objGroup.catID == EVEDB::invCategories::Drone ||
                     objGroup.catID == EVEDB::invCategories::Entity) {
-                    // Incursion dungeons use IDs 2100-2122
                     bool isIncursion = (dungeonID >= 2100 && dungeonID <= 2122);
+                    sLog.Debug("MakeDungeon", "Spawning NPC typeID=%u cat=%u group=%u", object.typeID, objGroup.catID, objType.groupID);
                     m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID, isIncursion);
                 } else {
+                    sLog.Debug("MakeDungeon", "Spawning CELESTIAL typeID=%u cat=%u group=%u", object.typeID, objGroup.catID, objType.groupID);
                     // Define ItemData object for each RoomObject
                     ItemData dData(object.typeID, sig.ownerID, sig.systemID, flagNone, sDataMgr.GetTypeName(object.typeID), pos);
 
