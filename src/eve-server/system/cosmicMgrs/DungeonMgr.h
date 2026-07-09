@@ -31,7 +31,7 @@ public:
     // Initializes the Table:
     int Initialize();
 
-    void GetRandomDungeon(Dungeon::Dungeon& dungeon, uint8 archetype, uint32 factionID = 0);
+    void GetRandomDungeon(Dungeon::Dungeon& dungeon, uint8 archetype, uint32 factionID = 0, float security = 1.0);
     void GetDungeon(Dungeon::Dungeon& dungeon, uint32 dungeonID);
     void UpdateDungeon(uint32 dungeonID);
     void GetDungeons(std::vector<Dungeon::Dungeon>& dunList);

@@ -77,27 +77,29 @@ void DungeonDataMgr::UpdateDungeon(uint32 dungeonID)
     SafeDelete(res);
 }
 
-void DungeonDataMgr::GetRandomDungeon(Dungeon::Dungeon& dungeon, uint8 archetype, uint32 factionID /*=0*/) {
-    // Get the index for the archetype ID
+void DungeonDataMgr::GetRandomDungeon(Dungeon::Dungeon& dungeon, uint8 archetype, uint32 factionID /*=0*/, float security /*=1.0*/) {
     auto& archetypeIndex = m_dungeons.get<Dungeon::DungeonsByArchetype>();
-    // Get the range of all dungeons with the specified archetype ID
     auto range = archetypeIndex.equal_range(archetype);
-    // Collect dungeons matching the faction (or all if factionID == 0)
+    // Collect dungeons matching faction + security requirements
     std::vector<Dungeon::Dungeon> candidates;
     for (auto it = range.first; it != range.second; ++it) {
-        if (factionID == 0 || it->factionID == factionID)
-            candidates.push_back(*it);
+        if (factionID != 0 && it->factionID != factionID) continue;
+        if (security < it->minSecurity || security > it->maxSecurity) continue;
+        candidates.push_back(*it);
     }
-    // If there are no matching dungeons, fall back to any dungeon of this archetype
+    // Fallback: faction only (ignore security)
+    if (candidates.empty()) {
+        for (auto it = range.first; it != range.second; ++it) {
+            if (factionID != 0 && it->factionID != factionID) continue;
+            candidates.push_back(*it);
+        }
+    }
+    // Fallback: any dungeon of this archetype
     if (candidates.empty()) {
         for (auto it = range.first; it != range.second; ++it)
             candidates.push_back(*it);
     }
-    // If still no dungeons, return
-    if (candidates.empty()) {
-        return;
-    }
-    // Pick a random dungeon from candidates
+    if (candidates.empty()) return;
     uint32 randomIndex = rand() % candidates.size();
     dungeon = candidates[randomIndex];
 }
@@ -203,6 +205,9 @@ void DungeonDataMgr::FillObject(DBResultRow row) {
         dData.status = row.GetUInt(2);
         dData.factionID = row.GetUInt(3);
         dData.archetypeID = row.GetUInt(4);
+        dData.minSecurity = row.IsNull(17) ? -1.0f : row.GetFloat(17);
+        dData.maxSecurity = row.IsNull(18) ? 1.0f : row.GetFloat(18);
+        dData.difficulty = row.IsNull(19) ? 1 : row.GetUInt(19);
         dData.rooms[row.GetUInt(5)].roomID = row.GetUInt(5);
         dData.rooms[row.GetUInt(5)].roomName = row.GetText(6);
 
@@ -344,9 +349,10 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
 
     Dungeon::Dungeon dData;
 
-    // If we are given a dungeonID, use it otherwise pick a random dungeon based on archetype
+    // If we are given a dungeonID, use it otherwise pick a random dungeon based on archetype + security
     if (dungeonID == 0) {
-        sDunDataMgr.GetRandomDungeon(dData, sig.dungeonType, sig.ownerID);
+        float sec = m_system != nullptr ? m_system->GetSecValue() : 1.0;
+        sDunDataMgr.GetRandomDungeon(dData, sig.dungeonType, sig.ownerID, sec);
     } else {
         sDunDataMgr.GetDungeon(dData, dungeonID);
     }
@@ -470,16 +476,28 @@ int8 DungeonMgr::GetFaction(uint32 factionID)
 
 int8 DungeonMgr::GetRandLevel()
 {
-    double level = MakeRandomFloat();
-    _log(DUNG__TRACE, "DungeonMgr::GetRandLevel() - level = %.2f", level);
+    float sec = m_system != nullptr ? m_system->GetSecValue() : 1.0;
+    // Higher security → lower levels, lower security → higher levels
+    double r = MakeRandomFloat();
+    _log(DUNG__TRACE, "DungeonMgr::GetRandLevel() - sec=%.2f r=%.2f", sec, r);
 
-    if (level < 0.15) {
-        return 4;
-    } else if (level < 0.25) {
-        return 3;
-    } else if (level < 0.50) {
+    // Null-sec (-1.0 to -0.0): weighted toward levels 3-5
+    if (sec < -0.5) {
+        if (r < 0.20) return 5;
+        if (r < 0.50) return 4;
+        if (r < 0.80) return 3;
         return 2;
-    } else {
+    }
+    // Low-sec (0.0 to 0.4)
+    if (sec < 0.5) {
+        if (r < 0.10) return 5;
+        if (r < 0.30) return 4;
+        if (r < 0.60) return 3;
+        if (r < 0.85) return 2;
         return 1;
     }
+    // High-sec (0.5 to 1.0)
+    if (r < 0.10) return 3;
+    if (r < 0.30) return 2;
+    return 1;
 }

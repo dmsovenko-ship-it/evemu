@@ -183,6 +183,9 @@ namespace Dungeon {
         std::string name;
         uint8 status;
         uint32 factionID;
+        float minSecurity;
+        float maxSecurity;
+        uint8 difficulty;
         uint8 archetypeID;
         std::map<uint16, Room> rooms;
     };
