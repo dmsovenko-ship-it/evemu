@@ -46,6 +46,7 @@ public:
     void UpdateSystemJammerID(uint32 systemID, uint32 jammerID);
     void UpdateSystemBeaconID(uint32 systemID, uint32 beaconID);
     void UpdateClaim(uint32 systemID);
+    PyRep* GetAllDevelopmentIndices();
 
 protected:
     void Populate();

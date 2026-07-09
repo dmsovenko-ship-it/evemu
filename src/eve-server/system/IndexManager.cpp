@@ -25,7 +25,6 @@
 
 #include "eve-server.h"
 
-
 #include "system/IndexManager.h"
 #include "system/sov/SovereigntyDataMgr.h"
 #include "inventory/AttributeEnum.h"
@@ -46,7 +45,7 @@ PyResult IndexManager::GetAllDevelopmentIndices(PyCallArgs& call) {
              const.attributeDevIndexIndustrial: indexInfo.industrialPoints,
              const.attributeDevIndexSovereignty: indexInfo.claimedFor * CLAIM_DAYS_TO_SECONDS}
   */
-    return nullptr;
+    return svDataMgr.GetAllDevelopmentIndices();
 }
 
 PyResult IndexManager::GetDevelopmentIndicesForSystem(PyCallArgs& call, PyInt* solarSystemID) {

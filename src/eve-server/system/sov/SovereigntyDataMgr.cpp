@@ -92,6 +92,29 @@ void SovereigntyDataMgr::Populate()
     SafeDelete(res);
 }
 
+PyRep* SovereigntyDataMgr::GetAllDevelopmentIndices()
+{
+    DBRowDescriptor *header = new DBRowDescriptor();
+    header->AddColumn("solarSystemID", DBTYPE_I4);
+    header->AddColumn("militaryPoints", DBTYPE_I2);
+    header->AddColumn("industrialPoints", DBTYPE_I2);
+    header->AddColumn("claimedFor", DBTYPE_I4);
+    CRowSet *rowset = new CRowSet(&header);
+
+    double now = GetFileTimeNow();
+    for (auto &sData : m_sovData.get<SovDataBySolarSystem>())
+    {
+        PyPackedRow *row = rowset->NewRow();
+        row->SetField("solarSystemID", new PyInt(sData.solarSystemID));
+        row->SetField("militaryPoints", new PyInt(sData.militaryPoints));
+        row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
+        double daysSinceClaim = (now - sData.claimTime) / Win32Time_Day;
+        row->SetField("claimedFor", new PyInt(int32(daysSinceClaim)));
+    }
+
+    return rowset;
+}
+
 void SovereigntyDataMgr::GetInfo()
 {
     /* return info about loaded items? */
