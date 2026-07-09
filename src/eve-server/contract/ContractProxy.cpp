@@ -63,6 +63,7 @@ ContractProxy::ContractProxy () :
     this->Add("GetMyExpiredContractList", &ContractProxy::GetMyExpiredContractList);
     this->Add("PlaceBid", &ContractProxy::PlaceBid);
     this->Add("FinishAuction", &ContractProxy::FinishAuction);
+    this->Add("GetCourierContractFromItemID", &ContractProxy::GetCourierContractFromItemID);
     /*
      *
             ret = self.contractSvc.CompleteContract(contractID, const.conStatusFinished)
@@ -73,7 +74,6 @@ ContractProxy::ContractProxy () :
             return self.contractSvc.GetItemsInContainer(stationID, containerID, forCorp, flag)
             return self.contractSvc.GetItemsInStation(stationID, forCorp)
             return self.contractSvc.DeleteNotification(contractID, forCorp)
-            info = self.contractSvc.GetCourierContractFromItemID(itemID)
      */
 }
 
@@ -92,7 +92,7 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
                             "JOIN invTypes iT on iT.typeID = e.typeID "
                             "JOIN invGroups iG on iG.groupID = iT.groupID "
                             "JOIN invCategories iC on iG.categoryID = iC.categoryID "
-                            "WHERE cC.contractType IN " + std::string(contractType == 10 ? "(1,2)" : "(" + std::to_string(contractType) + ")");
+                            "WHERE cC.contractType IN " + std::string(contractType == 10 ? "(1,2,3)" : "(" + std::to_string(contractType) + ")");
                                                          // Type 10 is "All" and "Exclude WTB", for some reason. We'll assume it's "All", lol
 
         if (!call.byname.find("itemTypes")->second->IsNone()) {
@@ -1450,4 +1450,38 @@ PyResult ContractProxy::FinishAuction(PyCallArgs& call, PyInt* contractID) {
         }
     }
     return PyStatic.NewTrue();
+}
+
+PyResult ContractProxy::GetCourierContractFromItemID(PyCallArgs& call, PyInt* itemID) {
+    //  info = self.contractSvc.GetCourierContractFromItemID(itemID)
+
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT contractId, startStationID, endStationID, reward, collateral, volume, title,"
+        " dateIssued, dateExpired, issuerID, issuerCorpID, status"
+        " FROM ctrContracts"
+        " WHERE crateID = %u AND contractType = 3",
+        itemID->value());
+
+    DBResultRow row;
+    if (!res.GetRow(row))
+    {
+        sLog.Warning("GetCourierContractFromItemID", "No courier contract found for crateID %u", itemID->value());
+        return new PyDict();
+    }
+
+    PyDict* dict = new PyDict();
+    dict->SetItemString("contractID", new PyInt(row.GetUInt(0)));
+    dict->SetItemString("startStationID", new PyInt(row.GetUInt(1)));
+    dict->SetItemString("endStationID", new PyInt(row.GetUInt(2)));
+    dict->SetItemString("reward", new PyInt(row.GetUInt(3)));
+    dict->SetItemString("collateral", new PyInt(row.GetUInt(4)));
+    dict->SetItemString("volume", new PyFloat(row.GetDouble(5)));
+    dict->SetItemString("title", new PyString(row.GetText(6)));
+    dict->SetItemString("dateIssued", new PyLong(row.GetInt64(7)));
+    dict->SetItemString("dateExpired", new PyLong(row.GetInt64(8)));
+    dict->SetItemString("issuerID", new PyInt(row.GetUInt(9)));
+    dict->SetItemString("issuerCorpID", new PyInt(row.GetUInt(10)));
+    dict->SetItemString("status", new PyInt(row.GetUInt(11)));
+    return new PyObject("util.KeyVal", dict);
 }
