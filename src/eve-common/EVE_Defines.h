@@ -70,9 +70,9 @@
 
 // bulkdata version
 #define bulkDataBranch          4
-//  bulkDataChangeID rddmmyyyy
-//  where r=revision, dd=day, mm=month, yyyy=year
-#define bulkDataChangeID        1007072026
+// bulkDataChangeID is computed at runtime from migration timestamps
+// to auto-bump when cached data changes — see BulkMgrService::InitBulkDataChangeID
+extern int bulkDataChangeID;
 
 //  define number of rentable offices in stations (config option later?)
 //  this replaces the hard-coded count previously used in station.h

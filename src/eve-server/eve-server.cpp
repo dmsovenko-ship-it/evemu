@@ -66,6 +66,7 @@
 // cache services
 #include "cache/BulkDB.h"
 #include "cache/BulkMgrService.h"
+void ComputeBulkDataChangeID();  // in BulkMgrService.cpp
 #include "cache/ObjCacheService.h"
 // character services
 #include "character/AggressionMgrService.h"
@@ -705,6 +706,7 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new CorpMgrService());
     newSvcMgr.Register(new CalendarProxy());
     newSvcMgr.Register(new AccountService());
+    ComputeBulkDataChangeID();
     newSvcMgr.Register(new BulkMgrService());
     newSvcMgr.Register(new LPService());
     newSvcMgr.Register(new ConfigService());

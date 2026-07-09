@@ -93,11 +93,43 @@
  *
  */
 
+#include <filesystem>
+#include <chrono>
+
 #include "eve-server.h"
 
 
 #include "cache/BulkDB.h"
 #include "cache/BulkMgrService.h"
+
+// bulkDataChangeID — auto-computed from migration file timestamps.
+// Changes when a new migration is added, forcing client cache refresh.
+int bulkDataChangeID = 1007072026;  // default fallback
+
+static void ComputeBulkDataChangeID() {
+    namespace fs = std::filesystem;
+    std::string dir = "/src/sql/migrations";
+    uint64_t hash = 0;
+    std::error_code ec;
+    if (fs::exists(dir, ec)) {
+        for (auto& entry : fs::directory_iterator(dir, ec)) {
+            if (entry.path().extension() == ".sql") {
+                auto ftime = fs::last_write_time(entry.path(), ec);
+                auto epoch = ftime.time_since_epoch().count();
+                hash ^= epoch;
+                hash ^= (hash << 13) | (hash >> 51);
+                hash ^= entry.path().filename().string().length();
+            }
+        }
+    }
+    // Mix in current date so daily rebuilds also bump
+    auto now = std::chrono::system_clock::now();
+    auto days = std::chrono::duration_cast<std::chrono::hours>(now.time_since_epoch()).count() / 24;
+    hash ^= (uint64_t)days;
+    bulkDataChangeID = (int)(hash & 0x7FFFFFFF);
+    if (bulkDataChangeID == 0) bulkDataChangeID = 1007072026;
+    sLog.Warning("BulkMgrService", "bulkDataChangeID = %i", bulkDataChangeID);
+}
 
 
 BulkMgrService::BulkMgrService() :
