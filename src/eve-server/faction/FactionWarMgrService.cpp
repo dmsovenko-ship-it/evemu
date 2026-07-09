@@ -196,24 +196,45 @@ PyResult FactionWarMgrService::GetFactionMilitiaCorporation(PyCallArgs &call, Py
 }
 
 PyResult FactionWarMgrService::GetSystemStatus(PyCallArgs &call, PyInt* solarsystemID, PyInt* warFactionID) {
-    /*
-     * status = self.facWarMgr.GetSystemStatus(session.solarsystemid2, session.warfactionid)
-     * systemStatus = sm.StartService('facwar').GetSystemStatus()
-     * xtra = ''
-     * if systemStatus == const.contestionStateCaptured:
-     *    xtra = localization.GetByLabel('UI/Neocom/SystemLost')
-     *    elif systemStatus == const.contestionStateVulnerable:
-     *    xtra = localization.GetByLabel('UI/Neocom/Vulnerable')
-     *    elif systemStatus == const.contestionStateContested:
-     *    xtra = localization.GetByLabel('UI/Neocom/Contested')
-     *    elif systemStatus == const.contestionStateNone and returnNone:
-     *    xtra = localization.GetByLabel('UI/Neocom/Uncontested')
-     *    return xtra
-     */
-
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetSystemStatus()");
-    call.Dump(FACWAR__CALL_DUMP);
-    return new PyInt(FacWar::SysStatus::None);
+
+    // if caller has no FW faction, status is None
+    if (warFactionID->value() == 0)
+        return new PyInt(FacWar::SysStatus::None);
+
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT occupierID, factionID FROM facWarSystems"
+        " WHERE systemID = %u",
+        solarsystemID->value());
+
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return new PyInt(FacWar::SysStatus::None); // not an FW system
+
+    uint32 occupierID = row.GetUInt(0);
+    uint32 factionID = row.GetUInt(1);
+
+    // if caller's faction occupies it → safe
+    if (occupierID == (uint32)warFactionID->value())
+        return new PyInt(FacWar::SysStatus::None);
+
+    // check if the system is contested (has SBU or capture timer running)
+    DBQueryResult sovRes;
+    sDatabase.RunQuery(sovRes,
+        "SELECT contested FROM mapSystemSovInfo WHERE solarSystemID = %u",
+        solarsystemID->value());
+
+    DBResultRow sovRow;
+    bool contested = false;
+    if (sovRes.GetRow(sovRow))
+        contested = (sovRow.GetUInt(0) == 1);
+
+    if (contested)
+        return new PyInt(FacWar::SysStatus::Vulnerable);
+
+    // enemy-occupied system
+    return new PyInt(FacWar::SysStatus::Contested);
 }
 
 // these next two should use static data or cached data to avoid db hits

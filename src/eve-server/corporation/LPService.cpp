@@ -96,7 +96,22 @@ PyResult LPService::TakeOffer(PyCallArgs& call, PyInt* corpID, PyInt* storeID) {
   // Check required items & remove if all are present.
   DBQueryResult requiredItems = GetRequiredItemsForOffer(storeID->value());
   if (requiredItems.GetRowCount() > 0) {
-    // TODO: Remove required from hangar, the client pre-checks the required items are available or else the button is hidden.
+    uint32 stationID = call.client->GetStationID();
+    DBResultRow reqRow;
+    while (requiredItems.GetRow(reqRow)) {
+      uint32 reqTypeID = reqRow.GetUInt(0);
+      uint32 reqQty = reqRow.GetUInt(1);
+      int32 entityID = sItemFactory.GetStationRef(stationID)->GetMyInventory()->ContainsTypeStackQtyByFlag(reqTypeID, flagHangar, reqQty);
+      if (entityID == 0)
+        throw CustomError("Required items are missing from your hangar.");
+      InventoryItemRef itemRef = sItemFactory.GetItemRef(entityID);
+      if (itemRef.get() == nullptr)
+        throw CustomError("Unable to locate required item in your hangar.");
+      if (itemRef->quantity() > reqQty)
+        itemRef->AlterQuantity(-(int32)reqQty);
+      else
+        itemRef->Delete();
+    }
   }
 
   // Remove LP & ISK
