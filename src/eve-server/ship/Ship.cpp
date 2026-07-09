@@ -205,6 +205,11 @@ void ShipItem::InitAttribs()
     if (!HasAttribute(AttrDamage))                      SetAttribute(AttrDamage, EvilZero, false);
     if (!HasAttribute(AttrArmorDamage))                 SetAttribute(AttrArmorDamage, EvilZero, false);
     // shield and cap are part of persistance, and loaded on attrib map initalization.  check for and set to full if no saved value found
+    // ensure minimum capacity to prevent client-side ZeroDivisionError in shipui UpdateGauges
+    if (!HasAttribute(AttrShieldCapacity) or (GetAttribute(AttrShieldCapacity) <= 0))
+        SetAttribute(AttrShieldCapacity, EvilOne, false);
+    if (!HasAttribute(AttrCapacitorCapacity) or (GetAttribute(AttrCapacitorCapacity) <= 0))
+        SetAttribute(AttrCapacitorCapacity, EvilOne, false);
     if (!HasAttribute(AttrShieldCharge))                SetAttribute(AttrShieldCharge,  GetAttribute(AttrShieldCapacity), false);
     if (!HasAttribute(AttrCapacitorCharge))             SetAttribute(AttrCapacitorCharge,  GetAttribute(AttrCapacitorCapacity), false);
     if (!HasAttribute(AttrMaximumRangeCap))             SetAttribute(AttrMaximumRangeCap, ((float)BUBBLE_RADIUS_METERS), false);
