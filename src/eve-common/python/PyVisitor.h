@@ -83,7 +83,7 @@ public:
     virtual bool VisitSubStream( const PySubStream* rep );
     virtual bool VisitChecksumedStream( const PyChecksumedStream* rep );
 
-    static const uint32 kMaxDepth = 4096;
+    static const uint32 kMaxDepth = 128;
 
 protected:
     struct DepthGuard {
