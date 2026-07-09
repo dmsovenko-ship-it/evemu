@@ -522,22 +522,11 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
                 m_system->AddNPC(pNPC);
 
-                // Send warping effect to trigger client crosshair initialization
-                // (belt rats use WarpTo which sends effects.Warping; anomaly NPCs need it too)
-                if (iRef->categoryID() == EVEDB::invCategories::Ship && iRef->GetAttribute(AttrMass) > 10000000) {
+                // For large ships, warp them in from a distance (disabled for Entity-category types)
+                if ((iRef->categoryID() == EVEDB::invCategories::Ship) && (iRef->GetAttribute(AttrMass) > 10000000)) {
                     GPoint warpTo(warpToPoint);
                     warpTo.MakeRandomPointOnSphere(rand()%(12) *1000);
                     pNPC->DestinyMgr()->WarpTo(warpTo, (MakeRandomInt(1, 10) *1000));
-                } else {
-                    // Send Warping effect directly without actual warp to force ball init
-                    OnSpecialFX10 sfx;
-                    sfx.guid = "effects.Warping";
-                    sfx.entityID = pNPC->GetID();
-                    sfx.isOffensive = false;
-                    sfx.start = true;
-                    sfx.active = true;
-                    PyTuple* t = sfx.Encode();
-                    pNPC->DestinyMgr()->SendSingleDestinyUpdate(&t);
                 }
 
                 // Temporary: generate random spawn class

@@ -926,14 +926,7 @@ void DestinyManager::MoveObject() {
         _log(DESTINY__ERROR, "%s(%u) - New position would be NaN! Skipping tic.", mySE->GetName(), mySE->GetID());
         return;
     }
-    // Periodic position sync to prevent client desync:
-    // every 5 tics (~5s) send SetBallPosition even without PositionHack,
-    // so local drift from physics simulation mismatch is corrected.
-    if (++m_moveSyncCounter >= 5) {
-        m_moveSyncCounter = 0;
-        SetPosition(newPos, true);
-    } else {
-        SetPosition(newPos, sConfig.debug.PositionHack);
+    SetPosition(newPos, sConfig.debug.PositionHack);
     }
 
     if (is_log_enabled(DESTINY__MOVE_DEBUG))
