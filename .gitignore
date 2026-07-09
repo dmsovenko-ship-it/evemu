@@ -114,6 +114,9 @@ sql/tables_old/
 # misc shit
 sql.tar.gz
 
+# SDE dump tables (too large for git)
+sde_tables/
+
 # VSCode Config Files
 .vscode/
 .vs/
