@@ -251,6 +251,13 @@ bool TCPConnection::Process() {
     }
 }
 
+bool TCPConnection::ProcessReceivedData( char* errbuf )
+{
+    // Default no-op — prevents __cxa_pure_virtual crash when worker thread
+    // outlives the derived class object during shutdown race.
+    return true;
+}
+
 bool TCPConnection::SendData(char* errbuf)
 {
     if(errbuf)

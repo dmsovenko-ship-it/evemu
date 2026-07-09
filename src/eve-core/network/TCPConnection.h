@@ -158,7 +158,7 @@ protected:
      *
      * @return True if processing ran fine, false if not.
      */
-    virtual bool ProcessReceivedData( char* errbuf = 0 ) = 0;
+    virtual bool ProcessReceivedData( char* errbuf = 0 );
 
     /**
      * @brief Sends data in send queue.
