@@ -945,7 +945,11 @@ void Client::SetBallPark() {
         return;
     }
     if (!m_setStateSent and m_beyonce) {  // MUST have beyonce before sending state data.
-        pShipSE->DestinyMgr()->SendSetState();
+        // Skip SetState during login — client's WarpLoop will start immediately after
+        // and SetState during warp clears the overview. SetLoginWarpComplete will send it.
+        if (!m_login) {
+            pShipSE->DestinyMgr()->SendSetState();
+        }
         m_ballparkTimer.Disable();
         if (IsGateJump()) {
             SetInvulTimer(Player::Timer::JumpInvul);
@@ -3324,4 +3328,12 @@ void Client::SetLoginWarpComplete() {
 
     m_loginWarpPoint = NULL_ORIGIN;
     m_loginWarpRandomPoint = NULL_ORIGIN;
+
+    // Send initial state now that warp is complete.
+    // SetState was deliberately skipped during login (SetBallPark) because
+    // the client's WarpLoop was about to start and SetState during warp
+    // causes the overview to clear. Now that warp has finished, it is safe.
+    if (pShipSE != nullptr && pShipSE->SysBubble() != nullptr && !m_setStateSent) {
+        pShipSE->DestinyMgr()->SendSetState();
+    }
 }
