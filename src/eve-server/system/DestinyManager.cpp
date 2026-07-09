@@ -2122,9 +2122,9 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
      */
     SafeDelete(m_warpState);
 
-    // Landing offset for warp-to-0
+    // Landing offset for warp-to-0 — reduced to 0 for precise landing
     if (distance == 0) {
-        distance = 1000;
+        distance = 0;
     }
 
     // check for autopilot.  it has 'special' checks in client for auto-disable by destiny update
