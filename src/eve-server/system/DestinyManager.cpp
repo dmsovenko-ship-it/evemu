@@ -95,6 +95,7 @@ mvPacket(nullptr)
     m_changeDelay = false;
     m_tractorPause = false;
     m_hasSentShipUpdates = false;
+    m_moveSyncCounter = 0;
 
     m_capNeeded = 0.0;
     m_prevSpeed = 0.0f;
@@ -913,7 +914,15 @@ void DestinyManager::MoveObject() {
         m_shipHeading = NULL_ORIGIN_V;
     }
     m_velocity = m_shipHeading * speed;
-    SetPosition(m_position + m_velocity, sConfig.debug.PositionHack);   // (PositionHack == true) here will force position update to client
+    // Periodic position sync to prevent client desync:
+    // every 5 tics (~5s) send SetBallPosition even without PositionHack,
+    // so local drift from physics simulation mismatch is corrected.
+    if (++m_moveSyncCounter >= 5) {
+        m_moveSyncCounter = 0;
+        SetPosition(m_position + m_velocity, true);
+    } else {
+        SetPosition(m_position + m_velocity, sConfig.debug.PositionHack);
+    }
 
     if (is_log_enabled(DESTINY__MOVE_DEBUG))
         _log(DESTINY__MOVE_DEBUG, "Destiny::MoveObject() - %s(%u) Pos:%.2f,%.2f,%.2f  Vel:%.3f,%.3f,%.3f  Head:%.3f,%.3f,%.3f", \
