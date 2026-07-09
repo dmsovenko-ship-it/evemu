@@ -1003,7 +1003,9 @@ PyRep* CorporationDB::GetCorpRoleGroups()
 {
     DBQueryResult res;
     if (!sDatabase.RunQuery( res,
-        "SELECT roleGroupID, roleGroupName, roleGroupNameID, roleMask, appliesTo, appliesToGrantable, isLocational, isDivisional"
+        "SELECT roleGroupID, roleGroupName, roleGroupNameID, roleMask,"
+        "       appliesTo, appliesToGrantable, isLocational, isDivisional,"
+        "       CASE WHEN isDivisional = 1 THEN '1,2,3,4,5,6,7' ELSE '' END AS `columns`"
         " FROM crpRoleGroups"))
     {
         codelog(CORP__DB_ERROR, "Error in query: %s", res.error.c_str());

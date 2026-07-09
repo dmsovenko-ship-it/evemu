@@ -263,21 +263,62 @@
 - **Calendar fix**: all `PyWString*` params changed to `PyRep*` — client sends `PyString` not `PyWString` ✅
 - **Migration annotations**: All new migrations now have proper `-- +migrate Up/Down` annotations ✅
 
-# TODO
-
-## 🔴 Nothing urgent — all major systems implemented
-
 ## Part 36: Reverse Engineering + OverloadRack + LSC Private Conversations (done)
 - **Reverse Engineering**: `ActivityCheck` allows RE at POS labs, `Calculate` uses `researchTechTime` + `AdvancedLaboratoryOperation`, `CompleteJob` uses `chanceOfRE` + `ReverseEngineering` skill (+1%/lvl), produces T2 BPC ✅
 - **OverloadRack/StopOverloadRack**: finds rack from module flag, overloads/deoverloads all modules via `GetModulesInBank` ✅
 - **LSC Private Conversations**: `Invite` creates temp channel with negative deterministic ID (`-(min<<32|max)`), adds inviter, sends `OnLSC` notification to invitee ✅
 
+## Part 37: Datacore Skills for RE + Alliance Tax + LP Store Fixes (done)
+- **Datacore skill modifier**: `FactoryDB::GetRequiredItems` returns datacore typeIDs, `CompleteJob` multiplies success chance by `1 + 0.1 * datacoreSkillLevel`, RE formula now uses both `ReverseEngineering` (+1%/lvl) and datacore skills ✅
+- **Alliance tax**: `SetTaxRate` implemented, `UpdateAlliance` SQL bug fixed (wrong column reference) ✅
+- **LP store**: `GetSystemStatus` returns system state, `TakeOffer` correctly checks required items before completing offer ✅
+
+## Part 38: Corp Voting + SOV Upgrades (done)
+- **Corp voting**: `CanVote` checks corp membership, `CorpVote` broadcasts to all members, `GetVotes` returns active votes ✅
+- **Vote expiry**: `CheckVoteExpiry` runs every 60s — auto-processes expired corp votes ✅
+- **SOV upgrades**: `GetAllDevelopmentIndices` returns all systems with dev indices, `AddSystemUpgrade`/`RemoveSystemUpgrade` with `SovDataMgr` helper ✅
+- **SovereigntyMgrService**: full CRUD for SOV upgrades via `SovereigntyDataMgr` ✅
+
+## Part 39: Courier Contracts + ForCorp (done)
+- **Courier contracts**: `GetCourierContractFromItemID` finds courier contract by item ID, `CompleteContract` handles courier delivery ✅
+- **ForCorp contracts**: `AcceptContract` and `CompleteContract` accept `forCorp` param, use `Account::KeyType::Cash` for corp wallet operations ✅
+- **SearchContracts**: type 10 now includes courier contracts in results ✅
+
+## Part 40: FW Plex Spawning (done)
+- **FW anomalies**: `SpawnFWAnomalies()` runs every 5 minutes — spawns FW plex sites in loaded FW systems via `DoSpawnForAnomaly` ✅
+- **Faction validation**: FW anomalies assigned to correct faction based on system's `warFactionID` ✅
+
+## Part 41: Dungeon Structures + NPC Crosshairs (done)
+- **Dungeon structures**: acceleration gates, sentry guns, containers now spawn in anomaly/incursion rooms alongside NPCs ✅
+- **NPC crosshairs in dungeons**: added missing groupIDs to `NPC::EncodeDestiny` crosshair check, DSE guard fix, bubble creation on demand ✅
+- **Dungeon AddObject**: accepts `PyNone` for rotation params (client sends `None` when not set) ✅
+- **Dungeon search**: fixed `dungeonNameID IS NULL` — client was skipping entries because nameID was not populated ✅
+- **Structure slim items**: `ItemSystemEntity::MakeSlimItem()` now includes `categoryID`/`groupID` — structures visible in overview ✅
+
+## Part 42: Stability & Bug Fixes (done)
+- **cspa TINYINT range**: reduced from 2950 to 250, then to 100 (DB `TINYINT` signed max 127) ✅
+- **factionID mismatches**: Guristas 500014→500010, Rogue Drones 500020→500022, Serpentis 500013→500020 in `AnomalyMgr` ✅
+- **Login warp crash**: removed `SendSetState` in `SetLoginWarpComplete` — conflicts with client `WarpLoop`, prevents jerking ✅
+- **Client ZeroDivisionError**: fixed `shipui UpdateGauges` crash when ship lacks `capacitorCapacity` ✅
+- **PyVisitor stack overflow**: added depth limit to `PyVisitor`/`MarshalStream` to prevent stack overflow on deeply nested packets ✅
+- **Bubble desync**: `SetPosition` before `AddNPC` in bubble creation + safety net in `BubbleCast` ✅
+- **Compilation fixes**: `uint16` walletKey, renamed shadowed `forCorp`, added missing `Station.h`/`Inventory.h` includes ✅
+- **LSC Invite fixes**: `convID` cast to `int32`, `GetCharName().c_str()` for string params, removed dead code in `Configure` ✅
+- **FactionWar fix**: `util_Rowset::line` → `lines` (member is `PyList*`) ✅
+- **DSE guard fix**: restored missing `switch (gID)` block that was accidentally removed ✅
+- **NPC crosshair groupIDs**: added 550-584, 755-761 group ranges for Entity-category NPCs in dungeons ✅
+
+## Part 43: Alliance Member Info + Role Groups Fix (done)
+- **Alliance member info**: `GetMembers()` now returns `ceoID, memberCount, tickerName, taxRate, stationID, allianceMemberStartDate` alongside existing fields ✅
+- **Alliance details pane**: `GetAllianceMembers()` enriched with the same additional corp info ✅
+- **Role groups fix**: Added computed `columns` field (`1,2,3,4,5,6,7`) to `GetCorpRoleGroups()` — fixes client `KeyError: 1` crash when opening corporation members tab ✅
+
 # TODO
 
 ## 🟡 If desired
-1. **Civilian Manager** — multi-system routes
-2. **Datacore skills for RE** — when FactoryDB::GetRequiredItems is available
+1. **Civilian Manager** — multi-system routes (currently basic ConvoyAI, needs full multi-system traffic)
+2. **Wormhole effects** — pulsar, magnetar, cataclysmic variable effects on ships/modules
 
 ## 🟢 Eventually
-3. **RefPtr → shared_ptr** — major refactoring
+3. **RefPtr → shared_ptr** — major refactoring across ~400 files
 4. **PyRep memory management** — valgrind leak fixes

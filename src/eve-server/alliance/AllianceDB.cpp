@@ -518,8 +518,11 @@ PyRep *AllianceDB::GetMembers(uint32 allyID) //to be called by member of allianc
     //This function is called to gather all of the corporationIDs associated to a particular alliance
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-                            "SELECT corporationID, corporationName, chosenExecutorID "
-                            " FROM crpCorporation WHERE allianceID = %u AND deleted = 0 ",
+                            "SELECT c.corporationID, c.corporationName, c.tickerName,"
+                            "       c.ceoID, c.memberCount, c.taxRate, c.stationID,"
+                            "       c.allianceMemberStartDate, c.chosenExecutorID"
+                            " FROM crpCorporation AS c"
+                            " WHERE c.allianceID = %u AND c.deleted = 0",
                             allyID))
     {
         codelog(ALLY__DB_ERROR, "Error in query: %s", res.error.c_str());
@@ -531,9 +534,6 @@ PyRep *AllianceDB::GetMembers(uint32 allyID) //to be called by member of allianc
         obj->Dump(CORP__RSP_DUMP, "");
 
     return obj;
-
-    //return DBResultToIndexRowset(res);
-    //return DBResultToRowset(res);
 }
 
 PyRep *AllianceDB::GetAllianceMembers(uint32 allyID) //to be called from show details pane
@@ -541,8 +541,11 @@ PyRep *AllianceDB::GetAllianceMembers(uint32 allyID) //to be called from show de
     //This function is called to gather all of the corporationIDs associated to a particular alliance
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-                            "SELECT corporationID "
-                            " FROM crpCorporation WHERE allianceID = %u AND deleted = 0",
+                            "SELECT c.corporationID, c.corporationName, c.tickerName,"
+                            "       c.ceoID, c.memberCount, c.taxRate, c.stationID,"
+                            "       c.allianceMemberStartDate, c.chosenExecutorID"
+                            " FROM crpCorporation AS c"
+                            " WHERE c.allianceID = %u AND c.deleted = 0",
                             allyID))
     {
         codelog(ALLY__DB_ERROR, "Error in query: %s", res.error.c_str());

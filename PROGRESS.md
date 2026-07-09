@@ -20,7 +20,7 @@
 | **Notifications** | 95% | `██████████████████` | **Standings** | 85% | `████████████████░` |
 | **Faction Warfare** | 85% | `████████████████░` | Calendar | 90% | `█████████████████░` |
 | Mail & LSC | 85% | `████████████████░` | Contracts | 90% | `█████████████████░` |
-| Corporation | 85% | `████████████████░` | Alliance | 70% | `████████████████░░` |
+| Corporation | 87% | `████████████████░` | Alliance | 75% | `████████████████░░` |
 | Sovereignty | 85% | `████████████████░` | Science & Industry | 55% | `████████████░░░░░░` |
 | Bookmark System | 95% | `██████████████████` | Effects System | 88% | `█████████████████░` |
 
@@ -191,7 +191,7 @@ _Что осталось:_ nested containers в crate, forCorp при DeleteCont
 
 ---
 
-### 11. Corporation & Alliance `████████████████░` 85% / `████████████████░░` 70%
+### 11. Corporation & Alliance `████████████████░` 87% / `████████████████░░` 75%
 
 | Feature | |
 |---------|-|
@@ -207,6 +207,7 @@ _Что осталось:_ nested containers в crate, forCorp при DeleteCont
 | OnCorporationVoteCaseChanged notifications to all corp members | ✅ |
 | Alliance tax rate (SetTaxRate + alnAlliance.taxRate) | ✅ |
 | Alliance executor change (DeclareExecutorSupport) | ✅ |
+| Alliance member info — ceoID, memberCount, ticker, taxRate, joinDate | ✅ |
 
 _Что осталось:_ **Corp:** страхование, дивиденды. **Alliance:** полное SOV-взаимодействие, интеграция executor voting
 
