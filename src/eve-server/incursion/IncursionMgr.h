@@ -2,7 +2,7 @@
 #define __INCURSION_MGR_H_INCL__
 
 #include "utils/Singleton.h"
-#include "utils/Timer.h"
+#include "utils/timer.h"
 #include <map>
 #include <set>
 #include <unordered_map>
