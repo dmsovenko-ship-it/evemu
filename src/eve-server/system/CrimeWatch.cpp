@@ -265,6 +265,12 @@ void CrimeWatch::SpawnConcordShips()
         pos.z += (float)(MakeRandomInt(-2000, 2000));
         pNPC->DestinyMgr()->SetPosition(pos);
         sysMgr->AddNPC(pNPC);
+        // Make CONCORD target the criminal immediately
+        SystemEntity* criminalSE = m_client->GetShipSE();
+        if (criminalSE != nullptr) {
+            pNPC->GetAIMgr()->Target(criminalSE);
+            pNPC->GetAIMgr()->StartAttackCycle(500);
+        }
         m_concordShips.push_back(pNPC);
     }
 }
