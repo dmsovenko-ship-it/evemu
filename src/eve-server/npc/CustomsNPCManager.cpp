@@ -92,8 +92,9 @@ void CustomsNPCManager::SpawnCustomsNPCs(SystemManager* sysMgr)
 
             if (npc->Load()) {
                 npc->DestinyMgr()->SetPosition(pos);
-                // Orbit the gate at 8-12km
+                // Orbit the gate at 8-12km at minimum speed
                 npc->DestinyMgr()->Orbit(pGate, (uint32)MakeRandomInt(8000, 12000));
+                npc->DestinyMgr()->SetSpeedFraction(0.05f, true);
                 sysMgr->AddNPC(npc);
                 ++count;
             } else {
