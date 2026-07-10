@@ -47,6 +47,7 @@
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
 #include "system/SystemBubble.h"
+#include "standing/StandingDB.h"
 
 NPCAIMgr::NPCAIMgr(NPC* who)
 : m_state(NPCAI::State::Idle),
@@ -324,6 +325,12 @@ void NPCAIMgr::Process() {
                         continue;
                     if (m_npc->GetPosition().distance(cur->GetShipSE()->GetPosition()) > m_sightRange)
                         continue;
+
+                    // Faction patrols only aggro players with negative standing
+                    if (m_npc->GetWarFactionID() > 0) {
+                        if (StandingDB::GetStanding(m_npc->GetWarFactionID(), cur->GetCharacterID()) >= 0.0f)
+                            continue;
+                    }
 
                     Target(cur->GetShipSE());
                     return;

@@ -33,6 +33,7 @@
 #include "map/MapData.h"
 #include "map/MapDB.h"
 #include "npc/CustomsNPCManager.h"
+#include "npc/FactionPatrolManager.h"
 #include "npc/Drone.h"
 #include "npc/NPC.h"
 #include "npc/ConvoyAI.h"
@@ -470,6 +471,7 @@ bool SystemManager::LoadSystemStatics() {
     SpawnBillboards();
     SpawnConvoys();
     SpawnCustomsNPCs();
+    SpawnFactionPatrols();
 
     return true;
 }
@@ -1993,6 +1995,11 @@ void SystemManager::SpawnConvoys()
 void SystemManager::SpawnCustomsNPCs()
 {
     CustomsNPCManager::SpawnCustomsNPCs(this);
+}
+
+void SystemManager::SpawnFactionPatrols()
+{
+    FactionPatrolManager::SpawnPatrols(this);
 }
 
 void SystemManager::AddGhostShip(ShipSE* pShip, int64 expireTime, bool emergencyWarp) {

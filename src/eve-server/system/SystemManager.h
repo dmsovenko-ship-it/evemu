@@ -81,6 +81,7 @@ public:
     uint32 GetID() const                                { return m_data.systemID; }
     uint32 GetRegionID()                                { return m_data.regionID; }
     uint32 GetConstellationID()                         { return m_data.constellationID; }
+    uint32 GetConstellationID()                         { return m_data.constellationID; }
     const std::string& GetNameStr() const               { return m_data.name; }
     const char* GetName() const                         { return m_data.name.c_str(); }
     const char* GetSystemSecurityClass()                { return m_data.securityClass.c_str(); }
@@ -93,6 +94,7 @@ public:
     void SpawnBillboards();
     void SpawnConvoys();
     void SpawnCustomsNPCs();
+    void SpawnFactionPatrols();
     Inventory* GetSystemInv()                           { return m_solarSystemRef->GetMyInventory(); }
     SolarSystemRef GetSystemRef()                       { return m_solarSystemRef; }
 
