@@ -101,7 +101,7 @@ WHERE typeID IN (2372,10017,11898,22822, 10275,10281,11905,23244,
                  2370,2381,11921,23438, 25636,25632,25648,25640);
 
 -- Copy wreck mappings from originals to new typeIDs
-INSERT INTO invTypesToWrecks (typeID, wreckTypeID)
+INSERT INTO invTypesToWrecks (typeID, wreckTypeID, wreckName)
 SELECT
   CASE
     WHEN typeID = 2372 THEN 34000 WHEN typeID = 10017 THEN 34001
@@ -117,7 +117,8 @@ SELECT
     WHEN typeID = 25636 THEN 34020 WHEN typeID = 25632 THEN 34021
     WHEN typeID = 25648 THEN 34022 WHEN typeID = 25640 THEN 34023
   END,
-  wreckTypeID
+  wreckTypeID,
+  ''
 FROM invTypesToWrecks
 WHERE typeID IN (2372,10017,11898,22822, 10275,10281,11905,23244,
                  2382,2387,11932,23321, 10025,10030,11913,23383,
