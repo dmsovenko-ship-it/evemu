@@ -102,7 +102,7 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     // Orbit Range, Follow Range  - npc tries to stay at this distance from active target
     m_flyRange = m_self->GetAttribute(AttrEntityFlyRange).get_uint32();    //AttrOrbitRange is 0 for npc
     if (!m_flyRange)
-        m_flyRange = 0;
+        m_flyRange = m_self->GetAttribute(AttrRadius).get_uint32() * 5;
     // distance for Speed Boost activation  (this needs to be revisited)
     m_boostRange = m_self->GetAttribute(AttrEntityChaseMaxDistance).get_uint32();
     if (!m_boostRange)
