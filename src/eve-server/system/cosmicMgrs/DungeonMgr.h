@@ -100,6 +100,7 @@ private:
 
     int8 GetFaction(uint32 factionID);
     int8 GetRandLevel();
+    void PopulateDEDContainer(InventoryItemRef containerRef, uint32 factionID, uint8 difficulty);
 
     std::map<uint32, Dungeon::LiveDungeon> m_dungeonList; // This holds all live dungeons in the current system
 };

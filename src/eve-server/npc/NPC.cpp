@@ -645,6 +645,25 @@ void NPC::Killed(Damage &damage) {
     }
     m_destiny->SendJettisonPacket();
 
+    // Unlock DED containers in this bubble when NPC dies
+    if (m_bubble != nullptr) {
+        std::map<uint32, SystemEntity*> bubbleEntities;
+        m_bubble->GetEntities(bubbleEntities);
+        for (auto& [eid, pSE] : bubbleEntities) {
+            if (pSE == nullptr) continue;
+            if (!pSE->IsItemEntity()) continue;
+            InventoryItemRef itemRef = pSE->GetSelf();
+            if (itemRef.get() == nullptr) continue;
+            if (itemRef->customInfo().find("ded_") == 0) {
+                itemRef->SetAttribute(AttrAccessDifficulty, 0.0f, false);
+                if (killerID != 0)
+                    itemRef->SetOwner(killerID);
+                itemRef->SaveItem();
+                _log(NPC__TRACE, "NPC::Killed() - Unlocked DED container %u in bubble %u", eid, m_bubble->GetID());
+            }
+        }
+    }
+
     m_killed = true;
     m_system->RemoveNPC(this);
 }

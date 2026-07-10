@@ -432,14 +432,21 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                         return false;
                     }
 
-                    // For Radar(4) and Magnetometric(3) sites, configure containers
+                    // Configure containers based on site type
                     if (sig.dungeonType == 3 || sig.dungeonType == 4) {
+                        // Data/Relic site containers: settable access diff for hacking
                         iRef->SetCustomInfo(std::to_string(sig.ownerID).c_str());
                         iRef->SetAttribute(AttrAccessDifficulty, 15.0f + MakeRandomInt(0, 15), false);
                         if (sig.dungeonType == 3)
                             iRef->SetAttribute(AttrScanMagnetometricStrength, 1.0f, false);
                         else
                             iRef->SetAttribute(AttrScanRadarStrength, 1.0f, false);
+                    } else if (sig.dungeonType == 10) {
+                        // DED complex containers: locked until NPCs die, pre-populated with loot
+                        iRef->SetCustomInfo(("ded_" + std::to_string(sig.ownerID)).c_str());
+                        iRef->SetAttribute(AttrAccessDifficulty, 50.0f, false);  // locked
+                        // Pre-populate DED loot based on tier (1/10-5/10)
+                        PopulateDEDContainer(iRef, sig.ownerID, dData.difficulty);
                     } else {
                         iRef->SetCustomInfo(("livedungeon_" + std::to_string(newDungeon.anomalyID)).c_str());
                     }
@@ -508,4 +515,110 @@ int8 DungeonMgr::GetRandLevel()
     // High-sec (0.5 to 1.0) — almost always level 1, never above 2
     if (r < 0.05) return 2;
     return 1;
+}
+
+void DungeonMgr::PopulateDEDContainer(InventoryItemRef containerRef, uint32 factionID, uint8 difficulty)
+{
+    // Pre-populate DED complex container with faction modules, ship BPCs, and overseer effects
+    // Difficulty = DED tier (1-5), influences loot quality and quantity
+    if (containerRef.get() == nullptr) return;
+
+    // Overseer's Personal Effects (always drops at 5/10, chance at other tiers)
+    if (difficulty >= 5 || MakeRandomFloat() < 0.3f * difficulty) {
+        // Tier 1-23 Overseer's Personal Effects (typeIDs 19400-19422)
+        uint32 oeType = 19400 + MakeRandomInt(0, 22);
+        ItemData oeData(oeType, 1, containerRef->itemID(), flagNone);
+        InventoryItemRef oeRef = sItemFactory.SpawnItem(oeData);
+        if (oeRef.get() != nullptr && containerRef->GetMyInventory() != nullptr)
+            containerRef->GetMyInventory()->AddItem(oeRef);
+    }
+
+    // Faction-specific loot tables by tier
+    struct FactionModule {
+        uint32 typeID;
+        uint8 metaLevel;  // 1=C-type, 2=B-type, 3=A-type
+    };
+
+    std::vector<FactionModule> modPool;
+
+    switch (factionID) {
+        case factionAngel: {
+            // Angel → Domination / Gistii/Gistum/Gist
+            if (difficulty <= 2) {
+                // 1/10-2/10: C-type small modules
+                modPool = {{13773,1}, {13776,1}, {13786,1}};  // small autocannons
+            } else if (difficulty <= 3) {
+                // 3/10: C-type medium + rare B-type
+                modPool = {{13778,1}, {13786,1}, {13788,2}};  // medium autocannons
+            } else {
+                // 4/10-5/10: B-type + rare A-type
+                modPool = {{13785,2}, {13775,2}, {13788,3}};  // large weapons
+            }
+            break;
+        }
+        case factionBloodRaider: {
+            // Blood → Dark Blood / Corpii/Corpum/Corp
+            if (difficulty <= 2)
+                modPool = {{13803,1}, {13811,1}, {13795,1}};  // small lasers
+            else if (difficulty <= 3)
+                modPool = {{13811,1}, {13807,1}, {13801,2}};  // medium lasers
+            else
+                modPool = {{13807,2}, {13799,2}, {13793,3}};  // large lasers
+            break;
+        }
+        case factionSanshas: {
+            // Sansha → True Sansha / Centii/Centum/Cent
+            if (difficulty <= 2)
+                modPool = {{13803,1}, {13811,1}, {13795,1}};  // small lasers (same as Blood)
+            else if (difficulty <= 3)
+                modPool = {{13811,1}, {13807,1}, {13801,2}};
+            else
+                modPool = {{13807,2}, {13799,2}, {13793,3}};
+            break;
+        }
+        default: {
+            // Generic fallback: small weapons
+            modPool = {{13773,1}, {13776,1}, {13803,1}};
+            break;
+        }
+    }
+
+    // Drop 1-3 faction modules
+    uint8 modCount = 1 + MakeRandomInt(0, std::min<uint8>(2, difficulty));
+    for (uint8 i = 0; i < modCount; ++i) {
+        if (modPool.empty()) break;
+        uint32 idx = MakeRandomInt(0, modPool.size() - 1);
+        ItemData modData(modPool[idx].typeID, 1, containerRef->itemID(), flagNone);
+        InventoryItemRef modRef = sItemFactory.SpawnItem(modData);
+        if (modRef.get() != nullptr && containerRef->GetMyInventory() != nullptr)
+            containerRef->GetMyInventory()->AddItem(modRef);
+    }
+
+    // Ship BPCs: faction frigates drop from lower tiers, cruisers from higher
+    if (MakeRandomFloat() < 0.15f * difficulty) {
+        uint32 bpcType = 0;
+        switch (factionID) {
+            case factionAngel:
+                bpcType = (difficulty <= 3) ? 17933 : 17721;  // Dramiel or Cynabal BPC
+                break;
+            case factionBloodRaider:
+                bpcType = (difficulty <= 3) ? 17927 : 17923;  // Cruor or Ashimmu BPC
+                break;
+            case factionGuristas:
+                bpcType = (difficulty <= 3) ? 17931 : 17716;  // Worm or Gila BPC
+                break;
+            case factionSanshas:
+                bpcType = (difficulty <= 3) ? 17925 : 17719;  // Succubus or Phantasm BPC
+                break;
+            case factionSerpentis:
+                bpcType = (difficulty <= 3) ? 17929 : 17723;  // Daredevil or Vigilant BPC
+                break;
+        }
+        if (bpcType != 0) {
+            ItemData bpcData(bpcType, 1, containerRef->itemID(), flagNone);
+            InventoryItemRef bpcRef = sItemFactory.SpawnItem(bpcData);
+            if (bpcRef.get() != nullptr && containerRef->GetMyInventory() != nullptr)
+                containerRef->GetMyInventory()->AddItem(bpcRef);
+        }
+    }
 }
