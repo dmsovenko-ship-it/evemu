@@ -424,16 +424,25 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID, isIncursion);
                 } else {
                     sLog.Debug("MakeDungeon", "Spawning CELESTIAL typeID=%u cat=%u group=%u", object.typeID, objGroup.catID, objType.groupID);
-                    // Define ItemData object for each RoomObject
                     ItemData dData(object.typeID, sig.ownerID, sig.systemID, flagNone, sDataMgr.GetTypeName(object.typeID), pos);
 
-                    // Spawn the object (and persist it across system unloads)
                     iRef = sItemFactory.SpawnItem(dData);
                     if (iRef.get() == nullptr) {
                         _log(COSMIC_MGR__ERROR, "DungeonMgr::Create() - Unable to spawn item with type %s for room %u dungeon with anomaly itemID %u", sDataMgr.GetTypeName(object.typeID), roomCounter, newDungeon.anomalyID);
                         return false;
                     }
-                    iRef->SetCustomInfo(("livedungeon_" + std::to_string(newDungeon.anomalyID)).c_str());
+
+                    // For Radar(4) and Magnetometric(3) sites, configure containers
+                    if (sig.dungeonType == 3 || sig.dungeonType == 4) {
+                        iRef->SetCustomInfo(std::to_string(sig.ownerID).c_str());
+                        iRef->SetAttribute(AttrAccessDifficulty, 15.0f + MakeRandomInt(0, 15), false);
+                        if (sig.dungeonType == 3)
+                            iRef->SetAttribute(AttrScanMagnetometricStrength, 1.0f, false);
+                        else
+                            iRef->SetAttribute(AttrScanRadarStrength, 1.0f, false);
+                    } else {
+                        iRef->SetCustomInfo(("livedungeon_" + std::to_string(newDungeon.anomalyID)).c_str());
+                    }
                     iRef->SaveItem();
 
                     cSE = new CelestialSE(iRef, m_system->GetServiceMgr(), m_system);
