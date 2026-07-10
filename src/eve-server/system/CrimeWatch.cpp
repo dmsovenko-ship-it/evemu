@@ -6,6 +6,7 @@
 #include "system/Damage.h"
 #include "mail/MailDB.h"
 #include "npc/NPC.h"
+#include "npc/NPCAI.h"
 #include "inventory/ItemFactory.h"
 #include "system/SystemBubble.h"
 #include "standing/KillRightDB.h"
