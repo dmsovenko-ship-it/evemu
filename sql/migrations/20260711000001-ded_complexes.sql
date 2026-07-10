@@ -15,6 +15,7 @@ INSERT IGNORE INTO `dunRooms` (`roomID`, `roomName`, `dungeonID`) VALUES
 INSERT IGNORE INTO `dunRoomObjects` (`roomID`, `typeID`, `groupID`, `x`, `y`, `z`) VALUES
 (2300, 23,0, 0,0,0), (2300, 23,0, 200,0,150),
 (2300, 2372,0, -300,0,200), (2300, 10017,0, 300,0,-200), (2300, 2372,0, -100,0,-300);
+-- ... etc
 
 -- Room 2301: Second - 2 cruisers + 1 frig + 3 containers
 INSERT IGNORE INTO `dunRoomObjects` (`roomID`, `typeID`, `groupID`, `x`, `y`, `z`) VALUES
