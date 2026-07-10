@@ -64,6 +64,18 @@ void CrimeWatch::Process()
         // CONCORD stays at location for 5-10 minutes after kill
         m_concordDespawnTimer.Start(MakeRandomInt(300000, 600000));
     }
+    // Respawn any destroyed CONCORD ships (CONCORDOKKEN — endless until criminal dies)
+    if (!m_concordShips.empty() && !m_concordDespawnTimer.Enabled()) {
+        for (auto it = m_concordShips.begin(); it != m_concordShips.end(); ) {
+            if ((*it)->IsDead() || (*it)->SysBubble() == nullptr) {
+                uint32 typeID = CONCORD_TYPEIDS[MakeRandomInt(0, 2)];
+                RespawnConcordShip(typeID);
+                it = m_concordShips.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
     if (m_concordDespawnTimer.Enabled() and m_concordDespawnTimer.Check()) {
         m_concordDespawnTimer.Disable();
         ClearConcordShips();
@@ -224,6 +236,33 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
         if (kdb.GrantKillRight(pTarget->GetCharacterID(), m_client->GetCharacterID()) > 0)
             pTarget->SendNotifyMsg("Kill Right granted against %s for pod kill.", m_client->GetName());
     }
+}
+
+void CrimeWatch::RespawnConcordShip(uint32 typeID)
+{
+    if (!m_client->IsInSpace() || m_client->GetShipSE() == nullptr) return;
+    SystemManager* sysMgr = m_client->SystemMgr();
+    if (sysMgr == nullptr) return;
+    GPoint criminalPos = m_client->GetShipSE()->GetPosition();
+    FactionData faction;
+    faction.allianceID = 0; faction.factionID = 500021;
+    faction.ownerID = 1000125; faction.corporationID = 1000125;
+    ItemData itemData(typeID, faction.ownerID, sysMgr->GetID(), flagNone, "CONCORD", criminalPos);
+    InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+    if (iRef.get() == nullptr) return;
+    NPC* pNPC = new NPC(iRef, sysMgr->GetServiceMgr(), sysMgr, faction);
+    if (pNPC == nullptr || !pNPC->Load()) { SafeDelete(pNPC); return; }
+    GPoint pos = criminalPos;
+    pos.x += (float)MakeRandomInt(-2000, 2000);
+    pos.z += (float)MakeRandomInt(-2000, 2000);
+    pNPC->DestinyMgr()->SetPosition(pos);
+    sysMgr->AddNPC(pNPC);
+    SystemEntity* criminalSE = m_client->GetShipSE();
+    if (criminalSE != nullptr) {
+        pNPC->GetAIMgr()->Target(criminalSE);
+        pNPC->GetAIMgr()->StartAttackCycle(500);
+    }
+    m_concordShips.push_back(pNPC);
 }
 
 void CrimeWatch::SpawnConcordShips()

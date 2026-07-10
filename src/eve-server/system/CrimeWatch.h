@@ -30,6 +30,7 @@ public:
 
 protected:
     void SpawnConcordShips();
+    void RespawnConcordShip(uint32 typeID);
     void ClearConcordShips();
 
 private:
