@@ -39,6 +39,7 @@ CrimeWatch::CrimeWatch(Client* pClient)
     m_concordTimer.Disable();
     m_concordDamageTimer.Disable();
     m_limitedEngagementTimer.Disable();
+    m_concordWave = 0;
 }
 
 bool CrimeWatch::IsOutlaw() const
@@ -64,17 +65,23 @@ void CrimeWatch::Process()
         // CONCORD stays at location for 5-10 minutes after kill
         m_concordDespawnTimer.Start(MakeRandomInt(300000, 600000));
     }
-    // Respawn any destroyed CONCORD ships (CONCORDOKKEN — endless until criminal dies)
+    // CONCORDOKKEN: respawn with escalating numbers each time one is killed
     if (!m_concordShips.empty() && !m_concordDespawnTimer.Enabled()) {
+        uint32 deadCount = 0;
         for (auto it = m_concordShips.begin(); it != m_concordShips.end(); ) {
             if ((*it)->IsDead() || (*it)->SysBubble() == nullptr) {
-                uint32 typeID = CONCORD_TYPEIDS[MakeRandomInt(0, 2)];
-                RespawnConcordShip(typeID);
+                ++deadCount;
                 it = m_concordShips.erase(it);
             } else {
                 ++it;
             }
         }
+        // Spawn escalating waves: +1 extra ship per death cycle
+        for (uint32 i = 0; i < deadCount * (1 + m_concordWave); ++i) {
+            uint32 typeID = CONCORD_TYPEIDS[MakeRandomInt(0, 2)];
+            RespawnConcordShip(typeID);
+        }
+        if (deadCount > 0) ++m_concordWave;
     }
     if (m_concordDespawnTimer.Enabled() and m_concordDespawnTimer.Check()) {
         m_concordDespawnTimer.Disable();
