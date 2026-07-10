@@ -60,6 +60,11 @@ void CrimeWatch::Process()
     if (m_concordDamageTimer.Enabled() and m_concordDamageTimer.Check()) {
         m_concordDamageTimer.Disable();
         ApplyConcordPenalty();
+        // CONCORD stays at location for 5-10 minutes after kill
+        m_concordDespawnTimer.Start(MakeRandomInt(300000, 600000));
+    }
+    if (m_concordDespawnTimer.Enabled() and m_concordDespawnTimer.Check()) {
+        m_concordDespawnTimer.Disable();
         ClearConcordShips();
     }
 

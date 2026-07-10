@@ -39,6 +39,7 @@ private:
     Timer m_weaponTimer;
     Timer m_concordTimer;
     Timer m_concordDamageTimer;
+    Timer m_concordDespawnTimer;
     Timer m_limitedEngagementTimer;
     std::vector<NPC*> m_concordShips;
 };
