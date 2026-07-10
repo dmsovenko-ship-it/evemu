@@ -91,7 +91,11 @@ uint32 Prospector::DoCycle()
         SendFailure();
         CheckSuccess();
     } else if (m_success) {
-        DropSalvage();
+        if (m_dataMiner) {
+            DropItems();
+        } else {
+            DropSalvage();
+        }
         AbortCycle();
         return 0;
     } else {
@@ -232,8 +236,101 @@ void Prospector::DropSalvage()
 
 void Prospector::DropItems()
 {
-    // this will be for data miners and hacking/archaeology shit.  dunno what all we'll need at this point.
-    //  update StaticDataMgr for these items also.
+    _log(MODULE__DEBUG, "Prospector::DropItems() called for container %u", m_targetSE->GetID());
+    InventoryItemRef containerRef = m_targetSE->GetSelf();
+    if (containerRef.get() == nullptr) return;
+
+    // Get faction from container's customInfo (set when container was spawned)
+    uint32 factionID = atoi(containerRef->customInfo());
+    if (factionID == 0)
+        factionID = containerRef->ownerID();
+
+    ShipItemRef ship = m_shipRef;
+    if (ship.get() == nullptr) return;
+
+    // Use existing salvage system for faction-specific drops (e.g., Sleeper salvage)
+    // Add: decryptors, faction materials (Materials_and_Compounds)
+    std::vector<uint32> factionMats;
+    std::vector<uint32> decryptors;
+
+    switch (factionID) {
+        case factionAngel: {
+            factionMats = {21592, 21593, 21594};     // Electric Conduit, Mechanic Parts, Energy Cells
+            decryptors  = {21579, 21580, 21581, 21582, 21583};  // Minmatar decryptors
+            break;
+        }
+        case factionBloodRaider: {
+            factionMats = {23158, 23160, 23159};     // Positron Cord, Force Cable, Auxiliary Parts
+            decryptors  = {23178, 23179, 23180, 23181, 23182};  // Amarr decryptors
+            break;
+        }
+        case factionGuristas: {
+            factionMats = {21587, 21588, 21589};     // Electronic Link, Spare Parts, Power Couplings
+            decryptors  = {21573, 21574, 21575, 21576, 21577};  // Caldari decryptors
+            break;
+        }
+        case factionSanshas: {
+            factionMats = {23158, 23160, 23159};     // Same as Blood (Sansha use Amarr materials)
+            decryptors  = {23178, 23179, 23180, 23181, 23182};  // Amarr decryptors
+            break;
+        }
+        case factionSerpentis: {
+            factionMats = {23163, 23165, 23164};     // Current Amplifier, Heat Depressor, Second-hand Parts
+            decryptors  = {23183, 23184, 23185, 23186, 23187};  // Gallente decryptors
+            break;
+        }
+        case factionSleepers: {
+            factionMats = {30018, 30021, 30022, 30024, 30248, 30251, 30252, 30254, 30258, 30259};
+            decryptors  = {};  // Sleepers don't drop decryptors
+            break;
+        }
+        default: {
+            factionMats = {21592, 21593, 21594};
+            decryptors  = {21573, 21574, 21575, 21576, 21577};
+            break;
+        }
+    }
+
+    // Drop faction materials (2-4 stacks, 80% chance)
+    uint8 matCount = 2 + MakeRandomInt(0, 2);
+    for (uint8 i = 0; i < matCount; ++i) {
+        if (MakeRandomFloat(0.0f, 1.0f) > 0.80f) continue;
+        uint32 matType = factionMats[MakeRandomInt(0, factionMats.size() - 1)];
+        uint8 qty = 5 + MakeRandomInt(0, 20);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(
+            ItemData(matType, qty, ship->itemID(), flagCargoHold));
+        if (iRef.get() != nullptr)
+            ship->GetMyInventory()->AddItem(iRef);
+    }
+
+    // Drop decryptor (30% chance)
+    if (!decryptors.empty() && MakeRandomFloat(0.0f, 1.0f) < 0.30f) {
+        uint32 decType = decryptors[MakeRandomInt(0, decryptors.size() - 1)];
+        InventoryItemRef iRef = sItemFactory.SpawnItem(
+            ItemData(decType, 1, ship->itemID(), flagCargoHold));
+        if (iRef.get() != nullptr)
+            ship->GetMyInventory()->AddItem(iRef);
+    }
+
+    // Drop salvage via existing salvage system (faction-specific)
+    {
+        std::vector<uint32> salvageList;
+        sDataMgr.GetSalvage(factionID, salvageList);
+        for (auto& salvageType : salvageList) {
+            if (MakeRandomFloat(0.0f, 1.0f) < 0.30f) {  // 30% per salvage type
+                InventoryItemRef iRef = sItemFactory.SpawnItem(
+                    ItemData(salvageType, 1, ship->itemID(), flagCargoHold));
+                if (iRef.get() != nullptr)
+                    ship->GetMyInventory()->AddItem(iRef);
+            }
+        }
+    }
+
+    // Delete the container after successful hack
+    containerRef->Delete();
+    m_success = false;
+
+    _log(MODULE__DEBUG, "Prospector::DropItems() completed for faction %u", factionID);
 }
 
 /*
