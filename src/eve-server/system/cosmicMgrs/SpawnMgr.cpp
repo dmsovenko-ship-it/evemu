@@ -537,9 +537,10 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
                 m_system->AddNPC(pNPC);
 
-                // Anomaly NPCs use SendSetState for crosshair init regardless of category
-                if (pNPC->DestinyMgr() != nullptr)
-                    pNPC->DestinyMgr()->SendSetState();
+                // Micro-warp to trigger client crosshair initialization (belt rats get this via WarpTo)
+                GPoint warpTo(startPos);
+                warpTo.MakeRandomPointOnSphere(1000 + rand() % 3000);
+                pNPC->DestinyMgr()->WarpTo(warpTo, 1000);
 
                 // Temporary: generate random spawn class
                 uint8 sClass = rand()%(12) + 1;

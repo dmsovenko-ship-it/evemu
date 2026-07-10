@@ -276,6 +276,10 @@ void AnomalyMgr::GetAnomalyList(std::vector<CosmicSignature>& sig) {
 
 void AnomalyMgr::CreateAnomaly(int8 typeID)
 {
+    // Skip Jita (systemID 30000142) — no anomalies on official EVE
+    if (m_system->GetID() == 30000142)
+        return;
+
     // compile data for new system anomaly.
     CosmicSignature sig = CosmicSignature();
         sig.systemID = m_system->GetID();

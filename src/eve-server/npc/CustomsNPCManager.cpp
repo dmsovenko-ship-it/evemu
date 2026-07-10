@@ -31,6 +31,9 @@ void CustomsNPCManager::SpawnCustomsNPCs(SystemManager* sysMgr)
     if (sec < 0.5f) return;  // only highsec
 
     uint32 systemFactionID = sysMgr->GetSystemRef()->factionID();
+    // Many highsec systems have factionID=0 — use region faction instead
+    if (systemFactionID == 0)
+        systemFactionID = sDataMgr.GetRegionFaction(sysMgr->GetRegionID());
 
     // Determine which typeIDs to use for this faction
     uint16 commissionerTypeID = s_defaultTypeIDs[0];
