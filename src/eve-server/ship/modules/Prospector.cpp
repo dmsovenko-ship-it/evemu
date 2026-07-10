@@ -241,7 +241,7 @@ void Prospector::DropItems()
     if (containerRef.get() == nullptr) return;
 
     // Get faction from container's customInfo
-    uint32 factionID = atoi(containerRef->customInfo());
+    uint32 factionID = atoi(containerRef->customInfo().c_str());
     if (factionID == 0)
         factionID = containerRef->ownerID();
 
@@ -296,8 +296,8 @@ void Prospector::DropItems()
             if (MakeRandomFloat(0.0f, 1.0f) > 0.80f) continue;
             uint32 matType = factionMats[MakeRandomInt(0, factionMats.size() - 1)];
             uint8 qty = 5 + MakeRandomInt(0, 20);
-            InventoryItemRef iRef = sItemFactory.SpawnItem(
-                ItemData(matType, qty, containerRef->itemID(), flagNone));
+            ItemData mData(matType, qty, containerRef->itemID(), flagNone);
+            InventoryItemRef iRef = sItemFactory.SpawnItem(mData);
             if (iRef.get() != nullptr)
                 containerRef->GetMyInventory()->AddItem(iRef);
         }
@@ -305,8 +305,8 @@ void Prospector::DropItems()
         // Drop decryptor
         if (!decryptors.empty() && MakeRandomFloat(0.0f, 1.0f) < 0.30f) {
             uint32 decType = decryptors[MakeRandomInt(0, decryptors.size() - 1)];
-            InventoryItemRef iRef = sItemFactory.SpawnItem(
-                ItemData(decType, 1, containerRef->itemID(), flagNone));
+            ItemData dData(decType, 1, containerRef->itemID(), flagNone);
+            InventoryItemRef iRef = sItemFactory.SpawnItem(dData);
             if (iRef.get() != nullptr)
                 containerRef->GetMyInventory()->AddItem(iRef);
         }
@@ -316,8 +316,8 @@ void Prospector::DropItems()
         sDataMgr.GetSalvage(factionID, salvageList);
         for (auto& salvageType : salvageList) {
             if (MakeRandomFloat(0.0f, 1.0f) < 0.30f) {
-                InventoryItemRef iRef = sItemFactory.SpawnItem(
-                    ItemData(salvageType, 1, containerRef->itemID(), flagNone));
+                ItemData sData(salvageType, 1, containerRef->itemID(), flagNone);
+                InventoryItemRef iRef = sItemFactory.SpawnItem(sData);
                 if (iRef.get() != nullptr)
                     containerRef->GetMyInventory()->AddItem(iRef);
             }
@@ -339,16 +339,16 @@ void Prospector::DropItems()
             if (MakeRandomFloat(0.0f, 1.0f) > 0.80f) continue;
             uint32 matType = factionMats[MakeRandomInt(0, factionMats.size() - 1)];
             uint8 qty = 5 + MakeRandomInt(0, 20);
-            InventoryItemRef iRef = sItemFactory.SpawnItem(
-                ItemData(matType, qty, ship->itemID(), flagCargoHold));
+            ItemData mData2(matType, qty, ship->itemID(), flagCargoHold);
+            InventoryItemRef iRef = sItemFactory.SpawnItem(mData2);
             if (iRef.get() != nullptr)
                 ship->GetMyInventory()->AddItem(iRef);
         }
 
         if (!decryptors.empty() && MakeRandomFloat(0.0f, 1.0f) < 0.30f) {
             uint32 decType = decryptors[MakeRandomInt(0, decryptors.size() - 1)];
-            InventoryItemRef iRef = sItemFactory.SpawnItem(
-                ItemData(decType, 1, ship->itemID(), flagCargoHold));
+            ItemData dData2(decType, 1, ship->itemID(), flagCargoHold);
+            InventoryItemRef iRef = sItemFactory.SpawnItem(dData2);
             if (iRef.get() != nullptr)
                 ship->GetMyInventory()->AddItem(iRef);
         }
@@ -357,8 +357,8 @@ void Prospector::DropItems()
         sDataMgr.GetSalvage(factionID, salvageList);
         for (auto& salvageType : salvageList) {
             if (MakeRandomFloat(0.0f, 1.0f) < 0.30f) {
-                InventoryItemRef iRef = sItemFactory.SpawnItem(
-                    ItemData(salvageType, 1, ship->itemID(), flagCargoHold));
+                ItemData sData2(salvageType, 1, ship->itemID(), flagCargoHold);
+                InventoryItemRef iRef = sItemFactory.SpawnItem(sData2);
                 if (iRef.get() != nullptr)
                     ship->GetMyInventory()->AddItem(iRef);
             }
