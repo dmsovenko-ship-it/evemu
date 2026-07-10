@@ -1830,6 +1830,8 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
         );
     }
 
+    if (m_targBubble == nullptr)
+        return;
     if (m_targBubble->InBubble(m_position, true)) {
         if (is_log_enabled(DESTINY__WARP_TRACE)) {
             _log(
