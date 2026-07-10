@@ -547,6 +547,9 @@ void AnomalyMgr::AddSignal(SystemEntity* pSE, uint32 id/*0*/)
      * this is sill WIP.
      *   see Scan.xmlp and EVE_Scanning.h for client data
      */
+    if (pSE->IsNPCSE()) {
+        return;  // NPCs should not appear on scanner
+    }
     InventoryItemRef iRef = pSE->GetSelf();
     if (iRef.get() == nullptr)
         return; // we'll get over it.
@@ -608,10 +611,11 @@ void AnomalyMgr::AddSignal(SystemEntity* pSE, uint32 id/*0*/)
         };
         case EVEDB::invCategories::Entity:
         case EVEDB::invCategories::Celestial: {
-            // Wrecks should not appear on scanner as anomalies
-            if (iRef->groupID() == EVEDB::invGroups::Wreck)
-                return;
-        } // fall through to default
+            // Only actual cosmic signatures/anomalies should appear on scanner
+            // NPCs are already filtered above via IsNPCSE()
+            // Billboards, wrecks, and other Entity/Celestial objects should NOT appear
+            return;
+        };
         default:  {
             sig.sigTypeID = EVEDB::invTypes::CosmicAnomaly;
             sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;

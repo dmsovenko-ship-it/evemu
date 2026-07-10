@@ -1598,6 +1598,7 @@ void Client::ContrabandScan(uint32 fromGate)
     // Scan cargo for contraband
     std::vector<InventoryItemRef> cargoItems;
     ship->GetMyInventory()->GetItemsByFlag(flagCargoHold, cargoItems);
+    _log(CLIENT__DEBUG, "ContrabandScan: scanning %u cargo items for faction %u", cargoItems.size(), factionID);
     int8 smuggLvl = GetChar()->GetSkillLevel(EvESkill::Smuggling);
     // Base 90% detection, Smuggling skill reduces by 10%/lvl
     float detectionChance = 0.9f * (1.0f - smuggLvl * 0.1f);

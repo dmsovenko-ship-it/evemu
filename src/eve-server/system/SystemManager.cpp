@@ -1083,6 +1083,11 @@ void SystemManager::AddEntity(SystemEntity* pSE, bool addSignal/*true*/) {
                 m_opStaticEntities[itemID] = pSE;
             if (m_loaded)   // only update when system is already loaded
                 SendStaticBall(pSE); 
+        } else if (pSE->IsNPCSE()) {
+            // NPCs should not appear on scanner as anomalies/signatures
+            addSignal = false;
+            m_entityChanged = true;
+            m_ticEntities[itemID] = pSE;
         } else if (pSE->IsProbeSE()) {
             // probes are now running sub-hz tics, so dont add to proc list.
             addSignal = false;  // redundant...called with AddSignal=false
@@ -1651,6 +1656,11 @@ void SystemManager::GetAllEntities(std::vector< CosmicSignature >& vector)
     /** @todo this will need to put entity's sigID into anomaly map for Scan::WarpTo object */
     /** @todo this should be updated/current/correct in system's AnomalyMgr.  try to get data from there for this list  */
     for (auto cur : m_ticEntities) {
+        // Skip NPCs and billboards — they should not appear on scanner
+        if (cur.second->IsNPCSE()) continue;
+        uint8 catID = cur.second->GetCategoryID();
+        if (catID == EVEDB::invCategories::Entity
+            || catID == EVEDB::invCategories::Celestial) continue;
         CosmicSignature sig = CosmicSignature();
         sig.dungeonType = Dungeon::Type::Anomaly;
         sig.ownerID = cur.second->GetOwnerID();
@@ -1681,18 +1691,10 @@ void SystemManager::GetAllEntities(std::vector< CosmicSignature >& vector)
                 sig.scanAttributeID = AttrScanStrengthShips;   // result.strengthAttributeID
                 sig.scanGroupID = Scanning::Group::Ship;
             } break;
-            case EVEDB::invCategories::Entity: {
-                sig.scanAttributeID = AttrScanStrengthSignatures;       // result.strengthAttributeID
-                sig.scanGroupID = Scanning::Group::Signature;    // Scrap(1) is for filter only
-                sig.sigName = cur.second->GetName(); // result.DungeonName  -  only used when scanGroupID is sig or anom
-            } break;
-            case EVEDB::invCategories::Asteroid:
-            case EVEDB::invCategories::Celestial:
             case EVEDB::invCategories::Deployable: // mobile warp disruptor
             default: {
                 sig.scanAttributeID = AttrScanAllStrength;     // result.strengthAttributeID (Unknown)
-                sig.scanGroupID = Scanning::Group::Anomaly; // Celestial(64) is only for filter
-                sig.sigName = cur.second->GetName(); // result.DungeonName  -  only used when scanGroupID is sig or anom
+                sig.scanGroupID = Scanning::Group::Anomaly;
             } break;
         }
         vector.push_back(sig);

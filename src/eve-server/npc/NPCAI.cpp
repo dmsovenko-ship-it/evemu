@@ -296,6 +296,9 @@ void NPCAIMgr::Process() {
      */
     switch(m_state) {
         case NPCAI::State::Idle: {
+            // Customs officials don't auto-target players — only respond when triggered by contraband
+            if (m_self->groupID() == EVEDB::invGroups::Customs_Official)
+                return;
             if (m_beginFindTarget.Check()) {
                 std::vector<Client*> clientVec;
                 clientVec.clear();
