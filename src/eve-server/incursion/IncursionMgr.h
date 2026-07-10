@@ -2,6 +2,7 @@
 #define __INCURSION_MGR_H_INCL__
 
 #include "utils/Singleton.h"
+#include "utils/Timer.h"
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -33,6 +34,7 @@ private:
     void DespawnSites(uint32 incursionID);
     void NotifyClients(uint32 incursionID);
 
+    Timer m_spawnTimer;
     std::set<uint32> m_activeSystems;  // solarSystemIDs that currently have active incursion sites
     // Per-bubble damage tracking for contest rewards: bubbleID -> (charID -> totalDamage)
     std::map<uint32, std::map<uint32, double>> m_bubbleDamage;

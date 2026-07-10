@@ -17,7 +17,9 @@ IncursionMgr::IncursionMgr()
 
 void IncursionMgr::Process()
 {
-    sLog.Warning("IncursionMgr", "Process() called");
+    // Init spawn timer on first call
+    if (!m_spawnTimer.Enabled())
+        m_spawnTimer.Start(300000);  // 5 min
 
     // Check if any incursions exist, auto-start one if none active
     DBQueryResult activeRes;
@@ -63,7 +65,9 @@ void IncursionMgr::Process()
 
         UpdateInfluence(incursionID);
         ProgressStateMachine(incursionID);
-        SpawnSites(incursionID);
+        // Spawn sites only every 5 minutes to avoid constant DB queries
+        if (m_spawnTimer.Check(false))
+            SpawnSites(incursionID);
     }
 }
 
