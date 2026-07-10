@@ -39,6 +39,8 @@
 #include "system/Damage.h"
 #include "system/SystemManager.h"
 #include "standing/StandingMgr.h"
+#include "corporation/LPService.h"
+#include "faction/FactionWarMgrDB.h"
 
 
 NPC::NPC(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, SpawnMgr* spawnMgr)
@@ -572,6 +574,16 @@ void NPC::Killed(Damage &damage) {
                 sStandingMgr.UpdateStandings(enemyID, pClient->GetCharacterID(),
                                              Standings::CombatShipKill, reward,
                                              "NPC kill - enemy faction reward");
+            }
+            // FW LP: award if killer is in militia and NPC is from hostile faction
+            if (pClient->GetWarFactionID() > 0) {
+                uint32 militiaCorp = FactionWarMgrDB().GetFactionMilitiaCorporation(pClient->GetWarFactionID());
+                if (militiaCorp > 0) {
+                    int lpAmount = 500 + (int)(m_self->GetAttribute(AttrRadius).get_float() * 0.5f);
+                    if (lpAmount < 100) lpAmount = 100;
+                    if (lpAmount > 5000) lpAmount = 5000;
+                    LPService::AddLP(pClient->GetCharacterID(), militiaCorp, lpAmount);
+                }
             }
         }
     }

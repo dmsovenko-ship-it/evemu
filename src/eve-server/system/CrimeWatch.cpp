@@ -10,6 +10,9 @@
 #include "inventory/ItemFactory.h"
 #include "system/SystemBubble.h"
 #include "standing/KillRightDB.h"
+#include "standing/StandingDB.h"
+#include "corporation/LPService.h"
+#include "faction/FactionWarMgrDB.h"
 
 // Character attribute IDs for HUD timers (from EVE static data)
 static const uint16 ATTR_AGGRESSION_TIMER = 258;
@@ -206,6 +209,23 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
                 DBResultRow warRow;
                 if (warRes.GetRow(warRow))
                     return; // alliance war — legal attack, no flags
+            }
+        }
+    }
+
+    // FW legal attack: both are in opposing militias — no crimewatch flags, award LP
+    {
+        int32 atkFW = m_client->GetWarFactionID();
+        int32 defFW = pTarget->GetWarFactionID();
+        if (atkFW > 0 && defFW > 0 && atkFW != defFW) {
+            float standing = StandingDB::GetStanding(atkFW, defFW);
+            if (standing < 0.0f) {
+                uint32 militiaCorp = FactionWarMgrDB().GetFactionMilitiaCorporation(atkFW);
+                if (militiaCorp > 0) {
+                    int lpAmount = 1000;
+                    LPService::AddLP(m_client->GetCharacterID(), militiaCorp, lpAmount);
+                }
+                return;  // legal FW attack — no aggression/criminal flags
             }
         }
     }
