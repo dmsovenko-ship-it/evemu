@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes.
+Things to verify after recent changes (updated 2026-07-11).
 
 ---
 
@@ -88,7 +88,40 @@ Things to verify after recent changes.
 - [ ] **Join militia** — Enlist in a faction militia. Should see FW standings update.
 - [ ] **FW mission anomalies** — After joining, FW mission anomalies should appear on scanner.
 
+## DED Complexes
+
+- [ ] **DED 3/10** — Scan and warp to a Rated sig. Clear 3 rooms. Containers should unlock after NPCs die.
+- [ ] **DED loot** — Containers should contain faction modules, Overseer's Effects, and ship BPCs.
+- [ ] **DED 1/10, 5/10** — Different tiers spawn correctly with appropriate NPC sizes.
+
+## Data/Relic Sites
+
+- [ ] **Data site (Radar)** — Use Codebreaker on container. Loot should appear in container (not cargo).
+- [ ] **Relic site (Magnetometric)** — Same as data but with Analyzer module.
+
+## CONCORD
+
+- [ ] **CONCORD response** — Commit a crime in highsec. CONCORD should spawn, target, and kill you.
+- [ ] **CONCORD despawn** — After kill, CONCORD stays 5-10 min then despawns.
+- [ ] **CONCORDOKKEN** — Kill a CONCORD ship. New one should respawn with increased damage.
+
+## NPC Behavior
+
+- [ ] **Customs NPCs** — Orbit gates at ~15% speed, should not aggro without contraband.
+- [ ] **Anomaly NPCs** — Should have targeting crosshairs (red). Should orbit, not stand still.
+- [ ] **Battleships** — Should orbit at appropriate range, not be stationary.
+
+## Scanner
+
+- [ ] **Anomaly scanner** — Should only show anomalies and wormholes. No NPCs or billboards.
+- [ ] **Probe scanner** — DED (Rated) sites should NOT appear in scan results.
+
+## Jita
+
+- [ ] **No anomalies** — Jita system (30000142) should have zero anomalies.
+
 ## Stability
 
 - [ ] **No crash on combat** — Engage NPCs with modules active and drones out. No crash.
 - [ ] **Multiple players** — Two clients in same system performing actions simultaneously. No crashes.
+- [ ] **No warp crash** — Warp between gates/systems repeatedly. No `Unknown packet type` or crash.

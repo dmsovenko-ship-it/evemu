@@ -1,4 +1,4 @@
-# Session: Full System — Clones/Wars/Mail/Anomaly NPCs/Corp Market/Contracts/Incursions/Modules
+# EVEmu Crucible — Current State Summary
 
 ## Part 1: Anomaly NPCs — Fixed (done)
 - **Custom typeIDs (33001-33103) → SDE Entity typeIDs**: Switched from custom Ship-category types to real SDE Entity-category pirate NPC typeIDs (since client never caches custom types)
@@ -415,11 +415,39 @@
 
 # TODO
 
+## Part 60: Ship-Category NPCs + Anomaly Scanner + DED Complexes (done)
+- **Ship-category typeIDs (34000-34023)**: созданы в БД, но больше не используются для спавна (ревертнуты на SDE typeIDs) — client cache не находит кастомные типы ✅
+- **Anomaly scanner fix**: `AddSignal()` — пропуск NPC через `IsNPCSE()`, Entity/Celestial больше не падают в `default` (не добавляются как аномалии) ✅
+- **SystemManager::AddEntity()**: не вызывает `AddSignal()` для NPC ✅
+- **SystemManager::GetAllEntities()**: фильтр NPC/Celestial/Entity из сканера ✅
+- **NPCAI::Process()**: таможенники не агрятся автоматически в Idle ✅
+- **Customs orbit**: 15% скорость (было 5%) ✅
+- **NPC orbit fix**: `m_flyRange` по умолчанию = `radius * 5` (NPC больше не стоят на месте) ✅
+- **Generate_invTypes()**: добавлены ВСЕ NPC группы (Deadspace, Commander, Officer, Incursion) в SQL remap ✅
+- **DoSpawnForAnomaly faction override**: фикс для 565 (Sansha BS был пропущен), 562 (Guristas → Sansha) ✅
+- **Jita anomaly ban**: пропуск systemID 30000142 в `CreateAnomaly()` ✅
+- **Customs region faction**: при `factionID=0` — `GetRegionFaction()` ✅
+- **CONCORDOKKEN**: респавн CONCORD при убийстве с наращиванием мощности (+50% дмг/HP за волну) ✅
+- **CONCORD despawn**: 5-10 минут после убийства преступника ✅
+- **CONCORD targeting**: NPC таргетят и атакуют преступника каждые 500ms ✅
+- **Data/Relic site dungeons**: SQL миграции для Radar(4) и Magnetometric(3) archetypes ✅
+- **DED complex dungeons**: 1-5/10 для всех 6 фракций (30+ подземелий) ✅
+- **DED loot**: `PopulateDEDContainer()` — Overseer's Personal Effects, faction modules, ship BPCs ✅
+- **DED container unlock**: при смерти NPC в баббле — контейнеры разблокируются ✅
+- **Prospector::DropItems()**: лут data/relic контейнеров (фракционные материалы, декрипторы, salvage) ✅
+- **Prospector::CanActivate()**: Data Miner работает на `CelestialSE` контейнеры ✅
+- **IncursionMgr SpawnSites**: раз в 5 минут (было каждый тик) ✅
+- **ESI price import script**: `tools/import_prices.py` ✅
+- **WarpUpdate crash fix**: null-check `m_targBubble` ✅
+- **Autopilot diagnostics**: не работает, требуется дальнейшая диагностика
+- **FW LP earning**: не подключён
+
+# TODO
+
 ## 🟡 If desired
 1. **Autopilot** — не работает, требуется диагностика
 2. **FW LP earning** — подключить `LPService::AddLP` к FW-активностям (plex captures, FW kills)
-3. **NPC crosshairs** — если `SendSetState` не решил, требуется исследование клиента Crucible
 
 ## 🟢 Eventually
-4. **RefPtr → shared_ptr** — major refactoring ~400 files
-5. **PyRep memory management** — valgrind leak fixes
+3. **RefPtr → shared_ptr** — major refactoring ~400 files
+4. **PyRep memory management** — valgrind leak fixes
