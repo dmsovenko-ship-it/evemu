@@ -459,7 +459,6 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
         }
 
         GPoint startPos(pos);
-        GPoint warpToPoint(startPos);
 
         std::string name = objType.name;
 
@@ -538,18 +537,9 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
                 m_system->AddNPC(pNPC);
 
-                // For large ships, warp them in from a distance (disabled for Entity-category types)
-                if ((iRef->categoryID() == EVEDB::invCategories::Ship) && (iRef->GetAttribute(AttrMass) > 10000000)) {
-                    GPoint warpTo(warpToPoint);
-                    warpTo.MakeRandomPointOnSphere(rand()%(12) *1000);
-                    pNPC->DestinyMgr()->WarpTo(warpTo, (MakeRandomInt(1, 10) *1000));
-                } else {
-                    // Send Warping effect to force client crosshair initialization
-                    // (belt rats get this via WarpTo; anomaly NPCs need it explicitly)
-                    // Force full state re-init for all players in bubble (crosshair fix)
-                    if (pNPC->DestinyMgr() != nullptr)
-                        pNPC->DestinyMgr()->SendSetState();
-                }
+                // Anomaly NPCs use SendSetState for crosshair init regardless of category
+                if (pNPC->DestinyMgr() != nullptr)
+                    pNPC->DestinyMgr()->SendSetState();
 
                 // Temporary: generate random spawn class
                 uint8 sClass = rand()%(12) + 1;

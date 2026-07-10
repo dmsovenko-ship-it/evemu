@@ -1,0 +1,193 @@
+-- Create Ship-category typeIDs for anomaly NPCs, replacing Entity-category SDE typeIDs
+-- +migrate Up
+
+-- Mapping: Entity typeID → new Ship typeID, original groupID → new Ship groupID
+-- Angel:  2372(g550→25)  10017(g551→26)  11898(g552→27)  22822(g576→419)
+-- Blood:  10275(g557→25) 10281(g555→26) 11905(g556→27) 23244(g578→419)
+-- Guristas: 2382(g562→25) 2387(g561→26) 11932(g560→27) 23321(g580→419)
+-- Sansha: 10025(g567→25) 10030(g566→26) 11913(g565→27) 23383(g582→419)
+-- Serpentis: 2370(g572→25) 2381(g571→26) 11921(g570→27) 23438(g584→419)
+-- Rogue Drones: 25636(g759→25) 25632(g757→26) 25648(g756→27) 25640(g755→419)
+
+-- Delete old custom typeIDs from previous attempts if they exist
+DELETE FROM invTypes WHERE typeID BETWEEN 34000 AND 34023;
+DELETE FROM dgmTypeAttributes WHERE typeID BETWEEN 34000 AND 34023;
+DELETE FROM dgmTypeEffects WHERE typeID BETWEEN 34000 AND 34023;
+DELETE FROM invTypesToWrecks WHERE typeID BETWEEN 34000 AND 34023;
+
+-- Create new Ship-category typeIDs cloned from originals but with Ship groups
+INSERT INTO invTypes (typeID, groupID, typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID)
+SELECT
+  CASE
+    -- Angel
+    WHEN typeID = 2372 THEN 34000 WHEN typeID = 10017 THEN 34001
+    WHEN typeID = 11898 THEN 34002 WHEN typeID = 22822 THEN 34003
+    -- Blood
+    WHEN typeID = 10275 THEN 34004 WHEN typeID = 10281 THEN 34005
+    WHEN typeID = 11905 THEN 34006 WHEN typeID = 23244 THEN 34007
+    -- Guristas
+    WHEN typeID = 2382 THEN 34008 WHEN typeID = 2387 THEN 34009
+    WHEN typeID = 11932 THEN 34010 WHEN typeID = 23321 THEN 34011
+    -- Sansha
+    WHEN typeID = 10025 THEN 34012 WHEN typeID = 10030 THEN 34013
+    WHEN typeID = 11913 THEN 34014 WHEN typeID = 23383 THEN 34015
+    -- Serpentis
+    WHEN typeID = 2370 THEN 34016 WHEN typeID = 2381 THEN 34017
+    WHEN typeID = 11921 THEN 34018 WHEN typeID = 23438 THEN 34019
+    -- Rogue Drones
+    WHEN typeID = 25636 THEN 34020 WHEN typeID = 25632 THEN 34021
+    WHEN typeID = 25648 THEN 34022 WHEN typeID = 25640 THEN 34023
+  END,
+  CASE
+    -- Map Entity groups to Ship groups
+    WHEN groupID IN (550,557,562,567,572,759) THEN 25    -- Frigate
+    WHEN groupID IN (551,555,561,566,571,757) THEN 26    -- Cruiser
+    WHEN groupID IN (552,556,560,565,570,756) THEN 27    -- Battleship
+    WHEN groupID IN (576,578,580,582,584,755) THEN 419   -- Battlecruiser
+    ELSE groupID
+  END,
+  CONCAT(typeName, ' (AI)'),
+  description, graphicID, radius, mass, volume, capacity, portionSize,
+  raceID, basePrice, 1, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID
+FROM invTypes
+WHERE typeID IN (2372,10017,11898,22822, 10275,10281,11905,23244,
+                 2382,2387,11932,23321, 10025,10030,11913,23383,
+                 2370,2381,11921,23438, 25636,25632,25648,25640);
+
+-- Copy dogma attributes from originals to new typeIDs
+INSERT INTO dgmTypeAttributes (typeID, attributeID, valueInt, valueFloat)
+SELECT
+  CASE
+    WHEN typeID = 2372 THEN 34000 WHEN typeID = 10017 THEN 34001
+    WHEN typeID = 11898 THEN 34002 WHEN typeID = 22822 THEN 34003
+    WHEN typeID = 10275 THEN 34004 WHEN typeID = 10281 THEN 34005
+    WHEN typeID = 11905 THEN 34006 WHEN typeID = 23244 THEN 34007
+    WHEN typeID = 2382 THEN 34008 WHEN typeID = 2387 THEN 34009
+    WHEN typeID = 11932 THEN 34010 WHEN typeID = 23321 THEN 34011
+    WHEN typeID = 10025 THEN 34012 WHEN typeID = 10030 THEN 34013
+    WHEN typeID = 11913 THEN 34014 WHEN typeID = 23383 THEN 34015
+    WHEN typeID = 2370 THEN 34016 WHEN typeID = 2381 THEN 34017
+    WHEN typeID = 11921 THEN 34018 WHEN typeID = 23438 THEN 34019
+    WHEN typeID = 25636 THEN 34020 WHEN typeID = 25632 THEN 34021
+    WHEN typeID = 25648 THEN 34022 WHEN typeID = 25640 THEN 34023
+  END,
+  attributeID, valueInt, valueFloat
+FROM dgmTypeAttributes
+WHERE typeID IN (2372,10017,11898,22822, 10275,10281,11905,23244,
+                 2382,2387,11932,23321, 10025,10030,11913,23383,
+                 2370,2381,11921,23438, 25636,25632,25648,25640);
+
+-- Copy dogma effects from originals to new typeIDs
+INSERT INTO dgmTypeEffects (typeID, effectID, isDefault)
+SELECT
+  CASE
+    WHEN typeID = 2372 THEN 34000 WHEN typeID = 10017 THEN 34001
+    WHEN typeID = 11898 THEN 34002 WHEN typeID = 22822 THEN 34003
+    WHEN typeID = 10275 THEN 34004 WHEN typeID = 10281 THEN 34005
+    WHEN typeID = 11905 THEN 34006 WHEN typeID = 23244 THEN 34007
+    WHEN typeID = 2382 THEN 34008 WHEN typeID = 2387 THEN 34009
+    WHEN typeID = 11932 THEN 34010 WHEN typeID = 23321 THEN 34011
+    WHEN typeID = 10025 THEN 34012 WHEN typeID = 10030 THEN 34013
+    WHEN typeID = 11913 THEN 34014 WHEN typeID = 23383 THEN 34015
+    WHEN typeID = 2370 THEN 34016 WHEN typeID = 2381 THEN 34017
+    WHEN typeID = 11921 THEN 34018 WHEN typeID = 23438 THEN 34019
+    WHEN typeID = 25636 THEN 34020 WHEN typeID = 25632 THEN 34021
+    WHEN typeID = 25648 THEN 34022 WHEN typeID = 25640 THEN 34023
+  END,
+  effectID, isDefault
+FROM dgmTypeEffects
+WHERE typeID IN (2372,10017,11898,22822, 10275,10281,11905,23244,
+                 2382,2387,11932,23321, 10025,10030,11913,23383,
+                 2370,2381,11921,23438, 25636,25632,25648,25640);
+
+-- Copy wreck mappings from originals to new typeIDs
+INSERT INTO invTypesToWrecks (typeID, wreckTypeID)
+SELECT
+  CASE
+    WHEN typeID = 2372 THEN 34000 WHEN typeID = 10017 THEN 34001
+    WHEN typeID = 11898 THEN 34002 WHEN typeID = 22822 THEN 34003
+    WHEN typeID = 10275 THEN 34004 WHEN typeID = 10281 THEN 34005
+    WHEN typeID = 11905 THEN 34006 WHEN typeID = 23244 THEN 34007
+    WHEN typeID = 2382 THEN 34008 WHEN typeID = 2387 THEN 34009
+    WHEN typeID = 11932 THEN 34010 WHEN typeID = 23321 THEN 34011
+    WHEN typeID = 10025 THEN 34012 WHEN typeID = 10030 THEN 34013
+    WHEN typeID = 11913 THEN 34014 WHEN typeID = 23383 THEN 34015
+    WHEN typeID = 2370 THEN 34016 WHEN typeID = 2381 THEN 34017
+    WHEN typeID = 11921 THEN 34018 WHEN typeID = 23438 THEN 34019
+    WHEN typeID = 25636 THEN 34020 WHEN typeID = 25632 THEN 34021
+    WHEN typeID = 25648 THEN 34022 WHEN typeID = 25640 THEN 34023
+  END,
+  wreckTypeID
+FROM invTypesToWrecks
+WHERE typeID IN (2372,10017,11898,22822, 10275,10281,11905,23244,
+                 2382,2387,11932,23321, 10025,10030,11913,23383,
+                 2370,2381,11921,23438, 25636,25632,25648,25640);
+
+-- Update dunRoomObjects to use new Ship-category typeIDs instead of SDE Entity-category typeIDs
+-- Angel (rooms 2000-2019): 2372→34000, 10017→34001, 11898→34002, 22822→34003
+UPDATE dunRoomObjects SET typeID = 34000 WHERE typeID = 2372 AND roomID BETWEEN 2000 AND 2019;
+UPDATE dunRoomObjects SET typeID = 34001 WHERE typeID = 10017 AND roomID BETWEEN 2000 AND 2019;
+UPDATE dunRoomObjects SET typeID = 34002 WHERE typeID = 11898 AND roomID BETWEEN 2000 AND 2019;
+UPDATE dunRoomObjects SET typeID = 34003 WHERE typeID = 22822 AND roomID BETWEEN 2000 AND 2019;
+
+-- Blood (rooms 2020-2039): 10275→34004, 10281→34005, 11905→34006, 23244→34007
+UPDATE dunRoomObjects SET typeID = 34004 WHERE typeID = 10275 AND roomID BETWEEN 2020 AND 2039;
+UPDATE dunRoomObjects SET typeID = 34005 WHERE typeID = 10281 AND roomID BETWEEN 2020 AND 2039;
+UPDATE dunRoomObjects SET typeID = 34006 WHERE typeID = 11905 AND roomID BETWEEN 2020 AND 2039;
+UPDATE dunRoomObjects SET typeID = 34007 WHERE typeID = 23244 AND roomID BETWEEN 2020 AND 2039;
+
+-- Guristas (rooms 2040-2059): 2382→34008, 2387→34009, 11932→34010, 23321→34011
+UPDATE dunRoomObjects SET typeID = 34008 WHERE typeID = 2382 AND roomID BETWEEN 2040 AND 2059;
+UPDATE dunRoomObjects SET typeID = 34009 WHERE typeID = 2387 AND roomID BETWEEN 2040 AND 2059;
+UPDATE dunRoomObjects SET typeID = 34010 WHERE typeID = 11932 AND roomID BETWEEN 2040 AND 2059;
+UPDATE dunRoomObjects SET typeID = 34011 WHERE typeID = 23321 AND roomID BETWEEN 2040 AND 2059;
+
+-- Sansha (rooms 2060-2079): 10025→34012, 10030→34013, 11913→34014, 23383→34015
+UPDATE dunRoomObjects SET typeID = 34012 WHERE typeID = 10025 AND roomID BETWEEN 2060 AND 2079;
+UPDATE dunRoomObjects SET typeID = 34013 WHERE typeID = 10030 AND roomID BETWEEN 2060 AND 2079;
+UPDATE dunRoomObjects SET typeID = 34014 WHERE typeID = 11913 AND roomID BETWEEN 2060 AND 2079;
+UPDATE dunRoomObjects SET typeID = 34015 WHERE typeID = 23383 AND roomID BETWEEN 2060 AND 2079;
+
+-- Serpentis (rooms 2080-2089): 2370→34016, 2381→34017, 11921→34018, 23438→34019
+UPDATE dunRoomObjects SET typeID = 34016 WHERE typeID = 2370 AND roomID BETWEEN 2080 AND 2089;
+UPDATE dunRoomObjects SET typeID = 34017 WHERE typeID = 2381 AND roomID BETWEEN 2080 AND 2089;
+UPDATE dunRoomObjects SET typeID = 34018 WHERE typeID = 11921 AND roomID BETWEEN 2080 AND 2089;
+UPDATE dunRoomObjects SET typeID = 34019 WHERE typeID = 23438 AND roomID BETWEEN 2080 AND 2089;
+
+-- Rogue Drones (rooms 2090-2099): 25636→34020, 25632→34021, 25648→34022, 25640→34023
+UPDATE dunRoomObjects SET typeID = 34020 WHERE typeID = 25636 AND roomID BETWEEN 2090 AND 2099;
+UPDATE dunRoomObjects SET typeID = 34021 WHERE typeID = 25632 AND roomID BETWEEN 2090 AND 2099;
+UPDATE dunRoomObjects SET typeID = 34022 WHERE typeID = 25648 AND roomID BETWEEN 2090 AND 2099;
+UPDATE dunRoomObjects SET typeID = 34023 WHERE typeID = 25640 AND roomID BETWEEN 2090 AND 2099;
+
+-- +migrate Down
+-- Restore SDE Entity-category typeIDs
+UPDATE dunRoomObjects SET typeID = 2372 WHERE typeID = 34000;
+UPDATE dunRoomObjects SET typeID = 10017 WHERE typeID = 34001;
+UPDATE dunRoomObjects SET typeID = 11898 WHERE typeID = 34002;
+UPDATE dunRoomObjects SET typeID = 22822 WHERE typeID = 34003;
+UPDATE dunRoomObjects SET typeID = 10275 WHERE typeID = 34004;
+UPDATE dunRoomObjects SET typeID = 10281 WHERE typeID = 34005;
+UPDATE dunRoomObjects SET typeID = 11905 WHERE typeID = 34006;
+UPDATE dunRoomObjects SET typeID = 23244 WHERE typeID = 34007;
+UPDATE dunRoomObjects SET typeID = 2382 WHERE typeID = 34008;
+UPDATE dunRoomObjects SET typeID = 2387 WHERE typeID = 34009;
+UPDATE dunRoomObjects SET typeID = 11932 WHERE typeID = 34010;
+UPDATE dunRoomObjects SET typeID = 23321 WHERE typeID = 34011;
+UPDATE dunRoomObjects SET typeID = 10025 WHERE typeID = 34012;
+UPDATE dunRoomObjects SET typeID = 10030 WHERE typeID = 34013;
+UPDATE dunRoomObjects SET typeID = 11913 WHERE typeID = 34014;
+UPDATE dunRoomObjects SET typeID = 23383 WHERE typeID = 34015;
+UPDATE dunRoomObjects SET typeID = 2370 WHERE typeID = 34016;
+UPDATE dunRoomObjects SET typeID = 2381 WHERE typeID = 34017;
+UPDATE dunRoomObjects SET typeID = 11921 WHERE typeID = 34018;
+UPDATE dunRoomObjects SET typeID = 23438 WHERE typeID = 34019;
+UPDATE dunRoomObjects SET typeID = 25636 WHERE typeID = 34020;
+UPDATE dunRoomObjects SET typeID = 25632 WHERE typeID = 34021;
+UPDATE dunRoomObjects SET typeID = 25648 WHERE typeID = 34022;
+UPDATE dunRoomObjects SET typeID = 25640 WHERE typeID = 34023;
+
+DELETE FROM invTypes WHERE typeID BETWEEN 34000 AND 34023;
+DELETE FROM dgmTypeAttributes WHERE typeID BETWEEN 34000 AND 34023;
+DELETE FROM dgmTypeEffects WHERE typeID BETWEEN 34000 AND 34023;
+DELETE FROM invTypesToWrecks WHERE typeID BETWEEN 34000 AND 34023;
