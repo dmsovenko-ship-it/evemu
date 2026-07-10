@@ -1325,6 +1325,8 @@ void DestinyManager::Orbit() {
     } else {
         m_orbiting = Destiny::Ball::Orbit::Orbiting;
         _log(DESTINY__ORBIT_TRACE, "2 - within tolerance");
+        // within tolerance — don't recalculate orbit, let client handle it
+        return;
     }
 
     #define LogMacro(v) _log(DESTINY__ORBIT_TRACE, "m - " #v ": (%.3f, %.3f, %.3f)   len=%.3f", v.x, v.y, v.z, v.length())
