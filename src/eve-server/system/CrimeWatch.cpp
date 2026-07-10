@@ -65,23 +65,25 @@ void CrimeWatch::Process()
         // CONCORD stays at location for 5-10 minutes after kill
         m_concordDespawnTimer.Start(MakeRandomInt(300000, 600000));
     }
-    // CONCORDOKKEN: respawn with escalating numbers each time one is killed
+    // CONCORDOKKEN: respawn with escalating power (same ship count, more damage)
     if (!m_concordShips.empty() && !m_concordDespawnTimer.Enabled()) {
-        uint32 deadCount = 0;
+        bool anyDead = false;
         for (auto it = m_concordShips.begin(); it != m_concordShips.end(); ) {
             if ((*it)->IsDead() || (*it)->SysBubble() == nullptr) {
-                ++deadCount;
+                anyDead = true;
                 it = m_concordShips.erase(it);
             } else {
                 ++it;
             }
         }
-        // Spawn escalating waves: +1 extra ship per death cycle
-        for (uint32 i = 0; i < deadCount * (1 + m_concordWave); ++i) {
-            uint32 typeID = CONCORD_TYPEIDS[MakeRandomInt(0, 2)];
-            RespawnConcordShip(typeID);
+        if (anyDead) {
+            ++m_concordWave;
+            // Keep 2 CONCORD ships with escalating damage multiplier
+            for (uint32 i = 0; i < 2; ++i) {
+                uint32 typeID = CONCORD_TYPEIDS[MakeRandomInt(0, 2)];
+                RespawnConcordShip(typeID);
+            }
         }
-        if (deadCount > 0) ++m_concordWave;
     }
     if (m_concordDespawnTimer.Enabled() and m_concordDespawnTimer.Check()) {
         m_concordDespawnTimer.Disable();
@@ -264,6 +266,20 @@ void CrimeWatch::RespawnConcordShip(uint32 typeID)
     pos.z += (float)MakeRandomInt(-2000, 2000);
     pNPC->DestinyMgr()->SetPosition(pos);
     sysMgr->AddNPC(pNPC);
+    // Scale NPC damage attributes by wave count (CONCORDOKKEN)
+    if (m_concordWave > 0) {
+        float mult = 1.0f + m_concordWave * 0.5f;
+        InventoryItemRef s = pNPC->GetSelf();
+        float oldDmg = s->GetAttribute(AttrDamageMultiplier).get_float();
+        s->SetAttribute(AttrDamageMultiplier, oldDmg * mult, false);
+        float oldHP = s->GetAttribute(AttrShieldCapacity).get_float();
+        s->SetAttribute(AttrShieldCapacity, oldHP * mult, false);
+        oldHP = s->GetAttribute(AttrArmorHP).get_float();
+        s->SetAttribute(AttrArmorHP, oldHP * mult, false);
+        oldHP = s->GetAttribute(AttrHP).get_float();
+        s->SetAttribute(AttrHP, oldHP * mult, false);
+    }
+
     SystemEntity* criminalSE = m_client->GetShipSE();
     if (criminalSE != nullptr) {
         pNPC->GetAIMgr()->Target(criminalSE);
@@ -333,7 +349,8 @@ void CrimeWatch::ApplyConcordPenalty()
     double totalHP = ship->GetAttribute(AttrShieldCapacity).get_float()
                    + ship->GetAttribute(AttrArmorHP).get_float()
                    + ship->GetAttribute(AttrHP).get_float();
-    double concordDmg = totalHP * 25.0;
+    // Escalating damage: each wave adds 25x more (CONCORDOKKEN)
+    double concordDmg = totalHP * 25.0 * (1 + m_concordWave * 0.5);
 
     m_client->SendNotifyMsg("CONCORD destroyed your %s in %s.",
         ship->itemName(), m_client->SystemMgr()->GetName());
