@@ -39,6 +39,7 @@ bool PyVisitor::VisitTuple(const PyTuple* rep)
     DepthGuard dg(m_depth);
     PyTuple::const_iterator itr = rep->begin(), end = rep->end();
     for (;  itr != end; ++itr) {
+        if (*itr == nullptr) continue;
         if (!(*itr)->visit(*this))
             return false;
     }
@@ -50,9 +51,11 @@ bool PyVisitor::VisitList(const PyList* rep)
     if (m_depth >= kMaxDepth) return true;
     DepthGuard dg(m_depth);
     PyList::const_iterator itr = rep->begin(), end = rep->end();
-    for (;  itr != end; ++itr)
+    for (;  itr != end; ++itr) {
+        if (*itr == nullptr) continue;
         if (!(*itr)->visit(*this))
             return false;
+    }
 
     return true;
 }
