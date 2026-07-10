@@ -12,6 +12,7 @@
 
 #include "StaticDataMgr.h"
 #include "dungeon/DungeonDB.h"
+#include "inventory/Inventory.h"
 #include "inventory/InventoryItem.h"
 #include "system/SystemBubble.h"
 #include "system/SystemEntity.h"
@@ -424,9 +425,9 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID, isIncursion);
                 } else {
                     sLog.Debug("MakeDungeon", "Spawning CELESTIAL typeID=%u cat=%u group=%u", object.typeID, objGroup.catID, objType.groupID);
-                    ItemData dData(object.typeID, sig.ownerID, sig.systemID, flagNone, sDataMgr.GetTypeName(object.typeID), pos);
+                    ItemData itemData(object.typeID, sig.ownerID, sig.systemID, flagNone, sDataMgr.GetTypeName(object.typeID), pos);
 
-                    iRef = sItemFactory.SpawnItem(dData);
+                    iRef = sItemFactory.SpawnItem(itemData);
                     if (iRef.get() == nullptr) {
                         _log(COSMIC_MGR__ERROR, "DungeonMgr::Create() - Unable to spawn item with type %s for room %u dungeon with anomaly itemID %u", sDataMgr.GetTypeName(object.typeID), roomCounter, newDungeon.anomalyID);
                         return false;
