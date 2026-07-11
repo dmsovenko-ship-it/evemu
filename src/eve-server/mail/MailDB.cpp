@@ -472,8 +472,8 @@ void MailDB::MoveAllFromTrash(uint32 characterID)
     DBerror err;
     if (!sDatabase.RunQuery(err,
                             " UPDATE mailMessage "
-                            " WHERE senderID = %u "
-                            " SET statusMask = statusMask | %u" , characterID, mailStatusMaskTrashed)) {
+                            " SET statusMask = statusMask & ~%u"
+                            " WHERE senderID = %u" , mailStatusMaskTrashed, characterID)) {
         codelog(DATABASE__ERROR, " Failed to move all from trash" );
     }
 }
@@ -483,8 +483,8 @@ void MailDB::MoveAllToTrash(uint32 characterID)
     DBerror err;
     if (!sDatabase.RunQuery(err,
                             " UPDATE mailMessage "
-                            " WHERE characterID LIKE  '%%%u%%' "
-                            " SET statusMask = statusMask & ~%u" , characterID, mailStatusMaskTrashed)) {
+                            " SET statusMask = statusMask | %u"
+                            " WHERE toCharacterIDs LIKE '%%%u%%'" , mailStatusMaskTrashed, characterID)) {
         codelog(DATABASE__ERROR, " Failed to move message to trash" );
     }
 }
@@ -495,8 +495,8 @@ void MailDB::MoveToTrash(int32 messageID)
 
     if (!sDatabase.RunQuery(err,
                             " UPDATE mailMessage "
-                            " WHERE messageID = %u "
-                            " SET statusMask = statusMask | %u" , messageID, mailStatusMaskTrashed)) {
+                            " SET statusMask = statusMask | %u"
+                            " WHERE messageID = %u" , mailStatusMaskTrashed, messageID)) {
         codelog(DATABASE__ERROR, " Failed to move message to trash" );
     }
 }

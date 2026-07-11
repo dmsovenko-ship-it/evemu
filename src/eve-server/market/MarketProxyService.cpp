@@ -143,21 +143,21 @@ PyResult MarketProxyService::CorpGetNewTransactions(PyCallArgs& call, PyRep* sel
 PyResult MarketProxyService::GetSkillLimits(PyCallArgs& call) {
     _log(MARKET__MESSAGE, "MarketProxyService::GetSkillLimits() size=%lli", call.tuple->size());
 
-    Character* pChar = call.client->GetChar();
-    if (pChar == nullptr)
+    CharacterRef pChar = call.client->GetChar();
+    if (pChar.get() == nullptr)
         return PyStatic.NewNone();
 
-    uint8 tradeLvl       = pChar->GetSkillLevel(EvESkill::Trade);
-    uint8 retailLvl      = pChar->GetSkillLevel(EvESkill::Retail);
-    uint8 wholeSaleLvl   = pChar->GetSkillLevel(EvESkill::Wholesale);
-    uint8 tycoonLvl      = pChar->GetSkillLevel(EvESkill::Tycoon);
-    uint8 accountingLvl  = pChar->GetSkillLevel(EvESkill::Accounting);
-    uint8 brokerLvl      = pChar->GetSkillLevel(EvESkill::BrokerRelations);
-    uint8 marginTradeLvl = pChar->GetSkillLevel(EvESkill::MarginTrading);
-    uint8 marketingLvl   = std::min(pChar->GetSkillLevel(EvESkill::Marketing), 5u);
-    uint8 procurementLvl = std::min(pChar->GetSkillLevel(EvESkill::Procurement), 5u);
-    uint8 visibilityLvl  = std::min(pChar->GetSkillLevel(EvESkill::Visibility), 5u);
-    uint8 daytradingLvl  = std::min(pChar->GetSkillLevel(EvESkill::Daytrading), 5u);
+    int8 tradeLvl       = pChar->GetSkillLevel(EvESkill::Trade);
+    int8 retailLvl      = pChar->GetSkillLevel(EvESkill::Retail);
+    int8 wholeSaleLvl   = pChar->GetSkillLevel(EvESkill::Wholesale);
+    int8 tycoonLvl      = pChar->GetSkillLevel(EvESkill::Tycoon);
+    int8 accountingLvl  = pChar->GetSkillLevel(EvESkill::Accounting);
+    int8 brokerLvl      = pChar->GetSkillLevel(EvESkill::BrokerRelations);
+    int8 marginTradeLvl = pChar->GetSkillLevel(EvESkill::MarginTrading);
+    int8 marketingLvl   = std::min<int8>(pChar->GetSkillLevel(EvESkill::Marketing), 5);
+    int8 procurementLvl = std::min<int8>(pChar->GetSkillLevel(EvESkill::Procurement), 5);
+    int8 visibilityLvl  = std::min<int8>(pChar->GetSkillLevel(EvESkill::Visibility), 5);
+    int8 daytradingLvl  = std::min<int8>(pChar->GetSkillLevel(EvESkill::Daytrading), 5);
 
     int32 maxOrderCount = 5 + tradeLvl * 4 + retailLvl * 8 + wholeSaleLvl * 16 + tycoonLvl * 32;
 

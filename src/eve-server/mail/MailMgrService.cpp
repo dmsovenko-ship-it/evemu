@@ -341,6 +341,7 @@ PyResult MailMgrService::MarkAsReadByLabel(PyCallArgs &call, PyInt* labelID)
 
 PyResult MailMgrService::MarkAsReadByList(PyCallArgs &call, PyInt* listID)
 {
+    m_db.ApplyStatusMasks(std::vector<int32>{listID->value()}, mailStatusMaskRead);
     return nullptr;
 }
 
@@ -386,6 +387,7 @@ PyResult MailMgrService::MarkAsUnreadByList(PyCallArgs &call, PyList* messageIDs
         messageIds.push_back(t->value());
     }
 
+    m_db.RemoveStatusMasks(messageIds, mailStatusMaskRead);
     return nullptr;
 }
 
@@ -443,11 +445,13 @@ PyResult MailMgrService::MoveToTrash(PyCallArgs &call, PyList* messageIDs)
 
 PyResult MailMgrService::MoveToTrashByLabel(PyCallArgs &call, PyInt* labelID)
 {
+    m_db.MoveToTrashByLabel(call.client->GetCharacterID(), labelID->value());
     return nullptr;
 }
 
 PyResult MailMgrService::MoveToTrashByList(PyCallArgs &call, PyInt* listID)
 {
+    m_db.ApplyStatusMasks(std::vector<int32>{listID->value()}, mailStatusMaskTrashed);
     return nullptr;
 }
 
