@@ -1436,10 +1436,21 @@ void DestinyManager::Orbit() {
     m_targetPoint = m_position + (m_shipHeading * 1.0e16);
     LogMacro( heading );
 
+    // Limit orbital speed: max angular velocity based on ship agility and orbit radius.
+    // At small orbit radii the ship must slow down to maintain a stable orbit.
     double curSpeed = m_maxSpeed * m_activeSpeedFraction * m_maxOrbitSpeedFraction;
+    double maxAngularV = m_shipAgility * 0.5;               // rad/s — rough cap from agility
+    double radiusForSpeed = std::max(m_followDistance, 100.0);
+    double maxOrbitSpeed = radiusForSpeed * maxAngularV;     // v = ω × r
+    if (curSpeed > maxOrbitSpeed) {
+        float cappedFraction = (float)(maxOrbitSpeed / (m_maxSpeed * std::max(m_maxOrbitSpeedFraction, 0.01f)));
+        SetSpeedFraction(cappedFraction);
+        curSpeed = m_maxSpeed * m_activeSpeedFraction * m_maxOrbitSpeedFraction;
+    }
+
     if (is_log_enabled(DESTINY__ORBIT_TRACE))
-        _log(DESTINY__ORBIT_TRACE, "5(%u) - orbiting at %.2f. timestamp:%u, speed:%.2f", \
-            m_orbiting, m_position.distance(Tp), timeStamp, curSpeed);
+        _log(DESTINY__ORBIT_TRACE, "5(%u) - orbiting at %.2f. timestamp:%u, speed:%.2f (maxOrbit:%.0f)", \
+            m_orbiting, m_position.distance(Tp), timeStamp, curSpeed, maxOrbitSpeed);
 
     MoveObject();
 }
