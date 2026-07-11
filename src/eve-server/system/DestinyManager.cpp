@@ -3412,7 +3412,6 @@ void DestinyManager::SendSetState() const {
         updates.push_back(sfx.Encode());
         SendDestinyUpdate(updates);
     }
-    updates.clear();
 
     SetState ss;
 

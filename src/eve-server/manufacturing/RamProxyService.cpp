@@ -648,24 +648,63 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                 int8 meBonus = -2, peBonus = -4, runs = 1;
 
                 if (outTypeID > 0) {
-                    // Base chance from group
-                    float baseChance = 0.22f;
-                    uint16 prodGroup = invBpRef->productType().groupID();
-                    if (prodGroup >= 25 && prodGroup <= 31) { // frig/dessy
-                        baseChance = 0.30f;
-                    } else if (prodGroup >= 26 && prodGroup <= 420) { // cruiser/bc
-                        baseChance = 0.26f;
-                    } else if (prodGroup >= 27) { // bs
-                        baseChance = 0.22f;
-                    } else {
-                        baseChance = 0.34f; // module/rig/ammo
+                    // Read invention items from client data (passed during install)
+                    uint16 baseItemType = 0, decryptorType = 0;
+                    if (call.byname.find("inventionItems") != call.byname.end()) {
+                        PyDict* dict = call.byname["inventionItems"]->AsDict();
+                        baseItemType = PyRep::IntegerValueU32(dict->GetItemString("baseItemType"));
+                        decryptorType = PyRep::IntegerValueU32(dict->GetItemString("decryptorType"));
                     }
 
-                    // Skill modifiers: use base modifier (invention skills are race-specific)
-                    float skillMod = 1.1f;
-                    float dcMod = 1.1f;
+                    // Base chance: use blueprint type's chanceOfRE if available, else per-group fallback
+                    float baseChance = invBpRef->type().chanceOfRE();
+                    if (baseChance < 0.01f) {
+                        uint16 prodGroup = invBpRef->productType().groupID();
+                        if (prodGroup >= 25 && prodGroup <= 31)
+                            baseChance = 0.30f;
+                        else if (prodGroup >= 26 && prodGroup <= 420)
+                            baseChance = 0.26f;
+                        else if (prodGroup >= 27)
+                            baseChance = 0.22f;
+                        else
+                            baseChance = 0.34f;
+                    }
 
-                    float chance = baseChance * skillMod * dcMod;
+                    // Read encryption and datacore skills from RAM requirements
+                    uint8 encryptionLevel = 0, dataCore1Level = 0, dataCore2Level = 0;
+                    std::vector<EvERam::RequiredItem> reqItems;
+                    sDataMgr.GetRamRequiredItems(invBpRef->typeID(), EvERam::Activity::Invention, reqItems);
+                    for (auto& req : reqItems) {
+                        if (!req.isSkill) continue;
+                        uint8 skillLevel = call.client->GetChar()->GetSkillLevel(req.typeID);
+                        // Encryption skills are in category 34 (Science), datacore skills also Science
+                        // The first skill (usually the encryption skill) gets encryptionLevel
+                        if (encryptionLevel == 0)
+                            encryptionLevel = skillLevel;
+                        else if (dataCore1Level == 0)
+                            dataCore1Level = skillLevel;
+                        else if (dataCore2Level == 0)
+                            dataCore2Level = skillLevel;
+                    }
+
+                    // Meta level from baseItemType
+                    uint8 metaLevel = 0;
+                    if (baseItemType > 0) {
+                        const ItemType* itemType = sItemFactory.GetItemType(baseItemType);
+                        if (itemType != nullptr)
+                            metaLevel = itemType->metaLevel();
+                    }
+
+                    // Decryptor modifier (default 1.0 = no decryptor)
+                    float decryptorMod = 1.0f;
+                    if (decryptorType > 0) {
+                        // Read decryptor attributes using meta groups or specific typeID mapping
+                        // T1 decryptor: 0.5x-1.3x; T2 decryptor: 0.6x-1.4x
+                        // Simplified: read from ramTypeRequirements extra data
+                        // For now use 1.0 (no decryptor) as default
+                    }
+
+                    float chance = EvEMath::RAM::InventionChance(baseChance, encryptionLevel, dataCore1Level, dataCore2Level, metaLevel, decryptorMod);
                     success = (MakeRandomFloat() < chance);
 
                     if (success) {
