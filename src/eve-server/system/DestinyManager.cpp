@@ -3398,23 +3398,20 @@ void DestinyManager::SendSetState() const {
         );
     }
 
-    // if the player is not warping, tell the client they're not warping.
-    // As of 2024-10-03, this doesn't always work and there are still issues
-    // with the client sometimes not starting a warp sequence.
-    std::vector<PyTuple*> updates;
-    OnSpecialFX10 sfx;
-    sfx.guid = "effects.Warping";
-    sfx.entityID = mySE->GetID();
-    sfx.isOffensive = false;
-    sfx.start = false;
-    sfx.active = false;
+    // if the player is warping, tell the client to start the warping effect.
+    // Sending Warping:stop for non-warping entities causes client-side
+    // AttributeError in effects.Warping.Stop() when the camera is already gone.
     if (m_ballMode == Destiny::Ball::Mode::WARP) {
-        sfx.start = true; // TODO: verify if this is necessary
+        std::vector<PyTuple*> updates;
+        OnSpecialFX10 sfx;
+        sfx.guid = "effects.Warping";
+        sfx.entityID = mySE->GetID();
+        sfx.isOffensive = false;
+        sfx.start = true;
         sfx.active = true;
+        updates.push_back(sfx.Encode());
+        SendDestinyUpdate(updates);
     }
-
-    updates.push_back(sfx.Encode());
-    SendDestinyUpdate(updates);
     updates.clear();
 
     SetState ss;

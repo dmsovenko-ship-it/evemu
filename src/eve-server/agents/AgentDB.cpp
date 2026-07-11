@@ -90,3 +90,33 @@ void AgentDB::LoadAgentSkills(uint32 agentID, std::map< uint16, uint8 >& data)
     while (res.GetRow(row))
         data[row.GetInt(0)] = row.GetInt(1);
 }
+
+PyRep* AgentDB::GetCareerAgentMapping()
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT careerType, agentID"
+        " FROM tutorial_career_agents"))
+    {
+        codelog(DATABASE__ERROR, "Error in GetCareerAgentMapping query: %s", res.error.c_str());
+        return nullptr;
+    }
+    PyDict* result = new PyDict();
+    DBResultRow row;
+    std::map<std::string, PyList*> groups;
+    while (res.GetRow(row)) {
+        std::string careerType = row.GetText(0);
+        uint32 agentID = row.GetUInt(1);
+        auto it = groups.find(careerType);
+        if (it == groups.end()) {
+            PyList* lst = new PyList();
+            lst->AddItem(new PyInt(agentID));
+            groups.emplace(careerType, lst);
+        } else {
+            it->second->AddItem(new PyInt(agentID));
+        }
+    }
+    for (auto& pair : groups)
+        result->SetItemString(pair.first.c_str(), pair.second);
+    return result;
+}

@@ -314,7 +314,10 @@ PyResult AgentMgrService::GetCareerAgents(PyCallArgs &call)
   _log(AGENT__INFO, "AgentMgrBound::Handle_GetCareerAgents() - size=%lli", call.tuple->size());
     call.Dump(AGENT__DUMP);
 
-    return PyStatic.NewZero();
+    PyRep* mapping = AgentDB::GetCareerAgentMapping();
+    if (mapping == nullptr)
+        return PyStatic.NewNone();
+    return mapping;
 }
 
 EpicArcService::EpicArcService() :
