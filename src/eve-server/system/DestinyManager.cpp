@@ -1146,17 +1146,15 @@ void DestinyManager::Follow() {
     double rawDist = heading.length() - m_radius;
     m_targetDistance = (rawDist > 0.0) ? rawDist : 0.0;
 
-    if (rawDist <= (double)m_followDistance) {
-        if (mySE->HasPilot())
-            if (mySE->GetPilot()->IsAutoPilot()) {
-                SetSpeedFraction(0.0);
-                _log(AUTOPILOT__TRACE, "DestinyManager::Follow() - AP target within range.  SpeedFraction = 0.0.");
-                return;
-            }
-    // this will allow following entities to keep their follow state, yet stop movement if within their follow distance.
-    //  by keeping their follow state, once the distance is greater than their follow distance, they will begin movement again.
-        if (m_tractored) {
-            // specific to tractored entities.  sudden halt to mimic tractor stopping
+    // autopilot check first
+    if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
+        SetSpeedFraction(0.0);
+        return;
+    }
+
+    // ---- tractored items ----
+    if (m_tractored) {
+        if (rawDist <= (double)m_followDistance) {
             if (!m_tractorPause) {
                 std::vector<PyTuple*> updates;
                 CmdSetSpeedFraction ssf;
@@ -1169,36 +1167,56 @@ void DestinyManager::Follow() {
             m_tractorPause = true;
             m_activeSpeedFraction = m_userSpeedFraction = m_timeFraction = m_prevSpeedFraction = 0.0f;
             return;
-        } else {
-            if ((m_targetEntity.second->IsDynamicEntity()) and (m_targetEntity.second->DestinyMgr()->IsMoving())) {
-                // this will mimic real movement, where ship will decel instead of a sudden halt
-                //  still need to call MoveObject() here
-                SetSpeedFraction(0.2);
-            } else {
-                Stop();
-            }
-        }
-    } else {
-        if (m_tractored and m_tractorPause) {
-            // tractored object is outside follow distance.  begin movement again
-            if (m_tractorPause) {
-                std::vector<PyTuple*> updates;
-                CmdSetSpeedFraction ssf;
-                    ssf.entityID = mySE->GetID();
-                    ssf.fraction = 1;
-                updates.push_back(ssf.Encode());
-                SendDestinyUpdate(updates);
-            }
+        } else if (m_tractorPause) {
+            std::vector<PyTuple*> updates;
+            CmdSetSpeedFraction ssf;
+                ssf.entityID = mySE->GetID();
+                ssf.fraction = 1;
+            updates.push_back(ssf.Encode());
+            SendDestinyUpdate(updates);
             m_tractorPause = false;
             m_velocity = m_shipHeading * m_maxSpeed;
             m_moveTime = GetTimeMSeconds();
             m_stateStamp = sEntityList.GetStamp();
             m_prevSpeedFraction = 0.0f;
-            // there is no accel/decel for tractor'd items
             m_activeSpeedFraction = m_userSpeedFraction = m_timeFraction = 1;
-        } else if (m_userSpeedFraction != 0.0f) {
-            SetSpeedFraction(1.0f);
         }
+        heading.normalize();
+        m_targetPoint = target_point + (heading * m_targetDistance);
+        MoveObject();
+        return;
+    }
+
+    // ---- normal follow / approach ----
+    // Hysteresis: use a wider exit threshold to prevent oscillation.
+    // Enter follow zone at m_followDistance, leave only beyond m_followDistance * 1.5
+    const double exitDist = (double)m_followDistance * 1.5;
+    const double targetSpeed = (rawDist <= (double)m_followDistance) ? 0.0 : 1.0;
+
+    if (rawDist <= exitDist && m_userSpeedFraction > targetSpeed + 0.05f) {
+        // Decelerate smoothly: reduce speed by 20% per tick toward targetSpeed
+        float newSpeed = m_userSpeedFraction * 0.8f + targetSpeed * 0.2f;
+        if (newSpeed < 0.01f) newSpeed = 0.0f;
+        SetSpeedFraction(newSpeed);
+    } else if (rawDist > (double)m_followDistance && m_userSpeedFraction < 1.0f) {
+        // Accelerate smoothly toward full speed, but only if target is a moving entity.
+        // Static targets (gates, stations) just need approach at moderate speed.
+        float maxApproach = 0.8f;
+        if (m_targetEntity.second->IsDynamicEntity()
+            && m_targetEntity.second->DestinyMgr() != nullptr
+            && m_targetEntity.second->DestinyMgr()->IsMoving())
+            maxApproach = 1.0f;
+        else if (m_targetEntity.second->IsStaticEntity() || !m_targetEntity.second->IsDynamicEntity())
+            maxApproach = 0.6f;  // slower approach for static objects
+
+        float newSpeed = m_userSpeedFraction + 0.15f;
+        if (newSpeed > maxApproach) newSpeed = maxApproach;
+        SetSpeedFraction(newSpeed);
+    }
+
+    // when very close to a static target, coast to a gentle stop
+    if (rawDist < (double)m_followDistance * 0.5 && !m_targetEntity.second->IsDynamicEntity()) {
+        SetSpeedFraction(std::min(m_userSpeedFraction, 0.1f));
     }
 
     heading.normalize();
@@ -1289,7 +1307,9 @@ void DestinyManager::Orbit() {
         m_targetPoint = Tp + mPos;
         GVector heading(m_position, m_targetPoint);
         heading.normalize();
-        m_shipHeading = heading;    // this sets object velocity using speed
+        // Blend heading to avoid abrupt direction changes
+        m_shipHeading = (m_shipHeading * 0.3 + heading * 0.7);
+        m_shipHeading.normalize();
         _log(DESTINY__ORBIT_TRACE, "2 - way too far - rads:%.3f, heading: %.3f, %.3f, %.3f", \
                 radTarg, m_shipHeading.x, m_shipHeading.y, m_shipHeading.z);
         MoveObject();
@@ -1313,7 +1333,9 @@ void DestinyManager::Orbit() {
         m_targetPoint = Tp + mPos;
         GVector heading(m_position, m_targetPoint);
         heading.normalize();
-        m_shipHeading = heading;    // this sets object velocity using speed
+        // Blend heading to avoid abrupt direction changes
+        m_shipHeading = (m_shipHeading * 0.3 + heading * 0.7);
+        m_shipHeading.normalize();
         _log(DESTINY__ORBIT_TRACE, "2 - way too close - rads:%.3f, heading: %.3f, %.3f, %.3f", \
                 radTarg, m_shipHeading.x, m_shipHeading.y, m_shipHeading.z);
         MoveObject();
@@ -1329,7 +1351,8 @@ void DestinyManager::Orbit() {
     } else {
         m_orbiting = Destiny::Ball::Orbit::Orbiting;
         _log(DESTINY__ORBIT_TRACE, "2 - within tolerance");
-        // within tolerance — don't recalculate orbit, let client handle it
+        // within tolerance — keep moving to avoid client desync
+        MoveObject();
         return;
     }
 
