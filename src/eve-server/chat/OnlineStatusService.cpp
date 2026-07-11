@@ -36,59 +36,26 @@ OnlineStatusService::OnlineStatusService() :
     this->Add("GetOnlineStatus", &OnlineStatusService::GetOnlineStatus);
 }
 
-/** @todo finish this */
 PyResult OnlineStatusService::GetInitialState(PyCallArgs &call) {
-/*
-21:35:16 L OnlineStatusService::Handle_GetInitialState(): size= 0
-21:35:16 [SvcCall]   Call Arguments:
-21:35:16 [SvcCall]       Tuple: Empty
-21:35:16 [SvcCall]   Call Named Arguments:
-21:35:16 [SvcCall]     Argument 'machoVersion':
-21:35:16 [SvcCall]         Integer field: 1
-  sLog.White( "OnlineStatusService::Handle_GetInitialState()", "size=%lu", call.tuple->size());
-  call.Dump(SERVICE__CALL_DUMP);
-
-
-      [PySubStream 1861 bytes]
-        [PyObjectEx Type2]
-          [PyTuple 2 items]
-            [PyTuple 1 items]
-              [PyToken dbutil.CRowset]
-            [PyDict 1 kvp]
-              [PyString "header"]
-              [PyObjectEx Normal]
-                [PyTuple 2 items]
-                  [PyToken blue.DBRowDescriptor]
-                  [PyTuple 1 items]
-                    [PyTuple 2 items]
-                      [PyTuple 2 items]
-                        [PyString "contactID"]
-                        [PyInt 3]
-                      [PyTuple 2 items]
-                        [PyString "online"]
-                        [PyInt 3]
-          [PyPackedRow 9 bytes]
-            ["contactID" => <108985089> [I4]]
-            ["online" => <0> [I4]]
-          [PyPackedRow 9 bytes]
-            ["contactID" => <116081192> [I4]]
-            ["online" => <0> [I4]]
-          [PyPackedRow 9 bytes]
-            ["contactID" => <116844755> [I4]]
-            ["online" => <0> [I4]]
-          [PyPackedRow 9 bytes]
-            ["contactID" => <118879785> [I4]]
-            ["online" => <1> [I4]]
-  */
-    // this is used to query the initial online state of all contacts.
+    uint32 charID = call.client->GetCharacterID();
 
     DBRowDescriptor *header = new DBRowDescriptor();
     header->AddColumn("contactID", DBTYPE_I4);
     header->AddColumn("online", DBTYPE_BOOL);
-    CRowSet *rowset = new CRowSet( &header );
-    // loop thru contact list and fill following row accordingly
-    //PyPackedRow* row = rowset->NewRow();
-    //row->SetField(new PyInt(*charID*), sEntityList.PyIsOnline(PyRep::IntegerValue(charID)))); // charID/online
+    CRowSet *rowset = new CRowSet(&header);
+
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT contactID FROM chrContacts WHERE characterID = %u AND inContacts = 1",
+        charID);
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 contactID = row.GetUInt(0);
+        PyPackedRow* pRow = rowset->NewRow();
+        pRow->SetField("contactID", new PyInt(contactID));
+        pRow->SetField("online", sEntityList.PyIsOnline(contactID));
+    }
     return rowset;
 }
 
