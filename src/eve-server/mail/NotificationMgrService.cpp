@@ -46,6 +46,16 @@ NotificationMgrService::NotificationMgrService() :
 PyResult NotificationMgrService::GetByGroupID(PyCallArgs &call, PyInt* groupID)
 {
     uint32 charID = call.client->GetCharacterID();
+    uint8 gID = groupID->value();
+
+    // build type filter for this group
+    std::string typeFilter;
+    for (uint8 t = 1; t <= 200; ++t) {
+        if (Notify::NotifyTypeToGroup(t) == gID) {
+            if (!typeFilter.empty()) typeFilter += ",";
+            typeFilter += std::to_string(t);
+        }
+    }
 
     DBQueryResult res;
     sDatabase.RunQuery(res,
@@ -53,10 +63,10 @@ PyResult NotificationMgrService::GetByGroupID(PyCallArgs &call, PyInt* groupID)
         "       n.processed, n.created, t.data, n.deleted"
         " FROM notification n"
         " LEFT JOIN notificationText t ON t.notificationID = n.notificationID"
-        " WHERE n.receiverID = %u AND n.deleted = 0"
+        " WHERE n.receiverID = %u AND n.typeID IN (%s) AND n.deleted = 0"
         " ORDER BY n.created DESC"
         " LIMIT 200",
-        charID);
+        charID, typeFilter.c_str());
 
     return DBResultToCRowset(res);
 }
@@ -82,11 +92,21 @@ PyResult NotificationMgrService::GetUnprocessed(PyCallArgs &call)
 PyResult NotificationMgrService::MarkGroupAsProcessed(PyCallArgs &call, PyInt* groupID)
 {
     uint32 charID = call.client->GetCharacterID();
+    uint8 gID = groupID->value();
+
+    std::string typeFilter;
+    for (uint8 t = 1; t <= 200; ++t) {
+        if (Notify::NotifyTypeToGroup(t) == gID) {
+            if (!typeFilter.empty()) typeFilter += ",";
+            typeFilter += std::to_string(t);
+        }
+    }
+
     DBerror err;
     sDatabase.RunQuery(err,
         "UPDATE notification SET processed = 1"
-        " WHERE receiverID = %u AND deleted = 0",
-        charID);
+        " WHERE receiverID = %u AND typeID IN (%s) AND deleted = 0",
+        charID, typeFilter.c_str());
     return PyStatic.NewNone();
 }
 
@@ -127,11 +147,21 @@ PyResult NotificationMgrService::MarkAsProcessed(PyCallArgs &call, PyList* notif
 PyResult NotificationMgrService::DeleteGroupNotifications(PyCallArgs &call, PyInt* groupID)
 {
     uint32 charID = call.client->GetCharacterID();
+    uint8 gID = groupID->value();
+
+    std::string typeFilter;
+    for (uint8 t = 1; t <= 200; ++t) {
+        if (Notify::NotifyTypeToGroup(t) == gID) {
+            if (!typeFilter.empty()) typeFilter += ",";
+            typeFilter += std::to_string(t);
+        }
+    }
+
     DBerror err;
     sDatabase.RunQuery(err,
         "UPDATE notification SET deleted = 1"
-        " WHERE receiverID = %u AND deleted = 0",
-        charID);
+        " WHERE receiverID = %u AND typeID IN (%s) AND deleted = 0",
+        charID, typeFilter.c_str());
     return PyStatic.NewNone();
 }
 

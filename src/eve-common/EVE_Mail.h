@@ -195,6 +195,36 @@ namespace Notify {
             FactoryJob = 129            // factory jobs now have config option to add event to calendar.  this updates corp members 
         };
     }
+
+    // Convert notification typeID to groupID (Notify::Groups)
+    inline uint8 NotifyTypeToGroup(uint8 typeID) {
+        if (typeID == 66 || (typeID >= 70 && typeID <= 74))
+            return Groups::Agents;
+        if ((typeID >= 4 && typeID <= 13) || typeID == 103)
+            return Groups::Bills;
+        if ((typeID >= 16 && typeID <= 31) || typeID == 85 || typeID == 92)
+            return Groups::Corp;
+        if (typeID == 2 || typeID == 3 || typeID == 14 || typeID == 15 ||
+            (typeID >= 32 && typeID <= 36) || (typeID >= 51 && typeID <= 56) ||
+            (typeID >= 67 && typeID <= 69) || typeID == 91)
+            return Groups::Misc;
+        if (typeID == 1)
+            return Groups::Old;
+        if ((typeID >= 37 && typeID <= 44) || (typeID >= 77 && typeID <= 80) ||
+            (typeID >= 86 && typeID <= 88))
+            return Groups::Sov;
+        if ((typeID >= 45 && typeID <= 50) || (typeID >= 75 && typeID <= 76) ||
+            (typeID >= 93 && typeID <= 94))
+            return Groups::Structures;
+        if (typeID == 5 || (typeID >= 57 && typeID <= 65) || (typeID >= 81 && typeID <= 84) ||
+            (typeID >= 96 && typeID <= 97))
+            return Groups::War;
+        if (typeID == 89 || typeID == 90)
+            return Groups::Contacts;
+        if (typeID >= 125 && typeID <= 129)
+            return Groups::Corp;
+        return Groups::Misc;
+    }
 }
 
 /*
