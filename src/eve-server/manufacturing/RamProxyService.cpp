@@ -900,12 +900,16 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
         }
     }
 
-    /** @todo  based on standings, send 'thank you' mail from factory to installer upon job delivery */
+    // Send simple completion notification
+    if (data.installerID > 0) {
+        std::string msg = "Your " + sRamMthd.GetActivityName(data.activity) + " job has been completed.";
+        DBerror mailErr;
+        sDatabase.RunQuery(mailErr,
+            "INSERT INTO mailMessage (senderID, title, body, created, toCharacterIDs)"
+            " VALUES (1, 'Job Complete', '%s', %lli, '%%%u%%')",
+            msg.c_str(), (int64)GetFileTimeNow(), data.installerID);
+    }
 
-
-    // there is more to this.  also could be not needed, as it checks for 'none'
-    // result.message.msg = "event";
-    // result.message.args = ??
     return PyStatic.NewNone();
 }
 
@@ -913,8 +917,5 @@ PyResult RamProxyService::UpdateAssemblyLineConfigurations(PyCallArgs &call, PyR
     _log(MANUF__DUMP, "RamProxyService::Handle_UpdateAssemblyLineConfigurations() - size=%lli", call.tuple->size());
     call.Dump(MANUF__DUMP);
 
-    //RamConfigAssemblyLinesAccessDenied
-    //RamConfigAssemblyLinesInsuficientAccess
-
-    return nullptr;
+    return PyStatic.NewNone();
 }

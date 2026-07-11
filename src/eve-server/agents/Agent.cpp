@@ -346,36 +346,38 @@ PyObject* Agent::GetInfoServiceDetails()
      * skillTypeID, blueprintTypeID in data.researchSummary:  -- for predictablePatentNames
      */
 
-    /**  @todo  finish this..... */
+    /**  @todo  research data should be queried per-character from chrResearch + agent skills from m_skills */
     PyDict* research = new PyDict();
     if (m_agentData.research) {
         PyTuple* skill1 = new PyTuple(2);
-            skill1->SetItem(0, new PyInt(11452)); // Mechanical Engineering
+            skill1->SetItem(0, new PyInt(11452));
             skill1->SetItem(1, PyStatic.NewInt(4));
         PyTuple* skill2 = new PyTuple(2);
-            skill2->SetItem(0, new PyInt(11453));  //Electronic Engineering
+            skill2->SetItem(0, new PyInt(11453));
             skill2->SetItem(1, PyStatic.NewInt(3));
         PyList* skillList = new PyList();
             skillList->AddItem(skill1);
             skillList->AddItem(skill2);
         PyDict* researchData = new PyDict();
             researchData->SetItemString("rpMultiplier", PyStatic.NewInt(2));
-            researchData->SetItemString("skillTypeID", new PyInt(11452));   // this is player research field with this agent.  not sure how to make "none" yet
-            researchData->SetItemString("points", new PyInt(150));
-            researchData->SetItemString("pointsPerDay", new PyInt(30));
-        PyTuple* patent1 = new PyTuple(2);
-            patent1->SetItem(0, new PyInt(11452));
-        PyList* patentlist1 = new PyList();
-            patentlist1->AddItem(new PyInt(692));
-            patent1->SetItem(1, patentlist1);
-        PyTuple* patent2 = new PyTuple(2);
-            patent2->SetItem(0, new PyInt(11453));
-        PyList* patentlist2 = new PyList();
-            patentlist2->AddItem(new PyInt(1196));
-            patent2->SetItem(1, patentlist2);
+            researchData->SetItemString("skillTypeID", PyStatic.NewNone());
+            researchData->SetItemString("points", PyStatic.NewZero());
+            researchData->SetItemString("pointsPerDay", PyStatic.NewZero());
         PyList* patentList = new PyList();
-            patentList->AddItem(patent1);
-            patentList->AddItem(patent2);
+            for (uint16 fieldID : m_researchFields) {
+                PyTuple* patent = new PyTuple(2);
+                patent->SetItem(0, new PyInt(fieldID));
+                PyList* bps = new PyList();
+                DBQueryResult bpRes;
+                sDatabase.RunQuery(bpRes,
+                    "SELECT blueprintTypeID FROM invBlueprintTypes"
+                    " WHERE productTypeID = %u LIMIT 5", fieldID);
+                DBResultRow bpRow;
+                while (bpRes.GetRow(bpRow))
+                    bps->AddItem(new PyInt(bpRow.GetUInt(0)));
+                patent->SetItem(1, bps);
+                patentList->AddItem(patent);
+            }
 
         research->SetItemString("agentServiceType", new PyString("research"));
         research->SetItemString("skills", skillList);
