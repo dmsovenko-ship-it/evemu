@@ -935,6 +935,7 @@ int main( int argc, char* argv[] )
 
         sEntityList.Process();
         sStandingMgr.ProcessDecay();
+        sStandingMgr.ProcessResearch();
 
         /*  process console commands, if any, and check for 'exit' command */
         m_run = sConsole.Process();

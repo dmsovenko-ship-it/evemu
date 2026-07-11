@@ -43,12 +43,17 @@ public:
     void                ProcessDecay();
     void                SetDecayTimer();
 
+    // research point accumulation
+    void                ProcessResearch();
+    void                SetResearchTimer();
+
 protected:
     void                Populate();
 
 private:
     PyObjectEx*         m_factionStandings;
     Timer               m_decayTimer;
+    Timer               m_researchTimer;
 
 };
 

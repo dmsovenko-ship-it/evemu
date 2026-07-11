@@ -26,7 +26,8 @@
 
 StandingMgr::StandingMgr()
 : m_factionStandings(nullptr),
-  m_decayTimer(3600000) // 1 hour default
+  m_decayTimer(3600000), // 1 hour default
+  m_researchTimer(3600000) // 1 hour default
 {
 
 }
@@ -71,6 +72,47 @@ void StandingMgr::UpdateStandings(uint32 fromID, uint32 toID, uint16 eventType, 
 void StandingMgr::SetDecayTimer()
 {
     m_decayTimer.Start(3600000, true); // 1 hour
+}
+
+void StandingMgr::SetResearchTimer()
+{
+    m_researchTimer.Start(3600000, true); // 1 hour
+}
+
+void StandingMgr::ProcessResearch()
+{
+    if (!m_researchTimer.Check(false))
+        return;
+
+    _log(STANDING__INFO, "StandingMgr::ProcessResearch() - processing research point accumulation.");
+
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT characterID, agentID, points, pointsPerDay, lastUpdate"
+        " FROM chrResearch WHERE pointsPerDay > 0 AND lastUpdate > 0");
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        double points = row.GetDouble(2);
+        double ppd = row.GetDouble(3);
+        int64 lastUpdate = row.GetInt64(4);
+
+        double hoursElapsed = (double)(GetFileTimeNow() - lastUpdate) / (double)EvE::Time::Hour;
+        if (hoursElapsed < 1.0)
+            continue;
+
+        double earned = ppd / 24.0 * hoursElapsed;
+        points += earned;
+
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE chrResearch SET points = %.2f, lastUpdate = %lli"
+            " WHERE characterID = %u AND agentID = %u",
+            points, (int64)GetFileTimeNow(), row.GetUInt(0), row.GetUInt(1));
+    }
+
+    _log(STANDING__INFO, "StandingMgr::ProcessResearch() - research point accumulation complete.");
+    SetResearchTimer();
 }
 
 void StandingMgr::ProcessDecay()

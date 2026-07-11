@@ -328,32 +328,90 @@ PyRep *FactoryDB::AssemblyLinesSelectPrivate(const uint32 charID) {
     return DBResultToCRowset(res);
 }
 
-/** @todo  need to add check/query for POS assembly modules (Mobile Laboratory, Assembly Array, Reactor groups).
- *  POS modules are stored in `entity` table with groupIDs: Assembly_Array=397, Mobile_Laboratory=413, Reactor=438.
- *  They need UNION ALL + synthetic ramAssemblyLines entries for full support. */
 PyRep *FactoryDB::AssemblyLinesSelectCorporation(const uint32 corpID) {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT DISTINCT"
-        " station.stationID AS containerID,"
-        " station.stationTypeID AS containerTypeID,"
-        " station.solarSystemID AS containerLocationID,"
-        " station.assemblyLineTypeID,"
-        " station.quantity,"
-        " station.ownerID,"
-        " line.activityID"
-        " FROM ramAssemblyLineStations AS station"
-        " LEFT JOIN ramAssemblyLines AS line ON station.stationID = line.containerID AND station.assemblyLineTypeID = line.assemblyLineTypeID AND station.ownerID = line.ownerID"
-        " WHERE station.ownerID = %u"
-        " AND (line.restrictionMask & %u) = %u",
+        "SELECT containerID, containerTypeID, containerLocationID,"
+        " assemblyLineTypeID, quantity, ownerID, activityID FROM ("
+        "  SELECT"
+        "   station.stationID AS containerID,"
+        "   station.stationTypeID AS containerTypeID,"
+        "   station.solarSystemID AS containerLocationID,"
+        "   station.assemblyLineTypeID,"
+        "   station.quantity,"
+        "   station.ownerID,"
+        "   line.activityID"
+        "  FROM ramAssemblyLineStations AS station"
+        "  LEFT JOIN ramAssemblyLines AS line ON station.stationID = line.containerID"
+        "   AND station.assemblyLineTypeID = line.assemblyLineTypeID"
+        "   AND station.ownerID = line.ownerID"
+        "  WHERE station.ownerID = %u"
+        "  AND (line.restrictionMask & %u) = %u",
         corpID, EvERam::RestrictionMask::ByCorp, EvERam::RestrictionMask::ByCorp))
     {
         _log(DATABASE__ERROR, "Failed to query corporation assembly lines for corp %u: %s.", corpID, res.error.c_str());
         return nullptr;
     }
 
-    return DBResultToCRowset(res);
+    DBQueryResult posRes;
+    if (!sDatabase.RunQuery(posRes,
+        "SELECT DISTINCT"
+        " entity.itemID AS containerID,"
+        " entity.typeID AS containerTypeID,"
+        " COALESCE(sol.solarSystemID, entity.locationID) AS containerLocationID,"
+        " COALESCE(rd.assemblyLineTypeID, 0) AS assemblyLineTypeID,"
+        " 1 AS quantity,"
+        " entity.ownerID,"
+        " COALESCE(rd.activityID, 0) AS activityID"
+        " FROM entity"
+        " LEFT JOIN mapDenormalize AS sol ON sol.itemID = entity.locationID"
+        " LEFT JOIN ramAssemblyLineTypeDetailPerGroup AS rd ON rd.groupID = entity.groupID"
+        " WHERE entity.ownerID = %u"
+        "  AND entity.groupID IN (397, 413, 438, 661, 662)"
+        "  AND entity.flag = 11",  // flagAnchored
+        corpID))
+    {
+        // If POS query fails, return station results only
+        return DBResultToCRowset(res);
+    }
+
+    // Merge both results into a combined CRowset
+    std::vector<PyRep*> rows;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyList* list = new PyList();
+        for (size_t i = 0; i < res.ColumnCount(); ++i)
+            list->AddItem(new PyInt(row.GetUInt(i)));
+        rows.push_back(list);
+    }
+    DBResultRow posRow;
+    while (posRes.GetRow(posRow)) {
+        PyList* list = new PyList();
+        list->AddItem(new PyInt(posRow.GetUInt(0)));  // containerID
+        list->AddItem(new PyInt(posRow.GetUInt(1)));  // containerTypeID
+        list->AddItem(new PyInt(posRow.GetUInt(2)));  // containerLocationID
+        list->AddItem(new PyInt(posRow.GetUInt(3)));  // assemblyLineTypeID
+        list->AddItem(PyStatic.NewOne());               // quantity
+        list->AddItem(new PyInt(posRow.GetUInt(5)));  // ownerID
+        list->AddItem(new PyInt(posRow.GetUInt(6)));  // activityID
+        rows.push_back(list);
+    }
+
+    PyList* dataList = new PyList();
+    for (auto r : rows)
+        dataList->AddItem(r);
+
+    PyObjectEx* obj = new PyObjectEx(false, new PyToken("util.CRowset"));
+    obj->list().AddItem(new PyString("containerID"));
+    obj->list().AddItem(new PyString("containerTypeID"));
+    obj->list().AddItem(new PyString("containerLocationID"));
+    obj->list().AddItem(new PyString("assemblyLineTypeID"));
+    obj->list().AddItem(new PyString("quantity"));
+    obj->list().AddItem(new PyString("ownerID"));
+    obj->list().AddItem(new PyString("activityID"));
+    obj->dict().SetItem(new PyString("_types"), dataList);
+    return obj;
 }
 
 /** @todo  need to add check/query for POS assembly modules here */
