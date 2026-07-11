@@ -478,7 +478,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
             // Sansha: 565-569, 581-582, officers + deadspace + commander + incursion
             else if ((gID >= 565 && gID <= 569) || gID == 581 || gID == 582
                      || (gID >= 620 && gID <= 624) || gID == 807 || gID == 808 || gID == 809 || gID == 810 || gID == 851
-                     || (gID >= 1051 && gID <= 1056)) { factionID = factionSanshas; }
+                     || (gID >= 1051 && gID <= 1056 && gID != 1055)) { factionID = factionSanshas; }
             // Serpentis: 570-574, 583-584, officers + deadspace + commander
             else if ((gID >= 570 && gID <= 574) || gID == 583 || gID == 584
                      || (gID >= 629 && gID <= 633) || gID == 811 || gID == 812 || gID == 813 || gID == 814 || gID == 852) { factionID = factionSerpentis; }

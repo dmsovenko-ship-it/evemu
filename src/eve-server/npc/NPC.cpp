@@ -273,6 +273,7 @@ PyDict* NPC::MakeSlimItem()
             case 594: case 603: case 612: case 621: case 630:  // Deadspace Battleships
             case 802:  // Deadspace Rogue Drone Battleship
             case 848: case 849: case 850: case 851: case 852: case 844:  // Commander Battleships
+            case 1052:  // Incursion Sansha Capital
             case 1056:  // Incursion Battleship
                 gID = 27; break;
             // == Battlecruiser (419) ==
