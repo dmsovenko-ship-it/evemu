@@ -482,6 +482,12 @@ bool MarshalStream::VisitSubStruct( const PySubStruct* rep )
 
 bool MarshalStream::VisitSubStream( const PySubStream* rep )
 {
+    if (m_depth >= PyVisitor::kMaxDepth) {
+        Put<uint8>(Op_PySubStream);
+        Put<uint8>(0);
+        return true;
+    }
+    DepthGuard dg(m_depth);
     Put<uint8>(Op_PySubStream);
     if (rep->data() == nullptr) {
         if (rep->decoded() == nullptr) {

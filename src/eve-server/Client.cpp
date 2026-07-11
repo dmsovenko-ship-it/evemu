@@ -3314,7 +3314,7 @@ void Client::FlushPendingDestinyUpdates() {
             act.stamp = sEntityList.GetStamp();
             act.update = update;
         dum.updates->AddItem(act.Encode());
-        PyDecRef(update);
+        // act destructor handles PyDecRef(update); no explicit dec-ref here
     }
     PyTuple* t = dum.Encode();
     SendNotification("DoDestinyUpdate", "clientID", &t, false);
