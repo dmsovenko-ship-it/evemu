@@ -328,7 +328,9 @@ PyRep *FactoryDB::AssemblyLinesSelectPrivate(const uint32 charID) {
     return DBResultToCRowset(res);
 }
 
-/** @todo  need to add check/query for POS assembly modules here */
+/** @todo  need to add check/query for POS assembly modules (Mobile Laboratory, Assembly Array, Reactor groups).
+ *  POS modules are stored in `entity` table with groupIDs: Assembly_Array=397, Mobile_Laboratory=413, Reactor=438.
+ *  They need UNION ALL + synthetic ramAssemblyLines entries for full support. */
 PyRep *FactoryDB::AssemblyLinesSelectCorporation(const uint32 corpID) {
     DBQueryResult res;
 
