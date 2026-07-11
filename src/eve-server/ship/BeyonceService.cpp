@@ -650,15 +650,16 @@ PyResult BeyonceBound::CmdWarpToStuffAutopilot(PyCallArgs &call, PyInt* destID) 
 
     call.client->SetInvul(false);
     call.client->SetUndock(false);
-    // AP shit here.....
     call.client->SetAutoPilot(true);
-    call.client->UpdateSessionInt("solarsystemid", pSystem->GetID());
-    //call.client->UpdateSession();
-    //call.client->SendSessionChange();
 
     uint16 distance = sConfig.world.apWarptoDistance;    //10km default
-    //Adding in ship and target object radius'
-    //distance += call.client->GetShipSE()->GetRadius() + pSE->GetRadius();
+    if (pSE->IsGateSE()) {
+        distance = 2500;  // jump activation range
+    } else if (pSE->IsStationSE()) {
+        distance = 2500;  // docking range
+    }
+    // Add ship diameter so hull stops at the correct range from target surface
+    distance += static_cast<uint16>(call.client->GetShipSE()->GetRadius());
     pDestiny->WarpTo(pSE->GetPosition(), distance, true, pSE);
 
     return PyStatic.NewNone();

@@ -1149,8 +1149,8 @@ void DestinyManager::Follow() {
     if (rawDist <= (double)m_followDistance) {
         if (mySE->HasPilot())
             if (mySE->GetPilot()->IsAutoPilot()) {
-                SetSpeedFraction(0.1);
-                _log(AUTOPILOT__TRACE, "DestinyManager::Follow() - Target within FollowDistance.  SpeedFraction = 0.1.");
+                SetSpeedFraction(0.0);
+                _log(AUTOPILOT__TRACE, "DestinyManager::Follow() - AP target within range.  SpeedFraction = 0.0.");
                 return;
             }
     // this will allow following entities to keep their follow state, yet stop movement if within their follow distance.
