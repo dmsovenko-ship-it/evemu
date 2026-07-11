@@ -687,12 +687,17 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                             dataCore2Level = skillLevel;
                     }
 
-                    // Meta level from baseItemType
+                    // Meta level from baseItemType (lookup invMetaTypes table)
                     uint8 metaLevel = 0;
                     if (baseItemType > 0) {
-                        const ItemType* itemType = sItemFactory.GetItemType(baseItemType);
-                        if (itemType != nullptr)
-                            metaLevel = itemType->metaLevel();
+                        DBQueryResult metaRes;
+                        if (sDatabase.RunQuery(metaRes,
+                            "SELECT metaLevel FROM invMetaTypes WHERE typeID = %u", baseItemType))
+                        {
+                            DBResultRow metaRow;
+                            if (metaRes.GetRow(metaRow))
+                                metaLevel = metaRow.GetUInt(0);
+                        }
                     }
 
                     // Decryptor modifier (default 1.0 = no decryptor)
