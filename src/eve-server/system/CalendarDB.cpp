@@ -63,14 +63,18 @@ PyRep* CalendarDB::SaveNewEvent(uint32 ownerID, Call_CreateEventWithInvites& arg
                 " VALUES %s", str.str().c_str());
     }
 
+    std::string titleEsc, descEsc;
+    sDatabase.DoEscapeString(titleEsc, args.title);
+    sDatabase.DoEscapeString(descEsc, args.description);
+
     uint32 eventID(0);
     if (args.duration) {
         if (!sDatabase.RunQueryLID(err, eventID,
             "INSERT INTO sysCalendarEvents(ownerID, creatorID, eventDateTime, eventDuration, importance,"
             " eventTitle, eventText, flag, month, year)"
             " VALUES (%u, %u, %lli, %u, %u, '%s', '%s', %u, %u, %u)",
-            ownerID, ownerID, args.startDateTime, args.duration, args.important, args.title.c_str(),
-            args.description.c_str(), Calendar::Flag::Personal, data.month, data.year))
+            ownerID, ownerID, args.startDateTime, args.duration, args.important, titleEsc.c_str(),
+            descEsc.c_str(), Calendar::Flag::Personal, data.month, data.year))
         {
             codelog(DATABASE__ERROR, "Error in SaveNewEvent query: %s", err.c_str());
             return PyStatic.NewZero();
@@ -80,8 +84,8 @@ PyRep* CalendarDB::SaveNewEvent(uint32 ownerID, Call_CreateEventWithInvites& arg
             "INSERT INTO sysCalendarEvents(ownerID, creatorID, eventDateTime, importance,"
             " eventTitle, eventText, flag, month, year)"
             " VALUES (%u, %u, %lli, %u, '%s', '%s', %u, %u, %u)",
-            ownerID, ownerID, args.startDateTime, args.important, args.title.c_str(),
-            args.description.c_str(), Calendar::Flag::Personal, data.month, data.year))
+            ownerID, ownerID, args.startDateTime, args.important, titleEsc.c_str(),
+            descEsc.c_str(), Calendar::Flag::Personal, data.month, data.year))
         {
             codelog(DATABASE__ERROR, "Error in SaveNewEvent query: %s", err.c_str());
             return PyStatic.NewZero();
@@ -110,6 +114,10 @@ PyRep* CalendarDB::SaveNewEvent(uint32 ownerID, uint32 creatorID, Call_CreateEve
     EvE::TimeParts data = EvE::TimeParts();
     data = GetTimeParts(args.startDateTime);
 
+    std::string titleEsc, descEsc;
+    sDatabase.DoEscapeString(titleEsc, args.title);
+    sDatabase.DoEscapeString(descEsc, args.description);
+
     uint32 eventID(0);
     DBerror err;
     if (args.duration) {
@@ -118,7 +126,7 @@ PyRep* CalendarDB::SaveNewEvent(uint32 ownerID, uint32 creatorID, Call_CreateEve
             " eventTitle, eventText, flag, month, year)"
             " VALUES (%u, %u, %lli, %u, %u, '%s', '%s', %u, %u, %u)",
             ownerID, creatorID, args.startDateTime, args.duration, args.important,
-            args.title.c_str(), args.description.c_str(), flag, data.month, data.year))
+            titleEsc.c_str(), descEsc.c_str(), flag, data.month, data.year))
         {
             codelog(DATABASE__ERROR, "Error in SaveNewEvent query: %s", err.c_str());
             return PyStatic.NewZero();
@@ -129,7 +137,7 @@ PyRep* CalendarDB::SaveNewEvent(uint32 ownerID, uint32 creatorID, Call_CreateEve
             " eventTitle, eventText, flag, month, year)"
             " VALUES (%u, %u, %lli, %u, '%s', '%s', %u, %u, %u)",
             ownerID, creatorID, args.startDateTime, args.important,
-            args.title.c_str(), args.description.c_str(), flag, data.month, data.year))
+            titleEsc.c_str(), descEsc.c_str(), flag, data.month, data.year))
         {
             codelog(DATABASE__ERROR, "Error in SaveNewEvent query: %s", err.c_str());
             return PyStatic.NewZero();
@@ -146,13 +154,17 @@ uint32 CalendarDB::SaveSystemEvent(uint32 ownerID, uint32 creatorID, int64 start
     EvE::TimeParts data = EvE::TimeParts();
     data = GetTimeParts(startDateTime);
 
+    std::string titleEsc, descEsc;
+    sDatabase.DoEscapeString(titleEsc, title);
+    sDatabase.DoEscapeString(descEsc, description);
+
     uint32 eventID(0);
     DBerror err;
     sDatabase.RunQueryLID(err, eventID,
         "INSERT INTO sysCalendarEvents(ownerID, creatorID, eventDateTime, autoEventType,"
         " eventTitle, eventText, flag, month, year, importance)"
         " VALUES (%u, %u, %lli, %u, '%s', '%s', %u, %u, %u, %u)",
-        ownerID, creatorID, startDateTime, autoEventType, title.c_str(), description.c_str(),
+        ownerID, creatorID, startDateTime, autoEventType, titleEsc.c_str(), descEsc.c_str(),
         Calendar::Flag::Automated, data.month, data.year, important?1:0);
 
     return eventID;
