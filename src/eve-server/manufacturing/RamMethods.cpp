@@ -341,14 +341,18 @@ void RamMethods::HangarRolesCheck(Client* const pClient, int16 flagID)
 void RamMethods::LocationRolesCheck(Client*const pClient, const CorpPathElement &data)
 {
     int64 roles(0);
-    // this will verify corp roles at location
     uint32 stationID(data.officeFolderID - STATION_OFFICE_OFFSET);
     if (stationID == pClient->GetCorpHQ()) {
         roles = pClient->GetRolesAtHQ();
-        /** @todo determine what roles are required here and test */
+    } else if (stationID == pClient->GetCorpBase()) {
+        roles = pClient->GetRolesAtBase();
     } else {
-        // not hq  is this a base?
-        /** @todo finish this.  */
+        roles = pClient->GetRolesAtOther();
+    }
+
+    if (!(roles & Role::FactoryManager)) {
+        _log(MANUF__WARNING, "%s does not have FactoryManager role at station %u.", pClient->GetName(), stationID);
+        throw UserError("CrpAccessDenied");
     }
 }
 

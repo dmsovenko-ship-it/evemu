@@ -25,7 +25,7 @@
 
 #include "eve-server.h"
 
-
+#include "../../eve-common/EVE_Mail.h"
 #include "mail/MailingListMgrService.h"
 
 MailingListMgrService::MailingListMgrService() :

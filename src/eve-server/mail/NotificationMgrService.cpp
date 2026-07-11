@@ -25,6 +25,7 @@
 
 #include "eve-server.h"
 
+#include "../../eve-common/EVE_Mail.h"
 #include "Client.h"
 #include "mail/NotificationMgrService.h"
 
