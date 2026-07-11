@@ -60,6 +60,7 @@ Standing::Standing() :
     this->Add("GetStandingTransactions", &Standing::GetStandingTransactions);
     this->Add("GetStandingCompositions", &Standing::GetStandingCompositions);
     this->Add("SetStanding", &Standing::SetStanding);
+    this->Add("GetStandingEventTypes", &Standing::GetStandingEventTypes);
 }
 
 PyResult Standing::GetCharStandings(PyCallArgs &call) {
@@ -84,6 +85,10 @@ PyResult Standing::GetSecurityRating(PyCallArgs &call, PyInt* ownerID) {
     }
 
     return new PyFloat( cRef->GetSecurityRating() );
+}
+
+PyResult Standing::GetMySecurityRating(PyCallArgs &call) {
+    return new PyFloat(call.client->GetChar()->GetSecurityRating());
 }
 
 PyResult Standing::GetMyKillRights(PyCallArgs &call) {
@@ -182,7 +187,7 @@ PyResult Standing::GetKillRightInfo(PyCallArgs &call, PyInt* rightID) {
     info->SetItemString("expiryDate", new PyLong(row.GetInt64(6)));
     info->SetItemString("used", new PyBool(row.GetInt(7) ? true : false));
     info->SetItemString("activatedBy", new PyInt(row.GetInt(8)));
-    info->SetItemString("standing", new PyFloat(10.0));
+    info->SetItemString("standing", new PyFloat(StandingDB::GetStanding(row.GetInt(1), row.GetInt(2))));
     return new PyObject("util.KeyVal", info);
 }
 
@@ -208,7 +213,7 @@ PyResult Standing::GetKillRightsList(PyCallArgs &call) {
         kr->SetItemString("created", new PyLong(row.GetInt64(5)));
         kr->SetItemString("expiryDate", new PyLong(row.GetInt64(6)));
         kr->SetItemString("used", new PyBool(row.GetInt(7) ? true : false));
-        kr->SetItemString("standing", new PyFloat(10.0));
+        kr->SetItemString("standing", new PyFloat(StandingDB::GetStanding(row.GetInt(1), row.GetInt(2))));
         list->AddItem(new PyObject("util.KeyVal", kr));
     }
     return list;
@@ -313,4 +318,36 @@ PyResult Standing::SetStanding(PyCallArgs &call, PyInt* toID, PyFloat* standing)
             call.client->GetName(), newStanding, targetID);
 
     return new PyBool(true);
+}
+
+PyResult Standing::GetStandingEventTypes(PyCallArgs &call) {
+    PyList* result = new PyList();
+
+    struct EventType { const char* label; int32 id; };
+    static const EventType events[] = {
+        {"UI/Generic/StandingNames/agentMissionBonus",         Standings::MissionBonus},
+        {"UI/Generic/StandingNames/agentMissionComplete",      Standings::MissionCompleted},
+        {"UI/Generic/StandingNames/agentMissionDeclined",      Standings::MissionDeclined},
+        {"UI/Generic/StandingNames/agentMissionFailed",        Standings::MissionFailure},
+        {"UI/Generic/StandingNames/agentMissionExpired",       Standings::MissionOfferExpired},
+        {"UI/Generic/StandingNames/combatAgression",           Standings::CombatAggression},
+        {"UI/Generic/StandingNames/combatOther",               Standings::CombatOther},
+        {"UI/Generic/StandingNames/combatPodKill",             Standings::CombatPodKill},
+        {"UI/Generic/StandingNames/combatShipKill",            Standings::CombatShipKill},
+        {"UI/Generic/StandingNames/decay",                     Standings::Decay},
+        {"UI/Generic/StandingNames/derivedNegitive",           Standings::DerivedModificationDispleased},
+        {"UI/Generic/StandingNames/derivedPositive",           Standings::DerivedModificationPleased},
+        {"UI/Generic/StandingNames/lawEnforcement",            Standings::LawEnforcement},
+        {"UI/Generic/StandingNames/playerCorpSetStandings",    Standings::CorpSet},
+        {"UI/Generic/StandingNames/playerSetStandings",        Standings::PlayerSet},
+        {"UI/Generic/StandingNames/GMSlashSet",                Standings::GMInterventionDirect},
+    };
+
+    for (auto& e : events) {
+        PyTuple* entry = new PyTuple(2);
+        entry->SetItem(0, new PyString(e.label));
+        entry->SetItem(1, new PyInt(e.id));
+        result->AddItem(entry);
+    }
+    return result;
 }
