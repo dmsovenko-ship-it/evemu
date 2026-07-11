@@ -250,18 +250,7 @@ bool LSCChannel::IsJoined(uint32 charID) {
 
 void LSCChannel::UpdateConfig()
 {
-    // Notify all members that channel config has changed so they reload
-    OnLSC_JoinChannel joinNotif;
-        joinNotif.channelID = EncodeID();
-        joinNotif.channelInfo = EncodeDynamicChannel(0);
-    PyTuple* payload = joinNotif.Encode();
-
-    for (auto& itr : m_chars) {
-        Client* pClient = sEntityList.FindClientByCharID(itr.first);
-        if (pClient != nullptr)
-            pClient->SendNotification("OnLSC_JoinChannel", "clientID", &payload, false);
-    }
-    PyDecRef(payload);
+    // config changes are stored in DB and picked up on next channel join
 }
 
 

@@ -26,6 +26,7 @@
 #include "eve-server.h"
 
 
+#include "Client.h"
 #include "EntityList.h"
 #include "chat/OnlineStatusService.h"
 
