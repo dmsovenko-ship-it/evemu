@@ -1090,50 +1090,47 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
  */
 
 PyResult AgentBound::GetDungeonShipRestrictions(PyCallArgs &call, PyInt* dungeonID) {
-    //restrictions = self.GetAgentMoniker(agentID).GetDungeonShipRestrictions(dungeonID)
     _log(AGENT__DUMP,  "AgentBound::Handle_GetDungeonShipRestrictions() - size=%lli", call.tuple->size());
     call.Dump(AGENT__DUMP);
 
-    return nullptr;
+    return new PyDict();
 }
 
 PyResult AgentBound::RemoveOfferFromJournal(PyCallArgs &call) {
-    //called on rclick in journal to "remove offer"
-    //self.GetAgentMoniker(agentID).RemoveOfferFromJournal()
     _log(AGENT__DUMP,  "AgentBound::Handle_RemoveOfferFromJournal() - size=%lli", call.tuple->size());
     call.Dump(AGENT__DUMP);
 
-    return nullptr;
+    Client* pClient = call.client;
+    if (pClient != nullptr)
+        m_agent->DeleteOffer(pClient->GetCharacterID());
+
+    return PyStatic.NewNone();
 }
 
 PyResult AgentBound::GetOfferJournalInfo(PyCallArgs &call) {
-    //html = self.GetAgentMoniker(agentID).GetOfferJournalInfo()
     _log(AGENT__DUMP,  "AgentBound::Handle_GetOfferJournalInfo() - size=%lli", call.tuple->size());
     call.Dump(AGENT__DUMP);
 
-    return nullptr;
+    return PyStatic.NewNone();
 }
 
 PyResult AgentBound::GetEntryPoint(PyCallArgs &call) {
-    //entryPoint = sm.StartService('agents').GetAgentMoniker(bookmark.agentID).GetEntryPoint()
     _log(AGENT__DUMP,  "AgentBound::Handle_GetEntryPoint() - size=%lli", call.tuple->size());
     call.Dump(AGENT__DUMP);
 
-    return nullptr;
+    return PyStatic.NewNone();
 }
 
 PyResult AgentBound::GotoLocation(PyCallArgs &call, PyInt* locationType, PyInt* locationNumber, PyInt* referringAgentID) {
-    //sm.StartService('agents').GetAgentMoniker(bookmark.agentID).GotoLocation(bookmark.locationType, bookmark.locationNumber, referringAgentID)
     _log(AGENT__DUMP,  "AgentBound::Handle_GotoLocation() - size=%lli", call.tuple->size());
     call.Dump(AGENT__DUMP);
 
-    return nullptr;
+    return PyStatic.NewNone();
 }
 
 PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyInt* locationType, PyInt* locationNumber, PyFloat* warpRange, PyBool* fleet, PyInt* referringAgentID) {
-    //sm.StartService('agents').GetAgentMoniker(bookmark.agentID).WarpToLocation(bookmark.locationType, bookmark.locationNumber, warpRange, fleet, referringAgentID)
     _log(AGENT__DUMP,  "AgentBound::Handle_WarpToLocation() - size=%lli", call.tuple->size());
     call.Dump(AGENT__DUMP);
 
-    return nullptr;
+    return PyStatic.NewNone();
 }
