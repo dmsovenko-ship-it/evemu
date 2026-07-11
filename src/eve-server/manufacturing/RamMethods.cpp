@@ -348,7 +348,7 @@ void RamMethods::LocationRolesCheck(Client*const pClient, const CorpPathElement 
         roles = pClient->GetRolesAtOther();
     }
 
-    if (!(roles & (int64)Acct::Role::FactoryManager)) {
+    if (!(roles & (int64)Corp::Role::FactoryManager)) {
         _log(MANUF__WARNING, "%s does not have FactoryManager role at station %u.", pClient->GetName(), stationID);
         throw UserError("CrpAccessDenied");
     }
