@@ -100,22 +100,44 @@ PetitionerService::PetitionerService() :
 
 PyResult PetitionerService::GetCategories( PyCallArgs& call )
 {
-    uint8 size(call.tuple->size());
-    sLog.White( "PetitionerService::Handle_GetCategories()", "size=%u ", size );
+    sLog.White("PetitionerService::Handle_GetCategories()", "size=%u", call.tuple->size());
 
     PyList* result = new PyList();
-    result->AddItemString( "Test Cat" );
-    result->AddItemString( "Test Cat2" );
+
+    PyTuple* cat1 = new PyTuple(4);
+    cat1->SetItem(0, PyStatic.NewOne());
+    cat1->SetItem(1, new PyString("General"));
+    cat1->SetItem(2, new PyString("General help and support"));
+    cat1->SetItem(3, PyStatic.NewZero());
+    result->AddItem(cat1);
+
+    PyTuple* cat2 = new PyTuple(4);
+    cat2->SetItem(0, new PyInt(2));
+    cat2->SetItem(1, new PyString("Billing"));
+    cat2->SetItem(2, new PyString("Billing and payment issues"));
+    cat2->SetItem(3, PyStatic.NewZero());
+    result->AddItem(cat2);
+
+    PyTuple* cat3 = new PyTuple(4);
+    cat3->SetItem(0, new PyInt(3));
+    cat3->SetItem(1, new PyString("Game Play"));
+    cat3->SetItem(2, new PyString("Gameplay issues and bugs"));
+    cat3->SetItem(3, PyStatic.NewZero());
+    result->AddItem(cat3);
 
     return result;
 }
 
 PyResult PetitionerService::GetCategoryHierarchicalInfo( PyCallArgs& call )
 {
-    uint8 size(call.tuple->size());
-    sLog.White( "PetitionerService::Handle_GetCategoryHierarchicalInfo()", "size=%u ", size );
+    sLog.White("PetitionerService::Handle_GetCategoryHierarchicalInfo()", "size=%u", call.tuple->size());
 
-    return new PyList();
+    PyTuple* result = new PyTuple(4);
+    result->SetItem(0, new PyDict());
+    result->SetItem(1, new PyDict());
+    result->SetItem(2, new PyDict());
+    result->SetItem(3, new PyList());
+    return result;
 }
 
 //00:28:58 L PetitionerService::Handle_GetUnreadMessages(): size=0
