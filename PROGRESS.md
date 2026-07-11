@@ -1,6 +1,6 @@
 # EVEmu Crucible — Fork Progress
 
-> **Our fork: `███████████████████░` 96%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
+> **Our fork: `████████████████████` 97%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
 > Last updated: 2026-07-11
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
@@ -31,17 +31,17 @@
 | System | % | Bar | Δ up | System | % | Bar | Δ up |
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
-| Ship Navigation | 75% | `████████████████░░` | +5% | Combat | 99% | `███████████████████` | +9% |
+| Ship Navigation | 77% | `████████████████░░` | +7% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 95% | `██████████████████` | +10% | Drones | 90% | `█████████████████░` | +15% |
-| NPC AI & Spawning | 80% | `████████████████░░` | +20% | Agents & Missions | 85% | `█████████████████░` | +15% |
-| **POS** | 97% | `███████████████████` | +27% | Market | 85% | `█████████████████░` | +25% |
+| NPC AI & Spawning | 82% | `████████████████░░` | +22% | Agents & Missions | 90% | `█████████████████░` | +20% |
+| **POS** | 97% | `███████████████████` | +27% | Market | 88% | `█████████████████░` | +28% |
 | **Incursions** | 75% | `█████████████████░` | +75% | Fleet | 98% | `██████████████████` | +23% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
-| **Notifications** | 95% | `██████████████████` | +35% | **Standings** | 85% | `█████████████████░` | +25% |
-| **Faction Warfare** | 90% | `█████████████████░` | +40% | Calendar | 90% | `█████████████████░` | +30% |
-| Mail & LSC | 85% | `█████████████████░` | +25% | Contracts | 95% | `██████████████████` | +35% |
+| **Notifications** | 96% | `██████████████████` | +36% | **Standings** | 88% | `█████████████████░` | +28% |
+| **Faction Warfare** | 90% | `█████████████████░` | +40% | Calendar | 92% | `█████████████████░` | +32% |
+| Mail & LSC | 90% | `█████████████████░` | +30% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 87% | `█████████████████░` | +22% | **Alliance** | 85% | `█████████████████░` | +30% |
-| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 55% | `████████████░░░░░░` | +10% |
+| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 60% | `████████████░░░░░░` | +15% |
 | Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 95% | `██████████████████` | +30% |
 
 ---
@@ -79,7 +79,7 @@
 
 ---
 
-### 3. Ship Navigation `████████████████░░` 75%
+### 3. Ship Navigation `████████████████░░` 77%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -91,6 +91,7 @@
 | Orbit desync fix (distance fallback /6 → distance) | ❌ | ✅ |
 | Periodic position sync (SetBallPosition every 5 tics) | ❌ | ✅ |
 | Login warp overview fix (no SendSetState during warp) | ❌ | ✅ |
+| **Destiny crash fixes** — bubble guard in Stop/ClearTurn, use-after-free in FlushPendingDestinyUpdates, Warping:stop → SendSetState | ❌ | ✅ |
 
 ---
 
@@ -148,20 +149,22 @@
 
 ---
 
-### 8. Agents & Missions `█████████████████░` 85%
+### 8. Agents & Missions `█████████████████░` 90%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
 | Agent conversation, mission offer/accept/complete | ✅ | ✅ |
 | Courier, mining, encounter missions | ✅ | ✅ |
 | Storyline missions (144), Epic Arc (Blood-Stained Stars) | 🟡 | ✅ |
-| Career agents (29, 4 factions), COSMOS agents | 🟡 | 🟡 |
+| Career agents (29, 4 factions), COSMOS agents | 🟡 | ✅ |
+| AgentMgrService::GetCareerAgents() — реализован вместо заглушки | ❌ | ✅ |
+| AgentBound stubs (GetDungeonShipRestrictions, etc.) — возвращают валидные PyRep | ❌ | ✅ |
 | Research agents (21, tech fields) | ✅ | ✅ |
 | LP store (faction + CONCORD) | 🟡 | ✅ |
 
 ---
 
-### 9. Market `█████████████████░` 85%
+### 9. Market `█████████████████░` 88%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -173,6 +176,11 @@
 | Escrow handling (MarginTrading reduction) | ❌ | ✅ |
 | Trade skills — order count, range validation | ❌ | ✅ |
 | Expired auctions auto-finish (1m tick) | ❌ | ✅ |
+| **GetSkillLimits RPC** — клиент видит лимиты ордеров, комиссии, налоги | ❌ | ✅ |
+| **MarketDB LIMIT clauses** — StationOrderLimit/SystemOrderLimit/RegionOrderLimit работают | ❌ | ✅ |
+| **Escrow refund bug** — пофикшен эксплойт в ModifyCharOrder | ❌ | ✅ |
+| **NPCMarket table** — `market_orders` → `mktOrders` | ❌ | ✅ |
+| **Daytrading skill** — проверка в ModifyCharOrder | ❌ | ✅ |
 
 ---
 
@@ -211,7 +219,7 @@
 
 ---
 
-### 12. Science & Industry `████████████░░░░░░` 55%
+### 12. Science & Industry `████████████░░░░░░` 60%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -219,6 +227,9 @@
 | Invention (chance calc + T2 BPC) | ❌ | ✅ |
 | Reverse Engineering — ActivityCheck, Calculate, CompleteJob | ❌ | ✅ |
 | Blueprint management (ME/PE/runs) | ✅ | ✅ |
+| **GetBlueprintInformationAtLocation / WithFlag** — S&I окно показывает чертежи | ❌ | ✅ |
+| **ManufacturingService::GetPathToItem** — резолвит расположение чертежа | ❌ | ✅ |
+| **Invention formula** — использует EvEMath формулу со скиллами/мета/декриптором | ❌ | ✅ |
 
 ---
 
@@ -302,7 +313,7 @@
 
 ---
 
-### 19. LSC (Chat) `█████████████████░` 85%
+### 19. LSC (Chat) `█████████████████░` 90%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -310,10 +321,14 @@
 | Private conversations (Invite, custom temp channel) | ❌ | ✅ |
 | Channel creation (CreateChannel, Configure, Destroy) | ✅ | ✅ |
 | Mailing lists (Join, Leave, Create, GetJoinedLists) | 🟡 | ✅ |
+| **GetMember RPC** — возвращает инфу о члене канала (было nullptr) | ❌ | ✅ |
+| **AccessControl** — применяет изменения доступа к каналу | ❌ | ✅ |
+| **UpdateConfig** — рассылает OnLSC_JoinChannel всем участникам (было пусто) | ❌ | ✅ |
+| **OnlineStatusService::GetInitialState** — контакты показывают онлайн-статус | ❌ | ✅ |
 
 ---
 
-### 20. EvE Mail & Notifications `██████████████████` 95%
+### 20. EvE Mail & Notifications `█████████████████░` 92%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -325,10 +340,14 @@
 | Spam filter — blocked contacts check | ✅ | ✅ |
 | Corp mail role filtering — crpRoles + roleMask | ❌ | ✅ |
 | Notification sources: bills, towers, agents, corps, structures | ❌ | ✅ |
+| **MailingListMgrService** — 14 stubs реализованы (KickMembers, SetEntityAccess, роли, welcome mail, GetInfo) | ❌ | ✅ |
+| **NotificationMgrService groupID** — фильтрация через NotifyTypeToGroup (было игнорирование) | ❌ | ✅ |
+| **MailDB SQL bugs** — MoveToTrash/MoveAllFromTrash/ MoveAllToTrash (WHERE before SET) | ❌ | ✅ |
+| **4 MailMgrService stubs** — MarkAsRead/UnreadByList, MoveToTrashByLabel/List | ❌ | ✅ |
 
 ---
 
-### 21. Standings `█████████████████░` 85%
+### 21. Standings `█████████████████░` 88%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -339,10 +358,13 @@
 | Character↔character (PnP) standings | ❌ | ✅ |
 | SetStanding RPC — clamp, max ±2, notifications | ❌ | ✅ |
 | Security status (CONCORD awards/penalties) | ✅ | ✅ |
+| **GetMySecurityRating RPC** — клиент вызывал, сервер не отвечал | ❌ | ✅ |
+| **GetStandingEventTypes RPC** — возвращает типы событий для standing changes | ❌ | ✅ |
+| **Kill rights standing** — больше не хардкод 10.0, вычисляется реальный | ❌ | ✅ |
 
 ---
 
-### 22. Calendar `█████████████████░` 90%
+### 22. Calendar `█████████████████░` 92%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -351,6 +373,9 @@
 | UpdateEventParticipants (add/remove invitees) | ❌ | ✅ |
 | Event deletion (soft delete) | ✅ | ✅ |
 | SendEventResponse (accept/decline/maybe) | ✅ | ✅ |
+| **SQL schema** — созданы 3 таблицы (sysCalendarEvents/Invitees/Responses, не было в репозитории) | ❌ | ✅ |
+| **SQL injection** — escaped title/description в SaveNewEvent/SaveSystemEvent | ❌ | ✅ |
+| **Invitee list bug** — сохранялись указатели PyRep* вместо ID; INSERT после создания события | ❌ | ✅ |
 
 ---
 
