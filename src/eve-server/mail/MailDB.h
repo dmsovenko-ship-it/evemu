@@ -73,24 +73,18 @@ public:
     void JoinMailingList(uint32 characterID, std::string name);
     void LeaveMailingList(uint32 characterID, int32 listID);
     void DeleteMailingList(uint32 characterID, int32 listID);
-    // @TODO(groove): KickMembers Figure out converting PyList member info into something usable..
+    void KickMembers(int32 listID, const std::vector<int32>& memberIDs);
     PyDict *GetMailingListMembers(int32 listID);
     void MailingListSetEntityAccess(int32 entity, int32 access, int32 listID);
     void MailingListClearEntityAccess(int32 entity, int32 listID);
-    // @TODO(groove): SetMailingListMembersMuted
-    // @TODO(groove): SetMailingListMembersOperator
-    // @TODO(groove): SetMailingListMembersClear
-    // @TODO(groove): SetMailingListDefaultAccesss
+    void SetMembersRole(int32 listID, const std::vector<int32>& memberIDs, uint8 role);
     void SetMailingListDefaultAccess(int32 listID, int32 defaultAccess,
                                      int32 defaultMemberAccess, int32 cost);
-    //              : Make generic method for this shit^^^
-    //
-    // @TODO(groove): MailingListGetInfo
+    PyObject* MailingListGetInfo(int32 listID);
     PyObject *MailingListGetSettings(int32 listID);
-    // @TODO(groove): MailingListGetWelcomeMail
-    // @TODO(groove): MailingListSaveWelcomeMail
-    // @TODO(groove): MailingListSendWelcomeMail
-    // @TODO(groove): MailingListClearWelcomeMail
+    PyString* MailingListGetWelcomeMail(int32 listID);
+    void MailingListSaveWelcomeMail(int32 listID, const std::string& title, const std::string& body);
+    void MailingListClearWelcomeMail(int32 listID);
                                
     
     

@@ -111,15 +111,19 @@ PyResult MailingListMgrService::Delete(PyCallArgs& call, PyInt* listID)
 
 PyResult MailingListMgrService::KickMembers(PyCallArgs& call, PyInt* listID, PyList* memberIDs)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called KickMembers stub" );
+    sLog.Debug("MailingListMgrService", "Called KickMembers" );
+
+    std::vector<int32> ids;
     for (int i = 0; i < memberIDs->size(); i++) {
-        PyRep *member = memberIDs->GetItem(i);
-        member->Dump(SERVICE__ERROR, "member item");
+        PyRep* item = memberIDs->GetItem(i);
+        if (item->IsInt() || item->IsLong())
+            ids.push_back(PyRep::IntegerValueU32(item));
     }
 
-    // no return values
-    return nullptr;
+    if (!ids.empty())
+        m_db.KickMembers(listID->value(), ids);
+
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::GetMembers(PyCallArgs& call, PyInt* listID)
@@ -131,63 +135,75 @@ PyResult MailingListMgrService::GetMembers(PyCallArgs& call, PyInt* listID)
 
 PyResult MailingListMgrService::SetEntityAccess(PyCallArgs& call, PyInt* listID, PyInt* entityID, PyInt* access)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called SetEntityAccess stub" );
-
-    // no return values
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called SetEntityAccess" );
+    m_db.MailingListSetEntityAccess(entityID->value(), access->value(), listID->value());
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::ClearEntityAccess(PyCallArgs& call, PyInt* listID, PyInt* entityID)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called ClearEntityAccess stub" );
-    // no return values
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called ClearEntityAccess" );
+    m_db.MailingListClearEntityAccess(entityID->value(), listID->value());
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::SetMembersMuted(PyCallArgs& call, PyInt* listID, PyList* memberIDs)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called SetMembersMuted stub" );
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called SetMembersMuted" );
+    std::vector<int32> ids;
+    for (int i = 0; i < memberIDs->size(); i++) {
+        PyRep* item = memberIDs->GetItem(i);
+        if (item->IsInt() || item->IsLong())
+            ids.push_back(PyRep::IntegerValueU32(item));
+    }
+    if (!ids.empty())
+        m_db.SetMembersRole(listID->value(), ids, mailingListMemberMuted);
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::SetMembersOperator(PyCallArgs& call, PyInt* listID, PyList* memberIDs)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called SetMembersOperator stub" );
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called SetMembersOperator" );
+    std::vector<int32> ids;
+    for (int i = 0; i < memberIDs->size(); i++) {
+        PyRep* item = memberIDs->GetItem(i);
+        if (item->IsInt() || item->IsLong())
+            ids.push_back(PyRep::IntegerValueU32(item));
+    }
+    if (!ids.empty())
+        m_db.SetMembersRole(listID->value(), ids, mailingListMemberOperator);
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::SetMembersClear(PyCallArgs& call, PyInt* listID, PyList* memberIDs)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called SetMembersClear stub" );
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called SetMembersClear" );
+    std::vector<int32> ids;
+    for (int i = 0; i < memberIDs->size(); i++) {
+        PyRep* item = memberIDs->GetItem(i);
+        if (item->IsInt() || item->IsLong())
+            ids.push_back(PyRep::IntegerValueU32(item));
+    }
+    if (!ids.empty())
+        m_db.SetMembersRole(listID->value(), ids, mailingListMemberDefault);
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::SetDefaultAccess(PyCallArgs& call, PyInt* listID, PyInt* defaultAccess, PyInt* defaultMemberAccess, std::optional<PyInt*> mailCost)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called SetDefaultAccess stub" );
+    sLog.Debug("MailingListMgrService", "Called SetDefaultAccess" );
     m_db.SetMailingListDefaultAccess(listID->value(), defaultAccess->value(),
                                       defaultMemberAccess->value(), mailCost.has_value() ? mailCost.value()->value() : 0);
-
-    return nullptr;
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::GetInfo(PyCallArgs& call, PyInt* listID)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called GetInfo stub" );
-
-    if (listID->value() == 0) {
-        PyDict *ret = new PyDict();
-        ret->SetItem("displayName", new PyString("Test"));
-        return new PyObject("util.KeyVal", ret);
-    }
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called GetInfo" );
+    PyObject* info = m_db.MailingListGetInfo(listID->value());
+    if (info == nullptr)
+        return PyStatic.NewNone();
+    return info;
 }
 
 PyResult MailingListMgrService::GetSettings(PyCallArgs& call, PyInt* listID)
@@ -204,31 +220,45 @@ PyResult MailingListMgrService::GetSettings(PyCallArgs& call, PyInt* listID)
 
 PyResult MailingListMgrService::GetWelcomeMail(PyCallArgs& call, PyInt* listID)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called GetWelcomeMail stub" );
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called GetWelcomeMail" );
+    PyString* mail = m_db.MailingListGetWelcomeMail(listID->value());
+    if (mail == nullptr)
+        return PyStatic.NewNone();
+    return mail;
 }
 
 PyResult MailingListMgrService::SaveWelcomeMail(PyCallArgs& call, PyInt* listID, PyWString* title, PyWString* body)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called SaveWelcomeMail stub" );
-
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called SaveWelcomeMail" );
+    m_db.MailingListSaveWelcomeMail(listID->value(), title->content(), body->content());
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::SendWelcomeMail(PyCallArgs& call, PyInt* listID, PyWString* title, PyWString* body)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called SendWelcomeMail stub" );
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called SendWelcomeMail" );
+    // Save then send to all current members
+    m_db.MailingListSaveWelcomeMail(listID->value(), title->content(), body->content());
+
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT characterID FROM mailListUsers WHERE listID = %u",
+        listID->value());
+
+    std::vector<int> recipients;
+    DBResultRow row;
+    while (res.GetRow(row))
+        recipients.push_back(row.GetInt(0));
+
+    if (!recipients.empty())
+        m_db.SendMail(call.client->GetCharacterID(), recipients, 0, 0,
+                      title->content(), body->content(), 0, 0);
+    return PyStatic.NewNone();
 }
 
 PyResult MailingListMgrService::ClearWelcomeMail(PyCallArgs& call, PyInt* listID)
 {
-    // @TODO: Stub
-    sLog.Debug("MailingListMgrService", "Called ClearWelcomeMail stub" );
-
-    // no return value
-    return nullptr;
+    sLog.Debug("MailingListMgrService", "Called ClearWelcomeMail" );
+    m_db.MailingListClearWelcomeMail(listID->value());
+    return PyStatic.NewNone();
 }

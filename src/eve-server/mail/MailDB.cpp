@@ -902,6 +902,97 @@ void MailDB::MailingListSetEntityAccess(int32 entity, int32 access, int32 listID
         listID, entity, mailingListMemberDefault, access, access);
 }
 
+void MailDB::KickMembers(int32 listID, const std::vector<int32>& memberIDs)
+{
+    if (memberIDs.empty()) return;
+    std::string ids;
+    for (auto id : memberIDs) {
+        if (!ids.empty()) ids += ",";
+        ids += std::to_string(id);
+    }
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM mailListUsers WHERE listID = %u AND characterID IN (%s)",
+        listID, ids.c_str());
+}
+
+void MailDB::SetMembersRole(int32 listID, const std::vector<int32>& memberIDs, uint8 role)
+{
+    if (memberIDs.empty()) return;
+    std::string ids;
+    for (auto id : memberIDs) {
+        if (!ids.empty()) ids += ",";
+        ids += std::to_string(id);
+    }
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE mailListUsers SET role = %u WHERE listID = %u AND characterID IN (%s)",
+        role, listID, ids.c_str());
+}
+
+PyObject* MailDB::MailingListGetInfo(int32 listID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT id, displayName, defaultAccess, defaultMemberAccess, cost"
+        " FROM mailList WHERE id = %u", listID))
+        return nullptr;
+
+    DBResultRow row;
+    if (!res.GetRow(row)) return nullptr;
+
+    DBQueryResult cntRes;
+    uint32 memberCount = 0;
+    if (sDatabase.RunQuery(cntRes,
+        "SELECT COUNT(*) FROM mailListUsers WHERE listID = %u", listID))
+    {
+        DBResultRow cntRow;
+        if (cntRes.GetRow(cntRow))
+            memberCount = cntRow.GetUInt(0);
+    }
+
+    PyDict* dict = new PyDict();
+    dict->SetItemString("id", new PyInt(row.GetInt(0)));
+    dict->SetItemString("displayName", new PyString(row.GetText(1)));
+    dict->SetItemString("defaultAccess", new PyInt(row.GetInt(2)));
+    dict->SetItemString("defaultMemberAccess", new PyInt(row.GetInt(3)));
+    dict->SetItemString("cost", new PyInt(row.GetInt(4)));
+    dict->SetItemString("memberCount", new PyInt(memberCount));
+    return new PyObject("util.KeyVal", dict);
+}
+
+PyString* MailDB::MailingListGetWelcomeMail(int32 listID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT welcomeMail FROM mailList WHERE id = %u", listID))
+        return nullptr;
+
+    DBResultRow row;
+    if (!res.GetRow(row)) return nullptr;
+
+    const char* msg = row.GetText(0);
+    if (msg == nullptr || strlen(msg) == 0)
+        return nullptr;
+
+    return new PyString(msg);
+}
+
+void MailDB::MailingListSaveWelcomeMail(int32 listID, const std::string& title, const std::string& body)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE mailList SET welcomeMail = '%s' WHERE id = %u",
+        body.c_str(), listID);
+}
+
+void MailDB::MailingListClearWelcomeMail(int32 listID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE mailList SET welcomeMail = '' WHERE id = %u", listID);
+}
+
 void MailDB::MoveFromTrash(int32 messageID)
 {
     // not used yet.
