@@ -1,5 +1,5 @@
+-- +migrate Up
 -- Calendar system tables
--- These tables are required by CalendarDB.cpp but were never created.
 
 CREATE TABLE IF NOT EXISTS `sysCalendarEvents` (
   `eventID` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -33,3 +33,8 @@ CREATE TABLE IF NOT EXISTS `sysCalendarResponses` (
   PRIMARY KEY (`eventID`,`charID`),
   KEY `charID` (`charID`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+-- +migrate Down
+DROP TABLE IF EXISTS `sysCalendarEvents`;
+DROP TABLE IF EXISTS `sysCalendarInvitees`;
+DROP TABLE IF EXISTS `sysCalendarResponses`;
