@@ -716,25 +716,57 @@ PyResult MarketProxyService::ModifyCharOrder(PyCallArgs &call, PyInt* orderID, P
         return nullptr;
     }
 
+    // Daytrading skill: limit remote modification range
+    if (call.client->GetStationID() != stationID->value()) {
+        int8 daytradingLevel = call.client->GetChar()->GetSkillLevel(EvESkill::Daytrading);
+        static const uint8 modRangeBySkill[] = { 0, 5, 10, 20, 40, 60 };
+        uint8 maxModRange = (daytradingLevel < 6) ? modRangeBySkill[daytradingLevel] : 60;
+        if (range->value() >= 0 and (uint32)range->value() > maxModRange) {
+            call.client->SendErrorMsg("Your Daytrading skill does not allow modifying orders from this range.");
+            return nullptr;
+        }
+    }
+
     // there is no refund in broker fees.
 
     // adjust balance for price change
-    float money = (price->value() - newPrice->value()) * volRemaining->value();
-    std::string reason = "DESC:  Altering Market Order #";
-    reason += std::to_string(orderID->value());
+    // If newPrice > price, charge difference; if newPrice < price, refund difference.
+    double diff = newPrice->value() - price->value();
+    if (diff > 0.0) {
+        // raising price — charge additional escrow
+        float addEscrow = static_cast<float>(diff * volRemaining->value());
+        std::string reason = "DESC:  Raising price on Market Order #";
+        reason += std::to_string(orderID->value());
 
-    uint32 fromID = oInfo.isCorp ? call.client->GetCorporationID() : call.client->GetCharID();
-    uint16 fromKey = oInfo.isCorp ? oInfo.accountKey : Account::KeyType::Cash;
-    AccountService::TransferFunds(
-        fromID,
-        stDataMgr.GetOwnerID(stationID->value()),
-        money,
-        reason.c_str(),
-        Journal::EntryType::MarketEscrow,
-        orderID->value(),
-        fromKey,
-        Account::KeyType::Escrow
-    );
+        uint32 fromID = oInfo.isCorp ? call.client->GetCorporationID() : call.client->GetCharID();
+        uint16 fromKey = oInfo.isCorp ? oInfo.accountKey : Account::KeyType::Cash;
+        AccountService::TransferFunds(
+            fromID,
+            stDataMgr.GetOwnerID(stationID->value()),
+            addEscrow,
+            reason.c_str(),
+            Journal::EntryType::MarketEscrow,
+            orderID->value(),
+            fromKey,
+            Account::KeyType::Escrow
+        );
+    } else if (diff < 0.0) {
+        // lowering price — refund difference from escrow
+        float refundEscrow = static_cast<float>(-diff * volRemaining->value());
+        std::string reason = "DESC:  Lowering price on Market Order #";
+        reason += std::to_string(orderID->value());
+
+        AccountService::TransferFunds(
+            stDataMgr.GetOwnerID(stationID->value()),
+            oInfo.isCorp ? call.client->GetCorporationID() : call.client->GetCharID(),
+            refundEscrow,
+            reason.c_str(),
+            Journal::EntryType::MarketEscrow,
+            orderID->value(),
+            Account::KeyType::Escrow,
+            oInfo.isCorp ? oInfo.accountKey : Account::KeyType::Cash
+        );
+    }
 
     if (!MarketDB::AlterOrderPrice(orderID->value(), newPrice->value())) {
         _log(MARKET__ERROR, "ModifyCharOrder - Failed to modify price for order #%i.", orderID->value());
