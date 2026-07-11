@@ -64,6 +64,7 @@ MarketProxyService::MarketProxyService(EVEServiceManager& mgr) :
     this->Add("PlaceCharOrder", static_cast <PyResult (MarketProxyService::*)(PyCallArgs &call, PyInt*, PyInt*, PyFloat*, PyInt*, PyInt*, PyInt*, std::optional <PyInt*>, PyInt*, PyInt*, PyBool*, std::optional<PyRep*>)> (&MarketProxyService::PlaceCharOrder));
     this->Add("PlaceCharOrder", static_cast <PyResult (MarketProxyService::*)(PyCallArgs &call, PyInt*, PyInt*, PyFloat*, PyInt*, PyInt*, PyInt*, std::optional <PyInt*>, PyInt*, PyInt*, PyInt*, std::optional<PyRep*>)> (&MarketProxyService::PlaceCharOrder));
     this->Add("GetCharOrders", &MarketProxyService::GetCharOrders);
+    this->Add("GetSkillLimits", &MarketProxyService::GetSkillLimits);
     this->Add("ModifyCharOrder", &MarketProxyService::ModifyCharOrder);
     this->Add("CancelCharOrder", &MarketProxyService::CancelCharOrder);
     this->Add("CharGetNewTransactions", &MarketProxyService::CharGetNewTransactions);
@@ -137,6 +138,46 @@ PyResult MarketProxyService::CorpGetNewTransactions(PyCallArgs& call, PyRep* sel
         data.accountKey = accountKey->IsNone() ? 0 : PyRep::IntegerValueU32(accountKey);
         data.memberID = memberID->IsNone() ? 0 : PyRep::IntegerValueU32(memberID);
     return MarketDB::GetTransactions(call.client->GetCorporationID(), data);
+}
+
+PyResult MarketProxyService::GetSkillLimits(PyCallArgs& call) {
+    _log(MARKET__MESSAGE, "MarketProxyService::GetSkillLimits() size=%lli", call.tuple->size());
+
+    Character* pChar = call.client->GetChar();
+    if (pChar == nullptr)
+        return PyStatic.NewNone();
+
+    uint8 tradeLvl       = pChar->GetSkillLevel(EvESkill::Trade);
+    uint8 retailLvl      = pChar->GetSkillLevel(EvESkill::Retail);
+    uint8 wholeSaleLvl   = pChar->GetSkillLevel(EvESkill::Wholesale);
+    uint8 tycoonLvl      = pChar->GetSkillLevel(EvESkill::Tycoon);
+    uint8 accountingLvl  = pChar->GetSkillLevel(EvESkill::Accounting);
+    uint8 brokerLvl      = pChar->GetSkillLevel(EvESkill::BrokerRelations);
+    uint8 marginTradeLvl = pChar->GetSkillLevel(EvESkill::MarginTrading);
+    uint8 marketingLvl   = std::min(pChar->GetSkillLevel(EvESkill::Marketing), 5u);
+    uint8 procurementLvl = std::min(pChar->GetSkillLevel(EvESkill::Procurement), 5u);
+    uint8 visibilityLvl  = std::min(pChar->GetSkillLevel(EvESkill::Visibility), 5u);
+    uint8 daytradingLvl  = std::min(pChar->GetSkillLevel(EvESkill::Daytrading), 5u);
+
+    int32 maxOrderCount = 5 + tradeLvl * 4 + retailLvl * 8 + wholeSaleLvl * 16 + tycoonLvl * 32;
+
+    float commissionPct = 0.01f;
+    commissionPct *= (1.0f - brokerLvl * 0.05f);
+    float transactionTax = 0.015f;
+    transactionTax *= (1.0f - accountingLvl * 0.1f);
+
+    static const int jumpsPerSkillLevel[] = { 0, 5, 10, 20, 40, 80 };
+
+    PyDict* limits = new PyDict();
+    limits->SetItemString("cnt", new PyInt(maxOrderCount));
+    limits->SetItemString("fee", new PyFloat(commissionPct));
+    limits->SetItemString("acc", new PyFloat(transactionTax));
+    limits->SetItemString("ask", new PyInt(jumpsPerSkillLevel[marketingLvl]));
+    limits->SetItemString("bid", new PyInt(jumpsPerSkillLevel[procurementLvl]));
+    limits->SetItemString("vis", new PyInt(jumpsPerSkillLevel[visibilityLvl]));
+    limits->SetItemString("mod", new PyInt(jumpsPerSkillLevel[daytradingLvl]));
+    limits->SetItemString("esc", new PyFloat(std::pow(0.75f, marginTradeLvl)));
+    return limits;
 }
 
 PyResult MarketProxyService::GetOrders(PyCallArgs &call, PyInt* typeID) {

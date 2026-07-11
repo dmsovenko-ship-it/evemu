@@ -47,8 +47,8 @@ PyRep *MarketDB::GetStationAsks(uint32 stationID) {
         "    typeID, MIN(price) AS price, volRemaining, stationID "
         " FROM mktOrders "
         " WHERE stationID=%u"
-        " GROUP BY typeID",  stationID))
-        //" LIMIT %u",  stationID, sConfig.market.StationOrderLimit))
+        " GROUP BY typeID"
+        " LIMIT %u",  stationID, sConfig.market.StationOrderLimit))
     {
         codelog(MARKET__DB_ERROR, "Error in query: %s", res.error.c_str());
         return nullptr;
@@ -68,8 +68,8 @@ PyRep *MarketDB::GetSystemAsks(uint32 solarSystemID) {
         "    typeID, MIN(price) AS price, volRemaining, stationID "
         " FROM mktOrders "
         " WHERE solarSystemID=%u"
-        " GROUP BY typeID", solarSystemID))
-        //" LIMIT %u", solarSystemID, sConfig.market.SystemOrderLimit))
+        " GROUP BY typeID"
+        " LIMIT %u", solarSystemID, sConfig.market.SystemOrderLimit))
     {
         codelog(MARKET__DB_ERROR, "Error in query: %s", res.error.c_str());
         return nullptr;
@@ -89,8 +89,8 @@ PyRep *MarketDB::GetRegionBest(uint32 regionID) {
         "    typeID, MIN(price) AS price, volRemaining, stationID "
         " FROM mktOrders "
         " WHERE regionID=%u AND bid=%u"
-        " GROUP BY typeID", regionID, Market::Type::Sell))
-        //" LIMIT %u", regionID, Market::Type::Sell, sConfig.market.RegionOrderLimit))
+        " GROUP BY typeID"
+        " LIMIT %u", regionID, Market::Type::Sell, sConfig.market.RegionOrderLimit))
     {
         codelog(MARKET__DB_ERROR, "Error in query: %s", res.error.c_str());
         return nullptr;

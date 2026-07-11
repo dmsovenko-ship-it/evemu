@@ -21,7 +21,7 @@ void NPCMarket::CreateNPCMarketFromFile(std::string filename)
     // delete all old market orders.
     // TO-DO: make this safe for concurrency.
     sLog.White("NPCMarket", "Deleting old NPC orders.");
-    if (!sDatabase.RunQuery(err, "DELETE FROM market_orders WHERE duration > 90"))
+    if (!sDatabase.RunQuery(err, "DELETE FROM mktOrders WHERE duration > 90"))
     {
         _log(MARKET__ERROR, "Error in query: %s.", err.c_str());
         sLog.White("NPCMarket", "Failed to clear old NPC market.");
@@ -127,7 +127,7 @@ bool NPCMarket::ProcessStation(const TiXmlElement* ele)
     }
     // process the sql command.
     if (!sDatabase.RunQueryLID(err, orderID,
-                               "INSERT INTO market_orders ("
+                               "INSERT INTO mktOrders ("
                                "    typeID, charID, regionID, stationID,"
                                "    `range`, bid, price, volEntered, volRemaining, issued,"
                                "    minVolume, contraband, accountID, duration,"
