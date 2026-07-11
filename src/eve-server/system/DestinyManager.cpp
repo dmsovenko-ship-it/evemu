@@ -574,13 +574,16 @@ void DestinyManager::Stop() {
     SetSpeedFraction(0.0f);
     m_stop = true;
 
-    SetPosition(m_position, true);
+    // only send network updates if entity is still in a bubble
+    if (mySE->SysBubble() != nullptr) {
+        SetPosition(m_position, true);
 
-    CmdStop du;
-        du.entityID = mySE->GetID();
-    PyTuple *up = du.Encode();
-    SendSingleDestinyUpdate(&up);
-    PyDecRef(up);
+        CmdStop du;
+            du.entityID = mySE->GetID();
+        PyTuple *up = du.Encode();
+        SendSingleDestinyUpdate(&up);
+        PyDecRef(up);
+    }
 }
 
 void DestinyManager::Halt() {
@@ -1127,7 +1130,8 @@ void DestinyManager::Turn() {   // tracking within 900m for Frigates, 1k4m for B
 }
 
 void DestinyManager::ClearTurn() {
-    SetPosition(m_position, sConfig.debug.PositionHack);   // (PositionHack == true) here will force position update to client
+    if (mySE->SysBubble() != nullptr)
+        SetPosition(m_position, sConfig.debug.PositionHack);   // (PositionHack == true) here will force position update to client
     m_turnTic = 0;
     m_turning = false;
     m_radians = 0.0f;
