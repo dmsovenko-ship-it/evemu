@@ -156,6 +156,52 @@ Things to verify after recent changes (updated 2026-07-11 — major stability fi
 - [ ] **GetStandingEventTypes** — Open standings change log. Should show event type labels.
 - [ ] **Kill rights** — Grant a kill right. Standing shown should match actual standing, not 10.0.
 
+## Destiny / Navigation
+
+- [ ] **Approach** — Approach a static object (gate/station). Ship should decelerate smoothly, no jerking.
+- [ ] **Orbit** — Orbit a gate at 500m. Ship should maintain stable orbit without position jumps.
+- [ ] **Follow (moving target)** — Follow another ship. Should maintain distance without oscillation.
+- [ ] **Follow (autopilot)** — Enable autopilot to a gate. Ship should warp, arrive, stop at gate.
+- [ ] **Autopilot chain** — Set destination 3+ jumps away, enable autopilot. Ship should jump and continue.
+
+## Market
+
+- [ ] **GetSkillLimits** — Open S&I window. Broker fee, tax, order limits should display based on skills.
+- [ ] **ModifyCharOrder** — Increase the price of a buy order. Should charge additional ISK (not refund).
+- [ ] **ModifyCharOrder remote** — Try modifying an order from a different station. Daytrading skill should gate it.
+- [ ] **Station/System/Region order limits** — Markets with 10+ orders should only show the configured limit.
+
+## Agents & Missions
+
+- [ ] **Career agents** — Open agent finder, filter by career. Should list career tutorial agents.
+- [ ] **AgentBound stubs** — Open agent info window, try GetDungeonShipRestrictions/GetOfferJournalInfo. No crash.
+- [ ] **Remove offer from journal** — Right-click a mission offer in journal → Remove. Should clear the offer.
+
+## Science & Industry
+
+- [ ] **Blueprint list** — Open S&I window, select a hangar with blueprints. Should list all BPOs/BPCs.
+- [ ] **GetPathToItem** — Attempt to install a manufacturing job. Should resolve blueprint location.
+- [ ] **Invention** — Run an invention job. Success chance should reflect skills, meta level, decryptor.
+- [ ] **Research field selection** — Talk to a research agent, select a field. Should save to chrResearch.
+- [ ] **Research point accumulation** — Wait 1h+ after starting research. Points should increase.
+
+## LSC / Chat
+
+- [ ] **GetMember** — Right-click a channel member, view info. Should show their data.
+- [ ] **AccessControl** — Change channel access mode. Should persist on relog.
+- [ ] **Online contacts** — Open contacts window. Online/offline status should show correctly.
+
+## Calendar
+
+- [ ] **Create event** — Create a personal calendar event with invitees. Should save and display.
+- [ ] **Event responses** — Accept/decline an event invite. Response should persist.
+
+## Standings
+
+- [ ] **GetMySecurityRating** — Check security status in character sheet. Should show your sec status.
+- [ ] **GetStandingEventTypes** — Open standings change log. Should show event type labels.
+- [ ] **Kill rights** — Grant a kill right. Standing shown should match actual standing, not 10.0.
+
 ## Stability
 
 - [ ] **No crash on combat** — Engage NPCs with modules active and drones out. No crash.
@@ -163,3 +209,4 @@ Things to verify after recent changes (updated 2026-07-11 — major stability fi
 - [ ] **No warp crash** — Warp between gates/systems repeatedly. No `Unknown packet type` or crash.
 - [ ] **No Marshal crash** — Jump between systems repeatedly. No crash in Marshal/FlushPendingDestinyUpdates.
 - [ ] **No client AttributeError** — Warp while NPCs are spawning. Client should not show `effects.Warping` exceptions.
+- [ ] **No orbit desync** — Orbit a planet/gate for 5+ minutes. Position should not drift.

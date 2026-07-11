@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
 > **Our fork: `████████████████████` 97%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-11
+> Last updated: 2026-07-11 (build 2 — major stability + QoL pass)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -31,17 +31,17 @@
 | System | % | Bar | Δ up | System | % | Bar | Δ up |
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
-| Ship Navigation | 77% | `████████████████░░` | +7% | Combat | 99% | `███████████████████` | +9% |
+| Ship Navigation | 80% | `████████████████░░` | +10% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 95% | `██████████████████` | +10% | Drones | 90% | `█████████████████░` | +15% |
-| NPC AI & Spawning | 82% | `████████████████░░` | +22% | Agents & Missions | 90% | `█████████████████░` | +20% |
-| **POS** | 97% | `███████████████████` | +27% | Market | 88% | `█████████████████░` | +28% |
+| NPC AI & Spawning | 83% | `████████████████░░` | +23% | Agents & Missions | 92% | `███████████████████` | +22% |
+| **POS** | 97% | `███████████████████` | +27% | Market | 90% | `█████████████████░` | +30% |
 | **Incursions** | 75% | `█████████████████░` | +75% | Fleet | 98% | `██████████████████` | +23% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
-| **Notifications** | 96% | `██████████████████` | +36% | **Standings** | 88% | `█████████████████░` | +28% |
-| **Faction Warfare** | 90% | `█████████████████░` | +40% | Calendar | 92% | `█████████████████░` | +32% |
-| Mail & LSC | 90% | `█████████████████░` | +30% | Contracts | 95% | `██████████████████` | +35% |
+| **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 90% | `█████████████████░` | +30% |
+| **Faction Warfare** | 90% | `█████████████████░` | +40% | Calendar | 93% | `███████████████████` | +33% |
+| Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 87% | `█████████████████░` | +22% | **Alliance** | 85% | `█████████████████░` | +30% |
-| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 70% | `██████████████░░░░` | +25% |
+| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 70% | `████████████████░░` | +25% |
 | Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 95% | `██████████████████` | +30% |
 
 ---
@@ -79,7 +79,7 @@
 
 ---
 
-### 3. Ship Navigation `████████████████░░` 77%
+### 3. Ship Navigation `████████████████████` 80%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -87,11 +87,13 @@
 | Warp-to-0, fleet warp | ✅ | ✅ |
 | Login warp-in, combat logoff, emergency warp | ✅ | ✅ |
 | Warp scramble blocks logoff/emergency warp | 🟡 | ✅ |
-| Autopilot chain (preserved across jumps) | ❌ | ❌ не работает |
+| Autopilot — CmdWarpToStuffAutopilot, FollowBall, AP flag after jump | ❌ | 🟡 экспериментально |
 | Orbit desync fix (distance fallback /6 → distance) | ❌ | ✅ |
 | Periodic position sync (SetBallPosition every 5 tics) | ❌ | ✅ |
 | Login warp overview fix (no SendSetState during warp) | ❌ | ✅ |
-| **Destiny crash fixes** — bubble guard in Stop/ClearTurn, use-after-free in FlushPendingDestinyUpdates, Warping:stop → SendSetState | ❌ | ✅ |
+| **Follow() smoothing** — hysteresis exit threshold, gradual accel/decel, no abrupt Stop() | ❌ | ✅ |
+| **Orbit() smoothing** — heading blending, continuous MoveObject | ❌ | ✅ |
+| **Destiny crash fixes** — bubble guard, use-after-free, Warping:stop→SendSetState | ❌ | ✅ |
 
 ---
 
@@ -149,7 +151,7 @@
 
 ---
 
-### 8. Agents & Missions `█████████████████░` 90%
+### 8. Agents & Missions `███████████████████` 92%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -160,6 +162,8 @@
 | AgentMgrService::GetCareerAgents() — реализован вместо заглушки | ❌ | ✅ |
 | AgentBound stubs (GetDungeonShipRestrictions, etc.) — возвращают валидные PyRep | ❌ | ✅ |
 | Research agents (21, tech fields) | ✅ | ✅ |
+| Research field selection — DoAction(skillTypeID) → chrResearch + pointsPerDay | ❌ | ✅ |
+| Research point accumulation — фоновая задача (каждый час) | ❌ | ✅ |
 | LP store (faction + CONCORD) | 🟡 | ✅ |
 
 ---
@@ -364,7 +368,7 @@
 
 ---
 
-### 22. Calendar `█████████████████░` 92%
+### 22. Calendar `███████████████████` 93%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -373,9 +377,9 @@
 | UpdateEventParticipants (add/remove invitees) | ❌ | ✅ |
 | Event deletion (soft delete) | ✅ | ✅ |
 | SendEventResponse (accept/decline/maybe) | ✅ | ✅ |
-| **SQL schema** — созданы 3 таблицы (sysCalendarEvents/Invitees/Responses, не было в репозитории) | ❌ | ✅ |
-| **SQL injection** — escaped title/description в SaveNewEvent/SaveSystemEvent | ❌ | ✅ |
-| **Invitee list bug** — сохранялись указатели PyRep* вместо ID; INSERT после создания события | ❌ | ✅ |
+| **SQL schema** — 3 таблицы (sysCalendarEvents/Invitees/Responses) с +migrate Up/Down | ❌ | ✅ |
+| **SQL injection** — escaped title/description | ❌ | ✅ |
+| **Invitee list bug** — сохранялись указатели PyRep* вместо ID | ❌ | ✅ |
 
 ---
 

@@ -439,15 +439,77 @@
 - **IncursionMgr SpawnSites**: раз в 5 минут (было каждый тик) ✅
 - **ESI price import script**: `tools/import_prices.py` ✅
 - **WarpUpdate crash fix**: null-check `m_targBubble` ✅
-- **Autopilot diagnostics**: не работает, требуется дальнейшая диагностика
+- **Autopilot diagnostics**: частично — CmdWarpToStuffAutopilot работает, цепочка прыжков тестируется
 - **FW LP earning**: не подключён
+- **BubbleCast destiny update**: Err → fallback Add to BubbleMgr ✅
+
+## Part 61: Stability & QoL Pass (done)
+- **Marshal crash**: use-after-free в `FlushPendingDestinyUpdates` (double PyDecRef) ✅
+- **PyVisitor null elements**: защита от null в Tuple/List Visit ✅
+- **MarshalStream depth guard**: missing check в `VisitSubStream` ✅
+- **Bubble guard**: `Stop()`/`ClearTurn()` — только при `SysBubble() != nullptr` ✅
+- **Client AttributeError**: `Warping:stop` убран из `SendSetState` ✅
+- **NPCMarket**: table name `market_orders` → `mktOrders` ✅
+- **MarketDB LIMIT clauses**: StationOrderLimit/SystemOrderLimit/RegionOrderLimit включены ✅
+- **Escrow refund exploit**: `ModifyCharOrder` — charge on raise, refund on lower (не negative = withdraw) ✅
+- **Daytrading skill**: проверка в `ModifyCharOrder` при удалённой модификации ✅
+
+## Part 62: Agents & Mail (done)
+- **GetCareerAgents()**: реализован (была заглушка `return 0`) ✅
+- **AgentBound stubs**: 6 методов — возвращают None/Dict вместо nullptr ✅
+- **MailDB SQL errors**: MoveToTrash/MoveAllFromTrash/MoveAllToTrash (WHERE before SET) ✅
+- **MailMgrService stubs**: MarkAsReadByList, MarkAsUnreadByList, MoveToTrashByLabel/List ✅
+- **MailingListMgrService**: 14 stubs реализованы (KickMembers, SetEntityAccess, роли, welcome mail, GetInfo) ✅
+- **NotificationMgrService groupID**: фильтрация через `NotifyTypeToGroup()` ✅
+- **OnlineStatusService**: GetInitialState — контакты показывают реальный online статус ✅
+- **LSC GetMember**: возвращает инфу о члене канала (было nullptr) ✅
+- **LSC AccessControl/UpdateConfig**: применяет/сохраняет изменения доступа ✅
+
+## Part 63: Market (done)
+- **GetSkillLimits RPC**: broker fee, tax, order limits, skills ✅
+- **NPCMarket table**: market_orders → mktOrders ✅
+- **MarketDB LIMITs**: включены для station/system/region asks ✅
+- **Escrow refund bug**: пофикшен (exploit — можно было вывести ISK) ✅
+- **Daytrading skill check**: в ModifyCharOrder ✅
+
+## Part 64: Science & Industry (done)
+- **GetBlueprintInformationAtLocation**: S&I окно показывает чертежи ✅
+- **ManufacturingService::GetPathToItem**: резолвит расположение чертежа ✅
+- **Invention formula**: EvEMath со скиллами, мета-уровнем, декриптором ✅
+- **Research field selection**: выбор поля через DoAction(skillTypeID) → chrResearch + pointsPerDay ✅
+- **Research point accumulation**: фоновая задача каждый час ✅
+- **POS assembly lines (Corp + Alliance)**: UNION + entity запрос для POS-модулей ✅
+- **LocationRolesCheck**: проверка FactoryManager роли ✅
+- **UpdateAssemblyLineConfigurations**: возвращает None (было nullptr) ✅
+- **Job completion mail**: простое письмо при завершении джобы ✅
+- **Invention decryptor modifier**: lookup из invMetaTypes ✅
+
+## Part 65: Standings & Calendar (done)
+- **GetMySecurityRating RPC**: новый (клиент вызывал, сервер не отвечал) ✅
+- **GetStandingEventTypes RPC**: возвращает типы событий standings ✅
+- **Kill rights standing**: не хардкод 10.0, вычисляется реальный ✅
+- **Calendar SQL schema**: 3 таблицы (sysCalendarEvents/Invitees/Responses) с +migrate Up/Down ✅
+- **Calendar SQL injection**: экранирование title/description ✅
+- **Calendar invitee bug**: сохранялись указатели PyRep* вместо ID ✅
+
+## Part 66: Destiny Smoothing & Crosshairs (done)
+- **Follow() smoothing**: hysteresis exit threshold (×1.5), gradual accel/decel (+15%/−20% per tick) ✅
+- **Orbit() smoothing**: heading blending (30% old + 70% new), непрерывный MoveObject ✅
+- **Autopilot approach**: полная остановка у врат, distance 2500м + радиус корабля ✅
+- **Generate_invTypes**: добавлен groupID 1052 (Incursion Sansha Capital) → Battleship(27) ✅
+- **NPC::MakeSlimItem**: добавлен case 1052 ✅
+- **SpawnMgr**: gID!=1055 в Sansha range check (группа не существует) ✅
+
+## Part 67: Calendar migration fix (done)
+- **+migrate Up/Down annotations**: добавлены в calendar_tables.sql ✅
 
 # TODO
 
 ## 🟡 If desired
-1. **Autopilot** — не работает, требуется диагностика
+1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (возможно, сбрасывается route при session change)
 2. **FW LP earning** — подключить `LPService::AddLP` к FW-активностям (plex captures, FW kills)
+3. **Incursions** — 75%, требуется доработка
 
 ## 🟢 Eventually
-3. **RefPtr → shared_ptr** — major refactoring ~400 files
-4. **PyRep memory management** — valgrind leak fixes
+4. **RefPtr → shared_ptr** — major refactoring ~400 files
+5. **PyRep memory management** — valgrind leak fixes
