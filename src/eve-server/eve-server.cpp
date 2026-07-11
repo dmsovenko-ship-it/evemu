@@ -131,6 +131,7 @@
 #include "mail/NotificationMgrService.h"
 // manufacturing services
 #include "manufacturing/FactoryService.h"
+#include "manufacturing/ManufacturingService.h"
 #include "manufacturing/RamProxyService.h"
 // map services
 #include "map/MapData.h"
@@ -680,6 +681,7 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new CharFittingMgr());
     newSvcMgr.Register(new FleetManager());
     newSvcMgr.Register(new FactoryService());
+    newSvcMgr.Register(new ManufacturingService());
     newSvcMgr.Register(new PaperDollService());
     newSvcMgr.Register(new CorpFittingMgr());
     newSvcMgr.Register(new IndexManager());
