@@ -759,6 +759,41 @@ bool FactoryDB::IsRefinable(const uint16 typeID) {
     return (res.ColumnCount() > 0);
 }
 
+PyRep* FactoryDB::GetBlueprintsAtLocation(const uint32 locationID) {
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT"
+        "  entity.itemID,"
+        "  entity.typeID,"
+        "  entity.flag,"
+        "  entity.ownerID,"
+        "  bp.copy,"
+        "  bp.mLevel AS materialLevel,"
+        "  bp.pLevel AS productivityLevel,"
+        "  bp.runs AS licensedProductionRunsRemaining,"
+        "  bpt.productTypeID,"
+        "  bpt.productionTime AS manufacturingTime,"
+        "  bpt.techLevel,"
+        "  bpt.researchProductivityTime,"
+        "  bpt.researchMaterialTime,"
+        "  bpt.researchCopyTime,"
+        "  bpt.researchTechTime,"
+        "  bpt.wasteFactor,"
+        "  bpt.maxProductionLimit"
+        " FROM entity"
+        " LEFT JOIN invBlueprints AS bp ON entity.itemID = bp.itemID"
+        " LEFT JOIN invBlueprintTypes AS bpt ON entity.typeID = bpt.blueprintTypeID"
+        " WHERE entity.locationID = %u"
+        "  AND bp.itemID IS NOT NULL",
+        locationID))
+    {
+        _log(DATABASE__ERROR, "Failed to query blueprints at location %u: %s.", locationID, res.error.c_str());
+        return nullptr;
+    }
+
+    return DBResultToCRowset(res);
+}
+
 bool FactoryDB::IsRecyclable(const uint16 typeID) {
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,

@@ -80,15 +80,21 @@ PyResult FactoryService::GetMaterialsForTypeWithActivity(PyCallArgs &call, PyInt
 
 // these next two are for corp locked items calls
 PyResult FactoryService::GetBlueprintInformationAtLocation(PyCallArgs &call, PyInt* hangarID, PyInt* one) {
-    //    blueprints = sm.RemoteSvc('factory').GetBlueprintInformationAtLocation(hangarID, 1)
     _log(MANUF__MESSAGE, "FactoryService::GetBlueprintInformationAtLocation() size= %lli", call.tuple->size());
     call.Dump(MANUF__DUMP);
-    return nullptr;
+
+    PyRep* result = FactoryDB::GetBlueprintsAtLocation(hangarID->value());
+    if (result == nullptr)
+        return new PyList();
+    return result;
 }
 
 PyResult FactoryService::GetBlueprintInformationAtLocationWithFlag(PyCallArgs &call, PyInt* locationID, PyInt* flag, PyInt* one) {
-    //blueprints = sm.RemoteSvc('factory').GetBlueprintInformationAtLocationWithFlag(locationID, self.flagInput, 1)
     _log(MANUF__MESSAGE, "FactoryService::Handle_GetBlueprintInformationAtLocationWithFlag() size= %lli", call.tuple->size());
     call.Dump(MANUF__DUMP);
-    return nullptr;
+
+    PyRep* result = FactoryDB::GetBlueprintsAtLocation(locationID->value());
+    if (result == nullptr)
+        return new PyList();
+    return result;
 }
