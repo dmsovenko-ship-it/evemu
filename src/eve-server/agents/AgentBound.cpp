@@ -533,6 +533,29 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 // not sure what to do here.
             } break;
             default: {
+                int32 val = actionID.has_value() ? actionID.value()->value() : 0;
+                // Check if this is a research field selection (skillTypeID > 1000)
+                if (val > 1000) {
+                    const auto& fields = m_agent->GetResearchFields();
+                    if (std::find(fields.begin(), fields.end(), val) != fields.end()) {
+                        // Start research with this field
+                        uint32 charID = pchar->itemID();
+                        int8 researchSkill = pchar->GetSkillLevel(val);
+                        float agentQuality = m_agent->GetQuality();
+                        float agentEffQuality = EvEMath::Agent::EffectiveQuality(agentQuality, 0, charStanding);
+                        float ppd = EvEMath::RAM::ResearchPointsPerDay(1.0f, agentEffQuality, researchSkill, 5);
+                        DBerror err;
+                        sDatabase.RunQuery(err,
+                            "INSERT INTO chrResearch (characterID, agentID, skillTypeID, points, pointsPerDay, lastUpdate)"
+                            " VALUES (%u, %u, %u, 0, %.2f, %lli)"
+                            " ON DUPLICATE KEY UPDATE skillTypeID = %u, pointsPerDay = %.2f, lastUpdate = %lli",
+                            charID, m_agent->GetID(), val, ppd, (int64)GetFileTimeNow(),
+                            val, ppd, (int64)GetFileTimeNow());
+                        agentSays->SetItem(0, new PyString("Research has begun. I will inform you of our progress."));
+                        agentSays->SetItem(1, PyStatic.NewNone());
+                        break;
+                    }
+                }
                 // error
                 _log(AGENT__ERROR, "AgentBound::Handle_DoAction() - unhandled buttonID %u", actionID );
                 call.client->SendErrorMsg("Internal Server Error. Ref: ServerError xxxxx.");

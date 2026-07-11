@@ -700,13 +700,23 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                         }
                     }
 
-                    // Decryptor modifier (default 1.0 = no decryptor)
+                    // Decryptor modifier (from invMetaTypes or known typeIDs)
                     float decryptorMod = 1.0f;
                     if (decryptorType > 0) {
-                        // Read decryptor attributes using meta groups or specific typeID mapping
-                        // T1 decryptor: 0.5x-1.3x; T2 decryptor: 0.6x-1.4x
-                        // Simplified: read from ramTypeRequirements extra data
-                        // For now use 1.0 (no decryptor) as default
+                        DBQueryResult decRes;
+                        if (sDatabase.RunQuery(decRes,
+                            "SELECT metaLevel FROM invMetaTypes WHERE typeID = %u", decryptorType))
+                        {
+                            DBResultRow decRow;
+                            if (decRes.GetRow(decRow)) {
+                                uint8 meta = decRow.GetUInt(0);
+                                // decryptor meta levels: 1=basic(0.6), 2=symmetric(0.8),
+                                // 3=optimized(1.1), 4=accelerant(1.2), 5=attachment(1.3)
+                                static const float decMods[] = { 1.0f, 0.6f, 0.8f, 1.1f, 1.2f, 1.3f };
+                                if (meta <= 5)
+                                    decryptorMod = decMods[meta];
+                            }
+                        }
                     }
 
                     float chance = EvEMath::RAM::InventionChance(baseChance, encryptionLevel, dataCore1Level, dataCore2Level, metaLevel, decryptorMod);
