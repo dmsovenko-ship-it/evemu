@@ -342,15 +342,13 @@ void RamMethods::LocationRolesCheck(Client*const pClient, const CorpPathElement 
 {
     int64 roles(0);
     uint32 stationID(data.officeFolderID - STATION_OFFICE_OFFSET);
-    if (stationID == pClient->GetCorpHQ()) {
+    if (stationID == (uint32)pClient->GetCorpHQ()) {
         roles = pClient->GetRolesAtHQ();
-    } else if (stationID == pClient->GetCorpBase()) {
-        roles = pClient->GetRolesAtBase();
     } else {
         roles = pClient->GetRolesAtOther();
     }
 
-    if (!(roles & Role::FactoryManager)) {
+    if (!(roles & (int64)Acct::Role::FactoryManager)) {
         _log(MANUF__WARNING, "%s does not have FactoryManager role at station %u.", pClient->GetName(), stationID);
         throw UserError("CrpAccessDenied");
     }
