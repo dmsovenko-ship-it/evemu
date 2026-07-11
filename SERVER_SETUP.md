@@ -1,5 +1,39 @@
 # Server Setup & Debug Notes
 
+## Что сделать на сервере (после git pull)
+
+```bash
+# 1. Подтянуть последние изменения
+cd /src && git pull
+
+# 2. Применить новые миграции БД
+/sql/evedbtool migrate
+
+# 3. Включить логи пакетов в /src/utils/config/log.ini:
+#    DESTINY__BALL_DUMP=1
+#    DESTINY__BALL_DECODE=1
+
+# 4. Сбросить server_cache (чтоб клиент перезапросил config.BulkData.types с новым bulkDataChangeID)
+rm -rf /app/server_cache/*
+
+# 5. Собрать
+make -j$(nproc)
+
+# 6. Запустить
+./eve-server
+
+# 7. В игре заспавнить тестовых NPC:
+#    /spawn 2372    # Entity Frigate — проверить крестик
+#    /spawn 10017   # Entity Cruiser
+#    /spawn 24692   # Ship NPC (контрольный — крестик должен быть)
+```
+
+## Анализ пакетов
+
+После спавна Entity NPC в `/tmp/` появятся `evemu_addball_*.bin`.
+Сравнить их содержание можно через EVEMarshal парсер.
+
+
 ## Packet Dump (crosshair analysis + autopilot)
 
 После запуска сервера и спавна NPC в `/tmp/` создаются файлы `evemu_addball_*.bin`.
