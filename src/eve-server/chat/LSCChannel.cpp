@@ -250,10 +250,18 @@ bool LSCChannel::IsJoined(uint32 charID) {
 
 void LSCChannel::UpdateConfig()
 {
-    /** @todo
-     * Figure out how to send a packet to all clients subscribed to this channel that contains all channel parameters
-     * so that their clients can update everything that has changed in this channel's access control.
-     */
+    // Notify all members that channel config has changed so they reload
+    OnLSC_JoinChannel joinNotif;
+        joinNotif.channelID = EncodeID();
+        joinNotif.channelInfo = EncodeDynamicChannel(0);
+    PyTuple* payload = joinNotif.Encode();
+
+    for (auto& itr : m_chars) {
+        Client* pClient = sEntityList.FindClientByCharID(itr.first);
+        if (pClient != nullptr)
+            pClient->SendNotification("OnLSC_JoinChannel", "clientID", &payload, false);
+    }
+    PyDecRef(payload);
 }
 
 

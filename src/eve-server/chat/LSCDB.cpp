@@ -93,8 +93,8 @@ void LSCDB::UpdateChannelInfo(LSCChannel *channel) {
     DBerror err;
     if (!sDatabase.RunQuery(err,
         " INSERT INTO channels"
-        "   (channelID, ownerID, displayName, motd, comparisonKey, memberless, password, mailingList, cspa)"
-        " VALUES (%i, %u, '%s', '%s', '%s', %u, '%s', %u, %u)"
+        "   (channelID, ownerID, displayName, motd, comparisonKey, memberless, password, mailingList, cspa, `mode`)"
+        " VALUES (%i, %u, '%s', '%s', '%s', %u, '%s', %u, %u, %i)"
         " ON DUPLICATE KEY UPDATE"
         "  ownerID=VALUES(ownerID),"
         "  displayName=VALUES(displayName),"
@@ -103,7 +103,8 @@ void LSCDB::UpdateChannelInfo(LSCChannel *channel) {
         "  memberless=VALUES(memberless),"
         "  password=VALUES(password),"
         "  mailingList=VALUES(mailingList),"
-        "  cspa=VALUES(cspa)",
+        "  cspa=VALUES(cspa),"
+        "  `mode`=VALUES(`mode`)",
         channel->GetChannelID(),
         channel->GetOwnerID(),
         channel->GetDisplayName().c_str(),
@@ -112,7 +113,8 @@ void LSCDB::UpdateChannelInfo(LSCChannel *channel) {
         (channel->GetMemberless() ? 1 : 0),
         new_password.c_str(),
         (channel->GetMailingList() ? 1 : 0),
-        channel->GetCSPA()))
+        channel->GetCSPA(),
+        (int32)channel->GetMode()))
     {
         _log(DATABASE__ERROR, "Error in query: %s", err.c_str());
     }

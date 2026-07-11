@@ -423,48 +423,25 @@ PyResult LSCService::AccessControl(PyCallArgs& call, PyRep* channelInfo, PyInt* 
         sLog.Warning("LSCService::Handle_AccessControl()", "size=%lu", call.tuple->size());
         call.Dump(LSC__CALL_DUMP);
     }
-    /*  args passed as channelID, charID, mode
-     *
-     * 20:43:44 W LSCService::Handle_AccessControl(): size=3
-     * 20:43:44 [LSC_CDump]   Call Arguments:
-     * 20:43:44 [LSC_CDump]       Tuple: 3 elements
-     * 20:43:44 [LSC_CDump]         [ 0] Integer field: 2100000000
-     * 20:43:44 [LSC_CDump]         [ 1] (None)
-     * 20:43:44 [LSC_CDump]         [ 2] Integer field: 1
-     * 20:43:44 [LSC_CDump]   Call Named Arguments:
-     * 20:43:44 [LSC_CDump]     Argument 'machoVersion':
-     * 20:43:44 [LSC_CDump]         Integer field: 1
-     */
 
-    // WARNING: This call contains manual packet decoding to handle Access Control since I didn't want to monkey around with the LSCPkts.xmlp.
-    // -- Aknor Jaden (2010-11-26)
+    int32 channelID = 0;
+    if (channelInfo->IsInt()) {
+        channelID = channelInfo->AsInt()->value();
+    } else if (channelInfo->IsTuple()) {
+        PyTuple* t = channelInfo->AsTuple();
+        if (t->size() > 0 && t->GetItem(0)->IsInt())
+            channelID = t->GetItem(0)->AsInt()->value();
+    }
 
-    int32 channel_id = 0;
+    auto it = m_channels.find(channelID);
+    if (it == m_channels.end())
+        return PyStatic.NewNone();
 
-    //m_db->UpdateChannelInfo(channel);
-
-    // BIG TODO:  The whole reason why normal players cannot post chats in other channels has to do with the Access Mode
-    // in the channel settings dialog in the client.  Now, I don't know why chatting in the Help/Rookie Help is not allowed
-    // for ANY normal players, however, at the very least, implementing the change in Access Mode to 3 = Allowed may fix
-    // the issue.  The only thing to figure out is how to format a packet to be sent to the client(s) to inform of the change
-    // in access mode.  Is this really needed though, since the owner will change the mode and the owner's client will know
-    // immediately, and anyone wanting to join will get that mode value when the JoinChannel has been called.
-
-    // call.tuple->GetItem(0)->AsInt()->value() = channel ID
-    // call.tuple->GetItem(1)->IsNone() == true  <---- change made to "" field
-    // call.tuple->GetItem(2)->AsInt()->value() =
-    //     0 = ??
-    //     1 = Moderated
-    //     2 = ??
-    //     3 = Allowed
-
-    // call.tuple->GetItem(1)->IsInt() == true  <---- character ID for character add to one of the lists specified by GetItem(2):
-    // call.tuple->GetItem(2)->AsInt()->value() =
-    //     3 = Add to Allowed List
-    //     -2 = Add to Blocked List
-    //     7 = Add to Moderators List
-
-    //channel->UpdateConfig();
+    LSCChannel* channel = it->second;
+    // Update channel mode (access level) or per-character access
+    channel->SetMode(static_cast<LSC::Mode>(role->value()));
+    m_db.UpdateChannelInfo(channel);
+    channel->UpdateConfig();
 
     return PyStatic.NewOne();
 }
@@ -820,7 +797,34 @@ PyResult LSCService::GetMembers(PyCallArgs &call, PyRep* channelInfo) {
 
 
 PyResult LSCService::GetMember(PyCallArgs &call) {
-    return nullptr;
+    _log(LSC__CALL_DUMP, "LSCService::Handle_GetMember() size=%lli", call.tuple->size());
+
+    if (call.tuple->size() < 2)
+        return nullptr;
+
+    uint32 channelID = call.tuple->GetItem(0)->IsInt() ? call.tuple->GetItem(0)->AsInt()->value() : 0;
+    uint32 charID = call.tuple->GetItem(1)->IsInt() ? call.tuple->GetItem(1)->AsInt()->value() : 0;
+
+    if (channelID == 0 || charID == 0)
+        return nullptr;
+
+    auto it = m_channels.find(channelID);
+    if (it == m_channels.end())
+        return nullptr;
+
+    LSCChannel* chan = it->second;
+    if (!chan->IsJoined(charID))
+        return nullptr;
+
+    PyDict* dict = new PyDict();
+    dict->SetItemString("charID", new PyInt(charID));
+    dict->SetItemString("corpID", new PyInt(chan->GetMemberCorpID(charID)));
+    dict->SetItemString("mode", new PyInt(chan->GetMemberMode(charID)));
+    dict->SetItemString("allianceID", new PyInt(chan->GetMemberAllianceID(charID)));
+    dict->SetItemString("warFactionID", new PyInt(chan->GetMemberWarFactionID(charID)));
+    dict->SetItemString("role", new PyInt(chan->GetMemberRole(charID)));
+    dict->SetItemString("extra", new PyInt(chan->GetMemberExtra(charID)));
+    return new PyObject("util.KeyVal", dict);
 }
 
 

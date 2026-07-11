@@ -50,6 +50,13 @@ public:
     ~LSCChannelChar() { }
     PyRep *Encode() const;
 
+    LSC::Mode GetMode() const       { return m_mode; }
+    uint32 GetCorpID() const        { return m_corpID; }
+    uint32 GetAllianceID() const    { return m_allianceID; }
+    uint32 GetWarFactionID() const  { return m_warFactionID; }
+    int64 GetRole() const           { return m_role; }
+    uint32 GetExtra() const         { return m_extra; }
+
 protected:
     LSCChannel *m_parent;
     uint32 m_corpID;
@@ -122,6 +129,7 @@ public:
     void                SetMOTD(std::string motd)       { m_motd = motd; }
     void                SetMemberless(bool memberless)  { m_memberless = memberless; }
     void              SetPassword(std::string password) { m_password = password; }
+    void                     SetMode(LSC::Mode mode)   { m_mode = mode; }
 
 
     bool                GetMemberless()                 { return m_memberless; }
@@ -133,6 +141,12 @@ public:
     uint32              GetOwnerID()                    { return m_ownerID; }
     int32               GetChannelID()                  { return m_channelID; }
     uint32              GetMemberCount()                { return (uint32)m_chars.size(); }
+    LSC::Mode           GetMemberMode(uint32 charID)    { auto it = m_chars.find(charID); return it != m_chars.end() ? it->second.GetMode() : LSC::Mode::chNone; }
+    uint32              GetMemberCorpID(uint32 charID)  { auto it = m_chars.find(charID); return it != m_chars.end() ? it->second.GetCorpID() : 0; }
+    uint32              GetMemberAllianceID(uint32 charID) { auto it = m_chars.find(charID); return it != m_chars.end() ? it->second.GetAllianceID() : 0; }
+    uint32              GetMemberWarFactionID(uint32 charID) { auto it = m_chars.find(charID); return it != m_chars.end() ? it->second.GetWarFactionID() : 0; }
+    int64               GetMemberRole(uint32 charID)    { auto it = m_chars.find(charID); return it != m_chars.end() ? it->second.GetRole() : 0; }
+    uint32              GetMemberExtra(uint32 charID)   { auto it = m_chars.find(charID); return it != m_chars.end() ? it->second.GetExtra() : 0; }
     LSC::Type           GetType()                       { return m_type; }
     LSC::Mode           GetMode()                       { return m_mode; }
     std::string         GetDisplayName()                { return m_displayName; }
