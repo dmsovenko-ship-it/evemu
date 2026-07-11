@@ -42,25 +42,17 @@ PyRep* CalendarDB::SaveNewEvent(uint32 ownerID, Call_CreateEventWithInvites& arg
     EvE::TimeParts data = EvE::TimeParts();
     data = GetTimeParts(args.startDateTime);
 
-    DBerror err;
+    std::string inviteesStr;
     if (!args.invitees->empty()) {
         bool comma(false);
-        std::ostringstream str;
         PyList* list(args.invitees->AsList());
         PyList::const_iterator itr = list->begin(), end = list->end();
         while (itr != end) {
-            if (comma) {
-                str << ",";
-            } else {
-                comma = true;
-            }
-            str << *itr;
+            if (comma) inviteesStr += ",";
+            else comma = true;
+            inviteesStr += std::to_string(PyRep::IntegerValueU32(*itr));
             ++itr;
         }
-
-        sDatabase.RunQuery(err,
-                "INSERT INTO `sysCalendarInvitees`(`eventID`, `inviteeList`)"
-                " VALUES %s", str.str().c_str());
     }
 
     std::string titleEsc, descEsc;
@@ -68,6 +60,7 @@ PyRep* CalendarDB::SaveNewEvent(uint32 ownerID, Call_CreateEventWithInvites& arg
     sDatabase.DoEscapeString(descEsc, args.description);
 
     uint32 eventID(0);
+    DBerror err;
     if (args.duration) {
         if (!sDatabase.RunQueryLID(err, eventID,
             "INSERT INTO sysCalendarEvents(ownerID, creatorID, eventDateTime, eventDuration, importance,"
@@ -90,6 +83,14 @@ PyRep* CalendarDB::SaveNewEvent(uint32 ownerID, Call_CreateEventWithInvites& arg
             codelog(DATABASE__ERROR, "Error in SaveNewEvent query: %s", err.c_str());
             return PyStatic.NewZero();
         }
+    }
+
+    // save invitees after event creation (now we have eventID)
+    if (!inviteesStr.empty() && eventID > 0) {
+        DBerror err2;
+        sDatabase.RunQuery(err2,
+            "INSERT INTO sysCalendarInvitees(eventID, inviteeList)"
+            " VALUES (%u, '%s')", eventID, inviteesStr.c_str());
     }
 
     return new PyInt(eventID);
