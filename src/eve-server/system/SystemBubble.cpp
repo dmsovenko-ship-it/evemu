@@ -835,8 +835,23 @@ void SystemBubble::AddBallExclusive( SystemEntity* pSE ) {
     _log( DESTINY__BALL_DECODE, "    Ball Decoded:" );
     if (is_log_enabled(DESTINY__BALL_DECODE))
         Destiny::DumpUpdate( DESTINY__BALL_DECODE, &( addballs.state->content() )[0], (uint32)addballs.state->content().size() );
-    //bubblecast the update
+
+    // dump raw packet to file for analysis
     PyTuple* t = addballs.Encode();
+    {
+        static int dumpCount = 0;
+        if (dumpCount < 10) {
+            Buffer buf;
+            Marshal(t, buf);
+            std::string fname = "/tmp/evemu_addball_" + std::to_string(dumpCount++) + ".bin";
+            FILE* f = fopen(fname.c_str(), "wb");
+            if (f) {
+                fwrite(buf.begin<uint8>(), 1, buf.size(), f);
+                fclose(f);
+                _log(DESTINY__BALL_DUMP, "Wrote raw packet dump to %s (%zu bytes)", fname.c_str(), buf.size());
+            }
+        }
+    }
     BubblecastDestinyUpdateExclusive( &t, "AddBall", pSE );
     PySafeDecRef( t );
 }
