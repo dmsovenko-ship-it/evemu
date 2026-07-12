@@ -1714,12 +1714,17 @@ uint32 StaticDataMgr::GetCorpFaction(uint32 corpID)
 std::string StaticDataMgr::GetFactionName(uint32 factionID)
 {
     switch (factionID) {
+        case factionCaldari:        return "Caldari Navy";
+        case factionMinmatar:       return "Minmatar Republic";
+        case factionAmarr:          return "Amarr Empire";
+        case factionGallente:       return "Gallente Federation";
         case factionAngel:          return "Angel Cartel";
         case factionSanshas:        return "Sansha Nation";
         case factionBloodRaider:    return "Blood Raiders";
         case factionGuristas:       return "Guristas Pirates";
         case factionSerpentis:      return "Serpentis";
         case factionRogueDrones:    return "Drone";
+        case factionCONCORD:        return "CONCORD";
     }
     return "Undefined";
 }

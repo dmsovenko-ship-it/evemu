@@ -1352,9 +1352,13 @@ void DestinyManager::Orbit() {
     } else {
         m_orbiting = Destiny::Ball::Orbit::Orbiting;
         _log(DESTINY__ORBIT_TRACE, "2 - within tolerance");
-        // within tolerance — keep moving to avoid client desync
-        MoveObject();
-        return;
+        // within tolerance: if already moving, let MoveObject drift; otherwise
+        // fall through to calculate the first orbit position and kickstart motion.
+        double curSpeed = m_maxSpeed * m_activeSpeedFraction * m_maxOrbitSpeedFraction;
+        if (curSpeed > 1.0) {
+            MoveObject();
+            return;
+        }
     }
 
     #define LogMacro(v) _log(DESTINY__ORBIT_TRACE, "m - " #v ": (%.3f, %.3f, %.3f)   len=%.3f", v.x, v.y, v.z, v.length())
