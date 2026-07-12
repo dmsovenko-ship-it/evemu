@@ -235,72 +235,11 @@ bool NPC::IsConvoyUnderAttack() const
 
 PyDict* NPC::MakeSlimItem()
 {
+    // Use DSE base class — passes through real categoryID/groupID from DB
+    // instead of hardcoding categoryID=6 and remapping groupID.
+    // Client needs real groupIDs (550-552 etc.) to show NPC crosshairs.
     _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u) typeID=%u cat=%u", m_self->itemName(), m_self->itemID(), m_self->typeID(), m_self->categoryID());
-    PyDict* slim = new PyDict();
-    slim->SetItemString("itemID",          new PyLong(m_self->itemID()));
-    slim->SetItemString("typeID",          new PyInt(m_self->typeID()));
-    slim->SetItemString("name",            new PyString(m_self->itemName()));
-    slim->SetItemString("ownerID",         new PyInt(m_ownerID));
-    slim->SetItemString("corpID",          IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
-    slim->SetItemString("allianceID",      IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
-    slim->SetItemString("warFactionID",    IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
-    slim->SetItemString("categoryID",      PyStatic.NewInt(6));
-    {
-        uint16 gID = m_self->groupID();
-        switch (gID) {
-            // == Frigate (25) ==
-            case 550: case 557: case 562: case 567: case 572: case 759:
-            case 961: case 986: case 987:
-            case 553:  // Angel Officer
-            case 559: case 564: case 569: case 574:  // Blood/Guristas/Sansha/Serpentis Officers
-            case 597: case 606: case 615: case 624: case 633:  // Deadspace Frigates
-            case 805:  // Deadspace Rogue Drone Frigate
-            case 789: case 792: case 800: case 810: case 814: case 847:  // Commander Frigates
-            case 1053:  // Incursion Frigate
-                gID = 25; break;
-            // == Cruiser (26) ==
-            case 551: case 555: case 561: case 566: case 571: case 757:
-            case 960: case 984: case 985:
-            case 595: case 604: case 613: case 622: case 631:  // Deadspace Cruisers
-            case 803:  // Deadspace Rogue Drone Cruiser
-            case 790: case 791: case 798: case 808: case 812: case 845:  // Commander Cruisers
-            case 1054:  // Incursion Cruiser
-                gID = 26; break;
-            // == Battleship (27) ==
-            case 552: case 556: case 560: case 565: case 570: case 756:
-            case 959: case 982: case 983:
-            case 594: case 603: case 612: case 621: case 630:  // Deadspace Battleships
-            case 802:  // Deadspace Rogue Drone Battleship
-            case 848: case 849: case 850: case 851: case 852: case 844:  // Commander Battleships
-            case 1052:  // Incursion Sansha Capital
-            case 1056:  // Incursion Battleship
-                gID = 27; break;
-            // == Battlecruiser (419) ==
-            case 576: case 578: case 580: case 582: case 584: case 755:
-            case 761:  // Rogue Drone Swarm
-            case 593: case 602: case 611: case 620: case 629:  // Deadspace Battlecruisers
-            case 801: case 806:  // Deadspace Rogue Drone BC + Swarm
-            case 793: case 795: case 797: case 807: case 811: case 843:  // Commander BCs
-                gID = 419; break;
-            // == Destroyer (420) ==
-            case 575: case 579: case 581: case 583: case 577:
-            case 758:  // Rogue Drone Destroyer
-            case 596: case 605: case 614: case 623: case 632:  // Deadspace Destroyers
-            case 804:  // Deadspace Rogue Drone Destroyer
-            case 794: case 796: case 799: case 809: case 813: case 846:  // Commander Destroyers
-                gID = 420; break;
-            // == Industrial (28) ==
-            case 297: case 554: case 558: case 563: case 568: case 573: case 760:
-            case 298:  // Convoy Drone
-            case 1051:  // Incursion Industrial
-                gID = 28; break;
-            default: break;
-        }
-        slim->SetItemString("groupID",     new PyInt(gID));
-    }
-    slim->SetItemString("bounty",          new PyFloat(0.0));
-    slim->SetItemString("securityStatus",  new PyFloat(0.0));
-    return slim;
+    return DynamicSystemEntity::MakeSlimItem();
 }
 
 bool NPC::Load()
