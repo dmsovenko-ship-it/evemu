@@ -1232,7 +1232,8 @@ Prediction service for in-space flight
 */
 void DestinyManager::Orbit() {
     // data consistency checks...
-    if ((m_targetDistance > BUBBLE_RADIUS_METERS) or (m_followDistance > BUBBLE_RADIUS_METERS)) {
+    double refFollow = m_followDistance > 0 ? m_followDistance : m_targetDistance;
+    if ((m_targetDistance > BUBBLE_RADIUS_METERS) or (refFollow > BUBBLE_RADIUS_METERS)) {
         // well, something fucked up.  stop object and throw error.   player can reset if they want to.
         if (mySE->HasPilot())
             mySE->GetPilot()->SendErrorMsg("Internal Server Error.  Ref: ServerError 35412");
@@ -1285,7 +1286,7 @@ void DestinyManager::Orbit() {
     // distances checks for orbit calculations
     GPoint mPos(NULL_ORIGIN);
     float mPosAdj(0.0f);
-    double refDist = std::max<double>(m_followDistance, m_targetDistance);
+    double refDist = std::max<double>(refFollow, m_targetDistance);
     // check distances for this tic
     if (edges > refDist * 1.5) {
         if (m_orbiting == Destiny::Ball::Orbit::TooFar) {
@@ -1359,8 +1360,7 @@ void DestinyManager::Orbit() {
     #define LogMacro(v) _log(DESTINY__ORBIT_TRACE, "m - " #v ": (%.3f, %.3f, %.3f)   len=%.3f", v.x, v.y, v.z, v.length())
 
     // new orbit code
-    double orbitRadius = m_followDistance > 0 ? m_followDistance : m_targetDistance;
-    float radius = orbitRadius + mPosAdj;// fudge a bit as using targetDistance is a hair too close
+    float radius = refFollow + mPosAdj;// fudge a bit as using targetDistance is a hair too close
     // angle around y axis (from +x) - horizontal movement  - ccw from +x using ships orbit in rad/tic
     float theta = EvE::Trig::Pi2 - EvE::Trig::Deg2Rad(360) - (m_orbitRadTic * timeStamp);
     // angle around xz axis (from 0) - vertical movement
@@ -1389,7 +1389,6 @@ void DestinyManager::Orbit() {
     // sanity check: computed orbit position must be within reasonable range of target
     {
         double posDist = mPos.distance(Tp);
-        double refFollow = m_followDistance > 0 ? m_followDistance : m_targetDistance;
         if (posDist > refFollow * 3.0) {
             if (posDist > 105000.0) {
                 // egregiously far — teleport to a reasonable orbit start near the target
