@@ -1359,7 +1359,8 @@ void DestinyManager::Orbit() {
     #define LogMacro(v) _log(DESTINY__ORBIT_TRACE, "m - " #v ": (%.3f, %.3f, %.3f)   len=%.3f", v.x, v.y, v.z, v.length())
 
     // new orbit code
-    float radius = m_followDistance + mPosAdj;// fudge a bit as using targetDistance is a hair too close
+    double orbitRadius = m_followDistance > 0 ? m_followDistance : m_targetDistance;
+    float radius = orbitRadius + mPosAdj;// fudge a bit as using targetDistance is a hair too close
     // angle around y axis (from +x) - horizontal movement  - ccw from +x using ships orbit in rad/tic
     float theta = EvE::Trig::Pi2 - EvE::Trig::Deg2Rad(360) - (m_orbitRadTic * timeStamp);
     // angle around xz axis (from 0) - vertical movement
@@ -1388,12 +1389,13 @@ void DestinyManager::Orbit() {
     // sanity check: computed orbit position must be within reasonable range of target
     {
         double posDist = mPos.distance(Tp);
-        if (posDist > m_followDistance * 3.0) {
+        double refFollow = m_followDistance > 0 ? m_followDistance : m_targetDistance;
+        if (posDist > refFollow * 3.0) {
             if (posDist > 105000.0) {
                 // egregiously far — teleport to a reasonable orbit start near the target
                 _log(DESTINY__TRACE, "%s(%u): Orbit position %.0fm from target — teleporting to orbit start.",
                      mySE->GetName(), mySE->GetID(), posDist);
-                SetPosition(Tp + GPoint(m_followDistance, 0, 0));
+                SetPosition(Tp + GPoint(refFollow, 0, 0));
                 GVector heading(m_position, Tp);
                 heading.normalize();
                 m_shipHeading = heading;
@@ -1401,7 +1403,7 @@ void DestinyManager::Orbit() {
                 m_orbiting = Destiny::Ball::Orbit::TooFar;
             } else {
                 _log(DESTINY__TRACE, "%s(%u): Orbit position is %.0fm from target (max %u).  Resetting to approach.",
-                     mySE->GetName(), mySE->GetID(), posDist, uint32(m_followDistance * 3.0));
+                     mySE->GetName(), mySE->GetID(), posDist, uint32(refFollow * 3.0));
                 m_orbiting = Destiny::Ball::Orbit::TooFar;
                 m_targetPoint = Tp;
                 GVector heading(m_position, m_targetPoint);
