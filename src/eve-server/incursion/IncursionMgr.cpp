@@ -140,9 +140,8 @@ void IncursionMgr::EndIncursion(uint32 incursionID)
 
 void IncursionMgr::OnSiteCompleted(uint32 incursionID, uint32 solarSystemID, uint8 sceneType)
 {
-    // Don't erase from m_activeSystems here — prevents continuous re-spawn
-    // on every Process() tick when spawn entries are missing in DoSpawnForIncursion.
-    // Site re-spawn requires incursion restart.
+    // Allow this system to host a new site (m_activeSystems prevents re-spawn in SpawnSites)
+    m_activeSystems.erase(solarSystemID);
 
     // Reduce influence based on site type and wave progress
     // VG = small hit, AS = medium, HQ = big, Staging = small

@@ -298,121 +298,72 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
          */
     } else if (pBubble->IsIncursion()) {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Incursion - called by %u.", itemID);
-        // Wave-based incursion spawning
-        if (m_spawns.count(pBubble->GetID()) == 1) {
-            // Last NPC in current wave - spawn next wave or complete site
-            SpawnEntryDef::iterator itr = m_spawns.find(pBubble->GetID());
-            if (itr != m_spawns.end()) {
-                // Determine sceneType from the system's incursion data
-                uint8 sceneType = Incursion::scenesType::vanguard;
-                uint32 incursionID = 0;
-                DBQueryResult incRes;
-                if (sDatabase.RunQuery(incRes,
-                    "SELECT i.incursionID, iss.sceneType "
-                    "FROM incursions i "
-                    "JOIN incursionSystems iss ON i.incursionID = iss.incursionID "
-                    "WHERE i.regionID = %u AND i.state > 0 AND iss.solarSystemID = %u",
-                    m_system->GetRegionID(), m_system->GetID()))
-                {
-                    DBResultRow incRow;
-                    if (incRes.GetRow(incRow)) {
-                        incursionID = incRow.GetUInt(0);
-                        sceneType = incRow.GetUInt(1);
-                    }
-                }
-
-                if (incursionID > 0) {
-                    // Check if mothership (hasBoss=1) or just normal wave
-                    DBQueryResult bossRes;
-                    uint8 hasBoss = 0;
-                    if (sDatabase.RunQuery(bossRes,
-                        "SELECT hasBoss FROM incursions WHERE incursionID = %u", incursionID))
-                    {
-                        DBResultRow bossRow;
-                        if (bossRes.GetRow(bossRow))
-                            hasBoss = bossRow.GetUInt(0);
-                    }
-
-                    if (hasBoss == 1) {
-                        // Mothership encounter - spawn it
-                        DoSpawnMothership(pBubble, incursionID);
-                        m_spawns.erase(itr);
-                    } else {
-                        // Spawn next wave at increased level
-                        uint8 nextLevel = itr->second.level + 1;
-                        MakeSpawn(pBubble, itr->second.factionID,
-                                  itr->second.spawnClass, nextLevel);
-                        m_spawns.erase(itr);
-                    }
-                } else {
-                    m_spawns.erase(itr);
-                }
+        // Track incursion NPC kills — m_incursionAlive counts NPCs spawned via DoSpawnForAnomaly
+        auto it = m_incursionAlive.find(pBubble->GetID());
+        if (it != m_incursionAlive.end()) {
+            if (--it->second > 0)
+                return;  // NPCs still alive
+            m_incursionAlive.erase(it);  // all dead
+        } else {
+            return;  // not our tracked bubble
+        }
+        // All NPCs dead — complete site, distribute rewards
+        uint32 incursionID = 0;
+        uint8 sceneType = Incursion::scenesType::vanguard;
+        DBQueryResult incRes;
+        if (sDatabase.RunQuery(incRes,
+            "SELECT i.incursionID, iss.sceneType "
+            "FROM incursions i "
+            "JOIN incursionSystems iss ON i.incursionID = iss.incursionID "
+            "WHERE i.regionID = %u AND i.state > 0 AND iss.solarSystemID = %u",
+            m_system->GetRegionID(), m_system->GetID()))
+        {
+            DBResultRow incRow;
+            if (incRes.GetRow(incRow)) {
+                incursionID = incRow.GetUInt(0);
+                sceneType = incRow.GetUInt(1);
             }
-        } else if (m_spawns.count(pBubble->GetID()) < 1) {
-            // All waves complete - site is done
-            uint32 incursionID = 0;
-            uint8 sceneType = Incursion::scenesType::vanguard;
-            DBQueryResult incRes;
-            if (sDatabase.RunQuery(incRes,
-                "SELECT i.incursionID, iss.sceneType "
-                "FROM incursions i "
-                "JOIN incursionSystems iss ON i.incursionID = iss.incursionID "
-                "WHERE i.regionID = %u AND i.state > 0 AND iss.solarSystemID = %u",
-                m_system->GetRegionID(), m_system->GetID()))
+        }
+        if (incursionID > 0) {
+            sIncursionMgr.OnSiteCompleted(incursionID, m_system->GetID(), sceneType);
+
+            // Contest-based reward distribution
+            DBQueryResult rewRes;
+            if (sDatabase.RunQuery(rewRes,
+                "SELECT ri.rewardQuantity, ri.lpAmount"
+                " FROM incursionRewards ri"
+                " JOIN incursions i ON i.rewardGroupID = ri.rewardGroupID"
+                " WHERE i.incursionID = %u", incursionID))
             {
-                DBResultRow incRow;
-                if (incRes.GetRow(incRow)) {
-                    incursionID = incRow.GetUInt(0);
-                    sceneType = incRow.GetUInt(1);
-                }
-            }
-                if (incursionID > 0) {
-                    sIncursionMgr.OnSiteCompleted(incursionID, m_system->GetID(), sceneType);
-
-                    // Contest-based reward distribution
-                    DBQueryResult rewRes;
-                    if (sDatabase.RunQuery(rewRes,
-                        "SELECT ri.rewardQuantity, ri.lpAmount"
-                        " FROM incursionRewards ri"
-                        " JOIN incursions i ON i.rewardGroupID = ri.rewardGroupID"
-                        " WHERE i.incursionID = %u", incursionID))
-                    {
-                        DBResultRow rewRow;
-                        if (rewRes.GetRow(rewRow)) {
-                            double totalISK = rewRow.GetDouble(0);
-                            uint32 totalLP = rewRow.GetUInt(1);
-
-                            // Sum damage across all participants
-                            auto& bubbleDamage = sIncursionMgr.GetBubbleDamage(pBubble->GetID());
-                            double totalDamage = 0.0;
-                            for (auto& [charID, dmg] : bubbleDamage)
-                                totalDamage += dmg;
-
-                            if (totalDamage > 0.0 && !bubbleDamage.empty()) {
-                                for (auto& [charID, dmg] : bubbleDamage) {
-                                    double share = dmg / totalDamage;
-                                    Client* client = sEntityList.FindClientByCharID(charID);
-                                    if (client == nullptr) continue;
-
-                                    uint32 iskShare = static_cast<uint32>(totalISK * share);
-                                    uint32 lpShare = static_cast<uint32>(totalLP * share);
-                                    if (iskShare < 1) iskShare = 1;
-                                    if (lpShare < 1) lpShare = 1;
-
-                                    AccountService::TransferFunds(
-                                        corpCONCORD, charID, iskShare,
-                                        "Incursion contest reward",
-                                        Journal::EntryType::MissionCompletion, incursionID);
-                                    LPService lps;
-                                    lps.AddLP(charID, corpCONCORD, lpShare);
-                                }
-                            }
-                            sIncursionMgr.ClearDamageData(pBubble->GetID());
+                DBResultRow rewRow;
+                if (rewRes.GetRow(rewRow)) {
+                    double totalISK = rewRow.GetDouble(0);
+                    uint32 totalLP = rewRow.GetUInt(1);
+                    auto& bubbleDamage = sIncursionMgr.GetBubbleDamage(pBubble->GetID());
+                    double totalDamage = 0.0;
+                    for (auto& [charID, dmg] : bubbleDamage)
+                        totalDamage += dmg;
+                    if (totalDamage > 0.0 && !bubbleDamage.empty()) {
+                        for (auto& [charID, dmg] : bubbleDamage) {
+                            double share = dmg / totalDamage;
+                            Client* client = sEntityList.FindClientByCharID(charID);
+                            if (client == nullptr) continue;
+                            uint32 iskShare = static_cast<uint32>(totalISK * share);
+                            uint32 lpShare = static_cast<uint32>(totalLP * share);
+                            if (iskShare < 1) iskShare = 1;
+                            if (lpShare < 1) lpShare = 1;
+                            AccountService::TransferFunds(
+                                corpCONCORD, charID, iskShare,
+                                "Incursion contest reward",
+                                Journal::EntryType::MissionCompletion, incursionID);
+                            LPService lps;
+                            lps.AddLP(charID, corpCONCORD, lpShare);
                         }
                     }
+                    sIncursionMgr.ClearDamageData(pBubble->GetID());
                 }
             }
-        // else: still NPCs alive in current wave, do nothing
+        }
     } else {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Other - called by %u.", itemID);
         RemoveSpawn(pBubble->GetID(), itemID);
@@ -543,6 +494,10 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
                 pNPC->DestinyMgr()->SetPosition(startPos);
 
                 m_system->AddNPC(pNPC);
+
+                // Track incursion NPCs for wave completion detection
+                if (isIncursion)
+                    ++m_incursionAlive[pBubble->GetID()];
 
                 // Micro-warp to trigger client crosshair initialization (belt rats get this via WarpTo)
                 GPoint warpTo(startPos);

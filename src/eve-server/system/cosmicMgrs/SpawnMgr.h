@@ -99,6 +99,7 @@ private:
 
     RatBubbleVec m_bubbles;
     SpawnEntryDef m_spawns;
+    std::map<uint32, uint32> m_incursionAlive;   // bubbleID -> NPC count for incursion wave tracking
     RatSpawningVec m_ratSpawns;
     RatSpawnGroupVec m_toSpawn;
     RatSpawnClassVec m_ratSpawnClass;               // not used
