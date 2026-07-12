@@ -618,7 +618,9 @@ void AnomalyMgr::AddSignal(SystemEntity* pSE, uint32 id/*0*/)
             // Only actual cosmic signatures/anomalies should appear on scanner
             // NPCs are already filtered above via IsNPCSE()
             // Billboards, wrecks, and other Entity/Celestial objects should NOT appear
-            return;
+            // But incursion sites (CosmicAnomaly type) DO need to appear on scanner
+            if (iRef->typeID() != EVEDB::invTypes::CosmicAnomaly)
+                return;
         };
         default:  {
             sig.sigTypeID = EVEDB::invTypes::CosmicAnomaly;
