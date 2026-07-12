@@ -846,7 +846,7 @@ void SystemBubble::AddBallExclusive( SystemEntity* pSE ) {
             std::string fname = "/tmp/evemu_addball_" + std::to_string(dumpCount++) + ".bin";
             FILE* f = fopen(fname.c_str(), "wb");
             if (f) {
-                fwrite(buf.begin<uint8>(), 1, buf.size(), f);
+                fwrite(&buf[0], 1, buf.size(), f);
                 fclose(f);
                 _log(DESTINY__BALL_DUMP, "Wrote raw packet dump to %s (%zu bytes)", fname.c_str(), buf.size());
             }
