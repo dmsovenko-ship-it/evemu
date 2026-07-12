@@ -575,10 +575,12 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
         if (pSE->IsGateSE() && radius > 5000) {
             // Gate already offset above (large model, capped at 5km).
             // Skip radius-based offset to avoid planet formula.
-        } else if (radius < 90000) {
-            // this will include stations (max station radius 60km)
+        } else if (radius < 90000 && distance == 0) {
+            // Subtract radius only for warp-to-0 (land at surface).
+            // For warp-to-N km the client's minRange already counts from center.
+            // Without this check: radius + minRange = landing 2x further than requested.
             GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
-            vectorFromOrigin.normalize();   //we now have a direction
+            vectorFromOrigin.normalize();
             GPoint stopPoint = (vectorFromOrigin * radius);
             warpToPoint -= stopPoint;
         }
