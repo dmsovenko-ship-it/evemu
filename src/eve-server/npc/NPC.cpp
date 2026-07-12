@@ -244,7 +244,6 @@ PyDict* NPC::MakeSlimItem()
     slim->SetItemString("corpID",          IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
     slim->SetItemString("allianceID",      IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
     slim->SetItemString("warFactionID",    IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
-    slim->SetItemString("charID",          PyStatic.NewZero());
     slim->SetItemString("categoryID",      PyStatic.NewInt(6));
     {
         uint16 gID = m_self->groupID();
@@ -301,7 +300,6 @@ PyDict* NPC::MakeSlimItem()
     }
     slim->SetItemString("bounty",          new PyFloat(0.0));
     slim->SetItemString("securityStatus",  new PyFloat(0.0));
-    slim->SetItemString("modules",         new PyList());
     return slim;
 }
 
@@ -357,7 +355,7 @@ void NPC::TargetedAdd(SystemEntity *who) {
 void NPC::EncodeDestiny( Buffer& into )
 {
     // Custom EncodeDestiny: uses GetState() for mode (unlike DSE which always hardcodes STOP)
-    // but only flags = IsFree (0x01) without IsMassive, matching DSE's working binary format.
+    // flags = IsFree only, matching ShipSE without pilot (crosshair needs no IsMassive).
     using namespace Destiny;
 
     uint8 mode = m_destiny->GetState();
@@ -369,7 +367,7 @@ void NPC::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = Ball::Flag::IsInteractive | Ball::Flag::IsFree | Ball::Flag::IsMassive;
+        head.flags = Ball::Flag::IsFree;
     into.Append( head );
     _log(SE__DESTINY, "NPC::EncodeDestiny: %s(%u) flags=0x%X mode=%u", GetName(), GetID(), head.flags, head.mode);
     MassSector mass = MassSector();
