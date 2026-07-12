@@ -66,19 +66,14 @@ rm -rf /app/server_cache/*
 
 ### 1. Crosshair (красный крест) на Entity NPC
 **Симптом:** Entity-пираты (Angel, Blood, Guristas и т.д.) не имеют красного креста и иконки типа корабля. Можно взять в таргет, рамки есть, но креста нет.
-**Попытки решения (не помогли):**
-- categoryID=6 в SlimItem
-- groupID remap в SlimItem + cache
-- IsInteractive флаг
-- packet_type=0 в AddBallExclusive
-- SendSetState после спавна
-- bulkDataChangeID форсирование
-- Очистка server_cache
-**Следующий шаг:** Сравнить дамп пакетов с оригинальным сервером CCP (Tranquility)
+**ФИКС (2026-07-12):** `NPC::MakeSlimItem` теперь делегирует `DynamicSystemEntity::MakeSlimItem()` — использует реальные `categoryID(11)/groupID(550-552)` из БД вместо хардкода `categoryID=6/groupID=25`. Клиенту нужны настоящие Entity-группы для отображения крестика.
+**Дополнительно:** `NPC::EncodeDestiny` — flags изменены с `IsInteractive|IsFree|IsMassive (13)` на `IsFree (1)` (как у ShipSE без пилота).
 
 ### 2. Autopilot chain
 **Симптом:** После прыжка через гейт автопилот не продолжает цепочку
 **Текущее состояние:** CmdWarpToStuffAutopilot работает, Follow после варпа работает, полная остановка у врат. Проблема — клиент не продолжает маршрут после session change.
+**Причина:** Маршрут автопилота хранится только на клиенте и сбрасывается при session change. Сервер корректно сохраняет `m_autoPilot=true`, но клиент не шлёт `CmdWarpToStuffAutopilot` в новой системе.
+**Решение:** Требует модификации клиента (сохранение маршрута через session change) либо серверного API для хранения/восстановления маршрута.
 
 ### 3. Orbit дёрганье
 **Симптом:** При орбите на высокой скорости (>3000 м/с) корабль дёргается
