@@ -1352,13 +1352,9 @@ void DestinyManager::Orbit() {
     } else {
         m_orbiting = Destiny::Ball::Orbit::Orbiting;
         _log(DESTINY__ORBIT_TRACE, "2 - within tolerance");
-        // within tolerance: if already moving, let MoveObject drift; otherwise
-        // fall through to calculate the first orbit position and kickstart motion.
-        double curSpeed = m_maxSpeed * m_activeSpeedFraction * m_maxOrbitSpeedFraction;
-        if (curSpeed > 1.0) {
-            MoveObject();
-            return;
-        }
+        // within tolerance — keep moving to avoid client desync
+        MoveObject();
+        return;
     }
 
     #define LogMacro(v) _log(DESTINY__ORBIT_TRACE, "m - " #v ": (%.3f, %.3f, %.3f)   len=%.3f", v.x, v.y, v.z, v.length())
@@ -1417,17 +1413,29 @@ void DestinyManager::Orbit() {
             return;
         }
     }
-    // set heading tangent to orbit (perpendicular to radius) for smooth circular motion
-    // instead of chasing mPosNext which advances faster than ship speed
-    GVector radiusVec(Tp, m_position);
-    radiusVec.normalize();
-    // tangent: perpendicular to radius, following ccw orbit (swap x/z with -z/x)
-    m_shipHeading.x = -radiusVec.z;
-    m_shipHeading.z =  radiusVec.x;
-    m_shipHeading.y =  0.0f;
-    m_shipHeading.normalize();
+    // set position for this tic
+    SetPosition(mPos);
+
+    // set heading for this tic
+    GPoint mPosNext(NULL_ORIGIN);
+    theta += m_orbitRadTic;
+    period = (m_orbitTime > 0.0f) ? fmod(timeStamp + 1, m_orbitTime) / m_orbitTime : 0.0f;
+    c = cos(EvE::Trig::Deg2Rad(360 * period));
+    phi = EvE::Trig::Deg2Rad(inclination * c);
+    mPosNext.x = radius * cos( theta );
+    mPosNext.z = radius * sin( theta );
+    mPosNext.y = radius * phi;
+    LogMacro(mPosNext);
+    // determine where our target should be next tic, and figure that into our heading calculation
+    float Tv = (m_targetEntity.second->DestinyMgr() != nullptr ? m_targetEntity.second->DestinyMgr()->GetSpeed() : 0);
+    GVector Th(m_targetEntity.second->DestinyMgr() != nullptr ? m_targetEntity.second->DestinyMgr()->GetHeading() : NULL_ORIGIN_V);
+    Tp += (Tv*Th); // use Tv*Th and add to position to account for target movement.  Tv for non-moving targets return 0.
+    mPosNext += Tp;
+    GVector heading(m_position, mPosNext);
+    heading.normalize();
+    m_shipHeading = heading;
     m_targetPoint = m_position + (m_shipHeading * 1.0e16);
-    LogMacro( m_shipHeading );
+    LogMacro( heading );
 
     double curSpeed = m_maxSpeed * m_activeSpeedFraction * m_maxOrbitSpeedFraction;
     if (is_log_enabled(DESTINY__ORBIT_TRACE))
