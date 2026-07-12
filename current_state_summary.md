@@ -440,7 +440,8 @@
 - **ESI price import script**: `tools/import_prices.py` ✅
 - **WarpUpdate crash fix**: null-check `m_targBubble` ✅
 - **Autopilot diagnostics**: частично — CmdWarpToStuffAutopilot работает, цепочка прыжков тестируется
-- **FW LP earning**: не подключён
+- **FW LP earning**: реализован для PvP (CrimeWatch: 1000 LP) и NPC kills (NPC::Killed: 100-5000 LP) ✅  
+- **FW Plex capture**: не реализован — требуется акселерационные гейты, захват-таймер, NPC-защитники (большая фича)
 - **BubbleCast destiny update**: Err → fallback Add to BubbleMgr ✅
 
 ## Part 61: Stability & QoL Pass (done)

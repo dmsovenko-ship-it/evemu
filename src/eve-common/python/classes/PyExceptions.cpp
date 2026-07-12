@@ -228,6 +228,11 @@ UserError& UserError::AddAmount (const char* name, uint quantity)
 
 UserError& UserError::AddAmount (const char* name, double quantity)
 {
+    // Client localization expects numeric values for {[numeric]...} placeholders.
+    // PyFloat with whole values like 30.0 may be received as string by client,
+    // causing TypeError. Use PyInt when value is a whole number.
+    if (quantity == floor(quantity) && quantity <= INT32_MAX && quantity >= INT32_MIN)
+        return this->AddParameterKeyword (name, UserError_Parameter_Amount, new PyInt (static_cast<int32>(quantity)));
     return this->AddParameterKeyword (name, UserError_Parameter_Amount, new PyFloat (quantity));
 }
 
