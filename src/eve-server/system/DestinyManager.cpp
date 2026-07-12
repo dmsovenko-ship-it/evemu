@@ -1417,10 +1417,7 @@ void DestinyManager::Orbit() {
             return;
         }
     }
-    // set position for this tic
-    SetPosition(mPos);
-
-    // set heading for this tic
+    // set heading toward next orbit position (velocity-based, no SetPosition teleport)
     GPoint mPosNext(NULL_ORIGIN);
     theta += m_orbitRadTic;
     period = (m_orbitTime > 0.0f) ? fmod(timeStamp + 1, m_orbitTime) / m_orbitTime : 0.0f;
