@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
 > **Our fork: `████████████████████` 97%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-11 (build 2 — major stability + QoL pass)
+> Last updated: 2026-07-12 (build 3 — crosshair + warp fixes)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -478,6 +478,10 @@
 | **Alliance executor voting** | ❌ | ✅ |
 | **Wormhole system effects** (6 types) | ❌ | ✅ |
 | **Sovereignty upgrade effects** | ❌ | ✅ |
+| **NPC crosshair** — Entity pirates render with red targeting reticle (real categoryID/groupID from DB) | ❌ | ✅ |
+| **Warp precision** — warp-to-N km lands at correct distance (radius no longer doubles) | ❌ | ✅ |
+| **DB fixes** — OnlineStatusService (wrong column names), GetFactionName (empire factions) | ❌ | ✅ |
+| **Customs NPC names** — Caldari Navy/Minmatar Republic/Amarr Empire/Gallente Federation instead of "Undefined" | ❌ | ✅ |
 | **News ticker** (server RPC + LiveUpdate patch) | ❌ | ✅ |
 | **Auto bulkDataChangeID** | ❌ | ✅ |
 | **Corp window stability fixes** (KeyError:1, roles, columns) | ❌ | ✅ |

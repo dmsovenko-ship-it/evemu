@@ -28,30 +28,42 @@ make -j$(nproc)
 #    /spawn 24692   # Ship NPC (контрольный — крестик должен быть)
 ```
 
-## Анализ пакетов
+## Debug Logs (для отладки)
 
-После спавна Entity NPC в `/tmp/` появятся `evemu_addball_*.bin`.
-Сравнить их содержание можно через EVEMarshal парсер.
+Создать `config/log.ini` (монтируется в `/app/etc/log.ini`):
 
+```ini
+# Категории для кросс-крестов NPC (DESTINY)
+DESTINY__BALL_DUMP=1       # dump структуры AddBalls пакетов
+DESTINY__BALL_DECODE=1     # декодированный destiny-бинарник
+DESTINY__ORBIT_TRACE=1     # трассировка орбиты (расчёт позиции)
+DESTINY__MESSAGE=1         # сообщения Destiny
 
-## Packet Dump (crosshair analysis + autopilot)
+# Автопилот
+AUTOPILOT__MESSAGE=1       # CmdWarpToStuffAutopilot/CmdStop/CmdJump
 
-После запуска сервера и спавна NPC в `/tmp/` создаются файлы `evemu_addball_*.bin`.
+# Клиентские запросы (Collector)
+COLLECT__DESTINY=1         # destiny-апдейты от клиента
+COLLECT__CALL_SUMMARY=1    # сводка RPC вызовов (уже включён по умолчанию)
 
-**Для анализа:**
+# Отключить когда не нужно (шумят)
+# DESTINY__BALL_DUMP=0
+# DESTINY__ORBIT_TRACE=0
+# COLLECT__DESTINY=0
+```
+
+Совет: не включайте `DESTINY__ORBIT_TRACE` на продакшене — генерирует много лога каждый тик.
+
+## Анализ пакетов (deprecated)
+
+Дампы пакетов в `/tmp/evemu_addball_*.bin` больше не нужны — кросс-кресты починены. Если нужно для дальнейшего анализа:
+
 ```bash
-# Установите Python пакеты на сервере
 pip install evemu
-
-# Или используйте готовый скрипт
 python3 /src/tools/parse_packet.py /tmp/evemu_addball_0.bin
 ```
 
-**Включить лог пакетов в `log.ini`:**
-```ini
-DESTINY__BALL_DUMP=1
-DESTINY__BALL_DECODE=1
-```
+Дамп пишется в `SystemBubble::AddBallExclusive()` только для первых 10 спавнов.
 
 ## Cache (bulkDataChangeID)
 

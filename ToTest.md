@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes (updated 2026-07-11 — major stability fixes applied).
+Things to verify after recent changes (updated 2026-07-12 — build 3 crosshair + warp fixes).
 
 ---
 
@@ -210,3 +210,14 @@ Things to verify after recent changes (updated 2026-07-11 — major stability fi
 - [ ] **No Marshal crash** — Jump between systems repeatedly. No crash in Marshal/FlushPendingDestinyUpdates.
 - [ ] **No client AttributeError** — Warp while NPCs are spawning. Client should not show `effects.Warping` exceptions.
 - [ ] **No orbit desync** — Orbit a planet/gate for 5+ minutes. Position should not drift.
+
+## Build 3 (2026-07-12) — Crosshair + Warp
+
+- [ ] **Entity NPC crosshair** — `/spawn 2372`. Red targeting reticle should appear. ✅
+- [ ] **Entity NPC overview** — NPC should appear in overview with correct category/group icon.
+- [ ] **Warp-to-N km** — Warp to anomaly at 100km. Should land at ~100km, not 200km. ✅
+- [ ] **Warp-to-0** — Warp to gate at 0m. Should land at gate surface.
+- [ ] **Customs NPC names** — Jump into highsec. Customs NPCs should be named "Caldari Navy Commissioner" etc., not "Undefined". ✅
+- [ ] **DB errors** — Login without chrContacts errors in server log. ✅
+- [ ] **Orbit smoothness** — Orbit a stationary target. Ship should follow smooth circle, no position jumps. (Avoid `PositionHack=true` in eve-server.xml)
+- [ ] **Incursion anomalies** — Check probe scanner in an incursion system. Sansha anomalies should appear.

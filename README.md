@@ -52,6 +52,9 @@
 | **Mail & LSC** — corp/alliance mail, mailing lists, chat channels | **Почта и чат** — корп/альянс почта, списки рассылки, каналы |
 | **Incursions** — state machine, wave spawning, contest rewards | **Инкурсии** — стейт-машина, волновой спавн, contest награды |
 | **GM commands** — spawn, dogma, giveallskills, kick, ban, teleport | **GM команды** — спавн, догма, скиллы, кик, бан, телепорт |
+| **NPC crosshair** — Entity pirates now render with red targeting reticle | **Крестики NPC** — пираты Entity отображаются с красным крестом |
+| **Warp precision** — warp-to-N km lands at correct distance (radius no longer doubles) | **Точный варп** — варп на N км приземляет на указанную дистанцию |
+| **Orbit** — smooth circular motion (disable `PositionHack` in config) | **Орбита** — плавное круговое движение (отключите `PositionHack`) |
 
 ---
 

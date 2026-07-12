@@ -503,13 +503,27 @@
 ## Part 67: Calendar migration fix (done)
 - **+migrate Up/Down annotations**: добавлены в calendar_tables.sql ✅
 
+## Part 68: Crosshair Fix + DB Fixes + Warp-2-N km (done)
+- **NPC crosshair**: `NPC::MakeSlimItem` now delegates to `DynamicSystemEntity::MakeSlimItem()` — uses real `categoryID=11`/`groupID=550` from DB instead of hardcoded `categoryID=6/groupID=25` ✅
+- **NPC EncodeDestiny**: flags changed from `IsInteractive|IsFree|IsMassive (13)` to `IsFree (1)` (matching ShipSE without pilot) ✅
+- **DB OnlineStatusService**: `characterID` → `ownerID`, `inContacts` → `inWatchlist` (columns didn't exist) ✅
+- **Warp-to-N km**: don't subtract target radius from `warpToPoint` when `distance > 0` (radius + minRange was doubling landing distance) ✅
+- **Warp-to-anomaly**: skip planet formula (`radius>90km`) for `IsAnomalySE()` — warp goes to center + distance ✅
+- **Orbit jerking reduced**: tangent-based heading + `refFollow` fallback to `m_targetDistance` when `m_followDistance=0` ✅
+- **Customs NPC names**: `GetFactionName` now returns Caldari Navy/Minmatar Republic/Amarr Empire/Gallente Federation/CONCORD instead of "Undefined" ✅
+- **Build fix**: `fwrite` raw pointer cast (`buf.begin<uint8>()` → `&buf[0]`) in `SystemBubble.cpp` ✅
+
 # TODO
 
+## 🔴 Now
+1. **Orbit** — NPCs still have slow drift/occasional jerk when `PositionHack=true` in config
+2. **Incursion anomalies** — Sansha incursion sites don't appear on probe scanner (need AnomalySE registration for incursion sites)
+
 ## 🟡 If desired
-1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (возможно, сбрасывается route при session change)
+1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема — route сбрасывается при session change)
 2. **FW LP earning** — подключить `LPService::AddLP` к FW-активностям (plex captures, FW kills)
 3. **Incursions** — 75%, требуется доработка
 
 ## 🟢 Eventually
-4. **RefPtr → shared_ptr** — major refactoring ~400 files
-5. **PyRep memory management** — valgrind leak fixes
+1. **RefPtr → shared_ptr** — major refactoring ~400 files
+2. **PyRep memory management** — valgrind leak fixes
