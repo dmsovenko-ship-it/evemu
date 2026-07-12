@@ -47,7 +47,7 @@ PyResult OnlineStatusService::GetInitialState(PyCallArgs &call) {
 
     DBQueryResult res;
     sDatabase.RunQuery(res,
-        "SELECT contactID FROM chrContacts WHERE ownerID = %u AND inContacts = 1",
+        "SELECT contactID FROM chrContacts WHERE ownerID = %u AND inWatchlist = 1",
         charID);
 
     DBResultRow row;
