@@ -461,22 +461,24 @@ PyRep *FactoryDB::AssemblyLinesGet(const uint32 containerID) {
 
     if (!sDatabase.RunQuery(res,
         "SELECT"
-        " assemblyLineID,"
-        " assemblyLineTypeID,"
-        " containerID,"
-        " nextFreeTime,"
-        " costInstall,"
-        " costPerHour,"
-        " restrictionMask,"
-        " discountPerGoodStandingPoint,"
-        " surchargePerBadStandingPoint,"
-        " minimumStanding,"
-        " minimumCharSecurity,"
-        " minimumCorpSecurity,"
-        " maximumCharSecurity,"
-        " maximumCorpSecurity"
-        " FROM ramAssemblyLines"
-        " WHERE containerID = %u",
+        " al.assemblyLineID,"
+        " al.assemblyLineTypeID,"
+        " al.containerID,"
+        " al.nextFreeTime,"
+        " al.costInstall,"
+        " al.costPerHour,"
+        " al.restrictionMask,"
+        " al.discountPerGoodStandingPoint,"
+        " al.surchargePerBadStandingPoint,"
+        " al.minimumStanding,"
+        " al.minimumCharSecurity,"
+        " al.minimumCorpSecurity,"
+        " al.maximumCharSecurity,"
+        " al.maximumCorpSecurity,"
+        " alt.activityID"
+        " FROM ramAssemblyLines AS al"
+        " LEFT JOIN ramAssemblyLineTypes AS alt ON al.assemblyLineTypeID = alt.assemblyLineTypeID"
+        " WHERE al.containerID = %u",
         containerID)) {
         _log(DATABASE__ERROR, "Failed to query assembly lines for container %u: %s.", containerID, res.error.c_str());
         return nullptr;

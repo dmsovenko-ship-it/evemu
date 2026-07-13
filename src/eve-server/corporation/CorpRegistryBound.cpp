@@ -868,24 +868,8 @@ PyResult CorpRegistryBound::DeleteBulletin(PyCallArgs &call, PyInt* bulletinID) 
     return nullptr;
 }
 
-PyResult CorpRegistryBound::CreateRecruitmentAd(PyCallArgs &call, PyInt* days, PyInt* typeMask, std::optional <PyInt*> allianceID, PyRep* description, PyInt* channelID, PyList* recruiterIDs, PyRep* title) {
-    // return self.GetCorpRegistry().CreateRecruitmentAd(days, typeMask, allianceID, description, channelID, recruiters, title)
+PyResult CorpRegistryBound::CreateRecruitmentAd(PyCallArgs &call, PyInt* days, PyInt* typeMask, std::optional <PyInt*> allianceID, PyWString* description, PyInt* channelID, PyList* recruiterIDs, PyWString* title) {
     _log(CORP__CALL, "CorpRegistryBound::Handle_CreateRecruitmentAd()");
-    call.Dump(CORP__CALL_DUMP);
-    /*
-     * 00:41:50 [SvcCall] Service CorpRegistryBound::CreateRecruitmentAd()
-     * 00:41:50 W CorpRegistryBound::Handle_CreateRecruitmentAd(): size= 7
-     * 00:41:50 [CorpCallDump]   Call Arguments:
-     * 00:41:50 [CorpCallDump]      Tuple: 7 elements
-     * 00:41:50 [CorpCallDump]       [ 0]    Integer: 14
-     * 00:41:50 [CorpCallDump]       [ 1]    Integer: 34672663
-     * 00:41:50 [CorpCallDump]       [ 2]       None
-     * 00:41:50 [CorpCallDump]       [ 3]    WString: 'test'
-     * 00:41:50 [CorpCallDump]       [ 4]    Integer: 0
-     * 00:41:50 [CorpCallDump]       [ 5]   List: 1 elements
-     * 00:41:50 [CorpCallDump]       [ 5]   [ 0]    Integer: 90000000
-     * 00:41:50 [CorpCallDump]       [ 6]    WString: 'test'
-     */
 
     uint32 amount = 1250000;
     switch (days->value()) {
@@ -894,23 +878,30 @@ PyResult CorpRegistryBound::CreateRecruitmentAd(PyCallArgs &call, PyInt* days, P
         case 28:   amount = 7500000;  break;
     }
 
-    AccountService::TransferFunds(m_corpID, call.client->GetCorpHQ(), amount, "Initial Advert Time for Corp Recruit Advert", Journal::EntryType::CorporationAdvertisementFee, call.client->GetCharacterID());
+    AccountService::TransferFunds(m_corpID, call.client->GetCorpHQ(), amount,
+        "Advert Fee", Journal::EntryType::CorporationAdvertisementFee,
+        call.client->GetCharacterID());
 
-    int32 adID = m_db.CreateAdvert(call.client, m_corpID, typeMask->value(), days->value(), m_db.GetCorpMemberCount(m_corpID), PyRep::StringContent(description), channelID->value(), PyRep::StringContent(title));
+    std::string descStr = PyRep::StringContent(description);
+    std::string titleStr = PyRep::StringContent(title);
+    int32 adID = m_db.CreateAdvert(call.client, m_corpID, typeMask->value(),
+        days->value(), m_db.GetCorpMemberCount(m_corpID),
+        descStr, channelID->value(), titleStr);
+
+    if (adID == 0) {
+        _log(CORP__ERROR, "CreateRecruitmentAd: failed to create ad");
+        return new PyInt(-1);
+    }
 
     std::vector<int32> recruiters;
-    recruiters.clear();
     for (PyList::const_iterator itr = recruiterIDs->begin(); itr != recruiterIDs->end(); ++itr)
         recruiters.push_back(PyRep::IntegerValue(*itr));
-    //recruiters.push_back((*itr)->AsInt()->value());
-
-    // if no recruiters defined, default to creating character
     if (recruiters.empty())
         recruiters.push_back(call.client->GetCharacterID());
-
     m_db.AddRecruiters(adID, (int32)m_corpID, recruiters);
 
-    return nullptr;
+    // Return the created ad data
+    return m_db.GetAdvert(adID);
 }
 
 PyResult CorpRegistryBound::UpdateRecruitmentAd(PyCallArgs &call, PyInt* adID, PyInt* typeMask, PyWString* description, PyInt* channelID, PyList* recruiterIDs, PyWString* title, PyInt* addedDays) {

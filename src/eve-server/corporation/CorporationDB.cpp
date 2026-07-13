@@ -1477,12 +1477,16 @@ uint32 CorporationDB::CreateAdvert(Client* pClient, uint32 corpID, int64 typeMas
 {
     uint32 adID(0);
     DBerror err;
+    std::string safeDesc = description;
+    std::string safeTitle = title;
+    sDatabase.DoEscapeString(safeDesc, description);
+    sDatabase.DoEscapeString(safeTitle, title);
     sDatabase.RunQueryLID(err, adID, "INSERT INTO crpAdRegistry"
     " (corporationID, allianceID, stationID, regionID, raceMask, typeMask,"
     "  createDateTime, expiryDateTime, description, title, memberCount, channelID)"
     " VALUES (%u,%u,%u,%u,%u,%lli,%f,%f,'%s','%s',%u,%u)",
-        corpID, pClient->GetAllianceID(), pClient->GetStationID(), pClient->GetRegionID(), 15, typeMask, // raceMask isnt implemented yet
-        GetFileTimeNow(), GetFileTimeNow() + (EvE::Time::Day * days), description.c_str(), title.c_str(), members, channelID);
+        corpID, pClient->GetAllianceID(), pClient->GetStationID(), pClient->GetRegionID(), 15, typeMask,
+        GetFileTimeNow(), GetFileTimeNow() + (EvE::Time::Day * days), safeDesc.c_str(), safeTitle.c_str(), members, channelID);
 
     return adID;
 }
@@ -1491,6 +1495,10 @@ void CorporationDB::UpdateAdvert(uint16 adID, uint32 corpID, int64 typeMask, int
 {
     int64 time = GetFileTimeNow() + (EvE::Time::Day * days);
     DBerror err;
+    std::string safeDesc = description;
+    std::string safeTitle = title;
+    sDatabase.DoEscapeString(safeDesc, description);
+    sDatabase.DoEscapeString(safeTitle, title);
     sDatabase.RunQuery(err, "UPDATE crpAdRegistry"
         " SET typeMask=%lli, expiryDateTime=%lli, description='%s', title='%s', memberCount=%u, channelID=%u"
         " WHERE adID=%u ",
