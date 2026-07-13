@@ -638,33 +638,29 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8
         data.factionID = factionID;
         data.ownerID = corpID;
 
-    // Determine NPC composition based on sceneType
-    // Vanguard: mostly frigates + some cruisers
-    // Assault: cruisers + some battleships
-    // Headquarters: battleships + elite cruisers
-    // Staging: light mix
-    // Use original Entity-category typeIDs — slim item overrides categoryID=6 for crosshairs
+    // Named incursion NPC typeIDs by scene type
     std::vector<uint16> typeIDs;
     switch (sceneType) {
         case Incursion::scenesType::vanguard: {
-            for (int i = 0; i < 6; i++) typeIDs.push_back(10025); // Sansha Frigate
-            for (int i = 0; i < 3; i++) typeIDs.push_back(10030); // Sansha Cruiser
+            for (int i = 0; i < 4; i++) typeIDs.push_back(2190); // Renyn Meten
+            for (int i = 0; i < 2; i++) typeIDs.push_back(2907); // Schmaeel Medulla
+            for (int i = 0; i < 3; i++) typeIDs.push_back(2191); // Antem Neo
             break;
         }
         case Incursion::scenesType::assault: {
-            for (int i = 0; i < 4; i++) typeIDs.push_back(10030); // Sansha Cruiser
-            for (int i = 0; i < 3; i++) typeIDs.push_back(11913); // Sansha Battleship
-            for (int i = 0; i < 2; i++) typeIDs.push_back(23383); // Sansha Battlecruiser
+            for (int i = 0; i < 4; i++) typeIDs.push_back(2207); // Vylade Dien
+            for (int i = 0; i < 3; i++) typeIDs.push_back(2932); // Ostingele Tectum
+            for (int i = 0; i < 2; i++) typeIDs.push_back(2845); // Outuni Mesen
             break;
         }
         case Incursion::scenesType::headquarters: {
-            for (int i = 0; i < 4; i++) typeIDs.push_back(11913); // Sansha Battleship
-            for (int i = 0; i < 4; i++) typeIDs.push_back(23383); // Sansha Battlecruiser
+            for (int i = 0; i < 4; i++) typeIDs.push_back(2855); // Intaki Colliculus
+            for (int i = 0; i < 4; i++) typeIDs.push_back(2932); // Ostingele Tectum
             break;
         }
         case Incursion::scenesType::staging: {
-            for (int i = 0; i < 3; i++) typeIDs.push_back(10025); // Sansha Frigate
-            for (int i = 0; i < 2; i++) typeIDs.push_back(10030); // Sansha Cruiser
+            for (int i = 0; i < 3; i++) typeIDs.push_back(3524); // Jel Rhomben
+            for (int i = 0; i < 2; i++) typeIDs.push_back(3525); // Youl Meten
             break;
         }
         default:
