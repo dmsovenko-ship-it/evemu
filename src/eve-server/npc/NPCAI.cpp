@@ -222,18 +222,49 @@ NPCAIMgr::NPCAIMgr(NPC* who)
         m_warpScramStrength = 0;
     }
 
-    /*
-    AttrWarpScrambleRange = 103,
-    AttrWarpScrambleStrength = 105,
-    AttrEntityWarpScrambleChance = 504,
-    AttrWarpScrambleDuration = 505,
-    AttrModifyTargetSpeedRange = 514
-    */
+    // EWAR — stasis webifier
+    if (m_self->HasAttribute(AttrModifyTargetSpeedRange))
+        m_webRange = m_self->GetAttribute(AttrModifyTargetSpeedRange).get_uint32();
+    else
+        m_webRange = 0;
+    m_webChance = 0.3f;  // default 30% chance per cycle
+    m_webStrength = 0.6f; // default -60% speed
 
-    /*
-    AttrEntityEquipmentMin = 456,
-    AttrEntityEquipmentMax = 457,
-    */
+    // EWAR — ECM (target jamming)
+    if (m_self->HasAttribute(AttrEntityTargetJamMaxRange))
+        m_ecmRange = m_self->GetAttribute(AttrEntityTargetJamMaxRange).get_uint32();
+    else
+        m_ecmRange = 0;
+    if (m_self->HasAttribute(AttrEntityTargetJam))
+        m_ecmStrength = m_self->GetAttribute(AttrEntityTargetJam).get_float();
+    else
+        m_ecmStrength = 0;
+    if (m_self->HasAttribute(AttrEntityTargetJamDurationChance))
+        m_ecmChance = 1.0f - m_self->GetAttribute(AttrEntityTargetJamDurationChance).get_float();
+    else
+        m_ecmChance = 1.0f;
+    if (m_self->HasAttribute(AttrEntityTargetJamDuration))
+        m_ecmDuration = m_self->GetAttribute(AttrEntityTargetJamDuration).get_uint32();
+    else
+        m_ecmDuration = m_attackSpeed;
+
+    // EWAR — target painting
+    if (m_self->HasAttribute(AttrEntityTargetPaintMaxRange))
+        m_paintRange = m_self->GetAttribute(AttrEntityTargetPaintMaxRange).get_uint32();
+    else
+        m_paintRange = 0;
+    if (m_self->HasAttribute(AttrEntityTargetPaintMultiplier))
+        m_paintMultiplier = m_self->GetAttribute(AttrEntityTargetPaintMultiplier).get_float();
+    else
+        m_paintMultiplier = 0;
+    if (m_self->HasAttribute(AttrEntityTargetPaintDurationChance))
+        m_paintChance = 1.0f - m_self->GetAttribute(AttrEntityTargetPaintDurationChance).get_float();
+    else
+        m_paintChance = 1.0f;
+    if (m_self->HasAttribute(AttrEntityTargetPaintDuration))
+        m_paintDuration = m_self->GetAttribute(AttrEntityTargetPaintDuration).get_uint32();
+    else
+        m_paintDuration = m_attackSpeed;
 
     /*
     AttrEntityTargetJam = 928,
@@ -495,6 +526,8 @@ void NPCAIMgr::SetIdle() {
     m_armorRepairTimer.Disable();
     m_warpScramblerTimer.Disable();
     m_shieldBoosterTimer.Disable();
+    m_ecmTimer.Disable();
+    m_paintTimer.Disable();
 
     SystemBubble* pBubble = m_npc->SysBubble();
     //disallow warpout if anomaly, incursion or mission rat
@@ -692,6 +725,14 @@ void NPCAIMgr::Targeted(SystemEntity* pSE) {
     if (!m_armorRepairTimer.Enabled())
         if (MakeRandomFloat() > m_armorRepairDelayChance)
             m_armorRepairTimer.Start(m_armorRepairDuration);
+
+    // Start EWAR timers with staggered initial delays
+    if (!m_webifierTimer.Enabled() and m_webRange > 0)
+        m_webifierTimer.Start(m_attackSpeed * 2);
+    if (!m_ecmTimer.Enabled() and m_ecmRange > 0 and m_ecmStrength > 0)
+        m_ecmTimer.Start(m_attackSpeed * 3);
+    if (!m_paintTimer.Enabled() and m_paintRange > 0 and m_paintMultiplier > 0)
+        m_paintTimer.Start(m_attackSpeed * 4);
 }
 
 void NPCAIMgr::TargetLost(SystemEntity* pSE) {
@@ -787,6 +828,83 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
                                                  pSE->GetID(), 0, "effects.WarpScramble",
                                                  1, 1, 1, m_attackSpeed, 0, scramGfxID);
                     m_warpScramblerTimer.Start(m_attackSpeed);
+                }
+            }
+        }
+    }
+
+    // EWAR — stasis webifier
+    if (m_webRange > 0) {
+        double dist = m_npc->GetPosition().distance(pSE->GetPosition());
+        if (dist <= m_webRange) {
+            if (!m_webifierTimer.Enabled() or m_webifierTimer.Check()) {
+                if (MakeRandomFloat() > m_webChance) {
+                    if (pSE->DestinyMgr() != nullptr)
+                        pSE->DestinyMgr()->WebbedMe(m_webStrength, m_attackSpeed);
+                    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                                 pSE->GetID(), 0, "effects.ModifyTargetSpeed",
+                                                 1, 1, 1, m_attackSpeed, 0, 0);
+                    m_webifierTimer.Start(m_attackSpeed);
+                }
+            }
+        }
+    }
+
+    // EWAR — ECM (break target's locks)
+    if (m_ecmRange > 0 and m_ecmStrength > 0) {
+        double dist = m_npc->GetPosition().distance(pSE->GetPosition());
+        if (dist <= m_ecmRange) {
+            if (!m_ecmTimer.Enabled() or m_ecmTimer.Check()) {
+                if (MakeRandomFloat() > m_ecmChance) {
+                    // ECM: compare jam strength to target's strongest sensor strength
+                    // Use Gravimetric(463), Ladar(464), Radar(465), Magnetometric(466)
+                    float targetSensorStrength = 0.0f;
+                    InventoryItemRef targetRef = pSE->GetSelf();
+                    if (targetRef) {
+                        if (targetRef->HasAttribute(AttrScanGravimetricStrength))
+                            targetSensorStrength = std::max(targetSensorStrength,
+                                targetRef->GetAttribute(AttrScanGravimetricStrength).get_float());
+                        if (targetRef->HasAttribute(AttrScanLadarStrength))
+                            targetSensorStrength = std::max(targetSensorStrength,
+                                targetRef->GetAttribute(AttrScanLadarStrength).get_float());
+                        if (targetRef->HasAttribute(AttrScanRadarStrength))
+                            targetSensorStrength = std::max(targetSensorStrength,
+                                targetRef->GetAttribute(AttrScanRadarStrength).get_float());
+                        if (targetRef->HasAttribute(AttrScanMagnetometricStrength))
+                            targetSensorStrength = std::max(targetSensorStrength,
+                                targetRef->GetAttribute(AttrScanMagnetometricStrength).get_float());
+                    }
+                    float jamChance = (targetSensorStrength > 0) ? m_ecmStrength / targetSensorStrength : 0.5f;
+                    jamChance = std::min(jamChance, 0.95f);
+                    if (MakeRandomFloat() < jamChance) {
+                        if (m_npc->TargetMgr() != nullptr)
+                            m_npc->TargetMgr()->ClearTarget(pSE);
+                        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                                     pSE->GetID(), 0, "effects.ElectronicAttributeModifyTarget",
+                                                     1, 1, 1, m_ecmDuration, 0, 0);
+                    }
+                    m_ecmTimer.Start(m_ecmDuration);
+                }
+            }
+        }
+    }
+
+    // EWAR — target painting (increase signature radius)
+    if (m_paintRange > 0 and m_paintMultiplier > 0) {
+        double dist = m_npc->GetPosition().distance(pSE->GetPosition());
+        if (dist <= m_paintRange) {
+            if (!m_paintTimer.Enabled() or m_paintTimer.Check()) {
+                if (MakeRandomFloat() > m_paintChance) {
+                    InventoryItemRef targetRef = pSE->GetSelf();
+                    if (targetRef and targetRef->HasAttribute(AttrSignatureRadius)) {
+                        EvilNumber sig = targetRef->GetAttribute(AttrSignatureRadius);
+                        float boost = sig.get_float() * (1.0f + m_paintMultiplier);
+                        targetRef->SetAttribute(AttrSignatureRadius, boost);
+                        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                                     pSE->GetID(), 0, "effects.TargetPaint",
+                                                     1, 1, 1, m_paintDuration, 0, 0);
+                    }
+                    m_paintTimer.Start(m_paintDuration);
                 }
             }
         }

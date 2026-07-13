@@ -144,6 +144,23 @@ private:
     float m_armorRepairDelayChance;
     float m_shieldBoosterDelayChance;
 
+    // EWAR — stasis web
+    uint32 m_webRange;
+    float m_webChance;
+    float m_webStrength;
+
+    // EWAR — ECM (target jamming)
+    uint32 m_ecmRange;
+    float m_ecmStrength;
+    float m_ecmChance;
+    uint32 m_ecmDuration;
+
+    // EWAR — target painting
+    uint32 m_paintRange;
+    float m_paintMultiplier;
+    float m_paintChance;
+    uint32 m_paintDuration;
+
     double m_trackingSpeed;
     float m_damageMultiplier;
 
@@ -162,6 +179,8 @@ private:
     Timer m_warpOutTimer;
     Timer m_warpScramblerTimer;
     Timer m_webifierTimer;
+    Timer m_ecmTimer;
+    Timer m_paintTimer;
 };
 
 #endif
