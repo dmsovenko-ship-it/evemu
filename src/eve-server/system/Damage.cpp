@@ -525,7 +525,7 @@ void ShipSE::Killed(Damage &fatal_blow) {
         data.finalFactionID = (killer->GetWarFactionID() > 500021 ? 500021 : killer->GetWarFactionID());
         data.finalShipTypeID = killer->GetTypeID();
         data.finalWeaponTypeID = fatal_blow.weaponRef->typeID();
-        data.finalSecurityStatus = (killer->GetClient() != nullptr) ? killer->GetClient()->GetSecurityRating() : 0.0;
+        data.finalSecurityStatus = (pClient != nullptr) ? pClient->GetSecurityRating() : 0.0;
         data.finalDamageDone = fatal_blow.GetTotal();
 
         uint32 totalHP = m_self->GetAttribute(AttrHP).get_int();
