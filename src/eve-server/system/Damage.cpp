@@ -502,9 +502,10 @@ void ShipSE::Killed(Damage &fatal_blow) {
              *  security status loss = relative_penalty * (agressor_sec_status + 10)
              */
             /** @todo (allan) check for faction/corp status modifiers here. */
-            double modifier = (1 + ((pPilot->GetSecurityRating() - pClient->GetSecurityRating()) / 90));
-            double penalty = 0.035f * m_system->GetSystemSecurityRating() * modifier;
-            double loss = penalty * ( pClient->GetSecurityRating() + 10);
+        // EVE formula: loss = 2.5% × sysSec × (1 + (victimSec - attackerSec) / 100) × (attackerSec + 10)
+        double modifier = (1 + ((pPilot->GetSecurityRating() - pClient->GetSecurityRating()) / 100));
+        double penalty = 0.025f * m_system->GetSystemSecurityRating() * modifier;
+        double loss = penalty * ( pClient->GetSecurityRating() + 10);
             loss *= sConfig.rates.secRate;
             pClient->GetChar()->secStatusChange( -loss );
         }

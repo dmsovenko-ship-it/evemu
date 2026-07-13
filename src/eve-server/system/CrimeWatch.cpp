@@ -249,8 +249,8 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
         if (kdb.GrantKillRight(pTarget->GetCharacterID(), m_client->GetCharacterID()) > 0)
             pTarget->SendNotifyMsg("Kill Right granted against %s for criminal aggression.", m_client->GetName());
 
-        // -0.2 penalty for aggression
-        m_client->GetChar()->secStatusChange(-0.2f);
+        // Sec status penalty: -2.5% flat for aggression
+        m_client->GetChar()->secStatusChange(-0.025f * systemSecRating);
 
         uint32 delay = 19000;
         if (systemSecRating >= 0.9f) delay = 6000;
