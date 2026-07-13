@@ -44,6 +44,8 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
                 reward->SetItemString("rewardQuantity", new PyInt(row.GetUInt(1)));
                 reward->SetItemString("lpTypeID",      new PyInt(row.GetUInt(2)));
                 reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
+                // Client expects an 'entries' field (list of sub-entries)
+                reward->SetItemString("entries", new PyList());
                 rewardList->AddItem(new PyObject("util.KeyVal", reward));
             }
             result->SetItem(item, rewardList);
