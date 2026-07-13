@@ -916,7 +916,52 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
 
 PyResult RamProxyService::UpdateAssemblyLineConfigurations(PyCallArgs &call, PyRep* installationLocationData, PyRep* rowset) {
     _log(MANUF__DUMP, "RamProxyService::Handle_UpdateAssemblyLineConfigurations() - size=%lli", call.tuple->size());
-    call.Dump(MANUF__DUMP);
+
+    // Parse installation location to get station ID
+    uint32 stationID = 0;
+    if (installationLocationData->IsInt()) {
+        stationID = installationLocationData->AsInt()->value();
+    } else if (installationLocationData->IsDict()) {
+        PyDict* locDict = installationLocationData->AsDict();
+        // Client may send a dict with location info — extract stationID
+        PyRep* locVal = locDict->GetItemString("locationID");
+        if (locVal != nullptr && locVal->IsInt())
+            stationID = locVal->AsInt()->value();
+    }
+
+    if (stationID == 0) {
+        _log(MANUF__ERROR, "UpdateAssemblyLineConfigurations: no valid stationID found");
+        return PyStatic.NewNone();
+    }
+
+    // Parse rowset — client sends updated assembly line type quantities
+    if (rowset->IsList()) {
+        PyList* rows = rowset->AsList();
+        for (size_t i = 0; i < rows->size(); ++i) {
+            PyRep* row = rows->GetItem(i);
+            if (!row->IsDict()) continue;
+            PyDict* dict = row->AsDict();
+
+            PyRep* typeID = dict->GetItemString("assemblyLineTypeID");
+            PyRep* qty = dict->GetItemString("quantity");
+            if (typeID == nullptr || !typeID->IsInt()) continue;
+
+            uint8 lineTypeID = typeID->AsInt()->value();
+            uint8 quantity = (qty != nullptr && qty->IsInt()) ? qty->AsInt()->value() : 0;
+
+            DBerror err;
+            if (quantity > 0) {
+                sDatabase.RunQuery(err,
+                    "INSERT INTO ramAssemblyLineStations (stationID, assemblyLineTypeID, quantity) "
+                    "VALUES (%u, %u, %u) ON DUPLICATE KEY UPDATE quantity = %u",
+                    stationID, lineTypeID, quantity, quantity);
+            } else {
+                sDatabase.RunQuery(err,
+                    "DELETE FROM ramAssemblyLineStations WHERE stationID = %u AND assemblyLineTypeID = %u",
+                    stationID, lineTypeID);
+            }
+        }
+    }
 
     return PyStatic.NewNone();
 }
