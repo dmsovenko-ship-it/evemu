@@ -1785,6 +1785,16 @@ void Client::CynoJump(InventoryItemRef beacon) {
         return;
     }
 
+    // Drain capacitor for jump drive activation
+    ShipItemRef jumpShip = GetShip();
+    if (jumpShip and jumpShip->HasAttribute(AttrJumpDriveCapacitorNeed)) {
+        float capNeed = jumpShip->GetAttribute(AttrJumpDriveCapacitorNeed).get_float();
+        if (capNeed > 0.0f) {
+            float capCapacity = jumpShip->GetAttribute(AttrCapacitorCapacity).get_float();
+            jumpShip->SetAttribute(AttrCapacitorCharge, std::max(0.0f, GetShipCapacitorLevel() - capCapacity * capNeed));
+        }
+    }
+
     MapDB::AddJump(m_locationID);
 
     m_moveSystemID = beacon->locationID();

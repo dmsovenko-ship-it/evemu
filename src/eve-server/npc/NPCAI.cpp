@@ -396,13 +396,37 @@ void NPCAIMgr::Process() {
             if (m_missileTimer.Check())
                 LaunchMissile(m_missileTypeID, pSE);
         } break;
-        case NPCAI::State::WarpOut:
-        case NPCAI::State::WarpFollow:
-        case NPCAI::State::Fleeing:
+        case NPCAI::State::Fleeing:{
+            // Fly away at max speed, then warp out
+            if (!m_destiny->IsMoving() and !m_destiny->IsWarping()) {
+                SystemEntity* target = m_npc->TargetMgr()->GetFirstTarget(false);
+                if (target != nullptr) {
+                    // Move away from target
+                    GPoint away = m_npc->GetPosition() + (m_npc->GetPosition() - target->GetPosition()).normalized() * 50000;
+                    m_destiny->SetMaxVelocity(m_maxSpeed);
+                    m_destiny->GotoPoint(away);
+                }
+            }
+            // After reaching distance, warp out
+            SystemEntity* fleeTarget = m_npc->TargetMgr()->GetFirstTarget(false);
+            if (fleeTarget == nullptr or m_npc->GetPosition().distance(fleeTarget->GetPosition()) > m_sightRange) {
+                WarpOut();
+            }
+        } break;
         case NPCAI::State::Signaling:{
+            // Signaling: stay at range and orbit, calling for help (reinforcements)
+            if (!m_destiny->IsOrbiting()) {
+                SystemEntity* target = m_npc->TargetMgr()->GetFirstTarget(false);
+                if (target != nullptr) {
+                    m_destiny->SetMaxVelocity(m_orbitSpeed * 2);
+                    m_destiny->Orbit(target, m_falloff);
+                }
+            }
+        } break;
+        case NPCAI::State::WarpOut:
+        case NPCAI::State::WarpFollow:{
             _log(NPC__AI_TRACE, "%s(%u): Called %s - needs to be completed.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state).c_str());
             m_state = NPCAI::State::Idle;
-            // not sure how im gonna do these
         } break;
     }
 
