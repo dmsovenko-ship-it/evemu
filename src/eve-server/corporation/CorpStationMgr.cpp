@@ -51,6 +51,7 @@
 #include "station/StationDataMgr.h"
 #include "station/StationDB.h"
 #include "services/ServiceManager.h"
+#include "standing/StandingDB.h"
 
 CorpStationMgr::CorpStationMgr(EVEServiceManager& mgr) :
     BindableService("corpStationMgr", mgr)
@@ -444,38 +445,22 @@ PyResult CorpStationMgrIMBound::SetHomeStation(PyCallArgs &call, PyInt* newHomeS
  */
 
 PyResult CorpStationMgrIMBound::DoStandingCheckForStationService(PyCallArgs &call, PyInt* stationServiceID) {
-    // not sure what this actually does...
-    //   corpStationMgr.DoStandingCheckForStationService(stationServiceID)
-    /*
-     * 01:09:09 L CorpStationMgrIMBound::Handle_DoStandingCheckForStationService(): size= 1
-     * 01:09:09 [SvcCallDump]   Call Arguments:
-     * 01:09:09 [SvcCallDump]       Tuple: 1 elements
-     * 01:09:09 [SvcCallDump]         [ 0] Integer field: 4096  (repair)
-     * 23:09:41 L Server: DoStandingCheckForStationService call made to
-     * 23:09:41 L CorpStationMgrIMBound::Handle_DoStandingCheckForStationService(): size= 1
-     * 23:09:41 [SvcCall]   Call Arguments:
-     * 23:09:41 [SvcCall]       Tuple: 1 elements
-     * 23:09:41 [SvcCall]         [ 0] Integer field: 8192
-     * 23:09:41 L Server: DoStandingCheckForStationService call made to
-     * 23:09:41 L CorpStationMgrIMBound::Handle_DoStandingCheckForStationService(): size= 1
-     * 23:09:41 [SvcCall]   Call Arguments:
-     * 23:09:41 [SvcCall]       Tuple: 1 elements
-     * 23:09:41 [SvcCall]         [ 0] Integer field: 16384
-     * 18:49:22 L CorpStationMgrIMBound::Handle_DoStandingCheckForStationService(): size= 1
-     * 18:49:22 [SvcCall]   Call Arguments:
-     * 18:49:22 [SvcCall]       Tuple: 1 elements
-     * 18:49:22 [SvcCall]         [ 0] Integer field: 65536  (fitting)
-     * 01:11:32 L CorpStationMgrIMBound::Handle_DoStandingCheckForStationService(): size= 1
-     * 01:11:32 [SvcCallDump]   Call Arguments:
-     * 01:11:32 [SvcCallDump]       Tuple: 1 elements
-     * 01:11:32 [SvcCallDump]         [ 0] Integer field: 1048576  (insurance)
-     */
-
+    // Check if character's standing with station owner allows this service
     _log(CORP__CALL, "CorpStationMgrIMBound::Handle_DoStandingCheckForStationService()");
-    call.Dump(CORP__CALL_DUMP);
 
-    // returns None
-    return PyStatic.NewNone();
+    uint32 serviceID = stationServiceID->value();
+    uint32 ownerID = pStationItem->GetOwnerID();
+
+    // Own corp/alliance stations always allow
+    if (ownerID == call.client->GetCorporationID() or ownerID == call.client->GetAllianceID())
+        return PyStatic.NewTrue();
+
+    // NPC stations: most services require at least -2.0 standing
+    // Repair(4096), Fitting(65536) require 0.0 in NPC corp stations
+    float required = (serviceID == 4096 or serviceID == 65536) ? 0.0f : -2.0f;
+    float standing = StandingDB::GetStanding(call.client->GetCharacterID(), ownerID);
+
+    return new PyBool(standing >= required);
 }
 
 PyResult CorpStationMgrIMBound::CancelRentOfOffice(PyCallArgs &call)

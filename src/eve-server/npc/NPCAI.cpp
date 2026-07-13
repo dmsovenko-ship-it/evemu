@@ -408,7 +408,9 @@ void NPCAIMgr::Process() {
                 SystemEntity* target = m_npc->TargetMgr()->GetFirstTarget(false);
                 if (target != nullptr) {
                     // Move away from target
-                    GPoint away = m_npc->GetPosition() + (m_npc->GetPosition() - target->GetPosition()).normalized() * 50000;
+                    GVector fleeDir = m_npc->GetPosition() - target->GetPosition();
+                    fleeDir.normalize();
+                    GPoint away = m_npc->GetPosition() + fleeDir * 50000;
                     m_destiny->SetMaxVelocity(m_maxSpeed);
                     m_destiny->GotoPoint(away);
                 }
