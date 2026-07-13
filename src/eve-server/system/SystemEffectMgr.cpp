@@ -2,6 +2,8 @@
 #include "EVEServerConfig.h"
 #include "EntityList.h"
 #include "StaticDataMgr.h"
+#include "incursion/IncursionMgr.h"
+#include "inventory/AttributeEnum.h"
 #include "system/SystemEffectMgr.h"
 #include "system/SystemManager.h"
 #include "inventory/InventoryItem.h"
@@ -244,6 +246,29 @@ void SystemEffectMgr::OnEnterSystem(Client* client, uint32 systemID)
         applied.sovMods = sovMods;
     }
 
+    // Incursion constellation-wide penalties
+    if (sIncursionMgr.IsIncursionSystem(systemID)) {
+        uint8 sceneType = sIncursionMgr.GetSceneType(systemID);
+        float penaltyMult = 1.0f;
+        switch (sceneType) {
+            case 3:  penaltyMult = 0.1f; break;  // Vanguard: 10%
+            case 2:  penaltyMult = 0.25f; break; // Assault: 25%
+            case 1:  penaltyMult = 0.50f; break; // HQ: 50%
+            default: penaltyMult = 0.0f;  break; // Staging: no penalty
+        }
+        if (penaltyMult > 0.0f) {
+            std::vector<EffectModifier> incMods;
+            // Damage reduction: AttrDamageMultiplier
+            incMods.push_back({AttrDamageMultiplier, 2, -penaltyMult * 100.0});
+            // Resist penalty: shield HP, armor HP, hull HP reduction
+            incMods.push_back({AttrShieldCapacity, 2, -penaltyMult * 100.0});
+            incMods.push_back({AttrArmorHP, 2, -penaltyMult * 100.0});
+            incMods.push_back({AttrHP, 2, -penaltyMult * 100.0});
+            ApplyModifiers(ship, incMods, "incursion");
+            applied.incMods = incMods;
+        }
+    }
+
     m_clientEffects[client->GetCharacterID()] = applied;
 }
 
@@ -264,6 +289,10 @@ void SystemEffectMgr::OnLeaveSystem(Client* client, uint32 systemID)
     // Remove sovereignty effects
     if (!it->second.sovMods.empty())
         RemoveModifiers(ship, it->second.sovMods);
+
+    // Remove incursion effects
+    if (!it->second.incMods.empty())
+        RemoveModifiers(ship, it->second.incMods);
 
     m_clientEffects.erase(it);
 }

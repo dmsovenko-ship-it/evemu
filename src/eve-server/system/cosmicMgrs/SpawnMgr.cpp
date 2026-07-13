@@ -771,9 +771,12 @@ bool SpawnMgr::PrepSpawn(SystemBubble* pBubble, uint8 sClass/*Spawn::Class::None
     bool anomaly = false;
     // get faction for this region
     uint32 factionID = factionRogueDrones;  // default to rogue drones.  this is my internal rogue drone factionID.
-    if (sConfig.npc.RatFaction) {            // is RatFaction set in config?
+    if (sConfig.npc.RatFaction) {
         factionID = sConfig.npc.RatFaction;
-    } else if (MakeRandomFloat() > 0.05) {      // 5% chance for ANY spawn to be rogue drone.
+    } else if (sIncursionMgr.IsIncursionSystem(m_system->GetID())) {
+        // Incursion: replace belt rats with Sansha
+        factionID = factionSanshas;
+    } else if (MakeRandomFloat() > 0.05) {
         factionID = sDataMgr.GetRegionRatFaction(m_system->GetRegionID());
     }
 

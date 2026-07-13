@@ -476,6 +476,7 @@ bool SystemManager::LoadSystemStatics() {
     SpawnConvoys();
     SpawnCustomsNPCs();
     SpawnFactionPatrols();
+    SpawnIncursionGateCamps();
 
     return true;
 }
@@ -2004,6 +2005,46 @@ void SystemManager::SpawnCustomsNPCs()
 void SystemManager::SpawnFactionPatrols()
 {
     FactionPatrolManager::SpawnPatrols(this);
+}
+
+void SystemManager::SpawnIncursionGateCamps()
+{
+    if (!sIncursionMgr.IsIncursionSystem(m_data.systemID)) return;
+    float sec = m_data.securityRating;
+    if (sec >= 0.5f) return;  // only lowsec/nullsec gate camps
+
+    for (auto& [gateID, pGate] : m_gateMap) {
+        if (pGate == nullptr) continue;
+        GPoint pos = pGate->GetPosition();
+        FactionData faction;
+        faction.allianceID = 0;
+        faction.factionID = factionSanshas;
+        faction.corporationID = sDataMgr.GetFactionCorp(factionSanshas);
+        faction.ownerID = faction.corporationID;
+
+        auto spawnSansha = [&](uint16 typeID, float dist) {
+            GPoint spawnPos = pos;
+            float angle = MakeRandomFloat(0, 6.283f);
+            spawnPos.x += dist * cosf(angle);
+            spawnPos.z += dist * sinf(angle);
+            ItemData iData(typeID, faction.ownerID, m_data.systemID, flagNone, "", spawnPos);
+            InventoryItemRef iRef = sItemFactory.SpawnItem(iData);
+            if (iRef.get() == nullptr) return;
+            NPC* npc = new NPC(iRef, m_services, this, faction);
+            if (npc == nullptr || !npc->Load()) { SafeDelete(npc); return; }
+            npc->DestinyMgr()->SetPosition(spawnPos);
+            AddNPC(npc);
+        };
+
+        // Spawn 3-5 Sansha ships per gate: 2 frigates + 1-2 cruisers + occasional BC
+        spawnSansha(10025, 15000 + MakeRandomFloat(0, 10000));  // Sansha frigate
+        spawnSansha(10025, 15000 + MakeRandomFloat(0, 10000));
+        spawnSansha(10030, 10000 + MakeRandomFloat(0, 5000));   // Sansha cruiser
+        if (MakeRandomFloat() < 0.4f)
+            spawnSansha(11913, 12000 + MakeRandomFloat(0, 8000));  // Sansha BC
+        if (sec <= 0.0f && MakeRandomFloat() < 0.3f)
+            spawnSansha(23383, 8000 + MakeRandomFloat(0, 5000));   // Sansha battleship
+    }
 }
 
 void SystemManager::AddGhostShip(ShipSE* pShip, int64 expireTime, bool emergencyWarp) {

@@ -62,6 +62,7 @@ private:
     struct AppliedEffects {
         std::vector<EffectModifier> whMods;    // wormhole effect modifiers
         std::vector<EffectModifier> sovMods;   // sovereignty upgrade modifiers
+        std::vector<EffectModifier> incMods;   // incursion effect modifiers
     };
     std::map<uint32, AppliedEffects> m_clientEffects;
 

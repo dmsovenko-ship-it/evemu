@@ -94,6 +94,7 @@ public:
     void SpawnConvoys();
     void SpawnCustomsNPCs();
     void SpawnFactionPatrols();
+    void SpawnIncursionGateCamps();
     void ProcessFWCapture();
     Inventory* GetSystemInv()                           { return m_solarSystemRef->GetMyInventory(); }
     SolarSystemRef GetSystemRef()                       { return m_solarSystemRef; }
