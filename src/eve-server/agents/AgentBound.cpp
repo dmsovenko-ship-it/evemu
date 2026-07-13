@@ -773,8 +773,8 @@ PyResult AgentBound::GetMyJournalDetails(PyCallArgs &call) {
         uint32 agentID = m_agent->GetID();
         DBQueryResult res;
         if (sDatabase.RunQuery(res,
-            "SELECT r.agentID, r.skillTypeID, r.pointsPerDay, r.points, "
-            "  a.level, a.quality, a.stationID "
+        "SELECT r.agentID, r.skillTypeID, r.pointsPerDay, r.points, "
+        "  a.level, a.quality, a.locationID "
             "FROM chrResearch r "
             "JOIN agtAgents a ON r.agentID = a.agentID "
             "WHERE r.characterID = %u AND r.agentID = %u", charID, agentID))
