@@ -109,8 +109,8 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | **Faction Warfare** | 50% | **93%** | +43% | Calendar | 60% | 93% | +33% |
 | Mail & LSC | 60% | 93% | +33% | Contracts | 60% | 95% | +35% |
 | Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |
-| **Sovereignty** | 60% | **90%** | +30% | Science & Industry | 45% | 72% | +27% |
-| Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **95%** | +30% |
+| **Sovereignty** | 60% | **90%** | +30% | Science & Industry | 45% | 74% | +29% |
+| Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **96%** | +31% |
 
 See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  
 Полная раскладка — в [`PROGRESS.md`](PROGRESS.md).

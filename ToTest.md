@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes (updated 2026-07-13 — build 5 agents/corp/missions final pass).
+Things to verify after recent changes (updated 2026-07-14 — build 6 S&I + subsystems cleanup).
 
 ---
 

@@ -517,8 +517,22 @@
 # TODO
 
 ## 🟡 If desired
-1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема — route сбрасывается при session change)
-2. **Auto-bills** — фоновый процесс для автоплатежей (настройки сохраняются)
+1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)
+2. **Auto-bills** — фоновый процесс для автоплатежей
+
+## ✅ Done this session
+- **SubSystemModule** — T3 сабсистемы online/active при установке
+- **UpdateAssemblyLineConfigurations** — сохранение в БД
+- **TutorialService** — LogStarted/Completed/Aborted, GetCharacterTutorialState
+- **COSMOS missions** — загрузка из БД
+- **Research RP** — фоновое накопление (раньше не вызывалось)
+- **Research journal** — отображение в журнале
+- **War bills** — рекуррентные еженедельные счета
+- **PayoutDividend** — выплата дивидендов
+- **CreateAlliance** (unbound) — имплементирован
+- **GetMyCourierMissions** — возвращает данные
+- **5 AgentBound stubs** — реализованы
+- **6 CorpRegistryBound stubs** — валидные PyRep
 
 ## 🟢 Eventually
 1. **RefPtr → shared_ptr** — major refactoring ~400 files

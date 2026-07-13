@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
 > **Our fork: `████████████████████` 97%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-13 (build 5 — agents/corp/missions final pass)
+> Last updated: 2026-07-14 (build 6 — S&I + subsystems cleanup)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -41,8 +41,8 @@
 | **Faction Warfare** | 93% | `███████████████████` | +43% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
-| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 72% | `████████████████░░` | +27% |
-| Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 95% | `██████████████████` | +30% |
+| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 74% | `████████████████░░` | +29% |
+| Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 96% | `██████████████████` | +31% |
 
 ---
 
@@ -238,7 +238,7 @@
 
 ---
 
-### 12. Science & Industry `████████████░░░░░░` 60%
+### 12. Science & Industry `███████████████░` 74%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -249,6 +249,8 @@
 | **GetBlueprintInformationAtLocation / WithFlag** — S&I окно показывает чертежи | ❌ | ✅ |
 | **ManufacturingService::GetPathToItem** — резолвит расположение чертежа | ❌ | ✅ |
 | **Invention formula** — использует EvEMath формулу со скиллами/мета/декриптором | ❌ | ✅ |
+| **UpdateAssemblyLineConfigurations** — сохранение конфигураций в ramAssemblyLineStations | ❌ | ✅ |
+| **SubSystemModule online** — T3 сабсистемы активируются при установке, применяются пассивные эффекты | ❌ | ✅ |
 
 ---
 
@@ -441,13 +443,13 @@
 
 ---
 
-### 25. Effects System `██████████████████` 95%
+### 25. Effects System `██████████████████` 96%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
 | Passive, online, active effect processing | ✅ | ✅ |
 | Implant/booster processing | ✅ | ✅ |
-| Subsystem effect processing | 🟡 | 🟡 |
+| Subsystem effect processing | 🟡 | ✅ |
 | **Wormhole system effects** (SystemEffectMgr) | ❌ | ✅ |
 | **Sovereignty upgrade effects** | ❌ | ✅ |
 
