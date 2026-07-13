@@ -707,8 +707,11 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8
             iRef->SetAttribute(AttrExplosiveDamage, iRef->GetAttribute(AttrExplosiveDamage).get_float() * dmgMult, false);
 
         m_system->AddNPC(pNPC);
+        // Give NPC a orbit around bubble center to avoid TROLL mode
+        pNPC->DestinyMgr()->SetPosition(basePos);
+        pNPC->DestinyMgr()->Stop();
     }
-
+ 
     _log(SPAWN__MESSAGE, "DoSpawnForIncursion - Spawned sceneType=%u NPCs in bubble (dmgMult=%.1f)", sceneType, dmgMult);
 }
 

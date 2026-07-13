@@ -235,11 +235,29 @@ bool NPC::IsConvoyUnderAttack() const
 
 PyDict* NPC::MakeSlimItem()
 {
-    // Use DSE base class — passes through real categoryID/groupID from DB
-    // instead of hardcoding categoryID=6 and remapping groupID.
-    // Client needs real groupIDs (550-552 etc.) to show NPC crosshairs.
-    _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u) typeID=%u cat=%u", m_self->itemName(), m_self->itemID(), m_self->typeID(), m_self->categoryID());
-    return DynamicSystemEntity::MakeSlimItem();
+    _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u) typeID=%u cat=%u warFaction=%u", m_self->itemName(), m_self->itemID(), m_self->typeID(), m_self->categoryID(), m_warID);
+    PyDict* slim = DynamicSystemEntity::MakeSlimItem();
+    if (slim != nullptr) {
+        // Set security status for crosshair color: negative = red (hostile)
+        // Pirate factions and Sansha incursion NPCs = hostile
+        switch (m_warID) {
+            case factionAngel:
+            case factionBloodRaider:
+            case factionGuristas:
+            case factionSanshas:
+            case factionSerpentis:
+            case factionRogueDrones:
+            case factionSleepers: {
+                slim->SetItemString("securityStatus", new PyFloat(-10.0));
+                break;
+            }
+            default: {
+                slim->SetItemString("securityStatus", new PyFloat(0.0));
+                break;
+            }
+        }
+    }
+    return slim;
 }
 
 bool NPC::Load()
