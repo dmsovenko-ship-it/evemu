@@ -33,6 +33,7 @@
 #include "map/MapData.h"
 #include "map/MapDB.h"
 #include "npc/CustomsNPCManager.h"
+#include "incursion/IncursionMgr.h"
 #include "inventory/ItemFactory.h"
 #include "corporation/LPService.h"
 #include "faction/FactionWarMgrDB.h"

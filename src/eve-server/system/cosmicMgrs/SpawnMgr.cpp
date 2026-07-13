@@ -24,6 +24,7 @@
 #include "account/AccountService.h"
 #include "corporation/LPService.h"
 #include "ship/Ship.h"
+#include "inventory/Inventory.h"
 #include <algorithm>
 
 /** @todo  this can be updated to spawn mission, anomaly and deadspace rats.
