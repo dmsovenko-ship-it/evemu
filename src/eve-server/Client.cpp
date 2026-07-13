@@ -2384,6 +2384,9 @@ void Client::UpdateSession()
     pSession->SetInt("solarsystemid2", solarsystemID);
     pSession->SetInt("constellationid", m_char->constellationID());
     pSession->SetInt("regionid", m_char->regionID());
+
+    // Pass autopilot state to client — client may use session.autopilot to resume chain after session change
+    pSession->SetInt("autopilot", m_autoPilot ? 1 : 0);
 }
 
 void Client::UpdateSessionInt(const char *id, int value)
