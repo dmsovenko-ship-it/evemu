@@ -719,10 +719,27 @@ void StructureSE::SetAnchor(Client *pClient, GPoint &pos)
     }
     else if (m_platform)
     {
-        //verify anchor distance from planet
+        // Outpost Construction Platform — requires sovereignty + skills
+        // Check Anchoring skill (level 1 required)
+        if (pClient->GetChar()->GetSkillLevel(EvESkill::Anchoring) < 1) {
+            pClient->SendErrorMsg("You need Anchoring skill to anchor an outpost construction platform.");
+            return;
+        }
+        // Check Outpost Construction skill (level 1 required)
+        if (pClient->GetChar()->GetSkillLevel(EvESkill::OutpostConstruction) < 1) {
+            pClient->SendErrorMsg("You need Outpost Construction skill to anchor an outpost construction platform.");
+            return;
+        }
+        // Check sovereignty — system must be claimed by player's alliance
+        SovereigntyData sovData = svDataMgr.GetSovereigntyData(pClient->GetLocationID());
+        uint32 allyID = pClient->GetAllianceID();
+        if (allyID == 0 or sovData.allianceID != allyID) {
+            pClient->SendErrorMsg("You can only anchor an outpost in a system claimed by your alliance.");
+            return;
+        }
+        // Verify anchor distance from planet
         uint32 distance(m_planetSE->GetPosition().distance(m_self->position()));
         uint32 anchorMax = (m_planetSE->GetRadius() + 150000000);
-
         if (distance > anchorMax) {
             pClient->SendErrorMsg("You cannot anchor the %s farther than %u meters from the planet.", \
                     m_self->name(), anchorMax);
