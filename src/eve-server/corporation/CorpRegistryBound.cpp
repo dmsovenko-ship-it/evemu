@@ -871,6 +871,19 @@ PyResult CorpRegistryBound::DeleteBulletin(PyCallArgs &call, PyInt* bulletinID) 
 PyResult CorpRegistryBound::CreateRecruitmentAd(PyCallArgs &call, PyInt* days, PyInt* typeMask, std::optional <PyInt*> allianceID, PyWString* description, PyInt* channelID, PyList* recruiterIDs, PyWString* title) {
     _log(CORP__CALL, "CorpRegistryBound::Handle_CreateRecruitmentAd()");
 
+    // Check if corp already has an active ad
+    DBQueryResult existRes;
+    if (sDatabase.RunQuery(existRes,
+        "SELECT adID FROM crpAdRegistry WHERE corporationID = %u AND expiryDateTime > %.0f",
+        m_corpID, (double)GetFileTimeNow()))
+    {
+        DBResultRow existRow;
+        if (existRes.GetRow(existRow)) {
+            call.client->SendNotifyMsg("Your corporation already has an active recruitment advertisement.");
+            return new PyInt(-1);
+        }
+    }
+
     uint32 amount = 1250000;
     switch (days->value()) {
         case 7:    amount = 2250000;  break;
