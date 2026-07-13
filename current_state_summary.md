@@ -520,8 +520,8 @@
 1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)
 
 ## 🟡 Средний приоритет (крупные фичи)
-1. **Jump drives / Capital ships** — cyno, jump portal, titan bridge (~20%)
-2. **Full NPC AI** — EWAR, smartbombs, флитование, отступление (~40%)
+1. **Jump drives / Capital ships** — cyno, jump portal, titan bridge (~60%, добавлены IsCovert, blops bridge restrictions)
+2. **Full NPC AI** — EWAR (web, ECM, target paint) добавлены в NPCAIMgr
 3. **S&I — Manufacturing slots, ME/PE research** — частично (74%, самая слабая система)
 4. **Full LP store** — все фракции, все офферы, стояночные требования (~70%)
 5. **FW plex capture** — acceleration gates, capture timer, NPC defenders (~60%)

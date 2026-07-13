@@ -12,6 +12,7 @@
 #include "ship/Ship.h"
 #include "ship/modules/GenericModule.h"
 #include "station/Station.h"
+#include "EVE_Mail.h"
 #include "mail/MailDB.h"
 #include "system/DestinyManager.h"
 #include "system/BubbleManager.h"
