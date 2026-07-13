@@ -2210,7 +2210,8 @@ void SystemManager::ProcessFWCapture()
                         npc->DestinyMgr()->SetPosition(sig.position);
                         AddNPC(npc);
                         // Target the first player who entered
-                        npc->TargetMgr()->StartTargeting(p.client->GetShipSE(), 2000, 1, 50000, false);
+                        bool chase = false;
+                        npc->TargetMgr()->StartTargeting(p.client->GetShipSE(), 2000, 1, 50000, chase);
                     } else { SafeDelete(npc); }
                 }
             }

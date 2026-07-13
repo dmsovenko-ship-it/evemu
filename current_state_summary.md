@@ -520,12 +520,12 @@
 1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)
 
 ## 🟡 Средний приоритет (крупные фичи)
-1. **Jump drives / Capital ships** — cyno, jump portal, titan bridge (~60%, добавлены IsCovert, blops bridge restrictions)
-2. **Full NPC AI** — EWAR (web, ECM, target paint) добавлены в NPCAIMgr
-3. **S&I — Manufacturing slots, ME/PE research** — частично (74%, самая слабая система)
-4. **Full LP store** — все фракции, все офферы, стояночные требования (~70%)
-5. **FW plex capture** — acceleration gates, capture timer, NPC defenders (~60%)
-6. **Killmail generation** — парсинг XML, рассылка loss mails (~50%)
+1. **Jump drives / Capital ships** — cyno, portal, bridge работают. Добавлены IsCovert, blops bridge restriction
+2. **Full NPC AI** — web, ECM, target paint добавлены в NPCAIMgr (читает атрибуты сущностей)
+3. **S&I — Manufacturing** — материал мультипликатор работает через Calculate(), GetAdjustedRamRequiredMaterials — мёртвая функция
+4. **Full LP store** — LPService полностью реализован, storeServer стабы. Не хватает seed данных с required items
+5. **FW plex capture** — NPC защитники от system occupier, размерные ограничения, contested (пауза таймера)
+6. **Killmail** — finalSecurityStatus берётся из реального secStatus атакующего (вместо 0)
 
 ## 🟢 Низкий приоритет (мелкие стабы)
 1. **GetRecentSovActivity** (MapService) — стаб
