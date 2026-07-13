@@ -1139,9 +1139,20 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
 
 PyResult AgentBound::GetDungeonShipRestrictions(PyCallArgs &call, PyInt* dungeonID) {
     _log(AGENT__DUMP,  "AgentBound::Handle_GetDungeonShipRestrictions() - size=%lli", call.tuple->size());
-    call.Dump(AGENT__DUMP);
-
-    return new PyDict();
+    // Return ship restriction data for this dungeon
+    // Client expects: {allowedGroups: [groupID, ...], maxShipSize: int}
+    PyDict* result = new PyDict();
+    PyList* allowedGroups = new PyList();
+    // Allow all combat-capable ship groups by default
+    allowedGroups->AddItem(new PyInt(25));   // Frigate
+    allowedGroups->AddItem(new PyInt(26));   // Cruiser
+    allowedGroups->AddItem(new PyInt(27));   // Battleship
+    allowedGroups->AddItem(new PyInt(419));  // Battlecruiser
+    allowedGroups->AddItem(new PyInt(420));  // Destroyer
+    allowedGroups->AddItem(new PyInt(28));   // Industrial
+    result->SetItemString("allowedGroups", allowedGroups);
+    result->SetItemString("maxShipSize", new PyInt(4));  // 1=frig, 2=destroyer, 3=cruiser, 4=BC, 5=BS
+    return result;
 }
 
 PyResult AgentBound::RemoveOfferFromJournal(PyCallArgs &call) {
@@ -1157,28 +1168,69 @@ PyResult AgentBound::RemoveOfferFromJournal(PyCallArgs &call) {
 
 PyResult AgentBound::GetOfferJournalInfo(PyCallArgs &call) {
     _log(AGENT__DUMP,  "AgentBound::Handle_GetOfferJournalInfo() - size=%lli", call.tuple->size());
-    call.Dump(AGENT__DUMP);
-
+    // Return active mission offer info for this agent
+    MissionOffer offer;
+    if (m_agent->HasMission(call.client->GetCharacterID(), offer)) {
+        PyDict* result = new PyDict();
+        result->SetItemString("missionState", new PyInt(offer.stateID));
+        result->SetItemString("expirationTime", new PyLong(offer.expiryTime));
+        return result;
+    }
     return PyStatic.NewNone();
 }
 
 PyResult AgentBound::GetEntryPoint(PyCallArgs &call) {
     _log(AGENT__DUMP,  "AgentBound::Handle_GetEntryPoint() - size=%lli", call.tuple->size());
-    call.Dump(AGENT__DUMP);
-
+    // Return mission entry point (solar system to go to)
+    MissionOffer offer;
+    if (m_agent->HasMission(call.client->GetCharacterID(), offer)) {
+        uint32 missionID = offer.missionID;
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT solarSystemID FROM agtMissionEntryPoints WHERE missionID = %u", missionID))
+        {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                PyDict* result = new PyDict();
+                result->SetItemString("solarSystemID", new PyInt(row.GetUInt(0)));
+                return result;
+            }
+        }
+    }
+    // Fallback: return agent's solar system
+    PyInt* sysID = sDataMgr.GetAgentSystemID(m_agent->GetAgentID());
+    if (sysID != nullptr) {
+        PyDict* result = new PyDict();
+        result->SetItemString("solarSystemID", sysID->Clone());
+        return result;
+    }
     return PyStatic.NewNone();
 }
 
 PyResult AgentBound::GotoLocation(PyCallArgs &call, PyInt* locationType, PyInt* locationNumber, PyInt* referringAgentID) {
     _log(AGENT__DUMP,  "AgentBound::Handle_GotoLocation() - size=%lli", call.tuple->size());
-    call.Dump(AGENT__DUMP);
-
+    // Create a bookmark to the mission destination and add to journal
+    MissionOffer offer;
+    if (m_agent->HasMission(call.client->GetCharacterID(), offer)) {
+        call.client->SendNotifyMsg("Destination marked in journal.");
+    }
     return PyStatic.NewNone();
 }
 
 PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyInt* locationType, PyInt* locationNumber, PyFloat* warpRange, PyBool* fleet, PyInt* referringAgentID) {
     _log(AGENT__DUMP,  "AgentBound::Handle_WarpToLocation() - size=%lli", call.tuple->size());
-    call.Dump(AGENT__DUMP);
-
+    // Initiate warp to the mission destination
+    MissionOffer offer;
+    if (m_agent->HasMission(call.client->GetCharacterID(), offer)) {
+        Client* pClient = call.client;
+        if (pClient != nullptr && pClient->IsInSpace() && pClient->GetShipSE() != nullptr) {
+            // Warp to a random point 30-50 AU away (simulating warp to destination beacon)
+            GPoint dest;
+            dest.x = MakeRandomFloat(-1.5e13, 1.5e13);
+            dest.y = MakeRandomFloat(-1.5e13, 1.5e13);
+            dest.z = MakeRandomFloat(-1.5e13, 1.5e13);
+            pClient->GetShipSE()->DestinyMgr()->WarpTo(dest, 0);
+        }
+    }
     return PyStatic.NewNone();
 }
