@@ -99,17 +99,17 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
 |--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
 | Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
-| Ship Navigation | 70% | 75% | +5% | Combat | 90% | 99% | +9% |
-| Modules & Overheating | 85% | 95% | +10% | Drones | 75% | 90% | +15% |
-| NPC AI & Spawning | 60% | 80% | +20% | Agents & Missions | 70% | 85% | +15% |
-| **POS** | 70% | **97%** | +27% | Market | 60% | 85% | +25% |
-| **Incursions** | 0% | **75%** | +75% | Fleet | 75% | 98% | +23% |
+| Ship Navigation | 70% | 82% | +12% | Combat | 90% | 99% | +9% |
+| Modules & Overheating | 85% | 96% | +11% | Drones | 75% | 92% | +17% |
+| NPC AI & Spawning | 60% | 86% | +26% | Agents & Missions | 70% | 95% | +25% |
+| **POS** | 70% | **97%** | +27% | Market | 60% | 92% | +32% |
+| **Incursions** | 0% | **85%** | +85% | Fleet | 75% | 98% | +23% |
 | **Wormholes** | 60% | **90%** | +30% | Scanning | 80% | 99% | +19% |
-| **Notifications** | 60% | **95%** | +35% | **Standings** | 60% | 85% | +25% |
-| **Faction Warfare** | 50% | **90%** | +40% | Calendar | 60% | 90% | +30% |
-| Mail & LSC | 60% | 85% | +25% | Contracts | 60% | 95% | +35% |
-| Corporation | 65% | 87% | +22% | **Alliance** | 55% | **85%** | +30% |
-| **Sovereignty** | 60% | **90%** | +30% | Science & Industry | 45% | 55% | +10% |
+| **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 92% | +32% |
+| **Faction Warfare** | 50% | **93%** | +43% | Calendar | 60% | 93% | +33% |
+| Mail & LSC | 60% | 93% | +33% | Contracts | 60% | 95% | +35% |
+| Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |
+| **Sovereignty** | 60% | **90%** | +30% | Science & Industry | 45% | 72% | +27% |
 | Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **95%** | +30% |
 
 See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  

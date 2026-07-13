@@ -516,14 +516,9 @@
 
 # TODO
 
-## 🔴 Now
-1. **Orbit** — NPCs still have slow drift/occasional jerk when `PositionHack=true` in config
-2. **Incursion anomalies** — Sansha incursion sites don't appear on probe scanner (need AnomalySE registration for incursion sites)
-
 ## 🟡 If desired
 1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема — route сбрасывается при session change)
-2. **FW LP earning** — подключить `LPService::AddLP` к FW-активностям (plex captures, FW kills)
-3. **Incursions** — 75%, требуется доработка
+2. **Auto-bills** — фоновый процесс для автоплатежей (настройки сохраняются)
 
 ## 🟢 Eventually
 1. **RefPtr → shared_ptr** — major refactoring ~400 files

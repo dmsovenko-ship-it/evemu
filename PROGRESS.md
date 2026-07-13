@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
 > **Our fork: `████████████████████` 97%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-13 (build 4 — incursions + FW LP + security status)
+> Last updated: 2026-07-13 (build 5 — agents/corp/missions final pass)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -33,14 +33,14 @@
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
 | Ship Navigation | 82% | `█████████████████░` | +12% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 96% | `██████████████████` | +11% | Drones | 92% | `██████████████████` | +17% |
-| NPC AI & Spawning | 85% | `█████████████████░` | +25% | Agents & Missions | 92% | `███████████████████` | +22% |
+| NPC AI & Spawning | 86% | `█████████████████░` | +26% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
 | **Incursions** | 85% | `█████████████████░` | +85% | Fleet | 98% | `██████████████████` | +23% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
 | **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 92% | `██████████████████` | +32% |
 | **Faction Warfare** | 93% | `███████████████████` | +43% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
-| Corporation | 88% | `██████████████████` | +23% | **Alliance** | 87% | `█████████████████░` | +32% |
+| Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
 | **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 72% | `████████████████░░` | +27% |
 | Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 95% | `██████████████████` | +30% |
 
@@ -103,6 +103,7 @@
 |---------|:--------:|:--------:|
 | Lock target, activate modules, damage | ✅ | ✅ |
 | Crimewatch timers (weapon/aggression/criminal) | ✅ | ✅ |
+| **FW LP from PvP** — легальная атака вражеского FW пилота | ❌ | ✅ |
 | CONCORD (×25 HP, delay by sec, −0.2 penalty) | 🟡 | ✅ |
 | **CONCORDOKKEN** — respawn on kill + escalating damage | ❌ | ✅ |
 | **CONCORD despawn** — 5-10 min after criminal kill | ❌ | ✅ |
@@ -142,7 +143,7 @@
 
 ---
 
-### 7. NPC AI & Spawning `█████████████████░` 85%
+### 7. NPC AI & Spawning `█████████████████░` 86%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -157,7 +158,7 @@
 
 ---
 
-### 8. Agents & Missions `███████████████████` 92%
+### 8. Agents & Missions `███████████████████` 95%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -166,10 +167,14 @@
 | Storyline missions (144), Epic Arc (Blood-Stained Stars) | 🟡 | ✅ |
 | Career agents (29, 4 factions), COSMOS agents | 🟡 | ✅ |
 | AgentMgrService::GetCareerAgents() — реализован вместо заглушки | ❌ | ✅ |
-| AgentBound stubs (GetDungeonShipRestrictions, etc.) — возвращают валидные PyRep | ❌ | ✅ |
+| AgentBound stubs (GetDungeonShipRestrictions, GetOfferJournalInfo, GetEntryPoint, GotoLocation, WarpToLocation) — возвращают валидные PyRep | ❌ | ✅ |
 | Research agents (21, tech fields) | ✅ | ✅ |
 | Research field selection — DoAction(skillTypeID) → chrResearch + pointsPerDay | ❌ | ✅ |
-| Research point accumulation — фоновая задача (каждый час) | ❌ | ✅ |
+| Research point accumulation — фоновая задача (каждый час, ранее не вызывалась) | ❌ | ✅ |
+| Research journal — отображает исследования в журнале (было пусто) | ❌ | ✅ |
+| TutorialService — GetCharacterTutorialState, LogStarted/Completed/Aborted, GetTutorialsAndConnections | ❌ | ✅ |
+| COSMOS missions — загрузка из БД (briefingID=0 больше не фильтрует) | ❌ | ✅ |
+| GetMyCourierMissions — возвращает данные из agtOffers (было nullptr) | ❌ | ✅ |
 | LP store (faction + CONCORD) | 🟡 | ✅ |
 
 ---
@@ -210,7 +215,7 @@
 
 ---
 
-### 11. Corporation & Alliance `█████████████████░` 87% / `█████████████████░` 85%
+### 11. Corporation & Alliance `███████████████████` 93% / `██████████████████` 92%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -226,6 +231,10 @@
 | Alliance executor change (DeclareExecutorSupport) | ❌ | ✅ |
 | Alliance member info — ceoID, memberCount, ticker, joinDate | ❌ | ✅ |
 | **Alliance executor voting** (alnVoteItems/Options/Votes) | ❌ | ✅ |
+| **PayoutDividend** — выплата дивидендов акционерам/членам | ❌ | ✅ |
+| **CanLeaveCurrentCorporation** — проверка ролей (с ролями нельзя выйти) | ❌ | ✅ |
+| **War bills recurring** — еженедельные счета + авто-завершение войны при неуплате | ❌ | ✅ |
+| **CreateAlliance** — через CorpRegistryService (unbound) | ❌ | ✅ |
 
 ---
 
