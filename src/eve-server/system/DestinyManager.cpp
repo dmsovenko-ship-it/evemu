@@ -1891,7 +1891,7 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         _log(DESTINY__WARP_TRACE, "Destiny::WarpStop(): %s(%u): Ship currently at %.2f,%.2f,%.2f.", \
                 mySE->GetName(), mySE->GetID(), m_position.x, m_position.y, m_position.z);
     }
-    if (mySE->IsShipSE()) {
+    if (mySE->IsShipSE() && mySE->HasPilot()) {
         _log(AUTOPILOT__MESSAGE, "Destiny::WarpStop(): %s(%u) - Warp complete.", mySE->GetName(), mySE->GetID());
         mySE->GetPilot()->SetLoginWarpComplete();
     }
