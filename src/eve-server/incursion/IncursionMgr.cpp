@@ -10,6 +10,7 @@
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "system/cosmicMgrs/SpawnMgr.h"
 #include "system/Celestial.h"
+#include "corporation/LPService.h"
 
 IncursionMgr::IncursionMgr()
 {
@@ -21,35 +22,22 @@ void IncursionMgr::Process()
     if (!m_spawnTimer.Enabled())
         m_spawnTimer.Start(300000);  // 5 min
 
-    // Check if any incursions exist, auto-start one if none active
+    // Allow up to 5 simultaneous incursions (1 HS, 1 LS, 3 NS) with 12-36h respawn
     DBQueryResult activeRes;
-    bool hasActive = false;
+    uint32 activeCount = 0;
+    bool hasHS = false, hasLS = false;
     if (sDatabase.RunQuery(activeRes,
-        "SELECT COUNT(*) FROM incursions WHERE state > 0"))
+        "SELECT i.incursionID, i.lastUpdated, "
+        "  (SELECT AVG(s.security) FROM mapSolarSystems s JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID WHERE isys.incursionID=i.incursionID) as avgSec "
+        "FROM incursions i WHERE i.state > 0"))
     {
-        DBResultRow activeRow;
-        if (activeRes.GetRow(activeRow))
-            hasActive = (activeRow.GetUInt(0) > 0);
-    }
-
-    if (!hasActive) {
-        sLog.Warning("IncursionMgr", "No active incursions, starting new one...");
-        DBQueryResult constRes;
-        if (sDatabase.RunQuery(constRes,
-            "SELECT constellationID, regionID FROM mapConstellations "
-            "WHERE constellationID IN (20000383, 20000267, 20000341, 20000446, 20000370, "
-            "20000432, 20000034, 20000066, 20000106, 20000134, 20000208) "
-            "AND constellationID NOT IN (SELECT constellationID FROM incursions WHERE state > 0) "
-            "ORDER BY RAND() LIMIT 1"))
-        {
-            DBResultRow constRow;
-            if (constRes.GetRow(constRow)) {
-                StartIncursion(factionSanshas, constRow.GetUInt(0));
-            } else {
-                sLog.Warning("IncursionMgr", "Could not find valid constellation for incursion");
-            }
+        DBResultRow aRow;
+        while (activeRes.GetRow(aRow)) {
+            ++activeCount;
+            float avgSec = aRow.GetFloat(2);
+            if (avgSec >= 0.5f) hasHS = true;
+            else hasLS = true;
         }
-        return;
     }
 
     DBQueryResult res;
@@ -68,6 +56,49 @@ void IncursionMgr::Process()
         // Spawn sites only every 5 minutes to avoid constant DB queries
         if (m_spawnTimer.Check(false))
             SpawnSites(incursionID);
+    }
+
+    // Try to start new incursions if below the cap
+    if (m_spawnTimer.Check(false) && activeCount < 5) {
+        bool spawnHS = !hasHS;
+        bool spawnLS = !hasLS && hasHS;
+        bool spawnNS = !spawnHS && !spawnLS;
+        double now = GetFileTimeNow();
+
+        DBQueryResult lastRes;
+        if (sDatabase.RunQuery(lastRes,
+            "SELECT MAX(lastUpdated) FROM incursions WHERE state = 0 "
+            "AND (SELECT AVG(s.security) FROM mapSolarSystems s "
+            "  JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID "
+            "  WHERE isys.incursionID=incursions.incursionID) %s",
+            spawnHS ? ">= 0.5" : spawnLS ? "BETWEEN 0.0 AND 0.49" : "< 0.0"))
+        {
+            DBResultRow lastRow;
+            if (lastRes.GetRow(lastRow) && !lastRow.IsNull(0)) {
+                double lastTime = lastRow.GetDouble(0);
+                double elapsed = (now - lastTime) / EvE::Time::Hour;
+                if (elapsed < 12 + MakeRandomInt(0, 24)) {
+                    _log(COSMIC_MGR__TRACE, "IncursionMgr: %s cooldown active (%.1f/12-36h)",
+                         spawnHS?"HS":spawnLS?"LS":"NS", elapsed);
+                    return;
+                }
+            }
+        }
+
+        sLog.Warning("IncursionMgr", "Starting new incursion (%u active, need%s%s%s)...",
+                     activeCount, spawnHS?" HS":"", spawnLS?" LS":"", spawnNS?" NS":"");
+        DBQueryResult constRes;
+        if (sDatabase.RunQuery(constRes,
+            "SELECT constellationID, regionID FROM mapConstellations "
+            "WHERE constellationID IN (20000383, 20000267, 20000341, 20000446, 20000370, "
+            "20000432, 20000034, 20000066, 20000106, 20000134, 20000208) "
+            "AND constellationID NOT IN (SELECT constellationID FROM incursions WHERE state > 0) "
+            "ORDER BY RAND() LIMIT 1"))
+        {
+            DBResultRow constRow;
+            if (constRes.GetRow(constRow))
+                StartIncursion(factionSanshas, constRow.GetUInt(0));
+        }
     }
 }
 
@@ -126,6 +157,37 @@ void IncursionMgr::StartIncursion(uint32 factionID, uint32 constellationID)
 void IncursionMgr::EndIncursion(uint32 incursionID)
 {
     double now = GetFileTimeNow();
+
+    // Award CONCORD LP to all participants if mothership was killed
+    DBQueryResult bossRes;
+    uint8 hasBoss = 0;
+    if (sDatabase.RunQuery(bossRes,
+        "SELECT hasBoss FROM incursions WHERE incursionID = %u", incursionID))
+    {
+        DBResultRow bossRow;
+        if (bossRes.GetRow(bossRow))
+            hasBoss = bossRow.GetUInt(0);
+    }
+
+    if (hasBoss >= 1) {
+        // Award CONCORD LP to all players in incursion systems
+        const std::map<uint32, SystemManager*>& systems = sEntityList.GetSystems();
+        for (auto& [sysID, sysMgr] : systems) {
+            if (sysMgr == nullptr) continue;
+            std::vector<Client*> clients;
+            sysMgr->GetClientList(clients);
+            for (Client* client : clients) {
+                if (client == nullptr || !client->IsInSpace()) continue;
+                if (IsIncursionSystem(client->GetSystemID())) {
+                    int totalLP = 10000;
+                    LPService::AddLP(client->GetCharacterID(), corpCONCORD, totalLP);
+                    client->SendNotifyMsg("CONCORD bonus LP awarded for incursion mothership kill.");
+                    sLog.Warning("IncursionMgr", "Awarded %d CONCORD LP to %s", totalLP, client->GetName());
+                }
+            }
+        }
+    }
+
     DBerror err;
     sDatabase.RunQuery(err,
         "UPDATE incursions SET state = 0, lastUpdated = %.0f WHERE incursionID = %u",
@@ -135,7 +197,7 @@ void IncursionMgr::EndIncursion(uint32 incursionID)
 
     m_activeSystems.clear();
     NotifyClients(incursionID);
-    sLog.Warning("IncursionMgr", "Incursion %u ended", incursionID);
+    sLog.Warning("IncursionMgr", "Incursion %u ended (mothership%s killed)", incursionID, hasBoss>=1?"":" NOT");
 }
 
 void IncursionMgr::OnSiteCompleted(uint32 incursionID, uint32 solarSystemID, uint8 sceneType)
@@ -297,7 +359,27 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
                 hasBoss = bossRow.GetUInt(0);
         }
 
+        // Focus period: mothership spawns after 72h (HS), 24h (LS), 0h (NS)
         if (hasBoss == 1 && sceneType == Incursion::scenesType::headquarters) {
+            DBQueryResult focusRes;
+            if (sDatabase.RunQuery(focusRes,
+                "SELECT UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(lastUpdated), "
+                "  (SELECT AVG(s.security) FROM mapSolarSystems s "
+                "   JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID "
+                "   WHERE isys.incursionID=%u) as avgSec "
+                "FROM incursions WHERE incursionID=%u", incursionID, incursionID))
+            {
+                DBResultRow focusRow;
+                if (focusRes.GetRow(focusRow)) {
+                    double elapsedHours = focusRow.GetDouble(0) / 3600.0;
+                    double avgSec = focusRow.GetDouble(1);
+                    uint32 minHours = (avgSec >= 0.5f) ? 72 : (avgSec >= 0.0f) ? 24 : 0;
+                    if (elapsedHours < minHours) {
+                        _log(COSMIC_MGR__TRACE, "IncursionMgr: Mothership focus period active (%.1f/%uh)", elapsedHours, minHours);
+                        continue;
+                    }
+                }
+            }
             SpawnMothership(incursionID, solarSystemID);
             m_activeSystems.insert(solarSystemID);
             continue;
