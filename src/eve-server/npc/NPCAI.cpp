@@ -420,13 +420,23 @@ void NPCAIMgr::Process() {
             }
         } break;
         case NPCAI::State::Signaling:{
-            // Signaling: stay at range and orbit, calling for help (reinforcements)
+            // Signaling: stay at range and orbit, calling for reinforcements
             if (!m_destiny->IsOrbiting()) {
                 SystemEntity* target = m_npc->TargetMgr()->GetFirstTarget(false);
                 if (target != nullptr) {
                     m_destiny->SetMaxVelocity(m_orbitSpeed * 2);
                     m_destiny->Orbit(target, m_falloff);
                 }
+            }
+            // Call for reinforcements from SpawnMgr (one-shot)
+            SpawnMgr* spawnMgr = m_npc->GetSpawnMgr();
+            SystemBubble* bubble = m_npc->SysBubble();
+            if (spawnMgr != nullptr and bubble != nullptr and !bubble->IsAnomaly()) {
+                spawnMgr->DoSpawnForBubble(bubble);
+                _log(NPC__AI_TRACE, "%s(%u): Signaling — called reinforcements in bubble %u",
+                     m_npc->GetName(), m_npc->GetID(), bubble->GetID());
+                // Transition to Engaged after calling reinforcements
+                m_state = NPCAI::State::Engaged;
             }
         } break;
         case NPCAI::State::WarpOut:

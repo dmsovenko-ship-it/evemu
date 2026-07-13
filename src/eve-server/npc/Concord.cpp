@@ -308,11 +308,14 @@ m_armorRepairDuration(who->GetSelf()->GetAttribute(AttrEntityArmorRepairDuration
 }
 
 void ConcordAI::Process() {
-    /* concord ai needs to be written, so for now we'll just return immediatly */
-    return;
-
-    if ((!m_processTimer.Check()) || (!m_npc->SysBubble()->HasPlayers()) || m_npc->DestinyMgr()->IsWarping())
+    if (!m_processTimer.Check())
         return;
+    if (m_npc->DestinyMgr()->IsWarping())
+        return;
+    if (!m_npc->SysBubble()->HasPlayers()) {
+        SetIdle();
+        return;
+    }
 
     if (m_shieldBoosterTimer.Enabled() && m_shieldBoosterTimer.Check())
         if (MakeRandomFloat() < m_shieldBoosterChance)
@@ -332,7 +335,23 @@ void ConcordAI::Process() {
              */
             switch(m_state) {
                 case Idle: {
-                    /* make timer here for them to leave */
+                    if (m_beginFindTarget.Check()) {
+                        std::vector<Client*> players;
+                        m_npc->SysBubble()->GetPlayers(players);
+                        for (auto player : players) {
+                            if (player == nullptr or player->GetShipSE() == nullptr) continue;
+                            if (player->GetShipSE()->DestinyMgr() and player->GetShipSE()->DestinyMgr()->IsCloaked()) continue;
+                            // Only target criminals (aggression timer active)
+                            if (player->GetCrimeWatch()->IsCriminal()) {
+                                _log(NPC__AI_TRACE, "ConcordAI: Targeting criminal %s", player->GetName());
+                                Target(player->GetShipSE());
+                                break;
+                            }
+                        }
+                    } else if (!m_beginFindTarget.Enabled()) {
+                        // Scan for criminals every 5 seconds
+                        m_beginFindTarget.Start(5000);
+                    }
                 } break;
                 case Chasing: {
                     //NOTE: getting our target like this is pretty weak...
