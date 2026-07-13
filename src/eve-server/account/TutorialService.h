@@ -49,6 +49,7 @@ protected:
     PyResult LogStarted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time);
     PyResult LogCompleted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time);
     PyResult LogAborted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time);
+    void LogTutorialState(uint32 charID, uint32 tutorialID, uint32 pageID, bool completed);
 };
 
 #endif

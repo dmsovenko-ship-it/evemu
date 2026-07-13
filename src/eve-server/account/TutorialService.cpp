@@ -300,45 +300,103 @@ PyResult TutorialService::GetCategories(PyCallArgs &call) {
     return(m_db.GetCategories());
 }
 
-//00:25:53 L TutorialService::Handle_GetCharacterTutorialState(): size= 0
 PyResult TutorialService::GetCharacterTutorialState(PyCallArgs& call) {
-  /*  Empty Call  */
-
-    return new PyInt( 0 );
+    uint32 charID = call.client->GetCharacterID();
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT tutorialID, pageID, completed, completedDateTime"
+        " FROM characterTutorialState WHERE characterID = %u", charID))
+    {
+        PyList* result = new PyList();
+        DBRowDescriptor* header = new DBRowDescriptor();
+        header->AddColumn("tutorialID", DBTYPE_I4);
+        header->AddColumn("pageID", DBTYPE_I4);
+        header->AddColumn("completed", DBTYPE_BOOL);
+        header->AddColumn("completedDateTime", DBTYPE_I8);
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            PyPackedRow* packed = new PyPackedRow(header);
+            PyIncRef(header);
+            packed->SetField("tutorialID",      new PyInt(row.GetUInt(0)));
+            packed->SetField("pageID",          new PyInt(row.GetUInt(1)));
+            packed->SetField("completed",       row.GetUInt(2) ? PyStatic.NewTrue() : PyStatic.NewFalse());
+            packed->SetField("completedDateTime", new PyLong(row.GetInt64(3)));
+            result->AddItem(packed);
+        }
+        return result;
+    }
+    return new PyList();
 }
 
 PyResult TutorialService::GetTutorialsAndConnections(PyCallArgs& call) {
-    /*  no logs */
-  /*  This is used to link tutorials using connections to other tutorials  */
-            /*
-            t, tc = sm.RemoteSvc('tutorialSvc').GetTutorialsAndConnections()
-            self.tutorials = t.Index('tutorialID')
-            tc = tc.Filter('tutorialID')
-            self.tutorialConnections = defaultdict(dict)
-            for tutID, rows in tc.iteritems():
-                for each in rows:
-                    self.tutorialConnections[tutID][each.raceID] = each.nextTutorialID
-    */
+    // Return tutorials list + connection data
+    // Client expects: (tutorialsRowset, connectionsRowset)
+    PyRep* tutorials = m_db.GetAllTutorials();
+    if (tutorials == nullptr)
+        tutorials = new PyList();
 
-            /*  FIXME  this needs work.  not sure what's wrong, but i DO know our db is incomplete
-    uint8 raceID = call.client->GetChar()->race();
-    return (m_db.GetTutorialsAndConnections(raceID));
-    */
-    return PyStatic.NewNone();
+    DBQueryResult connRes;
+    PyRep* connections = new PyList();
+    if (sDatabase.RunQuery(connRes,
+        "SELECT tutorialID, raceID, nextTutorialID FROM tutorial_connections"))
+    {
+        DBRowDescriptor* header = new DBRowDescriptor();
+        header->AddColumn("tutorialID", DBTYPE_I4);
+        header->AddColumn("raceID", DBTYPE_UI1);
+        header->AddColumn("nextTutorialID", DBTYPE_I4);
+        DBResultRow row;
+        while (connRes.GetRow(row)) {
+            PyPackedRow* packed = new PyPackedRow(header);
+            PyIncRef(header);
+            packed->SetField("tutorialID",     new PyInt(row.GetUInt(0)));
+            packed->SetField("raceID",         new PyInt(row.GetUInt(1)));
+            packed->SetField("nextTutorialID", new PyInt(row.GetUInt(2)));
+            static_cast<PyList*>(connections)->AddItem(packed);
+        }
+    }
+
+    PyTuple* result = new PyTuple(2);
+    result->SetItem(0, tutorials);
+    result->SetItem(1, connections);
+    return result;
+}
+
+void TutorialService::LogTutorialState(uint32 charID, uint32 tutorialID, uint32 pageID, bool completed) {
+    DBerror err;
+    int64 now = GetFileTimeNow();
+    if (completed) {
+        sDatabase.RunQuery(err,
+            "INSERT INTO characterTutorialState (characterID, tutorialID, pageID, completed, completedDateTime) "
+            "VALUES (%u, %u, %u, 1, %lli) "
+            "ON DUPLICATE KEY UPDATE completed = 1, completedDateTime = %lli",
+            charID, tutorialID, pageID, now, now);
+    } else {
+        sDatabase.RunQuery(err,
+            "INSERT INTO characterTutorialState (characterID, tutorialID, pageID, completed, completedDateTime) "
+            "VALUES (%u, %u, %u, 0, %lli) "
+            "ON DUPLICATE KEY UPDATE completedDateTime = %lli",
+            charID, tutorialID, pageID, now, now);
+    }
 }
 
 PyResult TutorialService::LogStarted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time) {
     sLog.White("TutorialService::LogStarted()", "tutorialID=%u pageNo=%u", tutorialID->value(), pageNo->value());
+    LogTutorialState(call.client->GetCharacterID(), tutorialID->value(), pageNo->value(), false);
     return PyStatic.NewNone();
 }
 
 PyResult TutorialService::LogCompleted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time) {
     sLog.White("TutorialService::LogCompleted()", "tutorialID=%u pageNo=%u", tutorialID->value(), pageNo->value());
+    LogTutorialState(call.client->GetCharacterID(), tutorialID->value(), pageNo->value(), true);
     return PyStatic.NewNone();
 }
 
 PyResult TutorialService::LogAborted(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time) {
     sLog.White("TutorialService::LogAborted()", "tutorialID=%u pageNo=%u", tutorialID->value(), pageNo->value());
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM characterTutorialState WHERE characterID = %u AND tutorialID = %u AND pageID = %u",
+        call.client->GetCharacterID(), tutorialID->value(), pageNo->value());
     return PyStatic.NewNone();
 }
 
