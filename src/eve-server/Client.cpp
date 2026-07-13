@@ -831,17 +831,13 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
 
         if (IsFleetID(m_fleet)) {
             m_fleetTimer.Start(Player::Timer::Fleet);
-            if (IsFleetBooster()) {
-                std::list<int32> wing, squad;
-                wing.clear();
-                squad.clear();
-                if (IsSquadID(m_squad)) {
-                    squad.emplace(squad.end(), m_squad);
-                } else if (IsWingID(m_wing)) {
-                    wing.emplace(wing.end(), m_wing);
-                }
-                sFltSvc.UpdateBoost(m_fleet, IsFleetBoss(), wing, squad);
+            std::list<int32> wing, squad;
+            if (IsSquadID(m_squad)) {
+                squad.emplace(squad.end(), m_squad);
+            } else if (IsWingID(m_wing)) {
+                wing.emplace(wing.end(), m_wing);
             }
+            sFltSvc.UpdateBoost(m_fleet, IsFleetBoss(), wing, squad);
         }
 
         if (InPod()) {

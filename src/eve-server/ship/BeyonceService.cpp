@@ -67,26 +67,43 @@ PyResult BeyonceService::GetFormations(PyCallArgs &call) {
     if (!call.client->IsSetStateSent())
         call.client->CheckBallparkTimer();
 
-    PyTuple* res = new PyTuple( 2 );
+    PyTuple* res = new PyTuple( 5 );
         Beyonce_Formation f;
             //Diamond formation
             f.name = "Diamond";
-            f.pos1.x = 100;
-            f.pos2.y = 100;
-            f.pos3.x = -100;
-            f.pos4.y = -100;
+            f.pos1.x = 100;  f.pos1.y = 0;
+            f.pos2.x = 0;    f.pos2.y = 100;
+            f.pos3.x = -100; f.pos3.y = 0;
+            f.pos4.x = 0;    f.pos4.y = -100;
         res->SetItem( 0, f.Encode() );
             //Arrow formation
             f.name = "Arrow";
-            f.pos1.x = 100;
-            f.pos1.z = -50;
-            f.pos2.x = 50;
-            f.pos2.y = 0;
-            f.pos3.x = -100;
-            f.pos3.z = -50;
-            f.pos4.x = -50;
-            f.pos4.y = 0;
+            f.pos1.x = 100;  f.pos1.z = -50;
+            f.pos2.x = 50;   f.pos2.y = 0;
+            f.pos3.x = -100; f.pos3.z = -50;
+            f.pos4.x = -50;  f.pos4.y = 0;
         res->SetItem( 1, f.Encode() );
+            //Line formation — ships abreast
+            f.name = "Line";
+            f.pos1.x = 200;  f.pos1.y = 0;
+            f.pos2.x = 100;  f.pos2.y = 0;
+            f.pos3.x = -100; f.pos3.y = 0;
+            f.pos4.x = -200; f.pos4.y = 0;
+        res->SetItem( 2, f.Encode() );
+            //Vanguard — inverted V
+            f.name = "Vanguard";
+            f.pos1.x = 0;    f.pos1.z = -200;
+            f.pos2.x = 75;   f.pos2.z = -50;
+            f.pos3.x = -75;  f.pos3.z = -50;
+            f.pos4.x = 150;  f.pos4.z = 50;
+        res->SetItem( 3, f.Encode() );
+            //Column — single file
+            f.name = "Column";
+            f.pos1.x = 0;    f.pos1.z = -200;
+            f.pos2.x = 0;    f.pos2.z = -50;
+            f.pos3.x = 0;    f.pos3.z = 50;
+            f.pos4.x = 0;    f.pos4.z = 200;
+        res->SetItem( 4, f.Encode() );
     return res;
 }
 
