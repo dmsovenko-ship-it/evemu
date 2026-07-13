@@ -33,6 +33,8 @@
 #include "map/MapData.h"
 #include "map/MapDB.h"
 #include "npc/CustomsNPCManager.h"
+#include "corporation/LPService.h"
+#include "faction/FactionWarMgrDB.h"
 #include "npc/FactionPatrolManager.h"
 #include "npc/Drone.h"
 #include "npc/NPC.h"
@@ -276,6 +278,7 @@ bool SystemManager::ProcessTic() {
     }
 
     ProcessGhostShips();
+    ProcessFWCapture();
 
     if (sConfig.debug.UseProfiling)
         sProfiler.AddTime(Profile::system, GetTimeUSeconds() - profileStartTime);
@@ -2068,5 +2071,55 @@ void SystemManager::ProcessGhostShips() {
         } else {
             ++it;
         }
+    }
+}
+
+void SystemManager::ProcessFWCapture()
+{
+    if (m_anomMgr == nullptr || !m_anomMgr->HasFWAnomalies() || m_clients.empty()) return;
+
+    // Collect FW pilots in system with positions
+    struct PlayerPos { Client* client; uint32 charID; uint32 warFactionID; GPoint pos; };
+    std::vector<PlayerPos> players;
+    for (Client* c : m_clients) {
+        if (c == nullptr || !c->IsInSpace()) continue;
+        SystemEntity* se = c->GetShipSE();
+        if (se == nullptr) continue;
+        if (c->GetWarFactionID() == 0) continue;
+        players.push_back({c, c->GetCharacterID(), c->GetWarFactionID(), se->GetPosition()});
+    }
+    if (players.empty()) return;
+
+    // Get all anomalies including FW plexes
+    std::vector<CosmicSignature> anomList;
+    m_anomMgr->GetAnomalyList(anomList);
+
+    for (auto& sig : anomList) {
+        if (sig.sigID.find("FW_") != 0) continue;
+        bool hasOccupier = false;
+
+        for (auto& p : players) {
+            float dist = p.pos.distance(sig.position);
+            if (dist > 30000.0f) continue;
+
+            hasOccupier = true;
+            int32& remaining = m_fwCapture[sig.sigID][p.charID];
+            if (remaining == 0) remaining = 600;  // 10 min
+            remaining -= 1;
+
+            if (remaining <= 0) {
+                uint32 militiaCorp = FactionWarMgrDB().GetFactionMilitiaCorporation(p.warFactionID);
+                if (militiaCorp > 0) {
+                    int lp = 5000 + MakeRandomInt(0, 5000);
+                    LPService::AddLP(p.charID, militiaCorp, lp);
+                    p.client->SendNotifyMsg("Plex captured! Awarded %d LP.", lp);
+                }
+                m_anomMgr->RemoveFWAnomaly(sig.sigID);
+                m_fwCapture.erase(sig.sigID);
+                return;
+            }
+        }
+        if (!hasOccupier)
+            m_fwCapture.erase(sig.sigID);
     }
 }

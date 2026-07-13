@@ -94,6 +94,7 @@ public:
     void SpawnConvoys();
     void SpawnCustomsNPCs();
     void SpawnFactionPatrols();
+    void ProcessFWCapture();
     Inventory* GetSystemInv()                           { return m_solarSystemRef->GetMyInventory(); }
     SolarSystemRef GetSystemRef()                       { return m_solarSystemRef; }
 
@@ -245,6 +246,9 @@ private:
 
     // ghost ships (logoff — ship persists before warp-out)
     std::map<ShipSE*, std::pair<int64, bool>> m_ghostShips; // ship → (expireTime, emergencyWarp)
+
+    // FW plex capture tracking: sigID -> (charID -> remaining seconds)
+    std::map<std::string, std::map<uint32, int32>> m_fwCapture;
 
     // for bounty processing (20m timer)
     Timer m_bountyTimer;
