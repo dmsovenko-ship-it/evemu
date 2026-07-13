@@ -525,7 +525,7 @@ void ShipSE::Killed(Damage &fatal_blow) {
         data.finalFactionID = (killer->GetWarFactionID() > 500021 ? 500021 : killer->GetWarFactionID());
         data.finalShipTypeID = killer->GetTypeID();
         data.finalWeaponTypeID = fatal_blow.weaponRef->typeID();
-        data.finalSecurityStatus = 0;   /* fix this */
+        data.finalSecurityStatus = (killer->GetClient() != nullptr) ? killer->GetClient()->GetSecurityRating() : 0.0;
         data.finalDamageDone = fatal_blow.GetTotal();
 
         uint32 totalHP = m_self->GetAttribute(AttrHP).get_int();
@@ -644,6 +644,8 @@ void ShipSE::Killed(Damage &fatal_blow) {
             m_system->GetName(), data.victimDamageTaken,
             killerName.c_str(), killerShip, weaponName);
     }
+
+
 
     if (pPilot->InPod()) {
         // log podKill
