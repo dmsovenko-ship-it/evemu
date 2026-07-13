@@ -27,6 +27,8 @@
 
 #include "account/AccountService.h"
 #include "inventory/Inventory.h"
+#include "station/Station.h"
+#include "corporation/LPService.h"
 #include "corporation/LPStore.h"
 
 LPStore::LPStore() :

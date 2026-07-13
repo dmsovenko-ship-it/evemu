@@ -528,15 +528,15 @@
 6. **Killmail** — finalSecurityStatus берётся из реального secStatus атакующего (вместо 0)
 
 ## 🟢 Низкий приоритет (мелкие стабы)
-1. **GetRecentSovActivity** (MapService) — стаб
-2. **GetDeadspaceAgentsMap / GetDeadspaceComplexMap** (MapService) — стабы
-3. **GetMyEscalatingPathDetails** (DungeonExplorationMgrService) — стаб
-4. **CopyBookmarks / MoveFoldersToDB** (CorpBookmarkMgr) — стабы
-5. **GetApprenticeships** (CharMgrService) — стаб
-6. **AccruedTime / SetLanguageID** (AuthService) — стабы
-7. **GetRecentEpicArcCompletions** (HoloscreenMgrService) — стаб
-8. **DamageModules** (RepairService) — стаб
-9. **GMChangeSpaceObjectOwner** (PlanetORBBound) — стаб
+1. **GetRecentSovActivity** ✅ — возвращает CRowset из mapSystemSovInfo
+2. **GetDeadspaceAgentsMap / GetDeadspaceComplexMap** ✅ — возвращают пустой PyDict, лог почищен
+3. **GetMyEscalatingPathDetails** ✅ — возвращает пустой PyList вместо None
+4. **CopyBookmarks / MoveFoldersToDB** — уже возвращали PyStatic.NewNone() ✅
+5. **GetApprenticeships** — метод не найден в коде (возможно удалён клиентом)
+6. **AccruedTime / SetLanguageID** ✅ — возвращают PyStatic.NewNone() вместо nullptr
+7. **GetRecentEpicArcCompletions** ✅ — возвращает пустой PyList вместо nullptr
+8. **DamageModules** ✅ — уже возвращал PyStatic.NewNone()
+9. **GMChangeSpaceObjectOwner** ✅ — уже возвращал PyStatic.NewNone()
 
 ## 🔵 Крупные системы (нужен фундаментальный подход)
 1. **Planetary Interaction (PI)** — полная система (колонии, экстракторы, процессоры, линки, кастомс офисы). **0%**
