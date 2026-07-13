@@ -89,24 +89,25 @@ PyResult CharMgrBound::ListStations(PyCallArgs& call, PyInt* blueprintOnly, PyIn
     return CharacterDB::ListStations(ownerID, flagIDs, isCorporation->value(), blueprintOnly->value());
 }
 
-PyResult CharMgrBound::ListStationBlueprintItems(PyCallArgs& call, PyInt* locationID, PyInt* stationID, PyInt* forCorporation)
+PyResult CharMgrBound::ListStationBlueprintItems(PyCallArgs& call, PyInt* locationID, PyInt* stationID, PyRep* forCorporation)
 {
     // this is the BP tab of the S&I window
-    call.Dump(CHARACTER__DEBUG);
 
-    /** @todo whats diff between stationID and locationID?
-     *  none that i see so far...
-     * this could be diff between station and pos   will need to check later (locationID == stationID)
-     */
-    uint32 ownerID(m_ownerID);
+    // forCorporation can be PyInt (old client) or PyBool (newer client)
+    bool isCorp = false;
+    if (forCorporation->IsInt())
+        isCorp = (forCorporation->AsInt()->value() != 0);
+    else if (forCorporation->IsBool())
+        isCorp = forCorporation->AsBool()->value();
 
-    if (forCorporation->value()) { //forCorp
+    uint32 ownerID = m_ownerID;
+    if (isCorp) {
         Client* pClient = sEntityList.FindClientByCharID(m_ownerID);
         if (pClient == nullptr)
-            return nullptr; // make error here
+            return new PyList();
         ownerID = pClient->GetCorporationID();
     }
-    return CharacterDB::ListStationBlueprintItems(ownerID, stationID->value(), forCorporation->value());
+    return CharacterDB::ListStationBlueprintItems(ownerID, stationID->value(), isCorp ? 1 : 0);
 }
 
 CharMgrService::CharMgrService(EVEServiceManager& mgr) :

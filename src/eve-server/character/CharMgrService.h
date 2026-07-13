@@ -90,7 +90,7 @@ protected:
     PyResult ListStations(PyCallArgs& call, PyInt* blueprintOnly, PyBool* isCorporation);
     PyResult ListStations(PyCallArgs& call, PyInt* blueprintOnly, PyInt* isCorporation);
     PyResult ListStationItems(PyCallArgs& call, PyInt* stationID);
-    PyResult ListStationBlueprintItems(PyCallArgs& call, PyInt* locationID, PyInt* stationID, PyInt* forCorporation);
+    PyResult ListStationBlueprintItems(PyCallArgs& call, PyInt* locationID, PyInt* stationID, PyRep* forCorporation);
 
 private:
     uint32 m_ownerID;
