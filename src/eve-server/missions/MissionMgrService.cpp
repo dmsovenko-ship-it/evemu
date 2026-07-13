@@ -27,6 +27,7 @@
 
 
 #include "missions/MissionMgrService.h"
+#include "Client.h"
 
 MissionMgrService::MissionMgrService() :
     Service("missionMgr")
