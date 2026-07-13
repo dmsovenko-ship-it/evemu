@@ -185,33 +185,15 @@ PyResult MapService::GetCurrentSovData(PyCallArgs &call, PyRep* locationID)
 }
 PyResult MapService::GetRecentSovActivity(PyCallArgs &call)
 {
-    /** @todo will have to make db table for this one.  */
-    /*
-     *    data = sm.RemoteSvc('map').GetRecentSovActivity()
-     *    changes = []
-     *    resultMap = {}
-     *    toPrime = set()
-     *    for item in data:
-     *        if item.stationID is None:
-     *            if bool(changeMode & mapcommon.SOV_CHANGES_SOV_GAIN) and item.oldOwnerID is None:
-     *                changes.append((item.solarSystemID, 'UI/Map/StarModeHandler/sovereigntySovGained', (None, item.ownerID)))
-     *                toPrime.add(item.ownerID)
-     *            elif bool(changeMode & mapcommon.SOV_CHANGES_SOV_LOST) and item.ownerID is None:
-     *                changes.append((item.solarSystemID, 'UI/Map/StarModeHandler/sovereigntySovLost', (item.oldOwnerID, None)))
-     *                toPrime.add(item.oldOwnerID)
-     *        elif bool(changeMode & mapcommon.SOV_CHANGES_SOV_GAIN) and item.oldOwnerID is None:
-     *            changes.append((item.solarSystemID, 'UI/Map/StarModeHandler/sovereigntyNewOutpost', (None, item.ownerID)))
-     *            toPrime.add(item.ownerID)
-     *        elif bool(changeMode & mapcommon.SOV_CHANGES_SOV_GAIN) and item.ownerID is not None:
-     *            changes.append((item.solarSystemID, 'UI/Map/StarModeHandler/sovereigntyConqueredOutpost', (item.ownerID, item.oldOwnerID)))
-     *            toPrime.add(item.ownerID)
-     *            toPrime.add(item.oldOwnerID)
-     *
-     */
+    _log(SERVICE__MESSAGE, "MapService::Handle_GetRecentSovActivity()", "size=%lu", call.tuple->size());
 
-    PyDict* result = new PyDict();
-
-    return result;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT solarSystemID, factionID, contested FROM mapSystemSovInfo"))
+    {
+        return new PyDict();
+    }
+    return DBResultToCRowset(res);
 }
 
 //   DED Agent Site Report
@@ -220,6 +202,7 @@ PyResult MapService::GetDeadspaceAgentsMap(PyCallArgs &call, PyInt* languageID)
         dungeons = sm.RemoteSvc('map').GetDeadspaceAgentsMap(eve.session.languageID)
         solarSystemID, dungeonID, difficulty, dungeonName = dungeons
 */
+    _log(SERVICE__MESSAGE, "MapService::Handle_GetDeadspaceAgentsMap()", "size=%lu", call.tuple->size());
     PyRep *result = new PyDict();
 
     return result;
@@ -235,7 +218,7 @@ PyResult MapService::GetDeadspaceComplexMap(PyCallArgs &call, PyInt* languageID)
         get this data from managerDB.GetAnomalyList(DBQueryResult& res)
         res =  sysSignatures (sigID,sigItemID,dungeonType,sigName,systemID,sigTypeID,sigGroupID,scanGroupID,scanAttributeID,x,y,z)
 */
-    sLog.Warning( "MapService::Handle_GetDeadspaceComplexMap()", "size=%lu", call.tuple->size());
+    _log(SERVICE__MESSAGE, "MapService::Handle_GetDeadspaceComplexMap()", "size=%lu", call.tuple->size());
     call.Dump(SERVICE__CALL_DUMP);
     PyRep *result = new PyDict();
 
