@@ -2079,9 +2079,9 @@ void SystemManager::ProcessFWCapture()
     if (m_anomMgr == nullptr || !m_anomMgr->HasFWAnomalies() || m_clients.empty()) return;
 
     // Collect FW pilots in system with positions
-    struct PlayerPos { Client* client; uint32 charID; uint32 warFactionID; GPoint pos; };
+    struct PlayerPos { Client* client; int32 charID; int32 warFactionID; GPoint pos; };
     std::vector<PlayerPos> players;
-    for (Client* c : m_clients) {
+    for (auto& [id, c] : m_clients) {
         if (c == nullptr || !c->IsInSpace()) continue;
         SystemEntity* se = c->GetShipSE();
         if (se == nullptr) continue;
@@ -2103,15 +2103,15 @@ void SystemManager::ProcessFWCapture()
             if (dist > 30000.0f) continue;
 
             hasOccupier = true;
-            int32& remaining = m_fwCapture[sig.sigID][p.charID];
+            int32& remaining = m_fwCapture[sig.sigID][static_cast<int32>(p.charID)];
             if (remaining == 0) remaining = 600;  // 10 min
             remaining -= 1;
 
             if (remaining <= 0) {
-                uint32 militiaCorp = FactionWarMgrDB().GetFactionMilitiaCorporation(p.warFactionID);
+                uint32 militiaCorp = FactionWarMgrDB().GetFactionMilitiaCorporation(static_cast<uint32>(p.warFactionID));
                 if (militiaCorp > 0) {
                     int lp = 5000 + MakeRandomInt(0, 5000);
-                    LPService::AddLP(p.charID, militiaCorp, lp);
+                    LPService::AddLP(static_cast<uint32>(p.charID), militiaCorp, lp);
                     p.client->SendNotifyMsg("Plex captured! Awarded %d LP.", lp);
                 }
                 m_anomMgr->RemoveFWAnomaly(sig.sigID);

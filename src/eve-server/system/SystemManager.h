@@ -248,7 +248,7 @@ private:
     std::map<ShipSE*, std::pair<int64, bool>> m_ghostShips; // ship → (expireTime, emergencyWarp)
 
     // FW plex capture tracking: sigID -> (charID -> remaining seconds)
-    std::map<std::string, std::map<uint32, int32>> m_fwCapture;
+    std::map<std::string, std::map<int32, int32>> m_fwCapture;
 
     // for bounty processing (20m timer)
     Timer m_bountyTimer;
