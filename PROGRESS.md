@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
 > **Our fork: `████████████████████` 97%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-12 (build 3 — crosshair + warp fixes)
+> Last updated: 2026-07-13 (build 4 — incursions + FW LP + security status)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -31,17 +31,17 @@
 | System | % | Bar | Δ up | System | % | Bar | Δ up |
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
-| Ship Navigation | 80% | `████████████████░░` | +10% | Combat | 99% | `███████████████████` | +9% |
-| Modules & Overheating | 95% | `██████████████████` | +10% | Drones | 90% | `█████████████████░` | +15% |
-| NPC AI & Spawning | 83% | `████████████████░░` | +23% | Agents & Missions | 92% | `███████████████████` | +22% |
-| **POS** | 97% | `███████████████████` | +27% | Market | 90% | `█████████████████░` | +30% |
-| **Incursions** | 75% | `█████████████████░` | +75% | Fleet | 98% | `██████████████████` | +23% |
+| Ship Navigation | 82% | `█████████████████░` | +12% | Combat | 99% | `███████████████████` | +9% |
+| Modules & Overheating | 96% | `██████████████████` | +11% | Drones | 92% | `██████████████████` | +17% |
+| NPC AI & Spawning | 85% | `█████████████████░` | +25% | Agents & Missions | 92% | `███████████████████` | +22% |
+| **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
+| **Incursions** | 85% | `█████████████████░` | +85% | Fleet | 98% | `██████████████████` | +23% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
-| **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 90% | `█████████████████░` | +30% |
-| **Faction Warfare** | 90% | `█████████████████░` | +40% | Calendar | 93% | `███████████████████` | +33% |
+| **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 92% | `██████████████████` | +32% |
+| **Faction Warfare** | 93% | `███████████████████` | +43% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
-| Corporation | 87% | `█████████████████░` | +22% | **Alliance** | 85% | `█████████████████░` | +30% |
-| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 70% | `████████████████░░` | +25% |
+| Corporation | 88% | `██████████████████` | +23% | **Alliance** | 87% | `█████████████████░` | +32% |
+| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 72% | `████████████████░░` | +27% |
 | Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 95% | `██████████████████` | +30% |
 
 ---
@@ -79,7 +79,7 @@
 
 ---
 
-### 3. Ship Navigation `████████████████████` 80%
+### 3. Ship Navigation `███████████████████` 82%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -104,6 +104,12 @@
 | Lock target, activate modules, damage | ✅ | ✅ |
 | Crimewatch timers (weapon/aggression/criminal) | ✅ | ✅ |
 | CONCORD (×25 HP, delay by sec, −0.2 penalty) | 🟡 | ✅ |
+| **CONCORDOKKEN** — respawn on kill + escalating damage | ❌ | ✅ |
+| **CONCORD despawn** — 5-10 min after criminal kill | ❌ | ✅ |
+| **CONCORD targeting** — NPCs target & attack criminal | ❌ | ✅ |
+| **Security status formula** — `−2.5% × sysSec × (1 + (v − a) / 100)` | ❌ | ✅ |
+| **Faction police** by secStatus threshold (−2.0→1.0, −2.5→0.9, ...) | ❌ | ✅ |
+| **Outlaw docking** — secStatus ≤ −5.0 blocks docking in ship | 🟡 | ✅ |
 | Sentry guns, kill rights | 🟡 | ✅ |
 | Combat logoff (15min ghost, 60s emergency) | 🟡 | ✅ |
 
@@ -136,7 +142,7 @@
 
 ---
 
-### 7. NPC AI & Spawning `████████████████░░` 80%
+### 7. NPC AI & Spawning `█████████████████░` 85%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -294,7 +300,7 @@
 
 ---
 
-### 17. Incursions `█████████████████░` 75%
+### 17. Incursions `█████████████████░` 85%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -302,8 +308,18 @@
 | Wave-based NPC spawning | ❌ | ✅ |
 | Influence tracking, mothership spawn | ❌ | ✅ |
 | Contest rewards (proportional to damage) | ❌ | ✅ |
-| Sansha incursion dungeons (VG/AS/HQ) | ❌ | ✅ |
+| Sansha incursion dungeons (VG/AS/HQ/Staging) | ❌ | ✅ |
 | CONCORD LP store integration | ❌ | ✅ |
+| **Named incursion NPCs** (Renyn Meten, Antem Neo, Schmaeel Medulla, etc.) | ❌ | ✅ |
+| **Gate camps** — Sansha NPCs at lowsec/nullsec gates in incursion systems | ❌ | ✅ |
+| **Belt rat replacement** — Sansha NPCs replace belt rats in incursion systems | ❌ | ✅ |
+| **Constellation penalties** — −10/25/50% resist & damage in VG/AS/HQ via SystemEffectMgr | ❌ | ✅ |
+| **Focus period** — Mothership delay: 72h HS, 24h LS, 0h NS | ❌ | ✅ |
+| **CONCORD LP bonus** — 10,000 LP to all incursion participants on mothership kill | ❌ | ✅ |
+| **5 simultaneous incursions** — 1 HS + 1 LS + 3 NS, 12-36h cooldown | ❌ | ✅ |
+| **Sansha structures** — acceleration gates, sentry guns, containers in all rooms | ❌ | ✅ |
+| **Mothership loot** — True Sansha modules + ship BPCs (Succubus/Phantasm/Nightmare) | ❌ | ✅ |
+| **Reward scaling** — ISK/LP divided proportionally by damage; Staging: top-5 only | ❌ | ✅ |
 
 ---
 
@@ -351,7 +367,7 @@
 
 ---
 
-### 21. Standings `█████████████████░` 88%
+### 21. Standings `██████████████████` 92%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -383,7 +399,7 @@
 
 ---
 
-### 23. Faction Warfare `█████████████████░` 90%
+### 23. Faction Warfare `███████████████████` 93%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -394,8 +410,13 @@
 | FW stats (kills, losses, VP) | 🟡 | ✅ |
 | Notifications (FWCorpJoin, FWCorpLeave) | ❌ | ✅ |
 | **FW plex spawning** (every 5m) | ❌ | ✅ |
+| **FW plex types** (Scout/Small/Medium/Large with NPC defenders) | ❌ | ✅ |
 | **FW LP store** (4 militia corps, ~350 offers each) | ❌ | ✅ |
 | **LP exchange rates** (CONCORD, FW militia, navy) | ❌ | ✅ |
+| **FW LP from NPC kills** — 100-5000 LP per hostile NPC kill | ❌ | ✅ |
+| **FW LP from PvP kills** — 1000 LP per enemy FW pilot kill | ❌ | ✅ |
+| **FW LP from plex capture** — 2500-20000 LP on completion timer | ❌ | ✅ |
+| **Faction patrols** — faction navy at border gates, aggro on negative standing | ❌ | ✅ |
 
 ---
 
@@ -427,13 +448,13 @@
 
 | Manager | Upstream | Our Fork | Notes |
 |---------|:--------:|:--------:|-------|
-| Anomaly Manager | 40% | 85% | All site types, FW anomalies, QueueRespawn |
-| Dungeon Manager | 40% | 75% | Anomaly/mission/unrated/incursion |
-| Spawn Manager | 40% | 75% | Dynamic/static, wave progression |
+| Anomaly Manager | 40% | 88% | All site types, FW anomalies, incursion registration |
+| Dungeon Manager | 40% | 80% | Anomaly/mission/unrated/incursion, structures in all rooms |
+| Spawn Manager | 40% | 78% | Dynamic/static, wave progression, incursion NPCs |
 | Wormhole Manager | 60% | 90% | Full lifecycle + effects |
 | Belt Manager | 50% | 85% | Asteroid distribution |
 | Civilian Manager | 0% | 90% | ConvoyAI + multi-system routes |
-| Incursion Manager | 0% | 75% | State machine + contest rewards |
+| Incursion Manager | 0% | 83% | State machine, gate camps, named NPCs, 5 simultaneous |
 
 ---
 
@@ -479,6 +500,20 @@
 | **Wormhole system effects** (6 types) | ❌ | ✅ |
 | **Sovereignty upgrade effects** | ❌ | ✅ |
 | **NPC crosshair** — Entity pirates render with red targeting reticle (real categoryID/groupID from DB) | ❌ | ✅ |
+| **Incursion NPCs** — named Sansha types (Renyn Meten, Antem Neo, Schmaeel Medulla, etc.) | ❌ | ✅ |
+| **Incursion structures** — acceleration gates, sentries, containers in all dungeon rooms | ❌ | ✅ |
+| **Incursion gate camps** — Sansha gate camps in lowsec/nullsec systems | ❌ | ✅ |
+| **Incursion belt replacement** — Sansha NPCs replace belt rats in incursion systems | ❌ | ✅ |
+| **Incursion constellation penalties** — −10/25/50% via SystemEffectMgr | ❌ | ✅ |
+| **Incursion focus period** — Mothership delay 72h/24h/0h for HS/LS/NS | ❌ | ✅ |
+| **5 simultaneous incursions** — 1 HS + 1 LS + 3 NS with 12-36h cooldown | ❌ | ✅ |
+| **FW LP** — 3 канала (NPC kills, PvP kills, plex capture) | ❌ | ✅ |
+| **Faction patrols** — border gates, aggro on negative standing | ❌ | ✅ |
+| **Security status formula** — −2.5% × sysSec × (1 + (v − a) / 100) | ❌ | ✅ |
+| **Faction police** — secStatus threshold spawn | ❌ | ✅ |
+| **CONCORDOKKEN** — respawn + escalating damage | ❌ | ✅ |
+| **DED complexes** — 1-5/10 for all factions, loot containers unlock on NPC death | ❌ | ✅ |
+| **Data/Relic sites** — Radar/Magnetometric dungeons with hackable containers | ❌ | ✅ |
 | **Warp precision** — warp-to-N km lands at correct distance (radius no longer doubles) | ❌ | ✅ |
 | **DB fixes** — OnlineStatusService (wrong column names), GetFactionName (empire factions) | ❌ | ✅ |
 | **Customs NPC names** — Caldari Navy/Minmatar Republic/Amarr Empire/Gallente Federation instead of "Undefined" | ❌ | ✅ |
