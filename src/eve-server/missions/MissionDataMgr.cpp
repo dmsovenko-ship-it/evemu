@@ -527,8 +527,8 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             data.briefingID         = cData.briefingID;
             data.rewardItemID       = cData.rewardItemID;
             data.rewardItemQty      = cData.rewardItemQty;
-            data.courierTypeID      = cData.itemTypeID;
-            data.courierAmount      = cData.itemQty;
+            data.courierTypeID      = cData.itemTypeID ? cData.itemTypeID : 23;
+            data.courierAmount      = cData.itemQty ? cData.itemQty : 1;
             data.courierItemVolume  = cData.itemVolume;
             data.range              = cData.range;
         } break;
