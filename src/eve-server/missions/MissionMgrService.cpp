@@ -39,18 +39,16 @@ PyResult MissionMgrService::GetMyCourierMissions(PyCallArgs& call)
 {
     sLog.White("MissionMgrService", "Handle_GetMyCourierMissions() size=%lli", call.tuple->size());
 
-    // Return active courier missions from DB
+    // Return active courier mission offers from agtOffers
     uint32 charID = call.client->GetCharacterID();
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT courierMissionID, typeID, expirationTime, "
-        "  startSolarSystemID, endSolarSystemID, "
-        "  volume, reward, collateral, description, "
-        "  acceptorCharacterID, acceptorCorporationID, "
-        "  acceptFee, daysToComplete, status, title "
-        "FROM courierMissions WHERE acceptorCharacterID = %u OR "
-        "  acceptorCorporationID IN (SELECT corporationID FROM chrCharacters WHERE characterID = %u)",
-        charID, charID))
+        "SELECT o.offerID, o.typeID, o.name, o.expiryTime, o.rewardISK, o.rewardLP, "
+        "  o.originSystemID, o.destinationSystemID, o.courierAmount, o.courierTypeID, "
+        "  o.courierVolume, o.stateID, o.agentID "
+        "FROM agtOffers o "
+        "WHERE o.characterID = %u AND o.stateID < 2 AND o.typeID = 3",
+        charID))  // typeID=3 = Courier
     {
         return new PyList();
     }
