@@ -177,10 +177,13 @@ private:
     Timer m_armorRepairTimer;
     Timer m_beginFindTarget;
     Timer m_warpOutTimer;
+    uint32 m_smartbombRange;
+
     Timer m_warpScramblerTimer;
     Timer m_webifierTimer;
     Timer m_ecmTimer;
     Timer m_paintTimer;
+    Timer m_smartbombTimer;
 };
 
 #endif

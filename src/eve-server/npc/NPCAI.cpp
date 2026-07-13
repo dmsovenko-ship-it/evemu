@@ -248,6 +248,12 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     else
         m_ecmDuration = m_attackSpeed;
 
+    // Smartbomb/AoE range
+    if (m_self->HasAttribute(AttrEmpFieldRange))
+        m_smartbombRange = m_self->GetAttribute(AttrEmpFieldRange).get_uint32();
+    else
+        m_smartbombRange = 0;
+
     // EWAR — target painting
     if (m_self->HasAttribute(AttrEntityTargetPaintMaxRange))
         m_paintRange = m_self->GetAttribute(AttrEntityTargetPaintMaxRange).get_uint32();
@@ -552,6 +558,7 @@ void NPCAIMgr::SetIdle() {
     m_shieldBoosterTimer.Disable();
     m_ecmTimer.Disable();
     m_paintTimer.Disable();
+    m_smartbombTimer.Disable();
 
     SystemBubble* pBubble = m_npc->SysBubble();
     //disallow warpout if anomaly, incursion or mission rat
@@ -757,6 +764,8 @@ void NPCAIMgr::Targeted(SystemEntity* pSE) {
         m_ecmTimer.Start(m_attackSpeed * 3);
     if (!m_paintTimer.Enabled() and m_paintRange > 0 and m_paintMultiplier > 0)
         m_paintTimer.Start(m_attackSpeed * 4);
+    if (!m_smartbombTimer.Enabled() and m_smartbombRange > 0)
+        m_smartbombTimer.Start(m_attackSpeed * 5);
 }
 
 void NPCAIMgr::TargetLost(SystemEntity* pSE) {
@@ -965,6 +974,30 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
             d *= m_damageMultiplier;
 
     pSE->ApplyDamage(d);
+
+    // Smartbomb/AoE: if NPC has EmpFieldRange, deal splash damage to all targets in range
+    if (m_smartbombRange > 0 and (!m_smartbombTimer.Enabled() or m_smartbombTimer.Check())) {
+        GPoint npcPos = m_npc->GetPosition();
+        std::vector<Client*> bubbleClients;
+        m_npc->SysBubble()->GetPlayers(bubbleClients);
+        for (auto client : bubbleClients) {
+            if (client == nullptr) continue;
+            SystemEntity* targetSE = client->GetShipSE();
+            if (targetSE == nullptr or targetSE == pSE) continue;
+            if (targetSE->DestinyMgr() and targetSE->DestinyMgr()->IsCloaked()) continue;
+            float dist = npcPos.distance(targetSE->GetPosition());
+            if (dist <= m_smartbombRange) {
+                // Falloff: full damage at center, half at max range
+                float falloff = 1.0f - (dist / m_smartbombRange) * 0.5f;
+                Damage splash(m_npc, m_self, m_npc->GetEM() * falloff, m_npc->GetExplosive() * falloff,
+                              m_npc->GetKinetic() * falloff, m_npc->GetThermal() * falloff, 1.0f, 0);
+                targetSE->ApplyDamage(splash);
+                m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                             targetSE->GetID(), 0, "effects.SmartBomb", 1, 1, 1, m_attackSpeed * 3, 0, 0);
+            }
+        }
+        m_smartbombTimer.Start(m_attackSpeed * 3);
+    }
 }
 
 /* missile shit..
