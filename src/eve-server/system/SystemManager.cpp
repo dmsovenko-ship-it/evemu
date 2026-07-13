@@ -2121,15 +2121,25 @@ void SystemManager::ProcessFWCapture()
 {
     if (m_anomMgr == nullptr || !m_anomMgr->HasFWAnomalies() || m_clients.empty()) return;
 
+    // Get system occupier faction for NPC spawning
+    uint32 systemOccupierFaction = 0;
+    DBQueryResult facRes;
+    sDatabase.RunQuery(facRes, "SELECT occupierID FROM facWarSystems WHERE systemID = %u", m_data.systemID);
+    DBResultRow facRow;
+    if (facRes.GetRow(facRow))
+        systemOccupierFaction = facRow.GetUInt(0);
+
     // Collect FW pilots in system with positions
-    struct PlayerPos { Client* client; int32 charID; int32 warFactionID; GPoint pos; };
+    struct PlayerPos { Client* client; int32 charID; int32 warFactionID; GPoint pos; uint16 shipGroupID; };
     std::vector<PlayerPos> players;
     for (auto& [id, c] : m_clients) {
         if (c == nullptr || !c->IsInSpace()) continue;
         SystemEntity* se = c->GetShipSE();
         if (se == nullptr) continue;
         if (c->GetWarFactionID() == 0) continue;
-        players.push_back({c, c->GetCharacterID(), c->GetWarFactionID(), se->GetPosition()});
+        ShipItemRef ship = c->GetShip();
+        uint16 groupID = ship ? ship->groupID() : 0;
+        players.push_back({c, c->GetCharacterID(), c->GetWarFactionID(), se->GetPosition(), groupID});
     }
     if (players.empty()) return;
 
@@ -2139,34 +2149,58 @@ void SystemManager::ProcessFWCapture()
 
     for (auto& sig : anomList) {
         if (sig.sigID.find("FW_") != 0) continue;
-        bool hasOccupier = false;
-
-        // Get plex type for timer and LP calculation
         uint8 plexType = m_anomMgr->GetFWAnomalyType(sig.sigID);
         // Scout=0(600s), Small=1(600s), Medium=2(900s), Large=3(900s)
         int32 baseTime = (plexType >= 2) ? 900 : 600;
-        // LP: Scout=2500, Small=5000, Medium=10000, Large=20000
         static const int lpByType[] = {2500, 5000, 10000, 20000};
         int lpReward = (plexType < 4) ? lpByType[plexType] : 2500;
+
+        // Track which factions are in the plex for contested logic
+        std::set<uint32> factionsInPlex;
+        bool hasOccupier = false;
 
         for (auto& p : players) {
             float dist = p.pos.distance(sig.position);
             if (dist > 30000.0f) continue;
 
+            // Ship size restriction per plex type
+            // Scout: Frigate/Destroyer/Cruiser (groups ≤ Cruiser)  — group 26 is Cruiser
+            // Small: ≤ Battlecruiser (group 419)
+            // Medium: ≤ Battleship (group 27)
+            // Large: all ships allowed
+            bool shipAllowed = true;
+            switch (plexType) {
+                case 0: // Scout — max Cruiser (group 26)
+                    if (p.shipGroupID > 26 and p.shipGroupID != 419) shipAllowed = false;
+                    break;
+                case 1: // Small — max Battlecruiser (group 419)
+                    if (p.shipGroupID > 419 and p.shipGroupID != 27) shipAllowed = false;
+                    break;
+                case 2: // Medium — max Battleship (group 27)
+                    if (p.shipGroupID > 27) shipAllowed = false;
+                    break;
+                // case 3: Large — all allowed
+            }
+            // Skip T2/T3 hulls and faction variants that map to higher groups
+            // by checking actual ship hull size via groupID ranges
+
+            factionsInPlex.insert(static_cast<uint32>(p.warFactionID));
             hasOccupier = true;
 
-            // Spawn NPC defender on first player entry
+            // Spawn NPC defender on first player entry — use system occupier faction
             if (m_fwSpawned.find(sig.sigID) == m_fwSpawned.end()) {
                 m_fwSpawned.insert(sig.sigID);
-                uint16 npcTypeID = 2372; // Frigate (Scout)
+                uint16 npcTypeID = 2372;
                 switch (plexType) {
-                    case 1:  npcTypeID = 10017; break; // Small → Destroyer
-                    case 2:  npcTypeID = 11898; break; // Medium → Cruiser
-                    case 3:  npcTypeID = 22822; break; // Large → BC
+                    case 1:  npcTypeID = 10017; break;
+                    case 2:  npcTypeID = 11898; break;
+                    case 3:  npcTypeID = 22822; break;
                 }
+                // Use system occupier faction for NPCs — they defend the system
+                uint32 npcFactionID = systemOccupierFaction ? systemOccupierFaction : static_cast<uint32>(p.warFactionID);
                 FactionData fData;
-                fData.factionID = static_cast<uint32>(p.warFactionID);
-                fData.corporationID = sDataMgr.GetFactionCorp(fData.factionID);
+                fData.factionID = npcFactionID;
+                fData.corporationID = sDataMgr.GetFactionCorp(npcFactionID);
                 fData.ownerID = fData.corporationID;
                 ItemData iData(npcTypeID, fData.ownerID, m_data.systemID, flagNone, "", sig.position);
                 InventoryItemRef iRef = sItemFactory.SpawnItem(iData);
@@ -2175,9 +2209,14 @@ void SystemManager::ProcessFWCapture()
                     if (npc && npc->Load()) {
                         npc->DestinyMgr()->SetPosition(sig.position);
                         AddNPC(npc);
+                        // Target the first player who entered
+                        npc->TargetMgr()->StartTargeting(p.client->GetShipSE(), 2000, 1, 50000, false);
                     } else { SafeDelete(npc); }
                 }
             }
+
+            // Skip ship timer if this ship type is too large for this plex
+            if (!shipAllowed) continue;
 
             int32& remaining = m_fwCapture[sig.sigID][static_cast<int32>(p.charID)];
             if (remaining == 0) remaining = baseTime;
@@ -2195,6 +2234,21 @@ void SystemManager::ProcessFWCapture()
                 return;
             }
         }
+
+        // Contested: if both enemy factions are present, pause all timers
+        if (hasOccupier and factionsInPlex.size() >= 2) {
+            // Reverse the decrement for all pilots this tick
+            for (auto& p : players) {
+                if (p.pos.distance(sig.position) > 30000.0f) continue;
+                auto sigIt = m_fwCapture.find(sig.sigID);
+                if (sigIt != m_fwCapture.end()) {
+                    auto charIt = sigIt->second.find(static_cast<int32>(p.charID));
+                    if (charIt != sigIt->second.end() and charIt->second > 0 and charIt->second < baseTime)
+                        charIt->second += 1;
+                }
+            }
+        }
+
         if (!hasOccupier)
             m_fwCapture.erase(sig.sigID);
     }
