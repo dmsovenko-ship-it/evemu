@@ -875,6 +875,17 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
         // Apply wormhole system effects when ship enters space in a new system
         sSystemEffectMgr.OnEnterSystem(this, m_systemData.systemID);
 
+        // Check for faction police due to low security status
+        if (!IsLogin()) {
+            float sysSec = m_systemData.securityRating;
+            float secStatus = GetSecurityRating();
+            // Thresholds: -2.0→1.0, -2.5→0.9, -3.0→0.8, -3.5→0.7, -4.0→0.6, -4.5→0.5
+            float threshold = -4.5f + (1.0f - sysSec) * 5.0f;
+            if (sysSec >= 0.5f && sysSec <= 1.0f && secStatus <= threshold) {
+                SpawnSecStatusPolice(sysSec, secStatus);
+            }
+        }
+
         if (IsJump() and !m_autoPilot) {
             pShipSE->DestinyMgr()->Stop();
         } else if (IsJump() and m_autoPilot) {
@@ -3320,6 +3331,61 @@ void Client::FlushPendingDestinyUpdates() {
     SendNotification("DoDestinyUpdate", "clientID", &t, false);
     PyDecRef(t);
     m_pendingUpdates.clear();
+}
+
+void Client::SpawnSecStatusPolice(float sysSec, float secStatus) {
+    SystemManager* sysMgr = SystemMgr();
+    if (sysMgr == nullptr) return;
+    SystemEntity* mySE = GetShipSE();
+    if (mySE == nullptr) return;
+    GPoint pos = mySE->GetPosition();
+
+    // Determine faction based on region
+    uint32 factionID = sysMgr->GetSystemRef()->factionID();
+    if (factionID == 0)
+        factionID = sDataMgr.GetRegionFaction(sysMgr->GetRegionID());
+    if (factionID == 0) return;
+
+    // Faction police typeIDs (frigate-size, group 288 Faction_Drone)
+    uint16 typeID = 9959;  // Amarr by default
+    switch (factionID) {
+        case factionCaldari:   typeID = 10048; break;  // Caldari Navy Commodore
+        case factionMinmatar:  typeID = 9997;  break;  // Imperial Navy Sergeant Major
+        case factionAmarr:     typeID = 9960;  break;  // Amarr Surveillance Sergeant Major
+        case factionGallente:  typeID = 10053; break;  // Federation Navy Fleet Captain
+    }
+
+    // Number of police scales with how far below threshold
+    float threshold = -4.5f + (1.0f - sysSec) * 5.0f;
+    uint8 count = 1 + static_cast<uint8>((threshold - secStatus) / 0.5f);
+    if (count > 5) count = 5;
+
+    for (uint8 i = 0; i < count; ++i) {
+        GPoint spawnPos = pos;
+        spawnPos.x += MakeRandomFloat(-5000.0f, 5000.0f);
+        spawnPos.z += MakeRandomFloat(-5000.0f, 5000.0f);
+
+        FactionData faction;
+        faction.allianceID = 0;
+        faction.corporationID = sDataMgr.GetFactionCorp(factionID);
+        faction.factionID = factionID;
+        faction.ownerID = faction.corporationID;
+
+        ItemData itemData(typeID, faction.ownerID, sysMgr->GetID(), flagNone, "", spawnPos);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        if (iRef.get() == nullptr) continue;
+
+        NPC* npc = new NPC(iRef, sysMgr->GetServiceMgr(), sysMgr, faction);
+        if (npc == nullptr || !npc->Load()) { SafeDelete(npc); continue; }
+
+        npc->DestinyMgr()->SetPosition(spawnPos);
+        sysMgr->AddNPC(npc);
+
+        // Target the player immediately
+        npc->GetAIMgr()->Target(mySE);
+        npc->GetAIMgr()->StartAttackCycle(2000);
+    }
+    SendNotifyMsg("Faction police engaged due to low security status.");
 }
 
 void Client::SetLoginWarpComplete() {

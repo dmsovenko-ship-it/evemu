@@ -256,6 +256,7 @@ public:
     void SetBeyonce(bool beyonce=false)                 { m_beyonce = beyonce; }
     void SetUncloak(bool uncloak=false)                 { m_uncloak = uncloak; }
     void SetBubbleWait(bool wait=false)                 { m_bubbleWait = wait; }
+    void SpawnSecStatusPolice(float sysSec, float secStatus);
     void SetLoginWarpComplete();
     void SetStateSent(bool set=false);
     void FlushPendingDestinyUpdates();
