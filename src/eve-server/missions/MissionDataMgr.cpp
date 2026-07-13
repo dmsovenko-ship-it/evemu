@@ -563,6 +563,12 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             data.range              = cData.range;
         } break;
         case Mission::Type::Tutorial: {
+            data.name = "Career Tutorial Mission";
+            data.typeID = Mission::Type::Tutorial;
+            data.rewardISK = 25000;
+            data.rewardLP = 284;
+            data.courierTypeID = 23;  // Cargo Container
+            data.courierAmount = 1;
         } break;
         case Mission::Type::Encounter: {
             std::vector<CourierData> cVec;
