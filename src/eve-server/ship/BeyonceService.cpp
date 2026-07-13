@@ -1006,6 +1006,25 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
         return PyStatic.NewNone();
     }
 
+    // Black Ops bridge: restrict to ships that can use it (only a Black Ops bridge exists)
+    // Jump portal is a cyno field → only ships with IsCovert can jump through
+    // We detect blops bridge by checking if any JumpPortalModule on source is active
+    bool isBlopsBridge = false;
+    for (auto mod : highSlots) {
+        JumpPortalModule* pJPM = dynamic_cast<JumpPortalModule*>(mod);
+        if (pJPM != nullptr and pJPM->IsPortalActive() and pJPM->IsCovert()) {
+            isBlopsBridge = true;
+            break;
+        }
+    }
+    if (isBlopsBridge) {
+        InventoryItemRef jumperShip = call.client->GetShip();
+        if (jumperShip and !jumperShip->HasAttribute(AttrIsCovert)) {
+            call.client->SendNotifyMsg("Your ship is not capable of using a covert jump portal.");
+            return PyStatic.NewNone();
+        }
+    }
+
     // Load the beacon and execute jump
     InventoryItemRef beacon = sItemFactory.GetItemRefFromID(beaconID->value());
     if (!beacon) {

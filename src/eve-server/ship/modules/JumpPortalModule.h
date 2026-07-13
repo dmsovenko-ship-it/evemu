@@ -30,6 +30,10 @@ public:
 
     // Accessors for bridge commands
     bool IsPortalActive() { return (m_portalSE != nullptr); }
+    bool IsCovert() {
+        return m_modRef->HasAttribute(AttrCanFitShipGroup1)
+            and (m_modRef->GetAttribute(AttrCanFitShipGroup1).get_uint32() == EVEDB::invGroups::BlackOps);
+    }
     SystemEntity* GetPortalSE() { return m_portalSE; }
     uint32 GetBeaconID() { return m_beaconID; }
     uint32 GetBridgeTargetID() { return m_bridgeTargetID; }

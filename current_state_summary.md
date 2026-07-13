@@ -518,10 +518,6 @@
 
 ## 🔴 Высокий приоритет (играбельные баги)
 1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)
-3. **FW GetVictoryPoints** (MapService) — стаб, возвращает None
-4. **ReconnectToLostProbes** — probes не восстанавливаются после реконнекта (ScanMgrService)
-5. **Cloaking / Covert Ops** — aligned-before-cloak, covert рефрактор, бомбы (~60%)
-6. **Corporate offices** — полный цикл ренты (CancelRentOfOffice — стаб; ~60%)
 
 ## 🟡 Средний приоритет (крупные фичи)
 1. **Jump drives / Capital ships** — cyno, jump portal, titan bridge (~20%)
@@ -530,7 +526,6 @@
 4. **Full LP store** — все фракции, все офферы, стояночные требования (~70%)
 5. **FW plex capture** — acceleration gates, capture timer, NPC defenders (~60%)
 6. **Killmail generation** — парсинг XML, рассылка loss mails (~50%)
-7. **FW WithdrawLeaveFactionAsAlliance/Corporation** — не переустанавливают warFactionID из БД
 
 ## 🟢 Низкий приоритет (мелкие стабы)
 1. **GetRecentSovActivity** (MapService) — стаб

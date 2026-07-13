@@ -151,9 +151,9 @@ protected:
 
     // internal office methods
     void SendBill();
+public:
     void ImpoundOffice(uint32 officeID);
     void RecoverOffice(uint32 officeID);
-
 private:
     PyRep*                                              m_officePyData;
     StationType                                         m_stationType;
