@@ -155,8 +155,31 @@ PyResult AgentMgrService::GetMyJournalDetails(PyCallArgs &call) {
     }
     tuple->SetItem(0, missions);
 
-    //research:
+    //research: query chrResearch for this character
     PyList* research = new PyList();
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT r.agentID, r.skillTypeID, r.pointsPerDay, r.points, "
+            "  a.level, a.quality, a.stationID "
+            "FROM chrResearch r "
+            "JOIN agtAgents a ON r.agentID = a.agentID "
+            "WHERE r.characterID = %u", call.client->GetCharacterID()))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                PyTuple* rData = new PyTuple(7);
+                rData->SetItem(0, new PyInt(row.GetUInt(0)));   // agentID
+                rData->SetItem(1, new PyInt(row.GetUInt(1)));   // skillTypeID
+                rData->SetItem(2, new PyFloat(row.GetFloat(2)));// ppd
+                rData->SetItem(3, new PyFloat(row.GetFloat(3)));// points
+                rData->SetItem(4, new PyInt(row.GetUInt(4)));   // level
+                rData->SetItem(5, new PyInt(row.GetInt(5)));    // quality
+                rData->SetItem(6, new PyInt(row.GetUInt(6)));   // stationID
+                research->AddItem(rData);
+            }
+        }
+    }
     tuple->SetItem(1, research);
 
     if (is_log_enabled(AGENT__RSP_DUMP))

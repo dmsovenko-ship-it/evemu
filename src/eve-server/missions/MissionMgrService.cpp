@@ -36,9 +36,22 @@ MissionMgrService::MissionMgrService() :
 
 PyResult MissionMgrService::GetMyCourierMissions(PyCallArgs& call)
 {
-    //SELECT * FROM courierMissions
     sLog.White("MissionMgrService", "Handle_GetMyCourierMissions() size=%lli", call.tuple->size());
-    call.Dump(SERVICE__CALL_DUMP);
 
-    return nullptr;
+    // Return active courier missions from DB
+    uint32 charID = call.client->GetCharacterID();
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT courierMissionID, typeID, expirationTime, "
+        "  startSolarSystemID, endSolarSystemID, "
+        "  volume, reward, collateral, description, "
+        "  acceptorCharacterID, acceptorCorporationID, "
+        "  acceptFee, daysToComplete, status, title "
+        "FROM courierMissions WHERE acceptorCharacterID = %u OR "
+        "  acceptorCorporationID IN (SELECT corporationID FROM chrCharacters WHERE characterID = %u)",
+        charID, charID))
+    {
+        return new PyList();
+    }
+    return DBResultToCRowset(res);
 }

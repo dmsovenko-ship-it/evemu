@@ -444,6 +444,7 @@ void EntityList::Process() {
         // these need 1Hz tics
         sCivMgr.Process();
         sBubbleMgr.Process();
+        sStandingMgr.ProcessResearch();
 
         // these minute tics do not need to be precise
         if (m_minuteTimer.Check()) {
