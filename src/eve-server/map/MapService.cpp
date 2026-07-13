@@ -163,16 +163,25 @@ PyResult MapService::GetAllianceBeacons(PyCallArgs &call)
     return svDataMgr.GetAllianceBeacons(call.client->GetAllianceID());
 }
 
-PyResult MapService::GetCurrentSovData(PyCallArgs &call, PyInt* locationID)
-{/**
-    data = sm.RemoteSvc('map').GetCurrentSovData(constellationID)
-    returns locationID, ?
-    return sm.RemoteSvc('map').GetCurrentSovData(locationID)
-    */
+PyResult MapService::GetCurrentSovData(PyCallArgs &call, PyRep* locationID)
+{
     sLog.Warning( "MapService::Handle_GetCurrentSovData()", "size=%lu", call.tuple->size());
-    call.Dump(SERVICE__CALL_DUMP);
 
-    return svDataMgr.GetCurrentSovData(locationID->value());
+    if (locationID->IsNone()) {
+        // Return ALL systems with sovereignty data
+        DBQueryResult res;
+        sDatabase.RunQuery(res,
+            "SELECT s.solarSystemID, s.constellationID, s.regionID, "
+            "  COALESCE(sov.corporationID, 0) as corporationID, "
+            "  COALESCE(sov.allianceID, 0) as allianceID, "
+            "  COALESCE(sov.factionID, 0) as factionID, "
+            "  COALESCE(sov.sovereigntyLevel, 0) as sovereigntyLevel "
+            "FROM mapSolarSystems s "
+            "LEFT JOIN mapSystemSovereigntyInfo sov ON s.solarSystemID = sov.solarSystemID");
+        return DBResultToCRowset(res);
+    }
+    uint32 id = locationID->AsInt()->value();
+    return svDataMgr.GetCurrentSovData(id);
 }
 PyResult MapService::GetRecentSovActivity(PyCallArgs &call)
 {

@@ -45,6 +45,22 @@ PyResult SovereigntyMgrService::GetSystemSovereigntyInfo(PyCallArgs &call, PyInt
     return svDataMgr.GetSystemSovereignty(systemID->value());
 }
 
+PyResult SovereigntyMgrService::GetSovOverview(PyCallArgs& call) {
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT s.solarSystemID, s.constellationID, s.regionID, "
+        "  COALESCE(sov.corporationID, 0) as corporationID, "
+        "  COALESCE(sov.allianceID, 0) as allianceID, "
+        "  COALESCE(sov.factionID, 0) as factionID, "
+        "  COALESCE(sov.sovereigntyLevel, 0) as sovereigntyLevel, "
+        "  COALESCE(sov.claimTime, 0) as claimTime, "
+        "  COALESCE(sov.claimDate, '') as claimDate "
+        "FROM mapSolarSystems s "
+        "LEFT JOIN mapSystemSovereigntyInfo sov ON s.solarSystemID = sov.solarSystemID "
+        "ORDER BY s.solarSystemID");
+    return DBResultToCRowset(res);
+}
+
 PyResult SovereigntyMgrService::GetSystemUpgrades(PyCallArgs& call, PyInt* systemID) {
     DBQueryResult res;
     SovereigntyDB::GetUpgradesForSystem(res, systemID->value());

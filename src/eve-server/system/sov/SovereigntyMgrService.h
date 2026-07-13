@@ -37,6 +37,7 @@ public:
 
 protected:
     PyResult GetSystemSovereigntyInfo(PyCallArgs& call, PyInt* systemID);
+    PyResult GetSovOverview(PyCallArgs& call);
     PyResult GetSystemUpgrades(PyCallArgs& call, PyInt* systemID);
     PyResult InstallUpgrade(PyCallArgs& call, PyInt* systemID, PyInt* upgradeTypeID);
     PyResult RemoveUpgrade(PyCallArgs& call, PyInt* systemID, PyInt* upgradeID);
