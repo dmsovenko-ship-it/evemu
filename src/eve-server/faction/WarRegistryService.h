@@ -32,6 +32,8 @@
 class EVEServiceManager;
 class WarRegistryBound;
 
+void ProcessWarBills();
+
 class WarRegistryService : public BindableService<WarRegistryService, WarRegistryBound> {
 public:
     WarRegistryService(EVEServiceManager& mgr);

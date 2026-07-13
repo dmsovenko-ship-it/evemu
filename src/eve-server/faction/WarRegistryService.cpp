@@ -235,6 +235,57 @@ uint32 WarRegistryBound::CreateWarRecord(uint32 declaredByID, uint32 againstID) 
     return warID;
 }
 
+// Process war bills (called from EntityList minute timer)
+void ProcessWarBills() {
+    DBQueryResult res;
+    // Find wars where the bill is due and unpaid
+    if (sDatabase.RunQuery(res,
+        "SELECT w.warID, w.declaredByID, w.againstID, b.billID, b.amount, b.dueDateTime "
+        "FROM warRegistry w "
+        "JOIN billsPayable b ON w.billID = b.billID "
+        "WHERE w.retracted = 0 AND b.paid = 0 AND b.dueDateTime < %.0f",
+        (double)GetFileTimeNow()))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            uint32 warID = row.GetUInt(0);
+            uint32 debtorID = row.GetUInt(1);
+            double dueDate = row.GetDouble(5);
+
+            // Check if more than 24h overdue
+            double overdue = (GetFileTimeNow() - dueDate) / (double)EvE::Time::Day;
+            if (overdue > 1.0) {
+                // End the war for non-payment
+                DBerror err;
+                sDatabase.RunQuery(err,
+                    "UPDATE warRegistry SET retracted = 1, retractedBy = 1 WHERE warID = %u", warID);
+                _log(FACWAR__MESSAGE, "War %u ended due to non-payment", warID);
+                continue;
+            }
+
+            // Bill is due but not overdue — create a new bill for next week
+            double newAmount = row.GetDouble(4);
+            double newDueDate = dueDate + 7LL * 24LL * 60LL * 60LL * 10000000LL;
+            uint32 newBillID = 0;
+            DBerror err;
+            sDatabase.RunQueryLID(err, newBillID,
+                "INSERT INTO billsPayable (billTypeID, debtorID, creditorID, amount, dueDateTime, interest, externalID, externalID2, paid) "
+                "VALUES (%u, %u, 1, %.2f, %.0f, 0, %u, 0, 0)",
+                Corp::BillType::WarBill, debtorID, newAmount, newDueDate, warID);
+
+            if (newBillID > 0) {
+                // Update war record with new billID
+                sDatabase.RunQuery(err,
+                    "UPDATE warRegistry SET billID = %u WHERE warID = %u", newBillID, warID);
+                // Mark old bill as paid (replaced by new one)
+                sDatabase.RunQuery(err,
+                    "UPDATE billsPayable SET paid = 1 WHERE billID = %u", row.GetUInt(3));
+                _log(FACWAR__MESSAGE, "War %u: new weekly bill %u created (%.2f ISK)", warID, newBillID, newAmount);
+            }
+        }
+    }
+}
+
 void WarRegistryBound::EndWar(uint32 warID, uint32 retractedBy) {
     double now = (double)GetFileTimeNow();
     DBerror err;

@@ -42,6 +42,7 @@
 #include "map/MapDB.h"
 #include "market/MarketMgr.h"
 #include "market/MarketBotMgr.h"
+#include "faction/WarRegistryService.h"
 #include "missions/MissionDataMgr.h"
 #include "incursion/IncursionMgr.h"
 #include "standing/StandingMgr.h"
@@ -453,6 +454,7 @@ void EntityList::Process() {
             sMissionDataMgr.Process();  // 1m
             sIncursionMgr.Process();    // 1m
             CheckWarDecay();
+            ProcessWarBills();
             CheckExpiredAuctions();
             CheckVoteExpiry();
 

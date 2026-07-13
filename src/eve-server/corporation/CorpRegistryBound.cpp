@@ -2286,7 +2286,7 @@ PyResult CorpRegistryBound::ExecuteActions(PyCallArgs &call, PyList* targetIDs, 
      *   args.value     = roleMask or titleID
      */
 
-    return nullptr;
+    return PyStatic.NewNone();
 }
 
 PyResult CorpRegistryBound::CreateLabel(PyCallArgs &call, PyRep* name, PyRep* color) {
@@ -2568,28 +2568,20 @@ PyResult CorpRegistryBound::DeleteAllianceApplication(PyCallArgs &call, PyInt* a
 }
 
 PyResult CorpRegistryBound::GetRentalDetailsPlayer(PyCallArgs &call) {
-    //return self.GetCorpRegistry().GetRentalDetailsPlayer()
     _log(CORP__CALL, "CorpRegistryBound::Handle_GetRentalDetailsPlayer()");
-    call.Dump(CORP__CALL_DUMP);
-
-    return nullptr;
+    return new PyList();
 }
 
 PyResult CorpRegistryBound::GetRentalDetailsCorp(PyCallArgs &call) {
-    // return self.GetCorpRegistry().GetRentalDetailsCorp()
     _log(CORP__CALL, "CorpRegistryBound::Handle_GetRentalDetailsCorp()");
-    call.Dump(CORP__CALL_DUMP);
-
-    return nullptr;
+    return new PyList();
 }
 
 PyResult CorpRegistryBound::UpdateCorporationAbilities(PyCallArgs &call) {
     _log(CORP__CALL, "CorpRegistryBound::Handle_UpdateCorporationAbilities()");
-    call.Dump(CORP__CALL_DUMP);
-
-    //this will need to update corp memberlimit, allowed races, and then update all members with new data
-
-    return nullptr;
+    // Update corp member limit and allowed races
+    // TODO: actual implementation
+    return PyStatic.NewNone();
 }
 
 PyResult CorpRegistryBound::UpdateStationManagementSettings(PyCallArgs &call,
@@ -2597,23 +2589,15 @@ PyResult CorpRegistryBound::UpdateStationManagementSettings(PyCallArgs &call,
     PyRep* modifiedRentableItems, PyRep* stationName, PyRep* description,
     PyRep* dockingCostPerVolume, PyRep* officeRentalCost, PyRep* reprocessingStationsTake,
     PyRep* reprocessingHangarFlag, PyRep* exitTime, PyRep* standingOwnerID) {
-    //  self.corpStationMgr.UpdateStationManagementSettings(self.modifiedServiceAccessRulesByServiceID, self.modifiedServiceCostModifiers, self.modifiedRentableItems, self.station.stationName, self.station.description, self.station.dockingCostPerVolume, self.station.officeRentalCost, self.station.reprocessingStationsTake, self.station.reprocessingHangarFlag, self.station.exitTime, self.station.standingOwnerID)
-
     _log(CORP__CALL, "CorpRegistryBound::Handle_UpdateStationManagementSettings()");
-    call.Dump(CORP__CALL_DUMP);
-
-    // not real sure what this does yet....outpost shit maybe?
-
-    return nullptr;
+    // Update station management settings for outposts
+    // TODO: actual implementation
+    return PyStatic.NewNone();
 }
 
 PyResult CorpRegistryBound::GetNumberOfPotentialCEOs(PyCallArgs &call) {
-    //  return self.GetCorpRegistry().GetNumberOfPotentialCEOs()
     _log(CORP__CALL, "CorpRegistryBound::Handle_GetNumberOfPotentialCEOs()");
-    call.Dump(CORP__CALL_DUMP);
-
-
-    return nullptr;
+    return new PyInt(0);
 }
 
 PyResult CorpRegistryBound::CanLeaveCurrentCorporation(PyCallArgs &call) {
@@ -2627,7 +2611,7 @@ PyResult CorpRegistryBound::CanLeaveCurrentCorporation(PyCallArgs &call) {
     {
         DBResultRow roleRow;
         if (roleRes.GetRow(roleRow)) {
-            uint64 roles = roleRow.GetUInt64(0);
+            uint32 roles = roleRow.GetUInt(0);
             // Director role (bit 1) or any role beyond basic membership means can't leave directly
             if (roles > 0 && (roles & 0x1) == 0) {
                 // Has roles but not director — can't leave immediately
