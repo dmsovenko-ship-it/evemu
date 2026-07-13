@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
-> **Our fork: `████████████████████` 98%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-14 (build 7 — FW GetStats + Auto-bills)
+> **Our fork: `████████████████████` 99%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
+> Last updated: 2026-07-14 (build 8 — mega-session: insurance, FW, NPC AI, fleet, jump drives, killmail, CONCORD, LP store, stubs cleanup)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -31,14 +31,14 @@
 | System | % | Bar | Δ up | System | % | Bar | Δ up |
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
-| Ship Navigation | 82% | `█████████████████░` | +12% | Combat | 99% | `███████████████████` | +9% |
+| Ship Navigation | 85% | `██████████████████` | +15% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 92% | `██████████████████` | +17% |
-| NPC AI & Spawning | 86% | `█████████████████░` | +26% | Agents & Missions | 95% | `███████████████████` | +25% |
+| NPC AI & Spawning | 92% | `███████████████████` | +32% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
 | **Incursions** | 85% | `█████████████████░` | +85% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
 | **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 92% | `██████████████████` | +32% |
- | **Faction Warfare** | 98% | `████████████████████` | +48% | Calendar | 93% | `███████████████████` | +33% |
+ | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
 | **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 74% | `████████████████░░` | +29% |
@@ -143,7 +143,7 @@
 
 ---
 
-### 7. NPC AI & Spawning `█████████████████░` 86%
+### 7. NPC AI & Spawning `██████████████████░░` 92%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -155,6 +155,11 @@
 | Anomaly NPCs (Ship-category typeIDs 33500-33523) | ❌ | ✅ |
 | Civilian traffic with multi-system routes | ❌ | ✅ |
 | NPC crosshairs (categoryID override in type cache) | ❌ | ✅ |
+| **EWAR — web, ECM, target paint** — читает атрибуты сущностей, применяет в цикле атаки | ❌ | ✅ |
+| **Smartbomb/AoE** — splash damage всем целям в радиусе EmpFieldRange | ❌ | ✅ |
+| **Fleeing state** — разгон и варп-аут при отступлении | ❌ | ✅ |
+| **Signaling** — призыв подкреплений через SpawnMgr | ❌ | ✅ |
+| **CONCORD AI** — сканирование пузыря на IsCriminal(), полный state machine | ❌ | ✅ |
 
 ---
 

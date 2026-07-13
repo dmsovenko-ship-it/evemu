@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes (updated 2026-07-14 — build 6 S&I + subsystems cleanup).
+Things to verify after recent changes (updated 2026-07-14 — build 8 mega-session).
 
 ---
 
@@ -201,6 +201,51 @@ Things to verify after recent changes (updated 2026-07-14 — build 6 S&I + subs
 - [ ] **GetMySecurityRating** — Check security status in character sheet. Should show your sec status.
 - [ ] **GetStandingEventTypes** — Open standings change log. Should show event type labels.
 - [ ] **Kill rights** — Grant a kill right. Standing shown should match actual standing, not 10.0.
+
+## Build 8 (2026-07-14) — Mega-session
+
+### Insurance
+- [ ] **Uninsured payout** — Destroy a ship without insurance. Should get 40% of basePrice (not 15K). ✅
+- [ ] **InsurancePayout notification** — Destroy an insured ship. Should receive InsurancePayout notification (type 35).
+- [ ] **Insurance expiry** — Wait for insurance to expire (or set endDate in past). Should receive InsuranceExpiration notification (type 54).
+
+### FW
+- [ ] **FW GetStats** — Open FW stats window. FactionInfo, Corp, Alliance, Militia tabs should show data, not crash.
+- [ ] **FW TopKills/VPs** — FW overview should show top characters by kills and victory points.
+- [ ] **FW WithdrawLeave** — Corp submits leave FW, then withdraws. warFactionID should restore.
+- [ ] **FW plex — ship restrictions** — Try to enter a Scout plex in a battleship. Should be blocked.
+- [ ] **FW plex — contested** — Have both Amarr and Minmatar pilots in the same plex. Timer should pause.
+
+### NPC AI
+- [ ] **Web (stasis)** — NPC with `AttrModifyTargetSpeedRange` should web targets. Check speed reduction visual.
+- [ ] **ECM (jam)** — NPC with ECM attributes should break target's lock periodically.
+- [ ] **Target paint** — NPC with paint attributes should increase target's signature radius.
+- [ ] **Smartbomb/AoE** — NPC with `AttrEmpFieldRange` should splash damage all targets in range.
+- [ ] **Fleeing** — NPC should flee (fly away, then warp out) when health is low.
+- [ ] **CONCORD AI** — Commit a crime in highsec. CONCORD should scan, target, and attack the criminal.
+- [ ] **Signaling** — NPC should call reinforcements via SpawnMgr when in Signaling state.
+
+### Jump drives
+- [ ] **Capacitor drain** — Jump a capital ship. Capacitor should drain by `AttrJumpDriveCapacitorNeed`%.
+- [ ] **Blops bridge** — Black Ops bridge should only allow ships with `AttrIsCovert`.
+
+### LP Store
+- [ ] **storeServer** — Open LP store. `storeServer.GetAvailableOffers()` should return offers (not empty).
+
+### Fleet
+- [ ] **Formations** — Set fleet formation. Should show 5 options (Diamond, Arrow, Line, Vanguard, Column).
+- [ ] **Boost on system entry** — Enter a system with a fleet booster. Boosts should apply immediately.
+
+### Killmail
+- [ ] **finalSecurityStatus** — Check `chrKillTable` after a kill. `finalSecurityStatus` should match attacker's sec status, not 0.
+
+### Corporate
+- [ ] **CancelRentOfOffice** — Cancel office rental. Items should be impounded. Guests should get OnOfficeRentalChanged.
+- [ ] **DoStandingCheckForStationService** — Open repair/fitting with low standing at NPC station. Should be denied.
+
+### Outpost
+- [ ] **Platform anchoring — skill check** — Try anchoring an outpost platform without OutpostConstruction skill. Should be denied.
+- [ ] **Platform anchoring — sov check** — Try anchoring in unclaimed system. Should be denied.
 
 ## Stability
 

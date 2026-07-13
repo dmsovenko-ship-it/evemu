@@ -16,7 +16,7 @@
 <h1 align="center">EVEmu Crucible</h1>
 
 <p align="center">
-  <b>EVE Online (Crucible era) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork — ~82% complete
+  <b>EVE Online (Crucible era) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork — ~99% complete
 </p>
 
 <br>

@@ -516,56 +516,39 @@
 
 # TODO
 
-## 🔴 Высокий приоритет (играбельные баги)
+## 🔴 Высокий приоритет
 1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)
-
-## 🟡 Средний приоритет (крупные фичи)
-1. **Jump drives / Capital ships** — capacitor drain при прыжке, IsCovert, blops bridge restriction
-2. **Full NPC AI** — web, ECM, target paint, smartbomb, Fleeing, Signaling→reinforcements, CONCORD AI включён
-3. **S&I — Manufacturing** — материал мультипликатор работает через Calculate(), GetAdjustedRamRequiredMaterials — мёртвая функция
-4. **Full LP store** — LPService + storeServer (AcceptOffer, GetAvailableOffers) реализованы
-5. **FW plex capture** — NPC защитники от system occupier, размерные ограничения, contested (пауза таймера)
-6. **Killmail** — finalSecurityStatus берётся из реального secStatus атакующего (вместо 0)
-
-## 🟢 Низкий приоритет (мелкие стабы)
-1. **GetRecentSovActivity** ✅ — возвращает CRowset из mapSystemSovInfo
-2. **GetDeadspaceAgentsMap / GetDeadspaceComplexMap** ✅ — возвращают пустой PyDict, лог почищен
-3. **GetMyEscalatingPathDetails** ✅ — возвращает пустой PyList вместо None
-4. **CopyBookmarks / MoveFoldersToDB** — уже возвращали PyStatic.NewNone() ✅
-5. **GetApprenticeships** — метод не найден в коде (возможно удалён клиентом)
-6. **AccruedTime / SetLanguageID** ✅ — возвращают PyStatic.NewNone() вместо nullptr
-7. **GetRecentEpicArcCompletions** ✅ — возвращает пустой PyList вместо nullptr
-8. **DamageModules** ✅ — уже возвращал PyStatic.NewNone()
-9. **GMChangeSpaceObjectOwner** ✅ — уже возвращал PyStatic.NewNone()
 
 ## 🔵 Крупные системы (нужен фундаментальный подход)
 1. **Planetary Interaction (PI)** — полная система (колонии, экстракторы, процессоры, линки, кастомс офисы). **0%**
 2. **RefPtr → shared_ptr** — major refactoring ~400 files
 3. **PyRep memory management** — valgrind leak fixes
 
-## ✅ Done this session
-- **Corporate offices** — CancelRentOfOffice: impound + OnOfficeRentalChanged уведомление гостям станции
-- **Insurance** — исправлена: нестрахованный корабль получает 40% базовой цены (вместо 15K), дробные диапазоны вместо точного float сравнения, `InsurancePayout` уведомление, фоновый `ProcessInsuranceExpiry()` раз в минуту + `InsuranceExpiration` уведомление
-- **FW GetVictoryPoints** (MapService) — возвращает состояние FW систем вместо None
-- **ReconnectToLostProbes** — переподключает зонды после реконнекта (SendNewProbe для всех ProbeSE в системе)
-- **Cloaking / Covert Ops** — aligned-before-cloak: Covert Ops cloak требует нулевой скорости перед активацией
-- **Auto-bills** — `ProcessAutoPay()` раз в минуту оплачивает счета корпораций с включённым `crpAutoPay` (MarketFine, RentalBill, BrokerBill, AllianceMaintenance, Sovereignty)
-- **FW GetStats** — 7 стабов реализованы: FactionInfo, TopAndAllKillsAndVPs, Corp, Alliance, Militia, CorpPilots, RefreshCorps
-- **Fleet watchlist** — 3 метода FleetManager реализованы: AddToWatchlist, RemoveFromWatchlist, RegisterForDamageUpdates (с хранением в FleetService)
-- **Fleet voice chat** — 3 метода FleetBound: AddToVoiceChat, SetVoiceMuteStatus, ExcludeFromVoiceMute (no-op, без ворнингов)
-- **SubSystemModule** — T3 сабсистемы online/active при установке
-- **UpdateAssemblyLineConfigurations** — сохранение в БД
-- **TutorialService** — LogStarted/Completed/Aborted, GetCharacterTutorialState
-- **COSMOS missions** — загрузка из БД
-- **Research RP** — фоновое накопление (раньше не вызывалось)
-- **Research journal** — отображение в журнале
-- **War bills** — рекуррентные еженедельные счета
-- **PayoutDividend** — выплата дивидендов
-- **CreateAlliance** (unbound) — имплементирован
-- **GetMyCourierMissions** — возвращает данные
-- **5 AgentBound stubs** — реализованы
-- **6 CorpRegistryBound stubs** — валидные PyRep
+## ✅ Done this session (build 8 — 18 коммитов)
 
-## 🟢 Eventually
-1. **RefPtr → shared_ptr** — major refactoring ~400 files
-2. **PyRep memory management** — valgrind leak fixes
+### 🔴 Высокий приоритет
+- **Insurance** — исправлена: нестрахованный корабль получает 40% базовой цены (вместо 15K), дробные диапазоны, InsurancePayout нотификация, ProcessInsuranceExpiry() раз в минуту
+- **FW GetVictoryPoints** (MapService) — возвращает состояние FW систем вместо None
+- **ReconnectToLostProbes** — зонды переподключаются после реконнекта через SendNewProbe()
+- **Cloaking / Covert Ops** — Covert Ops cloak требует нулевой скорости перед активацией
+- **Corporate offices** — CancelRentOfOffice: impound + OnOfficeRentalChanged уведомление
+
+### 🟡 Средний приоритет
+- **FW GetStats** — 7 стабов: FactionInfo, TopKills/VPs, Corp, Alliance, Militia, CorpPilots, RefreshCorps
+- **FW WithdrawLeave** — warFactionID восстанавливается из facWarCharacters
+- **FW plex capture** — NPC от system occupier, размерные ограничения, contested (пауза таймера)
+- **FW GetVictoryPoints** — возвращает данные FW систем
+- **Full NPC AI** — EWAR (web, ECM, target paint), smartbomb/AoE, Fleeing (разгон+варп), Signaling (SpawnMgr подкрепления), CONCORD AI (criminal scan)
+- **Jump drives** — capacitor drain при прыжке, IsCovert на JumpPortalModule, blops bridge restriction
+- **Killmail** — finalSecurityStatus из реального secStatus атакующего
+- **Full LP store** — storeServer (AcceptOffer, GetAvailableOffers) реализованы
+- **Auto-bills** — ProcessAutoPay() раз в минуту для корпоративных счетов
+
+### 🟢 Низкий приоритет
+- **9 stubs починены**: GetRecentSovActivity, GetDeadspaceAgentsMap, GetDeadspaceComplexMap, GetMyEscalatingPathDetails, AccruedTime, SetLanguageID, GetRecentEpicArcCompletions, CopyBookmarks, MoveFoldersToDB
+- **Fleet watchlist** — AddToWatchlist, RemoveFromWatchlist, RegisterForDamageUpdates
+- **Fleet voice chat** — AddToVoiceChat, SetVoiceMuteStatus, ExcludeFromVoiceMute (no-op)
+- **Fleet formations** — 5 формаций (Diamond, Arrow, Line, Vanguard, Column)
+- **Fleet boost refresh** — UpdateBoost() при входе в систему для всех членов флота
+- **DoStandingCheckForStationService** — проверка стендинга для сервисов станции
+- **Outpost platform anchoring** — Anchoring/OutpostConstruction skill check + sovereignty check
