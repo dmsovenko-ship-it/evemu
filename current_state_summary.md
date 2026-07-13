@@ -516,11 +516,48 @@
 
 # TODO
 
-## 🟡 If desired
+## 🔴 Высокий приоритет (играбельные баги)
 1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)
-2. **Auto-bills** — фоновый процесс для автоплатежей
+3. **FW GetVictoryPoints** (MapService) — стаб, возвращает None
+4. **ReconnectToLostProbes** — probes не восстанавливаются после реконнекта (ScanMgrService)
+5. **Cloaking / Covert Ops** — aligned-before-cloak, covert рефрактор, бомбы (~60%)
+6. **Corporate offices** — полный цикл ренты (CancelRentOfOffice — стаб; ~60%)
+
+## 🟡 Средний приоритет (крупные фичи)
+1. **Jump drives / Capital ships** — cyno, jump portal, titan bridge (~20%)
+2. **Full NPC AI** — EWAR, smartbombs, флитование, отступление (~40%)
+3. **S&I — Manufacturing slots, ME/PE research** — частично (74%, самая слабая система)
+4. **Full LP store** — все фракции, все офферы, стояночные требования (~70%)
+5. **FW plex capture** — acceleration gates, capture timer, NPC defenders (~60%)
+6. **Killmail generation** — парсинг XML, рассылка loss mails (~50%)
+7. **FW WithdrawLeaveFactionAsAlliance/Corporation** — не переустанавливают warFactionID из БД
+
+## 🟢 Низкий приоритет (мелкие стабы)
+1. **GetRecentSovActivity** (MapService) — стаб
+2. **GetDeadspaceAgentsMap / GetDeadspaceComplexMap** (MapService) — стабы
+3. **GetMyEscalatingPathDetails** (DungeonExplorationMgrService) — стаб
+4. **CopyBookmarks / MoveFoldersToDB** (CorpBookmarkMgr) — стабы
+5. **GetApprenticeships** (CharMgrService) — стаб
+6. **AccruedTime / SetLanguageID** (AuthService) — стабы
+7. **GetRecentEpicArcCompletions** (HoloscreenMgrService) — стаб
+8. **DamageModules** (RepairService) — стаб
+9. **GMChangeSpaceObjectOwner** (PlanetORBBound) — стаб
+
+## 🔵 Крупные системы (нужен фундаментальный подход)
+1. **Planetary Interaction (PI)** — полная система (колонии, экстракторы, процессоры, линки, кастомс офисы). **0%**
+2. **RefPtr → shared_ptr** — major refactoring ~400 files
+3. **PyRep memory management** — valgrind leak fixes
 
 ## ✅ Done this session
+- **Corporate offices** — CancelRentOfOffice: impound + OnOfficeRentalChanged уведомление гостям станции
+- **Insurance** — исправлена: нестрахованный корабль получает 40% базовой цены (вместо 15K), дробные диапазоны вместо точного float сравнения, `InsurancePayout` уведомление, фоновый `ProcessInsuranceExpiry()` раз в минуту + `InsuranceExpiration` уведомление
+- **FW GetVictoryPoints** (MapService) — возвращает состояние FW систем вместо None
+- **ReconnectToLostProbes** — переподключает зонды после реконнекта (SendNewProbe для всех ProbeSE в системе)
+- **Cloaking / Covert Ops** — aligned-before-cloak: Covert Ops cloak требует нулевой скорости перед активацией
+- **Auto-bills** — `ProcessAutoPay()` раз в минуту оплачивает счета корпораций с включённым `crpAutoPay` (MarketFine, RentalBill, BrokerBill, AllianceMaintenance, Sovereignty)
+- **FW GetStats** — 7 стабов реализованы: FactionInfo, TopAndAllKillsAndVPs, Corp, Alliance, Militia, CorpPilots, RefreshCorps
+- **Fleet watchlist** — 3 метода FleetManager реализованы: AddToWatchlist, RemoveFromWatchlist, RegisterForDamageUpdates (с хранением в FleetService)
+- **Fleet voice chat** — 3 метода FleetBound: AddToVoiceChat, SetVoiceMuteStatus, ExcludeFromVoiceMute (no-op, без ворнингов)
 - **SubSystemModule** — T3 сабсистемы online/active при установке
 - **UpdateAssemblyLineConfigurations** — сохранение в БД
 - **TutorialService** — LogStarted/Completed/Aborted, GetCharacterTutorialState

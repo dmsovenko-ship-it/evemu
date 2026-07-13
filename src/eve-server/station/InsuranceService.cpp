@@ -126,35 +126,31 @@ PyResult InsuranceBound::InsureShip(PyCallArgs& call, PyInt* shipID, PyFloat* am
      *   None       0.1       0.00
      */
     // calculate the fraction value
-    double paymentFraction = (amount->value() / (shipRef->type().basePrice()));
-    if (paymentFraction < 0.05) {
-            // catchall for fuckedup prices.
-        call.client->SendErrorMsg("Your payment of %.2f is below the minimum payment of %.2f required for coverage.", \
-                    amount->value(), (shipRef->type().basePrice() * 0.05f));
+    double basePrice = shipRef->type().basePrice();
+    double paymentFraction = (amount->value() / basePrice);
+    if (paymentFraction < 0.025) {
+        call.client->SendErrorMsg("Your payment of %.2f is below the minimum payment of %.2f required for coverage.",
+                    amount->value(), (basePrice * 0.025));
         return PyStatic.NewNone();
     }
 
-    float fraction(0.1f);  // with no insurance, SCC pays 40% on live.  we pay 10%
-    if (paymentFraction == 0.05) {
-        fraction = 0.5f;
-    } else if (paymentFraction == 0.1) {
-        fraction = 0.6f;
-    } else if (paymentFraction == 0.15) {
-        fraction = 0.7f;
-    } else if (paymentFraction == 0.2) {
-        fraction = 0.8f;
-    } else if (paymentFraction == 0.25) {
-        fraction = 0.9f;
-    } else if (paymentFraction == 0.3) {
-        fraction = 1.0f;
-    }
-
-    if (fraction < 0.05f) {
-        call.client->SendErrorMsg("There was a problem with your insurance premium calculation.  Ref: ServerError 75520.");
-        throw UserError ("InsureShipFailed");
-    } else if (fraction == 0.1f) {
-        call.client->SendErrorMsg("Your insurance is at minimum coverage due to incorrect base prices.  Ref: ServerError 75521.");
-    }
+    // Map premium fraction to coverage fraction
+    //   Premium% → Coverage%
+    //   0.025     → 0.33  (Basic)
+    //   0.05      → 0.50  (Standard)
+    //   0.10      → 0.60  (Bronze)
+    //   0.15      → 0.70  (Silver)
+    //   0.20      → 0.80  (Gold)
+    //   0.25      → 0.90  (Gold+)
+    //   0.30      → 1.0   (Platinum)
+    float fraction = 0.1f;
+    if      (paymentFraction < 0.0375) fraction = 0.33f;
+    else if (paymentFraction < 0.075)  fraction = 0.50f;
+    else if (paymentFraction < 0.125)  fraction = 0.60f;
+    else if (paymentFraction < 0.175)  fraction = 0.70f;
+    else if (paymentFraction < 0.225)  fraction = 0.80f;
+    else if (paymentFraction < 0.275)  fraction = 0.90f;
+    else                               fraction = 1.0f;
 
     if (m_db->IsShipInsured(shipID->value())) {     //this hits db...can you insure unloaded ship? (if no, make this a ship memobj)
         if (call.byname.find("voidOld") != call.byname.end()) {

@@ -2602,7 +2602,8 @@ void ShipSE::PayInsurance() {
         return;
     }
 
-    double payout = m_db.GetShipInsurancePayout(m_self->itemID());
+    double basePrice = m_self->type().basePrice();
+    double payout = m_db.GetShipInsurancePayout(m_self->itemID(), basePrice);
     if (payout <= 0.0) return;
 
     std::string reason = "Insurance payment for loss of the ship ";
@@ -2624,6 +2625,14 @@ void ShipSE::PayInsurance() {
     body += "Payout: " + std::string(payoutStr) + " ISK\n\n";
     body += "The SCC has transferred the insurance payout to your account.";
     mailDB.SendMail(1, recipients, -1, -1, "Insurance Payout", body, 0, 0);
+
+    // Send InsurancePayout notification
+    PyDict* nData = new PyDict();
+    nData->SetItemString("shipID", new PyInt(m_self->itemID()));
+    nData->SetItemString("shipName", new PyString(m_self->itemName()));
+    nData->SetItemString("payout", new PyFloat(payout));
+    nData->SetItemString("typeID", new PyInt(m_self->typeID()));
+    sEntityList.CreateNotification(m_ownerID, Notify::Types::InsurancePayout, corpSCC, nData);
 
     ShipDB::DeleteInsuranceByShipID(m_self->itemID());
 }

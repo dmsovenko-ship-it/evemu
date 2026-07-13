@@ -63,7 +63,6 @@ FleetBound::FleetBound(EVEServiceManager& mgr, FleetObject& parent, uint32 fleet
     this->Add("GetMotd", &FleetBound::GetMotd);
     this->Add("UpdateMemberInfo", &FleetBound::UpdateMemberInfo);
 
-    // stubs
     this->Add("Reconnect", &FleetBound::Reconnect);
     this->Add("AddToVoiceChat", &FleetBound::AddToVoiceChat);
     this->Add("SetVoiceMuteStatus", &FleetBound::SetVoiceMuteStatus);
@@ -696,30 +695,17 @@ PyResult FleetBound::DeleteSquad(PyCallArgs &call, PyInt* squadID) {
 
 PyResult FleetBound::AddToVoiceChat(PyCallArgs &call, PyRep* channelName) {
     //    self.fleet.AddToVoiceChat(channelName)
-    sLog.Warning("FleetBound", "Handle_AddToVoiceChat() size=%lli", call.tuple->size());
-    call.Dump(FLEET__DUMP);
-
-    //sConfig.chat.EnableVoiceChat;
-
-    // returns nothing
+    // Voice chat requires a Vivox server — not implemented, silently no-op
     return nullptr;
 }
 
 PyResult FleetBound::SetVoiceMuteStatus(PyCallArgs &call, PyRep* status, PyRep* channel) {
     //    self.fleet.SetVoiceMuteStatus(status, channel)
-    sLog.Warning("FleetBound", "Handle_SetVoiceMuteStatus() size=%lli", call.tuple->size());
-    call.Dump(FLEET__DUMP);
-
-    // returns nothing
     return nullptr;
 }
 
 PyResult FleetBound::ExcludeFromVoiceMute(PyCallArgs &call, PyInt* characterID, PyRep* channel) {
     //    self.fleet.ExcludeFromVoiceMute(charid, channel)
-    sLog.Warning("FleetBound", "Handle_ExcludeFromVoiceMute()) size=%lli", call.tuple->size());
-    call.Dump(FLEET__DUMP);
-
-    // returns nothing
     return nullptr;
 }
 

@@ -481,16 +481,34 @@ PyResult CorpStationMgrIMBound::DoStandingCheckForStationService(PyCallArgs &cal
 PyResult CorpStationMgrIMBound::CancelRentOfOffice(PyCallArgs &call)
 {   //  corpStationMgr.CancelRentOfOffice()
     _log(CORP__CALL, "CorpStationMgrIMBound::Handle_CancelRentOfOffice()");
-    call.Dump(CORP__CALL_DUMP);
 
-    /* this will need to search for items in office hangar.
-     *   if none, then no worries
-     *   if items, move them to 'impounded' (flagImpounded - corp junk)
-     *
-     *  not sure if the items change locations from corp officeID to stationID
-     *   if so, cannot remove officeID from office map, but will need a flag to show it as 'not rented'
-     */
-    return nullptr;
+    Client* pClient = call.client;
+    uint32 corpID = pClient->GetCorporationID();
+    uint32 officeID = pStationItem->GetOfficeID(corpID);
+    if (officeID == 0) {
+        pClient->SendErrorMsg("Your corporation does not have an office in this station.");
+        return PyStatic.NewNone();
+    }
+
+    // Impound office — set lockdown flag, items stay but access is blocked
+    pStationItem->ImpoundOffice(officeID);
+
+    // Send OnOfficeRentalChanged to all guests
+    OnOfficeRentalChanged oorc;
+        oorc.ownerID = corpID;
+        oorc.officeID = officeID;
+        oorc.officeFolderID = 0;  // 0 signals cancellation
+    PyTuple* payload = oorc.Encode();
+    std::vector<Client*> cVec;
+    pStationItem->GetGuestList(cVec);
+    for (auto cur : cVec) {
+        PyIncRef(payload);
+        cur->SendNotification("OnOfficeRentalChanged", "stationid", &payload, false);
+    }
+    PyDecRef(payload);
+
+    _log(CORP__MESSAGE, "CancelRentOfOffice: corp %u cancelled office %u at station %u", corpID, officeID, m_stationID);
+    return PyStatic.NewNone();
 }
 
 PyResult CorpStationMgrIMBound::PayForReturnOfCorpJunk(PyCallArgs &call, PyFloat* cost)

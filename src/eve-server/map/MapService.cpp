@@ -313,12 +313,46 @@ PyResult MapService::GetIncursionGlobalReport(PyCallArgs &call) {
 //   factional warfare shit
 //https://wiki.eveonline.com/en/wiki/Victory_Points_and_Command_Bunker
 PyResult MapService::GetVictoryPoints(PyCallArgs &call)
-{/**           factionID, viewmode, solarsystemid, threshold, current in oldhistory.iteritems():
-                 */
-    sLog.Warning( "MapService::Handle_GetVictoryPoints()", "size=%lu", call.tuple->size());
-    call.Dump(SERVICE__CALL_DUMP);
+{/**
+    Client usage: facWarMap.GetVictoryPoints(factionID, viewmode)
+    Returns dict of solarsystemID → {solarSystemID, factionID, victoryPoints, threshold}
+    where victoryPoints = 24h accumulated VP, threshold = VP needed to flip system
+    */
+    uint32 factionID = 0;
+    uint32 viewMode = 0;
+    if (call.byname.find("factionID") != call.byname.end())
+        factionID = PyRep::IntegerValueU32(call.byname["factionID"]);
+    if (call.byname.find("viewmode") != call.byname.end())
+        viewMode = PyRep::IntegerValueU32(call.byname["viewmode"]);
 
-    return PyStatic.NewNone();
+    DBQueryResult res;
+    // Return current FW system state: occupier holds the system (= highest VP)
+    // VP values are 0 since we don't track real-time VP accumulation yet
+    const char* query = factionID > 0
+        ? "SELECT fws.systemID, fws.factionID, fws.occupierID"
+          " FROM facWarSystems fws"
+          " WHERE fws.factionID = %u OR fws.occupierID = %u"
+        : "SELECT fws.systemID, fws.factionID, fws.occupierID FROM facWarSystems fws";
+
+    if (!sDatabase.RunQuery(res, query, factionID, factionID))
+        return new PyDict();
+
+    PyDict* result = new PyDict();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 sysID    = row.GetUInt(0);
+        uint32 facID    = row.GetUInt(1);
+        uint32 occID    = row.GetUInt(2);
+        uint32 threshold = 5000;
+
+        PyDict* entry = new PyDict();
+        entry->SetItemString("solarSystemID", new PyInt(sysID));
+        entry->SetItemString("factionID", new PyInt(facID));
+        entry->SetItemString("victoryPoints", new PyInt(0));
+        entry->SetItemString("threshold", new PyInt(threshold));
+        result->SetItem(new PyInt(sysID), entry);
+    }
+    return result;
 }
 
 

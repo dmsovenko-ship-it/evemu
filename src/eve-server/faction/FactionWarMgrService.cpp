@@ -485,30 +485,154 @@ PyResult FactionWarMgrService::WithdrawJoinFactionAsCorporation(PyCallArgs &call
 }
 
 PyResult FactionWarMgrService::WithdrawLeaveFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
-    // re-set warFactionID from DB
-    call.client->SendNotifyMsg("Faction warfare leave withdrawn (stub).");
+    // Restore warFactionID from DB for alliance and all member corps/chars
+    uint32 allyID = call.client->GetAllianceID();
+    if (allyID == 0)
+        throw UserError("AllianceRequiredForAction");
+
+    // Get original factionID from any member char still in facWarCharacters
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT factionID FROM facWarCharacters fwc"
+        " JOIN chrCharacters c ON fwc.characterID = c.characterID"
+        " JOIN crpCorporations crp ON c.corporationID = crp.corporationID"
+        " WHERE crp.allianceID = %u LIMIT 1", allyID);
+    DBResultRow row;
+    uint32 restoreFactionID = factionID->value();
+    if (res.GetRow(row))
+        restoreFactionID = row.GetUInt(0);
+
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE alnAlliance SET warFactionID = %u WHERE allianceID = %u", restoreFactionID, allyID);
+    sDatabase.RunQuery(err, "UPDATE crpCorporations SET warFactionID = %u WHERE allianceID = %u", restoreFactionID, allyID);
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = %u WHERE allianceID = %u", restoreFactionID, allyID);
+
+    call.client->SendNotifyMsg("Faction warfare leave withdrawn, warFactionID restored.");
     return PyStatic.NewTrue();
 }
 
 PyResult FactionWarMgrService::WithdrawLeaveFactionAsCorporation(PyCallArgs &call, PyInt* factionID) {
-    call.client->SendNotifyMsg("Faction warfare leave withdrawn (stub).");
+    if (!(call.client->GetCorpRole() & 8192))
+        throw UserError("CrpAccessDenied").AddFormatValue("reason", new PyString("Only directors can withdraw leave."));
+
+    uint32 corpID = call.client->GetCorporationID();
+
+    // Get original factionID from any member still in facWarCharacters
+    DBQueryResult res;
+    sDatabase.RunQuery(res,
+        "SELECT factionID FROM facWarCharacters fwc"
+        " JOIN chrCharacters c ON fwc.characterID = c.characterID"
+        " WHERE c.corporationID = %u LIMIT 1", corpID);
+    DBResultRow row;
+    uint32 restoreFactionID = factionID->value();
+    if (res.GetRow(row))
+        restoreFactionID = row.GetUInt(0);
+
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE crpCorporations SET warFactionID = %u WHERE corporationID = %u", restoreFactionID, corpID);
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = %u WHERE corporationID = %u", restoreFactionID, corpID);
+
+    call.client->SendNotifyMsg("Corporation faction warfare leave withdrawn, warFactionID restored.");
     return PyStatic.NewTrue();
 }
 
 PyResult FactionWarMgrService::GetStats_FactionInfo(PyCallArgs &call) {
-    //return self.facWarMgr.GetStats_FactionInfo()
+    // return dict of factionID → {factionID, pilots, kills, losses, victoryPoints, systemsControlled}
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetStats_FactionInfo()");
-    call.Dump(FACWAR__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT"
+        "  ff.factionID,"
+        "  (SELECT COUNT(*) FROM facWarCharacters WHERE factionID = ff.factionID) AS pilots,"
+        "  COALESCE((SELECT SUM(kills) FROM facWarStats WHERE factionID = ff.factionID), 0) AS kills,"
+        "  COALESCE((SELECT SUM(losses) FROM facWarStats WHERE factionID = ff.factionID), 0) AS losses,"
+        "  COALESCE((SELECT SUM(victoryPoints) FROM facWarStats WHERE factionID = ff.factionID), 0) AS vps,"
+        "  (SELECT COUNT(*) FROM facWarSystems WHERE occupierID = ff.factionID) AS systems"
+        " FROM facFactions ff"
+        " WHERE ff.militiaCorporationID IS NOT NULL"))
+        return new PyDict();
+
+    PyDict* result = new PyDict();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 factionID = row.GetUInt(0);
+        PyDict* info = new PyDict();
+            info->SetItemString("factionID", new PyInt(factionID));
+            info->SetItemString("pilots", new PyInt(row.GetUInt(1)));
+            info->SetItemString("kills", new PyInt(row.GetUInt(2)));
+            info->SetItemString("losses", new PyInt(row.GetUInt(3)));
+            info->SetItemString("victoryPoints", new PyFloat(row.GetDouble(4)));
+            info->SetItemString("systemsControlled", new PyInt(row.GetUInt(5)));
+        result->SetItem(new PyInt(factionID), info);
+    }
+    return result;
 }
 
 PyResult FactionWarMgrService::GetStats_TopAndAllKillsAndVPs(PyCallArgs &call) {
-    //self.topStats = self.facWarMgr.GetStats_TopAndAllKillsAndVPs()
+    // return { topKills: [...], topVPs: [...], totalKills: N, totalVPs: N }
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetStats_TopAndAllKillsAndVPs()");
-    call.Dump(FACWAR__CALL_DUMP);
 
-    return nullptr;
+    // Top 10 by kills
+    DBQueryResult killRes;
+    PyList* topKills = new PyList();
+    if (sDatabase.RunQuery(killRes,
+        "SELECT s.characterID, c.characterName, s.kills"
+        " FROM facWarStats s"
+        " JOIN chrCharacters c ON s.characterID = c.characterID"
+        " ORDER BY s.kills DESC"
+        " LIMIT 10"))
+    {
+        DBResultRow row;
+        while (killRes.GetRow(row)) {
+            PyDict* entry = new PyDict();
+                entry->SetItemString("characterID", new PyInt(row.GetUInt(0)));
+                entry->SetItemString("characterName", new PyString(row.GetText(1)));
+                entry->SetItemString("kills", new PyInt(row.GetUInt(2)));
+            topKills->AddItem(new PyObject("util.KeyVal", entry));
+        }
+    }
+
+    // Top 10 by victory points
+    DBQueryResult vpRes;
+    PyList* topVPs = new PyList();
+    if (sDatabase.RunQuery(vpRes,
+        "SELECT s.characterID, c.characterName, s.victoryPoints"
+        " FROM facWarStats s"
+        " JOIN chrCharacters c ON s.characterID = c.characterID"
+        " ORDER BY s.victoryPoints DESC"
+        " LIMIT 10"))
+    {
+        DBResultRow row;
+        while (vpRes.GetRow(row)) {
+            PyDict* entry = new PyDict();
+                entry->SetItemString("characterID", new PyInt(row.GetUInt(0)));
+                entry->SetItemString("characterName", new PyString(row.GetText(1)));
+                entry->SetItemString("victoryPoints", new PyFloat(row.GetDouble(2)));
+            topVPs->AddItem(new PyObject("util.KeyVal", entry));
+        }
+    }
+
+    // Totals
+    DBQueryResult totalRes;
+    uint32 totalKills = 0;
+    double totalVPs = 0.0;
+    if (sDatabase.RunQuery(totalRes,
+        "SELECT COALESCE(SUM(kills), 0), COALESCE(SUM(victoryPoints), 0) FROM facWarStats"))
+    {
+        DBResultRow row;
+        if (totalRes.GetRow(row)) {
+            totalKills = row.GetUInt(0);
+            totalVPs = row.GetDouble(1);
+        }
+    }
+
+    PyDict* result = new PyDict();
+        result->SetItemString("topKills", topKills);
+        result->SetItemString("topVPs", topVPs);
+        result->SetItemString("totalKills", new PyInt(totalKills));
+        result->SetItemString("totalVPs", new PyFloat(totalVPs));
+    return result;
 }
 
 PyResult FactionWarMgrService::GetStats_Character(PyCallArgs &call) {
@@ -528,42 +652,134 @@ PyResult FactionWarMgrService::GetStats_Character(PyCallArgs &call) {
 }
 
 PyResult FactionWarMgrService::GetStats_Corp(PyCallArgs &call) {
-    // for k, v in self.facWarMgr.GetStats_Corp().items():
+    // return dict of corpID → {corpID, kills, losses, victoryPoints, pilots}
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetStats_Corp()");
-    call.Dump(FACWAR__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT c.corporationID,"
+        "  COALESCE(SUM(s.kills), 0) AS kills,"
+        "  COALESCE(SUM(s.losses), 0) AS losses,"
+        "  COALESCE(SUM(s.victoryPoints), 0) AS vps,"
+        "  COUNT(DISTINCT s.characterID) AS pilots"
+        " FROM facWarStats s"
+        " JOIN chrCharacters c ON s.characterID = c.characterID"
+        " GROUP BY c.corporationID"))
+        return new PyDict();
+
+    PyDict* result = new PyDict();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 corpID = row.GetUInt(0);
+        PyDict* info = new PyDict();
+            info->SetItemString("corporationID", new PyInt(corpID));
+            info->SetItemString("kills", new PyInt(row.GetUInt(1)));
+            info->SetItemString("losses", new PyInt(row.GetUInt(2)));
+            info->SetItemString("victoryPoints", new PyFloat(row.GetDouble(3)));
+            info->SetItemString("pilots", new PyInt(row.GetUInt(4)));
+        result->SetItem(new PyInt(corpID), info);
+    }
+    return result;
 }
 
 PyResult FactionWarMgrService::GetStats_Alliance(PyCallArgs &call) {
-    //for k, v in self.facWarMgr.GetStats_Alliance().items():
+    // return dict of allianceID → {allianceID, kills, losses, victoryPoints, pilots}
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetStats_Alliance()");
-    call.Dump(FACWAR__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT crp.allianceID,"
+        "  COALESCE(SUM(s.kills), 0) AS kills,"
+        "  COALESCE(SUM(s.losses), 0) AS losses,"
+        "  COALESCE(SUM(s.victoryPoints), 0) AS vps,"
+        "  COUNT(DISTINCT s.characterID) AS pilots"
+        " FROM facWarStats s"
+        " JOIN chrCharacters c ON s.characterID = c.characterID"
+        " JOIN crpCorporations crp ON c.corporationID = crp.corporationID"
+        " WHERE crp.allianceID > 0"
+        " GROUP BY crp.allianceID"))
+        return new PyDict();
+
+    PyDict* result = new PyDict();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 allyID = row.GetUInt(0);
+        PyDict* info = new PyDict();
+            info->SetItemString("allianceID", new PyInt(allyID));
+            info->SetItemString("kills", new PyInt(row.GetUInt(1)));
+            info->SetItemString("losses", new PyInt(row.GetUInt(2)));
+            info->SetItemString("victoryPoints", new PyFloat(row.GetDouble(3)));
+            info->SetItemString("pilots", new PyInt(row.GetUInt(4)));
+        result->SetItem(new PyInt(allyID), info);
+    }
+    return result;
 }
 
 PyResult FactionWarMgrService::GetStats_Militia(PyCallArgs &call) {
-    //return self.facWarMgr.GetStats_Militia()
+    // return dict of factionID → faction-level aggregate stats
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetStats_Militia()");
-    call.Dump(FACWAR__CALL_DUMP);
 
-    return nullptr;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT"
+        "  ff.factionID,"
+        "  COALESCE((SELECT SUM(kills) FROM facWarStats WHERE factionID = ff.factionID), 0) AS kills,"
+        "  COALESCE((SELECT SUM(losses) FROM facWarStats WHERE factionID = ff.factionID), 0) AS losses,"
+        "  COALESCE((SELECT SUM(victoryPoints) FROM facWarStats WHERE factionID = ff.factionID), 0) AS vps,"
+        "  (SELECT COUNT(*) FROM facWarCharacters WHERE factionID = ff.factionID) AS pilots,"
+        "  (SELECT COUNT(*) FROM facWarSystems WHERE occupierID = ff.factionID) AS systems"
+        " FROM facFactions ff"
+        " WHERE ff.militiaCorporationID IS NOT NULL"))
+        return new PyDict();
+
+    PyDict* result = new PyDict();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 factionID = row.GetUInt(0);
+        PyDict* info = new PyDict();
+            info->SetItemString("factionID", new PyInt(factionID));
+            info->SetItemString("kills", new PyInt(row.GetUInt(1)));
+            info->SetItemString("losses", new PyInt(row.GetUInt(2)));
+            info->SetItemString("victoryPoints", new PyFloat(row.GetDouble(3)));
+            info->SetItemString("pilots", new PyInt(row.GetUInt(4)));
+            info->SetItemString("systemsControlled", new PyInt(row.GetUInt(5)));
+        result->SetItem(new PyInt(factionID), info);
+    }
+    return result;
 }
 
 PyResult FactionWarMgrService::GetStats_CorpPilots(PyCallArgs &call) {
-    //return self.facWarMgr.GetStats_CorpPilots()
+    // return list of corp pilots in FW: [{characterID, characterName, factionID}]
     _log(FACWAR__CALL, "FacWarMgr::Handle_GetStats_CorpPilots()");
-    call.Dump(FACWAR__CALL_DUMP);
 
-    return nullptr;
+    uint32 corpID = call.client->GetCorporationID();
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT c.characterID, c.characterName, fwc.factionID"
+        " FROM facWarCharacters fwc"
+        " JOIN chrCharacters c ON fwc.characterID = c.characterID"
+        " WHERE c.corporationID = %u", corpID))
+        return new PyList();
+
+    PyList* result = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* entry = new PyDict();
+            entry->SetItemString("characterID", new PyInt(row.GetUInt(0)));
+            entry->SetItemString("characterName", new PyString(row.GetText(1)));
+            entry->SetItemString("factionID", new PyInt(row.GetUInt(2)));
+        result->AddItem(new PyObject("util.KeyVal", entry));
+    }
+    return result;
 }
 
 PyResult FactionWarMgrService::RefreshCorps(PyCallArgs &call) {
-    //return self.facWarMgr.RefreshCorps()
+    // Force-clear GetFactionMilitiaCorporation cache so it reloads from DB
     _log(FACWAR__CALL, "FacWarMgr::Handle_RefreshCorps()");
-    call.Dump(FACWAR__CALL_DUMP);
 
-    return nullptr;
+    ObjectCachedMethodID method_id(GetName().c_str(), "GetWarFactions");
+    this->m_cache->InvalidateCache(method_id);
+
+    return PyStatic.NewNone();
 }
 

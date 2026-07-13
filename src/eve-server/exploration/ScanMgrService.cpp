@@ -196,12 +196,21 @@ PyResult ScanBound::DestroyProbe(PyCallArgs& call, PyInt* probeID) {
 }
 
 PyResult ScanBound::ReconnectToLostProbes(PyCallArgs& call) {
-    // no args
-    //  will have to test against client launcher vs probe m_moduleID
-    // will have to write *something* to loop thru active probes in system for this....
+    // Reconnect to probes that were in space before disconnect/session change.
+    // Resend all probes in the current system to the client.
+    _log(SCAN__TRACE, "ScanBound::ReconnectToLostProbes()");
 
-    //  search inactive probes in system for ownerID, reset variables as per launch, add to all maps, then send client update
-    // will need separate map for probes to use this?  or just loop thru EVERYTHING in system in the off chance we'll find a lost probe?
-    //    i dunno...both kinda suck at this point
+    SystemManager* sysMgr = m_client->SystemMgr();
+    if (sysMgr == nullptr)
+        return nullptr;
+
+    std::map<uint32, SystemEntity*> entities = sysMgr->GetEntities();
+    for (auto& itr : entities) {
+        SystemEntity* pSE = itr.second;
+        if (pSE == nullptr or !pSE->IsProbeSE())
+            continue;
+        pSE->GetProbeSE()->SendNewProbe();
+    }
+
     return nullptr;
 }

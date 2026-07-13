@@ -67,15 +67,17 @@ void ShipDB::DeleteInsuranceByShipID(uint32 shipID) {
 	sDatabase.RunQuery(err, "DELETE FROM shipInsurance WHERE shipID=%u", shipID);
 }
 
-float ShipDB::GetShipInsurancePayout(uint32 shipID) {
+float ShipDB::GetShipInsurancePayout(uint32 shipID, double basePrice) {
     DBQueryResult res;
     DBResultRow row;
     sDatabase.RunQuery(res, "SELECT payOutAmount FROM shipInsurance WHERE shipID = %u", shipID);
     if (res.GetRow(row))
         return row.GetFloat(0);
 
-    /** @todo  send mail to owner about no insurance, so limited payout. from SCC  */
-    return 15000;  //default to flat 15K for no insurance.
+    // No insurance — pay 40% of base price (SCC minimum coverage)
+    if (basePrice > 0.0)
+        return float(basePrice * 0.4);
+    return 15000.0f;
 }
 
 bool ShipDB::IsShipInsured(uint32 shipID)

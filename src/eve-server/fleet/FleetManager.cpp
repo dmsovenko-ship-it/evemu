@@ -24,7 +24,6 @@ FleetManager::FleetManager() :
     this->Add("BroadcastToBubble", &FleetManager::BroadcastToBubble);
     this->Add("BroadcastToSystem", &FleetManager::BroadcastToSystem);
 
-    // stubs
     this->Add("AddToWatchlist", &FleetManager::AddToWatchlist);
     this->Add("RemoveFromWatchlist", &FleetManager::RemoveFromWatchlist);
     this->Add("RegisterForDamageUpdates", &FleetManager::RegisterForDamageUpdates);
@@ -143,9 +142,12 @@ PyResult FleetManager::AddToWatchlist(PyCallArgs &call, PyInt* characterID, PyRe
     /**
      *        sm.RemoteSvc('fleetMgr').AddToWatchlist(charID, fav)
      */
-    sLog.Warning("FleetManager", "Handle_AddToWatchlist() size=%lli", call.tuple->size());
-    call.Dump(FLEET__DUMP);
+    uint32 watcherID = call.client->GetCharacterID();
+    uint32 targetID = characterID->value();
 
+    _log(FLEET__MESSAGE, "FleetMgr::AddToWatchlist() - watcher %u watching %u", watcherID, targetID);
+
+    sFltSvc.AddWatchlistMember(watcherID, targetID);
     return nullptr;
 }
 
@@ -153,25 +155,36 @@ PyResult FleetManager::RemoveFromWatchlist(PyCallArgs &call, PyInt* characterID,
     /**
      *        sm.RemoteSvc('fleetMgr').RemoveFromWatchlist(charID, fav)
      */
-    sLog.Warning("FleetManager", "Handle_RemoveFromWatchlist() size=%lli", call.tuple->size());
-    call.Dump(FLEET__DUMP);
+    uint32 watcherID = call.client->GetCharacterID();
+    uint32 targetID = characterID->value();
 
+    _log(FLEET__MESSAGE, "FleetMgr::RemoveFromWatchlist() - watcher %u unwatching %u", watcherID, targetID);
+
+    sFltSvc.RemoveWatchlistMember(watcherID, targetID);
     return nullptr;
 }
 
 PyResult FleetManager::RegisterForDamageUpdates(PyCallArgs &call, PyRep* fav) {
     /**
-        fav = self.GetWatchlistMembers()
+        fav = self.GetWatchlistMembers()  →  list of characterIDs
         sm.RemoteSvc('fleetMgr').RegisterForDamageUpdates(fav)
-     *
-     *        17:38:00 [SvcCall] Service fleetMgr: calling RegisterForDamageUpdates
-     *        17:38:00 [SvcCall]   Call Arguments:
-     *        17:38:00 [SvcCall]       Tuple: 1 elements
-     *        17:38:00 [SvcCall]         [ 0] List: Empty
      */
-    sLog.Warning("FleetManager", "Handle_RegisterForDamageUpdates() size=%lli", call.tuple->size());
-    call.Dump(FLEET__DUMP);
+    uint32 charID = call.client->GetCharacterID();
 
-    // returns nothing
+    // Clear previous registration for this character
+    sFltSvc.ClearDamageWatcher(charID);
+
+    if (fav->IsList()) {
+        PyList* list = fav->AsList();
+        for (size_t i = 0; i < list->size(); ++i) {
+            PyRep* item = list->GetItem(i);
+            if (item->IsInt()) {
+                uint32 targetID = item->AsInt()->value();
+                sFltSvc.AddDamageWatcher(charID, targetID);
+                _log(FLEET__TRACE, "FleetMgr::RegisterForDamageUpdates() - %u watching %u for damage", charID, targetID);
+            }
+        }
+    }
+
     return nullptr;
 }

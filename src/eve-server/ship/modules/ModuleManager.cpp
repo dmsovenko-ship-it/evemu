@@ -724,6 +724,13 @@ void ModuleManager::Activate(int32 itemID, uint16 effectID, int32 targetID, int3
         throw UserError ("DeniedActivateInJump");
     }
 
+    // Covert Ops cloak (warp-safe): require ship to be stationary
+    if (effectID == EVEEffectID::cloakingWarpSafe
+        and pDestiny->GetSpeed() > 1.0f) {
+        pShipItem->GetPilot()->SendErrorMsg("You must be stationary to activate a covert ops cloaking device.");
+        return;
+    }
+
     // Cloaking device activation: handle directly to bypass ActiveModule issues
     if (effectID == EVEEffectID::cloakingWarpSafe
         and pMod->groupID() == EVEDB::invGroups::Cloaking_Device) {

@@ -26,6 +26,7 @@
 
 #include "eve-server.h"
 
+#include "EVE_Corp.h"
 #include "EVE_Mail.h"
 #include "marshal/EVEMarshal.h"
 
@@ -54,7 +55,6 @@
 #include "system/cosmicMgrs/WormholeMgr.h"
 #include "system/cosmicMgrs/ManagerDB.h"
 #include "corporation/CorporationDB.h"
-#include "EVE_Corp.h"
 #include "alliance/AllianceDB.h"
 
 EntityList::EntityList()
@@ -199,6 +199,141 @@ void EntityList::RemovePlayer(Client* pClient)
         }
 }
 
+
+void ProcessInsuranceExpiry()
+{
+    // Find expired insurance policies
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT shipID, shipName, ownerID FROM shipInsurance WHERE endDate < %.0f",
+        (double)GetFileTimeNow()))
+        return;
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 shipID  = row.GetUInt(0);
+        std::string shipName = row.GetText(1);
+        uint32 ownerID = row.GetUInt(2);
+
+        // Send InsuranceExpiration notification
+        PyDict* data = new PyDict();
+        data->SetItemString("shipID", new PyInt(shipID));
+        data->SetItemString("shipName", new PyString(shipName));
+        sEntityList.CreateNotification(ownerID, Notify::Types::InsuranceExpiration, corpSCC, data);
+
+        _log(CORP__MESSAGE, "InsuranceExpiry: policy for %s (ship %u) expired — owner %u notified", shipName.c_str(), shipID, ownerID);
+
+        // Delete expired policy
+        DBerror err;
+        sDatabase.RunQuery(err, "DELETE FROM shipInsurance WHERE shipID = %u", shipID);
+    }
+}
+
+void ProcessAutoPay()
+{
+    // Retry cooldown: track last BillOutOfMoney notification per billID
+    static std::map<uint32, double> s_billNotifyTimes;
+
+    // Auto-pay bills for corporations with auto-pay enabled
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT billID, debtorID, creditorID, billTypeID, amount, externalID, externalID2 "
+        "FROM billsPayable WHERE paid = 0 AND dueDateTime < %.0f",
+        (double)GetFileTimeNow()))
+        return;
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 billID     = row.GetUInt(0);
+        uint32 debtorID   = row.GetUInt(1);
+        uint32 creditorID = row.GetUInt(2);
+        uint32 billType   = row.GetUInt(3);
+        double amount     = row.GetDouble(4);
+        uint32 extID      = row.GetUInt(5);
+        uint32 extID2     = row.GetUInt(6);
+
+        // Skip war bills — handled by ProcessWarBills()
+        if (billType == Corp::BillType::WarBill)
+            continue;
+
+        // Only corp debtors have auto-pay settings
+        DBQueryResult autoRes;
+        if (!sDatabase.RunQuery(autoRes,
+            "SELECT market, rental, broker, war, alliance, sov "
+            "FROM crpAutoPay WHERE corporationID = %u", debtorID))
+            continue;
+
+        DBResultRow autoRow;
+        if (!autoRes.GetRow(autoRow))
+            continue;
+
+        bool autoPay = false;
+        switch (billType) {
+            case Corp::BillType::MarketFine:              autoPay = autoRow.GetBool(0); break;
+            case Corp::BillType::RentalBill:              autoPay = autoRow.GetBool(1); break;
+            case Corp::BillType::BrokerBill:              autoPay = autoRow.GetBool(2); break;
+            case Corp::BillType::AllianceMaintainanceBill: autoPay = autoRow.GetBool(4); break;
+            case Corp::BillType::SovereigntyMarker:        autoPay = autoRow.GetBool(5); break;
+        }
+        if (!autoPay)
+            continue;
+
+        // Check corp wallet balance
+        uint16 accountKey = Account::KeyType::Cash;
+        double balance = AccountDB::GetCorpBalance(debtorID, accountKey);
+        if (balance < amount) {
+            // Retry cooldown — notify at most once per hour per bill
+            double now = GetFileTimeNow();
+            auto it = s_billNotifyTimes.find(billID);
+            if (it != s_billNotifyTimes.end() and (now - it->second) < EvE::Time::Hour) {
+                _log(CORP__MESSAGE, "AutoPay: corp %u still short for bill %u (%.2f ISK, balance %.2f) — skipped notify",
+                    debtorID, billID, amount, balance);
+                continue;
+            }
+            s_billNotifyTimes[billID] = now;
+
+            _log(CORP__MESSAGE, "AutoPay: corp %u insufficient funds for bill %u (%.2f ISK)", debtorID, billID, amount);
+
+            // Notify debtor corp about insufficient funds
+            PyDict* data = new PyDict();
+            data->SetItemString("billID", new PyInt(billID));
+            data->SetItemString("debtorID", new PyInt(debtorID));
+            data->SetItemString("creditorID", new PyInt(creditorID));
+            data->SetItemString("billTypeID", new PyInt(billType));
+            data->SetItemString("amount", new PyFloat(amount));
+            data->SetItemString("externalID", new PyInt(extID));
+            data->SetItemString("externalID2", new PyInt(extID2));
+            sEntityList.CreateNotification(debtorID, Notify::Types::BillOutOfMoney, 0, data);
+            continue;
+        }
+
+        // Transfer funds
+        AccountService::TransferFunds(
+            debtorID, creditorID, amount,
+            "Auto-payment of bill", billType, billID,
+            accountKey, Account::KeyType::Cash, nullptr);
+
+        // Mark bill as paid
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE billsPayable SET paid = 1 WHERE billID = %u", billID);
+
+        _log(CORP__MESSAGE, "AutoPay: corp %u auto-paid bill %u (type %u) for %.2f ISK", debtorID, billID, billType, amount);
+
+        // Clear cooldown entry on successful payment (if any)
+        s_billNotifyTimes.erase(billID);
+
+        // Notify creditor
+        PyDict* data = new PyDict();
+        data->SetItemString("billID", new PyInt(billID));
+        data->SetItemString("debtorID", new PyInt(debtorID));
+        data->SetItemString("creditorID", new PyInt(creditorID));
+        data->SetItemString("billTypeID", new PyInt(billType));
+        data->SetItemString("amount", new PyFloat(amount));
+        data->SetItemString("externalID", new PyInt(extID));
+        data->SetItemString("externalID2", new PyInt(extID2));
+        sEntityList.CreateNotification(creditorID, Notify::Types::BillPaidCorpAll, debtorID, data);
+    }
+}
 
 void CheckWarDecay()
 {
@@ -453,6 +588,8 @@ void EntityList::Process() {
             ++m_minutes;
             sMissionDataMgr.Process();  // 1m
             sIncursionMgr.Process();    // 1m
+            ProcessAutoPay();
+            ProcessInsuranceExpiry();
             CheckWarDecay();
             ProcessWarBills();
             CheckExpiredAuctions();

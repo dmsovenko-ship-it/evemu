@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
-> **Our fork: `████████████████████` 97%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-14 (build 6 — S&I + subsystems cleanup)
+> **Our fork: `████████████████████` 98%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
+> Last updated: 2026-07-14 (build 7 — FW GetStats + Auto-bills)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -35,10 +35,10 @@
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 92% | `██████████████████` | +17% |
 | NPC AI & Spawning | 86% | `█████████████████░` | +26% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
-| **Incursions** | 85% | `█████████████████░` | +85% | Fleet | 98% | `██████████████████` | +23% |
+| **Incursions** | 85% | `█████████████████░` | +85% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
 | **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 92% | `██████████████████` | +32% |
-| **Faction Warfare** | 93% | `███████████████████` | +43% | Calendar | 93% | `███████████████████` | +33% |
+ | **Faction Warfare** | 98% | `████████████████████` | +48% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
 | **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 74% | `████████████████░░` | +29% |
@@ -300,7 +300,7 @@
 
 ---
 
-### 16. Fleet `██████████████████` 98%
+### 16. Fleet `████████████████████` 100%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
@@ -308,6 +308,8 @@
 | Fleet warp, regroup | ✅ | ✅ |
 | Fleet boosts (specialist skills, gang coordinator) | 🟡 | ✅ |
 | Broadcasts, watch list, fleet chat | ✅ | ✅ |
+| **Watchlist** — AddToWatchlist, RemoveFromWatchlist, RegisterForDamageUpdates | ❌ | ✅ |
+| **Voice chat methods** — AddToVoiceChat, SetVoiceMuteStatus, ExcludeFromVoiceMute | ❌ | ✅ |
 
 ---
 
@@ -418,7 +420,14 @@
 | Join/Leave as corp/alliance | 🟡 | ✅ |
 | IsEnemyFaction / IsEnemyCorporation | 🟡 | ✅ |
 | GetFactionalWarStatus (with status field) | ❌ | ✅ |
-| FW stats (kills, losses, VP) | 🟡 | ✅ |
+| FW stats — Character (kills, losses, VP) | 🟡 | ✅ |
+| **FW stats — Corp** — агрегация по корпорациям | ❌ | ✅ |
+| **FW stats — Alliance** — агрегация по альянсам | ❌ | ✅ |
+| **FW stats — Militia** — агрегация по фракциям | ❌ | ✅ |
+| **FW stats — FactionInfo** — пилоты/киллы/VP/системы по фракциям | ❌ | ✅ |
+| **FW stats — TopAndAllKillsAndVPs** — топ-10 киллеров + VPs | ❌ | ✅ |
+| **FW stats — CorpPilots** — пилоты корпорации в FW | ❌ | ✅ |
+| **RefreshCorps** — инвалидация кэша милиции | ❌ | ✅ |
 | Notifications (FWCorpJoin, FWCorpLeave) | ❌ | ✅ |
 | **FW plex spawning** (every 5m) | ❌ | ✅ |
 | **FW plex types** (Scout/Small/Medium/Large with NPC defenders) | ❌ | ✅ |

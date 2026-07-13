@@ -112,6 +112,12 @@ public:
     void GetFleetClientsInSystem(Client* pClient, std::vector<Client*>& data);
     std::vector<Client *> GetFleetClients(uint32 fleetID);
 
+    // Watchlist support
+    void AddWatchlistMember(uint32 watcherID, uint32 targetID);
+    void RemoveWatchlistMember(uint32 watcherID, uint32 targetID);
+    void ClearDamageWatcher(uint32 charID);
+    void AddDamageWatcher(uint32 charID, uint32 targetID);
+
 public:
     void RemoveMember(Client* pClient);
 
@@ -142,6 +148,11 @@ private:
     std::multimap<uint32, Client*>      m_fleetMembers;     // fleetID/Client*
     std::multimap<uint32, uint32>       m_fleetWings;       // fleetID/wingIDs
     std::multimap<uint32, uint32>       m_wingSquads;       // wingID/squadIDs
+
+    // Watchlist: watcherID → set of watched characterIDs
+    std::map<uint32, std::set<uint32>>  m_watchlist;
+    // Damage updates: watcherID → set of watched characterIDs (for RegisterForDamageUpdates)
+    std::map<uint32, std::set<uint32>>  m_damageWatchers;
 };
 
 //Singleton

@@ -2025,3 +2025,24 @@ std::string FleetService::GetBoosterData(uint32 fleetID, uint16& length)
 
     return str.str();
 }
+
+void FleetService::AddWatchlistMember(uint32 watcherID, uint32 targetID) {
+    m_watchlist[watcherID].insert(targetID);
+}
+
+void FleetService::RemoveWatchlistMember(uint32 watcherID, uint32 targetID) {
+    auto it = m_watchlist.find(watcherID);
+    if (it != m_watchlist.end()) {
+        it->second.erase(targetID);
+        if (it->second.empty())
+            m_watchlist.erase(it);
+    }
+}
+
+void FleetService::ClearDamageWatcher(uint32 charID) {
+    m_damageWatchers.erase(charID);
+}
+
+void FleetService::AddDamageWatcher(uint32 charID, uint32 targetID) {
+    m_damageWatchers[charID].insert(targetID);
+}
