@@ -520,8 +520,8 @@
 1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)
 
 ## 🟡 Средний приоритет (крупные фичи)
-1. **Jump drives / Capital ships** — cyno, portal, bridge работают. Добавлены IsCovert, blops bridge restriction
-2. **Full NPC AI** — web, ECM, target paint добавлены в NPCAIMgr (читает атрибуты сущностей)
+1. **Jump drives / Capital ships** — capacitor drain при прыжке, IsCovert, blops bridge restriction
+2. **Full NPC AI** — web, ECM, target paint, smartbomb, Fleeing, Signaling→reinforcements, CONCORD AI включён
 3. **S&I — Manufacturing** — материал мультипликатор работает через Calculate(), GetAdjustedRamRequiredMaterials — мёртвая функция
 4. **Full LP store** — LPService + storeServer (AcceptOffer, GetAvailableOffers) реализованы
 5. **FW plex capture** — NPC защитники от system occupier, размерные ограничения, contested (пауза таймера)

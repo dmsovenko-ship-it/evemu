@@ -1791,7 +1791,8 @@ void Client::CynoJump(InventoryItemRef beacon) {
         float capNeed = jumpShip->GetAttribute(AttrJumpDriveCapacitorNeed).get_float();
         if (capNeed > 0.0f) {
             float capCapacity = jumpShip->GetAttribute(AttrCapacitorCapacity).get_float();
-            jumpShip->SetAttribute(AttrCapacitorCharge, std::max(0.0f, GetShipCapacitorLevel() - capCapacity * capNeed));
+            float currentCap = jumpShip->GetAttribute(AttrCapacitorCharge).get_float();
+            jumpShip->SetAttribute(AttrCapacitorCharge, std::max(0.0f, currentCap - capCapacity * capNeed));
         }
     }
 
