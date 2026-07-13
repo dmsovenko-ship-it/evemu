@@ -1,7 +1,7 @@
--- Clean up Takmahl Data Registry (typeID 23193) that were spawned as acceleration gates
--- before the typeID fix in 20260711000003-fix_acceleration_gate_typeid.sql
+-- Replace Takmahl Data Registry (typeID 23193) with LCS Acceleration Gate (2902)
+-- in existing dungeon-spawned entities (pre-fix leftovers)
 -- +migrate Up
-DELETE FROM entity WHERE typeID = 23193 AND customInfo LIKE '%livedungeon%';
+UPDATE entity SET typeID = 2902 WHERE typeID = 23193 AND customInfo LIKE '%livedungeon%';
 
 -- +migrate Down
--- (cannot restore deleted items)
+UPDATE entity SET typeID = 23193 WHERE typeID = 2902 AND customInfo LIKE '%livedungeon%';
