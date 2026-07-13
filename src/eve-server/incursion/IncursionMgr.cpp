@@ -417,11 +417,15 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
             continue;
 
         if (dMgr->MakeDungeon(sig, dungeonID)) {
-            // Register with AnomalyMgr so it appears on scanner
+            // Register with AnomalyMgr using pre-built signature (bypasses AddSignal's Celestial filter)
             AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
-            SystemEntity* siteSE = (anomMgr != nullptr) ? sMgr->GetSE(sig.sigItemID) : nullptr;
-            if (siteSE != nullptr)
-                anomMgr->AddSignal(siteSE);
+            if (anomMgr != nullptr) {
+                sig.sigName = "Incursion Site";
+                sig.sigStrength = 1.0f;
+                sig.scanGroupID = Scanning::Group::Anomaly;
+                sig.dungeonType = Dungeon::Type::Anomaly;
+                anomMgr->AddSignalBySignature(sig);
+            }
 
             m_activeSystems.insert(solarSystemID);
             sLog.Warning("IncursionMgr", "Spawned incursion site dungeonID=%u in system %u (sceneType=%u)",

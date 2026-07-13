@@ -643,6 +643,20 @@ void AnomalyMgr::AddSignal(SystemEntity* pSE, uint32 id/*0*/)
     }
 }
 
+void AnomalyMgr::AddSignalBySignature(const CosmicSignature& sig)
+{
+    // Register a pre-built signature directly, bypassing the Entity-based AddSignal
+    // Used by incursion sites and other non-entity signatures
+    m_sigBySigID.emplace(sig.sigID, sig);
+    if (sig.scanGroupID == Scanning::Group::Anomaly) {
+        m_anomByItemID.emplace(sig.sigItemID, sig);
+        ++m_Anoms;
+    } else {
+        m_sigByItemID.emplace(sig.sigItemID, sig);
+        ++m_Sigs;
+    }
+}
+
 void AnomalyMgr::RemoveSignal(uint32 itemID)
 {
     _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::RemoveSignal() - removing %u from anomaly list.", itemID);
