@@ -882,11 +882,15 @@ PyResult CorpRegistryBound::CreateRecruitmentAd(PyCallArgs &call, PyInt* days, P
         "Advert Fee", Journal::EntryType::CorporationAdvertisementFee,
         call.client->GetCharacterID());
 
+    // Default channel to Recruitment (20) if none specified
+    uint32 chanID = channelID->value();
+    if (chanID == 0) chanID = 20;
+
     std::string descStr = PyRep::StringContent(description);
     std::string titleStr = PyRep::StringContent(title);
     int32 adID = m_db.CreateAdvert(call.client, m_corpID, typeMask->value(),
         days->value(), m_db.GetCorpMemberCount(m_corpID),
-        descStr, channelID->value(), titleStr);
+        descStr, chanID, titleStr);
 
     if (adID == 0) {
         _log(CORP__ERROR, "CreateRecruitmentAd: failed to create ad");
