@@ -32,7 +32,7 @@
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
 | Ship Navigation | 82% | `█████████████████░` | +12% | Combat | 99% | `███████████████████` | +9% |
-| Modules & Overheating | 96% | `██████████████████` | +11% | Drones | 92% | `██████████████████` | +17% |
+| Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 92% | `██████████████████` | +17% |
 | NPC AI & Spawning | 86% | `█████████████████░` | +26% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
 | **Incursions** | 85% | `█████████████████░` | +85% | Fleet | 98% | `██████████████████` | +23% |
@@ -275,12 +275,12 @@
 
 ---
 
-### 14. Overheating `██████████████████` 95%
+### 14. Overheating `███████████████████` 97%
 
 | Feature | Upstream | Our Fork |
 |---------|:--------:|:--------:|
 | Module overload/deoverload | 🟡 | ✅ |
-| Ship heat generation/dissipation | ❌ | 🟡 |
+| Ship heat generation/dissipation | ❌ | ✅ |
 | HeatDamageCheck — slot-based damage spread | ❌ | ✅ |
 | Thermodynamics skill check | ❌ | ✅ |
 | Nanite Paste repair | ❌ | ✅ |
