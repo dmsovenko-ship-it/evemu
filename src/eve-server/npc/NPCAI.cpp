@@ -839,8 +839,13 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
         if (dist <= m_webRange) {
             if (!m_webifierTimer.Enabled() or m_webifierTimer.Check()) {
                 if (MakeRandomFloat() > m_webChance) {
-                    if (pSE->DestinyMgr() != nullptr)
-                        pSE->DestinyMgr()->WebbedMe(m_webStrength, m_attackSpeed);
+                    if (pSE->DestinyMgr() != nullptr and m_self->HasAttribute(AttrSpeedFactor)) {
+                        float origFactor = m_self->GetAttribute(AttrSpeedFactor).get_float();
+                        // Set web strength (-60% by default) via SpeedFactor attribute
+                        m_self->SetAttribute(AttrSpeedFactor, m_webStrength * -100.0f, false);
+                        pSE->DestinyMgr()->WebbedMe(m_self, true);
+                        m_self->SetAttribute(AttrSpeedFactor, origFactor, false);
+                    }
                     m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
                                                  pSE->GetID(), 0, "effects.ModifyTargetSpeed",
                                                  1, 1, 1, m_attackSpeed, 0, 0);
@@ -877,8 +882,9 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
                     float jamChance = (targetSensorStrength > 0) ? m_ecmStrength / targetSensorStrength : 0.5f;
                     jamChance = std::min(jamChance, 0.95f);
                     if (MakeRandomFloat() < jamChance) {
-                        if (m_npc->TargetMgr() != nullptr)
-                            m_npc->TargetMgr()->ClearTarget(pSE);
+                        // Break target's lock on this NPC
+                        if (pSE->TargetMgr() != nullptr)
+                            pSE->TargetMgr()->ClearTarget(m_npc);
                         m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
                                                      pSE->GetID(), 0, "effects.ElectronicAttributeModifyTarget",
                                                      1, 1, 1, m_ecmDuration, 0, 0);
