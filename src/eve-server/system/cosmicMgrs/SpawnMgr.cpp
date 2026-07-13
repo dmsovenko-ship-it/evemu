@@ -23,6 +23,8 @@
 #include "EVE_Corp.h"
 #include "account/AccountService.h"
 #include "corporation/LPService.h"
+#include "ship/Ship.h"
+#include <algorithm>
 
 /** @todo  this can be updated to spawn mission, anomaly and deadspace rats.
  *   change all *roidRat* to *somethingelse* to better explain/describe the maps and how they're used.
@@ -340,12 +342,33 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                     double totalISK = rewRow.GetDouble(0);
                     uint32 totalLP = rewRow.GetUInt(1);
                     auto& bubbleDamage = sIncursionMgr.GetBubbleDamage(pBubble->GetID());
+
+                    // Build sorted damage vector for top-N and share calculation
+                    std::vector<std::pair<uint32, double>> sorted;
                     double totalDamage = 0.0;
-                    for (auto& [charID, dmg] : bubbleDamage)
+                    for (auto& [charID, dmg] : bubbleDamage) {
+                        sorted.push_back({charID, dmg});
                         totalDamage += dmg;
-                    if (totalDamage > 0.0 && !bubbleDamage.empty()) {
-                        for (auto& [charID, dmg] : bubbleDamage) {
-                            double share = dmg / totalDamage;
+                    }
+                    // Sort by damage descending
+                    std::sort(sorted.begin(), sorted.end(),
+                        [](auto& a, auto& b) { return a.second > b.second; });
+
+                    // Staging: only top 5 get rewards
+                    uint32 maxRecipients = static_cast<uint32>(sorted.size());
+                    if (sceneType == Incursion::scenesType::staging && maxRecipients > 5)
+                        maxRecipients = 5;
+
+                    // Only count top N for total damage (rest get nothing)
+                    double eligibleDamage = 0.0;
+                    for (uint32 i = 0; i < maxRecipients && i < sorted.size(); ++i)
+                        eligibleDamage += sorted[i].second;
+
+                    if (eligibleDamage > 0.0 && !sorted.empty()) {
+                        for (uint32 i = 0; i < maxRecipients && i < sorted.size(); ++i) {
+                            uint32 charID = sorted[i].first;
+                            double damage = sorted[i].second;
+                            double share = damage / eligibleDamage;
                             Client* client = sEntityList.FindClientByCharID(charID);
                             if (client == nullptr) continue;
                             uint32 iskShare = static_cast<uint32>(totalISK * share);
@@ -361,6 +384,54 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                         }
                     }
                     sIncursionMgr.ClearDamageData(pBubble->GetID());
+                }
+            }
+
+            // Mothership loot: True Sansha modules + ship BPCs
+            DBQueryResult bossCheck;
+            if (sDatabase.RunQuery(bossCheck,
+                "SELECT hasBoss FROM incursions WHERE incursionID = %u", incursionID))
+            {
+                DBResultRow bossRow;
+                if (bossCheck.GetRow(bossRow) && bossRow.GetUInt(0) >= 1) {
+                    // Top damage dealer gets mothership loot
+                    auto& bd = sIncursionMgr.GetBubbleDamage(pBubble->GetID());
+                    uint32 topDamager = 0;
+                    double topDamage = 0;
+                    for (auto& [cid, dmg] : bd) {
+                        if (dmg > topDamage) { topDamage = dmg; topDamager = cid; }
+                    }
+                    if (topDamager > 0) {
+                        Client* topClient = sEntityList.FindClientByCharID(topDamager);
+                        if (topClient != nullptr && topClient->GetShipSE() != nullptr) {
+                            ShipItemRef ship = topClient->GetShip();
+                            if (ship.get() != nullptr) {
+                                // True Sansha faction modules (1-3)
+                                static const uint32 tsModules[] = {13803, 13811, 13807, 13799, 13793, 13801};
+                                uint32 modCount = 1 + MakeRandomInt(0, 2);
+                                for (uint32 m = 0; m < modCount; ++m) {
+                                    uint32 modType = tsModules[MakeRandomInt(0, 5)];
+                                    ItemData modData(modType, 1, ship->itemID(), flagCargoHold);
+                                    InventoryItemRef modRef = sItemFactory.SpawnItem(modData);
+                                    if (modRef.get() != nullptr)
+                                        ship->GetMyInventory()->AddItem(modRef);
+                                }
+                                // Ship BPC: Shadow, Succubus, Phantasm, Nightmare (or Revenant in lowsec)
+                                static const uint32 shipBPCsHS[] = {17925, 17719, 17716};  // Succubus, Phantasm, Gila
+                                static const uint32 shipBPCsLS[] = {17925, 17719, 17926, 17722}; // + Nightmare-like
+                                const uint32* bpcPool = shipBPCsHS;
+                                uint32 bpcCount = 3;
+                                if (m_system->GetSystemSecurityRating() < 0.5f) {
+                                    bpcPool = shipBPCsLS;
+                                    bpcCount = 4;
+                                }
+                                ItemData bpcData(bpcPool[MakeRandomInt(0, bpcCount - 1)], 1, ship->itemID(), flagCargoHold);
+                                InventoryItemRef bpcRef = sItemFactory.SpawnItem(bpcData);
+                                if (bpcRef.get() != nullptr)
+                                    ship->GetMyInventory()->AddItem(bpcRef);
+                            }
+                        }
+                    }
                 }
             }
         }

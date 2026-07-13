@@ -391,7 +391,7 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
             case Incursion::scenesType::vanguard:      dungeonID = 2100 + MakeRandomInt(0, 3); break;
             case Incursion::scenesType::assault:        dungeonID = 2110 + MakeRandomInt(0, 2); break;
             case Incursion::scenesType::headquarters:   dungeonID = 2120 + MakeRandomInt(0, 2); break;
-            case Incursion::scenesType::staging:        dungeonID = 2100 + MakeRandomInt(0, 3); break;
+            case Incursion::scenesType::staging:        dungeonID = 2130 + MakeRandomInt(0, 3); break;
             default: continue;
         }
 
