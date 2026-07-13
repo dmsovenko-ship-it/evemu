@@ -30,6 +30,7 @@
 
 #include "cache/ObjCacheService.h"
 #include "corporation/CorpRegistryService.h"
+#include "alliance/AllianceDB.h"
 #include "corporation/CorpRegistryBound.h"
 
 /*
@@ -124,7 +125,54 @@ PyResult CorpRegistryService::CreateAlliance(PyCallArgs &call, PyRep* allianceNa
     _log(CORP__CALL, "CorpRegistryService::Handle_CreateAlliance()");
     call.Dump(CORP__CALL_DUMP);
 
-    return nullptr;
+    Client* pClient = call.client;
+    if (pClient == nullptr) return PyStatic.NewNone();
+
+    // Basic validation
+    std::string nameStr = allianceName->AsString()->content();
+    std::string shortStr = shortName->AsString()->content();
+
+    if (nameStr.empty() || shortStr.empty()) {
+        pClient->SendNotifyMsg("Alliance name and short name are required.");
+        return PyStatic.NewNone();
+    }
+
+    // Check corp CEO status and wallet
+    uint32 corpID = pClient->GetCorporationID();
+    uint32 charID = pClient->GetCharacterID();
+
+    DBQueryResult ceoRes;
+    if (sDatabase.RunQuery(ceoRes,
+        "SELECT ceoID, corporationID FROM crpCorporations WHERE corporationID = %u AND ceoID = %u",
+        corpID, charID))
+    {
+        if (ceoRes.GetRowCount() == 0) {
+            pClient->SendNotifyMsg("Only the CEO can create an alliance.");
+            return new PyInt(-1);
+        }
+    }
+
+    // Check wallet balance (alliance creation costs 1M ISK in EVE: sovereignty update cost)
+    if (!pClient->AddBalance(-1000000.0)) {
+        pClient->SendNotifyMsg("Insufficient ISK. Alliance creation costs 1,000,000 ISK.");
+        return new PyInt(-1);
+    }
+
+    AllianceDB a_db;
+    uint32 allyID = 0;
+    uint32 outCorpID = corpID;
+    if (!a_db.CreateAlliance(nameStr, shortStr,
+        description ? description->AsString()->content() : "",
+        url ? url->AsString()->content() : "",
+        pClient, allyID, outCorpID))
+    {
+        pClient->AddBalance(1000000.0);
+        pClient->SendNotifyMsg("Failed to create alliance. Name may already be taken.");
+        return new PyInt(-1);
+    }
+
+    pClient->SendNotifyMsg("Alliance %s created successfully.", nameStr.c_str());
+    return new PyInt(allyID);
 }
 
 PyResult CorpRegistryService::GetRecentKillsAndLosses(PyCallArgs &call) {

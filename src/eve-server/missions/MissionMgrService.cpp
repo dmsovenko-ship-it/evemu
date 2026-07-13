@@ -44,11 +44,13 @@ PyResult MissionMgrService::GetMyCourierMissions(PyCallArgs& call)
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT o.offerID, o.typeID, o.name, o.expiryTime, o.rewardISK, o.rewardLP, "
-        "  o.originSystemID, o.destinationSystemID, o.courierAmount, o.courierTypeID, "
+        "  o.originSystemID, o.destinationSystemID, "
+        "  CASE WHEN o.courierAmount > 0 THEN o.courierAmount ELSE 1 END as courierAmount, "
+        "  CASE WHEN o.courierTypeID > 0 THEN o.courierTypeID ELSE 23 END as courierTypeID, "
         "  o.courierVolume, o.stateID, o.agentID "
         "FROM agtOffers o "
         "WHERE o.characterID = %u AND o.stateID < 2 AND o.typeID = 3",
-        charID))  // typeID=3 = Courier
+        charID))
     {
         return new PyList();
     }

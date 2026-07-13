@@ -1284,31 +1284,47 @@ PyResult CorpRegistryBound::PayoutDividend(PyCallArgs &call, PyBool* paySharehol
     _log(CORP__CALL, "CorpRegistryBound::Handle_PayoutDividend()");
     call.Dump(CORP__CALL_DUMP);
 
-    /** @todo finish this... */
-
-    // get list of ids to pay.  this includes corp shareholders if paying to shares
+    // get list of ids to pay
     std::vector<uint32> toIDs;
+    DBQueryResult shrRes;
     if (payShareholders->value()) {
-        // not used yet
+        // Pay shareholders: query crpShares
+        if (sDatabase.RunQuery(shrRes,
+            "SELECT DISTINCT ownerID FROM crpShares WHERE corporationID = %u AND ownerID > 0", m_corpID))
+        {
+            DBResultRow shrRow;
+            while (shrRes.GetRow(shrRow))
+                toIDs.push_back(shrRow.GetUInt(0));
+        }
     } else {
-        // not used yet
+        // Pay all members: query chrCharacters
+        if (sDatabase.RunQuery(shrRes,
+            "SELECT characterID FROM chrCharacters WHERE corporationID = %u", m_corpID))
+        {
+            DBResultRow shrRow;
+            while (shrRes.GetRow(shrRow))
+                toIDs.push_back(shrRow.GetUInt(0));
+        }
     }
 
-    // get total amount and divide by # of ids to pay
-    float amount = payoutAmount->value() / toIDs.size();
+    if (toIDs.empty()) {
+        call.client->SendNotifyMsg("No recipients for dividend payment.");
+        return PyStatic.NewNone();
+    }
+
+    double amount = payoutAmount->value() / toIDs.size();
     if (amount < 0.01) {
-        return nullptr;  //make error here?
+        call.client->SendNotifyMsg("Dividend amount too small (minimum 0.01 ISK per recipient).");
+        return PyStatic.NewNone();
     }
 
-    // pay each id and record xfer
-    std::string reason = "Dividend Payment from ";
-    reason += ""; //corp name here
-
+    std::string reason = "Dividend Payment";
     for (auto cur : toIDs) {
         AccountService::TransferFunds(m_corpID, cur, amount, reason.c_str(), Journal::EntryType::CorporationDividendPayment, call.client->GetCharacterID());
     }
 
-    return nullptr;
+    call.client->SendNotifyMsg("Dividend of %.2f ISK paid to %u recipients.", payoutAmount->value(), toIDs.size());
+    return PyStatic.NewNone();
 }
 
 PyResult CorpRegistryBound::UpdateMember(PyCallArgs &call,
@@ -2601,14 +2617,33 @@ PyResult CorpRegistryBound::GetNumberOfPotentialCEOs(PyCallArgs &call) {
 }
 
 PyResult CorpRegistryBound::CanLeaveCurrentCorporation(PyCallArgs &call) {
-    //  canLeave, error, errorDetails = corpSvc.CanLeaveCurrentCorporation()
-    // error:  CrpCantQuitNotInStasis  and canLeave=false for member that has roles
+    // Client expects: canLeave (bool), error (str/None), errorDetails (str/None)
+    uint32 charID = call.client->GetCharacterID();
+
+    // Check if character has roles that prevent leaving
+    DBQueryResult roleRes;
+    if (sDatabase.RunQuery(roleRes,
+        "SELECT roles FROM chrCharacters WHERE characterID = %u AND corporationID = %u", charID, m_corpID))
+    {
+        DBResultRow roleRow;
+        if (roleRes.GetRow(roleRow)) {
+            uint64 roles = roleRow.GetUInt64(0);
+            // Director role (bit 1) or any role beyond basic membership means can't leave directly
+            if (roles > 0 && (roles & 0x1) == 0) {
+                // Has roles but not director — can't leave immediately
+                PyTuple* tuple = new PyTuple(3);
+                tuple->SetItem(0, PyStatic.NewFalse());
+                tuple->SetItem(1, new PyString("CrpCantQuitNotInStasis"));
+                tuple->SetItem(2, PyStatic.NewNone());
+                return tuple;
+            }
+        }
+    }
 
     PyTuple* tuple = new PyTuple(3);
-        tuple->SetItem(0, PyStatic.NewTrue());  //canLeave - set this to timer or w/e to deter corp jumpers
+        tuple->SetItem(0, PyStatic.NewTrue());
         tuple->SetItem(1, PyStatic.NewNone());
         tuple->SetItem(2, PyStatic.NewNone());
-
     return tuple;
 }
 
