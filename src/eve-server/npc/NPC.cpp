@@ -235,27 +235,25 @@ bool NPC::IsConvoyUnderAttack() const
 
 PyDict* NPC::MakeSlimItem()
 {
-    _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u) typeID=%u cat=%u warFaction=%u", m_self->itemName(), m_self->itemID(), m_self->typeID(), m_self->categoryID(), m_warID);
+    uint16 gID = m_self->groupID();
+    _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u) typeID=%u cat=%u warFaction=%u group=%u", m_self->itemName(), m_self->itemID(), m_self->typeID(), m_self->categoryID(), m_warID, gID);
     PyDict* slim = DynamicSystemEntity::MakeSlimItem();
     if (slim != nullptr) {
-        // Set security status for crosshair color: negative = red (hostile)
-        // Pirate factions and Sansha incursion NPCs = hostile
+        // Determine if hostile (red crosshairs) based on faction or group
+        bool hostile = false;
         switch (m_warID) {
-            case factionAngel:
-            case factionBloodRaider:
-            case factionGuristas:
-            case factionSanshas:
-            case factionSerpentis:
-            case factionRogueDrones:
-            case factionSleepers: {
-                slim->SetItemString("securityStatus", new PyFloat(-10.0));
+            case factionAngel: case factionBloodRaider:
+            case factionGuristas: case factionSanshas:
+            case factionSerpentis: case factionRogueDrones:
+            case factionSleepers:
+                hostile = true; break;
+            default:
+                // Incursion Sansha NPCs (groups 1051-1056)
+                if (gID >= 1051 && gID <= 1056)
+                    hostile = true;
                 break;
-            }
-            default: {
-                slim->SetItemString("securityStatus", new PyFloat(0.0));
-                break;
-            }
         }
+        slim->SetItemString("securityStatus", new PyFloat(hostile ? -10.0 : 0.0));
     }
     return slim;
 }
