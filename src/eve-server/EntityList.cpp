@@ -486,8 +486,17 @@ void EntityList::Process() {
                             MakeRandomFloat(-1e9f, 1e9f),
                             MakeRandomFloat(-1e9f, 1e9f)
                         );
+                        // Random plex type weighted toward smaller sizes
+                        uint8 plexType = 0;  // Scout
+                        float r = MakeRandomFloat();
+                        if      (r < 0.10f) plexType = 3;  // Large 10%
+                        else if (r < 0.30f) plexType = 2;  // Medium 20%
+                        else if (r < 0.55f) plexType = 1;  // Small 25%
+                        else                plexType = 0;  // Scout 45%
+                        std::string sigID = "FW_" + std::to_string(sysID) + "_" + std::to_string(i);
                         std::string name = "FW Plex " + std::to_string(i + 1);
-                        anom->AddFWAnomaly("FW_" + std::to_string(sysID) + "_" + std::to_string(i), pos, name, 0);
+                        anom->AddFWAnomaly(sigID, pos, name, 0);
+                        anom->SetFWAnomalyType(sigID, plexType);
                     }
                     ++sysItr;
                 }

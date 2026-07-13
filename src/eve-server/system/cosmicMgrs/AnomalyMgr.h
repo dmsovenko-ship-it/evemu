@@ -58,6 +58,9 @@ class AnomalyMgr
     void AddFWAnomaly(const std::string& sigID, GPoint pos, const std::string& name, uint32 ownerID);
     void RemoveFWAnomaly(const std::string& sigID);
     bool HasFWAnomalies();
+    void SetFWAnomalyType(const std::string& sigID, uint8 type) { m_fwPlexTypes[sigID] = type; }
+    uint8 GetFWAnomalyType(const std::string& sigID) { auto it = m_fwPlexTypes.find(sigID); return it != m_fwPlexTypes.end() ? it->second : 0; }
+    void ClearFWAnomalyType(const std::string& sigID) { m_fwPlexTypes.erase(sigID); }
 
     // Called by DungeonMgr when an expired site is cleaned up; re-queues type for respawn
     void QueueRespawn(int8 dungeonType)         { m_typeList.push_back(dungeonType); }
@@ -103,6 +106,7 @@ private:
     std::map<uint32, CosmicSignature> m_sigByItemID;            // signatures in system - need probes to scan down
     std::map<uint32, CosmicSignature> m_anomByItemID;           // anomalies in system - no probes needed
     std::map<std::string, CosmicSignature> m_sigBySigID;        // map for all signatures in system
+    std::map<std::string, uint8> m_fwPlexTypes;                 // FW plex type by sigID (0=scout,1=small,2=medium,3=large)
 };
 
 #endif  // EVEMU_SYSTEM_ANOMALYMGR_H_

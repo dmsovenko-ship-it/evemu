@@ -33,6 +33,7 @@
 #include "map/MapData.h"
 #include "map/MapDB.h"
 #include "npc/CustomsNPCManager.h"
+#include "inventory/ItemFactory.h"
 #include "corporation/LPService.h"
 #include "faction/FactionWarMgrDB.h"
 #include "npc/FactionPatrolManager.h"
@@ -2098,23 +2099,56 @@ void SystemManager::ProcessFWCapture()
         if (sig.sigID.find("FW_") != 0) continue;
         bool hasOccupier = false;
 
+        // Get plex type for timer and LP calculation
+        uint8 plexType = m_anomMgr->GetFWAnomalyType(sig.sigID);
+        // Scout=0(600s), Small=1(600s), Medium=2(900s), Large=3(900s)
+        int32 baseTime = (plexType >= 2) ? 900 : 600;
+        // LP: Scout=2500, Small=5000, Medium=10000, Large=20000
+        static const int lpByType[] = {2500, 5000, 10000, 20000};
+        int lpReward = (plexType < 4) ? lpByType[plexType] : 2500;
+
         for (auto& p : players) {
             float dist = p.pos.distance(sig.position);
             if (dist > 30000.0f) continue;
 
             hasOccupier = true;
+
+            // Spawn NPC defender on first player entry
+            if (m_fwSpawned.find(sig.sigID) == m_fwSpawned.end()) {
+                m_fwSpawned.insert(sig.sigID);
+                uint16 npcTypeID = 2372; // Frigate (Scout)
+                switch (plexType) {
+                    case 1:  npcTypeID = 10017; break; // Small → Destroyer
+                    case 2:  npcTypeID = 11898; break; // Medium → Cruiser
+                    case 3:  npcTypeID = 22822; break; // Large → BC
+                }
+                FactionData fData;
+                fData.factionID = static_cast<uint32>(p.warFactionID);
+                fData.corporationID = sDataMgr.GetFactionCorp(fData.factionID);
+                fData.ownerID = fData.corporationID;
+                ItemData iData(npcTypeID, fData.ownerID, m_data.systemID, flagNone, "", sig.position);
+                InventoryItemRef iRef = sItemFactory.SpawnItem(iData);
+                if (iRef.get() != nullptr) {
+                    NPC* npc = new NPC(iRef, m_services, this, fData, m_spawnMgr);
+                    if (npc && npc->Load()) {
+                        npc->DestinyMgr()->SetPosition(sig.position);
+                        AddNPC(npc);
+                    } else { SafeDelete(npc); }
+                }
+            }
+
             int32& remaining = m_fwCapture[sig.sigID][static_cast<int32>(p.charID)];
-            if (remaining == 0) remaining = 600;  // 10 min
+            if (remaining == 0) remaining = baseTime;
             remaining -= 1;
 
             if (remaining <= 0) {
                 uint32 militiaCorp = FactionWarMgrDB().GetFactionMilitiaCorporation(static_cast<uint32>(p.warFactionID));
                 if (militiaCorp > 0) {
-                    int lp = 5000 + MakeRandomInt(0, 5000);
-                    LPService::AddLP(static_cast<uint32>(p.charID), militiaCorp, lp);
-                    p.client->SendNotifyMsg("Plex captured! Awarded %d LP.", lp);
+                    LPService::AddLP(static_cast<uint32>(p.charID), militiaCorp, lpReward);
+                    p.client->SendNotifyMsg("Plex captured! Awarded %d LP.", lpReward);
                 }
                 m_anomMgr->RemoveFWAnomaly(sig.sigID);
+                m_anomMgr->ClearFWAnomalyType(sig.sigID);
                 m_fwCapture.erase(sig.sigID);
                 return;
             }

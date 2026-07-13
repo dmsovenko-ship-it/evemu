@@ -249,6 +249,7 @@ private:
 
     // FW plex capture tracking: sigID -> (charID -> remaining seconds)
     std::map<std::string, std::map<int32, int32>> m_fwCapture;
+    std::set<std::string> m_fwSpawned;  // plexes with spawned defenders
 
     // for bounty processing (20m timer)
     Timer m_bountyTimer;
