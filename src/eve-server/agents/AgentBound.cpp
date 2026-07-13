@@ -770,7 +770,7 @@ PyResult AgentBound::GetMyJournalDetails(PyCallArgs &call) {
     PyList* research = new PyList();
     {
         uint32 charID = call.client->GetCharacterID();
-        uint32 agentID = m_agent->GetAgentID();
+        uint32 agentID = m_agent->GetID();
         DBQueryResult res;
         if (sDatabase.RunQuery(res,
             "SELECT r.agentID, r.skillTypeID, r.pointsPerDay, r.points, "
@@ -1198,7 +1198,7 @@ PyResult AgentBound::GetEntryPoint(PyCallArgs &call) {
         }
     }
     // Fallback: return agent's solar system
-    PyInt* sysID = sDataMgr.GetAgentSystemID(m_agent->GetAgentID());
+    PyInt* sysID = sDataMgr.GetAgentSystemID(m_agent->GetID());
     if (sysID != nullptr) {
         PyDict* result = new PyDict();
         result->SetItemString("solarSystemID", sysID->Clone());
