@@ -224,7 +224,7 @@ EVEServerConfig::EVEServerConfig()
 
     // testing
     testing.EnableDrones = false;
-    testing.ShipHeat = false;
+    testing.ShipHeat = true;
 
     // debug
     debug.BeanCount = false;
