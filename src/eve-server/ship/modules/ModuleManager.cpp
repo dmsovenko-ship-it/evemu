@@ -398,10 +398,10 @@ bool ModuleManager::InstallSubSystem(ModuleItemRef mRef, EVEItemFlags flag)
 
     AddModule(mRef, flag);
     // Set subsystem online to activate passive effects
-    Module* mod = GetModule(mRef->itemID(), flag);
-    if (mod != nullptr) {
-        mod->SetOnline(true);
-        mod->SetActive(true);
+    GenericModule* gMod = GetModule(flag);
+    if (gMod != nullptr) {
+        gMod->SetOnline(true);
+        gMod->SetActive(true);
     }
     return true;
 }
