@@ -27,6 +27,7 @@
 
 
 #include "account/TutorialService.h"
+#include "Client.h"
 
 TutorialService::TutorialService() :
     Service("tutorialSvc")

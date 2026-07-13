@@ -44,6 +44,7 @@
 #include "market/MarketBotMgr.h"
 #include "missions/MissionDataMgr.h"
 #include "incursion/IncursionMgr.h"
+#include "standing/StandingMgr.h"
 #include "station/Station.h"
 #include "system/DestinyManager.h"
 #include "system/SystemManager.h"
