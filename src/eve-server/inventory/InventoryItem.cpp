@@ -437,9 +437,13 @@ InventoryItemRef InventoryItem::Spawn(ItemData &data)
             return StructureItem::Spawn(data);
         } break;
         case EVEDB::invCategories::Blueprint: {
-            // this needs to distinguish between copy and orig
+            // Default to original (infinite runs) when spawned through generic path
+            // Callers needing copies should use Blueprint::Spawn(data, bpData) directly
             EvERam::bpData bdata = EvERam::bpData();
+                bdata.copy = false;
                 bdata.runs = -1;
+                bdata.mLevel = 0;
+                bdata.pLevel = 0;
             return Blueprint::Spawn(data, bdata);
         } break;
         case EVEDB::invCategories::Skill: {

@@ -188,6 +188,8 @@ Things to verify after recent changes (updated 2026-07-14 — build 8 mega-sessi
 - [ ] **Extra materials** — Run a job that uses extra materials. Extra materials should use base quantity (no skill waste).
 - [ ] **Missing materials (extra)** — Check missing materials calculation for extra materials — should not include waste.
 - [ ] **Material consumption (extra)** — Verify extra materials are consumed at base quantity (not inflated by skills).
+- [ ] **Alliance job completion** — Complete a job owned by alliance. Should check alliance membership + Factory Manager role.
+- [ ] **Invention install** — Install an invention job. Invention items data should be read and validated server-side.
 
 ## LSC / Chat
 

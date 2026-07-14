@@ -405,8 +405,14 @@ void RamMethods::VerifyCompleteJob(const Call_CompleteJob &args, EvERam::JobProp
         if (data.ownerID == pClient->GetCorporationID()) {
             if ((pClient->GetCorpRole() & Corp::Role::FactoryManager) != Corp::Role::FactoryManager)
                 throw UserError ("RamCompletionAccessDeniedByCorpRole");
-        } else  // alliances not implemented
+        } else {
             throw UserError ("RamCompletionAccessDenied");
+        }
+    } else if (IsAlliance(data.ownerID)) {
+        if (data.ownerID != pClient->GetAllianceID())
+            throw UserError ("RamCompletionAccessDenied");
+        if ((pClient->GetCorpRole() & Corp::Role::FactoryManager) != Corp::Role::FactoryManager)
+            throw UserError ("RamCompletionAccessDeniedByCorpRole");
     }
 
     if (data.status != EvERam::Status::InProgress)

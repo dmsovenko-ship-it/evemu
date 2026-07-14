@@ -155,7 +155,6 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
         } else {
             _log(MANUF__ERROR, "Remote job: installedItem dict not found");
             throw UserError ("RamActivityRequiresABlueprint");
-            return nullptr;
         }
     }
     if (installedItem->categoryID() != EVEDB::invCategories::Blueprint)
@@ -371,29 +370,30 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
         } break;
         case EvERam::Activity::ReverseEngineering: {
             bpRef->UpdateRuns(-args.runs);
-            // there is more to this, but not implemented yet
         } break;
         case EvERam::Activity::Invention: {
             bpRef->UpdateRuns(-args.runs);
-        // im sure there is more to do here......
 
-        /** @todo do something constructive with this data...
-        // this is populated for t2 bpc
-        //     inventionItems=quoteData.inventionItems
-        uint16 outputType(0), baseItemType(0), decryptorType(0);
-        if (call.byname.find("inventionItems") != call.byname.end()) {
-            PyDict* dict = call.byname["inventionItems"]->AsDict();
-            outputType = PyRep::IntegerValueU32(dict->GetItemString("outputType"));
-            baseItemType = PyRep::IntegerValueU32(dict->GetItemString("baseItemType"));
-            decryptorType = PyRep::IntegerValueU32(dict->GetItemString("decryptorType"));
-        }
-        // this is populated for t2 bpc
-        //    inventionOutputItemID=quoteData.inventionItems.outputType
-        if (call.byname.find("inventionOutputItemID") != call.byname.end()) {
-            // this is the bp typeID to create....should we test to see if they're the same?
-            outputType = PyRep::IntegerValueU32(call.byname["inventionOutputItemID"]);
-        }
-        */
+            // Read and validate invention items data (client re-sends on completion)
+            uint16 outputType = 0, baseItemType = 0, decryptorType = 0;
+            if (call.byname.find("inventionItems") != call.byname.end()) {
+                PyDict* dict = call.byname["inventionItems"]->AsDict();
+                outputType = PyRep::IntegerValueU32(dict->GetItemString("outputType"));
+                baseItemType = PyRep::IntegerValueU32(dict->GetItemString("baseItemType"));
+                decryptorType = PyRep::IntegerValueU32(dict->GetItemString("decryptorType"));
+            }
+            if (call.byname.find("inventionOutputItemID") != call.byname.end()) {
+                outputType = PyRep::IntegerValueU32(call.byname["inventionOutputItemID"]);
+            }
+
+            // Verify the output blueprint type exists in DB
+            if (outputType > 0) {
+                const BlueprintType* outBpType = sItemFactory.GetBlueprintType(outputType);
+                if (outBpType == nullptr) {
+                    _log(MANUF__WARNING, "Invention: output blueprint type %u not found for %s",
+                         outputType, bpRef->name());
+                }
+            }
         } break;
     }
 
