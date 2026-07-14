@@ -2077,6 +2077,13 @@ void DestinyManager::BeginMovement() {
 void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
     //called from client as 'CmdFollowBall'
     //  also used by 'Approach'
+    // Cap follow distance for gates/stations when on autopilot
+    if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
+        if (pSE->IsGateSE() && distance > 2500)
+            distance = 2500;
+        else if (pSE->IsStationSE() && distance > 2500)
+            distance = 2500;
+    }
     if ((m_ballMode == Destiny::Ball::Mode::FOLLOW)
     and (m_targetEntity.second == pSE)
     and (m_followDistance == distance)
