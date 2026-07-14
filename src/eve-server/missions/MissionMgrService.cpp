@@ -39,17 +39,28 @@ PyResult MissionMgrService::GetMyCourierMissions(PyCallArgs& call)
 {
     sLog.White("MissionMgrService", "Handle_GetMyCourierMissions() size=%lli", call.tuple->size());
 
-    // Return active courier mission offers from agtOffers
     uint32 charID = call.client->GetCharacterID();
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT o.offerID, o.typeID, o.name, o.expiryTime, o.rewardISK, o.rewardLP, "
-        "  o.originSystemID, o.destinationSystemID, "
-        "  CASE WHEN o.courierAmount > 0 THEN o.courierAmount ELSE 1 END as courierAmount, "
-        "  CASE WHEN o.courierTypeID > 0 THEN o.courierTypeID ELSE 23 END as courierTypeID, "
-        "  o.courierVolume, o.stateID, o.agentID "
-        "FROM agtOffers o "
-        "WHERE o.characterID = %u AND o.stateID < 2 AND o.typeID = 3",
+        "SELECT"
+        "  o.offerID,"
+        "  o.typeID,"
+        "  o.agentID,"
+        "  o.stateID,"
+        "  o.expiryTime,"
+        "  o.rewardISK,"
+        "  o.rewardLP,"
+        "  o.originID,"
+        "  o.originOwnerID,"
+        "  o.originSystemID,"
+        "  o.destinationID,"
+        "  o.destinationOwnerID,"
+        "  o.destinationSystemID,"
+        "  CASE WHEN o.courierTypeID > 0 THEN o.courierTypeID ELSE 23 END as courierTypeID,"
+        "  CASE WHEN o.courierAmount > 0 THEN o.courierAmount ELSE 1 END as courierAmount,"
+        "  o.courierVolume"
+        " FROM agtOffers o"
+        " WHERE o.characterID = %u AND o.stateID < 2 AND o.typeID = 3",
         charID))
     {
         return new PyList();
