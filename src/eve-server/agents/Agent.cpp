@@ -64,15 +64,16 @@ bool Agent::Load() {
         bool fixed = false;
         // Determine fallback station: use agent's stationID, or any station in agent's system
         uint32 fallbackStation = 0;
+        _log(AGENT__MESSAGE, "Fixup: agent %u offer %u typeID=%u destID=%u sysID=%u staID=%u isSta=%d",
+             m_agentID, o.offerID, o.typeID, o.destinationID, o.destinationSystemID,
+             m_agentData.stationID, sDataMgr.IsStation(m_agentData.stationID));
         if (sDataMgr.IsStation(m_agentData.stationID)) {
             fallbackStation = m_agentData.stationID;
         } else if (m_agentData.solarSystemID != 0) {
-            // Try cache first
             std::vector<uint32> stations;
             if (sDataMgr.GetStationList(m_agentData.solarSystemID, stations) && !stations.empty()) {
                 fallbackStation = stations.front();
             } else {
-                // Fallback: direct DB query (cache may not have station data)
                 DBQueryResult staRes;
                 sDatabase.RunQuery(staRes,
                     "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1",
@@ -85,7 +86,10 @@ bool Agent::Load() {
         if (fallbackStation == 0)
             fallbackStation = m_agentData.solarSystemID;
 
-        // Fix origin if zero, set to system (not station), or not a valid station
+        _log(AGENT__MESSAGE, "Fixup: fallbackStation=%u sys=%u staCnt=%u",
+             fallbackStation, m_agentData.solarSystemID,
+             sDataMgr.GetStationCount(m_agentData.solarSystemID));
+
         if (o.originID == 0 || o.originID == o.originSystemID || !sDataMgr.IsStation(o.originID)) {
             o.originID = fallbackStation;
             o.originOwnerID = m_agentData.corporationID;
@@ -107,7 +111,8 @@ bool Agent::Load() {
             fixed = true;
         }
         if (fixed)
-            _log(AGENT__MESSAGE, "Fixed stale offer %u for agent %u (destID=%u, sysID=%u fbStation=%u)", o.offerID, m_agentID, o.destinationID, o.destinationSystemID, fallbackStation);
+            _log(AGENT__MESSAGE, "Fixed offer %u: dest=%u sys=%u fb=%u typeID=%u",
+                 o.offerID, o.destinationID, o.destinationSystemID, fallbackStation, o.typeID);
     }
 
     // Event and Aura agents should not have mission offers
