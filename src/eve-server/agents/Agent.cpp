@@ -66,10 +66,20 @@ bool Agent::Load() {
         if (sDataMgr.IsStation(m_agentData.stationID)) {
             fallbackStation = m_agentData.stationID;
         } else if (m_agentData.solarSystemID != 0) {
+            // Try cache first
             std::vector<uint32> stations;
-            sDataMgr.GetStationList(m_agentData.solarSystemID, stations);
-            if (!stations.empty())
+            if (sDataMgr.GetStationList(m_agentData.solarSystemID, stations) && !stations.empty()) {
                 fallbackStation = stations.front();
+            } else {
+                // Fallback: direct DB query (cache may not have station data)
+                DBQueryResult staRes;
+                sDatabase.RunQuery(staRes,
+                    "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1",
+                    m_agentData.solarSystemID);
+                DBResultRow staRow;
+                if (staRes.GetRow(staRow))
+                    fallbackStation = staRow.GetUInt(0);
+            }
         }
         if (fallbackStation == 0)
             fallbackStation = m_agentData.solarSystemID;
