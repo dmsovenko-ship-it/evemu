@@ -212,6 +212,38 @@ Things to verify after recent changes (updated 2026-07-14 — build 8 mega-sessi
 - [ ] **GetStandingEventTypes** — Open standings change log. Should show event type labels.
 - [ ] **Kill rights** — Grant a kill right. Standing shown should match actual standing, not 10.0.
 
+## Build 9 (2026-07-14) — S&I, PI, courier-fixes, autopilot
+
+### Science & Industry
+- [ ] **Remote job install** — Install a manufacturing job with BP in a different station. Should not throw "Remote Job Installation Not Functional".
+- [ ] **Job complete notification** — Complete a manufacturing job. Should not error on `mailMessage.created` column.
+- [ ] **POS assembly lines** — POS structures should show assembly lines in the corp selector.
+- [ ] **Alliance completion** — Complete a job owned by alliance. Should check alliance membership.
+- [ ] **Extra materials** — Extra materials should use base quantity (no skill waste).
+
+### PI
+- [ ] **GetPlanet** — Open planet view. Should show planet info + colony data (was nullptr).
+- [ ] **DeleteLaunch** — Delete a PI launch. Should not crash (was nullptr).
+- [ ] **CommandPins on planet** — Right-click planet → show other networks. Should list command centers.
+- [ ] **PI notifications** — Deploy command center → should get OnPlanetPinsChanged event.
+- [ ] **PIEnabled** — PI should be on by default.
+
+### Courier Missions
+- [ ] **Item shows correctly** — Courier/Trade missions should show "Cargo Container" not "#System".
+- [ ] **Offer repair** — Existing offers should get fixed courierTypeID/amount on server restart.
+- [ ] **Origin/destination** — Transport missions should show correct station IDs, not "System".
+
+### Autopilot
+- [ ] **Warp distance** — Autopilot should warp to apWarptoDistance (default 15km), not 0.
+- [ ] **Gate approach** — After warp, ship should approach gate to ~2.5km for jump.
+- [ ] **Continue after jump** — After gate jump, autopilot should continue waypoint chain.
+- [ ] **No crash** — Autopilot jumps should not cause "Unknown packet type" crash.
+
+### Sentry / NPC
+- [ ] **Sentry vs NPC** — In highsec, sentry guns should attack NPCs that aggress players.
+- [ ] **NPC spawn location** — Belt rats should NOT appear at gates.
+- [ ] **Mission dungeon** — Accept an encounter/mining mission → dungeon should spawn in destination system.
+
 ## Build 8 (2026-07-14) — Mega-session
 
 ### Insurance

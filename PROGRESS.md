@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
 > **Our fork: `████████████████████` 99%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-14 (build 8 — mega-session: insurance, FW, NPC AI, fleet, jump drives, killmail, CONCORD, LP store, stubs cleanup)
+> Last updated: 2026-07-14 (build 9 — S&I, PI, autopilot, courier fixes, sentry AI, NPC spawn fix, mission dungeons)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -41,7 +41,7 @@
  | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
-| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 88% | `██████████████████` | +43% |
+| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 90% | `██████████████████` | +45% |
 | Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 96% | `██████████████████` | +31% |
 
 ---
@@ -160,6 +160,8 @@
 | **Fleeing state** — разгон и варп-аут при отступлении | ❌ | ✅ |
 | **Signaling** — призыв подкреплений через SpawnMgr | ❌ | ✅ |
 | **CONCORD AI** — сканирование пузыря на IsCriminal(), полный state machine | ❌ | ✅ |
+| **Sentry AI vs NPC** — сентри в хайсеке атакуют NPC, агрессирующих игроков | ❌ | ✅ |
+| **NPC spawn position fix** — NPC больше не попадают в гейт-бабл из-за оффсета 1-1.5Mm | ❌ | ✅ |
 
 ---
 
@@ -180,6 +182,9 @@
 | TutorialService — GetCharacterTutorialState, LogStarted/Completed/Aborted, GetTutorialsAndConnections | ❌ | ✅ |
 | COSMOS missions — загрузка из БД (briefingID=0 больше не фильтрует) | ❌ | ✅ |
 | GetMyCourierMissions — возвращает данные из agtOffers (было nullptr) | ❌ | ✅ |
+| **Courier fixup** — исправление destinationID/courierTypeID/amount для существующих офферов | ❌ | ✅ |
+| **AgentDB COALESCE** — fallback stationID/solarSystemID при отсутствии chrNPCCharacters | ❌ | ✅ |
+| **GetMissionObjectives** — всегда шлёт destinationID как locationID (без IsStation) | ❌ | ✅ |
 | LP store (faction + CONCORD) | 🟡 | ✅ |
 
 ---
@@ -267,6 +272,7 @@
 | **POS в GetJobs2** — поддержка контейнеров-не-станций (entity) для отображения SolarSystemID | ❌ | ✅ |
 | **POS в AssemblyLinesSelectAlliance** — поиск структур корпораций альянса (была только станции) | ❌ | ✅ |
 | **InstallationCheck для POS** — проверка, что структура в той же системе | ❌ | ✅ |
+| **Mission dungeon spawn** — спавн данжа в системе назначения при принятии миссии | ❌ | ✅ |
 
 ---
 
