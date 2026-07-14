@@ -1001,23 +1001,18 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         destSysID = m_agent->GetSystemID();
     }
     PyDict* dropoffLocation = new PyDict();
-    if (sDataMgr.IsStation(offer.destinationID)) {
-        dropoffLocation->SetItemString("typeID", new PyInt(offer.destinationTypeID) );
-        dropoffLocation->SetItemString("locationID", new PyInt(offer.destinationID) );
-        dropoffLocation->SetItemString("locationType", new PyNone());
-        dropoffLocation->SetItemString("solarsystemID", new PyInt(destSysID) );
-    } else {
-        dropoffLocation->SetItemString("typeID", new PyInt(offer.destinationTypeID) );
-        dropoffLocation->SetItemString("locationID", new PyInt(destSysID) );
-        dropoffLocation->SetItemString("locationType", new PyNone());
-        dropoffLocation->SetItemString("solarsystemID", new PyInt(destSysID) );
+    dropoffLocation->SetItemString("typeID", new PyInt(offer.destinationTypeID) );
+    dropoffLocation->SetItemString("locationID", new PyInt(offer.destinationID) );
+    dropoffLocation->SetItemString("locationType", new PyNone());
+    dropoffLocation->SetItemString("solarsystemID", new PyInt(destSysID) );
+    // If destination is not a station (e.g. in-space agent), add extra fields
+    if (!sDataMgr.IsStation(offer.destinationID)) {
         dropoffLocation->SetItemString("shipTypeID", new PyInt(offer.destinationTypeID) );
         dropoffLocation->SetItemString("agentID", new PyInt(offer.destinationOwnerID) );
-        // get agent in space location and set here
         PyTuple* coords = new PyTuple(3);
-            coords->SetItem(0, new PyFloat(0)); //x
-            coords->SetItem(1, new PyFloat(0)); //y
-            coords->SetItem(2, new PyFloat(0)); //z
+            coords->SetItem(0, new PyFloat(0));
+            coords->SetItem(1, new PyFloat(0));
+            coords->SetItem(2, new PyFloat(0));
         dropoffLocation->SetItemString("coords", coords);
         dropoffLocation->SetItemString("referringAgentID", new PyInt(offer.agentID) );
     }

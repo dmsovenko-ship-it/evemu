@@ -58,7 +58,8 @@ bool Agent::Load() {
     // Fix offers with zero or stale origin/destination data
     for (auto& offer : m_offers) {
         MissionOffer& o = offer.second;
-        if (o.typeID != Mission::Type::Courier)
+        // Both Courier (3) and Trade (5) missions have transport objectives
+        if (o.typeID != Mission::Type::Courier && o.typeID != Mission::Type::Trade)
             continue;
         bool fixed = false;
         // Determine fallback station: use agent's stationID, or any station in agent's system
