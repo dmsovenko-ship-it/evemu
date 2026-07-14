@@ -41,7 +41,7 @@
  | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
-| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 74% | `████████████████░░` | +29% |
+| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 80% | `████████████████░░` | +35% |
 | Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 96% | `██████████████████` | +31% |
 
 ---
@@ -256,6 +256,9 @@
 | **Invention formula** — использует EvEMath формулу со скиллами/мета/декриптором | ❌ | ✅ |
 | **UpdateAssemblyLineConfigurations** — сохранение конфигураций в ramAssemblyLineStations | ❌ | ✅ |
 | **SubSystemModule online** — T3 сабсистемы активируются при установке, применяются пассивные эффекты | ❌ | ✅ |
+| **Remote job installation** — установка джобов с чертежами из удаленных станций | ❌ | ✅ |
+| **Adjusted material calculations** — extra materials используют базовое количество без скиллового waste | ❌ | ✅ |
+| **GetAdjustedRamRequiredMaterials** — реализована утилита для правильного расчета материалов | ❌ | ✅ |
 
 ---
 

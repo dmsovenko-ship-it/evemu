@@ -145,60 +145,18 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
     // bp in pos can be in hangar or array.  need to check both
     InventoryItemRef installedItem = sItemFactory.GetItemRef( args.bpItemID );
     if (installedItem.get() == nullptr) {
-        // this means item/location not loaded.
-        //  get data from installedItem named args and continue
-        // this will require some work/rewriting
-
-        //RamBlueprintAlreadyInstalled
-        // this is InventoryItem details of the bp being installed.
+        // For remote jobs, the BP is at another station — load from byname data
         if (call.byname.find("installedItem") != call.byname.end()) {
-            // use this for stations that are NOT loaded.
-            /*  on remote jobs, may have to use this data to:
-             * split stacks
-             * send to proper places
-             * verify containers
-             * verify access
-             * etc.
-             */
-            /*
-             * 21:48:04 [ManufDump]   installedItem
-             * 21:48:04 [ManufDump]     Object:
-             * 21:48:04 [ManufDump]       Type:     String: 'util.KeyVal'
-             * 21:48:04 [ManufDump]       Args:  Dictionary: 11 entries
-             * 21:48:04 [ManufDump]       Args:   [ 0]   Key:     String: 'typeID'
-             * 21:48:04 [ManufDump]       Args:   [ 0] Value:    Integer: 880
-             * 21:48:04 [ManufDump]       Args:   [ 1]   Key:     String: 'singleton'
-             * 21:48:04 [ManufDump]       Args:   [ 1] Value:    Integer: 2
-             * 21:48:04 [ManufDump]       Args:   [ 2]   Key:     String: 'flagID'
-             * 21:48:04 [ManufDump]       Args:   [ 2] Value:    Integer: 4
-             * 21:48:04 [ManufDump]       Args:   [ 3]   Key:     String: 'quantity'
-             * 21:48:04 [ManufDump]       Args:   [ 3] Value:    Integer: -2
-             * 21:48:04 [ManufDump]       Args:   [ 4]   Key:     String: 'categoryID'
-             * 21:48:04 [ManufDump]       Args:   [ 4] Value:    Integer: 9
-             * 21:48:04 [ManufDump]       Args:   [ 5]   Key:     String: 'itemID'
-             * 21:48:04 [ManufDump]       Args:   [ 5] Value:    Integer: 140024212
-             * 21:48:04 [ManufDump]       Args:   [ 6]   Key:     String: 'locationID'
-             * 21:48:04 [ManufDump]       Args:   [ 6] Value:    Integer: 60014140
-             * 21:48:04 [ManufDump]       Args:   [ 7]   Key:     String: 'ownerID'
-             * 21:48:04 [ManufDump]       Args:   [ 7] Value:    Integer: 90000000
-             * 21:48:04 [ManufDump]       Args:   [ 8]   Key:     String: 'groupID'
-             * 21:48:04 [ManufDump]       Args:   [ 8] Value:    Integer: 165
-             * 21:48:04 [ManufDump]       Args:   [ 9]   Key:     String: 'stacksize'
-             * 21:48:04 [ManufDump]       Args:   [ 9] Value:    Integer: 1
-             * 21:48:04 [ManufDump]       Args:   [10]   Key:     String: 'customInfo'
-             * 21:48:04 [ManufDump]       Args:   [10] Value:     String: ''
-             */
-
             PyDict* dict = call.byname["installedItem"]->AsDict();
-            installedItem = sItemFactory.GetItemRef( PyRep::IntegerValueU32(dict->GetItemString("itemID")) );
-            if (installedItem.get() == nullptr) {
-                // make error here.....
+            uint32 itemID = PyRep::IntegerValueU32(dict->GetItemString("itemID"));
+            installedItem = sItemFactory.GetBlueprintRef(itemID);
+            if (installedItem.get() == nullptr)
                 throw UserError ("RamActivityRequiresABlueprint");
-            }
+        } else {
+            _log(MANUF__ERROR, "Remote job: installedItem dict not found");
+            throw UserError ("RamActivityRequiresABlueprint");
+            return nullptr;
         }
-        _log(MANUF__ERROR, "installedItem dict incomplete");
-        throw CustomError ("Remote Job Installation Not Functional at this time.");
-        return nullptr;
     }
     if (installedItem->categoryID() != EVEDB::invCategories::Blueprint)
         throw UserError ("RamActivityRequiresABlueprint");
@@ -384,7 +342,12 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
             continue;       // not interested
 
         // calculate needed quantity
-        uint32 qtyNeeded = (uint32)round(((itemItr->quantity * rsp.materialMultiplier) + (itemItr->quantity * rsp.charMaterialMultiplier - itemItr->quantity)) * args.runs);
+        uint32 qtyNeeded;
+        if (itemItr->extra) {
+            qtyNeeded = itemItr->quantity * args.runs;
+        } else {
+            qtyNeeded = (uint32)round(((itemItr->quantity * rsp.materialMultiplier) + (itemItr->quantity * rsp.charMaterialMultiplier - itemItr->quantity)) * args.runs);
+        }
 
         // consume required materials
         std::vector<InventoryItemRef>::iterator refItr = items.begin();

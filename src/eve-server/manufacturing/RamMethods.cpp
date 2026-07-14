@@ -525,26 +525,23 @@ void RamMethods::EncodeBillOfMaterials(const std::vector<EvERam::RequiredItem> &
             continue;
         }
 
-        int qtyNeeded = (uint32)round(cur.quantity * materialMultiplier + (cur.quantity * charMaterialMultiplier - cur.quantity)) * runs;
-
         // otherwise, make line for material list
         MaterialList_Line line;
         line.requiredTypeID = cur.typeID;
         line.quantity = (int32) round (cur.quantity * materialMultiplier) * runs;
         line.damagePerJob = cur.damagePerJob;
-        line.isSkillCheck = false;  // no idea what is this for
-        line.requiresHP = false;    // no idea what is this for
+        line.isSkillCheck = false;
+        line.requiresHP = false;
 
-        /** @todo update this shit.....  */
-        // "Extra material" is not affected by skills, and return upon completion
-        // "Raw material" is fully consumed and affected by skills/efficiency
-        // "Waste Material" is amount of material wasted ...
+        // Extra materials are not affected by skills/ME and return on completion
         if (cur.extra) {
+            line.quantity = cur.quantity * runs;
             into.extras.lines->AddItem( line.Encode() );
         } else {
+            int qtyNeeded = (uint32)round(cur.quantity * materialMultiplier + (cur.quantity * charMaterialMultiplier - cur.quantity)) * runs;
             // if there are losses, make line for waste material list
             if (charMaterialMultiplier > 1.0) {
-                MaterialList_Line wastage( line );  // simply copy original line ...
+                MaterialList_Line wastage( line );
                 wastage.quantity = qtyNeeded - line.quantity;
                 into.wasteMaterials.lines->AddItem( wastage.Encode() );
             }
@@ -566,9 +563,13 @@ void RamMethods::EncodeMissingMaterials(const std::vector<EvERam::RequiredItem> 
     //now do the check
     uint32 qtyReq(0);
     for (auto cur : reqItems) {
-        qtyReq = cur.quantity;
-        if (!cur.isSkill) {
-            qtyReq = (uint32)round(qtyReq * materialMultiplier + (cur.quantity * charMaterialMultiplier - cur.quantity)) * runs;
+        // Extra materials use base quantity only (no skill/waste modifiers)
+        if (cur.extra) {
+            qtyReq = cur.quantity * runs;
+        } else if (!cur.isSkill) {
+            qtyReq = (uint32)round(cur.quantity * materialMultiplier + (cur.quantity * charMaterialMultiplier - cur.quantity)) * runs;
+        } else {
+            qtyReq = cur.quantity;
         }
 
         std::vector<InventoryItemRef>::iterator itri, endi;
@@ -610,18 +611,40 @@ void RamMethods::GetBOMItemsMap(const PathElement& bomLocation, std::map< uint16
         inventory->GetTypesByFlag( (EVEItemFlags)bomLocation.flagID, into );
 }
 
-/* For each material required for a blueprint (from invTypeMaterials), the quantity is affected by ME research and skills.
- * Then there’s the extra materials, which come from the ramTypeRequirements table for that BP.
- * Next, any materials in ramTypeRequirements which are marked as recyclable, have their recycled materials (from invTypeMaterials) subtracted from the list of materials required for the produced item.
- * The remaining materials from invTypeMaterials are then modified by skills and ME research as follows:
- *      xmatls = ramTypeRequirements.extra
- *      reqMatls = (invTypeMaterials.reqMatls - xmatls)
- *      waste = reqMatls * charSkills (which is wastage multiplier based on skills)
- *      totalReqMatls = (reqMatls * skill mods) + xmatls + waste
- */
-void RamMethods::GetAdjustedRamRequiredMaterials()
-{
-    // will need to update this using above formula for correct material list
+void RamMethods::GetAdjustedRamRequiredMaterials(
+    const std::vector<EvERam::RequiredItem>& reqItems,
+    float materialMultiplier,
+    float charMaterialMultiplier,
+    uint32 runs,
+    int32& rawQty,
+    int32& extraQty,
+    int32& wasteQty
+) {
+    /* For each material required for a blueprint, the quantity is affected by ME research and skills:
+     *   extra materials (ramTypeRequirements.extra) — base quantity only, returned on completion
+     *   raw materials — affected by ME (materialMultiplier) and skills (charMaterialMultiplier)
+     *   waste = rawQty * (charMaterialMultiplier - 1.0) — wastage from skills
+     *   total = (raw * materialMultiplier) + waste + extra
+     */
+    rawQty = 0;
+    extraQty = 0;
+    wasteQty = 0;
+
+    for (auto& cur : reqItems) {
+        if (cur.isSkill) continue;
+
+        if (cur.extra) {
+            extraQty += cur.quantity * runs;
+        } else {
+            int32 baseQty = (int32)round(cur.quantity * materialMultiplier) * runs;
+            int32 totalQty = (int32)round(
+                (cur.quantity * materialMultiplier)
+                + (cur.quantity * charMaterialMultiplier - cur.quantity)
+            ) * runs;
+            rawQty += baseQty;
+            wasteQty += (totalQty - baseQty);
+        }
+    }
 }
 
 const char* RamMethods::GetActivityName(int8 activityID)

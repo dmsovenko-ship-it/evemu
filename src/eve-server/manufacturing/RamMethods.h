@@ -47,7 +47,15 @@ public:
     void GetBOMItems(const PathElement &bomLocation, std::vector<InventoryItemRef> &into);
     void GetBOMItemsMap(const PathElement &bomLocation, std::map<uint16, InventoryItemRef> &into);
 
-    void GetAdjustedRamRequiredMaterials();
+    void GetAdjustedRamRequiredMaterials(
+        const std::vector<EvERam::RequiredItem>& reqItems,
+        float materialMultiplier,
+        float charMaterialMultiplier,
+        uint32 runs,
+        /* out */ int32& rawQty,
+        /* out */ int32& extraQty,
+        /* out */ int32& wasteQty
+    );
     const char* GetActivityName(int8 activityID);
 };
 

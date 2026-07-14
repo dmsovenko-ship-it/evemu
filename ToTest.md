@@ -184,6 +184,10 @@ Things to verify after recent changes (updated 2026-07-14 — build 8 mega-sessi
 - [ ] **Invention** — Run an invention job. Success chance should reflect skills, meta level, decryptor.
 - [ ] **Research field selection** — Talk to a research agent, select a field. Should save to chrResearch.
 - [ ] **Research point accumulation** — Wait 1h+ after starting research. Points should increase.
+- [ ] **Remote job** — Install a manufacturing job with BP in a different station. Should no longer throw "Remote Job Installation Not Functional".
+- [ ] **Extra materials** — Run a job that uses extra materials. Extra materials should use base quantity (no skill waste).
+- [ ] **Missing materials (extra)** — Check missing materials calculation for extra materials — should not include waste.
+- [ ] **Material consumption (extra)** — Verify extra materials are consumed at base quantity (not inflated by skills).
 
 ## LSC / Chat
 
