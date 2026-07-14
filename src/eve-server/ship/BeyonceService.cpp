@@ -671,13 +671,7 @@ PyResult BeyonceBound::CmdWarpToStuffAutopilot(PyCallArgs &call, PyInt* destID) 
     call.client->SetUndock(false);
     call.client->SetAutoPilot(true);
 
-    uint16 distance = sConfig.world.apWarptoDistance;
-    if (pSE->IsGateSE()) {
-        distance = 2500;  // jump activation range
-    } else if (pSE->IsStationSE()) {
-        distance = 2500;  // docking range
-    }
-    distance += static_cast<uint16>(call.client->GetShipSE()->GetRadius());
+    uint32 distance = sConfig.world.apWarptoDistance;
     pDestiny->WarpTo(pSE->GetPosition(), distance, true, pSE);
 
     return PyStatic.NewNone();
