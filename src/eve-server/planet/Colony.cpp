@@ -366,6 +366,9 @@ void Colony::CreateCommandPin(uint32 itemID, uint32 typeID, double latitude, dou
     m_procTime = GetFileTimeNow();
     CreatePin(EVEDB::invGroups::Command_Centers, itemID, typeID, latitude, longitude);
     m_db.SavePins(ccPin);
+
+    m_client->SendNotification("OnPlanetCommandCenterDeployedOrRemoved", "charid", new PyTuple(0), false);
+    m_client->SendNotification("OnPlanetPinsChanged", "charid", new PyTuple(0), false);
 }
 
 void Colony::CreatePin(uint32 groupID, uint32 pinID, uint32 typeID, double latitude, double longitude) {
@@ -470,6 +473,9 @@ void Colony::CreatePin(uint32 groupID, uint32 pinID, uint32 typeID, double latit
         tempPinIDs.insert(std::pair<uint8, uint32>(pinID, iRef->itemID()));     // save map of tempID to itemID - this handles the stacked-calls from client to use real itemIDs
 
     _log(COLONY__INFO, "Colony::CreatePin() - Created pin for %s(%u)", iRef->name(), iRef->itemID());
+
+    if (groupID != Command_Centers)
+        m_client->SendNotification("OnPlanetPinsChanged", "charid", new PyTuple(0), false);
 }
 
 void Colony::CreateLink(uint32 src, uint32 dest, uint16 level) {
@@ -677,6 +683,8 @@ void Colony::RemovePin(uint32 pinID)
     m_db.UpdatePlanetPins(m_colonyID, ccPin->pins.size());
     _log(COLONY__INFO, "Colony::RemovePin() - Removed pin %u with %u routes and %u links.  Upset %u routes by removing this pin", \
                             pinID, routeCount, linkCount, pathCount);
+
+    m_client->SendNotification("OnPlanetPinsChanged", "charid", new PyTuple(0), false);
 }
 
 void Colony::RemoveLink(uint32 src, uint32 dest)
