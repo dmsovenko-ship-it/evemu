@@ -38,6 +38,9 @@
 #include "station/Station.h"
 #include "services/ServiceManager.h"
 #include "missions/EpicArcMgr.h"
+#include "system/SystemManager.h"
+#include "system/cosmicMgrs/DungeonMgr.h"
+#include "POD_containers.h"
 
 AgentBound::AgentBound(EVEServiceManager& mgr, AgentMgrService& parent, Agent *agt) :
     EVEBoundObject(mgr, parent),
@@ -305,14 +308,43 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 m_agent->GetOffer(pchar->itemID(), offer);
                 offer.stateID = Mission::State::Accepted;
                 offer.dateAccepted = GetFileTimeNow();
-                offer.expiryTime = GetFileTimeNow() + (30 * m_agent->GetLevel() * EvE::Time::Minute);  // 30m per agent level  ?  test this.
+                offer.expiryTime = GetFileTimeNow() + (30 * m_agent->GetLevel() * EvE::Time::Minute);
                 if (offer.courierTypeID) {
-                    // add item to players hangar
                     sItemFactory.SetUsingClient(call.client);
                     ItemData data(offer.courierTypeID, pchar->itemID(), locTemp, flagNone, offer.courierAmount);
                     InventoryItemRef iRef = sItemFactory.SpawnItem(data);
                     iRef->Move(offer.originID, flagHangar, true);
                     sItemFactory.UnsetUsingClient();
+                }
+                // Spawn mission dungeon for encounter/mining type missions
+                if (offer.destinationSystemID != 0 && offer.missionID != 0) {
+                    uint32 dungeonID = 0;
+                    DBQueryResult dunRes;
+                    if (sDatabase.RunQuery(dunRes,
+                        "SELECT dungeonID FROM qstEncounter WHERE id = %u AND dungeonID > 0",
+                        offer.missionID))
+                    {
+                        DBResultRow dunRow;
+                        if (dunRes.GetRow(dunRow))
+                            dungeonID = dunRow.GetUInt(0);
+                    }
+                    if (dungeonID > 0) {
+                        SystemManager* pDestSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
+                        if (pDestSys != nullptr) {
+                            CosmicSignature sig;
+                            sig.systemID = offer.destinationSystemID;
+                            sig.ownerID = call.client->GetCharacterID();
+                            sig.sigName = call.client->GetName();
+                            sig.position = GPoint(
+                                MakeRandomFloat(-2.0e12, 2.0e12),
+                                MakeRandomFloat(-2.0e12, 2.0e12),
+                                MakeRandomFloat(-2.0e12, 2.0e12)
+                            );
+                            pDestSys->GetDungMgr()->MakeDungeon(sig, dungeonID);
+                            _log(AGENT__MESSAGE, "Spawned dungeon %u for mission %u in system %u",
+                                 dungeonID, offer.missionID, offer.destinationSystemID);
+                        }
+                    }
                 }
                 m_agent->UpdateOffer(pchar->itemID(), offer);
                 m_agent->SendMissionUpdate(call.client, "offer_accepted");
