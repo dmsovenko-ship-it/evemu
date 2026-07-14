@@ -54,11 +54,13 @@ PyResult MissionMgrService::GetMyCourierMissions(PyCallArgs& call)
         "  o.originOwnerID,"
         "  o.originSystemID,"
         "  o.destinationID,"
+        "  o.destinationTypeID,"
         "  o.destinationOwnerID,"
         "  o.destinationSystemID,"
         "  CASE WHEN o.courierTypeID > 0 THEN o.courierTypeID ELSE 23 END as courierTypeID,"
         "  CASE WHEN o.courierAmount > 0 THEN o.courierAmount ELSE 1 END as courierAmount,"
-        "  o.courierVolume"
+        "  o.courierVolume,"
+        "  o.acceptFee"
         " FROM agtOffers o"
         " WHERE o.characterID = %u AND o.stateID < 2 AND o.typeID = 3",
         charID))
