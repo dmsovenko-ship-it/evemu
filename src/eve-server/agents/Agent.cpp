@@ -61,9 +61,11 @@ bool Agent::Load() {
         if (o.typeID != Mission::Type::Courier)
             continue;
         bool fixed = false;
-        // Determine fallback station: use agent's stationID, or pick any station in agent's system
-        uint32 fallbackStation = m_agentData.stationID;
-        if (fallbackStation == 0 && m_agentData.solarSystemID != 0) {
+        // Determine fallback station: use agent's stationID, or any station in agent's system
+        uint32 fallbackStation = 0;
+        if (sDataMgr.IsStation(m_agentData.stationID)) {
+            fallbackStation = m_agentData.stationID;
+        } else if (m_agentData.solarSystemID != 0) {
             std::vector<uint32> stations;
             sDataMgr.GetStationList(m_agentData.solarSystemID, stations);
             if (!stations.empty())
@@ -72,14 +74,14 @@ bool Agent::Load() {
         if (fallbackStation == 0)
             fallbackStation = m_agentData.solarSystemID;
 
-        // Only fix origin if it's zero or set to a system (not a station)
-        if (o.originID == 0 || o.originID == o.originSystemID) {
+        // Fix origin if zero, set to system (not station), or not a valid station
+        if (o.originID == 0 || o.originID == o.originSystemID || !sDataMgr.IsStation(o.originID)) {
             o.originID = fallbackStation;
             o.originOwnerID = m_agentData.corporationID;
             o.originSystemID = m_agentData.solarSystemID;
             fixed = true;
         }
-        if (o.destinationID == 0 || o.destinationID == o.destinationSystemID) {
+        if (o.destinationID == 0 || o.destinationID == o.destinationSystemID || !sDataMgr.IsStation(o.destinationID)) {
             o.destinationID = fallbackStation;
             o.destinationOwnerID = m_agentData.corporationID;
             o.destinationSystemID = m_agentData.solarSystemID;
