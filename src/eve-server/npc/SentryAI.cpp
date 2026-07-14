@@ -121,6 +121,18 @@ void SentryAI::Process() {
                         }
                     }
                 }
+                // In highsec, sentries also attack NPCs that aggress any ship
+                if (m_npc->SystemMgr()->GetSystemSecurityRating() >= 0.5f) {
+                    std::map<uint32, SystemEntity*> bubbleEnts;
+                    m_npc->SysBubble()->GetEntities(bubbleEnts);
+                    for (auto& ent : bubbleEnts) {
+                        if (ent.second == nullptr || !ent.second->IsNPCSE()) continue;
+                        if (ent.second->TargetMgr() == nullptr || ent.second->TargetMgr()->HasNoTargets()) continue;
+                        if (m_npc->GetPosition().distance(ent.second->GetPosition()) > m_sightRange)
+                            continue;
+                        Target(ent.second);
+                    }
+                }
             } else {
                 if (!m_beginFindTarget.Enabled())
                     m_beginFindTarget.Start(m_attackSpeed);
