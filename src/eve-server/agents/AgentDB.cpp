@@ -29,8 +29,8 @@ void AgentDB::LoadAgentData(uint32 agentID, AgentData& data)
         "   agt.corporationID,"
         "   agt.locationID, "   //5
         "   agt.isLocator,"
-        "   chr.solarSystemID,"
-        "   chr.stationID,"
+        "   COALESCE(chr.solarSystemID, itm.solarSystemID, agt.locationID) AS solarSystemID,"
+        "   COALESCE(chr.stationID, CASE WHEN agt.locationID BETWEEN 60000000 AND 60999999 THEN agt.locationID ELSE 0 END) AS stationID,"
         "   chr.gender,"
         "   bl.bloodlineID,"    //10
         "   itm.typeID, "
