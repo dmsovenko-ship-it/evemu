@@ -58,8 +58,11 @@ bool Agent::Load() {
     // Fix offers with zero or stale origin/destination data
     for (auto& offer : m_offers) {
         MissionOffer& o = offer.second;
-        // Both Courier (3) and Trade (5) missions have transport objectives
-        if (o.typeID != Mission::Type::Courier && o.typeID != Mission::Type::Trade)
+        // Only fix transport/courier (type=3,4) origin/destination.
+        // For type=5 (Mining) destination is a solar system — only fix courierTypeID/amount.
+        bool isTransport = (o.typeID == Mission::Type::Courier || o.typeID == Mission::Type::Trade);
+        bool isMining = (o.typeID == 5);
+        if (!isTransport && !isMining)
             continue;
         bool fixed = false;
         // Determine fallback station: use agent's stationID, or any station in agent's system
@@ -86,21 +89,23 @@ bool Agent::Load() {
         if (fallbackStation == 0)
             fallbackStation = m_agentData.solarSystemID;
 
-        _log(AGENT__ERROR, "Fixup: fallbackStation=%u sys=%u staCnt=%u",
+        _log(AGENT__ERROR, "Fixup: fallbackStation=%u sys=%u staCnt=%u isTransport=%d",
              fallbackStation, m_agentData.solarSystemID,
-             sDataMgr.GetStationCount(m_agentData.solarSystemID));
+             sDataMgr.GetStationCount(m_agentData.solarSystemID), isTransport);
 
-        if (o.originID == 0 || o.originID == o.originSystemID || !sDataMgr.IsStation(o.originID)) {
-            o.originID = fallbackStation;
-            o.originOwnerID = m_agentData.corporationID;
-            o.originSystemID = m_agentData.solarSystemID;
-            fixed = true;
-        }
-        if (o.destinationID == 0 || o.destinationID == o.destinationSystemID || !sDataMgr.IsStation(o.destinationID)) {
-            o.destinationID = fallbackStation;
-            o.destinationOwnerID = m_agentData.corporationID;
-            o.destinationSystemID = m_agentData.solarSystemID;
-            fixed = true;
+        if (isTransport) {
+            if (o.originID == 0 || o.originID == o.originSystemID || !sDataMgr.IsStation(o.originID)) {
+                o.originID = fallbackStation;
+                o.originOwnerID = m_agentData.corporationID;
+                o.originSystemID = m_agentData.solarSystemID;
+                fixed = true;
+            }
+            if (o.destinationID == 0 || o.destinationID == o.destinationSystemID || !sDataMgr.IsStation(o.destinationID)) {
+                o.destinationID = fallbackStation;
+                o.destinationOwnerID = m_agentData.corporationID;
+                o.destinationSystemID = m_agentData.solarSystemID;
+                fixed = true;
+            }
         }
         if (o.courierTypeID == 0) {
             o.courierTypeID = 23;
