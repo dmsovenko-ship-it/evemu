@@ -118,15 +118,31 @@ PyResult PlanetMgrService::GetPlanet(PyCallArgs& call, PyInt* planetID) {
     _log(PLANET__DEBUG, "PlanetMgrService::Handle_GetPlanet() size=%lli", call.tuple->size());
     call.Dump(PLANET__DUMP);
 
-    return nullptr;
+    StaticData sData;
+    if (!sDataMgr.GetStaticInfo(planetID->value(), sData))
+        return new PyDict();
+
+    SystemManager* pSysMgr = sEntityList.FindOrBootSystem(sData.systemID);
+    if (pSysMgr == nullptr)
+        return new PyDict();
+
+    SystemEntity* pSE = pSysMgr->GetSE(sData.itemID);
+    if (pSE == nullptr || !pSE->IsPlanetSE())
+        return new PyDict();
+
+    PlanetSE* planet = pSE->GetPlanetSE();
+    Colony* colony = planet->GetColony(call.client);
+    colony->Init();
+
+    return planet->GetPlanetInfo(colony);
 }
 
 PyResult PlanetMgrService::DeleteLaunch(PyCallArgs& call, PyInt* launchID) {
-    //sm.RemoteSvc('planetMgr').DeleteLaunch
     _log(PLANET__DEBUG, "PlanetMgrService::Handle_DeleteLaunch() size=%lli", call.tuple->size());
     call.Dump(PLANET__DUMP);
 
-    return nullptr;
+    PlanetDB::DeleteLaunch(launchID->value());
+    return PyStatic.NewNone();
 }
 
 PlanetMgrBound::PlanetMgrBound (EVEServiceManager& mgr, PlanetMgrService& parent, Client* client, PlanetSE* planet) :
@@ -347,26 +363,37 @@ PyResult PlanetMgrBound::UserTransferCommodities(PyCallArgs &call, PyList* path,
  */
 
 PyResult PlanetMgrBound::GetCommandPinsForPlanet(PyCallArgs &call, PyInt* planetID) {
-    /*  called by "get other character's networks" in planet menu
-     * 16:42:42 [PlanetDebug] PlanetMgrBound::Handle_GetCommandPinsForPlanet() size=1
-     * 16:42:42 [PlanetCallDump]   Call Arguments:
-     * 16:42:42 [PlanetCallDump]       Tuple: 1 elements
-     * 16:42:42 [PlanetCallDump]         [ 0] Integer field: 40159411
-     */
     _log(PLANET__DEBUG, "PlanetMgrBound::Handle_GetCommandPinsForPlanet() size=%lli", call.tuple->size());
     call.Dump(PLANET__DUMP);
 
-    // returns empty dict if none
-    return new PyDict();
+    // Query all command centers on this planet from piPlanets
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT charID, ccPinID FROM piPlanets WHERE planetID = %u", planetID->value()))
+    {
+        return new PyList();
+    }
+
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* dict = new PyDict();
+        dict->SetItemString("ownerID", new PyInt(row.GetUInt(0)));
+        dict->SetItemString("pinID", new PyInt(row.GetUInt(1)));
+        list->AddItem(new PyObject("util.KeyVal", dict));
+    }
+    return list;
 }
 
 PyResult PlanetMgrBound::GetFullNetworkForOwner(PyCallArgs &call, PyInt* planetID, PyInt* characterID) {
-    /*
-     */
     _log(PLANET__DEBUG, "PlanetMgrBound::Handle_GetFullNetworkForOwner() size=%lli", call.tuple->size());
     call.Dump(PLANET__DUMP);
 
-    // returns empty dict if none
+    // For other characters, we'd need to load their colony data from DB.
+    // For now, only return data for the calling character.
+    if (characterID->value() == call.client->GetCharacterID())
+        return m_colony->GetColony();
+
     return new PyDict();
 }
 

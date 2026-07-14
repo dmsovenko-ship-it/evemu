@@ -168,7 +168,7 @@ EVEServerConfig::EVEServerConfig()
     npc.LootDropChance = 0.75;
 
     // cosmic
-    cosmic.PIEnabled = false;
+    cosmic.PIEnabled = true;
     cosmic.AnomalyEnabled = false;
     cosmic.DungeonEnabled = false;
     cosmic.BeltEnabled = false;
