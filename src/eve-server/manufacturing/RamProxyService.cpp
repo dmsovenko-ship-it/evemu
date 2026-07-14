@@ -867,7 +867,7 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
         std::string msg = std::string("Your ") + actName + " job has been completed.";
         DBerror mailErr;
         sDatabase.RunQuery(mailErr,
-            "INSERT INTO mailMessage (senderID, title, body, created, toCharacterIDs)"
+            "INSERT INTO mailMessage (senderID, title, body, sentDate, toCharacterIDs)"
             " VALUES (1, 'Job Complete', '%s', %lli, '%%%u%%')",
             msg.c_str(), (int64)GetFileTimeNow(), data.ownerID);
     }
