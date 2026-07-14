@@ -2988,31 +2988,12 @@ void DestinyManager::UpdateOldShip(ShipSE* pShipSE)
 
 void DestinyManager::Jump(bool showCloak)
 {
-    SafeDelete(m_warpState);
-    m_ballMode = Destiny::Ball::Mode::STOP;
-    m_stop = true;
-    m_accel = false;
-    m_decel = false;
-    m_turning = false;
-    m_maxSpeed = 0.0f;
-    m_velocity = GVector(NULL_ORIGIN);
-    m_moveTime = 0.0;
-    m_prevSpeed = 0.0f;
-    m_stateStamp = 0;
-    m_targetPoint = GPoint(NULL_ORIGIN);
-    m_shipHeading = GVector(NULL_ORIGIN_V);
-    m_stopDistance = 0;
-    m_targetDistance = 0;
-    m_followDistance = 0;
-    m_prevSpeedFraction = 0.0f;
-    // NOTE: m_userSpeedFraction and m_activeSpeedFraction are intentionally
-    // NOT reset here — the client uses them to determine autopilot state.
-    // Resetting to 0 would make the client disable autopilot after jump.
-    m_timeFraction = 0.0f;
-    m_maxOrbitSpeedFraction = 1.0f;
-    m_targetEntity.first = 0;
-    m_targetEntity.second = nullptr;
-    ClearTurn();
+    Halt();
+    if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
+        // Preserve speedFraction for autopilot across jump
+        m_userSpeedFraction = 1.0f;
+        m_activeSpeedFraction = 1.0f;
+    }
     if (showCloak) {
         m_cloaked = true;
     }
