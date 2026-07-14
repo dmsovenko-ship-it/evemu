@@ -61,14 +61,26 @@ bool Agent::Load() {
         if (o.typeID != Mission::Type::Courier)
             continue;
         bool fixed = false;
-        if ((o.originID == 0 || o.originID == o.originSystemID) && m_agentData.stationID != 0) {
-            o.originID = m_agentData.stationID;
+        // Determine fallback station: use agent's stationID, or pick any station in agent's system
+        uint32 fallbackStation = m_agentData.stationID;
+        if (fallbackStation == 0 && m_agentData.solarSystemID != 0) {
+            std::vector<uint32> stations;
+            sDataMgr.GetStationList(m_agentData.solarSystemID, stations);
+            if (!stations.empty())
+                fallbackStation = stations.front();
+        }
+        if (fallbackStation == 0)
+            fallbackStation = m_agentData.solarSystemID;
+
+        // Only fix origin if it's zero or set to a system (not a station)
+        if (o.originID == 0 || o.originID == o.originSystemID) {
+            o.originID = fallbackStation;
             o.originOwnerID = m_agentData.corporationID;
             o.originSystemID = m_agentData.solarSystemID;
             fixed = true;
         }
         if (o.destinationID == 0 || o.destinationID == o.destinationSystemID) {
-            o.destinationID = m_agentData.stationID;
+            o.destinationID = fallbackStation;
             o.destinationOwnerID = m_agentData.corporationID;
             o.destinationSystemID = m_agentData.solarSystemID;
             fixed = true;
@@ -82,7 +94,7 @@ bool Agent::Load() {
             fixed = true;
         }
         if (fixed)
-            _log(AGENT__MESSAGE, "Fixed stale offer %u for agent %u (destID=%u, sysID=%u)", o.offerID, m_agentID, o.destinationID, o.destinationSystemID);
+            _log(AGENT__MESSAGE, "Fixed stale offer %u for agent %u (destID=%u, sysID=%u fbStation=%u)", o.offerID, m_agentID, o.destinationID, o.destinationSystemID, fallbackStation);
     }
 
     // Event and Aura agents should not have mission offers
