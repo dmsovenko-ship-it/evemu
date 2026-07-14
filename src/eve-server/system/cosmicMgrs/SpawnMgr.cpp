@@ -706,9 +706,8 @@ void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8
         if (iRef->HasAttribute(AttrExplosiveDamage))
             iRef->SetAttribute(AttrExplosiveDamage, iRef->GetAttribute(AttrExplosiveDamage).get_float() * dmgMult, false);
 
-        m_system->AddNPC(pNPC);
-        // Give NPC a orbit around bubble center to avoid TROLL mode
         pNPC->DestinyMgr()->SetPosition(basePos);
+        m_system->AddNPC(pNPC);
         pNPC->DestinyMgr()->Stop();
     }
  
@@ -1177,15 +1176,17 @@ void SpawnMgr::MakeSpawn(SystemBubble* pBubble, uint32 factionID, uint8 sClass, 
                 continue;
             }
 
-            pNPC->DestinyMgr()->SetPosition(startPos);
-
+            // Set position to target bubble center FIRST so AddNPC assigns the correct bubble,
+            // then set to offset position for the warp-in visual effect.
+            pNPC->DestinyMgr()->SetPosition(warpToPoint);
             m_system->AddNPC(pNPC);
+            pNPC->DestinyMgr()->SetPosition(startPos);
             //  begin warp - timing of rat fleet is ensured by destiny
             if (sClass <= Spawn::Class::Officer) {   // ratspawn will warp in, others will not.
                 // adjust warpIn point so show some variation instead of a straight line.
                 GPoint warpTo(warpToPoint);
                 warpTo.MakeRandomPointOnSphere(sClass *1000);  // random point <class (1-12)> x 1k from center
-                pNPC->DestinyMgr()->WarpTo(warpTo, (MakeRandomInt(-5, 10) *1000));
+                pNPC->DestinyMgr()->WarpTo(warpTo, MakeRandomInt(5, 15) *1000);
             } else if (anomaly) {
                 // Force full state re-init for all players in bubble (crosshair fix)
                 if (pNPC->DestinyMgr() != nullptr)
