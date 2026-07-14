@@ -219,7 +219,6 @@ PyRep *FactoryDB::GetJobs2(const int32 ownerID, const bool completed)
         " installedItem.ownerID AS installedItemOwnerID,"
         " blueprint.pLevel AS installedItemProductivityLevel,"
         " blueprint.mLevel AS installedItemMaterialLevel,"
-        // quite ugly, but lets us use DBResultToRowset
         " IF(assemblyLine.activityID = 1, blueprintType.productTypeID, installedItem.typeID) AS outputTypeID,"
         " job.outputFlag,"
         " job.installerID,"
@@ -231,16 +230,18 @@ PyRep *FactoryDB::GetJobs2(const int32 ownerID, const bool completed)
         " job.endProductionTime,"
         " job.completedStatusID != 0 AS completed,"
         " job.licensedProductionRuns,"
-        " station.solarSystemID AS installedInSolarSystemID,"
+        " COALESCE(station.solarSystemID, sol.solarSystemID, posContainer.locationID) AS installedInSolarSystemID,"
         " job.completedStatusID AS completedStatus,"
-        " station.stationTypeID AS containerTypeID,"
-        " station.solarSystemID AS containerLocationID"
+        " COALESCE(station.stationTypeID, posContainer.typeID) AS containerTypeID,"
+        " COALESCE(station.solarSystemID, sol.solarSystemID, posContainer.locationID) AS containerLocationID"
         " FROM ramJobs AS job"
         " LEFT JOIN entity AS installedItem ON job.installedItemID = installedItem.itemID"
         " LEFT JOIN ramAssemblyLines AS assemblyLine ON job.assemblyLineID = assemblyLine.assemblyLineID"
         " LEFT JOIN invBlueprints AS blueprint ON installedItem.itemID = blueprint.itemID"
         " LEFT JOIN invBlueprintTypes AS blueprintType ON installedItem.typeID = blueprintType.blueprintTypeID"
         " LEFT JOIN ramAssemblyLineStations AS station ON assemblyLine.containerID = station.stationID"
+        " LEFT JOIN entity AS posContainer ON assemblyLine.containerID = posContainer.itemID AND station.stationID IS NULL"
+        " LEFT JOIN mapDenormalize AS sol ON sol.itemID = posContainer.locationID"
         " WHERE job.ownerID = %u"
         " AND job.completedStatusID %s 0"
         " GROUP BY job.jobID",
@@ -414,23 +415,8 @@ PyRep *FactoryDB::AssemblyLinesSelectCorporation(const uint32 corpID) {
     return obj;
 }
 
-/** @todo  need to add check/query for POS assembly modules here */
 PyRep *FactoryDB::AssemblyLinesSelectAlliance(const int32 allianceID) {
     DBQueryResult res;
-
-    // This produces the same output but with less complex joins and
-    // the quantity column is completely redundant.
-    // SELECT
-    //     job.containerId,
-    //     station.stationTypeId AS containerTypeId,
-    //     station.solarSystemId AS containerLocationId,
-    //     job.typeId as assemblyLineTypeId,
-    //     COUNT(job.containerId) as quantity,
-    //     station.corporationId as ownerId
-    //     FROM industrySlots AS job 
-    //         JOIN evemu.staStations AS station ON station.stationId = job.containerId
-    //         JOIN evemu.crpCorporation AS corp ON corp.corporationId = station.corporationId
-    //     GROUP BY job.containerId, job.typeId;
 
     if (!sDatabase.RunQuery(res,
         "SELECT DISTINCT"
@@ -442,7 +428,7 @@ PyRep *FactoryDB::AssemblyLinesSelectAlliance(const int32 allianceID) {
         " station.ownerID,"
         " line.activityID"
         " FROM ramAssemblyLineStations AS station"
-        " LEFT JOIN crpCorporation AS crp ON station.ownerID = crp.corporationID"
+        " INNER JOIN crpCorporation AS crp ON station.ownerID = crp.corporationID"
         " LEFT JOIN ramAssemblyLines AS line ON station.stationID = line.containerID AND station.assemblyLineTypeID = line.assemblyLineTypeID AND station.ownerID = line.ownerID"
         " WHERE crp.allianceID = %u"
         " AND (line.restrictionMask & %u) = %u",
@@ -452,11 +438,71 @@ PyRep *FactoryDB::AssemblyLinesSelectAlliance(const int32 allianceID) {
         return nullptr;
     }
 
+    // Union with POS structures owned by corporations in this alliance
+    DBQueryResult posRes;
+    if (sDatabase.RunQuery(posRes,
+        "SELECT DISTINCT"
+        " entity.itemID AS containerID,"
+        " entity.typeID AS containerTypeID,"
+        " COALESCE(sol.solarSystemID, entity.locationID) AS containerLocationID,"
+        " COALESCE(rd.assemblyLineTypeID, 0) AS assemblyLineTypeID,"
+        " 1 AS quantity,"
+        " entity.ownerID,"
+        " COALESCE(rd.activityID, 0) AS activityID"
+        " FROM entity"
+        " INNER JOIN crpCorporation AS crp ON entity.ownerID = crp.corporationID"
+        " LEFT JOIN mapDenormalize AS sol ON sol.itemID = entity.locationID"
+        " LEFT JOIN ramAssemblyLineTypeDetailPerGroup AS rd ON rd.groupID = entity.groupID"
+        " WHERE crp.allianceID = %u"
+        "  AND entity.groupID IN (397, 413, 438, 661, 662)"
+        "  AND entity.flag = 11",
+        allianceID))
+    {
+        // Merge POS results into station results
+        std::vector<PyRep*> rows;
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            PyList* list = new PyList();
+            for (size_t i = 0; i < res.ColumnCount(); ++i)
+                list->AddItem(new PyInt(row.GetUInt(i)));
+            rows.push_back(list);
+        }
+        DBResultRow posRow;
+        while (posRes.GetRow(posRow)) {
+            PyList* list = new PyList();
+            list->AddItem(new PyInt(posRow.GetUInt(0)));
+            list->AddItem(new PyInt(posRow.GetUInt(1)));
+            list->AddItem(new PyInt(posRow.GetUInt(2)));
+            list->AddItem(new PyInt(posRow.GetUInt(3)));
+            list->AddItem(PyStatic.NewOne());
+            list->AddItem(new PyInt(posRow.GetUInt(5)));
+            list->AddItem(new PyInt(posRow.GetUInt(6)));
+            rows.push_back(list);
+        }
+
+        PyList* dataList = new PyList();
+        for (auto r : rows)
+            dataList->AddItem(r);
+
+        PyObjectEx* obj = new PyObjectEx(false, new PyToken("util.CRowset"));
+        obj->list().AddItem(new PyString("containerID"));
+        obj->list().AddItem(new PyString("containerTypeID"));
+        obj->list().AddItem(new PyString("containerLocationID"));
+        obj->list().AddItem(new PyString("assemblyLineTypeID"));
+        obj->list().AddItem(new PyString("quantity"));
+        obj->list().AddItem(new PyString("ownerID"));
+        obj->list().AddItem(new PyString("activityID"));
+        obj->dict().SetItem(new PyString("_types"), dataList);
+        return obj;
+    }
+
     return DBResultToCRowset(res);
 }
 
-/** @todo  need to add check/query for POS assembly modules here */
 PyRep *FactoryDB::AssemblyLinesGet(const uint32 containerID) {
+    // Ensure POS assembly line entries exist for this container
+    EnsurePOSAssemblyLines(containerID);
+
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
@@ -487,7 +533,7 @@ PyRep *FactoryDB::AssemblyLinesGet(const uint32 containerID) {
     return DBResultToCRowset(res);
 }
 
-/** @todo  need to add check/query for POS assembly modules here */
+// POS assembly line properties are queried from ramAssemblyLines (seeded by EnsurePOSAssemblyLines)
 bool FactoryDB::GetAssemblyLineProperties(const uint32 assemblyLineID, Character* pChar, Rsp_InstallJob& into, bool isCorpJob/*false*/) {
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
@@ -568,7 +614,7 @@ bool FactoryDB::GetAssemblyLineProperties(const uint32 assemblyLineID, Character
     return true;
 }
 
-/** @todo  need to add check/query for POS assembly modules here */
+// POS restrictions use defaults set by EnsurePOSAssemblyLines (ByCorp, no standing/security limits)
 bool FactoryDB::GetAssemblyLineRestrictions(const int32 assemblyLineID, EvERam::LineRestrictions &data) {
     DBQueryResult res;
 
@@ -882,4 +928,70 @@ bool FactoryDB::IsRecyclable(const uint16 typeID) {
     }
 
     return (res.ColumnCount() > 0);
+}
+
+bool FactoryDB::EnsurePOSAssemblyLines(const uint32 containerID)
+{
+    DBQueryResult entRes;
+    if (!sDatabase.RunQuery(entRes,
+        "SELECT entity.ownerID, entity.groupID FROM entity"
+        " WHERE entity.itemID = %u"
+        "  AND entity.groupID IN (397, 413, 438, 661, 662)",
+        containerID))
+    {
+        return false;
+    }
+    if (!entRes.ColumnCount())
+        return false;
+
+    DBResultRow entRow;
+    if (!entRes.GetRow(entRow))
+        return false;
+
+    uint32 ownerID = entRow.GetUInt(0);
+    uint32 groupID = entRow.GetUInt(1);
+
+    DBQueryResult existRes;
+    sDatabase.RunQuery(existRes,
+        "SELECT COUNT(*) FROM ramAssemblyLines WHERE containerID = %u", containerID);
+    if (existRes.ColumnCount()) {
+        DBResultRow existRow;
+        if (existRes.GetRow(existRow) && existRow.GetUInt(0) > 0)
+            return true;
+    }
+
+    DBQueryResult typeRes;
+    if (!sDatabase.RunQuery(typeRes,
+        "SELECT assemblyLineTypeID, activityID"
+        " FROM ramAssemblyLineTypeDetailPerGroup"
+        " WHERE groupID = %u",
+        groupID))
+    {
+        _log(DATABASE__ERROR, "Failed to query assembly line types for POS group %u.", groupID);
+        return false;
+    }
+
+    DBResultRow typeRow;
+    while (typeRes.GetRow(typeRow)) {
+        DBerror err;
+        if (!sDatabase.RunQuery(err,
+            "INSERT INTO ramAssemblyLines"
+            " (assemblyLineTypeID, containerID, ownerID, nextFreeTime,"
+            "  costInstall, costPerHour, restrictionMask,"
+            "  discountPerGoodStandingPoint, surchargePerBadStandingPoint,"
+            "  minimumStanding, minimumCharSecurity, minimumCorpSecurity,"
+            "  maximumCharSecurity, maximumCorpSecurity)"
+            " VALUES (%u, %u, %u, %.0f,"
+            "  0, 0, %u,"
+            "  0, 0,"
+            "  0, 0, 0,"
+            "  0, 0)",
+            typeRow.GetUInt(0), containerID, ownerID, GetFileTimeNow(),
+            EvERam::RestrictionMask::ByCorp))
+        {
+            _log(DATABASE__ERROR, "Failed to insert POS assembly line: %s.", err.c_str());
+        }
+    }
+
+    return true;
 }

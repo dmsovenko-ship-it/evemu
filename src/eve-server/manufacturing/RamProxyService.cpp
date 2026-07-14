@@ -83,12 +83,10 @@ PyResult RamProxyService::AssemblyLinesSelectPrivate(PyCallArgs &call) {
 }
 
 PyResult RamProxyService::AssemblyLinesSelectCorp(PyCallArgs &call) {
-    /** @todo  this needs to search db for POS arrays based on corp */
     return FactoryDB::AssemblyLinesSelectCorporation(call.client->GetCorporationID());
 }
 
 PyResult RamProxyService::AssemblyLinesSelectAlliance(PyCallArgs &call) {
-    /** @todo  this needs to search db for POS arrays based on alliance */
     return FactoryDB::AssemblyLinesSelectAlliance(call.client->GetAllianceID());
 }
 

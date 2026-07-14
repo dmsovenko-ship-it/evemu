@@ -70,6 +70,9 @@ public:
 
     static int64 GetNextFreeTime(const uint32 assemblyLineID);
 
+    // for POS assembly modules
+    static bool EnsurePOSAssemblyLines(const uint32 containerID);
+
     // for calendar events
     static void SetJobEventID(const uint32 jobID, const uint32 eventID);
 

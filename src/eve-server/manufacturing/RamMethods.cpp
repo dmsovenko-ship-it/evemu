@@ -143,10 +143,10 @@ void RamMethods::InstallationCheck(Client*const pClient, int32 lineLocationID)
             throw UserError ("RamIsNotAnInstallation");
         if (pClient->GetRegionID() != regionID)
             throw UserError ("RamRangeLimitationRegion");
-    } else {
-        // get structure data and run tests
-        // RamStructureNotInSpace
-        // RamStructureNotIsSolarsystem
+    } else if (IsSolarSystemID(lineLocationID)) {
+        // POS structure — check same system
+        if (pClient->GetSystemID() != lineLocationID)
+            throw UserError ("RamRangeLimitation");
     }
 
     // check player skill for limits
@@ -292,14 +292,23 @@ void RamMethods::ItemLocationCheck(Client*const pClient, const Call_InstallJob& 
         if (installedItem->locationID() != args.lineContainerID)
             throw UserError ("RamInstalledItemMustBeInShip");
     } else {
-        /* this will be POS assembly modules and Outpost checks
-        *  RamStationIsNotConstructed
-        *  RamInstalledItemMustBeInInstallation
-        *  RamInstalledItemBadLocationStructure
-        *  RamInstalledItemInStructureNotInContainer
-        *  RamInstalledItemInStructureUnknownLocation
-        */
-        throw CustomError ("R.A.M. at POS/Outpost not supported yet");
+        // Check if container is a POS structure with assembly capabilities
+        DBQueryResult posRes;
+        if (!sDatabase.RunQuery(posRes,
+            "SELECT groupID FROM entity"
+            " WHERE itemID = %u"
+            "  AND groupID IN (397, 413, 438, 661, 662)"
+            "  AND flag = 11",  // flagAnchored
+            args.lineContainerID))
+        {
+            throw CustomError ("R.A.M. at POS/Outpost not supported yet");
+        }
+
+        if (!posRes.ColumnCount())
+            throw UserError ("RamIsNotAnInstallation");
+
+        if (installedItem->locationID() != args.lineContainerID)
+            throw UserError ("RamInstalledItemMustBeInInstallation");
     }
 }
 

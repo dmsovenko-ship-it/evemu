@@ -190,6 +190,10 @@ Things to verify after recent changes (updated 2026-07-14 — build 8 mega-sessi
 - [ ] **Material consumption (extra)** — Verify extra materials are consumed at base quantity (not inflated by skills).
 - [ ] **Alliance job completion** — Complete a job owned by alliance. Should check alliance membership + Factory Manager role.
 - [ ] **Invention install** — Install an invention job. Invention items data should be read and validated server-side.
+- [ ] **POS Assembly lines** — Anchor a Mobile Laboratory at a POS. Open S&I window, select corp lines. POS lab should appear with available activities.
+- [ ] **POS job install** — Install a manufacturing/research job at a POS Mobile Laboratory. Should not throw "R.A.M. at POS/Outpost not supported".
+- [ ] **POS job complete** — Complete a job at a POS lab. Product should appear in the lab's container.
+- [ ] **Alliance assembly lines** — Check alliance assembly line selector. Should show lines at stations owned by alliance corps + POS structures owned by alliance corps.
 
 ## LSC / Chat
 
