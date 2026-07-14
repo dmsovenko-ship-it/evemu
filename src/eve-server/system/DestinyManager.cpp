@@ -1899,6 +1899,17 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     // preserve follow target for autopilot
     uint32 followTargetID = m_targetEntity.first;
     uint32 followDist = m_stopDistance;
+    // For autopilot gates/stations, approach to jump/dock range after warp
+    if (followTargetID != 0 && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
+        SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
+        if (pTarget != nullptr) {
+            if (pTarget->IsGateSE())
+                followDist = 2500;
+            else if (pTarget->IsStationSE())
+                followDist = 2500;
+            followDist += static_cast<uint16>(mySE->GetRadius());
+        }
+    }
 
     SafeDelete(m_warpState);
 
