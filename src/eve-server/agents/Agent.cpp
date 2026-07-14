@@ -55,23 +55,34 @@ bool Agent::Load() {
     AgentDB::LoadAgentData(m_agentID, m_agentData);
     sMissionDataMgr.LoadAgentOffers(m_agentID, m_offers);
 
-    // Fix offers with zero origin/destination (stale data from before LoadAgentData COALESCE fix)
+    // Fix offers with zero or stale origin/destination data
     for (auto& offer : m_offers) {
         MissionOffer& o = offer.second;
-        if (o.originID == 0 && m_agentData.stationID != 0) {
+        if (o.typeID != Mission::Type::Courier)
+            continue;
+        bool fixed = false;
+        if ((o.originID == 0 || o.originID == o.originSystemID) && m_agentData.stationID != 0) {
             o.originID = m_agentData.stationID;
             o.originOwnerID = m_agentData.corporationID;
             o.originSystemID = m_agentData.solarSystemID;
+            fixed = true;
         }
-        if (o.destinationID == 0) {
+        if (o.destinationID == 0 || o.destinationID == o.destinationSystemID) {
             o.destinationID = m_agentData.stationID;
             o.destinationOwnerID = m_agentData.corporationID;
             o.destinationSystemID = m_agentData.solarSystemID;
+            fixed = true;
         }
-        if (o.courierTypeID == 0)
+        if (o.courierTypeID == 0) {
             o.courierTypeID = 23;
-        if (o.courierAmount == 0)
+            fixed = true;
+        }
+        if (o.courierAmount == 0) {
             o.courierAmount = 1;
+            fixed = true;
+        }
+        if (fixed)
+            _log(AGENT__MESSAGE, "Fixed stale offer %u for agent %u (destID=%u, sysID=%u)", o.offerID, m_agentID, o.destinationID, o.destinationSystemID);
     }
 
     // Event and Aura agents should not have mission offers
