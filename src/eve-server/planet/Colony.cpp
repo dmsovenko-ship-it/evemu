@@ -1437,15 +1437,11 @@ void Colony::ProcessECUs(bool& updateTimes)
         if (is_log_enabled(COLONY__DEBUG))
             _log(COLONY__DEBUG, "Colony::ProcessECUs() - ECU pin %u - begin processing with %u cycles (%0.2f / %0.2f)", \
                     ecu.first, cycles, delta, (ecu.second.cycleTime / EvE::Time::Hour));
-        auto destRouteItr = m_destRoutes.equal_range(plant->first);  // sum ting wong
-        for (auto it = destRouteItr.first; it != destRouteItr.second; ++it) {
-            // verify this route begins at this pin.
-            //if (it->second.srcPinID != ecu.first)
-            //    continue;
-
-            // second - update current contents per route movement as noted above (there are no stored contents to update in the ECU)
-            // get route destination pin and update qty
-            destPin = ccPin->pins.find(it->first);
+        // Find routes starting at this ECU
+        auto srcRouteItr = m_srcRoutes.equal_range(ecu.first);
+        for (auto it = srcRouteItr.first; it != srcRouteItr.second; ++it) {
+            // Get route destination pin and update qty
+            destPin = ccPin->pins.find(it->second.destPinID);
             if (destPin == ccPin->pins.end()) {
                 _log(COLONY__ERROR, "Colony::ProcessECUs() - Dest pinID %u not found in ccPin.pins map", it->first);
                 continue;
