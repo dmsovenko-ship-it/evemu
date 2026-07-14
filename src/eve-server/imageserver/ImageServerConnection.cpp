@@ -104,11 +104,7 @@ void ImageServerConnection::ProcessHeaders()
     if (!_imageData) {
         if (IsPlayerItem(_id)) {
             sLog.Error("     Image Server","Image for itemID %u not found.", _id);
-            NotFound();
-            return;
-        } else if (IsCharacterID(_id)) {
-            sLog.Error("     Image Server","Image for charID %u not found.", _id);
-            NotFound();
+            Redirect();
             return;
         }
         Redirect();

@@ -55,6 +55,25 @@ bool Agent::Load() {
     AgentDB::LoadAgentData(m_agentID, m_agentData);
     sMissionDataMgr.LoadAgentOffers(m_agentID, m_offers);
 
+    // Fix offers with zero origin/destination (stale data from before LoadAgentData COALESCE fix)
+    for (auto& offer : m_offers) {
+        MissionOffer& o = offer.second;
+        if (o.originID == 0 && m_agentData.stationID != 0) {
+            o.originID = m_agentData.stationID;
+            o.originOwnerID = m_agentData.corporationID;
+            o.originSystemID = m_agentData.solarSystemID;
+        }
+        if (o.destinationID == 0) {
+            o.destinationID = m_agentData.stationID;
+            o.destinationOwnerID = m_agentData.corporationID;
+            o.destinationSystemID = m_agentData.solarSystemID;
+        }
+        if (o.courierTypeID == 0)
+            o.courierTypeID = 23;
+        if (o.courierAmount == 0)
+            o.courierAmount = 1;
+    }
+
     // Event and Aura agents should not have mission offers
     if (m_agentData.typeID == Agents::Type::Event or m_agentData.typeID == Agents::Type::Aura) {
         if (!m_offers.empty()) {
