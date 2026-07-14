@@ -64,7 +64,7 @@ bool Agent::Load() {
         bool fixed = false;
         // Determine fallback station: use agent's stationID, or any station in agent's system
         uint32 fallbackStation = 0;
-        _log(AGENT__MESSAGE, "Fixup: agent %u offer %u typeID=%u destID=%u sysID=%u staID=%u isSta=%d",
+        _log(AGENT__ERROR, "Fixup: agent %u offer %u typeID=%u destID=%u sysID=%u staID=%u isSta=%d",
              m_agentID, o.offerID, o.typeID, o.destinationID, o.destinationSystemID,
              m_agentData.stationID, sDataMgr.IsStation(m_agentData.stationID));
         if (sDataMgr.IsStation(m_agentData.stationID)) {
@@ -86,7 +86,7 @@ bool Agent::Load() {
         if (fallbackStation == 0)
             fallbackStation = m_agentData.solarSystemID;
 
-        _log(AGENT__MESSAGE, "Fixup: fallbackStation=%u sys=%u staCnt=%u",
+        _log(AGENT__ERROR, "Fixup: fallbackStation=%u sys=%u staCnt=%u",
              fallbackStation, m_agentData.solarSystemID,
              sDataMgr.GetStationCount(m_agentData.solarSystemID));
 
@@ -111,7 +111,7 @@ bool Agent::Load() {
             fixed = true;
         }
         if (fixed)
-            _log(AGENT__MESSAGE, "Fixed offer %u: dest=%u sys=%u fb=%u typeID=%u",
+            _log(AGENT__ERROR, "Fixed offer %u: dest=%u sys=%u fb=%u typeID=%u",
                  o.offerID, o.destinationID, o.destinationSystemID, fallbackStation, o.typeID);
     }
 
