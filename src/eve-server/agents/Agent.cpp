@@ -58,12 +58,9 @@ bool Agent::Load() {
     // Fix offers with zero or stale origin/destination data
     for (auto& offer : m_offers) {
         MissionOffer& o = offer.second;
-        // Only fix transport/courier (type=3,4) origin/destination.
-        // For type=5 (Mining) destination is a solar system — only fix courierTypeID/amount.
+        // Always fix courierTypeID/amount for any mission type (used by encounter, mining, courier)
+        // Only fix origin/destination for Courier(3) and Trade(4) — others use system destinations
         bool isTransport = (o.typeID == Mission::Type::Courier || o.typeID == Mission::Type::Trade);
-        bool isMining = (o.typeID == 5);
-        if (!isTransport && !isMining)
-            continue;
         bool fixed = false;
         // Determine fallback station: use agent's stationID, or any station in agent's system
         uint32 fallbackStation = 0;
