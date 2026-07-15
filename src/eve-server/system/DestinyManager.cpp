@@ -2225,10 +2225,11 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
             ClearOrbit();
         BeginMovement();
     } else {
-        m_targetPoint = where;
         m_targetEntity.first = 0;
         m_targetEntity.second = nullptr;
     }
+    // Always set warp target point for both AP and manual
+    m_targetPoint = where;
 
     m_stopDistance = distance;
     // get warp target point
