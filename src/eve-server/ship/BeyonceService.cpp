@@ -678,8 +678,8 @@ PyResult BeyonceBound::CmdWarpToStuffAutopilot(PyCallArgs &call, PyInt* destID) 
 }
 
 PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
-    _log(AUTOPILOT__MESSAGE, "%s called Stop. AP: %s, Invul: %s", call.client->GetName(), \
-            (call.client->IsAutoPilot() ? "true" : "false"), call.client->IsInvul()?"true":"false");
+    _log(AUTOPILOT__MESSAGE, "%s called Stop. AP: %s", call.client->GetName(), \
+            (call.client->IsAutoPilot() ? "true" : "false"));
 
     DestinyManager* pDestiny = call.client->GetShipSE()->DestinyMgr();
     if (pDestiny == nullptr) {
@@ -699,6 +699,8 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
     }
 
     call.client->SetUndock(false);
+
+    _log(AUTOPILOT__MESSAGE, "%s: CmdStop AP=%d", call.client->GetName(), call.client->IsAutoPilot());
 
     // On AP after jump, don't stop — approach the nearest gate instead.
     if (call.client->IsAutoPilot()) {
