@@ -47,6 +47,7 @@
 #include "ship/modules/MiningLaser.h"
 #include "ship/modules/Prospector.h"
 #include "system/TargetManager.h"
+#include "station/Outpost.h"
 #include "system/SystemEntity.h"
 #include "system/SystemBubble.h"
 

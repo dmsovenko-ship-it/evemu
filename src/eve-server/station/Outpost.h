@@ -12,6 +12,7 @@
 #include "DataClasses.h"
 #include "pos/Structure.h"
 #include "station/Station.h"
+#include "system/Damage.h"
 
 class PlatformSE
 : public StructureSE
