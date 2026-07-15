@@ -37,7 +37,6 @@
 #include "map/MapDB.h"
 #include "npc/NPC.h"
 #include "pos/sovStructures/IHub.h"
-#include "station/Outpost.h"
 #include "npc/NPCAI.h"
 #include "npc/Drone.h"
 #include "ship/Ship.h"
@@ -288,9 +287,8 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 m_self->SetAttribute(AttrArmorDamage, m_self->GetAttribute(AttrArmorHP));
             }
 
-            // Check for structure reinforcement before entering hull damage
-            if ((this->IsIHubSE() && this->GetIHubSE()->CheckReinforce())
-                || (this->IsOutpostSE() && this->GetOutpostSE()->CheckReinforce())) {
+            // Check for IHub reinforcement before entering hull damage
+            if (this->IsIHubSE() && this->GetIHubSE()->CheckReinforce()) {
                 killed = false;
                 return true;
             }
@@ -326,13 +324,11 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         }
     }
 
-    // Check for structure reinforcement before killing
+    // Check for IHub reinforcement before killing
     if (killed) {
         bool reinforced = false;
         if (this->IsIHubSE())
             reinforced = this->GetIHubSE()->CheckReinforce();
-        else if (this->IsOutpostSE())
-            reinforced = this->GetOutpostSE()->CheckReinforce();
 
         if (reinforced) {
             killed = false;

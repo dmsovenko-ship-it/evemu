@@ -40,19 +40,6 @@ public:
     virtual bool IsOutpostSE()                          { return true; }
 
     virtual void SpawnStationService(Client* pClient, StationData stData, uint32 serviceType);
-
-    // Dominion capture mechanics
-    bool IsConquerable()                                { return m_conquerable; }
-    void SetIsConquerable(bool c)                       { m_conquerable = c; }
-    bool CheckReinforce();
-    void SetReinforce(int8 pState);
-    void Capture(Damage& damage);
-    virtual void Killed(Damage& damage);
-
-    uint32 GetCorporationID()                           { return m_corpID; }
-
-private:
-    bool m_conquerable = false;
 };
 
 #endif  // EVEMU_POS_OUTPOST_H_
