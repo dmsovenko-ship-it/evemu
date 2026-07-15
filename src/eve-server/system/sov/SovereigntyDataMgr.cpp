@@ -110,6 +110,12 @@ PyRep* SovereigntyDataMgr::GetAllDevelopmentIndices()
         row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
         double daysSinceClaim = (now - sData.claimTime) / Win32Time_Day;
         row->SetField("claimedFor", new PyInt(int32(daysSinceClaim)));
+        uint8 pts = std::min<uint8>(uint8(daysSinceClaim), 10);
+        // Update stored values so GetDevelopmentIndicesForSystem sees them
+        // (We modify the container directly for simplicity — in production
+        //  we'd persist to DB and reload)
+        const_cast<SovereigntyData&>(sData).militaryPoints = pts;
+        const_cast<SovereigntyData&>(sData).industrialPoints = pts;
     }
 
     return rowset;
