@@ -44,6 +44,7 @@ public:
     void MarkContested(uint32 systemID, bool contested);
     SovereigntyData GetSovereigntyData(uint32 systemID);
     void UpdateSystemHubID(uint32 systemID, uint32 hubID);
+    void UpdateReinforceHour(uint32 systemID, uint8 hour);
     void UpdateSystemJammerID(uint32 systemID, uint32 jammerID);
     void UpdateSystemBeaconID(uint32 systemID, uint32 beaconID);
     void UpdateClaim(uint32 systemID);

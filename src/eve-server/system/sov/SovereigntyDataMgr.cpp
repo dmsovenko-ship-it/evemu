@@ -489,6 +489,13 @@ void SovereigntyDataMgr::UpdateSystemHubID(uint32 systemID, uint32 hubID)
     UpdateClaim(systemID);
 }
 
+void SovereigntyDataMgr::UpdateReinforceHour(uint32 systemID, uint8 hour)
+{
+    _log(SOV__INFO, "UpdateReinforceHour() - Updating reinforceHour for system %u with hour %u", systemID, hour);
+    SovereigntyDB::SetReinforceHour(systemID, hour);
+    UpdateClaim(systemID);
+}
+
 void SovereigntyDataMgr::UpdateSystemJammerID(uint32 systemID, uint32 jammerID)
 {
     _log(SOV__INFO, "UpdateSystemJammerID() - Updating jammerID for system %u with jammer %u", systemID, jammerID);

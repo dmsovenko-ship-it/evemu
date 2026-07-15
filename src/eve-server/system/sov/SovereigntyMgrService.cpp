@@ -90,6 +90,8 @@ PyResult SovereigntyMgrService::SetReinforceHour(PyCallArgs& call, PyInt* system
     // Find the system and update its IHub reinforce hour
     SystemManager* pSys = sEntityList.FindOrBootSystem(systemID->value());
     if (pSys != nullptr) {
+        // Persist to DB and update IHub
+        svDataMgr.UpdateReinforceHour(systemID->value(), h);
         for (auto& ent : pSys->GetOperationalStatics()) {
             if (ent.second->IsIHubSE()) {
                 ent.second->GetIHubSE()->SetReinforceHour(h);
@@ -98,6 +100,8 @@ PyResult SovereigntyMgrService::SetReinforceHour(PyCallArgs& call, PyInt* system
                 return PyStatic.NewNone();
             }
         }
+        call.client->SendNotifyMsg("Reinforcement hour saved to DB (no IHub in system).");
+        return PyStatic.NewNone();
     }
     call.client->SendNotifyMsg("No IHub found in system %u.", systemID->value());
     return PyStatic.NewNone();

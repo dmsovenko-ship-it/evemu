@@ -91,6 +91,16 @@ void SovereigntyDB::SetContested(uint32 systemID, bool contested)
     }
 }
 
+void SovereigntyDB::SetReinforceHour(uint32 systemID, uint8 hour)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+                            "UPDATE mapSystemSovInfo SET reinforceHour=%u WHERE solarSystemID=%u", hour, systemID))
+    {
+        codelog(SOV__ERROR, "Error in updating reinforceHour: %s", err.c_str());
+    }
+}
+
 void SovereigntyDB::SetHubID(uint32 systemID, uint32 hubID)
 {
     DBerror err;

@@ -40,6 +40,7 @@ public:
     static void AddSovereigntyData(SovereigntyData data, uint32& claimID);
     static void RemoveSovereigntyData(uint32 systemID);
     static void SetContested(uint32 systemID, bool contested);
+    static void SetReinforceHour(uint32 systemID, uint8 hour);
     static void SetHubID(uint32 systemID, uint32 hubID);
     static void SetJammerID(uint32 systemID, uint32 jammerID);
     static void SetBeaconID(uint32 systemID, uint32 beaconID);
