@@ -19,22 +19,22 @@ public:
     TCUSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& fData);
     virtual ~TCUSE()                                  { /* do nothing here */ }
 
-    /* class type pointer querys. */
     virtual TCUSE*              GetTCUSE()            { return this; }
 
-    /* class type tests. */
-    /* Base */
     virtual bool                isGlobal()              { return true; }
     virtual bool                IsTCUSE()               { return true; }
     virtual bool                IsOperSE()              { return true; }
 
-    /* SystemEntity interface */
     virtual void                Process();
     virtual void                SetOnline();
     virtual void                SetOffline();
 
-    /* virtual functions default to base class and overridden as needed */
     virtual void                Init();
+    virtual void                Killed(Damage& damage);
+
+private:
+    int64                       m_claimTime;    // 0 = no pending claim, >0 = filetime when claim activates
+    void                        FinalizeClaim();
 };
 
 #endif  // EVEMU_POS_TCU_H_

@@ -7,16 +7,6 @@
  * @date:   8 April 2021
  */
 
-/*
- * POS__ERROR
- * POS__WARNING
- * POS__MESSAGE
- * POS__DUMP
- * POS__DEBUG
- * POS__DESTINY
- * POS__SLIMITEM
- * POS__TRACE
- */
 
 #include "Client.h"
 #include "EntityList.h"
@@ -31,7 +21,8 @@
 #include "system/sov/SovereigntyDataMgr.h"
 
 TCUSE::TCUSE(StructureItemRef structure, EVEServiceManager&services, SystemManager *system, const FactionData &fData)
-    : StructureSE(structure, services, system, fData)
+    : StructureSE(structure, services, system, fData),
+      m_claimTime(0)
 {
 }
 
@@ -40,20 +31,89 @@ void TCUSE::Init()
     _log(SE__TRACE, "TCUSE %s(%u) is being initialized", m_self->name(), m_self->itemID());
     StructureSE::Init();
 
-    // check for valid bubble
     if (m_bubble == nullptr)
         assert(0);
     m_bubble->SetTCUSE(this);
 
-    // set global attribute
     m_self->SetAttribute(AttrIsGlobal, EvilOne, false);
 }
 
 void TCUSE::SetOnline()
 {
-    _log(SOV__DEBUG, "Onlining TCU... Creating a new claim.");
-
+    _log(SOV__DEBUG, "Onlining TCU... Starting 8-hour claim timer.");
     StructureSE::SetOnline();
+
+    // Start 8-hour claim timer
+    m_claimTime = GetFileTimeNow() + 8 * EvE::Time::Hour;
+    _log(SOV__MESSAGE, "TCU %s(%u): Claim will finalize at %lli", GetName(), m_data.itemID, m_claimTime);
+
+    // Send notification that claim process has started
+    PyTuple* data = new PyTuple(2);
+        data->SetItem(0, new PyInt(m_system->GetID()));
+        data->SetItem(1, PyStatic.NewNone());
+
+    // Notify all clients that sovereignty is pending
+    std::vector<Client*> list;
+    sEntityList.GetClients(list);
+    for (auto cur : list)
+    {
+        if (cur != nullptr)
+            cur->SendNotification("ProcessSovStatusChanged", "clientID", &data);
+    }
+}
+
+void TCUSE::SetOffline()
+{
+    _log(SOV__DEBUG, "Offlining TCU... Removing claim if active.");
+    if (m_claimTime > 0) {
+        // Claim was pending — cancelled
+        m_claimTime = 0;
+        _log(SOV__MESSAGE, "TCU %s(%u): Pending claim cancelled (offlined).", GetName(), m_data.itemID);
+    }
+    svDataMgr.RemoveSovClaim(m_system->GetID());
+
+    PyTuple* data = new PyTuple(2);
+        data->SetItem(0, new PyInt(m_system->GetID()));
+        data->SetItem(1, PyStatic.NewNone());
+
+    std::vector<Client*> list;
+    sEntityList.GetClients(list);
+    for (auto cur : list)
+    {
+        if (cur != nullptr)
+            cur->SendNotification("ProcessSovStatusChanged", "clientID", &data);
+    }
+
+    StructureSE::SetOffline();
+}
+
+void TCUSE::Process()
+{
+    StructureSE::Process();
+
+    // Check 8-hour claim timer
+    if (m_claimTime > 0 && GetFileTimeNow() >= m_claimTime) {
+        FinalizeClaim();
+    }
+}
+
+void TCUSE::Killed(Damage& damage)
+{
+    // Cancel pending claim if TCU is destroyed during claiming period
+    if (m_claimTime > 0) {
+        _log(SOV__MESSAGE, "TCU %s(%u): Pending claim cancelled (destroyed during claiming period).", GetName(), m_data.itemID);
+        m_claimTime = 0;
+    }
+    StructureSE::Killed(damage);
+}
+
+void TCUSE::FinalizeClaim()
+{
+    if (m_claimTime == 0)
+        return;
+    m_claimTime = 0;
+
+    _log(SOV__MESSAGE, "TCU %s(%u): 8-hour claim timer expired — creating sovereignty claim.", GetName(), m_data.itemID);
 
     SovereigntyData sovData = SovereigntyData();
         sovData.solarSystemID = m_system->GetID();
@@ -65,10 +125,7 @@ void TCUSE::SetOnline()
         sovData.claimTime = GetFileTimeNow();
     svDataMgr.AddSovClaim(sovData);
 
-    //Send ProcessSovStatusChanged Notification
     PyDict *args = new PyDict;
-    _log(SOV__DEBUG, "Sending ProcessSovStatusChanged for %u:%u", sovData.solarSystemID, sovData.allianceID);
-
     args->SetItemString("contested", new PyInt(sovData.contested));
     args->SetItemString("corporationID", new PyInt(sovData.corporationID));
     args->SetItemString("claimTime", new PyLong(sovData.claimTime));
@@ -86,40 +143,6 @@ void TCUSE::SetOnline()
     for (auto cur : list)
     {
         if (cur != nullptr)
-        {
             cur->SendNotification("ProcessSovStatusChanged", "clientID", &data);
-            _log(SOV__DEBUG, "ProcessSovStatusChanged sent to %s (%u)", cur->GetName(), cur->GetCharID());
-        }
     }
-}
-
-void TCUSE::SetOffline()
-{
-    _log(SOV__DEBUG, "Offlining TCU... Removing claim.");
-    svDataMgr.RemoveSovClaim(m_system->GetID());
-
-    //Send ProcessSovStatusChanged Notification
-    _log(SOV__DEBUG, "Sending ProcessSovStatusChanged (removing sov claim) %u", m_system->GetID());
-
-    PyTuple* data = new PyTuple(2);
-        data->SetItem(0, new PyInt(m_system->GetID()));
-        data->SetItem(1, PyStatic.NewNone());
-
-    std::vector<Client*> list;
-    sEntityList.GetClients(list);
-    for (auto cur : list)
-    {
-        if (cur != nullptr)
-        {
-            cur->SendNotification("ProcessSovStatusChanged", "clientID", &data);
-            _log(SOV__DEBUG, "ProcessSovStatusChanged sent to %s(%u)", cur->GetName(), cur->GetCharID());
-        }
-    }
-
-    StructureSE::SetOffline();
-}
-
-void TCUSE::Process()
-{
-    StructureSE::Process();
 }
