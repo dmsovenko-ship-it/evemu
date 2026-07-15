@@ -39,6 +39,7 @@ SovereigntyMgrService::SovereigntyMgrService() :
     this->Add("GetSystemUpgrades", &SovereigntyMgrService::GetSystemUpgrades);
     this->Add("InstallUpgrade", &SovereigntyMgrService::InstallUpgrade);
     this->Add("RemoveUpgrade", &SovereigntyMgrService::RemoveUpgrade);
+    this->Add("GetSovOverview", &SovereigntyMgrService::GetSovOverview);
 }
 
 PyResult SovereigntyMgrService::GetSystemSovereigntyInfo(PyCallArgs &call, PyInt* systemID) {

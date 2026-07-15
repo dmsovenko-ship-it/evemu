@@ -242,6 +242,20 @@ PyRep *SovereigntyDataMgr::GetSystemSovereignty(uint32 systemID)
     return new PyObject("util.KeyVal", args);
 }
 
+PyRep *SovereigntyDataMgr::GetSystemsForAlliance(uint32 allianceID)
+{
+    PyList *list = new PyList();
+    for (SovereigntyData const &sData : boost::make_iterator_range(
+             m_sovData.get<SovDataByAlliance>().equal_range(allianceID)))
+    {
+        PyDict *dict = new PyDict();
+        dict->SetItemString("allianceID", new PyInt(sData.allianceID));
+        dict->SetItemString("solarSystemID", new PyInt(sData.solarSystemID));
+        list->AddItem(new PyObject("util.KeyVal", dict));
+    }
+    return list;
+}
+
 PyRep *SovereigntyDataMgr::GetAllianceSystems() //Get all systems associated with all alliances?
 {
     PyList *list = new PyList();

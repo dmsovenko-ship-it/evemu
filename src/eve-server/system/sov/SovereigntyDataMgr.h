@@ -35,6 +35,7 @@ public:
 
     PyRep *GetSystemSovereignty(uint32 systemID);
     PyRep *GetAllianceSystems();
+    PyRep *GetSystemsForAlliance(uint32 allianceID);
     PyRep *GetCurrentSovData(uint32 locationID);
     PyRep *GetAllianceBeacons(uint32 allianceID);
     uint32 GetSystemAllianceID(uint32 systemID);
