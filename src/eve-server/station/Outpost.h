@@ -39,7 +39,17 @@ public:
     virtual OutpostSE* GetOutpostSE()                   { return this; }
     virtual bool IsOutpostSE()                          { return true; }
 
-    virtual void SpawnStationService(Client* pClient, StationData stData, uint32 serviceType);
+    // Capture mechanics
+    bool IsConquerable()                                { return m_conquerable; }
+    bool CheckReinforce();
+    void Capture(Damage& damage);
+    int8 GetReinforceState()        { return m_reinforceState; }
+    virtual void Killed(Damage& damage);
+
+private:
+    bool m_conquerable;
+    int8 m_reinforceState;   // 0=Online, 1=ShieldReinforced, 2=ArmorReinforced
+    int64 m_reinforceEnd;    // Win32 time when reinforcement ends
 };
 
 #endif  // EVEMU_POS_OUTPOST_H_
