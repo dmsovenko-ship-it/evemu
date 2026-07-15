@@ -1152,6 +1152,10 @@ void SystemBubble::BubblecastDestinyUpdate( PyTuple** payload, const char* desc 
     if (is_log_enabled(DESTINY__BUBBLECAST_DUMP))
         (*payload)->Dump(DESTINY__BUBBLECAST_DUMP, "    ");
     for (auto cur : m_players) {
+        if (sEntityList.FindClientByCharID(cur.first) == nullptr) {
+            _log( DESTINY__BUBBLECAST, "Bubblecast %s — skipping stale client %u", desc, cur.first);
+            continue;
+        }
         _log( DESTINY__BUBBLECAST, "Bubblecast %s update to %s(%u)", desc, cur.second->GetName(), cur.first );
         PyIncRef(*payload);
         cur.second->QueueDestinyUpdate(payload);
@@ -1161,6 +1165,8 @@ void SystemBubble::BubblecastDestinyUpdate( PyTuple** payload, const char* desc 
 void SystemBubble::BubblecastDestinyUpdateExclusive( PyTuple** payload, const char* desc, SystemEntity* pSE ) const
 {
     for (auto cur : m_players) {
+        if (sEntityList.FindClientByCharID(cur.first) == nullptr)
+            continue;
         // Only queue a Destiny update for this bubble if the current SystemEntity is not 'pSE':
         // (this is an update to all client objects in the bubble EXCLUDING 'pSE')
         if (cur.second->GetShipSE() != pSE) {
@@ -1176,6 +1182,8 @@ void SystemBubble::BubblecastDestinyEvent( PyTuple** payload, const char* desc )
     if (is_log_enabled(DESTINY__BUBBLECAST_DUMP))
         (*payload)->Dump(DESTINY__BUBBLECAST_DUMP, "    ");
     for (auto cur : m_players) {
+        if (sEntityList.FindClientByCharID(cur.first) == nullptr)
+            continue;
         _log( DESTINY__BUBBLECAST, "Bubblecast %s event to %s(%u)", desc, cur.second->GetName(), cur.first );
         PyIncRef(*payload);
         cur.second->QueueDestinyEvent(payload);
@@ -1185,6 +1193,8 @@ void SystemBubble::BubblecastDestinyEvent( PyTuple** payload, const char* desc )
 void SystemBubble::BubblecastSendNotification(const char* notifyType, const char* idType, PyTuple** payload, bool seq)
 {
     for (auto cur : m_players) {
+        if (sEntityList.FindClientByCharID(cur.first) == nullptr)
+            continue;
         _log( DESTINY__BUBBLECAST, "BubblecastNotify %s to %s(%u)", notifyType, cur.second->GetName(), cur.first );
         PyIncRef(*payload);
         cur.second->SendNotification( notifyType, idType, payload, seq );
