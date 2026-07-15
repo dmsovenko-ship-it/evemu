@@ -224,6 +224,21 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         float new_charge = available_shield - shield_damage;
         m_self->SetAttribute(AttrShieldCharge, new_charge);
 
+        // Shield reinforcement threshold (25%) for IHub
+        if (this->IsIHubSE()) {
+            IHubSE* ihub = this->GetIHubSE();
+            int8 st = ihub->GetState();
+            if (st != EVEPOS::StructureState::SheildReinforced
+                && st != EVEPOS::StructureState::ArmorReinforced
+                && st != EVEPOS::StructureState::Reinforced) {
+                float cap = m_self->GetAttribute(AttrShieldCapacity).get_float();
+                if (cap > 0.0f && (new_charge / cap) < 0.25f && ihub->CheckShieldReinforce()) {
+                    killed = false;
+                    return true;
+                }
+            }
+        }
+
         _log(DAMAGE__DEBUG, "%s(%u): Applying %.2f damage to shields. New charge: %.2f.",
              GetName(), GetID(), shield_damage, new_charge);
     } else {

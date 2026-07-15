@@ -120,26 +120,34 @@ void IHubSE::SetOffline()
     StructureSE::SetOffline();
 }
 
+bool IHubSE::CheckShieldReinforce()
+{
+    // Called from Damage.cpp when shield drops below 25%
+    if (m_data.state == EVEPOS::StructureState::SheildReinforced
+        || m_data.state == EVEPOS::StructureState::ArmorReinforced)
+        return false; // already in reinforcement
+
+    if (m_data.state == EVEPOS::StructureState::Online
+        || m_data.state == EVEPOS::StructureState::Vulnerable) {
+        SetReinforce(EVEPOS::ProcState::Reinforcing);
+        _log(POS__MESSAGE, "IHub %s(%u): Entered Shield Reinforced (shield < 25%%).", GetName(), m_data.itemID);
+        return true;
+    }
+    return false;
+}
+
 bool IHubSE::CheckReinforce()
 {
-    _log(POS__MESSAGE, "IHub %s(%u): CheckReinforce called, state=%i",
+    // Called from Damage.cpp when armor is depleted
+    _log(POS__MESSAGE, "IHub %s(%u): CheckReinforce called (armor depleted), state=%i",
          GetName(), m_data.itemID, m_data.state);
 
     if (m_data.state == EVEPOS::StructureState::ArmorReinforced)
         return false; // already in final reinforcement, let it die
 
     if (m_data.state == EVEPOS::StructureState::SheildReinforced) {
-        // Shield reinforcement done → now entering armor reinforcement
         SetReinforce(EVEPOS::ProcState::ArmorReinforcing);
-        _log(POS__MESSAGE, "IHub %s(%u): Entered Armor Reinforced.", GetName(), m_data.itemID);
-        return true;
-    }
-
-    // First time being reinforced → shield reinforcement
-    if (m_data.state == EVEPOS::StructureState::Online
-        || m_data.state == EVEPOS::StructureState::Vulnerable) {
-        SetReinforce(EVEPOS::ProcState::Reinforcing);
-        _log(POS__MESSAGE, "IHub %s(%u): Entered Shield Reinforced.", GetName(), m_data.itemID);
+        _log(POS__MESSAGE, "IHub %s(%u): Entered Armor Reinforced (armor depleted).", GetName(), m_data.itemID);
         return true;
     }
 
