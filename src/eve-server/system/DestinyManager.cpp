@@ -2211,7 +2211,14 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 
     // check for autopilot.  it has 'special' checks in client for auto-disable by destiny update
     if (autoPilot) {
-        Follow(pSE, distance);
+        // Save target entity for WarpStop follow-resume, but don't send CmdFollowBall
+        // (CmdWarpTo below is the only destiny update the client should see)
+        m_targetEntity = std::pair<uint32, SystemEntity*>(pSE->GetID(), pSE);
+        // Cap approach distance: gates/stations → 2500m
+        if (pSE->IsGateSE() || pSE->IsStationSE())
+            if (distance == 0 || distance > 2500)
+                distance = 2500;
+        m_followDistance = distance;
     } else {
         m_targetPoint = where;
         m_targetEntity.first = 0;
