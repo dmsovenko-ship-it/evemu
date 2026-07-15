@@ -275,6 +275,7 @@ protected:
     bool m_turning;                     //used to execute code for ship turning
     bool m_tractored;
     bool m_tractorPause;
+    bool m_apJumping;       // guard against repeated AP auto-jump calls
 
     uint8 m_ballMode;                   //current state of ball
 

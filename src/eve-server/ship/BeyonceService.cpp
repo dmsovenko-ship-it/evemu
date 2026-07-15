@@ -681,6 +681,30 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
     _log(AUTOPILOT__MESSAGE, "%s called Stop. AP: %s", call.client->GetName(), \
             (call.client->IsAutoPilot() ? "true" : "false"));
 
+    // On AP, don't stop — approach the nearest gate (must check BEFORE IsMoving guard)
+    if (call.client->IsAutoPilot()) {
+        DestinyManager* pDestiny = call.client->GetShipSE()->DestinyMgr();
+        if (pDestiny == nullptr) {
+            codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
+            return PyStatic.NewNone();
+        }
+        _log(AUTOPILOT__MESSAGE, "%s: AP after jump — approaching nearest gate.", call.client->GetName());
+        SystemManager* pSys = call.client->SystemMgr();
+        if (pSys != nullptr) {
+            SystemEntity* pShipSE = call.client->GetShipSE();
+            if (pShipSE != nullptr) {
+                SystemEntity* nearestGate = pSys->GetClosestGateSE(pShipSE->GetPosition());
+                if (nearestGate != nullptr) {
+                    _log(AUTOPILOT__MESSAGE, "%s: Following gate %u.", call.client->GetName(), nearestGate->GetID());
+                    pDestiny->Follow(nearestGate, 2500);
+                    return PyStatic.NewNone();
+                }
+            }
+        }
+        _log(AUTOPILOT__MESSAGE, "%s: No gates found.", call.client->GetName());
+        return PyStatic.NewNone();
+    }
+
     DestinyManager* pDestiny = call.client->GetShipSE()->DestinyMgr();
     if (pDestiny == nullptr) {
         codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
@@ -699,27 +723,6 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
     }
 
     call.client->SetUndock(false);
-
-    _log(AUTOPILOT__MESSAGE, "%s: CmdStop AP=%d", call.client->GetName(), call.client->IsAutoPilot());
-
-    // On AP after jump, don't stop — approach the nearest gate instead.
-    if (call.client->IsAutoPilot()) {
-        _log(AUTOPILOT__MESSAGE, "%s: AP after jump — approaching nearest gate.", call.client->GetName());
-        SystemManager* pSys = call.client->SystemMgr();
-        if (pSys != nullptr) {
-            SystemEntity* pShipSE = call.client->GetShipSE();
-            if (pShipSE != nullptr) {
-                SystemEntity* nearestGate = pSys->GetClosestGateSE(pShipSE->GetPosition());
-                if (nearestGate != nullptr) {
-                    _log(AUTOPILOT__MESSAGE, "%s: Following gate %u.", call.client->GetName(), nearestGate->GetID());
-                    pDestiny->Follow(nearestGate, 2500);
-                    return PyStatic.NewNone();
-                }
-            }
-        }
-        _log(AUTOPILOT__MESSAGE, "%s: No gates found.", call.client->GetName());
-        return PyStatic.NewNone();
-    }
 
     pDestiny->Stop();
 

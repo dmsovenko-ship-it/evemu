@@ -94,6 +94,7 @@ mvPacket(nullptr)
     m_tractored = false;
     m_changeDelay = false;
     m_tractorPause = false;
+    m_apJumping = false;
     m_hasSentShipUpdates = false;
     m_moveSyncCounter = 0;
 
@@ -1158,6 +1159,9 @@ void DestinyManager::Follow() {
              mySE->GetName(), rawDist, (void*)m_targetEntity.second,
              (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
         if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
+            // Guard against repeated jump calls on subsequent ticks
+            if (m_apJumping)
+                return;
             uint32 fromGate = m_targetEntity.second->GetID();
             DBQueryResult jmpRes;
             sDatabase.RunQuery(jmpRes,
@@ -1167,8 +1171,10 @@ void DestinyManager::Follow() {
                 uint32 toGate = jmpRow.GetUInt(0);
                 _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
                 Client* pClient = mySE->GetPilot();
-                if (!pClient->IsSessionChange() && pClient->IsIdle())
+                if (!pClient->IsSessionChange() && pClient->IsIdle()) {
+                    m_apJumping = true;
                     pClient->StargateJump(fromGate, toGate);
+                }
             } else {
                 _log(AUTOPILOT__MESSAGE, "%s: No jump destination found for gate %u", mySE->GetName(), fromGate);
             }
@@ -3018,6 +3024,7 @@ void DestinyManager::UpdateOldShip(ShipSE* pShipSE)
 
 void DestinyManager::Jump(bool showCloak)
 {
+    m_apJumping = false;
     Halt();
     if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         // Preserve speedFraction for autopilot across jump
