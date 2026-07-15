@@ -13,6 +13,7 @@
 
 #include "eve-server.h"
 
+#include "Client.h"
 #include "EVEServerConfig.h"
 
 #include "StaticDataMgr.h"
