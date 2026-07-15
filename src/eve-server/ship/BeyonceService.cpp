@@ -700,19 +700,22 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
 
     call.client->SetUndock(false);
 
-    // On AP after jump, don't stop — approach the next gate instead.
+    // On AP after jump, don't stop — approach the nearest gate instead.
     if (call.client->IsAutoPilot()) {
-        _log(AUTOPILOT__MESSAGE, "%s: AP after jump — approaching next gate.", call.client->GetName());
+        _log(AUTOPILOT__MESSAGE, "%s: AP after jump — approaching nearest gate.", call.client->GetName());
         SystemManager* pSys = call.client->SystemMgr();
-        if (pSys != nullptr && !pSys->GetStaticEntities().empty()) {
-            // Follow any gate; auto-jump will trigger at 2500m
-            for (auto& ent : pSys->GetStaticEntities()) {
-                if (ent.second->IsGateSE()) {
-                    pDestiny->Follow(ent.second, 2500);
-                    break;
+        if (pSys != nullptr) {
+            SystemEntity* pShipSE = call.client->GetShipSE();
+            if (pShipSE != nullptr) {
+                SystemEntity* nearestGate = pSys->GetClosestGateSE(pShipSE->GetPosition());
+                if (nearestGate != nullptr) {
+                    _log(AUTOPILOT__MESSAGE, "%s: Following gate %u.", call.client->GetName(), nearestGate->GetID());
+                    pDestiny->Follow(nearestGate, 2500);
+                    return PyStatic.NewNone();
                 }
             }
         }
+        _log(AUTOPILOT__MESSAGE, "%s: No gates found.", call.client->GetName());
         return PyStatic.NewNone();
     }
 
