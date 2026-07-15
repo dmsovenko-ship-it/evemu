@@ -1352,7 +1352,7 @@ void StructureSE::Killed(Damage &damage)
     // Clean up sovereignty if this is a TCU, SBU, or IHub
     if (m_self->groupID() == EVEDB::invGroups::Territorial_Claim_Units) {
         svDataMgr.RemoveSovClaim(m_system->GetID());
-        _log(SOV__MESSAGE, "TCU destroyed in system %u — sovereignty claim removed.", m_system->GetID());
+        _log(SOV__INFO, "TCU destroyed in system %u — sovereignty claim removed.", m_system->GetID());
     } else if (m_self->groupID() == EVEDB::invGroups::Sovereignty_Blockade_Units) {
         // Mark system as no longer contested when SBU is destroyed
         svDataMgr.MarkContested(m_system->GetID(), false);

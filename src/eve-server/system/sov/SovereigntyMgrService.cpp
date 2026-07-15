@@ -93,7 +93,7 @@ PyResult SovereigntyMgrService::SetReinforceHour(PyCallArgs& call, PyInt* system
         for (auto& ent : pSys->GetOperationalStatics()) {
             if (ent.second->IsIHubSE()) {
                 ent.second->GetIHubSE()->SetReinforceHour(h);
-                _log(SOV__MESSAGE, "Reinforce hour set to %i for IHub in system %u", h, systemID->value());
+                _log(SOV__INFO, "Reinforce hour set to %i for IHub in system %u", h, systemID->value());
                 call.client->SendNotifyMsg("Reinforcement exit hour set to %02i:00.", h);
                 return PyStatic.NewNone();
             }

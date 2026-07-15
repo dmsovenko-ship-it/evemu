@@ -46,7 +46,7 @@ void TCUSE::SetOnline()
     // TCU is vulnerable during the 8-hour claiming period
     m_claimTime = GetFileTimeNow() + 8 * EvE::Time::Hour;
     SetVulnerable();
-    _log(SOV__MESSAGE, "TCU %s(%u): Claim will finalize at %lli (vulnerable during claim).", GetName(), m_data.itemID, m_claimTime);
+    _log(SOV__INFO, "TCU %s(%u): Claim will finalize at %lli (vulnerable during claim).", GetName(), m_data.itemID, m_claimTime);
 
     PyTuple* data = new PyTuple(2);
         data->SetItem(0, new PyInt(m_system->GetID()));
@@ -68,7 +68,7 @@ void TCUSE::SetOffline()
     if (m_claimTime > 0) {
         // Claim was pending — cancelled
         m_claimTime = 0;
-        _log(SOV__MESSAGE, "TCU %s(%u): Pending claim cancelled (offlined).", GetName(), m_data.itemID);
+        _log(SOV__INFO, "TCU %s(%u): Pending claim cancelled (offlined).", GetName(), m_data.itemID);
     }
     svDataMgr.RemoveSovClaim(m_system->GetID());
 
@@ -101,7 +101,7 @@ void TCUSE::Killed(Damage& damage)
 {
     // Cancel pending claim if TCU is destroyed during claiming period
     if (m_claimTime > 0) {
-        _log(SOV__MESSAGE, "TCU %s(%u): Pending claim cancelled (destroyed during claiming period).", GetName(), m_data.itemID);
+        _log(SOV__INFO, "TCU %s(%u): Pending claim cancelled (destroyed during claiming period).", GetName(), m_data.itemID);
         m_claimTime = 0;
     }
     StructureSE::Killed(damage);
@@ -113,7 +113,7 @@ void TCUSE::FinalizeClaim()
         return;
     m_claimTime = 0;
 
-    _log(SOV__MESSAGE, "TCU %s(%u): 8-hour claim timer expired — creating sovereignty claim, becoming invulnerable.", GetName(), m_data.itemID);
+    _log(SOV__INFO, "TCU %s(%u): 8-hour claim timer expired — creating sovereignty claim, becoming invulnerable.", GetName(), m_data.itemID);
 
     // TCU becomes invulnerable after claim is established (SBUs can make it vulnerable again)
     SetInvulnerable();

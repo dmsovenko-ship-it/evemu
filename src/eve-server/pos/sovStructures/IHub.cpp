@@ -63,7 +63,7 @@ void IHubSE::Process()
         m_data.state = EVEPOS::StructureState::ArmorReinforced;
         m_procState = EVEPOS::ProcState::ArmorReinforcing;
         m_self->SetFlag(flagStructureInactive);
-        SetTimer(48 * EvE::Time::Hour * 1000); // 48h armor reinforcement
+        SetTimer(24 * EvE::Time::Hour / EvE::Time::mSecond); // 48h armor reinforcement
         m_db.UpdateBaseData(m_data);
         SendSlimUpdate();
     }
@@ -78,7 +78,7 @@ void IHubSE::Process()
     }
 }
 
-void IHubSE::SetReinforce(EVEPOS::ProcState pState)
+void IHubSE::SetReinforce(int8 pState)
 {
     _log(POS__MESSAGE, "IHub %s(%u): Entering reinforcement (state %i, reinforceHour=%i).",
          GetName(), m_data.itemID, pState, m_reinforceHour);
