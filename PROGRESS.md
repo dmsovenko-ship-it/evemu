@@ -1,7 +1,7 @@
 # EVEmu Crucible — Fork Progress
 
 > **Our fork: `████████████████████` 99%** · **Upstream: `████████░░░░░░░░░░░░` 59.5%**
-> Last updated: 2026-07-14 (build 9 — S&I, PI, autopilot, courier fixes, sentry AI, NPC spawn fix, mission dungeons)
+> Last updated: 2026-07-15 (build 10 — autopilot chain fix, sovereignty/outpost/TCU/IHub overhaul, wormhole fixes)
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
 ---
@@ -31,7 +31,7 @@
 | System | % | Bar | Δ up | System | % | Bar | Δ up |
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
-| Ship Navigation | 85% | `██████████████████` | +15% | Combat | 99% | `███████████████████` | +9% |
+| Ship Navigation | 97% | `███████████████████` | +27% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 92% | `██████████████████` | +17% |
 | NPC AI & Spawning | 92% | `███████████████████` | +32% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
@@ -41,7 +41,7 @@
  | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 93% | `███████████████████` | +33% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
-| **Sovereignty** | 90% | `█████████████████░` | +30% | Science & Industry | 90% | `██████████████████` | +45% |
+| **Sovereignty** | 95% | `███████████████████` | +35% | Science & Industry | 90% | `██████████████████` | +45% |
 | Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 96% | `██████████████████` | +31% |
 
 ---
@@ -87,7 +87,11 @@
 | Warp-to-0, fleet warp | ✅ | ✅ |
 | Login warp-in, combat logoff, emergency warp | ✅ | ✅ |
 | Warp scramble blocks logoff/emergency warp | 🟡 | ✅ |
-| Autopilot — CmdWarpToStuffAutopilot, FollowBall, AP flag after jump | ❌ | 🟡 экспериментально |
+| Autopilot — CmdWarpToStuffAutopilot, FollowBall, AP flag after jump | ❌ | ✅ |
+| **AP auto-jump at gate** — mapJumps query, dist=0→2500, repeat guard, session hash | ❌ | ✅ |
+| **AP follow target preserved through WarpTo** (m_targetEntity не затирается) | ❌ | ✅ |
+| **AP post-jump CmdStop** — игнорируется при AP, перенаправление к ближайшему гейту | ❌ | ✅ |
+| **AP multi-hop** — после прыжка AP-флаг сохраняется, цепочка продолжается | ❌ | ✅ |
 | Orbit desync fix (distance fallback /6 → distance) | ❌ | ✅ |
 | Periodic position sync (SetBallPosition every 5 tics) | ❌ | ✅ |
 | Login warp overview fix (no SendSetState during warp) | ❌ | ✅ |
@@ -486,7 +490,28 @@
 
 ---
 
-### 26. Cosmic Managers
+### 26. Sovereignty `███████████████████` 95%
+
+| Feature | Upstream | Our Fork |
+|---------|:--------:|:--------:|
+| Sovereignty data loading (GetSystemSovereignty, GetSovOverview) | ✅ | ✅ |
+| System claim (TCU anchoring/onlining) | 🟡 | ✅ |
+| **TCU 8-hour claim timer** — sovereignty finalizes after delay via m_claimTimer | ❌ | ✅ |
+| **TCU vulnerable window** — configurable window + sov upgrade modifiers | ❌ | ✅ |
+| **TCU cleanup on kill** — removal from DB on destruction | ❌ | ✅ |
+| **IHub reinforcement** — 2-cycle Dominion: shield→25%→reinforced, armor→reinforced | ❌ | ✅ |
+| **IHub reinforce hour** — configurable exit hour per structure, persisted to DB | ❌ | ✅ |
+| **IHub automatic reinforcement** — triggers at 25% shield, independent of POS | ❌ | ✅ |
+| **Sovereignty level** — calculated from claim time (1 level/week, max 5) | ❌ | ✅ |
+| **Development indices** — grow with claim time, affect sov upgrades | ❌ | ✅ |
+| **Outpost capture framework** — ownership transfer on final destruction | ❌ | ✅ |
+| **Outpost reinforcement** — independent reinforcement without StructureSE | ❌ | ✅ |
+| **Sovereignty upgrade effects** — applied via SystemEffectMgr | ❌ | ✅ |
+| Alliance conflict zones | 🟡 | 🟡 |
+
+---
+
+### 27. Cosmic Managers
 
 | Manager | Upstream | Our Fork | Notes |
 |---------|:--------:|:--------:|-------|

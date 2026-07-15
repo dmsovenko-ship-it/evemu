@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Things to verify after recent changes (updated 2026-07-14 — build 8 mega-session).
+Things to verify after recent changes (updated 2026-07-15 — build 10: autopilot chain, sovereignty/outpost/TCU).
 
 ---
 
@@ -297,6 +297,27 @@ Things to verify after recent changes (updated 2026-07-14 — build 8 mega-sessi
 - [ ] **No Marshal crash** — Jump between systems repeatedly. No crash in Marshal/FlushPendingDestinyUpdates.
 - [ ] **No client AttributeError** — Warp while NPCs are spawning. Client should not show `effects.Warping` exceptions.
 - [ ] **No orbit desync** — Orbit a planet/gate for 5+ minutes. Position should not drift.
+
+## Build 10 (2026-07-15) — Autopilot chain + Sovereignty overhaul
+
+### Autopilot
+- [ ] **AP warp to gate** — Enable AP, warp to gate. Ship should warp, approach gate to ~2500m, and stop.
+- [ ] **AP auto-jump** — After approaching gate, ship should auto-jump. Verify mapJumps lookup works.
+- [ ] **AP post-jump** — After gate jump, AP should remain active. Ship should not stop dead in space.
+- [ ] **AP multi-hop** — Set destination 3+ jumps away. AP should chain: warp→jump→warp→jump→arrive.
+- [ ] **AP no crash** — 10+ AP jumps in a row. No crash, no `Unknown packet type`, no `effects.Warping`.
+- [ ] **AP stop mid-route** — Turn off AP mid-warp. Ship should stop at warp destination, not continue.
+
+### Sovereignty
+- [ ] **TCU claim** — Anchor and online a TCU. Claim timer should start (8h). After timer, system is claimed.
+- [ ] **IHub reinforce** — Deploy IHub in claimed system. Attack IHub until shield < 25%. Should enter reinforced mode.
+- [ ] **IHub reinforce hour** — Set reinforce hour via IHub config. IHub should exit reinforce at configured hour.
+- [ ] **Outpost capture** — Attack an outpost in enemy sov. Shield/armor/structure damage works. On final blow, ownership transfers.
+- [ ] **Sov level** — Check sov level after claim. Should increase by 1 per week (check custominfo).
+- [ ] **Sov effects** — Sovereignty upgrades should apply system-wide effects (stats via SystemEffectMgr).
+
+### Stability
+- [ ] **Secondary Sun** — Enter a binary star system (e.g. with type 30670). No `unhandled item` error in server log. ✅
 
 ## Build 3 (2026-07-12) — Crosshair + Warp
 
