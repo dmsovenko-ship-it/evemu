@@ -36,6 +36,7 @@ public:
     virtual void                Init();
     void                        SetReinforce(EVEPOS::ProcState pState);
 
+    bool                        CheckReinforce();
     virtual void                Reinforce();
     virtual void                Killed(Damage& damage);
 

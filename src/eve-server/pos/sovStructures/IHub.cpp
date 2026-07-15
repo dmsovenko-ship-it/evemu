@@ -120,27 +120,28 @@ void IHubSE::SetOffline()
     StructureSE::SetOffline();
 }
 
-void IHubSE::Reinforce()
+bool IHubSE::CheckReinforce()
 {
-    // IHub has been attacked and needs to enter reinforcement
-    // Check current HP percentages to determine reinforcement level
-    double shieldPct = m_self->GetAttribute(AttrShieldCharge).get_float() /
-                       std::max(m_self->GetAttribute(AttrShieldCapacity).get_float(), 1.0f);
-    double armorPct = m_self->GetAttribute(AttrArmorDamage).get_float() /
-                      std::max(m_self->GetAttribute(AttrArmorHP).get_float(), 1.0f);
+    _log(POS__MESSAGE, "IHub %s(%u): CheckReinforce called, state=%i",
+         GetName(), m_data.itemID, m_data.state);
 
-    if (armorPct > 0.5f) {
-        // Armor below 50% → second reinforcement or destruction
-        if (m_data.state == EVEPOS::StructureState::ArmorReinforced) {
-            // Already in armor reinforcement, let it be destroyed
-            return;
-        }
+    if (m_data.state == EVEPOS::StructureState::ArmorReinforced)
+        return false; // already in final reinforcement, let it die
+
+    if (m_data.state == EVEPOS::StructureState::SheildReinforced) {
+        // Shield reinforcement done → now entering armor reinforcement
         SetReinforce(EVEPOS::ProcState::ArmorReinforcing);
-    } else if (shieldPct < 0.25f) {
-        // Shield below 25% → first reinforcement
-        if (m_data.state == EVEPOS::StructureState::Vulnerable
-            || m_data.state == EVEPOS::StructureState::Online) {
-            SetReinforce(EVEPOS::ProcState::Reinforcing);
-        }
+        _log(POS__MESSAGE, "IHub %s(%u): Entered Armor Reinforced.", GetName(), m_data.itemID);
+        return true;
     }
+
+    // First time being reinforced → shield reinforcement
+    if (m_data.state == EVEPOS::StructureState::Online
+        || m_data.state == EVEPOS::StructureState::Vulnerable) {
+        SetReinforce(EVEPOS::ProcState::Reinforcing);
+        _log(POS__MESSAGE, "IHub %s(%u): Entered Shield Reinforced.", GetName(), m_data.itemID);
+        return true;
+    }
+
+    return false;
 }

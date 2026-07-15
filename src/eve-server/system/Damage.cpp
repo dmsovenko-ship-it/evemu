@@ -36,6 +36,7 @@
 #include "manufacturing/Blueprint.h"
 #include "map/MapDB.h"
 #include "npc/NPC.h"
+#include "pos/sovStructures/IHub.h"
 #include "npc/NPCAI.h"
 #include "npc/Drone.h"
 #include "ship/Ship.h"
@@ -271,6 +272,12 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 m_self->SetAttribute(AttrArmorDamage, m_self->GetAttribute(AttrArmorHP));
             }
 
+            // Check for IHub reinforcement before entering hull damage
+            if (this->IsIHubSE() && this->GetIHubSE()->CheckReinforce()) {
+                killed = false;
+                return true;  // exit early, structure has entered reinforcement
+            }
+
             //Hull/Structure:
             //The base hp and damage attributes represent structure.
             float available_hull = m_self->GetAttribute(AttrHP).get_float() - m_self->GetAttribute(AttrDamage).get_float();
@@ -302,6 +309,17 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         }
     }
 
+    // Check for structure reinforcement before killing
+    if (killed) {
+        // Allow sov structures to enter reinforcement instead of dying
+        if (this->IsIHubSE() && this->GetIHubSE()->CheckReinforce()) {
+            killed = false;
+            m_killed = false;
+            // Restore some hull/armor to prevent instant re-kill
+            m_self->SetAttribute(AttrDamage, EvilZero);
+        }
+    }
+
     if (killed) {
         if (m_killed)
             return true;
@@ -316,7 +334,7 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         m_destiny->SendTerminalExplosion(m_self->itemID(), m_bubble->GetID(), isGlobal());
 
         Killed(d);  // this must NOT remove dead SE from system.
-        SystemEntity::Killed(d);    // this removes dead SE from system then deletes itemRef and all its contents
+        SystemEntity::Killed(d);    // this removes dead SE from system then deletes itemRef and its all contents
     } else {
         /**
          * ALL dmg msgs working  22Apr15 (hacked - found the actual msgIDs)
