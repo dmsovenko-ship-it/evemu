@@ -145,7 +145,7 @@ void OutpostSE::Capture(Damage& damage)
     }
 }
 
-void OutpostSE::SetReinforce(EVEPOS::ProcState pState)
+void OutpostSE::SetReinforce(int8 pState)
 {
     int64 reinforceTime = 48 * EvE::Time::Hour * 1000; // 48h
     _log(POS__MESSAGE, "Outpost %s(%u): Entering reinforcement (state %i).", GetName(), m_data.itemID, pState);

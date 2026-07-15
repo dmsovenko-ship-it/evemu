@@ -12,7 +12,6 @@
 #include "DataClasses.h"
 #include "pos/Structure.h"
 #include "station/Station.h"
-#include "EVE_POS.h"
 
 class PlatformSE
 : public StructureSE
@@ -46,7 +45,7 @@ public:
     bool IsConquerable()                                { return m_conquerable; }
     void SetIsConquerable(bool c)                       { m_conquerable = c; }
     bool CheckReinforce();
-    void SetReinforce(EVEPOS::ProcState pState);
+    void SetReinforce(int8 pState);
     void Capture(Damage& damage);
     virtual void Killed(Damage& damage);
 
