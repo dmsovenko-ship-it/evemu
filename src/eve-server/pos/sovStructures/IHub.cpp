@@ -20,6 +20,7 @@
 
 
 #include "Client.h"
+#include "../../eve-common/EVE_Mail.h"
 #include "EntityList.h"
 #include "EVEServerConfig.h"
 #include "planet/Planet.h"
