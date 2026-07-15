@@ -31,6 +31,8 @@
 #include "system/sov/SovereigntyDataMgr.h"
 #include "system/sov/SovereigntyDB.h"
 #include "system/sov/SovereigntyMgrService.h"
+#include "system/SystemManager.h"
+#include "pos/sovStructures/IHub.h"
 
 SovereigntyMgrService::SovereigntyMgrService() :
     Service("sovMgr")
@@ -40,6 +42,7 @@ SovereigntyMgrService::SovereigntyMgrService() :
     this->Add("InstallUpgrade", &SovereigntyMgrService::InstallUpgrade);
     this->Add("RemoveUpgrade", &SovereigntyMgrService::RemoveUpgrade);
     this->Add("GetSovOverview", &SovereigntyMgrService::GetSovOverview);
+    this->Add("SetReinforceHour", &SovereigntyMgrService::SetReinforceHour);
 }
 
 PyResult SovereigntyMgrService::GetSystemSovereigntyInfo(PyCallArgs &call, PyInt* systemID) {
@@ -75,5 +78,27 @@ PyResult SovereigntyMgrService::InstallUpgrade(PyCallArgs& call, PyInt* systemID
 
 PyResult SovereigntyMgrService::RemoveUpgrade(PyCallArgs& call, PyInt* systemID, PyInt* upgradeID) {
     SovereigntyDB::RemoveSystemUpgrade(systemID->value(), upgradeID->value());
+    return PyStatic.NewNone();
+}
+
+PyResult SovereigntyMgrService::SetReinforceHour(PyCallArgs& call, PyInt* systemID, PyInt* hour) {
+    int8 h = static_cast<int8>(hour->value());
+    if (h < 0 || h > 23) {
+        call.client->SendNotifyMsg("Reinforce hour must be between 0 and 23.");
+        return PyStatic.NewNone();
+    }
+    // Find the system and update its IHub reinforce hour
+    SystemManager* pSys = sEntityList.FindOrBootSystem(systemID->value());
+    if (pSys != nullptr) {
+        for (auto& ent : pSys->GetOperationalStatics()) {
+            if (ent.second->IsIHubSE()) {
+                ent.second->GetIHubSE()->SetReinforceHour(h);
+                _log(SOV__MESSAGE, "Reinforce hour set to %i for IHub in system %u", h, systemID->value());
+                call.client->SendNotifyMsg("Reinforcement exit hour set to %02i:00.", h);
+                return PyStatic.NewNone();
+            }
+        }
+    }
+    call.client->SendNotifyMsg("No IHub found in system %u.", systemID->value());
     return PyStatic.NewNone();
 }

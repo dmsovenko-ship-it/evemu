@@ -41,6 +41,7 @@ protected:
     PyResult GetSystemUpgrades(PyCallArgs& call, PyInt* systemID);
     PyResult InstallUpgrade(PyCallArgs& call, PyInt* systemID, PyInt* upgradeTypeID);
     PyResult RemoveUpgrade(PyCallArgs& call, PyInt* systemID, PyInt* upgradeID);
+    PyResult SetReinforceHour(PyCallArgs& call, PyInt* systemID, PyInt* hour);
 };
 
 #endif

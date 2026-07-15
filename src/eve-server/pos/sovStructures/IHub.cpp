@@ -31,7 +31,8 @@
 #include "system/sov/SovereigntyDataMgr.h"
 
 IHubSE::IHubSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& fData)
-: StructureSE(structure, services, system, fData)
+: StructureSE(structure, services, system, fData),
+  m_reinforceHour(MakeRandomInt(0, 23)) // random default exit hour
 {
 }
 
@@ -79,10 +80,8 @@ void IHubSE::Process()
 
 void IHubSE::SetReinforce(EVEPOS::ProcState pState)
 {
-    // Called when IHub HP drops below threshold
-    // Enters the appropriate reinforcement state
-    int64 reinforceTime = 48 * EvE::Time::Hour * 1000; // 48h default
-    _log(POS__MESSAGE, "IHub %s(%u): Entering reinforcement (state %i).", GetName(), m_data.itemID, pState);
+    _log(POS__MESSAGE, "IHub %s(%u): Entering reinforcement (state %i, reinforceHour=%i).",
+         GetName(), m_data.itemID, pState, m_reinforceHour);
     m_procState = pState;
     switch (pState) {
         case EVEPOS::ProcState::Reinforcing:
@@ -94,12 +93,48 @@ void IHubSE::SetReinforce(EVEPOS::ProcState pState)
         default:
             return;
     }
+
+    // Calculate timer: 24h base + alignment to reinforceHour (+/- 3h variance)
+    // Timer ends at: next occurrence of reinforceHour (±3h) after 24h from now
+    int64 now = GetFileTimeNow();
+    int64 baseEnd = now + 24 * EvE::Time::Hour * 1000; // 24h from now
+
+    // Calculate seconds until next reinforceHour
+    int64 msPerDay = 24 * 60 * 60 * 1000;
+    int64 msSinceMidnight = (now / 1000) % (24 * 3600); // seconds since midnight in Win32 time
+    int32 targetMs = m_reinforceHour * 3600 * 1000; // target in ms
+    int32 msRemaining = targetMs - static_cast<int32>(msSinceMidnight * 1000);
+    if (msRemaining <= 0)
+        msRemaining += msPerDay;
+
+    // Align: the exit is at reinforceHour ± 3h variance after 24h minimum
+    int64 exitTime = baseEnd;
+    // Find the next reinforceHour after baseEnd
+    int64 msToGo = (exitTime / 1000) % (24 * 3600) * 1000;
+    int32 adjust = targetMs - static_cast<int32>(msToGo);
+    if (adjust < 0)
+        adjust += msPerDay;
+    exitTime += adjust;
+
+    // Add variance = ±3h random
+    int64 varianceMs = MakeRandomInt(-10800, 10800) * 1000; // ±3h
+    exitTime += varianceMs;
+
+    // Minimum: 24h from now
+    int64 reinforceDuration = exitTime - now;
+    if (reinforceDuration < 24 * EvE::Time::Hour * 1000)
+        reinforceDuration = 24 * EvE::Time::Hour * 1000;
+    if (reinforceDuration > 30 * EvE::Time::Hour * 1000)
+        reinforceDuration = 30 * EvE::Time::Hour * 1000;
+
+    _log(POS__MESSAGE, "IHub %s(%u): Reinforcement timer = %lli ms (%.1f hours). Exit window around %02i:00 ±3h.",
+         GetName(), m_data.itemID, reinforceDuration, reinforceDuration / 3600000.0, m_reinforceHour);
+
     m_self->SetFlag(flagStructureInactive);
-    SetTimer(reinforceTime);
+    SetTimer(static_cast<uint32>(reinforceDuration / 1000));
     m_db.UpdateBaseData(m_data);
     SendSlimUpdate();
 
-    // Notify corporation about reinforcement
     PyDict* notifData = new PyDict();
     notifData->SetItemString("structureID", new PyInt(m_data.itemID));
     notifData->SetItemString("solarSystemID", new PyInt(m_system->GetID()));

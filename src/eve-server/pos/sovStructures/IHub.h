@@ -37,9 +37,13 @@ public:
     void                        SetReinforce(EVEPOS::ProcState pState);
     bool                        CheckShieldReinforce();
     bool                        CheckReinforce();
+    int8                        GetReinforceHour()        { return m_reinforceHour; }
+    void                        SetReinforceHour(int8 h)  { m_reinforceHour = h; }
     virtual void                Reinforce();
     virtual void                Killed(Damage& damage);
 
+private:
+    int8                        m_reinforceHour;
 };
 
 #endif  // EVEMU_POS_IHub_H_
