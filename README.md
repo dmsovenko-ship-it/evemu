@@ -30,7 +30,7 @@
 
 | EN | RU |
 |----|----|
-| **Warp & Movement** — smooth warp-to-0, fleet warp, autopilot chains, login warp-in | **Варп и движение** — плавный варп-ту-0, флот-варп, автопилот, логин-варп |
+| **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)**, login warp-in | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)**, логин-варп |
 | **Drones** — full AI (combat/EWAR/logistics/mining), skills, subtypes, control range | **Дроны** — полный AI (бой/EWAR/логистика/майнинг), навыки, подтипы |
 | **NPC systems** — anomalies, incursions, belt rats, gate rats, convoys, customs police | **NPC системы** — аномалии, инкурсии, бельтраты, гейтраты, конвои, таможня |
 | **Crimewatch** — weapon/aggression/criminal timers, CONCORD, sentry guns, kill rights | **Crimewatch** — таймеры, CONCORD, сентри, киллрайты |
@@ -45,6 +45,7 @@
 | **LSC Chat** — private conversations, channel creation, mailing lists | **LSC Чат** — приватные разговоры, каналы, списки рассылки |
 | **Faction Warfare** — join/leave, membership, enemy checks, stats, corp/alliance, notifications | **ФВ** — вступление/выход, членство, враги, статистика, корп/альянс, нотификации |
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
+| **Sovereignty** — TCU claim, IHub reinforcement, outpost capture, sov levels, upgrades | **Суверенность** — TCU захват, IHub reinforce, аутпосты, уровни, апгрейды |
 | **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
 | **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг,encounter, storyline, эпик арки |
 | **Scanning** — probes, cosmic signatures, anomalies, directional scan | **Сканирование** — пробы, сигнатуры, аномалии, D-scan |
@@ -94,22 +95,22 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 
 ## Progress / Прогресс
 
-**Our fork: ~97%** · **Upstream: ~59.5%**
+**Our fork: ~99%** · **Upstream: ~59.5%**
 
 | System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
 |--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
 | Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
-| Ship Navigation | 70% | 82% | +12% | Combat | 90% | 99% | +9% |
-| Modules & Overheating | 85% | 96% | +11% | Drones | 75% | 92% | +17% |
-| NPC AI & Spawning | 60% | 86% | +26% | Agents & Missions | 70% | 95% | +25% |
+| Ship Navigation | 70% | **97%** | +27% | Combat | 90% | 99% | +9% |
+| Modules & Overheating | 85% | 97% | +12% | Drones | 75% | 92% | +17% |
+| NPC AI & Spawning | 60% | **92%** | +32% | Agents & Missions | 70% | 95% | +25% |
 | **POS** | 70% | **97%** | +27% | Market | 60% | 92% | +32% |
-| **Incursions** | 0% | **85%** | +85% | Fleet | 75% | 98% | +23% |
+| **Incursions** | 0% | **85%** | +85% | Fleet | 75% | **100%** | +25% |
 | **Wormholes** | 60% | **90%** | +30% | Scanning | 80% | 99% | +19% |
 | **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 92% | +32% |
-| **Faction Warfare** | 50% | **93%** | +43% | Calendar | 60% | 93% | +33% |
+| **Faction Warfare** | 50% | **99%** | +49% | Calendar | 60% | 93% | +33% |
 | Mail & LSC | 60% | 93% | +33% | Contracts | 60% | 95% | +35% |
 | Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |
-| **Sovereignty** | 60% | **90%** | +30% | Science & Industry | 45% | 74% | +29% |
+| **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **90%** | +45% |
 | Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **96%** | +31% |
 
 See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  
