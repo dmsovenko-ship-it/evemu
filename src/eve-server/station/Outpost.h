@@ -12,7 +12,7 @@
 #include "DataClasses.h"
 #include "pos/Structure.h"
 #include "station/Station.h"
-#include "../../eve-common/EVE_POS.h"
+#include "../../../eve-common/EVE_POS.h"
 
 class PlatformSE
 : public StructureSE
