@@ -43,11 +43,11 @@ void TCUSE::SetOnline()
     _log(SOV__DEBUG, "Onlining TCU... Starting 8-hour claim timer.");
     StructureSE::SetOnline();
 
-    // Start 8-hour claim timer
+    // TCU is vulnerable during the 8-hour claiming period
     m_claimTime = GetFileTimeNow() + 8 * EvE::Time::Hour;
-    _log(SOV__MESSAGE, "TCU %s(%u): Claim will finalize at %lli", GetName(), m_data.itemID, m_claimTime);
+    SetVulnerable();
+    _log(SOV__MESSAGE, "TCU %s(%u): Claim will finalize at %lli (vulnerable during claim).", GetName(), m_data.itemID, m_claimTime);
 
-    // Send notification that claim process has started
     PyTuple* data = new PyTuple(2);
         data->SetItem(0, new PyInt(m_system->GetID()));
         data->SetItem(1, PyStatic.NewNone());
@@ -113,7 +113,10 @@ void TCUSE::FinalizeClaim()
         return;
     m_claimTime = 0;
 
-    _log(SOV__MESSAGE, "TCU %s(%u): 8-hour claim timer expired — creating sovereignty claim.", GetName(), m_data.itemID);
+    _log(SOV__MESSAGE, "TCU %s(%u): 8-hour claim timer expired — creating sovereignty claim, becoming invulnerable.", GetName(), m_data.itemID);
+
+    // TCU becomes invulnerable after claim is established (SBUs can make it vulnerable again)
+    SetInvulnerable();
 
     SovereigntyData sovData = SovereigntyData();
         sovData.solarSystemID = m_system->GetID();

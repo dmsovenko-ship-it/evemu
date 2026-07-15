@@ -94,11 +94,13 @@ SystemEffectMgr::SystemEffectMgr()
 
     // ── Sovereignty upgrade effects ───────────────────────────
 
-    // Cynosural Navigation (2008): cyno range +100% (affects system cyno gen)
+    // Cynosural Navigation (2008): cyno range +100%
     {
         SovUpgradeEffect eff;
         eff.typeID = 2008;
-        eff.modifiers = {};
+        eff.modifiers = {
+            {AttrJumpDriveRange, 2, 100.0}  // +100% jump drive range
+        };
         m_sovEffects[2008] = eff;
     }
 
@@ -106,7 +108,9 @@ SystemEffectMgr::SystemEffectMgr()
     {
         SovUpgradeEffect eff;
         eff.typeID = 2001;
-        eff.modifiers = {};
+        eff.modifiers = {
+            {AttrWarpScrambleRange, 2, 50.0} // +50% scramble range
+        };
         m_sovEffects[2001] = eff;
     }
 
@@ -114,16 +118,20 @@ SystemEffectMgr::SystemEffectMgr()
     {
         SovUpgradeEffect eff;
         eff.typeID = 32422;
-        eff.modifiers = {};
+        eff.modifiers = {
+            {AttrJumpDriveConsumptionAmount, 2, -25.0} // -25% fuel
+        };
         m_sovEffects[32422] = eff;
     }
 
     // Supercapital Construction Facilities (2009):
-    // capital ship build time -25%, capital component build time -25%
+    // capital ship build time -25%
     {
         SovUpgradeEffect eff;
         eff.typeID = 2009;
-        eff.modifiers = {};
+        eff.modifiers = {
+            {AttrManufacturingTimeBonus, 2, -25.0} // -25% build time
+        };
         m_sovEffects[2009] = eff;
     }
 }
