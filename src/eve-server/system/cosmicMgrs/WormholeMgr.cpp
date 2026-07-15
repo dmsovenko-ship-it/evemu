@@ -251,9 +251,10 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
     } else {
         // decide which type of wormhole to create here
         const ItemType* whType = GetRandomWormholeType(sig.systemID);
-        if (whType == nullptr)
+        if (whType == nullptr) {
             _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Create() - Create Failure, SystemID not in Database %u", sig.systemID);
             return;
+        }
         destSystem = GetRandomDestination(whType);
         // create wormhole here
         sig.sigName = whType->name();
@@ -296,8 +297,14 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
     }
     iRef->SaveItem();
 
-    // Reload entity from factory
-    WormholeSE* wSE = new WormholeSE(iRef, pSysMgr->GetServiceMgr(), pSysMgr);
+    // Determine nebula type from destination system class (11781-11786 for classes 1-6)
+    uint16 nebulaType = 11785;
+    if (whType != nullptr) {
+        uint8 destClass = sDataMgr.GetWHSystemClass(destSystem);
+        if (destClass >= 1 && destClass <= 6)
+            nebulaType = 11780 + destClass; // 11781-11786
+    }
+    WormholeSE* wSE = new WormholeSE(iRef, pSysMgr->GetServiceMgr(), pSysMgr, nebulaType);
     if (wSE == nullptr) {
         _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Create() - SE Create failure for %s(%u)", iRef->name(), iRef->itemID());
         return;
@@ -314,7 +321,7 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
     if (exitSystemID == 0) {
         if (sEntityList.IsSystemLoaded(destSystem)) {
             SystemManager* pToSys = sEntityList.FindOrBootSystem(destSystem);
-            if (pSysMgr == nullptr) {
+            if (pToSys == nullptr) {
                 _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Create() - Boot failure for system %u", destSystem);
                 return;
             }

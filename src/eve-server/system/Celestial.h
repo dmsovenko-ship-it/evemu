@@ -124,7 +124,7 @@ public:
 
 class WormholeSE : public CelestialSE {
 public:
-    WormholeSE(CelestialObjectRef self, EVEServiceManager& services, SystemManager* system);
+    WormholeSE(CelestialObjectRef self, EVEServiceManager& services, SystemManager* system, uint16 nebulaType = 11785);
     virtual ~WormholeSE()                               { /* Do nothing here */ }
 
     /* class type pointer querys. */

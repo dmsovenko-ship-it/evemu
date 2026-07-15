@@ -150,18 +150,15 @@ PyDict* AnomalySE::MakeSlimItem()
     return slim;
 }
 
-WormholeSE::WormholeSE(CelestialObjectRef self, EVEServiceManager& services, SystemManager* system)
+WormholeSE::WormholeSE(CelestialObjectRef self, EVEServiceManager& services, SystemManager* system, uint16 nebulaType)
 : CelestialSE(self, services, system),
 m_count(0),
 m_wormholeAge(WormHole::Age::Adolescent),
-// no clue what this is...may not be used.  seen 33, 263, 27 in logs
-m_dunSpawnID(0)
+m_dunSpawnID(0),
+m_nebulaType(nebulaType)
 {
     m_wormholeSize = (WormHole::Size::Full /10);
-    // just guessing here....
     m_expiryDate = Win32TimeNow() + EvE::Time::Day;
-    // data found in eveGraphics table.  yes.  11781 - 11786 (class 1-6)  -3715 doesnt work
-    m_nebulaType = 11785;
 }
 
 void WormholeSE::EncodeDestiny(Buffer& into)
