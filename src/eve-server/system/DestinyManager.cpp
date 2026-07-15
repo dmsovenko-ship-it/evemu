@@ -1166,7 +1166,9 @@ void DestinyManager::Follow() {
             if (jmpRes.GetRow(jmpRow)) {
                 uint32 toGate = jmpRow.GetUInt(0);
                 _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
-                mySE->GetPilot()->StargateJump(fromGate, toGate);
+                Client* pClient = mySE->GetPilot();
+                if (!pClient->IsSessionChange() && pClient->IsIdle())
+                    pClient->StargateJump(fromGate, toGate);
             } else {
                 _log(AUTOPILOT__MESSAGE, "%s: No jump destination found for gate %u", mySE->GetName(), fromGate);
             }
