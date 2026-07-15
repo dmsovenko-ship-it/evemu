@@ -514,10 +514,53 @@
 - **Customs NPC names**: `GetFactionName` now returns Caldari Navy/Minmatar Republic/Amarr Empire/Gallente Federation/CONCORD instead of "Undefined" ✅
 - **Build fix**: `fwrite` raw pointer cast (`buf.begin<uint8>()` → `&buf[0]`) in `SystemBubble.cpp` ✅
 
+## Part 69: Sovereignty Overhaul + Autopilot Chain Fix (build 10 — 2026-07-15)
+
+### Sovereignty — TCU, IHub, Outpost capture
+- **TCU 8-hour claim timer** — `m_claimTimer` финализирует захват системы после задержки (`TCU.cpp`)
+- **TCU vulnerable window** — конфигурируемое окно уязвимости + модификаторы от sov upgrades
+- **TCU cleanup on kill** — удаление из БД при уничтожении (`TCU.cpp:Killed()`)
+- **IHub reinforcement** — 2-цикловая Dominion-механика: щит→25%→reinforced (неуязвим), броня→reinforced
+- **IHub reinforce hour** — `SetReinforceHour()` сохраняет час выхода в БД (`c4e75c7d`)
+- **IHub automatic reinforcement** — триггер при 25% щита, независимо от POS-структур
+- **Sovereignty level** — расчёт от времени владения: 1 уровень/неделя, макс 5 (`75c3fd46`)
+- **Development indices** — растут со временем владения системой (`46db238d`)
+- **Outpost capture framework** — смена владельца при финальном уничтожении, независимый reinforce (`007837ab`, `fc7a43dd`)
+- **Sovereignty upgrade effects** — применяются через `SystemEffectMgr`
+
+### Autopilot — полный цикл (был experimental, теперь работоспособен)
+- **Auto-jump at gate**: `mapJumps` lookup, `StargateJump()` из `Follow()` при `rawDist <= m_followDistance` (`7891e6f7`)
+- **Follow distance fix**: `dist=0` от клиента → `2500` для гейтов/станций (`a15c0ba6`)
+- **Repeated jump guard**: `IsSessionChange()` + `IsIdle()` проверка перед прыжком (`5f13a86b`)
+- **Session hash force**: `m_autoPilot` toggle в `MoveToLocation()` чтобы клиент видел AP=1 после прыжка (`2e1ca0a3`)
+- **CmdStop ignored on AP**: после прыжка клиент шлёт `CmdStop`, сервер игнорирует и перенаправляет к ближайшему гейту (`bef02d6a`, `a842e0dc`)
+- **GetClosestGateSE**: вместо `GetStaticEntities` — поиск ближайшего гейта по позиции (`bedbd1b5`)
+- **AP follow target preserved through WarpTo**: `m_targetEntity` больше не затирается в AP-ветке — `WarpStop()` корректно восстанавливает `Follow()` (`1c50f514`, наш фикс)
+- **m_apJumping guard**: флаг предотвращает повторный вызов `StargateJump` каждый тик (`95b2f253`, наш фикс)
+- **CmdStop AP first**: AP-блок проверяется до `IsMoving()` — после прыжка корабль в STOP, но AP-подход к гейту срабатывает (`95b2f253`, наш фикс)
+
+### Wormhole fixes
+- Null check for source wormhole ref in `Create()` — предотвращает краш (`26cd5a35`)
+- `GetClients→GetClientList`, whType scope fix (`3606b4b6`)
+- `Client.h` include for `SendNotifyMsg` (`1b52937f`)
+- Wormhole expiry from `AttrWormholeMaxStableTime` (`3f3868d4`)
+- Critical bug fixes: nullptr crash, wrong check, nebula (`a2a6638a`)
+
+### NPC / Sentry
+- No gate spawns in highsec (`sec>=0.5`), sentry NPC detection fix (`842da7f2`)
+- DEBUG DoSpawnForAnomaly logs удалены (наш фикс)
+
+### Bugfixes
+- `Outpost.h` — include paths, `EVEPOS::ProcState→int8` (`17a6c284`, `e4924675`, `de73a3da`, `3f3868d4`, `4fd8ed3e`)
+- `IHub.h` — remove unimplemented Reinforce/Killed declarations (`45ba61e3`)
+- `OutpostSE` — revert to StationSE inheritance (`eaa98221`)
+- `TargetManager` — allow all outpost targeting, skip `IsConquerable` (`d2d2ad5f`)
+- `Secondary_Sun` (grp 995) — добавлен в `LoadSystemStatics()` (наш фикс)
+
 # TODO
 
 ## 🔴 Высокий приоритет
-1. **Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)
+1. ~~**Autopilot chain** — после прыжка клиент не продолжает маршрут (клиентская проблема)~~ ✅ Build 10
 
 ## 🔵 Крупные системы (нужен фундаментальный подход)
 1. **Planetary Interaction (PI)** — полная система (колонии, экстракторы, процессоры, линки, кастомс офисы). **0%**
@@ -552,3 +595,21 @@
 - **Fleet boost refresh** — UpdateBoost() при входе в систему для всех членов флота
 - **DoStandingCheckForStationService** — проверка стендинга для сервисов станции
 - **Outpost platform anchoring** — Anchoring/OutpostConstruction skill check + sovereignty check
+
+## ✅ Done this session (build 10 — 2026-07-15, ~45 коммитов)
+
+### 🔴 Высокий приоритет
+- **Autopilot chain** — полный цикл: warp→follow→auto-jump→session change→AP continue→next warp. Работает мультихоп.
+- **Sovereignty overhaul** — TCU claim timer, IHub reinforce (2-cycle Dominion), outpost capture, sov levels, development indices
+
+### 🟡 Средний приоритет
+- **IHub reinforce hour** — persisted to DB, configurable exit time
+- **Outpost capture** — ownership transfer on final destruction, independent reinforcement
+- **Sovereignty upgrade effects** — system-wide via SystemEffectMgr
+- **Wormhole fixes** — 6 critical bugfixes (nullptr, scope, expiry, nebula)
+- **Secondary_Sun** (grp 995) — LoadSystemStatics now handles binary star systems
+
+### 🟢 Низкий приоритет
+- DEBUG DoSpawnForAnomaly logs removed
+- CmdStop debug logs cleaned up
+- PROGRESS.md, README.md, ToTest.md docs updated for build 10
