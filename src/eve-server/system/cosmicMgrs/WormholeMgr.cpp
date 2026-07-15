@@ -160,9 +160,9 @@ void WormholeMgr::OnJump(uint32 whItemID, int64 shipMass) {
                         msg = "Wormhole is showing signs of destabilization.";
                     if (msg != nullptr) {
                         std::vector<Client*> clients;
-                        pSys->GetClients(clients);
+                        pSys->GetClientList(clients);
                         for (auto* c : clients) {
-                            if (c != nullptr && !c->IsNPC())
+                            if (c != nullptr)
                                 c->SendNotifyMsg(msg);
                         }
                     }
@@ -256,6 +256,7 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
     //Destination for non-exit wormholes
     uint32 destSystem = 0; 
     CelestialObjectRef iRef;
+    const ItemType* whType = nullptr;
 
     // For exit wormholes (k162)
     if (exitSystemID != 0) {
@@ -271,7 +272,7 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
     // For all other kinds of wormholes
     } else {
         // decide which type of wormhole to create here
-        const ItemType* whType = GetRandomWormholeType(sig.systemID);
+        whType = GetRandomWormholeType(sig.systemID);
         if (whType == nullptr) {
             _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Create() - Create Failure, SystemID not in Database %u", sig.systemID);
             return;
