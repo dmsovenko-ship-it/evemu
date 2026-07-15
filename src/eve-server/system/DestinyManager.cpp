@@ -1214,35 +1214,40 @@ void DestinyManager::Follow() {
     }
 
     // ---- normal follow / approach ----
-    // Hysteresis: use a wider exit threshold to prevent oscillation.
-    // Enter follow zone at m_followDistance, leave only beyond m_followDistance * 1.5
-    const double exitDist = (double)m_followDistance * 1.5;
-    const double targetSpeed = (rawDist <= (double)m_followDistance) ? 0.0 : 1.0;
+    // Physics-based approach: calculate required speed to stop before target.
+    // distToGo is how far we are from the follow-distance zone edge.
+    const double distToGo = rawDist - (double)m_followDistance;
+    const float currentFrac = m_userSpeedFraction;
 
-    if (rawDist <= exitDist && m_userSpeedFraction > targetSpeed + 0.05f) {
-        // Decelerate smoothly: reduce speed by 20% per tick toward targetSpeed
-        float newSpeed = m_userSpeedFraction * 0.8f + targetSpeed * 0.2f;
-        if (newSpeed < 0.01f) newSpeed = 0.0f;
-        SetSpeedFraction(newSpeed);
-    } else if (rawDist > (double)m_followDistance && m_userSpeedFraction < 1.0f) {
-        // Accelerate smoothly toward full speed, but only if target is a moving entity.
-        // Static targets (gates, stations) just need approach at moderate speed.
-        float maxApproach = 0.8f;
+    if (distToGo > 0) {
+        // Determine max allowed speed for this target type.
+        float maxSpeed = 0.6f;  // static target approach
         if (m_targetEntity.second->IsDynamicEntity()
             && m_targetEntity.second->DestinyMgr() != nullptr
             && m_targetEntity.second->DestinyMgr()->IsMoving())
-            maxApproach = 1.0f;
-        else if (m_targetEntity.second->IsStaticEntity() || !m_targetEntity.second->IsDynamicEntity())
-            maxApproach = 0.6f;  // slower approach for static objects
+            maxSpeed = 1.0f;
 
-        float newSpeed = m_userSpeedFraction + 0.15f;
-        if (newSpeed > maxApproach) newSpeed = maxApproach;
-        SetSpeedFraction(newSpeed);
-    }
+        // Target speed proportional to remaining distance:
+        // at 10km+ → full approach speed, at 0m → 0
+        float targetFrac = std::min(maxSpeed, static_cast<float>(distToGo / 10000.0) * maxSpeed);
 
-    // when very close to a static target, coast to a gentle stop
-    if (rawDist < (double)m_followDistance * 0.5 && !m_targetEntity.second->IsDynamicEntity()) {
-        SetSpeedFraction(std::min(m_userSpeedFraction, 0.1f));
+        // Brake predictor: if current speed is too high for the remaining
+        // distance, decelerate aggressively (v² / (2a) model heuristic).
+        if ((currentFrac * currentFrac * 8000.0) > distToGo) {
+            // Overshoot risk — brake hard
+            float brake = std::max(0.05f, currentFrac * 0.4f);
+            SetSpeedFraction(std::max(0.0f, currentFrac - brake));
+        } else if (currentFrac > targetFrac + 0.03f) {
+            // Slight deceleration to match target fraction
+            SetSpeedFraction(std::max(targetFrac, currentFrac - 0.2f));
+        } else if (currentFrac < targetFrac - 0.03f) {
+            // Accelerate toward target fraction
+            SetSpeedFraction(std::min(maxSpeed, currentFrac + 0.15f));
+        }
+    } else {
+        // Within follow distance — stop
+        if (currentFrac > 0.01f)
+            SetSpeedFraction(std::max(0.0f, currentFrac - 0.3f));
     }
 
     heading.normalize();
