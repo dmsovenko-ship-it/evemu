@@ -1149,10 +1149,11 @@ void DestinyManager::Follow() {
     // autopilot check first — auto-jump if at gate
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         SetSpeedFraction(0.0);
-        // If the target is a stargate, initiate jump automatically
+        _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
+             mySE->GetName(), rawDist, (void*)m_targetEntity.second,
+             (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
         if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
             uint32 fromGate = m_targetEntity.second->GetID();
-            // Look up destination gate in mapJumps table
             DBQueryResult jmpRes;
             sDatabase.RunQuery(jmpRes,
                 "SELECT celestialID FROM mapJumps WHERE stargateID = %u LIMIT 1", fromGate);
@@ -1161,6 +1162,8 @@ void DestinyManager::Follow() {
                 uint32 toGate = jmpRow.GetUInt(0);
                 _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
                 mySE->GetPilot()->StargateJump(fromGate, toGate);
+            } else {
+                _log(AUTOPILOT__MESSAGE, "%s: No jump destination found for gate %u", mySE->GetName(), fromGate);
             }
         }
         return;
