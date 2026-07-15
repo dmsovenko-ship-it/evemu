@@ -596,13 +596,25 @@
 - **DoStandingCheckForStationService** — проверка стендинга для сервисов станции
 - **Outpost platform anchoring** — Anchoring/OutpostConstruction skill check + sovereignty check
 
-## ✅ Done this session (build 10 — 2026-07-15, ~45 коммитов)
+## ✅ Done this session (build 10 — 2026-07-15, ~60 коммитов)
 
 ### 🔴 Высокий приоритет
 - **Autopilot chain** — полный цикл: warp→follow→auto-jump→session change→AP continue→next warp. Работает мультихоп.
 - **Sovereignty overhaul** — TCU claim timer, IHub reinforce (2-cycle Dominion), outpost capture, sov levels, development indices
+- **Autopilot deep fixes** (afternoon session):
+  - AP follow target preserved through WarpTo (`m_targetEntity` не затирается)
+  - AP WarpTo: не шлёт CmdFollowBall перед CmdWarpTo (клиент не путается, AP не отключается)
+  - `m_targetPoint = where` для обеих веток AP/manual (варп летел в случайную точку)
+  - Physics-based Follow() approach — brake predictor предотвращает overshoot гейта
+  - Guard повторного auto-jump: `m_apJumping` + `IsStateTimerEnabled()`
+  - CmdStop при AP игнорируется (вместо редиректа на ближайший гейт)
+  - Follow tick и спам конвоев почищены
 
 ### 🟡 Средний приоритет
+- **Stability**:
+  - BubblecastDestinyUpdate — защита от stale client pointers (use-after-free crash)
+  - IsStateTimerEnabled() getter для Client
+- **WarpTo рефакторинг**: `BeginMovement()` + `ClearOrbit()` без отправки CmdFollowBall
 - **IHub reinforce hour** — persisted to DB, configurable exit time
 - **Outpost capture** — ownership transfer on final destruction, independent reinforcement
 - **Sovereignty upgrade effects** — system-wide via SystemEffectMgr
@@ -611,5 +623,5 @@
 
 ### 🟢 Низкий приоритет
 - DEBUG DoSpawnForAnomaly logs removed
-- CmdStop debug logs cleaned up
+- CmdStop/Follow debug logs cleaned up
 - PROGRESS.md, README.md, ToTest.md docs updated for build 10
