@@ -524,28 +524,22 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
             for (uint8 x=0; x < cur.quantity; ++x) {
                 iRef = sItemFactory.SpawnItem(idata);
                 if (iRef.get() == nullptr) {
-                    _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly FAILED - SpawnItem returned null for type %u.", cur.typeID);
                     _log(SPAWN__ERROR, "Failed to spawn item type %u.", cur.typeID);
                     continue;
                 }
 
-                _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly SpawnItem OK for type %u, itemID=%u", cur.typeID, iRef->itemID());
                 _log(SPAWN__POP, "SpawnMgr::MakeSpawn - Spawning NPC type %u (%u)", cur.typeID, iRef->itemID());
 
                 pNPC = new NPC(iRef, m_services, m_system, data, this);
                 if (pNPC == nullptr) {
-                    _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly FAILED - new NPC returned null");
                     continue;
                 }
 
                 if (!pNPC->Load()) {
-                    _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly FAILED - NPC::Load() returned false for type %u", cur.typeID);
                     _log(SPAWN__ERROR, "Failed to load NPC data for NPC %u with type %u, depoping.", pNPC->GetID(), pNPC->GetSelf()->typeID());
                     pNPC->Delete();
                     continue;
                 }
-
-                _log(COSMIC_MGR__ERROR, "DEBUG DoSpawnForAnomaly NPC Load OK for type %u, npcID=%u", cur.typeID, pNPC->GetID());
 
                 // Scale NPC stats by site level (1-5): level 1 = ~0.4x, level 5 = ~2.0x
                 {

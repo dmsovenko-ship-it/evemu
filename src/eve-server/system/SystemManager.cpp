@@ -439,7 +439,8 @@ bool SystemManager::LoadSystemStatics() {
                 m_moonMap.insert(std::pair<uint32, SystemEntity*>(cur.itemID, pMSE));
                 pSE = pMSE;
             } break;
-            case EVEDB::invGroups::Sun: {    // suns dont have anything special, so they are generic SSEs
+            case EVEDB::invGroups::Sun:      // suns dont have anything special, so they are generic SSEs
+            case EVEDB::invGroups::Secondary_Sun: {
                 CelestialObjectRef itemRef = sItemFactory.GetCelestialRef(cur.itemID);
                 itemRef->SetAttribute(AttrRadius, cur.radius, false);
                 StaticSystemEntity *pSSE = new StaticSystemEntity(itemRef, GetServiceMgr(), this);
