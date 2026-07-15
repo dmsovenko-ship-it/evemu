@@ -307,16 +307,18 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
         // Set exit wormhole's attributes so it can find its' entrance
         iRef->SetAttribute(AttrWormholeTargetSystem1, exitSourceItemID);
         // Set source wormhole's attributes so it can find its' exit
-        CelestialObjectRef sRef;
-        sRef = sItemFactory.GetCelestialRef(exitSourceItemID);
-        sRef->SetAttribute(AttrWormholeTargetSystem2, sig.sigItemID);
-        sRef->SaveItem();
-        // Set exit wormhole's attributes based upon source wormhole's attributes
-        iRef->SetAttribute(AttrWormholeMassRegeneration, sRef->GetAttribute(AttrWormholeMassRegeneration).get_int());
-        iRef->SetAttribute(AttrWormholeTargetSystemClass, sDataMgr.GetWHSystemClass(exitSystemID));
-        iRef->SetAttribute(AttrWormholeMaxStableTime, sRef->GetAttribute(AttrWormholeMaxStableTime).get_int());
-        iRef->SetAttribute(AttrWormholeMaxStableMass, sRef->GetAttribute(AttrWormholeMaxStableMass).get_int());
-        iRef->SetAttribute(AttrWormholeMaxJumpMass, sRef->GetAttribute(AttrWormholeMaxJumpMass).get_int());
+        CelestialObjectRef sRef = sItemFactory.GetCelestialRef(exitSourceItemID);
+        if (sRef.get() == nullptr) {
+            _log(WORMHOLE_MGR__DEBUG, "Create: Source wormhole %u not found, skipping exit attributes", exitSourceItemID);
+        } else {
+            sRef->SetAttribute(AttrWormholeTargetSystem2, sig.sigItemID);
+            sRef->SaveItem();
+            iRef->SetAttribute(AttrWormholeMassRegeneration, sRef->GetAttribute(AttrWormholeMassRegeneration).get_int());
+            iRef->SetAttribute(AttrWormholeTargetSystemClass, sDataMgr.GetWHSystemClass(exitSystemID));
+            iRef->SetAttribute(AttrWormholeMaxStableTime, sRef->GetAttribute(AttrWormholeMaxStableTime).get_int());
+            iRef->SetAttribute(AttrWormholeMaxStableMass, sRef->GetAttribute(AttrWormholeMaxStableMass).get_int());
+            iRef->SetAttribute(AttrWormholeMaxJumpMass, sRef->GetAttribute(AttrWormholeMaxJumpMass).get_int());
+        }
     }
     iRef->SaveItem();
 
