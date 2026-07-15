@@ -25,6 +25,12 @@ OutpostSE::OutpostSE(StationItemRef station, EVEServiceManager &services, System
 {
 }
 
+void OutpostSE::SpawnStationService(Client* pClient, StationData stData, uint32 serviceType)
+{
+    // Station service entities will be implemented later
+    _log(POS__DEBUG, "Outpost::SpawnStationService(%u) called for %s(%u) — stub.", serviceType, GetName(), m_self->itemID());
+}
+
 bool OutpostSE::CheckReinforce()
 {
     if (!m_conquerable)

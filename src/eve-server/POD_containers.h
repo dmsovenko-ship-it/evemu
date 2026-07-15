@@ -356,6 +356,7 @@ struct SovereigntyData {
     uint32 beaconID;
     uint32 jammerID;
     uint8 contested;
+    uint8 reinforceHour;
     uint8 stationCount;
     uint8 militaryPoints;
     uint8 industrialPoints;

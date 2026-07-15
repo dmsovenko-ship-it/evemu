@@ -39,6 +39,8 @@ public:
     virtual OutpostSE* GetOutpostSE()                   { return this; }
     virtual bool IsOutpostSE()                          { return true; }
 
+    void SpawnStationService(Client* pClient, StationData stData, uint32 serviceType);
+
     // Capture mechanics
     bool IsConquerable()                                { return m_conquerable; }
     bool CheckReinforce();

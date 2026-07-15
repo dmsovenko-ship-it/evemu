@@ -33,7 +33,7 @@ void SovereigntyDB::GetSovereigntyData(DBQueryResult& res)
     if (!sDatabase.RunQuery(res,
                             "SELECT mapSystemSovInfo.solarSystemID, mapSolarSystems.constellationID, mapSolarSystems.regionID, corporationID, "
                             " allianceID, claimStructureID, claimTime, "
-                            " hubID, contested, 0 as stationCount, "
+                            " hubID, contested, 0 as stationCount, reinforceHour, "
                             " 5 as militaryPoints, 5 as industrialPoints, claimID, beaconID, jammerID"
                             " FROM mapSystemSovInfo "
                             " INNER JOIN mapSolarSystems ON mapSolarSystems.solarSystemID=mapSystemSovInfo.solarSystemID"))
@@ -47,7 +47,7 @@ void SovereigntyDB::GetSovereigntyDataForSystem(DBQueryResult& res, uint32 syste
     if (!sDatabase.RunQuery(res,
                             "SELECT mapSystemSovInfo.solarSystemID, mapSolarSystems.constellationID, mapSolarSystems.regionID, corporationID, "
                             " allianceID, claimStructureID, claimTime, "
-                            " hubID, contested, 0 as stationCount, "
+                            " hubID, contested, 0 as stationCount, reinforceHour, "
                             " 5 as militaryPoints, 5 as industrialPoints, claimID, beaconID, jammerID"
                             " FROM mapSystemSovInfo "
                             " INNER JOIN mapSolarSystems ON mapSolarSystems.solarSystemID=mapSystemSovInfo.solarSystemID"
