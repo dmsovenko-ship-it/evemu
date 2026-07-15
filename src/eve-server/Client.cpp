@@ -1550,7 +1550,7 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
     m_movePoint.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
     m_moveSystemID = toData.systemID;
 
-    m_lastGateID = fromGate;
+    m_lastGateID = toGate;
 
     SetStateTimer(Player::State::Jump, Player::Timer::Jumping);
 }
