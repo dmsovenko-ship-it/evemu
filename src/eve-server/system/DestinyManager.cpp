@@ -1146,9 +1146,23 @@ void DestinyManager::Follow() {
     double rawDist = heading.length() - m_radius;
     m_targetDistance = (rawDist > 0.0) ? rawDist : 0.0;
 
-    // autopilot check first
+    // autopilot check first — auto-jump if at gate
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         SetSpeedFraction(0.0);
+        // If the target is a stargate, initiate jump automatically
+        if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
+            uint32 fromGate = m_targetEntity.second->GetID();
+            // Look up destination gate in mapJumps table
+            DBQueryResult jmpRes;
+            sDatabase.RunQuery(jmpRes,
+                "SELECT celestialID FROM mapJumps WHERE stargateID = %u LIMIT 1", fromGate);
+            DBResultRow jmpRow;
+            if (jmpRes.GetRow(jmpRow)) {
+                uint32 toGate = jmpRow.GetUInt(0);
+                _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
+                mySE->GetPilot()->StargateJump(fromGate, toGate);
+            }
+        }
         return;
     }
 
