@@ -39,9 +39,6 @@ public:
     bool                        CheckReinforce();
     int8                        GetReinforceHour()        { return m_reinforceHour; }
     void                        SetReinforceHour(int8 h)  { m_reinforceHour = h; }
-    virtual void                Reinforce();
-    virtual void                Killed(Damage& damage);
-
 private:
     int8                        m_reinforceHour;
 };
