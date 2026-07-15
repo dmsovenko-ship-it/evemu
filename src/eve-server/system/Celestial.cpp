@@ -158,7 +158,11 @@ m_dunSpawnID(0),
 m_nebulaType(nebulaType)
 {
     m_wormholeSize = (WormHole::Size::Full /10);
-    m_expiryDate = Win32TimeNow() + EvE::Time::Day;
+    // Use MaxStableTime attribute if available, default to 24h
+    int64 stableTime = (int64)m_self->GetAttribute(AttrWormholeMaxStableTime).get_int();
+    if (stableTime < 3600)
+        stableTime = EvE::Time::Day; // 24h default
+    m_expiryDate = Win32TimeNow() + stableTime * 1000;
 }
 
 void WormholeSE::EncodeDestiny(Buffer& into)

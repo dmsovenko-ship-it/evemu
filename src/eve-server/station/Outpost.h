@@ -12,6 +12,7 @@
 #include "DataClasses.h"
 #include "pos/Structure.h"
 #include "station/Station.h"
+#include "../../eve-common/EVE_POS.h"
 
 class PlatformSE
 : public StructureSE
@@ -42,11 +43,17 @@ public:
     virtual void SpawnStationService(Client* pClient, StationData stData, uint32 serviceType);
 
     // Dominion capture mechanics
-    bool IsConquerable()                                { return m_stData.conquerable; }
+    bool IsConquerable()                                { return m_conquerable; }
+    void SetIsConquerable(bool c)                       { m_conquerable = c; }
     bool CheckReinforce();
     void SetReinforce(EVEPOS::ProcState pState);
     void Capture(Damage& damage);
     virtual void Killed(Damage& damage);
+
+    uint32 GetCorporationID()                           { return m_corpID; }
+
+private:
+    bool m_conquerable = false;
 };
 
 #endif  // EVEMU_POS_OUTPOST_H_

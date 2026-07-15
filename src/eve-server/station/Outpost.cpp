@@ -17,13 +17,13 @@
 #include "system/sov/SovereigntyDataMgr.h"
 
 OutpostSE::OutpostSE(StationItemRef station, EVEServiceManager &services, SystemManager* system)
-: StationSE(station, services, system)
+: StationSE(station, services, system),
+  m_conquerable(false)
 {
 }
 
 void OutpostSE::SpawnStationService(Client* pClient, StationData stData, uint32 serviceType)
 {
-    // Base class handles service spawning
     StationSE::SpawnStationService(pClient, stData, serviceType);
 }
 
@@ -95,8 +95,6 @@ void OutpostSE::Capture(Damage& damage)
 
     // Transfer station ownership
     uint32 stationID = m_self->itemID();
-    m_stData.corporationID = newCorpID;
-    m_stData.factionID = 0;
 
     // Update DB
     m_db.UpdateBaseData(m_data);
