@@ -885,7 +885,9 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
         if (IsJump() and !m_autoPilot) {
             pShipSE->DestinyMgr()->Stop();
         } else if (IsJump() and m_autoPilot) {
-            // re-enable autopilot flag after jump (client resets it on session change)
+            // Force a hash change so session encodes autopilot=1 for client
+            // _Set() skips when hash doesn't change (same value as before)
+            m_autoPilot = false;
             SetAutoPilot(true);
         }
     }
