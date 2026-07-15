@@ -700,10 +700,19 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
 
     call.client->SetUndock(false);
 
-    // On AP after jump, don't stop — client sends CmdStop on every session change.
-    // The ship continues drifting; client may re-engage AP for the next waypoint.
+    // On AP after jump, don't stop — approach the next gate instead.
     if (call.client->IsAutoPilot()) {
-        _log(AUTOPILOT__MESSAGE, "%s: AP after jump — ignoring CmdStop.", call.client->GetName());
+        _log(AUTOPILOT__MESSAGE, "%s: AP after jump — approaching next gate.", call.client->GetName());
+        SystemManager* pSys = call.client->SystemMgr();
+        if (pSys != nullptr && !pSys->GetStaticEntities().empty()) {
+            // Follow any gate; auto-jump will trigger at 2500m
+            for (auto& ent : pSys->GetStaticEntities()) {
+                if (ent.second->IsGateSE()) {
+                    pDestiny->Follow(ent.second, 2500);
+                    break;
+                }
+            }
+        }
         return PyStatic.NewNone();
     }
 
