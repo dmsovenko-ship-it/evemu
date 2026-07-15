@@ -237,6 +237,10 @@ PyRep *SovereigntyDataMgr::GetSystemSovereignty(uint32 systemID)
             args->SetItemString("hubID", new PyInt(sData.hubID));
             args->SetItemString("allianceID", new PyInt(sData.allianceID));
             args->SetItemString("solarSystemID", new PyInt(sData.solarSystemID));
+            // Sovereignty level: 1 per week of claim, max 5
+            double daysSinceClaim = (GetFileTimeNow() - sData.claimTime) / Win32Time_Day;
+            uint8 sovLevel = std::min<uint8>(uint8(daysSinceClaim / 7), 5);
+            args->SetItemString("sovereigntyLevel", new PyInt(sovLevel));
         }
         else
         {
