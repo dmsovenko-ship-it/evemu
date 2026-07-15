@@ -248,6 +248,7 @@ public:
     bool IsBubbleWait()                                 { return m_bubbleWait; }
     bool IsSetStateSent()                               { return m_setStateSent; }
     bool IsSessionChange()                              { return m_sessionChangeActive; }
+    bool IsStateTimerEnabled()                          { return m_stateTimer.Enabled(); }
     bool IsLoginWarping();
     uint32 GetSessionChangeTime()                       { return m_sessionTimer.GetRemainingTime() / 1000; }
 

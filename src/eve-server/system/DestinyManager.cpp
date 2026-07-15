@@ -1147,22 +1147,18 @@ void DestinyManager::Follow() {
     double rawDist = heading.length() - m_radius;
     m_targetDistance = (rawDist > 0.0) ? rawDist : 0.0;
 
-    if (mySE->HasPilot())
-        _log(AUTOPILOT__MESSAGE, "Follow tick: rawDist=%.0f fDist=%u AP=%d hasPilot=%d target=0x%p",
-             rawDist, m_followDistance,
-             mySE->GetPilot()->IsAutoPilot(), true,
-             (void*)m_targetEntity.second);
+    if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot())
+        _log(AUTOPILOT__TRACE, "Follow tick: rawDist=%.0f fDist=%u", rawDist, m_followDistance);
 
     // autopilot check first — auto-jump if at gate
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         SetSpeedFraction(0.0);
-        _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
-             mySE->GetName(), rawDist, (void*)m_targetEntity.second,
-             (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
         if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
-            // Guard against repeated jump calls on subsequent ticks
-            if (m_apJumping)
+            Client* pClient = mySE->GetPilot();
+            // Guard against repeated jump calls on subsequent ticks (client state timer or flag)
+            if (m_apJumping || pClient->IsStateTimerEnabled())
                 return;
+            _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f", mySE->GetName(), rawDist);
             uint32 fromGate = m_targetEntity.second->GetID();
             DBQueryResult jmpRes;
             sDatabase.RunQuery(jmpRes,
@@ -1171,7 +1167,6 @@ void DestinyManager::Follow() {
             if (jmpRes.GetRow(jmpRow)) {
                 uint32 toGate = jmpRow.GetUInt(0);
                 _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
-                Client* pClient = mySE->GetPilot();
                 if (!pClient->IsSessionChange() && pClient->IsIdle()) {
                     m_apJumping = true;
                     pClient->StargateJump(fromGate, toGate);
