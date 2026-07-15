@@ -37,6 +37,7 @@
 #include "map/MapDB.h"
 #include "npc/NPC.h"
 #include "pos/sovStructures/IHub.h"
+#include "station/Outpost.h"
 #include "npc/NPCAI.h"
 #include "npc/Drone.h"
 #include "ship/Ship.h"
@@ -272,10 +273,11 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 m_self->SetAttribute(AttrArmorDamage, m_self->GetAttribute(AttrArmorHP));
             }
 
-            // Check for IHub reinforcement before entering hull damage
-            if (this->IsIHubSE() && this->GetIHubSE()->CheckReinforce()) {
+            // Check for structure reinforcement before entering hull damage
+            if ((this->IsIHubSE() && this->GetIHubSE()->CheckReinforce())
+                || (this->IsOutpostSE() && this->GetOutpostSE()->CheckReinforce())) {
                 killed = false;
-                return true;  // exit early, structure has entered reinforcement
+                return true;
             }
 
             //Hull/Structure:
@@ -311,11 +313,15 @@ bool SystemEntity::ApplyDamage(Damage &d) {
 
     // Check for structure reinforcement before killing
     if (killed) {
-        // Allow sov structures to enter reinforcement instead of dying
-        if (this->IsIHubSE() && this->GetIHubSE()->CheckReinforce()) {
+        bool reinforced = false;
+        if (this->IsIHubSE())
+            reinforced = this->GetIHubSE()->CheckReinforce();
+        else if (this->IsOutpostSE())
+            reinforced = this->GetOutpostSE()->CheckReinforce();
+
+        if (reinforced) {
             killed = false;
             m_killed = false;
-            // Restore some hull/armor to prevent instant re-kill
             m_self->SetAttribute(AttrDamage, EvilZero);
         }
     }

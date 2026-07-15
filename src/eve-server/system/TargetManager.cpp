@@ -159,9 +159,11 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
             return false;
         }
     } else if (tSE->IsOutpostSE()) {
-            // For now, don't allow targeting outposts. This will need to be changed later.
+        // Allow targeting conquerable outposts (player-owned), block NPC stations
+        if (!tSE->GetOutpostSE()->IsConquerable()) {
             mySE->GetPilot()->SendNotifyMsg("You cannot target an invulnerable structure.");
             return false;
+        }
     }
 
     // Check against max target range
