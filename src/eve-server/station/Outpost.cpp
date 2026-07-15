@@ -32,12 +32,11 @@ bool OutpostSE::CheckReinforce()
     _log(POS__MESSAGE, "Outpost %s(%u): CheckReinforce called, state=%i",
          GetName(), m_data.itemID, m_data.state);
 
-    // Only conquerable outposts can be captured
     if (!IsConquerable())
         return false;
 
     if (m_data.state == EVEPOS::StructureState::ArmorReinforced)
-        return false; // final reinforcement — let it be destroyed for capture
+        return false; // final reinforcement → capture
 
     if (m_data.state == EVEPOS::StructureState::SheildReinforced) {
         SetReinforce(EVEPOS::ProcState::ArmorReinforcing);
@@ -53,6 +52,99 @@ bool OutpostSE::CheckReinforce()
     }
 
     return false;
+}
+
+void OutpostSE::Killed(Damage& damage)
+{
+    // Check if this is a capture event (armor reinforced → final destruction)
+    if (IsConquerable() && m_data.state == EVEPOS::StructureState::ArmorReinforced) {
+        Capture(damage);
+        return; // station captured, not destroyed
+    }
+    // Non-conquerable or non-reinforced: normal destruction
+    StationSE::Killed(damage);
+}
+
+void OutpostSE::Capture(Damage& damage)
+{
+    _log(POS__MESSAGE, "Outpost %s(%u): Captured!", GetName(), m_data.itemID);
+
+    // Determine attacker
+    uint32 newCorpID = 0;
+    uint32 newAllianceID = 0;
+    SystemEntity* killer = damage.srcSE;
+
+    if (killer != nullptr) {
+        if (killer->HasPilot()) {
+            Client* pClient = killer->GetPilot();
+            newCorpID = pClient->GetCorporationID();
+            newAllianceID = pClient->GetAllianceID();
+        } else if (killer->IsDroneSE()) {
+            Client* pClient = sEntityList.FindClientByCharID(killer->GetSelf()->ownerID());
+            if (pClient != nullptr) {
+                newCorpID = pClient->GetCorporationID();
+                newAllianceID = pClient->GetAllianceID();
+            }
+        }
+    }
+
+    if (newCorpID == 0) {
+        _log(POS__ERROR, "Outpost %s(%u): Capture failed — cannot determine attacker.", GetName(), m_data.itemID);
+        return;
+    }
+
+    // Transfer station ownership
+    uint32 stationID = m_self->itemID();
+    m_stData.corporationID = newCorpID;
+    m_stData.factionID = 0;
+
+    // Update DB
+    m_db.UpdateBaseData(m_data);
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE staStations SET corporationID = %u WHERE stationID = %u",
+        newCorpID, stationID);
+
+    // Update sovereignty claim with new owner
+    SovereigntyData sovData = svDataMgr.GetSovereigntyData(m_system->GetID());
+    if (sovData.claimID > 0) {
+        // Update existing claim with new corp/alliance
+        svDataMgr.RemoveSovClaim(m_system->GetID());
+        sovData.corporationID = newCorpID;
+        sovData.allianceID = newAllianceID;
+        svDataMgr.AddSovClaim(sovData);
+    }
+
+    // Restore station to full health and online state
+    m_self->SetAttribute(AttrShieldCharge, m_self->GetAttribute(AttrShieldCapacity));
+    m_self->SetAttribute(AttrArmorDamage, EvilZero);
+    m_self->SetAttribute(AttrDamage, EvilZero);
+    m_self->SetFlag(flagStructureActive);
+    m_data.state = EVEPOS::StructureState::Online;
+    m_procState = EVEPOS::ProcState::Online;
+    m_db.UpdateBaseData(m_data);
+    SendSlimUpdate();
+
+    _log(POS__MESSAGE, "Outpost %s(%u): Captured by corp %u (ally %u). Station restored.",
+         GetName(), m_data.itemID, newCorpID, newAllianceID);
+
+    // Notify all clients about sovereignty change
+    PyDict* args = new PyDict();
+    args->SetItemString("contested", new PyInt(sovData.contested));
+    args->SetItemString("corporationID", new PyInt(newCorpID));
+    args->SetItemString("allianceID", new PyInt(newAllianceID));
+    args->SetItemString("solarSystemID", new PyInt(m_system->GetID()));
+
+    PyTuple* data = new PyTuple(2);
+        data->SetItem(0, new PyInt(m_system->GetID()));
+        data->SetItem(1, new PyObject("util.KeyVal", args));
+
+    std::vector<Client*> clients;
+    sEntityList.GetClients(clients);
+    for (auto cur : clients) {
+        if (cur != nullptr)
+            cur->SendNotification("ProcessSovStatusChanged", "clientID", &data);
+    }
 }
 
 void OutpostSE::SetReinforce(EVEPOS::ProcState pState)

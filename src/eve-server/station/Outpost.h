@@ -46,6 +46,7 @@ public:
     bool CheckReinforce();
     void SetReinforce(EVEPOS::ProcState pState);
     void Capture(Damage& damage);
+    virtual void Killed(Damage& damage);
 };
 
 #endif  // EVEMU_POS_OUTPOST_H_
