@@ -688,12 +688,12 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
             codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
             return PyStatic.NewNone();
         }
-        _log(AUTOPILOT__MESSAGE, "%s: AP after jump — approaching nearest gate.", call.client->GetName());
+        _log(AUTOPILOT__MESSAGE, "%s: AP after jump — approaching nearest gate (excluding last %u).", call.client->GetName(), call.client->GetLastGateID());
         SystemManager* pSys = call.client->SystemMgr();
         if (pSys != nullptr) {
             SystemEntity* pShipSE = call.client->GetShipSE();
             if (pShipSE != nullptr) {
-                SystemEntity* nearestGate = pSys->GetClosestGateSE(pShipSE->GetPosition());
+                SystemEntity* nearestGate = pSys->GetClosestGateSE(pShipSE->GetPosition(), call.client->GetLastGateID());
                 if (nearestGate != nullptr) {
                     _log(AUTOPILOT__MESSAGE, "%s: Following gate %u.", call.client->GetName(), nearestGate->GetID());
                     pDestiny->Follow(nearestGate, 2500);

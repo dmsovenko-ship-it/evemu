@@ -380,6 +380,7 @@ void Client::ProcessClient() {
         _log(CLIENT__TIMER, "Client::ProcessClient():  SetSessionChange to false for %s(%u)", m_char->name(), m_char->itemID());
         m_sessionTimer.Disable();
         m_sessionChangeActive = false;
+        m_lastGateID = 0;
         if (m_char) m_char->SetAttribute(259, int64(0), true);
     }
 
@@ -1549,6 +1550,8 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
     m_movePoint.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
     m_moveSystemID = toData.systemID;
 
+    m_lastGateID = fromGate;
+
     SetStateTimer(Player::State::Jump, Player::Timer::Jumping);
 }
 
@@ -1923,7 +1926,8 @@ void Client::ExecuteWormholeJump() {
             // Notify WormholeMgr to update visual state and collapse if depleted
             sWHMgr.OnJump(m_jumpWormholeID, shipMass);
         }
-        m_jumpWormholeID = 0;
+    m_jumpWormholeID = 0;
+    m_lastGateID = 0;
     }
 
     //OnScannerInfoRemoved  - no args.  flushes current scan data in client

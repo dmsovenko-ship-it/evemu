@@ -1565,15 +1565,18 @@ SystemEntity* SystemManager::GetClosestPlanetSE(const GPoint& myPos)
     return itr->second;
 }
 
-SystemEntity* SystemManager::GetClosestGateSE(const GPoint& myPos)
+SystemEntity* SystemManager::GetClosestGateSE(const GPoint& myPos, uint32 excludeID)
 {
     std::map<double, SystemEntity*> sorted;
-    for (auto cur : m_gateMap)
+    for (auto cur : m_gateMap) {
+        if (cur.first == excludeID)
+            continue;
         sorted.insert(std::pair<double, SystemEntity*>(myPos.distance(cur.second->GetPosition()), cur.second));
+    }
 
     std::map<double, SystemEntity*>::iterator itr = sorted.begin();
 
-    return itr->second;
+    return (itr != sorted.end()) ? itr->second : nullptr;
 }
 
 SystemEntity* SystemManager::GetClosestMoonSE(const GPoint& myPos)

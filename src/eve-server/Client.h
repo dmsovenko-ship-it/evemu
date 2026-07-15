@@ -271,6 +271,8 @@ public:
 
     bool IsAutoPilot()                                  { return m_autoPilot; }
     void SetAutoPilot(bool set=false);
+    uint32 GetLastGateID()                              { return m_lastGateID; }
+    void SetLastGateID(uint32 id)                       { m_lastGateID = id; }
 
     void JumpInEffect();
     void JumpOutEffect(uint32 locationID);
@@ -380,6 +382,7 @@ protected:
     bool m_packaged;        // used to correctly package updates into a PackagedAction list
     bool m_portrait;        // used to verify new char pic received
     bool m_autoPilot;       // set true for using autopilot.
+    uint32 m_lastGateID;    // last gate jumped through (for AP reverse-gate exclusion)
     bool m_scanProbe;       // scanning with probes
     bool m_bubbleWait;
     bool m_setStateSent;
