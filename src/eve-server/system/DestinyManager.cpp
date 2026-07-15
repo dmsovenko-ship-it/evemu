@@ -1146,6 +1146,11 @@ void DestinyManager::Follow() {
     double rawDist = heading.length() - m_radius;
     m_targetDistance = (rawDist > 0.0) ? rawDist : 0.0;
 
+    _log(AUTOPILOT__MESSAGE, "Follow tick: rawDist=%.0f fDist=%u AP=%d hasPilot=%d target=0x%p",
+         rawDist, m_followDistance,
+         (mySE->HasPilot() ? mySE->GetPilot()->IsAutoPilot() : 0), mySE->HasPilot(),
+         (void*)m_targetEntity.second);
+
     // autopilot check first — auto-jump if at gate
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         SetSpeedFraction(0.0);
@@ -2094,6 +2099,9 @@ void DestinyManager::BeginMovement() {
 void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
     //called from client as 'CmdFollowBall'
     //  also used by 'Approach'
+    _log(AUTOPILOT__MESSAGE, "Follow(%s): dist=%u isGate=%d isStation=%d AP=%d hasPilot=%d",
+         pSE->GetName(), distance, pSE->IsGateSE(), pSE->IsStationSE(),
+         (mySE->HasPilot() ? mySE->GetPilot()->IsAutoPilot() : 0), mySE->HasPilot());
     // Cap follow distance for gates/stations when on autopilot
     if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         if (pSE->IsGateSE() && distance > 2500)
@@ -2101,6 +2109,7 @@ void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
         else if (pSE->IsStationSE() && distance > 2500)
             distance = 2500;
     }
+    _log(AUTOPILOT__MESSAGE, "Follow after cap: dist=%u", distance);
     if ((m_ballMode == Destiny::Ball::Mode::FOLLOW)
     and (m_targetEntity.second == pSE)
     and (m_followDistance == distance)
