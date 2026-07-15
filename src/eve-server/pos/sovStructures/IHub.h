@@ -34,7 +34,7 @@ public:
 
     /* virtual functions default to base class and overridden as needed */
     virtual void                Init();
-    void                        SetReinforce(EVEPOS::ProcState pState);
+    void                        SetReinforce(int8 pState);
     bool                        CheckShieldReinforce();
     bool                        CheckReinforce();
     int8                        GetReinforceHour()        { return m_reinforceHour; }
