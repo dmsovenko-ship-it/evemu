@@ -539,10 +539,14 @@ void StructureSE::Process()
         case ProcState::ArmorReinforcing:
         {
             if (!m_tower) {
-                // non-tower structures: become invulnerable for the timer duration
-                m_self->SetFlag(flagStructureInactive);
-                m_data.state = StructureState::Invulnerable;
+                // non-tower structures: exit reinforcement and become online again
+                m_self->SetFlag(flagStructureActive);
+                m_data.state = StructureState::Online;
+                m_procState = ProcState::Online;
                 m_db.UpdateBaseData(m_data);
+                SendSlimUpdate();
+                _log(POS__MESSAGE, "StructureSE::Process() - Non-tower structure %s(%u) exiting reinforcement, returning to Online.",
+                        GetName(), m_data.itemID);
                 break;
             }
 

@@ -52,7 +52,58 @@ void IHubSE::Init()
 
 void IHubSE::Process()
 {
+    // Process base class state timers
     StructureSE::Process();
+
+    // Handle IHub reinforcement state transitions
+    if (m_procState == EVEPOS::ProcState::Reinforcing) {
+        // Shield reinforcement expired → move to armor-reinforced
+        _log(POS__MESSAGE, "IHub %s(%u): Shield reinforcement expired, entering Armor Reinforced.", GetName(), m_data.itemID);
+        m_data.state = EVEPOS::StructureState::ArmorReinforced;
+        m_procState = EVEPOS::ProcState::ArmorReinforcing;
+        m_self->SetFlag(flagStructureInactive);
+        SetTimer(48 * EvE::Time::Hour * 1000); // 48h armor reinforcement
+        m_db.UpdateBaseData(m_data);
+        SendSlimUpdate();
+    }
+    if (m_procState == EVEPOS::ProcState::ArmorReinforcing) {
+        // Armor reinforcement expired → become vulnerable
+        _log(POS__MESSAGE, "IHub %s(%u): Armor reinforcement expired, entering Vulnerable.", GetName(), m_data.itemID);
+        m_data.state = EVEPOS::StructureState::Vulnerable;
+        m_procState = EVEPOS::ProcState::Operating;
+        m_self->SetFlag(flagStructureActive);
+        m_db.UpdateBaseData(m_data);
+        SendSlimUpdate();
+    }
+}
+
+void IHubSE::SetReinforce(EVEPOS::ProcState pState)
+{
+    // Called when IHub HP drops below threshold
+    // Enters the appropriate reinforcement state
+    int64 reinforceTime = 48 * EvE::Time::Hour * 1000; // 48h default
+    _log(POS__MESSAGE, "IHub %s(%u): Entering reinforcement (state %i).", GetName(), m_data.itemID, pState);
+    m_procState = pState;
+    switch (pState) {
+        case EVEPOS::ProcState::Reinforcing:
+            m_data.state = EVEPOS::StructureState::SheildReinforced;
+            break;
+        case EVEPOS::ProcState::ArmorReinforcing:
+            m_data.state = EVEPOS::StructureState::ArmorReinforced;
+            break;
+        default:
+            return;
+    }
+    m_self->SetFlag(flagStructureInactive);
+    SetTimer(reinforceTime);
+    m_db.UpdateBaseData(m_data);
+    SendSlimUpdate();
+
+    // Notify corporation about reinforcement
+    PyDict* notifData = new PyDict();
+    notifData->SetItemString("structureID", new PyInt(m_data.itemID));
+    notifData->SetItemString("solarSystemID", new PyInt(m_system->GetID()));
+    sEntityList.CreateNotification(m_corpID, Notify::Types::CorpStructLost, m_data.itemID, notifData);
 }
 
 void IHubSE::SetOnline()
@@ -67,4 +118,29 @@ void IHubSE::SetOffline()
     _log(SOV__DEBUG, "Offlining IHub... Resetting claim's hubID.");
     svDataMgr.UpdateSystemHubID(m_self->locationID(), 0);
     StructureSE::SetOffline();
+}
+
+void IHubSE::Reinforce()
+{
+    // IHub has been attacked and needs to enter reinforcement
+    // Check current HP percentages to determine reinforcement level
+    double shieldPct = m_self->GetAttribute(AttrShieldCharge).get_float() /
+                       std::max(m_self->GetAttribute(AttrShieldCapacity).get_float(), 1.0f);
+    double armorPct = m_self->GetAttribute(AttrArmorDamage).get_float() /
+                      std::max(m_self->GetAttribute(AttrArmorHP).get_float(), 1.0f);
+
+    if (armorPct > 0.5f) {
+        // Armor below 50% → second reinforcement or destruction
+        if (m_data.state == EVEPOS::StructureState::ArmorReinforced) {
+            // Already in armor reinforcement, let it be destroyed
+            return;
+        }
+        SetReinforce(EVEPOS::ProcState::ArmorReinforcing);
+    } else if (shieldPct < 0.25f) {
+        // Shield below 25% → first reinforcement
+        if (m_data.state == EVEPOS::StructureState::Vulnerable
+            || m_data.state == EVEPOS::StructureState::Online) {
+            SetReinforce(EVEPOS::ProcState::Reinforcing);
+        }
+    }
 }

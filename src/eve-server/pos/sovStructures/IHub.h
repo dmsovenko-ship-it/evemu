@@ -34,6 +34,10 @@ public:
 
     /* virtual functions default to base class and overridden as needed */
     virtual void                Init();
+    void                        SetReinforce(EVEPOS::ProcState pState);
+
+    virtual void                Reinforce();
+    virtual void                Killed(Damage& damage);
 
 };
 
