@@ -133,6 +133,11 @@ void WormholeMgr::OnJump(uint32 whItemID, int64 shipMass) {
         return;
 
     int64 remaining = wh->GetAttribute(AttrWormholeMaxStableMass).get_int();
+    int64 maxMass = wh->GetDefaultAttribute(AttrWormholeMaxStableMass).get_int();
+    if (maxMass <= 0)
+        maxMass = remaining + shipMass;
+
+    float ratio = (maxMass > 0) ? (float)remaining / (float)maxMass : 0.0f;
 
     // Update visual state on entrance WH's SE
     auto it = m_whToSystem.find(whItemID);
@@ -141,11 +146,27 @@ void WormholeMgr::OnJump(uint32 whItemID, int64 shipMass) {
         if (pSys != nullptr) {
             SystemEntity* pSE = pSys->GetSE(whItemID);
             if (pSE != nullptr && pSE->IsWormholeSE()) {
-                int64 maxMass = wh->GetDefaultAttribute(AttrWormholeMaxStableMass).get_int();
-                if (maxMass <= 0)
-                    maxMass = remaining + shipMass;  // estimate if default unavailable
-                pSE->GetWormholeSE()->UpdateMassState(remaining, maxMass);
-                pSE->GetWormholeSE()->SendSlimUpdate();
+                WormholeSE* wSE = pSE->GetWormholeSE();
+                int8 oldAge = wSE->GetAge();
+                wSE->UpdateMassState(remaining, maxMass);
+                wSE->SendSlimUpdate();
+
+                // Notify all players in system when mass state changes significantly
+                if (oldAge != wSE->GetAge()) {
+                    const char* msg = nullptr;
+                    if (wSE->GetAge() == WormHole::Age::Closing)
+                        msg = "Wormhole is critically destabilized — it will collapse soon.";
+                    else if (wSE->GetAge() == WormHole::Age::Decaying)
+                        msg = "Wormhole is showing signs of destabilization.";
+                    if (msg != nullptr) {
+                        std::vector<Client*> clients;
+                        pSys->GetClients(clients);
+                        for (auto* c : clients) {
+                            if (c != nullptr && !c->IsNPC())
+                                c->SendNotifyMsg(msg);
+                        }
+                    }
+                }
             }
         }
     }
