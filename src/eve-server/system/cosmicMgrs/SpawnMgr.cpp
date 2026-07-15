@@ -802,9 +802,13 @@ bool SpawnMgr::DoSpawnForBubble(SystemBubble* pBubble)
             return false;
     }
 
-    if (pBubble->IsGate())
+    if (pBubble->IsGate()) {
         if (!sConfig.npc.StaticSpawns)
             return false;
+        // No gate spawns in highsec
+        if (m_system->GetSystemSecurityRating() >= 0.5f)
+            return false;
+    }
 
     if (FindSpawnForBubble(pBubble->GetID())) {
         _log(SPAWN__TRACE, "SpawnMgr::FindSpawnForBubble() returned true for bubble %u.", pBubble->GetID());
