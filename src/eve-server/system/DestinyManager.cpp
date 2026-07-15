@@ -2104,10 +2104,13 @@ void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
          (mySE->HasPilot() ? mySE->GetPilot()->IsAutoPilot() : 0), mySE->HasPilot());
     // Cap follow distance for gates/stations when on autopilot
     if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
-        if (pSE->IsGateSE() && distance > 2500)
-            distance = 2500;
-        else if (pSE->IsStationSE() && distance > 2500)
-            distance = 2500;
+        if (pSE->IsGateSE()) {
+            if (distance == 0 || distance > 2500)
+                distance = 2500;
+        } else if (pSE->IsStationSE()) {
+            if (distance == 0 || distance > 2500)
+                distance = 2500;
+        }
     }
     _log(AUTOPILOT__MESSAGE, "Follow after cap: dist=%u", distance);
     if ((m_ballMode == Destiny::Ball::Mode::FOLLOW)
