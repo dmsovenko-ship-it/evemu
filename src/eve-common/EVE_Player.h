@@ -55,6 +55,7 @@ namespace Player {
             DriveJump   = 10,
             WormholeJump = 11,
             LoginWarp = 12,
+            AutoPilotResume = 13,
         };
     }
 }

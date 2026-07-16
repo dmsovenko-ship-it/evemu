@@ -403,6 +403,9 @@ void Client::ProcessClient() {
                     case Player::State::Idle: {
                         _log(CLIENT__TIMER, "ProcessClient()::IsDocked()::CheckState():  case: Idle");
                     } break;
+                    case Player::State::AutoPilotResume: {
+                        _log(CLIENT__TIMER, "ProcessClient()::IsDocked()::CheckState():  case: AutoPilotResume (docked - no-op)");
+                    } break;
                     case Player::State::Logout: {
                         _log(CLIENT__TIMER, "ProcessClient()::IsDocked()::CheckState():  case: Logout");
                     } break;
@@ -468,10 +471,14 @@ void Client::ProcessClient() {
             _log(CLIENT__TIMER, "ProcessClient(): state timer hit.  current state time is %ums", m_stateTimer.GetCurrentTime());
             m_stateTimer.Disable();
             switch (m_clientState) {
-                case Player::State::Idle: {
-                    _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Idle");
-                    // this shouldnt hit...error
-                } break;
+                    case Player::State::Idle: {
+                        _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Idle");
+                    } break;
+                    case Player::State::AutoPilotResume: {
+                        _log(AUTOPILOT__MESSAGE, "ProcessClient()::CheckState():  case: AutoPilotResume for %s", m_char->name());
+                        if (m_autoPilot && pSession->SetInt("autopilot", 1))
+                            SendSessionChange();
+                    } break;
                 case Player::State::Dock: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Dock");
                     DockToStation();
@@ -886,9 +893,6 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
         if (IsJump() and !m_autoPilot) {
             pShipSE->DestinyMgr()->Stop();
         } else if (IsJump() and m_autoPilot) {
-            // Force session.autopilot from 0→1 so the client's dependant
-            // service framework re-enables autoPilot after UpdateRoute's SetOff.
-            pSession->SetInt("autopilot", 0);
             m_autoPilot = true;
         }
     }
@@ -900,6 +904,13 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
 
     UpdateSession();
     SendSessionChange();
+
+    // For autopilot jumps: schedule a delayed session update to set
+    // autopilot=1 AFTER OnSessionChanged has already run (and the starmap's
+    // UpdateRoute has called SetOff).  The C++ service framework sees the
+    // 0→1 transition and re-enables autoPilot.autopilot on the client side.
+    if (IsJump() && m_autoPilot)
+        SetStateTimer(Player::State::AutoPilotResume, 3000);
 }
 
 void Client::SetDestiny(const GPoint& pt, bool update/*false*/) {
