@@ -1213,49 +1213,11 @@ void DestinyManager::Follow() {
         return;
     }
 
-    // ---- normal follow / approach ----
-    // Physics-based approach: calculate required speed to stop before target.
-    // distToGo is how far we are from the follow-distance zone edge.
-    const double distToGo = rawDist - (double)m_followDistance;
-    const float currentFrac = m_userSpeedFraction;
-
-    if (distToGo > 0) {
-        // Determine max allowed speed for this target type.
-        float maxSpeed = 0.6f;  // static target approach
-        if (m_targetEntity.second->IsDynamicEntity()
-            && m_targetEntity.second->DestinyMgr() != nullptr
-            && m_targetEntity.second->DestinyMgr()->IsMoving())
-            maxSpeed = 1.0f;
-        // Autopilot: full speed approach to gates/stations after warp
-        if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot())
-            maxSpeed = 1.0f;
-
-        // Target speed proportional to remaining distance:
-        // at 10km+ → full approach speed, at 0m → 0
-        float targetFrac = std::min(maxSpeed, static_cast<float>(distToGo / 10000.0) * maxSpeed);
-
-        // Brake predictor: if current speed is too high for the remaining
-        // distance, decelerate aggressively (v² / (2a) model heuristic).
-        if ((currentFrac * currentFrac * 8000.0) > distToGo) {
-            // Overshoot risk — brake hard
-            float brake = std::max(0.05f, currentFrac * 0.4f);
-            SetSpeedFraction(std::max(0.0f, currentFrac - brake));
-        } else if (currentFrac > targetFrac + 0.03f) {
-            // Slight deceleration to match target fraction
-            SetSpeedFraction(std::max(targetFrac, currentFrac - 0.2f));
-        } else if (currentFrac < targetFrac - 0.03f) {
-            // Accelerate toward target fraction
-            SetSpeedFraction(std::min(maxSpeed, currentFrac + 0.15f));
-        }
-    } else {
-        // Within follow distance — stop
-        if (currentFrac > 0.01f)
-            SetSpeedFraction(std::max(0.0f, currentFrac - 0.3f));
-    }
-
-    heading.normalize();
-    m_targetPoint = target_point + (heading * m_targetDistance);
-
+    // ---- approach: let client handle speed; server only tracks for jump ----
+    // The client's Ballpark engine handles approach physics naturally (full
+    // speed in, deceleration at the right moment).  Sending our own
+    // SetSpeedFraction overrides would fight the client's native physics.
+    // We only step MoveObject() to keep server position in sync.
     MoveObject();
 }
 
@@ -1971,14 +1933,17 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     m_stateStamp = sEntityList.GetStamp();
 
-    // Do NOT call Follow() here — the client is still in its WarpLoop and
-    // would ignore or mis-handle a CmdFollowBall received mid-warp.  The
-    // client's AP Update() (running every 2s) naturally sends
-    // CmdFollowBall after the WarpLoop finishes and mode == STOP, and then
-    // the server's Follow() tick detects when the ship is close enough for
-    // the auto-jump.
+    // Enter FOLLOW mode so the Follow() tick can track distance and trigger
+    // auto-jump when rawDist <= followDistance.  The Follow() tick no longer
+    // sends speed overrides — the client's Ballpark engine handles approach
+    // physics natively.  We send CmdFollowBall here even though the client
+    // may still be in WarpLoop; it gets queued and processed after warp exit.
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
-        _log(AUTOPILOT__MESSAGE, "%s: AP warp complete — waiting for client to send CmdFollowBall.", mySE->GetName());
+        SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
+        if (pTarget != nullptr) {
+            _log(AUTOPILOT__MESSAGE, "%s: AP warp complete — entering FOLLOW mode.", mySE->GetName());
+            Follow(pTarget, followDist);
+        }
     }
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
