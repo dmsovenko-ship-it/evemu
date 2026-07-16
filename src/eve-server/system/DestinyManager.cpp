@@ -1973,25 +1973,8 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     // resume autopilot follow after warp complete
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
         SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
-        if (pTarget != nullptr) {
-            if (pTarget->IsGateSE()) {
-                // Auto-jump immediately: client already arrived via WarpLoop,
-                // server position snap at 15km would take ~60s to reach 2.5km.
-                DBQueryResult jmpRes;
-                sDatabase.RunQuery(jmpRes,
-                    "SELECT celestialID FROM mapJumps WHERE stargateID = %u LIMIT 1", followTargetID);
-                DBResultRow jmpRow;
-                if (jmpRes.GetRow(jmpRow)) {
-                    uint32 toGate = jmpRow.GetUInt(0);
-                    _log(AUTOPILOT__MESSAGE, "%s: AP auto-jump from gate %u to %u (immediate)",
-                         mySE->GetName(), followTargetID, toGate);
-                    if (mySE->HasPilot() && mySE->GetPilot()->IsIdle())
-                        mySE->GetPilot()->StargateJump(followTargetID, toGate);
-                }
-            } else {
-                Follow(pTarget, followDist);
-            }
-        }
+        if (pTarget != nullptr)
+            Follow(pTarget, followDist);
     }
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();

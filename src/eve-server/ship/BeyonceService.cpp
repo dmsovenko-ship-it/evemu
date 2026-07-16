@@ -681,21 +681,9 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
     _log(AUTOPILOT__MESSAGE, "%s called Stop. AP: %s", call.client->GetName(), \
             (call.client->IsAutoPilot() ? "true" : "false"));
 
-    // On AP, ignore CmdStop — approach nearest gate so auto-jump fires.
+    // On AP, just return — client will send CmdWarpToStuffAutopilot for the next waypoint
     if (call.client->IsAutoPilot()) {
-        _log(AUTOPILOT__MESSAGE, "%s: AP on — approaching nearest gate.", call.client->GetName());
-        DestinyManager* pDestiny = call.client->GetShipSE()->DestinyMgr();
-        SystemManager* pSys = call.client->SystemMgr();
-        if (pDestiny != nullptr && pSys != nullptr) {
-            auto gates = pSys->GetGates();
-            for (auto& g : gates) {
-                if (g.second->IsGateSE()) {
-                    _log(AUTOPILOT__MESSAGE, "%s: Following gate %u.", call.client->GetName(), g.first);
-                    pDestiny->Follow(g.second, 2500);
-                    break;
-                }
-            }
-        }
+        _log(AUTOPILOT__MESSAGE, "%s: AP on — ignoring CmdStop.", call.client->GetName());
         return PyStatic.NewNone();
     }
 
