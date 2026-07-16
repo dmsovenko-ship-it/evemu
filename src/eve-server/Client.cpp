@@ -904,14 +904,15 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
 
     m_char->SetLocation((sDataMgr.IsStation(m_locationID) ? m_locationID : 0), m_systemData);
 
+    // First session change: autopilot=0 so the next-tick update with
+    // autopilot=1 creates a 0→1 transition for the C++ framework.
+    bool apWasOn = (IsJump() && m_autoPilot);
+    m_autoPilot = false;
     UpdateSession();
+    m_autoPilot = apWasOn;
     SendSessionChange();
 
-    // Schedule a next-tick session update with autopilot=1 so the C++
-    // framework re-enables the autoPilot service AFTER OnSessionChanged
-    // has already run (and the starmap's UpdateRoute has potentially
-    // called SetOff('waypoint reached')).
-    if (IsJump() && m_autoPilot)
+    if (apWasOn)
         SetStateTimer(Player::State::AutoPilotResume, 0);
 }
 
