@@ -1192,7 +1192,13 @@ void DestinyManager::Follow() {
             destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
             pClient->SetLastGateID(toGate);
             pClient->JumpOutEffect(pClient->GetSystemID());
+            // Clear autopilot before MoveToLocation so UpdateSession()
+            // sends autopilot=0 in the session change (avoids no-op when
+            // session already has autopilot=1 from a previous jump).
+            bool apWasOn = pClient->IsAutoPilot();
+            pClient->SetAutoPilot(false);
             pClient->MoveToLocation(toData.systemID, destPos);
+            pClient->SetAutoPilot(apWasOn);
             pClient->JumpInEffect();
             if (pClient->IsInSpace()) {
                 mySE->DestinyMgr()->Stop();
