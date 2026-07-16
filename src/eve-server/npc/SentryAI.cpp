@@ -103,6 +103,7 @@ void SentryAI::Process() {
                     SystemEntity* targetSE = cur->GetShipSE();
                     if (targetSE == nullptr) continue;
                     if (targetSE->DestinyMgr() == nullptr) continue;
+                    if (targetSE->SysBubble() == nullptr) continue;
                     if (targetSE->DestinyMgr()->IsCloaked() or targetSE->DestinyMgr()->IsWarping())
                         continue;
                     if (m_npc->GetPosition().distance(targetSE->GetPosition()) > m_sightRange)
@@ -128,6 +129,7 @@ void SentryAI::Process() {
                     for (auto& ent : bubbleEnts) {
                         if (ent.second == nullptr || !ent.second->IsNPCSE()) continue;
                         if (ent.second->TargetMgr() == nullptr || ent.second->TargetMgr()->HasNoTargets()) continue;
+                        if (ent.second->SysBubble() == nullptr) continue;
                         if (m_npc->GetPosition().distance(ent.second->GetPosition()) > m_sightRange)
                             continue;
                         Target(ent.second);
