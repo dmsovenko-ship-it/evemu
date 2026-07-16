@@ -1147,18 +1147,22 @@ void DestinyManager::Follow() {
     double rawDist = heading.length() - m_radius;
     m_targetDistance = (rawDist > 0.0) ? rawDist : 0.0;
 
-    if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot())
-        _log(AUTOPILOT__TRACE, "Follow tick: rawDist=%.0f fDist=%u mode=%d", rawDist, m_followDistance, m_ballMode);
+    if (mySE->HasPilot())
+        _log(AUTOPILOT__MESSAGE, "Follow tick: rawDist=%.0f fDist=%u AP=%d hasPilot=%d target=0x%p",
+             rawDist, m_followDistance,
+             mySE->GetPilot()->IsAutoPilot(), true,
+             (void*)m_targetEntity.second);
 
     // autopilot check first — auto-jump if at gate
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         SetSpeedFraction(0.0);
+        _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
+             mySE->GetName(), rawDist, (void*)m_targetEntity.second,
+             (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
         if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
-            Client* pClient = mySE->GetPilot();
-            // Guard against repeated jump calls on subsequent ticks (client state timer or flag)
-            if (m_apJumping || pClient->IsStateTimerEnabled())
+            // Guard against repeated jump calls on subsequent ticks
+            if (m_apJumping)
                 return;
-            _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f", mySE->GetName(), rawDist);
             uint32 fromGate = m_targetEntity.second->GetID();
             DBQueryResult jmpRes;
             sDatabase.RunQuery(jmpRes,
@@ -1167,6 +1171,7 @@ void DestinyManager::Follow() {
             if (jmpRes.GetRow(jmpRow)) {
                 uint32 toGate = jmpRow.GetUInt(0);
                 _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
+                Client* pClient = mySE->GetPilot();
                 if (!pClient->IsSessionChange() && pClient->IsIdle()) {
                     m_apJumping = true;
                     pClient->StargateJump(fromGate, toGate);
@@ -1214,43 +1219,35 @@ void DestinyManager::Follow() {
     }
 
     // ---- normal follow / approach ----
-    // Physics-based approach: calculate required speed to stop before target.
-    // distToGo is how far we are from the follow-distance zone edge.
-    const double distToGo = rawDist - (double)m_followDistance;
-    const float currentFrac = m_userSpeedFraction;
+    // Hysteresis: use a wider exit threshold to prevent oscillation.
+    // Enter follow zone at m_followDistance, leave only beyond m_followDistance * 1.5
+    const double exitDist = (double)m_followDistance * 1.5;
+    const double targetSpeed = (rawDist <= (double)m_followDistance) ? 0.0 : 1.0;
 
-    if (distToGo > 0) {
-        // Determine max allowed speed for this target type.
-        float maxSpeed = 0.6f;  // static target approach
+    if (rawDist <= exitDist && m_userSpeedFraction > targetSpeed + 0.05f) {
+        // Decelerate smoothly: reduce speed by 20% per tick toward targetSpeed
+        float newSpeed = m_userSpeedFraction * 0.8f + targetSpeed * 0.2f;
+        if (newSpeed < 0.01f) newSpeed = 0.0f;
+        SetSpeedFraction(newSpeed);
+    } else if (rawDist > (double)m_followDistance && m_userSpeedFraction < 1.0f) {
+        // Accelerate smoothly toward full speed, but only if target is a moving entity.
+        // Static targets (gates, stations) just need approach at moderate speed.
+        float maxApproach = 0.8f;
         if (m_targetEntity.second->IsDynamicEntity()
             && m_targetEntity.second->DestinyMgr() != nullptr
             && m_targetEntity.second->DestinyMgr()->IsMoving())
-            maxSpeed = 1.0f;
-        // Autopilot: full speed approach to gates/stations after warp
-        if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot())
-            maxSpeed = 1.0f;
+            maxApproach = 1.0f;
+        else if (m_targetEntity.second->IsStaticEntity() || !m_targetEntity.second->IsDynamicEntity())
+            maxApproach = 0.6f;  // slower approach for static objects
 
-        // Target speed proportional to remaining distance:
-        // at 10km+ → full approach speed, at 0m → 0
-        float targetFrac = std::min(maxSpeed, static_cast<float>(distToGo / 10000.0) * maxSpeed);
+        float newSpeed = m_userSpeedFraction + 0.15f;
+        if (newSpeed > maxApproach) newSpeed = maxApproach;
+        SetSpeedFraction(newSpeed);
+    }
 
-        // Brake predictor: if current speed is too high for the remaining
-        // distance, decelerate aggressively (v² / (2a) model heuristic).
-        if ((currentFrac * currentFrac * 8000.0) > distToGo) {
-            // Overshoot risk — brake hard
-            float brake = std::max(0.05f, currentFrac * 0.4f);
-            SetSpeedFraction(std::max(0.0f, currentFrac - brake));
-        } else if (currentFrac > targetFrac + 0.03f) {
-            // Slight deceleration to match target fraction
-            SetSpeedFraction(std::max(targetFrac, currentFrac - 0.2f));
-        } else if (currentFrac < targetFrac - 0.03f) {
-            // Accelerate toward target fraction
-            SetSpeedFraction(std::min(maxSpeed, currentFrac + 0.15f));
-        }
-    } else {
-        // Within follow distance — stop
-        if (currentFrac > 0.01f)
-            SetSpeedFraction(std::max(0.0f, currentFrac - 0.3f));
+    // when very close to a static target, coast to a gentle stop
+    if (rawDist < (double)m_followDistance * 0.5 && !m_targetEntity.second->IsDynamicEntity()) {
+        SetSpeedFraction(std::min(m_userSpeedFraction, 0.1f));
     }
 
     heading.normalize();
@@ -1947,15 +1944,17 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     SafeDelete(m_warpState);
 
-    // Snap server position to warp exit point. Without this, the server
-    // and client finish warp at different positions (~100m+ apart) due to
-    // independent warp simulation, causing visible teleports or desync.
+    // Snap server position to the exact target point. At trigger time the
+    // ship is ~100m from target — snapping avoids a position discrepancy
+    // vs the client (whose WarpLoop arrives at the exact destination).
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);
 
-    // Set server state to STOP — the client's WarpLoop will finish on its
-    // own and transition to STOP as well. Do NOT send CmdStop from here;
-    // it would interrupt the client's WarpLoop prematurely.
+    // Set server state to STOP but send NOTHING to the client.
+    // The client's WarpLoop runs independently using its own warp simulation
+    // and exits naturally when it reaches the destination. Sending CmdStop,
+    // CmdGotoDirection, or any position snap would either stop the ship
+    // 2736m early or cause the WarpLoop crash (ball.display = None).
     m_ballMode = Destiny::Ball::Mode::STOP;
     m_stop = true;
     m_accel = false;
@@ -1971,17 +1970,11 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     m_stateStamp = sEntityList.GetStamp();
 
-    // Enter FOLLOW mode so the Follow() tick can track distance and trigger
-    // auto-jump when rawDist <= followDistance.  The Follow() tick no longer
-    // sends speed overrides — the client's Ballpark engine handles approach
-    // physics natively.  We send CmdFollowBall here even though the client
-    // may still be in WarpLoop; it gets queued and processed after warp exit.
+    // resume autopilot follow after warp complete
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
         SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
-        if (pTarget != nullptr) {
-            _log(AUTOPILOT__MESSAGE, "%s: AP warp complete — entering FOLLOW mode.", mySE->GetName());
+        if (pTarget != nullptr)
             Follow(pTarget, followDist);
-        }
     }
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
@@ -2218,25 +2211,12 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 
     // check for autopilot.  it has 'special' checks in client for auto-disable by destiny update
     if (autoPilot) {
-        // Save target entity for WarpStop follow-resume, without sending CmdFollowBall.
-        // (CmdWarpTo below is the only destiny update the client should see.)
-        m_targetEntity = std::pair<uint32, SystemEntity*>(pSE->GetID(), pSE);
-        // Use a local copy for follow distance so we don't alter WarpTo's stop distance.
-        uint32 apFollowDist = static_cast<uint32>(distance);
-        if (pSE->IsGateSE() || pSE->IsStationSE())
-            if (apFollowDist == 0 || apFollowDist > 2500)
-                apFollowDist = 2500;
-        m_followDistance = apFollowDist;
-        // Initialize movement for warp (replaces SetSpeedFraction/Follow setup)
-        if (m_orbiting)
-            ClearOrbit();
-        BeginMovement();
+        Follow(pSE, distance);
     } else {
+        m_targetPoint = where;
         m_targetEntity.first = 0;
         m_targetEntity.second = nullptr;
     }
-    // Always set warp target point for both AP and manual
-    m_targetPoint = where;
 
     m_stopDistance = distance;
     // get warp target point
