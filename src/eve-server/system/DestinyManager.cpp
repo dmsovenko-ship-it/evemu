@@ -1159,10 +1159,12 @@ void DestinyManager::Follow() {
         _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
              mySE->GetName(), rawDist, (void*)m_targetEntity.second,
              (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
-        if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
+         if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
             // Guard against repeated jump calls on subsequent ticks
-            if (m_apJumping)
+            if (m_apJumping) {
+                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by m_apJumping", mySE->GetName());
                 return;
+            }
             uint32 fromGate = m_targetEntity.second->GetID();
             DBQueryResult jmpRes;
             sDatabase.RunQuery(jmpRes,
@@ -1172,7 +1174,14 @@ void DestinyManager::Follow() {
                 uint32 toGate = jmpRow.GetUInt(0);
                 _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
                 Client* pClient = mySE->GetPilot();
-                if (!pClient->IsSessionChange() && pClient->IsIdle()) {
+                if (pClient->IsSessionChange()) {
+                    _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by session change", mySE->GetName());
+                    return;
+                }
+                if (!pClient->IsIdle()) {
+                    _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — state=%d", mySE->GetName(), pClient->GetState());
+                    return;
+                }
                     m_apJumping = true;
                     pClient->StargateJump(fromGate, toGate);
                 }
