@@ -565,8 +565,11 @@ void SystemBubble::GetPlayers(std::vector<Client*> &into) const {
     if (m_players.empty())
         return;
 
-    for (auto cur : m_players)
-        into.push_back(cur.second);
+    for (auto cur : m_players) {
+        Client* pClient = sEntityList.FindClientByCharID(cur.first);
+        if (pClient == cur.second)
+            into.push_back(cur.second);
+    }
 }
 
 SystemEntity* SystemBubble::GetRandomEntity()
@@ -1152,27 +1155,29 @@ void SystemBubble::BubblecastDestinyUpdate( PyTuple** payload, const char* desc 
     if (is_log_enabled(DESTINY__BUBBLECAST_DUMP))
         (*payload)->Dump(DESTINY__BUBBLECAST_DUMP, "    ");
     for (auto cur : m_players) {
-        if (sEntityList.FindClientByCharID(cur.first) == nullptr) {
+        Client* pClient = sEntityList.FindClientByCharID(cur.first);
+        if (pClient != cur.second) {
             _log( DESTINY__BUBBLECAST, "Bubblecast %s — skipping stale client %u", desc, cur.first);
             continue;
         }
-        _log( DESTINY__BUBBLECAST, "Bubblecast %s update to %s(%u)", desc, cur.second->GetName(), cur.first );
+        _log( DESTINY__BUBBLECAST, "Bubblecast %s update to %s(%u)", desc, pClient->GetName(), cur.first );
         PyIncRef(*payload);
-        cur.second->QueueDestinyUpdate(payload);
+        pClient->QueueDestinyUpdate(payload);
     }
 }
 
 void SystemBubble::BubblecastDestinyUpdateExclusive( PyTuple** payload, const char* desc, SystemEntity* pSE ) const
 {
     for (auto cur : m_players) {
-        if (sEntityList.FindClientByCharID(cur.first) == nullptr)
+        Client* pClient = sEntityList.FindClientByCharID(cur.first);
+        if (pClient != cur.second)
             continue;
         // Only queue a Destiny update for this bubble if the current SystemEntity is not 'pSE':
         // (this is an update to all client objects in the bubble EXCLUDING 'pSE')
-        if (cur.second->GetShipSE() != pSE) {
-            _log( DESTINY__BUBBLECAST, "Exclusive Bubblecast %s update to %s(%u)", desc, cur.second->GetName(), cur.first );
+        if (pClient->GetShipSE() != pSE) {
+            _log( DESTINY__BUBBLECAST, "Exclusive Bubblecast %s update to %s(%u)", desc, pClient->GetName(), cur.first );
             PyIncRef(*payload);
-            cur.second->QueueDestinyUpdate(payload);
+            pClient->QueueDestinyUpdate(payload);
         }
     }
 }
@@ -1182,21 +1187,23 @@ void SystemBubble::BubblecastDestinyEvent( PyTuple** payload, const char* desc )
     if (is_log_enabled(DESTINY__BUBBLECAST_DUMP))
         (*payload)->Dump(DESTINY__BUBBLECAST_DUMP, "    ");
     for (auto cur : m_players) {
-        if (sEntityList.FindClientByCharID(cur.first) == nullptr)
+        Client* pClient = sEntityList.FindClientByCharID(cur.first);
+        if (pClient != cur.second)
             continue;
-        _log( DESTINY__BUBBLECAST, "Bubblecast %s event to %s(%u)", desc, cur.second->GetName(), cur.first );
+        _log( DESTINY__BUBBLECAST, "Bubblecast %s event to %s(%u)", desc, pClient->GetName(), cur.first );
         PyIncRef(*payload);
-        cur.second->QueueDestinyEvent(payload);
+        pClient->QueueDestinyEvent(payload);
     }
 }
 
 void SystemBubble::BubblecastSendNotification(const char* notifyType, const char* idType, PyTuple** payload, bool seq)
 {
     for (auto cur : m_players) {
-        if (sEntityList.FindClientByCharID(cur.first) == nullptr)
+        Client* pClient = sEntityList.FindClientByCharID(cur.first);
+        if (pClient != cur.second)
             continue;
-        _log( DESTINY__BUBBLECAST, "BubblecastNotify %s to %s(%u)", notifyType, cur.second->GetName(), cur.first );
+        _log( DESTINY__BUBBLECAST, "BubblecastNotify %s to %s(%u)", notifyType, pClient->GetName(), cur.first );
         PyIncRef(*payload);
-        cur.second->SendNotification( notifyType, idType, payload, seq );
+        pClient->SendNotification( notifyType, idType, payload, seq );
     }
 }
