@@ -1148,7 +1148,7 @@ void DestinyManager::Follow() {
     m_targetDistance = (rawDist > 0.0) ? rawDist : 0.0;
 
     if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot())
-        _log(AUTOPILOT__TRACE, "Follow tick: rawDist=%.0f fDist=%u", rawDist, m_followDistance);
+        _log(AUTOPILOT__TRACE, "Follow tick: rawDist=%.0f fDist=%u mode=%d", rawDist, m_followDistance, m_ballMode);
 
     // autopilot check first — auto-jump if at gate
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
@@ -1225,6 +1225,9 @@ void DestinyManager::Follow() {
         if (m_targetEntity.second->IsDynamicEntity()
             && m_targetEntity.second->DestinyMgr() != nullptr
             && m_targetEntity.second->DestinyMgr()->IsMoving())
+            maxSpeed = 1.0f;
+        // Autopilot: full speed approach to gates/stations after warp
+        if (mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot())
             maxSpeed = 1.0f;
 
         // Target speed proportional to remaining distance:

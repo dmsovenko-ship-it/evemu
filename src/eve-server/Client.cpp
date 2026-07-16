@@ -886,9 +886,6 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
         if (IsJump() and !m_autoPilot) {
             pShipSE->DestinyMgr()->Stop();
         } else if (IsJump() and m_autoPilot) {
-            // Force session.autopilot from 0→1 so client sees the change
-            // _Set() skips when hash doesn't change (current=1, new=1 → skip)
-            pSession->SetInt("autopilot", 0);
             m_autoPilot = true;
         }
     }
@@ -2391,8 +2388,7 @@ void Client::UpdateSession()
     pSession->SetInt("constellationid", m_char->constellationID());
     pSession->SetInt("regionid", m_char->regionID());
 
-    // Pass autopilot state to client — client may use session.autopilot to resume chain after session change
-    pSession->SetInt("autopilot", m_autoPilot ? 1 : 0);
+    // autopilot is client-side only; server does not expose it as a session attribute
 }
 
 void Client::UpdateSessionInt(const char *id, int value)
