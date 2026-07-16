@@ -886,6 +886,9 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
         if (IsJump() and !m_autoPilot) {
             pShipSE->DestinyMgr()->Stop();
         } else if (IsJump() and m_autoPilot) {
+            // Force session.autopilot from 0→1 so the client's dependant
+            // service framework re-enables autoPilot after UpdateRoute's SetOff.
+            pSession->SetInt("autopilot", 0);
             m_autoPilot = true;
         }
     }
@@ -2388,7 +2391,11 @@ void Client::UpdateSession()
     pSession->SetInt("constellationid", m_char->constellationID());
     pSession->SetInt("regionid", m_char->regionID());
 
-    // autopilot is client-side only; server does not expose it as a session attribute
+    // Expose autopilot state so the client's dependant service framework can
+    // re-enable the autoPilot service after a session change (the starmap's
+    // UpdateRoute calls SetOff('waypoint reached') on arrival, and the session
+    // param trigger brings it back).
+    pSession->SetInt("autopilot", m_autoPilot ? 1 : 0);
 }
 
 void Client::UpdateSessionInt(const char *id, int value)
