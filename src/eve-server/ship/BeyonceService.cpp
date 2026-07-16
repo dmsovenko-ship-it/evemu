@@ -687,7 +687,7 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
         DestinyManager* pDestiny = call.client->GetShipSE()->DestinyMgr();
         SystemManager* pSys = call.client->SystemMgr();
         if (pDestiny != nullptr && pSys != nullptr) {
-            auto& gates = pSys->GetGates();
+            auto gates = pSys->GetGates();
             for (auto& g : gates) {
                 if (g.second->IsGateSE()) {
                     _log(AUTOPILOT__MESSAGE, "%s: Following gate %u.", call.client->GetName(), g.first);
