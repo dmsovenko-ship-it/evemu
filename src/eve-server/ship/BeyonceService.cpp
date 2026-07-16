@@ -697,7 +697,9 @@ PyResult BeyonceBound::CmdStop(PyCallArgs &call) {
                 if (nearestGate != nullptr) {
                     _log(AUTOPILOT__MESSAGE, "%s: Following gate %u.", call.client->GetName(), nearestGate->GetID());
                     pDestiny->Follow(nearestGate, 2500);
-                    // Sync autopilot=1 to client — re-enables after UpdateRoute→SetOff
+                    // Force autopilot 0→1 transition in session to re-enable
+                    // the client's autoPilot service after SetOff('waypoint').
+                    call.client->GetSession()->SetInt("autopilot", 0);
                     call.client->GetSession()->SetInt("autopilot", 1);
                     call.client->SendSessionChange();
                     return PyStatic.NewNone();
