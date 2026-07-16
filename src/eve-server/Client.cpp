@@ -476,8 +476,10 @@ void Client::ProcessClient() {
                     } break;
                     case Player::State::AutoPilotResume: {
                         _log(AUTOPILOT__MESSAGE, "ProcessClient()::CheckState():  case: AutoPilotResume for %s", m_char->name());
-                        if (m_autoPilot && pSession->SetInt("autopilot", 1))
+                        if (m_autoPilot) {
+                            pSession->SetInt("autopilot", 1);
                             SendSessionChange();
+                        }
                     } break;
                 case Player::State::Dock: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Dock");
