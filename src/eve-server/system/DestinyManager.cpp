@@ -1184,16 +1184,16 @@ void DestinyManager::Follow() {
                 _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — not idle", mySE->GetName());
                 return;
             }
-            // .tr-style teleport instead of StargateJump timer
+            // .tr-style teleport (identical to .tr GM command)
             m_apJumping = true;
             StaticData toData;
             sDataMgr.GetStaticInfo(toGate, toData);
             GPoint destPos(toData.position);
             destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
-            mySE->DestinyMgr()->SendJumpOut(fromGate);
-            mySE->DestinyMgr()->SendGateActivity(fromGate);
             pClient->SetLastGateID(toGate);
+            pClient->JumpOutEffect(pClient->GetSystemID());
             pClient->MoveToLocation(toData.systemID, destPos);
+            pClient->JumpInEffect();
             if (pClient->IsInSpace()) {
                 mySE->DestinyMgr()->Stop();
                 if (mySE->SysBubble() == nullptr)
