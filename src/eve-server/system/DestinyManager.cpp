@@ -1156,11 +1156,10 @@ void DestinyManager::Follow() {
     // autopilot check first — auto-jump if at gate
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         SetSpeedFraction(0.0);
-        _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
-             mySE->GetName(), rawDist, (void*)m_targetEntity.second,
-             (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
-         if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
-            // Guard against repeated jump calls on subsequent ticks
+            _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
+                 mySE->GetName(), rawDist, (void*)m_targetEntity.second,
+                 (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
+        if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
             if (m_apJumping) {
                 _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by m_apJumping", mySE->GetName());
                 return;
@@ -1170,39 +1169,38 @@ void DestinyManager::Follow() {
             sDatabase.RunQuery(jmpRes,
                 "SELECT celestialID FROM mapJumps WHERE stargateID = %u LIMIT 1", fromGate);
             DBResultRow jmpRow;
-            if (jmpRes.GetRow(jmpRow)) {
-                uint32 toGate = jmpRow.GetUInt(0);
-                _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
-                Client* pClient = mySE->GetPilot();
-                if (pClient->IsSessionChange()) {
-                    _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by session change", mySE->GetName());
-                    return;
-                }
-                if (!pClient->IsIdle()) {
-                    _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — state=%d", mySE->GetName(), pClient->GetState());
-                    return;
-                }
-                    m_apJumping = true;
-                    // Use .tr-style direct teleport instead of StargateJump timer
-                    StaticData toData;
-                    sDataMgr.GetStaticInfo(toGate, toData);
-                    GPoint destPos(toData.position);
-                    destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
-                    pShipSE->DestinyMgr()->SendJumpOut(fromGate);
-                    pShipSE->DestinyMgr()->SendGateActivity(fromGate);
-                    pClient->SetLastGateID(toGate);
-                    pClient->MoveToLocation(toData.systemID, destPos);
-                    if (pClient->IsInSpace()) {
-                        pShipSE->DestinyMgr()->Stop();
-                        if (pShipSE->SysBubble() == nullptr)
-                            mySE->SystemMgr()->AddEntity(pShipSE);
-                        pShipSE->SysBubble()->SendAddBalls(pShipSE);
-                        pClient->SetStateSent(false);
-                        pShipSE->DestinyMgr()->SendSetState();
-                    }
-                }
-            } else {
+            if (!jmpRes.GetRow(jmpRow)) {
                 _log(AUTOPILOT__MESSAGE, "%s: No jump destination found for gate %u", mySE->GetName(), fromGate);
+                return;
+            }
+            uint32 toGate = jmpRow.GetUInt(0);
+            _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
+            Client* pClient = mySE->GetPilot();
+            if (pClient->IsSessionChange()) {
+                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by session change", mySE->GetName());
+                return;
+            }
+            if (!pClient->IsIdle()) {
+                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — not idle", mySE->GetName());
+                return;
+            }
+            // .tr-style teleport instead of StargateJump timer
+            m_apJumping = true;
+            StaticData toData;
+            sDataMgr.GetStaticInfo(toGate, toData);
+            GPoint destPos(toData.position);
+            destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
+            mySE->DestinyMgr()->SendJumpOut(fromGate);
+            mySE->DestinyMgr()->SendGateActivity(fromGate);
+            pClient->SetLastGateID(toGate);
+            pClient->MoveToLocation(toData.systemID, destPos);
+            if (pClient->IsInSpace()) {
+                mySE->DestinyMgr()->Stop();
+                if (mySE->SysBubble() == nullptr)
+                    mySE->SystemMgr()->AddEntity(mySE);
+                mySE->SysBubble()->SendAddBalls(mySE);
+                pClient->SetStateSent(false);
+                mySE->DestinyMgr()->SendSetState();
             }
         }
         return;
