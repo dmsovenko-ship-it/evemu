@@ -1881,7 +1881,17 @@ void Client::ExecuteJump() {
 
     MoveToLocation(m_moveSystemID, m_movePoint);
 
-    SetBallParkTimer(Player::Timer::Jump);
+    if (IsInSpace()) {
+        pShipSE->DestinyMgr()->Stop();
+        if (pShipSE->SysBubble() == nullptr)
+            m_system->AddEntity(pShipSE);
+        pShipSE->SysBubble()->SendAddBalls(pShipSE);
+        SetStateSent(false);
+        pShipSE->DestinyMgr()->SendSetState();
+        SetInvulTimer(Player::Timer::JumpInvul);
+        m_cloakTimer.Start(Player::Timer::JumpCloak);
+    }
+    m_clientState = Player::State::Idle;
 
     m_movePoint = NULL_ORIGIN;
     m_moveSystemID = 0;
