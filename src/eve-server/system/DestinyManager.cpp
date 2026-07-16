@@ -1927,6 +1927,21 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         mySE->GetPilot()->SetLoginWarpComplete();
     }
 
+    // preserve follow target for autopilot
+    uint32 followTargetID = m_targetEntity.first;
+    uint32 followDist = m_stopDistance;
+    // For autopilot gates/stations, approach to jump/dock range after warp
+    if (followTargetID != 0 && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
+        SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
+        if (pTarget != nullptr) {
+            if (pTarget->IsGateSE())
+                followDist = 2500;
+            else if (pTarget->IsStationSE())
+                followDist = 2500;
+            followDist += static_cast<uint16>(mySE->GetRadius());
+        }
+    }
+
     SafeDelete(m_warpState);
 
     // Snap server position to the exact target point. At trigger time the
@@ -1955,11 +1970,12 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     m_stateStamp = sEntityList.GetStamp();
 
-    // AP follow is NOT started here — wait for CmdStop from the client
-    // (sent after the client's WarpLoop finishes and the ship lands).
-    // Starting Follow() here would cause the server to track distance and
-    // potentially jump before the client has finished its warp exit,
-    // resulting in a position desync (".tr" teleport).
+    // resume autopilot follow after warp complete
+    if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
+        SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
+        if (pTarget != nullptr)
+            Follow(pTarget, followDist);
+    }
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
     }
@@ -2193,13 +2209,11 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         distance = 0;
     }
 
-    // For autopilot, save the target entity so CmdStop can find it later.
-    // Do NOT call Follow() here — CmdFollowBall before warp confuses the
-    // client and the approach should start only after the client lands.
-    m_targetPoint = where;
+    // check for autopilot.  it has 'special' checks in client for auto-disable by destiny update
     if (autoPilot) {
-        m_targetEntity = std::pair<uint32, SystemEntity*>(pSE->GetID(), pSE);
+        Follow(pSE, distance);
     } else {
+        m_targetPoint = where;
         m_targetEntity.first = 0;
         m_targetEntity.second = nullptr;
     }
