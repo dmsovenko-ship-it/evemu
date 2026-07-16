@@ -1184,21 +1184,16 @@ void DestinyManager::Follow() {
                 _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — not idle", mySE->GetName());
                 return;
             }
-            // .tr-style teleport (identical to .tr GM command)
+            // Teleport identical to .tr GM command — nothing extra
             m_apJumping = true;
             StaticData toData;
             sDataMgr.GetStaticInfo(toGate, toData);
             GPoint destPos(toData.position);
             destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
             pClient->SetLastGateID(toGate);
-            pClient->JumpOutEffect(pClient->GetSystemID());
-            // Clear autopilot before MoveToLocation so UpdateSession()
-            // sends autopilot=0 in the session change (avoids no-op when
-            // session already has autopilot=1 from a previous jump).
-            bool apWasOn = pClient->IsAutoPilot();
-            pClient->SetAutoPilot(false);
+            uint32 sysID = pClient->GetSystemID();
+            pClient->JumpOutEffect(sysID);
             pClient->MoveToLocation(toData.systemID, destPos);
-            pClient->SetAutoPilot(apWasOn);
             pClient->JumpInEffect();
             if (pClient->IsInSpace()) {
                 mySE->DestinyMgr()->Stop();
@@ -1208,11 +1203,6 @@ void DestinyManager::Follow() {
                 pClient->SetStateSent(false);
                 mySE->DestinyMgr()->SendSetState();
             }
-            // Force autopilot 0→1 session transition — re-enables AP after
-            // the starmap's UpdateRoute has called SetOff('waypoint reached').
-            pClient->GetSession()->SetInt("autopilot", 0);
-            pClient->GetSession()->SetInt("autopilot", 1);
-            pClient->SendSessionChange();
         }
         return;
     }
