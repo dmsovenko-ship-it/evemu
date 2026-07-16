@@ -904,15 +904,22 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
 
     m_char->SetLocation((sDataMgr.IsStation(m_locationID) ? m_locationID : 0), m_systemData);
 
+    // First session change: system params only (no autopilot).
+    // This lets OnSessionChanged → UpdateRoute → SetOff run FIRST
+    // so the AP disable from waypoint-shifting doesn't undo autopilot.
+    bool apWasOn = m_autoPilot;
+    m_autoPilot = false;
     UpdateSession();
+    m_autoPilot = apWasOn;
     SendSessionChange();
 
-    // For autopilot jumps: schedule a delayed session update to set
-    // autopilot=1 AFTER OnSessionChanged has already run (and the starmap's
-    // UpdateRoute has called SetOff).  The C++ service framework sees the
-    // 0→1 transition and re-enables autoPilot.autopilot on the client side.
-    if (IsJump() && m_autoPilot)
-        SetStateTimer(Player::State::AutoPilotResume, 3000);
+    // Second session change: autopilot=1 sent separately so the C++ framework
+    // re-enables the autoPilot service AFTER the starmap's UpdateRoute has
+    // already shifted waypoints (and potentially called SetOff).
+    if (IsJump() && m_autoPilot) {
+        pSession->SetInt("autopilot", 1);
+        SendSessionChange();
+    }
 }
 
 void Client::SetDestiny(const GPoint& pt, bool update/*false*/) {
