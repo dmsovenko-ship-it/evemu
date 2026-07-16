@@ -1947,17 +1947,15 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     SafeDelete(m_warpState);
 
-    // Snap server position to the exact target point. At trigger time the
-    // ship is ~100m from target — snapping avoids a position discrepancy
-    // vs the client (whose WarpLoop arrives at the exact destination).
-    m_position = m_targetPoint;
-    mySE->SetPosition(m_position);
+    // Send the server's final warp position to the client so both agree
+    // on where the ship is after warp exits. The client's WarpLoop places
+    // the ship at its own calculated position — we send ours to keep them
+    // in sync and avoid overshoot/teleport on transition to FOLLOW.
+    SetPosition(m_position, true);
 
-    // Set server state to STOP but send NOTHING to the client.
-    // The client's WarpLoop runs independently using its own warp simulation
-    // and exits naturally when it reaches the destination. Sending CmdStop,
-    // CmdGotoDirection, or any position snap would either stop the ship
-    // 2736m early or cause the WarpLoop crash (ball.display = None).
+    // Set server state to STOP — the client's WarpLoop will finish on its
+    // own and transition to STOP as well. Do NOT send CmdStop from here;
+    // it would interrupt the client's WarpLoop prematurely.
     m_ballMode = Destiny::Ball::Mode::STOP;
     m_stop = true;
     m_accel = false;
@@ -1973,11 +1971,14 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     m_stateStamp = sEntityList.GetStamp();
 
-    // resume autopilot follow after warp complete
+    // Do NOT call Follow() here — the client is still in its WarpLoop and
+    // would ignore or mis-handle a CmdFollowBall received mid-warp.  The
+    // client's AP Update() (running every 2s) naturally sends
+    // CmdFollowBall after the WarpLoop finishes and mode == STOP, and then
+    // the server's Follow() tick detects when the ship is close enough for
+    // the auto-jump.
     if (mySE->HasPilot() and mySE->GetPilot()->IsAutoPilot() and (followTargetID != 0)) {
-        SystemEntity* pTarget = mySE->SystemMgr()->GetSE(followTargetID);
-        if (pTarget != nullptr)
-            Follow(pTarget, followDist);
+        _log(AUTOPILOT__MESSAGE, "%s: AP warp complete — waiting for client to send CmdFollowBall.", mySE->GetName());
     }
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
