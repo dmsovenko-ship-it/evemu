@@ -1183,7 +1183,23 @@ void DestinyManager::Follow() {
                     return;
                 }
                     m_apJumping = true;
-                    pClient->StargateJump(fromGate, toGate);
+                    // Use .tr-style direct teleport instead of StargateJump timer
+                    StaticData toData;
+                    sDataMgr.GetStaticInfo(toGate, toData);
+                    GPoint destPos(toData.position);
+                    destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
+                    pShipSE->DestinyMgr()->SendJumpOut(fromGate);
+                    pShipSE->DestinyMgr()->SendGateActivity(fromGate);
+                    pClient->SetLastGateID(toGate);
+                    pClient->MoveToLocation(toData.systemID, destPos);
+                    if (pClient->IsInSpace()) {
+                        pShipSE->DestinyMgr()->Stop();
+                        if (pShipSE->SysBubble() == nullptr)
+                            mySE->SystemMgr()->AddEntity(pShipSE);
+                        pShipSE->SysBubble()->SendAddBalls(pShipSE);
+                        pClient->SetStateSent(false);
+                        pShipSE->DestinyMgr()->SendSetState();
+                    }
                 }
             } else {
                 _log(AUTOPILOT__MESSAGE, "%s: No jump destination found for gate %u", mySE->GetName(), fromGate);
