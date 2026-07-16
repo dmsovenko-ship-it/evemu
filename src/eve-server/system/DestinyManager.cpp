@@ -1202,6 +1202,11 @@ void DestinyManager::Follow() {
                 pClient->SetStateSent(false);
                 mySE->DestinyMgr()->SendSetState();
             }
+            // Force autopilot 0→1 session transition — re-enables AP after
+            // the starmap's UpdateRoute has called SetOff('waypoint reached').
+            pClient->GetSession()->SetInt("autopilot", 0);
+            pClient->GetSession()->SetInt("autopilot", 1);
+            pClient->SendSessionChange();
         }
         return;
     }
