@@ -904,16 +904,18 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
 
     m_char->SetLocation((sDataMgr.IsStation(m_locationID) ? m_locationID : 0), m_systemData);
 
-    // First session change: autopilot=0 so the next-tick update with
-    // autopilot=1 creates a 0→1 transition for the C++ framework.
-    bool apWasOn = (IsJump() && m_autoPilot);
-    m_autoPilot = false;
-    UpdateSession();
-    m_autoPilot = apWasOn;
-    SendSessionChange();
-
-    if (apWasOn)
+    if (IsJump() && m_autoPilot) {
+        // First session change: autopilot=0 so the next-tick update
+        // with autopilot=1 creates a 0→1 transition for the framework.
+        m_autoPilot = false;
+        UpdateSession();
+        m_autoPilot = true;
+        SendSessionChange();
         SetStateTimer(Player::State::AutoPilotResume, 0);
+    } else {
+        UpdateSession();
+        SendSessionChange();
+    }
 }
 
 void Client::SetDestiny(const GPoint& pt, bool update/*false*/) {
