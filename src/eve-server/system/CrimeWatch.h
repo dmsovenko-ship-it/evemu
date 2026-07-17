@@ -16,6 +16,9 @@ public:
     bool IsAggressed()      const { return m_aggressionTimer.Enabled(); }
     bool IsCriminal()       const { return m_criminalTimer.Enabled(); }
     bool HasWeaponTimer()   const { return m_weaponTimer.Enabled(); }
+    uint32 GetWeaponTimerRemaining()  const { return m_weaponTimer.GetRemainingTime(); }
+    uint32 GetCriminalTimerRemaining() const { return m_criminalTimer.GetRemainingTime(); }
+    uint32 GetAggressionTimerRemaining() const { return m_aggressionTimer.GetRemainingTime(); }
     bool IsOutlaw()         const;
     bool IsLimitedEngagement() const { return m_limitedEngagementTimer.Enabled(); }
     bool CanDock()          const { return !m_aggressionTimer.Enabled() && !m_weaponTimer.Enabled() && !IsOutlaw(); }

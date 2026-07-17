@@ -39,7 +39,35 @@ AggressionMgrBound::AggressionMgrBound(EVEServiceManager& mgr, AggressionMgrServ
 
 PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* characterID)
 {
-    return new PyDict();
+    Client* pClient = call.client;
+    if (pClient == nullptr)
+        return new PyDict();
+
+    CrimeWatch* pCW = pClient->GetCrimeWatch();
+    if (pCW == nullptr)
+        return new PyDict();
+
+    // Build { aggressorID: { victimID: timestamp, ... } } for the client's timer display
+    PyDict* result = new PyDict();
+    PyDict* timers = new PyDict();
+    int64 now = GetFileTimeNow();
+
+    // Weapon timer — set victimID = -1 (global weapon timer)
+    if (pCW->HasWeaponTimer()) {
+        int64 remaining = (int64)pCW->GetWeaponTimerRemaining() * 10000LL;  // ms → 100ns
+        timers->SetItem(new PyInt(-1), new PyLong(now + remaining));
+    }
+
+    // Criminal timer — set victimID = -2 (criminal flag)
+    if (pCW->IsCriminal()) {
+        int64 remaining = (int64)pCW->GetCriminalTimerRemaining() * 10000LL;
+        timers->SetItem(new PyInt(-2), new PyLong(now + remaining));
+    }
+
+    if (timers->size() > 0)
+        result->SetItem(new PyInt(characterID->value()), timers);
+
+    return result;
 }
 
 PyResult AggressionMgrBound::CheckLootRightExceptions(PyCallArgs &call, PyInt* containerID)
