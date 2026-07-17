@@ -55,13 +55,13 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Gyrostabilizer:                          return (new PassiveModule(mRef, sRef));
             case EVEDB::invGroups::Energy_Vampire:                          return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Energy_Destabilizer:                     return (new ActiveModule(mRef, sRef));    // Active - external
-            case EVEDB::invGroups::Smart_Bomb:                              return (new ActiveModule(mRef, sRef));    // Active - external
+            case EVEDB::invGroups::Smart_Bomb:                              return (new SmartBomb(mRef, sRef));       // Active - smartbomb AoE
             case EVEDB::invGroups::Hybrid_Weapon:                           return (new TurretModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Heat_Sink:                               return (new PassiveModule(mRef, sRef));
             case EVEDB::invGroups::Magnetic_Field_Stabilizer:               return (new PassiveModule(mRef, sRef));
             case EVEDB::invGroups::Ballistic_Control_system:                return (new PassiveModule(mRef, sRef));
             case EVEDB::invGroups::Super_Weapon:                            return (new ActiveModule(mRef, sRef));    // Active - external
-            case EVEDB::invGroups::Interdiction_Sphere_Launcher:            return (new ActiveModule(mRef, sRef));    // Active - external
+            case EVEDB::invGroups::Interdiction_Sphere_Launcher:            return (new ProbeLauncher(mRef, sRef));   // Active - warp disrupt probe
             case EVEDB::invGroups::Warp_Disrupt_Field_Generator:            return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Missile_Launcher_Snowball:               return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Missile_Launcher_Cruise:                 return (new ActiveModule(mRef, sRef));    // Active - external
@@ -110,7 +110,6 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Target_Painter:                          return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Drone_Control_Unit:                      return (new PassiveModule(mRef, sRef));
             case EVEDB::invGroups::Scan_Probe_Launcher:                return (new ProbeLauncher(mRef, sRef));   // Active - launches scan probes
-            case EVEDB::invGroups::Interdiction_Sphere_Launcher:      return (new ProbeLauncher(mRef, sRef));   // Active - launches warp disrupt probes
             case EVEDB::invGroups::Drone_Navigation_Computer:               return (new PassiveModule(mRef, sRef));
             case EVEDB::invGroups::Drone_Tracking_Modules:                  return (new PassiveModule(mRef, sRef));
             case EVEDB::invGroups::Drone_Control_Range_Module:              return (new PassiveModule(mRef, sRef));
@@ -203,10 +202,6 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             //case EVEDB::invGroups::GM_Modules:
             case EVEDB::invGroups::Cheat_Module_Group:                      return (new ActiveModule(mRef, sRef));
 
-            // Smartbomb modules
-            case EVEDB::invGroups::Smart_Bomb: {
-                return (new SmartBomb(mRef, sRef));
-            }
             // Drone Damage Modules (Drone Damage Amplifier etc.)
             case EVEDB::invGroups::Drone_Modules:
             case EVEDB::invGroups::Drone_Damage_Modules: {

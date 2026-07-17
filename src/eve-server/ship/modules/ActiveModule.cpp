@@ -1538,7 +1538,7 @@ void ActiveModule::LaunchProbe()
         }
         // Launch = aggression: timer prevents docking/gate jump
         if (!pClient->IsInvul())
-            pClient->SetAggressionTimer();
+            pClient->GetCrimeWatch()->OnWeaponFired();
         ProbeSE* pProbe = new ProbeSE(probeRef, pSystem->GetServiceMgr(), pSystem);
         if (pProbe == nullptr) return;
         pSystem->AddEntity(pProbe, false);
