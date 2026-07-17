@@ -386,6 +386,24 @@ PyRep* InventoryBound::MoveItems(Client* pClient, std::vector< int32 >& items, E
 {   // complete method rewrite -allan 21Dec17
     ShipItem* pShip = pClient->GetShip().get();
     bool donating = false, ship = false, customs = false;
+
+    // Prevent fitting/reconfiguring modules in space (only stations, capitals, or MA)
+    if (pClient->IsInSpace() && IsModuleSlot(toFlag)) {
+        // Capitals (carriers, dreads, etc.) can fit in space
+        bool isCapital = false;
+        if (pShip != nullptr) {
+            switch (pShip->groupID()) {
+                case EVEDB::invGroups::Carrier:
+                case EVEDB::invGroups::Dreadnought:
+                case EVEDB::invGroups::Titan:
+                case EVEDB::invGroups::Supercarrier:
+                    isCapital = true;
+                    break;
+            }
+        }
+        if (!isCapital)
+            throw CustomError ("You cannot fit modules in space. Return to a station, capital ship, or POS maintenance array.");
+    }
     int32 origQty = quantity;
 
     // we will need to check *this for specific item-moving rules
