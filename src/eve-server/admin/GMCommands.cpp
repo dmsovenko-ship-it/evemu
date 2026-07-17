@@ -596,9 +596,10 @@ PyResult Command_giveallskills(Client* who, CommandDB* db, EVEServiceManager &se
             skillID = cur.first;
             if (cur.second >= 0) {  // the same check as character->HasSkill(skillID)
                 skill = character->GetCharSkillRef(skillID);
-                skill->SetAttribute(AttrSkillLevel, level);
-                skill->SetAttribute(AttrSkillPoints, skill->GetSPForLevel(level));
+                skill->SetAttribute(AttrSkillLevel, level, true);
+                skill->SetAttribute(AttrSkillPoints, skill->GetSPForLevel(level), true);
                 character->RemoveFromQueue(skill);
+                skill->SaveItem();
             } else {
                 std::ostringstream str;
                 str << "Skill Gift by ";
@@ -609,8 +610,8 @@ PyResult Command_giveallskills(Client* who, CommandDB* db, EVEServiceManager &se
                 if (skill.get() == nullptr)
                     throw CustomError ("Unable to create item for skillID %u.", skillID);
 
-                skill->SetAttribute(AttrSkillLevel, level);
-                skill->SetAttribute(AttrSkillPoints, skill->GetSPForLevel(level));
+                skill->SetAttribute(AttrSkillLevel, level, true);
+                skill->SetAttribute(AttrSkillPoints, skill->GetSPForLevel(level), true);
                 // this will inform the client that the skill got injected into their brains!
                 skill->ChangeSingleton(true);
                 skill->Move(ownerID, flagSkill, true);
