@@ -300,8 +300,8 @@ PyResult SkillMgrBound::CharAddImplant(PyCallArgs& call, PyInt* itemID)
 
     // Verify item is an implant (groupID should be in implant groups)
     uint16 groupID = implant->groupID();
-    // Implant groups: 377=Implant, 524=CyberLearning, 539=Cyber implant, 748=Booster, 749=Implant, 750=SlotImplant
-    bool isImplant = (groupID == 377 || groupID == 524 || groupID == 539 || groupID == 748 || groupID == 749 || groupID == 750);
+    // Implant groups: 300=CyberImplant, 377=Implant, 524=CyberLearning, 539=Cyber implant, 748=Booster, 749=Implant, 750=SlotImplant
+    bool isImplant = (groupID == 300 || groupID == 377 || groupID == 524 || groupID == 539 || groupID == 748 || groupID == 749 || groupID == 750);
     if (!isImplant)
         return nullptr;
 
