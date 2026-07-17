@@ -40,6 +40,7 @@ uint32 SmartBomb::DoCycle()
                                     0, 0, "effects.SmartBomb", true, true, true, cycleTime, 0);
 
 
+    // Damage players
     std::vector<Client*> players;
     pBubble->GetPlayers(players);
     for (auto target : players) {
@@ -49,6 +50,28 @@ uint32 SmartBomb::DoCycle()
         if (pTargetSE == nullptr) continue;
         if (pTargetSE->DestinyMgr() == nullptr) continue;
         if (pTargetSE->DestinyMgr()->IsWarping()) continue;
+        float dist = myPos.distance(pTargetSE->GetPosition());
+        if (dist > range) continue;
+        float falloff = 1.0f - (dist / range) * 0.5f;
+        if (falloff < 0.1f) falloff = 0.1f;
+        float em = GetAttribute(AttrEmDamage).get_float() * falloff;
+        float therm = GetAttribute(AttrThermalDamage).get_float() * falloff;
+        float kin = GetAttribute(AttrKineticDamage).get_float() * falloff;
+        float exp = GetAttribute(AttrExplosiveDamage).get_float() * falloff;
+        Damage splash(pShipSE, m_modRef, kin, therm, em, exp,
+                      dmgMultiplier * falloff, m_effectID);
+        pTargetSE->ApplyDamage(splash);
+    }
+    // Damage NPC entities (sentry guns, NPC ships, etc.)
+    std::map<uint32, SystemEntity*> allEntities;
+    pBubble->GetAllEntities(allEntities);
+    for (auto& [id, pTargetSE] : allEntities) {
+        if (pTargetSE == nullptr || pTargetSE == pShipSE)
+            continue;
+        if (!pTargetSE->IsNPCSE() && !pTargetSE->IsSentrySE())
+            continue;
+        if (pTargetSE->DestinyMgr() == nullptr)
+            continue;
         float dist = myPos.distance(pTargetSE->GetPosition());
         if (dist > range) continue;
         float falloff = 1.0f - (dist / range) * 0.5f;
