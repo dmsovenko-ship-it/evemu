@@ -669,6 +669,33 @@ DeployableSE::DeployableSE(InventoryItemRef self, EVEServiceManager &services, S
     m_warpScrambleTimer.Start(1000);
 }
 
+void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
+{
+    _log(POS__MESSAGE, "DeployableSE::Anchor %s(%u) at (%.0f,%.0f,%.0f)",
+         m_self->name(), m_self->itemID(), pos.x, pos.y, pos.z);
+    m_self->SetPosition(pos);
+    m_anchorTimer.Start(5000);  // 5s anchor timer
+}
+
+void DeployableSE::Unanchor(Client* pClient)
+{
+    _log(POS__MESSAGE, "DeployableSE::Unanchor %s(%u)", m_self->name(), m_self->itemID());
+    m_anchored = false;
+    m_onlined = false;
+}
+
+void DeployableSE::Online(Client* pClient)
+{
+    _log(POS__MESSAGE, "DeployableSE::Online %s(%u)", m_self->name(), m_self->itemID());
+    m_onlined = true;
+}
+
+void DeployableSE::Offline(Client* pClient)
+{
+    _log(POS__MESSAGE, "DeployableSE::Offline %s(%u)", m_self->name(), m_self->itemID());
+    m_onlined = false;
+}
+
 void DeployableSE::Process()
 {
     ObjectSystemEntity::Process();

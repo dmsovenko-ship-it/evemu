@@ -600,7 +600,24 @@ PyResult PosMgrBound::AnchorStructure(PyCallArgs &call, PyInt* structureID, PyTu
     double posY = PyRep::IntegerValue(position->GetItem(1));
     double posZ = PyRep::IntegerValue(position->GetItem(2));
 
-    StructureSE* pTSE = pSystem->GetSE(structureID->value())->GetPOSSE();
+    SystemEntity* pEntity = pSystem->GetSE(structureID->value());
+    if (pEntity == nullptr)
+        return PyStatic.NewNone();
+
+    // Handle deployables (Mobile Warp Disruptors, etc.)
+    if (pEntity->IsDeployableSE()) {
+        DeployableSE* pDSE = pEntity->GetDeployableSE();
+        GPoint pos(posX, posY, posZ);
+        // check corp ownership
+        if (pDSE->GetCorporationID() != call.client->GetCorporationID()) {
+            call.client->SendErrorMsg("You cannot anchor this structure.  Insufficient corporation access.");
+            return PyStatic.NewNone();
+        }
+        pDSE->Anchor(call.client, pos);
+        return PyStatic.NewNone();
+    }
+
+    StructureSE* pTSE = pEntity->GetPOSSE();
     if (pTSE == nullptr)
         return PyStatic.NewNone();
 

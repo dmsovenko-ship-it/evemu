@@ -586,7 +586,21 @@ public:
     /* overrides */
     void                        Process() override;
 
+    /* deployable lifecycle */
+    void                    Anchor(Client* pClient, const GPoint& pos);
+    void                    Unanchor(Client* pClient);
+    void                    Online(Client* pClient);
+    void                    Offline(Client* pClient);
+    bool                    IsAnchored()                    { return m_anchored; }
+    bool                    IsOnlined()                     { return m_onlined; }
+    uint32                  GetAllianceID()                 { return m_allyID; }
+    uint32                  GetCorporationID()              { return m_corpID; }
+
 private:
+    bool                    m_anchored = false;
+    bool                    m_onlined  = false;
+    Timer                   m_anchorTimer;
+    Timer                   m_onlineTimer;
     Timer m_warpScrambleTimer;
 };
 
