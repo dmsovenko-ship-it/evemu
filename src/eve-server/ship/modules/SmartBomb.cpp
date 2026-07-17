@@ -39,7 +39,7 @@ uint32 SmartBomb::DoCycle()
     uint32 cycleTime = GetRemainingCycleTimeMS();
     if (cycleTime < 100) cycleTime = 5000;
 
-    m_destinyMgr->SendSpecialEffect(pShipSE->GetID(), m_modRef->itemID(), m_modRef->typeID(),
+    m_destinyMgr->SendSpecialEffect(pShipSE->GetID(), 0, m_modRef->typeID(),
                                     0, 0, "effects.SmartBomb", true, true, true, cycleTime, 0);
 
     std::vector<Client*> players;
