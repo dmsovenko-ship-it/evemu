@@ -2402,6 +2402,10 @@ void Client::UpdateSession()
     // UpdateRoute calls SetOff('waypoint reached') on arrival, and the session
     // param trigger brings it back).
     pSession->SetInt("autopilot", m_autoPilot ? 1 : 0);
+
+    // Expose nextSessionChange so the client shows the correct timer (server's
+    // 20s cooldown vs. client default of 10s).
+    pSession->SetLong("nextSessionChange", GetFileTimeNow() + 20LL * EvE::Time::Second);
 }
 
 void Client::UpdateSessionInt(const char *id, int value)
