@@ -600,8 +600,9 @@ public:
 private:
     bool                    m_anchored = false;
     bool                    m_onlined  = false;
-    bool                    m_anchoring  = false;
-    bool                    m_unanchoring = false;
+    bool                    m_anchoring  = false;   // anchor timer running
+    bool                    m_onlining   = false;   // online timer running
+    bool                    m_unanchoring = false;  // unanchor timer running
     uint32                  m_anchorTime = 0;
     Timer                   m_anchorTimer;
     Timer                   m_onlineTimer;

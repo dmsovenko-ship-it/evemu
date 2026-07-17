@@ -704,8 +704,13 @@ void DeployableSE::Unanchor(Client* pClient)
 void DeployableSE::Online(Client* pClient)
 {
     _log(POS__MESSAGE, "DeployableSE::Online %s(%u)", m_self->name(), m_self->itemID());
+    if (!m_anchored) {
+        pClient->SendErrorMsg("Structure must be anchored before it can be brought online.");
+        return;
+    }
     uint32 onlineTime = m_self->GetAttribute(AttrAnchoringDelay).get_uint32();
     if (onlineTime < 1000) onlineTime = 5000;
+    m_onlining = true;
     m_onlineTimer.Start(onlineTime);
 }
 
@@ -713,30 +718,28 @@ void DeployableSE::Offline(Client* pClient)
 {
     _log(POS__MESSAGE, "DeployableSE::Offline %s(%u)", m_self->name(), m_self->itemID());
     m_onlined = false;
+    m_onlining = false;
 }
 
 void DeployableSE::Process()
 {
     ObjectSystemEntity::Process();
 
-    // Handle anchoring timer
-    if (m_anchorTimer.Enabled() && m_anchorTimer.Check(false)) {
+    // Handle timer-based state transitions (anchor/online/unanchor)
+    if (m_unanchoring && m_anchorTimer.Check(false)) {
         m_anchorTimer.Disable();
-        if (m_unanchoring) {
-            m_unanchoring = false;
-            m_anchored = false;
-            m_onlined = false;
-            _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete", m_self->name(), m_self->itemID());
-        } else if (m_anchoring) {
-            m_anchoring = false;
-            m_anchored = true;
-            _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete", m_self->name(), m_self->itemID());
-        }
-    }
-
-    // Handle onlining timer
-    if (!m_anchored && m_onlined && m_onlineTimer.Check(false)) {
+        m_unanchoring = false;
+        m_anchored = false;
+        m_onlined = false;
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete", m_self->name(), m_self->itemID());
+    } else if (m_anchoring && m_anchorTimer.Check(false)) {
+        m_anchorTimer.Disable();
+        m_anchoring = false;
+        m_anchored = true;
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete", m_self->name(), m_self->itemID());
+    } else if (m_onlining && m_onlineTimer.Check(false)) {
         m_onlineTimer.Disable();
+        m_onlining = false;
         m_onlined = true;
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — online complete", m_self->name(), m_self->itemID());
     }
