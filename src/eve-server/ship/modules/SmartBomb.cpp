@@ -22,7 +22,9 @@ uint32 SmartBomb::DoCycle()
     if (range < 1.0f)
         range = 5000.0f;
 
-    float baseDamage = m_chargeRef->GetAttribute(AttrDamage).get_float();
+    float baseDamage = 0.0f;
+    if (m_chargeRef.get() != nullptr)
+        baseDamage = m_chargeRef->GetAttribute(AttrDamage).get_float();
     if (baseDamage < 1.0f)
         baseDamage = GetAttribute(AttrDamage).get_float();
     float dmgMultiplier = GetAttribute(AttrSmartbombDamageMultiplier).get_float();
