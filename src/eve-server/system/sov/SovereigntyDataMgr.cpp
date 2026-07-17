@@ -405,32 +405,26 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
     }
     else if (sDataMgr.IsSolarSystem(locationID))
     {
+        // Always add a row for this system so the client doesn't KeyError
+        uint32 sovAllianceID = 0;
+        uint8 stationCount = sDataMgr.GetStationCount(locationID);
+        uint16 militaryPts = 0, industrialPts = 0;
         for (SovereigntyData const &sData : boost::make_iterator_range(
-                 m_sovData.get<SovDataByRegion>().equal_range(locationID)))
+                 m_sovData.get<SovDataBySolarSystem>().equal_range(locationID)))
         {
-            PyPackedRow *row = rowset->NewRow();
-            row->SetField("locationID", new PyInt(sData.solarSystemID));
-            row->SetField("allianceID", new PyInt(sData.allianceID));
-            row->SetField("stationCount", new PyInt(sData.stationCount));
-            row->SetField("militaryPoints", new PyInt(sData.militaryPoints));
-            row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
-            row->SetField("claimedFor", new PyInt(sData.allianceID));
+            sovAllianceID = sData.allianceID;
+            stationCount = sData.stationCount;
+            militaryPts = sData.militaryPoints;
+            industrialPts = sData.industrialPoints;
             seenLocationIDs.insert(sData.solarSystemID);
         }
-        // Add this system if it's a faction system
-        SystemData sysData;
-        if (sDataMgr.GetSystemData(locationID, sysData) and sysData.factionID) {
-            if (seenLocationIDs.find(locationID) == seenLocationIDs.end()) {
-                uint8 stCount = sDataMgr.GetStationCount(locationID);
-                PyPackedRow *row = rowset->NewRow();
-                row->SetField("locationID", new PyInt(locationID));
-                row->SetField("allianceID", PyStatic.NewInt(0));
-                row->SetField("stationCount", new PyInt(stCount));
-                row->SetField("militaryPoints", PyStatic.NewInt(0));
-                row->SetField("industrialPoints", PyStatic.NewInt(0));
-                row->SetField("claimedFor", PyStatic.NewInt(0));
-            }
-        }
+        PyPackedRow *row = rowset->NewRow();
+        row->SetField("locationID", new PyInt(locationID));
+        row->SetField("allianceID", new PyInt(sovAllianceID));
+        row->SetField("stationCount", new PyInt(stationCount));
+        row->SetField("militaryPoints", new PyInt(militaryPts));
+        row->SetField("industrialPoints", new PyInt(industrialPts));
+        row->SetField("claimedFor", new PyInt(sovAllianceID));
     }
 
     return rowset;
