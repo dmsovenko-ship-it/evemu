@@ -39,17 +39,8 @@ uint32 SmartBomb::DoCycle()
     uint32 cycleTime = GetRemainingCycleTimeMS();
     if (cycleTime < 100) cycleTime = 5000;
 
-    OnSpecialFX14 fx;
-        fx.entityID = pShipSE->GetID();
-        fx.guid = "effects.SmartBomb";
-        fx.isOffensive = 1;
-        fx.start = 1;
-        fx.active = 1;
-        fx.duration = cycleTime;
-        fx.repeat = 0;
-        fx.startTime = GetFileTimeNow();
-    PyTuple* t = fx.Encode();
-    pBubble->BubblecastDestinyEvent(&t, "SmartBomb");
+    m_destinyMgr->SendSpecialEffect(pShipSE->GetID(), m_modRef->itemID(), m_modRef->typeID(),
+                                    0, 0, "effects.SmartBomb", true, true, true, cycleTime, 0);
 
     std::vector<Client*> players;
     pBubble->GetPlayers(players);
