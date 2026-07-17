@@ -13,115 +13,62 @@
   </picture>
 </p>
 
-<h1 align="center">EVEmu Crucible</h1>
+# EVEmu Crucible
 
 <p align="center">
-  <b>EVE Online (Crucible era) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork — ~99% complete
+  <b>EVE Online (Crucible) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork · `████████████████████` ~99%
 </p>
 
-<br>
-
-> **⚠️ Educational project only** — for studying C++, network protocols, game server architecture.  
-> *Только образовательный проект* — для изучения C++, сетевых протоколов и архитектуры игровых серверов.
+> **EN:** Educational project — study of C++, networking, game server architecture.  
+> **RU:** Образовательный проект — изучение C++, сетевых протоколов и архитектуры игровых серверов.
 
 ---
 
 ## Features / Возможности
 
-| EN | RU |
-|----|----|
-| **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)**, login warp-in | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)**, логин-варп |
-| **Drones** — full AI (combat/EWAR/logistics/mining), skills, subtypes, control range | **Дроны** — полный AI (бой/EWAR/логистика/майнинг), навыки, подтипы |
-| **NPC systems** — anomalies, incursions, belt rats, gate rats, convoys, customs police | **NPC системы** — аномалии, инкурсии, бельтраты, гейтраты, конвои, таможня |
-| **Crimewatch** — weapon/aggression/criminal timers, CONCORD, sentry guns, kill rights | **Crimewatch** — таймеры, CONCORD, сентри, киллрайты |
-| **Clones & Implants** — jump clones, per-clone implants, ship clone bay, SP loss on T3 pod | **Клоны и импланты** — джамп-клоны, импланты на клон, шип-клон-бей, SP loss |
-| **Contracts** — item exchange, courier, auctions with bidding + ISK transfer | **Контракты** — обмен, курьер, аукционы со ставками и переводом ISK |
-| **Corporation & Alliance** — corp management, alliance wars, bulletins, bills, LP store | **Корпорации и альянсы** — управление, войны, бюллетени, счета, LP магазин |
-| **Market** — buy/sell orders, corp market, market bots (Trader Joe) | **Маркет** — ордера, корп-маркет, маркет-боты |
-| **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
-| **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, assume/relinquish control, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
-| **Overheating** — heat dmg per slot, OverloadRack, Thermodynamics, Nanite Paste | **Перегрев** — урон по слотам, OverloadRack, Thermodynamics, Nanite Paste |
-| **Notifications** — persistent DB + live push, bill/tower/agent/corp sources | **Нотификации** — БД + live push, счета/POS/агенты/корп |
-| **LSC Chat** — private conversations, channel creation, mailing lists | **LSC Чат** — приватные разговоры, каналы, списки рассылки |
-| **Faction Warfare** — join/leave, membership, enemy checks, stats, corp/alliance, notifications | **ФВ** — вступление/выход, членство, враги, статистика, корп/альянс, нотификации |
-| **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
-| **Sovereignty** — TCU claim, IHub reinforcement, outpost capture, sov levels, upgrades | **Суверенность** — TCU захват, IHub reinforce, аутпосты, уровни, апгрейды |
-| **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
-| **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг,encounter, storyline, эпик арки |
-| **Scanning** — probes, cosmic signatures, anomalies, directional scan | **Сканирование** — пробы, сигнатуры, аномалии, D-scan |
-| **Fleet** — fleet warp, boosts, warfare links, specialist skills | **Флот** — флот-варп, бусты, warfare-линки, специалист скиллы |
-| **Mail & LSC** — corp/alliance mail, mailing lists, chat channels | **Почта и чат** — корп/альянс почта, списки рассылки, каналы |
-| **Incursions** — state machine, wave spawning, contest rewards | **Инкурсии** — стейт-машина, волновой спавн, contest награды |
-| **GM commands** — spawn, dogma, giveallskills, kick, ban, teleport | **GM команды** — спавн, догма, скиллы, кик, бан, телепорт |
-| **NPC crosshair** — Entity pirates now render with red targeting reticle | **Крестики NPC** — пираты Entity отображаются с красным крестом |
-| **Warp precision** — warp-to-N km lands at correct distance (radius no longer doubles) | **Точный варп** — варп на N км приземляет на указанную дистанцию |
-| **Orbit** — smooth circular motion (disable `PositionHack` in config) | **Орбита** — плавное круговое движение (отключите `PositionHack`) |
+| **EN** | **RU** |
+|--------|--------|
+| **Warp & Autopilot** — smooth warp-to-0, fleet warp, **auto-jump, multi-hop AP** | **Варп и автопилот** — плавный варп, флот-варп, **авто-прыжок, мультихоп** |
+| **Drones** — full AI, 10 subtypes, skills, control range | **Дроны** — полный AI, 10 подтипов, навыки |
+| **NPC systems** — anomalies, incursions, belt/gate rats, convoys, customs | **NPC системы** — аномалии, инкурсии, бельт/гейт-раты, конвои, таможня |
+| **Clones & Implants** — jump clones, per-clone implants, SP loss on T3 pod | **Клоны и импланты** — джамп-клоны, импланты на клон, SP loss |
+| **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и производство** — крафт, копирование, изобретения, реверс |
+| **POS** — towers, modules, fuel, reinforced mode, reactions, weapon AI | **POS** — башни, модули, топливо, реинфорс, реакции, оружие |
+| **Sovereignty** — TCU (8h claim), IHub (reinforcement), upgrades, outposts | **Суверенитет** — TCU (8ч захват), IHub (реинфорс), апгрейды |
+| **Wormholes** — K162, mass/lifetime, system effects, collapse | **Вармхолы** — K162, масса/время, системные эффекты, коллапс |
+| **Incursions** — state machine, 5 simultaneous, named NPCs, gate camps | **Инкурсии** — конечный автомат, 5 шт., именные NPC |
+| **Faction Warfare** — plex spawn, LP (NPC/PvP/plex), patrols, militia stats | **ФВ** — плесы, LP (NPC/PvP/плекс), патрули, статистика |
+| **Crimewatch** — CONCORD, sentry guns, aggro/criminal timers, kill rights | **Crimewatch** — CONCORD, сентри, таймеры, киллрайты |
+| **Contracts** — exchange, courier, auctions with bidding | **Контракты** — обмен, курьер, аукционы со ставками |
+| **Market** — buy/sell orders, corp market, bots, price history | **Маркет** — ордера, корп-маркет, боты, история цен |
+| **Corporation & Alliance** — wars, voting, dividends, bills, roles | **Корпорации и альянсы** — войны, голосования, дивиденды |
+| **Agents & Missions** — storyline, career, COSMOS, research, LP store | **Агенты и миссии** — storyline, карьерные, COSMOS, LP магазин |
+| **Fleet** — boosts, broadcasts, watchlist, voice chat | **Флот** — бусты, броадкасты, watchlist, голосовой чат |
+| **Standings & Security** — decay, PnP, kill rights, status formula | **Стояния и секьюрити** — декай, PnP, киллрайты |
 
 ---
 
 ## Quick Start / Быстрый старт
 
 ```bash
-git clone https://github.com/dmsovenko-ship-it/evemu.git
-cd evemu
-docker compose up -d --build
-docker logs -f server
+git clone https://github.com/dmsovenko-ship-it/evemu
+docker compose up -d
 ```
 
-| Command | Purpose |
-|---------|---------|
-| `docker compose stop` | Stop server |
-| `docker compose up -d` | Start |
-| `docker compose down -v` | Full DB reset |
-| `bash utils/grant-admin.sh "Name"` | Grant GM |
-
-| GM Command | Purpose |
-|------------|---------|
-| `/giveallskills me` | Max all skills |
-| `/spawn <typeID>` | Spawn item/NPC |
-| `/online me` | Online all modules |
-| `/dogma me agility = 0.5` | Set attribute |
-| `/dogma me list` | List attributes |
-| `.tr <locationID>` | Teleport |
+Connect client to `http://your-server:26000` — see `SERVER_SETUP.md`.
 
 ---
 
-## Changelog / Изменения
+## Documentation / Документация
 
-See [`current_state_summary.md`](current_state_summary.md) for full session-by-session progress.  
-Подробно по сессиям — в [`current_state_summary.md`](current_state_summary.md).
-
----
-
-## Progress / Прогресс
-
-**Our fork: ~99%** · **Upstream: ~59.5%**
-
-| System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
-|--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
-| Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
-| Ship Navigation | 70% | **97%** | +27% | Combat | 90% | 99% | +9% |
-| Modules & Overheating | 85% | 97% | +12% | Drones | 75% | 92% | +17% |
-| NPC AI & Spawning | 60% | **92%** | +32% | Agents & Missions | 70% | 95% | +25% |
-| **POS** | 70% | **97%** | +27% | Market | 60% | 92% | +32% |
-| **Incursions** | 0% | **85%** | +85% | Fleet | 75% | **100%** | +25% |
-| **Wormholes** | 60% | **90%** | +30% | Scanning | 80% | 99% | +19% |
-| **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 92% | +32% |
-| **Faction Warfare** | 50% | **99%** | +49% | Calendar | 60% | 93% | +33% |
-| Mail & LSC | 60% | 93% | +33% | Contracts | 60% | 95% | +35% |
-| Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |
-| **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **90%** | +45% |
-| Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **96%** | +31% |
-
-See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  
-Полная раскладка — в [`PROGRESS.md`](PROGRESS.md).
+- `PROGRESS.md` — feature-by-feature progress (EN/RU)
+- `SERVER_SETUP.md` — installation guide
+- `doc/` — technical notes
+- `doc/decompiled_client_scripts/` — decompiled Crucible client analysis + autopilot flow
 
 ---
 
-<p align="center">
-  <a href="https://github.com/EvEmu-Project/evemu_Crucible">Upstream</a> ·
-  <a href="PROGRESS.md">Progress</a> ·
-  <a href="current_state_summary.md">Session log</a>
-</p>
+## License / Лицензия
 
-<p align="center"><b>LGPL v3</b> — educational project. Not for public servers.</p>
+LGPLv3 — see [LICENSE](LICENSE).  
+Educational project only — не для коммерческого использования.
