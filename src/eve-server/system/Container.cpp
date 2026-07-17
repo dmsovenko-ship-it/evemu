@@ -300,6 +300,19 @@ void ContainerSE::Init()
 {
     _log(POS__TRACE, "Cargo %s(%u) is being deployed", m_self->name(), m_self->itemID());
     StructureSE::Init();
+    // Sweep SovereigntyStructures from container contents — the client crashes trying to load them
+    Inventory* pInv = m_contRef->GetMyInventory();
+    if (pInv != nullptr) {
+        std::vector<InventoryItemRef> items;
+        pInv->GetItems(items, true);
+        for (auto item : items) {
+            if (item->categoryID() == EVEDB::invCategories::SovereigntyStructure) {
+                _log(POS__WARNING, "ContainerSE::Init() — removing SovereigntyStructure %s(%u) from container %s(%u)",
+                     item->name(), item->itemID(), m_contRef->name(), m_contRef->itemID());
+                pInv->RemoveItem(item);
+            }
+        }
+    }
 }
 
 ContainerSE::~ContainerSE()

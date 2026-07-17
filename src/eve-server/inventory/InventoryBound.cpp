@@ -495,6 +495,11 @@ PyRep* InventoryBound::MoveItems(Client* pClient, std::vector< int32 >& items, E
             continue;
         }
 
+        // Block SovereigntyStructures in containers — client crashes on load
+        if (iRef->categoryID() == EVEDB::invCategories::SovereigntyStructure) {
+            throw UserError("CannotMoveItem");
+        }
+
         if (iRef->typeID() == EVEDB::invTypes::Bookmark) {
             // update this to keep owner/creator and other data
             iRef->Donate(m_ownerID, m_itemID, toFlag);
