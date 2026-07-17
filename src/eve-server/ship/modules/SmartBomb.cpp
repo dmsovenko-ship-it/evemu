@@ -2,6 +2,7 @@
 #include "ship/modules/SmartBomb.h"
 
 #include "system/SystemBubble.h"
+#include "system/Damage.h"
 
 SmartBomb::SmartBomb(ModuleItemRef mRef, ShipItemRef sRef)
 : ActiveModule(mRef, sRef)
@@ -22,14 +23,8 @@ uint32 SmartBomb::DoCycle()
     if (range < 1.0f)
         range = 5000.0f;
 
-    float baseDamage = 0.0f;
-    if (m_chargeRef.get() != nullptr)
-        baseDamage = m_chargeRef->GetAttribute(AttrDamage).get_float();
-    if (baseDamage < 1.0f)
-        baseDamage = GetAttribute(AttrDamage).get_float();
     float dmgMultiplier = GetAttribute(AttrSmartbombDamageMultiplier).get_float();
     if (dmgMultiplier < 0.01f) dmgMultiplier = 1.0f;
-    float totalDamage = baseDamage * dmgMultiplier;
 
     GPoint myPos = pShipSE->GetPosition();
     SystemBubble* pBubble = pShipSE->SysBubble();
@@ -64,10 +59,13 @@ uint32 SmartBomb::DoCycle()
         if (dist > range) continue;
         float falloff = 1.0f - (dist / range) * 0.5f;
         if (falloff < 0.1f) falloff = 0.1f;
-        uint32 dmg = (uint32)(totalDamage * falloff);
-        InventoryItemRef targetItem = pTargetSE->GetSelf();
-        double shield = targetItem->GetAttribute(AttrShieldCharge).get_float();
-        targetItem->SetAttribute(AttrShieldCharge, std::max(0.0, shield - dmg), true);
+        float em = GetAttribute(AttrEmDamage).get_float() * falloff;
+        float therm = GetAttribute(AttrThermalDamage).get_float() * falloff;
+        float kin = GetAttribute(AttrKineticDamage).get_float() * falloff;
+        float exp = GetAttribute(AttrExplosiveDamage).get_float() * falloff;
+        Damage splash(pShipSE, m_modRef, kin, therm, em, exp,
+                      dmgMultiplier * falloff, m_effectID);
+        pTargetSE->ApplyDamage(splash);
     }
     return cycleTime;
 }
