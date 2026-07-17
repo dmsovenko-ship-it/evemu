@@ -403,9 +403,6 @@ void Client::ProcessClient() {
                     case Player::State::Idle: {
                         _log(CLIENT__TIMER, "ProcessClient()::IsDocked()::CheckState():  case: Idle");
                     } break;
-                    case Player::State::AutoPilotResume: {
-                        _log(CLIENT__TIMER, "ProcessClient()::IsDocked()::CheckState():  case: AutoPilotResume (docked - no-op)");
-                    } break;
                     case Player::State::Logout: {
                         _log(CLIENT__TIMER, "ProcessClient()::IsDocked()::CheckState():  case: Logout");
                     } break;
@@ -473,13 +470,6 @@ void Client::ProcessClient() {
             switch (m_clientState) {
                     case Player::State::Idle: {
                         _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Idle");
-                    } break;
-                    case Player::State::AutoPilotResume: {
-                        _log(AUTOPILOT__MESSAGE, "ProcessClient()::CheckState():  case: AutoPilotResume for %s", m_char->name());
-                        if (m_autoPilot) {
-                            pSession->SetInt("autopilot", 1);
-                            SendSessionChange();
-                        }
                     } break;
                 case Player::State::Dock: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Dock");
