@@ -1191,8 +1191,9 @@ void DestinyManager::Follow() {
             GPoint destPos(toData.position);
             destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
             pClient->SetLastGateID(toGate);
-            uint32 sysID = pClient->GetSystemID();
-            pClient->JumpOutEffect(sysID);
+            // Gate jump animation
+            mySE->DestinyMgr()->SendJumpOut(fromGate);
+            mySE->DestinyMgr()->SendGateActivity(fromGate);
             pClient->MoveToLocation(toData.systemID, destPos);
             pClient->JumpInEffect();
             if (pClient->IsInSpace()) {
