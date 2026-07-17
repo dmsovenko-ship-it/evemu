@@ -282,7 +282,8 @@ bool ProbeSE::ProcessTic()
     if (m_self->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
         if (SysBubble() == nullptr)
             return true;
-        float range = 20000.0f;  // standard interdiction sphere range
+        float range = m_self->GetAttribute(AttrWarpScrambleRange).get_float();
+        if (range < 1.0f) range = 20000.0f;
         uint32 strength = 1;
         GPoint myPos = GetPosition();
         std::vector<Client*> players;
