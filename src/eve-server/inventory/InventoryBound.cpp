@@ -387,21 +387,24 @@ PyRep* InventoryBound::MoveItems(Client* pClient, std::vector< int32 >& items, E
     ShipItem* pShip = pClient->GetShip().get();
     bool donating = false, ship = false, customs = false;
 
-    // Prevent fitting/reconfiguring modules in space (only stations, capitals, or MA)
+    // Prevent fitting/reconfiguring modules in space (subsystems on T3 exempt)
     if (pClient->IsInSpace() && IsModuleSlot(toFlag)) {
-        // Capitals (carriers, dreads, etc.) can fit in space
-        bool isCapital = false;
+        bool canFit = false;
         if (pShip != nullptr) {
+            // Capitals can fit in space
             switch (pShip->groupID()) {
                 case EVEDB::invGroups::Carrier:
                 case EVEDB::invGroups::Dreadnought:
                 case EVEDB::invGroups::Titan:
                 case EVEDB::invGroups::Supercarrier:
-                    isCapital = true;
+                    canFit = true;
                     break;
             }
+            // T3 subsystem flags are allowed in space
+            if (!canFit && toFlag >= flagSubSystem0 && toFlag <= flagSubSystem4)
+                canFit = true;
         }
-        if (!isCapital)
+        if (!canFit)
             throw CustomError ("You cannot fit modules in space. Return to a station, capital ship, or POS maintenance array.");
     }
     int32 origQty = quantity;
