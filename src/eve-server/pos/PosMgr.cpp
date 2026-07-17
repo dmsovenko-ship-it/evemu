@@ -580,7 +580,19 @@ PyResult PosMgrBound::UnanchorStructure(PyCallArgs &call, PyInt* itemID) {
     _log(POS__TRACE,  "PosMgrBound::Handle_UnanchorStructure()");
     call.Dump(POS__DUMP);
 
-    StructureSE* pTSE(nullptr);
+    SystemEntity* pEntity = call.client->SystemMgr()->GetSE(itemID->value());
+    if (pEntity == nullptr)
+        return PyStatic.NewNone();
+
+    if (pEntity->IsDeployableSE()) {
+        DeployableSE* pDSE = pEntity->GetDeployableSE();
+        pDSE->Unanchor(call.client);
+        return PyStatic.NewNone();
+    }
+
+    StructureSE* pTSE = pEntity->GetPOSSE();
+    if (pTSE == nullptr)
+        return PyStatic.NewNone();
 
     //pTSE->PullAnchor();
 

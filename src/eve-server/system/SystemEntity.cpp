@@ -694,8 +694,11 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
 void DeployableSE::Unanchor(Client* pClient)
 {
     _log(POS__MESSAGE, "DeployableSE::Unanchor %s(%u)", m_self->name(), m_self->itemID());
-    m_anchored = false;
-    m_onlined = false;
+    uint32 unanchorTime = m_self->GetAttribute(AttrUnanchoringDelay).get_uint32();
+    if (unanchorTime < 1000) unanchorTime = 5000;
+    m_anchorTimer.Start(unanchorTime);
+    m_anchoring = true;  // re-use anchoring flag — when timer fires, set anchored=false
+    m_unanchoring = true;
 }
 
 void DeployableSE::Online(Client* pClient)
@@ -717,11 +720,18 @@ void DeployableSE::Process()
     ObjectSystemEntity::Process();
 
     // Handle anchoring timer
-    if (m_anchoring && m_anchorTimer.Check(false)) {
+    if (m_anchorTimer.Enabled() && m_anchorTimer.Check(false)) {
         m_anchorTimer.Disable();
-        m_anchoring = false;
-        m_anchored = true;
-        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete", m_self->name(), m_self->itemID());
+        if (m_unanchoring) {
+            m_unanchoring = false;
+            m_anchored = false;
+            m_onlined = false;
+            _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete", m_self->name(), m_self->itemID());
+        } else if (m_anchoring) {
+            m_anchoring = false;
+            m_anchored = true;
+            _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete", m_self->name(), m_self->itemID());
+        }
     }
 
     // Handle onlining timer
