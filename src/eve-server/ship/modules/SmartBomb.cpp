@@ -70,8 +70,6 @@ uint32 SmartBomb::DoCycle()
             continue;
         if (!pTargetSE->IsNPCSE() && !pTargetSE->IsSentrySE())
             continue;
-        if (pTargetSE->DestinyMgr() == nullptr)
-            continue;
         float dist = myPos.distance(pTargetSE->GetPosition());
         if (dist > range) continue;
         float falloff = 1.0f - (dist / range) * 0.5f;
