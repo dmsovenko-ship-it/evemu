@@ -40,6 +40,7 @@
 #include "ship/modules/CovertCynoModule.h"
 #include "ship/modules/JumpPortalModule.h"
 #include "ship/modules/ProbeLauncher.h"
+#include "ship/modules/SmartBomb.h"
 
 static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
 {
@@ -202,6 +203,10 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             //case EVEDB::invGroups::GM_Modules:
             case EVEDB::invGroups::Cheat_Module_Group:                      return (new ActiveModule(mRef, sRef));
 
+            // Smartbomb modules
+            case EVEDB::invGroups::Smart_Bomb: {
+                return (new SmartBomb(mRef, sRef));
+            }
             // Drone Damage Modules (Drone Damage Amplifier etc.)
             case EVEDB::invGroups::Drone_Modules:
             case EVEDB::invGroups::Drone_Damage_Modules: {
