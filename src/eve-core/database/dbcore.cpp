@@ -643,6 +643,8 @@ int32 DBResultRow::GetInt( uint32 index ) const
         return 0;
     }
 
+    if (mRow[index] == nullptr)
+        return 0;
     //use base 0 on the obscure chance that this is a string column with an 0x hex number in it.
     return strtol( mRow[index], nullptr, 0 );
 }
@@ -655,6 +657,8 @@ bool DBResultRow::GetBool( uint32 index ) const
         return false;
     }
 
+    if (mRow[index] == nullptr)
+        return false;
     return (mRow[index][0] != 0);
 }
 
@@ -666,6 +670,8 @@ uint32 DBResultRow::GetUInt( uint32 index ) const
         return 0;
     }
 
+    if (mRow[index] == nullptr)
+        return 0;
     //use base 0 on the obscure chance that this is a string column with an 0x hex number in it.
     return strtoul( mRow[index], nullptr, 0 );
 }
@@ -678,6 +684,8 @@ int64 DBResultRow::GetInt64( uint32 index ) const
         return 0;
     }
 
+    if (mRow[index] == nullptr)
+        return 0;
     //use base 0 on the obscure chance that this is a string column with an 0x hex number in it.
     return strtoll( mRow[index], nullptr, 0 );
 }
@@ -690,6 +698,9 @@ float DBResultRow::GetFloat( uint32 index ) const
         return 0.0f;
     }
 
+    if (mRow[index] == nullptr)
+        return 0.0f;
+
     return strtof( mRow[index], nullptr );
 }
 
@@ -700,6 +711,9 @@ double DBResultRow::GetDouble( uint32 index ) const
         EvE::traceStack();
         return 0.0;
     }
+
+    if (mRow[index] == nullptr)
+        return 0.0;
 
     return strtod( mRow[index], nullptr );
 }

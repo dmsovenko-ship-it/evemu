@@ -28,7 +28,7 @@ void IncursionMgr::Process()
     bool hasHS = false, hasLS = false;
     if (sDatabase.RunQuery(activeRes,
         "SELECT i.incursionID, i.lastUpdated, "
-        "  (SELECT AVG(s.security) FROM mapSolarSystems s JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID WHERE isys.incursionID=i.incursionID) as avgSec "
+        "  (SELECT COALESCE(AVG(s.security),0) FROM mapSolarSystems s JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID WHERE isys.incursionID=i.incursionID) as avgSec "
         "FROM incursions i WHERE i.state > 0"))
     {
         DBResultRow aRow;
