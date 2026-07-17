@@ -731,11 +731,9 @@ void DeployableSE::Process()
         m_unanchoring = false;
         m_anchored = false;
         m_onlined = false;
-        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete, returning to cargo", m_self->name(), m_self->itemID());
-        // Return item to owner's cargo hold
-        uint32 ownerID = m_ownerID;
-        m_self->Move(ownerID, flagCargoHold, true);
-        m_system->RemoveEntity(this);
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete, waiting to be scooped", m_self->name(), m_self->itemID());
+        // Send state update — client shows unanchored/packaged, Scoop becomes available
+        m_self->SetFlag(flagNone, true);
         return;
     } else if (m_anchoring && m_anchorTimer.Check(false)) {
         m_anchorTimer.Disable();
