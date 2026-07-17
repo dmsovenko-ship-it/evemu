@@ -18,12 +18,14 @@ uint32 SmartBomb::DoCycle()
     if (pShipSE == nullptr)
         return 0;
 
-    float range = m_self->GetAttribute(AttrEmpFieldRange).get_float();
+    float range = GetAttribute(AttrEmpFieldRange).get_float();
     if (range < 1.0f)
         range = 5000.0f;
 
-    float baseDamage = m_self->GetAttribute(AttrDamage).get_float();
-    float dmgMultiplier = m_self->GetAttribute(AttrSmartbombDamageMultiplier).get_float();
+    float baseDamage = m_chargeRef->GetAttribute(AttrDamage).get_float();
+    if (baseDamage < 1.0f)
+        baseDamage = GetAttribute(AttrDamage).get_float();
+    float dmgMultiplier = GetAttribute(AttrSmartbombDamageMultiplier).get_float();
     if (dmgMultiplier < 0.01f) dmgMultiplier = 1.0f;
     float totalDamage = baseDamage * dmgMultiplier;
 
@@ -32,20 +34,21 @@ uint32 SmartBomb::DoCycle()
     if (pBubble == nullptr)
         return 0;
 
-    // Send smartbomb FX to the bubble
+    uint32 cycleTime = GetRemainingCycleTimeMS();
+    if (cycleTime < 100) cycleTime = 5000;
+
     OnSpecialFX14 fx;
         fx.entityID = pShipSE->GetID();
         fx.guid = "effects.SmartBomb";
         fx.isOffensive = 1;
         fx.start = 1;
         fx.active = 1;
-        fx.duration = (uint32)(m_cycleTime * 1000);
+        fx.duration = cycleTime;
         fx.repeat = 0;
         fx.startTime = GetFileTimeNow();
     PyTuple* t = fx.Encode();
     pBubble->BubblecastDestinyEvent(&t, "SmartBomb");
 
-    // Apply splash damage
     std::vector<Client*> players;
     pBubble->GetPlayers(players);
     for (auto target : players) {
@@ -57,11 +60,9 @@ uint32 SmartBomb::DoCycle()
         if (pTargetSE->DestinyMgr()->IsWarping()) continue;
         float dist = myPos.distance(pTargetSE->GetPosition());
         if (dist > range) continue;
-        // Falloff: 100% at center, 50% at edge
         float falloff = 1.0f - (dist / range) * 0.5f;
         if (falloff < 0.1f) falloff = 0.1f;
         uint32 dmg = (uint32)(totalDamage * falloff);
-        // Simple shield damage for now
         InventoryItemRef targetItem = pTargetSE->GetSelf();
         double shield = targetItem->GetAttribute(AttrShieldCharge).get_float();
         targetItem->SetAttribute(AttrShieldCharge, std::max(0.0, shield - dmg), true);
