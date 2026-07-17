@@ -1153,57 +1153,11 @@ void DestinyManager::Follow() {
              mySE->GetPilot()->IsAutoPilot(), true,
              (void*)m_targetEntity.second);
 
-    // autopilot check first — auto-jump if at gate
+    // Autopilot at gate — stop and wait for the client to send CmdStargateJump,
+    // which triggers the proper gate animation (ship approaches, gate opens, etc.).
+    // The server does NOT initiate the jump here; it waits for the client.
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         SetSpeedFraction(0.0);
-            _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
-                 mySE->GetName(), rawDist, (void*)m_targetEntity.second,
-                 (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
-        if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
-            if (m_apJumping) {
-                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by m_apJumping", mySE->GetName());
-                return;
-            }
-            uint32 fromGate = m_targetEntity.second->GetID();
-            DBQueryResult jmpRes;
-            sDatabase.RunQuery(jmpRes,
-                "SELECT celestialID FROM mapJumps WHERE stargateID = %u LIMIT 1", fromGate);
-            DBResultRow jmpRow;
-            if (!jmpRes.GetRow(jmpRow)) {
-                _log(AUTOPILOT__MESSAGE, "%s: No jump destination found for gate %u", mySE->GetName(), fromGate);
-                return;
-            }
-            uint32 toGate = jmpRow.GetUInt(0);
-            _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
-            Client* pClient = mySE->GetPilot();
-            if (pClient->IsSessionChange()) {
-                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by session change", mySE->GetName());
-                return;
-            }
-            if (!pClient->IsIdle()) {
-                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — not idle", mySE->GetName());
-                return;
-            }
-            // Teleport identical to .tr GM command — nothing extra
-            m_apJumping = true;
-            StaticData toData;
-            sDataMgr.GetStaticInfo(toGate, toData);
-            GPoint destPos(toData.position);
-            destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
-            pClient->SetLastGateID(toGate);
-            uint32 sysID = pClient->GetSystemID();
-            pClient->JumpOutEffect(sysID);
-            pClient->MoveToLocation(toData.systemID, destPos);
-            pClient->JumpInEffect();
-            if (pClient->IsInSpace()) {
-                mySE->DestinyMgr()->Stop();
-                if (mySE->SysBubble() == nullptr)
-                    mySE->SystemMgr()->AddEntity(mySE);
-                mySE->SysBubble()->SendAddBalls(mySE);
-                pClient->SetStateSent(false);
-                mySE->DestinyMgr()->SendSetState();
-            }
-        }
         return;
     }
 
