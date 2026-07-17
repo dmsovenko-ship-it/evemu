@@ -48,7 +48,7 @@ uint32 SmartBomb::DoCycle()
             cycleTime = 5000;
     }
 
-    m_destinyMgr->SendSpecialEffect(pShipSE->GetID(), 0, m_modRef->typeID(),
+    m_destinyMgr->SendSpecialEffect(pShipSE->GetID(), pShipSE->GetID(), m_modRef->typeID(),
                                     0, 0, "effects.SmartBomb", true, true, true, cycleTime, 0);
 
     std::vector<Client*> players;
