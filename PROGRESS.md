@@ -194,15 +194,26 @@
 | Outpost capture framework | ❌ | ✅ |
 | Alliance conflict zones | 🟡 | 🟡 |
 
-### 20. Deployables (Mobile Warp Disruptor) `████████████░░░░░░` 60%
+### 20. Deployables (Mobile Warp Disruptor) `███████████████████` 95%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Deploy from cargo, space entity | ❌ | ✅ |
 | Anchor/online with corp ownership check | ❌ | ✅ |
-| Warp scramble bubble (Process()) | ❌ | ✅ |
-| Warp Disrupt Probe | ❌ | ❌ |
-| Smartbombs (player ships) | ❌ | ❌ |
+| Anchor timer from `AttrAnchoringDelay` | ❌ | ✅ |
+| Sec-level restriction (`AttrAnchoringSecurityLevelMax`) | ❌ | ✅ |
+| Unanchor with `AttrUnanchoringDelay` timer | ❌ | ✅ |
+| Warp scramble bubble (Process()) when online | ❌ | ✅ |
+| **Warp Disrupt Probe** — Interdiction Sphere Launcher, bubble, aggression, highsec block | ❌ | ✅ |
+| **Smartbombs (player)** — Smart_Bomb module, AoE splash via Damage class, capacitor drain, effects.SmartBomb FX | ❌ | ✅ |
+
+### 21. Ship Module Restrictions
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| Block fitting in space (subcaps) | ❌ | ✅ |
+| Allow capitals to fit in space | ❌ | ✅ |
+| Allow T3 subsystem swap in space | ❌ | ✅ |
 
 ### 21. Effects System `██████████████████` 96%
 
