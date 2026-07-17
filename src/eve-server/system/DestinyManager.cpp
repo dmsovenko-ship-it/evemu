@@ -1203,6 +1203,9 @@ void DestinyManager::Follow() {
                 mySE->SysBubble()->SendAddBalls(mySE);
                 pClient->SetStateSent(false);
                 mySE->DestinyMgr()->SendSetState();
+                pClient->SetInvulTimer(Player::Timer::JumpInvul);
+                mySE->DestinyMgr()->Cloak();
+                pClient->SetCloakTimer(Player::Timer::JumpCloak);
             }
         }
         return;
