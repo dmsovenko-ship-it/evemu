@@ -1514,6 +1514,40 @@ void ActiveModule::LaunchProbe()
     Client* pClient = m_shipRef->GetPilot();
     if (pClient == nullptr)
         return;
+
+    GPoint pos(m_shipRef->position());
+    pos.MakeRandomPointOnSphere(MakeRandomFloat(500 + m_shipRef->radius(), 1500 + m_shipRef->radius()));
+
+    ItemData idata(m_chargeRef->typeID(), pClient->GetCharacterID(), pClient->GetLocationID(), flagNone, 1);
+    ProbeItemRef probeRef = sItemFactory.SpawnProbe(idata);
+    if (probeRef.get() == nullptr)
+        throw CustomError ("Unable to spawn item #%u:'%s' of type %u.", \
+                m_chargeRef->itemID(), m_chargeRef->name(), m_chargeRef->typeID() );
+
+    probeRef->SetPosition(pos);
+    SystemManager* pSystem = pClient->SystemMgr();
+
+    // Warp disruption probe — bubble, no scan needed
+    if (m_chargeRef->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
+        // Only in 0.0 and lowsec (highsec blocks interdiction)
+        SystemData sysData;
+        sDataMgr.GetSystemData(pClient->GetSystemID(), sysData);
+        if (sysData.securityRating >= 0.5f) { // WAS 0.45 in original but 0.5 matches Crucible
+            pClient->SendErrorMsg("Interdiction spheres cannot be deployed in high-security space.");
+            return;
+        }
+        // Launch = aggression: timer prevents docking/gate jump
+        if (!pClient->IsInvul())
+            pClient->SetAggressionTimer();
+        ProbeSE* pProbe = new ProbeSE(probeRef, pSystem->GetServiceMgr(), pSystem);
+        if (pProbe == nullptr) return;
+        pSystem->AddEntity(pProbe, false);
+        ConsumeCharge();
+        sStatMgr.Increment(Stat::probesLaunched);
+        return;
+    }
+
+    // Scan probe — needs scan manager and probe count check
     if (pClient->scan() == nullptr)
         pClient->SetScan(new Scan(pClient));
 
@@ -1523,31 +1557,15 @@ void ActiveModule::LaunchProbe()
         return;
     }
 
-    GPoint pos(m_shipRef->position());
-    pos.MakeRandomPointOnSphere(MakeRandomFloat(500 + m_shipRef->radius(), 1500 + m_shipRef->radius()));
-
-    //ItemData( uint32 _typeID, uint32 _ownerID, uint32 _locationID, EVEItemFlags _flag, uint32 _quantity);
-    // we are not changing singleton status of probes
-    ItemData idata(m_chargeRef->typeID(), pClient->GetCharacterID(), pClient->GetLocationID(), flagNone, 1);
-    ProbeItemRef probeRef = sItemFactory.SpawnProbe(idata);
-    if (probeRef.get() == nullptr)
-        throw CustomError ("Unable to spawn item #%u:'%s' of type %u.", \
-                m_chargeRef->itemID(), m_chargeRef->name(), m_chargeRef->typeID() );
-
-    probeRef->SetPosition(pos);
-    SystemManager* pSystem = pClient->SystemMgr();
     ProbeSE* pProbe = new ProbeSE(probeRef, pSystem->GetServiceMgr(), pSystem, m_modRef, m_shipRef);
     if (pProbe == nullptr)
-        return; // make error here
+        return;
 
     pProbe->SendNewProbe();
     pSystem->AddEntity(pProbe, false);
     pClient->scan()->AddProbe(pProbe);
 
-    // Reduce ammo charge by 1 unit:
     ConsumeCharge();
-
-    // add data to StatisticMgr
     sStatMgr.Increment(Stat::probesLaunched);
 }
 

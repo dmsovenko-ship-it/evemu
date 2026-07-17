@@ -938,7 +938,13 @@ SystemEntity* DynamicEntityFactory::BuildEntity(SystemManager& sysMgr, const DBS
                     sLog.Warning("BuildEntity", "Called for Survey_Probe");
                 } break;
                 case EVEDB::invGroups::Warp_Disruption_Probe: {
-                    sLog.Warning("BuildEntity", "Called for Warp_Disruption_Probe");
+                    ProbeItemRef pRef = sItemFactory.GetProbeRef(entity.itemID);
+                    if (pRef.get() == nullptr)
+                        return nullptr;
+                    pRef->ChangeOwner(1);
+                    ProbeSE* pSE = new ProbeSE(pRef, sysMgr.GetServiceMgr(), &sysMgr);
+                    _log(ITEM__TRACE, "DynamicEntityFactory::BuildEntity() making ProbeSE for Warp Disruption %s (%u)", entity.itemName.c_str(), entity.itemID);
+                    return pSE;
                 } break;
             }
         } break;

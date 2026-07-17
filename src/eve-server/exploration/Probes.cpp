@@ -277,6 +277,28 @@ bool ProbeSE::ProcessTic()
                 SendWarpEnd();
             SendStateChange(Probe::State::Idle);
         }
+
+    // Warp disruption probe — apply scramble to nearby ships
+    if (m_self->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
+        if (SysBubble() == nullptr)
+            return true;
+        float range = 20000.0f;  // standard interdiction sphere range
+        uint32 strength = 1;
+        GPoint myPos = GetPosition();
+        std::vector<Client*> players;
+        SysBubble()->GetPlayers(players);
+        for (auto pClient : players) {
+            if (pClient == nullptr) continue;
+            SystemEntity* pShipSE = pClient->GetShipSE();
+            if (pShipSE == nullptr) continue;
+            if (pShipSE->DestinyMgr() == nullptr) continue;
+            if (pShipSE->DestinyMgr()->IsWarping() || pShipSE->DestinyMgr()->IsCloaked())
+                continue;
+            float dist = myPos.distance(pShipSE->GetPosition());
+            if (dist <= range)
+                pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
+        }
+    }
     return true;
 }
 
