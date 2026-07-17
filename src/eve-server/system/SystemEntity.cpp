@@ -731,7 +731,9 @@ void DeployableSE::Process()
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — online complete", m_self->name(), m_self->itemID());
     }
 
-    // Warp scramble for active disruptors
+    // Warp scramble only when online
+    if (!m_onlined)
+        return;
     if (!m_warpScrambleTimer.Check(false))
         return;
     if (m_self->groupID() != EVEDB::invGroups::Mobile_Warp_Disruptor)
