@@ -37,7 +37,16 @@ uint32 SmartBomb::DoCycle()
         return 0;
 
     uint32 cycleTime = GetRemainingCycleTimeMS();
-    if (cycleTime < 100) cycleTime = 5000;
+    if (cycleTime < 100) {
+        // First cycle — read the module's cycle speed attribute
+        EvilNumber speed;
+        if (m_modRef->HasAttribute(AttrSpeed, speed))
+            cycleTime = speed.get_uint32();
+        else if (m_modRef->HasAttribute(AttrDuration, speed))
+            cycleTime = speed.get_uint32();
+        else
+            cycleTime = 5000;
+    }
 
     m_destinyMgr->SendSpecialEffect(pShipSE->GetID(), 0, m_modRef->typeID(),
                                     0, 0, "effects.SmartBomb", true, true, true, cycleTime, 0);
@@ -60,5 +69,5 @@ uint32 SmartBomb::DoCycle()
         double shield = targetItem->GetAttribute(AttrShieldCharge).get_float();
         targetItem->SetAttribute(AttrShieldCharge, std::max(0.0, shield - dmg), true);
     }
-    return 0;
+    return cycleTime;
 }
