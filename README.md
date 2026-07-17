@@ -59,16 +59,19 @@ Connect client to `http://your-server:26000` — see `SERVER_SETUP.md`.
 
 ---
 
-## Documentation / Документация
-
-- `PROGRESS.md` — feature-by-feature progress (EN/RU)
-- `SERVER_SETUP.md` — installation guide
-- `doc/` — technical notes
-- `doc/decompiled_client_scripts/` — decompiled Crucible client analysis + autopilot flow
+> **⚠️ Educational project only — NOT for gaming use.**  
+> *Только образовательный — НЕ предназначен для игры.*
 
 ---
 
 ## License / Лицензия
 
-LGPLv3 — see [LICENSE](LICENSE).  
-Educational project only — не для коммерческого использования.
+LGPLv3 — see [LICENSE](LICENSE).
+
+---
+
+## Documentation / Документация
+
+- `PROGRESS.md` — feature-by-feature progress (EN/RU)
+- `SERVER_SETUP.md` — installation guide
+- `doc/` — technical notes
