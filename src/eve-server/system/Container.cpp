@@ -304,7 +304,7 @@ void ContainerSE::Init()
     Inventory* pInv = m_contRef->GetMyInventory();
     if (pInv != nullptr) {
         std::vector<InventoryItemRef> items;
-        pInv->GetItems(items, true);
+        pInv->GetItemsByFlag(flagNone, items);
         for (auto item : items) {
             if (item->categoryID() == EVEDB::invCategories::SovereigntyStructure) {
                 _log(POS__WARNING, "ContainerSE::Init() — removing SovereigntyStructure %s(%u) from container %s(%u)",
