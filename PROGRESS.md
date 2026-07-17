@@ -192,7 +192,7 @@
 | IHub 2-cycle reinforcement, reinforce hour | ❌ | ✅ |
 | Sov level (weeks), dev indices, upgrade effects | ❌ | ✅ |
 | Outpost capture framework | ❌ | ✅ |
-| Alliance conflict zones | 🟡 | 🟡 |
+| **Alliance conflict zones** — SBU contested flag, ProcessSovStatusChanged, map display | ❌ | ✅ |
 
 ### 20. Deployables (Mobile Warp Disruptor) `███████████████████` 95%
 
