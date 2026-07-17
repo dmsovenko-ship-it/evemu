@@ -491,7 +491,30 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 list->AddItem(new PyInt(entity.itemID));
             } break;
             case EVEDB::invCategories::Deployable: {
-                pClient->SendNotifyMsg("Launching Deployables isnt available yet.");
+                DBSystemDynamicEntity entity = DBSystemDynamicEntity();
+                entity.ownerID = ownerID;
+                entity.factionID = pClient->GetWarFactionID();
+                entity.allianceID = pClient->GetAllianceID();
+                entity.corporationID = pClient->GetCorporationID();
+                entity.itemID = iRef->itemID();
+                entity.itemName = iRef->itemName();
+                entity.typeID = iRef->typeID();
+                entity.groupID = iRef->groupID();
+                entity.categoryID = iRef->categoryID();
+                iRef->Move(pClient->GetLocationID(), flagNone, true);
+                iRef->SetPosition(location + iRef->radius() + radius);
+                iRef->ChangeOwner(entity.ownerID);
+                entity.position = iRef->position();
+                SystemEntity* pSE = DynamicEntityFactory::BuildEntity(*pSystem, entity);
+                if (pSE == nullptr) {
+                    iRef->Donate(pClient->GetCharacterID(), pShip->itemID(), flagCargoHold);
+                    continue;
+                }
+                iRef->ChangeSingleton(true);
+                dropped = true;
+                shipDrop = true;
+                pSystem->AddEntity(pSE);
+                list->AddItem(new PyInt(entity.itemID));
             } break;
             case EVEDB::invCategories::SovereigntyStructure: {
                 //Code for spawning sovereignty structures

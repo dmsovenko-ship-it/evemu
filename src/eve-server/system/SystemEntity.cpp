@@ -666,6 +666,39 @@ DeployableSE::DeployableSE(InventoryItemRef self, EVEServiceManager &services, S
     m_allyID = data.allianceID;
     m_corpID = data.corporationID;
     m_ownerID = data.ownerID;
+    m_warpScrambleTimer.Start(1000);
+}
+
+void DeployableSE::Process()
+{
+    ObjectSystemEntity::Process();
+    if (!m_warpScrambleTimer.Check(false))
+        return;
+    // For Mobile Warp Disruptors (group 361): apply warp scramble to nearby ships
+    if (m_self->groupID() != EVEDB::invGroups::Mobile_Warp_Disruptor)
+        return;
+    if (SysBubble() == nullptr)
+        return;
+    float range = m_self->GetAttribute(AttrWarpScrambleRange).get_float();
+    if (range < 1.0f)
+        range = 20000.0f;   // default bubble range
+    uint32 strength = m_self->GetAttribute(AttrWarpScrambleStrength).get_uint32();
+    if (strength < 1)
+        strength = 1;
+    GPoint myPos = GetPosition();
+    std::vector<Client*> players;
+    SysBubble()->GetPlayers(players);
+    for (auto pClient : players) {
+        if (pClient == nullptr) continue;
+        SystemEntity* pShipSE = pClient->GetShipSE();
+        if (pShipSE == nullptr) continue;
+        if (pShipSE->DestinyMgr()->IsWarping() || pShipSE->DestinyMgr()->IsCloaked())
+            continue;
+        float dist = myPos.distance(pShipSE->GetPosition());
+        if (dist <= range) {
+            pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
+        }
+    }
 }
 
 // copy c'tor

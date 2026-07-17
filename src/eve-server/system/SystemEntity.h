@@ -582,6 +582,12 @@ public:
     /* class type tests. */
     virtual bool                IsSystemEntity()        { return false; }
     virtual bool                IsDeployableSE()        { return true; }
+
+    /* overrides */
+    void                        Process() override;
+
+private:
+    Timer m_warpScrambleTimer;
 };
 
 
