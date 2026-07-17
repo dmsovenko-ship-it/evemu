@@ -673,8 +673,22 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
 {
     _log(POS__MESSAGE, "DeployableSE::Anchor %s(%u) at (%.0f,%.0f,%.0f)",
          m_self->name(), m_self->itemID(), pos.x, pos.y, pos.z);
+
+    // Crucible: Mobile Warp Disruptors only in 0.0 (AttrAnchoringSecurityLevelMax)
+    float maxSec = m_self->GetAttribute(AttrAnchoringSecurityLevelMax).get_float();
+    SystemData sysData;
+    sDataMgr.GetSystemData(pClient->GetSystemID(), sysData);
+    if (sysData.securityRating > maxSec) {
+        pClient->SendErrorMsg("You cannot anchor this structure in this security level.");
+        return;
+    }
+
     m_self->SetPosition(pos);
-    m_anchorTimer.Start(5000);  // 5s anchor timer
+    uint32 anchorTime = m_self->GetAttribute(AttrAnchoringDelay).get_uint32();
+    if (anchorTime < 1000) anchorTime = 5000;
+    m_anchorTime = anchorTime;
+    m_anchoring = true;
+    m_anchorTimer.Start(anchorTime);
 }
 
 void DeployableSE::Unanchor(Client* pClient)
@@ -687,7 +701,9 @@ void DeployableSE::Unanchor(Client* pClient)
 void DeployableSE::Online(Client* pClient)
 {
     _log(POS__MESSAGE, "DeployableSE::Online %s(%u)", m_self->name(), m_self->itemID());
-    m_onlined = true;
+    uint32 onlineTime = m_self->GetAttribute(AttrAnchoringDelay).get_uint32();
+    if (onlineTime < 1000) onlineTime = 5000;
+    m_onlineTimer.Start(onlineTime);
 }
 
 void DeployableSE::Offline(Client* pClient)
@@ -699,9 +715,25 @@ void DeployableSE::Offline(Client* pClient)
 void DeployableSE::Process()
 {
     ObjectSystemEntity::Process();
+
+    // Handle anchoring timer
+    if (m_anchoring && m_anchorTimer.Check(false)) {
+        m_anchorTimer.Disable();
+        m_anchoring = false;
+        m_anchored = true;
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete", m_self->name(), m_self->itemID());
+    }
+
+    // Handle onlining timer
+    if (!m_anchored && m_onlined && m_onlineTimer.Check(false)) {
+        m_onlineTimer.Disable();
+        m_onlined = true;
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — online complete", m_self->name(), m_self->itemID());
+    }
+
+    // Warp scramble for active disruptors
     if (!m_warpScrambleTimer.Check(false))
         return;
-    // For Mobile Warp Disruptors (group 361): apply warp scramble to nearby ships
     if (m_self->groupID() != EVEDB::invGroups::Mobile_Warp_Disruptor)
         return;
     if (SysBubble() == nullptr)

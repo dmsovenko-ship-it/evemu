@@ -593,12 +593,15 @@ public:
     void                    Offline(Client* pClient);
     bool                    IsAnchored()                    { return m_anchored; }
     bool                    IsOnlined()                     { return m_onlined; }
+    bool                    IsAnchoring()                   { return m_anchoring; }
     uint32                  GetAllianceID()                 { return m_allyID; }
     uint32                  GetCorporationID()              { return m_corpID; }
 
 private:
     bool                    m_anchored = false;
     bool                    m_onlined  = false;
+    bool                    m_anchoring  = false;
+    uint32                  m_anchorTime = 0;
     Timer                   m_anchorTimer;
     Timer                   m_onlineTimer;
     Timer m_warpScrambleTimer;
