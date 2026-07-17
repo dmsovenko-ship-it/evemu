@@ -11,13 +11,18 @@ SmartBomb::SmartBomb(ModuleItemRef mRef, ShipItemRef sRef)
 
 uint32 SmartBomb::DoCycle()
 {
+    // Call base DoCycle for capacitor consumption and standard checks
+    uint32 cycleTime = ActiveModule::DoCycle();
+    if (cycleTime < 100)
+        return cycleTime;
+
     Client* pClient = m_shipRef->GetPilot();
     if (pClient == nullptr)
-        return 0;
+        return cycleTime;
 
     SystemEntity* pShipSE = pClient->GetShipSE();
     if (pShipSE == nullptr)
-        return 0;
+        return cycleTime;
 
     float range = GetAttribute(AttrEmpFieldRange).get_float();
     if (range < 1.0f)
@@ -29,22 +34,11 @@ uint32 SmartBomb::DoCycle()
     GPoint myPos = pShipSE->GetPosition();
     SystemBubble* pBubble = pShipSE->SysBubble();
     if (pBubble == nullptr)
-        return 0;
-
-    uint32 cycleTime = GetRemainingCycleTimeMS();
-    if (cycleTime < 100) {
-        // First cycle — read the module's cycle speed attribute
-        EvilNumber speed;
-        if (m_modRef->HasAttribute(AttrSpeed, speed))
-            cycleTime = speed.get_uint32();
-        else if (m_modRef->HasAttribute(AttrDuration, speed))
-            cycleTime = speed.get_uint32();
-        else
-            cycleTime = 5000;
-    }
+        return cycleTime;
 
     m_destinyMgr->SendSpecialEffect(pShipSE->GetID(), pShipSE->GetID(), m_modRef->typeID(),
                                     0, 0, "effects.SmartBomb", true, true, true, cycleTime, 0);
+
 
     std::vector<Client*> players;
     pBubble->GetPlayers(players);
