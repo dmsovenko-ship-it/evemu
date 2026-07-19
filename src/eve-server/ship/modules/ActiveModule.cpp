@@ -1346,7 +1346,7 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
     if (m_destinyMgr != nullptr and !guidStr.empty())
         m_destinyMgr->SendSpecialEffect(
                 m_shipRef->itemID(),
-                m_modRef->itemID(),
+                m_shipRef->itemID(),    // moduleID = shipID (modules have no ball, use ship's ball)
                 m_modRef->typeID(),
                 IsValidTarget(m_targetID) ? m_targetID : m_shipRef->itemID(),
                 chgTypeID,
