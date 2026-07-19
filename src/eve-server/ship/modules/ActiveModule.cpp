@@ -664,11 +664,25 @@ uint32 ActiveModule::DoCycle() {
         } break;
         case EVEDB::invGroups::Artifacts_and_Prototypes: {
         } break;
-        // Gang Coordinator (warfare links) — set flag on ship and refresh fleet boost
+        // Gang Coordinator (warfare links) — set per-type flag and refresh fleet boost
         case EVEDB::invGroups::Gang_Coordinator: {
             ShipSE* shipSE = m_shipRef->GetPilot()->GetShipSE();
-            if (shipSE != nullptr and !shipSE->HasGangModuleActive()) {
-                shipSE->SetGangModuleActive(true);
+            if (shipSE == nullptr)
+                break;
+            uint8 linkType = shipSE->LINK_MAX;
+            uint32 reqSkill = m_modRef->GetAttribute(AttrRequiredSkill1).get_uint32();
+            if (reqSkill == EvESkill::ArmoredWarfare)
+                linkType = shipSE->LINK_ARMORED;
+            else if (reqSkill == EvESkill::InformationWarfare)
+                linkType = shipSE->LINK_INFO;
+            else if (reqSkill == EvESkill::SiegeWarfare)
+                linkType = shipSE->LINK_SIEGE;
+            else if (reqSkill == EvESkill::SkirmishWarfare)
+                linkType = shipSE->LINK_SKIRMISH;
+            else if (reqSkill == EvESkill::MiningForeman)
+                linkType = shipSE->LINK_MINING;
+            if (linkType < shipSE->LINK_MAX and !shipSE->IsLinkActive(linkType)) {
+                shipSE->SetLinkActive(linkType, true);
                 if (m_shipRef->GetPilot()->InFleet()) {
                     std::list<int32> wings, squads;
                     sFltSvc.UpdateBoost(m_shipRef->GetPilot()->GetFleetID(), true, wings, squads);
@@ -779,8 +793,22 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
         } break;
         case EVEDB::invGroups::Gang_Coordinator: {
             ShipSE* shipSE = m_shipRef->GetPilot()->GetShipSE();
-            if (shipSE != nullptr and shipSE->HasGangModuleActive()) {
-                shipSE->SetGangModuleActive(false);
+            if (shipSE == nullptr)
+                break;
+            uint8 linkType = shipSE->LINK_MAX;
+            uint32 reqSkill = m_modRef->GetAttribute(AttrRequiredSkill1).get_uint32();
+            if (reqSkill == EvESkill::ArmoredWarfare)
+                linkType = shipSE->LINK_ARMORED;
+            else if (reqSkill == EvESkill::InformationWarfare)
+                linkType = shipSE->LINK_INFO;
+            else if (reqSkill == EvESkill::SiegeWarfare)
+                linkType = shipSE->LINK_SIEGE;
+            else if (reqSkill == EvESkill::SkirmishWarfare)
+                linkType = shipSE->LINK_SKIRMISH;
+            else if (reqSkill == EvESkill::MiningForeman)
+                linkType = shipSE->LINK_MINING;
+            if (linkType < shipSE->LINK_MAX and shipSE->IsLinkActive(linkType)) {
+                shipSE->SetLinkActive(linkType, false);
                 if (m_shipRef->GetPilot()->InFleet()) {
                     std::list<int32> wings, squads;
                     sFltSvc.UpdateBoost(m_shipRef->GetPilot()->GetFleetID(), true, wings, squads);

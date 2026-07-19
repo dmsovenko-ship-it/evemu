@@ -339,10 +339,19 @@ public:
     void RemoveTarget(SystemEntity* pSE);
     void SetPassword(std::string pass)                  { m_towerPass = pass; }
     // fleet
+    enum LinkType : uint8 {
+        LINK_ARMORED    = 0,
+        LINK_INFO       = 1,
+        LINK_SIEGE      = 2,
+        LINK_SKIRMISH   = 3,
+        LINK_MINING     = 4,
+        LINK_MAX        = 5
+    };
     void ClearBoostData();
     bool IsBoosted()                                    { return m_boosted; }
-    void SetGangModuleActive(bool val)                  { m_gangModuleActive = val; }
-    bool HasGangModuleActive()                          { return m_gangModuleActive; }
+    void SetLinkActive(uint8 type, bool val);
+    bool IsLinkActive(uint8 type)                       { return type < LINK_MAX && m_linkActive[type]; }
+    bool HasAnyLinkActive();
     void SetBoost(bool set=false)                       { m_boosted = set; }
     void RemoveBoost();
     void ApplyBoost(BoostData& bData);
@@ -398,7 +407,7 @@ private:
     uint32 m_podShipID;
 
     bool m_allowFleetSMBUsage;
-    bool m_gangModuleActive = false;
+    bool m_linkActive[LINK_MAX] = {false, false, false, false, false};
 
     /*  boost data */
     BoostData m_boost = BoostData();

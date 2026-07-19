@@ -2866,6 +2866,21 @@ PyDict* ShipSE::MakeSlimItem() {
     return slim;
 }
 
+void ShipSE::SetLinkActive(uint8 type, bool val)
+{
+    if (type >= LINK_MAX)
+        return;
+    m_linkActive[type] = val;
+}
+
+bool ShipSE::HasAnyLinkActive()
+{
+    for (uint8 i = 0; i < LINK_MAX; ++i)
+        if (m_linkActive[i])
+            return true;
+    return false;
+}
+
 void ShipSE::ClearBoostData()
 {
     m_oldArmor       = 0;
