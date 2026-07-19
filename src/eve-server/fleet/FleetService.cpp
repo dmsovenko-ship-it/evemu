@@ -15,6 +15,7 @@
 #include "eve-server.h"
 #include "chat/LSCService.h"
 #include "fleet/FleetService.h"
+#include "inventory/Inventory.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
 #include "services/ServiceManager.h"
@@ -615,7 +616,7 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
                             // Command ship hull bonus multiplies all boosts
                             float cmdMult = 1.0f;
                             if (boosterShip != nullptr) {
-                                float cmdBonus = boosterShip->GetAttribute(AttrCommandBonus).get_float();
+                                float cmdBonus = boosterShip->GetShipItemRef()->GetAttribute(AttrCommandBonus).get_float();
                                 if (cmdBonus > 0.0f)
                                     cmdMult = 1.0f + cmdBonus / 100.0f;
                             }
@@ -790,7 +791,7 @@ void FleetService::SetWingBoostData(uint32 wingID, BoostData& bData)
                         ShipSE* boosterShip = wItr->second.booster->GetShipSE();
                         float wCmdMult = 1.0f;
                         if (boosterShip != nullptr) {
-                            float wBonus = boosterShip->GetAttribute(AttrCommandBonus).get_float();
+                            float wBonus = boosterShip->GetShipItemRef()->GetAttribute(AttrCommandBonus).get_float();
                             if (wBonus > 0.0f)
                                 wCmdMult = 1.0f + wBonus / 100.0f;
                         }
@@ -852,7 +853,7 @@ void FleetService::SetSquadBoostData(uint32 squadID, BoostData bData, bool& sboo
                         ShipSE* boosterShip = sItr->second.booster->GetShipSE();
                         float sCmdMult = 1.0f;
                         if (boosterShip != nullptr) {
-                            float sBonus = boosterShip->GetAttribute(AttrCommandBonus).get_float();
+                            float sBonus = boosterShip->GetShipItemRef()->GetAttribute(AttrCommandBonus).get_float();
                             if (sBonus > 0.0f)
                                 sCmdMult = 1.0f + sBonus / 100.0f;
                         }
