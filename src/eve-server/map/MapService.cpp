@@ -189,7 +189,9 @@ PyResult MapService::GetRecentSovActivity(PyCallArgs &call)
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT solarSystemID, factionID, contested FROM mapSystemSovInfo"))
+        "SELECT s.solarSystemID, COALESCE(s.factionID, 0) as factionID, sov.contested"
+        " FROM mapSystemSovInfo sov"
+        " LEFT JOIN mapSolarSystems s ON s.solarSystemID = sov.solarSystemID"))
     {
         return new PyDict();
     }
