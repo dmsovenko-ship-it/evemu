@@ -48,6 +48,12 @@ void TCUSE::Init()
             int64 remaining = (m_claimTime - GetFileTimeNow()) / EvE::Time::Second;
             _log(SOV__INFO, "TCU %s(%u): Restored pending claim with %lld seconds remaining.", GetName(), m_data.itemID, remaining);
         }
+    } else if (m_data.state == EVEPOS::StructureState::Vulnerable
+               and svDataMgr.GetSovereigntyData(m_system->GetID()).solarSystemID == 0) {
+        // Migration case: TCU was onlined before claimTime was persisted.
+        // Assume the 8-hour timer already elapsed. Finalize immediately.
+        _log(SOV__INFO, "TCU %s(%u): Found vulnerable TCU with no claim timer (migration). Finalizing claim now.", GetName(), m_data.itemID);
+        FinalizeClaim();
     }
 }
 
