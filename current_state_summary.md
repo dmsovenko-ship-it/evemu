@@ -569,6 +569,12 @@
 
 ## ✅ Done this session (build 8 — 18 коммитов)
 
+### 🟢 Fleet bonuses
+- **Per-link-type tracking** — каждый Warfare Link бустит только свой тип ✅
+- **Command ship hull bonuses** — `AttrCommandBonus` множит бонусы ✅
+- **Warfare link implant bonuses** — `warfareLinkBonus` с имплантов ✅
+- Source::Gang через SDE/dogma — ❌ не реализовано (закомментировано)
+
 ### 🔴 Высокий приоритет
 - **Insurance** — исправлена: нестрахованный корабль получает 40% базовой цены (вместо 15K), дробные диапазоны, InsurancePayout нотификация, ProcessInsuranceExpiry() раз в минуту
 - **FW GetVictoryPoints** (MapService) — возвращает состояние FW систем вместо None
@@ -625,3 +631,26 @@
 - DEBUG DoSpawnForAnomaly logs removed
 - CmdStop/Follow debug logs cleaned up
 - PROGRESS.md, README.md, ToTest.md docs updated for build 10
+
+## ✅ Done this session (build 11 — 2026-07-19, ~25 коммитов)
+
+### 🔴 Высокий приоритет
+- **Sov dashboard KeyError fix** — `GetCurrentSovData()` возвращает все системы в констелляции, включая незахваченные без фракции. Клиент не падает с `KeyError: 30002355` при открытии sovereignty overview.
+- **TCU claim timer persistence** — `m_claimTime` сохраняется в `posStructureData.claimTime`. После выгрузки/перезагрузки системы таймер восстанавливается. `TCUSE::Init()` проверяет истекший таймер и финализирует клейм.
+- **Migration case** — существующие TCU в состоянии `Vulnerable` без сохранённого `claimTime=0` (старые) автоматически финализируют клейм при загрузке системы.
+- **SQL: загрузка entities категорий 22/23** — в `LoadSystemDynamicEntities()` добавлены `Deployable(22)` и `Structure(23)` в условие `g.categoryID IN (...)`, иначе TCU (кат.23) и MWD (кат.22) не загружаются после рестарта сервера.
+- **Deployable (MWD) ball mode** — override `EncodeDestiny()`: STOP+IsFree когда не заанкорен, RIGID когда заанкорен. Клиент показывает MWD как свободный объект при дропе, а не как уже заанкоренный.
+- **Deployable anchor/online pipeline** — `SendSlimUpdate()`, `SetBallFree(false)` при Anchor, эффекты `AnchorDrop`/`AnchorLift`, `posState` в slim item.
+
+### 🟡 Средний приоритет
+- **Per-link-type tracking** — каждый тип Warfare Link бустит только свой скилл (Armored→armorHP, Skirmish→inertia, и т.д.), а не x2 ко всем сразу.
+- **Command ship hull bonuses** — `AttrCommandBonus` (833) читается с корабля бустера и применяется как %-множитель к силе бонусов.
+- **Warfare link implant bonuses** — импланты с `warfareLinkBonus` (1922) дают %-бонус к силе линков.
+- **Fleet boost calculation** — все три уровня (Fleet/Wing/Squad) учитывают command ship bonus.
+
+### 🟢 Багфиксы
+- **OnSpecialFX crash** — `moduleID` должен быть `shipID` для модулей на корабле (нет своего болла). Фикс для всех модулей (был только для SmartBomb).
+- **NPCAI crash** — `assert(mRefCount > 0)` в `RefObject::DecRef`. Корень: double-free `PyDecRef(t)` после `SendNotification()` в `Client.cpp:2614` (удалён).
+- **GetRecentSovActivity** — `factionID` нет в `mapSystemSovInfo`, вызывает DB error → reconnect. Фикс: `LEFT JOIN mapSolarSystems` + `COALESCE`.
+- **Deployable::Online()** — исправлен `AttrAnchoringDelay` → `AttrOnliningDelay`.
+- **EncodeDestiny** — DeployableSE override с правильным Ball::Mode (STOP vs RIGID).
