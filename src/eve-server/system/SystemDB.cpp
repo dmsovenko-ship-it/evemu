@@ -153,12 +153,12 @@ bool SystemDB::LoadSystemDynamicEntities(uint32 systemID, std::vector<DBSystemDy
         " WHERE e.locationID = %u"
         "  AND g.categoryID NOT IN (%u,%u,%u,%u)"    // not Characters, stations, or roids
         "  AND (e.ownerID = 1"      // get dynamics owned by the system -include abandonded ships
-        "  OR g.categoryID IN (%u,%u,%u))"   // or orbitals, SOV structs, and structures owned by player corps
+        "  OR g.categoryID IN (%u,%u,%u,%u))"   // or deployables, orbitals, SOV structs, and structures owned by player corps
         "  ORDER BY e.itemID",
         systemID,
         //exclude categories not applicable for in-space system entities or owned by player/corp :
         _System/*0*/, /*Character*/1, /*Station*/3, Asteroid/*25*/, //asteroids are owned/controlled by BeltMgr.
-        Orbitals/*46*/,SovereigntyStructure/*40*/,Structure/*23*/ )) {
+        Deployable/*22*/,Orbitals/*46*/,SovereigntyStructure/*40*/,Structure/*23*/ )) {
             codelog(DATABASE__ERROR, "Error in LoadSystemDynamicEntities query: %s", res.error.c_str());
             return false;
         }
