@@ -604,6 +604,48 @@ void ObjectSystemEntity::EncodeDestiny( Buffer& into )
     _log(SE__DESTINY, "OSE::EncodeDestiny(): %s - id:%lli, mode:%u, flags:0x%X", GetName(), head.entityID, head.mode, head.flags);
 }
 
+void DeployableSE::EncodeDestiny(Buffer& into)
+{
+    using namespace Destiny;
+    BallHeader head = BallHeader();
+        head.entityID = m_self->itemID();
+        head.radius = m_radius;
+        head.posX = x();
+        head.posY = y();
+        head.posZ = z();
+    if (!m_anchored) {
+        // Free-floating deployable — STOP mode with IsFree so client offers Anchor/Scoop
+        head.mode = Ball::Mode::STOP;
+        head.flags = Ball::Flag::IsFree | Ball::Flag::IsMassive;
+        into.Append(head);
+        MassSector mass = MassSector();
+            mass.cloak = 0;
+            mass.corporationID = m_corpID;
+            mass.allianceID = (IsAlliance(m_allyID) ? m_allyID : -1);
+            mass.harmonic = 0;
+            mass.mass = m_self->type().mass();
+        into.Append(mass);
+        DataSector data = DataSector();
+            data.inertia = 1;
+            data.velX = 0;
+            data.velY = 0;
+            data.velZ = 0;
+            data.maxSpeed = 0;
+            data.speedfraction = 0;
+        into.Append(data);
+    } else {
+        // Anchored deployable — RIGID mode
+        head.mode = Ball::Mode::RIGID;
+        head.flags = Ball::Flag::IsMassive;
+        into.Append(head);
+        RIGID_Struct main;
+            main.formationID = 0xFF;
+        into.Append(main);
+    }
+    _log(SE__DESTINY, "DSE::EncodeDestiny(): %s - id:%lli, mode:%u, flags:0x%X, anchored:%d",
+         GetName(), head.entityID, head.mode, head.flags, m_anchored);
+}
+
 PyDict* ObjectSystemEntity::MakeSlimItem() {
     _log(SE__SLIMITEM, "MakeSlimItem for OSE %s(%u)", GetName(), m_self->itemID());
     PyDict *slim = new PyDict();
@@ -616,6 +658,24 @@ PyDict* ObjectSystemEntity::MakeSlimItem() {
         slim->SetItemString("corpID",           IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",       IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
         slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
+    return slim;
+}
+
+PyDict* DeployableSE::MakeSlimItem() {
+    _log(SE__SLIMITEM, "MakeSlimItem for DSE %s(%u)", GetName(), m_self->itemID());
+    PyDict *slim = new PyDict();
+        slim->SetItemString("itemID",           new PyLong(m_self->itemID()));
+        slim->SetItemString("typeID",           new PyInt(GetTypeID()));
+        slim->SetItemString("ownerID",          new PyInt(m_ownerID));
+        slim->SetItemString("categoryID",       new PyInt(m_self->categoryID()));
+        slim->SetItemString("groupID",          new PyInt(m_self->groupID()));
+        slim->SetItemString("name",             new PyString(m_self->itemName()));
+        slim->SetItemString("corpID",           IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
+        slim->SetItemString("allianceID",       IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
+        slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
+        slim->SetItemString("posState",         new PyInt(m_posState));
+        slim->SetItemString("posTimestamp",     PyStatic.NewInt(0));
+        slim->SetItemString("posDelayTime",     new PyInt(m_anchorTime / 1000));
     return slim;
 }
 
@@ -666,6 +726,7 @@ DeployableSE::DeployableSE(InventoryItemRef self, EVEServiceManager &services, S
     m_allyID = data.allianceID;
     m_corpID = data.corporationID;
     m_ownerID = data.ownerID;
+    m_posState = 0;         // starts as unanchored
     m_warpScrambleTimer.Start(1000);
 }
 
@@ -689,6 +750,21 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
     m_anchorTime = anchorTime;
     m_anchoring = true;
     m_anchorTimer.Start(anchorTime);
+
+    // Fix the ball in place (stop being free-floating)
+    m_posState = 1; // Anchored
+    SendSlimUpdate();
+    std::vector<PyTuple*> updates;
+    SetBallFree sbf;
+        sbf.entityID = m_self->itemID();
+        sbf.is_free = 0;
+    updates.push_back(sbf.Encode());
+    SetBallRadius sbr;
+        sbr.entityID = m_self->itemID();
+        sbr.radius = m_self->radius();
+    updates.push_back(sbr.Encode());
+    m_destiny->SendDestinyUpdate(updates);
+    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 1, 1, -1, 0);
 }
 
 void DeployableSE::Unanchor(Client* pClient)
@@ -699,6 +775,9 @@ void DeployableSE::Unanchor(Client* pClient)
     m_anchorTimer.Start(unanchorTime);
     m_anchoring = true;  // re-use anchoring flag — when timer fires, set anchored=false
     m_unanchoring = true;
+    m_posState = 0; // Unanchored
+
+    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorLift", 0, 1, 1, -1, 0);
 }
 
 void DeployableSE::Online(Client* pClient)
@@ -708,7 +787,7 @@ void DeployableSE::Online(Client* pClient)
         pClient->SendErrorMsg("Structure must be anchored before it can be brought online.");
         return;
     }
-    uint32 onlineTime = m_self->GetAttribute(AttrAnchoringDelay).get_uint32();
+    uint32 onlineTime = m_self->GetAttribute(AttrOnliningDelay).get_uint32();
     if (onlineTime < 1000) onlineTime = 5000;
     m_onlining = true;
     m_onlineTimer.Start(onlineTime);
@@ -731,20 +810,25 @@ void DeployableSE::Process()
         m_unanchoring = false;
         m_anchored = false;
         m_onlined = false;
+        m_posState = 0; // Unanchored
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete, waiting to be scooped", m_self->name(), m_self->itemID());
-        // Send state update — client shows unanchored/packaged, Scoop becomes available
+        SendSlimUpdate();
         m_self->SetFlag(flagNone, true);
         return;
     } else if (m_anchoring && m_anchorTimer.Check(false)) {
         m_anchorTimer.Disable();
         m_anchoring = false;
         m_anchored = true;
+        m_posState = 1; // Anchored
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete", m_self->name(), m_self->itemID());
+        SendSlimUpdate();
     } else if (m_onlining && m_onlineTimer.Check(false)) {
         m_onlineTimer.Disable();
         m_onlining = false;
         m_onlined = true;
+        m_posState = 4; // Online
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — online complete", m_self->name(), m_self->itemID());
+        SendSlimUpdate();
     }
 
     // Warp scramble only when online
@@ -776,6 +860,28 @@ void DeployableSE::Process()
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
         }
     }
+}
+
+void DeployableSE::SendSlimUpdate()
+{
+    PyDict *slim = new PyDict();
+    slim->SetItemString("name", new PyString(m_self->itemName()));
+    slim->SetItemString("itemID", new PyLong(m_self->itemID()));
+    slim->SetItemString("typeID", new PyInt(m_self->typeID()));
+    slim->SetItemString("ownerID", new PyInt(m_ownerID));
+    slim->SetItemString("corpID", IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
+    slim->SetItemString("allianceID", IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
+    slim->SetItemString("warFactionID", IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
+    slim->SetItemString("posState", new PyInt(m_posState));
+    slim->SetItemString("posTimestamp", PyStatic.NewInt(0));
+    slim->SetItemString("posDelayTime", new PyInt(m_anchorTime / 1000));
+    PyTuple *shipData = new PyTuple(2);
+    shipData->SetItem(0, new PyLong(m_self->itemID()));
+    shipData->SetItem(1, new PyObject("foo.SlimItem", slim));
+    PyTuple *sItem = new PyTuple(2);
+    sItem->SetItem(0, new PyString("OnSlimItemChange"));
+    sItem->SetItem(1, shipData);
+    m_destiny->SendSingleDestinyUpdate(&sItem);
 }
 
 // copy c'tor

@@ -585,6 +585,8 @@ public:
 
     /* overrides */
     void                        Process() override;
+    void                        EncodeDestiny(Buffer& into) override;
+    PyDict*                     MakeSlimItem() override;
 
     /* deployable lifecycle */
     void                    Anchor(Client* pClient, const GPoint& pos);
@@ -598,15 +600,18 @@ public:
     uint32                  GetCorporationID()              { return m_corpID; }
 
 private:
+    void                    SendSlimUpdate();
+
     bool                    m_anchored = false;
     bool                    m_onlined  = false;
     bool                    m_anchoring  = false;   // anchor timer running
     bool                    m_onlining   = false;   // online timer running
     bool                    m_unanchoring = false;  // unanchor timer running
     uint32                  m_anchorTime = 0;
+    int8                    m_posState = 0;         // anchor state for client (0=unanchored, 1=anchored, 4=online)
     Timer                   m_anchorTimer;
     Timer                   m_onlineTimer;
-    Timer m_warpScrambleTimer;
+    Timer                   m_warpScrambleTimer;
 };
 
 
