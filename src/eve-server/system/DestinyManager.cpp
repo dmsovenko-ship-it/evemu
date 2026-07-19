@@ -3322,7 +3322,7 @@ void DestinyManager::SendSpecialEffect(uint32 entityID, uint32 moduleID, uint32 
         effect.duration = duration;
         effect.repeat = repeat;
         effect.startTime = GetFileTimeNow();
-        effect.graphicInfo = PyStatic.NewNone();
+        effect.graphicInfo = (graphicInfo == 0 ? PyStatic.NewNone() : new PyInt(graphicInfo));
     PyTuple *up = effect.Encode();
     SendSingleDestinyUpdate(&up);   // consumed
 }

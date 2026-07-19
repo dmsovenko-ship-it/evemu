@@ -969,7 +969,7 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
     if (gfxID > 0)
         m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
                                      pSE->GetID(),0,guid,1,1,
-                                     1,m_attackSpeed,0,0);
+                                     1,m_attackSpeed,0,gfxID);
 
     Damage d(m_npc,
              m_self,

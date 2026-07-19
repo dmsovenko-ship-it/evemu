@@ -2611,7 +2611,6 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
         if (is_log_enabled(CLIENT__QUEUE_DUMP))
             t->Dump(CLIENT__QUEUE_DUMP, "");
         SendNotification("DoDestinyUpdate", "clientID", &t, false);
-        PyDecRef(t);
     } else {
         act.update = *update;
         m_packaged = true;
