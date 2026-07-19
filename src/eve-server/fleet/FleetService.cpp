@@ -611,8 +611,15 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
                     if (fItr->second.leader->GetSystemID() == fItr->second.booster->GetSystemID()) {
                         Character* pChar = fItr->second.booster->GetChar().get();
                         if (pChar != nullptr) {
-                            // Each link type only doubles its own warfare skill (not all types)
                             ShipSE* boosterShip = fItr->second.booster->GetShipSE();
+                            // Command ship hull bonus multiplies all boosts
+                            float cmdMult = 1.0f;
+                            if (boosterShip != nullptr) {
+                                float cmdBonus = boosterShip->GetAttribute(AttrCommandBonus).get_float();
+                                if (cmdBonus > 0.0f)
+                                    cmdMult = 1.0f + cmdBonus / 100.0f;
+                            }
+                            // Each link type only doubles its own warfare skill (not all types)
                             float armoredMult  = (boosterShip != nullptr and boosterShip->IsLinkActive(ShipSE::LINK_ARMORED))  ? 2.0f : 1.0f;
                             float infoMult     = (boosterShip != nullptr and boosterShip->IsLinkActive(ShipSE::LINK_INFO))     ? 2.0f : 1.0f;
                             float siegeMult    = (boosterShip != nullptr and boosterShip->IsLinkActive(ShipSE::LINK_SIEGE))    ? 2.0f : 1.0f;
@@ -620,20 +627,20 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
                             float miningMult   = (boosterShip != nullptr and boosterShip->IsLinkActive(ShipSE::LINK_MINING))   ? 2.0f : 1.0f;
                             if (pChar->HasSkillTrainedToLevel(EvESkill::ArmoredWarfare, 1))
                                 fData.armored   = static_cast<int8>((pChar->GetSkillLevel(EvESkill::ArmoredWarfare)
-                                                + pChar->GetSkillLevel(EvESkill::ArmoredWarfareSpecialist)) * armoredMult);
+                                                + pChar->GetSkillLevel(EvESkill::ArmoredWarfareSpecialist)) * armoredMult * cmdMult);
                             if (pChar->HasSkillTrainedToLevel(EvESkill::InformationWarfare, 1))
                                 fData.info      = static_cast<int8>((pChar->GetSkillLevel(EvESkill::InformationWarfare)
-                                                + pChar->GetSkillLevel(EvESkill::InformationWarfareSpecialist)) * infoMult);
+                                                + pChar->GetSkillLevel(EvESkill::InformationWarfareSpecialist)) * infoMult * cmdMult);
                             if (pChar->HasSkillTrainedToLevel(EvESkill::SiegeWarfare, 1))
                                 fData.siege     = static_cast<int8>((pChar->GetSkillLevel(EvESkill::SiegeWarfare)
-                                                + pChar->GetSkillLevel(EvESkill::SiegeWarfareSpecialist)) * siegeMult);
+                                                + pChar->GetSkillLevel(EvESkill::SiegeWarfareSpecialist)) * siegeMult * cmdMult);
                             if (pChar->HasSkillTrainedToLevel(EvESkill::SkirmishWarfare, 1))
                                 fData.skirmish  = static_cast<int8>((pChar->GetSkillLevel(EvESkill::SkirmishWarfare)
-                                                + pChar->GetSkillLevel(EvESkill::SkirmishWarfareSpecialist)) * skirmishMult);
+                                                + pChar->GetSkillLevel(EvESkill::SkirmishWarfareSpecialist)) * skirmishMult * cmdMult);
                             if (pChar->HasSkillTrainedToLevel(EvESkill::MiningForeman, 1))
-                                fData.mining    = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningForeman) * miningMult);
+                                fData.mining    = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningForeman) * miningMult * cmdMult);
                             if (pChar->HasSkillTrainedToLevel(EvESkill::MiningDirector, 1))
-                                fData.miningDirector = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningDirector) * miningMult);
+                                fData.miningDirector = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningDirector) * miningMult * cmdMult);
                             if (fData.armored or fData.info or fData.leader or fData.mining or fData.siege or fData.skirmish)
                                 fBoost = true;
                         }
@@ -767,22 +774,30 @@ void FleetService::SetWingBoostData(uint32 wingID, BoostData& bData)
                 if (wItr->second.leader->GetSystemID() == wItr->second.booster->GetSystemID()) {
                     Character* pChar = wItr->second.booster->GetChar().get();
                     if (pChar != nullptr) {
+                        // Command ship hull bonus for wing booster
+                        ShipSE* boosterShip = wItr->second.booster->GetShipSE();
+                        float wCmdMult = 1.0f;
+                        if (boosterShip != nullptr) {
+                            float wBonus = boosterShip->GetAttribute(AttrCommandBonus).get_float();
+                            if (wBonus > 0.0f)
+                                wCmdMult = 1.0f + wBonus / 100.0f;
+                        }
                         leader = wItr->second.leader->GetChar()->GetSkillLevel(EvESkill::Leadership);    // this applies ONLY to self
                         if (pChar->HasSkillTrainedToLevel(EvESkill::ArmoredWarfare, 1))
-                            armored     = pChar->GetSkillLevel(EvESkill::ArmoredWarfare)
-                                        + pChar->GetSkillLevel(EvESkill::ArmoredWarfareSpecialist);
+                            armored     = static_cast<int8>((pChar->GetSkillLevel(EvESkill::ArmoredWarfare)
+                                        + pChar->GetSkillLevel(EvESkill::ArmoredWarfareSpecialist)) * wCmdMult);
                         if (pChar->HasSkillTrainedToLevel(EvESkill::InformationWarfare, 1))
-                            info        = pChar->GetSkillLevel(EvESkill::InformationWarfare)
-                                        + pChar->GetSkillLevel(EvESkill::InformationWarfareSpecialist);
+                            info        = static_cast<int8>((pChar->GetSkillLevel(EvESkill::InformationWarfare)
+                                        + pChar->GetSkillLevel(EvESkill::InformationWarfareSpecialist)) * wCmdMult);
                         if (pChar->HasSkillTrainedToLevel(EvESkill::SiegeWarfare, 1))
-                            siege       = pChar->GetSkillLevel(EvESkill::SiegeWarfare)
-                                        + pChar->GetSkillLevel(EvESkill::SiegeWarfareSpecialist);
+                            siege       = static_cast<int8>((pChar->GetSkillLevel(EvESkill::SiegeWarfare)
+                                        + pChar->GetSkillLevel(EvESkill::SiegeWarfareSpecialist)) * wCmdMult);
                         if (pChar->HasSkillTrainedToLevel(EvESkill::SkirmishWarfare, 1))
-                            skirmish    = pChar->GetSkillLevel(EvESkill::SkirmishWarfare)
-                                        + pChar->GetSkillLevel(EvESkill::SkirmishWarfareSpecialist);
+                            skirmish    = static_cast<int8>((pChar->GetSkillLevel(EvESkill::SkirmishWarfare)
+                                        + pChar->GetSkillLevel(EvESkill::SkirmishWarfareSpecialist)) * wCmdMult);
                         if (pChar->HasSkillTrainedToLevel(EvESkill::MiningForeman, 1)) {
-                            mining          = pChar->GetSkillLevel(EvESkill::MiningForeman);
-                            miningDirector  = pChar->GetSkillLevel(EvESkill::MiningDirector);
+                            mining          = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningForeman) * wCmdMult);
+                            miningDirector  = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningDirector) * wCmdMult);
                         }
                     }
                     boost = true;
@@ -821,22 +836,30 @@ void FleetService::SetSquadBoostData(uint32 squadID, BoostData bData, bool& sboo
                 if (sItr->second.leader->GetSystemID() == sItr->second.booster->GetSystemID()) {
                     Character* pChar = sItr->second.booster->GetChar().get();
                     if (pChar != nullptr) {
+                        // Command ship hull bonus for squad booster
+                        ShipSE* boosterShip = sItr->second.booster->GetShipSE();
+                        float sCmdMult = 1.0f;
+                        if (boosterShip != nullptr) {
+                            float sBonus = boosterShip->GetAttribute(AttrCommandBonus).get_float();
+                            if (sBonus > 0.0f)
+                                sCmdMult = 1.0f + sBonus / 100.0f;
+                        }
                         leader = sItr->second.leader->GetChar()->GetSkillLevel(EvESkill::Leadership);    // this applies ONLY to self
                         if (pChar->HasSkillTrainedToLevel(EvESkill::ArmoredWarfare, 1))
-                            armored     = pChar->GetSkillLevel(EvESkill::ArmoredWarfare)
-                                        + pChar->GetSkillLevel(EvESkill::ArmoredWarfareSpecialist);
+                            armored     = static_cast<int8>((pChar->GetSkillLevel(EvESkill::ArmoredWarfare)
+                                        + pChar->GetSkillLevel(EvESkill::ArmoredWarfareSpecialist)) * sCmdMult);
                         if (pChar->HasSkillTrainedToLevel(EvESkill::InformationWarfare, 1))
-                            info        = pChar->GetSkillLevel(EvESkill::InformationWarfare)
-                                        + pChar->GetSkillLevel(EvESkill::InformationWarfareSpecialist);
+                            info        = static_cast<int8>((pChar->GetSkillLevel(EvESkill::InformationWarfare)
+                                        + pChar->GetSkillLevel(EvESkill::InformationWarfareSpecialist)) * sCmdMult);
                         if (pChar->HasSkillTrainedToLevel(EvESkill::SiegeWarfare, 1))
-                            siege       = pChar->GetSkillLevel(EvESkill::SiegeWarfare)
-                                        + pChar->GetSkillLevel(EvESkill::SiegeWarfareSpecialist);
+                            siege       = static_cast<int8>((pChar->GetSkillLevel(EvESkill::SiegeWarfare)
+                                        + pChar->GetSkillLevel(EvESkill::SiegeWarfareSpecialist)) * sCmdMult);
                         if (pChar->HasSkillTrainedToLevel(EvESkill::SkirmishWarfare, 1))
-                            skirmish    = pChar->GetSkillLevel(EvESkill::SkirmishWarfare)
-                                        + pChar->GetSkillLevel(EvESkill::SkirmishWarfareSpecialist);
+                            skirmish    = static_cast<int8>((pChar->GetSkillLevel(EvESkill::SkirmishWarfare)
+                                        + pChar->GetSkillLevel(EvESkill::SkirmishWarfareSpecialist)) * sCmdMult);
                         if (pChar->HasSkillTrainedToLevel(EvESkill::MiningForeman, 1)) {
-                            mining          = pChar->GetSkillLevel(EvESkill::MiningForeman);
-                            miningDirector  = pChar->GetSkillLevel(EvESkill::MiningDirector);
+                            mining          = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningForeman) * sCmdMult);
+                            miningDirector  = static_cast<int8>(pChar->GetSkillLevel(EvESkill::MiningDirector) * sCmdMult);
                         }
                     }
                     sItr->second.boost.armored   = ((armored < bData.armored)         ? bData.armored   : armored);
