@@ -627,7 +627,7 @@ void FleetService::UpdateBoost(uint32 fleetID, bool fleet, std::list<int32>& win
                                 std::vector<InventoryItemRef> implants;
                                 inv->GetItemsByFlag(flagImplant, implants);
                                 for (auto& implant : implants) {
-                                    float bonus = implant->GetAttribute(EveAttrEnum::warfareLinkBonus).get_float();
+                                    float bonus = implant->GetAttribute(static_cast<uint16>(1922)).get_float();
                                     if (bonus > 0.0f)
                                         implantMult += bonus / 100.0f;
                                 }
