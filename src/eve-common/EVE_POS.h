@@ -38,6 +38,7 @@ namespace EVEPOS {
         int32 towerID;
         int32 anchorpointID;       /* used to hold PlanetID for structures which are anchored near moons/planets/stargates */
         int64 timestamp;
+        int64 claimTime;           /* TCU only: filetime when sovereignty claim activates (0 = no pending claim) */
     };
     struct TowerData {
         bool allowCorp :1;

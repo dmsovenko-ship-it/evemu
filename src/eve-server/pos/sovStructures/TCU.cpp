@@ -36,6 +36,19 @@ void TCUSE::Init()
     m_bubble->SetTCUSE(this);
 
     m_self->SetAttribute(AttrIsGlobal, EvilOne, false);
+
+    // Restore pending claim timer from persisted data
+    m_claimTime = m_data.claimTime;
+    if (m_claimTime > 0) {
+        if (GetFileTimeNow() >= m_claimTime) {
+            _log(SOV__INFO, "TCU %s(%u): Claim timer expired while system was unloaded. Finalizing claim now.", GetName(), m_data.itemID);
+            FinalizeClaim();
+        } else {
+            m_procState = EVEPOS::ProcState::Online;
+            int64 remaining = (m_claimTime - GetFileTimeNow()) / EvE::Time::Second;
+            _log(SOV__INFO, "TCU %s(%u): Restored pending claim with %lld seconds remaining.", GetName(), m_data.itemID, remaining);
+        }
+    }
 }
 
 void TCUSE::SetOnline()
@@ -45,6 +58,8 @@ void TCUSE::SetOnline()
 
     // TCU is vulnerable during the 8-hour claiming period
     m_claimTime = GetFileTimeNow() + 8 * EvE::Time::Hour;
+    m_data.claimTime = m_claimTime;
+    m_db.UpdateBaseData(m_data);
     SetVulnerable();
     _log(SOV__INFO, "TCU %s(%u): Claim will finalize at %lli (vulnerable during claim).", GetName(), m_data.itemID, m_claimTime);
 
@@ -68,6 +83,8 @@ void TCUSE::SetOffline()
     if (m_claimTime > 0) {
         // Claim was pending — cancelled
         m_claimTime = 0;
+        m_data.claimTime = 0;
+        m_db.UpdateBaseData(m_data);
         _log(SOV__INFO, "TCU %s(%u): Pending claim cancelled (offlined).", GetName(), m_data.itemID);
     }
     svDataMgr.RemoveSovClaim(m_system->GetID());
@@ -103,6 +120,8 @@ void TCUSE::Killed(Damage& damage)
     if (m_claimTime > 0) {
         _log(SOV__INFO, "TCU %s(%u): Pending claim cancelled (destroyed during claiming period).", GetName(), m_data.itemID);
         m_claimTime = 0;
+        m_data.claimTime = 0;
+        m_db.UpdateBaseData(m_data);
     }
     StructureSE::Killed(damage);
 }
@@ -112,6 +131,8 @@ void TCUSE::FinalizeClaim()
     if (m_claimTime == 0)
         return;
     m_claimTime = 0;
+    m_data.claimTime = 0;
+    m_db.UpdateBaseData(m_data);
 
     _log(SOV__INFO, "TCU %s(%u): 8-hour claim timer expired — creating sovereignty claim, becoming invulnerable.", GetName(), m_data.itemID);
 

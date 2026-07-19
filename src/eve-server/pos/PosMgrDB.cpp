@@ -115,7 +115,7 @@ bool PosMgrDB::GetBaseData(EVEPOS::StructureData& data)
 {
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-            "SELECT towerID, anchorpointID, state, status, timestamp, canUse, canView, canTake FROM posStructureData"
+            "SELECT towerID, anchorpointID, state, status, timestamp, claimTime, canUse, canView, canTake FROM posStructureData"
             " WHERE itemID = %u", data.itemID))
     {
         codelog(DATABASE__ERROR, "Error in GetBaseData query: %s", res.error.c_str());
@@ -130,9 +130,10 @@ bool PosMgrDB::GetBaseData(EVEPOS::StructureData& data)
     data.state = row.GetInt(2);
     data.status = row.GetInt(3);
     data.timestamp = row.GetInt64(4);
-    data.use = row.GetInt(5);
-    data.view = row.GetInt(6);
-    data.take = row.GetInt(7);
+    data.claimTime = row.GetInt64(5);
+    data.use = row.GetInt(6);
+    data.view = row.GetInt(7);
+    data.take = row.GetInt(8);
     return true;
 }
 
@@ -141,17 +142,17 @@ void PosMgrDB::SaveBaseData(EVEPOS::StructureData& data)
     DBerror err;
     sDatabase.RunQuery(err,
         "INSERT INTO posStructureData "
-        "(itemID, towerID, anchorpointID, state, status, timestamp, canUse, canView, canTake)"
-        " VALUES ( %i, %i, %i, %i, %i, %lli, %i, %i, %i)",
-        data.itemID, data.towerID, data.anchorpointID, data.state, data.status, data.timestamp, data.use, data.view, data.take);
+        "(itemID, towerID, anchorpointID, state, status, timestamp, claimTime, canUse, canView, canTake)"
+        " VALUES ( %i, %i, %i, %i, %i, %lli, %lli, %i, %i, %i)",
+        data.itemID, data.towerID, data.anchorpointID, data.state, data.status, data.timestamp, data.claimTime, data.use, data.view, data.take);
 }
 
 void PosMgrDB::UpdateBaseData(EVEPOS::StructureData& data)
 {
     DBerror err;
     sDatabase.RunQuery(err,
-        "UPDATE posStructureData SET state=%i, status=%i, timestamp=%lli WHERE itemID = %i",
-        data.state, data.status, data.timestamp, data.itemID);
+        "UPDATE posStructureData SET state=%i, status=%i, timestamp=%lli, claimTime=%lli WHERE itemID = %i",
+        data.state, data.status, data.timestamp, data.claimTime, data.itemID);
 }
 
 bool PosMgrDB::GetTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sData)
