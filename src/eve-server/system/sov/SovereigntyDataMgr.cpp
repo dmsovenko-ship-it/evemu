@@ -356,7 +356,35 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                     row->SetField("militaryPoints", PyStatic.NewInt(0));
                     row->SetField("industrialPoints", PyStatic.NewInt(0));
                     row->SetField("claimedFor", PyStatic.NewInt(0));
+                    seenLocationIDs.insert(sysID);
                 }
+            }
+        }
+        // Add remaining unclaimed, non-faction systems so client doesn't KeyError
+        DBQueryResult rRes;
+        if (sDatabase.RunQuery(rRes,
+            "SELECT mss.solarSystemID"
+            " FROM mapSolarSystems AS mss"
+            " WHERE mss.constellationID = %u"
+            "   AND mss.solarSystemID NOT IN ("
+            "     SELECT si.solarSystemID FROM mapSystemSovInfo AS si"
+            "     UNION ALL"
+            "     SELECT mss2.solarSystemID FROM mapSolarSystems AS mss2"
+            "      WHERE mss2.constellationID = %u AND mss2.factionID IS NOT NULL"
+            "   )",
+            locationID, locationID))
+        {
+            DBResultRow rRow;
+            while (rRes.GetRow(rRow)) {
+                uint32 sysID = rRow.GetUInt(0);
+                uint8 stCount = sDataMgr.GetStationCount(sysID);
+                PyPackedRow *row = rowset->NewRow();
+                row->SetField("locationID", new PyInt(sysID));
+                row->SetField("allianceID", PyStatic.NewInt(0));
+                row->SetField("stationCount", new PyInt(stCount));
+                row->SetField("militaryPoints", PyStatic.NewInt(0));
+                row->SetField("industrialPoints", PyStatic.NewInt(0));
+                row->SetField("claimedFor", PyStatic.NewInt(0));
             }
         }
     }
@@ -399,7 +427,37 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                     row->SetField("militaryPoints", PyStatic.NewInt(0));
                     row->SetField("industrialPoints", PyStatic.NewInt(0));
                     row->SetField("claimedFor", PyStatic.NewInt(0));
+                    seenLocationIDs.insert(constID);
                 }
+            }
+        }
+        // Add remaining unclaimed, non-faction constellations so client doesn't KeyError
+        DBQueryResult rRes;
+        if (sDatabase.RunQuery(rRes,
+            "SELECT DISTINCT mss.constellationID"
+            " FROM mapSolarSystems AS mss"
+            " WHERE mss.regionID = %u"
+            "   AND mss.constellationID NOT IN ("
+            "     SELECT mss2.constellationID"
+            "       FROM mapSystemSovInfo AS si"
+            "       INNER JOIN mapSolarSystems AS mss2 ON mss2.solarSystemID = si.solarSystemID"
+            "       WHERE mss2.regionID = %u"
+            "     UNION ALL"
+            "     SELECT DISTINCT mss3.constellationID FROM mapSolarSystems AS mss3"
+            "      WHERE mss3.regionID = %u AND mss3.factionID IS NOT NULL"
+            "   )",
+            locationID, locationID, locationID))
+        {
+            DBResultRow rRow;
+            while (rRes.GetRow(rRow)) {
+                uint32 constID = rRow.GetUInt(0);
+                PyPackedRow *row = rowset->NewRow();
+                row->SetField("locationID", new PyInt(constID));
+                row->SetField("allianceID", PyStatic.NewInt(0));
+                row->SetField("stationCount", PyStatic.NewInt(0));
+                row->SetField("militaryPoints", PyStatic.NewInt(0));
+                row->SetField("industrialPoints", PyStatic.NewInt(0));
+                row->SetField("claimedFor", PyStatic.NewInt(0));
             }
         }
     }
