@@ -1037,6 +1037,7 @@ void Client::DockToStation() {
     MoveToLocation(m_dockStationID, NULL_ORIGIN);
 
     SetSessionTimer();
+    SendSessionChange();
     m_ship->SetDocked();
 }
 
@@ -1064,6 +1065,7 @@ void Client::UndockFromStation() {
     SetInvulTimer(Player::Timer::UndockInvul);
     SetStateTimer(Player::State::Undock, Player::Timer::Undock);
     SetSessionTimer();
+    SendSessionChange();
 
     m_ship->SetUndocking(false);
 }

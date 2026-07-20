@@ -261,7 +261,7 @@ public:
     void SetLoginWarpComplete();
     void SetStateSent(bool set=false);
     void FlushPendingDestinyUpdates();
-    void SetSessionTimer()                              { m_sessionChangeActive = true; m_sessionTimer.Start(Player::Timer::Session); if (m_char) m_char->SetAttribute(259, int64(GetFileTimeNow() + 20LL * EvE::Time::Second), true); }
+    void SetSessionTimer()                              { m_sessionChangeActive = true; m_sessionTimer.Start(Player::Timer::Session); int64 t = GetFileTimeNow() + 20LL * EvE::Time::Second; if (m_char) m_char->SetAttribute(259, t, true); pSession->SetLong("nextSessionChange", t); }
     void SetSessionChange(bool set=false)               { m_sessionChangeActive = set; }
     void SetBallPark();
     void StargateJump(uint32 fromGate, uint32 toGate);
