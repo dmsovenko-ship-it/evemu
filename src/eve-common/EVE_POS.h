@@ -121,6 +121,7 @@ namespace EVEPOS {
         enum  {
             Incapacitated     = -1,
             Unanchored        = 0,
+            Anchoring         = -6,
             Anchored          = 1,
             Onlining          = 2,
             Reinforced        = 3,
