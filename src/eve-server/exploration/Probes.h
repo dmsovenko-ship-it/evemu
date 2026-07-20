@@ -46,7 +46,7 @@ protected:
     {
         if ((type.groupID() != EVEDB::invGroups::Scanner_Probe)
         and (type.groupID() != EVEDB::invGroups::Survey_Probe)
-        //and (type.groupID() != EVEDB::invGroups::Warp_Disruption_Probe)  this wont work here...
+        and (type.groupID() != EVEDB::invGroups::Warp_Disruption_Probe)
         and (type.groupID() != EVEDB::invGroups::Obsolete_Probes)) {
             _log(ITEM__ERROR, "Trying to load %s as Probe.", sDataMgr.GetCategoryName(type.categoryID()));
             if (sConfig.debug.StackTrace)
