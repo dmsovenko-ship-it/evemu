@@ -32,6 +32,7 @@ public:
     void ApplyConcordPenalty();
     void SetLimitedEngagement();
     void SendAggressionChange();
+    void UpdateSessionChangeTimer();
 
 protected:
     void SpawnConcordShips();

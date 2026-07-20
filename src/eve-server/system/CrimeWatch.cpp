@@ -127,6 +127,8 @@ void CrimeWatch::OnWeaponFired()
     int64 endTime = static_cast<int64>(GetFileTimeNow()) + 60LL * EvE::Time::Second;
     if (m_client->GetChar())
         m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(endTime), true);
+    // Sync session change timer so client shows the correct cooldown
+    UpdateSessionChangeTimer();
     // Send aggression notification to all clients in bubble
     SendAggressionChange();
 }
@@ -142,6 +144,7 @@ void CrimeWatch::OnLooting()
         m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(now + 60LL * EvE::Time::Second), true);
         m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(now + sConfig.crime.AggFlagTime * EvE::Time::Second), true);
     }
+    UpdateSessionChangeTimer();
     SendAggressionChange();
     // -0.2 security penalty (already applied in InventoryBound::Add)
 }
@@ -238,7 +241,8 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     if (m_client->GetChar()) {
         int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
         m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
-    }
+    // Sync session change timer so client shows the correct cooldown
+    UpdateSessionChangeTimer();
     SendAggressionChange();
 
     // Highsec: criminal act + CONCORD response + kill right grant
@@ -402,6 +406,22 @@ void CrimeWatch::ApplyConcordPenalty()
     shipSE->ApplyDamage(d);
 
     m_client->SendNotifyMsg("CONCORD has destroyed your ship.");
+}
+
+void CrimeWatch::UpdateSessionChangeTimer() {
+    int64 now = GetFileTimeNow();
+    int64 nextEnd = 0;
+    if (m_weaponTimer.Enabled())
+        nextEnd = std::max(nextEnd, now + (int64)m_weaponTimer.GetRemainingTime() * EvE::Time::Second / 1000);
+    if (m_aggressionTimer.Enabled())
+        nextEnd = std::max(nextEnd, now + (int64)m_aggressionTimer.GetRemainingTime() * EvE::Time::Second / 1000);
+    if (m_criminalTimer.Enabled())
+        nextEnd = std::max(nextEnd, now + (int64)m_criminalTimer.GetRemainingTime() * EvE::Time::Second / 1000);
+    if (nextEnd > 0) {
+        ClientSession* session = m_client->GetSession();
+        if (session != nullptr)
+            session->SetLong("nextSessionChange", nextEnd);
+    }
 }
 
 void CrimeWatch::SendAggressionChange() {
