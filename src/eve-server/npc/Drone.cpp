@@ -488,6 +488,10 @@ void DroneSE::Killed(Damage &damage) {
             AwardSecurityStatus(m_self, pClient->GetChar().get());  // this awards secStatusChange for npcs in empire space
     }
 
+    // Notify owner that drone is dead
+    m_activityState = Drone::Activity::Inactive;
+    StateChange();
+
     GPoint wreckPosition = m_destiny->GetPosition();
     if (wreckPosition.isNaN()) {
         sLog.Error("DroneSE::Killed()", "Wreck Position is NaN");
