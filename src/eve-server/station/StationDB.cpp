@@ -334,13 +334,13 @@ void StationDB::GetStationServiceAccessRule(uint32 stationID, uint32 serviceID, 
 
 void StationDB::GetStationDetails(uint32 stationID, DBQueryResult& res)
 {
-    sDatabase.RunQuery(res, "SELECT stationName, stationID, orbitID, description, "
-    "s.security as security, dockingCostPerVolume, officeRentalCost, reprocessingStationsTake, " 
-    "reprocessingHangarFlag, corporationID as ownerID, maxShipVolumeDockable, upgradeLevel "
+    sDatabase.RunQuery(res, "SELECT s.stationName, s.stationID, m.orbitID, s.description, "
+    "s.security as security, s.dockingCostPerVolume, s.officeRentalCost, s.reprocessingStationsTake, " 
+    "s.reprocessingHangarFlag, s.corporationID as ownerID, s.maxShipVolumeDockable, s.upgradeLevel "
     "FROM staStations s "
     "INNER JOIN mapDenormalize m ON s.stationID = m.itemID "
     "INNER JOIN staOperations USING (operationID) "
-    "WHERE stationID=%u", stationID);
+    "WHERE s.stationID=%u", stationID);
 }
 
 void StationDB::GetRentableItems(uint32 stationID, DBQueryResult& res)
