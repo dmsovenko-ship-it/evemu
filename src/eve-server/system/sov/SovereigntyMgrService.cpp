@@ -59,7 +59,8 @@ PyResult SovereigntyMgrService::GetSovOverview(PyCallArgs& call) {
         "  COALESCE(sov.claimTime, 0) as claimTime, "
         "  COALESCE(sov.claimStructureID, 0) as claimStructureID, "
         "  COALESCE(sov.hubID, 0) as hubID, "
-        "  COALESCE(sov.contested, 0) as contested "
+        "  COALESCE(sov.contested, 0) as contested, "
+        "  (SELECT COUNT(*) FROM staStations WHERE solarSystemID = s.solarSystemID) as stationCount "
         "FROM mapSolarSystems s "
         "LEFT JOIN mapSystemSovInfo sov ON s.solarSystemID = sov.solarSystemID "
         "ORDER BY s.solarSystemID");
@@ -92,7 +93,7 @@ PyResult SovereigntyMgrService::GetSovOverview(PyCallArgs& call) {
         pRow->SetField("claimStructureID", new PyInt(row.GetUInt(7)));
         pRow->SetField("hubID", new PyInt(row.GetUInt(8)));
         pRow->SetField("contested", new PyInt(row.GetUInt(9)));
-        pRow->SetField("stationCount", new PyInt(sDataMgr.GetStationCount(row.GetUInt(0))));
+        pRow->SetField("stationCount", new PyInt(row.GetUInt(10)));
         uint8 sovLevel = 0;
         if (claimTime > 0) {
             double daysSinceClaim = (now - (int64)claimTime) / (double)Win32Time_Day;
