@@ -676,6 +676,7 @@ PyDict* DeployableSE::MakeSlimItem() {
         slim->SetItemString("corpID",           IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",       IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
         slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
+        slim->SetItemString("flag",             new PyInt(flagNone));
         slim->SetItemString("posState",         new PyInt(m_posState));
         slim->SetItemString("posTimestamp",     PyStatic.NewInt(0));
         slim->SetItemString("posDelayTime",     new PyInt(m_anchorTime / 1000));
@@ -730,6 +731,8 @@ DeployableSE::DeployableSE(InventoryItemRef self, EVEServiceManager &services, S
     m_corpID = data.corporationID;
     m_ownerID = data.ownerID;
     m_posState = 0;         // starts as unanchored
+    m_anchorTime = m_self->GetAttribute(AttrAnchoringDelay).get_uint32();
+    if (m_anchorTime < 1000) m_anchorTime = 5000;
     m_warpScrambleTimer.Start(1000);
 }
 
