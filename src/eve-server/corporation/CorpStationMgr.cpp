@@ -693,51 +693,52 @@ PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call
     call.Dump(CORP__CALL_DUMP);
     uint32 stationID = call.client->GetLocationID();
 
+    DBerror err;
     if (stationName != nullptr && !stationName->IsNone()) {
         std::string name = stationName->AsString()->content();
-        sDatabase.RunQuery(DBerror(), "UPDATE staStations SET stationName = '%s' WHERE stationID = %u",
+        sDatabase.RunQuery(err, "UPDATE staStations SET stationName = '%s' WHERE stationID = %u",
                            name.c_str(), stationID);
     }
 
     if (dockingCostPerVolume != nullptr && !dockingCostPerVolume->IsNone()) {
         double cost = dockingCostPerVolume->AsFloat()->value();
-        sDatabase.RunQuery(DBerror(), "UPDATE staStations SET dockingCostPerVolume = %.2f WHERE stationID = %u",
+        sDatabase.RunQuery(err, "UPDATE staStations SET dockingCostPerVolume = %.2f WHERE stationID = %u",
                            cost, stationID);
     }
 
     if (officeRentalCost != nullptr && !officeRentalCost->IsNone()) {
         double cost = officeRentalCost->AsFloat()->value();
-        sDatabase.RunQuery(DBerror(), "UPDATE staStations SET officeRentalCost = %.2f WHERE stationID = %u",
+        sDatabase.RunQuery(err, "UPDATE staStations SET officeRentalCost = %.2f WHERE stationID = %u",
                            cost, stationID);
     }
 
     if (reprocessingStationsTake != nullptr && !reprocessingStationsTake->IsNone()) {
         double take = reprocessingStationsTake->AsFloat()->value();
-        sDatabase.RunQuery(DBerror(), "UPDATE staStations SET reprocessingStationsTake = %.4f WHERE stationID = %u",
+        sDatabase.RunQuery(err, "UPDATE staStations SET reprocessingStationsTake = %.4f WHERE stationID = %u",
                            take, stationID);
     }
 
     if (reprocessingHangarFlag != nullptr && !reprocessingHangarFlag->IsNone()) {
         int32 flag = reprocessingHangarFlag->AsInt()->value();
-        sDatabase.RunQuery(DBerror(), "UPDATE staStations SET reprocessingHangarFlag = %i WHERE stationID = %u",
+        sDatabase.RunQuery(err, "UPDATE staStations SET reprocessingHangarFlag = %i WHERE stationID = %u",
                            flag, stationID);
     }
 
     if (description != nullptr && !description->IsNone()) {
         std::string desc = description->AsString()->content();
-        sDatabase.RunQuery(DBerror(), "UPDATE staStations SET description = '%s' WHERE stationID = %u",
+        sDatabase.RunQuery(err, "UPDATE staStations SET description = '%s' WHERE stationID = %u",
                            desc.c_str(), stationID);
     }
 
     if (exitTime != nullptr && !exitTime->IsNone()) {
         int32 time = exitTime->AsInt()->value();
-        sDatabase.RunQuery(DBerror(), "UPDATE staStations SET exitTime = %i WHERE stationID = %u",
+        sDatabase.RunQuery(err, "UPDATE staStations SET exitTime = %i WHERE stationID = %u",
                            time, stationID);
     }
 
     if (standingOwnerID != nullptr && !standingOwnerID->IsNone()) {
         uint32 owner = standingOwnerID->AsInt()->value();
-        sDatabase.RunQuery(DBerror(), "UPDATE staStations SET standingOwnerID = %u WHERE stationID = %u",
+        sDatabase.RunQuery(err, "UPDATE staStations SET standingOwnerID = %u WHERE stationID = %u",
                            owner, stationID);
     }
 
@@ -754,7 +755,7 @@ PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call
                 while (ait != accessRules->end()) {
                     int32 accessGroup = ait->first->AsInt()->value();
                     int32 newValue = ait->second->AsInt()->value();
-                    sDatabase.RunQuery(DBerror(),
+                    sDatabase.RunQuery(err,
                         "REPLACE INTO staStationServiceAccessRules "
                         "(stationID, serviceID, accessGroup, newValue) "
                         "VALUES (%u, %u, %i, %i)",
@@ -773,7 +774,7 @@ PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call
         while (it != costs->end()) {
             int32 serviceID = it->first->AsInt()->value();
             int32 costMod = it->second->AsInt()->value();
-            sDatabase.RunQuery(DBerror(),
+            sDatabase.RunQuery(err,
                 "REPLACE INTO staStationServiceCostModifiers (stationID, serviceID, costModifier) "
                 "VALUES (%u, %i, %i)", stationID, serviceID, costMod);
             ++it;
@@ -783,12 +784,11 @@ PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call
     // Rentable items
     if (modifiedRentableItems != nullptr && modifiedRentableItems->IsList()) {
         PyList* items = modifiedRentableItems->AsList();
-        // Clear old entries first
-        sDatabase.RunQuery(DBerror(), "DELETE FROM staStationRentableItems WHERE stationID = %u", stationID);
+        sDatabase.RunQuery(err, "DELETE FROM staStationRentableItems WHERE stationID = %u", stationID);
         PyList::const_iterator it = items->begin();
         while (it != items->end()) {
             int32 typeID = (*it)->AsInt()->value();
-            sDatabase.RunQuery(DBerror(),
+            sDatabase.RunQuery(err,
                 "INSERT INTO staStationRentableItems (stationID, typeID) VALUES (%u, %i)",
                 stationID, typeID);
             ++it;
