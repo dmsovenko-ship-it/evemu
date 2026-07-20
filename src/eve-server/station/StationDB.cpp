@@ -56,9 +56,11 @@ PyRep* StationDB::GetOffices(uint32 stationID)
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT"
-        " corporationID, itemID, officeFolderID"
-        " FROM staOffices"
-        " WHERE stationID = %u", stationID)
+        " o.corporationID, o.itemID, o.officeFolderID, o.rentalFee, o.expiryDateTime,"
+        " COALESCE(c.corporationName, '') AS ownerName"
+        " FROM staOffices o"
+        " LEFT JOIN crpCorporation c ON o.corporationID = c.corporationID"
+        " WHERE o.stationID = %u", stationID)
     )
         codelog(DATABASE__ERROR, "Error in GetOffices query: %s", res.error.c_str());
 
