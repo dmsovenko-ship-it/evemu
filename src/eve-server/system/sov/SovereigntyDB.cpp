@@ -63,9 +63,9 @@ void SovereigntyDB::AddSovereigntyData(SovereigntyData data, uint32& claimID)
     if (!sDatabase.RunQueryLID(err, claimID,
                             "INSERT into mapSystemSovInfo (solarSystemID, corporationID, "
                             " allianceID, claimStructureID, claimTime, hubID, contested) "
-                            " VALUES (%u, %u, %u, %u, %f, %u, %u)", data.solarSystemID, 
-                            data.corporationID, data.allianceID, data.claimStructureID, 
-                            GetFileTimeNow(), data.hubID, data.contested))
+                             " VALUES (%u, %u, %u, %u, %f, %u, %u)", data.solarSystemID, 
+                             data.corporationID, data.allianceID, data.claimStructureID, 
+                             (double)GetFileTimeNow(), data.hubID, data.contested))
     {
         codelog(SOV__ERROR, "Error in adding new claim: %s", err.c_str());
     }
