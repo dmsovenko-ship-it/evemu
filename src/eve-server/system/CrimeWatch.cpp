@@ -411,9 +411,10 @@ void CrimeWatch::SendAggressionChange() {
     int64 now = GetFileTimeNow();
     int64 weaponEnd = m_weaponTimer.Enabled() ? now + m_weaponTimer.GetRemainingTime() * 10000LL : 0;
     int64 aggressionEnd = m_aggressionTimer.Enabled() ? now + m_aggressionTimer.GetRemainingTime() * 10000LL : 0;
+    // Only include real victim IDs, not sentinel values
     PyDict* timers = new PyDict();
-    if (weaponEnd > 0)
-        timers->SetItem(new PyInt(-1), new PyLong(weaponEnd));
+    if (aggressionEnd > 0 && m_aggressionTargetID > 0)
+        timers->SetItem(new PyInt(m_aggressionTargetID), new PyLong(aggressionEnd));
     if (timers->empty())
         return;
     PyDict* aggressors = new PyDict();
