@@ -63,7 +63,42 @@ PyResult SovereigntyMgrService::GetSovOverview(PyCallArgs& call) {
         "FROM mapSolarSystems s "
         "LEFT JOIN mapSystemSovInfo sov ON s.solarSystemID = sov.solarSystemID "
         "ORDER BY s.solarSystemID");
-    return DBResultToCRowset(res);
+    DBResultRow row;
+    DBRowDescriptor* header = new DBRowDescriptor();
+        header->AddColumn("solarSystemID", DBTYPE_I4);
+        header->AddColumn("constellationID", DBTYPE_I4);
+        header->AddColumn("regionID", DBTYPE_I4);
+        header->AddColumn("corporationID", DBTYPE_I4);
+        header->AddColumn("allianceID", DBTYPE_I4);
+        header->AddColumn("factionID", DBTYPE_I4);
+        header->AddColumn("claimTime", DBTYPE_R8);
+        header->AddColumn("claimStructureID", DBTYPE_I4);
+        header->AddColumn("hubID", DBTYPE_I4);
+        header->AddColumn("contested", DBTYPE_BOOL);
+        header->AddColumn("sovereigntyLevel", DBTYPE_I4);
+    CRowSet* rowset = new CRowSet(&header);
+    int64 now = GetFileTimeNow();
+    while (res.GetRow(row)) {
+        PyPackedRow* pRow = rowset->NewRow();
+        pRow->SetField("solarSystemID", new PyInt(row.GetUInt(0)));
+        pRow->SetField("constellationID", new PyInt(row.GetUInt(1)));
+        pRow->SetField("regionID", new PyInt(row.GetUInt(2)));
+        pRow->SetField("corporationID", new PyInt(row.GetUInt(3)));
+        pRow->SetField("allianceID", new PyInt(row.GetUInt(4)));
+        pRow->SetField("factionID", new PyInt(row.GetUInt(5)));
+        double claimTime = row.GetDouble(6);
+        pRow->SetField("claimTime", new PyFloat(claimTime));
+        pRow->SetField("claimStructureID", new PyInt(row.GetUInt(7)));
+        pRow->SetField("hubID", new PyInt(row.GetUInt(8)));
+        pRow->SetField("contested", new PyInt(row.GetUInt(9)));
+        uint8 sovLevel = 0;
+        if (claimTime > 0) {
+            double daysSinceClaim = (now - (int64)claimTime) / (double)Win32Time_Day;
+            sovLevel = std::min<uint8>(uint8(daysSinceClaim / 7), 5);
+        }
+        pRow->SetField("sovereigntyLevel", new PyInt(sovLevel));
+    }
+    return rowset;
 }
 
 PyResult SovereigntyMgrService::GetSystemUpgrades(PyCallArgs& call, PyInt* systemID) {
