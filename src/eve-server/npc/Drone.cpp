@@ -489,7 +489,8 @@ void DroneSE::Killed(Damage &damage) {
     }
 
     // Notify owner that drone is dead
-    m_activityState = Drone::Activity::Inactive;
+    if (m_AI != nullptr)
+        m_AI->SetIdle();
     StateChange();
 
     GPoint wreckPosition = m_destiny->GetPosition();
