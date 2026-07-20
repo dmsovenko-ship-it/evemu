@@ -105,6 +105,8 @@ void CrimeWatch::Process()
             m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(0), true);
     }
     if (m_limitedEngagementTimer.Enabled()) m_limitedEngagementTimer.Check();
+    // Keep session change timer in sync when timers expire
+    UpdateSessionChangeTimer();
 }
 
 void CrimeWatch::ClearConcordShips()
