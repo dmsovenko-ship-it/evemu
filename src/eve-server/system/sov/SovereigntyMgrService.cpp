@@ -74,8 +74,9 @@ PyResult SovereigntyMgrService::GetSovOverview(PyCallArgs& call) {
         header->AddColumn("claimTime", DBTYPE_R8);
         header->AddColumn("claimStructureID", DBTYPE_I4);
         header->AddColumn("hubID", DBTYPE_I4);
-        header->AddColumn("contested", DBTYPE_BOOL);
-        header->AddColumn("sovereigntyLevel", DBTYPE_I4);
+    header->AddColumn("contested", DBTYPE_BOOL);
+    header->AddColumn("sovereigntyLevel", DBTYPE_I4);
+    header->AddColumn("stationCount", DBTYPE_I2);
     CRowSet* rowset = new CRowSet(&header);
     int64 now = GetFileTimeNow();
     while (res.GetRow(row)) {
@@ -91,6 +92,7 @@ PyResult SovereigntyMgrService::GetSovOverview(PyCallArgs& call) {
         pRow->SetField("claimStructureID", new PyInt(row.GetUInt(7)));
         pRow->SetField("hubID", new PyInt(row.GetUInt(8)));
         pRow->SetField("contested", new PyInt(row.GetUInt(9)));
+        pRow->SetField("stationCount", new PyInt(sDataMgr.GetStationCount(row.GetUInt(0))));
         uint8 sovLevel = 0;
         if (claimTime > 0) {
             double daysSinceClaim = (now - (int64)claimTime) / (double)Win32Time_Day;
