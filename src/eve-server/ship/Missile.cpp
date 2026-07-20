@@ -234,7 +234,7 @@ void Missile::MakeDamageState(DoDestinyDamageState &into) {
 
 void Missile::HitTarget() {
     // Create Damage object:
-    if (m_targetSE == nullptr || m_targetSE->GetSelf() == nullptr)
+    if (m_targetSE == nullptr || m_targetSE->GetSelf().get() == nullptr)
         return;
     // verify target is still alive (may have been removed mid-flight)
     if (m_system->GetSE(m_targetSE->GetID()) == nullptr)
