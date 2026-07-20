@@ -589,7 +589,7 @@ public:
     PyDict*                     MakeSlimItem() override;
 
     /* deployable lifecycle */
-    void                    Anchor(Client* pClient, const GPoint& pos);
+    bool                    Anchor(Client* pClient, const GPoint& pos);
     void                    Unanchor(Client* pClient);
     void                    Online(Client* pClient);
     void                    Offline(Client* pClient);

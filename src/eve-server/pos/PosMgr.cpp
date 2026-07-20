@@ -626,7 +626,7 @@ PyResult PosMgrBound::AnchorStructure(PyCallArgs &call, PyInt* structureID, PyTu
             return PyStatic.NewNone();
         }
         pDSE->Anchor(call.client, pos);
-        return PyStatic.NewNone();
+        return this->GetOID();
     }
 
     StructureSE* pTSE = pEntity->GetPOSSE();
