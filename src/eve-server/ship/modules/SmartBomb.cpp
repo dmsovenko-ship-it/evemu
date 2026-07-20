@@ -36,7 +36,7 @@ uint32 SmartBomb::DoCycle()
     if (pBubble == nullptr)
         return cycleTime;
 
-    m_destinyMgr->SendSpecialEffect(pShipSE->GetID(), pShipSE->GetID(), m_modRef->typeID(),
+    m_destinyMgr->SendSpecialEffect(m_shipRef->itemID(), m_modRef->itemID(), m_modRef->typeID(),
                                     0, 0, "effects.SmartBomb", true, true, true, cycleTime, 0);
 
 
