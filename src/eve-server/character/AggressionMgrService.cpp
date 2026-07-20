@@ -47,8 +47,7 @@ PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* char
     if (pCW == nullptr)
         return new PyDict();
 
-    // Build { aggressorID: { victimID: timestamp, ... } } for the client's timer display
-    PyDict* result = new PyDict();
+    // Build { victimID: timestamp } for the client's timer display
     PyDict* timers = new PyDict();
     int64 now = GetFileTimeNow();
 
@@ -64,10 +63,8 @@ PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* char
         timers->SetItem(new PyInt(-2), new PyLong(now + remaining));
     }
 
-    if (timers->size() > 0)
-        result->SetItem(new PyInt(characterID->value()), timers);
-
-    return result;
+    // Client expects {victimID: timestamp} — the caller wraps in {charID: ...}
+    return timers;
 }
 
 PyResult AggressionMgrBound::CheckLootRightExceptions(PyCallArgs &call, PyInt* containerID)
