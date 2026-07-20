@@ -55,12 +55,13 @@ PyResult SovereigntyMgrService::GetSovOverview(PyCallArgs& call) {
         "SELECT s.solarSystemID, s.constellationID, s.regionID, "
         "  COALESCE(sov.corporationID, 0) as corporationID, "
         "  COALESCE(sov.allianceID, 0) as allianceID, "
-        "  COALESCE(sov.factionID, 0) as factionID, "
-        "  COALESCE(sov.sovereigntyLevel, 0) as sovereigntyLevel, "
+        "  COALESCE(s.factionID, 0) as factionID, "
         "  COALESCE(sov.claimTime, 0) as claimTime, "
-        "  COALESCE(sov.claimDate, '') as claimDate "
+        "  COALESCE(sov.claimStructureID, 0) as claimStructureID, "
+        "  COALESCE(sov.hubID, 0) as hubID, "
+        "  COALESCE(sov.contested, 0) as contested "
         "FROM mapSolarSystems s "
-        "LEFT JOIN mapSystemSovereigntyInfo sov ON s.solarSystemID = sov.solarSystemID "
+        "LEFT JOIN mapSystemSovInfo sov ON s.solarSystemID = sov.solarSystemID "
         "ORDER BY s.solarSystemID");
     return DBResultToCRowset(res);
 }
