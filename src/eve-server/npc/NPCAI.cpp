@@ -372,6 +372,19 @@ void NPCAIMgr::Process() {
                     Target(cur->GetShipSE());
                     return;
                 }
+                // Target player drones in the bubble
+                std::map<uint32, SystemEntity*> entities;
+                m_npc->SysBubble()->GetAllEntities(entities);
+                for (auto& [id, pEnt] : entities) {
+                    if (pEnt == nullptr || !pEnt->IsDroneSE())
+                        continue;
+                    if (pEnt->DestinyMgr() == nullptr || pEnt->DestinyMgr()->IsWarping())
+                        continue;
+                    if (m_npc->GetPosition().distance(pEnt->GetPosition()) > m_sightRange)
+                        continue;
+                    Target(pEnt);
+                    return;
+                }
                 if (sConfig.npc.IdleWander)
                     if (!m_isWandering)
                         SetWander();
