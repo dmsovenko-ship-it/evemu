@@ -124,10 +124,11 @@ void CrimeWatch::OnWeaponFired()
     // EVE: weapon timer = 60 seconds after ANY weapon use (NPC or player)
     // Prevents docking and jumping during this time
     m_weaponTimer.Start(60000);
-    if (m_client->GetChar()) {
-        int64 endTime = static_cast<int64>(GetFileTimeNow()) + 60LL * EvE::Time::Second;
+    int64 endTime = static_cast<int64>(GetFileTimeNow()) + 60LL * EvE::Time::Second;
+    if (m_client->GetChar())
         m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(endTime), true);
-    }
+    // Send aggression notification to all clients in bubble
+    SendAggressionChange();
 }
 
 void CrimeWatch::OnLooting()
@@ -141,6 +142,7 @@ void CrimeWatch::OnLooting()
         m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(now + 60LL * EvE::Time::Second), true);
         m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(now + sConfig.crime.AggFlagTime * EvE::Time::Second), true);
     }
+    SendAggressionChange();
     // -0.2 security penalty (already applied in InventoryBound::Add)
 }
 
@@ -236,6 +238,7 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
         int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
         m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
     }
+    SendAggressionChange();
 
     // Highsec: criminal act + CONCORD response + kill right grant
     if (systemSecRating >= 0.5f) {
@@ -398,6 +401,26 @@ void CrimeWatch::ApplyConcordPenalty()
     shipSE->ApplyDamage(d);
 
     m_client->SendNotifyMsg("CONCORD has destroyed your ship.");
+}
+
+void CrimeWatch::SendAggressionChange() {
+    SystemEntity* pSE = m_client->GetShipSE();
+    if (pSE == nullptr || pSE->SysBubble() == nullptr)
+        return;
+    int64 now = GetFileTimeNow();
+    int64 weaponEnd = m_weaponTimer.Enabled() ? now + m_weaponTimer.GetRemainingTime() * 10000LL : 0;
+    int64 aggressionEnd = m_aggressionTimer.Enabled() ? now + m_aggressionTimer.GetRemainingTime() * 10000LL : 0;
+    PyDict* timers = new PyDict();
+    if (weaponEnd > 0)
+        timers->SetItem(new PyInt(-1), new PyLong(weaponEnd));
+    if (timers->empty())
+        return;
+    PyDict* aggressors = new PyDict();
+    aggressors->SetItem(new PyInt(m_client->GetCharacterID()), timers);
+    PyTuple* payload = new PyTuple(2);
+        payload->SetItem(0, new PyInt(m_client->GetSystemID()));
+        payload->SetItem(1, aggressors);
+    pSE->SysBubble()->BubblecastSendNotification("OnAggressionChange", "solarsystemid", &payload, true);
 }
 
 void CrimeWatch::SetLimitedEngagement()

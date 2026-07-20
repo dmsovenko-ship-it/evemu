@@ -30,6 +30,7 @@ public:
     void OnLooting();
     void ApplyConcordPenalty();
     void SetLimitedEngagement();
+    void SendAggressionChange();
 
 protected:
     void SpawnConcordShips();
