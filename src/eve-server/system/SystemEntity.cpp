@@ -614,26 +614,11 @@ void DeployableSE::EncodeDestiny(Buffer& into)
         head.posY = y();
         head.posZ = z();
     if (!m_anchored) {
-        // Free-floating deployable — STOP mode with IsFree so client offers Anchor/Scoop
-        head.mode = Ball::Mode::STOP;
-        head.flags = Ball::Flag::IsFree | Ball::Flag::IsMassive;
+        // Unanchored deployable — RIGID mode (like POS structures) for proper client UI
+        head.mode = Ball::Mode::RIGID;
+        head.flags = Ball::Flag::IsMassive;
         into.Append(head);
-        MassSector mass = MassSector();
-            mass.cloak = 0;
-            mass.corporationID = m_corpID;
-            mass.allianceID = (IsAlliance(m_allyID) ? m_allyID : -1);
-            mass.harmonic = 0;
-            mass.mass = m_self->type().mass();
-        into.Append(mass);
-        DataSector data = DataSector();
-            data.inertia = 1;
-            data.velX = 0;
-            data.velY = 0;
-            data.velZ = 0;
-            data.maxSpeed = 0;
-            data.speedfraction = 0;
-        into.Append(data);
-        STOP_Struct main;
+        RIGID_Struct main;
             main.formationID = 0xFF;
         into.Append(main);
     } else {
