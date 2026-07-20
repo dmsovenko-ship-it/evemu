@@ -234,6 +234,11 @@ void Missile::MakeDamageState(DoDestinyDamageState &into) {
 
 void Missile::HitTarget() {
     // Create Damage object:
+    if (m_targetSE == nullptr || m_targetSE->GetSelf() == nullptr)
+        return;
+    // verify target is still alive (may have been removed mid-flight)
+    if (m_system->GetSE(m_targetSE->GetID()) == nullptr)
+        return;
     Damage d(m_fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
 
     /*  this is damage formula for missiles
@@ -249,6 +254,8 @@ void Missile::HitTarget() {
      * MIN being a function that chooses the lower of the given vaules,
      * ln is natural logarithm.
      */
+    if (m_targetSE == nullptr)
+        return;
     double Sr = m_targetSE->GetSelf()->GetAttribute(AttrSignatureRadius).get_float();    // this is a default number, based on itemtype
     double Er = m_self->GetAttribute(AttrAoeCloudSize).get_float(); // Explosion Radius
     double Ev = m_self->GetAttribute(AttrAoeVelocity).get_float(); // Explosion Velocity
