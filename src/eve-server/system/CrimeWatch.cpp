@@ -243,6 +243,7 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     if (m_client->GetChar()) {
         int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
         m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
+    }
     // Sync session change timer so client shows the correct cooldown
     UpdateSessionChangeTimer();
     SendAggressionChange();
