@@ -334,7 +334,8 @@ void StationDB::GetStationServiceAccessRule(uint32 stationID, uint32 serviceID, 
 
 void StationDB::GetStationDetails(uint32 stationID, DBQueryResult& res)
 {
-    sDatabase.RunQuery(res, "SELECT s.stationName, s.stationID, m.orbitID, s.description, "
+    sDatabase.RunQuery(res, "SELECT s.stationName, s.stationID, m.orbitID, "
+    "COALESCE(s.description, '') as description, "
     "s.security as security, s.dockingCostPerVolume, s.officeRentalCost, s.reprocessingStationsTake, " 
     "s.reprocessingHangarFlag, s.corporationID as ownerID, s.maxShipVolumeDockable, s.upgradeLevel "
     "FROM staStations s "

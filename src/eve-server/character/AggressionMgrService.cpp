@@ -47,11 +47,20 @@ PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* char
     if (pCW == nullptr)
         return new PyDict();
 
-    // Build { victimID: timestamp } for the client's timer display.
-    // Only include real victim IDs, not sentinel values.
-    // Weapon/criminal timers are tracked server-side via session/attributes.
+    // Build { ownerID: timestamp } for the client's timer display.
+    // Use real character IDs as keys so client can resolve them in cfg.eveowners.
+    // Weapon timer key = attacker's own charID (shows as self-timer for PvE).
+    // Aggression timer key = victim's charID (shows as aggression against that pilot).
     PyDict* timers = new PyDict();
     int64 now = GetFileTimeNow();
+
+    if (pCW->HasWeaponTimer()) {
+        uint32 remaining = pCW->GetWeaponTimerRemaining();
+        if (remaining > 0) {
+            int64 endTime = now + (int64)remaining * 10000LL;
+            timers->SetItem(new PyInt(pClient->GetCharacterID()), new PyLong(endTime));
+        }
+    }
 
     if (pCW->IsAggressed() && pCW->GetAggressionTargetID() > 0) {
         int64 remaining = (int64)pCW->GetAggressionTimerRemaining() * 10000LL;

@@ -366,10 +366,11 @@ PyRep *FactoryDB::AssemblyLinesSelectCorporation(const uint32 corpID) {
         " entity.ownerID,"
         " COALESCE(rd.activityID, 0) AS activityID"
         " FROM entity"
+        " INNER JOIN invTypes ON entity.typeID = invTypes.typeID"
         " LEFT JOIN mapDenormalize AS sol ON sol.itemID = entity.locationID"
-        " LEFT JOIN ramAssemblyLineTypeDetailPerGroup AS rd ON rd.groupID = entity.groupID"
+        " LEFT JOIN ramAssemblyLineTypeDetailPerGroup AS rd ON rd.groupID = invTypes.groupID"
         " WHERE entity.ownerID = %u"
-        "  AND entity.groupID IN (397, 413, 438, 661, 662)"
+        "  AND invTypes.groupID IN (397, 413, 438, 661, 662)"
         "  AND entity.flag = 11",  // flagAnchored
         corpID))
     {
@@ -450,11 +451,12 @@ PyRep *FactoryDB::AssemblyLinesSelectAlliance(const int32 allianceID) {
         " entity.ownerID,"
         " COALESCE(rd.activityID, 0) AS activityID"
         " FROM entity"
+        " INNER JOIN invTypes ON entity.typeID = invTypes.typeID"
         " INNER JOIN crpCorporation AS crp ON entity.ownerID = crp.corporationID"
         " LEFT JOIN mapDenormalize AS sol ON sol.itemID = entity.locationID"
-        " LEFT JOIN ramAssemblyLineTypeDetailPerGroup AS rd ON rd.groupID = entity.groupID"
+        " LEFT JOIN ramAssemblyLineTypeDetailPerGroup AS rd ON rd.groupID = invTypes.groupID"
         " WHERE crp.allianceID = %u"
-        "  AND entity.groupID IN (397, 413, 438, 661, 662)"
+        "  AND invTypes.groupID IN (397, 413, 438, 661, 662)"
         "  AND entity.flag = 11",
         allianceID))
     {
@@ -934,9 +936,10 @@ bool FactoryDB::EnsurePOSAssemblyLines(const uint32 containerID)
 {
     DBQueryResult entRes;
     if (!sDatabase.RunQuery(entRes,
-        "SELECT entity.ownerID, entity.groupID FROM entity"
+        "SELECT entity.ownerID, invTypes.groupID FROM entity"
+        " INNER JOIN invTypes ON entity.typeID = invTypes.typeID"
         " WHERE entity.itemID = %u"
-        "  AND entity.groupID IN (397, 413, 438, 661, 662)",
+        "  AND invTypes.groupID IN (397, 413, 438, 661, 662)",
         containerID))
     {
         return false;
