@@ -694,50 +694,52 @@ PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call
     uint32 stationID = call.client->GetLocationID();
 
     DBerror err;
-    if (stationName != nullptr && !stationName->IsNone()) {
-        std::string name = stationName->AsString()->content();
+    std::string name = PyRep::StringContent(stationName);
+    if (!name.empty()) {
         sDatabase.RunQuery(err, "UPDATE staStations SET stationName = '%s' WHERE stationID = %u",
                            name.c_str(), stationID);
     }
 
-    if (dockingCostPerVolume != nullptr && !dockingCostPerVolume->IsNone()) {
-        double cost = dockingCostPerVolume->AsFloat()->value();
+    double dCost = PyRep::FloatValue(dockingCostPerVolume);
+    if (dCost != 0.0 && dockingCostPerVolume != nullptr && !dockingCostPerVolume->IsNone()) {
         sDatabase.RunQuery(err, "UPDATE staStations SET dockingCostPerVolume = %.2f WHERE stationID = %u",
-                           cost, stationID);
+                           dCost, stationID);
     }
 
-    if (officeRentalCost != nullptr && !officeRentalCost->IsNone()) {
-        double cost = officeRentalCost->AsFloat()->value();
+    double oCost = PyRep::FloatValue(officeRentalCost);
+    if (oCost != 0.0 && officeRentalCost != nullptr && !officeRentalCost->IsNone()) {
         sDatabase.RunQuery(err, "UPDATE staStations SET officeRentalCost = %.2f WHERE stationID = %u",
-                           cost, stationID);
+                           oCost, stationID);
     }
 
-    if (reprocessingStationsTake != nullptr && !reprocessingStationsTake->IsNone()) {
-        double take = reprocessingStationsTake->AsFloat()->value();
+    double rTake = PyRep::FloatValue(reprocessingStationsTake);
+    if (rTake != 0.0 && reprocessingStationsTake != nullptr && !reprocessingStationsTake->IsNone()) {
         sDatabase.RunQuery(err, "UPDATE staStations SET reprocessingStationsTake = %.4f WHERE stationID = %u",
-                           take, stationID);
+                           rTake, stationID);
     }
 
     if (reprocessingHangarFlag != nullptr && !reprocessingHangarFlag->IsNone()) {
-        int32 flag = reprocessingHangarFlag->AsInt()->value();
+        int64 flag = PyRep::IntegerValue(reprocessingHangarFlag);
         sDatabase.RunQuery(err, "UPDATE staStations SET reprocessingHangarFlag = %i WHERE stationID = %u",
                            flag, stationID);
     }
 
     if (description != nullptr && !description->IsNone()) {
-        std::string desc = description->AsString()->content();
-        sDatabase.RunQuery(err, "UPDATE staStations SET description = '%s' WHERE stationID = %u",
-                           desc.c_str(), stationID);
+        std::string desc = PyRep::StringContent(description);
+        if (!desc.empty()) {
+            sDatabase.RunQuery(err, "UPDATE staStations SET description = '%s' WHERE stationID = %u",
+                               desc.c_str(), stationID);
+        }
     }
 
     if (exitTime != nullptr && !exitTime->IsNone()) {
-        int32 time = exitTime->AsInt()->value();
+        int64 time = PyRep::IntegerValue(exitTime);
         sDatabase.RunQuery(err, "UPDATE staStations SET exitTime = %i WHERE stationID = %u",
                            time, stationID);
     }
 
     if (standingOwnerID != nullptr && !standingOwnerID->IsNone()) {
-        uint32 owner = standingOwnerID->AsInt()->value();
+        uint32 owner = PyRep::IntegerValueU32(standingOwnerID);
         sDatabase.RunQuery(err, "UPDATE staStations SET standingOwnerID = %u WHERE stationID = %u",
                            owner, stationID);
     }
