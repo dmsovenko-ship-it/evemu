@@ -764,9 +764,12 @@ void DeployableSE::Unanchor(Client* pClient)
     uint32 unanchorTime = m_self->GetAttribute(AttrUnanchoringDelay).get_uint32();
     if (unanchorTime < 1000) unanchorTime = 5000;
     m_anchorTimer.Start(unanchorTime);
-    m_anchoring = true;  // re-use anchoring flag — when timer fires, set anchored=false
+    m_anchoring = false;
     m_unanchoring = true;
-    m_posState = 0; // Unanchored
+    m_posState = EVEPOS::EntityState::Unanchoring;
+    m_posTime = GetFileTimeNow();
+    m_anchorTime = unanchorTime;
+    SendSlimUpdate();
 
     m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorLift", 0, 1, 1, -1, 0);
 }
@@ -801,7 +804,7 @@ void DeployableSE::Process()
         m_unanchoring = false;
         m_anchored = false;
         m_onlined = false;
-        m_posState = 0; // Unanchored
+        m_posState = EVEPOS::EntityState::Unanchored;
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete, waiting to be scooped", m_self->name(), m_self->itemID());
         SendSlimUpdate();
         m_self->SetFlag(flagNone, true);
