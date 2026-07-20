@@ -19,6 +19,7 @@ public:
     uint32 GetWeaponTimerRemaining()  const { return m_weaponTimer.GetRemainingTime(); }
     uint32 GetCriminalTimerRemaining() const { return m_criminalTimer.GetRemainingTime(); }
     uint32 GetAggressionTimerRemaining() const { return m_aggressionTimer.GetRemainingTime(); }
+    uint32 GetAggressionTargetID()   const { return m_aggressionTargetID; }
     bool IsOutlaw()         const;
     bool IsLimitedEngagement() const { return m_limitedEngagementTimer.Enabled(); }
     bool CanDock()          const { return !m_aggressionTimer.Enabled() && !m_weaponTimer.Enabled() && !IsOutlaw(); }
@@ -39,6 +40,7 @@ protected:
 
 private:
     Client* m_client;
+    uint32 m_aggressionTargetID {0};
     Timer m_aggressionTimer;
     Timer m_criminalTimer;
     Timer m_weaponTimer;

@@ -233,6 +233,7 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     }
 
     // EVE: aggression timer = 15 minutes after PvP aggression
+    m_aggressionTargetID = victimID;
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
     if (m_client->GetChar()) {
         int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;

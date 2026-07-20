@@ -47,23 +47,17 @@ PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* char
     if (pCW == nullptr)
         return new PyDict();
 
-    // Build { victimID: timestamp } for the client's timer display
+    // Build { victimID: timestamp } for the client's timer display.
+    // Only include real victim IDs, not sentinel values.
+    // Weapon/criminal timers are tracked server-side via session/attributes.
     PyDict* timers = new PyDict();
     int64 now = GetFileTimeNow();
 
-    // Weapon timer — set victimID = -1 (global weapon timer)
-    if (pCW->HasWeaponTimer()) {
-        int64 remaining = (int64)pCW->GetWeaponTimerRemaining() * 10000LL;  // ms → 100ns
-        timers->SetItem(new PyInt(-1), new PyLong(now + remaining));
+    if (pCW->IsAggressed() && pCW->GetAggressionTargetID() > 0) {
+        int64 remaining = (int64)pCW->GetAggressionTimerRemaining() * 10000LL;
+        timers->SetItem(new PyInt(pCW->GetAggressionTargetID()), new PyLong(now + remaining));
     }
 
-    // Criminal timer — set victimID = -2 (criminal flag)
-    if (pCW->IsCriminal()) {
-        int64 remaining = (int64)pCW->GetCriminalTimerRemaining() * 10000LL;
-        timers->SetItem(new PyInt(-2), new PyLong(now + remaining));
-    }
-
-    // Client expects {victimID: timestamp} — the caller wraps in {charID: ...}
     return timers;
 }
 
