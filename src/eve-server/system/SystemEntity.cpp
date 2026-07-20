@@ -767,7 +767,6 @@ void DeployableSE::Unanchor(Client* pClient)
     m_anchoring = false;
     m_unanchoring = true;
     m_posState = EVEPOS::EntityState::Unanchoring;
-    m_posTime = GetFileTimeNow();
     m_anchorTime = unanchorTime;
     SendSlimUpdate();
 
