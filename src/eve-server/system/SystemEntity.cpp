@@ -633,6 +633,9 @@ void DeployableSE::EncodeDestiny(Buffer& into)
             data.maxSpeed = 0;
             data.speedfraction = 0;
         into.Append(data);
+        STOP_Struct main;
+            main.formationID = 0xFF;
+        into.Append(main);
     } else {
         // Anchored deployable — RIGID mode
         head.mode = Ball::Mode::RIGID;
