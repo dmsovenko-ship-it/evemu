@@ -937,7 +937,9 @@ PyResult InventoryBound::Build(PyCallArgs &call) {
     FactoryDB::GetOutpostMaterialCompositionOfItemType(stationType, res);
     std::vector<InventoryItemRef> platformItems;
 
-    m_self->GetMyInventory()->GetItemsByFlag(flagNone, platformItems);
+    Inventory* pInv = m_self->GetMyInventory();
+    if (pInv != nullptr)
+        pInv->GetItemsByFlag(flagNone, platformItems);
 
     while (res.GetRow(row)) {
         uint32 requiredType = row.GetUInt(0);
