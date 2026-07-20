@@ -68,7 +68,7 @@ uint32 SmartBomb::DoCycle()
     for (auto& [id, pTargetSE] : allEntities) {
         if (pTargetSE == nullptr || pTargetSE == pShipSE)
             continue;
-        if (!pTargetSE->IsNPCSE() && !pTargetSE->IsSentrySE())
+        if (!pTargetSE->IsNPCSE() && !pTargetSE->IsSentrySE() && !pTargetSE->IsDroneSE())
             continue;
         float dist = myPos.distance(pTargetSE->GetPosition());
         if (dist > range) continue;
