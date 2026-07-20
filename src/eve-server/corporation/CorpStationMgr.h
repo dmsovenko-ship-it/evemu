@@ -84,6 +84,10 @@ protected:
     PyResult GetRentableItems(PyCallArgs& call);
     PyResult GetOwnerIDsOfClonesAtStation(PyCallArgs& call, PyInt* corporationID);
     PyResult GetStationImprovements(PyCallArgs& call);
+    PyResult UpdateStationManagementSettings(PyCallArgs& call, PyRep* modifiedServiceAccessRulesByServiceID,
+        PyRep* modifiedServiceCostModifiers, PyRep* modifiedRentableItems, PyRep* stationName, PyRep* description,
+        PyRep* dockingCostPerVolume, PyRep* officeRentalCost, PyRep* reprocessingStationsTake,
+        PyRep* reprocessingHangarFlag, PyRep* exitTime, PyRep* standingOwnerID);
 
 protected:
     const uint32 GetStationID() const { return this->m_stationID; }

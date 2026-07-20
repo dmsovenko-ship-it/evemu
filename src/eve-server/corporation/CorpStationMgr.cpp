@@ -171,6 +171,7 @@ CorpStationMgrIMBound::CorpStationMgrIMBound(EVEServiceManager& mgr, CorpStation
     this->Add("PayForReturnOfCorpJunk", &CorpStationMgrIMBound::PayForReturnOfCorpJunk);
     this->Add("GetStationServiceIdentifiers", &CorpStationMgrIMBound::GetStationServiceIdentifiers);
     this->Add("GetStationDetails", &CorpStationMgrIMBound::GetStationDetails);
+    this->Add("UpdateStationManagementSettings", &CorpStationMgrIMBound::UpdateStationManagementSettings);
     this->Add("GetStationServiceAccessRule", &CorpStationMgrIMBound::GetStationServiceAccessRule);
     this->Add("GetStationManagementServiceCostModifiers", &CorpStationMgrIMBound::GetStationManagementServiceCostModifiers);
     this->Add("GetRentableItems", &CorpStationMgrIMBound::GetRentableItems);
@@ -680,4 +681,24 @@ PyResult CorpStationMgrIMBound::GetStationImprovements(PyCallArgs &call)
     dict->SetItemString("improvementTier1cTypeID", imp[5]);
 
     return new PyObject("util.KeyVal", dict);
+}
+
+PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call,
+    PyRep* modifiedServiceAccessRulesByServiceID, PyRep* modifiedServiceCostModifiers,
+    PyRep* modifiedRentableItems, PyRep* stationName, PyRep* description,
+    PyRep* dockingCostPerVolume, PyRep* officeRentalCost, PyRep* reprocessingStationsTake,
+    PyRep* reprocessingHangarFlag, PyRep* exitTime, PyRep* standingOwnerID)
+{
+    _log(CORP__CALL, "CorpStationMgrIMBound::Handle_UpdateStationManagementSettings()");
+    call.Dump(CORP__CALL_DUMP);
+
+    if (stationName != nullptr && !stationName->IsNone()) {
+        std::string name = stationName->AsString()->content();
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE staStations SET stationName = '%s' WHERE stationID = %u",
+                           name.c_str(), call.client->GetLocationID());
+        call.client->SendNotifyMsg("Station renamed to '%s'.", name.c_str());
+    }
+
+    return PyStatic.NewNone();
 }
