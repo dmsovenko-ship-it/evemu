@@ -477,6 +477,16 @@ void StructureSE::Process()
     /*  Enable base call to Process Targeting and Movement  */
     SystemEntity::Process();
 
+    // Anchor timer (construction platforms)
+    if (m_anchoring && m_anchorTimer.Check(false)) {
+        m_anchorTimer.Disable();
+        m_anchoring = false;
+        m_data.state = EVEPOS::StructureState::Anchored;
+        // Calculate anchor end position from the original position
+        _log(POS__MESSAGE, "%s(%u): Anchor complete.", m_self->name(), m_self->itemID());
+        SendSlimUpdate();
+    }
+
     if (m_procTimer.Check(false))
     {
         m_procTimer.Disable();
@@ -621,25 +631,22 @@ void StructureSE::Drop(SystemBubble *pBubble)
  */
 void StructureSE::SetAnchor(Client *pClient, GPoint &pos)
 {
-    if (m_data.state > EVEPOS::StructureState::Unanchored)
-    {
+    if (m_data.state > EVEPOS::StructureState::Unanchored) {
         pClient->SendErrorMsg("The %s is already anchored", m_self->name());
-        return; // make error here?
+        return;
     }
 
-    /* returns SetBallPosition for towers.
-     *    ct will anchor in the middle of the grid that you warp-in to....supposed to, but i dont know how yet.
-     */
-
-    /** @todo  check for other modules changing state...only allow one at a time */
-
-    /* @todo set min/max anchor distances....this will need more work...
-    uint32 anchorMin(m_self->GetAttribute(AttrAnchorDistanceMin).get_uint32());
-    uint32 anchorMax(m_self->GetAttribute(AttrAnchorDistanceMax).get_uint32());
-    */
-
-    // this is incomplete.  there may be client error msgs (havent looked or found)
-    // these errors should throw instead of return.
+    // Check for anchor delay (construction platforms, etc.)
+    EvilNumber anchorDelay;
+    if (m_self->HasAttribute(AttrAnchoringDelay, anchorDelay) && anchorDelay.get_uint32() > 0) {
+        uint32 delay = anchorDelay.get_uint32();
+        m_anchorTimer.Start(delay);
+        m_anchoring = true;
+        m_data.state = EVEPOS::StructureState::Anchoring;
+        m_self->SetPosition(pos);
+        _log(POS__MESSAGE, "%s(%u): Anchoring will complete in %ums", m_self->name(), m_self->itemID(), delay);
+        return;
+    }
 
     // Check for required sovereignty upgrades for certain structures
     if ((m_generator) or (m_jammer) or (m_bridge)) {

@@ -235,6 +235,8 @@ private:
     uint32 m_duration;              // module duration in ms
 
     Timer m_procTimer;              // module state timer
+    Timer m_anchorTimer;            // anchor delay timer
+    bool  m_anchoring = false;      // anchor in progress
 
     bool m_tcu :1;              // Territorial Claim Unit
     bool m_sbu :1;              // System Blockade Unit
