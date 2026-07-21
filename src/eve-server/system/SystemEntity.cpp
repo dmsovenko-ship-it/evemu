@@ -804,6 +804,9 @@ void DeployableSE::Process()
         m_anchored = false;
         m_onlined = false;
         m_posState = EVEPOS::EntityState::Unanchored;
+        // Clear warp bubble flag when unanchored
+        if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr)
+            SysBubble()->SetWarpBubble(false);
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete, waiting to be scooped", m_self->name(), m_self->itemID());
         SendSlimUpdate();
         m_self->SetFlag(flagNone, true);
@@ -821,15 +824,25 @@ void DeployableSE::Process()
         m_onlined = true;
         m_posState = 4; // Online
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — online complete", m_self->name(), m_self->itemID());
+        // Mark bubble for warp disruption when online
+        if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr)
+            SysBubble()->SetWarpBubble(true);
         SendSlimUpdate();
     }
 
     // Warp scramble only when online
-    if (!m_onlined)
+    if (!m_onlined) {
+        // Clear warp bubble flag when going offline (unanchoring already handled above)
+        if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr)
+            SysBubble()->SetWarpBubble(false);
         return;
-    if (!m_warpScrambleTimer.Check(false))
-        return;
+    }
     if (m_self->groupID() != EVEDB::invGroups::Mobile_Warp_Disruptor)
+        return;
+    // Ensure warp bubble flag is set for online deployables (e.g. loaded from DB)
+    if (SysBubble() != nullptr && !SysBubble()->HasWarpBubble())
+        SysBubble()->SetWarpBubble(true);
+    if (!m_warpScrambleTimer.Check(false))
         return;
     if (SysBubble() == nullptr)
         return;
