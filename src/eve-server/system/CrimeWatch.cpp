@@ -450,20 +450,14 @@ void CrimeWatch::SendAggressionChange() {
     int64 now = GetFileTimeNow();
     int64 weaponEnd = m_weaponTimer.Enabled() ? now + m_weaponTimer.GetRemainingTime() * 10000LL : 0;
     int64 aggressionEnd = m_aggressionTimer.Enabled() ? now + m_aggressionTimer.GetRemainingTime() * 10000LL : 0;
-    // Client's Michelle expects inner dict VALUES to be iterable (dicts).
-    // Outer dict key = attacker's real charID for GetAggressionState lookup.
-    // Inner dict: sentinel keys for OnAggressionChange handler + real charID key for GetAggressionState.
-    // -1 = weapon timer (attacker's own ID, prevents docking/jumping)
-    // -2 = aggression timer (PvP flag against victim)
+    // Only use real charID keys (no sentinels). Outer dict = attackerID,
+    // inner dict maps victimID to endTime. Client's GetAggressionState
+    // does aggressors.get(attackerID).get(victimID) to find the timer.
     PyDict* timers = new PyDict();
-    if (weaponEnd > 0) {
-        timers->SetItem(new PyInt(-1), new PyLong(weaponEnd));
+    if (weaponEnd > 0)
         timers->SetItem(new PyInt(m_client->GetCharacterID()), new PyLong(weaponEnd));
-    }
-    if (aggressionEnd > 0 && m_aggressionTargetID > 0) {
-        timers->SetItem(new PyInt(-2), new PyLong(aggressionEnd));
+    if (aggressionEnd > 0 && m_aggressionTargetID > 0)
         timers->SetItem(new PyInt(m_aggressionTargetID), new PyLong(aggressionEnd));
-    }
     if (timers->empty())
         return;
     PyDict* aggressors = new PyDict();

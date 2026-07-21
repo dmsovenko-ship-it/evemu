@@ -28,6 +28,7 @@
 
 
 #include "character/AggressionMgrService.h"
+#include "EntityList.h"
 
 AggressionMgrBound::AggressionMgrBound(EVEServiceManager& mgr, AggressionMgrService& parent, uint32 systemID) :
     EVEBoundObject (mgr, parent),
@@ -39,18 +40,23 @@ AggressionMgrBound::AggressionMgrBound(EVEServiceManager& mgr, AggressionMgrServ
 
 PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* characterID)
 {
-    Client* pClient = call.client;
-    if (pClient == nullptr)
+    // Client asks for timestamps of a specific character (self or another player).
+    // Use the characterID parameter to look up the target client.
+    uint32 targetCharID = (characterID != nullptr) ? characterID->value() : 0;
+    if (targetCharID == 0)
         return new PyDict();
 
-    CrimeWatch* pCW = pClient->GetCrimeWatch();
+    Client* pTarget = sEntityList.FindClientByCharID(targetCharID);
+    if (pTarget == nullptr)
+        return new PyDict();
+
+    CrimeWatch* pCW = pTarget->GetCrimeWatch();
     if (pCW == nullptr)
         return new PyDict();
 
-    // Build { ownerID: timestamp } for the client's timer display.
-    // Use real character IDs as keys so client can resolve them in cfg.eveowners.
-    // Weapon timer key = attacker's own charID (shows as self-timer for PvE).
-    // Aggression timer key = victim's charID (shows as aggression against that pilot).
+    // Build { ownerID: endTime } dict where keys are real character IDs.
+    // Weapon timer key = attacker's own charID (self-timer, shows weapon icon).
+    // Aggression timer key = victim's charID (shows aggression indicator on target).
     PyDict* timers = new PyDict();
     int64 now = GetFileTimeNow();
 
@@ -58,7 +64,7 @@ PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* char
         uint32 remaining = pCW->GetWeaponTimerRemaining();
         if (remaining > 0) {
             int64 endTime = now + (int64)remaining * 10000LL;
-            timers->SetItem(new PyInt(pClient->GetCharacterID()), new PyLong(endTime));
+            timers->SetItem(new PyInt(targetCharID), new PyLong(endTime));
         }
     }
 
