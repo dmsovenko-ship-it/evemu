@@ -326,7 +326,7 @@ bool ProbeSE::ProcessTic()
                 continue;
             float dist = myPos.distance(pShipSE->GetPosition());
             if (dist <= range) {
-                pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
+                pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, false);
                 // Warping ships get scrambled too — WarpUpdate will pull them out
             }
         }
