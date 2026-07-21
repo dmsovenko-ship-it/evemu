@@ -470,7 +470,12 @@ PyRep *ObjCacheDB::Generate_dgmTypeAttribs()
 PyRep *ObjCacheDB::Generate_dgmTypeEffects()
 {
     DBQueryResult res;
-    const char *q = "SELECT typeID,effectID,isDefault FROM dgmTypeEffects";
+    // Exclude effect 598 for Warp Disruption Probe (typeID 22778) to prevent
+    // client-side ProbeDogmaItem crash: effect 598 calls GetShipID() which is
+    // missing on ProbeDogmaItem for items that are charges in a launcher.
+    // Warp scramble functionality is implemented in C++ (ProcessTic).
+    const char *q = "SELECT typeID,effectID,isDefault FROM dgmTypeEffects "
+                    "WHERE NOT (typeID = 22778 AND effectID = 598)";
     if (!sDatabase.RunQuery(res, q))
     {
         _log(DATABASE__ERROR, "Error in query for cached object 'config.BulkData.dgmtypeeffects': %s",res.error.c_str());

@@ -326,7 +326,8 @@ PyRep* BulkDB::GetDogmaTypeEffects(uint8 chunkID)   // 4 chunks
 {   //33777
     DBQueryResult res;
     std::ostringstream q;
-    q << "SELECT typeID,effectID,isDefault FROM dgmTypeEffects";
+    q << "SELECT typeID,effectID,isDefault FROM dgmTypeEffects "
+         "WHERE NOT (typeID = 22778 AND effectID = 598)";
     switch (chunkID) {
         case 1: {
             q << " LIMIT 0, 9000";
