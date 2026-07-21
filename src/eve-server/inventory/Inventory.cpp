@@ -312,9 +312,6 @@ void Inventory::List(CRowSet* into, EVEItemFlags flag, uint32 ownerID) const {
             //  charges not sent like this in space (uses subLocation sent via shipInfo())
             if (IsFittingSlot(cur.second->flag()))
                 if (cur.second->categoryID() == EVEDB::invCategories::Charge) {
-                    // Skip warp disruption probe charges to avoid client-side ProbeDogmaItem crash
-                    if (cur.second->groupID() == EVEDB::invGroups::Warp_Disruption_Probe)
-                        continue;
                     if (space)
                         continue;
                 }

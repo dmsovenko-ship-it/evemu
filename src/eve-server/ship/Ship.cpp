@@ -2272,11 +2272,12 @@ PyDict* ShipItem::GetShipInfo()
     pInventory->GetItemsByFlagRange(flagSubSystem0, flagSubSystem4, equipped);
     //encode each one...
     for (auto cur : equipped) {
-        // Skip warp disruption probe charges to avoid client-side ProbeDogmaItem crash
-        if (cur->groupID() == EVEDB::invGroups::Warp_Disruption_Probe)
-            continue;
         Rsp_CommonGetInfo_Entry entry2;
         if (cur->Populate(entry2)) {
+            // Strip dogma attributes for warp disruption probe charges to avoid client-side ProbeDogmaItem crash
+            bool isProbeCharge = (cur->groupID() == EVEDB::invGroups::Warp_Disruption_Probe);
+            if (isProbeCharge)
+                entry2.attributes.clear();
             if (cur->categoryID() == EVEDB::invCategories::Charge) {
                 PyTuple* tuple = new PyTuple(3);
                     tuple->SetItem(0, new PyInt(cur->locationID()));
