@@ -450,19 +450,15 @@ void CrimeWatch::SendAggressionChange() {
     int64 now = GetFileTimeNow();
     int64 weaponEnd = m_weaponTimer.Enabled() ? now + m_weaponTimer.GetRemainingTime() * 10000LL : 0;
     int64 aggressionEnd = m_aggressionTimer.Enabled() ? now + m_aggressionTimer.GetRemainingTime() * 10000LL : 0;
-    // Use real character IDs as keys (attacker's own ID for weapon timer, victim's for aggression)
-    PyDict* timers = new PyDict();
-    if (weaponEnd > 0)
-        timers->SetItem(new PyInt(m_client->GetCharacterID()), new PyLong(weaponEnd));
-    if (aggressionEnd > 0 && m_aggressionTargetID > 0)
-        timers->SetItem(new PyInt(m_aggressionTargetID), new PyLong(aggressionEnd));
-    if (timers->empty())
+    // Flat format matching NotifyOnAggressionChange XML: (int systemID, dictInt { charID: endTime })
+    int64 endTime = std::max(weaponEnd, aggressionEnd);
+    if (endTime <= 0)
         return;
-    PyDict* aggressors = new PyDict();
-    aggressors->SetItem(new PyInt(m_client->GetCharacterID()), timers);
+    PyDict* entries = new PyDict();
+    entries->SetItem(new PyInt(m_client->GetCharacterID()), new PyLong(endTime));
     PyTuple* payload = new PyTuple(2);
         payload->SetItem(0, new PyInt(m_client->GetSystemID()));
-        payload->SetItem(1, aggressors);
+        payload->SetItem(1, entries);
     pSE->SysBubble()->BubblecastSendNotification("OnAggressionChange", "solarsystemid", &payload, true);
 }
 
