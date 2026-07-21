@@ -1022,8 +1022,11 @@ void ModuleManager::LoadCharge(InventoryItemRef chargeRef, EVEItemFlags flag)
     } else {
         // if module wasnt previously loaded, add to ship's inventory and charge map
         chargeRef->SetAttribute(AttrQuantity, EvilZero, false);    // OMAC
-        chargeRef->Move(pShipItem->itemID(), flag, pShipItem->HasPilot()?pShipItem->GetPilot()->IsDocked():false);
-        //chargeRef->Move(pShipItem->itemID(), flag, false);
+        // Force notify=false for warp disruption probe charges to avoid client-side ProbeDogmaItem crash
+        bool notifyMove = pShipItem->HasPilot() ? pShipItem->GetPilot()->IsDocked() : false;
+        if (chargeRef->groupID() == EVEDB::invGroups::Warp_Disruption_Probe)
+            notifyMove = false;
+        chargeRef->Move(pShipItem->itemID(), flag, notifyMove);
         m_charges.emplace(flag, chargeRef);
     }
 
@@ -1055,7 +1058,8 @@ void ModuleManager::LoadCharge(InventoryItemRef chargeRef, EVEItemFlags flag)
      *      [PyIntegerVar 131]
      */
     // send update to client for processing new subLocation   -found/added 19Aug20
-    if (!loaded)
+    // Skip for warp disruption probe charges to avoid client-side ProbeDogmaItem crash
+    if (!loaded and (chargeRef->groupID() != EVEDB::invGroups::Warp_Disruption_Probe))
         if (pShipItem->HasPilot() and pShipItem->GetPilot()->IsInSpace()) {
             Rsp_CommonGetInfo_Entry entry2;
             if (chargeRef->Populate(entry2)) {

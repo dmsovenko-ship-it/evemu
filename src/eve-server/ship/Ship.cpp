@@ -2272,6 +2272,9 @@ PyDict* ShipItem::GetShipInfo()
     pInventory->GetItemsByFlagRange(flagSubSystem0, flagSubSystem4, equipped);
     //encode each one...
     for (auto cur : equipped) {
+        // Skip warp disruption probe charges to avoid client-side ProbeDogmaItem crash
+        if (cur->groupID() == EVEDB::invGroups::Warp_Disruption_Probe)
+            continue;
         Rsp_CommonGetInfo_Entry entry2;
         if (cur->Populate(entry2)) {
             if (cur->categoryID() == EVEDB::invCategories::Charge) {
