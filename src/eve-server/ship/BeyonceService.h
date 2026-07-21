@@ -79,6 +79,9 @@ protected:
     PyResult CmdBridgeToMember(PyCallArgs& call, PyInt* targetCharID, PyInt* targetShipID, PyInt* solarSystemID);
     
 private:
+    // Crucible: check if ship is in a warp disruption bubble
+    bool IsInWarpBubble(Client* pClient);
+
     BookmarkService* m_bookmark;
 };
 

@@ -6,6 +6,7 @@
   */
 
 #include "ship/modules/CynoModule.h"
+#include "inventory/AttributeEnum.h"
 #include "system/SystemManager.h"
 #include "fleet/FleetService.h"
 #include "pos/Tower.h"
@@ -79,6 +80,18 @@ bool CynoModule::CanActivate()
 {
     if (!pClient->InFleet())
         throw UserError("CynoMustBeInFleet");
+
+    // Crucible: cannot light cyno in a warp disruption bubble
+    if (pShipSE->SysBubble() != nullptr && pShipSE->SysBubble()->HasWarpBubble()) {
+        InventoryItemRef ship = m_shipRef;
+        bool immune = ship.get() != nullptr
+                      && ship->HasAttribute(AttrWarpBubbleImmune)
+                      && ship->GetAttribute(AttrWarpBubbleImmune).get_bool();
+        if (!immune) {
+            pClient->SendNotifyMsg("Cannot light cyno: warp disruption bubble detected.");
+            return false;
+        }
+    }
 
     if (pShipSE->SysBubble()->HasTower()) {
         TowerSE* ptSE = pShipSE->SysBubble()->GetTowerSE();

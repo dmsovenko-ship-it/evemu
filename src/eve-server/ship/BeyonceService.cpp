@@ -34,6 +34,7 @@
 #include "planet/Moon.h"
 #include "pos/Structure.h"
 #include "ship/BeyonceService.h"
+#include "inventory/AttributeEnum.h"
 #include "station/StationDataMgr.h"
 #include "system/BookmarkService.h"
 #include "system/Container.h"
@@ -976,12 +977,34 @@ PyResult BeyonceBound::UpdateStateRequest(PyCallArgs &call) {
  *            return
  *        effect.Activate(beaconID, False)
  */
+bool BeyonceBound::IsInWarpBubble(Client* pClient)
+{
+    if (pClient == nullptr || pClient->GetShipSE() == nullptr)
+        return false;
+    SystemBubble* pBubble = pClient->GetShipSE()->SysBubble();
+    if (pBubble == nullptr || !pBubble->HasWarpBubble())
+        return false;
+    // Check immunity
+    InventoryItemRef ship = pClient->GetShip();
+    if (ship.get() != nullptr
+        && ship->HasAttribute(AttrWarpBubbleImmune)
+        && ship->GetAttribute(AttrWarpBubbleImmune).get_bool())
+        return false;
+    return true;
+}
+
 PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID, PyInt* otherShipID, PyInt* beaconID, PyInt* solarSystemID) {
     _log(SHIP__MESSAGE, "BeyonceBound::CmdJumpThroughFleet — %s jumping through titan %u to beacon %u",
          call.client->GetName(), otherShipID->value(), beaconID->value());
 
     if (call.client->IsSessionChange()) {
         call.client->SendNotifyMsg("Session Change currently active.");
+        return PyStatic.NewNone();
+    }
+
+    // Crucible: warp disruption bubble blocks capital jumps
+    if (IsInWarpBubble(call.client)) {
+        call.client->SendNotifyMsg("Cannot jump: warp disruption bubble detected.");
         return PyStatic.NewNone();
     }
 
@@ -1137,6 +1160,12 @@ PyResult BeyonceBound::CmdJumpThroughAlliance(PyCallArgs &call, PyInt* otherShip
 
     if (call.client->IsSessionChange()) {
         call.client->SendNotifyMsg("Session Change currently active.");
+        return PyStatic.NewNone();
+    }
+
+    // Crucible: warp disruption bubble blocks capital jumps
+    if (IsInWarpBubble(call.client)) {
+        call.client->SendNotifyMsg("Cannot jump: warp disruption bubble detected.");
         return PyStatic.NewNone();
     }
 
@@ -1425,6 +1454,12 @@ PyResult BeyonceBound::CmdBeaconJumpFleet(PyCallArgs &call, PyInt* characterID, 
         return PyStatic.NewNone();
     }
 
+    // Crucible: warp disruption bubble blocks capital jumps
+    if (IsInWarpBubble(call.client)) {
+        call.client->SendNotifyMsg("Cannot jump: warp disruption bubble detected.");
+        return PyStatic.NewNone();
+    }
+
     InventoryItemRef beacon = sItemFactory.GetItemRefFromID(beaconID->value());
 
     //Check for jump fuel and make sure there is enough fuel available
@@ -1508,6 +1543,12 @@ PyResult BeyonceBound::CmdBeaconJumpAlliance(PyCallArgs &call, PyInt* beaconID, 
         call.client->SendNotifyMsg( "You can't do this while warping");
         return PyStatic.NewNone();
     }  else if (pDestiny->AbortIfLoginWarping(true)) {
+        return PyStatic.NewNone();
+    }
+
+    // Crucible: warp disruption bubble blocks capital jumps
+    if (IsInWarpBubble(call.client)) {
+        call.client->SendNotifyMsg("Cannot jump: warp disruption bubble detected.");
         return PyStatic.NewNone();
     }
 

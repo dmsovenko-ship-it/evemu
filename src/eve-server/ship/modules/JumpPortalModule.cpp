@@ -6,6 +6,7 @@
   */
 
 #include "ship/modules/JumpPortalModule.h"
+#include "inventory/AttributeEnum.h"
 #include "system/SystemManager.h"
 #include "fleet/FleetService.h"
 #include "pos/Tower.h"
@@ -79,6 +80,18 @@ bool JumpPortalModule::CanActivate()
     if (!pClient->InFleet()) {
         pClient->SendNotifyMsg("You must be in a fleet to activate a jump portal.");
         return false;
+    }
+
+    // Crucible: cannot open jump portal in a warp disruption bubble
+    if (pShipSE->SysBubble() != nullptr && pShipSE->SysBubble()->HasWarpBubble()) {
+        InventoryItemRef ship = m_shipRef;
+        bool immune = ship.get() != nullptr
+                      && ship->HasAttribute(AttrWarpBubbleImmune)
+                      && ship->GetAttribute(AttrWarpBubbleImmune).get_bool();
+        if (!immune) {
+            pClient->SendNotifyMsg("Cannot open portal: warp disruption bubble detected.");
+            return false;
+        }
     }
 
     if (pShipSE->SysBubble()->HasTower()) {
