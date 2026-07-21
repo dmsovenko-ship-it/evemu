@@ -846,7 +846,13 @@ void DeployableSE::Process()
         if (pClient == nullptr) continue;
         SystemEntity* pShipSE = pClient->GetShipSE();
         if (pShipSE == nullptr) continue;
-        if (pShipSE->DestinyMgr()->IsWarping() || pShipSE->DestinyMgr()->IsCloaked())
+        if (pShipSE->DestinyMgr()->IsCloaked())
+            continue;
+        // Shuttles and immune ships are not affected by warp disruption bubbles
+        if (pShipSE->GetSelf()->groupID() == EVEDB::invGroups::Shuttle)
+            continue;
+        if (pShipSE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
+            && pShipSE->GetSelf()->GetAttribute(AttrWarpBubbleImmune).get_bool())
             continue;
         float dist = myPos.distance(pShipSE->GetPosition());
         if (dist <= range) {

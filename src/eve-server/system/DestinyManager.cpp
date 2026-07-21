@@ -1929,8 +1929,9 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
 
         // Crucible: if target bubble has a warp disruption bubble, pull ship out of warp
         if (m_targBubble->HasWarpBubble()) {
-            bool immune = mySE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
-                          && mySE->GetSelf()->GetAttribute(AttrWarpBubbleImmune).get_bool();
+            bool immune = (mySE->GetSelf()->groupID() == EVEDB::invGroups::Shuttle)
+                          || (mySE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
+                              && mySE->GetSelf()->GetAttribute(AttrWarpBubbleImmune).get_bool());
             if (!immune) {
                 _log(DESTINY__WARP_TRACE, "Destiny::WarpUpdate()  %s(%u): Warp bubble detected. Forcing warp exit.",
                      mySE->GetName(), mySE->GetID());
@@ -2357,10 +2358,11 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         m_capNeeded = capNeeded;
     }
 
-    // Crucible: warp bubble check — prevent warp from/into a bubble (NPCs exempt)
+    // Crucible: warp bubble check — prevent warp from/into a bubble (NPCs/drones/shuttles exempt)
     if (!mySE->IsNPCSE() && !mySE->IsDroneSE()) {
-        bool immune = mySE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
-                      && mySE->GetSelf()->GetAttribute(AttrWarpBubbleImmune).get_bool();
+        bool immune = (mySE->GetSelf()->groupID() == EVEDB::invGroups::Shuttle)
+                      || (mySE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
+                          && mySE->GetSelf()->GetAttribute(AttrWarpBubbleImmune).get_bool());
         if (!immune) {
             SystemBubble* srcBubble = mySE->SysBubble();
             if ((srcBubble != nullptr && srcBubble->HasWarpBubble())

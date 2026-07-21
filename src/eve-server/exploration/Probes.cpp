@@ -317,6 +317,13 @@ bool ProbeSE::ProcessTic()
             if (pShipSE->DestinyMgr() == nullptr) continue;
             if (pShipSE->DestinyMgr()->IsCloaked())
                 continue;
+            // Shuttles are immune to warp disruption bubbles (Crucible)
+            if (pShipSE->GetSelf()->groupID() == EVEDB::invGroups::Shuttle)
+                continue;
+            // Check AttrWarpBubbleImmune (from Interdiction Nullifier)
+            if (pShipSE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
+                && pShipSE->GetSelf()->GetAttribute(AttrWarpBubbleImmune).get_bool())
+                continue;
             float dist = myPos.distance(pShipSE->GetPosition());
             if (dist <= range) {
                 pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
