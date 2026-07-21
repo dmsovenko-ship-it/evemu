@@ -1927,6 +1927,26 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
 
         m_targBubble->Add(mySE);
 
+        // Crucible: if target bubble has a warp disruption bubble, pull ship out of warp
+        if (m_targBubble->HasWarpBubble()) {
+            bool immune = mySE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
+                          && mySE->GetSelf()->GetAttribute(AttrWarpBubbleImmune).get_bool();
+            if (!immune) {
+                _log(DESTINY__WARP_TRACE, "Destiny::WarpUpdate()  %s(%u): Warp bubble detected. Forcing warp exit.",
+                     mySE->GetName(), mySE->GetID());
+                m_ballMode = Destiny::Ball::Mode::GOTO;
+                std::vector<PyTuple*> updates;
+                CmdGotoDirection du;
+                    du.entityID = mySE->GetID();
+                    du.x = m_shipHeading.x;
+                    du.y = m_shipHeading.y;
+                    du.z = m_shipHeading.z;
+                updates.push_back(du.Encode());
+                SendDestinyUpdate(updates);
+                return;
+            }
+        }
+
         // Do NOT send SetBallPosition here — the client's WarpLoop runs independently
         // and any position snap during active warp crashes the client with
         // "ValueError: Unknown packet type" or causes endless jerking.
@@ -2337,16 +2357,23 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         m_capNeeded = capNeeded;
     }
 
-    /*  TODO PUT CHECK HERE FOR WARP BUBBLES
-     *     and other things that affect warp-in point.....when we get to there.
-     * AttrWarpBubbleImmune = 1538,
-     * AttrWarpBubbleImmuneModifier = 1539,
-     *   NOTE:  warp bubble in path (or within 100km of m_targetPoint) will change m_targetDistance and m_targetPoint
-     *   however, this does NOT affect original calculations for energy needed, etc...
-     */
-    if (m_targBubble->HasWarpBubble()) {
-        if (!mySE->GetSelf()->HasAttribute(AttrWarpBubbleImmune))
-            ;   // not immune to bubble
+    // Crucible: warp bubble check — prevent warp from/into a bubble (NPCs exempt)
+    if (!mySE->IsNPCSE() && !mySE->IsDroneSE()) {
+        bool immune = mySE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
+                      && mySE->GetSelf()->GetAttribute(AttrWarpBubbleImmune).get_bool();
+        if (!immune) {
+            SystemBubble* srcBubble = mySE->SysBubble();
+            if ((srcBubble != nullptr && srcBubble->HasWarpBubble())
+                || (m_targBubble != nullptr && m_targBubble->HasWarpBubble()))
+            {
+                if (mySE->HasPilot()) {
+                    mySE->GetPilot()->SendErrorMsg("Cannot warp: interdiction bubble detected.");
+                }
+                m_ballMode = Destiny::Ball::Mode::STOP;
+                SafeDelete(m_warpState);
+                return;
+            }
+        }
     }
 
     m_ballMode = Destiny::Ball::Mode::WARP;

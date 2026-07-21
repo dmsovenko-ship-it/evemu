@@ -128,6 +128,22 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         this->GetNPCSE()->OnAttacked(d.srcSE);
     }
 
+    // Crucible: warp disruption probes are invulnerable to direct fire
+    // Smartbombs and bombs can still destroy probes
+    if (this->IsProbeSE()) {
+        // Allow smartbombs to damage probes
+        if (d.weaponRef.get() != nullptr
+            and d.weaponRef->groupID() == EVEDB::invGroups::Smart_Bomb)
+        {
+            _log(DAMAGE__MESSAGE, "%s(%u): Probe hit by smartbomb. Applying %.2f damage.",
+                 GetName(), GetID(), d.GetTotal());
+        } else {
+            _log(DAMAGE__MESSAGE, "%s(%u): Probe is immune to direct damage. Ignoring %.2f damage from %s(%u)",
+                 GetName(), GetID(), d.GetTotal(), d.srcSE->GetName(), d.srcSE->GetID());
+            return true;
+        }
+    }
+
     if (is_log_enabled(DAMAGE__MESSAGE)) {
         if (d.srcSE->IsNPCSE()) {
             _log(DAMAGE__MESSAGE, "%s(%u): Initializing %.2f damage from NPC %s(%u) with K:%.3f, T:%.3f, EM:%.3f, E:%.3f",\

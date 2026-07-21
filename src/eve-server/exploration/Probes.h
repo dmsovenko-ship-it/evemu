@@ -90,6 +90,7 @@ public:
     virtual PyDict*             MakeSlimItem();
 
     /* specific functions handled in this class. */
+    void ClearWarpBubbleFlag();
     void RecoverProbe(PyList* list);
     void UpdateProbe(ProbeData& data);
     // removes probe from system and scan map, and sends RemoveProbe call to client

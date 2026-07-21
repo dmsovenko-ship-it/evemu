@@ -246,9 +246,31 @@ ProbeSE::~ProbeSE() {
         m_scan->RemoveProbe(this);
 }
 
+void ProbeSE::ClearWarpBubbleFlag()
+{
+    if (m_self->groupID() != EVEDB::invGroups::Warp_Disruption_Probe)
+        return;
+    if (SysBubble() == nullptr)
+        return;
+    // Check if other warp disruption probes remain in this bubble
+    bool hasOther = false;
+    std::map<uint32, SystemEntity*> entities;
+    SysBubble()->GetAllEntities(entities);
+    for (auto& [id, pSE] : entities) {
+        if (pSE == this) continue;
+        if (pSE->IsProbeSE() && pSE->GetProbeSE()->GetSelf()->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
+            hasOther = true;
+            break;
+        }
+    }
+    if (!hasOther)
+        SysBubble()->SetWarpBubble(false);
+}
+
 bool ProbeSE::ProcessTic()
 {
     if (m_lifeTimer.Check()) {
+        ClearWarpBubbleFlag();
         Delete();
         delete(this);
         // delete from entity map
@@ -293,11 +315,13 @@ bool ProbeSE::ProcessTic()
             SystemEntity* pShipSE = pClient->GetShipSE();
             if (pShipSE == nullptr) continue;
             if (pShipSE->DestinyMgr() == nullptr) continue;
-            if (pShipSE->DestinyMgr()->IsWarping() || pShipSE->DestinyMgr()->IsCloaked())
+            if (pShipSE->DestinyMgr()->IsCloaked())
                 continue;
             float dist = myPos.distance(pShipSE->GetPosition());
-            if (dist <= range)
+            if (dist <= range) {
                 pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
+                // Warping ships get scrambled too — WarpUpdate will pull them out
+            }
         }
     }
     return true;
@@ -411,6 +435,8 @@ void ProbeSE::RemoveProbe()
         m_scan->RemoveProbe(this);
         m_scan = nullptr;
     }
+    // Clear warp bubble flag before removing from system (bubble ptr still valid)
+    ClearWarpBubbleFlag();
     // remove from system
     m_system->RemoveEntity(this);
     // set item loc to null

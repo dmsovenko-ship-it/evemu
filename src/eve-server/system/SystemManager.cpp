@@ -1119,6 +1119,13 @@ void SystemManager::AddEntity(SystemEntity* pSE, bool addSignal/*true*/) {
         m_solarSystemRef->AddItemToInventory( pSE->GetSelf() );
     }
     sBubbleMgr.Add(pSE);
+    // Crucible: mark bubble for warp disruption probes
+    if (pSE->IsProbeSE()
+        && pSE->GetSelf()->groupID() == EVEDB::invGroups::Warp_Disruption_Probe
+        && pSE->SysBubble() != nullptr)
+    {
+        pSE->SysBubble()->SetWarpBubble(true);
+    }
     // add item to our AnomalyMgr
     if (addSignal)
         m_anomMgr->AddSignal(pSE);
