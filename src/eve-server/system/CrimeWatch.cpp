@@ -135,6 +135,20 @@ void CrimeWatch::OnWeaponFired()
     SendAggressionChange();
 }
 
+void CrimeWatch::OnProbeLaunch()
+{
+    // Crucible: launching a warp disruption probe sets aggression timer (15 min)
+    // Prevents docking/gate jumping, but is NOT a criminal act
+    // (no CONCORD, no sec status loss, no kill rights)
+    m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
+    if (m_client->GetChar()) {
+        int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
+        m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
+    }
+    UpdateSessionChangeTimer();
+    SendAggressionChange();
+}
+
 void CrimeWatch::OnLooting()
 {
     if (!sConfig.crime.Enabled) return;

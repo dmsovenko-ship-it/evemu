@@ -28,6 +28,7 @@ public:
 
     void OnWeaponFired();
     void OnAggression(Client* pTarget, float systemSecRating);
+    void OnProbeLaunch();
     void OnLooting();
     void ApplyConcordPenalty();
     void SetLimitedEngagement();

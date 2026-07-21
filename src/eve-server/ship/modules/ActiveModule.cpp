@@ -1543,6 +1543,16 @@ void ActiveModule::LaunchProbe()
     if (pClient == nullptr)
         return;
 
+    // Warp disruption probe — check restrictions before creating item
+    if (m_chargeRef->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
+        SystemData sysData;
+        sDataMgr.GetSystemData(pClient->GetSystemID(), sysData);
+        if (sysData.securityRating >= 0.5f) {
+            pClient->SendErrorMsg("Interdiction spheres cannot be deployed in high-security space.");
+            return;
+        }
+    }
+
     GPoint pos(m_shipRef->position());
     pos.MakeRandomPointOnSphere(MakeRandomFloat(500 + m_shipRef->radius(), 1500 + m_shipRef->radius()));
 
@@ -1557,16 +1567,9 @@ void ActiveModule::LaunchProbe()
 
     // Warp disruption probe — bubble, no scan needed
     if (m_chargeRef->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
-        // Only in 0.0 and lowsec (highsec blocks interdiction)
-        SystemData sysData;
-        sDataMgr.GetSystemData(pClient->GetSystemID(), sysData);
-        if (sysData.securityRating >= 0.5f) { // WAS 0.45 in original but 0.5 matches Crucible
-            pClient->SendErrorMsg("Interdiction spheres cannot be deployed in high-security space.");
-            return;
-        }
-        // Launch = aggression: timer prevents docking/gate jump
+        // Crucible: aggression timer (15 min) prevents docking/gate jump
         if (!pClient->IsInvul())
-            pClient->GetCrimeWatch()->OnWeaponFired();
+            pClient->GetCrimeWatch()->OnProbeLaunch();
         ProbeSE* pProbe = new ProbeSE(probeRef, pSystem->GetServiceMgr(), pSystem);
         if (pProbe == nullptr) return;
         pSystem->AddEntity(pProbe, false);
