@@ -981,16 +981,18 @@ bool BeyonceBound::IsInWarpBubble(Client* pClient)
 {
     if (pClient == nullptr || pClient->GetShipSE() == nullptr)
         return false;
-    SystemBubble* pBubble = pClient->GetShipSE()->SysBubble();
-    if (pBubble == nullptr || !pBubble->HasWarpBubble())
+    InventoryItemRef ship = pClient->GetShip();
+    if (ship.get() == nullptr)
+        return false;
+    // AttrWarpScrambleStatus is set by probes within AttrWarpScrambleRange (~20km)
+    if (!ship->HasAttribute(AttrWarpScrambleStatus)
+        || ship->GetAttribute(AttrWarpScrambleStatus) == 0)
         return false;
     // Shuttles are immune to warp disruption bubbles (Crucible)
-    InventoryItemRef ship = pClient->GetShip();
-    if (ship.get() != nullptr && ship->groupID() == EVEDB::invGroups::Shuttle)
+    if (ship->groupID() == EVEDB::invGroups::Shuttle)
         return false;
     // Check AttrWarpBubbleImmune (from Interdiction Nullifier)
-    if (ship.get() != nullptr
-        && ship->HasAttribute(AttrWarpBubbleImmune)
+    if (ship->HasAttribute(AttrWarpBubbleImmune)
         && ship->GetAttribute(AttrWarpBubbleImmune).get_bool())
         return false;
     return true;

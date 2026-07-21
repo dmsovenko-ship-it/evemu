@@ -83,11 +83,10 @@ bool JumpPortalModule::CanActivate()
     }
 
     // Crucible: cannot open jump portal in a warp disruption bubble
-    if (pShipSE->SysBubble() != nullptr && pShipSE->SysBubble()->HasWarpBubble()) {
-        InventoryItemRef ship = m_shipRef;
-        bool immune = ship.get() != nullptr
-                      && ship->HasAttribute(AttrWarpBubbleImmune)
-                      && ship->GetAttribute(AttrWarpBubbleImmune).get_bool();
+    if (m_shipRef->HasAttribute(AttrWarpScrambleStatus)
+        && m_shipRef->GetAttribute(AttrWarpScrambleStatus) > 0) {
+        bool immune = m_shipRef->HasAttribute(AttrWarpBubbleImmune)
+                      && m_shipRef->GetAttribute(AttrWarpBubbleImmune).get_bool();
         if (!immune) {
             pClient->SendNotifyMsg("Cannot open portal: warp disruption bubble detected.");
             return false;

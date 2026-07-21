@@ -1570,7 +1570,8 @@ void ActiveModule::LaunchProbe()
         // Crucible: aggression timer (15 min) prevents docking/gate jump
         // Always set regardless of invul status — probe launch is not aggression
         pClient->GetCrimeWatch()->OnProbeLaunch();
-        ProbeSE* pProbe = new ProbeSE(probeRef, pSystem->GetServiceMgr(), pSystem);
+        // Use launched constructor so lifetime is set from AttrExplosionDelay
+        ProbeSE* pProbe = new ProbeSE(probeRef, pSystem->GetServiceMgr(), pSystem, m_modRef, m_shipRef);
         if (pProbe == nullptr) return;
         pSystem->AddEntity(pProbe, false);
         ConsumeCharge();
