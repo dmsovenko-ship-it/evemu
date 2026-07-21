@@ -1568,8 +1568,8 @@ void ActiveModule::LaunchProbe()
     // Warp disruption probe — bubble, no scan needed
     if (m_chargeRef->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
         // Crucible: aggression timer (15 min) prevents docking/gate jump
-        if (!pClient->IsInvul())
-            pClient->GetCrimeWatch()->OnProbeLaunch();
+        // Always set regardless of invul status — probe launch is not aggression
+        pClient->GetCrimeWatch()->OnProbeLaunch();
         ProbeSE* pProbe = new ProbeSE(probeRef, pSystem->GetServiceMgr(), pSystem);
         if (pProbe == nullptr) return;
         pSystem->AddEntity(pProbe, false);
