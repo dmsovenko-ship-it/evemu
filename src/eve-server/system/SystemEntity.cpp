@@ -617,15 +617,15 @@ void DeployableSE::EncodeDestiny(Buffer& into)
         head.posY = y();
         head.posZ = z();
     if (!m_anchored) {
-        // Unanchored deployable — free-floating can
+        // Unanchored deployable — free-floating ball (looks like a can in space)
         head.mode = Ball::Mode::RIGID;
         head.flags = Ball::Flag::IsFree;
         into.Append(head);
-        STOP_Struct main;
+        RIGID_Struct main;
             main.formationID = 0xFF;
         into.Append(main);
     } else {
-        // Anchored deployable — massive structure
+        // Anchored deployable — massive structure (anchored in place)
         head.mode = Ball::Mode::RIGID;
         head.flags = Ball::Flag::IsMassive;
         into.Append(head);
