@@ -1249,17 +1249,20 @@ void DestinyManager::Follow() {
     }
 
     // ---- normal follow / approach ----
-    // Hysteresis: use a wider exit threshold to prevent oscillation.
-    // Enter follow zone at m_followDistance, leave only beyond m_followDistance * 1.5
-    const double exitDist = (double)m_followDistance * 1.5;
-    const double targetSpeed = (rawDist <= (double)m_followDistance) ? 0.0 : 1.0;
+    // Ensure a minimum deceleration distance so ships don't overshoot at high speed.
+    // When followDistance is 0 (manual approach), use a sensible default.
+    uint32 decelDist = m_followDistance;
+    if (decelDist == 0)
+        decelDist = 500;
+    const double exitDist = (double)decelDist * 1.5;
+    const double targetSpeed = (rawDist <= (double)decelDist) ? 0.0 : 1.0;
 
     if (rawDist <= exitDist && m_userSpeedFraction > targetSpeed + 0.05f) {
         // Decelerate smoothly: reduce speed by 20% per tick toward targetSpeed
         float newSpeed = m_userSpeedFraction * 0.8f + targetSpeed * 0.2f;
         if (newSpeed < 0.01f) newSpeed = 0.0f;
         SetSpeedFraction(newSpeed);
-    } else if (rawDist > (double)m_followDistance && m_userSpeedFraction < 1.0f) {
+    } else if (rawDist > (double)decelDist && m_userSpeedFraction < 1.0f) {
         // Accelerate smoothly toward full speed, but only if target is a moving entity.
         // Static targets (gates, stations) just need approach at moderate speed.
         float maxApproach = 0.8f;
@@ -1276,7 +1279,7 @@ void DestinyManager::Follow() {
     }
 
     // when very close to a static target, coast to a gentle stop
-    if (rawDist < (double)m_followDistance * 0.5 && !m_targetEntity.second->IsDynamicEntity()) {
+    if (decelDist > 0 && rawDist < (double)decelDist * 0.5 && !m_targetEntity.second->IsDynamicEntity()) {
         SetSpeedFraction(std::min(m_userSpeedFraction, 0.1f));
     }
 
