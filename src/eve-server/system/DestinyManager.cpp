@@ -1144,8 +1144,10 @@ void DestinyManager::Follow() {
     //  Follow is also used by client as AlignTo.
     const GPoint& target_point = m_targetEntity.second->GetPosition();
     GVector heading(m_position, target_point);
-    double rawDist = heading.length() - m_radius;
-    m_targetDistance = (rawDist > 0.0) ? rawDist : 0.0;
+    // Subtract ship radius AND target radius (stations/gates are massive)
+    double rawDist = heading.length() - m_radius - m_targetEntity.second->GetRadius();
+    if (rawDist < 0.0) rawDist = 0.0;
+    m_targetDistance = rawDist;
 
     if (mySE->HasPilot())
         _log(AUTOPILOT__MESSAGE, "Follow tick: rawDist=%.0f fDist=%u AP=%d hasPilot=%d target=0x%p",
