@@ -981,10 +981,7 @@ PyResult ShipBound::Jettison(PyCallArgs &call, PyList* itemIDs) {
                 dSE->SetPosition(location);
                 cRef->SaveItem();
                 pSysMgr->AddEntity(dSE);
-                // Crucible: mobile structures (MWD etc) are immediately online when dropped
-                if (cRef->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor) {
-                    dSE->SetImmediateOnline();
-                }
+
                 pClient->GetShipSE()->DestinyMgr()->SendJettisonPacket();
                 itr = ints.erase(itr);
             } break;
