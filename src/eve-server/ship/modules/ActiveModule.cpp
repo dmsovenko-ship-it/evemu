@@ -1345,7 +1345,8 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
     // Skip sending OnSpecialFX if GUID is empty or known to crash with graphicInfo=None
     if (m_destinyMgr != nullptr and !guidStr.empty()
         and guidStr != "effects.SmartBomb"
-        and guidStr != "effects.MicroWarpdrive")
+        and guidStr != "effects.MicroWarpdrive"
+        and guidStr != "effects.MicroWarpDrive")
         m_destinyMgr->SendSpecialEffect(
                 m_shipRef->itemID(),
                 m_modRef->itemID(),

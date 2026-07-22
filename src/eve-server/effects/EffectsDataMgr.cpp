@@ -227,7 +227,7 @@ std::string FxDataMgr::GetEffectGuid(uint16 eID)
         case EVEEffectID::speedBoostMassAddition:
             return "effects.Afterburner";
         case EVEEffectID::speedBoostMassSigRad:
-            return "effects.MicroWarpdrive";
+            return "effects.MicroWarpDrive";
         default:
             break;
     }
