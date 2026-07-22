@@ -2642,7 +2642,12 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
         PyTuple* t = dum.Encode();
         if (is_log_enabled(CLIENT__QUEUE_DUMP))
             t->Dump(CLIENT__QUEUE_DUMP, "");
-        SendNotification("DoDestinyUpdate", "clientID", &t, false);
+        // Discard if docked — client has no ballpark
+        if (sDataMgr.IsStation(m_locationID)) {
+            PyDecRef(t);
+        } else {
+            SendNotification("DoDestinyUpdate", "clientID", &t, false);
+        }
     } else {
         act.update = *update;
         m_packaged = true;
@@ -2651,6 +2656,12 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
 }
 
 void Client::_SendQueuedUpdates() {
+    // If docked, discard pending destiny updates — no ballpark
+    if (sDataMgr.IsStation(m_locationID)) {
+        m_destinyUpdateQueue->clear();
+        m_destinyEventQueue->clear();
+        return;
+    }
     if (!m_destinyUpdateQueue->empty()) {
         if (m_destinyEventQueue->empty()) {
             DoDestinyUpdateMain_2 dum;
