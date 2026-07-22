@@ -30,32 +30,31 @@
 
 | EN | RU |
 |----|----|
-| **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)**, login warp-in | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)**, логин-варп |
+| **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)** | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)** |
 | **Drones** — full AI (combat/EWAR/logistics/mining), skills, subtypes, control range | **Дроны** — полный AI (бой/EWAR/логистика/майнинг), навыки, подтипы |
 | **NPC systems** — anomalies, incursions, belt rats, gate rats, convoys, customs police | **NPC системы** — аномалии, инкурсии, бельтраты, гейтраты, конвои, таможня |
-| **Crimewatch** — weapon/aggression/criminal timers, CONCORD, sentry guns, kill rights | **Crimewatch** — таймеры, CONCORD, сентри, киллрайты |
+| **Crimewatch** — weapon/aggression/criminal timers, CONCORD, sentry guns, kill rights, **probe aggression (15min)** | **Crimewatch** — таймеры, CONCORD, сентри, киллрайты, **агрессия пробок (15мин)** |
+| **Warp Disruption Probes** — Interdiction Sphere Launcher, bubble 20km, smartbomb destruction, **scramble cleanup on range exit** | **Пробки варп-дисрапта** — лаунчер, баббл 20км, уничтожение смартбомбами, **очистка скрембла при выходе из радиуса** |
+| **Mobile Warp Disruptor** — anchor/online via DogmaIM, timers from SDE, offlining timer, **transient (deleted on restart)** | **MWD** — anchor/online через DogmaIM, таймеры из SDE, offlining таймер, **транзиент (удаляется при ребуте)** |
 | **Clones & Implants** — jump clones, per-clone implants, ship clone bay, SP loss on T3 pod | **Клоны и импланты** — джамп-клоны, импланты на клон, шип-клон-бей, SP loss |
 | **Contracts** — item exchange, courier, auctions with bidding + ISK transfer | **Контракты** — обмен, курьер, аукционы со ставками и переводом ISK |
-| **Corporation & Alliance** — corp management, alliance wars, bulletins, bills, LP store | **Корпорации и альянсы** — управление, войны, бюллетени, счета, LP магазин |
-| **Market** — buy/sell orders, corp market, market bots (Trader Joe) | **Маркет** — ордера, корп-маркет, маркет-боты |
+| **Corporation & Alliance** — corp/ally contacts with **role checks**, **OnContactLoggedOn/Off**, PyFloat* standing | **Корпорации и альянсы** — контакты с **проверкой ролей**, **OnContactLoggedOn/Off**, PyFloat* standing |
+| **Market** — buy/sell orders, corp market, **market bot spin-lock fix (1000→1)** | **Маркет** — ордера, корп-маркет, **фикс spin-lock бота (1000→1)** |
 | **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
-| **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, assume/relinquish control, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
+| **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
 | **Overheating** — heat dmg per slot, OverloadRack, Thermodynamics, Nanite Paste | **Перегрев** — урон по слотам, OverloadRack, Thermodynamics, Nanite Paste |
 | **Notifications** — persistent DB + live push, bill/tower/agent/corp sources | **Нотификации** — БД + live push, счета/POS/агенты/корп |
-| **LSC Chat** — private conversations, channel creation, mailing lists | **LSC Чат** — приватные разговоры, каналы, списки рассылки |
-| **Faction Warfare** — join/leave, membership, enemy checks, stats, corp/alliance, notifications | **ФВ** — вступление/выход, членство, враги, статистика, корп/альянс, нотификации |
+| **LSC Chat** — private conversations, channels, mailing lists, contact online notifications | **LSC Чат** — разговоры, каналы, списки рассылки, нотификации онлайна контактов |
+| **Faction Warfare** — join/leave, plex spawn, militia stats, corp/alliance | **ФВ** — вступление/выход, плексы, статистика, корп/альянс |
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
 | **Sovereignty** — TCU claim, IHub reinforcement, outpost capture, sov levels, upgrades | **Суверенность** — TCU захват, IHub reinforce, аутпосты, уровни, апгрейды |
 | **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
-| **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг,encounter, storyline, эпик арки |
+| **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг, encounter, storyline, эпик арки |
 | **Scanning** — probes, cosmic signatures, anomalies, directional scan | **Сканирование** — пробы, сигнатуры, аномалии, D-scan |
-| **Fleet** — fleet warp, boosts, warfare links, specialist skills | **Флот** — флот-варп, бусты, warfare-линки, специалист скиллы |
-| **Mail & LSC** — corp/alliance mail, mailing lists, chat channels | **Почта и чат** — корп/альянс почта, списки рассылки, каналы |
+| **Fleet** — fleet warp, boosts, warfare links, specialist skills | **Флот** — флот-варп, бусты, warfare-линки, скиллы |
 | **Incursions** — state machine, wave spawning, contest rewards | **Инкурсии** — стейт-машина, волновой спавн, contest награды |
 | **GM commands** — spawn, dogma, giveallskills, kick, ban, teleport | **GM команды** — спавн, догма, скиллы, кик, бан, телепорт |
-| **NPC crosshair** — Entity pirates now render with red targeting reticle | **Крестики NPC** — пираты Entity отображаются с красным крестом |
-| **Warp precision** — warp-to-N km lands at correct distance (radius no longer doubles) | **Точный варп** — варп на N км приземляет на указанную дистанцию |
-| **Orbit** — smooth circular motion (disable `PositionHack` in config) | **Орбита** — плавное круговое движение (отключите `PositionHack`) |
+| **Orbit** — smooth circular motion; **Approach** — fixed station distance oscillation | **Орбита** — плавное движение; **Approach** — починена дистанция у станций |
 
 ---
 

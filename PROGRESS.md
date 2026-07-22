@@ -22,7 +22,7 @@
 | Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
 | **Sovereignty** | 95% | `███████████████████` | +35% | Science & Industry | 90% | `██████████████████` | +45% |
 | Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 96% | `██████████████████` | +31% |
-| Memory Mgmt | 20% | `████░░░░░░░░░░░░░░` | — | Deployables (MWD) | 60% | `████████████░░░░░░` | — |
+| Memory Mgmt | 20% | `████░░░░░░░░░░░░░░` | — | Deployables (MWD) | 97% | `███████████████████` | — |
 
 ---
 
@@ -60,7 +60,7 @@
 | Destiny crash fixes — bubble guard, use-after-free | ❌ | ✅ |
 | **Warp scramble** blocks logoff/emergency warp | 🟡 | ✅ |
 
-### 4. Combat `███████████████████` 99%
+### 4. Combat & Crimewatch `████████████████████` 99%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -194,18 +194,26 @@
 | Outpost capture framework | ❌ | ✅ |
 | **Alliance conflict zones** — SBU contested flag, ProcessSovStatusChanged, map display | ❌ | ✅ |
 
-### 20. Deployables (Mobile Warp Disruptor) `███████████████████` 95%
+### 20. Deployables (Mobile Warp Disruptor + Probes) `███████████████████` 97%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Deploy from cargo, space entity | ❌ | ✅ |
-| Anchor/online with corp ownership check | ❌ | ✅ |
-| Anchor timer from `AttrAnchoringDelay` | ❌ | ✅ |
+| Anchor/online via DogmaIM (effect dispatching) | ❌ | ✅ |
+| Offlining timer (AttrAnchoringDelay fallback) | ❌ | ✅ |
+| Anchor/online/unanchor timers from SDE attributes | ❌ | ✅ |
 | Sec-level restriction (`AttrAnchoringSecurityLevelMax`) | ❌ | ✅ |
-| Unanchor with `AttrUnanchoringDelay` timer | ❌ | ✅ |
 | Warp scramble bubble (Process()) when online | ❌ | ✅ |
-| **Warp Disrupt Probe** — Interdiction Sphere Launcher, bubble, aggression, highsec block | ❌ | ✅ |
-| **Smartbombs (player)** — Smart_Bomb module, AoE splash via Damage class, capacitor drain, effects.SmartBomb FX | ❌ | ✅ |
+| **Scramble cleanup** on range exit (no other sources) | ❌ | ✅ |
+| **Scramble cleanup** on last entity removed from bubble | ❌ | ✅ |
+| **Transient** — deleted from DB on server restart (Crucible behavior) | ❌ | ✅ |
+| **Warp Disrupt Probe** — Interdiction Sphere Launcher, bubble, aggression (15min), highsec block | ❌ | ✅ |
+| **Probe range** from `AttrWarpScrambleRange` (fallback 20km) | ❌ | ✅ |
+| **Smartbombs (player)** — Smart_Bomb module, AoE splash, capacitor drain, effects.SmartBomb FX | ❌ | ✅ |
+| **Warp intercept** — distance-aware pull-out via GOTO transition | ❌ | ✅ |
+| **Invulnerability** — immune except to smartbombs/bombs | ❌ | ✅ |
+| **Shuttle immunity** — group 31 hardcoded | ❌ | ✅ |
+| **AttrWarpBubbleImmune** (Interdiction Nullifier) — all 6 check paths | ❌ | ✅ |
 
 ### 21. Ship Module Restrictions
 

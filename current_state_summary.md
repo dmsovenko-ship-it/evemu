@@ -654,3 +654,73 @@
 - **GetRecentSovActivity** — `factionID` нет в `mapSystemSovInfo`, вызывает DB error → reconnect. Фикс: `LEFT JOIN mapSolarSystems` + `COALESCE`.
 - **Deployable::Online()** — исправлен `AttrAnchoringDelay` → `AttrOnliningDelay`.
 - **EncodeDestiny** — DeployableSE override с правильным Ball::Mode (STOP vs RIGID).
+
+## ✅ Done this session (build 12 — 2026-07-22, ~15 commits)
+
+### 🔴 Crimewatch & Aggression
+
+#### OnAggressionChange — формат
+- **Проблема**: sentinel ключи -1/-2 в `OnAggressionChange` вызывали краш `cfg.Prime` — клиент ищет все ключи в `EveOwners`, `-2` не найден как ownerID → `ValueError`.
+- **Фикс**: убраны sentinel ключи, только реальные charID: `{attackerID: {victimID: endTime}}`.
+
+#### GetCriminalTimeStamps
+- **Проблема**: игнорировал параметр `characterID`, всегда возвращал таймеры вызывающего клиента.
+- **Фикс**: ищет target по `characterID` через `sEntityList.FindClientByCharID()`.
+
+#### AttrWarpScrambleStatus (805)
+- **Проблема**: `SetAttribute(..., true)` слал `OnModuleAttributeChange` с int-значением, клиент ожидал dict → `TypeError: 'int' object is not subscriptable`.
+- **Фикс**: отключена нотификация (`false`).
+
+#### Crucible — агрессия других игроков
+- **Установлено**: в Crucible таймер агрессии **не отображался** другим игрокам в обзоре — фича версии, не баг.
+- OnSlimItemChange с securityStatus=-10 — revert (работало, но неправильно).
+
+### 🟡 Warp Disruption Probes
+
+#### Scramble cleanup на выходе из радиуса
+- `ProbeSE::ProcessTic()`: для кораблей вне радиуса очищает `AttrWarpScrambleStatus = 0` (если нет других warp disruption источников в бабле).
+- `ClearWarpBubbleFlag()`: при удалении последней пробки очищает скрембл на всех кораблях в бабле.
+
+#### Scramble cleanup при удалении MWD
+- `DeployableSE::Process()`: при offlining/unanchor очищает `AttrWarpScrambleStatus` на всех кораблях в бабле.
+- Scramble секция не выполняется во время `m_offlining`.
+
+#### Mobile Warp Disruptor — anchor/online через DogmaIM
+- `DogmaIMBound::Activate()` — добавлены эффекты `anchorDrop`→Anchor, `anchorLift`→Unanchor, `onlineForStructures`→Online для DeployableSE.
+- `DogmaIMBound::Deactivate()` — Offline для DeployableSE.
+- Offlining с таймером (AttrAnchoringDelay, fallback 5s).
+
+#### Deployables — transient (Crucible поведение)
+- `SystemManager::LoadPlayerDynamics()` — DELETE FROM entity WHERE categoryID=22 AND locationID=thisSystem.
+- Пропуск загрузки деплояблов при старте системы.
+
+### 🟢 DestinyManager — Approach fix
+
+- `Follow()`: `rawDist` теперь вычитает радиус цели (`m_targetEntity.second->GetRadius()`).
+- **Результат**: корабль останавливается на правильной дистанции от станции/гейта, нет бесконечного улетания.
+
+### 🟢 Контакты корпорации/альянса
+
+#### CorpRegistryService stubs
+- `AddCorporateContact`, `EditCorporateContact`, `RemoveCorporateContacts`, `EditContactsRelationshipID` — были `return nullptr`, теперь реальные `m_db` операции.
+
+#### OnContactLoggedOn/Off
+- `Client::NotifyContactStatus(bool online)`: при логине/логауте ищет всех владельцев контакта через `GetContactOwners()` и шлёт нотификацию.
+- Payload: `(charID,)` (было `(0, substream(...))` — клиент ждал 2 аргумента, получал 3).
+
+#### Role checks (permissions)
+- Альянс контакты: `GetCorpRole() & 1` (Director).
+- Корп контакты: `GetCorpRole() & 0x401` (Director или Diplomat).
+
+#### PyFloat* overloads
+- Клиент шлёт standing как float. Добавлены overloads с `(PyInt*, PyFloat*)` для всех контактных методов (AllianceBound + CorpRegistryBound + CorpRegistryService).
+
+### 🟢 Market — freeze fix
+
+- `PlaceCharOrder`: spin-loop `for (int i = 0; i < 1000; i++)` → `i < 1` (1000 последовательных SELECT блокировали DB mutex).
+- Миграция `20260722000000-mktorders_ownerid_index.sql` — индекс на `mktOrders.ownerID` (полный скан при каждом открытии маркета).
+
+### 🟢 Docs
+
+- Удалены все упоминания о модификации клиента (Alasiya_TODO, SERVER_SETUP.md, EVE_Calendar.h, CalendarDB.cpp).
+- README.md, PROGRESS.md, current_state_summary.md обновлены.
