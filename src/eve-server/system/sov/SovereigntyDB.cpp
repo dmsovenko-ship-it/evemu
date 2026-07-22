@@ -33,10 +33,10 @@ void SovereigntyDB::GetSovereigntyData(DBQueryResult& res)
     if (!sDatabase.RunQuery(res,
                             "SELECT mapSystemSovInfo.solarSystemID, mapSolarSystems.constellationID, mapSolarSystems.regionID, corporationID, "
                             " allianceID, claimStructureID, claimTime, "
-                            " hubID, contested, 0 as stationCount, reinforceHour, "
-                            " 5 as militaryPoints, 5 as industrialPoints, claimID, beaconID, jammerID"
-                            " FROM mapSystemSovInfo "
-                            " INNER JOIN mapSolarSystems ON mapSolarSystems.solarSystemID=mapSystemSovInfo.solarSystemID"))
+                             " hubID, contested, 0 as stationCount, reinforceHour, "
+                             " 0 as militaryPoints, 0 as industrialPoints, claimID, beaconID, jammerID"
+                             " FROM mapSystemSovInfo "
+                             " INNER JOIN mapSolarSystems ON mapSolarSystems.solarSystemID=mapSystemSovInfo.solarSystemID"))
     {
         codelog(SOV__ERROR, "Error in query: %s", res.error.c_str());
     }
@@ -47,11 +47,11 @@ void SovereigntyDB::GetSovereigntyDataForSystem(DBQueryResult& res, uint32 syste
     if (!sDatabase.RunQuery(res,
                             "SELECT mapSystemSovInfo.solarSystemID, mapSolarSystems.constellationID, mapSolarSystems.regionID, corporationID, "
                             " allianceID, claimStructureID, claimTime, "
-                            " hubID, contested, 0 as stationCount, reinforceHour, "
-                            " 5 as militaryPoints, 5 as industrialPoints, claimID, beaconID, jammerID"
-                            " FROM mapSystemSovInfo "
-                            " INNER JOIN mapSolarSystems ON mapSolarSystems.solarSystemID=mapSystemSovInfo.solarSystemID"
-                            " WHERE mapSystemSovInfo.solarSystemID=%u ", systemID))
+                             " hubID, contested, 0 as stationCount, reinforceHour, "
+                             " 0 as militaryPoints, 0 as industrialPoints, claimID, beaconID, jammerID"
+                             " FROM mapSystemSovInfo "
+                             " INNER JOIN mapSolarSystems ON mapSolarSystems.solarSystemID=mapSystemSovInfo.solarSystemID"
+                             " WHERE mapSystemSovInfo.solarSystemID=%u ", systemID))
     {
         codelog(SOV__ERROR, "Error in query: %s", res.error.c_str());
     }
