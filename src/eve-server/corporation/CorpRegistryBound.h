@@ -112,9 +112,12 @@ protected:
 
     PyResult GetCorporateContacts(PyCallArgs& call);
     PyResult AddCorporateContact(PyCallArgs& call, PyInt* contactID, PyInt* relationshipID);
-    PyResult EditContactsRelationshipID(PyCallArgs& call, PyList* contactIDs, PyInt* relationshipID);
-    PyResult RemoveCorporateContacts(PyCallArgs& call, PyList* contactIDs);
+    PyResult AddCorporateContact(PyCallArgs& call, PyInt* contactID, PyFloat* relationshipID);
     PyResult EditCorporateContact(PyCallArgs& call, PyInt* contactID, PyInt* relationshipID);
+    PyResult EditCorporateContact(PyCallArgs& call, PyInt* contactID, PyFloat* relationshipID);
+    PyResult RemoveCorporateContacts(PyCallArgs& call, PyList* contactIDs);
+    PyResult EditContactsRelationshipID(PyCallArgs& call, PyList* contactIDs, PyInt* relationshipID);
+    PyResult EditContactsRelationshipID(PyCallArgs& call, PyList* contactIDs, PyFloat* relationshipID);
 
     PyResult CreateAlliance(PyCallArgs& call, PyRep* allianceName, PyRep* shortName, PyRep* description, PyRep* url);
     PyResult ApplyToJoinAlliance(PyCallArgs& call, PyInt* allianceID, PyWString* applicationText);

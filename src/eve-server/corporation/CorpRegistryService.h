@@ -49,9 +49,12 @@ protected:
     PyResult GetRecentKillsAndLosses(PyCallArgs& call);
     PyResult GetCorporateContacts(PyCallArgs& call);
     PyResult AddCorporateContact(PyCallArgs& call, PyInt* contactID, PyInt* relationshipID);
+    PyResult AddCorporateContact(PyCallArgs& call, PyInt* contactID, PyFloat* relationshipID);
     PyResult EditCorporateContact(PyCallArgs& call, PyInt* contactID, PyInt* relationshipID);
+    PyResult EditCorporateContact(PyCallArgs& call, PyInt* contactID, PyFloat* relationshipID);
     PyResult RemoveCorporateContacts(PyCallArgs& call, PyList* contactIDs);
     PyResult EditContactsRelationshipID(PyCallArgs& call, PyList* contactIDs, PyInt* relationshipID);
+    PyResult EditContactsRelationshipID(PyCallArgs& call, PyList* contactIDs, PyFloat* relationshipID);
     PyResult GetLabels(PyCallArgs& call);
     PyResult CreateLabel(PyCallArgs& call, PyWString* name, std::optional <PyInt*> color);
     PyResult DeleteLabel(PyCallArgs& call, PyInt* labelID);

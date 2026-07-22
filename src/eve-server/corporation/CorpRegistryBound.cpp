@@ -108,10 +108,13 @@ CorpRegistryBound::CorpRegistryBound(EVEServiceManager& mgr, CorpRegistryService
     this->Add("ExecuteActions", &CorpRegistryBound::ExecuteActions);
 
     this->Add("GetCorporateContacts", &CorpRegistryBound::GetCorporateContacts);
-    this->Add("AddCorporateContact", &CorpRegistryBound::AddCorporateContact);
-    this->Add("EditContactsRelationshipID", &CorpRegistryBound::EditContactsRelationshipID);
+    this->Add("AddCorporateContact", static_cast<PyResult(CorpRegistryBound::*)(PyCallArgs&, PyInt*, PyInt*)>(&CorpRegistryBound::AddCorporateContact));
+    this->Add("AddCorporateContact", static_cast<PyResult(CorpRegistryBound::*)(PyCallArgs&, PyInt*, PyFloat*)>(&CorpRegistryBound::AddCorporateContact));
+    this->Add("EditCorporateContact", static_cast<PyResult(CorpRegistryBound::*)(PyCallArgs&, PyInt*, PyInt*)>(&CorpRegistryBound::EditCorporateContact));
+    this->Add("EditCorporateContact", static_cast<PyResult(CorpRegistryBound::*)(PyCallArgs&, PyInt*, PyFloat*)>(&CorpRegistryBound::EditCorporateContact));
     this->Add("RemoveCorporateContacts", &CorpRegistryBound::RemoveCorporateContacts);
-    this->Add("EditCorporateContact", &CorpRegistryBound::EditCorporateContact);
+    this->Add("EditContactsRelationshipID", static_cast<PyResult(CorpRegistryBound::*)(PyCallArgs&, PyList*, PyInt*)>(&CorpRegistryBound::EditContactsRelationshipID));
+    this->Add("EditContactsRelationshipID", static_cast<PyResult(CorpRegistryBound::*)(PyCallArgs&, PyList*, PyFloat*)>(&CorpRegistryBound::EditContactsRelationshipID));
 
     this->Add("CreateAlliance", &CorpRegistryBound::CreateAlliance);
     this->Add("ApplyToJoinAlliance", &CorpRegistryBound::ApplyToJoinAlliance);
@@ -2249,6 +2252,19 @@ PyResult CorpRegistryBound::AddCorporateContact(PyCallArgs &call, PyInt* contact
     return nullptr;
 }
 
+PyResult CorpRegistryBound::AddCorporateContact(PyCallArgs &call, PyInt* contactID, PyFloat* relationshipID) {
+    _log(CORP__CALL, "CorpRegistryBound::AddCorporateContact(float)");
+    call.Dump(CORP__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 0x401)) {
+        call.client->SendErrorMsg("You need the Director or Diplomat role to manage corporation contacts.");
+        return nullptr;
+    }
+
+    m_db.AddContact(m_corpID, contactID->value(), (int32)relationshipID->value());
+    return nullptr;
+}
+
 PyResult CorpRegistryBound::EditCorporateContact(PyCallArgs &call, PyInt* contactID, PyInt* relationshipID) {
     _log(CORP__CALL, "CorpRegistryBound::EditCorporateContact()");
     call.Dump(CORP__CALL_DUMP);
@@ -2259,6 +2275,19 @@ PyResult CorpRegistryBound::EditCorporateContact(PyCallArgs &call, PyInt* contac
     }
 
     m_db.UpdateContact(relationshipID->value(), contactID->value(), m_corpID);
+    return nullptr;
+}
+
+PyResult CorpRegistryBound::EditCorporateContact(PyCallArgs &call, PyInt* contactID, PyFloat* relationshipID) {
+    _log(CORP__CALL, "CorpRegistryBound::EditCorporateContact(float)");
+    call.Dump(CORP__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 0x401)) {
+        call.client->SendErrorMsg("You need the Director or Diplomat role to manage corporation contacts.");
+        return nullptr;
+    }
+
+    m_db.UpdateContact((int32)relationshipID->value(), contactID->value(), m_corpID);
     return nullptr;
 }
 
@@ -2273,6 +2302,21 @@ PyResult CorpRegistryBound::EditContactsRelationshipID(PyCallArgs &call, PyList*
 
     for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
         m_db.UpdateContact(relationshipID->value(), PyRep::IntegerValueU32(*itr), m_corpID);
+    return nullptr;
+}
+
+PyResult CorpRegistryBound::EditContactsRelationshipID(PyCallArgs &call, PyList* contactIDs, PyFloat* relationshipID) {
+    _log(CORP__CALL, "CorpRegistryBound::EditContactsRelationshipID(float)");
+    call.Dump(CORP__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 0x401)) {
+        call.client->SendErrorMsg("You need the Director or Diplomat role to manage corporation contacts.");
+        return nullptr;
+    }
+
+    int32 rel = (int32)relationshipID->value();
+    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
+        m_db.UpdateContact(rel, PyRep::IntegerValueU32(*itr), m_corpID);
     return nullptr;
 }
 

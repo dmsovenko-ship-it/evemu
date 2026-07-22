@@ -55,10 +55,13 @@ CorpRegistryService::CorpRegistryService(EVEServiceManager& mgr) :
     this->Add("CreateAlliance", &CorpRegistryService::CreateAlliance);
     this->Add("GetRecentKillsAndLosses", &CorpRegistryService::GetRecentKillsAndLosses);
     this->Add("GetCorporateContacts", &CorpRegistryService::GetCorporateContacts);
-    this->Add("AddCorporateContact", &CorpRegistryService::AddCorporateContact);
-    this->Add("EditCorporateContact", &CorpRegistryService::EditCorporateContact);
+    this->Add("AddCorporateContact", static_cast<PyResult(CorpRegistryService::*)(PyCallArgs&, PyInt*, PyInt*)>(&CorpRegistryService::AddCorporateContact));
+    this->Add("AddCorporateContact", static_cast<PyResult(CorpRegistryService::*)(PyCallArgs&, PyInt*, PyFloat*)>(&CorpRegistryService::AddCorporateContact));
+    this->Add("EditCorporateContact", static_cast<PyResult(CorpRegistryService::*)(PyCallArgs&, PyInt*, PyInt*)>(&CorpRegistryService::EditCorporateContact));
+    this->Add("EditCorporateContact", static_cast<PyResult(CorpRegistryService::*)(PyCallArgs&, PyInt*, PyFloat*)>(&CorpRegistryService::EditCorporateContact));
     this->Add("RemoveCorporateContacts", &CorpRegistryService::RemoveCorporateContacts);
-    this->Add("EditContactsRelationshipID", &CorpRegistryService::EditContactsRelationshipID);
+    this->Add("EditContactsRelationshipID", static_cast<PyResult(CorpRegistryService::*)(PyCallArgs&, PyList*, PyInt*)>(&CorpRegistryService::EditContactsRelationshipID));
+    this->Add("EditContactsRelationshipID", static_cast<PyResult(CorpRegistryService::*)(PyCallArgs&, PyList*, PyFloat*)>(&CorpRegistryService::EditContactsRelationshipID));
     this->Add("GetLabels", &CorpRegistryService::GetLabels);
     this->Add("CreateLabel", &CorpRegistryService::CreateLabel);
     this->Add("DeleteLabel", &CorpRegistryService::DeleteLabel);
@@ -196,6 +199,19 @@ PyResult CorpRegistryService::AddCorporateContact(PyCallArgs &call, PyInt* conta
     return nullptr;
 }
 
+PyResult CorpRegistryService::AddCorporateContact(PyCallArgs &call, PyInt* contactID, PyFloat* relationshipID) {
+    _log(CORP__CALL, "CorpRegistryService::AddCorporateContact(float)");
+    call.Dump(CORP__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 0x401)) {
+        call.client->SendErrorMsg("You need the Director or Diplomat role to manage corporation contacts.");
+        return nullptr;
+    }
+
+    m_db.AddContact(call.client->GetCorporationID(), contactID->value(), (int32)relationshipID->value());
+    return nullptr;
+}
+
 PyResult CorpRegistryService::EditCorporateContact(PyCallArgs &call, PyInt* contactID, PyInt* relationshipID) {
     _log(CORP__CALL, "CorpRegistryService::EditCorporateContact()");
     call.Dump(CORP__CALL_DUMP);
@@ -206,6 +222,19 @@ PyResult CorpRegistryService::EditCorporateContact(PyCallArgs &call, PyInt* cont
     }
 
     m_db.UpdateContact(relationshipID->value(), contactID->value(), call.client->GetCorporationID());
+    return nullptr;
+}
+
+PyResult CorpRegistryService::EditCorporateContact(PyCallArgs &call, PyInt* contactID, PyFloat* relationshipID) {
+    _log(CORP__CALL, "CorpRegistryService::EditCorporateContact(float)");
+    call.Dump(CORP__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 0x401)) {
+        call.client->SendErrorMsg("You need the Director or Diplomat role to manage corporation contacts.");
+        return nullptr;
+    }
+
+    m_db.UpdateContact((int32)relationshipID->value(), contactID->value(), call.client->GetCorporationID());
     return nullptr;
 }
 
@@ -236,6 +265,22 @@ PyResult CorpRegistryService::EditContactsRelationshipID(PyCallArgs &call, PyLis
     uint32 corpID = call.client->GetCorporationID();
     for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
         m_db.UpdateContact(relationshipID->value(), PyRep::IntegerValueU32(*itr), corpID);
+    return nullptr;
+}
+
+PyResult CorpRegistryService::EditContactsRelationshipID(PyCallArgs &call, PyList* contactIDs, PyFloat* relationshipID) {
+    _log(CORP__CALL, "CorpRegistryService::EditContactsRelationshipID(float)");
+    call.Dump(CORP__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 0x401)) {
+        call.client->SendErrorMsg("You need the Director or Diplomat role to manage corporation contacts.");
+        return nullptr;
+    }
+
+    int32 rel = (int32)relationshipID->value();
+    uint32 corpID = call.client->GetCorporationID();
+    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
+        m_db.UpdateContact(rel, PyRep::IntegerValueU32(*itr), corpID);
     return nullptr;
 }
 

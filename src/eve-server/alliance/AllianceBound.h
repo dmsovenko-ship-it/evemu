@@ -56,9 +56,12 @@ protected:
     PyResult GetBillsReceivable(PyCallArgs& call);
     PyResult GetAllianceContacts(PyCallArgs& call);
     PyResult AddAllianceContact(PyCallArgs& call, PyInt* contactID, PyInt* relationshipID);
+    PyResult AddAllianceContact(PyCallArgs& call, PyInt* contactID, PyFloat* relationshipID);
     PyResult EditAllianceContact(PyCallArgs& call, PyInt* contactID, PyInt* relationshipID);
+    PyResult EditAllianceContact(PyCallArgs& call, PyInt* contactID, PyFloat* relationshipID);
     PyResult RemoveAllianceContacts(PyCallArgs& call, PyList* contactIDs);
     PyResult EditContactsRelationshipID(PyCallArgs& call, PyList* contactIDs, PyInt* relationshipID);
+    PyResult EditContactsRelationshipID(PyCallArgs& call, PyList* contactIDs, PyFloat* relationshipID);
     PyResult GetAlliance(PyCallArgs& call);
     PyResult UpdateAlliance(PyCallArgs& call, PyWString* description, PyWString* url);
     PyResult SetTaxRate(PyCallArgs& call, PyFloat* taxRate);

@@ -60,10 +60,13 @@ AllianceBound::AllianceBound(EVEServiceManager& mgr, AllianceRegistry& parent, A
     this->Add("GetBills", &AllianceBound::GetBills);
     this->Add("GetBillsReceivable", &AllianceBound::GetBillsReceivable);
     this->Add("GetAllianceContacts", &AllianceBound::GetAllianceContacts);
-    this->Add("AddAllianceContact", &AllianceBound::AddAllianceContact);
-    this->Add("EditAllianceContact", &AllianceBound::EditAllianceContact);
+    this->Add("AddAllianceContact", static_cast<PyResult(AllianceBound::*)(PyCallArgs&, PyInt*, PyInt*)>(&AllianceBound::AddAllianceContact));
+    this->Add("AddAllianceContact", static_cast<PyResult(AllianceBound::*)(PyCallArgs&, PyInt*, PyFloat*)>(&AllianceBound::AddAllianceContact));
+    this->Add("EditAllianceContact", static_cast<PyResult(AllianceBound::*)(PyCallArgs&, PyInt*, PyInt*)>(&AllianceBound::EditAllianceContact));
+    this->Add("EditAllianceContact", static_cast<PyResult(AllianceBound::*)(PyCallArgs&, PyInt*, PyFloat*)>(&AllianceBound::EditAllianceContact));
     this->Add("RemoveAllianceContacts", &AllianceBound::RemoveAllianceContacts);
-    this->Add("EditContactsRelationshipID", &AllianceBound::EditContactsRelationshipID);
+    this->Add("EditContactsRelationshipID", static_cast<PyResult(AllianceBound::*)(PyCallArgs&, PyList*, PyInt*)>(&AllianceBound::EditContactsRelationshipID));
+    this->Add("EditContactsRelationshipID", static_cast<PyResult(AllianceBound::*)(PyCallArgs&, PyList*, PyFloat*)>(&AllianceBound::EditContactsRelationshipID));
     this->Add("UpdateAlliance", &AllianceBound::UpdateAlliance);
     this->Add("SetTaxRate", &AllianceBound::SetTaxRate);
     this->Add("CanViewVotes", &AllianceBound::CanViewVotes);
@@ -477,6 +480,20 @@ PyResult AllianceBound::AddAllianceContact(PyCallArgs &call, PyInt* contactID, P
     return nullptr;
 }
 
+PyResult AllianceBound::AddAllianceContact(PyCallArgs &call, PyInt* contactID, PyFloat* relationshipID)
+{
+    _log(ALLY__CALL, "AllianceBound::AddAllianceContact(float) size=%lli", call.tuple->size());
+    call.Dump(ALLY__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 1)) {
+        call.client->SendErrorMsg("You need the Director role to manage alliance contacts.");
+        return nullptr;
+    }
+
+    m_db.AddContact(m_allyID, contactID->value(), (int32)relationshipID->value());
+    return nullptr;
+}
+
 PyResult AllianceBound::EditAllianceContact(PyCallArgs &call, PyInt* contactID, PyInt* relationshipID)
 {
     _log(ALLY__CALL, "AllianceBound::EditAllianceContact() size=%lli", call.tuple->size());
@@ -488,6 +505,20 @@ PyResult AllianceBound::EditAllianceContact(PyCallArgs &call, PyInt* contactID, 
     }
 
     m_db.UpdateContact(relationshipID->value(), contactID->value(), m_allyID);
+    return nullptr;
+}
+
+PyResult AllianceBound::EditAllianceContact(PyCallArgs &call, PyInt* contactID, PyFloat* relationshipID)
+{
+    _log(ALLY__CALL, "AllianceBound::EditAllianceContact(float) size=%lli", call.tuple->size());
+    call.Dump(ALLY__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 1)) {
+        call.client->SendErrorMsg("You need the Director role to manage alliance contacts.");
+        return nullptr;
+    }
+
+    m_db.UpdateContact((int32)relationshipID->value(), contactID->value(), m_allyID);
     return nullptr;
 }
 
@@ -518,6 +549,22 @@ PyResult AllianceBound::EditContactsRelationshipID(PyCallArgs &call, PyList* con
 
     for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
         m_db.UpdateContact(relationshipID->value(), PyRep::IntegerValueU32(*itr), m_allyID);
+    return nullptr;
+}
+
+PyResult AllianceBound::EditContactsRelationshipID(PyCallArgs &call, PyList* contactIDs, PyFloat* relationshipID)
+{
+    _log(ALLY__CALL, "AllianceBound::EditContactsRelationshipID(float) size=%lli", call.tuple->size());
+    call.Dump(ALLY__CALL_DUMP);
+
+    if (!(call.client->GetCorpRole() & 1)) {
+        call.client->SendErrorMsg("You need the Director role to manage alliance contacts.");
+        return nullptr;
+    }
+
+    int32 rel = (int32)relationshipID->value();
+    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
+        m_db.UpdateContact(rel, PyRep::IntegerValueU32(*itr), m_allyID);
     return nullptr;
 }
 
