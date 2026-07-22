@@ -1650,6 +1650,8 @@ void DestinyManager::InitWarp() {
     }
 
     double warpSpeedInMeters(static_cast<double>(m_shipWarpSpeed) * static_cast<double>(ONE_AU_IN_METERS));
+    if (warpSpeedInMeters < 1.0)
+        warpSpeedInMeters = static_cast<double>(ONE_AU_IN_METERS); // min 1 AU/s
 
     /* this is from http://community.eveonline.com/news/dev-blogs/warp-drive-active/
      * x = e^(k*t)
@@ -1675,14 +1677,17 @@ void DestinyManager::InitWarp() {
         );
 
         // short warp....no cruise
-        // this isnt very accurate....times and distances are a bit off....
         cruise = false;
-        // accel = 1/3 decel
+        // accel = 1/3 decel, speed stays at ship warp speed
         accelDistance = (static_cast<double>(m_targetDistance) / static_cast<double>(3));
         decelDistance = (static_cast<double>(m_targetDistance) - accelDistance);
-        warpSpeedInMeters = accelDistance;
-        m_warpDecelTime = log(decelDistance / static_cast<double>(3));
-        m_warpAccelTime = log(accelDistance / static_cast<double>(3)) / static_cast<double>(3);
+        // Guard against log(<=0) — if distances are too small, clamp to minimum
+        double decelArg = decelDistance / static_cast<double>(3);
+        double accelArg = accelDistance / static_cast<double>(3);
+        if (decelArg < 1.0) decelArg = 1.0;
+        if (accelArg < 1.0) accelArg = 1.0;
+        m_warpDecelTime = log(decelArg);
+        m_warpAccelTime = log(accelArg) / static_cast<double>(3);
     } else {
         _log(
             DESTINY__WARP_TRACE,
