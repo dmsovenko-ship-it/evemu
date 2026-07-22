@@ -746,6 +746,8 @@ PyResult DogmaIMBound::Activate(PyCallArgs& call, PyInt* itemID, PyInt* effectID
         return PyStatic.NewZero();
     }
 
+    _log(POS__TRACE, "DogmaIM::Activate(itemID=%u, effectID=%d) by %s", itemID->value(), effectID->value(), call.client->GetName());
+
     SystemEntity* pSE = call.client->SystemMgr()->GetSE(itemID->value());
     if (pSE == nullptr) {
         sLog.Error("DogmaIMBound::Handle_Activate()", "%u is not a valid EntityID in this system.", itemID->value());
@@ -848,7 +850,7 @@ PyResult DogmaIMBound::Deactivate(PyCallArgs& call, PyInt* itemID, PyInt* effect
     }
 
     // if effect is integer, call is for pos or container
-    call.Dump(POS__DUMP);
+    _log(POS__TRACE, "DogmaIM::Deactivate(itemID=%u, effect=%d) by %s", itemID->value(), effect->value(), pClient->GetName());
     SystemEntity* pSE = pClient->SystemMgr()->GetSE(itemID->value());
     if (pSE == nullptr) {
         sLog.Error("DogmaIMBound::Handle_Deactivate()", "%u is not a valid EntityID in this system.", itemID->value());
