@@ -743,8 +743,9 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
     m_anchoring = true;
     m_anchorTimer.Start(anchorTime);
 
-    // Fix the ball in place (stop being free-floating)
-    m_posState = EVEPOS::EntityState::Anchoring;  // -6 = anchoring
+    // Keep posState at Unanchored during timer — client shows bubble
+    // if any state other than Unanchored is sent.
+    m_posState = EVEPOS::EntityState::Unanchored;  // -2 = unanchored
     SendSlimUpdate();
     std::vector<PyTuple*> updates;
     SetBallFree sbf;
