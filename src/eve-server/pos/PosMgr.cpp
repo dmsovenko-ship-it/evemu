@@ -61,6 +61,7 @@ static void CheckStructureSkills(InventoryItemRef item, CharacterRef ch)
 #include "pos/Structure.h"
 #include "pos/Tower.h"
 #include "pos/Weapon.h"
+#include "system/SystemEntity.h"
 #include "system/SystemManager.h"
 #include "services/ServiceManager.h"
 
@@ -780,6 +781,12 @@ PyResult PosMgrBound::AnchorOrbital(PyCallArgs &call, PyInt* itemID) {
         return PyStatic.NewTrue();
     }
 
+    DeployableSE* pDSE = pSE->GetDeployableSE();
+    if (pDSE != nullptr) {
+        pDSE->Anchor(call.client, pDSE->GetPosition());
+        return PyStatic.NewTrue();
+    }
+
     return PyStatic.NewFalse();
 }
 
@@ -811,6 +818,12 @@ PyResult PosMgrBound::UnanchorOrbital(PyCallArgs &call, PyInt* itemID) {
         return PyStatic.NewTrue();
     }
 
+    DeployableSE* pDSE = pSE->GetDeployableSE();
+    if (pDSE != nullptr) {
+        pDSE->Unanchor(call.client);
+        return PyStatic.NewTrue();
+    }
+
     return PyStatic.NewFalse();
 }
 
@@ -838,6 +851,12 @@ PyResult PosMgrBound::OnlineOrbital(PyCallArgs &call, PyInt* itemID) {
     if (pPOSSE != nullptr) {
         CheckStructureSkills(pPOSSE->GetSelf(), call.client->GetChar());
         pPOSSE->SetOnlining();
+        return PyStatic.NewTrue();
+    }
+
+    DeployableSE* pDSE = pSE->GetDeployableSE();
+    if (pDSE != nullptr) {
+        pDSE->Online(call.client);
         return PyStatic.NewTrue();
     }
 
