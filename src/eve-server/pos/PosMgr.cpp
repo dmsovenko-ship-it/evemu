@@ -757,15 +757,18 @@ PyResult PosMgrBound::AnchorOrbital(PyCallArgs &call, PyInt* itemID) {
      *      posMgr.AnchorOrbital(itemID)
      */
 
-    _log(POS__TRACE,  "PosMgrBound::Handle_AnchorOrbital()");
+    _log(POS__TRACE,  "PosMgrBound::AnchorOrbital(%u) by %s", itemID->value(), call.client->GetName());
+    call.Dump(POS__CALL_DUMP);
 
     SystemManager* pSystem = call.client->SystemMgr();
     if (pSystem == nullptr)
         return PyStatic.NewFalse();
 
     SystemEntity* pSE = pSystem->GetSE(itemID->value());
-    if (pSE == nullptr)
+    if (pSE == nullptr) {
+        _log(POS__TRACE, "AnchorOrbital(%u): entity not found", itemID->value());
         return PyStatic.NewFalse();
+    }
 
     CustomsSE* pCOSE = pSE->GetCOSE();
     if (pCOSE != nullptr) {
@@ -796,15 +799,18 @@ PyResult PosMgrBound::UnanchorOrbital(PyCallArgs &call, PyInt* itemID) {
      *      posMgr = util.Moniker('posMgr', session.solarsystemid)
      *      posMgr.UnanchorOrbital(itemID)
      */
-    _log(POS__TRACE,  "PosMgrBound::Handle_UnanchorOrbital()");
+    _log(POS__TRACE,  "PosMgrBound::UnanchorOrbital(%u) by %s", itemID->value(), call.client->GetName());
+    call.Dump(POS__CALL_DUMP);
 
     SystemManager* pSystem = call.client->SystemMgr();
     if (pSystem == nullptr)
         return PyStatic.NewFalse();
 
     SystemEntity* pSE = pSystem->GetSE(itemID->value());
-    if (pSE == nullptr)
+    if (pSE == nullptr) {
+        _log(POS__TRACE, "UnanchorOrbital(%u): entity not found", itemID->value());
         return PyStatic.NewFalse();
+    }
 
     CustomsSE* pCOSE = pSE->GetCOSE();
     if (pCOSE != nullptr) {
