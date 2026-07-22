@@ -378,12 +378,20 @@ bool SystemEntity::ApplyDamage(Damage &d) {
          * fixed msgIDs and removed xmlp  - 15Sept19
          * @todo  still need to check/add detailed dmg msgs
          */
+        // Build IPT tuple (entityID, name) for source/target — client uses name for display
+
         if (HasPilot()) {
             //  notify player of damage received
             PyDict* dict = new PyDict();
-                dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
+                PyTuple* srcTup = new PyTuple(2);
+                srcTup->SetItem(0, new PyInt(d.srcSE->GetID()));
+                srcTup->SetItem(1, new PyString(d.srcSE->GetName()));
+                dict->SetItemString("source", srcTup);
+                PyTuple* tgtTup = new PyTuple(2);
+                tgtTup->SetItem(0, new PyInt(GetID()));
+                tgtTup->SetItem(1, new PyString(GetName()));
+                dict->SetItemString("target", tgtTup);
                 dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
-                dict->SetItemString("target", new PyInt(GetID()));
                 dict->SetItemString("damage", new PyFloat(total_damage));
             PyTuple* tuple = new PyTuple(3);
                 tuple->SetItem(0, new PyString("OnDamageMessage"));
@@ -394,9 +402,15 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         if (d.srcSE->HasPilot()) {
             //notify to player of damage done:
             PyDict* dict = new PyDict();
-                dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
+                PyTuple* srcTup = new PyTuple(2);
+                srcTup->SetItem(0, new PyInt(d.srcSE->GetID()));
+                srcTup->SetItem(1, new PyString(d.srcSE->GetName()));
+                dict->SetItemString("source", srcTup);
+                PyTuple* tgtTup = new PyTuple(2);
+                tgtTup->SetItem(0, new PyInt(GetID()));
+                tgtTup->SetItem(1, new PyString(GetName()));
+                dict->SetItemString("target", tgtTup);
                 dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
-                dict->SetItemString("target", new PyInt(GetID()));
                 dict->SetItemString("damage", new PyFloat(total_damage));
             PyTuple* tuple = new PyTuple(3);
             bool banked = false;
@@ -419,15 +433,15 @@ bool SystemEntity::ApplyDamage(Damage &d) {
             if (d.srcSE->GetDroneSE()->GetOwner() != nullptr) {
                 //  notify player of damage done by drone
                 PyDict* dict = new PyDict();
-                    dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
+                    PyTuple* srcTup = new PyTuple(2);
+                    srcTup->SetItem(0, new PyInt(d.srcSE->GetID()));
+                    srcTup->SetItem(1, new PyString(d.srcSE->GetName()));
+                    dict->SetItemString("source", srcTup);
+                    PyTuple* tgtTup = new PyTuple(2);
+                    tgtTup->SetItem(0, new PyInt(GetID()));
+                    tgtTup->SetItem(1, new PyString(GetName()));
+                    dict->SetItemString("target", tgtTup);
                     dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
-                    dict->SetItemString("target", new PyInt(GetID()));
-                /*
-                PyTuple* tuple = new PyTuple(2);
-                    tuple->AddItem(0, PyStatic.NewNone());  // i dont know what this is
-                    tuple->AddItem(1, new PyInt(d.srcSE->GetDroneSE()->GetOwner()->GetCharID())):
-                */
-                    //dict->SetItemString("owner", tuple));
                     dict->SetItemString("damage", new PyFloat(total_damage));
                 PyTuple* tuple = new PyTuple(3);
                     tuple->SetItem(0, new PyString("OnDamageMessage"));
