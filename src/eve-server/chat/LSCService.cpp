@@ -1208,6 +1208,21 @@ void Client::SelfEveMail(const char* subject, const char* fmt, ...)
             sDatabase.RunQuery(err,
                 "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask) "
                 "VALUES (%u, %u, %u, %u)", messageID, GetCharacterID(), 0, 1);
+
+            // Send OnMessage notification with the correct mailMessage.messageID
+            // so the client can link the notification to the mail in the inbox.
+            std::set<uint32> recipients;
+            recipients.insert(GetCharacterID());
+
+            NotifyOnMessage notify;
+            notify.recipients.push_back(GetCharacterID());
+            notify.messageID = messageID;
+            notify.senderID = GetCharacterID();
+            notify.subject = subject;
+            notify.sentTime = Win32TimeNow();
+
+            PyTuple* payload = notify.Encode();
+            sEntityList.Multicast(recipients, "OnMessage", "*multicastID", &payload, false);
         }
     }
 
