@@ -238,10 +238,11 @@ PyString* MailDB::GetMailBody(int id) const
     if (!res.GetRow(row) || row.IsNull(0))
         return nullptr;
 
-    Buffer compressed(row.GetText(0), row.ColumnLength(0));
+    std::string bodyStr(row.GetText(0), row.ColumnLength(0));
+    Buffer compressed(bodyStr.begin(), bodyStr.end());
     Buffer decompressed;
     if (InflateData(compressed, decompressed))
-        return new PyString(decompressed.begin<char>(), decompressed.size());
+        return new PyString(std::string(decompressed.begin<char>(), decompressed.end<char>()));
 
     return new PyString(row.GetText(0), row.ColumnLength(0));
 }
