@@ -524,12 +524,15 @@ bool SystemManager::LoadSystemDynamics() {
 bool SystemManager::LoadPlayerDynamics() {
     // Clean up transient deployables (MWD, mobile cyno, etc) — they do not persist across downtime
     DBerror err;
-    sDatabase.RunQuery(err,
+    if (!sDatabase.RunQuery(err,
         "DELETE e FROM entity e"
         " JOIN invTypes t ON e.typeID = t.typeID"
         " JOIN invGroups g ON t.groupID = g.groupID"
         " WHERE g.categoryID = %u AND e.locationID = %u",
-        EVEDB::invCategories::Deployable, m_data.systemID);
+        EVEDB::invCategories::Deployable, m_data.systemID))
+    {
+        codelog(DATABASE__ERROR, "Failed to clean up deployables in system %u: %s", m_data.systemID, err.c_str());
+    }
 
     std::vector<DBSystemDynamicEntity> entities;
     entities.clear();
