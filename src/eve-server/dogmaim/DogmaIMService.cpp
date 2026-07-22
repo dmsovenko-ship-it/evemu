@@ -772,7 +772,7 @@ PyResult DogmaIMBound::Activate(PyCallArgs& call, PyInt* itemID, PyInt* effectID
     */
 
 
-    // determine if this pSE is pos or cont.
+    // determine if this pSE is pos, cont, or deployable.
     //call (de)activate on pSE, pass effectID, send effect to clients (bubblecast) then set timers.
     if (pSE->IsPOSSE()) {
         /*  these two may be called in posMgr...
@@ -799,17 +799,18 @@ PyResult DogmaIMBound::Activate(PyCallArgs& call, PyInt* itemID, PyInt* effectID
         else if (pSE->IsContainerSE() and effectID->value() == anchorLift) {
             pSE->GetContSE()->PullAnchor();
         }
-        else if (pSE->IsDeployableSE() and effectID->value() == anchorDrop) {
+    }
+    else if (pSE->IsDeployableSE()) {
+        if (effectID->value() == anchorDrop) {
             GPoint pos = pSE->GetPosition();
             pSE->GetDeployableSE()->Anchor(call.client, pos);
         }
-        else if (pSE->IsDeployableSE() and effectID->value() == anchorLift) {
+        else if (effectID->value() == anchorLift) {
             pSE->GetDeployableSE()->Unanchor(call.client);
         }
-        else if (pSE->IsDeployableSE() and effectID->value() == onlineForStructures) {
+        else if (effectID->value() == onlineForStructures) {
             pSE->GetDeployableSE()->Online(call.client);
         }
-
     }
 
     return PyStatic.NewOne();
