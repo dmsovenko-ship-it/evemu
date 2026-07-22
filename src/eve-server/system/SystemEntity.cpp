@@ -756,7 +756,7 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
         sbr.radius = m_self->radius();
     updates.push_back(sbr.Encode());
     m_destiny->SendDestinyUpdate(updates);
-    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 1, 1, -1, 0);
+    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 1, 0, -1, 0);
 }
 
 void DeployableSE::Unanchor(Client* pClient)
