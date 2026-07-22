@@ -873,6 +873,7 @@ void DeployableSE::Process()
         m_posState = EVEPOS::StructureState::Online;  // 4 = online
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(true);
+            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.StructureOnlined", 0, 1, 1, -1, 0);
             m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.WarpDisruptFieldGenerating", 0, 1, 1, -1, 0);
         }
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, online now", m_self->name(), m_self->itemID());
@@ -959,8 +960,11 @@ void DeployableSE::SendSlimUpdate()
     slim->SetItemString("corpID", IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
     slim->SetItemString("allianceID", IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
     slim->SetItemString("warFactionID", IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
+    slim->SetItemString("categoryID", new PyInt(m_self->categoryID()));
+    slim->SetItemString("groupID", new PyInt(m_self->groupID()));
+    slim->SetItemString("flag", new PyInt(flagNone));
     slim->SetItemString("posState", new PyInt(m_posState));
-    slim->SetItemString("posTimestamp", PyStatic.NewInt(0));
+    slim->SetItemString("posTimestamp", new PyLong(GetFileTimeNow()));
     slim->SetItemString("posDelayTime", new PyInt(m_anchorTime / 1000));
     PyTuple *shipData = new PyTuple(2);
     shipData->SetItem(0, new PyLong(m_self->itemID()));
