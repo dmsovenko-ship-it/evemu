@@ -143,10 +143,13 @@ void CrimeWatch::OnProbeLaunch()
     m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
     // Use own character ID as target so SendAggressionChange() includes the timer entry
     m_aggressionTargetID = m_client->GetCharacterID();
-    if (m_client->GetChar()) {
-        int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
+    int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
+    if (m_client->GetChar())
         m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
-    }
+    // Also set on the ship entity so other clients in bubble see the attribute change via OnModuleAttributeChange
+    SystemEntity* pSE = m_client->GetShipSE();
+    if (pSE != nullptr)
+        pSE->GetSelf()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
     UpdateSessionChangeTimer();
     SendAggressionChange();
 }
