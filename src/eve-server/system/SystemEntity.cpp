@@ -617,15 +617,15 @@ void DeployableSE::EncodeDestiny(Buffer& into)
         head.posY = y();
         head.posZ = z();
     if (!m_anchored) {
-        // Unanchored deployable — RIGID mode (like POS structures) for proper client UI
+        // Unanchored deployable — free-floating can
         head.mode = Ball::Mode::RIGID;
-        head.flags = Ball::Flag::IsMassive;
+        head.flags = Ball::Flag::IsFree;
         into.Append(head);
-        RIGID_Struct main;
+        STOP_Struct main;
             main.formationID = 0xFF;
         into.Append(main);
     } else {
-        // Anchored deployable — RIGID mode
+        // Anchored deployable — massive structure
         head.mode = Ball::Mode::RIGID;
         head.flags = Ball::Flag::IsMassive;
         into.Append(head);
@@ -747,7 +747,7 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
 
     // Keep posState at Unanchored during timer — Crucible client shows warp
     // bubble if posState is anything other than Unanchored for MWD deployables.
-    m_posState = EVEPOS::EntityState::Unanchored;  // -2 = unanchored
+    m_posState = EVEPOS::StructureState::Unanchored;  // 0 = unanchored (keep during timer to avoid bubble)
     SendSlimUpdate();
     std::vector<PyTuple*> updates;
     SetBallFree sbf;
@@ -770,7 +770,7 @@ void DeployableSE::Unanchor(Client* pClient)
     m_anchorTimer.Start(unanchorTime);
     m_anchoring = false;
     m_unanchoring = true;
-    m_posState = EVEPOS::EntityState::Unanchoring;
+    m_posState = EVEPOS::EntityState::Unanchoring;  // -3 = unanchoring
     m_anchorTime = unanchorTime;
     SendSlimUpdate();
 
@@ -828,7 +828,7 @@ void DeployableSE::Process()
         m_offlineTimer.Disable();
         m_offlining = false;
         m_onlined = false;
-        m_posState = EVEPOS::EntityState::Anchored;  // -4 = anchored
+        m_posState = EVEPOS::StructureState::Anchored;  // 1 = anchored (offline, no bubble)
         // Clear warp bubble and scramble effect on all ships in bubble
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
@@ -849,8 +849,7 @@ void DeployableSE::Process()
         m_unanchoring = false;
         m_anchored = false;
         m_onlined = false;
-        m_posState = EVEPOS::EntityState::Unanchored;
-        m_posState = EVEPOS::EntityState::Unanchored;  // -2 = unanchored
+        m_posState = EVEPOS::StructureState::Unanchored;  // 0 = unanchored
         // Clear warp bubble flag when unanchored (also clear scramble if not already done)
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
