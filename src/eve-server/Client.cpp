@@ -372,19 +372,9 @@ void Client::NotifyContactStatus(bool online)
     CharacterDB chDB;
     std::vector<uint32> owners = chDB.GetContactOwners(GetCharacterID());
 
-    // Build the payload: (0, SubStream((0, (1, (charID,)))))
-    PyTuple* ids = new PyTuple(1);
-        ids->SetItem(0, new PyInt(GetCharacterID()));
-    PyTuple* inner = new PyTuple(2);
-        inner->SetItem(0, new PyInt(1));
-        inner->SetItem(1, ids);
-    PyTuple* substreamInner = new PyTuple(2);
-        substreamInner->SetItem(0, new PyInt(0));
-        substreamInner->SetItem(1, inner);
-    PySubStream* substream = new PySubStream(substreamInner);
-    PyTuple* payload = new PyTuple(2);
-        payload->SetItem(0, new PyInt(0));
-        payload->SetItem(1, substream);
+    // Client handler expects just the charID
+    PyTuple* payload = new PyTuple(1);
+        payload->SetItem(0, new PyInt(GetCharacterID()));
 
     const char* notifyName = online ? "OnContactLoggedOn" : "OnContactLoggedOff";
 
