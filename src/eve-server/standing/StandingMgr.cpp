@@ -12,6 +12,9 @@
 
 #include "StandingMgr.h"
 
+#include "EntityList.h"
+#include "EVE_Mail.h"
+
 /*
  * STANDING__ERROR
  * STANDING__WARNING
@@ -67,6 +70,33 @@ void StandingMgr::UpdateStandings(uint32 fromID, uint32 toID, uint16 eventType, 
 {
     StandingDB::UpdateStanding(fromID, toID, amount);
     StandingDB::SaveStandingChanges(fromID, toID, eventType, amount, msg);
+
+    // Send notification for meaningful standing changes (skip decay, combat, property damage)
+    switch (eventType) {
+        case Standings::Decay:
+        case Standings::CombatAggression:
+        case Standings::CombatShipKill:
+        case Standings::CombatPodKill:
+        case Standings::CombatOther:
+        case Standings::CombatAssistance:
+        case Standings::PropertyDamage:
+        case Standings::CombatShipKillOwnFaction:
+        case Standings::CombatPodKillOwnFaction:
+        case Standings::CombatAggressionOwnFaction:
+        case Standings::CombatAssistanceOwnFaction:
+        case Standings::CombatOtherOwnFaction:
+            break; // skip — these are too frequent
+        default: {
+            PyDict* data = new PyDict();
+            data->SetItemString("fromID", new PyInt(fromID));
+            data->SetItemString("toID", new PyInt(toID));
+            data->SetItemString("amount", new PyFloat(amount));
+            data->SetItemString("eventType", new PyInt(eventType));
+            if (!msg.empty())
+                data->SetItemString("msg", new PyString(msg));
+            sEntityList.CreateNotification(toID, Notify::Types::ContactEdit, fromID, data);
+        }
+    }
 }
 
 void StandingMgr::SetDecayTimer()
