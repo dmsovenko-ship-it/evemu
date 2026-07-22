@@ -244,7 +244,14 @@ void DestinyManager::ProcessState() {
                 InitWarp();
                 return;
             } else if (m_timeFraction < 0.749 && m_userSpeedFraction < 0.7499) {
-                SetSpeedFraction(1.0f, true);
+                if (degrees < 90.0f) {
+                    // Close enough — accelerate to full for warp
+                    SetSpeedFraction(1.0f, true);
+                } else {
+                    // Ship is facing away from target (or nearly so).
+                    // Hold a modest speed while turning to avoid drifting 100+ km.
+                    SetSpeedFraction(0.3f, true);
+                }
             } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
                 // catchall for turn checks messed up, and m_moveTime > ship align time
                 if (mySE->HasPilot()) {
