@@ -616,11 +616,26 @@ void DeployableSE::EncodeDestiny(Buffer& into)
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-    // Both anchored and unanchored use RIGID+IsMassive to keep SetState parsing
-    // compatible with the client (Ball::Flag::IsFree causes "Unknown packet type").
-    head.mode = Ball::Mode::RIGID;
-    head.flags = Ball::Flag::IsMassive;
-    into.Append(head);
+    // Use RIGID mode like POS structures (StructureSE).
+    // IsFree + DataSector for unanchored (free-floating can),
+    // IsMassive for anchored (fixed in place).
+    if (!m_anchored) {
+        head.mode = Ball::Mode::RIGID;
+        head.flags = Ball::Flag::IsFree;
+        into.Append(head);
+        DataSector data = DataSector();
+            data.inertia = 1;
+            data.velX = 0;
+            data.velY = 0;
+            data.velZ = 0;
+            data.maxSpeed = 1;
+            data.speedfraction = 0;
+        into.Append(data);
+    } else {
+        head.mode = Ball::Mode::RIGID;
+        head.flags = Ball::Flag::IsMassive;
+        into.Append(head);
+    }
     RIGID_Struct main;
         main.formationID = 0xFF;
     into.Append(main);
