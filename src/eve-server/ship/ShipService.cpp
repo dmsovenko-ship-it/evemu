@@ -531,18 +531,13 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                     pSE->EncodeDestiny(*destinyBuffer);
                     addballs2.state = new PyBuffer(&destinyBuffer);
                     SafeDelete(destinyBuffer);
-                    // Wrap AddBalls2 in a PackagedAction so it survives queue-based delivery.
-                    PyList* paList = new PyList();
-                    paList->AddItem(addballs2.Encode());
-                    PackagedAction pa;
-                    pa.substream = new PySubStream(paList);
-                    PyTuple* rsp = pa.Encode();
+                    PyTuple* rsp = addballs2.Encode();
                     std::vector<Client*> bubblePlayers;
                     pSE->SysBubble()->GetPlayers(bubblePlayers);
                     for (auto client : bubblePlayers) {
                         if (client != nullptr) {
                             PyIncRef(rsp);
-                            client->QueueDestinyUpdate(&rsp);
+                            client->QueueDestinyUpdate(&rsp, true);
                         }
                     }
                     PySafeDecRef(rsp);
