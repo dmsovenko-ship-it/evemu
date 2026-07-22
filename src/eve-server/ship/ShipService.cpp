@@ -514,8 +514,10 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 dropped = true;
                 shipDrop = true;
                 pSystem->AddEntity(pSE);
-                // Send initial ball data so the deployable is visible in space
-                // Use BubblecastDestiny to send only to clients in this bubble.
+                // Send initial ball data so the deployable is visible in space.
+                // Must use QueueDestinyUpdate with DoPackage=true (like SendStaticBall)
+                // so the AddBalls2 is wrapped in a PackagedAction — BubblecastDestiny
+                // with DoPackage=false causes "cannot concatenate 'str' and 'int'" on client.
                 if (pSE->SysBubble() != nullptr && pSE->DestinyMgr() != nullptr) {
                     Buffer* destinyBuffer = new Buffer();
                     Destiny::AddBall_header head;
@@ -532,10 +534,16 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                     pSE->EncodeDestiny(*destinyBuffer);
                     addballs2.state = new PyBuffer(&destinyBuffer);
                     SafeDelete(destinyBuffer);
-                    std::vector<PyTuple*> updates;
-                    updates.push_back(addballs2.Encode());
-                    std::vector<PyTuple*> events;
-                    pSE->SysBubble()->BubblecastDestiny(updates, events, "destiny");
+                    PyTuple* rsp = addballs2.Encode();
+                    std::vector<Client*> bubblePlayers;
+                    pSE->SysBubble()->GetPlayers(bubblePlayers);
+                    for (auto client : bubblePlayers) {
+                        if (client != nullptr) {
+                            PyIncRef(rsp);
+                            client->QueueDestinyUpdate(&rsp, true);
+                        }
+                    }
+                    PySafeDecRef(rsp);
                 }
                 list->AddItem(new PyInt(entity.itemID));
             } break;
