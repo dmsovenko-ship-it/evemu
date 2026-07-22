@@ -30,6 +30,7 @@
 #include "Client.h"
 #include "Container.h"
 #include "EVEServerConfig.h"
+#include "exploration/Probes.h"
 
 #include "StatisticMgr.h"
 #include "account/AccountService.h"
