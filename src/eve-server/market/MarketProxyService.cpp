@@ -523,9 +523,8 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
 
             uint32 orderID(0), origQty(quantity->value());
 
-            // set an upper bound (this used to be a while loop that spun
-            // forever in some cases)
-            for (int i = 0; i < 1000; i++) {
+            // Try once — if no match exists, looping won't help and just blocks the server
+            for (int i = 0; i < 1; i++) {
                 _log(MARKET__DUMP, "Mkt::PlaceCharOrder(): finding buy order: %i, %i, %i, %.2f", typeID->value(), stationID->value(), quantity->value(), price->value());
 
                 orderID = MarketDB::FindBuyOrder(typeID->value(), stationID->value(), quantity->value(), price->value());
