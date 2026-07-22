@@ -310,7 +310,7 @@ bool ProbeSE::ProcessTic()
             SendStateChange(Probe::State::Idle);
         }
 
-    // Warp disruption probe — apply scramble to nearby ships
+    // Warp disruption probe — apply/clear scramble to nearby ships
     if (m_self->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
         if (SysBubble() == nullptr)
             return true;
@@ -320,6 +320,19 @@ bool ProbeSE::ProcessTic()
         GPoint myPos = GetPosition();
         std::vector<Client*> players;
         SysBubble()->GetPlayers(players);
+        // Also check if other warp disruption sources exist in this bubble
+        bool hasOtherProbes = false;
+        std::map<uint32, SystemEntity*> entities;
+        SysBubble()->GetAllEntities(entities);
+        for (auto& [id, pSE] : entities) {
+            if (pSE == this) continue;
+            if ((pSE->IsProbeSE() && pSE->GetProbeSE()->GetSelf()->groupID() == EVEDB::invGroups::Warp_Disruption_Probe)
+                || (pSE->IsDeployableSE() && pSE->GetDeployableSE()->IsOnlined()
+                    && pSE->GetDeployableSE()->GetSelf()->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor)) {
+                hasOtherProbes = true;
+                break;
+            }
+        }
         for (auto pClient : players) {
             if (pClient == nullptr) continue;
             SystemEntity* pShipSE = pClient->GetShipSE();
@@ -337,7 +350,9 @@ bool ProbeSE::ProcessTic()
             float dist = myPos.distance(pShipSE->GetPosition());
             if (dist <= range) {
                 pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, false);
-                // Warping ships get scrambled too — WarpUpdate will pull them out
+            } else if (!hasOtherProbes) {
+                // Clear scramble for ships out of range when no other warp disruptors in bubble
+                pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), false);
             }
         }
     }

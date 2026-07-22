@@ -889,6 +889,19 @@ void DeployableSE::Process()
     GPoint myPos = GetPosition();
     std::vector<Client*> players;
     SysBubble()->GetPlayers(players);
+    // Check if other warp disruption sources exist in this bubble
+    bool hasOtherSources = false;
+    std::map<uint32, SystemEntity*> entities;
+    SysBubble()->GetAllEntities(entities);
+    for (auto& [id, pSE] : entities) {
+        if (pSE == this) continue;
+        if ((pSE->IsDeployableSE() && pSE->GetDeployableSE()->IsOnlined()
+                && pSE->GetDeployableSE()->GetSelf()->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor)
+            || (pSE->IsProbeSE() && pSE->GetProbeSE()->GetSelf()->groupID() == EVEDB::invGroups::Warp_Disruption_Probe)) {
+            hasOtherSources = true;
+            break;
+        }
+    }
     for (auto pClient : players) {
         if (pClient == nullptr) continue;
         SystemEntity* pShipSE = pClient->GetShipSE();
@@ -904,6 +917,9 @@ void DeployableSE::Process()
         float dist = myPos.distance(pShipSE->GetPosition());
         if (dist <= range) {
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
+        } else if (!hasOtherSources) {
+            // Clear scramble for ships out of range when no other warp disruptors in bubble
+            pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), true);
         }
     }
 }
