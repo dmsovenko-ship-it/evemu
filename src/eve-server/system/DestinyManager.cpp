@@ -1678,9 +1678,11 @@ void DestinyManager::InitWarp() {
 
         // short warp....no cruise
         cruise = false;
-        // accel = 1/3 decel, speed stays at ship warp speed
+        // accel = 1/3 decel
         accelDistance = (static_cast<double>(m_targetDistance) / static_cast<double>(3));
         decelDistance = (static_cast<double>(m_targetDistance) - accelDistance);
+        // Scale warp speed to acceleration distance so short-warp physics work.
+        warpSpeedInMeters = accelDistance;
         // Guard against log(<=0) — if distances are too small, clamp to minimum
         double decelArg = decelDistance / static_cast<double>(3);
         double accelArg = accelDistance / static_cast<double>(3);
