@@ -593,6 +593,7 @@ public:
     void                    Unanchor(Client* pClient);
     void                    Online(Client* pClient);
     void                    Offline(Client* pClient);
+    void                    SetImmediateOnline();
     bool                    IsAnchored()                    { return m_anchored; }
     bool                    IsOnlined()                     { return m_onlined; }
     bool                    IsAnchoring()                   { return m_anchoring; }

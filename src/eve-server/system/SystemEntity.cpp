@@ -774,6 +774,21 @@ void DeployableSE::Unanchor(Client* pClient)
     m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorLift", 0, 1, 1, -1, 0);
 }
 
+void DeployableSE::SetImmediateOnline()
+{
+    _log(POS__MESSAGE, "DeployableSE::SetImmediateOnline %s(%u)", m_self->name(), m_self->itemID());
+    m_anchored = true;
+    m_anchoring = false;
+    m_onlined = true;
+    m_onlining = false;
+    m_offlining = false;
+    m_unanchoring = false;
+    m_posState = EVEPOS::StructureState::Online;  // 4 = online
+    if (SysBubble() != nullptr)
+        SysBubble()->SetWarpBubble(true);
+    SendSlimUpdate();
+}
+
 void DeployableSE::Online(Client* pClient)
 {
     _log(POS__MESSAGE, "DeployableSE::Online %s(%u)", m_self->name(), m_self->itemID());
