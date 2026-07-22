@@ -2259,6 +2259,35 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         distance = 0;
     }
 
+    // Bump the ship away from any structure it may be inside (gate/station).
+    // Official EVE does this to prevent the ship from being stuck inside
+    // a structure's collision sphere when trying to warp.
+    if (m_targetEntity.second != nullptr && !autoPilot) {
+        double strRadius = m_targetEntity.second->GetRadius();
+        if (strRadius > 0) {
+            GVector toTarget(m_position, m_targetEntity.second->GetPosition());
+            double distToStructure = toTarget.length();
+            if (distToStructure < strRadius + m_radius) {
+                // Ship is inside (or nearly inside) a structure — bump out.
+                // Push the ship away from the structure toward the warp target.
+                GVector bumpDir(m_position, where);
+                double bumpLen = bumpDir.normalize();
+                if (bumpLen < 1.0) {
+                    // If target is same position, just pick a random direction away from structure
+                    bumpDir = GVector(m_targetEntity.second->GetPosition(), m_position);
+                    bumpDir.normalize();
+                }
+                double bumpDist = (strRadius + m_radius + 1000.0) - distToStructure;
+                if (bumpDist > 0) {
+                    m_position += (bumpDir * bumpDist);
+                    mySE->SetPosition(m_position);
+                }
+            }
+        }
+    }
+    m_targetEntity.first = 0;
+    m_targetEntity.second = nullptr;
+
     // For autopilot, save the target for CmdStop — don't send CmdFollowBall here
     m_targetPoint = where;
     if (autoPilot) {
