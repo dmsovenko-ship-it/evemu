@@ -1193,15 +1193,17 @@ void Client::SelfEveMail(const char* subject, const char* fmt, ...)
     Buffer bodyInput(str, str + strlen(str));
     if (DeflateData(bodyInput, bodyCompressed)) {
         std::string bodyCompressedStr(bodyCompressed.begin<char>(), bodyCompressed.end<char>());
-        std::string bodyEscaped;
+        std::string bodyEscaped, subjectEscaped;
         sDatabase.DoEscapeString(bodyEscaped, bodyCompressedStr);
+        sDatabase.DoEscapeString(subjectEscaped, std::string(subject));
 
         DBerror err;
         uint32 messageID;
+        std::string toStr = std::to_string(GetCharacterID());
         if (sDatabase.RunQueryLID(err, messageID,
             "INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID, title, body, sentDate) "
-            "VALUES (%u, '%u', 0, 0, '%s', '%s', %" PRIu64 ")",
-            GetCharacterID(), GetCharacterID(), subject, bodyEscaped.c_str(), Win32TimeNow()))
+            "VALUES (%u, '%s', 0, 0, '%s', '%s', %" PRIu64 ")",
+            GetCharacterID(), toStr.c_str(), subjectEscaped.c_str(), bodyEscaped.c_str(), Win32TimeNow()))
         {
             sDatabase.RunQuery(err,
                 "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask) "

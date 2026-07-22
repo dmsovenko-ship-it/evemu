@@ -238,13 +238,23 @@ PyString* MailDB::GetMailBody(int id) const
     if (!res.GetRow(row) || row.IsNull(0))
         return nullptr;
 
-    std::string bodyStr(row.GetText(0), row.ColumnLength(0));
-    Buffer compressed(bodyStr.begin(), bodyStr.end());
-    Buffer decompressed;
-    if (InflateData(compressed, decompressed))
-        return new PyString(std::string(decompressed.begin<char>(), decompressed.end<char>()));
+    uint32 bodyLen = row.ColumnLength(0);
+    const char* bodyRaw = row.GetText(0);
+    if (bodyRaw == nullptr)
+        return nullptr;
 
-    return new PyString(row.GetText(0), row.ColumnLength(0));
+    std::string bodyStr(bodyRaw, bodyLen);
+    Buffer compressed(bodyStr.begin(), bodyStr.end());
+
+    // Only try to inflate if the data is actually deflated
+    if (IsDeflated(compressed)) {
+        Buffer decompressed;
+        if (InflateData(compressed, decompressed))
+            return new PyString(std::string(decompressed.begin<char>(), decompressed.end<char>()));
+    }
+
+    // Data is not compressed or inflation failed — return as raw string
+    return new PyString(bodyStr);
 }
 
 void MailDB::SetMailUnread(int id)
