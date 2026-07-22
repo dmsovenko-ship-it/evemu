@@ -808,7 +808,12 @@ PyResult DogmaIMBound::Activate(PyCallArgs& call, PyInt* itemID, PyInt* effectID
             pSE->GetDeployableSE()->Anchor(call.client, pos);
         }
         else if (effectID->value() == anchorLift) {
-            pSE->GetDeployableSE()->Unanchor(call.client);
+            // Crucible client always sends anchorLift (650) for both anchor and unanchor.
+            DeployableSE* dSE = pSE->GetDeployableSE();
+            if (dSE->IsAnchored())
+                dSE->Unanchor(call.client);
+            else
+                dSE->Anchor(call.client, dSE->GetPosition());
         }
         else if (effectID->value() == onlineForStructures) {
             pSE->GetDeployableSE()->Online(call.client);
