@@ -580,6 +580,7 @@ PyDict* ProbeSE::MakeSlimItem()
     slim->SetItemString("numLaunchers",             PyStatic.NewOne());
     slim->SetItemString("sourceModuleID",           m_moduleRef.get() != nullptr? new PyInt(m_moduleRef->itemID()): PyStatic.NewNone());
     slim->SetItemString("securityStatus",           new PyFloat(m_secStatus));
+    slim->SetItemString("name",                     new PyString(m_self->itemName()));
     return slim;
 }
 

@@ -147,6 +147,7 @@ PyDict* AnomalySE::MakeSlimItem()
         slim->SetItemString("typeID",           new PyInt(m_self->typeID()));
         slim->SetItemString("dungeonDataID",    PyStatic.NewInt(0)); //?  seen 2990651
         slim->SetItemString("ownerID",          new PyInt(m_ownerID));
+        slim->SetItemString("name",             new PyString(m_self->itemName()));
     return slim;
 }
 
@@ -236,5 +237,6 @@ PyDict* WormholeSE::MakeSlimItem()
         slim->SetItemString("dunSpawnID",               new PyInt(m_dunSpawnID));
         slim->SetItemString("nebulaType",               new PyInt(m_nebulaType));
         slim->SetItemString("expiryDate",               new PyLong(m_expiryDate));
+        slim->SetItemString("name",                     new PyString(m_self->itemName()));
     return slim;
 }

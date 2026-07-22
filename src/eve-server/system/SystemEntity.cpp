@@ -123,6 +123,7 @@ PyDict* SystemEntity::MakeSlimItem() {
         slim->SetItemString("typeID",       new PyInt(m_self->typeID()));
         slim->SetItemString("ownerID",      new PyInt(m_ownerID));
         slim->SetItemString("itemID",       new PyLong(m_self->itemID()));
+        slim->SetItemString("name",         new PyString(m_self->itemName()));
     return slim;
 }
 
@@ -423,6 +424,7 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
         slim->SetItemString("ownerID",      new PyInt(m_ownerID));
         slim->SetItemString("categoryID",   new PyInt(m_self->categoryID()));
         slim->SetItemString("groupID",      new PyInt(m_self->groupID()));
+        slim->SetItemString("name",         new PyString(m_self->itemName()));
         if (m_self->groupID() == EVEDB::invGroups::Warp_Gate) {
             // this is incomplete........
             slim->SetItemString("dunSkillLevel", PyStatic.NewNone());   //?
@@ -743,8 +745,8 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
     m_anchoring = true;
     m_anchorTimer.Start(anchorTime);
 
-    // Keep posState at Unanchored during timer — client shows bubble
-    // if any state other than Unanchored is sent.
+    // Keep posState at Unanchored during timer — Crucible client shows warp
+    // bubble if posState is anything other than Unanchored for MWD deployables.
     m_posState = EVEPOS::EntityState::Unanchored;  // -2 = unanchored
     SendSlimUpdate();
     std::vector<PyTuple*> updates;
@@ -1168,6 +1170,7 @@ PyDict* DungeonEditSE::MakeSlimItem()
         slim->SetItemString("dunX", new PyFloat(m_data.x));
         slim->SetItemString("dunY", new PyFloat(m_data.y));
         slim->SetItemString("dunZ", new PyFloat(m_data.z));
+        slim->SetItemString("name", new PyString(m_self->itemName()));
 
     return slim;
 }
