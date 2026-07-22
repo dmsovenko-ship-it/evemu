@@ -9,6 +9,7 @@
 #include "npc/NPCAI.h"
 #include "inventory/ItemFactory.h"
 #include "system/SystemBubble.h"
+#include "system/SystemEntity.h"
 #include "standing/KillRightDB.h"
 #include "standing/StandingDB.h"
 #include "corporation/LPService.h"
@@ -97,6 +98,7 @@ void CrimeWatch::Process()
         m_aggressionTimer.Disable();
         if (m_client->GetChar())
             m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(0), true);
+        SendSlimAggressionUpdate(0);
     }
     if (m_criminalTimer.Enabled()) m_criminalTimer.Check();
     if (m_weaponTimer.Enabled() and m_weaponTimer.Check(false)) {
@@ -152,6 +154,7 @@ void CrimeWatch::OnProbeLaunch()
         pSE->GetSelf()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
     UpdateSessionChangeTimer();
     SendAggressionChange();
+    SendSlimAggressionUpdate(endTime);
 }
 
 void CrimeWatch::OnLooting()
@@ -469,6 +472,31 @@ void CrimeWatch::SendAggressionChange() {
         payload->SetItem(0, new PyInt(m_client->GetSystemID()));
         payload->SetItem(1, aggressors);
     pSE->SysBubble()->BubblecastSendNotification("OnAggressionChange", "solarsystemid", &payload, true);
+}
+
+void CrimeWatch::SendSlimAggressionUpdate(int64 endTime)
+{
+    SystemEntity* pSE = m_client->GetShipSE();
+    if (pSE == nullptr || pSE->SysBubble() == nullptr)
+        return;
+    // Get current slim item and modify securityStatus field to signal aggression visually
+    PyDict* slim = pSE->MakeSlimItem();
+    if (endTime > 0) {
+        // Override securityStatus to very negative so overview shows red indicator
+        slim->SetItemString("securityStatus", new PyFloat(-10.0));
+        slim->SetItemString("aggressionTimer", new PyLong(endTime));
+    } else {
+        // Restore original security status from pilot
+        slim->SetItemString("securityStatus", new PyFloat(float(m_client->GetSecurityRating())));
+        slim->SetItemString("aggressionTimer", new PyLong(0));
+    }
+    PyTuple* slimData = new PyTuple(2);
+        slimData->SetItem(0, new PyLong(pSE->GetID()));
+        slimData->SetItem(1, new PyObject("foo.SlimItem", slim));
+    PyTuple* itemData = new PyTuple(2);
+        itemData->SetItem(0, new PyString("OnSlimItemChange"));
+        itemData->SetItem(1, slimData);
+    pSE->SysBubble()->BubblecastDestinyUpdate(&itemData, "OnSlimItemChange");
 }
 
 void CrimeWatch::SetLimitedEngagement()

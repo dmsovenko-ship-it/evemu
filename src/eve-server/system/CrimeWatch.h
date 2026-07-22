@@ -33,6 +33,7 @@ public:
     void ApplyConcordPenalty();
     void SetLimitedEngagement();
     void SendAggressionChange();
+    void SendSlimAggressionUpdate(int64 endTime);
     void UpdateSessionChangeTimer();
 
 protected:
