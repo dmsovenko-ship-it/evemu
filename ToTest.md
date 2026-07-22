@@ -1,42 +1,47 @@
 # Testing Checklist
 
-Updated 2026-07-17 — build 11: deployables, smartbombs, warp disrupt probes, timers
+Updated 2026-07-22 — build 13: MWD full cycle, smartbomb crimewatch, destiny fixes
 
 ---
 
 ## Deployables (Mobile Warp Disruptor)
 
-- [ ] **Deploy from cargo** — Right-click Mobile Warp Disruptor I in cargo → Drop. Should appear in space.
-- [ ] **Anchor timer** — Right-click → Anchor. Should start timer (reads `AttrAnchoringDelay` from item).
-- [ ] **Anchor complete** — After timer, status changes to Anchored.
-- [ ] **Online** — Right-click → Online. Timer runs, then status changes to Online.
-- [ ] **Warp scramble** — Ship enters bubble range. Should get `AttrWarpScrambleStatus > 0` → can't warp.
-- [ ] **Unanchor** — Right-click → Unanchor. Timer runs, then object returns to unanchored state.
+- [ ] **Deploy from cargo** — Right-click MWD in cargo → Drop. Should appear as inert object (no bubble). `posState=-2`.
+- [ ] **Anchor timer** — Right-click → "Unanchor" (client sends `effectID=650`). Anchor timer starts from SDE (`AttrAnchoringDelay`): Small I=2min, II=1min; Med I=4min, II=2min; Large I=8min, II=4min.
+- [ ] **Anchor complete** — After timer → immediately Online. `WarpDisruptFieldGenerating` + `StructureOnlined` effects play. Bubble active.
+- [ ] **Warp scramble** — Ship enters bubble range → `AttrWarpScrambleStatus > 0` → can't warp.
+- [ ] **Scramble cleanup** — Ship leaves bubble range → scramble cleared (no other sources).
+- [ ] **Unanchor** — Right-click anchored MWD → "Unanchor". Timer runs (same as anchor). Bubble visual stops. Object returns to unanchored state.
 - [ ] **Sec-level restriction** — Try anchoring in highsec/lowsec. Should fail (only 0.0 allowed).
-- [ ] **Corp ownership** — Try anchoring another corp's disruptor. Should be denied.
-- [ ] **Destroy** — Shoot the disruptor. Should take damage and eventually pop.
+- [ ] **Corp ownership** — Try anchoring another corp's MWD. Should be denied.
+- [ ] **MWD attribute migration** — New MWDs after migration should use correct SDE anchor/range per type.
 
 ## Warp Disrupt Probe
 
-- [ ] **Interdiction Sphere Launcher** — Fit launcher to an Interdictor, load Warp Disrupt Probe charges.
-- [ ] **Activate launcher** — Activate module. Probe should deploy in space.
-- [ ] **Warp scramble bubble** — Ships in range (20km) should get scram status.
-- [ ] **Highsec block** — Try activating in highsec. Should fail.
-- [ ] **Aggression timer** — After launch, weapon timer should show (blocks docking/gate jump).
+- [ ] **Interdiction Sphere Launcher** — Fit launcher to Interdictor, load Warp Disrupt Probe charges.
+- [ ] **Activate launcher** — Probe deploys in space. Aggression timer starts (15min).
+- [ ] **Warp scramble bubble** — Ships within 20km get scram status.
+- [ ] **Highsec block** — Activate in highsec → fails (can't launch).
+- [ ] **Scramble cleanup on range exit** — Ship leaves probe range → scramble cleared.
+- [ ] **Scramble cleanup on probe removal** — Probe expires/is destroyed → all ships in bubble get scramble cleared.
+- [ ] **Smartbomb destroy** — Smartbomb can destroy probe (normal weapons can't).
 
 ## Smartbombs
 
-- [ ] **Activate smartbomb** — Fit a smartbomb, activate it. Should play `effects.SmartBomb` animation.
-- [ ] **Damage** — Ships in range should take EM/Thermal/Kinetic/Explosive damage with falloff.
-- [ ] **Capacitor drain** — Each cycle should consume capacitor (`AttrCapacitorNeed`).
-- [ ] **Cycle time** — Module should cycle at correct speed (per `AttrSpeed`/`AttrDuration`).
-- [ ] **No crash** — Activate without charge loaded. Should not crash (uses module's own `AttrDamage`).
+- [ ] **Activate smartbomb** — Fit smartbomb, activate. `effects.SmartBomb` animation plays.
+- [ ] **Crimewatch** — Hitting another player with smartbomb should set weapon+aggression timer (docking blocked, CONCORD in highsec).
+- [ ] **Kill right** — Killing a player with smartbomb should grant kill right to victim.
+- [ ] **Killmail** — Killmail should be sent correctly.
+- [ ] **Damage** — Ships in range take EM/Thermal/Kinetic/Explosive damage with falloff.
+- [ ] **Capacitor drain** — Each cycle consumes capacitor (`AttrCapacitorNeed`).
+- [ ] **Cycle time** — Module cycles at correct speed (per `AttrSpeed`/`AttrDuration`).
 
-## Timer Display
+## Timer Display (Crucible — only self-visible)
 
-- [ ] **Session change timer** — Jump through gate. Timer icon should show ~20s.
-- [ ] **Weapon timer** — Activate a weapon on a target. Timer should appear in top-left.
-- [ ] **Criminal timer** — Commit a crime in highsec. Timer should show.
+- [ ] **Session change timer** — Jump through gate. Timer icon shows ~20s (self only).
+- [ ] **Weapon timer** — Activate weapon on target. Timer appears in top-left (self only).
+- [ ] **Criminal timer** — Crime in highsec. Timer shows (self only).
+- [ ] **MWD anchor timer** — No visual timer (Crucible): timer runs server-side, no client countdown.
 
 ## Ship Modules
 

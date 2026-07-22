@@ -724,3 +724,41 @@
 
 - Удалены все упоминания о модификации клиента (Alasiya_TODO, SERVER_SETUP.md, EVE_Calendar.h, CalendarDB.cpp).
 - README.md, PROGRESS.md, current_state_summary.md обновлены.
+
+## ✅ Done this session (build 13 — 2026-07-22, ~20 commits)
+
+### 🔴 Mobile Warp Disruptor — полный цикл (Crucible)
+
+**Anchor/Online флоу:**
+- Дроп из карго → `posState = -2` (Unanchored), инертный объект, без баббла
+- ПКМ → "Unanchor" (`effectID=650`) → сервер определяет `IsAnchored()`: если false → `Anchor()`, если true → `Unanchor()`
+- Таймер анчоринга из SDE (`AttrAnchoringDelay`): Small I = 2min, II = 1min; Medium I = 4min, II = 2min; Large I = 8min, II = 4min
+- После таймера → сразу Online + `WarpDisruptFieldGenerating` + `StructureOnlined` + баббл активен
+- Unanchor → `WarpDisruptFieldGenerating` stop + scramble cleanup
+- Отдельного Online таймера нет (весь процесс = anchor timer)
+
+**Визуальные эффекты (сравнение с POS структурами):**
+- `SendSlimUpdate()` — добавлены `groupID`, `categoryID`, `flag` (были только в `MakeSlimItem`)
+- `posTimestamp` — был `0` (хардкод), теперь `GetFileTimeNow()`
+- `effects.StructureOnlined` — добавлен при переходе в online (как у POS)
+- `effects.WarpDisruptFieldGenerating` (3380) — при вкл/выкл баббла
+
+**Атрибуты:**
+- Миграция `20260722000001-mwd_type_attributes.sql` — добавлены `dgmTypeAttributes` для 9 типов MWD (Small/Medium/Large I/II + Syndicate)
+
+### 🔴 SmartBomb — crimewatch
+
+- `SmartBomb::DoCycle()` наносил урон, но НЕ вызывал `CrimeWatch` → агрессия не ставилась, док возможен, киллрайта нет
+- Добавлены `OnWeaponFired()` (таймер оружия) + `OnAggression(target, sec)` (агрессия + CONCORD) для каждой цели
+
+### 🔴 Destiny updates для докнутых клиентов
+
+- `Client::_SendQueuedUpdates()` — очищает очередь destiny updates если `IsStation(m_locationID)`
+- Immediate send path — не шлёт `DoDestinyUpdate` докнутым
+- `BubblecastDestinyUpdate/Event/Exclusive` — `IsDocked()` check
+- `DestinyManager::SendDestinyUpdate` — early return если пилот докнут
+
+### 🟢 Багфиксы
+
+- `POS__CALL_DUMP` — необъявленный лог-канал, заменён на `POS__TRACE`
+- `opencode-deepseek-thinking-fix` plugin установлен и настроен

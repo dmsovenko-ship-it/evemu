@@ -194,22 +194,24 @@
 | Outpost capture framework | ❌ | ✅ |
 | **Alliance conflict zones** — SBU contested flag, ProcessSovStatusChanged, map display | ❌ | ✅ |
 
-### 20. Deployables (Mobile Warp Disruptor + Probes) `███████████████████` 97%
+### 20. Deployables (Mobile Warp Disruptor + Probes) `████████████████████` 99%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Deploy from cargo, space entity | ❌ | ✅ |
-| Anchor/online via DogmaIM (effect dispatching) | ❌ | ✅ |
-| Offlining timer (AttrAnchoringDelay fallback) | ❌ | ✅ |
-| Anchor/online/unanchor timers from SDE attributes | ❌ | ✅ |
+| Anchor/online via DogmaIM + PosMgr routing | ❌ | ✅ |
+| Offlining timer + offline effect cleanup | ❌ | ✅ |
+| **dgmTypeAttributes migration** — anchor/online/unanchor per type (Small/Medium/Large I/II) | ❌ | ✅ |
+| **WarpDisruptFieldGenerating** visual effect on bubble active | ❌ | ✅ |
+| **StructureOnlined** effect on anchor complete | ❌ | ✅ |
+| **SendSlimUpdate** — groupID/categoryID/flag + real posTimestamp | ❌ | ✅ |
 | Sec-level restriction (`AttrAnchoringSecurityLevelMax`) | ❌ | ✅ |
-| Warp scramble bubble (Process()) when online | ❌ | ✅ |
-| **Scramble cleanup** on range exit (no other sources) | ❌ | ✅ |
-| **Scramble cleanup** on last entity removed from bubble | ❌ | ✅ |
+| Warp scramble bubble when online | ❌ | ✅ |
+| **Scramble cleanup** on range exit + last entity removed | ❌ | ✅ |
 | **Transient** — deleted from DB on server restart (Crucible behavior) | ❌ | ✅ |
 | **Warp Disrupt Probe** — Interdiction Sphere Launcher, bubble, aggression (15min), highsec block | ❌ | ✅ |
 | **Probe range** from `AttrWarpScrambleRange` (fallback 20km) | ❌ | ✅ |
-| **Smartbombs (player)** — Smart_Bomb module, AoE splash, capacitor drain, effects.SmartBomb FX | ❌ | ✅ |
+| **Smartbombs** — AoE splash, capacitor drain, **crimewatch (OnWeaponFired+OnAggression)** | ❌ | ✅ |
 | **Warp intercept** — distance-aware pull-out via GOTO transition | ❌ | ✅ |
 | **Invulnerability** — immune except to smartbombs/bombs | ❌ | ✅ |
 | **Shuttle immunity** — group 31 hardcoded | ❌ | ✅ |

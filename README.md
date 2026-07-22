@@ -35,7 +35,7 @@
 | **NPC systems** — anomalies, incursions, belt rats, gate rats, convoys, customs police | **NPC системы** — аномалии, инкурсии, бельтраты, гейтраты, конвои, таможня |
 | **Crimewatch** — weapon/aggression/criminal timers, CONCORD, sentry guns, kill rights, **probe aggression (15min)** | **Crimewatch** — таймеры, CONCORD, сентри, киллрайты, **агрессия пробок (15мин)** |
 | **Warp Disruption Probes** — Interdiction Sphere Launcher, bubble 20km, smartbomb destruction, **scramble cleanup on range exit** | **Пробки варп-дисрапта** — лаунчер, баббл 20км, уничтожение смартбомбами, **очистка скрембла при выходе из радиуса** |
-| **Mobile Warp Disruptor** — anchor/online via DogmaIM, timers from SDE, offlining timer, **transient (deleted on restart)** | **MWD** — anchor/online через DogmaIM, таймеры из SDE, offlining таймер, **транзиент (удаляется при ребуте)** |
+| **Mobile Warp Disruptor** — anchor/online via DogmaIM, SDE timers per type, **WarpDisruptFieldGenerating** visual, StructureOnlined effect, **transient (deleted on restart)** | **MWD** — anchor/online через DogmaIM, таймеры из SDE по типу, **WarpDisruptFieldGenerating** визуал, StructureOnlined эффект, **транзиент (удаляется при ребуте)** |
 | **Clones & Implants** — jump clones, per-clone implants, ship clone bay, SP loss on T3 pod | **Клоны и импланты** — джамп-клоны, импланты на клон, шип-клон-бей, SP loss |
 | **Contracts** — item exchange, courier, auctions with bidding + ISK transfer | **Контракты** — обмен, курьер, аукционы со ставками и переводом ISK |
 | **Corporation & Alliance** — corp/ally contacts with **role checks**, **OnContactLoggedOn/Off**, PyFloat* standing | **Корпорации и альянсы** — контакты с **проверкой ролей**, **OnContactLoggedOn/Off**, PyFloat* standing |
