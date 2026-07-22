@@ -1185,8 +1185,29 @@ void Client::SelfEveMail(const char* subject, const char* fmt, ...)
 
     va_end(args);
 
-    // Store in eveMail/eveMailDetails for client SyncMail
+    // Store in eveMail/eveMailDetails for LSC.GetMyMessages
     this->m_lsc->SendMail(GetCharacterID(), GetCharacterID(), subject, str);
+
+    // Also store in mailMessage/mailStatus for mailMgr.SyncMail (client mail UI)
+    Buffer bodyCompressed;
+    Buffer bodyInput(str, str + strlen(str));
+    if (DeflateData(bodyInput, bodyCompressed)) {
+        std::string bodyCompressedStr(bodyCompressed.begin<char>(), bodyCompressed.end<char>());
+        std::string bodyEscaped;
+        sDatabase.DoEscapeString(bodyEscaped, bodyCompressedStr);
+
+        DBerror err;
+        uint32 messageID;
+        if (sDatabase.RunQueryLID(err, messageID,
+            "INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID, title, body, sentDate) "
+            "VALUES (%u, '%u', 0, 0, '%s', '%s', %" PRIu64 ")",
+            GetCharacterID(), GetCharacterID(), subject, bodyEscaped.c_str(), Win32TimeNow()))
+        {
+            sDatabase.RunQuery(err,
+                "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask) "
+                "VALUES (%u, %u, %u, %u)", messageID, GetCharacterID(), 0, 1);
+        }
+    }
 
     SafeFree(str);
 }

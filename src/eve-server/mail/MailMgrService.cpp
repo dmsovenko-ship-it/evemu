@@ -200,7 +200,8 @@ PyResult MailMgrService::SyncMail(PyCallArgs &call, std::optional<PyInt*> first,
     if (first.has_value() && second.has_value())
     {
         // referring to a mail id range
-        int firstId = first.value()->value(), secondId = second.value()->value();
+        firstId = first.value()->value();
+        secondId = second.value()->value();
     }
 
     PyDict* dummy = new PyDict;

@@ -29,6 +29,7 @@
 
 #include "mail/MailDB.h"
 #include "EVE_Mail.h"
+#include "utils/Deflate.h"
 
 
 PyRep* MailDB::GetMailStatus(int charId)
@@ -236,6 +237,11 @@ PyString* MailDB::GetMailBody(int id) const
     DBResultRow row;
     if (!res.GetRow(row) || row.IsNull(0))
         return nullptr;
+
+    Buffer compressed(row.GetText(0), row.ColumnLength(0));
+    Buffer decompressed;
+    if (InflateData(compressed, decompressed))
+        return new PyString(decompressed.begin<char>(), decompressed.size());
 
     return new PyString(row.GetText(0), row.ColumnLength(0));
 }
