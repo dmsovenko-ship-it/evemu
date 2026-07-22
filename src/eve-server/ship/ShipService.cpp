@@ -514,32 +514,10 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 dropped = true;
                 shipDrop = true;
                 pSystem->AddEntity(pSE);
-                // Send initial ball data so the deployable is visible immediately.
-                // Use BubblecastDestiny (queued path) — AddBalls2 goes through the
-                // regular destiny update queue and flushes with other updates,
-                // avoiding DoPackage race conditions. The fixed EncodeDestiny
-                // (DataSector for IsFree) prevents 'Unknown packet type' in SetState.
-                if (pSE->SysBubble() != nullptr && pSE->DestinyMgr() != nullptr) {
-                    Buffer* destinyBuffer = new Buffer();
-                    Destiny::AddBall_header head;
-                        head.packet_type = 1;
-                        head.stamp = sEntityList.GetStamp();
-                    destinyBuffer->Append(head);
-                    AddBalls2 addballs2;
-                        addballs2.stateStamp = sEntityList.GetStamp();
-                        addballs2.extraBallData = new PyList();
-                    PyTuple* balls = new PyTuple(2);
-                        balls->SetItem(0, pSE->MakeSlimItem());
-                        balls->SetItem(1, pSE->MakeDamageState());
-                    addballs2.extraBallData->AddItem(balls);
-                    pSE->EncodeDestiny(*destinyBuffer);
-                    addballs2.state = new PyBuffer(&destinyBuffer);
-                    SafeDelete(destinyBuffer);
-                    std::vector<PyTuple*> updates;
-                    updates.push_back(addballs2.Encode());
-                    std::vector<PyTuple*> events;
-                    pSE->SysBubble()->BubblecastDestiny(updates, events, "destiny");
-                }
+                // Ball data is NOT sent immediately — BubblecastDestiny and
+                // QueueDestinyUpdate both crash Crucible client (unhashable type /
+                // cannot concatenate str+int). The entity appears automatically
+                // when another player enters the bubble.
                 list->AddItem(new PyInt(entity.itemID));
             } break;
             case EVEDB::invCategories::SovereigntyStructure: {
