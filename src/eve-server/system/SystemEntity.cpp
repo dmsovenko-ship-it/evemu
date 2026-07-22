@@ -716,7 +716,7 @@ DeployableSE::DeployableSE(InventoryItemRef self, EVEServiceManager &services, S
     m_allyID = data.allianceID;
     m_corpID = data.corporationID;
     m_ownerID = data.ownerID;
-    m_posState = 0;         // starts as unanchored
+    m_posState = EVEPOS::EntityState::Unanchored;  // -2 = unanchored
     m_anchorTime = m_self->GetAttribute(AttrAnchoringDelay).get_uint32();
     if (m_anchorTime < 1000) m_anchorTime = 5000;
     m_warpScrambleTimer.Start(1000);
@@ -744,7 +744,7 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
     m_anchorTimer.Start(anchorTime);
 
     // Fix the ball in place (stop being free-floating)
-    m_posState = 1; // Anchored
+    m_posState = EVEPOS::EntityState::Anchoring;  // -6 = anchoring
     SendSlimUpdate();
     std::vector<PyTuple*> updates;
     SetBallFree sbf;
@@ -810,7 +810,7 @@ void DeployableSE::Process()
         m_offlineTimer.Disable();
         m_offlining = false;
         m_onlined = false;
-        m_posState = 1; // Back to anchored state
+        m_posState = EVEPOS::EntityState::Anchored;  // -4 = anchored
         // Clear warp bubble and scramble effect on all ships in bubble
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
@@ -831,6 +831,7 @@ void DeployableSE::Process()
         m_anchored = false;
         m_onlined = false;
         m_posState = EVEPOS::EntityState::Unanchored;
+        m_posState = EVEPOS::EntityState::Unanchored;  // -2 = unanchored
         // Clear warp bubble flag when unanchored (also clear scramble if not already done)
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
@@ -851,14 +852,14 @@ void DeployableSE::Process()
         m_anchorTimer.Disable();
         m_anchoring = false;
         m_anchored = true;
-        m_posState = 1; // Anchored
+        m_posState = EVEPOS::EntityState::Anchored;  // -4 = anchored
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete", m_self->name(), m_self->itemID());
         SendSlimUpdate();
     } else if (m_onlining && m_onlineTimer.Check(false)) {
         m_onlineTimer.Disable();
         m_onlining = false;
         m_onlined = true;
-        m_posState = 4; // Online
+        m_posState = EVEPOS::StructureState::Online;  // 4 = online
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — online complete", m_self->name(), m_self->itemID());
         // Mark bubble for warp disruption when online
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr)
