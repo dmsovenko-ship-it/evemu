@@ -867,8 +867,14 @@ void DeployableSE::Process()
         m_anchorTimer.Disable();
         m_anchoring = false;
         m_anchored = true;
-        m_posState = EVEPOS::EntityState::Anchored;  // -4 = anchored
-        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete", m_self->name(), m_self->itemID());
+        // Crucible: after anchor, immediately start online timer
+        uint32 onlineTime = m_self->GetAttribute(AttrOnliningDelay).get_uint32();
+        if (onlineTime < 1000) onlineTime = 5000;
+        m_onlining = true;
+        m_onlineTimer.Start(onlineTime);
+        m_posState = EVEPOS::EntityState::Onlining;  // -5 = onlining
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, starting online timer (%u ms)", m_self->name(), m_self->itemID(), onlineTime);
+        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
         SendSlimUpdate();
     } else if (m_onlining && m_onlineTimer.Check(false)) {
         m_onlineTimer.Disable();
