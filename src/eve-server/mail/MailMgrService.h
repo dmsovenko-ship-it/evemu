@@ -41,6 +41,7 @@ protected:
     MailDB m_db;
 
     PyResult SendMail(PyCallArgs& call, PyList* toCharacterIDs, std::optional<PyInt*> listID, std::optional<PyInt*> toCorpOrAllianceID, PyWString* title, PyWString* body, PyBool* isReplyTo, PyBool* isForwardedFrom);
+    PyResult SendMail(PyCallArgs& call, PyList* toCharacterIDs, std::optional<PyInt*> listID, std::optional<PyInt*> toCorpOrAllianceID, PyWString* title, PyString* body, PyBool* isReplyTo, PyBool* isForwardedFrom);
     PyResult PrimeOwners(PyCallArgs& call, PyList* ownerIDs);
     PyResult SyncMail(PyCallArgs& call, std::optional<PyInt*> first, std::optional<PyInt*> second);
     PyResult GetMailHeaders(PyCallArgs& call, PyList* messageIDs);

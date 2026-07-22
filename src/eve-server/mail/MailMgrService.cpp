@@ -34,7 +34,8 @@
 MailMgrService::MailMgrService() :
     Service("mailMgr", eAccessLevel_Character)
 {
-    this->Add("SendMail", &MailMgrService::SendMail);
+    this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyWString*, PyBool*, PyBool*)>(&MailMgrService::SendMail));
+    this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyString*, PyBool*, PyBool*)>(&MailMgrService::SendMail));
     this->Add("PrimeOwners", &MailMgrService::PrimeOwners);
     this->Add("SyncMail", &MailMgrService::SyncMail);
     this->Add("GetMailHeaders", &MailMgrService::GetMailHeaders);
@@ -163,6 +164,16 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
     }
 
     return new PyInt(mailID);
+}
+
+PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std::optional<PyInt*> listID, std::optional<PyInt*> toCorpOrAllianceID, PyWString* title, PyString* body, PyBool* isReplyTo, PyBool* isForwardedFrom)
+{
+    // Client may send body as PyString* instead of PyWString*.
+    // Convert and delegate to the PyWString* overload.
+    PyWString* bodyW = new PyWString(body->content());
+    PyResult result = SendMail(call, toCharacterIDs, listID, toCorpOrAllianceID, title, bodyW, isReplyTo, isForwardedFrom);
+    PyDecRef(bodyW);
+    return result;
 }
 
 PyResult MailMgrService::PrimeOwners(PyCallArgs &call, PyList* ownerIDs)
