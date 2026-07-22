@@ -692,29 +692,29 @@ PyDict *MailDB::GetJoinedMailingLists(uint32 characterID)
     {
         PyDict *dict = new PyDict();
 
-        dict->SetItemString(" displayName" , new PyString(row.GetText(1)));
+        dict->SetItemString("displayName" , new PyString(row.GetText(1)));
 
         int32 role = row.GetInt(7);
         switch (role)
         {
         case mailingListMemberMuted: {
-            dict->SetItemString(" isMuted" , new PyBool(true));
-            dict->SetItemString(" isOwner" , new PyBool(false));
-            dict->SetItemString(" isOperator" , new PyBool(false));
+            dict->SetItemString("isMuted" , new PyBool(true));
+            dict->SetItemString("isOwner" , new PyBool(false));
+            dict->SetItemString("isOperator" , new PyBool(false));
         } break;
         case mailingListMemberOperator: {
-            dict->SetItemString(" isMuted" , new PyBool(false));
-            dict->SetItemString(" isOwner" , new PyBool(false));
-            dict->SetItemString(" isOperator" , new PyBool(true));
+            dict->SetItemString("isMuted" , new PyBool(false));
+            dict->SetItemString("isOwner" , new PyBool(false));
+            dict->SetItemString("isOperator" , new PyBool(true));
         } break;
         case mailingListMemberOwner: {
-            dict->SetItemString(" isMuted" , new PyBool(false));
-            dict->SetItemString(" isOwner" , new PyBool(true));
-            dict->SetItemString(" isOperator" , new PyBool(false));
+            dict->SetItemString("isMuted" , new PyBool(false));
+            dict->SetItemString("isOwner" , new PyBool(true));
+            dict->SetItemString("isOperator" , new PyBool(false));
         } break;
         }
 
-        ret->SetItem(new PyInt(row.GetInt(0)), new PyObject(" util.KeyVal" , dict));
+        ret->SetItem(new PyInt(row.GetInt(0)), new PyObject("util.KeyVal" , dict));
     }
 
     return ret;
