@@ -464,51 +464,60 @@ PyResult AllianceBound::GetAllianceContacts(PyCallArgs &call)
 
 PyResult AllianceBound::AddAllianceContact(PyCallArgs &call, PyInt* contactID, PyInt* relationshipID)
 {
-    //   self.GetMoniker().AddAllianceContact(contactID, relationshipID)
-    _log(ALLY__CALL, "AllianceBound::Handle_AddAllianceContact() size=%lli", call.tuple->size());
+    _log(ALLY__CALL, "AllianceBound::AddAllianceContact() size=%lli", call.tuple->size());
     call.Dump(ALLY__CALL_DUMP);
 
-    m_db.AddContact(m_allyID, contactID->value(), relationshipID->value());
+    // Only directors can manage alliance contacts
+    if (!(call.client->GetCorpRole() & 1)) {
+        call.client->SendErrorMsg("You need the Director role to manage alliance contacts.");
+        return nullptr;
+    }
 
+    m_db.AddContact(m_allyID, contactID->value(), relationshipID->value());
     return nullptr;
 }
 
 PyResult AllianceBound::EditAllianceContact(PyCallArgs &call, PyInt* contactID, PyInt* relationshipID)
 {
-    //   self.GetMoniker().EditAllianceContact(contactID, relationshipID)
-    _log(ALLY__CALL, "AllianceBound::Handle_EditAllianceContact() size=%lli", call.tuple->size());
+    _log(ALLY__CALL, "AllianceBound::EditAllianceContact() size=%lli", call.tuple->size());
     call.Dump(ALLY__CALL_DUMP);
 
-    m_db.UpdateContact(relationshipID->value(), contactID->value(), m_allyID);
+    if (!(call.client->GetCorpRole() & 1)) {
+        call.client->SendErrorMsg("You need the Director role to manage alliance contacts.");
+        return nullptr;
+    }
 
+    m_db.UpdateContact(relationshipID->value(), contactID->value(), m_allyID);
     return nullptr;
 }
 
 PyResult AllianceBound::RemoveAllianceContacts(PyCallArgs &call, PyList* contactIDs)
 {
-    //   self.GetMoniker().RemoveAllianceContacts(contactIDs)
-    _log(ALLY__CALL, "AllianceBound::Handle_RemoveAllianceContacts() size=%lli", call.tuple->size());
+    _log(ALLY__CALL, "AllianceBound::RemoveAllianceContacts() size=%lli", call.tuple->size());
     call.Dump(ALLY__CALL_DUMP);
 
-    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
-    {
-        m_db.RemoveContact(PyRep::IntegerValueU32(*itr), m_allyID);
+    if (!(call.client->GetCorpRole() & 1)) {
+        call.client->SendErrorMsg("You need the Director role to manage alliance contacts.");
+        return nullptr;
     }
 
+    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
+        m_db.RemoveContact(PyRep::IntegerValueU32(*itr), m_allyID);
     return nullptr;
 }
 
 PyResult AllianceBound::EditContactsRelationshipID(PyCallArgs &call, PyList* contactIDs, PyInt* relationshipID)
 {
-    //    self.GetMoniker().EditContactsRelationshipID(contactIDs, relationshipID)
-    _log(ALLY__CALL, "AllianceBound::Handle_EditContactsRelationshipID() size=%lli", call.tuple->size());
+    _log(ALLY__CALL, "AllianceBound::EditContactsRelationshipID() size=%lli", call.tuple->size());
     call.Dump(ALLY__CALL_DUMP);
 
-    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
-    {
-        m_db.UpdateContact(relationshipID->value(), PyRep::IntegerValueU32(*itr), m_allyID);
+    if (!(call.client->GetCorpRole() & 1)) {
+        call.client->SendErrorMsg("You need the Director role to manage alliance contacts.");
+        return nullptr;
     }
 
+    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr)
+        m_db.UpdateContact(relationshipID->value(), PyRep::IntegerValueU32(*itr), m_allyID);
     return nullptr;
 }
 
