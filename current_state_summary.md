@@ -762,3 +762,21 @@
 
 - `POS__CALL_DUMP` — необъявленный лог-канал, заменён на `POS__TRACE`
 - `opencode-deepseek-thinking-fix` plugin установлен и настроен
+
+### Все коммиты build 13 (2026-07-22)
+
+| Коммит | Что |
+|--------|-----|
+| `a7329108` | posState EntityState значения (-2, -6, -4) |
+| `e772597d` | SetImmediateOnline (revert) |
+| `78ab2eec` | revert SetImmediateOnline |
+| `28b7fbe6` | opencode plugin config |
+| `687cd4b5` | anchorLift по IsAnchored() |
+| `ce658bad` | destiny update для докнутых |
+| `a04cb5de` | auto-online после anchor |
+| `e6f4bc9f` | dgmTypeAttributes миграция |
+| `6d255f75` | online сразу после anchor (без online таймера) |
+| `4dfd02a9` | WarpDisruptFieldGenerating эффект |
+| `5bf5bd95` | SendSlimUpdate groupID/categoryID/flag |
+| `f1c1b5ef` | SmartBomb crimewatch |
+| `9d46b3db` | docs update |
