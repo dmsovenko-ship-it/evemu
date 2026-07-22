@@ -910,7 +910,7 @@ void DeployableSE::Process()
     // Ensure warp bubble flag is set for online deployables (e.g. loaded from DB)
     if (SysBubble() != nullptr && !SysBubble()->HasWarpBubble())
         SysBubble()->SetWarpBubble(true);
-    if (!m_warpScrambleTimer.Check(false))
+    if (!m_warpScrambleTimer.Check(true))
         return;
     if (SysBubble() == nullptr)
         return;
