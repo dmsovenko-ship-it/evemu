@@ -522,6 +522,12 @@ bool SystemManager::LoadSystemDynamics() {
 }
 
 bool SystemManager::LoadPlayerDynamics() {
+    // Clean up transient deployables (MWD, mobile cyno, etc) — they do not persist across downtime
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "DELETE FROM entity WHERE categoryID = %u AND locationID = %u",
+        EVEDB::invCategories::Deployable, m_data.systemID);
+
     std::vector<DBSystemDynamicEntity> entities;
     entities.clear();
     if (!SystemDB::LoadPlayerDynamicEntities(m_data.systemID, entities)) {
@@ -533,6 +539,9 @@ bool SystemManager::LoadPlayerDynamics() {
     for (auto cur : entities) {
         // stale drone entries from crashed/disconnected sessions are expected — skip silently
         if (cur.categoryID == EVEDB::invCategories::Drone)
+            continue;
+        // Deployables (MWD, mobile cyno etc) are transient — do not persist across downtime
+        if (cur.categoryID == EVEDB::invCategories::Deployable)
             continue;
         pSE = DynamicEntityFactory::BuildEntity(*this, cur);
         if (pSE == nullptr) {
