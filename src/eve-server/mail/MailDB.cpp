@@ -941,7 +941,18 @@ PyObject* MailDB::MailingListGetInfo(int32 listID)
         return nullptr;
 
     DBResultRow row;
-    if (!res.GetRow(row)) return nullptr;
+    if (!res.GetRow(row)) {
+        // List not found — return a KeyVal with just the id so the client
+        // doesn't show "Specified mailing list not found" for toListID=0.
+        PyDict* dict = new PyDict();
+        dict->SetItemString("id", new PyInt(listID));
+        dict->SetItemString("displayName", new PyString(""));
+        dict->SetItemString("defaultAccess", PyStatic.NewInt(0));
+        dict->SetItemString("defaultMemberAccess", PyStatic.NewInt(0));
+        dict->SetItemString("cost", PyStatic.NewInt(0));
+        dict->SetItemString("memberCount", PyStatic.NewInt(0));
+        return new PyObject("util.KeyVal", dict);
+    }
 
     DBQueryResult cntRes;
     uint32 memberCount = 0;
