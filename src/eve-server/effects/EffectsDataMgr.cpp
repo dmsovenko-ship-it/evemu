@@ -224,6 +224,10 @@ std::string FxDataMgr::GetEffectGuid(uint16 eID)
             return "effects.CynosuralGeneration";
         case EVEEffectID::jumpPortalGenerationBO:
             return "effects.JumpPortalBO";
+        case EVEEffectID::speedBoostMassAddition:
+            return "effects.Afterburner";
+        case EVEEffectID::speedBoostMassSigRad:
+            return "effects.MicroWarpdrive";
         default:
             break;
     }
