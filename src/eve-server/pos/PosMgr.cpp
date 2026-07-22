@@ -758,7 +758,6 @@ PyResult PosMgrBound::AnchorOrbital(PyCallArgs &call, PyInt* itemID) {
      */
 
     _log(POS__TRACE,  "PosMgrBound::AnchorOrbital(%u) by %s", itemID->value(), call.client->GetName());
-    call.Dump(POS__CALL_DUMP);
 
     SystemManager* pSystem = call.client->SystemMgr();
     if (pSystem == nullptr)
@@ -800,7 +799,6 @@ PyResult PosMgrBound::UnanchorOrbital(PyCallArgs &call, PyInt* itemID) {
      *      posMgr.UnanchorOrbital(itemID)
      */
     _log(POS__TRACE,  "PosMgrBound::UnanchorOrbital(%u) by %s", itemID->value(), call.client->GetName());
-    call.Dump(POS__CALL_DUMP);
 
     SystemManager* pSystem = call.client->SystemMgr();
     if (pSystem == nullptr)
