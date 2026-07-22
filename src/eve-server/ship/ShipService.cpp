@@ -515,9 +515,6 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 shipDrop = true;
                 pSystem->AddEntity(pSE);
                 // Send initial ball data so the deployable is visible in space.
-                // Must use QueueDestinyUpdate with DoPackage=true (like SendStaticBall)
-                // so the AddBalls2 is wrapped in a PackagedAction — BubblecastDestiny
-                // with DoPackage=false causes "cannot concatenate 'str' and 'int'" on client.
                 if (pSE->SysBubble() != nullptr && pSE->DestinyMgr() != nullptr) {
                     Buffer* destinyBuffer = new Buffer();
                     Destiny::AddBall_header head;
