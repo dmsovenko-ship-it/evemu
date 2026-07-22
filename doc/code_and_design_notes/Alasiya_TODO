@@ -694,7 +694,6 @@ check null deref in operator=
 
 all PackedRows are marshalled into a buffer, where None is inserted as zero.
     - this negates client conditional checks like using "if x is None:" because x=0 will return false in that check, which makes shit weird
-    - UPDATE  client patched to correct this, using "if x == 0:" after above "None" check
 
 check/add dynamic tables to Dump.sh to avoid copying local server data to repo
 

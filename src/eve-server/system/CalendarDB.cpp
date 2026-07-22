@@ -202,7 +202,7 @@ PyRep* CalendarDB::GetEventList(uint32 ownerID, uint32 month, uint32 year)
             dict->SetItemString("importance",           new PyBool(row.GetBool(5)));
             dict->SetItemString("eventTitle",           new PyString(row.GetText(6)));
             dict->SetItemString("flag",                 new PyInt(row.GetInt(7)));
-            // client patch to allow non-corp automated events for ram jobs
+            // allow non-corp automated events for ram jobs
             if (row.GetInt(7) == Calendar::Flag::Automated)
                 dict->SetItemString("autoEventType",    new PyInt(row.GetInt(8)));
             dict->SetItemString("isDeleted",            new PyBool(row.GetBool(9)));

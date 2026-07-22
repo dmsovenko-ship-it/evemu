@@ -60,7 +60,7 @@ namespace Calendar {
     namespace AutoEvent {
         enum {
             PosFuel = 1,
-            RAMJob = 2          // client patch to show 'automated' tag
+            RAMJob = 2          // automated event tag
         };
     }
 
@@ -75,7 +75,7 @@ namespace Calendar {
 }
 
 
-/* (client patch by allan)
+/* GetEventFlag
  *    def GetEventFlag(self, ownerID, autoEventType = None):
  *        if autoEventType is not None:
  *            return const.calendarTagAutomated
