@@ -799,6 +799,16 @@ PyResult DogmaIMBound::Activate(PyCallArgs& call, PyInt* itemID, PyInt* effectID
         else if (pSE->IsContainerSE() and effectID->value() == anchorLift) {
             pSE->GetContSE()->PullAnchor();
         }
+        else if (pSE->IsDeployableSE() and effectID->value() == anchorDrop) {
+            GPoint pos = pSE->GetPosition();
+            pSE->GetDeployableSE()->Anchor(call.client, pos);
+        }
+        else if (pSE->IsDeployableSE() and effectID->value() == anchorLift) {
+            pSE->GetDeployableSE()->Unanchor(call.client);
+        }
+        else if (pSE->IsDeployableSE() and effectID->value() == onlineForStructures) {
+            pSE->GetDeployableSE()->Online(call.client);
+        }
 
     }
 
@@ -858,8 +868,8 @@ PyResult DogmaIMBound::Deactivate(PyCallArgs& call, PyInt* itemID, PyInt* effect
     else if (pSE->IsContainerSE()) {
         pSE->GetContSE()->Deactivate(effect->value());
     }
-    else {
-        ; // make error here
+    else if (pSE->IsDeployableSE()) {
+        pSE->GetDeployableSE()->Offline(call.client);
     }
 
     return PyStatic.NewNone();
