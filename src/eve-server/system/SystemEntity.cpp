@@ -789,24 +789,59 @@ void DeployableSE::Online(Client* pClient)
 void DeployableSE::Offline(Client* pClient)
 {
     _log(POS__MESSAGE, "DeployableSE::Offline %s(%u)", m_self->name(), m_self->itemID());
-    m_onlined = false;
+    if (!m_onlined) {
+        m_onlining = false;
+        return;
+    }
+    m_offlining = true;
     m_onlining = false;
+    uint32 offTime = m_self->GetAttribute(AttrAnchoringDelay).get_uint32(); // reuse anchor delay as offline delay
+    if (offTime < 1000) offTime = 5000;
+    m_offlineTimer.Start(offTime);
 }
 
 void DeployableSE::Process()
 {
     ObjectSystemEntity::Process();
 
-    // Handle timer-based state transitions (anchor/online/unanchor)
-    if (m_unanchoring && m_anchorTimer.Check(false)) {
+    // Handle timer-based state transitions (anchor/online/offline/unanchor)
+    if (m_offlining && m_offlineTimer.Check(false)) {
+        m_offlineTimer.Disable();
+        m_offlining = false;
+        m_onlined = false;
+        m_posState = 1; // Back to anchored state
+        // Clear warp bubble and scramble effect on all ships in bubble
+        if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
+            SysBubble()->SetWarpBubble(false);
+            std::vector<Client*> players;
+            SysBubble()->GetPlayers(players);
+            for (auto pClient : players) {
+                if (pClient == nullptr) continue;
+                SystemEntity* pShipSE = pClient->GetShipSE();
+                if (pShipSE == nullptr) continue;
+                pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), false);
+            }
+        }
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — offline complete", m_self->name(), m_self->itemID());
+        SendSlimUpdate();
+    } else if (m_unanchoring && m_anchorTimer.Check(false)) {
         m_anchorTimer.Disable();
         m_unanchoring = false;
         m_anchored = false;
         m_onlined = false;
         m_posState = EVEPOS::EntityState::Unanchored;
-        // Clear warp bubble flag when unanchored
-        if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr)
+        // Clear warp bubble flag when unanchored (also clear scramble if not already done)
+        if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
+            std::vector<Client*> players;
+            SysBubble()->GetPlayers(players);
+            for (auto pClient : players) {
+                if (pClient == nullptr) continue;
+                SystemEntity* pShipSE = pClient->GetShipSE();
+                if (pShipSE == nullptr) continue;
+                pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), false);
+            }
+        }
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — unanchor complete, waiting to be scooped", m_self->name(), m_self->itemID());
         SendSlimUpdate();
         m_self->SetFlag(flagNone, true);
@@ -830,9 +865,8 @@ void DeployableSE::Process()
         SendSlimUpdate();
     }
 
-    // Warp scramble only when online
-    if (!m_onlined) {
-        // Clear warp bubble flag when going offline (unanchoring already handled above)
+    // Warp scramble only when online (not offlining)
+    if (!m_onlined || m_offlining) {
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr)
             SysBubble()->SetWarpBubble(false);
         return;

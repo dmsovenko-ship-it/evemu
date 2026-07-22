@@ -263,8 +263,18 @@ void ProbeSE::ClearWarpBubbleFlag()
             break;
         }
     }
-    if (!hasOther)
+    if (!hasOther) {
         SysBubble()->SetWarpBubble(false);
+        // Clear AttrWarpScrambleStatus on all ships in this bubble
+        std::vector<Client*> players;
+        SysBubble()->GetPlayers(players);
+        for (auto pClient : players) {
+            if (pClient == nullptr) continue;
+            SystemEntity* pShipSE = pClient->GetShipSE();
+            if (pShipSE == nullptr) continue;
+            pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), false);
+        }
+    }
 }
 
 bool ProbeSE::ProcessTic()
