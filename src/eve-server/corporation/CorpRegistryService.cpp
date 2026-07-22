@@ -184,42 +184,40 @@ PyResult CorpRegistryService::GetRecentKillsAndLosses(PyCallArgs &call) {
 
 
 PyResult CorpRegistryService::AddCorporateContact(PyCallArgs &call, PyInt* contactID, PyInt* relationshipID) {
- /*    def AddCorporateContact(self, contactID, relationshipID):
-  *        self.GetCorpRegistry().AddCorporateContact(contactID, relationshipID)
-  */
-    _log(CORP__CALL, "CorpRegistryService::Handle_AddCorporateContact()");
+    _log(CORP__CALL, "CorpRegistryService::AddCorporateContact()");
     call.Dump(CORP__CALL_DUMP);
 
+    m_db.AddContact(call.client->GetCorporationID(), contactID->value(), relationshipID->value());
     return nullptr;
 }
 
 PyResult CorpRegistryService::EditCorporateContact(PyCallArgs &call, PyInt* contactID, PyInt* relationshipID) {
- /*    def EditCorporateContact(self, contactID, relationshipID):
-  *        self.GetCorpRegistry().EditCorporateContact(contactID, relationshipID)
-  */
-    _log(CORP__CALL, "CorpRegistryService::Handle_EditCorporateContact)");
+    _log(CORP__CALL, "CorpRegistryService::EditCorporateContact()");
     call.Dump(CORP__CALL_DUMP);
 
+    m_db.UpdateContact(relationshipID->value(), contactID->value(), call.client->GetCorporationID());
     return nullptr;
 }
 
 PyResult CorpRegistryService::RemoveCorporateContacts(PyCallArgs &call, PyList* contactIDs) {
- /*    def RemoveCorporateContacts(self, contactIDs):
-  *        self.GetCorpRegistry().RemoveCorporateContacts(contactIDs)
-  */
-    _log(CORP__CALL, "CorpRegistryService::Handle_RemoveCorporateContacts()");
+    _log(CORP__CALL, "CorpRegistryService::RemoveCorporateContacts()");
     call.Dump(CORP__CALL_DUMP);
 
+    uint32 corpID = call.client->GetCorporationID();
+    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr) {
+        m_db.RemoveContact(PyRep::IntegerValueU32(*itr), corpID);
+    }
     return nullptr;
 }
 
 PyResult CorpRegistryService::EditContactsRelationshipID(PyCallArgs &call, PyList* contactIDs, PyInt* relationshipID) {
- /*    def EditContactsRelationshipID(self, contactIDs, relationshipID):
-  *        self.GetCorpRegistry().EditContactsRelationshipID(contactIDs, relationshipID)
-  */
-    _log(CORP__CALL, "CorpRegistryService::Handle_EditContactsRelationshipID()");
+    _log(CORP__CALL, "CorpRegistryService::EditContactsRelationshipID()");
     call.Dump(CORP__CALL_DUMP);
 
+    uint32 corpID = call.client->GetCorporationID();
+    for (PyList::const_iterator itr = contactIDs->begin(); itr != contactIDs->end(); ++itr) {
+        m_db.UpdateContact(relationshipID->value(), PyRep::IntegerValueU32(*itr), corpID);
+    }
     return nullptr;
 }
 
