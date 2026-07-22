@@ -3,6 +3,7 @@
 
 #include "system/SystemBubble.h"
 #include "system/Damage.h"
+#include "system/CrimeWatch.h"
 
 SmartBomb::SmartBomb(ModuleItemRef mRef, ShipItemRef sRef)
 : ActiveModule(mRef, sRef)
@@ -61,6 +62,10 @@ uint32 SmartBomb::DoCycle()
         Damage splash(pShipSE, m_modRef, kin, therm, em, exp,
                       dmgMultiplier * falloff, m_effectID);
         pTargetSE->ApplyDamage(splash);
+        // Trigger weapon timer and aggression for each player hit
+        float sec = pClient->SystemMgr()->GetSystemSecurityRating();
+        pClient->GetCrimeWatch()->OnWeaponFired();
+        pClient->GetCrimeWatch()->OnAggression(target, sec);
     }
     // Damage NPC entities (sentry guns, NPC ships, etc.)
     std::map<uint32, SystemEntity*> allEntities;
