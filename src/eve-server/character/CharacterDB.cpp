@@ -893,6 +893,23 @@ PyRep* CharacterDB::GetContacts(uint32 charID, bool blocked)
     return DBResultToCRowset(res);
 }
 
+std::vector<uint32> CharacterDB::GetContactOwners(uint32 contactID)
+{
+    std::vector<uint32> owners;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT DISTINCT ownerID FROM chrContacts"
+        " WHERE contactID = %u AND blocked = 0", contactID))
+    {
+        codelog(CORP__DB_ERROR, "Error in query: %s", res.error.c_str());
+        return owners;
+    }
+    DBResultRow row;
+    while (res.GetRow(row))
+        owners.push_back(row.GetUInt(0));
+    return owners;
+}
+
 void CharacterDB::AddContact(uint32 ownerID, uint32 charID, int32 standing, bool inWatchlist)
 {
     DBerror err;

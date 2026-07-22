@@ -346,6 +346,9 @@ public:
     // this will add clone alpha if no clone is found
     void InitSession( int32 characterID  );
 
+    // notify contacts when this character logs in/out
+    void NotifyContactStatus(bool online);
+
     // skill training timer shit
     void SetTrainingEndTime(int64 endTime)              { m_skillTimer = endTime; }
 

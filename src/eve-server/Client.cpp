@@ -192,6 +192,7 @@ Client::~Client() {
     // save shipstate and remove from ItemFactory
     m_ship->LogOut();
 
+    NotifyContactStatus(false);
     m_system->RemoveClient(this, true);
     // remove char from entitylist
     sEntityList.RemovePlayer(this);
@@ -357,7 +358,46 @@ bool Client::SelectCharacter(int32 charID/*0*/)
     // send MOTD and server data to 'local' chat channel
     this->m_lsc->SendServerMOTD(this);
 
+    NotifyContactStatus(true);
+
     return (m_loaded = true);
+}
+
+void Client::NotifyContactStatus(bool online)
+{
+    _log(CLIENT__MESSAGE, "Client::NotifyContactStatus(%s) for %s (%u)", \
+            online ? "online" : "offline", GetName(), GetCharacterID());
+
+    // Find all characters who have this character in their contact list
+    CharacterDB chDB;
+    std::vector<uint32> owners = chDB.GetContactOwners(GetCharacterID());
+
+    // Build the payload: (0, SubStream((0, (1, (charID,)))))
+    PyTuple* ids = new PyTuple(1);
+        ids->SetItem(0, new PyInt(GetCharacterID()));
+    PyTuple* inner = new PyTuple(2);
+        inner->SetItem(0, new PyInt(1));
+        inner->SetItem(1, ids);
+    PyTuple* substreamInner = new PyTuple(2);
+        substreamInner->SetItem(0, new PyInt(0));
+        substreamInner->SetItem(1, inner);
+    PySubStream* substream = new PySubStream(substreamInner);
+    PyTuple* payload = new PyTuple(2);
+        payload->SetItem(0, new PyInt(0));
+        payload->SetItem(1, substream);
+
+    const char* notifyName = online ? "OnContactLoggedOn" : "OnContactLoggedOff";
+
+    for (uint32 ownerID : owners) {
+        if (ownerID == GetCharacterID())
+            continue;  // skip self
+        Client* pTarget = sEntityList.FindClientByCharID(ownerID);
+        if (pTarget == nullptr)
+            continue;  // not online
+        PyIncRef(payload);
+        pTarget->SendNotification(notifyName, "clientID", &payload, false);
+    }
+    PyDecRef(payload);
 }
 
 void Client::ProcessClient() {
