@@ -3569,6 +3569,11 @@ void DestinyManager::SendDestinyUpdate( std::vector<PyTuple*>& updates, std::vec
         return;
     }
 
+    // Do not send destiny updates to pilots who are docked (no ballpark)
+    if (mySE->HasPilot() && mySE->GetPilot()->IsDocked()) {
+        return;
+    }
+
     if (self_only) {
         if (!mySE->HasPilot()) {
             // this entity is NOT a player ship...change to BubbleCast (or silently fail)

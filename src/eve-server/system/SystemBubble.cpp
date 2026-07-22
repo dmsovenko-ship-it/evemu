@@ -1160,6 +1160,10 @@ void SystemBubble::BubblecastDestinyUpdate( PyTuple** payload, const char* desc 
             _log( DESTINY__BUBBLECAST, "Bubblecast %s — skipping stale client %u", desc, cur.first);
             continue;
         }
+        if (pClient->IsDocked()) {
+            _log( DESTINY__BUBBLECAST, "Bubblecast %s — skipping docked client %s(%u)", desc, pClient->GetName(), cur.first);
+            continue;
+        }
         _log( DESTINY__BUBBLECAST, "Bubblecast %s update to %s(%u)", desc, pClient->GetName(), cur.first );
         PyIncRef(*payload);
         pClient->QueueDestinyUpdate(payload);
@@ -1171,6 +1175,8 @@ void SystemBubble::BubblecastDestinyUpdateExclusive( PyTuple** payload, const ch
     for (auto cur : m_players) {
         Client* pClient = sEntityList.FindClientByCharID(cur.first);
         if (pClient != cur.second)
+            continue;
+        if (pClient->IsDocked())
             continue;
         // Only queue a Destiny update for this bubble if the current SystemEntity is not 'pSE':
         // (this is an update to all client objects in the bubble EXCLUDING 'pSE')
@@ -1189,6 +1195,8 @@ void SystemBubble::BubblecastDestinyEvent( PyTuple** payload, const char* desc )
     for (auto cur : m_players) {
         Client* pClient = sEntityList.FindClientByCharID(cur.first);
         if (pClient != cur.second)
+            continue;
+        if (pClient->IsDocked())
             continue;
         _log( DESTINY__BUBBLECAST, "Bubblecast %s event to %s(%u)", desc, pClient->GetName(), cur.first );
         PyIncRef(*payload);
