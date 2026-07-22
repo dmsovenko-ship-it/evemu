@@ -514,6 +514,9 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 dropped = true;
                 shipDrop = true;
                 pSystem->AddEntity(pSE);
+                // Send ball data so the deployable is visible in space
+                if (pSE->SysBubble() != nullptr)
+                    pSystem->SendStaticBall(pSE);
                 list->AddItem(new PyInt(entity.itemID));
             } break;
             case EVEDB::invCategories::SovereigntyStructure: {
