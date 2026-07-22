@@ -795,8 +795,8 @@ PyObject *MailDB::MailingListGetSettings(int32 listID)
     }
 
 
-    ret->SetItemString(" defaultAccess" , new PyInt(row.GetInt(2)));
-    ret->SetItemString(" defaultMemberAccess" , new PyInt(row.GetInt(3)));
+    ret->SetItemString("defaultAccess" , new PyInt(row.GetInt(2)));
+    ret->SetItemString("defaultMemberAccess" , new PyInt(row.GetInt(3)));
 
     DBQueryResult res2;
 
@@ -810,14 +810,14 @@ PyObject *MailDB::MailingListGetSettings(int32 listID)
 
     PyDict *dict = new PyDict();
 
-    ret->SetItemString(" access" , dict);
+    ret->SetItemString("access" , dict);
 
 
     while (res.GetRow(row)) {
         dict->SetItem(new PyInt(row.GetInt(1)), new PyInt(row.GetInt(3)));
     }
 
-    return new PyObject(" util.KeyVal" , ret);
+    return new PyObject("util.KeyVal" , ret);
 }
 
 
