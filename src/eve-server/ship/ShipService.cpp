@@ -515,33 +515,10 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 shipDrop = true;
                 pSystem->AddEntity(pSE);
                 // Send initial ball data so the deployable is visible in space.
-                if (pSE->SysBubble() != nullptr && pSE->DestinyMgr() != nullptr) {
-                    Buffer* destinyBuffer = new Buffer();
-                    Destiny::AddBall_header head;
-                        head.packet_type = 1;
-                        head.stamp = sEntityList.GetStamp();
-                    destinyBuffer->Append(head);
-                    AddBalls2 addballs2;
-                        addballs2.stateStamp = sEntityList.GetStamp();
-                        addballs2.extraBallData = new PyList();
-                    PyTuple* balls = new PyTuple(2);
-                        balls->SetItem(0, pSE->MakeSlimItem());
-                        balls->SetItem(1, pSE->MakeDamageState());
-                    addballs2.extraBallData->AddItem(balls);
-                    pSE->EncodeDestiny(*destinyBuffer);
-                    addballs2.state = new PyBuffer(&destinyBuffer);
-                    SafeDelete(destinyBuffer);
-                    PyTuple* rsp = addballs2.Encode();
-                    std::vector<Client*> bubblePlayers;
-                    pSE->SysBubble()->GetPlayers(bubblePlayers);
-                    for (auto client : bubblePlayers) {
-                        if (client != nullptr) {
-                            PyIncRef(rsp);
-                            client->QueueDestinyUpdate(&rsp, true);
-                        }
-                    }
-                    PySafeDecRef(rsp);
-                }
+                // NEW PLAYERS who enter this bubble later will receive the entity
+                // automatically via the normal bubble casting system.
+                // Immediate ball sending via QueueDestinyUpdate causes
+                // 'unhashable type: list' / 'Unknown packet type' crashes.
                 list->AddItem(new PyInt(entity.itemID));
             } break;
             case EVEDB::invCategories::SovereigntyStructure: {
