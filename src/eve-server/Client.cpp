@@ -1892,6 +1892,10 @@ void Client::ExecuteJump() {
 
     //OnScannerInfoRemoved  - no args.  flushes current scan data in client
     SendNotification("OnScannerInfoRemoved", "charid", new PyTuple(0), true);  // this is sequenced
+    // Offline all modules before jump to prevent client CountDown timer crash
+    // (slimItem lookup fails after session change when entity is in a new bubble)
+    if (m_ship.get() != nullptr)
+        m_ship->OfflineAll();
     pShipSE->Jump();
 
     MoveToLocation(m_moveSystemID, m_movePoint);
