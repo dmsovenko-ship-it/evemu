@@ -1470,29 +1470,12 @@ void DestinyManager::Orbit() {
     LogMacro(mPos);
     // apply origin to our calculated position
     mPos += Tp;
-    // sanity check: computed orbit position must be within reasonable range of target
-    {
-        double posDist = mPos.distance(Tp);
-        if (posDist > refFollow * 3.0) {
-            if (posDist > 105000.0) {
-                // egregiously far — teleport to a reasonable orbit start near the target
-                _log(DESTINY__TRACE, "%s(%u): Orbit position %.0fm from target — teleporting to orbit start.",
-                     mySE->GetName(), mySE->GetID(), posDist);
-                SetPosition(Tp + GPoint(refFollow, 0, 0));
-                GVector heading(m_position, Tp);
-                heading.normalize();
-                m_shipHeading = heading;
-                m_targetPoint = Tp;
-                m_orbiting = Destiny::Ball::Orbit::TooFar;
-            } else {
-                _log(DESTINY__TRACE, "%s(%u): Orbit position is %.0fm from target (max %u).  Resetting to approach.",
-                     mySE->GetName(), mySE->GetID(), posDist, uint32(refFollow * 3.0));
-                m_orbiting = Destiny::Ball::Orbit::TooFar;
-                m_targetPoint = Tp;
-                GVector heading(m_position, m_targetPoint);
-                heading.normalize();
-                m_shipHeading = heading;
-            }
+    // Orbit position sanity check. Do NOT teleport — client's orbit is authoritative.
+    // Just log the drift and let the client continue orbiting.
+    if (mPos.distance(Tp) > refFollow * 3.0) {
+        _log(DESTINY__TRACE, "%s(%u): Orbit position drift %.0fm (max %u). Allowing client to self-correct.",
+             mySE->GetName(), mySE->GetID(), mPos.distance(Tp), uint32(refFollow * 3.0));
+    }
             MoveObject();
             return;
         }
