@@ -1407,22 +1407,21 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
 
     //go through all visible entities and gather the info we need...
     for (auto cur : visibleEntities) {
-        if (!cur.second->IsMissileSE() or !cur.second->IsFieldSE())
-            into.damageState[ cur.first ] = cur.second->MakeDamageState();
-
-        into.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem()));
-
-        //append the destiny binary data...
-        // Log encoding size for each entity type to catch buffer corruption
+        // Encode destiny binary FIRST — if it fails, skip this entity entirely
+        // to avoid BallNotInPark (slimItem without ball).
         size_t bufBefore = stateBuffer->size();
         cur.second->EncodeDestiny( *stateBuffer );
         size_t bufAfter = stateBuffer->size();
         size_t encodedSize = bufAfter - bufBefore;
         if (encodedSize == 0 || encodedSize > 500) {
-            _log(DESTINY__ERROR, "MakeSetState: Entity %s(%u) encoded %zu bytes (unexpected!) — skipping.",
+            _log(DESTINY__ERROR, "MakeSetState: Entity %s(%u) encoded %zu bytes — skipping.",
                  cur.second->GetName(), cur.first, encodedSize);
-            stateBuffer->Resize<uint8>(bufBefore); // roll back
+            stateBuffer->Resize<uint8>(bufBefore);
+            continue;
         }
+        if (!cur.second->IsMissileSE() or !cur.second->IsFieldSE())
+            into.damageState[ cur.first ] = cur.second->MakeDamageState();
+        into.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem()));
 
         // get tower effect state (if applicable)
         if (cur.second->IsTowerSE())
