@@ -244,14 +244,9 @@ void DestinyManager::ProcessState() {
                 InitWarp();
                 return;
             } else if (m_timeFraction < 0.749 && m_userSpeedFraction < 0.7499) {
-                if (degrees < 90.0f) {
-                    // Close enough — accelerate to full for warp
-                    SetSpeedFraction(1.0f, true);
-                } else {
-                    // Ship is facing away from target (or nearly so).
-                    // Hold a modest speed while turning to avoid drifting 100+ km.
-                    SetSpeedFraction(0.3f, true);
-                }
+                // During warp alignment, keep speed low to prevent bubble hopping.
+                // Full acceleration happens after InitWarp.
+                SetSpeedFraction(0.3f, true);
             } else if ((degrees < 30.0f) && (m_timeFraction > 0.749)
                        && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
                 // Close enough to target — start warp early (final alignment during accel).
