@@ -66,6 +66,7 @@ public:
     double GetSpeed()                                   { return m_speed; }
 
 protected:
+    uint32 m_targetID;
     SystemEntity* m_targetSE;
     SystemEntity* m_fromSE;
     InventoryItemRef m_modRef;

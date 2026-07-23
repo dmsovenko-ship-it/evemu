@@ -39,6 +39,7 @@
 Missile::Missile( InventoryItemRef self, EVEServiceManager& services, SystemManager* pSystem, InventoryItemRef modRef, SystemEntity* tSE, SystemEntity* pSE, GenericModule* pMod)
 : DynamicSystemEntity(self, services, pSystem),
   m_modRef(modRef),
+  m_targetID(tSE ? tSE->GetID() : 0),
   m_targetSE(tSE),
   m_fromSE(pSE),
   m_hitTimer(0),
@@ -233,11 +234,11 @@ void Missile::MakeDamageState(DoDestinyDamageState &into) {
 }
 
 void Missile::HitTarget() {
-    // Create Damage object:
-    if (m_targetSE == nullptr || m_targetSE->GetSelf().get() == nullptr)
+    // Validate target using its ID to avoid use-after-free on dangling m_targetSE pointer
+    if (m_targetID == 0 || m_system->GetSE(m_targetID) == nullptr)
         return;
-    // verify target is still alive (may have been removed mid-flight)
-    if (m_system->GetSE(m_targetSE->GetID()) == nullptr)
+    // Re-check raw pointer — may still be valid if target is in the same system
+    if (m_targetSE == nullptr || m_targetSE->GetSelf().get() == nullptr)
         return;
     Damage d(m_fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
 
