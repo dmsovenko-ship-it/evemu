@@ -344,9 +344,9 @@ private:
     // Internal Warp Methods
     Timer m_warpTimer;
     void InitWarp();
-    void WarpAccel(uint16 sec_into_warp);
-    void WarpCruise(uint16 sec_into_warp);
-    void WarpDecel(uint16 sec_into_warp);
+    void WarpAccel(uint32 sec_into_warp);
+    void WarpCruise(uint32 sec_into_warp);
+    void WarpDecel(uint32 sec_into_warp);
     void WarpStop(double currentShipSpeed);
     void WarpUpdate(double currentShipSpeed);
 

@@ -822,8 +822,10 @@ void SystemBubble::AddBallExclusive( SystemEntity* pSE ) {
     if (!m_system->IsLoaded())
         return;
     if (pSE->DestinyMgr() != nullptr)
-        if (pSE->DestinyMgr()->IsCloaked())
+        if (pSE->DestinyMgr()->IsCloaked()) {
+            _log(DESTINY__BUBBLE_TRACE, "AddBallExclusive: %s(%u) is cloaked — skipping", pSE->GetName(), pSE->GetID());
             return;
+        }
 
     Buffer* destinyBuffer = new Buffer();
 

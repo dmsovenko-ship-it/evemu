@@ -205,7 +205,7 @@ void DestinyManager::ProcessState() {
              */
             if (m_warpState != nullptr) {
                 //warp is in progress
-                uint16 sec_into_warp = (sEntityList.GetStamp() - m_stateStamp);
+                uint32 sec_into_warp = (sEntityList.GetStamp() - m_stateStamp);
                 //  speed and distance formulas based on current warp distance
                 if (m_warpState->accel) {
                     WarpAccel(sec_into_warp);
@@ -1821,7 +1821,7 @@ void DestinyManager::InitWarp() {
     WarpAccel(0);
 }
 
-void DestinyManager::WarpAccel(uint16 sec_into_warp) {
+void DestinyManager::WarpAccel(uint32 sec_into_warp) {
     /* For acceleration, k = 3.
      * distance = e^(k*s)
      * speed = k*e^(k*s)
@@ -1871,7 +1871,7 @@ void DestinyManager::WarpAccel(uint16 sec_into_warp) {
     WarpUpdate(currentShipSpeed);
 }
 
-void DestinyManager::WarpCruise(uint16 sec_into_warp) {
+void DestinyManager::WarpCruise(uint32 sec_into_warp) {
     /* in cruise....calculate distance only to update internal position data. */
     m_targetDistance -= m_warpState->warpSpeed;
 
@@ -1895,7 +1895,7 @@ void DestinyManager::WarpCruise(uint16 sec_into_warp) {
     WarpUpdate(m_warpState->warpSpeed);
 }
 
-void DestinyManager::WarpDecel(uint16 sec_into_warp) {
+void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     /* For deceleration, k = -1.
      * distance = e^(k*s)
      * speed = -k*e^(k*s)
