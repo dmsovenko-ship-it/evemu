@@ -940,9 +940,14 @@ void DestinyManager::MoveObject() {
     // Periodic position sync for player ships only — reduced frequency and threshold-based
     if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
         m_moveSyncCounter = 0;
-        // When in FOLLOW mode and speed is 0 (at target), skip position sync —
-        // client's position is authoritative for stationary approach.
-        if (!(m_ballMode == Destiny::Ball::Mode::FOLLOW && m_userSpeedFraction == 0.0f))
+        // Skip position sync when:
+        // - FOLLOW mode and speed is 0 (at target) — client's stationary position is authoritative
+        // - ORBIT mode — client's angular animation is authoritative (avoids jitter)
+        if (m_ballMode == Destiny::Ball::Mode::FOLLOW && m_userSpeedFraction == 0.0f)
+            { /* skip — client is at target */ }
+        else if (m_ballMode == Destiny::Ball::Mode::ORBIT)
+            { /* skip — client orbit matches server angular velocity */ }
+        else
             SetPosition(newPos, true);
     } else if (m_userSpeedFraction > 0.0f) {
         // Only send position updates while moving — stationary at target doesn't need correction
