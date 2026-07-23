@@ -1150,7 +1150,12 @@ void SystemManager::RemoveEntity(SystemEntity* pSE) {
     /** @note  this does not remove static balls (bubble center markers) and no clue why */
     if (pSE == nullptr)
         return;
+    // Save bubble pointer before Remove clears it, so we can send RemoveBall to clients
+    SystemBubble* pBubble = pSE->SysBubble();
     sBubbleMgr.Remove(pSE);
+    // Notify clients in the bubble that this ball is gone — prevents stale bracket crash
+    if (pBubble != nullptr)
+        pBubble->RemoveBallExclusive(pSE);
     // Remove Entity's Item Ref from Solar System Dynamic Inventory:
     RemoveItemFromInventory(pSE->GetSelf());
     // remove entity from our maps
