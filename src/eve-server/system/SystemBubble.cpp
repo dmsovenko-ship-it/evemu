@@ -804,7 +804,7 @@ void SystemBubble::SendAddBalls2( SystemEntity* to_who ) {
     if (is_log_enabled(DESTINY__BALL_DECODE))
         Destiny::DumpUpdate( DESTINY__BALL_DECODE, &( addballs2.state->content() )[0], (uint32)addballs2.state->content().size() );
     PyTuple* t = addballs2.Encode();
-    pClient->QueueDestinyUpdate(&t);    //consumed — DoPackage=false wraps in PackagedAction
+    pClient->QueueDestinyUpdate(&t, true);    //consumed — DoPackage=true wraps in PackagedAction (AddBalls2 starts with int, not string)
 }
 
 void SystemBubble::AddBallExclusive( SystemEntity* pSE ) {
