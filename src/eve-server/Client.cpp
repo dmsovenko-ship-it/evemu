@@ -2656,7 +2656,17 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
             SendNotification("DoDestinyUpdate", "clientID", &t, false);
         }
     } else {
-        act.update = *update;
+        // Wrap in PackagedAction if update starts with int (like AddBalls2) to prevent
+        // client RealFlushState from treating the int as funcName.
+        if ((*update)->items.size() > 0 && !(*update)->items[0]->IsString()) {
+            PyList* paList = new PyList();
+                paList->AddItem(*update);
+            PackagedAction pa;
+                pa.substream = new PySubStream(paList);
+            act.update = pa.Encode();
+        } else {
+            act.update = *update;
+        }
         m_packaged = true;
         m_destinyUpdateQueue->AddItem(act.Encode());
     }
