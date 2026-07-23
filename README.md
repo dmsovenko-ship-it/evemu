@@ -30,7 +30,7 @@
 
 | EN | RU |
 |----|----|
-| **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)** | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)** |
+| **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)**, **early warp start (<30°+half align)**, **snap stop (no drift)** | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)** |
 | **Drones** — full AI (combat/EWAR/logistics/mining), skills, subtypes, control range | **Дроны** — полный AI (бой/EWAR/логистика/майнинг), навыки, подтипы |
 | **NPC systems** — anomalies, incursions, belt rats, gate rats, convoys, customs police | **NPC системы** — аномалии, инкурсии, бельтраты, гейтраты, конвои, таможня |
 | **Crimewatch** — weapon/aggression/criminal timers, CONCORD, sentry guns, kill rights, **probe aggression (15min)** | **Crimewatch** — таймеры, CONCORD, сентри, киллрайты, **агрессия пробок (15мин)** |
@@ -54,7 +54,10 @@
 | **Fleet** — fleet warp, boosts, warfare links, specialist skills | **Флот** — флот-варп, бусты, warfare-линки, скиллы |
 | **Incursions** — state machine, wave spawning, contest rewards | **Инкурсии** — стейт-машина, волновой спавн, contest награды |
 | **GM commands** — spawn, dogma, giveallskills, kick, ban, teleport | **GM команды** — спавн, догма, скиллы, кик, бан, телепорт |
-| **Orbit** — smooth circular motion; **Approach** — fixed station distance oscillation | **Орбита** — плавное движение; **Approach** — починена дистанция у станций |
+| **Orbit** — smooth circular motion (no 40km snap), **Approach** — no oscillation, **snap stop (no drift)** | **Орбита** — плавное движение (без 40км скачка), **Approach** — без осцилляции, **мгновенная остановка без дрифта** |
+| **Bubble hopping fix** — player/NPC bubble stability, empty bubble cleanup 5s | **Bubble hopping fix** — стабильность бабблов, очистка пустых за 5с |
+| **Jump cloak** — 60s cloak works, enemies don't see you | **Клок прыжка** — 60с клок работает, враг не видит |
+| **Missile fix** — use-after-free guard on target | **Ракеты** — защита use-after-free цели |
 
 ---
 

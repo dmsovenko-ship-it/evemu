@@ -1,6 +1,6 @@
 # Testing Checklist
 
-Updated 2026-07-22 — build 13: MWD full cycle, smartbomb crimewatch, destiny fixes
+Updated 2026-07-23 — build 14: 97 commits — MWD, smartbomb, warp, orbit, approach, cloak, bubbles
 
 ---
 
@@ -35,6 +35,18 @@ Updated 2026-07-22 — build 13: MWD full cycle, smartbomb crimewatch, destiny f
 - [ ] **Damage** — Ships in range take EM/Thermal/Kinetic/Explosive damage with falloff.
 - [ ] **Capacitor drain** — Each cycle consumes capacitor (`AttrCapacitorNeed`).
 - [ ] **Cycle time** — Module cycles at correct speed (per `AttrSpeed`/`AttrDuration`).
+
+## Warp / Movement
+
+- [ ] **Early warp start** — Ship should start warp when within 30° of target after half align time (no need for full 6° alignment).
+- [ ] **Snap stop** — Ship stops immediately on command, no 200m drift.
+- [ ] **Bubble hopping** — Check server logs for `[BubbleTrace]` — NPCs should NOT hop bubbles every tick.
+- [ ] **Empty bubble cleanup** — Empty bubbles should be removed within 5 seconds.
+
+## Jump Cloak
+
+- [ ] **Cloak after jump** — After jumping, enemy should NOT see you (check `[BubbleTrace] AddBallExclusive: ... is cloaked — skipping`).
+- [ ] **Cloak duration** — After 60s, cloak should drop automatically.
 
 ## Timer Display (Crucible — only self-visible)
 

@@ -47,16 +47,21 @@
 | Queue, train, certificates, implants | ✅ | ✅ |
 | SP loss on T3 pod kill | ❌ | ✅ |
 
-### 3. Ship Navigation `███████████████████` 97%
+### 3. Ship Navigation `███████████████████` 98%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Stargate jump, orbit, follow, approach | ✅ | ✅ |
 | Warp-to-0, fleet warp, login warp | ✅ | ✅ |
-| **Autopilot** — CmdWarpToStuffAutopilot, auto-jump via `.tr` teleport, multi-hop via CmdStop → gate follow | ❌ | ✅ |
-| **AP follow** — hysteresis smoothing, gradual accel/decel, no abrupt Stop() | ❌ | ✅ |
-| **AP post-jump** — jump cloak (60s) + invul (15s) + gate effects (effects.JumpOut/GateActivity) | ❌ | ✅ |
-| Orbit desync fix, periodic position sync | ❌ | ✅ |
+| **Autopilot** — CmdWarpToStuffAutopilot, auto-jump, multi-hop | ❌ | ✅ |
+| **AP follow** — hysteresis smoothing, gradual accel/decel | ❌ | ✅ |
+| **AP post-jump** — jump cloak (60s) + invul (15s) + gate effects | ❌ | ✅ |
+| **Early warp start** — begin warp at <30° + half align time | ❌ | ✅ |
+| **Snap stop** — instant speed=0 on command (no decel drift) | ❌ | ✅ |
+| **Bubble hopping fix** — stay in bubble if in range, 5s cleanup | ❌ | ✅ |
+| **Jump cloak** — SetCloakTimer calls Cloak(), enemies can't see | ❌ | ✅ |
+| **Missile use-after-free** — targetID check before access | ❌ | ✅ |
+| Orbit desync fix, reduced position sync frequency | ❌ | ✅ |
 | Destiny crash fixes — bubble guard, use-after-free | ❌ | ✅ |
 | **Warp scramble** blocks logoff/emergency warp | 🟡 | ✅ |
 
