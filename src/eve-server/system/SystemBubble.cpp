@@ -436,6 +436,9 @@ void SystemBubble::Untrack(SystemEntity *pSE) {
     if (pSE->IsDroneSE()) {
         m_drones.erase(pseId);
     }
+
+    // Immediate cleanup: if bubble is empty, schedule it for removal
+    // (BubbleManager::RemoveEmpty runs every 5s and will pick it up).
 }
 
 /**

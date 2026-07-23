@@ -56,7 +56,7 @@ BubbleManager::~BubbleManager() {
 
 int BubbleManager::Initialize() {
     // start timers
-    m_emptyTimer.Start(60000);  //60s
+    m_emptyTimer.Start(5000);  //5s — clean up empty bubbles faster
     m_wanderTimer.Start(60000); //60s
 
     sLog.Blue("        BubbleMgr", "Bubble Manager Initialized.");
