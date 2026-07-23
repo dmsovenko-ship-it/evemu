@@ -617,25 +617,17 @@ void DeployableSE::EncodeDestiny(Buffer& into)
         head.posY = y();
         head.posZ = z();
     if (!m_anchored) {
-        // Unanchored deployable — STOP mode with DataSector (like tower structures).
+        // Unanchored deployable — STOP mode like NPC ships (no DataSector needed for static objects).
         head.mode = Ball::Mode::STOP;
         head.flags = Ball::Flag::IsFree;
         into.Append(head);
         MassSector mass = MassSector();
-            mass.mass = 1.0e9f;  // 1M kg — standard structure mass
+            mass.mass = 1.0e9f;
             mass.cloak = 0;
             mass.corporationID = m_corpID;
             mass.allianceID = m_allyID;
             mass.harmonic = 0;
         into.Append(mass);
-        DataSector data = DataSector();
-            data.inertia = 1;
-            data.velX = 0;
-            data.velY = 0;
-            data.velZ = 0;
-            data.maxSpeed = 0;
-            data.speedfraction = 0;
-        into.Append(data);
         STOP_Struct main;
             main.formationID = 0xFF;
         into.Append(main);
