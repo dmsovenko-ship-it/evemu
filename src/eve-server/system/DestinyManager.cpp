@@ -1955,8 +1955,10 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
 
         m_targBubble->Add(mySE);
 
-        // Crucible: if ship is warping into a bubble, pull out of warp
-        if (mySE->GetSelf()->HasAttribute(AttrWarpScrambleStatus)
+        // Crucible: if ship is warping INTO a bubble (not OUT from within one), pull out of warp.
+        // Only trigger when the source bubble differs from the target bubble (incoming warp).
+        if (mySE->SysBubble() != m_targBubble
+            && mySE->GetSelf()->HasAttribute(AttrWarpScrambleStatus)
             && mySE->GetSelf()->GetAttribute(AttrWarpScrambleStatus) > 0)
         {
             bool immune = (mySE->GetSelf()->groupID() == EVEDB::invGroups::Shuttle)
