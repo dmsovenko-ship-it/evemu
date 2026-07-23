@@ -659,12 +659,13 @@ void DestinyManager::CheckBump()
 
     // NOTE:  object's "massive = true" means it can bump/collide  (massive = solid)
 
-    // initial implementation will ONLY check player ships for bumping.
-    std::vector<Client*> vPlayers;
-    mySE->SysBubble()->GetPlayers(vPlayers);
     Client* pClient = mySE->GetPilot();
     GPoint pos(GetPosition());
     float distance = 0.0f;
+
+    // Check against other player ships in the bubble
+    std::vector<Client*> vPlayers;
+    mySE->SysBubble()->GetPlayers(vPlayers);
     for (auto cur : vPlayers) {
         if (cur == pClient)
             continue;
@@ -677,10 +678,22 @@ void DestinyManager::CheckBump()
             m_bump = false;
         }
     }
-    /** @todo  add data and checks for each ship bumped
-     * to give single bump msg for each ship combo
-     * without spamming their overview
-     */
+
+    // Check against static structures (gates, stations) in this system
+    SystemManager* pSystem = mySE->SystemMgr();
+    auto& staticEntities = pSystem->GetStaticEntities();
+    for (auto& [id, pSE] : staticEntities) {
+        if (pSE == nullptr || pSE == mySE)
+            continue;
+        if (!pSE->IsGateSE() && !pSE->IsStationSE())
+            continue;
+        distance = pos.distance(pSE->GetPosition());
+        distance -= (mySE->GetRadius() - pSE->GetRadius());
+        if (distance < BUMP_DISTANCE) {
+            Bump(pSE);
+            m_bump = true;
+        }
+    }
 
     if (sConfig.debug.UseProfiling)
         sProfiler.AddTime(Profile::collision, GetTimeUSeconds() - profileStartTime);
