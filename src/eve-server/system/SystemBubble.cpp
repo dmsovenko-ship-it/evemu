@@ -720,7 +720,18 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who) {
     AddBalls addballs;
     addballs.slims = new PyList();
 
+    // Send ALL entities — both dynamic (ships, MWD) and static (gates, stations)
     for (auto cur : m_dynamicEntities) {
+        if (cur.second->DestinyMgr() != nullptr)
+            if (cur.second->DestinyMgr()->IsCloaked())
+                continue;
+        if (!cur.second->IsMissileSE() or !cur.second->IsFieldSE())
+            addballs.damageDict[cur.first] = cur.second->MakeDamageState();
+        addballs.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem() ) );
+        cur.second->EncodeDestiny( *destinyBuffer );
+    }
+    // Also include static entities (gates, stations) — they're in m_entities but NOT in m_dynamicEntities
+    for (auto cur : m_entities) {
         if (cur.second->DestinyMgr() != nullptr)
             if (cur.second->DestinyMgr()->IsCloaked())
                 continue;
