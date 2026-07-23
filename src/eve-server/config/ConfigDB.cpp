@@ -177,19 +177,21 @@ PyRep *ConfigDB::GetMultiOwnersEx(const std::vector<int32> &entityIDs) {
         }
     }
 
-    if (!results->empty()) {
-        uint32 cc = res.ColumnCount();
-        PyTuple *response = new PyTuple(2);
-        PyList *cols = new PyList(cc);
-        for(uint32 r(0); r < cc; ++r)
+    // Always return a valid tuple (columns, rows), even if empty — client expects this format.
+    uint32 cc = results->empty() ? 5 : res.ColumnCount();
+    PyTuple *response = new PyTuple(2);
+    PyList *cols = new PyList(cc);
+    const char* defaultCols[] = {"ownerID", "ownerName", "typeID", "gender", "ownerNameID"};
+    for(uint32 r(0); r < cc; ++r) {
+        if (!results->empty())
             cols->SetItemString(r, res.ColumnName(r));
-        response->items[0] = cols;
-        response->items[1] = results;
-
-        return response;
-    } else {
-        return new PyTuple(0);
+        else
+            cols->SetItemString(r, defaultCols[r]);
     }
+    response->items[0] = cols;
+    response->items[1] = results;
+
+    return response;
 }
 
 PyRep *ConfigDB::GetMultiAllianceShortNamesEx(const std::vector<int32> &entityIDs) {
