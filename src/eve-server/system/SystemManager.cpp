@@ -1408,7 +1408,18 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
         into.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem()));
 
         //append the destiny binary data...
-        cur.second->EncodeDestiny( *stateBuffer );
+        // Validate mode BEFORE encoding — catch invalid modes early
+        bool skipEntity = false;
+        if (cur.second->DestinyMgr() != nullptr) {
+            uint8 mode = cur.second->DestinyMgr()->GetState();
+            if (mode > Destiny::Ball::Mode::FORMATION) {
+                _log(DESTINY__ERROR, "MakeSetState: Entity %s(%u) has invalid mode %u — skipping binary encoding.",
+                     cur.second->GetName(), cur.first, mode);
+                skipEntity = true;
+            }
+        }
+        if (!skipEntity)
+            cur.second->EncodeDestiny( *stateBuffer );
 
         // get tower effect state (if applicable)
         if (cur.second->IsTowerSE())
