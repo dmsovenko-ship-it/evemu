@@ -170,16 +170,17 @@ void BubbleManager::Add(SystemEntity* pSE, bool isPostWarp /*false*/) {
     SystemBubble* pBubble(GetBubble(pSE->SystemMgr(), center));
     if (pBubble != nullptr) {
         if (pSE->SysBubble() != nullptr) {
-            if (pBubble->GetSystemID() != pSE->SystemMgr()->GetID()) {
-                // this is an error.  bad bubble
-                _log(DESTINY__ERROR, "BubbleManager::Add(): bubble SysID %u != pSE SysID %u", pBubble->GetSystemID(), pSE->SystemMgr()->GetID() );
-                pSE->SysBubble()->Remove(pSE);
-            } else if (pSE->SysBubble() != pBubble) {
-                _log(DESTINY__BUBBLE_TRACE, "BubbleManager::Add(): bubbleID %u != pSE bubbleID %u", pBubble->GetID(), pSE->SysBubble()->GetID() );
-                pSE->SysBubble()->Remove(pSE);
-            } else if (pSE->SysBubble()->InBubble(pSE->GetPosition()))  {
-                _log(DESTINY__BUBBLE_TRACE, "BubbleManager::Add(): Entity %s(%u) still in Bubble %u", pSE->GetName(), pSE->GetID(), pBubble->GetID() );
+            // If still in current bubble, don't switch — prevents bubble hopping from
+            // small position changes (NPC movement near bubble boundary).
+            if (pSE->SysBubble()->InBubble(pSE->GetPosition())) {
+                _log(DESTINY__BUBBLE_TRACE, "BubbleManager::Add(): Entity %s(%u) still in Bubble %u — staying.",
+                     pSE->GetName(), pSE->GetID(), pSE->SysBubble()->GetID());
                 return;
+            }
+            if (pSE->SysBubble() != pBubble) {
+                _log(DESTINY__BUBBLE_TRACE, "BubbleManager::Add(): Entity %s(%u) left bubble %u, joining %u.",
+                     pSE->GetName(), pSE->GetID(), pSE->SysBubble()->GetID(), pBubble->GetID());
+                pSE->SysBubble()->Remove(pSE);
             }
         }
         _log(DESTINY__BUBBLE_TRACE, "BubbleManager::Add(): Entity %s(%u) being added to Bubble %u", pSE->GetName(), pSE->GetID(), pBubble->GetID() );
