@@ -175,6 +175,7 @@ protected:
     const GPoint m_center;
     const double m_radius;
 
+public:
     // remove all balls in bubble for this SE
     void RemoveBall(SystemEntity* about_who);
     void RemoveBalls(SystemEntity* to_who);

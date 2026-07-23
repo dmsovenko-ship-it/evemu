@@ -1421,7 +1421,7 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
         if (encodedSize == 0 || encodedSize > 500) {
             _log(DESTINY__ERROR, "MakeSetState: Entity %s(%u) encoded %zu bytes (unexpected!) — skipping.",
                  cur.second->GetName(), cur.first, encodedSize);
-            stateBuffer->Resize(bufBefore); // roll back
+            stateBuffer->Resize<uint8>(bufBefore); // roll back
         }
 
         // get tower effect state (if applicable)
