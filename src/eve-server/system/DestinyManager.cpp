@@ -941,9 +941,9 @@ void DestinyManager::MoveObject() {
         _log(DESTINY__ERROR, "%s(%u) - ShipHeading is NaN! Resetting to zero.", mySE->GetName(), mySE->GetID());
         m_shipHeading = NULL_ORIGIN_V;
     }
-    // When commanded to stop, snap speed to 0 immediately to prevent position drift
-    // that causes unwanted bubble hopping.
-    if (m_userSpeedFraction == 0.0f && speed < 1.0f) {
+    // When commanded to stop, snap speed to 0 immediately to prevent position drift.
+    // Do NOT wait for deceleration curve — that takes 20+ ticks and drifts the server position.
+    if (m_userSpeedFraction == 0.0f) {
         speed = 0.0f;
         m_activeSpeedFraction = 0.0f;
     }
