@@ -946,6 +946,12 @@ void DestinyManager::MoveObject() {
         _log(DESTINY__ERROR, "%s(%u) - ShipHeading is NaN! Resetting to zero.", mySE->GetName(), mySE->GetID());
         m_shipHeading = NULL_ORIGIN_V;
     }
+    // When commanded to stop, snap speed to 0 immediately to prevent position drift
+    // that causes unwanted bubble hopping.
+    if (m_userSpeedFraction == 0.0f && speed < 1.0f) {
+        speed = 0.0f;
+        m_activeSpeedFraction = 0.0f;
+    }
     m_velocity = m_shipHeading * speed;
     // Guard against NaN velocity (e.g., speed=0 with NaN heading → 0*NaN=NaN)
     if (m_velocity.isNaN()) {
