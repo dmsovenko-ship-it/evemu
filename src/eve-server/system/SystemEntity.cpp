@@ -616,29 +616,38 @@ void DeployableSE::EncodeDestiny(Buffer& into)
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-    // Use RIGID mode like POS structures (StructureSE).
-    // IsFree + DataSector for unanchored (free-floating can),
-    // IsMassive for anchored (fixed in place).
     if (!m_anchored) {
-        head.mode = Ball::Mode::RIGID;
+        // Unanchored deployable — STOP mode with DataSector (like tower structures).
+        head.mode = Ball::Mode::STOP;
         head.flags = Ball::Flag::IsFree;
         into.Append(head);
+        MassSector mass = MassSector();
+            mass.mass = 1.0e9f;  // 1M kg — standard structure mass
+            mass.cloak = 0;
+            mass.corporationID = m_corpID;
+            mass.allianceID = m_allyID;
+            mass.harmonic = 0;
+        into.Append(mass);
         DataSector data = DataSector();
             data.inertia = 1;
             data.velX = 0;
             data.velY = 0;
             data.velZ = 0;
-            data.maxSpeed = 1;
+            data.maxSpeed = 0;
             data.speedfraction = 0;
         into.Append(data);
+        STOP_Struct main;
+            main.formationID = 0xFF;
+        into.Append(main);
     } else {
+        // Anchored deployable — RIGID mode (fixed in place).
         head.mode = Ball::Mode::RIGID;
         head.flags = Ball::Flag::IsMassive;
         into.Append(head);
+        RIGID_Struct main;
+            main.formationID = 0xFF;
+        into.Append(main);
     }
-    RIGID_Struct main;
-        main.formationID = 0xFF;
-    into.Append(main);
     _log(SE__DESTINY, "DSE::EncodeDestiny(): %s - id:%lli, mode:%u, flags:0x%X, anchored:%d",
          GetName(), head.entityID, head.mode, head.flags, m_anchored);
 }
