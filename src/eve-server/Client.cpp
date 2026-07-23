@@ -1904,7 +1904,7 @@ void Client::ExecuteJump() {
         SetStateSent(false);
         pShipSE->DestinyMgr()->SendSetState();
         SetInvulTimer(Player::Timer::JumpInvul);
-        m_cloakTimer.Start(Player::Timer::JumpCloak);
+        SetCloakTimer(Player::Timer::JumpCloak);
     }
     m_clientState = Player::State::Idle;
 

@@ -3483,18 +3483,25 @@ void DestinyManager::SendJumpOutEffect(std::string JumpEffect, uint32 shipID) co
 
 void DestinyManager::SendJumpInEffect(std::string JumpEffect) const {
     std::vector<PyTuple*> updates;
-    // Skip OnSpecialFX — graphicInfo=None crashes Crucible fxsequencer.
-    // Only send speed/velocity updates (the client handles jump animation).
+    OnSpecialFX14 sfx;
+        sfx.entityID = mySE->GetID();
+        sfx.moduleID = mySE->GetID();
+        sfx.moduleTypeID = mySE->GetSelf()->typeID();
+        sfx.targetID = PyStatic.NewNone();
+        sfx.chargeTypeID = PyStatic.NewNone();
+        sfx.guid = JumpEffect;
+        sfx.isOffensive = false;
+        sfx.start = true;
+        sfx.active = true;
+        sfx.duration = -1;
+        sfx.repeat = 0;
+        sfx.startTime = GetFileTimeNow();
+        sfx.graphicInfo = new PyInt(1);  // non-None to avoid fxsequencer crash
+    updates.push_back(sfx.Encode());
     CmdSetSpeedFraction ssf;
         ssf.entityID = mySE->GetID();
         ssf.fraction = 0.0;
     updates.push_back(ssf.Encode());
-    SetBallVelocity sbv;
-        sbv.entityID = mySE->GetID();
-        sbv.x = 0.0;
-        sbv.y = 0.0;
-        sbv.z = 0.0;
-    updates.push_back(sbv.Encode());
     SendDestinyUpdate(updates);
 }
 
