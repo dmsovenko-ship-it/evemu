@@ -937,11 +937,15 @@ void DestinyManager::MoveObject() {
         _log(DESTINY__ERROR, "%s(%u) - New position would be NaN! Skipping tic.", mySE->GetName(), mySE->GetID());
         return;
     }
-    // Periodic position sync for player ships only — corrects physics drift without jerking NPCs
-    if (mySE->HasPilot() && ++m_moveSyncCounter >= 20) {
+    // Periodic position sync for player ships only — reduced frequency and threshold-based
+    if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
         m_moveSyncCounter = 0;
-        SetPosition(newPos, true);
-    } else {
+        // When in FOLLOW mode and speed is 0 (at target), skip position sync —
+        // client's position is authoritative for stationary approach.
+        if (!(m_ballMode == Destiny::Ball::Mode::FOLLOW && m_userSpeedFraction == 0.0f))
+            SetPosition(newPos, true);
+    } else if (m_userSpeedFraction > 0.0f) {
+        // Only send position updates while moving — stationary at target doesn't need correction
         SetPosition(newPos, sConfig.debug.PositionHack);
     }
 
