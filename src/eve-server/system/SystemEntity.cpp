@@ -687,11 +687,17 @@ PyDict* DeployableSE::MakeSlimItem() {
 }
 
 void ObjectSystemEntity::MakeDamageState(DoDestinyDamageState &into) {
-    into.shield = (m_self->GetAttribute(AttrShieldCharge).get_double() / m_self->GetAttribute(AttrShieldCapacity).get_double());
+    double shieldCap = m_self->GetAttribute(AttrShieldCapacity).get_double();
+    double shieldCharge = m_self->GetAttribute(AttrShieldCharge).get_double();
+    into.shield = (shieldCap > 0.0) ? (shieldCharge / shieldCap) : 1.0;
     into.recharge = m_self->GetAttribute(AttrShieldRechargeRate).get_double();
     into.timestamp = GetFileTimeNow();
-    into.armor = 1.0 - (m_self->GetAttribute(AttrArmorDamage).get_double() / m_self->GetAttribute(AttrArmorHP).get_double());
-    into.structure = 1.0 - (m_self->GetAttribute(AttrDamage).get_double() / m_self->GetAttribute(AttrHP).get_double());
+    double armorHP = m_self->GetAttribute(AttrArmorHP).get_double();
+    double armorDmg = m_self->GetAttribute(AttrArmorDamage).get_double();
+    into.armor = (armorHP > 0.0) ? (1.0 - armorDmg / armorHP) : 1.0;
+    double hullHP = m_self->GetAttribute(AttrHP).get_double();
+    double hullDmg = m_self->GetAttribute(AttrDamage).get_double();
+    into.structure = (hullHP > 0.0) ? (1.0 - hullDmg / hullHP) : 1.0;
 }
 
 void ObjectSystemEntity::UpdateDamage()

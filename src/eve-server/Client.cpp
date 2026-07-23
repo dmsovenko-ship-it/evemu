@@ -989,8 +989,7 @@ void Client::SetBallPark() {
         m_ballparkTimer.Disable();
         if (IsGateJump()) {
             SetInvulTimer(Player::Timer::JumpInvul);
-            // dont use timer method here...(jumping ship will flash at destination)
-            m_cloakTimer.Start(Player::Timer::JumpCloak);
+            SetCloakTimer(Player::Timer::JumpCloak);
             m_clientState = Player::State::Idle;
         }
         if (IsDriveJump()) {
@@ -1000,7 +999,7 @@ void Client::SetBallPark() {
         }
         if (IsWormholeJump()) {
             SetInvulTimer(Player::Timer::JumpInvul);
-            m_cloakTimer.Start(Player::Timer::JumpCloak);
+            SetCloakTimer(Player::Timer::JumpCloak);
             m_clientState = Player::State::Idle;
         }
     }
