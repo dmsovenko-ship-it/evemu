@@ -2605,6 +2605,10 @@ void Client::FlushQueue() {
 void Client::QueueDestinyEvent(PyTuple** event) {
     if ((event == nullptr) or ((*event) == nullptr))
         return;
+    // Skip malformed events that don't start with a string (would crash client with
+    // "cannot concatenate 'str' and 'int' objects" in RealFlushState).
+    if ((*event)->items.size() > 0 && !(*event)->items[0]->IsString())
+        return;
     m_destinyEventQueue->AddItem(*event);
     //PyDecRef(*event);
 }
