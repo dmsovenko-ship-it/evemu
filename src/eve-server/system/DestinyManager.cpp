@@ -1476,10 +1476,6 @@ void DestinyManager::Orbit() {
         _log(DESTINY__TRACE, "%s(%u): Orbit position drift %.0fm (max %u). Allowing client to self-correct.",
              mySE->GetName(), mySE->GetID(), mPos.distance(Tp), uint32(refFollow * 3.0));
     }
-            MoveObject();
-            return;
-        }
-    }
     // set heading tangent to orbit (perpendicular to radius) for smooth circular motion
     // instead of chasing mPosNext which advances faster than ship speed
     GVector radiusVec(Tp, m_position);
