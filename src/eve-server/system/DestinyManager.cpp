@@ -252,6 +252,13 @@ void DestinyManager::ProcessState() {
                     // Hold a modest speed while turning to avoid drifting 100+ km.
                     SetSpeedFraction(0.3f, true);
                 }
+            } else if ((degrees < 30.0f) && (m_timeFraction > 0.749)
+                       && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
+                // Close enough to target — start warp early (final alignment during accel).
+                m_shipHeading = toVec;
+                m_velocity = NULL_ORIGIN_V;
+                InitWarp();
+                return;
             } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
                 // catchall for turn checks messed up, and m_moveTime > ship align time
                 if (mySE->HasPilot()) {
