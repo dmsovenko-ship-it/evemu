@@ -439,10 +439,13 @@ void CrimeWatch::UpdateSessionChangeTimer() {
         nextEnd = std::max(nextEnd, now + (int64)m_aggressionTimer.GetRemainingTime() * EvE::Time::Second / 1000);
     if (m_criminalTimer.Enabled())
         nextEnd = std::max(nextEnd, now + (int64)m_criminalTimer.GetRemainingTime() * EvE::Time::Second / 1000);
-    if (nextEnd > 0) {
-        ClientSession* session = m_client->GetSession();
-        if (session != nullptr)
+    ClientSession* session = m_client->GetSession();
+    if (session != nullptr) {
+        if (nextEnd > 0) {
             session->SetLong("nextSessionChange", nextEnd);
+        } else {
+            session->SetLong("nextSessionChange", 0);
+        }
     }
 }
 
