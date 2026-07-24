@@ -555,20 +555,25 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
             warpToPoint.z -= (d * std::cos(t));
         } else if (pSE->IsStationSE()) {
             warpToPoint.y = stDataMgr.GetDockPosY(pSE->GetID());
-            GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
-            vectorFromOrigin.normalize();
-            warpToPoint -= (vectorFromOrigin * radius);
-            // Mark distance as set so the general surface adjustment (line 592,
-            // which checks distance == 0) doesn't double-subtract the radius.
-            distance = 1;
+            if (distance == 0) {
+                // Warp-to-0: land at station surface (center minus radius).
+                GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
+                vectorFromOrigin.normalize();
+                warpToPoint -= (vectorFromOrigin * radius);
+                // Mark distance as set so the general surface adjustment
+                // (line 595, checks distance == 0) doesn't double-subtract.
+                distance = 1;
+            }
         } else if (pSE->IsCOSE()) {
             distance += (radius / 2);
         } else if (pSE->IsGateSE()) {
-            // Push warp target TO the gate surface (gate center minus radius).
-            GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
-            vectorFromOrigin.normalize();
-            double offsetToSurface = (radius > 5000.0 ? 5000.0 : radius);
-            warpToPoint -= (vectorFromOrigin * offsetToSurface);
+            if (distance == 0) {
+                // Warp-to-0: push target to gate surface (center minus radius).
+                GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
+                vectorFromOrigin.normalize();
+                double offsetToSurface = (radius > 5000.0 ? 5000.0 : radius);
+                warpToPoint -= (vectorFromOrigin * offsetToSurface);
+            }
         } else if (pSE->IsMoonSE()) {
             if (pSE->GetMoonSE()->HasTower()) {
                 // if moon has a tower, make warpin point 20km inside edge of tower's bubble.
