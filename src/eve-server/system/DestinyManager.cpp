@@ -283,6 +283,25 @@ void DestinyManager::ProcessState() {
             //no default on purpose
             break;
     }
+
+    // Collision check: push ship out of large static entities (gates, stations, planets, moons)
+    if (IsMoving() && m_ballMode != Ball::Mode::WARP && m_ballMode != Ball::Mode::MISSILE) {
+        if (mySE->SystemMgr() != nullptr) {
+            for (auto& [id, se] : mySE->SystemMgr()->GetStaticEntities()) {
+                if (se->GetRadius() < 500.0)
+                    continue;
+                GPoint delta = m_position - se->GetPosition();
+                double dist = delta.length();
+                double minDist = se->GetRadius() + mySE->GetRadius();
+                if (dist < minDist && dist > 0.01) {
+                    delta.normalize();
+                    m_position = se->GetPosition() + (delta * (minDist + 1.0));
+                    m_velocity = GVector(0, 0, 0);
+                    SetPosition(m_position, true);
+                }
+            }
+        }
+    }
 }
 /* acceleration forumula
  * V(t) = Vmax*(1-e^-(t/a))
