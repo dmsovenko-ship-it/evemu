@@ -1913,6 +1913,8 @@ void Client::ExecuteJump() {
         if (pShipSE->SysBubble() == nullptr)
             m_system->AddEntity(pShipSE);
         pShipSE->SysBubble()->SendAddBalls(pShipSE);
+        // JumpIn effect — broadcast to all clients in destination bubble
+        JumpInEffect();
         SetStateSent(false);
         pShipSE->DestinyMgr()->SendSetState();
         SetInvulTimer(Player::Timer::JumpInvul);

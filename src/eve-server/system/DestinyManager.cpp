@@ -1253,12 +1253,14 @@ void DestinyManager::Follow() {
             mySE->DestinyMgr()->SendJumpOut(fromGate);
             mySE->DestinyMgr()->SendGateActivity(fromGate);
             pClient->MoveToLocation(toData.systemID, destPos);
-            pClient->JumpInEffect();
             if (pClient->IsInSpace()) {
                 mySE->DestinyMgr()->Stop();
                 if (mySE->SysBubble() == nullptr)
                     mySE->SystemMgr()->AddEntity(mySE);
                 mySE->SysBubble()->SendAddBalls(mySE);
+                // JumpIn effect must be sent AFTER AddEntity — the ship needs to
+                // be in a bubble for BubblecastDestiny to reach other players.
+                pClient->JumpInEffect();
                 pClient->SetStateSent(false);
                 mySE->DestinyMgr()->SendSetState();
                 pClient->SetInvulTimer(Player::Timer::JumpInvul);
