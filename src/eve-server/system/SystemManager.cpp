@@ -1397,13 +1397,14 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
 
     // query bubble to get dynamic entities
     pBubble->GetEntities(visibleEntities);
-    // Also add entities from nearby overlapping bubbles (e.g. gate bubble vs player bubble)
-    // to ensure players jumping into a system see entities in the same grid.
+    // Add entities from nearby bubbles whose actual position is within grid range
+    // of the player. This ensures players at a gate see entities from nearby grids
+    // (e.g. MWD, drones, ships just outside bubble boundary).
     GPoint playerPos = pBubble->GetCenter();
     for (auto& [id, other] : m_ticEntities) {
         if (other->SysBubble() != nullptr && other->SysBubble() != pBubble
-            && other->SysBubble()->InBubble(playerPos)
-            && visibleEntities.find(id) == visibleEntities.end())
+            && visibleEntities.find(id) == visibleEntities.end()
+            && other->GetPosition().distance(playerPos) < BUBBLE_RADIUS_METERS)
         {
             visibleEntities.emplace(id, other);
         }
