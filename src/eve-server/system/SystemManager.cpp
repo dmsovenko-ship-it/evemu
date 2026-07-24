@@ -1397,6 +1397,17 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
 
     // query bubble to get dynamic entities
     pBubble->GetEntities(visibleEntities);
+    // Also add entities from nearby overlapping bubbles (e.g. gate bubble vs player bubble)
+    // to ensure players jumping into a system see entities in the same grid.
+    GPoint playerPos = pBubble->GetCenter();
+    for (auto& [id, other] : m_ticEntities) {
+        if (other->SysBubble() != nullptr && other->SysBubble() != pBubble
+            && other->SysBubble()->InBubble(playerPos)
+            && visibleEntities.find(id) == visibleEntities.end())
+        {
+            visibleEntities.emplace(id, other);
+        }
+    }
 
     into.slims = new PyList();
     into.slims->clear();
