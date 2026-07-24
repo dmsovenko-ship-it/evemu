@@ -606,9 +606,6 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
     call.client->SetUndock(false);
 
     distance += (call.client->GetShipSE()->GetRadius() * 2); // add ship diameter to distance
-    // Override landing distance for gates: exactly 200m from surface.
-    if (pSE != nullptr && pSE->IsGateSE())
-        distance = 200;
     // Enforce minimum 2500m from station docking perimeter. Without this, ships warp into
     // the station bounding sphere, get detected as inside a solid object, and are ejected
     // at high speed — placing them 30km away and preventing docking.
