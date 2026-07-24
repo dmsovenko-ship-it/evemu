@@ -244,9 +244,9 @@ void DestinyManager::ProcessState() {
                 InitWarp();
                 return;
             } else if (m_timeFraction < 0.749 && m_userSpeedFraction < 0.7499) {
-                // During warp alignment, keep speed low to prevent bubble hopping.
-                // Full acceleration happens after InitWarp.
-                SetSpeedFraction(0.3f, true);
+                // Accelerate to full speed for warp alignment. 30% speed caused
+                // excessive align time and "stuck at 30%" perception.
+                SetSpeedFraction(1.0f, true);
             } else if ((degrees < 30.0f) && (m_timeFraction > 0.749)
                        && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
                 // Close enough to target — start warp early (final alignment during accel).
