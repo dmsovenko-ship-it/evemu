@@ -947,8 +947,10 @@ void DeployableSE::Process()
         default:
             range = m_self->GetAttribute(AttrWarpScrambleRange).get_float();
             if (range < 1.0f) range = 5000.0f;
+            _log(DESTINY__WARNING, "DeployableSE::ScrambleProcess — unknown MWD typeID %u, using attribute range %.0f", m_self->typeID(), range);
             break;
     }
+    _log(DESTINY__WARNING, "DeployableSE::ScrambleProcess — MWD %s(%u) typeID=%u range=%.0f", GetName(), m_self->itemID(), m_self->typeID(), range);
     uint32 strength = m_self->GetAttribute(AttrWarpScrambleStrength).get_uint32();
     if (strength < 1)
         strength = 1;
