@@ -378,15 +378,12 @@ bool SystemEntity::ApplyDamage(Damage &d) {
          * fixed msgIDs and removed xmlp  - 15Sept19
          * @todo  still need to check/add detailed dmg msgs
          */
-        // Send entity name instead of ID for source/target — client Crucible
-        // crashes when GetBracketName returns None (entity not in ballpark).
-
         if (HasPilot()) {
             //  notify player of damage received
             PyDict* dict = new PyDict();
-                dict->SetItemString("source", new PyString(d.srcSE->GetName()));
+                dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
                 dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
-                dict->SetItemString("target", new PyString(GetName()));
+                dict->SetItemString("target", new PyInt(GetID()));
                 dict->SetItemString("damage", new PyFloat(total_damage));
             PyTuple* tuple = new PyTuple(3);
                 tuple->SetItem(0, new PyString("OnDamageMessage"));
@@ -397,9 +394,9 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         if (d.srcSE->HasPilot()) {
             //notify to player of damage done:
             PyDict* dict = new PyDict();
-                dict->SetItemString("source", new PyString(d.srcSE->GetName()));
+                dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
                 dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
-                dict->SetItemString("target", new PyString(GetName()));
+                dict->SetItemString("target", new PyInt(GetID()));
                 dict->SetItemString("damage", new PyFloat(total_damage));
             PyTuple* tuple = new PyTuple(3);
             bool banked = false;
@@ -422,9 +419,9 @@ bool SystemEntity::ApplyDamage(Damage &d) {
             if (d.srcSE->GetDroneSE()->GetOwner() != nullptr) {
                 //  notify player of damage done by drone
                 PyDict* dict = new PyDict();
-                    dict->SetItemString("source", new PyString(d.srcSE->GetName()));
+                    dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
                     dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
-                    dict->SetItemString("target", new PyString(GetName()));
+                    dict->SetItemString("target", new PyInt(GetID()));
                     dict->SetItemString("damage", new PyFloat(total_damage));
                 PyTuple* tuple = new PyTuple(3);
                     tuple->SetItem(0, new PyString("OnDamageMessage"));
