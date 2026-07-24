@@ -315,7 +315,7 @@ bool ProbeSE::ProcessTic()
         if (SysBubble() == nullptr)
             return true;
         float range = m_self->GetAttribute(AttrWarpScrambleRange).get_float();
-        if (range < 1.0f) range = 20000.0f;
+        if (range < 1.0f || range > 20000.0f) range = 20000.0f;
         uint32 strength = 1;
         GPoint myPos = GetPosition();
         std::vector<Client*> players;

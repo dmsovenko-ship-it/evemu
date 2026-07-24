@@ -933,8 +933,8 @@ void DeployableSE::Process()
     if (SysBubble() == nullptr)
         return;
     float range = m_self->GetAttribute(AttrWarpScrambleRange).get_float();
-    if (range < 1.0f)
-        range = 20000.0f;   // default bubble range
+    if (range < 1.0f || range > 20000.0f)
+        range = 20000.0f;   // cap at 20km; EVE retail MWD max is ~17km
     uint32 strength = m_self->GetAttribute(AttrWarpScrambleStrength).get_uint32();
     if (strength < 1)
         strength = 1;
