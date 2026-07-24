@@ -1968,7 +1968,15 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
                 _log(DESTINY__WARP_TRACE, "Destiny::WarpUpdate()  %s(%u): Warp bubble detected. Forcing warp exit.",
                      mySE->GetName(), mySE->GetID());
                 m_ballMode = Destiny::Ball::Mode::GOTO;
+                SetSpeedFraction(0.0f);
+                m_userSpeedFraction = 0.0f;
+                m_activeSpeedFraction = 0.0f;
+                m_velocity = NULL_ORIGIN_V;
                 std::vector<PyTuple*> updates;
+                CmdSetSpeedFraction ssf;
+                    ssf.entityID = mySE->GetID();
+                    ssf.fraction = 0.0;
+                updates.push_back(ssf.Encode());
                 CmdGotoDirection du;
                     du.entityID = mySE->GetID();
                     du.x = m_shipHeading.x;
