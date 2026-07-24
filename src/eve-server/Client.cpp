@@ -500,13 +500,6 @@ void Client::ProcessClient() {
             switch (m_clientState) {
                     case Player::State::Idle: {
                         _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Idle");
-                        // 2s after gate jump, resend SetState — the client may
-                        // discard the initial SetState during jump transition.
-                        if (IsInSpace() and pShipSE != nullptr
-                            and pShipSE->DestinyMgr() != nullptr)
-                        {
-                            pShipSE->DestinyMgr()->SendSetState();
-                        }
                     } break;
                 case Player::State::Dock: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Dock");
@@ -1915,15 +1908,11 @@ void Client::ExecuteJump() {
         pShipSE->DestinyMgr()->SendSetState();
         SetInvulTimer(Player::Timer::JumpInvul);
         // Force reset cloak timer: disable old timer so the new 30s jump cloak
-        // is properly applied, ensuring the client renders all entities
-        // immediately (not only after the previous timer expires).
+        // is properly applied (was leaving stale timer from previous jump).
         if (m_cloakTimer.Enabled()) {
             m_cloakTimer.Disable();
         }
         SetCloakTimer(Player::Timer::JumpCloak);
-        // Schedule a delayed state resend — the client may discard balls
-        // received during the jump transition / cloaking FX sequence.
-        m_stateTimer.Start(2000);
     }
     m_clientState = Player::State::Idle;
 
