@@ -957,7 +957,6 @@ void DeployableSE::Process()
     GPoint myPos = GetPosition();
     std::vector<Client*> players;
     SysBubble()->GetPlayers(players);
-    bool hasTargetInRange = false;
     for (auto pClient : players) {
         if (pClient == nullptr) continue;
         SystemEntity* pShipSE = pClient->GetShipSE();
@@ -971,22 +970,10 @@ void DeployableSE::Process()
             continue;
         float dist = myPos.distance(pShipSE->GetPosition());
         if (dist <= range) {
-            hasTargetInRange = true;
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
         } else {
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), true);
         }
-    }
-    // Toggle bubble visual effect based on whether any target is in range.
-    // This prevents Crucible client from permanently blocking warp after
-    // leaving the MWD's range while the effect is still active.
-    if (hasTargetInRange != m_bubbleEffectActive) {
-        m_bubbleEffectActive = hasTargetInRange;
-        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
-            0, 0, "effects.WarpDisruptFieldGenerating", 0,
-            hasTargetInRange ? 1 : 0,  // start
-            hasTargetInRange ? 1 : 0,  // isActive
-            -1, 0);
     }
 }
 
