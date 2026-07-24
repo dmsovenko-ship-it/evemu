@@ -616,6 +616,9 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
     call.client->SetUndock(false);
 
     distance += (call.client->GetShipSE()->GetRadius() * 2); // add ship diameter to distance
+    // Warp-to-0 on station: enforce minimum clearance from docking perimeter.
+    if (pSE != nullptr && pSE->IsStationSE() && distance < 2500)
+        distance = 2500;
     pDestiny->WarpTo(warpToPoint, distance);
 
     // Fleet warp: warp all fleet members in system to same destination
