@@ -554,8 +554,13 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
             warpToPoint.y += (0.5f * radius * std::sin(j));
             warpToPoint.z -= (d * std::cos(t));
         } else if (pSE->IsStationSE()) {
-            // this makes ship warp to station dock elevation (y), instead of warping to stations "center point" position (where icon is)
             warpToPoint.y = stDataMgr.GetDockPosY(pSE->GetID());
+            GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
+            vectorFromOrigin.normalize();
+            warpToPoint -= (vectorFromOrigin * radius);
+            // Mark distance as set so the general surface adjustment (line 592,
+            // which checks distance == 0) doesn't double-subtract the radius.
+            distance = 1;
         } else if (pSE->IsCOSE()) {
             distance += (radius / 2);
         } else if (pSE->IsGateSE()) {
