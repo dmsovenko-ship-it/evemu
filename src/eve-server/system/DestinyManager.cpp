@@ -961,17 +961,17 @@ void DestinyManager::MoveObject() {
     // Periodic position sync for player ships only — reduced frequency and threshold-based
     if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
         m_moveSyncCounter = 0;
-        // Skip position sync when:
-        // - FOLLOW mode and speed is 0 (at target) — client's stationary position is authoritative
-        // - ORBIT mode — client's angular animation is authoritative (avoids jitter)
-        if (m_ballMode == Destiny::Ball::Mode::FOLLOW && m_userSpeedFraction == 0.0f)
-            { /* skip — client is at target */ }
-        else if (m_ballMode == Destiny::Ball::Mode::ORBIT)
-            { /* skip — client orbit matches server angular velocity */ }
-        else
+        // Skip position sync in FOLLOW and ORBIT modes entirely — client's physics is authoritative.
+        // Server position drifts due to different deceleration curves; syncing it snaps the client.
+        if (m_ballMode == Destiny::Ball::Mode::FOLLOW) {
+            // Follow/Approach is entirely client-driven: client knows where to stop.
+        } else if (m_ballMode == Destiny::Ball::Mode::ORBIT) {
+            // Orbit uses angular velocity; client's animation matches.
+        } else {
             SetPosition(newPos, true);
-    } else if (m_userSpeedFraction > 0.0f) {
-        // Only send position updates while moving — stationary at target doesn't need correction
+        }
+    } else if (m_userSpeedFraction > 0.0f && m_ballMode != Destiny::Ball::Mode::FOLLOW) {
+        // Only send position updates while moving — but NOT during Follow (client-driven).
         SetPosition(newPos, sConfig.debug.PositionHack);
     }
 
