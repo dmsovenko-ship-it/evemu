@@ -90,7 +90,7 @@ public:
     double z() const                                    { return m_center.z; }
     uint16 GetID()                                      { return m_bubbleID; }
     uint32 GetSystemID()                                { return m_systemID; }
-    GPoint GetCenter()                                  { return m_center; }
+    GPoint GetCenter() const                            { return m_center; }
     ContainerSE* GetCenterMarker()                      { return m_centerSE; }
 
     void clear();
