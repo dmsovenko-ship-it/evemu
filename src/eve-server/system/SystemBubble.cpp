@@ -724,24 +724,41 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who) {
     addballs.slims = new PyList();
 
     // Send ALL entities — both dynamic (ships, MWD) and static (gates, stations)
+    // Validate each entity's encoding size to prevent "Unknown packet type" crash.
     for (auto cur : m_dynamicEntities) {
         if (cur.second->DestinyMgr() != nullptr)
             if (cur.second->DestinyMgr()->IsCloaked())
                 continue;
+        size_t bufBefore = destinyBuffer->size();
+        cur.second->EncodeDestiny( *destinyBuffer );
+        size_t encodedSize = destinyBuffer->size() - bufBefore;
+        if (encodedSize == 0 || encodedSize > 500) {
+            _log(DESTINY__ERROR, "SendAddBalls: Entity %s(%u) encoded %zu bytes — skipping (invalid size).",
+                 cur.second->GetName(), cur.first, encodedSize);
+            destinyBuffer->Resize<uint8>(bufBefore);
+            continue;
+        }
         if (!cur.second->IsMissileSE() or !cur.second->IsFieldSE())
             addballs.damageDict[cur.first] = cur.second->MakeDamageState();
         addballs.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem() ) );
-        cur.second->EncodeDestiny( *destinyBuffer );
     }
     // Also include static entities (gates, stations) — they're in m_entities but NOT in m_dynamicEntities
     for (auto cur : m_entities) {
         if (cur.second->DestinyMgr() != nullptr)
             if (cur.second->DestinyMgr()->IsCloaked())
                 continue;
+        size_t bufBefore = destinyBuffer->size();
+        cur.second->EncodeDestiny( *destinyBuffer );
+        size_t encodedSize = destinyBuffer->size() - bufBefore;
+        if (encodedSize == 0 || encodedSize > 500) {
+            _log(DESTINY__ERROR, "SendAddBalls: Entity %s(%u) encoded %zu bytes — skipping (invalid size).",
+                 cur.second->GetName(), cur.first, encodedSize);
+            destinyBuffer->Resize<uint8>(bufBefore);
+            continue;
+        }
         if (!cur.second->IsMissileSE() or !cur.second->IsFieldSE())
             addballs.damageDict[cur.first] = cur.second->MakeDamageState();
         addballs.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem() ) );
-        cur.second->EncodeDestiny( *destinyBuffer );
     }
 
     if (addballs.slims->empty()) {

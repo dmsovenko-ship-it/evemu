@@ -500,6 +500,15 @@ void Client::ProcessClient() {
             switch (m_clientState) {
                     case Player::State::Idle: {
                         _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Idle");
+                        // 2s after gate jump, resend AddBalls so the client
+                        // renders all entities (may have discarded the first set
+                        // during jump transition). AddBalls does NOT reset the
+                        // overview (unlike SetState).
+                        if (IsInSpace() and pShipSE != nullptr
+                            and pShipSE->SysBubble() != nullptr)
+                        {
+                            pShipSE->SysBubble()->SendAddBalls(pShipSE);
+                        }
                     } break;
                 case Player::State::Dock: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Dock");
@@ -1913,6 +1922,10 @@ void Client::ExecuteJump() {
             m_cloakTimer.Disable();
         }
         SetCloakTimer(Player::Timer::JumpCloak);
+        // Schedule a delayed AddBalls resend — the client may discard balls
+        // received during the jump transition; AddBalls (packet_type=1) does
+        // not reset the overview (unlike SetState / packet_type=0).
+        m_stateTimer.Start(2000);
     }
     m_clientState = Player::State::Idle;
 
