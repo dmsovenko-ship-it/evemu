@@ -1992,6 +1992,12 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
                 m_userSpeedFraction = 0.0f;
                 m_activeSpeedFraction = 0.0f;
                 m_velocity = NULL_ORIGIN_V;
+                // SendAddBalls was skipped in Bubble::Add() because the ship was
+                // still in WARP mode (isWarping=true). Resend now that mode is GOTO.
+                if (mySE->HasPilot() && mySE->SysBubble() != nullptr) {
+                    mySE->SysBubble()->SendAddBalls(mySE);
+                    mySE->SysBubble()->AddBallExclusive(mySE);
+                }
                 std::vector<PyTuple*> updates;
                 CmdSetSpeedFraction ssf;
                     ssf.entityID = mySE->GetID();
