@@ -559,15 +559,14 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
         } else if (pSE->IsCOSE()) {
             distance += (radius / 2);
         } else if (pSE->IsGateSE()) {
-            distance += (radius / 3);  // fudge the distance a bit for gates... its' a lil close by default
-            if (radius > 5000) {
-                // Large gate model (>5km radius): cap offset to prevent
-                // units treating the gate as a celestial body (radius > 90km
-                // falls into the planet formula branch below).
-                GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
-                vectorFromOrigin.normalize();
-                warpToPoint -= (vectorFromOrigin * 5000.0f);
-            }
+            // Push warp target TO the gate surface (gate center minus radius).
+            // Without this, ship warps to center - radius/3 — which for radius=5000m
+            // puts it 1667m from center, INSIDE the gate's collision sphere.
+            // The client ejects the ship from inside, placing it ~5km from surface.
+            GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
+            vectorFromOrigin.normalize();
+            double offsetToSurface = (radius > 5000.0 ? 5000.0 : radius);
+            warpToPoint -= (vectorFromOrigin * offsetToSurface);
         } else if (pSE->IsMoonSE()) {
             if (pSE->GetMoonSE()->HasTower()) {
                 // if moon has a tower, make warpin point 20km inside edge of tower's bubble.
@@ -590,13 +589,9 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
             warpToPoint.y += ((radius * 1.3f) - 7500);
             warpToPoint.z -= ((radius + 500000) * std::sin(radius));
         }
-        if (pSE->IsGateSE() && radius > 5000) {
-            // Gate already offset above (large model, capped at 5km).
-            // Skip radius-based offset to avoid planet formula.
-        } else if (radius < 90000 && distance == 0) {
-            // Subtract radius only for warp-to-0 (land at surface).
-            // For warp-to-N km the client's minRange already counts from center.
-            // Without this check: radius + minRange = landing 2x further than requested.
+        // Gate surface already adjusted above (line 562-570).
+        // Non-gate objects: subtract radius for warp-to-0 (land at surface).
+        if (!pSE->IsGateSE() && radius < 90000 && distance == 0) {
             GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
             vectorFromOrigin.normalize();
             GPoint stopPoint = (vectorFromOrigin * radius);
