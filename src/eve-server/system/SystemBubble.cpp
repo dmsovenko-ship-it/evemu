@@ -339,6 +339,20 @@ void SystemBubble::Add(SystemEntity* pSE) {
                 AddBallExclusive(pSE);
         }
 
+        // Send warp disrupt field visual effect to new player if bubble has active MWD
+        if (HasWarpBubble() && !isWarping) {
+            for (auto& [id, se] : m_dynamicEntities) {
+                DeployableSE* dse = se->GetDeployableSE();
+                if (dse != nullptr && dse->IsOnlined()
+                    && dse->GetSelf()->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor)
+                {
+                    DestinyManager* dm = se->DestinyMgr();
+                    if (dm != nullptr)
+                        dm->SendSpecialEffect(se->GetID(), se->GetID(), dse->GetSelf()->typeID(), 0, 0, "effects.WarpDisruptFieldGenerating", 0, 1, 1, -1, 0);
+                }
+            }
+        }
+
         m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
     } else {
         if (!m_players.empty())
