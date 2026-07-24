@@ -628,6 +628,17 @@ void DeployableSE::EncodeDestiny(Buffer& into)
             mass.allianceID = m_allyID;
             mass.harmonic = 0;
         into.Append(mass);
+        // Client expects DataSector after MassSector when flags & IsFree (0x01).
+        // Without it, the client reads STOP_Struct as DataSector, desyncs the entire
+        // destiny binary stream, and causes "Unknown packet type" in SynchroniseToSimulationTime.
+        DataSector data = DataSector();
+            data.maxSpeed = 0.0f;
+            data.velX = 0.0;
+            data.velY = 0.0;
+            data.velZ = 0.0;
+            data.inertia = 0.0f;
+            data.speedfraction = 0.0f;
+        into.Append(data);
         STOP_Struct main;
             main.formationID = 0xFF;
         into.Append(main);
