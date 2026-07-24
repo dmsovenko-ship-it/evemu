@@ -1211,7 +1211,7 @@ PyDict* DungeonEditSE::MakeSlimItem()
         slim->SetItemString("dunZ", new PyFloat(m_data.z));
         std::string itemName = m_self->itemName();
         if (itemName.empty())
-            itemName = m_self->typeName();
+            itemName = sDataMgr.GetTypeName(m_self->typeID());
         slim->SetItemString("name",         new PyString(itemName.empty() ? "unknown" : itemName));
 
     return slim;
