@@ -571,8 +571,7 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
                 // Warp-to-0: push target to gate surface (center minus radius).
                 GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
                 vectorFromOrigin.normalize();
-                double offsetToSurface = (radius > 5000.0 ? 5000.0 : radius);
-                warpToPoint -= (vectorFromOrigin * offsetToSurface);
+                warpToPoint -= (vectorFromOrigin * radius);
             }
         } else if (pSE->IsMoonSE()) {
             if (pSE->GetMoonSE()->HasTower()) {

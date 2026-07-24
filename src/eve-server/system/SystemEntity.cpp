@@ -394,7 +394,6 @@ PyDict* StargateSE::MakeSlimItem() {
         slim->SetItemString("ownerID",      PyStatic.NewOne());
         slim->SetItemString("itemID",       new PyLong(m_self->itemID()));
         slim->SetItemString("name",         new PyString(m_self->itemName()));
-        slim->SetItemString("nameID",       PyStatic.NewNone());
     if (m_jumps != nullptr)
         slim->SetItemString("jumps", m_jumps->Clone());
     return slim;
@@ -1208,7 +1207,10 @@ PyDict* DungeonEditSE::MakeSlimItem()
         slim->SetItemString("dunX", new PyFloat(m_data.x));
         slim->SetItemString("dunY", new PyFloat(m_data.y));
         slim->SetItemString("dunZ", new PyFloat(m_data.z));
-        slim->SetItemString("name", new PyString(m_self->itemName()));
+        std::string itemName = m_self->itemName();
+        if (itemName.empty())
+            itemName = m_self->typeName();
+        slim->SetItemString("name",         new PyString(itemName.empty() ? "unknown" : itemName));
 
     return slim;
 }
