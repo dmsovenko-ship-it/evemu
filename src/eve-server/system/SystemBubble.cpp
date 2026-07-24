@@ -339,6 +339,8 @@ void SystemBubble::Add(SystemEntity* pSE) {
                 AddBallExclusive(pSE);
         }
 
+        m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
+
         // Send warp disrupt field visual effect to new player if bubble has active MWD
         if (HasWarpBubble() && !isWarping) {
             for (auto& [id, se] : m_dynamicEntities) {
@@ -352,8 +354,6 @@ void SystemBubble::Add(SystemEntity* pSE) {
                 }
             }
         }
-
-        m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
     } else {
         if (!m_players.empty())
             AddBallExclusive(pSE);
