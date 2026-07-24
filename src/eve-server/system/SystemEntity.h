@@ -615,7 +615,6 @@ private:
     Timer                   m_onlineTimer;
     Timer                   m_offlineTimer;
     Timer                   m_warpScrambleTimer;
-    bool                    m_bubbleEffectActive = false;
 };
 
 
