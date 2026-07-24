@@ -560,9 +560,6 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
             distance += (radius / 2);
         } else if (pSE->IsGateSE()) {
             // Push warp target TO the gate surface (gate center minus radius).
-            // Without this, ship warps to center - radius/3 — which for radius=5000m
-            // puts it 1667m from center, INSIDE the gate's collision sphere.
-            // The client ejects the ship from inside, placing it ~5km from surface.
             GVector vectorFromOrigin(call.client->GetShipSE()->GetPosition(), warpToPoint);
             vectorFromOrigin.normalize();
             double offsetToSurface = (radius > 5000.0 ? 5000.0 : radius);
@@ -609,6 +606,9 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
     call.client->SetUndock(false);
 
     distance += (call.client->GetShipSE()->GetRadius() * 2); // add ship diameter to distance
+    // Override landing distance for gates: exactly 200m from surface.
+    if (pSE != nullptr && pSE->IsGateSE())
+        distance = 200;
     // Enforce minimum 2500m from station docking perimeter. Without this, ships warp into
     // the station bounding sphere, get detected as inside a solid object, and are ejected
     // at high speed — placing them 30km away and preventing docking.
