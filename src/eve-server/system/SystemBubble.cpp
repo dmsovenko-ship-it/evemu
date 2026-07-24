@@ -329,10 +329,14 @@ void SystemBubble::Add(SystemEntity* pSE) {
 
         Client* pClient(pSE->GetPilot());
 
-        SendAddBalls( pSE );
-
-        if (!m_players.empty()) {
-            AddBallExclusive(pSE);  // adds new player to all players in bubble, if any
+        // Skip ball distribution while warping — the ship is in a transient bubble
+        // along the warp path. Sending balls would make the pilot see far-away
+        // entities and reveal the warping ship to others in the traversal bubble.
+        bool isWarping = (pSE->DestinyMgr() != nullptr && pSE->DestinyMgr()->GetState() == Destiny::Ball::Mode::WARP);
+        if (!isWarping) {
+            SendAddBalls( pSE );
+            if (!m_players.empty())
+                AddBallExclusive(pSE);
         }
 
         m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
