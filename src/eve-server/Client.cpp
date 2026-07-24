@@ -500,12 +500,11 @@ void Client::ProcessClient() {
             switch (m_clientState) {
                     case Player::State::Idle: {
                         _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Idle");
-                        // 2s after gate jump, resend state so the client renders
-                        // all entities (may have discarded the first during transit).
+                        // 2s after gate jump, resend SetState — the client may
+                        // discard the initial SetState during jump transition.
                         if (IsInSpace() and pShipSE != nullptr
-                            and pShipSE->SysBubble() != nullptr)
+                            and pShipSE->DestinyMgr() != nullptr)
                         {
-                            pShipSE->SysBubble()->SendAddBalls(pShipSE);
                             pShipSE->DestinyMgr()->SendSetState();
                         }
                     } break;
