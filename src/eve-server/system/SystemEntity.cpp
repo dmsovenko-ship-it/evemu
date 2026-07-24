@@ -932,9 +932,24 @@ void DeployableSE::Process()
         return;
     if (SysBubble() == nullptr)
         return;
-    float range = m_self->GetAttribute(AttrWarpScrambleRange).get_float();
-    if (range < 1.0f || range > 50000.0f)
-        range = 20000.0f;   // cap absurd values (>50km) at default 20km
+    // EVE retail warp scramble ranges per typeID (SDE data)
+    float range = 20000.0f;  // default fallback
+    switch (m_self->typeID()) {
+        case 12198: range = 5000.0f;   break;  // Mobile Small Warp Disruptor I
+        case 26892: range = 7500.0f;   break;  // Mobile Small Warp Disruptor II
+        case 28774: range = 7500.0f;   break;  // Syndicate Mobile Small Warp Disruptor
+        case 12199: range = 11500.0f;  break;  // Mobile Medium Warp Disruptor I
+        case 26890: range = 17500.0f;  break;  // Mobile Medium Warp Disruptor II
+        case 28772: range = 17500.0f;  break;  // Syndicate Mobile Medium Warp Disruptor
+        case 12200: range = 26500.0f;  break;  // Mobile Large Warp Disruptor I
+        case 26888: range = 40000.0f;  break;  // Mobile Large Warp Disruptor II
+        case 28770: range = 40000.0f;  break;  // Syndicate Mobile Large Warp Disruptor
+        case 4386:  range = 48000.0f;  break;  // Mobile Large Jump Disruptor I
+        default:
+            range = m_self->GetAttribute(AttrWarpScrambleRange).get_float();
+            if (range < 1.0f) range = 5000.0f;
+            break;
+    }
     uint32 strength = m_self->GetAttribute(AttrWarpScrambleStrength).get_uint32();
     if (strength < 1)
         strength = 1;

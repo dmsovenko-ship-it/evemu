@@ -95,7 +95,7 @@ enum EveAttrEnum {
     AttrEmpFieldRange = 99,                             //rangeAttributeID in dgmEffects       -smartbombs
     AttrLauncherSlotsLeft = 101,
     AttrTurretSlotsLeft = 102,
-    AttrWarpScrambleRange = 103,                        //rangeAttributeID in dgmEffects
+        AttrWarpScrambleRange            = 103, // EVE retail: 5k(Small)-48k(Jump)                        //rangeAttributeID in dgmEffects
     AttrWarpScrambleStatus = 104,
     AttrWarpScrambleStrength = 105,
     AttrDroneBaySlotsLeft = 106,
