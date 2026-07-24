@@ -900,6 +900,7 @@ void DeployableSE::Process()
             SysBubble()->SetWarpBubble(true);
             m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.StructureOnlined", 0, 1, 1, -1, 0);
             m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.WarpDisruptFieldGenerating", 0, 1, 1, -1, 0);
+            m_bubbleEffectActive = true;
         }
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, online now", m_self->name(), m_self->itemID());
         m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
@@ -954,6 +955,7 @@ void DeployableSE::Process()
     uint32 strength = m_self->GetAttribute(AttrWarpScrambleStrength).get_uint32();
     if (strength < 1)
         strength = 1;
+    bool hasTargetInRange = false;
     GPoint myPos = GetPosition();
     std::vector<Client*> players;
     SysBubble()->GetPlayers(players);
@@ -970,10 +972,21 @@ void DeployableSE::Process()
             continue;
         float dist = myPos.distance(pShipSE->GetPosition());
         if (dist <= range) {
+            hasTargetInRange = true;
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
         } else {
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), true);
         }
+    }
+    // Toggle bubble effect based on range — Crucible client blocks warp
+    // permanently while effects.WarpDisruptFieldGenerating is active.
+    if (hasTargetInRange != m_bubbleEffectActive) {
+        m_bubbleEffectActive = hasTargetInRange;
+        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+            0, 0, "effects.WarpDisruptFieldGenerating", 0,
+            hasTargetInRange ? 1 : 0,  // start
+            hasTargetInRange ? 1 : 0,  // isActive
+            -1, 0);
     }
 }
 

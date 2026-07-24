@@ -1000,6 +1000,7 @@ void Client::SetBallPark() {
             SetInvulTimer(Player::Timer::JumpInvul);
             SetCloakTimer(Player::Timer::JumpCloak);
             m_clientState = Player::State::Idle;
+            JumpInEffect();
         }
         if (IsDriveJump()) {
             SetInvulTimer(Player::Timer::JumpInvul);
