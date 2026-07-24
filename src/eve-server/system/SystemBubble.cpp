@@ -466,6 +466,17 @@ void SystemBubble::Untrack(SystemEntity *pSE) {
  * `Untrack` instead if you don't want to do this.
  */
 void SystemBubble::Remove(SystemEntity *pSE) {
+    // Clear warp scramble when leaving a warp disruption bubble
+    if (m_hasBubble && pSE->HasPilot()) {
+        Client* pClient = pSE->GetPilot();
+        if (pClient != nullptr && pClient->GetShip().get() != nullptr
+            && pClient->GetShip()->HasAttribute(AttrWarpScrambleStatus)
+            && pClient->GetShip()->GetAttribute(AttrWarpScrambleStatus) > 0)
+        {
+            pClient->GetShip()->SetAttribute(AttrWarpScrambleStatus, int64(0));
+        }
+    }
+
     Untrack(pSE);
 
     if (is_log_enabled(DESTINY__BUBBLE_DEBUG)) {
