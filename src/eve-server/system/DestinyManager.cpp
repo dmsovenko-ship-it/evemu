@@ -2074,6 +2074,15 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
     }
+
+    // Send bubble entities to this ship — the earlier Bubble::Add() skipped
+    // SendAddBalls/AddBallExclusive because the ship was in WARP mode.
+    // Now mode is STOP so the ship's EncodeDestiny is correct.
+    if (mySE->HasPilot() && mySE->SysBubble() != nullptr) {
+        mySE->SysBubble()->SendAddBalls(mySE);
+        if (mySE->SysBubble()->HasPlayers())
+            mySE->SysBubble()->AddBallExclusive(mySE);
+    }
 }
 
 //called whenever an entity is going away and can no longer be used as a target
