@@ -957,13 +957,13 @@ void DeployableSE::Process()
     GPoint myPos = GetPosition();
     std::vector<Client*> players;
     SysBubble()->GetPlayers(players);
+    bool hasTargetInRange = false;
     for (auto pClient : players) {
         if (pClient == nullptr) continue;
         SystemEntity* pShipSE = pClient->GetShipSE();
         if (pShipSE == nullptr) continue;
         if (pShipSE->DestinyMgr()->IsCloaked())
             continue;
-        // Shuttles and immune ships are not affected by warp disruption bubbles
         if (pShipSE->GetSelf()->groupID() == EVEDB::invGroups::Shuttle)
             continue;
         if (pShipSE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
@@ -971,12 +971,22 @@ void DeployableSE::Process()
             continue;
         float dist = myPos.distance(pShipSE->GetPosition());
         if (dist <= range) {
+            hasTargetInRange = true;
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
         } else {
-            // Clear scramble for ships out of range regardless of other sources.
-            // If another MWD has it in range, that MWD's timer will re-apply it.
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), true);
         }
+    }
+    // Toggle bubble visual effect based on whether any target is in range.
+    // This prevents Crucible client from permanently blocking warp after
+    // leaving the MWD's range while the effect is still active.
+    if (hasTargetInRange != m_bubbleEffectActive) {
+        m_bubbleEffectActive = hasTargetInRange;
+        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+            0, 0, "effects.WarpDisruptFieldGenerating", 0,
+            hasTargetInRange ? 1 : 0,  // start
+            hasTargetInRange ? 1 : 0,  // isActive
+            -1, 0);
     }
 }
 
