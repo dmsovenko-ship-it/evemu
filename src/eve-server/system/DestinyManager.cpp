@@ -1168,8 +1168,8 @@ void DestinyManager::Turn() {   // tracking within 900m for Frigates, 1k4m for B
 }
 
 void DestinyManager::ClearTurn() {
-    if (mySE->SysBubble() != nullptr)
-        SetPosition(m_position, sConfig.debug.PositionHack);   // (PositionHack == true) here will force position update to client
+    // Do NOT call SetPosition here — it sends SetBallPosition with every turn,
+    // causing 1km+ snaps when the server/client positions diverge.
     m_turnTic = 0;
     m_turning = false;
     m_radians = 0.0f;
