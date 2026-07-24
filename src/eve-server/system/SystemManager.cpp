@@ -1413,8 +1413,12 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
         cur.second->EncodeDestiny( *stateBuffer );
         size_t bufAfter = stateBuffer->size();
         size_t encodedSize = bufAfter - bufBefore;
+        _log(DESTINY__TRACE, "MakeSetState: Entity %s(%u) cat=%d grp=%d encoded %zu bytes.",
+             cur.second->GetName(), cur.first,
+             cur.second->GetCategoryID(), cur.second->GetGroupID(),
+             encodedSize);
         if (encodedSize == 0 || encodedSize > 500) {
-            _log(DESTINY__ERROR, "MakeSetState: Entity %s(%u) encoded %zu bytes — skipping.",
+            _log(DESTINY__ERROR, "MakeSetState: Entity %s(%u) encoded %zu bytes — skipping (invalid size).",
                  cur.second->GetName(), cur.first, encodedSize);
             stateBuffer->Resize<uint8>(bufBefore);
             continue;
