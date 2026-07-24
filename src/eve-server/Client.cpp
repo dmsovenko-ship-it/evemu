@@ -1902,8 +1902,17 @@ void Client::ExecuteJump() {
     SendNotification("OnScannerInfoRemoved", "charid", new PyTuple(0), true);  // this is sequenced
     // Offline all modules before jump to prevent client CountDown timer crash
     // (slimItem lookup fails after session change when entity is in a new bubble)
-    if (m_ship.get() != nullptr)
+    if (m_ship.get() != nullptr) {
         m_ship->OfflineAll();
+        // Consume 1 GJ capacitor for gate jump (sanity check — prevents jump at 0 cap)
+        double capCharge = m_ship->GetAttribute(AttrCapacitorCharge).get_float();
+        if (capCharge <= 0.0) {
+            SendErrorMsg("Insufficient capacitor to jump.");
+            return;
+        }
+        double cost = 1.0;
+        m_ship->SetAttribute(AttrCapacitorCharge, capCharge - cost);
+    }
     pShipSE->Jump();
 
     MoveToLocation(m_moveSystemID, m_movePoint);
