@@ -3141,8 +3141,13 @@ void DestinyManager::UnCloak() {
         return;
     m_cloaked = false;
     SendCloakFx();
-    if (mySE->SysBubble() != nullptr)
+    if (mySE->SysBubble() != nullptr) {
         mySE->SysBubble()->AddBallExclusive(mySE);
+        // Send all bubble entities TO this entity, since AddBallExclusive only
+        // sends this entity TO others. Without this, a player who jumps cloaked
+        // never receives balls for other ships in the bubble after uncloaking.
+        mySE->SysBubble()->SendAddBalls(mySE);
+    }
 }
 
 void DestinyManager::TractorBeamStart(SystemEntity* pShipSE, EvilNumber speed)
