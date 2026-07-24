@@ -2948,7 +2948,9 @@ Battleships 0.155
     if (sRef->HasAttribute(AttrMaxVelocity))
         m_maxShipSpeed = sRef->GetAttribute(AttrMaxVelocity).get_float();
     if (sRef->HasAttribute(AttrWarpCapacitorNeed))
-        m_warpCapacitorNeed = sRef->GetAttribute(AttrWarpCapacitorNeed).get_float() *2;
+        m_warpCapacitorNeed = std::max(0.00001f, sRef->GetAttribute(AttrWarpCapacitorNeed).get_float() * 2);
+    else
+        m_warpCapacitorNeed = 0.00001f;
 
     if (mySE->IsNPCSE() or mySE->IsDroneSE())
         m_maxShipSpeed = sRef->GetAttribute(AttrEntityCruiseSpeed).get_float();
