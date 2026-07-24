@@ -329,20 +329,17 @@ void SystemBubble::Add(SystemEntity* pSE) {
 
         Client* pClient(pSE->GetPilot());
 
-        // Skip ball distribution while warping — the ship is in a transient bubble
-        // along the warp path. Sending balls would make the pilot see far-away
-        // entities and reveal the warping ship to others in the traversal bubble.
-        bool isWarping = (pSE->DestinyMgr() != nullptr && pSE->DestinyMgr()->GetState() == Destiny::Ball::Mode::WARP);
-        if (!isWarping) {
-            SendAddBalls( pSE );
-            if (!m_players.empty())
-                AddBallExclusive(pSE);
-        }
+        // Always send balls even during warp — players should see each other
+        // from grid edge (~300km). The old isWarping skip was removed because
+        // it prevented seeing other ships until WarpStop (too late — at gate).
+        SendAddBalls( pSE );
+        if (!m_players.empty())
+            AddBallExclusive(pSE);
 
         m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
 
         // Send warp disrupt field visual effect to new player if bubble has active MWD
-        if (HasWarpBubble() && !isWarping) {
+        if (HasWarpBubble()) {
             for (auto& [id, se] : m_dynamicEntities) {
                 DeployableSE* dse = se->GetDeployableSE();
                 if (dse != nullptr && dse->IsOnlined()
