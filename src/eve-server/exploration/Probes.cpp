@@ -314,9 +314,9 @@ bool ProbeSE::ProcessTic()
     if (m_self->groupID() == EVEDB::invGroups::Warp_Disruption_Probe) {
         if (SysBubble() == nullptr)
             return true;
-        // Warp Disruption Probe — 30km range in EVE retail
+        // Warp Disruption Probe — SDE default 20km (typeID 22778), surgical 10km (34260)
         float range = m_self->GetAttribute(AttrWarpScrambleRange).get_float();
-        if (range < 1.0f) range = 30000.0f;
+        if (range < 1.0f) range = 20000.0f;
         uint32 strength = 1;
         GPoint myPos = GetPosition();
         std::vector<Client*> players;
