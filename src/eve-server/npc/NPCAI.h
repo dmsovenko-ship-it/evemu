@@ -51,6 +51,24 @@ class SystemEntity;
 class Timer;
 class EvilNumber;
 
+// NPC module slot: a fitted weapon/EWAR module with cycle timer
+struct NPCModule {
+    uint32 typeID = 0;
+    uint8 slotFlag = 0;
+    bool active = false;
+    uint32 cycleTime = 0;       // ms
+    Timer cycleTimer;
+    std::string effectGUID;
+    uint32 graphicID = 0;
+    float optimalRange = 0;
+    float falloff = 0;
+    float trackingSpeed = 0;
+    float damageMultiplier = 1.0f;
+    float ewarStrength = 0;
+    uint32 ewarRange = 0;
+    float ewarChance = 0;
+};
+
 class NPCAIMgr {
 protected:
 public:
@@ -163,6 +181,8 @@ private:
 
     double m_trackingSpeed;
     float m_damageMultiplier;
+
+    std::vector<NPCModule> m_modules;  // fitted weapon/EWAR modules
 
     NPC* m_npc;
     DestinyManager* m_destiny;

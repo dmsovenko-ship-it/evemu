@@ -850,6 +850,143 @@ void NPCAIMgr::Attack(SystemEntity* pSE)
     }
 }
 
+void NPCAIMgr::FitModules()
+{
+    m_modules.clear();
+    uint8 slotIdx = 0;
+
+    // Determine weapon type from attributes
+    uint32 weapType = 1; // default Laser
+    if (m_self->HasAttribute(AttrEntityWeaponTypeID))
+        weapType = m_self->GetAttribute(AttrEntityWeaponTypeID).get_uint32();
+
+    std::string guid = "effects.Laser";
+    switch (weapType) {
+        case 1: guid = "effects.HybridFired";      break;
+        case 2: guid = "effects.ProjectileFiredForEntities"; break;
+        case 4: guid = "effects.MissileDeployment"; break;
+        default: guid = "effects.Laser";            break;
+    }
+
+    // Primary weapon module (hi slot)
+    if (m_optimalRange > 0 || m_missileTypeID > 0) {
+        NPCModule mod;
+        mod.typeID = m_missileTypeID > 0 ? m_missileTypeID : 248; // 248=150mm Railgun I placeholder
+        mod.slotFlag = flagHiSlot0 + slotIdx++;
+        mod.active = false;
+        mod.cycleTime = m_attackSpeed;
+        mod.cycleTimer.Start(m_attackSpeed);
+        mod.effectGUID = guid;
+        mod.graphicID = m_self->HasAttribute(AttrGfxTurretID) ? m_self->GetAttribute(AttrGfxTurretID).get_uint32() : 0;
+        mod.optimalRange = m_optimalRange;
+        mod.falloff = m_falloff;
+        mod.trackingSpeed = m_trackingSpeed;
+        mod.damageMultiplier = m_damageMultiplier;
+        m_modules.push_back(mod);
+    }
+
+    // Missile launcher (separate from turret if both present)
+    if (m_missileTypeID > 0 && weapType != 4) {
+        NPCModule mod;
+        mod.typeID = m_missileTypeID;
+        mod.slotFlag = flagHiSlot0 + slotIdx++;
+        mod.active = false;
+        mod.cycleTime = m_launcherCycleTime > 100 ? m_launcherCycleTime : m_attackSpeed;
+        mod.cycleTimer.Start(mod.cycleTime);
+        mod.effectGUID = "effects.MissileDeployment";
+        mod.damageMultiplier = m_damageMultiplier;
+        m_modules.push_back(mod);
+    }
+
+    // Warp scrambler (mid slot)
+    if (m_warpScramRange > 0 && m_warpScramStrength > 0) {
+        NPCModule mod;
+        mod.typeID = 227; // Warp Scrambler I placeholder
+        mod.slotFlag = flagMidSlot0 + (slotIdx++ % 8);
+        mod.cycleTime = m_attackSpeed;
+        mod.cycleTimer.Start(m_attackSpeed);
+        mod.effectGUID = "effects.WarpScramble";
+        mod.ewarStrength = m_warpScramStrength;
+        mod.ewarRange = m_warpScramRange;
+        mod.ewarChance = m_warpScramChance;
+        m_modules.push_back(mod);
+    }
+
+    // Stasis webifier (mid slot)
+    if (m_webRange > 0) {
+        NPCModule mod;
+        mod.typeID = 324; // Stasis Webifier I placeholder
+        mod.slotFlag = flagMidSlot0 + (slotIdx++ % 8);
+        mod.cycleTime = m_attackSpeed;
+        mod.cycleTimer.Start(m_attackSpeed);
+        mod.effectGUID = "effects.ModifyTargetSpeed";
+        mod.ewarStrength = m_webStrength;
+        mod.ewarRange = m_webRange;
+        mod.ewarChance = m_webChance;
+        m_modules.push_back(mod);
+    }
+
+    // ECM (mid slot)
+    if (m_ecmRange > 0 && m_ecmStrength > 0) {
+        NPCModule mod;
+        mod.typeID = 290; // ECM - White Noise Generator I placeholder
+        mod.slotFlag = flagMidSlot0 + (slotIdx++ % 8);
+        mod.cycleTime = m_ecmDuration > 0 ? m_ecmDuration : m_attackSpeed;
+        mod.cycleTimer.Start(mod.cycleTime);
+        mod.effectGUID = "effects.ElectronicAttributeModifyTarget";
+        mod.ewarStrength = m_ecmStrength;
+        mod.ewarRange = m_ecmRange;
+        mod.ewarChance = m_ecmChance;
+        m_modules.push_back(mod);
+    }
+
+    // Target painter (mid slot)
+    if (m_paintRange > 0 && m_paintMultiplier > 0) {
+        NPCModule mod;
+        mod.typeID = 291; // Target Painter I placeholder
+        mod.slotFlag = flagMidSlot0 + (slotIdx++ % 8);
+        mod.cycleTime = m_paintDuration > 0 ? m_paintDuration : m_attackSpeed;
+        mod.cycleTimer.Start(mod.cycleTime);
+        mod.effectGUID = "effects.TargetPaint";
+        mod.ewarStrength = m_paintMultiplier;
+        mod.ewarRange = m_paintRange;
+        mod.ewarChance = m_paintChance;
+        m_modules.push_back(mod);
+    }
+}
+
+void NPCAIMgr::CycleModules(SystemEntity* pTarget)
+{
+    if (pTarget == nullptr) return;
+    GPoint npcPos = m_npc->GetPosition();
+
+    for (auto& mod : m_modules) {
+        if (!mod.cycleTimer.Check()) continue;
+        mod.cycleTimer.Start(mod.cycleTime);
+
+        double dist = npcPos.distance(pTarget->GetPosition());
+
+        // Determine if this module can reach the target
+        bool inRange = (mod.ewarRange > 0) ? (dist <= mod.ewarRange) : (dist <= m_maxAttackRange);
+
+        if (!inRange) {
+            // Out of range — try to activate anyway for effect (no damage)
+            if (mod.graphicID > 0)
+                m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                             pTarget->GetID(), 0, mod.effectGUID, 1, 1, 1, mod.cycleTime, 0, mod.graphicID);
+            continue;
+        }
+
+        // EWAR modules — check activation chance
+        if (mod.ewarRange > 0 && mod.ewarChance > 0 && MakeRandomFloat() < mod.ewarChance)
+            continue;  // chance failed, skip this cycle
+
+        mod.active = true;
+        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                     pTarget->GetID(), 0, mod.effectGUID, 1, 1, 1, mod.cycleTime, 0, mod.graphicID);
+    }
+}
+
 void NPCAIMgr::ClearTarget(SystemEntity* pSE) {
     // Clear warp scramble status on target if this NPC has scrambler capability
     if (m_warpScramStrength > 0 and pSE != nullptr) {
@@ -952,6 +1089,9 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
             }
         }
     }
+
+    // Cycle fitted modules (weapon effects)
+    CycleModules(pSE);
 
     // EWAR — target painting (increase signature radius)
     if (m_paintRange > 0 and m_paintMultiplier > 0) {

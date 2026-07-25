@@ -239,6 +239,26 @@ PyDict* NPC::MakeSlimItem()
     _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u) typeID=%u cat=%u warFaction=%u group=%u", m_self->itemName(), m_self->itemID(), m_self->typeID(), m_self->categoryID(), m_warID, gID);
     PyDict* slim = DynamicSystemEntity::MakeSlimItem();
     if (slim != nullptr) {
+        // Add fitted modules list for client display
+        if (m_AI != nullptr) {
+            const auto& modules = m_AI->GetModules();
+            if (!modules.empty()) {
+                PyList* modList = new PyList();
+                for (auto& mod : modules) {
+                    if (mod.typeID > 0) {
+                        PyDict* modDict = new PyDict();
+                        modDict->SetItemString("typeID", new PyInt(mod.typeID));
+                        modDict->SetItemString("flag", new PyInt(mod.slotFlag));
+                        modList->AddItem(new PyObject("util.KeyVal", modDict));
+                    }
+                }
+                if (modList->size() > 0)
+                    slim->SetItemString("modules", modList);
+                else
+                    PyDecRef(modList);
+            }
+        }
+
         // Determine if hostile (red crosshairs) based on faction or group
         bool hostile = false;
         switch (m_warID) {
@@ -263,6 +283,7 @@ bool NPC::Load()
     m_destiny->UpdateShipVariables();
 
     SetResists();
+    FitModules();
 
     return DynamicSystemEntity::Load();
 }
@@ -632,6 +653,12 @@ void NPC::Killed(Damage &damage) {
 
     m_killed = true;
     m_system->RemoveNPC(this);
+}
+
+void NPC::FitModules()
+{
+    if (m_AI == nullptr) return;
+    m_AI->FitModules();
 }
 
 void NPC::CmdDropLoot()

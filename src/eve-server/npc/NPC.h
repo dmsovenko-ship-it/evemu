@@ -30,6 +30,7 @@
 
 #include "system/cosmicMgrs/SpawnMgr.h"
 #include "system/SystemEntity.h"
+#include "ship/Ship.h"
 
 class EVEServiceManager;
 class DestinyManager;
@@ -39,6 +40,8 @@ class NPCAIMgr;
 class ConvoyAI;
 class Sentry;
 class SystemManager;
+class ModuleManager;
+class GenericModule;
 
 class NPC
 : public DynamicSystemEntity
@@ -95,10 +98,18 @@ public:
     /* for command dropLoot - commands all npcs in bubble to jettison loot */
     void CmdDropLoot();
 
+    // Module fitting
+    void FitModules();  // creates and fits weapon/EWAR modules based on SDE attributes
+
+    ShipItemRef GetShipItemRef()                        { return m_shipItem; }
+    ModuleManager* GetModuleManager()                   { return m_moduleMgr; }
+
 protected:
     NPCAIMgr* m_AI;
     ConvoyAI* m_convoyAI;  // non-null for convoy NPCs
     SpawnMgr* m_spawnMgr;
+    ShipItemRef m_shipItem;   // ship hull for module fitting
+    ModuleManager* m_moduleMgr = nullptr;
 
 private:
     uint32 m_orbitingID;
