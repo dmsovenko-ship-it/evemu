@@ -878,7 +878,7 @@ void NPCAIMgr::FitModules()
     }
 
     // Missile launcher (separate from turret if both present)
-    if (m_missileTypeID > 0 && weapType != 4) {
+    if (m_missileTypeID > 0 && guid != "effects.MissileDeployment") {
         NPCModule mod;
         mod.typeID = m_missileTypeID;
         mod.slotFlag = flagHiSlot0 + slotIdx++;

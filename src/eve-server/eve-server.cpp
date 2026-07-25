@@ -72,6 +72,7 @@
 #include "character/CertificateMgrService.h"
 #include "character/CharFittingMgr.h"
 #include "character/CharMgrService.h"
+#include "services/BillboardService.h"
 #include "character/CharUnboundMgrService.h"
 #include "character/PaperDollService.h"
 #include "character/PhotoUploadService.h"
@@ -760,6 +761,7 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new AllianceRegistry(newSvcMgr));
     newSvcMgr.Register(new DogmaIMService(newSvcMgr));
     newSvcMgr.Register(new CorpRegistryService(newSvcMgr));
+    newSvcMgr.Register(new BillboardService(newSvcMgr));
 
     // keep a reference to cache in the old manager so it still works
     // TODO: REMOVE ONCE THE CHANGES ARE DONE
