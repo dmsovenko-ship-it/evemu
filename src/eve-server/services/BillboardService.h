@@ -1,7 +1,7 @@
 #ifndef __BILLBOARD_SERVICE_H_INCL__
 #define __BILLBOARD_SERVICE_H_INCL__
 
-#include "services/Service.h"
+#include "Service.h"
 
 class BillboardService : public Service {
 public:
