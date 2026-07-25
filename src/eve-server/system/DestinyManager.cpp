@@ -684,7 +684,7 @@ void DestinyManager::CheckBump()
         if (cur == pClient)
             continue;
         distance = pos.distance(cur->GetShipSE()->GetPosition());
-        distance -= (mySE->GetRadius() - cur->GetShipSE()->GetRadius());
+        distance -= (mySE->GetRadius() + cur->GetShipSE()->GetRadius());
         if (distance < BUMP_DISTANCE) {
             Bump(cur->GetShipSE());
             m_bump = true;
@@ -702,7 +702,7 @@ void DestinyManager::CheckBump()
         if (!pSE->IsGateSE() && !pSE->IsStationSE())
             continue;
         distance = pos.distance(pSE->GetPosition());
-        distance -= (mySE->GetRadius() - pSE->GetRadius());
+        distance -= (mySE->GetRadius() + pSE->GetRadius());
         if (distance < BUMP_DISTANCE) {
             Bump(pSE);
             m_bump = true;
@@ -1932,12 +1932,11 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
                 mySE->GetName(), mySE->GetID(), decelTime, sec_into_warp, currentShipSpeed, m_targetDistance);
 
     WarpUpdate(currentShipSpeed);
-    // Fire WarpStop only when the ship has very nearly arrived (< 100m).
-    // This keeps the server position close to the client's WarpLoop position,
-    // preventing the 2736m snap that happened when triggering on stoppingDist.
+    // Fire WarpStop when the ship is within its own radius of the target
+    // (matching destiny.dll OnDeactivatingWarp: distance < ball->radius).
     // WarpStop itself sends no packets — the client's WarpLoop exits naturally
     // and the next CmdStop/ProcessDestiny sync resolves any remaining offset.
-    if (m_targetDistance > 0.0 && m_targetDistance <= 100.0)
+    if (m_targetDistance > 0.0 && m_targetDistance <= m_radius)
         WarpStop(currentShipSpeed);
 }
 
@@ -2047,7 +2046,7 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     SafeDelete(m_warpState);
 
     // Snap server position to the exact target point. At trigger time the
-    // ship is ~100m from target — snapping avoids a position discrepancy
+    // ship is within m_radius of target — snapping avoids a position discrepancy
     // vs the client (whose WarpLoop arrives at the exact destination).
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);

@@ -987,33 +987,7 @@ void DeployableSE::Process()
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), true);
         }
     }
-    // Toggle bubble visual — Crucible blocks warp while effect is active, regardless of distance.
-    if (hasTargetInRange != m_bubbleEffectActive) {
-        m_bubbleEffectActive = hasTargetInRange;
-        if (hasTargetInRange) {
-            OnSpecialFX14 fx;
-                fx.entityID = m_self->itemID();
-                fx.moduleID = m_self->itemID();
-                fx.moduleTypeID = m_self->typeID();
-                fx.targetID = PyStatic.NewNone();
-                fx.chargeTypeID = PyStatic.NewNone();
-                fx.area = new PyList();
-                fx.guid = "effects.WarpDisruptFieldGenerating";
-                fx.isOffensive = 0;
-                fx.start = 1;
-                fx.active = 1;
-                fx.duration = -1;
-                fx.repeat = 0;
-                fx.startTime = GetFileTimeNow();
-                PyDict* gd = new PyDict();
-                gd->SetItemString("range", new PyFloat(m_self->GetAttribute(AttrWarpScrambleRange).get_float()));
-                fx.graphicInfo = new PyObject("util.KeyVal", gd);
-            PyTuple* payload = fx.Encode();
-            m_destiny->SendSingleDestinyUpdate(&payload);
-        } else {
-            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0);
-        }
-    }
+    // Bubble visual stays active always — distance-based scramble is handled by AttrWarpScrambleStatus.
 }
 
 void DeployableSE::SendSlimUpdate()
