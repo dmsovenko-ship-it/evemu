@@ -1,10 +1,15 @@
 # EVEmu Session Context
 
 ## Current State
-All fixes committed and pushed to `master` (commit `bc17d8db`). Server needs rebuild + restart.
+All fixes committed and pushed to `master` (commit `f59a77be`). Server building now.
 
 ## Git Log
 ```
+f59a77be fix: add server-side warp scramble check in WarpTo, fix Bubble::Add OnSpecialFX14 with range, add JumpIn/GateActivity on warp arrival
+d34308cc fix: warp accel formula divide-by-3 bug (1/3 dist traveled), fix warp cap using m_massMKg
+b9133a99 fix: add mixed PyInt/PyBool SendMail overloads
+3bc4d2ad feat: defender/anti-missile system (ShipSE::MissileLaunched, interception, Countermeasure_Launcher)
+7cb2fb3d fix: add sourceShipID to Missile MakeSlimItem
 bc17d8db fix: null check pilots in Bump() (crash when bumping NPC/structure without pilot)
 cb82e950 fix: add corpID/allianceID/charID to base SystemEntity MakeSlimItem
 4813a739 fix: mail service — fix MarkAsUnreadByList signature, add list-based DB methods, fix SyncMail range filter
@@ -61,6 +66,6 @@ Based on decompiled `destiny.dll` (stored at `C:\opencode\projects\other\`):
 - Doc string shows Python 2.4 compatibility, Crucible branch
 
 ### Known Remaining Issues
-- Ship-based `JumpIn` arrival effects not playing (only `GateActivity` on gate model works)
 - Full `WarpDisruptFieldGenerating` effect classification missing in Crucible
 - SceneManager crash (`NoneType.vx`) after warp crash is a secondary effect — primary warp crash now fixed
+- `tabgroup UnicodeDecodeError` (CP1252) — client-side, needs `errors='replace'` in editplaintext.py
