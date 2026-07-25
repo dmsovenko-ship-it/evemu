@@ -1930,11 +1930,12 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
                 mySE->GetName(), mySE->GetID(), decelTime, sec_into_warp, currentShipSpeed, m_targetDistance);
 
     WarpUpdate(currentShipSpeed);
-    // Fire WarpStop when the ship is within its own radius of the target
-    // (matching destiny.dll OnDeactivatingWarp: distance < ball->radius).
-    // WarpStop itself sends no packets — the client's WarpLoop exits naturally
-    // and the next CmdStop/ProcessDestiny sync resolves any remaining offset.
-    if (m_targetDistance > 0.0 && m_targetDistance <= m_radius)
+    // Fire WarpStop only when the ship has very nearly arrived (< 100m).
+    // This keeps the server position close to the client's WarpLoop position,
+    // preventing position snap. WarpStop itself sends no packets — the client's
+    // WarpLoop exits naturally and the next CmdStop/ProcessDestiny sync resolves
+    // any remaining offset.
+    if (m_targetDistance > 0.0 && m_targetDistance <= 100.0)
         WarpStop(currentShipSpeed);
 }
 
@@ -2044,7 +2045,7 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     SafeDelete(m_warpState);
 
     // Snap server position to the exact target point. At trigger time the
-    // ship is within m_radius of target — snapping avoids a position discrepancy
+    // ship is within 100m of target — snapping avoids a position discrepancy
     // vs the client (whose WarpLoop arrives at the exact destination).
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);
@@ -2436,8 +2437,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 
         // Server-side warp scramble check — client may not properly block warp
         // when bubble effect is active (Crucible fxSequencer distance check broken).
-        if (mySE->GetSelf()->HasAttribute(AttrWarpScrambleStatus)
-            && mySE->GetSelf()->GetAttribute(AttrWarpScrambleStatus).get_int() > 0)
+        if (mySE->GetSelf()->GetAttribute(AttrWarpScrambleStatus).get_int() > 0)
         {
             pClient->SendErrorMsg("Warp drive is disrupted.");
             if (sConfig.debug.PositionHack)
