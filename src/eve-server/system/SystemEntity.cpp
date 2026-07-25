@@ -844,7 +844,7 @@ void DeployableSE::Process()
         // Clear warp bubble and scramble effect on all ships in bubble
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
-            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0, -1, 0);
+            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0);
             std::vector<Client*> players;
             SysBubble()->GetPlayers(players);
             for (auto pClient : players) {
@@ -865,7 +865,7 @@ void DeployableSE::Process()
         // Clear warp bubble flag when unanchored (also clear scramble if not already done)
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
-            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0, -1, 0);
+            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0);
             std::vector<Client*> players;
             SysBubble()->GetPlayers(players);
             for (auto pClient : players) {
@@ -887,8 +887,8 @@ void DeployableSE::Process()
         m_posState = EVEPOS::StructureState::Online;  // 4 = online
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(true);
-            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.StructureOnlined", 0, 1, 1, -1, 0);
-            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.WarpDisruptFieldGenerating", 0, 1, 1, -1, 0);
+            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.StructureOnlined", 0, 1, 1);
+            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 1, 1);
         }
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, online now", m_self->name(), m_self->itemID());
         m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
