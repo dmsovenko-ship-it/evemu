@@ -247,11 +247,11 @@ void DestinyManager::ProcessState() {
                 // Accelerate to full speed for warp alignment. 30% speed caused
                 // excessive align time and "stuck at 30%" perception.
                 SetSpeedFraction(1.0f, true);
-            } else if ((degrees < 30.0f) && (m_timeFraction > 0.749)
+            } else if ((degrees < 30.0f) && (m_timeFraction > 0.5)
                        && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
                 // Close enough to target — start warp early (final alignment during accel).
-                m_shipHeading = toVec;
-                m_velocity = NULL_ORIGIN_V;
+                // Maintain current heading/velocity instead of zeroing, matching
+                // destiny.dll OnActivatingWarp case 3: warp enters with existing momentum.
                 InitWarp();
                 return;
             } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
@@ -264,9 +264,7 @@ void DestinyManager::ProcessState() {
                             mySE->GetName(), mySE->GetID());
                 }
                 m_shipHeading = toVec;
-                // Reset velocity so the warp trajectory starts clean
-                // (ship may have been drifting while trying to align).
-                m_velocity = NULL_ORIGIN_V;
+                // Enter warp with current velocity (don't zero it — ship had momentum).
                 InitWarp();
                 return;
             }

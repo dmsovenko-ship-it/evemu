@@ -329,12 +329,18 @@ void SystemBubble::Add(SystemEntity* pSE) {
 
         Client* pClient(pSE->GetPilot());
 
-        // Always send balls even during warp — players should see each other
-        // from grid edge (~300km). The old isWarping skip was removed because
-        // it prevented seeing other ships until WarpStop (too late — at gate).
-        SendAddBalls( pSE );
-        if (!m_players.empty())
-            AddBallExclusive(pSE);
+        // Skip SendAddBalls for warping ships — the client's WarpLoop cannot
+        // safely process incoming ball packets and will crash with
+        // "ValueError: Unknown packet type". Ball data is deferred to WarpStop.
+        // Other players still receive AddBallExclusive so they see the ship.
+        if (pSE->DestinyMgr() != nullptr && pSE->DestinyMgr()->IsWarping()) {
+            if (!m_players.empty())
+                AddBallExclusive(pSE);
+        } else {
+            SendAddBalls( pSE );
+            if (!m_players.empty())
+                AddBallExclusive(pSE);
+        }
 
         m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
 
