@@ -768,10 +768,11 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
     m_anchoring = true;
     m_anchorTimer.Start(anchorTime);
 
-    // Use Anchoring state during timer — client shows progress bar via slim item.
-    // NO AnchorDrop effect — Crucible interprets it as "show bubble" for MWDs.
     m_posState = EVEPOS::EntityState::Anchoring;  // -6 = anchoring
     SendSlimUpdate();
+    // AnchorDrop start=1,active=1 — client shows anchoring animation via SetBuiltStructureGraphics(1)
+    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+        0, 0, "effects.AnchorDrop", 0, 1, 1, anchorTime, 0);
 }
 
 void DeployableSE::Unanchor(Client* pClient)
@@ -844,6 +845,7 @@ void DeployableSE::Process()
         // Clear warp bubble and scramble effect on all ships in bubble
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
+            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.AnchorLift", 0, 0, 0);
             m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0);
             std::vector<Client*> players;
             SysBubble()->GetPlayers(players);
@@ -865,6 +867,7 @@ void DeployableSE::Process()
         // Clear warp bubble flag when unanchored (also clear scramble if not already done)
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(false);
+            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.AnchorLift", 0, 0, 0);
             m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0);
             std::vector<Client*> players;
             SysBubble()->GetPlayers(players);
