@@ -3052,15 +3052,30 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
 }
 
 void ShipSE::ScoopDrone(SystemEntity* pSE) {
+    DroneSE* pDrone = pSE->GetDroneSE();
+    if (pDrone == nullptr) return;
+
     m_drones.erase(pSE->GetID());
-    pSE->GetDroneSE()->Offline();
+    pDrone->Offline();
+
+    // Move the drone item back to the ship's drone bay
+    InventoryItemRef droneItem = pDrone->GetSelf();
+    if (droneItem.get() != nullptr) {
+        droneItem->Move(GetLocationID(), flagDroneBay, true);
+        droneItem->ChangeSingleton(false);
+    }
+
     // Fighters use tubes, not drone bandwidth
-    if (!(pSE->GetSelf()->groupID() == EVEDB::invGroups::Fighter_Drone
-       or pSE->GetSelf()->groupID() == EVEDB::invGroups::Fighter_Bomber)) {
+    if (!(pDrone->GetSelf()->groupID() == EVEDB::invGroups::Fighter_Drone
+       or pDrone->GetSelf()->groupID() == EVEDB::invGroups::Fighter_Bomber)) {
         EvilNumber load = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
-        load -= pSE->GetSelf()->GetAttribute(AttrDroneBandwidthUsed);
+        load -= pDrone->GetSelf()->GetAttribute(AttrDroneBandwidthUsed);
         m_shipRef->SetAttribute(AttrDroneBandwidthLoad, load, false);
     }
+
+    // Remove the drone entity from space — it returns to the drone bay
+    if (m_system != nullptr)
+        m_system->RemoveEntity(pSE);
 }
 
 void ShipSE::UpdateDrones(std::map<int16, int8> &attribs) {

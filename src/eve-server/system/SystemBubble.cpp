@@ -375,6 +375,17 @@ void SystemBubble::Add(SystemEntity* pSE) {
                         PyTuple* payload = fx.Encode();
                         dm->SendSingleDestinyUpdate(&payload);
                     }
+                    // Immediately set warp scramble status for this player
+                    // instead of waiting for the 1s warpScrambleTimer tick.
+                    if (pSE->DestinyMgr() != nullptr && !pSE->DestinyMgr()->IsCloaked()) {
+                        float dist = se->GetPosition().distance(pSE->GetPosition());
+                        float range = dse->GetSelf()->GetAttribute(AttrWarpScrambleRange).get_float();
+                        if (range < 1.0f) range = 20000.0f;
+                        uint32 strength = dse->GetSelf()->GetAttribute(AttrWarpScrambleStrength).get_uint32();
+                        if (strength < 1) strength = 1;
+                        if (dist <= range)
+                            pSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
+                    }
                 }
             }
         }
