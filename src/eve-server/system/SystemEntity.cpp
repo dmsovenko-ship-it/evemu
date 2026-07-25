@@ -683,7 +683,7 @@ PyDict* DeployableSE::MakeSlimItem() {
         slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
         slim->SetItemString("flag",             new PyInt(flagNone));
         slim->SetItemString("posState",         new PyInt(m_posState));
-        slim->SetItemString("posTimestamp",     new PyLong(GetFileTimeNow()));
+        slim->SetItemString("posTimestamp",     PyStatic.NewInt(0));
         slim->SetItemString("posDelayTime",     new PyInt(m_anchorTime / 1000));
     return slim;
 }
@@ -768,21 +768,10 @@ void DeployableSE::Anchor(Client* pClient, const GPoint& pos)
     m_anchoring = true;
     m_anchorTimer.Start(anchorTime);
 
-    // Keep posState at Unanchored during timer — Crucible client shows warp
-    // bubble if posState is anything other than Unanchored for MWD deployables.
-    m_posState = EVEPOS::StructureState::Unanchored;  // 0 = unanchored (keep during timer to avoid bubble)
+    // Use Anchoring state during timer — client shows progress bar via slim item.
+    // NO AnchorDrop effect — Crucible interprets it as "show bubble" for MWDs.
+    m_posState = EVEPOS::EntityState::Anchoring;  // -6 = anchoring
     SendSlimUpdate();
-    std::vector<PyTuple*> updates;
-    SetBallFree sbf;
-        sbf.entityID = m_self->itemID();
-        sbf.is_free = 0;
-    updates.push_back(sbf.Encode());
-    SetBallRadius sbr;
-        sbr.entityID = m_self->itemID();
-        sbr.radius = m_self->radius();
-    updates.push_back(sbr.Encode());
-    m_destiny->SendDestinyUpdate(updates);
-    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 1, 1, -1, 0);
 }
 
 void DeployableSE::Unanchor(Client* pClient)
