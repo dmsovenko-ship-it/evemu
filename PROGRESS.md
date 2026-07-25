@@ -10,7 +10,7 @@
 | System | % | Bar | Δ up | System | % | Bar | Δ up |
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
-| Ship Navigation | 99% | `███████████████████` | +29% | Combat | 99% | `███████████████████` | +9% |
+| Ship Navigation | 97% | `███████████████████` | +27% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 92% | `██████████████████` | +17% |
 | NPC AI & Spawning | 92% | `███████████████████` | +32% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
@@ -47,7 +47,7 @@
 | Queue, train, certificates, implants | ✅ | ✅ |
 | SP loss on T3 pod kill | ❌ | ✅ |
 
-### 3. Ship Navigation `███████████████████` 99%
+### 3. Ship Navigation `███████████████████` 98%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -60,17 +60,10 @@
 | **Snap stop** — instant speed=0 on command (no decel drift) | ❌ | ✅ |
 | **Bubble hopping fix** — stay in bubble if in range, 5s cleanup | ❌ | ✅ |
 | **Jump cloak** — SetCloakTimer calls Cloak(), enemies can't see | ❌ | ✅ |
-| **Warp-to-0 surface** — land at object surface (gates, stations) | ❌ | ✅ |
-| **Warp intercept** — MWD bubble pulls ship out of warp via HasWarpBubble | ❌ | ✅ |
-| **SendAddBalls after warp** — both WarpStop and intercept resend bubble entities | ❌ | ✅ |
-| **JumpIn effect** — broadcast to destination bubble on gate jump | ❌ | ✅ |
-| **Collision detection** — push ships out of large static entities (gates, stations) | ❌ | ✅ |
-| **Warp capacitor drain** — minimum warpCapacitorNeed=0.00001 | ❌ | ✅ |
 | **Missile use-after-free** — targetID check before access | ❌ | ✅ |
 | Orbit desync fix, reduced position sync frequency | ❌ | ✅ |
 | Destiny crash fixes — bubble guard, use-after-free | ❌ | ✅ |
 | **Warp scramble** blocks logoff/emergency warp | 🟡 | ✅ |
-| **Warp scramble cleanup** — on bubble exit (Remove) + per-player range check | ❌ | ✅ |
 
 ### 4. Combat & Crimewatch `████████████████████` 99%
 
@@ -214,18 +207,17 @@
 | Anchor/online via DogmaIM + PosMgr routing | ❌ | ✅ |
 | Offlining timer + offline effect cleanup | ❌ | ✅ |
 | **dgmTypeAttributes migration** — anchor/online/unanchor per type (Small/Medium/Large I/II) | ❌ | ✅ |
-| **WarpDisruptFieldGenerating** visual effect on bubble active (sent to all players, including late-joiners) | ❌ | ✅ |
+| **WarpDisruptFieldGenerating** visual effect on bubble active | ❌ | ✅ |
 | **StructureOnlined** effect on anchor complete | ❌ | ✅ |
 | **SendSlimUpdate** — groupID/categoryID/flag + real posTimestamp | ❌ | ✅ |
 | Sec-level restriction (`AttrAnchoringSecurityLevelMax`) | ❌ | ✅ |
-| **MWD range** — hardcoded per SDE typeID (5k–48k), not from DB attribute | ❌ | ✅ |
 | Warp scramble bubble when online | ❌ | ✅ |
-| **Scramble cleanup** — on range exit (per-player), on bubble exit (Remove), on last source removed | ❌ | ✅ |
+| **Scramble cleanup** on range exit + last entity removed | ❌ | ✅ |
 | **Transient** — deleted from DB on server restart (Crucible behavior) | ❌ | ✅ |
 | **Warp Disrupt Probe** — Interdiction Sphere Launcher, bubble, aggression (15min), highsec block | ❌ | ✅ |
 | **Probe range** from `AttrWarpScrambleRange` (fallback 20km) | ❌ | ✅ |
 | **Smartbombs** — AoE splash, capacitor drain, **crimewatch (OnWeaponFired+OnAggression)** | ❌ | ✅ |
-| **Warp intercept** — bubble-flag based pull-out via GOTO transition (no 1s timer delay) | ❌ | ✅ |
+| **Warp intercept** — distance-aware pull-out via GOTO transition | ❌ | ✅ |
 | **Invulnerability** — immune except to smartbombs/bombs | ❌ | ✅ |
 | **Shuttle immunity** — group 31 hardcoded | ❌ | ✅ |
 | **AttrWarpBubbleImmune** (Interdiction Nullifier) — all 6 check paths | ❌ | ✅ |
