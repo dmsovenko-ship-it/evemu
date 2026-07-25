@@ -2992,19 +2992,6 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     position.MakeRandomPointOnSphere(50.0);
     dRef->SetPosition(position);
 
-    //now we create an SE to represent it.
-    FactionData data = FactionData();
-        data.allianceID = pChar->allianceID();
-        data.corporationID = pChar->corporationID();
-        data.factionID = pChar->warFactionID();
-        data.ownerID = pChar->itemID();
-    DroneSE* pDrone = new DroneSE(dRef, m_services, m_system, data);
-
-    // tell new drone it's being launched.
-    pDrone->Launch(this);
-    // add drone to launched drone map (whether onlined or not)
-    m_drones.emplace(dRef->itemID(), dRef.get());
-
     /*
     AttrDroneBandwidth = 1271,     <-- ship attribute  (total)
     AttrDroneBandwidthUsed = 1272, <-- drone attribute
@@ -3013,12 +3000,8 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     // Fighters use tubes, not drone bandwidth (Crucible-era)
     bool isFighter = (dRef->groupID() == EVEDB::invGroups::Fighter_Drone)
                   or (dRef->groupID() == EVEDB::invGroups::Fighter_Bomber);
-    if (isFighter) {
-        pDrone->Online();
-        pDrone->GetAI()->SetIdle();
-        return true;
-    }
-    // Check maxActiveDrones: base from Drone Interfacing skill, plus Drone Control Unit bonus
+
+    // Check maxActiveDrones BEFORE creating the SE — currentDrones does not include the new one yet.
     uint32 maxDrones = std::max<uint32>(1, static_cast<uint32>(pChar->GetSkillLevel(EvESkill::DroneInterfacing, true)));
     uint32 attrDrones = static_cast<uint32>(pChar->GetAttribute(AttrMaxActiveDrones).get_int());
     if (attrDrones > maxDrones) maxDrones = attrDrones;
@@ -3026,29 +3009,40 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     for (auto& [id, drone] : m_drones)
         if (drone != nullptr) ++currentDrones;
     if ((currentDrones + 1) > maxDrones && !isFighter) {
-        _log(DRONE__WARNING, "LaunchDrone: %s tried to launch drone %u but maxActiveDrones=%u",
-             pChar->name(), dRef->itemID(), maxDrones);
-        // Clean up the SE that was already created
-        m_drones.erase(dRef->itemID());
-        m_system->RemoveEntity(pDrone);
-        SafeDelete(pDrone);
+        _log(DRONE__WARNING, "LaunchDrone: %s — maxActiveDrones=%u, already have %u",
+             pChar->name(), maxDrones, currentDrones);
         return false;
     }
 
-    //  if ship doesnt have bandwidth for drone, it will not online after launch (inert)
-    EvilNumber load = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
-    load += dRef->GetAttribute(AttrDroneBandwidthUsed);
-    if (load <= m_shipRef->GetAttribute(AttrDroneBandwidth)) {
+    // Check bandwidth BEFORE creating the SE
+    EvilNumber bandLoad = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
+    bandLoad += dRef->GetAttribute(AttrDroneBandwidthUsed);
+    if (bandLoad > m_shipRef->GetAttribute(AttrDroneBandwidth) && !isFighter) {
+        _log(DRONE__WARNING, "LaunchDrone: %s — bandwidth exceeded (%.1f/%.1f)",
+             pChar->name(), bandLoad.get_float(), m_shipRef->GetAttribute(AttrDroneBandwidth).get_float());
+        return false;
+    }
+
+    // All checks passed — create the DroneSE
+    FactionData data = FactionData();
+        data.allianceID = pChar->allianceID();
+        data.corporationID = pChar->corporationID();
+        data.factionID = pChar->warFactionID();
+        data.ownerID = pChar->itemID();
+    DroneSE* pDrone = new DroneSE(dRef, m_services, m_system, data);
+    pDrone->Launch(this);
+    m_drones.emplace(dRef->itemID(), dRef.get());
+
+    if (isFighter) {
         pDrone->Online();
         pDrone->GetAI()->SetIdle();
-        m_shipRef->SetAttribute(AttrDroneBandwidthLoad, load, false);
         return true;
     }
-    // Bandwidth exceeded — clean up the SE that was already created
-    m_drones.erase(dRef->itemID());
-    m_system->RemoveEntity(pDrone);
-    SafeDelete(pDrone);
-    return false;
+
+    pDrone->Online();
+    pDrone->GetAI()->SetIdle();
+    m_shipRef->SetAttribute(AttrDroneBandwidthLoad, bandLoad, false);
+    return true;
 }
 
 void ShipSE::ScoopDrone(SystemEntity* pSE) {
@@ -3073,9 +3067,10 @@ void ShipSE::ScoopDrone(SystemEntity* pSE) {
         m_shipRef->SetAttribute(AttrDroneBandwidthLoad, load, false);
     }
 
-    // Remove the drone entity from space — it returns to the drone bay
-    if (m_system != nullptr)
-        m_system->RemoveEntity(pSE);
+    // The DroneSE stays in the system (offline). It will be cleaned up when:
+    // - The player relaunches (stale DroneSE removed)
+    // - The player changes systems (system cleanup)
+    // - The drone times out
 }
 
 void ShipSE::UpdateDrones(std::map<int16, int8> &attribs) {
