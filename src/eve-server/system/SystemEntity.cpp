@@ -886,8 +886,17 @@ void DeployableSE::Process()
         m_anchorTimer.Disable();
         m_anchoring = false;
         m_anchored = true;
+        m_onlined = false;  // separate Online() call required
+        m_posState = EVEPOS::StructureState::Anchored;  // 1 = anchored (waiting for online)
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, waiting for online", m_self->name(), m_self->itemID());
+        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
+        SendSlimUpdate();
+    } else if (m_onlining && m_onlineTimer.Check(false)) {
+        m_onlineTimer.Disable();
+        m_onlining = false;
         m_onlined = true;
         m_posState = EVEPOS::StructureState::Online;  // 4 = online
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — online complete", m_self->name(), m_self->itemID());
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(true);
             m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.StructureOnlined", 0, 1, 1);
@@ -912,18 +921,8 @@ void DeployableSE::Process()
             PyTuple* payload = fx.Encode();
             m_destiny->SendSingleDestinyUpdate(&payload);
         }
-        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, online now", m_self->name(), m_self->itemID());
-        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
-        SendSlimUpdate();
-    } else if (m_onlining && m_onlineTimer.Check(false)) {
-        m_onlineTimer.Disable();
-        m_onlining = false;
-        m_onlined = true;
-        m_posState = EVEPOS::StructureState::Online;  // 4 = online
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — online complete", m_self->name(), m_self->itemID());
-        // Mark bubble for warp disruption when online
-        if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr)
-            SysBubble()->SetWarpBubble(true);
+        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
         SendSlimUpdate();
     }
 
