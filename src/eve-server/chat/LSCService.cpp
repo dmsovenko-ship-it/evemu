@@ -1209,20 +1209,23 @@ void Client::SelfEveMail(const char* subject, const char* fmt, ...)
                 "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask) "
                 "VALUES (%u, %u, %u, %u)", messageID, GetCharacterID(), 0, 1);
 
-            // Send OnMessage notification with the correct mailMessage.messageID
-            // so the client can link the notification to the mail in the inbox.
+            // Send OnMailSent notification — client's mailSvc subscribes to this
+            // and shows a popup with sender name + subject.
+            PyTuple* payload = new PyTuple(9);
+            payload->SetItem(0, new PyInt(messageID));
+            payload->SetItem(1, new PyInt(GetCharacterID()));
+            payload->SetItem(2, new PyLong(Win32TimeNow()));
+            payload->SetItem(3, new PyString(std::to_string(GetCharacterID())));
+            payload->SetItem(4, PyStatic.NewNone());
+            payload->SetItem(5, PyStatic.NewNone());
+            payload->SetItem(6, new PyString(subject));
+            payload->SetItem(7, new PyInt(0));  // statusMask
+            PyDict* extra = new PyDict();
+            extra->SetItemString("senderName", new PyString(GetName()));
+            payload->SetItem(8, extra);
             std::set<uint32> recipients;
             recipients.insert(GetCharacterID());
-
-            NotifyOnMessage notify;
-            notify.recipients.push_back(GetCharacterID());
-            notify.messageID = messageID;
-            notify.senderID = GetCharacterID();
-            notify.subject = subject;
-            notify.sentTime = Win32TimeNow();
-
-            PyTuple* payload = notify.Encode();
-            sEntityList.Multicast(recipients, "OnMessage", "*multicastID", &payload, false);
+            sEntityList.Multicast(recipients, "OnMailSent", "*multicastID", &payload, false);
         }
     }
 
