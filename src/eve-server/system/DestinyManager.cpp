@@ -2435,19 +2435,23 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 
         //  check if ship has enough capacitor to warp full distance
         if (capNeeded > currentShipCap) {
-            // not enough cap.  reset everything based on available cap
-            capNeeded = (currentShipCap /m_warpCapacitorNeed) /m_mass;
-            if (capNeeded > 1) {
-                m_targetDistance = static_cast<double>(capNeeded) * static_cast<double>(ONE_AU_IN_METERS);
+            // not enough cap — warp as far as available cap allows
+            float maxAu = (currentShipCap / m_warpCapacitorNeed) / m_mass;
+            if (maxAu > 1.0f) {
+                m_targetDistance = static_cast<double>(maxAu) * static_cast<double>(ONE_AU_IN_METERS);
                 GVector warp_direction(m_position, where);
                 GPoint newTarget(m_position + (warp_direction * m_targetDistance));
 
                 m_targBubble = sBubbleMgr.GetBubble(mySE->SystemMgr(), newTarget);
+                // drain all available cap
+                m_capNeeded = 0;
+                if (mySE->HasPilot())
+                    mySE->GetPilot()->SendNotifyMsg("Insufficient capacitor to jump/warp the full distance. Warping %.2f AU.", maxAu);
                 if (is_log_enabled(DESTINY__WARP_TRACE))
                     _log(DESTINY__TRACE, "Destiny::WarpTo():Update - %s(%u) target bubble: %u  m_stopDistance: %i  m_targetDistance: %.2f",
                         mySE->GetName(), mySE->GetID(), m_targBubble->GetID(), m_stopDistance, m_targetDistance);
             } else {
-                // if not enough cap to do min warp, cancel and return
+                // not enough cap to do min warp — cancel
                 pClient->SendErrorMsg("You don't have enough capacitor charge to warp.");
                 _log(DESTINY__WARNING, "Destiny::WarpTo() - %s(%u): Capacitor needed vs current  %.3f / %.3f",
                         mySE->GetName(), mySE->GetID(), capNeeded, currentShipCap);
@@ -2458,10 +2462,8 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
                 return;
             }
         } else {
-            capNeeded = currentShipCap - capNeeded;
+            m_capNeeded = currentShipCap - capNeeded;
         }
-
-        m_capNeeded = capNeeded;
     }
 
     m_ballMode = Destiny::Ball::Mode::WARP;
