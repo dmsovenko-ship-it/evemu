@@ -5,18 +5,18 @@ All fixes committed and pushed to `master` (commit `f59a77be`). Server building 
 
 ## Git Log
 ```
-f59a77be fix: server-side warp scramble check, Bubble::Add OnSpecialFX14, JumpIn/GateActivity on arrival
-d34308cc fix: warp accel formula (divide-by-3 bug), warp cap (kg→Mkg)
-b9133a99 fix: mixed PyInt/PyBool SendMail overloads
-3bc4d2ad feat: defender missile system (ShipSE::MissileLaunched, interception, Countermeasure_Launcher)
+f59a77be fix: server-side warp scramble check in WarpTo, fix Bubble::Add OnSpecialFX14 with range, add JumpIn/GateActivity on warp arrival
+d34308cc fix: warp accel formula divide-by-3 bug (1/3 dist traveled), fix warp cap using m_massMKg
+b9133a99 fix: add mixed PyInt/PyBool SendMail overloads
+3bc4d2ad feat: defender/anti-missile system (ShipSE::MissileLaunched, interception, Countermeasure_Launcher)
 7cb2fb3d fix: add sourceShipID to Missile MakeSlimItem
-bc17d8db fix: null check pilots in Bump()
-cb82e950 fix: add corpID/allianceID/warFactionID/charID to base SystemEntity MakeSlimItem
-4813a739 fix: mail — MarkAsUnreadByList signature, list-based DB, SyncMail range filter
-4d326741 fix: mixed SendMail overloads with PyInt*
-e2349964 fix: skip SendAddBalls for warping ships, keep velocity on force-warp
-d58859ea chore: remove __pycache__, add to gitignore
-d3cf152d fix: remove bubble toggle, fix bump formula, fix decel exit (m_radius)
+bc17d8db fix: null check pilots in Bump() (crash when bumping NPC/structure without pilot)
+cb82e950 fix: add corpID/allianceID/charID to base SystemEntity MakeSlimItem
+4813a739 fix: mail service — fix MarkAsUnreadByList signature, add list-based DB methods, fix SyncMail range filter
+4d326741 fix: add SendMail overloads with PyInt* for isReplyTo/isForwardedFrom
+e2349964 fix: skip SendAddBalls for warping ships (prevents WarpLoop crash), keep velocity on force-warp
+d58859ea chore: remove __pycache__ from tracking, add to gitignore
+d3cf152d fix: remove dynamic bubble toggle, fix bump collision formula, fix warp decel exit (use ship radius)
 ```
 
 ## Key Decisions
