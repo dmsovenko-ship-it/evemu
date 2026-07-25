@@ -943,6 +943,7 @@ void DeployableSE::Process()
     uint32 strength = m_self->GetAttribute(AttrWarpScrambleStrength).get_uint32();
     if (strength < 1)
         strength = 1;
+    bool hasTargetInRange = false;
     GPoint myPos = GetPosition();
     std::vector<Client*> players;
     SysBubble()->GetPlayers(players);
@@ -959,10 +960,18 @@ void DeployableSE::Process()
             continue;
         float dist = myPos.distance(pShipSE->GetPosition());
         if (dist <= range) {
+            hasTargetInRange = true;
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, (int)strength, true);
         } else {
             pShipSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), true);
         }
+    }
+    // Toggle bubble visual — Crucible blocks warp while effect is active, regardless of distance.
+    if (hasTargetInRange != m_bubbleEffectActive) {
+        m_bubbleEffectActive = hasTargetInRange;
+        m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0,
+            hasTargetInRange ? 1 : 0,
+            hasTargetInRange ? 1 : 0);
     }
 }
 
