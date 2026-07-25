@@ -3017,6 +3017,21 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
         pDrone->GetAI()->SetIdle();
         return true;
     }
+    // Check maxActiveDrones limit from Drone Interfacing skill
+    uint32 maxDrones = std::max(1, pChar->GetSkillLevel(EvESkill::DroneInterfacing, true));
+    uint32 currentDrones = 0;
+    for (auto& [id, drone] : m_drones)
+        if (drone != nullptr) ++currentDrones;
+    if ((currentDrones + 1) > maxDrones && !isFighter) {
+        _log(DRONE__WARNING, "LaunchDrone: %s tried to launch drone %u but maxActiveDrones=%u",
+             pChar->name(), dRef->itemID(), maxDrones);
+        // Clean up the SE that was already created
+        m_drones.erase(dRef->itemID());
+        m_system->RemoveEntity(pDrone);
+        SafeDelete(pDrone);
+        return false;
+    }
+
     //  if ship doesnt have bandwidth for drone, it will not online after launch (inert)
     EvilNumber load = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
     load += dRef->GetAttribute(AttrDroneBandwidthUsed);
