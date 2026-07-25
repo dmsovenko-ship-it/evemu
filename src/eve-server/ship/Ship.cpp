@@ -3018,8 +3018,10 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
         pDrone->GetAI()->SetIdle();
         return true;
     }
-    // Check maxActiveDrones limit from character attribute (skill + Drone Control Unit bonus)
-    uint32 maxDrones = std::max<uint32>(1, static_cast<uint32>(pChar->GetAttribute(AttrMaxActiveDrones).get_int()));
+    // Check maxActiveDrones: base from Drone Interfacing skill, plus Drone Control Unit bonus
+    uint32 maxDrones = std::max<uint32>(1, static_cast<uint32>(pChar->GetSkillLevel(EvESkill::DroneInterfacing, true)));
+    uint32 attrDrones = static_cast<uint32>(pChar->GetAttribute(AttrMaxActiveDrones).get_int());
+    if (attrDrones > maxDrones) maxDrones = attrDrones;
     uint32 currentDrones = 0;
     for (auto& [id, drone] : m_drones)
         if (drone != nullptr) ++currentDrones;

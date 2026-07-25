@@ -580,7 +580,13 @@ void DestinyManager::Stop() {
 
     if (m_userSpeedFraction == 0.0f) {
         m_stop = true;
-    } else if  ((m_ballMode == Destiny::Ball::Mode::WARP) and (!IsWarping()))  {
+    } else if ((m_ballMode == Destiny::Ball::Mode::WARP) and (IsWarping())) {
+        // Active warp — transition to GOTO for smooth deceleration instead of instant STOP.
+        // Client's WarpLoop ends independently; GOTO mode lets the ship coast to destination.
+        m_ballMode = Destiny::Ball::Mode::GOTO;
+        SetSpeedFraction(0.0f);
+        SafeDelete(m_warpState);
+    } else if ((m_ballMode == Destiny::Ball::Mode::WARP) and (!IsWarping()))  {
         //warp aborted before initialized.  standard Stop() applies.
         m_ballMode = Destiny::Ball::Mode::STOP;
     } else if (IsMoving()) {
