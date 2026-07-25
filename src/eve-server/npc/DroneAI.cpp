@@ -428,6 +428,8 @@ void DroneAIMgr::SetIdle() {
         m_paintedSigRadius = 0.0f;
     }
     // not doing anything....idle.
+    m_pDrone->ClearTargetID();
+    m_pDrone->StateChange();
     _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: returning to idle.",
          m_pDrone->GetName(), m_pDrone->GetID());
     // Reload fighter ammo on return to carrier

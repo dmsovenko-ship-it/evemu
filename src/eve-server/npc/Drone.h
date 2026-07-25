@@ -111,6 +111,7 @@ public:
 
     void AssignShip(ShipSE* pSE)                        { m_AI->AssignShip(pSE); }
     void SetTarget(SystemEntity* pSE = nullptr)         { (pSE == nullptr ? 0 : m_targetID = pSE->GetID()); }
+    void ClearTargetID()                                 { m_targetID = 0; }
 
     ShipSE* GetHomeShip()                               { return m_pShipSE; }
 
