@@ -125,3 +125,5 @@ sde_tables/
 .idea
 CMakeSettings.json
 log.ini
+
+__pycache__/
