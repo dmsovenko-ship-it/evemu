@@ -63,6 +63,9 @@ public:
     void MoveFromTrash(int32 messageID);
     void MoveToTrash(int32 messageID);
     void MoveToTrashByLabel(int32 characterID, int32 labelID); 
+    void MoveToTrashByList(uint32 characterID, int32 listID);
+    void MarkAllAsReadByList(uint32 characterID, int32 listID);
+    void MarkAllAsUnreadByList(uint32 characterID, int32 listID);
 
     // Mailing list
 
@@ -102,7 +105,7 @@ public:
     void RemoveLabelMasks(std::vector<int32> messageIDs, int mask);
 
     int SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID, int toCorpOrAllianceID, const std::string& title, const std::string& body, int isReplyTo, int isForwardedFrom, uint32 roleMask = 0);
-    PyRep* GetNewMail(int charId);
+    PyRep* GetNewMail(int charId, int lastKnownID = 0);
     PyRep* GetMailHeaders(int charId, std::vector<int32> messageIDs);
     PyRep* GetMailStatus(int charId);
 

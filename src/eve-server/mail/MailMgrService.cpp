@@ -222,18 +222,17 @@ PyResult MailMgrService::PrimeOwners(PyCallArgs &call, PyList* ownerIDs)
 
 PyResult MailMgrService::SyncMail(PyCallArgs &call, std::optional<PyInt*> first, std::optional<PyInt*> second)
 {
-    int firstId = 0, secondId = 0;
+    int lastKnownId = 0;
 
-    if (first.has_value() && second.has_value())
+    if (second.has_value())
     {
-        // referring to a mail id range
-        firstId = first.value()->value();
-        secondId = second.value()->value();
+        // second = lowest cached messageID — only return mails newer than this
+        lastKnownId = second.value()->value();
     }
 
     PyDict* dummy = new PyDict;
     dummy->SetItemString("oldMail", PyStatic.NewNone());
-    dummy->SetItemString("newMail", m_db.GetNewMail(call.client->GetCharacterID()));
+    dummy->SetItemString("newMail", m_db.GetNewMail(call.client->GetCharacterID(), lastKnownId));
     dummy->SetItemString("mailStatus", m_db.GetMailStatus(call.client->GetCharacterID()));
     return new PyObject("util.KeyVal", dummy);
 }
@@ -380,7 +379,7 @@ PyResult MailMgrService::MarkAsReadByLabel(PyCallArgs &call, PyInt* labelID)
 
 PyResult MailMgrService::MarkAsReadByList(PyCallArgs &call, PyInt* listID)
 {
-    m_db.ApplyStatusMasks(std::vector<int32>{listID->value()}, mailStatusMaskRead);
+    m_db.MarkAllAsReadByList(call.client->GetCharacterID(), listID->value());
     return nullptr;
 }
 
@@ -411,22 +410,9 @@ PyResult MailMgrService::MarkAsUnreadByLabel(PyCallArgs &call, PyInt* labelID)
     return nullptr;
 }
 
-PyResult MailMgrService::MarkAsUnreadByList(PyCallArgs &call, PyList* messageIDs)
+PyResult MailMgrService::MarkAsUnreadByList(PyCallArgs &call, PyInt* listID)
 {
-    std::vector<int32> messageIds;
-
-    PyList::const_iterator list_2_cur = messageIDs->begin();
-    for (size_t list_2_index(0); list_2_cur != messageIDs->end(); ++list_2_cur, ++list_2_index) {
-        if (!(*list_2_cur)->IsInt()) {
-            _log(XMLP__DECODE_ERROR, "Decode Call_AssignLabels failed: Element %u in list list_2 is not an integer: %s", list_2_index, (*list_2_cur)->TypeString());
-            return nullptr;
-        }
-
-        const PyInt* t = (*list_2_cur)->AsInt();
-        messageIds.push_back(t->value());
-    }
-
-    m_db.RemoveStatusMasks(messageIds, mailStatusMaskRead);
+    m_db.MarkAllAsUnreadByList(call.client->GetCharacterID(), listID->value());
     return nullptr;
 }
 
@@ -490,7 +476,7 @@ PyResult MailMgrService::MoveToTrashByLabel(PyCallArgs &call, PyInt* labelID)
 
 PyResult MailMgrService::MoveToTrashByList(PyCallArgs &call, PyInt* listID)
 {
-    m_db.ApplyStatusMasks(std::vector<int32>{listID->value()}, mailStatusMaskTrashed);
+    m_db.MoveToTrashByList(call.client->GetCharacterID(), listID->value());
     return nullptr;
 }
 

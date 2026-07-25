@@ -56,7 +56,7 @@ protected:
     PyResult MoveToTrashByList(PyCallArgs& call, PyInt* listID);
     PyResult MarkAllAsUnread(PyCallArgs& call);
     PyResult MarkAsUnreadByLabel(PyCallArgs& call, PyInt* labelID);
-    PyResult MarkAsUnreadByList(PyCallArgs& call, PyList* messageIDs);
+    PyResult MarkAsUnreadByList(PyCallArgs& call, PyInt* listID);
     PyResult MarkAllAsRead(PyCallArgs& call);
     PyResult MarkAsReadByLabel(PyCallArgs& call, PyInt* labelID);
     PyResult MarkAsReadByList(PyCallArgs& call, PyInt* listID);

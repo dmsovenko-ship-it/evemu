@@ -45,15 +45,24 @@ PyRep* MailDB::GetMailStatus(int charId)
     return DBResultToCRowset(res);
 }
 
-PyRep* MailDB::GetNewMail(int charId)
+PyRep* MailDB::GetNewMail(int charId, int lastKnownID/*0*/)
 {
     DBQueryResult res;
-    if (!sDatabase.RunQuery(res,
-                            " SELECT m.messageID, m.senderID, m.toCharacterIDs, m.toListID, "
-                            "   m.toCorpOrAllianceID, m.title, m.sentDate FROM mailStatus AS s"
-                            "  LEFT JOIN mailMessage AS m USING (messageID) "
-                            "  WHERE s.characterID = %u" , charId))
-        return nullptr;
+    if (lastKnownID > 0) {
+        if (!sDatabase.RunQuery(res,
+                                " SELECT m.messageID, m.senderID, m.toCharacterIDs, m.toListID, "
+                                "   m.toCorpOrAllianceID, m.title, m.sentDate FROM mailStatus AS s"
+                                "  LEFT JOIN mailMessage AS m USING (messageID) "
+                                "  WHERE s.characterID = %u AND m.messageID > %u", charId, lastKnownID))
+            return nullptr;
+    } else {
+        if (!sDatabase.RunQuery(res,
+                                " SELECT m.messageID, m.senderID, m.toCharacterIDs, m.toListID, "
+                                "   m.toCorpOrAllianceID, m.title, m.sentDate FROM mailStatus AS s"
+                                "  LEFT JOIN mailMessage AS m USING (messageID) "
+                                "  WHERE s.characterID = %u" , charId))
+            return nullptr;
+    }
     return DBResultToCRowset(res);
 }
 
@@ -516,6 +525,42 @@ void MailDB::MoveToTrashByLabel(int32 characterID, int32 labelID)
                             " AND (labelMask & (1 << %u)) > 0" , characterID, bit))
     {
         codelog(DATABASE__ERROR, " Failed to move message to trash by label" );
+    }
+}
+
+void MailDB::MoveToTrashByList(uint32 characterID, int32 listID)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+                            " UPDATE mailMessage "
+                            " SET statusMask = statusMask | %u"
+                            " WHERE toListID = %u", mailStatusMaskTrashed, listID))
+    {
+        codelog(DATABASE__ERROR, " Failed to move message to trash by list" );
+    }
+}
+
+void MailDB::MarkAllAsReadByList(uint32 characterID, int32 listID)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+                            " UPDATE mailMessage "
+                            " SET statusMask = statusMask | %u"
+                            " WHERE toListID = %u", mailStatusMaskRead, listID))
+    {
+        codelog(DATABASE__ERROR, " Failed to mark all as read by list" );
+    }
+}
+
+void MailDB::MarkAllAsUnreadByList(uint32 characterID, int32 listID)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+                            " UPDATE mailMessage "
+                            " SET statusMask = statusMask & ~%u"
+                            " WHERE toListID = %u", mailStatusMaskRead, listID))
+    {
+        codelog(DATABASE__ERROR, " Failed to mark all as unread by list" );
     }
 }
 
