@@ -855,23 +855,15 @@ void NPCAIMgr::FitModules()
     m_modules.clear();
     uint8 slotIdx = 0;
 
-    // Determine weapon type from attributes
-    uint32 weapType = 1; // default Laser
-    if (m_self->HasAttribute(AttrEntityWeaponTypeID))
-        weapType = m_self->GetAttribute(AttrEntityWeaponTypeID).get_uint32();
-
+    // Determine weapon GUID from missile type
     std::string guid = "effects.Laser";
-    switch (weapType) {
-        case 1: guid = "effects.HybridFired";      break;
-        case 2: guid = "effects.ProjectileFiredForEntities"; break;
-        case 4: guid = "effects.MissileDeployment"; break;
-        default: guid = "effects.Laser";            break;
-    }
+    if (m_missileTypeID > 0)
+        guid = "effects.MissileDeployment";
 
     // Primary weapon module (hi slot)
     if (m_optimalRange > 0 || m_missileTypeID > 0) {
         NPCModule mod;
-        mod.typeID = m_missileTypeID > 0 ? m_missileTypeID : 248; // 248=150mm Railgun I placeholder
+        mod.typeID = m_missileTypeID > 0 ? m_missileTypeID : 248;
         mod.slotFlag = flagHiSlot0 + slotIdx++;
         mod.active = false;
         mod.cycleTime = m_attackSpeed;
@@ -1120,13 +1112,9 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
     std::string guid = "effects.Laser";
     if (m_missileTypeID > 0) {
         guid = "effects.MissileDeployment";
-    } else if (m_self->HasAttribute(AttrEntityWeaponTypeID)) {
-        switch (m_self->GetAttribute(AttrEntityWeaponTypeID).get_uint32()) {
-            case 1:  guid = "effects.HybridFired";      break;
-            case 2:  guid = "effects.ProjectileFiredForEntities"; break;
-            case 4:  guid = "effects.MissileDeployment"; break;
-            default: guid = "effects.Laser";             break;
-        }
+    } else if (m_self->HasAttribute(AttrGfxTurretID)) {
+        // Use ProjectileFiredForEntities as fallback for non-laser NPC turrets
+        guid = "effects.ProjectileFiredForEntities";
     }
     uint32 gfxID = 0;
     if (m_self->HasAttribute(AttrGfxTurretID))

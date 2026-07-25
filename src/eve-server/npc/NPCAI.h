@@ -104,6 +104,11 @@ public:
     void LaunchMissile(uint16 typeID, SystemEntity* pTargSE);   // us to them
     void MissileLaunched(Missile* pMissile); // them to us
 
+    // Module system
+    void FitModules();   // create fitted modules from NPC SDE attributes
+    void CycleModules(SystemEntity* pTarget);  // tick all modules during attack
+    const std::vector<NPCModule>& GetModules() const { return m_modules; }
+
 protected:
     void Attack(SystemEntity* pTargSE);
     void SetIdle();
