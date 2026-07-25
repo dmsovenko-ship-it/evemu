@@ -734,12 +734,10 @@ void DestinyManager::Bump(SystemEntity* pSE)
     /*  run-time options for bumping jetcans, biomass, and other space objects
      *   bump drones??  prolly not, for simplicity
      */
-    std::string msg1 = "You have bumped ";
-    msg1 += pSE->GetPilot()->GetName();
-    mySE->GetPilot()->SendNotifyMsg(msg1.c_str());
-    // this test isnt needed right now, as it's ONLY checking against players and will always return true.
-    //  will keep it in here for later expansion.
-    if (pSE->HasPilot()) {
+    if (mySE->HasPilot() && pSE->HasPilot()) {
+        std::string msg1 = "You have bumped ";
+        msg1 += pSE->GetPilot()->GetName();
+        mySE->GetPilot()->SendNotifyMsg(msg1.c_str());
         std::string msg2 = "You have been bumped by ";
         msg2 += mySE->GetPilot()->GetName();
         pSE->GetPilot()->SendNotifyMsg(msg2.c_str());
