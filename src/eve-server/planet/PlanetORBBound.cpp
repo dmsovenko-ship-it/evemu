@@ -64,6 +64,9 @@ PlanetORBBound::PlanetORBBound(EVEServiceManager& mgr, PlanetORB& parent, uint32
     m_systemID(systemID)
 {
     this->Add("GetTaxRate", &PlanetORBBound::GetTaxRate);
+    this->Add("GetSettingsInfo", &PlanetORBBound::GetSettingsInfo);
+    this->Add("UpdateSettings", &PlanetORBBound::UpdateSettings);
+    this->Add("GMChangeSpaceObjectOwner", &PlanetORBBound::GMChangeSpaceObjectOwner);
 }
 
 PyResult PlanetORBBound::GetTaxRate(PyCallArgs& call, PyInt* itemID)
