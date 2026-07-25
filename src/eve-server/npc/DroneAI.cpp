@@ -585,6 +585,16 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
             return;
         }
     }
+    // Enforce minimum orbit distance to prevent orbit oscillation and bump-like behavior.
+    // If the drone is very close to the target (inside its radius), back off.
+    if (dist < pSE->GetRadius() + m_pDrone->GetRadius() + m_entityOrbitRange * 0.5f) {
+        GPoint retreatDir(m_pDrone->GetPosition(), pSE->GetPosition());
+        retreatDir.normalize();
+        GPoint retreatPos = pSE->GetPosition() + (retreatDir * (pSE->GetRadius() + m_entityOrbitRange + m_pDrone->GetRadius()));
+        m_pDrone->DestinyMgr()->SetPosition(retreatPos, true);
+        return;
+    }
+
     if (dist > attackRange) {
         // within fly range but outside attack range — approach
         if (m_state == DroneAI::State::Mining) {
@@ -592,7 +602,13 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
             return;
         }
         SetApproaching(pSE);
-        // Don't return — start attack timer so drone fires while approaching
+        // Start attack timer so drone fires while approaching
+        if (!m_mainAttackTimer.Enabled()) {
+            m_mainAttackTimer.Start(m_attackSpeed);
+            AttackTarget(pSE);
+        }
+        Attack(pSE);
+        return; // Don't fall through to SetEngaged — target still out of attack range
     }
     // within attack range — engage and orbit at weapon range
     if (m_state == DroneAI::State::Mining) {
