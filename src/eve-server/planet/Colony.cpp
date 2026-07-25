@@ -1398,113 +1398,77 @@ void Colony::Update(bool updateTimes/*false*/)
 
 void Colony::ProcessECUs(bool& updateTimes)
 {
-    /** @todo  this needs complete review/overhaul...many errors here */
     double delta = 0;
-    uint16 cycles = 0, quantity = 0, amount = 0, count = 0;
+    uint32 cycles = 0, amount = 0;
     std::map<uint16, uint32>::iterator itemItr;
     std::map<uint32, PI_Pin>::iterator destPin;
     std::map<uint32, PI_Plant>::iterator plant;
-    for (auto ecu : ccPin->pins) {
+    for (auto& ecu : ccPin->pins) {
         if (!ecu.second.isECU)
             continue;
 
-        if ((ecu.second.expiryTime < EvE::Time::Second ) or (ecu.second.expiryTime > m_procTime)) {
-            if (is_log_enabled(COLONY__DEBUG))
-                _log(COLONY__DEBUG, "Colony::ProcessECUs() - expiryTime (%lli) > m_procTime (%lli).", \
-                        ecu.second.expiryTime, m_procTime);
+        if ((ecu.second.expiryTime < EvE::Time::Second) or (ecu.second.expiryTime > m_procTime))
             continue;
-        }
-        if (ecu.second.cycleTime < 0.0f) {
-            if (is_log_enabled(COLONY__DEBUG))
-                _log(COLONY__DEBUG, "Colony::ProcessECUs() - cycleTime < 0.");
+        if (ecu.second.cycleTime < 0.0f)
             continue;
-        }
 
         if (ecu.second.lastRunTime < EvE::Time::Hour)
             ecu.second.lastRunTime = ecu.second.expiryTime - ecu.second.cycleTime;
 
-        /** @todo  as i dont have data on planet resources, and am not tracking depletion, extraction qtys used here are
-         * sent from the client during 'survey program' installation, and do not simulate the diminishing returns as shown in
-         * the survey program. (testing diminishing returns @ 95%)
-         * because of this, the values used here (and all subsequent processes) will be more than shown in client.
-         */
-        /** @note this is a simple process, as it only provides raw mats, simulating extraction from planet and
-         *  shipped to storage or directly to plant for processing.
-         * however, in the case of shipping directly to plant, we will have to store the mats in the plant queue
-         * and wait for the ProcessPlants() call to use them, as this will avoid overcomplicating things,
-         * but it could get messy later....
-         */
+        // Calculate cycles since last run
+        delta = (m_procTime - ecu.second.lastRunTime) / (double)EvE::Time::Second;
+        uint32 cycleTimeSec = ecu.second.cycleTime / EvE::Time::Second;
+        if (cycleTimeSec < 1) cycleTimeSec = 1;
+        cycles = delta / cycleTimeSec;
+        if (cycles < 1)
+            continue;
 
-        // dont loop...get #cycles to 'run' and set amounts accordingly
-        delta = (m_procTime - ecu.second.expiryTime) / EvE::Time::Hour;
-        cycles = delta / (ecu.second.cycleTime / EvE::Time::Hour);
+        // Calculate total program cycles
+        uint32 totalCycles = (ecu.second.expiryTime - ecu.second.lastRunTime + ecu.second.cycleTime) / std::max(cycleTimeSec, 1u);
+        uint32 cyclesElapsed = (m_procTime - (ecu.second.expiryTime - ecu.second.cycleTime)) / std::max(cycleTimeSec, 1u);
+        if (totalCycles < 1) totalCycles = 1;
 
-        /** @todo  verify cycles isnt over program cycle count */
+        // Linear depletion: qty = qtyPerCycle * (1 - elapsed/total)
+        // Sum of arithmetic series for 'cycles' consecutive extractions
+        uint32 qtyPerCycle = ecu.second.qtyPerCycle;
+        // Fraction through program at start and end of this batch
+        double startFrac = (double)std::min(cyclesElapsed, totalCycles) / totalCycles;
+        double endFrac = (double)std::min(cyclesElapsed + cycles, totalCycles) / totalCycles;
+        // Integral of (1 - f) df from startFrac to endFrac = (endFrac-startFrac) - (endFrac²-startFrac²)/2
+        double depletionIntegral = (endFrac - startFrac) - (endFrac * endFrac - startFrac * startFrac) / 2.0;
+        amount = (uint32)(qtyPerCycle * totalCycles * depletionIntegral);
 
-        // first - see if this ecu has a route and move contents per route.  this will simulate aquisition of raw matls from heads to storage
-        if (is_log_enabled(COLONY__DEBUG))
-            _log(COLONY__DEBUG, "Colony::ProcessECUs() - ECU pin %u - begin processing with %u cycles (%0.2f / %0.2f)", \
-                    ecu.first, cycles, delta, (ecu.second.cycleTime / EvE::Time::Hour));
-        // Find routes starting at this ECU
+        if (amount < 1)
+            continue;
+
+        // Find routes from this ECU
         auto srcRouteItr = m_srcRoutes.equal_range(ecu.first);
         for (auto it = srcRouteItr.first; it != srcRouteItr.second; ++it) {
-            // Get route destination pin and update qty
             destPin = ccPin->pins.find(it->second.destPinID);
             if (destPin == ccPin->pins.end()) {
-                _log(COLONY__ERROR, "Colony::ProcessECUs() - Dest pinID %u not found in ccPin.pins map", it->first);
+                _log(COLONY__ERROR, "Colony::ProcessECUs() - Dest pinID %u not found", it->first);
                 continue;
             }
-            //  loop thru cycles to apply diminishing returns
-            count = cycles;
-            quantity = it->second.commodityQuantity;
-            while (count) {
-                quantity *= 0.95;
-                amount += quantity;
-                --count;
-            }
-            // contents are stored in each pin.  PI_Pin.contents(std::map<uint16, uint32>(typeID, qty))
+            // Add extracted amount to destination pin contents
             itemItr = destPin->second.contents.find(it->second.commodityTypeID);
-            /** @todo  set/implement storage capy for pin - PI_Pin.capacity, PI_Pin.quantity */
-            //  if dest cant hold entire xfer qty, drop remainder in current pin contents (as opposed to loss)
-            //      will need a way to set/test for this 'extra' material and xfer on next run
             if (itemItr != destPin->second.contents.end()) {
                 itemItr->second += amount;
             } else {
                 destPin->second.contents[it->second.commodityTypeID] = amount;
             }
-            if (is_log_enabled(COLONY__DEBUG))
-                _log(COLONY__DEBUG, "Colony::ProcessECUs() - Dest pinID %u updated with %u %s (%u).", \
-                        it->second.destPinID, amount, sPIDataMgr.GetProductName(it->second.commodityTypeID), it->second.commodityTypeID);
-
-            // 'update' is part of clever code to avoid db hits.
-            //  this will delete existing contents and insert current contents upon completion of processing
             destPin->second.update = true;
-            // if destination pin is plant, put materials in its' storage
-            // client verifies mat'l is required before routing
+
             if (destPin->second.isProcess) {
-                // find dest's plant data
                 plant = ccPin->plants.find(destPin->first);
-                if (plant == ccPin->plants.end()) {
-                    _log(COLONY__ERROR, "Colony::ProcessECUs() - Plant pinID %u not found in ccPin.plants map", destPin->first);
-                    continue;
-                }
-                //and set hasReceivedInputs to true for subsequent processing
-                plant->second.hasReceivedInputs = true;
-                if (is_log_enabled(COLONY__DEBUG))
-                    _log(COLONY__DEBUG, "Colony::ProcessECUs() - Dest pinID %u isPlant.", it->second.destPinID);
+                if (plant != ccPin->plants.end())
+                    plant->second.hasReceivedInputs = true;
             }
         }
 
-        // third - reset cycle times.
-        // set expiryTime to previous runtime plus cycleTime to simulate end of cycle
-        ecu.second.expiryTime = ecu.second.lastRunTime + ecu.second.cycleTime * cycles;
-        // set lastRunTime to last-processed cycle's expire time.
-        ecu.second.lastRunTime = ecu.second.expiryTime;
+        // Update timers
+        ecu.second.lastRunTime += (int64)(cycles * cycleTimeSec * EvE::Time::Second);
+        ecu.second.expiryTime = std::max(ecu.second.expiryTime, ecu.second.lastRunTime);
         updateTimes = true;
-
-        if (is_log_enabled(COLONY__DEBUG))
-            _log(COLONY__DEBUG, "Colony::ProcessECUs() - Processing complete.  timeNow %lli, expiryTime %lli, lastRunTime %lli", \
-                    GetFileTimeNow(), ecu.second.expiryTime, ecu.second.lastRunTime);
     }
 }
 
