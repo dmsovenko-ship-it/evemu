@@ -1,17 +1,22 @@
 # EVEmu Session Context
 
 ## Current State
-All fixes committed and pushed to `master` (commit `bc17d8db`). Server needs rebuild + restart.
+All fixes committed and pushed to `master` (commit `f59a77be`). Server building now.
 
 ## Git Log
 ```
-bc17d8db fix: null check pilots in Bump() (crash when bumping NPC/structure without pilot)
-cb82e950 fix: add corpID/allianceID/charID to base SystemEntity MakeSlimItem
-4813a739 fix: mail service — fix MarkAsUnreadByList signature, add list-based DB methods, fix SyncMail range filter
-4d326741 fix: add SendMail overloads with PyInt* for isReplyTo/isForwardedFrom
-e2349964 fix: skip SendAddBalls for warping ships (prevents WarpLoop crash), keep velocity on force-warp
-d58859ea chore: remove __pycache__ from tracking, add to gitignore
-d3cf152d fix: remove dynamic bubble toggle, fix bump collision formula, fix warp decel exit (use ship radius)
+f59a77be fix: server-side warp scramble check, Bubble::Add OnSpecialFX14, JumpIn/GateActivity on arrival
+d34308cc fix: warp accel formula (divide-by-3 bug), warp cap (kg→Mkg)
+b9133a99 fix: mixed PyInt/PyBool SendMail overloads
+3bc4d2ad feat: defender missile system (ShipSE::MissileLaunched, interception, Countermeasure_Launcher)
+7cb2fb3d fix: add sourceShipID to Missile MakeSlimItem
+bc17d8db fix: null check pilots in Bump()
+cb82e950 fix: add corpID/allianceID/warFactionID/charID to base SystemEntity MakeSlimItem
+4813a739 fix: mail — MarkAsUnreadByList signature, list-based DB, SyncMail range filter
+4d326741 fix: mixed SendMail overloads with PyInt*
+e2349964 fix: skip SendAddBalls for warping ships, keep velocity on force-warp
+d58859ea chore: remove __pycache__, add to gitignore
+d3cf152d fix: remove bubble toggle, fix bump formula, fix decel exit (m_radius)
 ```
 
 ## Key Decisions
@@ -60,7 +65,28 @@ Based on decompiled `destiny.dll` (stored at `C:\opencode\projects\other\`):
 - Key files: `michelle.py`, `fxSequencer.py`, `bracketMgr.py`, `godma.py`, `evemail.py`, `sovSvc.py`
 - Doc string shows Python 2.4 compatibility, Crucible branch
 
-### Known Remaining Issues
-- Ship-based `JumpIn` arrival effects not playing (only `GateActivity` on gate model works)
+## Progress
+
+### Done
+- **Mail**: SelfEveMail inserts mailMessage+mailStatus; GetMailBody raw compressed; mailing list leading-space fix; all 8 SendMail overloads (PyInt/PyBool/PyString/PyWString); MarkAsUnreadByList signature fix; MarkAsReadByList/TrashByList listID→messageID bug; SyncMail range filter via second param; OnMailSent notification
+- **MWD deployables**: bubble toggle removed (always visible); server-side AttrWarpScrambleStatus check in WarpTo(); Bubble::Add sends OnSpecialFX14 with graphicInfo(range); warpScrambleTimer periodic 1000ms range checks; EncodeDestiny DataSector for IsFree
+- **Warp physics**: accel formula divide-by-3 fix (was 1/3 dist); capacitor mass unit fix (kg→Mkg, was ×1000); decel exit m_radius instead of hardcoded 100m; catch-all/30° no longer zeroes velocity
+- **Defender missiles**: ShipSE::MissileLaunched auto-fires defenders; Missile::HitTarget intercepts missiles; public Destroy() method; Countermeasure_Launcher enabled in ModuleFactory
+- **Client crash fixes**: graphicInfo=None→skip SmartBomb/MicroWarpDrive; bracket "name" field in all MakeSlimItem; AddBalls2 DataSector; WarpLoop SendAddBalls skip; Bump null-check pilots; sourceShipID in Missile MakeSlimItem
+- **Sovereignty**: militaryPoints/industrialPoints default 5→0
+
+### To Test
+- **Warp scramble**: ship inside MWD bubble gets "Warp drive is disrupted."; outside bubble (>range) can warp
+- **Gate arrival**: JumpIn + GateActivity effects play when warping to a gate
+- **Capacitor**: frigate ~3 GJ / 5 AU; battleship ~300 GJ / 5 AU; Warp Drive Operation skill reduces drain
+- **Mail**: Cyrillic; reply/forward flags; labels; mailing lists; blocked-contact filter; rate limit
+- **Defender**: active launcher + defender charge intercepts incoming missiles
+- **Bump**: correct surface distance (r1+r2+BUMP_DISTANCE); notification messages
+- **Brackets**: all entity types display name/type/corp/alliance without AttributeError
+- **Sovereignty dashboard**: loads without error; index values display correctly
+- **Gate jump**: JumpOut→JumpIn→GateActivity sequence; no SceneManager `NoneType.vx`
+
+### Remaining Issues
 - Full `WarpDisruptFieldGenerating` effect classification missing in Crucible
-- SceneManager crash (`NoneType.vx`) after warp crash is a secondary effect — primary warp crash now fixed
+- SceneManager crash (`NoneType.vx`) is a secondary effect — primary warp crash now fixed
+- `tabgroup UnicodeDecodeError` (CP1252) — client-side, needs `errors='replace'` in editplaintext.py
