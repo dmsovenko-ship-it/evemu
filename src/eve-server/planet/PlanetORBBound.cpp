@@ -63,6 +63,7 @@ PlanetORBBound::PlanetORBBound(EVEServiceManager& mgr, PlanetORB& parent, uint32
     EVEBoundObject(mgr, parent),
     m_systemID(systemID)
 {
+    this->Add("GetTaxRate", &PlanetORBBound::GetTaxRate);
 }
 
 PyResult PlanetORBBound::GetTaxRate(PyCallArgs& call, PyInt* itemID)
