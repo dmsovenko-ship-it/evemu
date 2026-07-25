@@ -1718,11 +1718,12 @@ void DestinyManager::InitWarp() {
         warpSpeedInMeters = accelDistance;
         // Guard against log(<=0) — if distances are too small, clamp to minimum
         double decelArg = decelDistance / static_cast<double>(3);
-        double accelArg = accelDistance / static_cast<double>(3);
         if (decelArg < 1.0) decelArg = 1.0;
-        if (accelArg < 1.0) accelArg = 1.0;
         m_warpDecelTime = log(decelArg);
-        m_warpAccelTime = log(accelArg) / static_cast<double>(3);
+        // accel formula: distance = exp(3*t) so t = log(accelDist)/3
+        // Previously divided accelDist by 3 first, causing only 1/3 dist traveled
+        if (accelDistance < 1.0) accelDistance = 1.0;
+        m_warpAccelTime = log(accelDistance) / static_cast<double>(3);
     } else {
         _log(
             DESTINY__WARP_TRACE,
@@ -2423,7 +2424,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
          *  Energy to warp = warpCapacitorNeed * mass * au * (1 - warp_drive_operation_skill_level * 0.10)
          */
         float currentShipCap = pClient->GetShip()->GetAttribute(AttrCapacitorCharge).get_float();
-        float capNeeded = m_mass * m_warpCapacitorNeed * (static_cast<double>(m_targetDistance) / static_cast<double>(ONE_AU_IN_METERS));
+        float capNeeded = m_massMKg * m_warpCapacitorNeed * (static_cast<double>(m_targetDistance) / static_cast<double>(ONE_AU_IN_METERS));
         capNeeded *= (1.0f - (0.1f *pClient->GetChar()->GetSkillLevel(EvESkill::WarpDriveOperation)));
 
         _log(DESTINY__WARNING, "Warp Cap need for %s(%u) is %.4f", mySE->GetName(), mySE->GetID(), capNeeded);
@@ -2431,7 +2432,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         //  check if ship has enough capacitor to warp full distance
         if (capNeeded > currentShipCap) {
             // not enough cap — warp as far as available cap allows
-            float maxAu = (currentShipCap / m_warpCapacitorNeed) / m_mass;
+            float maxAu = (currentShipCap / m_warpCapacitorNeed) / m_massMKg;
             if (maxAu > 1.0f) {
                 m_targetDistance = static_cast<double>(maxAu) * static_cast<double>(ONE_AU_IN_METERS);
                 GVector warp_direction(m_position, where);
@@ -2981,7 +2982,7 @@ Battleships 0.155
     if (sRef->HasAttribute(AttrMaxVelocity))
         m_maxShipSpeed = sRef->GetAttribute(AttrMaxVelocity).get_float();
     if (sRef->HasAttribute(AttrWarpCapacitorNeed))
-        m_warpCapacitorNeed = std::max(0.00001f, sRef->GetAttribute(AttrWarpCapacitorNeed).get_float() * 2);
+        m_warpCapacitorNeed = std::max(0.00001f, sRef->GetAttribute(AttrWarpCapacitorNeed).get_float());
     else
         m_warpCapacitorNeed = 0.00001f;
 
