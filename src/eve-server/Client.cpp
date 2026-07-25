@@ -1915,8 +1915,10 @@ void Client::ExecuteJump() {
         if (pShipSE->SysBubble() == nullptr)
             m_system->AddEntity(pShipSE);
         pShipSE->SysBubble()->SendAddBalls(pShipSE);
-        // JumpIn effect — broadcast to all clients in destination bubble
+        // JumpIn effect - broadcast to all clients in destination bubble
         JumpInEffect();
+        // GateActivity on destination gate
+        pShipSE->DestinyMgr()->SendGateActivity(GetLastGateID());
         SetStateSent(false);
         pShipSE->DestinyMgr()->SendSetState();
         SetInvulTimer(Player::Timer::JumpInvul);
@@ -2112,8 +2114,7 @@ void Client::JumpInEffect()
 {
     if (pShipSE != nullptr)
         if (pShipSE->DestinyMgr() != nullptr)
-            if (!pShipSE->DestinyMgr()->IsCloaked())
-                pShipSE->DestinyMgr()->SendJumpInEffect("effects.JumpIn");
+            pShipSE->DestinyMgr()->SendJumpInEffect("effects.JumpIn");
 }
 
 void Client::JumpOutEffect(uint32 locationID)

@@ -1257,6 +1257,7 @@ void DestinyManager::Follow() {
                 // JumpIn effect must be sent AFTER AddEntity — the ship needs to
                 // be in a bubble for BubblecastDestiny to reach other players.
                 pClient->JumpInEffect();
+                SendGateActivity(pClient->GetLastGateID());
                 pClient->SetStateSent(false);
                 mySE->DestinyMgr()->SendSetState();
                 pClient->SetInvulTimer(Player::Timer::JumpInvul);
