@@ -328,14 +328,57 @@ void DroneAIMgr::Process() {
             CheckDistance(pGuardSE);
         } break;
 
-        case DroneAI::State::Fleeing:
-        case DroneAI::State::Operating:
+        case DroneAI::State::Pursuit: {
+            // Target out of attack range but within sight — chase with MWD speed.
+            SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(true);
+            if (pTarget == nullptr or pTarget->SysBubble() == nullptr) {
+                ClearTarget(pTarget); SetIdle(); break;
+            }
+            if (pTarget->DestinyMgr() != nullptr
+            and pTarget->DestinyMgr()->GetState() == Destiny::Ball::Mode::WARP) {
+                ClearTarget(pTarget); SetIdle(); break;
+            }
+            double dist = m_pDrone->GetPosition().distance(pTarget->GetPosition());
+            float range = m_entityFlyRange * (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneSharpshooting));
+            if (dist > range * 1.5) {
+                // Too far even for pursuit — give up
+                ClearTarget(pTarget); SetIdle(); break;
+            }
+            // Chase at max speed
+            float vel = m_chaseSpeed * 2 * (1.0f + 0.05f * GetOwnerSkillLevel(EvESkill::DroneNavigation));
+            m_pDrone->DestinyMgr()->SetMaxVelocity(vel);
+            m_pDrone->DestinyMgr()->Follow(pTarget, m_entityOrbitRange);
+            // Recheck distance; if back in attack range, re-engage
+            if (dist < m_entityAttackRange * (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneSharpshooting)))
+                SetEngaged(pTarget);
+        } break;
+
+        case DroneAI::State::Operating: {
+            // Mining drone actively mining — stay at asteroid and cycle
+            SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(true);
+            if (pTarget == nullptr) { SetIdle(); break; }
+            if (!m_miningTimer.Enabled())
+                m_miningTimer.Start(m_attackSpeed);
+            if (m_miningTimer.Check())
+                MiningAttack(pTarget);
+        } break;
+
+        case DroneAI::State::Fleeing: {
+            // Drone running away — head back to ship at max speed
+            if (m_assignedShip == nullptr) { SetIdle(); break; }
+            float vel = m_chaseSpeed * 3;
+            m_pDrone->DestinyMgr()->SetMaxVelocity(vel);
+            m_pDrone->DestinyMgr()->Follow(m_assignedShip, 0);
+            double dist = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
+            if (dist < m_entityOrbitRange * 2)
+                SetIdle();
+        } break;
+
         case DroneAI::State::Unknown:
         case DroneAI::State::Incapacitated:
         case DroneAI::State::Combat:
-        case DroneAI::State::Departing2:
-        case DroneAI::State::Pursuit: {
-           // do nothing here yet
+        case DroneAI::State::Departing2: {
+           // reported only — handled by GetState() mapping
         } break;
 
     //no default on purpose
@@ -526,8 +569,12 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
 
     if (dist > flyRange) {
         if (m_state == DroneAI::State::Mining) {
-            // mining drones approach target without state change
             m_pDrone->DestinyMgr()->Follow(pSE, m_entityOrbitRange);
+            return;
+        }
+        // Enter Pursuit to chase target up to 1.5x fly range before giving up
+        if (dist < flyRange * 1.5f && (m_state == DroneAI::State::Engaged || m_state == DroneAI::State::Approaching)) {
+            m_state = DroneAI::State::Pursuit;
             return;
         }
         _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: %s(%u) is too far away (%.0f).  Return to Idle.",
