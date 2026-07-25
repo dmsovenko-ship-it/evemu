@@ -524,16 +524,86 @@ void IncursionMgr::ClearDamageData(uint32 bubbleID) {
 
 void IncursionMgr::NotifyClients(uint32 incursionID)
 {
-    // Notify all online clients about incursion state change
-    // Sends an OnIncursionUpdated notification
-    PyTuple* payload = new PyTuple(1);
-    if (incursionID > 0)
-        payload->SetItem(0, new PyInt(incursionID));
-    else
-        payload->SetItem(0, PyStatic.NewNone());
-
+    // Notify all online clients about incursion state changes.
+    // Client expects OnTaleData/OnTaleStart/OnTaleEnd/OnInfluenceUpdate
+    // with full taleData structures for incursion HUD display.
     std::vector<Client*> clients;
     sEntityList.GetClients(clients);
-    for (auto client : clients)
-        client->SendNotification("OnIncursionUpdated", "clientID", payload, false);
+
+    DBQueryResult incRes;
+    if (incursionID > 0)
+        sDatabase.RunQuery(incRes, "SELECT incursionID, factionID, stagingSolarSystemID, constellationID, state, influence, hasBoss, rewardGroupID, taleID, graceTime, decayRate, lastUpdated FROM incursions WHERE incursionID = %u", incursionID);
+    else
+        sDatabase.RunQuery(incRes, "SELECT incursionID, factionID, stagingSolarSystemID, constellationID, state, influence, hasBoss, rewardGroupID, taleID, graceTime, decayRate, lastUpdated FROM incursions WHERE state > 0");
+
+    DBResultRow row;
+    while (incRes.GetRow(row)) {
+        uint32 id = row.GetUInt(0);
+        uint32 factionID = row.GetUInt(1);
+        uint32 stagingSys = row.GetUInt(2);
+        uint32 constID = row.GetUInt(3);
+        uint8 state = row.GetUInt(4);
+        float influence = row.GetFloat(5);
+        bool hasBoss = row.GetUInt(6) > 0;
+        uint32 rewardGroupID = row.GetUInt(7);
+        uint32 taleID = row.GetUInt(8);
+        uint32 graceTime = row.GetUInt(9);
+        float decayRate = row.GetFloat(10);
+        int64 lastUpdated = row.GetInt64(11);
+
+        // Build incursedSystems list for this tale
+        DBQueryResult sysRes;
+        sDatabase.RunQuery(sysRes, "SELECT solarSystemID, sceneType, influence FROM incursionSystems WHERE incursionID = %u", id);
+        PyList* incursedSystems = new PyList();
+        DBResultRow sysRow;
+        while (sysRes.GetRow(sysRow)) {
+            incursedSystems->AddItem(new PyInt(sysRow.GetUInt(0)));
+        }
+
+        // severity: 1=HQ, 2=Assault, 3=Vanguard, 4=Staging (from client)
+        uint8 severity = 3; // default Vanguard
+        switch (state) {
+            case 1: severity = 4; break; // mobilizing → Staging
+            case 2: severity = 3; break; // established → Vanguard
+            case 3: severity = 1; break; // withdrawing → HQ
+        }
+
+        // Build influenceData sub-object
+        PyDict* inflDataDict = new PyDict();
+        inflDataDict->SetItemString("influence", new PyFloat(influence));
+        inflDataDict->SetItemString("lastUpdated", new PyLong(lastUpdated));
+        inflDataDict->SetItemString("decayRate", new PyFloat(decayRate));
+        inflDataDict->SetItemString("graceTime", new PyInt(graceTime * 60)); // minutes→seconds
+        PyObject* influenceData = new PyObject("util.KeyVal", inflDataDict);
+
+        // Build taleData
+        PyDict* taleDict = new PyDict();
+        taleDict->SetItemString("taleID", new PyInt(taleID > 0 ? taleID : id));
+        taleDict->SetItemString("templateClassID", new PyInt(2)); // 2=incursion
+        taleDict->SetItemString("severity", new PyInt(severity));
+        taleDict->SetItemString("influenceData", influenceData);
+        taleDict->SetItemString("hasBoss", new PyBool(hasBoss));
+        taleDict->SetItemString("incursedSystems", incursedSystems);
+        PyObject* taleData = new PyObject("util.KeyVal", taleDict);
+
+        // Send notifications to all clients
+        for (auto client : clients) {
+            // OnTaleData: per-system data with full taleData structure
+            // PyIncRef before each send (SendNotification may decref).
+            PyIncRef(taleData);
+            PyTuple* tdPayload = new PyTuple(2);
+            tdPayload->SetItem(0, new PyInt(stagingSys));
+            tdPayload->SetItem(1, taleData);
+            client->SendNotification("OnTaleData", "clientID", tdPayload, false);
+
+            // OnInfluenceUpdate: influence change
+            PyIncRef(influenceData);
+            PyTuple* inflPayload = new PyTuple(2);
+            inflPayload->SetItem(0, new PyInt(taleID > 0 ? taleID : id));
+            inflPayload->SetItem(1, influenceData);
+            client->SendNotification("OnInfluenceUpdate", "clientID", inflPayload, false);
+
+            // OnTaleStart/OnTaleEnd sent separately when state transitions
+        }
+    }
 }
