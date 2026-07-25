@@ -214,6 +214,7 @@ PyDict* Missile::MakeSlimItem() {
         slim->SetItemString("groupID",                  new PyInt(m_self->groupID()));
         slim->SetItemString("categoryID",               new PyInt(m_self->categoryID()));
         slim->SetItemString("name",                     new PyString(m_self->itemName()));
+        slim->SetItemString("sourceShipID",             new PyInt(m_fromSE->GetID()));
         slim->SetItemString("sourceModuleID",           new PyInt(m_modRef->itemID()));
         slim->SetItemString("corpID",                   IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",               IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());

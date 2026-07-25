@@ -1,10 +1,14 @@
 # EVEmu Session Context
 
 ## Current State
-All fixes committed and pushed to `master` (commit `e2349964`). Server needs rebuild + restart.
+All fixes committed and pushed to `master` (commit `bc17d8db`). Server needs rebuild + restart.
 
 ## Git Log
 ```
+bc17d8db fix: null check pilots in Bump() (crash when bumping NPC/structure without pilot)
+cb82e950 fix: add corpID/allianceID/charID to base SystemEntity MakeSlimItem
+4813a739 fix: mail service — fix MarkAsUnreadByList signature, add list-based DB methods, fix SyncMail range filter
+4d326741 fix: add SendMail overloads with PyInt* for isReplyTo/isForwardedFrom
 e2349964 fix: skip SendAddBalls for warping ships (prevents WarpLoop crash), keep velocity on force-warp
 d58859ea chore: remove __pycache__ from tracking, add to gitignore
 d3cf152d fix: remove dynamic bubble toggle, fix bump collision formula, fix warp decel exit (use ship radius)
