@@ -115,10 +115,15 @@ EntityBound::EntityBound(EVEServiceManager &mgr, EntityService& parent, SystemMa
 
 // Helper: add UserError tuple {droneID: (errorMsg, errorDict)} to errors dict
 static void AddDroneError(PyDict* errors, uint32 droneID, const char* msg) {
-    errors->SetItem(new PyInt(droneID), new PyTuple(new PyString(msg), PyStatic.NewNone()));
+    PyTuple* val = new PyTuple(2);
+    val->SetItem(0, new PyString(msg));
+    val->SetItem(1, PyStatic.NewNone());
+    errors->SetItem(new PyInt(droneID), val);
 }
 static void AddDroneError(PyDict* errors, uint32 droneID, const char* msg, PyDict* dict) {
-    PyTuple* val = new PyTuple(new PyString(msg), dict);
+    PyTuple* val = new PyTuple(2);
+    val->SetItem(0, new PyString(msg));
+    val->SetItem(1, dict);
     errors->SetItem(new PyInt(droneID), val);
 }
 
