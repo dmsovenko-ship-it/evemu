@@ -2080,6 +2080,22 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         mySE->SysBubble()->SendAddBalls(mySE);
         if (mySE->SysBubble()->HasPlayers())
             mySE->SysBubble()->AddBallExclusive(mySE);
+
+        // Send JumpIn arrival effect and GateActivity when warping to a stargate
+        if (m_targBubble != nullptr) {
+            SystemManager* sysMgr = mySE->SystemMgr();
+            if (sysMgr != nullptr) {
+                for (auto& [id, se] : sysMgr->GetStaticEntities()) {
+                    if (se->IsGateSE() && se->GetPosition().distance(m_position) < se->GetRadius() + m_radius + 1000.0) {
+                        // Close enough to a gate — play arrival effects
+                        SendGateActivity(se->GetID());
+                        if (!m_cloaked)
+                            SendJumpInEffect("effects.JumpIn");
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2419,6 +2435,19 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         }
 
         Client *pClient = mySE->GetPilot();
+
+        // Server-side warp scramble check — client may not properly block warp
+        // when bubble effect is active (Crucible fxSequencer distance check broken).
+        if (mySE->GetSelf()->HasAttribute(AttrWarpScrambleStatus)
+            && mySE->GetSelf()->GetAttribute(AttrWarpScrambleStatus).get_int() > 0)
+        {
+            pClient->SendErrorMsg("Warp drive is disrupted.");
+            if (sConfig.debug.PositionHack)
+                SetPosition(mySE->GetPosition(), true);
+            m_ballMode = Destiny::Ball::Mode::STOP;
+            SafeDelete(m_warpState);
+            return;
+        }
 
         /*  capacitor for warp formulas from https://oldforums.eveonline.com/?a=topic&threadID=332116
          *  Energy to warp = warpCapacitorNeed * mass * au * (1 - warp_drive_operation_skill_level * 0.10)

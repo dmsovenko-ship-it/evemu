@@ -345,6 +345,8 @@ void SystemBubble::Add(SystemEntity* pSE) {
         m_players[pClient->GetCharacterID()] = pClient;   //add to bubble's player list
 
         // Send warp disrupt field visual effect to new player if bubble has active MWD
+        // Use OnSpecialFX14 with graphicInfo(KeyVal(range=xxx)) — OnSpecialFX10 (no range)
+        // doesn't register properly in the client's destiny.dll m_activations check.
         if (HasWarpBubble()) {
             for (auto& [id, se] : m_dynamicEntities) {
                 DeployableSE* dse = se->GetDeployableSE();
@@ -352,8 +354,27 @@ void SystemBubble::Add(SystemEntity* pSE) {
                     && dse->GetSelf()->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor)
                 {
                     DestinyManager* dm = se->DestinyMgr();
-                    if (dm != nullptr)
-                        dm->SendSpecialEffect(se->GetID(), se->GetID(), dse->GetSelf()->typeID(), 0, 0, "effects.WarpDisruptFieldGenerating", 0, 1, 1, -1, 0);
+                    if (dm != nullptr) {
+                        OnSpecialFX14 fx;
+                            fx.entityID = se->GetID();
+                            fx.moduleID = se->GetID();
+                            fx.moduleTypeID = dse->GetSelf()->typeID();
+                            fx.targetID = PyStatic.NewNone();
+                            fx.chargeTypeID = PyStatic.NewNone();
+                            fx.area = new PyList();
+                            fx.guid = "effects.WarpDisruptFieldGenerating";
+                            fx.isOffensive = 0;
+                            fx.start = 1;
+                            fx.active = 1;
+                            fx.duration = -1;
+                            fx.repeat = 0;
+                            fx.startTime = GetFileTimeNow();
+                            PyDict* gd = new PyDict();
+                            gd->SetItemString("range", new PyFloat(dse->GetSelf()->GetAttribute(AttrWarpScrambleRange).get_float()));
+                            fx.graphicInfo = new PyObject("util.KeyVal", gd);
+                        PyTuple* payload = fx.Encode();
+                        dm->SendSingleDestinyUpdate(&payload);
+                    }
                 }
             }
         }
