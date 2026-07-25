@@ -94,7 +94,7 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
     DBQueryResult rateRes;
     sDatabase.RunQuery(rateRes,
         "SELECT COUNT(*) FROM mailMessage"
-        " WHERE senderID = %u AND created > %lli",
+        " WHERE senderID = %u AND sentDate > %lli",
         sender, (int64)(GetFileTimeNow() - EvE::Time::Minute));
     DBResultRow rateRow;
     if (rateRes.GetRow(rateRow) and rateRow.GetInt(0) >= mailMaxMessagePerMinute) {
@@ -157,15 +157,21 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
         roleMask
     );
 
-    // push notification to online recipients
+    // push OnMailSent notification to online recipients
     if (mailID > 0) {
         for (int32 charID : characters) {
             Client* targetClient = sEntityList.FindClientByCharID(charID);
             if (targetClient != nullptr) {
-                PyTuple* payload = new PyTuple(2);
+                PyTuple* payload = new PyTuple(8);
                 payload->SetItem(0, new PyInt(mailID));
                 payload->SetItem(1, new PyInt(sender));
-                targetClient->SendNotification("OnMessage", "clientID", payload, false);
+                payload->SetItem(2, new PyLong(GetFileTimeNow()));
+                payload->SetItem(3, PyStatic.NewNone()); // toCharacterIDs — list handled by notification
+                payload->SetItem(4, PyStatic.NewNone()); // toListID
+                payload->SetItem(5, PyStatic.NewNone()); // toCorpOrAllianceID
+                payload->SetItem(6, PyStatic.NewNone()); // title
+                payload->SetItem(7, new PyInt(0));       // statusMask
+                targetClient->SendNotification("OnMailSent", "clientID", payload, false);
             }
         }
     }
