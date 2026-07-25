@@ -2,6 +2,7 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "EVEServerConfig.h"
+#include "eve-core/utils/misc.h"
 #include "Profiler.h"
 #include "StaticDataMgr.h"
 #include "account/AccountService.h"
@@ -10,7 +11,9 @@
 #include "inventory/Inventory.h"
 #include "npc/Drone.h"
 #include "ship/Ship.h"
+#include "ship/Missile.h"
 #include "ship/modules/GenericModule.h"
+#include "ship/modules/ModuleManager.h"
 #include "station/Station.h"
 #include "EVE_Mail.h"
 #include "mail/MailDB.h"
@@ -3098,5 +3101,56 @@ bool ShipSE::CanLaunchFighter() {
     if (GetFighterTubeCount() == 0)
         return false;
     return GetActiveFighterCount() < GetFighterTubeCount();
+}
+
+void ShipSE::MissileLaunched(Missile* pMissile) {
+    if (!HasPilot()) return;
+    Client* pClient = GetPilot();
+    if (pClient == nullptr) return;
+    ShipItemRef sRef = GetShipItemRef();
+    if (sRef.get() == nullptr) return;
+    ModuleManager* modMgr = sRef->GetModuleManager();
+    if (modMgr == nullptr) return;
+
+    uint32 defSkill = pClient->GetChar()->GetSkillLevel(EvESkill::DefenderMissiles, true);
+    std::vector<InventoryItemRef> modRefs;
+    modMgr->GetModuleListOfRefsAsc(modRefs);
+    for (auto modRef : modRefs) {
+        if (modRef.get() == nullptr) continue;
+        if (modRef->groupID() != EVEDB::invGroups::Missile_Launcher_Defender
+            && modRef->groupID() != EVEDB::invGroups::Countermeasure_Launcher)
+            continue;
+
+        GenericModule* pMod = modMgr->GetModule(modRef->itemID());
+        if (pMod == nullptr || !pMod->IsActive()) continue;
+
+        InventoryItemRef chargeRef = modMgr->GetLoadedChargeOnModule(modRef);
+        if (chargeRef.get() == nullptr) continue;
+        if (chargeRef->groupID() != EVEDB::invGroups::Defender_Missile) continue;
+
+        float baseChance = chargeRef->GetAttribute(AttrEntityDefenderChance).get_float();
+        if (baseChance < 0.01f) baseChance = 0.50f;
+        float chance = baseChance * (1.0f + 0.05f * defSkill);
+        if (MakeRandomFloat() >= chance) continue;
+
+        ItemData idata(chargeRef->typeID(), pClient->GetCharacterID(),
+                       pClient->GetLocationID(), flagMissile, chargeRef->name(),
+                       sRef->position());
+        InventoryItemRef defMissileRef = sItemFactory.SpawnItem(idata);
+        if (defMissileRef.get() == nullptr) continue;
+
+        SystemManager* pSystem = pClient->SystemMgr();
+        Missile* pDefender = new Missile(defMissileRef, pSystem->GetServiceMgr(),
+                                        pSystem, modRef, pMissile, this, nullptr);
+        if (pDefender == nullptr) continue;
+
+        double distance = GetPosition().distance(pMissile->GetPosition());
+        double speed = defMissileRef->GetAttribute(AttrMaxVelocity).get_float();
+        double travelTime = std::max(1.0, distance / speed);
+
+        pDefender->SetSpeed(speed);
+        pDefender->SetHitTimer(travelTime * 1000);
+        pDefender->DestinyMgr()->MakeMissile(pDefender);
+    }
 }
 //AttrDroneControlDistance

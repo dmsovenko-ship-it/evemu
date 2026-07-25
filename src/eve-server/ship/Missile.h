@@ -63,7 +63,8 @@ public:
     bool IsAlive()                                      { return m_alive; }
     bool IsOverloaded()                                 { return false; }
 
-    double GetSpeed()                                   { return m_speed; }
+    double GetSpeed() { return m_speed; }
+    void Destroy() { if (m_alive) { m_alive = false; Delete(); } }
 
 protected:
     uint32 m_targetID;

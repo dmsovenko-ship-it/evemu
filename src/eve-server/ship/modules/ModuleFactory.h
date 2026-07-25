@@ -71,6 +71,7 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Missile_Launcher_Heavy:                  return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Missile_Launcher_Assault:                return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Missile_Launcher_Defender:               return (new ActiveModule(mRef, sRef));    // Active - external
+            case EVEDB::invGroups::Countermeasure_Launcher:                 return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Missile_Launcher_Citadel:                return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Missile_Launcher_Heavy_Assault:          return (new ActiveModule(mRef, sRef));    // Active - external
             case EVEDB::invGroups::Missile_Launcher_Bomb:                   return (new ActiveModule(mRef, sRef));    // Active - external
@@ -215,7 +216,6 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Anti_Ballistic_Defense_System:
             case EVEDB::invGroups::New_EW_Testing:
             case EVEDB::invGroups::Missile_Launcher:
-            case EVEDB::invGroups::Countermeasure_Launcher:
             case EVEDB::invGroups::Anti_Cloaking_Pulse:
             case EVEDB::invGroups::Signature_Scrambling:
             case EVEDB::invGroups::Energy_Vampire_Slayer:

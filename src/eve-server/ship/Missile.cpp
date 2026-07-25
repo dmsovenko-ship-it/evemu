@@ -241,6 +241,16 @@ void Missile::HitTarget() {
     // Re-check raw pointer — may still be valid if target is in the same system
     if (m_targetSE == nullptr || m_targetSE->GetSelf().get() == nullptr)
         return;
+
+    // Defender missile interception: destroy target missile instead of dealing damage
+    if (m_targetSE->IsMissileSE()) {
+        Missile* tgtMissile = m_targetSE->GetMissileSE();
+        if (tgtMissile != nullptr)
+            tgtMissile->Destroy();
+        m_alive = false;
+        return;
+    }
+
     Damage d(m_fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
 
     /*  this is damage formula for missiles
