@@ -1,7 +1,7 @@
 # EVEmu Session Context
 
 ## Current State
-All fixes committed and pushed to `master` (commit `f59a77be`). Server building now.
+All fixes committed and pushed to `master` (commit `baa1c3a6`). Server building now.
 
 ## Git Log
 ```
