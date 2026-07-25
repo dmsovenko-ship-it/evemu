@@ -12,7 +12,7 @@
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
 | Ship Navigation | 99% | `███████████████████` | +29% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 96% | `██████████████████` | +21% |
-| NPC AI & Spawning | 95% | `███████████████████` | +35% | Agents & Missions | 95% | `███████████████████` | +25% |
+| NPC AI & Spawning | 97% | `███████████████████` | +37% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
 | **Incursions** | 85% | `█████████████████░` | +85% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
@@ -107,6 +107,7 @@
 | **Smartbomb/AoE** — splash in EmpFieldRange | ❌ | ✅ |
 | **CONCORD AI** — criminal scan, full state machine | ❌ | ✅ |
 | **Sentry AI vs NPC** — aggro on NPCs attacking players in highsec | ❌ | ✅ |
+| **NPC module system** — weapon/EWAR modules fitted per SDE attrs, proper cycles, effect GUIDs per type | ❌ | ✅ |
 | NPC spawn position fix (no gate-bubble offset) | ❌ | ✅ |
 
 ### 8. Agents & Missions `███████████████████` 95%
