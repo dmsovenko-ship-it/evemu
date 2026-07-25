@@ -2695,7 +2695,26 @@ void ShipSE::Jump(bool showCloak) {
     if (m_targMgr != nullptr) {
         m_targMgr->ClearModules();
         m_targMgr->ClearAllTargets(false);
-        //m_targMgr->OnTarget(nullptr, TargMgr::Mode::Clear, TargMgr::Msg::Jumping);
+    }
+
+    // Drones in flight are left behind when jumping to another system.
+    // Set them offline so they stop processing. Reconnect via CmdReconnectToDrones on return.
+    if (!m_drones.empty() && m_system != nullptr) {
+        _log(DRONE__MESSAGE, "ShipSE::Jump(): %s(%u) jumping — setting %u drones offline.",
+             GetName(), GetID(), m_drones.size());
+        std::vector<uint32> droneIDs;
+        for (auto& [id, droneItem] : m_drones) {
+            droneIDs.push_back(id);
+            SystemEntity* pSE = m_system->GetSE(id);
+            if (pSE != nullptr && pSE->IsDroneSE()) {
+                DroneSE* pDrone = pSE->GetDroneSE();
+                pDrone->DestinyMgr()->Stop();
+                pDrone->Offline();
+                pDrone->ClearAssistTarget();
+            }
+        }
+        for (uint32 id : droneIDs)
+            RemoveDroneFromFlight(id);
     }
 
     m_shipRef->Jump();
@@ -2705,6 +2724,12 @@ void ShipSE::Jump(bool showCloak) {
 void ShipSE::Warp() {
     if (m_targMgr != nullptr)
         m_targMgr->ClearModules();
+
+    // Drones within system: they get left behind and will go out of range
+    // during warp. The AI handles incapacitation via distance check.
+    // No explicit cleanup needed — drones stay in flight list for reconnect.
+    _log(DRONE__TRACE, "ShipSE::Warp(): %s(%u) warping with %u drones in flight.",
+         GetName(), GetID(), m_drones.size());
 
     m_shipRef->Warp();
 }
