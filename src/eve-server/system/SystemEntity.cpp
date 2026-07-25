@@ -124,6 +124,10 @@ PyDict* SystemEntity::MakeSlimItem() {
         slim->SetItemString("ownerID",      new PyInt(m_ownerID));
         slim->SetItemString("itemID",       new PyLong(m_self->itemID()));
         slim->SetItemString("name",         new PyString(m_self->itemName()));
+        slim->SetItemString("corpID",       IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
+        slim->SetItemString("allianceID",   IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
+        slim->SetItemString("warFactionID", IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
+        slim->SetItemString("charID",       PyStatic.NewNone());
     return slim;
 }
 
@@ -1070,6 +1074,7 @@ PyDict *DynamicSystemEntity::MakeSlimItem() {
         slim->SetItemString("corpID",           IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",       IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
         slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
+        slim->SetItemString("charID",           PyStatic.NewNone());
     return (slim);
 }
 
