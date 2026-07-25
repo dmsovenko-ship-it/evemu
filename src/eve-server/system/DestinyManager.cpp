@@ -3456,10 +3456,12 @@ void DestinyManager::SendSpecialEffect(uint32 entityID, uint32 moduleID, uint32 
                                        uint32 chargeTypeID, std::string guid, bool isOffensive, bool start,
                                        bool isActive, int32 duration, uint32 repeat, int32 graphicInfo/*0*/) const
 {
-    // Use OnSpecialFX10 when graphicInfo is 0 (None) — OnSpecialFX14's graphicInfo field
-    // with None crashes Crucible fxsequencer's GetBalls() in some effect classes.
-    // OnSpecialFX10 passes the same data without the graphicInfo field.
-    if (graphicInfo == 0) {
+    // Some effect GUIDs crash Crucible fxsequencer when graphicInfo is None (OnSpecialFX14 format).
+    // Route these to OnSpecialFX10 which omits the graphicInfo field entirely.
+    bool skipGraphicInfo = (guid == "effects.SmartBomb"
+                         || guid == "effects.MicroWarpdrive"
+                         || guid == "effects.MicroWarpDrive");
+    if (skipGraphicInfo) {
         OnSpecialFX10 effect;
             effect.entityID = entityID;
             effect.moduleID = moduleID;
@@ -3487,7 +3489,7 @@ void DestinyManager::SendSpecialEffect(uint32 entityID, uint32 moduleID, uint32 
             effect.duration = duration;
             effect.repeat = repeat;
             effect.startTime = GetFileTimeNow();
-            effect.graphicInfo = new PyInt(graphicInfo);
+            effect.graphicInfo = (graphicInfo == 0 ? PyStatic.NewNone() : new PyInt(graphicInfo));
         PyTuple *up = effect.Encode();
         SendSingleDestinyUpdate(&up);
     }

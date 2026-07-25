@@ -384,7 +384,8 @@ void ShipItem::Undock() {
     //HorribleFittingProblems
 
     ResetEffects();
-    //ProcessEffects(true, true);
+    // Re-online modules that were online before undock (ResetEffects calls OfflineAll)
+    m_ModuleManager->OnlineAll();
 
     // horrible hack to set charge qty in fit window
     // on the off-chance player opens the fit window
