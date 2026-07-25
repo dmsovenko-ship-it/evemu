@@ -1001,6 +1001,7 @@ void Client::SetBallPark() {
             SetCloakTimer(Player::Timer::JumpCloak);
             m_clientState = Player::State::Idle;
             JumpInEffect();
+            pShipSE->DestinyMgr()->SendGateActivity(GetLastGateID());
         }
         if (IsDriveJump()) {
             SetInvulTimer(Player::Timer::JumpInvul);
