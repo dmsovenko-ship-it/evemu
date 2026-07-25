@@ -113,6 +113,15 @@ EntityBound::EntityBound(EVEServiceManager &mgr, EntityService& parent, SystemMa
     this->Add("CmdReconnectToDrones", &EntityBound::CmdReconnectToDrones);
 }
 
+// Helper: add UserError tuple {droneID: (errorMsg, errorDict)} to errors dict
+static void AddDroneError(PyDict* errors, uint32 droneID, const char* msg) {
+    errors->SetItem(new PyInt(droneID), new PyTuple(new PyString(msg), PyStatic.NewNone()));
+}
+static void AddDroneError(PyDict* errors, uint32 droneID, const char* msg, PyDict* dict) {
+    PyTuple* val = new PyTuple(new PyString(msg), dict);
+    errors->SetItem(new PyInt(droneID), val);
+}
+
 PyResult EntityBound::CmdEngage(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {
  // ret = entity.CmdEngage(droneIDs, targetID)
     _log(DRONE__TRACE, "EntityBound::CmdEngage()");
@@ -120,10 +129,12 @@ PyResult EntityBound::CmdEngage(PyCallArgs &call, PyList* droneIDs, PyInt* targe
     SystemEntity* pTarget = m_sysMgr->GetSE(targetID->value());
     if (pTarget == nullptr) {
         _log(DRONE__MESSAGE, "CmdEngage: target %u not found in system.", targetID->value());
-        return new PyDict();
+        PyDict* allFail = new PyDict();
+        for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr)
+            AddDroneError(allFail, PyRep::IntegerValueU32(*itr), "EntityTargetNotPresentBody");
+        return allFail;
     }
 
-    // Return dict maps droneID -> error tuple for any drones that couldn't comply.
     PyDict* errors = new PyDict();
 
     for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
@@ -131,25 +142,23 @@ PyResult EntityBound::CmdEngage(PyCallArgs &call, PyList* droneIDs, PyInt* targe
 
         SystemEntity* pSE = m_sysMgr->GetSE(droneID);
         if (pSE == nullptr || !pSE->IsDroneSE()) {
-            _log(DRONE__WARNING, "CmdEngage: drone %u not found in system.", droneID);
+            AddDroneError(errors, droneID, "EntityNotPresentBody");
             continue;
         }
         DroneSE* pDrone = pSE->GetDroneSE();
 
         if (!pDrone->CanCommand(call.client->GetCharacterID())) {
-            _log(DRONE__WARNING, "CmdEngage: %s tried to command drone %u owned by %u.",
-                 call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
+            AddDroneError(errors, droneID, "EntityNotYoursToCommandBody");
             continue;
         }
         if (!pDrone->IsEnabled()) {
-            _log(DRONE__MESSAGE, "CmdEngage: drone %u is offline.", droneID);
+            AddDroneError(errors, droneID, "EntityIncapacitatedCommandBody");
             continue;
         }
 
-        _log(DRONE__TRACE, "CmdEngage: ordering drone %u to engage %u.", droneID, targetID->value());
-        pDrone->ClearAssistTarget();  // manual engagement cancels assist
+        pDrone->ClearAssistTarget();
         pDrone->SetTarget(pTarget);
-        pDrone->GetAI()->Target(pTarget);   // initiates targeting and CheckDistance
+        pDrone->GetAI()->Target(pTarget);
         pDrone->StateChange();
     }
 
@@ -380,97 +389,37 @@ PyResult EntityBound::CmdUnanchor(PyCallArgs &call, PyList* droneIDs, PyInt* tar
 }
 
 PyResult EntityBound::CmdReturnHome(PyCallArgs &call, PyList* droneIDs) {
- // ret = entity.CmdReturnHome(droneIDs)
-    // this is return and orbit command
-    /*
-02:18:26 [DroneTrace] EntityBound::Handle_CmdReturnHome()
-02:18:26 [DroneDump]   Call Arguments:
-02:18:26 [DroneDump]      Tuple: 1 elements
-02:18:26 [DroneDump]       [ 0]   List: 1 elements
-02:18:26 [DroneDump]       [ 0]   [ 0]    Integer: 140001219
-*/
     _log(DRONE__TRACE, "EntityBound::CmdReturnHome()");
-    call.Dump(DRONE__DUMP);
 
+    PyDict* errors = new PyDict();
     for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
         uint32 droneID = PyRep::IntegerValueU32(*itr);
-
         SystemEntity* pSE = m_sysMgr->GetSE(droneID);
-        if (pSE == nullptr || !pSE->IsDroneSE()) {
-            _log(DRONE__WARNING, "CmdReturnHome: drone %u not found in system.", droneID);
-            continue;
-        }
+        if (pSE == nullptr || !pSE->IsDroneSE()) { AddDroneError(errors, droneID, "EntityNotPresentBody"); continue; }
         DroneSE* pDrone = pSE->GetDroneSE();
-        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
-            _log(DRONE__WARNING, "CmdReturnHome: %s tried to command drone %u owned by %u.",
-                 call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
-            continue;
-        }
-
-        _log(DRONE__TRACE, "CmdReturnHome: ordering drone %u to return and orbit.", droneID);
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) { AddDroneError(errors, droneID, "EntityNotYoursToCommandBody"); continue; }
         pDrone->ClearAssistTarget();
         pDrone->GetAI()->Return();
         pDrone->StateChange();
     }
-
-    return new PyDict();
+    return errors;
 }
 
 PyResult EntityBound::CmdReturnBay(PyCallArgs &call, PyList* droneIDs) {
- // ret = entity.CmdReturnBay(droneIDs)
-    /*
-        [PySubStream 97 bytes]
-          [PyTuple 4 items]
-            [PyInt 1]
-            [PyString "MachoBindObject"]
-            [PyTuple 2 items]
-              [PyInt 30000302]
-              [PyTuple 3 items]
-                [PyString "CmdReturnBay"]
-                [PyTuple 1 items]
-                  [PyList 5 items]
-                    [PyIntegerVar 1005909162494]
-                    [PyIntegerVar 1005902743336]
-                    [PyIntegerVar 1005909162497]
-                    [PyIntegerVar 1005909162499]
-                    [PyIntegerVar 1005909162492]
-                [PyDict 0 kvp]
-
-    [PyTuple 1 items]
-      [PySubStream 42 bytes]
-        [PyTuple 2 items]
-          [PySubStruct]
-            [PySubStream 31 bytes]
-              [PyTuple 2 items]
-                [PyString "N=790408:2886"]
-                [PyIntegerVar 129756563162318175]
-          [PyDict 0 kvp]
-          */
     _log(DRONE__TRACE, "EntityBound::CmdReturnBay()");
-    call.Dump(DRONE__DUMP);
 
+    PyDict* errors = new PyDict();
     for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
         uint32 droneID = PyRep::IntegerValueU32(*itr);
-
         SystemEntity* pSE = m_sysMgr->GetSE(droneID);
-        if (pSE == nullptr || !pSE->IsDroneSE()) {
-            _log(DRONE__WARNING, "CmdReturnBay: drone %u not found in system.", droneID);
-            continue;
-        }
+        if (pSE == nullptr || !pSE->IsDroneSE()) { AddDroneError(errors, droneID, "EntityNotPresentBody"); continue; }
         DroneSE* pDrone = pSE->GetDroneSE();
-        if (!pDrone->CanCommand(call.client->GetCharacterID())) {
-            _log(DRONE__WARNING, "CmdReturnBay: %s tried to command drone %u owned by %u.",
-                 call.client->GetName(), droneID, pDrone->GetControllerOwnerID());
-            continue;
-        }
-
-        _log(DRONE__TRACE, "CmdReturnBay: ordering drone %u to return to bay.", droneID);
+        if (!pDrone->CanCommand(call.client->GetCharacterID())) { AddDroneError(errors, droneID, "EntityNotYoursToCommandBody"); continue; }
         pDrone->ClearAssistTarget();
         pDrone->GetAI()->ReturnBay();
         pDrone->StateChange();
     }
-
-    return new PyDict();
+    return errors;
 }
 
 PyResult EntityBound::CmdAbandonDrone(PyCallArgs &call, PyList* droneIDs) {
