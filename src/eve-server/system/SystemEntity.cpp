@@ -891,7 +891,26 @@ void DeployableSE::Process()
         if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
             SysBubble()->SetWarpBubble(true);
             m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.StructureOnlined", 0, 1, 1);
-            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 1, 1);
+            // Send WarpDisruptFieldGenerating with graphicInfo(KeyVal(range=xxx)) for correct bubble radius.
+            OnSpecialFX14 fx;
+                fx.entityID = m_self->itemID();
+                fx.moduleID = m_self->itemID();
+                fx.moduleTypeID = m_self->typeID();
+                fx.targetID = PyStatic.NewNone();
+                fx.chargeTypeID = PyStatic.NewNone();
+                fx.area = new PyList();
+                fx.guid = "effects.WarpDisruptFieldGenerating";
+                fx.isOffensive = 0;
+                fx.start = 1;
+                fx.active = 1;
+                fx.duration = -1;
+                fx.repeat = 0;
+                fx.startTime = GetFileTimeNow();
+                PyDict* gd = new PyDict();
+                gd->SetItemString("range", new PyFloat(m_self->GetAttribute(AttrWarpScrambleRange).get_float()));
+                fx.graphicInfo = new PyObject("util.KeyVal", gd);
+            PyTuple* payload = fx.Encode();
+            m_destiny->SendSingleDestinyUpdate(&payload);
         }
         _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, online now", m_self->name(), m_self->itemID());
         m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
@@ -972,9 +991,29 @@ void DeployableSE::Process()
     // Toggle bubble visual — Crucible blocks warp while effect is active, regardless of distance.
     if (hasTargetInRange != m_bubbleEffectActive) {
         m_bubbleEffectActive = hasTargetInRange;
-        m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0,
-            hasTargetInRange ? 1 : 0,
-            hasTargetInRange ? 1 : 0);
+        if (hasTargetInRange) {
+            OnSpecialFX14 fx;
+                fx.entityID = m_self->itemID();
+                fx.moduleID = m_self->itemID();
+                fx.moduleTypeID = m_self->typeID();
+                fx.targetID = PyStatic.NewNone();
+                fx.chargeTypeID = PyStatic.NewNone();
+                fx.area = new PyList();
+                fx.guid = "effects.WarpDisruptFieldGenerating";
+                fx.isOffensive = 0;
+                fx.start = 1;
+                fx.active = 1;
+                fx.duration = -1;
+                fx.repeat = 0;
+                fx.startTime = GetFileTimeNow();
+                PyDict* gd = new PyDict();
+                gd->SetItemString("range", new PyFloat(m_self->GetAttribute(AttrWarpScrambleRange).get_float()));
+                fx.graphicInfo = new PyObject("util.KeyVal", gd);
+            PyTuple* payload = fx.Encode();
+            m_destiny->SendSingleDestinyUpdate(&payload);
+        } else {
+            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0);
+        }
     }
 }
 
