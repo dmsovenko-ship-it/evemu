@@ -31,8 +31,8 @@
 | EN | RU |
 |----|----|
 | **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)**, **early warp start (<30°+half align)**, **snap stop (no drift)** | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)** |
-| **Drones** — full AI (combat/EWAR/logistics/mining), skills, subtypes, control range | **Дроны** — полный AI (бой/EWAR/логистика/майнинг), навыки, подтипы |
-| **NPC systems** — anomalies, incursions, belt rats, gate rats, convoys, customs police | **NPC системы** — аномалии, инкурсии, бельтраты, гейтраты, конвои, таможня |
+| **Drones** — full AI (combat/EWAR/logistics/mining), skills, subtypes, control range, UserError messages, Pursuit/Fleeing AI, Drone Control Unit bonus | **Дроны** — полный AI (бой/EWAR/логистика/майнинг), навыки, подтипы, UserError-сообщения, Pursuit/Fleeing AI, Drone Control Unit |
+| **NPC systems** — anomalies, incursions, belt rats, gate rats, convoys, customs police, module fitting system, per-weapon effects GUIDs | **NPC системы** — аномалии, инкурсии, бельтраты, гейтраты, конвои, таможня, модульная система фита, GUID эффектов по типу оружия |
 | **Crimewatch** — weapon/aggression/criminal timers, CONCORD, sentry guns, kill rights, **probe aggression (15min)** | **Crimewatch** — таймеры, CONCORD, сентри, киллрайты, **агрессия пробок (15мин)** |
 | **Warp Disruption Probes** — Interdiction Sphere Launcher, bubble 20km, smartbomb destruction, **scramble cleanup on range exit** | **Пробки варп-дисрапта** — лаунчер, баббл 20км, уничтожение смартбомбами, **очистка скрембла при выходе из радиуса** |
 | **Mobile Warp Disruptor** — anchor/online via DogmaIM, SDE timers per type, **WarpDisruptFieldGenerating** visual, StructureOnlined effect, **transient (deleted on restart)** | **MWD** — anchor/online через DogmaIM, таймеры из SDE по типу, **WarpDisruptFieldGenerating** визуал, StructureOnlined эффект, **транзиент (удаляется при ребуте)** |
@@ -102,15 +102,15 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
 |--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
 | Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
-| Ship Navigation | 70% | **97%** | +27% | Combat | 90% | 99% | +9% |
-| Modules & Overheating | 85% | 97% | +12% | Drones | 75% | 92% | +17% |
-| NPC AI & Spawning | 60% | **92%** | +32% | Agents & Missions | 70% | 95% | +25% |
+| Ship Navigation | 70% | **99%** | +29% | Combat | 90% | 99% | +9% |
+| Modules & Overheating | 85% | 97% | +12% | Drones | 75% | **96%** | +21% |
+| NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 95% | +25% |
 | **POS** | 70% | **97%** | +27% | Market | 60% | 92% | +32% |
 | **Incursions** | 0% | **85%** | +85% | Fleet | 75% | **100%** | +25% |
 | **Wormholes** | 60% | **90%** | +30% | Scanning | 80% | 99% | +19% |
 | **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 92% | +32% |
 | **Faction Warfare** | 50% | **99%** | +49% | Calendar | 60% | 93% | +33% |
-| Mail & LSC | 60% | 93% | +33% | Contracts | 60% | 95% | +35% |
+| Mail & LSC | 60% | **95%** | +35% | Contracts | 60% | 95% | +35% |
 | Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |
 | **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **90%** | +45% |
 | Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **96%** | +31% |
