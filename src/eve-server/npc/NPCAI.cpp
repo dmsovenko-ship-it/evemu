@@ -974,10 +974,22 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
         }
     }
 
-    // effects are listed in EVE_Effects.h
-    std::string guid = "effects.Laser"; // client looks for 'turret' in ship.ball.modules for 'effects.laser'
+    // Select effect GUID based on NPC weapon type (from SDE attributes).
+    // Client's StandardWeapon handles all turret GUIDs identically (animates locators).
+    // Missile-using NPCs get MissileDeployment effect instead of turret.
+    std::string guid = "effects.Laser";
+    if (m_missileTypeID > 0) {
+        guid = "effects.MissileDeployment";
+    } else if (m_self->HasAttribute(AttrEntityWeaponTypeID)) {
+        switch (m_self->GetAttribute(AttrEntityWeaponTypeID).get_uint32()) {
+            case 1:  guid = "effects.HybridFired";      break;
+            case 2:  guid = "effects.ProjectileFiredForEntities"; break;
+            case 4:  guid = "effects.MissileDeployment"; break;
+            default: guid = "effects.Laser";             break;
+        }
+    }
     uint32 gfxID = 0;
-    if (m_self->HasAttribute(AttrGfxTurretID))// graphicID for turret for drone type ships
+    if (m_self->HasAttribute(AttrGfxTurretID))
         gfxID = m_self->GetAttribute(AttrGfxTurretID).get_uint32();
     if (gfxID > 0)
         m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
@@ -1017,8 +1029,9 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
                 Damage splash(m_npc, m_self, m_npc->GetEM() * falloff, m_npc->GetExplosive() * falloff,
                               m_npc->GetKinetic() * falloff, m_npc->GetThermal() * falloff, 1.0f, 0);
                 targetSE->ApplyDamage(splash);
+                // effects.EMPWave is used instead of effects.SmartBomb (not in client Repository)
                 m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
-                                             targetSE->GetID(), 0, "effects.SmartBomb", 1, 1, 1, m_attackSpeed * 3, 0, 0);
+                                             targetSE->GetID(), 0, "effects.EMPWave", 1, 1, 1, m_attackSpeed * 3, 0, 0);
             }
         }
         m_smartbombTimer.Start(m_attackSpeed * 3);
