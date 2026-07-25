@@ -3019,7 +3019,7 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
         return true;
     }
     // Check maxActiveDrones limit from character attribute (skill + Drone Control Unit bonus)
-    uint32 maxDrones = std::max(1, static_cast<uint32>(pChar->GetAttribute(AttrMaxActiveDrones).get_int()));
+    uint32 maxDrones = std::max<uint32>(1, static_cast<uint32>(pChar->GetAttribute(AttrMaxActiveDrones).get_int()));
     uint32 currentDrones = 0;
     for (auto& [id, drone] : m_drones)
         if (drone != nullptr) ++currentDrones;
