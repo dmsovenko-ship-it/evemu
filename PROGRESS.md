@@ -14,7 +14,7 @@
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 96% | `██████████████████` | +21% |
 | NPC AI & Spawning | 97% | `███████████████████` | +37% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
-| **Incursions** | 85% | `█████████████████░` | +85% | Fleet | 100% | `████████████████████` | +25% |
+| **Incursions** | 88% | `█████████████████░` | +88% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
 | **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 92% | `██████████████████` | +32% |
 | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
@@ -175,13 +175,14 @@
 | Create/manage, wings, squads, boosts, broadcasts | ✅ | ✅ |
 | Watchlist, voice chat methods | ❌ | ✅ |
 
-### 16. Incursions `█████████████████░` 85%
+### 16. Incursions `█████████████████░` 88%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | State machine, wave NPCs, influence, rewards | ❌ | ✅ |
 | Gate camps, belt replacement, focus period, 5 simultaneous | ❌ | ✅ |
 | **Constellation penalties** (−10/25/50%), **CONCORD LP bonus** | ❌ | ✅ |
+| Client notifications — OnTaleData/OnInfluenceUpdate with taleData | ❌ | ✅ |
 
 ### 17. Scanning `███████████████████` 99%
 
