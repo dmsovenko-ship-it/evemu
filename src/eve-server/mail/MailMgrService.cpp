@@ -36,7 +36,11 @@ MailMgrService::MailMgrService() :
 {
     this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyWString*, PyBool*, PyBool*)>(&MailMgrService::SendMail));
     this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyString*, PyBool*, PyBool*)>(&MailMgrService::SendMail));
-    // Client sends isReplyTo/isForwardedFrom as PyInt* (0/1) instead of PyBool*
+    // Client sends isReplyTo/isForwardedFrom as mixed PyInt*/PyBool*
+    this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyWString*, PyInt*, PyBool*)>(&MailMgrService::SendMail));
+    this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyString*, PyInt*, PyBool*)>(&MailMgrService::SendMail));
+    this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyWString*, PyBool*, PyInt*)>(&MailMgrService::SendMail));
+    this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyString*, PyBool*, PyInt*)>(&MailMgrService::SendMail));
     this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyWString*, PyInt*, PyInt*)>(&MailMgrService::SendMail));
     this->Add("SendMail", static_cast<PyResult(MailMgrService::*)(PyCallArgs&, PyList*, std::optional<PyInt*>, std::optional<PyInt*>, PyWString*, PyString*, PyInt*, PyInt*)>(&MailMgrService::SendMail));
     this->Add("PrimeOwners", &MailMgrService::PrimeOwners);
@@ -199,6 +203,42 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
     PyResult result = SendMail(call, toCharacterIDs, listID, toCorpOrAllianceID, title, bodyW, isReplyB, isFwdB);
     PyDecRef(bodyW);
     PyDecRef(isReplyB);
+    PyDecRef(isFwdB);
+    return result;
+}
+
+PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std::optional<PyInt*> listID, std::optional<PyInt*> toCorpOrAllianceID, PyWString* title, PyWString* body, PyInt* isReplyTo, PyBool* isForwardedFrom)
+{
+    PyBool* isReplyB = new PyBool(isReplyTo->value() != 0);
+    PyResult result = SendMail(call, toCharacterIDs, listID, toCorpOrAllianceID, title, body, isReplyB, isForwardedFrom);
+    PyDecRef(isReplyB);
+    return result;
+}
+
+PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std::optional<PyInt*> listID, std::optional<PyInt*> toCorpOrAllianceID, PyWString* title, PyString* body, PyInt* isReplyTo, PyBool* isForwardedFrom)
+{
+    PyBool* isReplyB = new PyBool(isReplyTo->value() != 0);
+    PyWString* bodyW = new PyWString(body->content());
+    PyResult result = SendMail(call, toCharacterIDs, listID, toCorpOrAllianceID, title, bodyW, isReplyB, isForwardedFrom);
+    PyDecRef(bodyW);
+    PyDecRef(isReplyB);
+    return result;
+}
+
+PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std::optional<PyInt*> listID, std::optional<PyInt*> toCorpOrAllianceID, PyWString* title, PyWString* body, PyBool* isReplyTo, PyInt* isForwardedFrom)
+{
+    PyBool* isFwdB = new PyBool(isForwardedFrom->value() != 0);
+    PyResult result = SendMail(call, toCharacterIDs, listID, toCorpOrAllianceID, title, body, isReplyTo, isFwdB);
+    PyDecRef(isFwdB);
+    return result;
+}
+
+PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std::optional<PyInt*> listID, std::optional<PyInt*> toCorpOrAllianceID, PyWString* title, PyString* body, PyBool* isReplyTo, PyInt* isForwardedFrom)
+{
+    PyBool* isFwdB = new PyBool(isForwardedFrom->value() != 0);
+    PyWString* bodyW = new PyWString(body->content());
+    PyResult result = SendMail(call, toCharacterIDs, listID, toCorpOrAllianceID, title, bodyW, isReplyTo, isFwdB);
+    PyDecRef(bodyW);
     PyDecRef(isFwdB);
     return result;
 }
