@@ -2,7 +2,7 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "EVEServerConfig.h"
-#include "eve-core/utils/misc.h"
+#include "../../eve-core/utils/misc.h"
 #include "Profiler.h"
 #include "StaticDataMgr.h"
 #include "account/AccountService.h"
