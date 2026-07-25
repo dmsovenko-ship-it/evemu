@@ -2081,16 +2081,13 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         if (mySE->SysBubble()->HasPlayers())
             mySE->SysBubble()->AddBallExclusive(mySE);
 
-        // Send JumpIn arrival effect and GateActivity when warping to a stargate
+        // Send GateActivity when warping to a stargate (JumpIn only for system jumps)
         if (m_targBubble != nullptr) {
             SystemManager* sysMgr = mySE->SystemMgr();
             if (sysMgr != nullptr) {
                 for (auto& [id, se] : sysMgr->GetStaticEntities()) {
                     if (se->IsGateSE() && se->GetPosition().distance(m_position) < se->GetRadius() + m_radius + 1000.0) {
-                        // Close enough to a gate — play arrival effects
                         SendGateActivity(se->GetID());
-                        if (!m_cloaked)
-                            SendJumpInEffect("effects.JumpIn");
                         break;
                     }
                 }

@@ -574,15 +574,16 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
             m_pDrone->DestinyMgr()->Follow(pSE, m_entityOrbitRange);
             return;
         }
-        // Enter Pursuit to chase target up to 1.5x fly range before giving up
-        if (dist < flyRange * 1.5f && (m_state == DroneAI::State::Engaged || m_state == DroneAI::State::Approaching)) {
-            m_state = DroneAI::State::Pursuit;
+        // Target out of fly range — approach/chase instead of giving up immediately
+        if (dist < flyRange * 2.0f) {
+            SetApproaching(pSE);
+            // fall through to attack timer — drone can fire while chasing
+        } else {
+            _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: %s(%u) too far (%.0f).  Clear target.",
+                 m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID(), dist);
+            ClearTarget(pSE);
             return;
         }
-        _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: %s(%u) is too far away (%.0f).  Return to Idle.",
-             m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID(), dist);
-        ClearTarget(pSE);
-        return;
     }
     if (dist > attackRange) {
         // within fly range but outside attack range — approach
@@ -591,7 +592,7 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
             return;
         }
         SetApproaching(pSE);
-        return;
+        // Don't return — start attack timer so drone fires while approaching
     }
     // within attack range — engage and orbit at weapon range
     if (m_state == DroneAI::State::Mining) {
