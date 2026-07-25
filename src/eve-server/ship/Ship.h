@@ -322,7 +322,7 @@ public:
     virtual void Killed(Damage &fatal_blow);            /* This method is defined in Damage.cpp */
 
     /* virtual functions to be overridden in derived classes */
-    virtual void MissileLaunched(Missile* pMissile)     { /* Do nothing here */ }
+    virtual void MissileLaunched(Missile* pMissile);
     virtual bool IsInvul();
     virtual bool IsFrozen()                             { return false; }
     virtual bool IsLogin();
