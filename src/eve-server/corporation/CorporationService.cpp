@@ -45,7 +45,8 @@ CorporationService::CorporationService() :
     this->Add("GetMedalsReceived", &CorporationService::GetMedalsReceived);
     this->Add("GetMedalDetails", &CorporationService::GetMedalDetails);
     this->Add("GetAllCorpMedals", &CorporationService::GetAllCorpMedals);
-    this->Add("CreateMedal", &CorporationService::CreateMedal);
+    this->Add("CreateMedal", static_cast<PyResult(CorporationService::*)(PyCallArgs&, PyWString*, PyWString*, PyList*)>(&CorporationService::CreateMedal));
+    this->Add("CreateMedal", static_cast<PyResult(CorporationService::*)(PyCallArgs&, PyWString*, PyWString*, PyList*, PyBool*)>(&CorporationService::CreateMedal));
     this->Add("GiveMedalToCharacters", &CorporationService::GiveMedalToCharacters);
     this->Add("SetMedalStatus", &CorporationService::SetMedalStatus);
     this->Add("GetMedalStatuses", &CorporationService::GetMedalStatuses);
@@ -139,14 +140,18 @@ PyResult CorporationService::GetRecruitmentAdsForCorporation(PyCallArgs& call)
  */
 
 PyResult CorporationService::CreateMedal(PyCallArgs &call, PyWString* name, PyWString* description, PyList* medalData) {
-    // destroy = sm.StartService('medals').CreateMedal(mName, mDesc, cMedalData)
-    //  destroy = true will close window
+    // First call without 'confirmed' flag — show cost confirmation to client
+    throw UserError("ConfirmCreatingMedal", {
+        {"cost", new PyInt(sConfig.rates.medalCreateCost)}
+    });
+    return nullptr;
+}
 
-    //take the money, send wallet blink event record the transaction in corp journal.
-    // if not enough corp funds, throw from here and avoid the overhead of decoding call...
+PyResult CorporationService::CreateMedal(PyCallArgs &call, PyWString* name, PyWString* description, PyList* medalData, PyBool* confirmed) {
+    // Second call after user confirms — deduct funds and create medal
     std::string reason = "DESC: Medal Creation by ";
     reason += call.client->GetName();
-    reason += " in ";   // just extra shit.  this will show in tooltip.  ;)
+    reason += " in ";
     reason += stDataMgr.GetStationName(call.client->GetStationID());
     AccountService::TransferFunds(
         call.client->GetCorporationID(),
