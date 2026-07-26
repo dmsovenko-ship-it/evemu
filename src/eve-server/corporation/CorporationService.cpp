@@ -47,7 +47,8 @@ CorporationService::CorporationService() :
     this->Add("GetAllCorpMedals", &CorporationService::GetAllCorpMedals);
     this->Add("CreateMedal", static_cast<PyResult(CorporationService::*)(PyCallArgs&, PyWString*, PyWString*, PyList*)>(&CorporationService::CreateMedal));
     this->Add("CreateMedal", static_cast<PyResult(CorporationService::*)(PyCallArgs&, PyWString*, PyWString*, PyList*, PyBool*)>(&CorporationService::CreateMedal));
-    this->Add("GiveMedalToCharacters", &CorporationService::GiveMedalToCharacters);
+    this->Add("GiveMedalToCharacters", static_cast<PyResult(CorporationService::*)(PyCallArgs&, PyInt*, PyList*, PyWString*)>(&CorporationService::GiveMedalToCharacters));
+    this->Add("GiveMedalToCharacters", static_cast<PyResult(CorporationService::*)(PyCallArgs&, PyInt*, PyList*, PyWString*, PyBool*)>(&CorporationService::GiveMedalToCharacters));
     this->Add("SetMedalStatus", &CorporationService::SetMedalStatus);
     this->Add("GetMedalStatuses", &CorporationService::GetMedalStatuses);
     this->Add("GetRecipientsOfMedal", &CorporationService::GetRecipientsOfMedal);
@@ -261,39 +262,26 @@ PyResult CorporationService::GetRecipientsOfMedal(PyCallArgs &call, PyInt* medal
 }
 
 PyResult CorporationService::GiveMedalToCharacters(PyCallArgs &call, PyInt* medalID, PyList* recipientIDs, PyWString* reason) {
-    //  sm.RemoteSvc('corporationSvc').GiveMedalToCharacters(medalID, recipientID, reason)
-    /*
-     * 13:24:32 [CorpCallDump]   Call Arguments:
-     * 13:24:32 [CorpCallDump]      Tuple: 3 elements
-     * 13:24:32 [CorpCallDump]       [ 0]    Integer: 8
-     * 13:24:32 [CorpCallDump]       [ 1]   List: 1 elements
-     * 13:24:32 [CorpCallDump]       [ 1]   [ 0]    Integer: 90000000
-     * 13:24:32 [CorpCallDump]       [ 2]    WString: 'testing this shit'
-     */
-    _log(CORP__CALL, "CorporationService::Handle_GiveMedalToCharacters()");
-    call.Dump(CORP__CALL_DUMP);
+    // First call — raise cost confirmation
+    uint32 count = recipientIDs->size();
+    PyDict* args = new PyDict();
+    args->SetItemString("cost", new PyInt(sConfig.rates.medalAwardCost * count));
+    throw PyException(PyException::MakeUserError("ConfirmGivingMedal", args));
+    return nullptr;
+}
 
-    // can award one medal to multiple chars at once, at 5m isk per award
-    std::vector< uint32 > charVec;
+PyResult CorporationService::GiveMedalToCharacters(PyCallArgs &call, PyInt* medalID, PyList* recipientIDs, PyWString* reason, PyBool* confirmed) {
+    // Second call after user confirmation — deduct ISK and award
+    std::vector<uint32> charVec;
     for (PyList::const_iterator itr = recipientIDs->begin(); itr != recipientIDs->end(); ++itr)
         charVec.push_back(PyRep::IntegerValue(*itr));
 
-    uint32 cost = sConfig.rates.medalAwardCost;
-    cost *= charVec.size();
-
-    //take the money, send wallet blink event record the transaction in corp journal.
+    uint32 cost = sConfig.rates.medalAwardCost * charVec.size();
     std::string finalReason = "DESC: Awarding Medal by ";
     finalReason += call.client->GetName();
-    AccountService::TransferFunds(
-        call.client->GetCorporationID(),
-        call.client->GetStationID(),
-        cost,
-        finalReason,
-        Journal::EntryType::MedalIssuing
-    );
+    AccountService::TransferFunds(call.client->GetCorporationID(), call.client->GetStationID(), cost, finalReason, Journal::EntryType::MedalIssuing);
 
     m_db.GiveMedalToCharacters(call.client->GetCharacterID(), call.client->GetCorporationID(), medalID->value(), charVec, reason->content());
-
     return nullptr;
 }
 

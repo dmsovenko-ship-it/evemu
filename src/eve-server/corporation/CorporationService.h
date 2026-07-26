@@ -52,6 +52,7 @@ protected:
     PyResult GetAllCorpMedals(PyCallArgs& call, PyInt* corporationID);
     PyResult GetRecipientsOfMedal(PyCallArgs& call, PyInt* medalID);
     PyResult GiveMedalToCharacters(PyCallArgs& call, PyInt* medalID, PyList* recipientIDs, PyWString* reason);
+    PyResult GiveMedalToCharacters(PyCallArgs& call, PyInt* medalID, PyList* recipientIDs, PyWString* reason, PyBool* confirmed);
     PyResult GetMedalStatuses(PyCallArgs& call);
     PyResult SetMedalStatus(PyCallArgs& call, PyDict* newStatus);
 };
