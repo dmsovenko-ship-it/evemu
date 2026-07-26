@@ -125,7 +125,8 @@ void IncursionMgr::StartIncursion(uint32 factionID, uint32 constellationID)
     uint32 rewardGroupID = 1;
 
     DBerror err;
-    sDatabase.RunQuery(err,
+    uint32 incursionID = 0;
+    sDatabase.RunQueryLID(err, incursionID,
         "INSERT INTO incursions (factionID, stagingSolarSystemID, constellationID, regionID, "
         "state, influence, hasBoss, rewardGroupID, taleID, graceTime, decayRate, lastUpdated) "
         "VALUES (%u, %u, %u, %u, 1, 1.0, 0, %u, 0, 30, 0.01, %.0f)",
@@ -146,15 +147,13 @@ void IncursionMgr::StartIncursion(uint32 factionID, uint32 constellationID)
 
         sDatabase.RunQuery(err,
             "INSERT INTO incursionSystems (incursionID, solarSystemID, sceneType, influence) "
-            "VALUES ((SELECT incursionID FROM incursions WHERE stagingSolarSystemID = %u), %u, %u, 1.0)",
-            stagingSystem, sysID, sceneType);
+            "VALUES (%u, %u, %u, 1.0)",
+            incursionID, sysID, sceneType);
     }
 
     NotifyClients(0);
     // Send OnTaleStart — client needs taleData for HUD activation
-    // Query the new incursion ID
-    uint32 newID = sDatabase.GetLastInsertID();
-    if (newID > 0) {
+    if (incursionID > 0) {
         // Build taleData from the just-inserted incursion
         std::vector<Client*> clients;
         sEntityList.GetClients(clients);
