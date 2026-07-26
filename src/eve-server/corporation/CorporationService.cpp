@@ -142,10 +142,7 @@ PyResult CorporationService::GetRecruitmentAdsForCorporation(PyCallArgs& call)
 
 PyResult CorporationService::CreateMedal(PyCallArgs &call, PyWString* name, PyWString* description, PyList* medalData) {
     // First call without 'confirmed' flag — show cost confirmation to client
-    throw UserError("ConfirmCreatingMedal", {
-        {"cost", new PyInt(sConfig.rates.medalCreateCost)}
-    });
-    return nullptr;
+    throw UserError("ConfirmCreatingMedal").AddFormatValue("cost", new PyInt(sConfig.rates.medalCreateCost));
 }
 
 PyResult CorporationService::CreateMedal(PyCallArgs &call, PyWString* name, PyWString* description, PyList* medalData, PyBool* confirmed) {
@@ -264,10 +261,7 @@ PyResult CorporationService::GetRecipientsOfMedal(PyCallArgs &call, PyInt* medal
 PyResult CorporationService::GiveMedalToCharacters(PyCallArgs &call, PyInt* medalID, PyList* recipientIDs, PyWString* reason) {
     // First call — raise cost confirmation
     uint32 count = recipientIDs->size();
-    PyDict* args = new PyDict();
-    args->SetItemString("cost", new PyInt(sConfig.rates.medalAwardCost * count));
-    throw PyException(PyException::MakeUserError("ConfirmGivingMedal", args));
-    return nullptr;
+    throw UserError("ConfirmGivingMedal").AddFormatValue("cost", new PyInt(sConfig.rates.medalAwardCost * count));
 }
 
 PyResult CorporationService::GiveMedalToCharacters(PyCallArgs &call, PyInt* medalID, PyList* recipientIDs, PyWString* reason, PyBool* confirmed) {
