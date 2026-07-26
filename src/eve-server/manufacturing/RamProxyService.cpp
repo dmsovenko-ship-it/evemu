@@ -552,17 +552,22 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
         return nullptr;
     installedItem->Move(args.containerID, data.outputFlag, true);
 
-    // return materials which weren't consumed
+    // return materials (all on cancel, or non-consumed on completion)
     std::vector<EvERam::RequiredItem> reqItems;
     sDataMgr.GetRamReturns(installedItem->typeID(), data.activity, reqItems);
     for (auto cur : reqItems) {
-        // what about items where damage < 1.0?  (there are some...)
-        uint32 quantity = (cur.quantity * data.jobRuns * (1 - cur.damagePerJob));
-        if (quantity == 0)
-            quantity = 1;
+        uint32 quantity;
+        if (args.cancel) {
+            // Cancel — return ALL materials regardless of damagePerJob
+            quantity = cur.quantity * data.jobRuns;
+        } else {
+            // Completion — return only non-consumed items (damagePerJob < 1.0)
+            quantity = (uint32)(cur.quantity * data.jobRuns * (1.0 - cur.damagePerJob));
+        }
+        if (quantity == 0) continue;
 
         ItemData idata(cur.typeID, data.ownerID, locTemp, flagNone, quantity);
-        InventoryItemRef iRef = sItemFactory.SpawnItem( idata );
+        InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
         if (iRef.get() != nullptr)
             iRef->Move(args.containerID, data.outputFlag, true);
     }
