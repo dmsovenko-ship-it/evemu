@@ -242,6 +242,19 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 }
             } break;
             case RequestMission: {  //2
+                // Aura starts tutorial chain, not a standard mission
+                if (m_agent->GetTypeID() == Agents::Type::Aura) {
+                    agentSays->SetItem(0, new PyString("Welcome to EVE Online. Your training begins now."));
+                    agentSays->SetItem(1, PyStatic.NewNone());
+                    PyTuple* button1 = new PyTuple(2);
+                        button1->SetItem(0, new PyInt(Accept));
+                        button1->SetItem(1, new PyString("Begin Training"));
+                    dialog->AddItem(button1);
+                    // Notify client to open tutorial browser with first Aura tutorial
+                    PyDict* args = new PyDict();
+                        args->SetItemString("tutorialID", new PyInt(215));
+                    call.client->SendNotification("OnServerTutorialRequest", "clientID", args, false);
+                } else {
                 MissionOffer offer = MissionOffer();
                 m_agent->MakeOffer(pchar->itemID(), offer);
                 m_agent->SendMissionUpdate(call.client, "offered");
@@ -271,6 +284,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     button3->SetItem(0, new PyInt(Defer));
                     button3->SetItem(1, new PyInt(Defer));
                 dialog->AddItem(button3);
+                }
             } break;
             case ViewMission: { //1
                 MissionOffer offer = MissionOffer();
@@ -305,6 +319,11 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
             } break;
             case Accept:            //3
             case AcceptRemotely: {  //5
+                // Aura: tutorial already started via OnServerTutorialRequest from RequestMission
+                if (m_agent->GetTypeID() == Agents::Type::Aura) {
+                    agentSays->SetItem(0, new PyString("Good luck pilot. Follow the tutorial instructions."));
+                    agentSays->SetItem(1, PyStatic.NewNone());
+                } else {
                 MissionOffer offer = MissionOffer();
                 m_agent->GetOffer(pchar->itemID(), offer);
                 offer.stateID = Mission::State::Accepted;
@@ -351,6 +370,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 m_agent->SendMissionUpdate(call.client, "offer_accepted");
                 agentSays->SetItem(0, new PyInt(m_agent->GetAcceptRsp(pchar->itemID())));
                 agentSays->SetItem(1, new PyInt(pchar->itemID()));
+                }
             } break;
             case Complete:              //6
             case CompleteRemotely: {    //7

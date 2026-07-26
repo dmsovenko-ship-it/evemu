@@ -492,11 +492,10 @@ void DroneSE::Killed(Damage &damage) {
     if (m_AI != nullptr)
         m_AI->SetIdle();
     StateChange();
-    if (m_owner != nullptr) {
-        // Remove drone from owner's flight so it no longer appears in the drone window
-        m_owner->RemoveDroneFromFlight(m_self->itemID());
-        m_owner->GetShipSE()->GetShipItemRef()->SetAttribute(AttrDroneBandwidthLoad,
-            m_owner->GetShipSE()->GetShipItemRef()->GetAttribute(AttrDroneBandwidthLoad).get_float()
+    if (GetOwner() != nullptr && m_pShipSE != nullptr) {
+        m_pShipSE->RemoveDroneFromFlight(m_self->itemID());
+        m_pShipSE->GetShipItemRef()->SetAttribute(AttrDroneBandwidthLoad,
+            m_pShipSE->GetShipItemRef()->GetAttribute(AttrDroneBandwidthLoad).get_float()
             - m_self->GetAttribute(AttrDroneBandwidthUsed).get_float(), false);
     }
 
