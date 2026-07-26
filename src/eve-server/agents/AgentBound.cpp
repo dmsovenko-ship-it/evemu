@@ -253,7 +253,9 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     // Notify client to open tutorial browser with first Aura tutorial
                     PyDict* args = new PyDict();
                         args->SetItemString("tutorialID", new PyInt(215));
-                    call.client->SendNotification("OnServerTutorialRequest", "clientID", args, false);
+                    PyTuple* payload = new PyTuple(1);
+                        payload->SetItem(0, args);
+                    call.client->SendNotification("OnServerTutorialRequest", "clientID", payload, false);
                 } else {
                 MissionOffer offer = MissionOffer();
                 m_agent->MakeOffer(pchar->itemID(), offer);

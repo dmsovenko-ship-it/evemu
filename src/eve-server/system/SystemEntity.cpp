@@ -435,7 +435,8 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
         slim->SetItemString("categoryID",   new PyInt(m_self->categoryID()));
         slim->SetItemString("groupID",      new PyInt(m_self->groupID()));
         slim->SetItemString("name",         new PyString(m_self->itemName()));
-        if (m_self->groupID() == EVEDB::invGroups::Warp_Gate) {
+        if (m_self->groupID() == EVEDB::invGroups::Warp_Gate
+            || m_self->typeID() == 2902) {  // LCS Acceleration Gate (SDE group 319)
             // this is incomplete........
             slim->SetItemString("dunSkillLevel", PyStatic.NewNone());   //?
             slim->SetItemString("dunSkillTypeID", PyStatic.NewNone());   //?
