@@ -164,7 +164,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         m_agent->GetTypeID() == Agents::Type::StoryLine or
                         m_agent->GetTypeID() == Agents::Type::FacWar or
                         m_agent->GetTypeID() == Agents::Type::Cosmos or
-                        m_agent->GetTypeID() == Agents::Type::Tutorial) {
+                        m_agent->GetTypeID() == Agents::Type::Tutorial or
+                        m_agent->GetTypeID() == Agents::Type::Aura) {
                         PyTuple* button2 = new PyTuple(2);
                             button2->SetItem(0, new PyInt(RequestMission));
                             button2->SetItem(1, new PyInt(RequestMission));
