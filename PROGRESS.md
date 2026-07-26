@@ -14,7 +14,7 @@
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 96% | `██████████████████` | +21% |
 | NPC AI & Spawning | 97% | `███████████████████` | +37% | Agents & Missions | 95% | `███████████████████` | +25% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
-| **Incursions** | 88% | `█████████████████░` | +88% | Fleet | 100% | `████████████████████` | +25% |
+| **Incursions** | 91% | `█████████████████░` | +91% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
 | **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 92% | `██████████████████` | +32% |
 | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
@@ -67,6 +67,8 @@
 | **Collision detection** — push ships out of large static entities (gates, stations) | ❌ | ✅ |
 | **Warp capacitor drain** — minimum warpCapacitorNeed=0.00001 | ❌ | ✅ |
 | **Missile use-after-free** — targetID check before access | ❌ | ✅ |
+| **Warp stop → GOTO coast** — smooth decel on abort instead of instant snap | ❌ | ✅ |
+| **Warp scramble check during align** — checked every tick, not just at WarpTo | ❌ | ✅ |
 | Orbit desync fix, reduced position sync frequency | ❌ | ✅ |
 | Destiny crash fixes — bubble guard, use-after-free | ❌ | ✅ |
 | **Warp scramble** blocks logoff/emergency warp | 🟡 | ✅ |
@@ -141,6 +143,8 @@
 | Corp management, roles, offices, bills, wallets | ✅ | ✅ |
 | Alliance creation, wars, voting, dividends | 🟡 | ✅ |
 | Corp mail role filtering, war bills recurring | ❌ | ✅ |
+| Medals — CreateMedal/GiveMedalToCharacters with cost confirmation | ❌ | ✅ |
+| War declarations — RetractWar/ChangeMutualWarFlag on CorpRegistry | ❌ | ✅ |
 
 ### 12. Science & Industry `██████████████████` 90%
 
@@ -150,8 +154,9 @@
 | **Invention** — formula with skills/meta/decryptor, T2 BPC | ❌ | ✅ |
 | **Reverse Engineering** — chance calc + T2 BPC | ❌ | ✅ |
 | **Remote job install** — with blueprints from remote stations | ❌ | ✅ |
-| **Adjusted materials** — correct extra/waste/base | ❌ | ✅ |
+| **Adjusted materials** — correct extra/waste/base, neg ME handling | ❌ | ✅ |
 | **POS assembly lines** — auto-create for POS structures | ❌ | ✅ |
+| **Cancel job** — returns all materials on abort | ❌ | ✅ |
 
 ### 13. POS `███████████████████` 97%
 
@@ -175,14 +180,15 @@
 | Create/manage, wings, squads, boosts, broadcasts | ✅ | ✅ |
 | Watchlist, voice chat methods | ❌ | ✅ |
 
-### 16. Incursions `█████████████████░` 88%
+### 16. Incursions `█████████████████░` 91%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | State machine, wave NPCs, influence, rewards | ❌ | ✅ |
 | Gate camps, belt replacement, focus period, 5 simultaneous | ❌ | ✅ |
 | **Constellation penalties** (−10/25/50%), **CONCORD LP bonus** | ❌ | ✅ |
-| Client notifications — OnTaleData/OnInfluenceUpdate with taleData | ❌ | ✅ |
+| Client notifications — OnTaleData/OnTaleStart/OnTaleEnd/OnInfluenceUpdate | ❌ | ✅ |
+| Reward data — keyed by rewardCriteria with proper entries | ❌ | ✅ |
 
 ### 17. Scanning `███████████████████` 99%
 
@@ -228,6 +234,8 @@
 | **Probe range** from `AttrWarpScrambleRange` (fallback 20km) | ❌ | ✅ |
 | **Smartbombs** — AoE splash, capacitor drain, **crimewatch (OnWeaponFired+OnAggression)** | ❌ | ✅ |
 | **Warp intercept** — bubble-flag based pull-out via GOTO transition (no 1s timer delay) | ❌ | ✅ |
+| **Immediate scramble on bubble entry** — set AttrWarpScrambleStatus in Bubble::Add | ❌ | ✅ |
+| **Server-side scramble check in WarpTo()** — blocks warp when AttrWarpScrambleStatus > 0 | ❌ | ✅ |
 | **Invulnerability** — immune except to smartbombs/bombs | ❌ | ✅ |
 | **Shuttle immunity** — group 31 hardcoded | ❌ | ✅ |
 | **AttrWarpBubbleImmune** (Interdiction Nullifier) — all 6 check paths | ❌ | ✅ |
