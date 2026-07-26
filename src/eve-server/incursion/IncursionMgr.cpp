@@ -151,6 +151,43 @@ void IncursionMgr::StartIncursion(uint32 factionID, uint32 constellationID)
     }
 
     NotifyClients(0);
+    // Send OnTaleStart — client needs taleData for HUD activation
+    // Query the new incursion ID
+    uint32 newID = sDatabase.GetLastInsertID();
+    if (newID > 0) {
+        // Build taleData from the just-inserted incursion
+        std::vector<Client*> clients;
+        sEntityList.GetClients(clients);
+
+        // Count incursion systems
+        DBQueryResult cntRes;
+        uint32 sysCount = 0;
+        if (sDatabase.RunQuery(cntRes, "SELECT COUNT(*) FROM incursionSystems WHERE incursionID = %u", newID)) {
+            DBResultRow cntRow;
+            if (cntRes.GetRow(cntRow)) sysCount = cntRow.GetUInt(0);
+        }
+
+        PyDict* taleDict = new PyDict();
+        taleDict->SetItemString("taleID", new PyInt(newID));
+        taleDict->SetItemString("templateClassID", new PyInt(2));
+        taleDict->SetItemString("severity", new PyInt(3)); // Vanguard on start
+        PyDict* inflData = new PyDict();
+        inflData->SetItemString("influence", new PyFloat(1.0));
+        inflData->SetItemString("lastUpdated", new PyLong(now));
+        inflData->SetItemString("decayRate", new PyFloat(0.01));
+        inflData->SetItemString("graceTime", new PyInt(1800));
+        taleDict->SetItemString("influenceData", new PyObject("util.KeyVal", inflData));
+        taleDict->SetItemString("hasBoss", new PyBool(false));
+        taleDict->SetItemString("incursedSystems", new PyList()); // populated later by NotifyClients
+        PyObject* taleData = new PyObject("util.KeyVal", taleDict);
+
+        for (auto client : clients) {
+            PyIncRef(taleData);
+            PyTuple* payload = new PyTuple(1);
+            payload->SetItem(0, taleData);
+            client->SendNotification("OnTaleStart", "clientID", payload, false);
+        }
+    }
     sLog.Warning("IncursionMgr", "Incursion started in constellation %u (staging: %u)", constellationID, stagingSystem);
 }
 
@@ -196,6 +233,14 @@ void IncursionMgr::EndIncursion(uint32 incursionID)
         "DELETE FROM incursionSystems WHERE incursionID = %u", incursionID);
 
     m_activeSystems.clear();
+    // Send OnTaleEnd before NotifyClients so client knows incursion is gone
+    std::vector<Client*> allClients;
+    sEntityList.GetClients(allClients);
+    for (auto client : allClients) {
+        PyTuple* payload = new PyTuple(1);
+        payload->SetItem(0, new PyInt(incursionID));
+        client->SendNotification("OnTaleEnd", "clientID", payload, false);
+    }
     NotifyClients(incursionID);
     sLog.Warning("IncursionMgr", "Incursion %u ended (mothership%s killed)", incursionID, hasBoss>=1?"":" NOT");
 }

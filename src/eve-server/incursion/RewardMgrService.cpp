@@ -56,32 +56,38 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
 
 PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
 {
-    // Returns reward data keyed by rewardID
-    // Client expects immediateRewards/delayedRewards lists
-
     uint32 id = rewardID->value();
 
     DBQueryResult res;
     PyDict* immediateRewards = new PyDict();
     PyDict* delayedRewards = new PyDict();
 
+    // Client expects rewards grouped by rewardCriteria
+    // Use rewardCriteriaAll as default (criteria 0 = all security bands)
+    const uint32 criteriaAll = 0;
+
     if (sDatabase.RunQuery(res,
         "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount"
         " FROM incursionRewards WHERE rewardGroupID = %u", id))
     {
+        PyList* rewardList = new PyList();
         DBResultRow row;
         while (res.GetRow(row)) {
-            uint32 rewardTypeID = row.GetUInt(0);
             PyDict* reward = new PyDict();
-            reward->SetItemString("rewardTypeID",  new PyInt(rewardTypeID));
+            reward->SetItemString("rewardTypeID",  new PyInt(row.GetUInt(0)));
             reward->SetItemString("rewardQuantity", new PyInt(row.GetUInt(1)));
             reward->SetItemString("lpTypeID",      new PyInt(row.GetUInt(2)));
             reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
-            // Wrap in a list so client can iterate
-            PyList* rewardList = new PyList();
+            // entries: list of {playerCount, quantity} per player bracket
+            PyDict* entry = new PyDict();
+            entry->SetItemString("playerCount", new PyInt(1));
+            entry->SetItemString("quantity", new PyInt(row.GetUInt(1)));
+            PyList* entries = new PyList();
+            entries->AddItem(new PyObject("util.KeyVal", entry));
+            reward->SetItemString("entries", entries);
             rewardList->AddItem(new PyObject("util.KeyVal", reward));
-            immediateRewards->SetItem(new PyInt(rewardTypeID), rewardList);
         }
+        immediateRewards->SetItem(new PyInt(criteriaAll), rewardList);
     }
 
     PyDict* result = new PyDict();
