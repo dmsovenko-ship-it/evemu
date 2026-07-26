@@ -1262,8 +1262,9 @@ void SystemBubble::BubblecastDestinyUpdate( PyTuple** payload, const char* desc 
             continue;
         }
         _log( DESTINY__BUBBLECAST, "Bubblecast %s update to %s(%u)", desc, pClient->GetName(), cur.first );
-        PyIncRef(*payload);
-        pClient->QueueDestinyUpdate(payload);
+        PyTuple* clone = static_cast<PyTuple*>((*payload)->Clone());
+        pClient->QueueDestinyUpdate(&clone);
+        PySafeDecRef(clone);
     }
 }
 
@@ -1279,8 +1280,9 @@ void SystemBubble::BubblecastDestinyUpdateExclusive( PyTuple** payload, const ch
         // (this is an update to all client objects in the bubble EXCLUDING 'pSE')
         if (pClient->GetShipSE() != pSE) {
             _log( DESTINY__BUBBLECAST, "Exclusive Bubblecast %s update to %s(%u)", desc, pClient->GetName(), cur.first );
-            PyIncRef(*payload);
-            pClient->QueueDestinyUpdate(payload);
+            PyTuple* clone = static_cast<PyTuple*>((*payload)->Clone());
+            pClient->QueueDestinyUpdate(&clone);
+            PySafeDecRef(clone);
         }
     }
 }
