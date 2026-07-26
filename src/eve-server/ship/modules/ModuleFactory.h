@@ -77,7 +77,7 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Missile_Launcher_Bomb:                   return (new ActiveModule(mRef, sRef));    // Active - external
 
             // Armor Modules:
-            case EVEDB::invGroups::Damage_Control:                      return (new PassiveModule(mRef, sRef));    // Passive - always on when online
+            case EVEDB::invGroups::Damage_Control:                      return (new ActiveModule(mRef, sRef));    // Active  -  SELF
             case EVEDB::invGroups::Armor_Repair_Unit:                       return (new ActiveModule(mRef, sRef));    // Active  -  SELF
             case EVEDB::invGroups::Hull_Repair_Unit:                        return (new ActiveModule(mRef, sRef));    // Active  -  SELF
             case EVEDB::invGroups::Reinforced_Bulkheads:                    return (new PassiveModule(mRef, sRef));

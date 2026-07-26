@@ -68,7 +68,11 @@ MarketProxyService::MarketProxyService(EVEServiceManager& mgr) :
     this->Add("ModifyCharOrder", &MarketProxyService::ModifyCharOrder);
     this->Add("CancelCharOrder", &MarketProxyService::CancelCharOrder);
     this->Add("CharGetNewTransactions", &MarketProxyService::CharGetNewTransactions);
+    this->Add("CharGetTransactions", &MarketProxyService::CharGetTransactions);
     this->Add("CorpGetNewTransactions", &MarketProxyService::CorpGetNewTransactions);
+    this->Add("CorpGetTransactions", &MarketProxyService::CorpGetTransactions);
+    this->Add("GetSkillLimits", &MarketProxyService::GetSkillLimits);
+    this->Add("GetCharSkillLimits", &MarketProxyService::GetSkillLimits);  // same method, alias for client cache
     this->Add("GetCorporationOrders", &MarketProxyService::GetCorporationOrders);
 }
 
@@ -138,6 +142,16 @@ PyResult MarketProxyService::CorpGetNewTransactions(PyCallArgs& call, PyRep* sel
         data.accountKey = accountKey->IsNone() ? 0 : PyRep::IntegerValueU32(accountKey);
         data.memberID = memberID->IsNone() ? 0 : PyRep::IntegerValueU32(memberID);
     return MarketDB::GetTransactions(call.client->GetCorporationID(), data);
+}
+
+PyResult MarketProxyService::CorpGetTransactions(PyCallArgs& call, PyRep* lastTransactionID, PyRep* sellBuy, PyRep* typeID, PyRep* clientID, PyRep* quantity, PyRep* fromDate, PyRep* maxPrice, PyRep* minPrice, PyRep* accountKey, PyRep* memberID)
+{
+    return CorpGetNewTransactions(call, sellBuy, typeID, clientID, quantity, fromDate, maxPrice, minPrice, accountKey, memberID);
+}
+
+PyResult MarketProxyService::CharGetTransactions(PyCallArgs& call, PyRep* lastTransactionID, PyRep* sellBuy, PyRep* typeID, PyRep* clientID, PyRep* quantity, PyRep* fromDate, PyRep* maxPrice, PyRep* minPrice)
+{
+    return CharGetNewTransactions(call, sellBuy, typeID, clientID, quantity, fromDate, maxPrice, minPrice);
 }
 
 PyResult MarketProxyService::GetSkillLimits(PyCallArgs& call) {

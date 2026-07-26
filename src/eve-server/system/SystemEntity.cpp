@@ -193,6 +193,13 @@ void SystemEntity::SendDamageStateChanged() {  //working 24Apr15
     PyTuple *up = dmgChange.Encode();
     if (m_targMgr != nullptr)
         m_targMgr->QueueUpdate(&up);
+    // Broadcast to all players in bubble for drone/shield/armor HUD updates
+    if (SysBubble() != nullptr) {
+        std::vector<Client*> players;
+        SysBubble()->GetPlayers(players);
+        for (auto p : players)
+            if (p != nullptr) p->QueueDestinyUpdate(&up);
+    }
     PySafeDecRef(up);
     _log(DAMAGE__MESSAGE, "%s(%u): DamageUpdate - S:%f A:%f H:%f.", \
             m_self->name(), m_self->itemID(), dmgState.shield, dmgState.armor, dmgState.structure);
@@ -720,7 +727,12 @@ void ObjectSystemEntity::UpdateDamage()
         dmgChange.entityID = m_self->itemID();
         dmgChange.state = dmgState.Encode();
     PyTuple *up = dmgChange.Encode();
-    //source->QueueDestinyUpdate(&up);
+    if (SysBubble() != nullptr) {
+        std::vector<Client*> players;
+        SysBubble()->GetPlayers(players);
+        for (auto p : players)
+            if (p != nullptr) p->QueueDestinyUpdate(&up);
+    }
     PySafeDecRef(up);
 }
 
@@ -806,6 +818,7 @@ void DeployableSE::SetImmediateOnline()
     m_posState = EVEPOS::StructureState::Online;  // 4 = online
     if (SysBubble() != nullptr)
         SysBubble()->SetWarpBubble(true);
+    m_warpScrambleTimer.Start(1000);
     SendSlimUpdate();
 }
 

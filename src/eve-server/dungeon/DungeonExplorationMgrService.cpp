@@ -34,6 +34,7 @@ DungeonExplorationMgrService::DungeonExplorationMgrService() :
     Service("dungeonExplorationMgr")
 {
     this->Add("GetMyEscalatingPathDetails", &DungeonExplorationMgrService::GetMyEscalatingPathDetails);
+    this->Add("DeleteExpiredPathStep", &DungeonExplorationMgrService::DeleteExpiredPathStep);
 }
 
 PyResult DungeonExplorationMgrService::GetMyEscalatingPathDetails(PyCallArgs &call) {
@@ -44,12 +45,7 @@ PyResult DungeonExplorationMgrService::GetMyEscalatingPathDetails(PyCallArgs &ca
     return new PyList();
 }
 
-
-/**
-  dungeonTracking.GetEscalatingPathDungeonsEntered()
-  dungeonTracking.GetDistributionDungeonsEntered()
-        (OnDistributionDungeonEntered)
-sm.RemoteSvc('dungeonExplorationMgr').DeleteExpiredPathStep
-
-
-*/
+PyResult DungeonExplorationMgrService::DeleteExpiredPathStep(PyCallArgs& call, PyInt* instanceID) {
+    _log(DUNG__MESSAGE, "DungeonExplorationMgrService::Handle_DeleteExpiredPathStep()", "size=%lu", call.tuple->size());
+    return PyStatic.NewNone();
+}

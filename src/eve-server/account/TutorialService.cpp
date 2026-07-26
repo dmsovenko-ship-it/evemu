@@ -40,9 +40,12 @@ TutorialService::TutorialService() :
     this->Add("GetCharacterTutorialState", &TutorialService::GetCharacterTutorialState);
     this->Add("GetTutorialsAndConnections", &TutorialService::GetTutorialsAndConnections);
     this->Add("GetCareerAgents", &TutorialService::GetCareerAgents);
+    this->Add("GetActions", &TutorialService::GetActions);
     this->Add("LogStarted", &TutorialService::LogStarted);
     this->Add("LogCompleted", &TutorialService::LogCompleted);
     this->Add("LogAborted", &TutorialService::LogAborted);
+    this->Add("LogAppClosed", &TutorialService::LogAppClosed);
+    this->Add("LogClosed", &TutorialService::LogClosed);
 }
 
 PyResult TutorialService::GetTutorials(PyCallArgs &call) {
@@ -407,6 +410,28 @@ PyResult TutorialService::GetCareerAgents(PyCallArgs& call) {
     if (mapping == nullptr)
         return PyStatic.NewNone();
     return mapping;
+}
+
+PyResult TutorialService::GetActions(PyCallArgs& call) {
+    sLog.White("TutorialService::GetActions()", "size=%lu", call.tuple->size());
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT actionID, actionTypeID, actionData FROM tutorial_actions"))
+    {
+        codelog(DATABASE__ERROR, "Error in GetActions query: %s", res.error.c_str());
+        return new PyList();
+    }
+    return DBResultToRowset(res);
+}
+
+PyResult TutorialService::LogAppClosed(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time) {
+    sLog.White("TutorialService::LogAppClosed()", "tutorialID=%u pageNo=%u", tutorialID->value(), pageNo->value());
+    return PyStatic.NewNone();
+}
+
+PyResult TutorialService::LogClosed(PyCallArgs& call, PyInt* tutorialID, PyInt* pageNo, PyInt* time) {
+    sLog.White("TutorialService::LogClosed()", "tutorialID=%u pageNo=%u", tutorialID->value(), pageNo->value());
+    return PyStatic.NewNone();
 }
 
 

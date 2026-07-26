@@ -47,7 +47,8 @@ PyRep *TutorialDB::GetPages(uint32 tutorialID) {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT pageID, pageNumber, pageName, text, imagePath, audioPath, 0 AS dataID"
+        "SELECT pageID, pageNumber, pageName, text AS textID, imagePath, audioPath,"
+        " 0 AS uiPointerID, 0 AS uiPointerTextID, 0 AS pageActionID, 0 AS dataID"
         " FROM tutorial_pages"
         " WHERE tutorialID=%u"
         " ORDER BY pageNumber", tutorialID))
@@ -63,7 +64,7 @@ PyRep *TutorialDB::GetTutorial(uint32 tutorialID) {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT tutorialID, tutorialName, nextTutorialID, 0 AS dataID"
+        "SELECT tutorialID, tutorialName AS tutorialNameID, nextTutorialID, 0 AS dataID"
         " FROM tutorials"
         " WHERE tutorialID=%u", tutorialID))
     {
@@ -90,11 +91,10 @@ PyRep *TutorialDB::GetTutorialCriterias(uint32 tutorialID) {
 }
 
 PyRep *TutorialDB::GetAllTutorials() {
-    /*  this is wrong...our db is incomplete */
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT tutorialID, tutorialName, nextTutorialID, categoryID, 0 AS dataID"
+        "SELECT tutorialID, tutorialName AS tutorialNameID, nextTutorialID, categoryID, 0 AS dataID"
         " FROM tutorials"))
     {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
@@ -108,7 +108,7 @@ PyRep *TutorialDB::GetAllCriterias() {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT criteriaID, criteriaName, messageText, audioPath, 0 AS dataID"
+        "SELECT criteriaID, criteriaName, messageText AS messageTextID, audioPath, 0 AS dataID"
         " FROM tutorial_criteria"))
     {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
@@ -122,8 +122,7 @@ PyRep *TutorialDB::GetCategories() {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT"
-        " categoryID, categoryName, description, 0 AS dataID"
+        "SELECT categoryID, categoryName AS categoryNameID, description AS descriptionID, 0 AS dataID"
         " FROM tutorial_categories"))
     {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
@@ -166,26 +165,5 @@ PyRep *TutorialDB::GetCareerAgentMapping() {
 PyRep *TutorialDB::GetTutorialsAndConnections(uint8 raceID) {
     DBQueryResult res;
     sDatabase.RunQuery(res, "SELECT tutorialID, %u AS raceID, nextTutorialID FROM tutorials", raceID);
-    /*
-    DBQueryResult res;
-    if (!sDatabase.RunQuery(res, "SELECT `tutorialID`, `tutorialName`, `categoryID`, `dataID`, `tutorialNameID` FROM `tutorialsvc_tutorials`")) {
-        sLog.Error("TutorialService","GetTutorialsAndConnections query1 error: %s", res.error.c_str());
-        return nullptr;
-    }
-    PyObjectEx *tutorials = DBResultToCRowset(res);
-
-    res.Reset();
-    if (!sDatabase.RunQuery(res, "SELECT `tutorialID`, `raceID`, `nextTutorialID`, `dataID` FROM `tutorialsvc_connections`")) {
-        sLog.Error("TutorialService","GetTutorialsAndConnections query2 error: %s", res.error.c_str());
-        return nullptr;
-    }
-    DBRowDescriptor
-    PyObjectEx *connections = DBResultToCRowset(res);
-    PyList *rtn = new PyList(2);
-    rtn->SetItem(0, tutorials);
-    rtn->SetItem(1, connections);
-    rtn->Dump(stdout, "GTAC:   ");
-    return rtn; */
     return DBResultToRowset(res);
 }
-

@@ -2079,13 +2079,18 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);
 
-    // Set server state to STOP but send NOTHING to the client.
-    // The client's WarpLoop runs independently using its own warp simulation
-    // and exits naturally when it reaches the destination. Sending CmdStop,
-    // CmdGotoDirection, or any position snap would either stop the ship
-    // 2736m early or cause the WarpLoop crash (ball.display = None).
     m_ballMode = Destiny::Ball::Mode::STOP;
     m_stop = true;
+    // Send CmdStop to client so its WarpLoop exits and ship mode updates.
+    // Without this, Stop()'s early return (m_stop=true, !IsMoving) skips the packet.
+    if (mySE->SysBubble() != nullptr) {
+        SetPosition(m_targetPoint, true);
+        CmdStop du;
+            du.entityID = mySE->GetID();
+        PyTuple* up = du.Encode();
+        SendSingleDestinyUpdate(&up);
+        PyDecRef(up);
+    }
     m_accel = false;
     m_decel = false;
     m_turning = false;
