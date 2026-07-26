@@ -158,7 +158,7 @@ float Blueprint::GetME()
 {
     float bwf(m_bpType.wasteFactor());
     if (m_data.mLevel < 0) {
-        bwf /= (-m_data.mLevel);
+        bwf *= (1 - m_data.mLevel);  // negative ME increases waste: w * (1 + |ME|)
     } else if (m_data.mLevel > 0) {
         bwf /= (1 + m_data.mLevel);
     }
