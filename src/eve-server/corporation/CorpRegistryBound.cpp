@@ -136,6 +136,8 @@ CorpRegistryBound::CorpRegistryBound(EVEServiceManager& mgr, CorpRegistryService
     this->Add("GetNumberOfPotentialCEOs", &CorpRegistryBound::GetNumberOfPotentialCEOs);
 
     this->Add("CanLeaveCurrentCorporation", &CorpRegistryBound::CanLeaveCurrentCorporation);
+    this->Add("RetractWar", &CorpRegistryBound::RetractWar);
+    this->Add("ChangeMutualWarFlag", &CorpRegistryBound::ChangeMutualWarFlag);
 
     m_corpID = corpID;
 
@@ -2694,5 +2696,29 @@ PyResult CorpRegistryBound::CanLeaveCurrentCorporation(PyCallArgs &call) {
     return tuple;
 }
 
+PyResult CorpRegistryBound::RetractWar(PyCallArgs& call, PyInt* againstID) {
+    uint32 attackerID = call.client->GetCorporationID();
+    uint32 targetID = againstID->value();
+    DBQueryResult res;
+    DBResultRow row;
+    if (sDatabase.RunQuery(res,
+        "SELECT warID FROM warRegistry WHERE declaredByID = %u AND againstID = %u AND retracted = 0",
+        attackerID, targetID) && res.GetRow(row))
+    {
+        uint32 warID = row.GetUInt(0);
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE warRegistry SET retracted = 1, timeFinished = %.0f WHERE warID = %u",
+            (double)GetFileTimeNow(), warID);
+    }
+    return PyStatic.NewNone();
+}
+
+PyResult CorpRegistryBound::ChangeMutualWarFlag(PyCallArgs& call, PyInt* warID, PyBool* mutual) {
+    uint32 id = warID->value();
+    bool val = mutual->value();
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE warRegistry SET mutual = %u WHERE warID = %u", val, id);
+    return PyStatic.NewTrue();
+}
 
 

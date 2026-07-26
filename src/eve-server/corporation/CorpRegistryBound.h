@@ -144,6 +144,8 @@ protected:
     PyResult GetNumberOfPotentialCEOs(PyCallArgs& call);
 
     PyResult CanLeaveCurrentCorporation(PyCallArgs& call);
+    PyResult RetractWar(PyCallArgs& call, PyInt* againstID);
+    PyResult ChangeMutualWarFlag(PyCallArgs& call, PyInt* warID, PyBool* mutual);
     
 
 protected:
