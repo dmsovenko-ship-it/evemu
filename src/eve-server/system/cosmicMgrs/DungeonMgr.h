@@ -86,7 +86,7 @@ public:
 protected:
     ManagerDB m_db;
 
-    void CreateDeco(uint32 templateID, CosmicSignature& sig);
+    void SpawnDecorations(const GPoint& roomPos, uint32 factionID);
 
     /* we do not own any of these */
 private:

@@ -459,6 +459,9 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 }
             }
 
+            // Spawn procedural decorations based on faction
+            SpawnDecorations(newRoom.position, dData.factionID);
+
             newDungeon.rooms.insert({roomCounter, newRoom});
             roomCounter++;
         }
@@ -468,6 +471,112 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
         return true;
     }
     return false;
+}
+
+void DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
+{
+    // Faction-specific decorative structure typeIDs (common SDE celestial objects)
+    static const std::vector<uint32> genericDeco = {
+        23,      // CargoContainer
+        3298,    // HangarContainer
+        3293,    // MediumStandardContainer
+        3296,    // LargeStandardContainer
+        24445,   // GeneralFreightContainer
+        26468,   // Wreck
+        10645,   // CelestialBeacon
+        10124,   // Beacon
+        10753,   // SoftCloud
+        10754,   // WispyOrangeCloud
+        10758,   // WispyChlorineCloud
+    };
+    // Asteroid chunks for visual debris
+    static const std::vector<uint32> asteroidDeco = {
+        1230,    // Veldspar
+        1231,    // Scordite
+        1232,    // Pyroxeres
+        1228,    // Plagioclase
+        1226,    // Kernite
+        1225,    // Jaspet
+        1227,    // Hemorphite
+        1229,    // Omber
+    };
+    // Wreck types per race
+    static const std::vector<uint32> wreckDeco = {
+        26483,   // AmarrFreighterWreck
+        26505,   // CaldariFreighterWreck
+        26527,   // GallenteFreighterWreck
+        26549,   // MinmatarFreighterWreck
+    };
+
+    // Faction-specific structure pools
+    uint32 decoCount = 8 + MakeRandomInt(0, 7);
+    std::vector<uint32> factionDeco;
+    switch (factionID) {
+        case factionAngel: {
+            factionDeco = {17366, 3298, 24445, 3465, 3296, 26549, 26527};
+            decoCount = 10 + MakeRandomInt(0, 8);
+            break;
+        }
+        case factionGuristas: {
+            factionDeco = {17366, 3298, 3465, 26483, 26505, 10754};
+            decoCount = 8 + MakeRandomInt(0, 6);
+            break;
+        }
+        case factionBloodRaider: {
+            factionDeco = {17366, 3467, 19373, 24545, 10758, 3465};
+            decoCount = 6 + MakeRandomInt(0, 5);
+            break;
+        }
+        case factionSanshas: {
+            factionDeco = {17366, 26483, 26527, 10754, 3298, 24445};
+            decoCount = 8 + MakeRandomInt(0, 7);
+            break;
+        }
+        case factionSerpentis: {
+            factionDeco = {17366, 3298, 24445, 10753, 3296, 3465};
+            decoCount = 10 + MakeRandomInt(0, 8);
+            break;
+        }
+        case factionRogueDrones: {
+            factionDeco = {26468, 26549, 26527, 24445, 10758, 3465};
+            decoCount = 12 + MakeRandomInt(0, 8);
+            break;
+        }
+        default: {
+            factionDeco = {17366, 3298, 24445, 3465, 3296, 26549, 26527, 26483, 26505};
+            decoCount = 6 + MakeRandomInt(0, 4);
+            break;
+        }
+    }
+
+    // Mix in some of each category
+    std::vector<uint32> decoPool;
+    for (auto t : factionDeco) decoPool.push_back(t);
+    for (auto t : genericDeco) decoPool.push_back(t);
+    if (MakeRandomInt(0, 2) > 0)
+        for (auto t : asteroidDeco) decoPool.push_back(t);
+    if (MakeRandomInt(0, 3) == 0)
+        for (auto t : wreckDeco) decoPool.push_back(t);
+
+    for (uint32 i = 0; i < decoCount; ++i) {
+        uint32 typeID = decoPool[MakeRandomInt(0, decoPool.size() - 1)];
+        // Random position within 3000-8000m radius from room center, at various heights
+        double angle = MakeRandomFloat() * 2.0 * 3.14159;
+        double radius = 3000.0 + MakeRandomFloat() * 5000.0;
+        double height = (MakeRandomFloat() - 0.5) * 4000.0;
+        GPoint pos;
+        pos.x = roomPos.x + cos(angle) * radius;
+        pos.y = roomPos.y + sin(angle) * radius;
+        pos.z = roomPos.z + height;
+
+        ItemData itemData(typeID, 1, m_system->GetID(), flagNone, "", pos);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        if (iRef.get() == nullptr)
+            continue;
+        iRef->SaveItem();
+        CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
+        m_system->AddEntity(cSE, false);
+    }
 }
 
 int8 DungeonMgr::GetFaction(uint32 factionID)
