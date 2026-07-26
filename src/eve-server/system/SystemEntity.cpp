@@ -191,15 +191,19 @@ void SystemEntity::SendDamageStateChanged() {  //working 24Apr15
         dmgChange.entityID = m_self->itemID();
         dmgChange.state = dmgState.Encode();
     PyTuple *up = dmgChange.Encode();
-    if (m_targMgr != nullptr)
-        m_targMgr->QueueUpdate(&up);
-    // Broadcast to all players in bubble for drone/shield/armor HUD updates
+    // Bubble broadcast first (clones), THEN targMgr (which nulls the pointer)
     if (SysBubble() != nullptr) {
         std::vector<Client*> players;
         SysBubble()->GetPlayers(players);
-        for (auto p : players)
-            if (p != nullptr) p->QueueDestinyUpdate(&up);
+        for (auto p : players) {
+            if (p == nullptr) continue;
+            PyTuple* clone = static_cast<PyTuple*>(up->Clone());
+            p->QueueDestinyUpdate(&clone);
+            PySafeDecRef(clone);
+        }
     }
+    if (m_targMgr != nullptr)
+        m_targMgr->QueueUpdate(&up);
     PySafeDecRef(up);
     _log(DAMAGE__MESSAGE, "%s(%u): DamageUpdate - S:%f A:%f H:%f.", \
             m_self->name(), m_self->itemID(), dmgState.shield, dmgState.armor, dmgState.structure);
@@ -731,8 +735,12 @@ void ObjectSystemEntity::UpdateDamage()
     if (SysBubble() != nullptr) {
         std::vector<Client*> players;
         SysBubble()->GetPlayers(players);
-        for (auto p : players)
-            if (p != nullptr) p->QueueDestinyUpdate(&up);
+        for (auto p : players) {
+            if (p == nullptr) continue;
+            PyTuple* clone = static_cast<PyTuple*>(up->Clone());
+            p->QueueDestinyUpdate(&clone);
+            PySafeDecRef(clone);
+        }
     }
     PySafeDecRef(up);
 }
