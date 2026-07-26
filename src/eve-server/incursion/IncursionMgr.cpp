@@ -161,13 +161,13 @@ void IncursionMgr::StartIncursion(uint32 factionID, uint32 constellationID)
         // Count incursion systems
         DBQueryResult cntRes;
         uint32 sysCount = 0;
-        if (sDatabase.RunQuery(cntRes, "SELECT COUNT(*) FROM incursionSystems WHERE incursionID = %u", newID)) {
+        if (sDatabase.RunQuery(cntRes, "SELECT COUNT(*) FROM incursionSystems WHERE incursionID = %u", incursionID)) {
             DBResultRow cntRow;
             if (cntRes.GetRow(cntRow)) sysCount = cntRow.GetUInt(0);
         }
 
         PyDict* taleDict = new PyDict();
-        taleDict->SetItemString("taleID", new PyInt(newID));
+        taleDict->SetItemString("taleID", new PyInt(incursionID));
         taleDict->SetItemString("templateClassID", new PyInt(2));
         taleDict->SetItemString("severity", new PyInt(3)); // Vanguard on start
         PyDict* inflData = new PyDict();
