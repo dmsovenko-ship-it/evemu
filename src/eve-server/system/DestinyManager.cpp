@@ -190,6 +190,17 @@ void DestinyManager::ProcessState() {
             Follow();
         } break;
         case Ball::Mode::WARP: {
+            // Check for warp scramble during alignment phase (before warp starts).
+            // WarpTo only checks once at command time; the ship may enter a bubble while aligning.
+            if (m_warpState == nullptr
+                && mySE->GetSelf()->GetAttribute(AttrWarpScrambleStatus).get_int() > 0)
+            {
+                if (mySE->HasPilot())
+                    mySE->GetPilot()->SendErrorMsg("Warp drive is disrupted.");
+                m_ballMode = Destiny::Ball::Mode::STOP;
+                return;
+            }
+
             /*
              * There are three stages of warp, which are functions of time, speed and distance:
              *
@@ -581,11 +592,22 @@ void DestinyManager::Stop() {
     if (m_userSpeedFraction == 0.0f) {
         m_stop = true;
     } else if ((m_ballMode == Destiny::Ball::Mode::WARP) and (IsWarping())) {
-        // Active warp — transition to GOTO for smooth deceleration instead of instant STOP.
-        // Client's WarpLoop ends independently; GOTO mode lets the ship coast to destination.
+        // Active warp aborted — coast to destination at drop speed instead of snap STOP.
+        // Client's WarpLoop has exited; keep the ship moving so the client sees deceleration.
         m_ballMode = Destiny::Ball::Mode::GOTO;
-        SetSpeedFraction(0.0f);
+        m_targetPoint = m_position + m_warpState->warp_vector * m_targetDistance;
+        m_velocity = m_warpState->warp_vector * m_speedToLeaveWarp;
+        m_maxSpeed = m_speedToLeaveWarp;
+        m_userSpeedFraction = 1.0f;
+        m_activeSpeedFraction = 1.0f;
+        m_timeFraction = 1.0f;
+        m_accel = false;
+        m_decel = true;         // let UpdateVelocity decelerate from drop speed
         SafeDelete(m_warpState);
+        m_stop = false;
+        // Don't fall through to the common Stop() code below (which zeroes speed).
+        m_stateStamp = sEntityList.GetStamp();
+        return;
     } else if ((m_ballMode == Destiny::Ball::Mode::WARP) and (!IsWarping()))  {
         //warp aborted before initialized.  standard Stop() applies.
         m_ballMode = Destiny::Ball::Mode::STOP;
