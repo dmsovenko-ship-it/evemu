@@ -1959,12 +1959,11 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
                 mySE->GetName(), mySE->GetID(), decelTime, sec_into_warp, currentShipSpeed, m_targetDistance);
 
     WarpUpdate(currentShipSpeed);
-    // Fire WarpStop only when the ship has very nearly arrived (< 100m).
-    // This keeps the server position close to the client's WarpLoop position,
-    // preventing position snap. WarpStop itself sends no packets — the client's
-    // WarpLoop exits naturally and the next CmdStop/ProcessDestiny sync resolves
-    // any remaining offset.
-    if (m_targetDistance > 0.0 && m_targetDistance <= 100.0)
+    // Fire WarpStop when the ship is within 1m of target to maximize deceleration
+    // time. The client's WarpLoop calculates a shorter total warp than the server's
+    // fixed 7/21s accel/decel; delaying WarpStop gives the client more deceleration
+    // visually before the mode change exits its WarpLoop.
+    if (m_targetDistance > 0.0 && m_targetDistance <= 1.0)
         WarpStop(currentShipSpeed);
 }
 
