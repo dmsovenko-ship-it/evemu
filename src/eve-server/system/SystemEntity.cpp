@@ -941,10 +941,14 @@ void DeployableSE::Process()
     // Ensure warp bubble flag is set for online deployables (e.g. loaded from DB)
     if (SysBubble() != nullptr && !SysBubble()->HasWarpBubble())
         SysBubble()->SetWarpBubble(true);
-    if (!m_warpScrambleTimer.Check(true))
+    if (!m_warpScrambleTimer.Check(true)) {
+        _log(DESTINY__WARNING, "DeployableSE::ScrambleCheck — timer not firing yet");
         return;
-    if (SysBubble() == nullptr)
+    }
+    if (SysBubble() == nullptr) {
+        _log(DESTINY__WARNING, "DeployableSE::ScrambleCheck — no SysBubble");
         return;
+    }
     // EVE retail warp scramble ranges per typeID (SDE data)
     float range = 20000.0f;  // default fallback
     switch (m_self->typeID()) {

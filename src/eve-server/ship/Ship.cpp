@@ -3029,6 +3029,14 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
         data.corporationID = pChar->corporationID();
         data.factionID = pChar->warFactionID();
         data.ownerID = pChar->itemID();
+
+    // Move the drone item from bay to space before creating the SE
+    dRef->Move(GetLocationID(), flagNone, true);
+    dRef->ChangeSingleton(true);
+    GPoint pos(GetPosition());
+    pos.MakeRandomPointOnSphere(50.0);
+    dRef->SetPosition(pos);
+
     DroneSE* pDrone = new DroneSE(dRef, m_services, m_system, data);
     pDrone->Launch(this);
     m_drones.emplace(dRef->itemID(), dRef.get());
