@@ -680,13 +680,14 @@ void TargetManager::QueueEvent( PyTuple** event ) const
         }
 }
 
-void TargetManager::QueueUpdate( PyTuple** update ) const
+void TargetManager::QueueUpdate(PyTuple** update) const
 {
-    for (auto cur : m_targetedBy)
-        if (cur.first->HasPilot()) {
-            PyIncRef(*update);
-            cur.first->GetPilot()->QueueDestinyUpdate(update);
-        }
+    for (auto cur : m_targetedBy) {
+        if (!cur.first->HasPilot()) continue;
+        PyTuple* clone = static_cast<PyTuple*>((*update)->Clone());
+        cur.first->GetPilot()->QueueDestinyUpdate(&clone);
+        PySafeDecRef(clone);
+    }
 }
 
 /* debugging methods */
