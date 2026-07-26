@@ -1014,8 +1014,9 @@ void DestinyManager::MoveObject() {
             SetPosition(newPos, true);
         }
     } else if (m_userSpeedFraction > 0.0f && m_ballMode != Destiny::Ball::Mode::FOLLOW
-               && m_ballMode != Destiny::Ball::Mode::ORBIT) {
-        // Send position updates while moving — skip Follow and Orbit (client-driven simulation).
+               && m_ballMode != Destiny::Ball::Mode::ORBIT
+               && m_ballMode != Destiny::Ball::Mode::GOTO) {
+        // Send position updates while moving — skip Follow, Orbit, Goto (client-driven simulation).
         SetPosition(newPos, sConfig.debug.PositionHack);
     }
 
