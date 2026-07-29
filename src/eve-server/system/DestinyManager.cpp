@@ -268,14 +268,18 @@ void DestinyManager::ProcessState() {
             } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
                 // catchall for turn checks messed up, and m_moveTime > ship align time
                 if (mySE->HasPilot()) {
-                    _log(DESTINY__ERROR, "Destiny::ProcessState() Error!  Ship %s(%u) for Player %s(%u) - warp align/speed is incorrect, but time > shipTimeToWarp.",  \
-                                mySE->GetName(), mySE->GetID(), mySE->GetPilot()->GetName(), mySE->GetPilot()->GetCharacterID());
+                _log(DESTINY__ERROR, "Destiny::ProcessState() Error!  Ship %s(%u) for Player %s(%u) - warp align/speed is incorrect, but time > shipTimeToWarp.",  \
+                            mySE->GetName(), mySE->GetID(), mySE->GetPilot()->GetName(), mySE->GetPilot()->GetCharacterID());
                 } else {
                     _log(DESTINY__ERROR, "Destiny::ProcessState() Error!  NPC %s(%u) - warp align/speed is incorrect, but time > shipTimeToWarp.",  \
                             mySE->GetName(), mySE->GetID());
                 }
                 m_shipHeading = toVec;
-                // Enter warp with current velocity (don't zero it — ship had momentum).
+                // Force velocity toward target — InitWarp uses m_velocity for direction
+                m_velocity = GVector(m_shipHeading.x * m_maxShipSpeed,
+                                     m_shipHeading.y * m_maxShipSpeed,
+                                     m_shipHeading.z * m_maxShipSpeed);
+                // Enter warp with current velocity (don't zero it - ship had momentum).
                 InitWarp();
                 return;
             }
