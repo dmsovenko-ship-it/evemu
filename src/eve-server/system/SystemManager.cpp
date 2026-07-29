@@ -1419,6 +1419,9 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
 
     //go through all visible entities and gather the info we need...
     for (auto cur : visibleEntities) {
+        // Skip entities with null DestinyMgr — they were freed (use-after-free guard)
+        if (cur.second == nullptr or cur.second->DestinyMgr() == nullptr)
+            continue;
         // Encode destiny binary FIRST — if it fails, skip this entity entirely
         // to avoid BallNotInPark (slimItem without ball).
         size_t bufBefore = stateBuffer->size();

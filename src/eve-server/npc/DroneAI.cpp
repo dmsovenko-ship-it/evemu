@@ -169,6 +169,9 @@ void DroneAIMgr::Process() {
      */
 
     // test for control distance - offline drones outside AttrDroneControlDistance
+    // skip if drone was destroyed/freed (use-after-free guard)
+    if ((m_pDrone == nullptr) or (m_pDrone->DestinyMgr() == nullptr))
+        return;
     // skip check while Departing (drone needs to return), Engaged, Approaching, or Mining
     // (actively working drones should not be interrupted by distance)
     if ((m_state != DroneAI::State::Departing)
