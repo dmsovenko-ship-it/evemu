@@ -1372,7 +1372,7 @@ uint32 SystemManager::GetRandBeltID()
 }
 
 void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) const {
-    _log(DESTINY__TRACE, "MakeSetState for entity %u in bubble %u", into.ego, pBubble->GetID());
+    _log(DESTINY__TRACE, "MakeSetState for entity %u", into.ego);
     using namespace Destiny;
     Buffer* stateBuffer(new Buffer());
 
