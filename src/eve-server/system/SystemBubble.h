@@ -88,7 +88,7 @@ public:
     double x() const                                    { return m_center.x; }
     double y() const                                    { return m_center.y; }
     double z() const                                    { return m_center.z; }
-    uint16 GetID()                                      { return m_bubbleID; }
+    uint16 GetID() const                                { return m_bubbleID; }
     uint32 GetSystemID()                                { return m_systemID; }
     GPoint GetCenter() const                            { return m_center; }
     ContainerSE* GetCenterMarker()                      { return m_centerSE; }
