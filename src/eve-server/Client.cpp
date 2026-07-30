@@ -2649,7 +2649,7 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
     }
     DoDestinyAction act;
         act.stamp = sEntityList.GetStamp();
-    if (DoPackage/* or m_packaged*/) {
+    if (DoPackage and IsSetState) {
         if (IsSetState) {
             // send the setstate buffer alone
             act.update = *update;
@@ -2678,6 +2678,7 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
         } else {
             SendNotification("DoDestinyUpdate", "clientID", &t, false);
         }
+        return;
     } else {
         // Wrap in PackagedAction if update starts with int (like AddBalls2) to prevent
         // client RealFlushState from treating the int as funcName.
