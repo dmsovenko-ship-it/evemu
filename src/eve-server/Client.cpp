@@ -2670,6 +2670,9 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
     if (DoPackage and IsSetState) {
         if (IsSetState) {
             // send the setstate buffer alone
+            // IncRef before act.update — act destructor PyDecRef will balance,
+            // encoded tuple's IncRef (from Encode) keeps data alive until send.
+            PyIncRef(*update);
             act.update = *update;
         } else {
             // this will package all current updates (and those coming in before next flush) into
@@ -2717,6 +2720,10 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
                 return;
             }
         } else {
+            // IncRef before act.update — balances act destructor's PySafeDecRef.
+            // Without this, the encoded tuple's raw field would point to freed memory
+            // (use-after-free), causing garbage types (buffer, list, corrupted) on client.
+            PyIncRef(*update);
             act.update = *update;
         }
         m_packaged = true;
@@ -3483,9 +3490,11 @@ void Client::FlushPendingDestinyUpdates() {
         }
         DoDestinyAction act;
             act.stamp = sEntityList.GetStamp();
+            // No IncRef needed — pending push (PushBack + PyIncRef) keeps data alive.
+            // act destructor's PyDecRef will balance the pending push's IncRef.
             act.update = update;
         dum.updates->AddItem(act.Encode());
-        // act destructor handles PyDecRef(update); no explicit dec-ref here
+        // act destructor handles PyDecRef(update) at end of iteration
     }
     PyTuple* t = dum.Encode();
     SendNotification("DoDestinyUpdate", "clientID", &t, false);
