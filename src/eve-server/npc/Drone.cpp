@@ -144,6 +144,8 @@ void DroneSE::SetDisplayOwner(uint32 ownerID, uint32 controllerOwnerID, uint32 c
 DroneSE::~DroneSE() {
     if (m_pShipSE != nullptr)
         m_pShipSE->RemoveDroneFromFlight(m_self->itemID());
+    if (m_system != nullptr)
+        m_system->RemoveEntity(this);
     SafeDelete(m_AI);
 }
 
