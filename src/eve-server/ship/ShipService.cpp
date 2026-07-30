@@ -526,7 +526,6 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                         head.stamp = sEntityList.GetStamp();
                     destinyBuffer->Append(head);
                     AddBalls2 addballs2;
-                        addballs2.stateStamp = sEntityList.GetStamp();
                         addballs2.extraBallData = new PyList();
                     PyTuple* balls = new PyTuple(2);
                         balls->SetItem(0, pSE->MakeSlimItem());
