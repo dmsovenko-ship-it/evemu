@@ -1,22 +1,38 @@
 # EVEmu Session Context
 
 ## Current State
-All fixes committed and pushed to `master` (commit `1f39dd09`). Server rebuilding.
+Session saved. Latest commit: `b6e77ec3` — fix AddBalls double-wrap. Server running on remote host `172.20.1.47`. SSH user: `dmitry`, path: `/opt/evemu`, docker-compose deploy.
 
 ## Git Log
 ```
-f59a77be fix: server-side warp scramble check in WarpTo, fix Bubble::Add OnSpecialFX14 with range, add JumpIn/GateActivity on warp arrival
-d34308cc fix: warp accel formula divide-by-3 bug (1/3 dist traveled), fix warp cap using m_massMKg
-b9133a99 fix: add mixed PyInt/PyBool SendMail overloads
-3bc4d2ad feat: defender/anti-missile system (ShipSE::MissileLaunched, interception, Countermeasure_Launcher)
-7cb2fb3d fix: add sourceShipID to Missile MakeSlimItem
-bc17d8db fix: null check pilots in Bump() (crash when bumping NPC/structure without pilot)
-cb82e950 fix: add corpID/allianceID/charID to base SystemEntity MakeSlimItem
-4813a739 fix: mail service — fix MarkAsUnreadByList signature, add list-based DB methods, fix SyncMail range filter
-4d326741 fix: add SendMail overloads with PyInt* for isReplyTo/isForwardedFrom
-e2349964 fix: skip SendAddBalls for warping ships (prevents WarpLoop crash), keep velocity on force-warp
-d58859ea chore: remove __pycache__ from tracking, add to gitignore
-d3cf152d fix: remove dynamic bubble toggle, fix bump collision formula, fix warp decel exit (use ship radius)
+b6e77ec3 fix: remove double-wrap in AddBalls XML — same pattern as AddBalls2
+fe8ece5b fix: remove double-wrapping in AddBalls2 XML — client expects (state, extraBallData)
+339357f8 fix: add PyIncRef before act.update = *update — prevents use-after-free
+2ac27b78 fix: add targeted action raw-type logging in _SendQueuedUpdates
+b00af344 fix: reject destiny updates with non-scalar first item (e.g., list)
+e5e76d7a fix: remove last stateStamp ref in SendStaticBall
+8d99f0b6 fix: remove stateStamp ref in ShipService.cpp
+c901541f fix: restructure AddBalls2 to start with string funcName
+d5fd2877 fix: PyIncRef before push to m_pendingUpdates
+d1b34cc8 fix: remove stateStamp refs in SystemManager.cpp
+d24189e7 chore: comment SIGSEGV guard in MakeSetState
+182a8cce fix: auto-cleanup orphaned decorations on server restart
+df680a34 fix: add RemoveEntity in DroneSE destructor
+a7e30938 fix: cleanup corrupt decoration entities from DB
+48d15e07 fix: disable DoPackage path except SetState
+c52e7993 fix: add RemoveEntity before delete this in ContainerSE::Process
+a37a3a6a fix: remove DestinyMgr null check from MakeSetState
+94954991 fix: make SystemBubble::GetID() const
+41462a87 fix: build error — GetID() not const in MakeSetState
+db232d41 debug: log MakeSetState entry
+7519ad51 fix: skip entities not in m_ticEntities during MakeSetState
+e4c7209e fix: set velocity toward target before InitWarp on alignment timeout
+e9e5e202 fix: drone AI use-after-free + MakeSetState null check
+9f822aa4 fix: BubblecastDestinyUpdate clones before broadcast
+8d13e0c5 fix: TargetManager::QueueUpdate clones before broadcast
+d4fee97c fix: SendDamageStateChanged crash
+ffc681ae fix: incursionRewards PK fix
+331413a9 feat: procedural faction-based dungeon decorations
 ```
 
 ## Key Decisions
@@ -73,6 +89,9 @@ Based on decompiled `destiny.dll` (stored at `C:\opencode\projects\other\`):
 - **Warp physics**: accel formula divide-by-3 fix (was 1/3 dist); capacitor mass unit fix (kg→Mkg, was ×1000); decel exit m_radius instead of hardcoded 100m; catch-all/30° no longer zeroes velocity; warp-to-0 surface landing; collision detection (bump off gates/stations); warp intercept via HasWarpBubble; JumpIn broadcast on gate jump
 - **Defender missiles**: ShipSE::MissileLaunched auto-fires defenders; Missile::HitTarget intercepts missiles; public Destroy() method; Countermeasure_Launcher enabled in ModuleFactory
 - **Client crash fixes**: graphicInfo=None→skip SmartBomb/MicroWarpDrive; bracket "name" field in all MakeSlimItem; AddBalls2 DataSector; WarpLoop SendAddBalls skip; Bump null-check pilots; sourceShipID in Missile MakeSlimItem
+- **Destiny update use-after-free**: PyIncRef before act.update assignment in all paths; PyIncRef before push to m_pendingUpdates; reject empty tuples and non-scalar first items
+- **AddBalls/AddBalls2 double-wrap**: removed extra tuple wrapping ((data),) → (data); restructured to start with string funcName; removed stateStamp field
+- **OnModuleAttributeChange size**: restored oldValue (7-item tuple); events sent separately via OnMultiEvent to avoid RealFlushState unpack mismatch
 - **Sovereignty**: militaryPoints/industrialPoints default 5→0
 
 ### To Test
