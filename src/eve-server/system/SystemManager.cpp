@@ -1195,7 +1195,6 @@ void SystemManager::AddMarker(SystemEntity* pSE, bool sendBall/*false*/, bool ad
     destinyBuffer->Append( head );
 
     AddBalls2 addballs2;
-        addballs2.stateStamp = sEntityList.GetStamp();
         addballs2.extraBallData = new PyList();
 
     PyTuple* balls = new PyTuple(2);
