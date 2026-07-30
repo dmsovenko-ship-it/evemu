@@ -2657,6 +2657,11 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
     // Defer destiny updates until SetState has been sent to avoid
     // "No ballpark for update" errors on the client during login.
     if (!IsSetState and !m_setStateSent) {
+        // IncRef before push — caller (e.g. BubblecastDestinyUpdate) will PySafeDecRef
+        // after QueueDestinyUpdate returns, which would free the pointer before
+        // FlushPendingDestinyUpdates processes it. The IncRef is balanced by
+        // DoDestinyAction's destructor in FlushPendingDestinyUpdates.
+        PyIncRef(*update);
         m_pendingUpdates.push_back(*update);
         return;
     }
