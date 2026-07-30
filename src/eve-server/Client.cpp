@@ -2716,33 +2716,27 @@ void Client::_SendQueuedUpdates() {
         m_destinyEventQueue->clear();
         return;
     }
+    // Send destiny updates (without dogma events — RealFlushState expects 6-item unpacking
+    // but OnModuleAttributeChange has 7 items, so we always send events separately).
     if (!m_destinyUpdateQueue->empty()) {
-        if (m_destinyEventQueue->empty()) {
-            DoDestinyUpdateMain_2 dum;
-                dum.updates = m_destinyUpdateQueue;
-                dum.waitForBubble = m_bubbleWait;
-            PyTuple* t = dum.Encode();
-            if (is_log_enabled(CLIENT__QUEUE_DUMP))
-                t->Dump(CLIENT__QUEUE_DUMP, "");
-            SendNotification("DoDestinyUpdate", "clientID", &t);
-        } else {
-            DoDestinyUpdateMain dum;
-                dum.updates = m_destinyUpdateQueue;
-                dum.events = m_destinyEventQueue;
-                dum.waitForBubble = m_bubbleWait;
-            PyTuple* t = dum.Encode();
-            if (is_log_enabled(CLIENT__QUEUE_DUMP))
-                t->Dump(CLIENT__QUEUE_DUMP, "");
-            SendNotification("DoDestinyUpdate", "clientID", &t);
-        }
-    } else if (!m_destinyEventQueue->empty()) {
+        DoDestinyUpdateMain_2 dum;
+            dum.updates = m_destinyUpdateQueue;
+            dum.waitForBubble = m_bubbleWait;
+        PyTuple* t = dum.Encode();
+        if (is_log_enabled(CLIENT__QUEUE_DUMP))
+            t->Dump(CLIENT__QUEUE_DUMP, "");
+        SendNotification("DoDestinyUpdate", "clientID", &t);
+    }
+    // Send dogma events separately as OnMultiEvent so clientdogmalocation.py handles them
+    // with the full 7-item tuple (or whatever the event requires).
+    if (!m_destinyEventQueue->empty()) {
         Notify_OnMultiEvent nom;
             nom.events = m_destinyEventQueue;
         PyTuple* t = nom.Encode();
         if (is_log_enabled(CLIENT__QUEUE_DUMP))
             t->Dump(CLIENT__QUEUE_DUMP, "");
         SendNotification("OnMultiEvent", "charid", &t);
-    } //else nothing to be sent ...
+    }
 
     // clear the queues now, after the packets have been sent
     m_destinyUpdateQueue->clear();

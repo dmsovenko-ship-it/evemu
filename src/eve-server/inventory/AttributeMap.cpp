@@ -374,7 +374,7 @@ bool AttributeMap::Change(uint16 attrID, EvilNumber& old_val, EvilNumber& new_va
         modChange.attributeID = attrID;
         modChange.time = GetFileTimeNow();
         modChange.newValue = new_val.GetPyObject();
-        // oldValue not sent — client expects 6-item tuple (funcName + 5 data)
+        modChange.oldValue = old_val.GetPyObject();
     return SendChanges(modChange.Encode());
 }
 
@@ -409,6 +409,7 @@ bool AttributeMap::Add(uint16 attrID, EvilNumber& num) {
         modChange.attributeID = attrID;
         modChange.time = GetFileTimeNow();
         modChange.newValue = num.GetPyObject();
+        modChange.oldValue = PyStatic.NewNone();
     return SendChanges(modChange.Encode());
 }
 
