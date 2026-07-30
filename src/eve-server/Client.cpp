@@ -2698,14 +2698,24 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
         }
         return;
     } else {
-        // Wrap in PackagedAction if update starts with int (like AddBalls2) to prevent
-        // client RealFlushState from treating the int as funcName.
-        if ((*update)->items.size() > 0 && !(*update)->items[0]->IsString()) {
-            PyList* paList = new PyList();
-                paList->AddItem(*update);
-            PackagedAction pa;
-                pa.substream = new PySubStream(paList);
-            act.update = pa.Encode();
+        // Wrap in PackagedAction if update starts with int (like AddBalls2's binary stamp)
+        // to prevent client RealFlushState from treating the int as funcName.
+        bool isIntOrLong = ((*update)->items[0]->IsInt() || (*update)->items[0]->IsLong());
+        if (!(*update)->items[0]->IsString()) {
+            if (isIntOrLong) {
+                // int/long-first updates (AddBalls2) — wrap in PackagedAction
+                PyList* paList = new PyList();
+                    paList->AddItem(*update);
+                PackagedAction pa;
+                    pa.substream = new PySubStream(paList);
+                act.update = pa.Encode();
+            } else {
+                // Unknown first-item type (e.g., list) — reject to prevent client crash:
+                // RealFlushState would treat e.g. a list as funcName → TypeError: unhashable type
+                _log(CLIENT__ERROR, "QueueDestinyUpdate: rejecting update with non-scalar first item (type=%d) for %s(%u)",
+                        (*update)->items[0]->GetType(), GetName(), GetCharID());
+                return;
+            }
         } else {
             act.update = *update;
         }
@@ -3447,6 +3457,12 @@ void Client::FlushPendingDestinyUpdates() {
             continue;
         if (update->items.empty()) {
             _log(CLIENT__ERROR, "FlushPendingDestinyUpdates: skipping empty update tuple");
+            continue;
+        }
+        // Reject updates whose first item is not a string or int — would crash client
+        if (!update->items[0]->IsString() && !update->items[0]->IsInt() && !update->items[0]->IsLong()) {
+            _log(CLIENT__ERROR, "FlushPendingDestinyUpdates: skipping update with non-scalar first item (type=%d)",
+                    update->items[0]->GetType());
             continue;
         }
         DoDestinyAction act;
