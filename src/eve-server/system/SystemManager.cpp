@@ -1508,7 +1508,6 @@ void SystemManager::SendStaticBall(SystemEntity* pSE)
     destinyBuffer->Append( head );
 
     AddBalls2 addballs2;
-    addballs2.stateStamp = sEntityList.GetStamp();
     addballs2.extraBallData = new PyList();
 
     if (pSE->IsContainerSE()) {
