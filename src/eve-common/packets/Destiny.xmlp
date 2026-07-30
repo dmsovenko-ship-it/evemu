@@ -239,14 +239,17 @@ DST_WARPEXIT = 11
       <tupleInline>
         <!-- 0 -->
         <stringInline value="AddBalls" />
-        <!-- 1: (state, slims, damageDict) — no double-wrap -->
+        <!-- 1 -->
         <tupleInline>
             <!-- 0 -->
-            <buffer name="state" />
-            <!-- 1: slims (list of SlimItem) -->
-            <list name="slims" />
-            <!-- 2 -->
-            <dictInt name="damageDict" />
+            <tupleInline>
+              <!-- 0 -->
+              <buffer name="state" />
+              <!-- 1: slims (list of SlimItem) -->
+              <list name="slims" />
+              <!-- 2 -->
+              <dictInt name="damageDict" />
+            </tupleInline>
         </tupleInline>
       </tupleInline>
   </elementDef>
@@ -266,12 +269,15 @@ DST_WARPEXIT = 11
     <tupleInline>
       <!-- 0-->
       <stringInline value="AddBalls2" />
-      <!-- 1: (state, extraBallData) — single tuple, no double-wrap -->
+      <!-- 1 -->
       <tupleInline>
-          <!-- 0 state buffer for AddBalls-->
-          <buffer name="state" />
-          <!-- 1: balls (list of ball dicts to add) -->
-          <list name="extraBallData" />
+          <!-- 0 -->
+          <tupleInline>
+            <!-- 0 state buffer for AddBalls-->
+            <buffer name="state" />
+            <!-- 1: balls (list of ball dicts to add) -->
+            <list name="extraBallData" />
+          </tupleInline>
       </tupleInline>
     </tupleInline>
   </elementDef>
