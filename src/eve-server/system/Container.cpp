@@ -334,6 +334,7 @@ void ContainerSE::Process() {
     if (m_deleteTimer.Check(false)) {
         m_deleteTimer.Disable();
         sLog.Magenta( "ContainerSE::Process()", "Garbage Collection is removing Cargo Container %u.", m_contRef->itemID() );
+        m_system->RemoveEntity(this);
         m_contRef->Delete();
         delete this;
     }
