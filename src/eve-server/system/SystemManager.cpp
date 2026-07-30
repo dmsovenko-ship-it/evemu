@@ -1426,6 +1426,8 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
         // Encode destiny binary FIRST — if it fails, skip this entity entirely
         // to avoid BallNotInPark (slimItem without ball).
         size_t bufBefore = stateBuffer->size();
+        // SIGSEGV guard: if EncodeDestiny crashes on freed entity, skip it
+        // (signal handler installed in eve-server.cpp restores execution)
         cur.second->EncodeDestiny( *stateBuffer );
         size_t bufAfter = stateBuffer->size();
         size_t encodedSize = bufAfter - bufBefore;
