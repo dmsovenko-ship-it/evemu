@@ -863,7 +863,6 @@ void SystemBubble::SendAddBalls2( SystemEntity* to_who ) {
     destinyBuffer->Append(head);
 
     AddBalls2 addballs2;
-    addballs2.stateStamp = sEntityList.GetStamp();
     addballs2.extraBallData = new PyList();
 
     for (auto cur : m_dynamicEntities) {
@@ -899,7 +898,7 @@ void SystemBubble::SendAddBalls2( SystemEntity* to_who ) {
     if (is_log_enabled(DESTINY__BALL_DECODE))
         Destiny::DumpUpdate( DESTINY__BALL_DECODE, &( addballs2.state->content() )[0], (uint32)addballs2.state->content().size() );
     PyTuple* t = addballs2.Encode();
-    pClient->QueueDestinyUpdate(&t, true);    //consumed — DoPackage=true wraps in PackagedAction (AddBalls2 starts with int, not string)
+    pClient->QueueDestinyUpdate(&t);    //consumed — AddBalls2 now starts with string, no PackagedAction needed
 }
 
 void SystemBubble::AddBallExclusive( SystemEntity* pSE ) {

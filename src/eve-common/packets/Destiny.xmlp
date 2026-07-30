@@ -268,20 +268,16 @@ DST_WARPEXIT = 11
   <elementDef name="AddBalls2">
     <tupleInline>
       <!-- 0-->
-      <int name="stateStamp" />
+      <stringInline value="AddBalls2" />
+      <!-- 1 -->
       <tupleInline>
-        <!-- 0 -->
-        <stringInline value="AddBalls2" />
-        <!-- 1 -->
-        <tupleInline>
-            <!-- 0 -->
-            <tupleInline>
-              <!-- 0 state buffer for AddBalls-->
-              <buffer name="state" />
-              <!-- 1: balls (list of ball dicts to add) -->
-              <list name="extraBallData" />
-            </tupleInline>
-        </tupleInline>
+          <!-- 0 -->
+          <tupleInline>
+            <!-- 0 state buffer for AddBalls-->
+            <buffer name="state" />
+            <!-- 1: balls (list of ball dicts to add) -->
+            <list name="extraBallData" />
+          </tupleInline>
       </tupleInline>
     </tupleInline>
   </elementDef>
