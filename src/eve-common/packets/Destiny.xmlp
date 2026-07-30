@@ -269,15 +269,12 @@ DST_WARPEXIT = 11
     <tupleInline>
       <!-- 0-->
       <stringInline value="AddBalls2" />
-      <!-- 1 -->
+      <!-- 1: (state, extraBallData) — single tuple, no double-wrap -->
       <tupleInline>
-          <!-- 0 -->
-          <tupleInline>
-            <!-- 0 state buffer for AddBalls-->
-            <buffer name="state" />
-            <!-- 1: balls (list of ball dicts to add) -->
-            <list name="extraBallData" />
-          </tupleInline>
+          <!-- 0 state buffer for AddBalls-->
+          <buffer name="state" />
+          <!-- 1: balls (list of ball dicts to add) -->
+          <list name="extraBallData" />
       </tupleInline>
     </tupleInline>
   </elementDef>

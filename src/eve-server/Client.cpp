@@ -2741,22 +2741,6 @@ void Client::_SendQueuedUpdates() {
     // Send destiny updates (without dogma events — RealFlushState expects 6-item unpacking
     // but OnModuleAttributeChange has 7 items, so we always send events separately).
     if (!m_destinyUpdateQueue->empty()) {
-        // Log any actions with empty or non-tuple raw data (catches client-crashing packets)
-        for (PyRep* item : *m_destinyUpdateQueue) {
-            if (!item->IsTuple()) {
-                _log(CLIENT__ERROR, "%s: Non-tuple action in queue (type=%d)", __func__, item->GetType());
-                continue;
-            }
-            PyTuple* act = item->AsTuple();
-            if (act->items.size() < 2 || act->items[1] == nullptr) {
-                _log(CLIENT__ERROR, "%s: Malformed action (items=%zu)", __func__, act->items.size());
-                continue;
-            }
-            PyRep* raw = act->items[1];
-            if (!raw->IsTuple() && !raw->IsString()) {
-                _log(CLIENT__ERROR, "%s: Action raw type=%d (not tuple/string)", __func__, raw->GetType());
-            }
-        }
         DoDestinyUpdateMain_2 dum;
             dum.updates = m_destinyUpdateQueue;
             dum.waitForBubble = m_bubbleWait;
