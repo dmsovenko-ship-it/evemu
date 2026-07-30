@@ -26,6 +26,11 @@ fi
 # Clean up stale wrecks
 mysql -h "${MARIADB_HOST:-db}" -u "${MARIADB_USER:-evemu}" -p"${MARIADB_PASSWORD:-evemu}" "${MARIADB_DATABASE:-evemu}" \
     -e "DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%'); DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE locationID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%')); DELETE FROM entity WHERE locationID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%'); DELETE FROM entity WHERE itemName LIKE '%Wreck%';" \
+     2>/dev/null; true
+
+# Clean up old decorations and orphaned dynamic entities (containers, beacons, wrecks)
+mysql -h "${MARIADB_HOST:-db}" -u "${MARIADB_USER:-evemu}" -p"${MARIADB_PASSWORD:-evemu}" "${MARIADB_DATABASE:-evemu}" \
+    -e "DELETE FROM entity WHERE itemID > 14000000 AND typeID IN (23,3293,3296,3298,3465,3467,24445,24545,17366,19373,10645,10124,10753,10754,10758,10756,1225,1226,1227,1228,1229,1230,1231,1232,26468,26483,26505,26527,26549,29033,29034,29035,29036);" \
     2>/dev/null; true
 
 #Start eve-server
