@@ -1,0 +1,3 @@
+-- Already applied. Kept to satisfy migration tracker.
+-- +migrate Up
+-- +migrate Down
