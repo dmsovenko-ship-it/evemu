@@ -153,7 +153,8 @@
       <int name="attributeID" />
       <long name="time" />
       <raw name="newValue" />
-      <raw name="oldValue" />
+      <!-- oldValue and scatterAttr not sent — client RealFlushState unpacks 6 items total -->
+      <!-- <raw name="oldValue" /> -->
       <!-- <raw name="scatterAttr" /> -->
     </tupleInline>
   </elementDef>

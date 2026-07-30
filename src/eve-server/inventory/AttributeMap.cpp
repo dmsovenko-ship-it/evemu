@@ -374,22 +374,7 @@ bool AttributeMap::Change(uint16 attrID, EvilNumber& old_val, EvilNumber& new_va
         modChange.attributeID = attrID;
         modChange.time = GetFileTimeNow();
         modChange.newValue = new_val.GetPyObject();
-        modChange.oldValue = old_val.GetPyObject();
-        /*  not sure about this one yet, used in cap charge (more?)....oldValue is list for this server rsp
-         *
-                  [PyTuple 7 items]
-                    [PyString "OnModuleAttributeChange"]
-                    [PyInt 649670823]
-                    [PyIntegerVar 1005885567714]
-                    [PyInt 18]
-                    [PyIntegerVar 129756563388570240]
-                    [PyFloat 680.554999862301]
-                    [PyList 4 items]
-                      [PyFloat 526.692785423517]        <<- old value
-                      [PyIntegerVar 129756563391382864] <<- old time?
-                      [PyFloat 104400]                  <<- recharge time ??
-                      [PyFloat 4860]                    <<-  ??
-        */
+        // oldValue not sent — client expects 6-item tuple (funcName + 5 data)
     return SendChanges(modChange.Encode());
 }
 
@@ -424,7 +409,6 @@ bool AttributeMap::Add(uint16 attrID, EvilNumber& num) {
         modChange.attributeID = attrID;
         modChange.time = GetFileTimeNow();
         modChange.newValue = num.GetPyObject();
-        modChange.oldValue = PyStatic.NewNone();
     return SendChanges(modChange.Encode());
 }
 

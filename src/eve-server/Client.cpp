@@ -2628,10 +2628,18 @@ void Client::FlushQueue() {
 void Client::QueueDestinyEvent(PyTuple** event) {
     if ((event == nullptr) or ((*event) == nullptr))
         return;
+    // Reject empty event tuples — client crashes on data[0]
+    if ((*event)->items.empty()) {
+        _log(CLIENT__ERROR, "QueueDestinyEvent: rejecting empty event tuple");
+        return;
+    }
     // Skip malformed events that don't start with a string (would crash client with
     // "cannot concatenate 'str' and 'int' objects" in RealFlushState).
-    if ((*event)->items.size() > 0 && !(*event)->items[0]->IsString())
+    if (!(*event)->items[0]->IsString()) {
+        _log(CLIENT__ERROR, "QueueDestinyEvent: rejecting event with non-string funcName (type=%d) for %s(%u)",
+                (*event)->items[0]->GetType(), GetName(), GetCharID());
         return;
+    }
     m_destinyEventQueue->AddItem(*event);
     //PyDecRef(*event);
 }
@@ -2641,6 +2649,11 @@ void Client::QueueDestinyUpdate(PyTuple **update, bool DoPackage /*false*/, bool
         return;
     if (sDataMgr.IsStation(m_locationID))
         return;
+    // Reject empty tuples — client crashes on data[0] access (IndexError)
+    if ((*update)->items.empty()) {
+        _log(CLIENT__ERROR, "QueueDestinyUpdate: rejecting empty update tuple for %s(%u)", GetName(), GetCharID());
+        return;
+    }
     // Defer destiny updates until SetState has been sent to avoid
     // "No ballpark for update" errors on the client during login.
     if (!IsSetState and !m_setStateSent) {
@@ -3433,6 +3446,10 @@ void Client::FlushPendingDestinyUpdates() {
     for (auto update : m_pendingUpdates) {
         if (update == nullptr)
             continue;
+        if (update->items.empty()) {
+            _log(CLIENT__ERROR, "FlushPendingDestinyUpdates: skipping empty update tuple");
+            continue;
+        }
         DoDestinyAction act;
             act.stamp = sEntityList.GetStamp();
             act.update = update;
