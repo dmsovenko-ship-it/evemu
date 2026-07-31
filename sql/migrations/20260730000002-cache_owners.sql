@@ -1,8 +1,8 @@
 -- Populate cacheOwners from chrNPCCharacters — required for owner name resolution
 -- +migrate Up
 
-REPLACE INTO `cacheOwners` (`ownerID`, `ownerName`, `typeID`, `gender`)
-SELECT `characterID`, `characterName`, `typeID`, `gender` FROM `chrNPCCharacters`
+REPLACE INTO `cacheOwners` (`ownerID`, `ownerName`, `typeID`)
+SELECT `characterID`, `characterName`, `typeID` FROM `chrNPCCharacters`
 WHERE `characterName` IS NOT NULL;
 
 -- +migrate Down
