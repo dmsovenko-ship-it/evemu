@@ -40,7 +40,6 @@ services:
       - MARIADB_DATABASE=evemu
     command:
       - --innodb-buffer-pool-size=1G        # Default is 128MB — far too small for bulk seeding
-      - --sql-mode=NO_ENGINE_SUBSTITUTION    # Disable strict mode — migrations with missing defaults would fail
       - --innodb-log-file-size=256M         # Larger redo log handles big transactions without stalling
       - --innodb-flush-log-at-trx-commit=2  # Flush every second instead of every commit (safe for dev)
       - --max-allowed-packet=64M            # Prevent packet size errors on large queries
