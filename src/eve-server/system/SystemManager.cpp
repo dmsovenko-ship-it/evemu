@@ -600,6 +600,17 @@ SystemEntity* DynamicEntityFactory::BuildEntity(SystemManager& sysMgr, const DBS
         data.ownerID = entity.ownerID;
 
     switch (entity.categoryID) {
+        // Charges (ammo/frequency crystals) should never be standalone space entities.
+        // If one appears in the entity table (e.g. from a bad spawn), skip it rather
+        // than failing BootSystem, which breaks the destination system on gate jump.
+        case EVEDB::invCategories::Charge:
+        case EVEDB::invCategories::Skill:
+        case EVEDB::invCategories::Implant:
+        case EVEDB::invCategories::Material: {
+            _log(ITEM__WARNING, "DynamicEntityFactory::BuildEntity() skipping non-space entity %s (%u) cat=%u",
+                 entity.itemName.c_str(), entity.itemID, entity.categoryID);
+            return nullptr;
+        } break;
         case EVEDB::invCategories::Asteroid: {
             InventoryItemRef asteroid = sItemFactory.GetItemRef( entity.itemID );
             if (asteroid.get() == nullptr)
