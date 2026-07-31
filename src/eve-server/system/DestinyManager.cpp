@@ -1272,8 +1272,17 @@ void DestinyManager::Follow() {
                 _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by session change", mySE->GetName());
                 return;
             }
-            if (!pClient->IsIdle()) {
-                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — not idle", mySE->GetName());
+            // The client's m_clientState can linger in a non-Idle state (e.g. after a
+            // warp or during AP follow) even though the ship is physically at the gate.
+            // The strict IsIdle() check made the AP jump never fire ("not idle"), which
+            // left the ship stuck at the gate. Only block on conditions that actually
+            // prevent a jump: active session change, warp in progress, or frozen.
+            if (IsWarping()) {
+                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — warping", mySE->GetName());
+                return;
+            }
+            if (mySE->IsFrozen()) {
+                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — frozen", mySE->GetName());
                 return;
             }
             // Teleport identical to .tr GM command — nothing extra
