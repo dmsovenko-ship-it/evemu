@@ -2,8 +2,11 @@
 -- These entities have incomplete destiny data and crash MakeSetState.
 -- +migrate Up
 
-DELETE FROM `entity` WHERE `itemID` > 14000000
-AND `groupID` IN (12, 186, 310, 920, 335, 340, 382, 427, 430, 449, 426);
+-- groupID lives in invTypes, not entity — join via typeID
+DELETE e FROM `entity` e
+INNER JOIN `invTypes` t USING (typeID)
+WHERE e.`itemID` > 14000000
+AND t.`groupID` IN (12, 186, 310, 920, 335, 340, 382, 427, 430, 449, 426);
 
 DELETE FROM `entity` WHERE `itemID` > 14000000
 AND `typeID` IN (23,3293,3296,3298,3465,3467,24445,24545,17366,19373,
