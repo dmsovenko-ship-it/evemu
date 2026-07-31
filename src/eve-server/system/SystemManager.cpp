@@ -1419,8 +1419,13 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
 
     //go through all visible entities and gather the info we need...
     for (auto cur : visibleEntities) {
-        // Skip entities that were freed — their key data is still in bubble map
-        if (cur.second == nullptr or m_ticEntities.find(cur.first) == m_ticEntities.end())
+        // Skip entities that were freed — their key data is still in bubble map.
+        // Keep entities in ANY system map: static (gates, planets, stations),
+        // op-static, or tic (dynamic). RemoveEntity erases from all three.
+        if (cur.second == nullptr
+            or (m_ticEntities.find(cur.first) == m_ticEntities.end()
+                and m_staticEntities.find(cur.first) == m_staticEntities.end()
+                and m_opStaticEntities.find(cur.first) == m_opStaticEntities.end()))
             continue;
         // Encode destiny binary FIRST — if it fails, skip this entity entirely
         // to avoid BallNotInPark (slimItem without ball).
