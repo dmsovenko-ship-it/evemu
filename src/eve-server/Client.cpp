@@ -1591,7 +1591,15 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
 
     m_lastGateID = toGate;
 
-    SetStateTimer(Player::State::Jump, Player::Timer::Jumping);
+    // Execute the jump immediately (synchronously with the CmdStargateJump RPC),
+    // so the session change completes before the RPC response is returned — the
+    // same pattern as dock/undock. The old 4s SetStateTimer flow left the client
+    // in a stale session/ballpark for 4 seconds and its autoPilot stalled after
+    // the jump (no OnSessionChanged-driven route advance, silent destID=None).
+    // The immediate flow was previously reverted only due to the destination
+    // system boot crashing on Charge entities — that is now fixed (BuildEntity
+    // skips Charge/Skill/Implant/Material).
+    ExecuteJump();
 }
 
 void Client::ContrabandScan(uint32 fromGate)
