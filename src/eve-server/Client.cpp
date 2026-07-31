@@ -496,6 +496,7 @@ void Client::ProcessClient() {
     if (m_stateTimer.Enabled())
         if (m_stateTimer.Check(false)) {
             _log(CLIENT__TIMER, "ProcessClient(): state timer hit.  current state time is %ums", m_stateTimer.GetCurrentTime());
+            _log(AUTOPILOT__MESSAGE, "%s: ProcessClient state timer hit — state=%s", m_char->name(), GetStateName(m_clientState).c_str());
             m_stateTimer.Disable();
             switch (m_clientState) {
                     case Player::State::Idle: {
@@ -1893,6 +1894,8 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
 }
 
 void Client::ExecuteJump() {
+    _log(AUTOPILOT__MESSAGE, "%s: ExecuteJump() entered — movePoint=(%s) moveSystem=%u", m_char->name(),
+         (m_movePoint == NULL_ORIGIN) ? "NULL" : "set", m_moveSystemID);
     if (m_movePoint == NULL_ORIGIN) {
         m_clientState = Player::State::Idle;
         _log(AUTOPILOT__TRACE, "ExecuteJump() - movePoint = null; state set to Idle");
