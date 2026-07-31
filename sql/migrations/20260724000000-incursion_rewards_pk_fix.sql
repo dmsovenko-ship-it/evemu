@@ -14,34 +14,36 @@ CREATE TABLE incursionRewards_v2 (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 -- Vanguard: ~10M ISK + 1400 CONCORD LP
+-- rewardTypeID: 0 = ISK, 1 = LP (const.rewardTypeISK/rewardTypeLP)
+-- LP rows store the LP amount in rewardQuantity so entries[].quantity carries it
 INSERT INTO incursionRewards_v2 (rewardGroupID, rewardTypeID, rewardQuantity, lpTypeID, lpAmount) VALUES
 (1, 0, 10395000, 0, 0),
-(1, 0, 0, 29247, 1400);
+(1, 1, 1400, 29247, 1400);
 
 -- Assault: ~18M ISK + 3500 LP
 INSERT INTO incursionRewards_v2 (rewardGroupID, rewardTypeID, rewardQuantity, lpTypeID, lpAmount) VALUES
 (2, 0, 18200000, 0, 0),
-(2, 0, 0, 29247, 3500);
+(2, 1, 3500, 29247, 3500);
 
 -- Headquarters: ~31M ISK + 7000 LP
 INSERT INTO incursionRewards_v2 (rewardGroupID, rewardTypeID, rewardQuantity, lpTypeID, lpAmount) VALUES
 (3, 0, 31500000, 0, 0),
-(3, 0, 0, 29247, 7000);
+(3, 1, 7000, 29247, 7000);
 
 -- Mothership: ~63M ISK + 14000 LP
 INSERT INTO incursionRewards_v2 (rewardGroupID, rewardTypeID, rewardQuantity, lpTypeID, lpAmount) VALUES
 (4, 0, 63000000, 0, 0),
-(4, 0, 0, 29247, 14000);
+(4, 1, 14000, 29247, 14000);
 
 -- Encounter-type rewards (used by GetDelayedRewardsByGroupIDs)
 INSERT INTO incursionRewards_v2 (rewardGroupID, rewardTypeID, rewardQuantity, lpTypeID, lpAmount) VALUES
-(5,  0, 5000000,  0, 0), (5,  0, 0, 29247, 500),
-(6,  0, 7500000,  0, 0), (6,  0, 0, 29247, 800),
-(7,  0, 8500000,  0, 0), (7,  0, 0, 29247, 1000),
-(8,  0, 10395000, 0, 0), (8,  0, 0, 29247, 1400),
-(9,  0, 14000000, 0, 0), (9,  0, 0, 29247, 2500),
-(10, 0, 25000000, 0, 0), (10, 0, 0, 29247, 5000),
-(11, 0, 50000000, 0, 0), (11, 0, 0, 29247, 10000);
+(5,  0, 5000000,  0, 0), (5,  1, 500,  29247, 500),
+(6,  0, 7500000,  0, 0), (6,  1, 800,  29247, 800),
+(7,  0, 8500000,  0, 0), (7,  1, 1000, 29247, 1000),
+(8,  0, 10395000, 0, 0), (8,  1, 1400, 29247, 1400),
+(9,  0, 14000000, 0, 0), (9,  1, 2500, 29247, 2500),
+(10, 0, 25000000, 0, 0), (10, 1, 5000, 29247, 5000),
+(11, 0, 50000000, 0, 0), (11, 1, 10000, 29247, 10000);
 
 -- Swap tables
 RENAME TABLE incursionRewards TO incursionRewards_old;
