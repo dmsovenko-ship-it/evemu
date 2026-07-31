@@ -797,6 +797,7 @@ PyResult BeyonceBound::CmdStargateJump(PyCallArgs &call, PyInt* fromStargateID, 
 
     _log(AUTOPILOT__MESSAGE, "%s called Jump. AP: %s", call.client->GetName(), (call.client->IsAutoPilot() ? "true" : "false"));
     if (call.client->IsSessionChange()) {
+        _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by session change", call.client->GetName());
         call.client->SendNotifyMsg("Session Change currently active.");
         return PyStatic.NewNone();
     }
@@ -805,20 +806,25 @@ PyResult BeyonceBound::CmdStargateJump(PyCallArgs &call, PyInt* fromStargateID, 
         codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
         return PyStatic.NewNone();
     } else if (pDestiny->IsWarping()) {
+        _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — warping", call.client->GetName());
         call.client->SendNotifyMsg( "You can't do this while warping");
         return PyStatic.NewNone();
     }  else if (pDestiny->AbortIfLoginWarping(true)) {
+        _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — login warp", call.client->GetName());
         return PyStatic.NewNone();
     } else if (pDestiny->IsFrozen()) {
+        _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — frozen", call.client->GetName());
         call.client->SendNotifyMsg( "Your ship is frozen and cannot move");
         return PyStatic.NewNone();
     }
 
     // Aggression timer blocks gate jump
     if (call.client->GetCrimeWatch() != nullptr and !call.client->GetCrimeWatch()->CanJump()) {
+        _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — aggression timer", call.client->GetName());
         call.client->SendNotifyMsg("You cannot jump while you have an active aggression timer.");
         return PyStatic.NewNone();
     }
+    _log(AUTOPILOT__MESSAGE, "%s: Jump accepted — calling StargateJump(%u->%u)", call.client->GetName(), fromStargateID->value(), toStargateID->value());
     /** @todo  check distance from ship to gate */
     call.client->StargateJump(fromStargateID->value(), toStargateID->value());
 
