@@ -252,10 +252,27 @@ PyResult BeyonceBound::CmdGotoDirection(PyCallArgs &call, PyFloat* x, PyFloat* y
     if (pDestiny == nullptr) {
         codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
         return PyStatic.NewNone();
-    } else if (pDestiny->IsWarping()) {
+    }
+    // Autopilot handling. The client's AP sends CmdStargateJump when the ship is
+    // close enough to a gate — that is a legitimate AP jump, NOT a manual override.
+    if (call.client->IsAutoPilot()) {
+        // Ship in AP follow on a gate → Follow() tick performs the fast teleport
+        // jump. Ignore this duplicate CmdStargateJump and KEEP autopilot on.
+        if (pDestiny->IsFollowing()
+            && pDestiny->GetTargetEntity() != nullptr
+            && pDestiny->GetTargetEntity()->IsGateSE()) {
+            _log(AUTOPILOT__MESSAGE, "%s: AP follow on gate — ignoring CmdStargateJump, Follow() handles it.", call.client->GetName());
+            return PyStatic.NewNone();
+        }
+        // Ship not in AP follow → manual jump with a stale AP flag. Clear AP so
+        // the manual jump proceeds immediately.
+        _log(AUTOPILOT__MESSAGE, "%s: Manual jump while AP flag set — clearing autopilot.", call.client->GetName());
+        call.client->SetAutoPilot(false);
+    }
+    if (pDestiny->IsWarping()) {
         call.client->SendNotifyMsg( "You can't do this while warping");
         return PyStatic.NewNone();
-    } else if (pDestiny->AbortIfLoginWarping(true)) {
+    }  else if (pDestiny->AbortIfLoginWarping(true)) {
         return PyStatic.NewNone();
     } else if (pDestiny->IsFrozen()) {
         call.client->SendNotifyMsg( "Your ship is frozen and cannot move");
@@ -791,13 +808,6 @@ PyResult BeyonceBound::CmdStargateJump(PyCallArgs &call, PyInt* fromStargateID, 
 */
 
     _log(AUTOPILOT__MESSAGE, "%s called Jump. AP: %s", call.client->GetName(), (call.client->IsAutoPilot() ? "true" : "false"));
-    // If the client sends CmdStargateJump directly, the pilot is explicitly jumping
-    // (manual override). Clear autopilot so the manual jump proceeds immediately;
-    // otherwise a stale AP flag would block every manual gate jump.
-    if (call.client->IsAutoPilot()) {
-        _log(AUTOPILOT__MESSAGE, "%s: Manual jump while AP flag set — clearing autopilot.", call.client->GetName());
-        call.client->SetAutoPilot(false);
-    }
     if (call.client->IsSessionChange()) {
         call.client->SendNotifyMsg("Session Change currently active.");
         return PyStatic.NewNone();
