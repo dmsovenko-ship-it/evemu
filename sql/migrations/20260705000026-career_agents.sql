@@ -57,19 +57,19 @@ REPLACE INTO `agtAgents` (`agentID`, `divisionID`, `corporationID`, `locationID`
 
 -- Career agent NPC character data for client eveowners cache
 -- typeID=13775 is "Agent" — a generic NPC agent type from SDE
-REPLACE INTO `chrNPCCharacters` (`characterID`, `characterName`, `typeID`, `stationID`, `solarSystemID`, `gender`) VALUES
-(3019800, 'Tutor Amarr Industry',    13775, 60015001, 30002187, 1),
-(3019801, 'Tutor Amarr Business',    13775, 60015001, 30002187, 1),
-(3019802, 'Tutor Amarr Exploration', 13775, 60015001, 30002187, 1),
-(3019803, 'Tutor Caldari Industry',    13775, 60015005, 30000141, 1),
-(3019804, 'Tutor Caldari Business',    13775, 60015005, 30000141, 1),
-(3019805, 'Tutor Caldari Exploration', 13775, 60015005, 30000141, 1),
-(3019806, 'Tutor Gallente Industry',    13775, 60015010, 30002505, 1),
-(3019807, 'Tutor Gallente Business',    13775, 60015010, 30002505, 1),
-(3019808, 'Tutor Gallente Exploration', 13775, 60015010, 30002505, 1),
-(3019809, 'Tutor Minmatar Industry',    13775, 60015010, 30002507, 1),
-(3019810, 'Tutor Minmatar Business',    13775, 60015010, 30002507, 1),
-(3019811, 'Tutor Minmatar Exploration', 13775, 60015010, 30002507, 1);
+REPLACE INTO `chrNPCCharacters` (`characterID`, `characterName`, `description`, `typeID`, `stationID`, `solarSystemID`, `gender`) VALUES
+(3019800, 'Tutor Amarr Industry',    '', 13775, 60015001, 30002187, 1),
+(3019801, 'Tutor Amarr Business',    '', 13775, 60015001, 30002187, 1),
+(3019802, 'Tutor Amarr Exploration', '', 13775, 60015001, 30002187, 1),
+(3019803, 'Tutor Caldari Industry',    '', 13775, 60015005, 30000141, 1),
+(3019804, 'Tutor Caldari Business',    '', 13775, 60015005, 30000141, 1),
+(3019805, 'Tutor Caldari Exploration', '', 13775, 60015005, 30000141, 1),
+(3019806, 'Tutor Gallente Industry',    '', 13775, 60015010, 30002505, 1),
+(3019807, 'Tutor Gallente Business',    '', 13775, 60015010, 30002505, 1),
+(3019808, 'Tutor Gallente Exploration', '', 13775, 60015010, 30002505, 1),
+(3019809, 'Tutor Minmatar Industry',    '', 13775, 60015010, 30002507, 1),
+(3019810, 'Tutor Minmatar Business',    '', 13775, 60015010, 30002507, 1),
+(3019811, 'Tutor Minmatar Exploration', '', 13775, 60015010, 30002507, 1);
 
 -- +migrate Down
 DELETE FROM `chrNPCCharacters` WHERE `characterID` BETWEEN 3019800 AND 3019811;
