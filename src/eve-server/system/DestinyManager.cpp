@@ -1241,77 +1241,17 @@ void DestinyManager::Follow() {
              mySE->GetPilot()->IsAutoPilot(), true,
              (void*)m_targetEntity.second);
 
-    // autopilot check first — auto-jump if at gate.
-    // Use a generous fixed threshold (2000m) instead of the exact follow distance:
-    // the server position may be slightly off the client's, so a tight threshold
-    // (e.g. 50m) would never trigger the jump.
-    uint32 jumpDist = 2000;
-    if ((rawDist <= (double)jumpDist) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
+    // The client's autopilot drives the jump itself: when the ship is close enough
+    // to a gate it sends CmdStargateJump via PerformSessionChange('autopilot', ...).
+    // The server must process that RPC (returning the bound object ID) so the client's
+    // session change completes — otherwise the client's autoPilot service gets a
+    // UserError and turns itself off. Therefore the server does NOT teleport here;
+    // it just keeps the ship approaching the gate and lets the client trigger the jump.
+    if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
+        _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d — waiting for client CmdStargateJump",
+             mySE->GetName(), rawDist, (void*)m_targetEntity.second,
+             (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
         SetSpeedFraction(0.0);
-            _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
-                 mySE->GetName(), rawDist, (void*)m_targetEntity.second,
-                 (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
-        if (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()) {
-            if (m_apJumping) {
-                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by m_apJumping", mySE->GetName());
-                return;
-            }
-            uint32 fromGate = m_targetEntity.second->GetID();
-            DBQueryResult jmpRes;
-            sDatabase.RunQuery(jmpRes,
-                "SELECT celestialID FROM mapJumps WHERE stargateID = %u LIMIT 1", fromGate);
-            DBResultRow jmpRow;
-            if (!jmpRes.GetRow(jmpRow)) {
-                _log(AUTOPILOT__MESSAGE, "%s: No jump destination found for gate %u", mySE->GetName(), fromGate);
-                return;
-            }
-            uint32 toGate = jmpRow.GetUInt(0);
-            _log(AUTOPILOT__MESSAGE, "%s: Auto-jump from gate %u to %u", mySE->GetName(), fromGate, toGate);
-            Client* pClient = mySE->GetPilot();
-            if (pClient->IsSessionChange()) {
-                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked by session change", mySE->GetName());
-                return;
-            }
-            // The client's m_clientState can linger in a non-Idle state (e.g. after a
-            // warp or during AP follow) even though the ship is physically at the gate.
-            // The strict IsIdle() check made the AP jump never fire ("not idle"), which
-            // left the ship stuck at the gate. Only block on conditions that actually
-            // prevent a jump: active session change, warp in progress, or frozen.
-            if (IsWarping()) {
-                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — warping", mySE->GetName());
-                return;
-            }
-            if (mySE->IsFrozen()) {
-                _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — frozen", mySE->GetName());
-                return;
-            }
-            // Teleport identical to .tr GM command — nothing extra
-            m_apJumping = true;
-            StaticData toData;
-            sDataMgr.GetStaticInfo(toGate, toData);
-            GPoint destPos(toData.position);
-            destPos.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
-            pClient->SetLastGateID(toGate);
-            // Gate jump animation
-            mySE->DestinyMgr()->SendJumpOut(fromGate);
-            mySE->DestinyMgr()->SendGateActivity(fromGate);
-            pClient->MoveToLocation(toData.systemID, destPos);
-            if (pClient->IsInSpace()) {
-                mySE->DestinyMgr()->Stop();
-                if (mySE->SysBubble() == nullptr)
-                    mySE->SystemMgr()->AddEntity(mySE);
-                mySE->SysBubble()->SendAddBalls(mySE);
-                // JumpIn effect must be sent AFTER AddEntity — the ship needs to
-                // be in a bubble for BubblecastDestiny to reach other players.
-                pClient->JumpInEffect();
-                SendGateActivity(pClient->GetLastGateID());
-                pClient->SetStateSent(false);
-                mySE->DestinyMgr()->SendSetState();
-                pClient->SetInvulTimer(Player::Timer::JumpInvul);
-                mySE->DestinyMgr()->Cloak();
-                pClient->SetCloakTimer(Player::Timer::JumpCloak);
-            }
-        }
         return;
     }
 

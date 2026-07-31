@@ -253,22 +253,10 @@ PyResult BeyonceBound::CmdGotoDirection(PyCallArgs &call, PyFloat* x, PyFloat* y
         codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
         return PyStatic.NewNone();
     }
-    // Autopilot handling. The client's AP sends CmdStargateJump when the ship is
-    // close enough to a gate — that is a legitimate AP jump, NOT a manual override.
-    if (call.client->IsAutoPilot()) {
-        // Ship in AP follow on a gate → Follow() tick performs the fast teleport
-        // jump. Ignore this duplicate CmdStargateJump and KEEP autopilot on.
-        if (pDestiny->IsFollowing()
-            && pDestiny->GetTargetEntity() != nullptr
-            && pDestiny->GetTargetEntity()->IsGateSE()) {
-            _log(AUTOPILOT__MESSAGE, "%s: AP follow on gate — ignoring CmdStargateJump, Follow() handles it.", call.client->GetName());
-            return PyStatic.NewNone();
-        }
-        // Ship not in AP follow → manual jump with a stale AP flag. Clear AP so
-        // the manual jump proceeds immediately.
-        _log(AUTOPILOT__MESSAGE, "%s: Manual jump while AP flag set — clearing autopilot.", call.client->GetName());
-        call.client->SetAutoPilot(false);
-    }
+    // Both manual jumps and the client's autopilot send CmdStargateJump via
+    // PerformSessionChange. The client MUST get back the bound object ID (GetOID())
+    // or its session change / autoPilot service treats it as a failure and turns off.
+    // So we always process the jump here; autopilot stays on as the client drives it.
     if (pDestiny->IsWarping()) {
         call.client->SendNotifyMsg( "You can't do this while warping");
         return PyStatic.NewNone();
