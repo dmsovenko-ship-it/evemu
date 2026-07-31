@@ -1902,10 +1902,12 @@ void Client::ExecuteJump() {
 
     //OnScannerInfoRemoved  - no args.  flushes current scan data in client
     SendNotification("OnScannerInfoRemoved", "charid", new PyTuple(0), true);  // this is sequenced
-    // Offline all modules before jump to prevent client CountDown timer crash
-    // (slimItem lookup fails after session change when entity is in a new bubble)
-    if (m_ship.get() != nullptr)
-        m_ship->OfflineAll();
+    // Deactivate (stop cycles) but KEEP modules online during the jump.
+    // OfflineAll() was used before — that fully turned modules OFF, and they
+    // never came back online after the session change. Correct behavior: modules
+    // are inactive while jumping, not offline.
+    if (m_ship.get() != nullptr && m_ship->HasModuleManager())
+        m_ship->GetModuleManager()->DeactivateAllModules();
     pShipSE->Jump();
 
     MoveToLocation(m_moveSystemID, m_movePoint);
