@@ -791,12 +791,12 @@ PyResult BeyonceBound::CmdStargateJump(PyCallArgs &call, PyInt* fromStargateID, 
 */
 
     _log(AUTOPILOT__MESSAGE, "%s called Jump. AP: %s", call.client->GetName(), (call.client->IsAutoPilot() ? "true" : "false"));
-    // When AP is on, the server's Follow() tick handles the jump via .tr-style
-    // teleport.  Letting CmdStargateJump through would use the old timer-based
-    // flow with 4s delay, which breaks the client's autoPilot service state.
+    // If the client sends CmdStargateJump directly, the pilot is explicitly jumping
+    // (manual override). Clear autopilot so the manual jump proceeds immediately;
+    // otherwise a stale AP flag would block every manual gate jump.
     if (call.client->IsAutoPilot()) {
-        _log(AUTOPILOT__MESSAGE, "%s: AP active — ignoring CmdStargateJump, Follow() tick handles it.", call.client->GetName());
-        return PyStatic.NewNone();
+        _log(AUTOPILOT__MESSAGE, "%s: Manual jump while AP flag set — clearing autopilot.", call.client->GetName());
+        call.client->SetAutoPilot(false);
     }
     if (call.client->IsSessionChange()) {
         call.client->SendNotifyMsg("Session Change currently active.");

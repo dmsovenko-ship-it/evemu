@@ -1005,22 +1005,22 @@ void DestinyManager::MoveObject() {
         _log(DESTINY__ERROR, "%s(%u) - New position would be NaN! Skipping tic.", mySE->GetName(), mySE->GetID());
         return;
     }
-    // Periodic position sync for player ships only — reduced frequency and threshold-based
-    if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
+    // Server position must ALWAYS advance internally, otherwise server-side distance
+    // checks (follow distance, gate jump trigger, warp checks) stay frozen at the
+    // pre-approach position. In FOLLOW mode the client drives the visuals, so we update
+    // the internal position WITHOUT sending a sync packet (avoids snapping the client).
+    if (m_ballMode == Destiny::Ball::Mode::FOLLOW) {
+        SetPosition(newPos);
+    } else if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
         m_moveSyncCounter = 0;
-        // Skip position sync in FOLLOW and ORBIT modes entirely — client's physics is authoritative.
-        // Server position drifts due to different deceleration curves; syncing it snaps the client.
-        if (m_ballMode == Destiny::Ball::Mode::FOLLOW) {
-            // Follow/Approach is entirely client-driven: client knows where to stop.
-        } else if (m_ballMode == Destiny::Ball::Mode::ORBIT) {
+        if (m_ballMode == Destiny::Ball::Mode::ORBIT) {
             // Orbit uses angular velocity; client's animation matches.
         } else {
             SetPosition(newPos, true);
         }
-    } else if (m_userSpeedFraction > 0.0f && m_ballMode != Destiny::Ball::Mode::FOLLOW
-               && m_ballMode != Destiny::Ball::Mode::ORBIT
+    } else if (m_userSpeedFraction > 0.0f && m_ballMode != Destiny::Ball::Mode::ORBIT
                && m_ballMode != Destiny::Ball::Mode::GOTO) {
-        // Send position updates while moving — skip Follow, Orbit, Goto (client-driven simulation).
+        // Send position updates while moving — skip Orbit, Goto (client-driven simulation).
         SetPosition(newPos, sConfig.debug.PositionHack);
     }
 
@@ -1241,8 +1241,12 @@ void DestinyManager::Follow() {
              mySE->GetPilot()->IsAutoPilot(), true,
              (void*)m_targetEntity.second);
 
-    // autopilot check first — auto-jump if at gate
-    if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
+    // autopilot check first — auto-jump if at gate.
+    // Use a generous fixed threshold (2000m) instead of the exact follow distance:
+    // the server position may be slightly off the client's, so a tight threshold
+    // (e.g. 50m) would never trigger the jump.
+    uint32 jumpDist = 2000;
+    if ((rawDist <= (double)jumpDist) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
         SetSpeedFraction(0.0);
             _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d",
                  mySE->GetName(), rawDist, (void*)m_targetEntity.second,
