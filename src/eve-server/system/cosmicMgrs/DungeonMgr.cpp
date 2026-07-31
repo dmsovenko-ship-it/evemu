@@ -475,7 +475,10 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
 
 void DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
 {
-    // Faction-specific decorative structure typeIDs (common SDE celestial objects)
+    // Faction-specific decorative structure typeIDs (common SDE celestial objects).
+    // NOTE: Beacons (10645 CelestialBeacon, 10124 Beacon) intentionally EXCLUDED —
+    // they are navigation/warp markers, not decorations, and confuse players when
+    // randomly spawned at anomaly sites.
     static const std::vector<uint32> genericDeco = {
         23,      // CargoContainer
         3298,    // HangarContainer
@@ -483,8 +486,6 @@ void DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
         3296,    // LargeStandardContainer
         24445,   // GeneralFreightContainer
         26468,   // Wreck
-        10645,   // CelestialBeacon
-        10124,   // Beacon
         10753,   // SoftCloud
         10754,   // WispyOrangeCloud
         10758,   // WispyChlorineCloud
