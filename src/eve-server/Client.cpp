@@ -1591,7 +1591,11 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
 
     m_lastGateID = toGate;
 
-    SetStateTimer(Player::State::Jump, Player::Timer::Jumping);
+    // Execute the jump IMMEDIATELY (same as the .tr GM teleport) instead of the
+    // state-timer flow (SetStateTimer + 4s) which fails to fire in the ProcessClient
+    // loop, leaving the ship stuck at the gate. JumpOut/GateActivity were already
+    // sent above; ExecuteJump finishes the move and sends the arrival effects.
+    ExecuteJump();
 }
 
 void Client::ContrabandScan(uint32 fromGate)
