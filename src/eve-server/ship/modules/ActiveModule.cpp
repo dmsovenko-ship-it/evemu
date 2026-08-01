@@ -1333,11 +1333,12 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
     }
 
     // there may be others here like this...this is ONLY for OnSpecialFX data
+    uint16 fxEffectID = m_effectID;
     if ((m_effectID == EVEEffectID::useMissiles) and (m_chargeRef.get() != nullptr))   //operation defined by charge (use charge's default effectID)
-        m_effectID = m_chargeRef->type().GetDefaultEffect();
-    std::string guidStr = sFxDataMgr.GetEffectGuid(m_effectID);
+        fxEffectID = m_chargeRef->type().GetDefaultEffect();
+    std::string guidStr = sFxDataMgr.GetEffectGuid(fxEffectID);
     if (guidStr.empty())
-        _log(EFFECTS__ERROR, "guid empty for %s using effectID %u", m_modRef->name(), m_effectID);
+        _log(EFFECTS__ERROR, "guid empty for %s using effectID %u", m_modRef->name(), fxEffectID);
 
     uint16 chgTypeID(((m_chargeRef.get() != nullptr) ? m_chargeRef->typeID() : 0));
     uint32 timeLeft(GetRemainingCycleTimeMS());
@@ -1354,7 +1355,7 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
                 IsValidTarget(m_targetID) ? m_targetID : m_shipRef->itemID(),
                 chgTypeID,
                 guidStr,
-                sFxDataMgr.isOffensive(m_effectID),
+                sFxDataMgr.isOffensive(fxEffectID),
                 active,         // start    - if (start = 0) THEN remove effect
                 active,         // active   - if (start and active) THEN starting ONE-SHOT event of (duration)  (dunno what 'ONE-SHOT event' is)
                 timeLeft,       // duration in ms
