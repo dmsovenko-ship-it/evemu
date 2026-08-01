@@ -805,12 +805,17 @@ PyResult BeyonceBound::CmdStargateJump(PyCallArgs &call, PyInt* fromStargateID, 
     // local position desynced from the server (e.g. after being yanked out of a
     // warp). Reject with NotCloseEnoughToJump so the client's autoPilot resumes
     // Follow and only re-attempts the jump once actually within range.
+    // Use surface-to-surface distance (center distance minus gate/ship radii),
+    // matching client GetSurfaceDist — a gate's radius is ~19km, so center
+    // distance alone would wrongly reject ships sitting right at the gate.
     SystemEntity* pFromGate = call.client->SystemMgr()->GetSE(fromStargateID->value());
     if (pFromGate != nullptr) {
         GVector vecToGate(call.client->GetShipSE()->GetPosition(), pFromGate->GetPosition());
         double distToGate = vecToGate.length();
+        distToGate -= pFromGate->GetRadius();
+        distToGate -= call.client->GetShipSE()->GetRadius();
         if (distToGate > maxStargateJumpingDistance) {
-            _log(AUTOPILOT__MESSAGE, "%s: Jump rejected — dist to gate %u is %.0f m (max %u)",
+            _log(AUTOPILOT__MESSAGE, "%s: Jump rejected — surface dist to gate %u is %.0f m (max %u)",
                  call.client->GetName(), fromStargateID->value(), distToGate, maxStargateJumpingDistance);
             throw UserError("NotCloseEnoughToJump");
         }
