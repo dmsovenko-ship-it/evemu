@@ -485,6 +485,8 @@ void StructureSE::Process()
         // Calculate anchor end position from the original position
         _log(POS__MESSAGE, "%s(%u): Anchor complete.", m_self->name(), m_self->itemID());
         SendSlimUpdate();
+        // Stop the anchoring animation — client switches structure graphics.
+        m_destiny->SendSpecialEffect(m_data.itemID, m_data.itemID, m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
     }
 
     if (m_procTimer.Check(false))
@@ -644,7 +646,12 @@ void StructureSE::SetAnchor(Client *pClient, GPoint &pos)
         m_anchoring = true;
         m_data.state = EVEPOS::StructureState::Anchoring;
         m_self->SetPosition(pos);
+        m_destiny->SetPosition(pos);
         _log(POS__MESSAGE, "%s(%u): Anchoring will complete in %ums", m_self->name(), m_self->itemID(), delay);
+        SendSlimUpdate();
+        // AnchorDrop start=1,active=1,duration=delay — client shows anchoring
+        // timer + sets structure graphics while the delay counts down.
+        m_destiny->SendSpecialEffect(m_data.itemID, m_data.itemID, m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 1, 1, delay, 0);
         return;
     }
 
