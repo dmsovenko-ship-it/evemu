@@ -1586,9 +1586,14 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
 
     // .tr-style jump (same as Command_tr): JumpOutEffect -> MoveToLocation
     // -> JumpInEffect -> Stop -> bubble update. Keeps autopilot alive after
-    // the jump — the heavy ExecuteJump machinery (DeactivateAllModules /
-    // pShipSE->Jump() / state timers / GateActivity spam) left the client's
-    // autoPilot chain broken after the first gate jump.
+    // the jump — the heavy ExecuteJump machinery (pShipSE->Jump() / state
+    // timers / GateActivity spam) left the client's autoPilot chain broken
+    // after the first gate jump.
+    // Interrupt active module cycles (not offline) during the jump — modules
+    // stay online but inactive, matching normal EVE gate behavior.
+    if (m_ship.get() != nullptr && m_ship->HasModuleManager())
+        m_ship->GetModuleManager()->DeactivateAllModules();
+
     JumpOutEffect(fromGate);
 
     GPoint destPoint = toData.position;
@@ -1606,6 +1611,15 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
         pShipSE->SysBubble()->SendAddBalls(pShipSE);
         SetStateSent(false);
         pShipSE->DestinyMgr()->SendSetState();
+        SetInvulTimer(Player::Timer::JumpInvul);
+        // Jump cloak — ship appears cloaked after the jump. The client autoPilot
+        // is unaffected: the next CmdWarpToStuffAutopilot's WarpTo() uncloaks on
+        // accel, and a manual user gets the standard EVE 30s gate-cloak window.
+        // Force reset old timer so the fresh jump cloak is applied on multi-hop.
+        if (m_cloakTimer.Enabled()) {
+            m_cloakTimer.Disable();
+        }
+        SetCloakTimer(Player::Timer::JumpCloak);
         SetSessionTimer();
     }
 
