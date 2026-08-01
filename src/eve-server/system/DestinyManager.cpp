@@ -3059,9 +3059,31 @@ void DestinyManager::MakeMissile(Missile* pMissile) {
     m_stateStamp = sEntityList.GetStamp();
 
     SystemEntity* pTarget = pMissile->GetTargetSE();
-    m_targetPoint = GPoint(pTarget->GetPosition());
-    m_targetEntity.first = pTarget->GetID();
-    m_targetEntity.second = pTarget;
+    if (pTarget != nullptr) {
+        m_targetPoint = GPoint(pTarget->GetPosition());
+        m_targetEntity.first = pTarget->GetID();
+        m_targetEntity.second = pTarget;
+    } else {
+        // Untargeted launch (bombs, snowballs): fly straight ahead from the
+        // launcher ship for the missile's full flight time (explosionDelay).
+        // The bomb detonates at the end of its path.
+        GVector heading(1, 0, 0);
+        SystemEntity* pFromSE = pMissile->GetFromSE();
+        if (pFromSE != nullptr && pFromSE->DestinyMgr() != nullptr) {
+            GVector shipHeading = pFromSE->DestinyMgr()->GetHeading();
+            if (shipHeading.length() > 1.0) {
+                heading = shipHeading;
+            }
+        }
+        heading.normalize();
+        double flightTime = pMissile->GetSelf()->GetAttribute(AttrExplosionDelay).get_float() / 1000.0;
+        if (flightTime < 0.1)
+            flightTime = 1.0;
+        double range = pMissile->GetSpeed() * flightTime;
+        m_targetPoint = m_position + (heading * range);
+        m_targetEntity.first = 0;
+        m_targetEntity.second = nullptr;
+    }
     m_targetDistance = static_cast<double>(m_position.distance(m_targetPoint));
 
     GVector moveVector(m_position, m_targetPoint);
@@ -3078,7 +3100,7 @@ void DestinyManager::MakeMissile(Missile* pMissile) {
     updates.push_back(maxspeed.Encode());
     Rsp_LaunchMissile miss;
         miss.shipID = pMissile->GetLauncherID();
-        miss.targetID = pTarget->GetID();
+        miss.targetID = (pTarget != nullptr ? pTarget->GetID() : 0);
         miss.missileID = pMissile->GetID();
         miss.unk1 = 1;
         miss.unk2 = 1;

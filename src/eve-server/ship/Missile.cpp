@@ -34,6 +34,7 @@
 #include "ship/Missile.h"
 #include "ship/Ship.h"
 #include "ship/modules/GenericModule.h"
+#include "system/SystemBubble.h"
 #include "system/Damage.h"
 
 Missile::Missile( InventoryItemRef self, EVEServiceManager& services, SystemManager* pSystem, InventoryItemRef modRef, SystemEntity* tSE, SystemEntity* pSE, GenericModule* pMod)
@@ -242,6 +243,12 @@ void Missile::HitTarget() {
     if (m_targetSE == nullptr || m_targetSE->GetSelf().get() == nullptr)
         return;
 
+    // Bomb: AoE detonation over all entities within explosionRange.
+    if (m_self->groupID() == EVEDB::invGroups::Bomb) {
+        ExplodeBomb();
+        return;
+    }
+
     // Defender missile interception: destroy target missile instead of dealing damage
     if (m_targetSE->IsMissileSE()) {
         Missile* tgtMissile = m_targetSE->GetMissileSE();
@@ -291,7 +298,56 @@ void Missile::HitTarget() {
     m_alive = false;
 }
 
+void Missile::ExplodeBomb() {
+    // Bombs detonate at their current position with AoE over all entities
+    // within explosionRange (AttrExplosionRange), damaging friend and foe alike.
+    float explosionRange = m_self->GetAttribute(AttrExplosionRange).get_float();
+    if (explosionRange <= 0)
+        explosionRange = 15000;
+
+    float baseDamage = m_self->GetAttribute(AttrEmDamage).get_float()
+                     + m_self->GetAttribute(AttrThermalDamage).get_float()
+                     + m_self->GetAttribute(AttrKineticDamage).get_float()
+                     + m_self->GetAttribute(AttrExplosiveDamage).get_float();
+    baseDamage *= m_damageMod;
+
+    SystemBubble* pBubble = SysBubble();
+    if (pBubble == nullptr) {
+        m_alive = false;
+        Delete();
+        return;
+    }
+
+    std::map<uint32, SystemEntity*> bubbleEntities;
+    pBubble->GetEntities(bubbleEntities);
+
+    for (auto& [id, pSE] : bubbleEntities) {
+        if (pSE == nullptr || pSE->GetSelf().get() == nullptr)
+            continue;
+        if (pSE == this)
+            continue;
+        // only damage ships and structures
+        if (!pSE->IsShipSE() && !pSE->IsPOSSE())
+            continue;
+        double dist = GetPosition().distance(pSE->GetPosition());
+        if (dist > explosionRange)
+            continue;
+
+        Damage d(m_fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
+        d *= baseDamage;
+        pSE->ApplyDamage(d);
+    }
+
+    m_alive = false;
+    Delete();
+}
+
 void Missile::EndOfLife() {
+    // Bombs detonate at the end of their flight path (explosionDelay timer).
+    if (m_self->groupID() == EVEDB::invGroups::Bomb) {
+        ExplodeBomb();
+        return;
+    }
     m_alive = false;
     Delete();
 }

@@ -56,6 +56,7 @@ public:
     /* specific functions handled here. */
     uint32 GetLauncherID()                              { return m_fromSE->GetID(); }
     SystemEntity* GetTargetSE()                         { return m_targetSE; }
+    SystemEntity* GetFromSE()                           { return m_fromSE; }
 
     void SetHitTimer(uint32 setTime)                    { m_hitTimer.Start(setTime); }
     void SetSpeed(double speed)                         { m_speed = speed; }
@@ -73,6 +74,7 @@ protected:
     InventoryItemRef m_modRef;
 
     void HitTarget();
+    void ExplodeBomb();
     void EndOfLife();
 
     Timer m_hitTimer;

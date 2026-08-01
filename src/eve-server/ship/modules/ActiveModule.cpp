@@ -1522,20 +1522,28 @@ void ActiveModule::LaunchMissile()
         return;
     }
 
-    float distance = pMissile->GetSelf()->position().distance(m_targetSE->GetPosition());
     float missileSpeed = pMissile->GetSelf()->GetAttribute(AttrMaxVelocity).get_float();
-    float travelTime = (distance/missileSpeed);
-    if (travelTime < 1)
-        travelTime = 1;
+    if (missileSpeed < 1.0f)
+        missileSpeed = 1.0f;
     pMissile->SetSpeed(missileSpeed);
-    pMissile->SetHitTimer(travelTime *1000);
+
+    // Targeted missiles fly to the target; untargeted (bombs) fly straight and
+    // detonate at the end of their flight path.
+    if (m_targetSE != nullptr) {
+        float distance = pMissile->GetSelf()->position().distance(m_targetSE->GetPosition());
+        float travelTime = (distance / missileSpeed);
+        if (travelTime < 1)
+            travelTime = 1;
+        pMissile->SetHitTimer(travelTime * 1000);
+    }
     pMissile->DestinyMgr()->MakeMissile(pMissile);
 
     // Reduce ammo charge by 1 unit:
     ConsumeCharge();
 
     // tell target a missile has been launched at them.. (defender missile trigger for ship, tower, pos, npc, others?)
-    m_targetSE->MissileLaunched(pMissile);
+    if (m_targetSE != nullptr)
+        m_targetSE->MissileLaunched(pMissile);
 
     // add data to StatisticMgr
     sStatMgr.Increment(Stat::pcMissiles);
