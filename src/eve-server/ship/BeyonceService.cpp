@@ -800,6 +800,21 @@ PyResult BeyonceBound::CmdStargateJump(PyCallArgs &call, PyInt* fromStargateID, 
         call.client->SendNotifyMsg("You cannot jump while you have an active aggression timer.");
         return PyStatic.NewNone();
     }
+
+    // Range check: client may send CmdStargateJump while still far away if its
+    // local position desynced from the server (e.g. after being yanked out of a
+    // warp). Reject with NotCloseEnoughToJump so the client's autoPilot resumes
+    // Follow and only re-attempts the jump once actually within range.
+    SystemEntity* pFromGate = call.client->SystemMgr()->GetSE(fromStargateID->value());
+    if (pFromGate != nullptr) {
+        GVector vecToGate(call.client->GetShipSE()->GetPosition(), pFromGate->GetPosition());
+        double distToGate = vecToGate.length();
+        if (distToGate > maxStargateJumpingDistance) {
+            _log(AUTOPILOT__MESSAGE, "%s: Jump rejected — dist to gate %u is %.0f m (max %u)",
+                 call.client->GetName(), fromStargateID->value(), distToGate, maxStargateJumpingDistance);
+            throw UserError("NotCloseEnoughToJump");
+        }
+    }
     _log(AUTOPILOT__MESSAGE, "%s: Jump accepted — calling StargateJump(%u->%u)", call.client->GetName(), fromStargateID->value(), toStargateID->value());
     /** @todo  check distance from ship to gate */
     call.client->StargateJump(fromStargateID->value(), toStargateID->value());
