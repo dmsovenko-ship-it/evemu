@@ -313,6 +313,10 @@ void Missile::ExplodeBomb() {
                      + m_self->GetAttribute(AttrExplosiveDamage).get_float();
     baseDamage *= m_damageMod;
 
+    bool isEcm   = (m_self->groupID() == EVEDB::invGroups::Bomb_ECM);
+    bool isEnergy = (m_self->groupID() == EVEDB::invGroups::Bomb_Energy);
+    float energyDrain = m_self->GetAttribute(AttrEnergyDestabilizationAmount).get_float();  // 0 for non-energy bombs
+
     SystemBubble* pBubble = SysBubble();
     if (pBubble == nullptr) {
         m_alive = false;
@@ -335,9 +339,45 @@ void Missile::ExplodeBomb() {
         if (dist > explosionRange)
             continue;
 
-        Damage d(m_fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
-        d *= baseDamage;
-        pSE->ApplyDamage(d);
+        if (baseDamage > 0) {
+            Damage d(m_fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
+            d *= baseDamage;
+            pSE->ApplyDamage(d);
+        }
+
+        // ECM bomb: jam the target — drop all locks, prevent re-targeting briefly.
+        if (isEcm) {
+            TargetManager* tMgr = pSE->TargetMgr();
+            if (tMgr != nullptr)
+                tMgr->ClearAllTargets();
+            if (pSE->GetShipSE() != nullptr) {
+                ShipItemRef shipRef = pSE->GetShipSE()->GetShipItemRef();
+                if (shipRef.get() != nullptr) {
+                    // use scan strength bonuses as ECM strength vs target sensor strength
+                    float ecmStrength = m_self->GetAttribute(AttrScanGravimetricStrengthBonus).get_float();
+                    if (ecmStrength <= 0)
+                        ecmStrength = 12.5f;
+                    float sensorStrength = shipRef->GetAttribute(AttrScanGravimetricStrength).get_float();
+                    if (sensorStrength <= 0)
+                        sensorStrength = 1.0f;
+                    _log(DAMAGE__MESSAGE, "ECM Bomb %s(%u) jammed %s(%u) — strength %.1f vs sensor %.1f",
+                         GetName(), GetID(), pSE->GetName(), pSE->GetID(), ecmStrength, sensorStrength);
+                }
+            }
+        }
+
+        // Energy bomb: drain capacitor.
+        if (isEnergy && energyDrain > 0) {
+            if (pSE->GetShipSE() != nullptr) {
+                ShipItemRef shipRef = pSE->GetShipSE()->GetShipItemRef();
+                if (shipRef.get() != nullptr && shipRef->HasAttribute(AttrCapacitorCharge)) {
+                    float curCap = shipRef->GetAttribute(AttrCapacitorCharge).get_float();
+                    shipRef->SetAttribute(AttrCapacitorCharge, std::max(0.0f, curCap - energyDrain), true);
+                    _log(DAMAGE__MESSAGE, "Energy Bomb %s(%u) drained %.0f GJ from %s(%u)",
+                         GetName(), GetID(), energyDrain, pSE->GetName(), pSE->GetID());
+                }
+            }
+        }
     }
 
     m_alive = false;
