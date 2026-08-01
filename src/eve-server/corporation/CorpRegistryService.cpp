@@ -146,7 +146,7 @@ PyResult CorpRegistryService::CreateAlliance(PyCallArgs &call, PyRep* allianceNa
 
     DBQueryResult ceoRes;
     if (sDatabase.RunQuery(ceoRes,
-        "SELECT ceoID, corporationID FROM crpCorporations WHERE corporationID = %u AND ceoID = %u",
+        "SELECT ceoID, corporationID FROM crpCorporation WHERE corporationID = %u AND ceoID = %u",
         corpID, charID))
     {
         if (ceoRes.GetRowCount() == 0) {
