@@ -663,6 +663,8 @@ namespace EVEDB {
             Asteroid_Serpentis_Commander_Battleship = 852,
             Mission_Fighter_Drone = 861,
             Missile_Launcher_Bomb = 862,
+            Bomb_ECM = 863,
+            Bomb_Energy = 864,
             Mission_Amarr_Empire_Carrier = 865,
             Mission_Caldari_State_Carrier = 866,
             Mission_Gallente_Federation_Carrier = 867,

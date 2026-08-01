@@ -244,7 +244,9 @@ void Missile::HitTarget() {
         return;
 
     // Bomb: AoE detonation over all entities within explosionRange.
-    if (m_self->groupID() == EVEDB::invGroups::Bomb) {
+    if (m_self->groupID() == EVEDB::invGroups::Bomb
+     or m_self->groupID() == EVEDB::invGroups::Bomb_ECM
+     or m_self->groupID() == EVEDB::invGroups::Bomb_Energy) {
         ExplodeBomb();
         return;
     }
@@ -344,7 +346,9 @@ void Missile::ExplodeBomb() {
 
 void Missile::EndOfLife() {
     // Bombs detonate at the end of their flight path (explosionDelay timer).
-    if (m_self->groupID() == EVEDB::invGroups::Bomb) {
+    if (m_self->groupID() == EVEDB::invGroups::Bomb
+     or m_self->groupID() == EVEDB::invGroups::Bomb_ECM
+     or m_self->groupID() == EVEDB::invGroups::Bomb_Energy) {
         ExplodeBomb();
         return;
     }
