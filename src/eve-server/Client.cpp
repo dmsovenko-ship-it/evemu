@@ -1576,9 +1576,6 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
     // add jump to mapDynamicData for showing in StarMap (F10)    -allan 06Mar14
     MapDB::AddJump(m_systemData.systemID);
 
-    pShipSE->DestinyMgr()->SendJumpOut(fromGate);
-    pShipSE->DestinyMgr()->SendGateActivity(fromGate);
-
     // this is where we can put the msgs about system closed or w/e
 
     // add jump to mapDynamicData for showing in StarMap (F10)    -allan 06Mar14
@@ -1587,25 +1584,29 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
 
     m_lastGateID = toGate;
 
-    // .tr-style jump (keeps autopilot alive): JumpOutEffect -> MoveToLocation
-    // -> JumpInEffect -> Stop -> bubble update. No heavy ExecuteJump machinery
-    // (DeactivateAllModules / pShipSE->Jump() / state timers) — that path left
-    // the client's autoPilot chain broken after the first gate jump.
+    // .tr-style jump (same as Command_tr): JumpOutEffect -> MoveToLocation
+    // -> JumpInEffect -> Stop -> bubble update. Keeps autopilot alive after
+    // the jump — the heavy ExecuteJump machinery (DeactivateAllModules /
+    // pShipSE->Jump() / state timers / GateActivity spam) left the client's
+    // autoPilot chain broken after the first gate jump.
+    JumpOutEffect(fromGate);
+
     GPoint destPoint = toData.position;
     destPoint.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
 
     MoveToLocation(toData.systemID, destPoint);
 
+    JumpInEffect();
+
     if (IsInSpace()) {
         pShipSE->DestinyMgr()->Stop();
+        pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition(), true);
         if (pShipSE->SysBubble() == nullptr)
             m_system->AddEntity(pShipSE);
         pShipSE->SysBubble()->SendAddBalls(pShipSE);
-        // Jump in effect + gate activity on the destination gate
-        JumpInEffect();
-        pShipSE->DestinyMgr()->SendGateActivity(toGate);
         SetStateSent(false);
         pShipSE->DestinyMgr()->SendSetState();
+        SetSessionTimer();
     }
 
     m_clientState = Player::State::Idle;

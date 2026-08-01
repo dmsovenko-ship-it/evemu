@@ -666,13 +666,8 @@ PyResult BeyonceBound::CmdWarpToStuffAutopilot(PyCallArgs &call, PyInt* destID) 
     SystemEntity* pSE = pSystem->GetSE(destID->value());
     if (pSE == nullptr) {
         codelog(CLIENT__ERROR, "%s: unable to find destination Entity for ID %u", call.client->GetName(), destID->value());
-        _log(AUTOPILOT__MESSAGE, "%s: AP warp FAILED — dest entity %u not found in system %u",
-             call.client->GetName(), destID->value(), pSystem->GetID());
         return PyStatic.NewNone();
     }
-
-    _log(AUTOPILOT__MESSAGE, "%s: AP warp accepted — dest %u (%s) in system %u, AP=%d",
-         call.client->GetName(), destID->value(), pSE->GetName(), pSystem->GetID(), call.client->IsAutoPilot());
 
     call.client->SetInvul(false);
     call.client->SetUndock(false);
