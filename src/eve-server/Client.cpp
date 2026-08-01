@@ -1948,6 +1948,8 @@ void Client::ExecuteJump() {
     }
     m_clientState = Player::State::Idle;
 
+    _log(AUTOPILOT__MESSAGE, "%s: ExecuteJump complete — AP=%d newSystem=%u", m_char->name(), IsAutoPilot(), m_locationID);
+
     m_movePoint = NULL_ORIGIN;
     m_moveSystemID = 0;
 }
