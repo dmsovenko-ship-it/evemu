@@ -1,37 +1,24 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Latest commit: `977ff5d9`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`.
+Session saved. Latest commit: `6857e7e0`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`.
 
-## Что сделано сегодня (31 июля)
-1. **Destiny.xmlp AddBalls/AddBalls2** — восстановлен правильный формат (двойная обёртка), клиент `AddBalls2(self, chunk)` ждёт 1 аргумент.
-2. **Дублирующиеся .sql файлы** — удалены 6 файлов (`crpVoteItems.sql` и др.), которые существовали и как `.sql` и как `.sql.gz`. `evedbtool` пытался читать `.sql` как gzip → `gzip: invalid header`.
-3. **cacheLocations** — заполнена из SDE (планеты, луны, гейты, станции) — чинит овервью и меню варпа.
-4. **career_agents migration** — добавлена колонка `description` в INSERT (strict mode MariaDB падал).
-5. **docker-compose.yml** — сервер использует `evemu_server` тег (не `eve-server`).
+## Что сделано (31 июля + 1 августа)
+1. **Destiny.xmlp AddBalls/AddBalls2** — правильный формат (двойная обёртка), клиент `AddBalls2(self, chunk)` ждёт 1 аргумент.
+2. **Дублирующиеся .sql файлы** — удалены 6 файлов (`.sql` + `.sql.gz` одновременно), чинит `gzip: invalid header`.
+3. **cacheLocations** — заполнена из SDE (планеты, луны, гейты, станции) — овервью и меню варпа.
+4. **career_agents migration** — колонка `description` (strict mode).
+5. **docker-compose.yml** — тег `evemu_server` (не `eve-server`).
+6. **MakeSetState** — сохраняет статические entities (гейты, планеты) — чинит пустое овервью.
+7. **Декорации** — исключены Beacons/CelestialBeacons из спавна.
+8. **Incursion rewards** — rewardTypeID=1 для LP, quantity=LP amount.
+9. **AP gate jump** — синхронный StargateJump, убран CmdStop AP hack, session change завершается.
 
-## КРИТИЧНО для следующей сессии
-**Сервер отстал от remote** — на `b6c94a50`, нужно обновить:
-```bash
-cd /opt/evemu && git fetch origin && git reset --hard origin/master
-```
-
-Потом сбросить БД полностью (фикс career_agents подтянется и EVEDBTool пройдёт дальше):
-```bash
-docker-compose down -v && docker-compose up -d
-```
-
-## Ошибка миграций
-EVEDBTool остановился на `20260705000025-lp_store.sql` — `20260705000026-career_agents.sql` падал с `description doesn't have default value`. Фикс запушен (`66ee9bbc`), но сервер его не подтянул. После обновления миграции пройдут.
-
-## Нерешённые проблемы
-1. **Овервью** — показывала только станцию/сентри (cacheLocations была пуста). Фикс запушен, но не проверен на сервере.
-2. **Меню варпа** — зависело от cacheLocations, тоже ждёт проверки.
-3. **Дроны при scoop** — улетают в дальний космос.
-4. **Дроны при запуске** — 1 пропадает.
-5. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
-6. **Incurions** — таблицы созданы, но EVEDBTool не накатил (нужен полный сброс БД).
-7. **minSecurity/reinforceHour** — тоже ждут перезапуска миграций.
+## Осталось
+1. **Дроны при scoop** — улетают в дальний космос (Follow overshoot).
+2. **Дроны при запуске** — 1 пропадает (возможно bandwidth/position).
+3. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
+4. **На сервере** — git reset + полный сброс БД (нужны миграции incursions/dungeon_security/reinforce_hour).
 
 ## Git Log
 ```
