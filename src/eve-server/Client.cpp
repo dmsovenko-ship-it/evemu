@@ -1595,6 +1595,8 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
         m_ship->GetModuleManager()->DeactivateAllModules();
 
     JumpOutEffect(fromGate);
+    // Gate activation effect on the source gate
+    pShipSE->DestinyMgr()->SendGateActivity(fromGate);
 
     GPoint destPoint = toData.position;
     destPoint.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
@@ -1602,6 +1604,8 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
     MoveToLocation(toData.systemID, destPoint);
 
     JumpInEffect();
+    // Gate activation effect on the destination gate
+    pShipSE->DestinyMgr()->SendGateActivity(toGate);
 
     if (IsInSpace()) {
         pShipSE->DestinyMgr()->Stop();
