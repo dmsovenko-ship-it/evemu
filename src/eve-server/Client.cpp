@@ -1585,21 +1585,32 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
     MapDB::AddJump(toData.systemID);
     m_char->VisitSystem(toData.systemID);
 
-    m_movePoint = toData.position;
-    m_movePoint.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
-    m_moveSystemID = toData.systemID;
-
     m_lastGateID = toGate;
 
-    // Execute the jump immediately (synchronously with the CmdStargateJump RPC),
-    // so the session change completes before the RPC response is returned — the
-    // same pattern as dock/undock. The old 4s SetStateTimer flow left the client
-    // in a stale session/ballpark for 4 seconds and its autoPilot stalled after
-    // the jump (no OnSessionChanged-driven route advance, silent destID=None).
-    // The immediate flow was previously reverted only due to the destination
-    // system boot crashing on Charge entities — that is now fixed (BuildEntity
-    // skips Charge/Skill/Implant/Material).
-    ExecuteJump();
+    // .tr-style jump (keeps autopilot alive): JumpOutEffect -> MoveToLocation
+    // -> JumpInEffect -> Stop -> bubble update. No heavy ExecuteJump machinery
+    // (DeactivateAllModules / pShipSE->Jump() / state timers) — that path left
+    // the client's autoPilot chain broken after the first gate jump.
+    GPoint destPoint = toData.position;
+    destPoint.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
+
+    MoveToLocation(toData.systemID, destPoint);
+
+    if (IsInSpace()) {
+        pShipSE->DestinyMgr()->Stop();
+        if (pShipSE->SysBubble() == nullptr)
+            m_system->AddEntity(pShipSE);
+        pShipSE->SysBubble()->SendAddBalls(pShipSE);
+        // Jump in effect + gate activity on the destination gate
+        JumpInEffect();
+        pShipSE->DestinyMgr()->SendGateActivity(toGate);
+        SetStateSent(false);
+        pShipSE->DestinyMgr()->SendSetState();
+    }
+
+    m_clientState = Player::State::Idle;
+    m_movePoint = NULL_ORIGIN;
+    m_moveSystemID = 0;
 }
 
 void Client::ContrabandScan(uint32 fromGate)
@@ -1947,8 +1958,6 @@ void Client::ExecuteJump() {
         m_stateTimer.Start(2000);
     }
     m_clientState = Player::State::Idle;
-
-    _log(AUTOPILOT__MESSAGE, "%s: ExecuteJump complete — AP=%d newSystem=%u", m_char->name(), IsAutoPilot(), m_locationID);
 
     m_movePoint = NULL_ORIGIN;
     m_moveSystemID = 0;
