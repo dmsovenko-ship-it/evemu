@@ -268,9 +268,13 @@ void DestinyManager::ProcessState() {
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
-            } else if (m_timeFraction < 0.749 && m_userSpeedFraction < 0.7499) {
+            } else if (m_userSpeedFraction < 0.7499) {
                 // Accelerate to full speed for warp alignment. 30% speed caused
                 // excessive align time and "stuck at 30%" perception.
+                // NOTE: only USF is checked (not TF) — after a gate jump the ship
+                // can be in a corrupt state (USF=0/m_stop=true yet TF/ASF=1.0 from
+                // the pre-jump follow/warp), and MoveObject() would Halt() because
+                // USF==0. Forcing USF=1.0 here re-arms the ship for the warp.
                 SetSpeedFraction(1.0f, true);
             } else if ((degrees < 30.0f) && (m_timeFraction > 0.5)
                        && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
