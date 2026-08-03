@@ -386,6 +386,7 @@ protected:
     bool m_packaged;        // used to correctly package updates into a PackagedAction list
     bool m_portrait;        // used to verify new char pic received
     bool m_autoPilot;       // set true for using autopilot.
+    bool m_apSessionRetry = false;  // re-send a benign session change ~5s after gate jump so client autoPilot re-runs OnSessionChanged->UpdateRoute
     uint32 m_lastGateID;    // last gate jumped through (for AP reverse-gate exclusion)
     bool m_scanProbe;       // scanning with probes
     bool m_bubbleWait;

@@ -510,6 +510,17 @@ void Client::ProcessClient() {
                         {
                             pShipSE->SysBubble()->SendAddBalls(pShipSE);
                         }
+                        // Benign session-change retry after a gate jump (see StargateJump).
+                        // nextSessionChange is a persisted session var that differs from the
+                        // value set by SetSessionTimer(), so the client applies the change and
+                        // scatters OnSessionChanged — re-running starmap.UpdateRoute().
+                        if (m_apSessionRetry) {
+                            m_apSessionRetry = false;
+                            int64 t = GetFileTimeNow() + 30LL * EvE::Time::Second;
+                            pSession->SetLong("nextSessionChange", t);
+                            SendSessionChange();
+                            _log(AUTOPILOT__MESSAGE, "%s: Sent AP session-change retry (nextSessionChange=%lld).", m_char->name(), t);
+                        }
                     } break;
                 case Player::State::Dock: {
                     _log(CLIENT__TIMER, "ProcessClient()::CheckState():  case: Dock");
@@ -1625,6 +1636,14 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
         }
         SetCloakTimer(Player::Timer::JumpCloak);
         SetSessionTimer();
+        // Re-trigger the client's session change a few seconds after the jump.
+        // The client's autoPilot OnSessionChanged -> starmap.UpdateRoute() can
+        // run too early during the jump transition (stale route -> destID None
+        // -> AP stalls silently for minutes). A benign nextSessionChange re-fires
+        // OnSessionChanged once the new system/scene is ready, so the route
+        // advances and the AP continues on its own.
+        m_apSessionRetry = true;
+        m_stateTimer.Start(5000);
     }
 
     m_clientState = Player::State::Idle;
