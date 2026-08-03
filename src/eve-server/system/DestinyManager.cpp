@@ -252,6 +252,11 @@ void DestinyManager::ProcessState() {
             double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
             float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
 
+            if (mySE->HasPilot())
+                _log(AUTOPILOT__MESSAGE, "%s: WARPALIGN deg=%.1f TF=%.2f USF=%.2f ASF=%.2f PSF=%.2f st=%u align=%.1f mode=%u stop=%d accel=%d",
+                     mySE->GetName(), degrees, m_timeFraction, m_userSpeedFraction, m_activeSpeedFraction, m_prevSpeedFraction,
+                     (sEntityList.GetStamp() - m_stateStamp), m_timeToEnterWarp, (uint32)m_ballMode, (int)m_stop, (int)m_accel);
+
             if (mySE->IsNPCSE() && mySE->SysBubble()->CountPlayers() <= 0)
             {
                 // this is an NPC that was spawned off-grid - nobody will ever see it, so just warp it in so it doesn't get disposed randomly
