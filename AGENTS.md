@@ -1,28 +1,68 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Latest commit: `6857e7e0`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`.
+Session saved. Latest commit: `865a5b64`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`.
 
-## Что сделано (31 июля + 1 августа)
-1. **Destiny.xmlp AddBalls/AddBalls2** — правильный формат (двойная обёртка), клиент `AddBalls2(self, chunk)` ждёт 1 аргумент.
-2. **Дублирующиеся .sql файлы** — удалены 6 файлов (`.sql` + `.sql.gz` одновременно), чинит `gzip: invalid header`.
-3. **cacheLocations** — заполнена из SDE (планеты, луны, гейты, станции) — овервью и меню варпа.
-4. **career_agents migration** — колонка `description` (strict mode).
-5. **docker-compose.yml** — тег `evemu_server` (не `eve-server`).
-6. **MakeSetState** — сохраняет статические entities (гейты, планеты) — чинит пустое овервью.
-7. **Декорации** — исключены Beacons/CelestialBeacons из спавна.
-8. **Incursion rewards** — rewardTypeID=1 для LP, quantity=LP amount.
-9. **AP gate jump** — синхронный StargateJump, убран CmdStop AP hack, session change завершается.
+## Главное достижение (3 августа): AP gate-jump ПОЧИНЕН
+Автопилот теперь проходит много-гейтовый маршрут без зависаний и рывков:
+- корабль подлетает к гейту, прыгает, сразу продолжает (варп к следующему гейту), прыгает дальше, докидывает до станции.
+
+### Три бага, которые были найдены и исправлены
+1. **AP-стагнация после прыжка** (~2 мин молчания, потом сам очнулся; док/андок «лечил»). Причина: клиентский `starmap.UpdateRoute(fakeUpdate=True)` в `OnSessionChanged` мог отработать слишком рано во время перехода (stale маршрут → `destID None` → AP молча ждёт). **Фикс (`960d6715`)**: сервер через 5 сек после прыжка шлёт повторную «доброкачественную» смену сессии (`nextSessionChange`) → клиент заново вызывает `OnSessionChanged → UpdateRoute`, маршрут продвигается, AP продолжает. Код: `Client.cpp` `StargateJump` (m_apSessionRetry=true + m_stateTimer.Start(5000)) и `ProcessClient` Idle-кейс.
+2. **Первый варп после прыжка срывался Halt()**. Причина: после прыжка корабль в битом состоянии (`USF=0, m_stop=true, но TF/ASF=1.0` — наследие от pre-jump follow/warp), MoveObject при `USF==0` вызывал `Halt()` → варп отменялся, потом re-warp. **Фикс (`cc5ffaa2`)**: в выравнивании WARP-режима `else if (m_userSpeedFraction < 0.7499) SetSpeedFraction(1.0f, true)` — убрано условие `m_timeFraction < 0.749` (теперь перевооружает корабль независимо от TF).
+3. **Посадка AP-варпа на больших гейтах**: корабль прилетал в ~950м от поверхности (15000м от ЦЕНТРА). Попытка `distance = apWarptoDistance + gate_radius` (`95fe7f34`) вызвала овершут (клиентский WarpLoop пролетал сквозь гейт и сервер дёргал назад 15км) — **ОТКАЧЕНО (`865a5b64`)**. Клиент сажает ~15000м от центра гейта независимо от дистанции — это ограничение клиента. На малых гейтах (радиус ~3.5км) посадка ~11км от поверхности (норм), на больших (~14км) — вплотную (умеренно, стабильно). Возможный future-fix: серверное отталкивание после посадки.
+
+## Карта для отладки (системы/гейты)
+- 30000197 = Uemon, 30000198 = Paala, 30002355 = LXQ2-T, 30000196 = Otosela.
+- Гейты: 50011022 «Stargate (Paala)» в Uemon→Paala (radius ~19km); 50011530 «Stargate (Uemon)» в Paala→Uemon (radius 3532); 50014211 «Stargate (LXQ2-T)» в Paala→LXQ2-T (radius 14051); 50014212 «Stargate (Paala)» в LXQ2-T→Paala.
+- Rattlesnake warpSpeedMultiplier=3 (3 AU/s).
+
+## Клиент (важно)
+- Реальный клиент: **`C:\Program Files (x86)\CCP\EVE`** (НЕ `C:\EVE`). Crucible 2012, `start.ini` server=router.iks-online.net:26000.
+- Декомпил: `C:\opencode-projects\other\all\` (autopilot.py, starMapSvc_py.py, sessions_py.py, pathfinder_py.py).
+- Dev-консоль клиента (`~`) НЕ работает — инспектировать клиент нельзя.
+- Клиентские log-каналы (`svc.autoPilot` в log.ini/start.ini [log]) НЕ пишут в gamelog — попытки не сработали.
+
+## Сервер: docker-compose сломан
+`docker-compose up` падает `KeyError: ContainerConfig` (compose 1.29.2 vs docker 29.1.3). Контейнеры вручную:
+```bash
+docker stop server db && docker rm server db
+docker run -d -t -i --name server --network evemu_default -v /opt/evemu/config:/app/etc -v evemu_server_cache:/app/server_cache -v evemu_image_cache:/app/image_cache -v evemu_ccache:/ccache -p 26000:26000 -p 26001:26001 -e SEED_MARKET=TRUE -e SEED_SATURATION=75 -e 'SEED_REGIONS=...' -e RUN_WITH_GDB=FALSE evemu_server
+docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MARIADB_RANDOM_ROOT_PASSWORD=true -e MARIADB_USER=evemu -e MARIADB_PASSWORD=evemu -e MARIADB_DATABASE=evemu mariadb:11.8 --innodb-buffer-pool-size=1G --innodb-log-file-size=256M --innodb-flush-log-at-trx-commit=2 --max-allowed-packet=64M --bulk-insert-buffer-size=64M
+```
+**ОБЯЗАТЕЛЬНО `-t -i`** для server (иначе спам `Command not recognized:`). Включён `DESTINY__WARP_TRACE=1` и `AUTOPILOT__MESSAGE=1` в /opt/evemu/config/log.ini.
 
 ## Осталось
-1. **Дроны при scoop** — улетают в дальний космос (Follow overshoot).
-2. **Дроны при запуске** — 1 пропадает (возможно bandwidth/position).
-3. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
-4. **На сервере** — git reset + полный сброс БД (нужны миграции incursions/dungeon_security/reinforce_hour).
+1. **Посадка AP-варпа на больших гейтах** — вплотную к гейту (клиентское ограничение, см. выше).
+2. **Дроны при scoop** — улетают в дальний космос (Follow overshoot).
+3. **Дроны при запуске** — 1 пропадает.
+4. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
+5. **Мобилка после анчоринга не скрамблит** — проверить.
+6. **Incursion rewards / ISK на сайте Uroborus** — проверить.
 
-## Git Log
+## Git Log (верх)
 ```
-b6e77ec3 fix: remove double-wrap in AddBalls XML — same pattern as AddBalls2
+865a5b64 revert: AP warp stop distance back to apWarptoDistance (15000 from gate center)
+95fe7f34 fix: AP warp-to-gate lands apWarptoDistance from gate surface (REVERTED)
+cc5ffaa2 fix: warp alignment re-arms ship when USF<0.75 regardless of TF
+960d6715 fix: re-send benign session change (nextSessionChange) ~5s after gate jump
+f8bca947 fix: StargateJump range check surface-to-surface distance
+92918a2d fix: wrong table name crpCorporations -> crpCorporation
+27afe41d feat: ECM bomb jams targets + Energy bomb drains 1800GJ
+eea108d8 feat: add Bomb_ECM/Bomb_Energy group enum + AoE detonation
+88b4f45e feat: bomb launcher mechanics — bombs fly straight, detonate AoE
+4ee3d397 fix: missile launcher cycle not displayed — ShowEffect charge effectID
+011a2b98 fix: TCU/anchored structures with AttrAnchoringDelay
+46a3ef07 fix: reject CmdStargateJump beyond maxStargateJumpingDistance
+ab1d6677 feat: gate activation effects (GateActivity)
+c5df3622 fix: add jump cloak + invul after gate jump
+a02fca16 fix: StargateJump mirrors Command_tr exactly
+7aa86e89 fix: AP gate jump uses .tr-style MoveToLocation flow
+b6e77ec3 fix: remove double-wrap in AddBalls XML
+fe8ece5b fix: remove double-wrapping in AddBalls2 XML
+```
+
+## Key Decisions
 fe8ece5b fix: remove double-wrapping in AddBalls2 XML — client expects (state, extraBallData)
 339357f8 fix: add PyIncRef before act.update = *update — prevents use-after-free
 2ac27b78 fix: add targeted action raw-type logging in _SendQueuedUpdates

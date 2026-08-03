@@ -158,15 +158,6 @@ void DestinyManager::Process() {
 
 void DestinyManager::ProcessState() {
     using namespace Destiny;
-
-    // DIAGNOSTIC: log player-ship mode each ~5s to see what mode the ship is in
-    if (mySE->HasPilot() && (sEntityList.GetStamp() % 50 == 0)) {
-        _log(AUTOPILOT__MESSAGE, "%s: PROC mode=%u pos=%.0f,%.0f,%.0f warpState=%s targ=%.0f,%.0f,%.0f vel=%.1f",
-             mySE->GetName(), (uint32)m_ballMode, m_position.x, m_position.y, m_position.z,
-             (m_warpState != nullptr ? "Y" : "N"), m_targetPoint.x, m_targetPoint.y, m_targetPoint.z,
-             m_velocity.length());
-    }
-
     switch(m_ballMode) {
         case Ball::Mode::STOP: {
             if (IsMoving()) {
@@ -251,11 +242,6 @@ void DestinyManager::ProcessState() {
             toVec.normalize();
             double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
             float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
-
-            if (mySE->HasPilot())
-                _log(AUTOPILOT__MESSAGE, "%s: WARPALIGN deg=%.1f TF=%.2f USF=%.2f ASF=%.2f PSF=%.2f st=%u align=%.1f mode=%u stop=%d accel=%d",
-                     mySE->GetName(), degrees, m_timeFraction, m_userSpeedFraction, m_activeSpeedFraction, m_prevSpeedFraction,
-                     (sEntityList.GetStamp() - m_stateStamp), m_timeToEnterWarp, (uint32)m_ballMode, (int)m_stop, (int)m_accel);
 
             if (mySE->IsNPCSE() && mySE->SysBubble()->CountPlayers() <= 0)
             {
@@ -600,9 +586,6 @@ bool DestinyManager::AbortIfLoginWarping(bool showMsg) {
 }
 
 void DestinyManager::Stop() {
-    if (mySE->HasPilot() && m_ballMode == Destiny::Ball::Mode::WARP)
-        _log(AUTOPILOT__MESSAGE, "%s: STOP called during WARP (warpState=%s) — aborting warp", mySE->GetName(),
-             (m_warpState != nullptr ? "Y" : "N"));
     // Usually there's no need to show a message for this because it gets
     // triggered unnecessarily a few times upon login. Commands that should
     // show a notification are handled in BeyonceService.
@@ -667,9 +650,6 @@ void DestinyManager::Stop() {
 }
 
 void DestinyManager::Halt() {
-    if (mySE->HasPilot())
-        _log(AUTOPILOT__MESSAGE, "%s: HALT called — mode was %u, warpState=%s, targ=%.0f,%.0f,%.0f", mySE->GetName(),
-             (uint32)m_ballMode, (m_warpState != nullptr ? "Y" : "N"), m_targetPoint.x, m_targetPoint.y, m_targetPoint.z);
     SafeDelete(m_warpState);
 
     //  reset ALL movement variables and states.  calling this will set object to a COMPLETE and IMMEDIATE stop.
