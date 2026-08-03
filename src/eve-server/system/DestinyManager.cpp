@@ -201,6 +201,18 @@ void DestinyManager::ProcessState() {
                 return;
             }
 
+            // DIAGNOSTIC: warp alignment state before InitWarp (player ships only, throttled)
+            if (m_warpState == nullptr && mySE->HasPilot() && (sEntityList.GetStamp() % 50 == 0)) {
+                GVector toVec(m_position, m_targetPoint);
+                toVec.normalize();
+                double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
+                float deg = EvE::Trig::Rad2Deg(std::acos(dot));
+                _log(AUTOPILOT__MESSAGE, "%s: WARP-ALIGN deg=%.1f TF=%.2f USF=%.2f ASF=%.2f stampDiff=%u align=%.1f mode=%u pos=%.0f,%.0f,%.0f targ=%.0f,%.0f,%.0f",
+                     mySE->GetName(), deg, m_timeFraction, m_userSpeedFraction, m_activeSpeedFraction,
+                     (sEntityList.GetStamp() - m_stateStamp), m_timeToEnterWarp, (uint32)m_ballMode,
+                     m_position.x, m_position.y, m_position.z, m_targetPoint.x, m_targetPoint.y, m_targetPoint.z);
+            }
+
             /*
              * There are three stages of warp, which are functions of time, speed and distance:
              *
