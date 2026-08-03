@@ -158,6 +158,15 @@ void DestinyManager::Process() {
 
 void DestinyManager::ProcessState() {
     using namespace Destiny;
+
+    // DIAGNOSTIC: log player-ship mode each ~5s to see what mode the ship is in
+    if (mySE->HasPilot() && (sEntityList.GetStamp() % 50 == 0)) {
+        _log(AUTOPILOT__MESSAGE, "%s: PROC mode=%u pos=%.0f,%.0f,%.0f warpState=%s targ=%.0f,%.0f,%.0f vel=%.1f",
+             mySE->GetName(), (uint32)m_ballMode, m_position.x, m_position.y, m_position.z,
+             (m_warpState != nullptr ? "Y" : "N"), m_targetPoint.x, m_targetPoint.y, m_targetPoint.z,
+             m_velocity.length());
+    }
+
     switch(m_ballMode) {
         case Ball::Mode::STOP: {
             if (IsMoving()) {
@@ -199,18 +208,6 @@ void DestinyManager::ProcessState() {
                     mySE->GetPilot()->SendErrorMsg("Warp drive is disrupted.");
                 m_ballMode = Destiny::Ball::Mode::STOP;
                 return;
-            }
-
-            // DIAGNOSTIC: warp alignment state before InitWarp (player ships only, throttled)
-            if (m_warpState == nullptr && mySE->HasPilot() && (sEntityList.GetStamp() % 50 == 0)) {
-                GVector toVec(m_position, m_targetPoint);
-                toVec.normalize();
-                double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
-                float deg = EvE::Trig::Rad2Deg(std::acos(dot));
-                _log(AUTOPILOT__MESSAGE, "%s: WARP-ALIGN deg=%.1f TF=%.2f USF=%.2f ASF=%.2f stampDiff=%u align=%.1f mode=%u pos=%.0f,%.0f,%.0f targ=%.0f,%.0f,%.0f",
-                     mySE->GetName(), deg, m_timeFraction, m_userSpeedFraction, m_activeSpeedFraction,
-                     (sEntityList.GetStamp() - m_stateStamp), m_timeToEnterWarp, (uint32)m_ballMode,
-                     m_position.x, m_position.y, m_position.z, m_targetPoint.x, m_targetPoint.y, m_targetPoint.z);
             }
 
             /*
