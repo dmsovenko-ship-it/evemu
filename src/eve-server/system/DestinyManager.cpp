@@ -591,6 +591,9 @@ bool DestinyManager::AbortIfLoginWarping(bool showMsg) {
 }
 
 void DestinyManager::Stop() {
+    if (mySE->HasPilot() && m_ballMode == Destiny::Ball::Mode::WARP)
+        _log(AUTOPILOT__MESSAGE, "%s: STOP called during WARP (warpState=%s) — aborting warp", mySE->GetName(),
+             (m_warpState != nullptr ? "Y" : "N"));
     // Usually there's no need to show a message for this because it gets
     // triggered unnecessarily a few times upon login. Commands that should
     // show a notification are handled in BeyonceService.
@@ -655,6 +658,9 @@ void DestinyManager::Stop() {
 }
 
 void DestinyManager::Halt() {
+    if (mySE->HasPilot())
+        _log(AUTOPILOT__MESSAGE, "%s: HALT called — mode was %u, warpState=%s, targ=%.0f,%.0f,%.0f", mySE->GetName(),
+             (uint32)m_ballMode, (m_warpState != nullptr ? "Y" : "N"), m_targetPoint.x, m_targetPoint.y, m_targetPoint.z);
     SafeDelete(m_warpState);
 
     //  reset ALL movement variables and states.  calling this will set object to a COMPLETE and IMMEDIATE stop.
