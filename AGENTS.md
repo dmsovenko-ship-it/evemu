@@ -10,7 +10,7 @@ Session saved. Latest commit: `865a5b64`. Server on remote host `172.20.1.47`, S
 ### Три бага, которые были найдены и исправлены
 1. **AP-стагнация после прыжка** (~2 мин молчания, потом сам очнулся; док/андок «лечил»). Причина: клиентский `starmap.UpdateRoute(fakeUpdate=True)` в `OnSessionChanged` мог отработать слишком рано во время перехода (stale маршрут → `destID None` → AP молча ждёт). **Фикс (`960d6715`)**: сервер через 5 сек после прыжка шлёт повторную «доброкачественную» смену сессии (`nextSessionChange`) → клиент заново вызывает `OnSessionChanged → UpdateRoute`, маршрут продвигается, AP продолжает. Код: `Client.cpp` `StargateJump` (m_apSessionRetry=true + m_stateTimer.Start(5000)) и `ProcessClient` Idle-кейс.
 2. **Первый варп после прыжка срывался Halt()**. Причина: после прыжка корабль в битом состоянии (`USF=0, m_stop=true, но TF/ASF=1.0` — наследие от pre-jump follow/warp), MoveObject при `USF==0` вызывал `Halt()` → варп отменялся, потом re-warp. **Фикс (`cc5ffaa2`)**: в выравнивании WARP-режима `else if (m_userSpeedFraction < 0.7499) SetSpeedFraction(1.0f, true)` — убрано условие `m_timeFraction < 0.749` (теперь перевооружает корабль независимо от TF).
-3. **Посадка AP-варпа на больших гейтах**: корабль прилетал в ~950м от поверхности (15000м от ЦЕНТРА). Попытка `distance = apWarptoDistance + gate_radius` (`95fe7f34`) вызвала овершут (клиентский WarpLoop пролетал сквозь гейт и сервер дёргал назад 15км) — **ОТКАЧЕНО (`865a5b64`)**. Клиент сажает ~15000м от центра гейта независимо от дистанции — это ограничение клиента. На малых гейтах (радиус ~3.5км) посадка ~11км от поверхности (норм), на больших (~14км) — вплотную (умеренно, стабильно). Возможный future-fix: серверное отталкивание после посадки.
+3. **Посадка AP-варпа на больших гейтах** (была вплотную ~950м от поверхности). Клиентский WarpLoop всегда сажает warp-to-gate ~15км от **ЦЕНТРА** гейта независимо от stop-distance → на большом гейте (радиус 14км) корабль на гейте; увеличение stop-distance → пролёт сквозь гейт + рывок назад. **Фикс (`29ecf6ce`)**: AP варпит к **ТОЧКЕ** `radius + apWarptoDistance` от центра гейта (warp-to-point, сажается точно). Итог: ~11км от поверхности малого гейта, ~14км от большого, без рывков. Код: `BeyonceService.cpp` `CmdWarpToStuffAutopilot` (GPoint landPoint = gatePos - toGate * (radius + apWarptoDistance); WarpTo(landPoint, 0)).
 
 ## Карта для отладки (системы/гейты)
 - 30000197 = Uemon, 30000198 = Paala, 30002355 = LXQ2-T, 30000196 = Otosela.
@@ -33,15 +33,16 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 **ОБЯЗАТЕЛЬНО `-t -i`** для server (иначе спам `Command not recognized:`). Включён `DESTINY__WARP_TRACE=1` и `AUTOPILOT__MESSAGE=1` в /opt/evemu/config/log.ini.
 
 ## Осталось
-1. **Посадка AP-варпа на больших гейтах** — вплотную к гейту (клиентское ограничение, см. выше).
-2. **Дроны при scoop** — улетают в дальний космос (Follow overshoot).
-3. **Дроны при запуске** — 1 пропадает.
-4. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
-5. **Мобилка после анчоринга не скрамблит** — проверить.
-6. **Incursion rewards / ISK на сайте Uroborus** — проверить.
+1. **Дроны при scoop** — улетают в дальний космос (Follow overshoot).
+2. **Дроны при запуске** — 1 пропадает.
+3. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
+4. **Мобилка после анчоринга не скрамблит** — проверить.
+5. **Incursion rewards / ISK на сайте Uroborus** — проверить.
 
 ## Git Log (верх)
 ```
+29ecf6ce fix: AP warp-to-gate targets a point radius+apWarptoDistance from gate center (warp-to-point)
+8b674e50 fix: AP warp-to-gate lands apWarptoDistance from gate surface (add gate radius), capped at 25km
 865a5b64 revert: AP warp stop distance back to apWarptoDistance (15000 from gate center)
 95fe7f34 fix: AP warp-to-gate lands apWarptoDistance from gate surface (REVERTED)
 cc5ffaa2 fix: warp alignment re-arms ship when USF<0.75 regardless of TF

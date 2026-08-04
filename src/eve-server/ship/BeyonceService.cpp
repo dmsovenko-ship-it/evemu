@@ -686,8 +686,6 @@ PyResult BeyonceBound::CmdWarpToStuffAutopilot(PyCallArgs &call, PyInt* destID) 
     double distToGate = toGate.length();
     toGate.normalize();
     GPoint landPoint = gatePos - toGate * (gateRadius + sConfig.world.apWarptoDistance);
-    _log(AUTOPILOT__MESSAGE, "%s: AP warp to gate %u — landPoint %+.0f,%+.0f,%+.0f (radius %.0f, dist %.0f)",
-         call.client->GetName(), pSE->GetID(), landPoint.x, landPoint.y, landPoint.z, gateRadius, distToGate);
     pDestiny->WarpTo(landPoint, 0, true, pSE);
 
     return PyStatic.NewNone();
