@@ -33,11 +33,15 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 **ОБЯЗАТЕЛЬНО `-t -i`** для server (иначе спам `Command not recognized:`). Включён `DESTINY__WARP_TRACE=1` и `AUTOPILOT__MESSAGE=1` в /opt/evemu/config/log.ini.
 
 ## Осталось
-1. **Дроны при scoop** — улетают в дальний космос (Follow overshoot).
-2. **Дроны при запуске** — 1 пропадает.
-3. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
-4. **Мобилка после анчоринга не скрамблит** — проверить.
-5. **Incursion rewards / ISK на сайте Uroborus** — проверить.
+1. **Дроны** — два бага (частично диагностированы, см. ниже).
+2. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
+3. **Мобилка после анчоринга не скрамблит** — проверить.
+4. **Incursion rewards / ISK на сайте Uroborus** — проверить.
+
+## Дроны — диагностика (4 августа)
+- **«1 пропадает при запуске»**: лимит дронов = 5 (AttrMaxActiveDrones, DCU нет). Клиент шлёт 6 LaunchDrone → 6-й отклоняется лимитом (SE не создаётся) → «1 потерялся». Это корректное поведение лимита, но клиентский drone-window не синхронизируется с отказом. Задеплоен фикс `f86e7191`: `ShipSE::GetDroneLimit()` (char AttrMaxActiveDrones + online DCU-бонусы) — раньше Drop и LaunchDrone считали лимит по-разному (LaunchDrone не учитывал DCU), из-за чего последний дрон партии отклонялся.
+- **«Дроны улетают в дальний космос при scoop / не забрать»**: первый клик scoop РАБОТАЕТ (итем уходит в дрон-бэй, SE удаляются, flight-лист пуст — подтверждено DIAG: itemFlag=87, flightCount=0). Второй клик не находит SE (`Unable to find droneSE`) — дроны уже в бэе. Проблема в клиенте: drone-ball'ы не удаляются/не останавливаются корректно → визуально «улетают в космос», юзер думает что дроны в космосе и жмёт scoop снова. Это клиентский FOLLOW/ORBIT десинхрон (клиент ведёт шары сам, сервер не шлёт позиции в FOLLOW/ORBIT-режимах — DestinyManager.cpp:1016). TODO: разобраться с удалением шара дрона при scoop (RemoveBall при null-bubble пропускается: DestinyManager.cpp:641, SystemManager.cpp:1174) и/или с возвратом дрона (Follow(ship,0) в DroneAI.cpp:413 — возможный overshoot).
+- Лог-каналы: DRONE__ERROR=1, остальные DRONE__*=0 (шум убран). Для диагностики дронов можно включать DRONE__AI_TRACE/DRONE__MESSAGE.
 
 ## Git Log (верх)
 ```
