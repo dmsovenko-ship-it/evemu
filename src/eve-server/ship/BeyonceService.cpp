@@ -673,16 +673,22 @@ PyResult BeyonceBound::CmdWarpToStuffAutopilot(PyCallArgs &call, PyInt* destID) 
     call.client->SetUndock(false);
     call.client->SetAutoPilot(true);
 
-    // Land apWarptoDistance from the gate's SURFACE (not its center): add the
-    // gate radius to the stop offset, otherwise a large gate (radius ~14km)
-    // leaves the ship sitting essentially on its surface (~0m in overview).
-    // Cap the total: the client's WarpLoop cannot handle very large stop
-    // distances (>~25km) — it overshoots straight through the gate, then the
-    // server's WarpStop snaps it back (visible jerk).
-    uint32 distance = sConfig.world.apWarptoDistance + static_cast<uint32>(pSE->GetRadius());
-    if (distance > 25000)
-        distance = 25000;
-    pDestiny->WarpTo(pSE->GetPosition(), distance, true, pSE);
+    // Land apWarptoDistance from the gate's SURFACE. The client's WarpLoop
+    // always lands a warp-to-gate ~15km from the gate's CENTER regardless of the
+    // stop distance — for a large gate (radius ~14km) that's right on the gate,
+    // and any larger stop distance makes the client overshoot through the gate
+    // and the server snap it back. Instead, warp to a POINT (empty space) that
+    // sits radius+apWarptoDistance from the gate center on the approach side:
+    // warp-to-point lands exactly there with no overshoot.
+    GPoint gatePos = pSE->GetPosition();
+    double gateRadius = pSE->GetRadius();
+    GVector toGate(call.client->GetShipSE()->GetPosition(), gatePos);
+    double distToGate = toGate.length();
+    toGate.normalize();
+    GPoint landPoint = gatePos - toGate * (gateRadius + sConfig.world.apWarptoDistance);
+    _log(AUTOPILOT__MESSAGE, "%s: AP warp to gate %u — landPoint %+.0f,%+.0f,%+.0f (radius %.0f, dist %.0f)",
+         call.client->GetName(), pSE->GetID(), landPoint.x, landPoint.y, landPoint.z, gateRadius, distToGate);
+    pDestiny->WarpTo(landPoint, 0, true, pSE);
 
     return PyStatic.NewNone();
 }
