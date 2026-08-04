@@ -1015,12 +1015,12 @@ void DestinyManager::MoveObject() {
         return;
     }
     // Server position must ALWAYS advance internally, otherwise server-side distance
-    // checks (follow distance, gate jump trigger, warp checks) stay frozen at the
-    // pre-approach position. In FOLLOW mode the client drives the visuals, so we update
-    // the internal position WITHOUT sending a sync packet (avoids snapping the client).
-    if (m_ballMode == Destiny::Ball::Mode::FOLLOW) {
-        SetPosition(newPos);
-    } else if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
+    // checks (follow distance, gate jump trigger, warp checks, orbit/combat range) stay
+    // frozen at the pre-approach position. In FOLLOW/ORBIT the client drives the visuals,
+    // so we update the internal position WITHOUT sending a sync packet most of the time.
+    SetPosition(newPos);
+
+    if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
         m_moveSyncCounter = 0;
         if (m_ballMode == Destiny::Ball::Mode::ORBIT) {
             // Orbit uses angular velocity; client's animation matches.
@@ -1467,13 +1467,12 @@ void DestinyManager::Orbit() {
     } else {
         m_orbiting = Destiny::Ball::Orbit::Orbiting;
         _log(DESTINY__ORBIT_TRACE, "2 - within tolerance");
-        // within tolerance: if already moving, let MoveObject drift; otherwise
-        // fall through to calculate the first orbit position and kickstart motion.
-        double curSpeed = m_maxSpeed * m_activeSpeedFraction * m_maxOrbitSpeedFraction;
-        if (curSpeed > 1.0) {
-            MoveObject();
-            return;
-        }
+        // Always fall through and recompute the orbit heading (tangent to the radius).
+        // The old early-return (if already moving, let MoveObject drift) left a STALE
+        // tangent: the entity flew in a straight line away from the orbit circle until
+        // the "slightly far / slightly close" branch yanked it back — the visible
+        // "bounce / teleport" in drone and NPC orbits. Recomputing every tick keeps the
+        // entity on a smooth circle (client does the same natively via CmdOrbit).
     }
 
     #define LogMacro(v) _log(DESTINY__ORBIT_TRACE, "m - " #v ": (%.3f, %.3f, %.3f)   len=%.3f", v.x, v.y, v.z, v.length())
