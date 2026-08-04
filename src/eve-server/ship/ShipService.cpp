@@ -352,39 +352,9 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                     throw CustomError ("Drones are disabled.");
                 }
 
-                uint32 charDrones = pClient->GetChar()->GetAttribute(AttrMaxActiveDrones).get_uint32();
-                // DCU module bonus may not be reflected in character attribute via dogma
-                // modifier system; sum online DCU modules explicitly.
-                uint32 dcuBonus = 0;
-                uint32 dcuCount = 0;
-                {
-                    std::vector<InventoryItemRef> modVec;
-                    pClient->GetShipSE()->GetShipItemRef()->GetModuleManager()->GetModuleListOfRefsAsc(modVec);
-                    for (auto mod : modVec) {
-                        _log(DRONE__AI_TRACE, "DCUdebug mod %u '%s' group=%u online=%d",
-                             mod->itemID(), mod->name(), mod->groupID(),
-                             mod->GetAttribute(AttrOnline).get_bool());
-                        if (mod->groupID() == EVEDB::invGroups::Drone_Control_Unit) {
-                            ++dcuCount;
-                            if (mod->GetAttribute(AttrOnline).get_bool()) {
-                                uint32 bonus = mod->GetAttribute(AttrMaxActiveDrones).get_uint32();
-                                if (bonus == 0)
-                                    bonus = mod->GetAttribute(AttrMaxActiveDroneBonus).get_uint32();
-                                if (bonus == 0)
-                                    bonus = mod->GetAttribute(AttrMaxDroneBonus).get_uint32();
-                                _log(DRONE__AI_TRACE, "DCU %u online bonus=%u", mod->itemID(), bonus);
-                                dcuBonus += bonus;
-                            } else {
-                                _log(DRONE__AI_TRACE, "DCU %u OFFLINE", mod->itemID());
-                            }
-                        }
-                    }
-                }
-                uint32 droneLimit = charDrones + dcuBonus;
-                _log(DRONE__AI_TRACE, "Drone limit: %u = char(%u) + dcu(%u) [dcuCount=%u], launched: %u",
-                     droneLimit, charDrones, dcuBonus, dcuCount, pClient->GetShipSE()->DroneCount());
-                pClient->SendNotifyMsg("Drone limit: %u = char(%u) + dcu(%u) [dcuCount=%u], launched: %u",
-                    droneLimit, charDrones, dcuBonus, dcuCount, pClient->GetShipSE()->DroneCount());
+                uint32 droneLimit = pClient->GetShipSE()->GetDroneLimit();
+                _log(DRONE__AI_TRACE, "Drone limit: %u, launched: %u",
+                     droneLimit, pClient->GetShipSE()->DroneCount());
                 if (droneLimit < 1) {
                     throw UserError ("NoDroneManagementAbilities")
                             .AddFormatValue ("typeID", new PyInt (iRef->typeID ()));

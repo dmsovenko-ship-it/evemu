@@ -385,6 +385,8 @@ public:
     void RemoveDroneFromFlight(uint32 droneID);  // cleanup from map (safe if not found)
     // returns current count of drones in space for this ship
     uint8 DroneCount()                                  { return m_drones.size(); }
+    // max active drones = character AttrMaxActiveDrones + online Drone Control Unit bonuses
+    uint32 GetDroneLimit();
 
     // Fighter tube system (Crucible-era)
     uint8 GetFighterTubeCount();        // 3 for Carrier, 6 for Supercarrier, 0 otherwise

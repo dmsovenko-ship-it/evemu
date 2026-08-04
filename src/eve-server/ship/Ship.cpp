@@ -2972,6 +2972,30 @@ void ShipSE::ApplyBoost(BoostData& bData)
 }
 //{'FullPath': u'UI/Messages', 'messageID': 257802, 'label': u'DronesDroppedBecauseOfBandwidthModificationBody'}(u'The drone control bandwidth of your ship has been modified causing you to lose the ability to control some drones.', None, None)
 
+uint32 ShipSE::GetDroneLimit() {
+    uint32 limit = 1;
+    if (m_shipRef.get() == nullptr || GetPilot() == nullptr)
+        return limit;
+    Character* pChar = GetPilot()->GetChar().get();
+    if (pChar != nullptr)
+        limit = pChar->GetAttribute(AttrMaxActiveDrones).get_uint32();
+    // DCU module bonus may not be reflected in the character attribute via dogma;
+    // sum online Drone Control Unit bonuses explicitly (same as ShipBound::Drop).
+    std::vector<InventoryItemRef> modVec;
+    m_shipRef->GetModuleManager()->GetModuleListOfRefsAsc(modVec);
+    for (auto mod : modVec) {
+        if (mod->groupID() == EVEDB::invGroups::Drone_Control_Unit
+            and mod->GetAttribute(AttrOnline).get_bool()) {
+            uint32 bonus = mod->GetAttribute(AttrMaxActiveDrones).get_uint32();
+            if (bonus == 0) bonus = mod->GetAttribute(AttrMaxActiveDroneBonus).get_uint32();
+            if (bonus == 0) bonus = mod->GetAttribute(AttrMaxDroneBonus).get_uint32();
+            limit += bonus;
+        }
+    }
+    if (limit < 1) limit = 1;
+    return limit;
+}
+
 bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     Character* pChar = GetPilot()->GetChar().get();
     sLog.Magenta("ShipSE::LaunchDrone()","%s: Launching drone %u",  pChar->name(), dRef->itemID());
@@ -3002,9 +3026,10 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
                   or (dRef->groupID() == EVEDB::invGroups::Fighter_Bomber);
 
     // Check maxActiveDrones BEFORE creating the SE — currentDrones does not include the new one yet.
-    uint32 maxDrones = std::max<uint32>(1, static_cast<uint32>(pChar->GetSkillLevel(EvESkill::DroneInterfacing, true)));
-    uint32 attrDrones = static_cast<uint32>(pChar->GetAttribute(AttrMaxActiveDrones).get_int());
-    if (attrDrones > maxDrones) maxDrones = attrDrones;
+    // Use the same limit as ShipBound::Drop (char AttrMaxActiveDrones + online DCU bonuses) so the
+    // batch doesn't reject the last drone (Drop allows N+1 with a DCU, LaunchDrone previously used
+    // a stricter skill-based limit that missed the DCU bonus → last drone "disappears").
+    uint32 maxDrones = GetDroneLimit();
     uint32 currentDrones = 0;
     for (auto& [id, drone] : m_drones)
         if (drone != nullptr) ++currentDrones;
