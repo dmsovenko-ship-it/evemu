@@ -853,13 +853,6 @@ PyResult ShipBound::ScoopDrone(PyCallArgs &call, PyList* itemIDs) {
         pDroneSE = pSysMgr->GetSE(*cur);
         if (pDroneSE == nullptr) {
             _log(SERVICE__ERROR, "%s: Unable to find droneSE %i to scoop.", pClient->GetName(), *cur);
-            // DIAGNOSTIC: dump ship drone-flight count + drone item location
-            InventoryItemRef dRef = sItemFactory.GetItemRef(*cur);
-            _log(SERVICE__ERROR, "%s: DIAG scoop %i — sysID=%u flightCount=%u itemFlag=%u itemLoc=%u",
-                 pClient->GetName(), *cur, pSysMgr->GetID(),
-                 pClient->GetShipSE()->DroneCount(),
-                 (dRef.get() != nullptr ? dRef->flag() : 0),
-                 (dRef.get() != nullptr ? dRef->locationID() : 0));
             continue;
         }
 

@@ -3081,10 +3081,6 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
 void ShipSE::ScoopDrone(SystemEntity* pSE) {
     DroneSE* pDrone = pSE->GetDroneSE();
     if (pDrone == nullptr) return;
-    _log(DRONE__MESSAGE, "ScoopDrone: %s(%u) — online=%d state=%s m_returnToBay=%d",
-         pDrone->GetName(), pDrone->GetID(), pDrone->IsEnabled(),
-         (pDrone->GetAI() != nullptr ? pDrone->GetAI()->GetStateName(pDrone->GetAI()->GetRawState()) : "?"),
-         (pDrone->GetAI() != nullptr ? pDrone->GetAI()->IsReturnToBay() : 0));
 
     m_drones.erase(pSE->GetID());
     pDrone->Offline();

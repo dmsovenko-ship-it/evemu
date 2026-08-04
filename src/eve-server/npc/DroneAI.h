@@ -73,7 +73,6 @@ public:
 
     int8 GetState();
     int8 GetRawState() const                            { return m_state; }
-    bool IsReturnToBay() const                          { return m_returnToBay; }
     std::string GetStateName(int8 stateID);
     bool IsIncapacitated()                              { return m_state == DroneAI::State::Incapacitated; }
 
