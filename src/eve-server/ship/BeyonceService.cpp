@@ -673,7 +673,15 @@ PyResult BeyonceBound::CmdWarpToStuffAutopilot(PyCallArgs &call, PyInt* destID) 
     call.client->SetUndock(false);
     call.client->SetAutoPilot(true);
 
-    uint32 distance = sConfig.world.apWarptoDistance;
+    // Land apWarptoDistance from the gate's SURFACE (not its center): add the
+    // gate radius to the stop offset, otherwise a large gate (radius ~14km)
+    // leaves the ship sitting essentially on its surface (~0m in overview).
+    // Cap the total: the client's WarpLoop cannot handle very large stop
+    // distances (>~25km) — it overshoots straight through the gate, then the
+    // server's WarpStop snaps it back (visible jerk).
+    uint32 distance = sConfig.world.apWarptoDistance + static_cast<uint32>(pSE->GetRadius());
+    if (distance > 25000)
+        distance = 25000;
     pDestiny->WarpTo(pSE->GetPosition(), distance, true, pSE);
 
     return PyStatic.NewNone();
