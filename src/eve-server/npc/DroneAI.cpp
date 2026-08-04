@@ -249,6 +249,12 @@ void DroneAIMgr::Process() {
         } break;
 
         case DroneAI::State::Departing: { // return to ship.  when close enough, scoop or orbit
+            if (m_assignedShip == nullptr or m_assignedShip->DestinyMgr() == nullptr) {
+                // ship vanished (scoop/offline already ran AssignShip(nullptr)).
+                // nothing to return to — go idle; DroneSE::Process will schedule removal.
+                SetIdle();
+                break;
+            }
             double arriveDist = std::min(m_entityOrbitRange, 5000.0);
             if (m_pDrone->GetPosition().distance(m_assignedShip->GetPosition()) < arriveDist) {
                 if (m_returnToBay) {
