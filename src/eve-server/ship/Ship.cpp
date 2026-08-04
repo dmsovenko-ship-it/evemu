@@ -3009,12 +3009,11 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
         SafeDelete(staleSE);
     }
 
-    dRef->Move(GetLocationID(), flagNone, true);
-    dRef->ChangeSingleton(true);
-
-    GPoint position(GetPosition());
-    position.MakeRandomPointOnSphere(50.0);
-    dRef->SetPosition(position);
+    // NOTE: do NOT move the item out of the drone bay here. The limit/bandwidth checks
+    // below can reject the launch; if the item were already moved to flagNone (space) and
+    // the launch is rejected, the item would be orphaned (invisible in bay AND space) —
+    // the client's drone window would show it as "disappeared". The item stays in the bay
+    // until all checks pass, then the block below moves it to space before creating the SE.
 
     /*
     AttrDroneBandwidth = 1271,     <-- ship attribute  (total)
@@ -3083,6 +3082,9 @@ void ShipSE::ScoopDrone(SystemEntity* pSE) {
     if (pDrone == nullptr) return;
 
     m_drones.erase(pSE->GetID());
+    // Null the controller so the client's OnDroneStateChange prunes this drone from its
+    // stateByDroneID — otherwise a scooped drone lingers as a phantom "distant space" entry.
+    pDrone->ClearController();
     pDrone->Offline();
 
     // Move the drone item back to the ship's drone bay

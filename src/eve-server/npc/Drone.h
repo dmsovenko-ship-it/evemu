@@ -77,6 +77,7 @@ public:
     void Launch(ShipSE* pShipSE);           //add drone entity to system
     void Online(ShipSE* pShipSE=nullptr);         //  if nullptr sent, assign to controlling ship
     void Offline();
+    void ClearController();  // null owner/controller so client's OnDroneStateChange prunes the drone row
     void StateChange();
     //begin idle orbit around assigned ship
     void IdleOrbit(ShipSE* pShipSE=nullptr);

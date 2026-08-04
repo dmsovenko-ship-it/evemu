@@ -816,7 +816,12 @@ void DestinyManager::Bounce(GVector direction, float speed)
 // main movement method
 void DestinyManager::MoveObject() {
     if (mySE->SysBubble() == nullptr)
-        mySE->SystemMgr()->AddEntity(mySE);
+        // Re-bubble directly. SystemMgr()->AddEntity() early-returns for entities already in
+        // m_entities (every launched drone is), so it never re-adds a drone that lost its bubble
+        // (e.g. drifted across a boundary or its bubble was removed). A null bubble at scoop time
+        // causes all scoop packets (Stop/OnDroneStateChange/RemoveBall) to be skipped, leaving the
+        // client's drone ball chasing the ship forever ("fly to distant space").
+        sBubbleMgr.Add(mySE);
 
     if (m_stateStamp > sEntityList.GetStamp()) {
         if (is_log_enabled(DESTINY__MOVE_TRACE))

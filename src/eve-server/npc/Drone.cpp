@@ -274,6 +274,16 @@ void DroneSE::Offline() {
     StateChange();
 }
 
+void DroneSE::ClearController() {
+    // Null the controller/owner so the client's OnDroneStateChange (michelle.py) sees a
+    // controllerOwnerID/controllerID change and prunes this drone from stateByDroneID.
+    // Otherwise a scooped drone keeps its row there, and with the ball gone it shows as a
+    // phantom "drones in distant space" entry in the drone window.
+    m_controllerID = 0;
+    m_controllerOwnerID = 0;
+    m_ownerID = 0;
+}
+
 void DroneSE::IdleOrbit(ShipSE* pShipSE/*nullptr*/) {
     if (pShipSE == nullptr)
         pShipSE = m_pShipSE;
