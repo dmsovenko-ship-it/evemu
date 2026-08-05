@@ -589,6 +589,10 @@ void DestinyManager::Stop() {
     // Usually there's no need to show a message for this because it gets
     // triggered unnecessarily a few times upon login. Commands that should
     // show a notification are handled in BeyonceService.
+    if (mySE->IsDroneSE()) {
+        _log(DESTINY__ERROR, "DESTDIAG %s(%u): Stop() called", mySE->GetName(), mySE->GetID());
+        EvE::traceStack();
+    }
     if (AbortIfLoginWarping(false)) {
         return;
     }
@@ -2213,6 +2217,10 @@ void DestinyManager::BeginMovement() {
 void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
     //called from client as 'CmdFollowBall'
     //  also used by 'Approach'
+    if (mySE->IsDroneSE()) {
+        _log(DESTINY__ERROR, "DESTDIAG %s(%u): Follow(%s, dist=%u) called", mySE->GetName(), mySE->GetID(), pSE->GetName(), distance);
+        EvE::traceStack();
+    }
     if (mySE->HasPilot())
         _log(AUTOPILOT__MESSAGE, "Follow(%s): dist=%u isGate=%d isStation=%d AP=%d hasPilot=%d",
              pSE->GetName(), distance, pSE->IsGateSE(), pSE->IsStationSE(),
@@ -2285,6 +2293,10 @@ void DestinyManager::GotoDirection(const GPoint& direction) {
 }
 
 void DestinyManager::GotoPoint(const GPoint& point) {
+    if (mySE->IsDroneSE()) {
+        _log(DESTINY__ERROR, "DESTDIAG %s(%u): GotoPoint(%.0f,%.0f,%.0f) called", mySE->GetName(), mySE->GetID(), point.x, point.y, point.z);
+        EvE::traceStack();
+    }
     //reset orbit vars in case we were orbiting before
     if (m_orbiting)
         ClearOrbit();
@@ -2528,6 +2540,10 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 }
 
 void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
+    if (mySE->IsDroneSE()) {
+        _log(DESTINY__ERROR, "DESTDIAG %s(%u): Orbit(%s, dist=%u) called", mySE->GetName(), mySE->GetID(), pSE->GetName(), distance);
+        EvE::traceStack();
+    }
     if (pSE == nullptr) {
         _log(DESTINY__ERROR, "%s(%u) - Orbit() called with null target. Stopping orbit.", mySE->GetName(), mySE->GetID());
         Halt();
