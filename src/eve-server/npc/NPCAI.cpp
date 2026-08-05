@@ -74,6 +74,10 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     /* set npc ship data */
     m_sigResolution = m_self->GetAttribute(AttrOptimalSigRadius).get_uint32();
     m_attackSpeed = m_self->GetAttribute(AttrSpeed).get_uint32();
+    // AttrSpeed is the weapon cycle in ms, but some NPC types have absurd values
+    // (e.g. 30000 = 30s on Guristas Plunderer/Mortifier) making them seem dead.
+    if (m_attackSpeed < 500 or m_attackSpeed > 15000)
+        m_attackSpeed = MakeRandomInt(3000, 8000);
     m_sigRadius = m_self->GetAttribute(AttrSignatureRadius).get_uint32();
     m_launcherCycleTime = m_self->GetAttribute(AttrMissileLaunchDuration).get_uint32();
     if (m_launcherCycleTime > 100)
@@ -797,6 +801,14 @@ void NPCAIMgr::Targeted(SystemEntity* pSE) {
         m_paintTimer.Start(m_attackSpeed * 4);
     if (!m_smartbombTimer.Enabled() and m_smartbombRange > 0)
         m_smartbombTimer.Start(m_attackSpeed * 5);
+
+    // NPCs aggroed via Targeted() (player/drone attacked first) never got their
+    // attack/missile timers started — Target() starts them, Targeted() did not.
+    // Result: the NPC orbited the player (Engaged) but never fired a shot.
+    if (!m_mainAttackTimer.Enabled())
+        m_mainAttackTimer.Start(m_attackSpeed);
+    if (!m_missileTimer.Enabled() and (m_launcherCycleTime > 100))
+        m_missileTimer.Start(m_launcherCycleTime);
 }
 
 void NPCAIMgr::TargetLost(SystemEntity* pSE) {
