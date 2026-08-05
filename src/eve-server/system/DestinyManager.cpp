@@ -1033,21 +1033,20 @@ void DestinyManager::MoveObject() {
     // so we update the internal position WITHOUT sending a sync packet most of the time.
     SetPosition(newPos);
 
-    // Periodic SOFT position reconciliation for client-driven modes (FOLLOW/ORBIT/GOTO).
-    // The client's Ballpark simulates these locally; without a periodic SetBallPosition the
-    // server and client positions drift apart unbounded (drone window shows "210 km" while
-    // the ball sits at the ship). Sending every ~5s lets the client's Ballpark lerp its ball
-    // toward the server position — smooth, no snap — keeping drift bounded to a few metres.
-    const bool clientDriven = (m_ballMode == Destiny::Ball::Mode::FOLLOW
-                            || m_ballMode == Destiny::Ball::Mode::ORBIT
-                            || m_ballMode == Destiny::Ball::Mode::GOTO);
-    if (clientDriven && m_userSpeedFraction > 0.0f) {
-        if (++m_moveSyncCounter >= 5) {
-            m_moveSyncCounter = 0;
-            _log(DESTINY__TRACE, "%s(%u): soft position sync (mode %u) at (%.0f,%.0f,%.0f)",
-                 mySE->GetName(), mySE->GetID(), m_ballMode, newPos.x, newPos.y, newPos.z);
+    // NOTE: no periodic SetBallPosition for FOLLOW/ORBIT/GOTO here. The server's orbit
+    // (tangent) diverges from the client's angular orbit, so a periodic snap shows up as
+    // a small repeated "jerk" in drone/NPC/ship orbits. After the turn-rate fix the server
+    // position tracks the client closely (drift is metres), so skip the sync to stay smooth.
+    if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
+        m_moveSyncCounter = 0;
+        if (m_ballMode == Destiny::Ball::Mode::ORBIT) {
+            // Orbit uses angular velocity; client's animation matches — skip snap.
+        } else {
             SetPosition(newPos, true);
         }
+    } else if (m_userSpeedFraction > 0.0f) {
+        SetPosition(newPos, sConfig.debug.PositionHack);
+    }
     } else if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
         m_moveSyncCounter = 0;
         SetPosition(newPos, true);

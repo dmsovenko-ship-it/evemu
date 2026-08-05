@@ -3087,10 +3087,12 @@ void ShipSE::ScoopDrone(SystemEntity* pSE) {
     pDrone->ClearController();
     pDrone->Offline();
 
-    // Move the drone item back to the ship's drone bay
+    // Move the drone item back to the ship's drone bay.
+    // BUGFIX: was GetLocationID() (the solar system when in space) so the item ended up
+    // "in the drone bay" but located in the system — client can't find it, drones vanish.
     InventoryItemRef droneItem = pDrone->GetSelf();
     if (droneItem.get() != nullptr) {
-        droneItem->Move(GetLocationID(), flagDroneBay, true);
+        droneItem->Move(m_shipRef->itemID(), flagDroneBay, true);
         droneItem->ChangeSingleton(false);
     }
 
