@@ -244,6 +244,19 @@ void DroneAIMgr::Process() {
                 m_pDrone->TargetMgr()->ClearTarget(pTarget);
                 SetIdle();
                 return;
+            } else if (m_assignedShip != nullptr and m_assignedShip->DestinyMgr() != nullptr) {
+                // Defensive: if the drone chased its target beyond ~2x control range
+                // (an NPC fled/warped mid-combat and the client-driven follow ran away),
+                // stop pursuing and return to the ship — prevents "drone flew into
+                // deep space" during combat.
+                double distToShip = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
+                if (distToShip > GetControlRange() * 2.0) {
+                    _log(DRONE__AI_TRACE, "Drone %s(%u): beyond 2x control range (%.0fm) chasing %s(%u). Returning to ship.",
+                         m_pDrone->GetName(), m_pDrone->GetID(), distToShip, pTarget->GetName(), pTarget->GetID());
+                    m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                    Return();
+                    return;
+                }
             }
             CheckDistance(pTarget);
         } break;
