@@ -1047,13 +1047,6 @@ void DestinyManager::MoveObject() {
     } else if (m_userSpeedFraction > 0.0f) {
         SetPosition(newPos, sConfig.debug.PositionHack);
     }
-    } else if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
-        m_moveSyncCounter = 0;
-        SetPosition(newPos, true);
-    } else if (m_userSpeedFraction > 0.0f) {
-        // Straight-line modes (GOTO handled above; STOP residual drift, etc.)
-        SetPosition(newPos, sConfig.debug.PositionHack);
-    }
 
     if (is_log_enabled(DESTINY__MOVE_DEBUG))
         _log(DESTINY__MOVE_DEBUG, "Destiny::MoveObject() - %s(%u) Pos:%.2f,%.2f,%.2f  Vel:%.3f,%.3f,%.3f  Head:%.3f,%.3f,%.3f", \
