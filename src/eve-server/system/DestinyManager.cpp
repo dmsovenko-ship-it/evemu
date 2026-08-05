@@ -62,7 +62,6 @@ m_shipAccelTime(0.0f),
 m_shipMaxAccelTime(0.0f),
 m_ballMode(Destiny::Ball::Mode::STOP),
 m_warpTimer(0),
-  m_warpStopDelay(0),
 m_moveTime(0.0),
 m_targetDistance(0),
 m_followDistance(0),
@@ -219,12 +218,6 @@ void DestinyManager::ProcessState() {
                 //warp is in progress
                 uint32 sec_into_warp = (sEntityList.GetStamp() - m_stateStamp);
                 //  speed and distance formulas based on current warp distance
-                if (m_warpStopDelay.Enabled()) {
-                    // Arrived at target but holding for the client's decel to finish.
-                    if (m_warpStopDelay.Check())
-                        WarpStop(0.0);
-                    return;
-                }
                 if (m_warpState->accel) {
                     WarpAccel(sec_into_warp);
                 } else if (m_warpState->cruise) {
@@ -1693,7 +1686,6 @@ void DestinyManager::InitWarp() {
     if (m_turning) {
         ClearTurn();
     }
-    m_warpStopDelay.Disable();   // fresh warp — clear the exit-hold timer
     // Reset movement state so warp always starts clean, regardless of prior
     // decel/accel state (e.g. post-warp decel when rapidly re-warping).
     m_accel = false;
@@ -1761,9 +1753,21 @@ void DestinyManager::InitWarp() {
 
         // all ships base time is 29s for distances > ship warp speed
         m_warpAccelTime = 7;
-        m_warpDecelTime = 21; // accel *3
-        decelDistance = exp(static_cast<double>(m_warpDecelTime));   // ship warp speed in meters * 1.7
+        // Client decel distance — destiny.dll OnDeactivatingWarp:
+        //   local_20 = min(mass * 0.1 * 1 AU, warpSpeed * 1.5); decelDist = local_20 / 3
+        // Matching it makes the server's decel timing line up with the client's Ballpark,
+        // so WarpStop no longer snaps the ship mid-brake (visible "teleport with stop").
+        double clientDecel = std::min(m_mass * 0.1 * static_cast<double>(ONE_AU_IN_METERS),
+                                      warpSpeedInMeters * 1.5) / 3.0;
+        // keep decel sane relative to warp length
+        decelDistance = std::max(1.0, std::min(clientDecel, m_targetDistance * 0.75));
         accelDistance = exp(static_cast<double>(3) * static_cast<double>(m_warpAccelTime));       // ship warp speed in meters
+        // ensure accel+decel fit within the warp distance
+        if (accelDistance + decelDistance > m_targetDistance) {
+            double scale = m_targetDistance / (accelDistance + decelDistance);
+            accelDistance *= scale;
+            decelDistance *= scale;
+        }
         cruiseDistance = (static_cast<double>(m_targetDistance) - accelDistance - decelDistance);
         cruiseTime = static_cast<float>(cruiseDistance / warpSpeedInMeters);
     }
@@ -1958,19 +1962,11 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
                 mySE->GetName(), mySE->GetID(), decelTime, sec_into_warp, currentShipSpeed, m_targetDistance);
 
     WarpUpdate(currentShipSpeed);
-    // The server's fixed 21s decel finishes before the client's (mass-based) decel,
-    // so firing WarpStop here snaps the ship to the target while the client is still
-    // braking — visible "teleport with stop". Instead, reach the target and HOLD the
-    // position for ~5s (client's Ballpark finishes its own decel and arrives on its
-    // own), then send CmdStop+final position so there's no yank.
-    if (m_targetDistance > 0.0 && m_targetDistance <= 1.0) {
-        if (!m_warpStopDelay.Enabled())
-            m_warpStopDelay.Start(5000);
-        // keep server position parked exactly on the target while we wait
-        m_position = m_targetPoint;
-        mySE->SetPosition(m_position);
-        return;
-    }
+    // Fire WarpStop when the ship is within 1m of target. The decel distance is
+    // computed from the client's formula (mass-based) in InitWarp so the server's
+    // warp timing matches the client's Ballpark — no mid-decel snap.
+    if (m_targetDistance > 0.0 && m_targetDistance <= 1.0)
+        WarpStop(currentShipSpeed);
 }
 
 void DestinyManager::WarpUpdate(double currentShipSpeed) {
