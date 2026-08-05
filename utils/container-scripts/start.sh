@@ -37,8 +37,14 @@ mysql -h "${MARIADB_HOST:-db}" -u "${MARIADB_USER:-evemu}" -p"${MARIADB_PASSWORD
 echo "Starting eve-server..."
 cd /app/bin/
 if [ "$RUN_WITH_GDB" == "TRUE" ]; then
-    echo "=== Running EVEmu with gdb ==="
-    gdb -ex run ./eve-server
+    echo "=== Running EVEmu with gdb (batch, backtrace on crash) ==="
+    gdb -batch \
+        -ex "handle SIGPIPE nostop noprint pass" \
+        -ex "handle SIGCHLD nostop noprint pass" \
+        -ex "handle SIGALRM nostop noprint pass" \
+        -ex run \
+        -ex "bt 40" \
+        ./eve-server
 else
     echo "=== Running EVEmu normally ==="
     ulimit -c unlimited
