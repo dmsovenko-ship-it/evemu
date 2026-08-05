@@ -1,4 +1,4 @@
-/*
+﻿/*
     ------------------------------------------------------------------------------------
     LICENSE:
     ------------------------------------------------------------------------------------
@@ -257,14 +257,14 @@ void DestinyManager::ProcessState() {
             } else if (m_userSpeedFraction < 0.7499) {
                 // Accelerate to full speed for warp alignment. 30% speed caused
                 // excessive align time and "stuck at 30%" perception.
-                // NOTE: only USF is checked (not TF) — after a gate jump the ship
+                // NOTE: only USF is checked (not TF) вЂ” after a gate jump the ship
                 // can be in a corrupt state (USF=0/m_stop=true yet TF/ASF=1.0 from
                 // the pre-jump follow/warp), and MoveObject() would Halt() because
                 // USF==0. Forcing USF=1.0 here re-arms the ship for the warp.
                 SetSpeedFraction(1.0f, true);
             } else if ((degrees < 30.0f) && (m_timeFraction > 0.5)
                        && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
-                // Close enough to target — start warp early (final alignment during accel).
+                // Close enough to target вЂ” start warp early (final alignment during accel).
                 // Maintain current heading/velocity instead of zeroing, matching
                 // destiny.dll OnActivatingWarp case 3: warp enters with existing momentum.
                 InitWarp();
@@ -279,7 +279,7 @@ void DestinyManager::ProcessState() {
                             mySE->GetName(), mySE->GetID());
                 }
                 m_shipHeading = toVec;
-                // Force velocity toward target — InitWarp uses m_velocity for direction
+                // Force velocity toward target вЂ” InitWarp uses m_velocity for direction
                 m_velocity = GVector(m_shipHeading.x * m_maxShipSpeed,
                                      m_shipHeading.y * m_maxShipSpeed,
                                      m_shipHeading.z * m_maxShipSpeed);
@@ -597,14 +597,14 @@ void DestinyManager::Stop() {
         return;
     }
 
-    // already fully stopped — skip repeated CmdStop/SetPosition spam
+    // already fully stopped вЂ” skip repeated CmdStop/SetPosition spam
     if (m_stop and (m_ballMode == Destiny::Ball::Mode::STOP) and !IsMoving())
         return;
 
     if (m_userSpeedFraction == 0.0f) {
         m_stop = true;
     } else if ((m_ballMode == Destiny::Ball::Mode::WARP) and (IsWarping())) {
-        // Active warp aborted — coast to destination at drop speed instead of snap STOP.
+        // Active warp aborted вЂ” coast to destination at drop speed instead of snap STOP.
         // Client's WarpLoop has exited; keep the ship moving so the client sees deceleration.
         m_ballMode = Destiny::Ball::Mode::GOTO;
         m_targetPoint = m_position + m_warpState->warp_vector * m_targetDistance;
@@ -951,7 +951,7 @@ void DestinyManager::MoveObject() {
                 // asf = psf - (psf - usf) * tf
                 m_activeSpeedFraction = m_prevSpeedFraction - (m_prevSpeedFraction - m_userSpeedFraction) * m_timeFraction;
             } else {
-                // decel with no previous speed — we're already stopped
+                // decel with no previous speed вЂ” we're already stopped
                 m_decel = false;
                 m_activeSpeedFraction = 0.0;
                 speed = 0.0;
@@ -962,7 +962,7 @@ void DestinyManager::MoveObject() {
             // no movement requested and no residual speed - safe to halt
             Halt();
         } else {
-            // no flags set but not at stop — force halt
+            // no flags set but not at stop вЂ” force halt
             Halt();
         }
 
@@ -1002,13 +1002,13 @@ void DestinyManager::MoveObject() {
         m_shipHeading = NULL_ORIGIN_V;
     }
     // When commanded to stop, snap speed to 0 immediately to prevent position drift.
-    // Do NOT wait for deceleration curve — that takes 20+ ticks and drifts the server position.
+    // Do NOT wait for deceleration curve вЂ” that takes 20+ ticks and drifts the server position.
     if (m_userSpeedFraction == 0.0f) {
         speed = 0.0f;
         m_activeSpeedFraction = 0.0f;
     }
     m_velocity = m_shipHeading * speed;
-    // Guard against NaN velocity (e.g., speed=0 with NaN heading → 0*NaN=NaN)
+    // Guard against NaN velocity (e.g., speed=0 with NaN heading в†’ 0*NaN=NaN)
     if (m_velocity.isNaN()) {
         _log(DESTINY__ERROR, "%s(%u) - Velocity is NaN! Clamping.", mySE->GetName(), mySE->GetID());
         m_velocity = NULL_ORIGIN_V;
@@ -1033,7 +1033,7 @@ void DestinyManager::MoveObject() {
         }
     } else if (m_userSpeedFraction > 0.0f && m_ballMode != Destiny::Ball::Mode::ORBIT
                && m_ballMode != Destiny::Ball::Mode::GOTO) {
-        // Send position updates while moving — skip Orbit, Goto (client-driven simulation).
+        // Send position updates while moving вЂ” skip Orbit, Goto (client-driven simulation).
         SetPosition(newPos, sConfig.debug.PositionHack);
     }
 
@@ -1118,7 +1118,7 @@ bool DestinyManager::IsTurn() {    //this is working.  dont change
  *       // If the inputs are too close for comfort, linearly interpolate
  *       // and normalize the result.
  *
- *       Quaternion result = v0 + t*(v1 – v0);
+ *       Quaternion result = v0 + t*(v1 вЂ“ v0);
  *       result.normalize();
  *       return result;
  *   }
@@ -1127,7 +1127,7 @@ bool DestinyManager::IsTurn() {    //this is working.  dont change
  *   double theta_0 = acos(dot);  // theta_0 = angle between input vectors
  *   double theta = theta_0*t;    // theta = angle between v0 and result
  *
- *   Quaternion v2 = v1 – v0*dot;
+ *   Quaternion v2 = v1 вЂ“ v0*dot;
  *   v2.normalize();              // { v0, v2 } is now an orthonormal basis
  *
  *   return v0*cos(theta) + v2*sin(theta);
@@ -1230,7 +1230,7 @@ void DestinyManager::Turn() {   // tracking within 900m for Frigates, 1k4m for B
 }
 
 void DestinyManager::ClearTurn() {
-    // Do NOT call SetPosition here — it sends SetBallPosition with every turn,
+    // Do NOT call SetPosition here вЂ” it sends SetBallPosition with every turn,
     // causing 1km+ snaps when the server/client positions diverge.
     m_turnTic = 0;
     m_turning = false;
@@ -1268,11 +1268,11 @@ void DestinyManager::Follow() {
     // The client's autopilot drives the jump itself: when the ship is close enough
     // to a gate it sends CmdStargateJump via PerformSessionChange('autopilot', ...).
     // The server must process that RPC (returning the bound object ID) so the client's
-    // session change completes — otherwise the client's autoPilot service gets a
+    // session change completes вЂ” otherwise the client's autoPilot service gets a
     // UserError and turns itself off. Therefore the server does NOT teleport here;
     // it just keeps the ship approaching the gate and lets the client trigger the jump.
     if ((rawDist <= (double)m_followDistance) && mySE->HasPilot() && mySE->GetPilot()->IsAutoPilot()) {
-        _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d — waiting for client CmdStargateJump",
+        _log(AUTOPILOT__MESSAGE, "%s: AP at gate dist=%.0f target=0x%p isGate=%d вЂ” waiting for client CmdStargateJump",
              mySE->GetName(), rawDist, (void*)m_targetEntity.second,
              (m_targetEntity.second != nullptr && m_targetEntity.second->IsGateSE()));
         SetSpeedFraction(0.0);
@@ -1485,7 +1485,7 @@ void DestinyManager::Orbit() {
         // Always fall through and recompute the orbit heading (tangent to the radius).
         // The old early-return (if already moving, let MoveObject drift) left a STALE
         // tangent: the entity flew in a straight line away from the orbit circle until
-        // the "slightly far / slightly close" branch yanked it back — the visible
+        // the "slightly far / slightly close" branch yanked it back вЂ” the visible
         // "bounce / teleport" in drone and NPC orbits. Recomputing every tick keeps the
         // entity on a smooth circle (client does the same natively via CmdOrbit).
     }
@@ -1519,7 +1519,7 @@ void DestinyManager::Orbit() {
     LogMacro(mPos);
     // apply origin to our calculated position
     mPos += Tp;
-    // Orbit position sanity check. Do NOT teleport — client's orbit is authoritative.
+    // Orbit position sanity check. Do NOT teleport вЂ” client's orbit is authoritative.
     // Just log the drift and let the client continue orbiting.
     if (mPos.distance(Tp) > refFollow * 3.0) {
         _log(DESTINY__TRACE, "%s(%u): Orbit position drift %.0fm (max %u). Allowing client to self-correct.",
@@ -1727,7 +1727,7 @@ void DestinyManager::InitWarp() {
         decelDistance = (static_cast<double>(m_targetDistance) - accelDistance);
         // Scale warp speed to acceleration distance so short-warp physics work.
         warpSpeedInMeters = accelDistance;
-        // Guard against log(<=0) — if distances are too small, clamp to minimum
+        // Guard against log(<=0) вЂ” if distances are too small, clamp to minimum
         double decelArg = decelDistance / static_cast<double>(3);
         if (decelArg < 1.0) decelArg = 1.0;
         m_warpDecelTime = log(decelArg);
@@ -1985,7 +1985,7 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
 
         // Crucible: if ship is warping INTO a warp-disruption bubble, pull out of warp.
         // Check the bubble's HasWarpBubble() flag (set instantly by MWD/probe on anchor)
-        // instead of AttrWarpScrambleStatus (1s timer — too slow for warp-speed passage).
+        // instead of AttrWarpScrambleStatus (1s timer вЂ” too slow for warp-speed passage).
         if (mySE->SysBubble() != m_targBubble
             && mySE->SysBubble() != nullptr
             && mySE->SysBubble()->HasWarpBubble())
@@ -2023,7 +2023,7 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
             }
         }
 
-        // Do NOT send SetBallPosition here — the client's WarpLoop runs independently
+        // Do NOT send SetBallPosition here вЂ” the client's WarpLoop runs independently
         // and any position snap during active warp crashes the client with
         // "ValueError: Unknown packet type" or causes endless jerking.
         SetPosition(m_position, false);
@@ -2054,7 +2054,7 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     SafeDelete(m_warpState);
 
     // Snap server position to the exact target point. At trigger time the
-    // ship is within 100m of target — snapping avoids a position discrepancy
+    // ship is within 100m of target вЂ” snapping avoids a position discrepancy
     // vs the client (whose WarpLoop arrives at the exact destination).
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);
@@ -2084,12 +2084,12 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     m_stateStamp = sEntityList.GetStamp();
 
-    // AP follow is NOT started here — wait for CmdStop from the client
+    // AP follow is NOT started here вЂ” wait for CmdStop from the client
     if ((mySE->IsNPCSE()) and (mySE->GetNPCSE()->GetAIMgr() != nullptr)) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
     }
 
-    // Send bubble entities to this ship — the earlier Bubble::Add() skipped
+    // Send bubble entities to this ship вЂ” the earlier Bubble::Add() skipped
     // SendAddBalls/AddBallExclusive because the ship was in WARP mode.
     // Now mode is STOP so the ship's EncodeDestiny is correct.
     if (mySE->HasPilot() && mySE->SysBubble() != nullptr) {
@@ -2277,7 +2277,7 @@ void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
 
     // Drones: immediately re-aim at the new follow target. Without this the drone
     // keeps its stale orbit-tangent heading and drifts away while slowly turning
-    // (m_degPerTic ≈ 6°/tick even for agility 0.005) — at 1800+ m/s it never catches
+    // (m_degPerTic в‰€ 6В°/tick even for agility 0.005) вЂ” at 1800+ m/s it never catches
     // the ship, so the server position flies off while the client ball orbits fine.
     if (mySE->IsDroneSE())
         m_shipHeading = m_targetHeading;
@@ -2342,7 +2342,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
      */
     SafeDelete(m_warpState);
 
-    // Landing offset for warp-to-0 — reduced to 0 for precise landing
+    // Landing offset for warp-to-0 вЂ” reduced to 0 for precise landing
     if (distance == 0) {
         distance = 0;
     }
@@ -2356,7 +2356,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
             GVector toTarget(m_position, m_targetEntity.second->GetPosition());
             double distToStructure = toTarget.length();
             if (distToStructure < strRadius + m_radius) {
-                // Ship is inside (or nearly inside) a structure — bump out.
+                // Ship is inside (or nearly inside) a structure вЂ” bump out.
                 // Push the ship away from the structure toward the warp target.
                 GVector bumpDir(m_position, where);
                 double bumpLen = bumpDir.normalize();
@@ -2376,7 +2376,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     m_targetEntity.first = 0;
     m_targetEntity.second = nullptr;
 
-    // For autopilot, save the target for CmdStop — don't send CmdFollowBall here
+    // For autopilot, save the target for CmdStop вЂ” don't send CmdFollowBall here
     m_targetPoint = where;
     if (autoPilot) {
         m_targetEntity = std::pair<uint32, SystemEntity*>(pSE->GetID(), pSE);
@@ -2456,7 +2456,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 
         Client *pClient = mySE->GetPilot();
 
-        // Server-side warp scramble check — client may not properly block warp
+        // Server-side warp scramble check вЂ” client may not properly block warp
         // when bubble effect is active (Crucible fxSequencer distance check broken).
         if (mySE->GetSelf()->GetAttribute(AttrWarpScrambleStatus).get_int() > 0)
         {
@@ -2479,7 +2479,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 
         //  check if ship has enough capacitor to warp full distance
         if (capNeeded > currentShipCap) {
-            // not enough cap — warp as far as available cap allows
+            // not enough cap вЂ” warp as far as available cap allows
             float maxAu = (currentShipCap / m_warpCapacitorNeed) / m_massMKg;
             if (maxAu > 1.0f) {
                 m_targetDistance = static_cast<double>(maxAu) * static_cast<double>(ONE_AU_IN_METERS);
@@ -2495,7 +2495,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
                     _log(DESTINY__TRACE, "Destiny::WarpTo():Update - %s(%u) target bubble: %u  m_stopDistance: %i  m_targetDistance: %.2f",
                         mySE->GetName(), mySE->GetID(), m_targBubble->GetID(), m_stopDistance, m_targetDistance);
             } else {
-                // not enough cap to do min warp — cancel
+                // not enough cap to do min warp вЂ” cancel
                 pClient->SendErrorMsg("You don't have enough capacitor charge to warp.");
                 _log(DESTINY__WARNING, "Destiny::WarpTo() - %s(%u): Capacitor needed vs current  %.3f / %.3f",
                         mySE->GetName(), mySE->GetID(), capNeeded, currentShipCap);
@@ -2929,7 +2929,7 @@ void DestinyManager::SpeedBoost(bool deactivate/*false*/)
     m_shipAgility = m_massMKg * m_shipInertia;
     m_alignTime = (-log(0.25) * m_shipAgility);
     m_shipMaxAccelTime = (-log(0.0001) * m_shipAgility);
-    m_degPerTic = std::max(1.0f, 60.0f / (m_shipAgility + 1.0f));
+    m_degPerTic = std::max(1.0f, static_cast<float>(60.0 / (m_shipAgility + 1.0)));
     m_maxShipSpeed = mySE->GetSelf()->GetAttribute(AttrMaxVelocity).get_float();
     // reset ship max speed using updated m_maxShipSpeed
     m_maxSpeed = m_maxShipSpeed * m_userSpeedFraction;
@@ -3055,7 +3055,7 @@ Battleships 0.155
      *  agility is an internal-use variable.
      */
     m_shipAgility = m_massMKg * m_shipInertia;
-    m_degPerTic = std::max(1.0f, 60.0f / (m_shipAgility + 1.0f));
+    m_degPerTic = std::max(1.0f, static_cast<float>(60.0 / (m_shipAgility + 1.0)));
     // set a maximum acceleration time (based on ship variables)
     m_shipMaxAccelTime = (-log(0.0001) * m_shipAgility);
 
