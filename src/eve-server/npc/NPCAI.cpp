@@ -117,6 +117,12 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     if (m_maxAttackRange < 1000)
         m_maxAttackRange = 10000;
 
+    // Ensure the NPC orbits at a sensible distance. Many NPCs have a tiny/zero
+    // AttrMaxRange (e.g. 223m on Plunderers, 0 on some Guristas) which made them
+    // "clinch" the player at point-blank instead of fighting at weapon range.
+    if (m_optimalRange < 1000)
+        m_optimalRange = std::max(1500u, std::min(5000u, m_maxAttackRange / 2));
+
     // 'sight' range (undefined in db)
     float radius = m_self->GetAttribute(AttrRadius).get_float();
     if (radius < 30) {
