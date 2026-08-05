@@ -1763,14 +1763,16 @@ void DestinyManager::InitWarp() {
 
         // all ships base time is 29s for distances > ship warp speed
         m_warpAccelTime = 7;
-        // Client decel distance — destiny.dll OnDeactivatingWarp:
-        //   local_20 = min(mass * 0.1 * 1 AU, warpSpeed * 1.5); decelDist = local_20 / 3
-        // Matching it makes the server's decel timing line up with the client's Ballpark,
-        // so WarpStop no longer snaps the ship mid-brake (visible "teleport with stop").
+        // Client decel (destiny.dll OnDeactivatingWarp): two-phase.
+        //   exp distance = min(mass * 0.1 * 1 AU, warpSpeed * 1.5) / 3  (= local_20/3)
+        //   linear lead-in: 3s ramp from warpSpeed down to the exp-start velocity.
         double clientDecel = std::min(m_mass * 0.1 * static_cast<double>(ONE_AU_IN_METERS),
                                       warpSpeedInMeters * 1.5) / 3.0;
+        const double warpLinearTime = 3.0;
+        // total decel distance = (warpSpeed + expDist)/2 * linearT + expDist
+        double totalDecel = (warpSpeedInMeters + clientDecel) / 2.0 * warpLinearTime + clientDecel;
         // keep decel sane relative to warp length
-        decelDistance = std::max(1.0, std::min(clientDecel, m_targetDistance * 0.75));
+        decelDistance = std::max(1.0, std::min(totalDecel, m_targetDistance * 0.75));
         accelDistance = exp(static_cast<double>(3) * static_cast<double>(m_warpAccelTime));       // ship warp speed in meters
         // ensure accel+decel fit within the warp distance
         if (accelDistance + decelDistance > m_targetDistance) {
@@ -1937,7 +1939,7 @@ void DestinyManager::WarpCruise(uint32 sec_into_warp) {
     /* in cruise....calculate distance only to update internal position data. */
     m_targetDistance -= m_warpState->warpSpeed;
 
-    if ((m_targetDistance - m_warpState->warpSpeed) < m_warpState->decelDist) {
+    if ((m_targetDistance) < m_warpState->decelDist) {
         m_warpState->cruise = false;
         m_warpState->decel = true;
     }
@@ -1958,31 +1960,50 @@ void DestinyManager::WarpCruise(uint32 sec_into_warp) {
 }
 
 void DestinyManager::WarpDecel(uint32 sec_into_warp) {
-    /* For deceleration, k = -1.
-     * distance = e^(k*s)
-     * speed = -k*e^(k*s)
+    /* Client decel (destiny.dll OnDeactivatingWarp) is TWO-phase:
+     *   phase A (branch 2, linear):  velocity drops linearly from warpSpeed
+     *   phase B (branch 1, exp):     velocity = decelDist * exp(-(t-LA)), distance decelDist
+     * Total decel distance = linearDist + decelDist, where
+     *   linearDist = warpSpeed*LA/2 + vA*LA/2  (trapezoid under the linear ramp)
+     * We pick LA so the whole thing lines up with the client: LA chosen so the
+     * linear ramp goes from warpSpeed down to vA = decelDist (the exp-phase start
+     * velocity), then the exp phase decays to ~1m. This gives a smooth, non-jerky
+     * stop that mirrors the client instead of the hard exp-only snap.
      */
-    uint8 decelTime = (sec_into_warp - m_warpDecelTime);
-    double currentDistance = (m_warpState->total_distance - (exp(-decelTime) * m_warpState->decelDist));
-    m_targetDistance = static_cast<double>(m_warpState->total_distance - currentDistance);
-    double currentShipSpeed = (m_warpState->warpSpeed * exp(-decelTime));
+    double decelTime = (double)(sec_into_warp - m_warpDecelTime);
+    double totalDecelDist = m_warpState->decelDist;  // linear + exp phases
+    double warpSpeed = m_warpState->warpSpeed;
+    double LA = 3.0;                                 // linear phase duration (s)
+    // exp-phase distance from: (warpSpeed + expDist)/2*LA + expDist = totalDecelDist
+    double expDist = (totalDecelDist - warpSpeed * LA / 2.0) / (LA / 2.0 + 1.0);
+    if (expDist < 1.0) expDist = 1.0;
+    double vA = expDist;                             // velocity at the linear->exp handoff
 
+    double v;
+    if (decelTime < LA) {
+        // phase A — linear ramp from warpSpeed down to vA over LA seconds
+        v = warpSpeed - ((warpSpeed - vA) / LA) * decelTime;
+        if (v < 0.0) v = 0.0;
+    } else {
+        // phase B — exponential decay
+        double te = decelTime - LA;
+        v = vA * std::exp(-te);
+    }
+    if (v < 1e-5) v = 1e-5;
+
+    double currentDistance = v;   // distance moved this tick
+    m_targetDistance -= currentDistance;
+    if (m_targetDistance < 0.0) m_targetDistance = 0.0;
     if (is_log_enabled(DESTINY__WARP_TRACE))
         _log(DESTINY__WARP_TRACE, "Destiny::WarpDecel(): %s(%u) - Warp Decelerating(%us/%us): velocity %.4f m/s with %.2f m left to go.", \
-                mySE->GetName(), mySE->GetID(), decelTime, sec_into_warp, currentShipSpeed, m_targetDistance);
+                mySE->GetName(), mySE->GetID(), (uint32)decelTime, sec_into_warp, v, m_targetDistance);
 
-    WarpUpdate(currentShipSpeed);
-    // Server's decel (client formula) is within ~1-2s of the client's. Fire WarpStop
-    // once the ship is at the target, but hold ~2s first to let the client's decel
-    // finish — prevents the end-of-warp "teleport with stop" snap.
-    if (m_targetDistance > 0.0 && m_targetDistance <= 1.0) {
-        // Client's (tanh-accel, mass-decel) warp is ~10% slower than the server's and
-        // that gap grows with warp length (334m short on 0.5AU, 6km short on 24AU).
-        // Hold long enough that the client's Ballpark always finishes its decel and
-        // arrives first; then CmdStop is a no-op position-wise (no stop jerk).
+    WarpUpdate(v);
+    // Fire WarpStop once the ship is at the target, but hold ~3s first so the
+    // client's (slower) two-phase decel always finishes and arrives first.
+    if (m_targetDistance <= 1.0) {
         if (!m_warpStopDelay.Enabled())
-            m_warpStopDelay.Start(5000);
-        // park the server position on the target while waiting
+            m_warpStopDelay.Start(3000);
         m_position = m_targetPoint;
         mySE->SetPosition(m_position);
         return;
