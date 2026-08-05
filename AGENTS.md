@@ -33,10 +33,12 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 **ОБЯЗАТЕЛЬНО `-t -i`** для server (иначе спам `Command not recognized:`). Включён `DESTINY__WARP_TRACE=1` и `AUTOPILOT__MESSAGE=1` в /opt/evemu/config/log.ini.
 
 ## Осталось
-1. **Дроны** — два бага (частично диагностированы, см. ниже).
+1. **Дроны** — 4 фикса задеплоены (5 авг): scoop→бэй корабля (`m_shipRef->itemID()`, было `GetLocationID()`=система → дроны «пропадали»), мягкий sync позиций откачен (рывки орбиты), возврат дрона за 2x контроль-дистанции в бою (цель сбежала/варпнула), сообщения запуска (`MaxBandwidthExceeded2` правильное имя+аргументы droneName/bandwidthNeeded/droneBandwidthUsed, LaunchDrone→enum различает лимит/банду).
 2. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
 3. **Мобилка после анчоринга не скрамблит** — проверить.
 4. **Incursion rewards / ISK на сайте Uroborus** — проверить.
+5. **NPC AI** — юзер хочет: NPC не «вклозе», а орбита по оптималам + ремонты/прикрытие (TODO).
+- ВАЖНО про диск: повторные `docker build` копят старые слои образов → диск 100% (237G/249G) → сервер падает на старте в `CachedObjectMgr::SaveCachedToFile` (fwrite assert). Лечится `docker image prune -f` (освободил 193GB). Периодически чистить.
 
 ## Дроны — диагностика (4 августа)
 - **«1 пропадает при запуске»**: лимит дронов = 5 (AttrMaxActiveDrones, DCU нет). Клиент шлёт 6 LaunchDrone → 6-й отклоняется лимитом (SE не создаётся) → «1 потерялся». Это корректное поведение лимита, но клиентский drone-window не синхронизируется с отказом. Задеплоен фикс `f86e7191`: `ShipSE::GetDroneLimit()` (char AttrMaxActiveDrones + online DCU-бонусы) — раньше Drop и LaunchDrone считали лимит по-разному (LaunchDrone не учитывал DCU), из-за чего последний дрон партии отклонялся.
