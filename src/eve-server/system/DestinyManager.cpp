@@ -1241,6 +1241,17 @@ void DestinyManager::ClearTurn() {
 
 void DestinyManager::Follow() {
     //  Follow is also used by client as AlignTo.
+    if (mySE->IsDroneSE()) {
+        _log(DESTINY__ERROR, "DESTDIAG %s(%u): FollowTick drone=(%.0f,%.0f,%.0f) target=(%.0f,%.0f,%.0f) heading=(%.3f,%.3f,%.3f) rawDist=%.0f usf=%.2f",
+             mySE->GetName(), mySE->GetID(),
+             m_position.x, m_position.y, m_position.z,
+             m_targetEntity.second ? m_targetEntity.second->GetPosition().x : 0,
+             m_targetEntity.second ? m_targetEntity.second->GetPosition().y : 0,
+             m_targetEntity.second ? m_targetEntity.second->GetPosition().z : 0,
+             m_shipHeading.x, m_shipHeading.y, m_shipHeading.z,
+             m_position.distance(m_targetEntity.second ? m_targetEntity.second->GetPosition() : GPoint()),
+             m_userSpeedFraction);
+    }
     const GPoint& target_point = m_targetEntity.second->GetPosition();
     GVector heading(m_position, target_point);
     // Subtract ship radius AND target radius (stations/gates are massive)
@@ -2218,7 +2229,10 @@ void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
     //called from client as 'CmdFollowBall'
     //  also used by 'Approach'
     if (mySE->IsDroneSE()) {
-        _log(DESTINY__ERROR, "DESTDIAG %s(%u): Follow(%s, dist=%u) called", mySE->GetName(), mySE->GetID(), pSE->GetName(), distance);
+        _log(DESTINY__ERROR, "DESTDIAG %s(%u): Follow(%s, dist=%u) called. drone=(%.0f,%.0f,%.0f) target=(%.0f,%.0f,%.0f)",
+             mySE->GetName(), mySE->GetID(), pSE->GetName(), distance,
+             m_position.x, m_position.y, m_position.z,
+             pSE->GetPosition().x, pSE->GetPosition().y, pSE->GetPosition().z);
         EvE::traceStack();
     }
     if (mySE->HasPilot())
