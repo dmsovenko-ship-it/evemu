@@ -2125,17 +2125,10 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     m_ballMode = Destiny::Ball::Mode::STOP;
     m_stop = true;
-    // Send CmdStop to client so its WarpLoop exits and ship mode updates.
-    // Without this, Stop()'s early return (m_stop=true, !IsMoving) skips the packet.
-    // NOTE: do NOT send SetBallPosition here — the client's ball already arrived at
-    // the destination on its own; a position snap mid-brake is the visible "stop jerk".
-    if (mySE->SysBubble() != nullptr) {
-        CmdStop du;
-            du.entityID = mySE->GetID();
-        PyTuple* up = du.Encode();
-        SendSingleDestinyUpdate(&up);
-        PyDecRef(up);
-    }
+    // Do NOT send CmdStop here. The client's Ballpark ends its own warp when the
+    // ball reaches the destination (its WarpLoop exits on the ball's mode change).
+    // Sending CmdStop mid-settle causes the visible end-of-warp "micro-jerk".
+    // The client's ship arrives and stops on its own; we just finish server-side.
     m_accel = false;
     m_decel = false;
     m_turning = false;
