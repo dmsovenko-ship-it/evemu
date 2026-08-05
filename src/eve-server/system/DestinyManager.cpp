@@ -2275,6 +2275,13 @@ void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
     m_ticAlign = true;
     BeginMovement();
 
+    // Drones: immediately re-aim at the new follow target. Without this the drone
+    // keeps its stale orbit-tangent heading and drifts away while slowly turning
+    // (m_degPerTic ≈ 6°/tick even for agility 0.005) — at 1800+ m/s it never catches
+    // the ship, so the server position flies off while the client ball orbits fine.
+    if (mySE->IsDroneSE())
+        m_shipHeading = m_targetHeading;
+
     CmdFollowBall du;
         du.entityID = mySE->GetID();
         du.targetID = pSE->GetID();
@@ -2922,7 +2929,7 @@ void DestinyManager::SpeedBoost(bool deactivate/*false*/)
     m_shipAgility = m_massMKg * m_shipInertia;
     m_alignTime = (-log(0.25) * m_shipAgility);
     m_shipMaxAccelTime = (-log(0.0001) * m_shipAgility);
-    m_degPerTic = (60.0f - m_shipAgility) / 10;  // this isnt right....
+    m_degPerTic = std::max(1.0f, 60.0f / (m_shipAgility + 1.0f));
     m_maxShipSpeed = mySE->GetSelf()->GetAttribute(AttrMaxVelocity).get_float();
     // reset ship max speed using updated m_maxShipSpeed
     m_maxSpeed = m_maxShipSpeed * m_userSpeedFraction;
@@ -3048,7 +3055,7 @@ Battleships 0.155
      *  agility is an internal-use variable.
      */
     m_shipAgility = m_massMKg * m_shipInertia;
-    m_degPerTic = (60.0f - m_shipAgility) / 10;
+    m_degPerTic = std::max(1.0f, 60.0f / (m_shipAgility + 1.0f));
     // set a maximum acceleration time (based on ship variables)
     m_shipMaxAccelTime = (-log(0.0001) * m_shipAgility);
 
