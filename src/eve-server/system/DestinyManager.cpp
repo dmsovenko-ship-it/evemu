@@ -62,6 +62,7 @@ m_shipAccelTime(0.0f),
 m_shipMaxAccelTime(0.0f),
 m_ballMode(Destiny::Ball::Mode::STOP),
 m_warpTimer(0),
+  m_warpStopDelay(0),
 m_moveTime(0.0),
 m_targetDistance(0),
 m_followDistance(0),
@@ -218,6 +219,12 @@ void DestinyManager::ProcessState() {
                 //warp is in progress
                 uint32 sec_into_warp = (sEntityList.GetStamp() - m_stateStamp);
                 //  speed and distance formulas based on current warp distance
+                if (m_warpStopDelay.Enabled()) {
+                    // Arrived at target but holding for the client's decel to finish.
+                    if (m_warpStopDelay.Check())
+                        WarpStop(0.0);
+                    return;
+                }
                 if (m_warpState->accel) {
                     WarpAccel(sec_into_warp);
                 } else if (m_warpState->cruise) {
@@ -1686,6 +1693,7 @@ void DestinyManager::InitWarp() {
     if (m_turning) {
         ClearTurn();
     }
+    m_warpStopDelay.Disable();   // fresh warp — clear the exit-hold timer
     // Reset movement state so warp always starts clean, regardless of prior
     // decel/accel state (e.g. post-warp decel when rapidly re-warping).
     m_accel = false;
@@ -1950,12 +1958,19 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
                 mySE->GetName(), mySE->GetID(), decelTime, sec_into_warp, currentShipSpeed, m_targetDistance);
 
     WarpUpdate(currentShipSpeed);
-    // Fire WarpStop when the ship is within 1m of target to maximize deceleration
-    // time. The client's WarpLoop calculates a shorter total warp than the server's
-    // fixed 7/21s accel/decel; delaying WarpStop gives the client more deceleration
-    // visually before the mode change exits its WarpLoop.
-    if (m_targetDistance > 0.0 && m_targetDistance <= 1.0)
-        WarpStop(currentShipSpeed);
+    // The server's fixed 21s decel finishes before the client's (mass-based) decel,
+    // so firing WarpStop here snaps the ship to the target while the client is still
+    // braking — visible "teleport with stop". Instead, reach the target and HOLD the
+    // position for ~5s (client's Ballpark finishes its own decel and arrives on its
+    // own), then send CmdStop+final position so there's no yank.
+    if (m_targetDistance > 0.0 && m_targetDistance <= 1.0) {
+        if (!m_warpStopDelay.Enabled())
+            m_warpStopDelay.Start(5000);
+        // keep server position parked exactly on the target while we wait
+        m_position = m_targetPoint;
+        mySE->SetPosition(m_position);
+        return;
+    }
 }
 
 void DestinyManager::WarpUpdate(double currentShipSpeed) {
