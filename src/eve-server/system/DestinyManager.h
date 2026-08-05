@@ -343,6 +343,7 @@ private:
 
     // Internal Warp Methods
     Timer m_warpTimer;
+    Timer m_warpStopDelay;   // short hold at warp exit to absorb residual client-server decel clock skew
     void InitWarp();
     void WarpAccel(uint32 sec_into_warp);
     void WarpCruise(uint32 sec_into_warp);
