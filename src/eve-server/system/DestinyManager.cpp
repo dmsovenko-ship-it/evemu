@@ -1976,8 +1976,12 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     // once the ship is at the target, but hold ~2s first to let the client's decel
     // finish — prevents the end-of-warp "teleport with stop" snap.
     if (m_targetDistance > 0.0 && m_targetDistance <= 1.0) {
+        // Client's (tanh-accel, mass-decel) warp is ~10% slower than the server's and
+        // that gap grows with warp length (334m short on 0.5AU, 6km short on 24AU).
+        // Hold long enough that the client's Ballpark always finishes its decel and
+        // arrives first; then CmdStop is a no-op position-wise (no stop jerk).
         if (!m_warpStopDelay.Enabled())
-            m_warpStopDelay.Start(2000);
+            m_warpStopDelay.Start(5000);
         // park the server position on the target while waiting
         m_position = m_targetPoint;
         mySE->SetPosition(m_position);
