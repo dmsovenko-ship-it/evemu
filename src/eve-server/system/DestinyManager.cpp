@@ -598,10 +598,6 @@ void DestinyManager::Stop() {
     // Usually there's no need to show a message for this because it gets
     // triggered unnecessarily a few times upon login. Commands that should
     // show a notification are handled in BeyonceService.
-    if (mySE->IsDroneSE()) {
-        _log(DESTINY__ERROR, "DESTDIAG %s(%u): Stop() called", mySE->GetName(), mySE->GetID());
-        EvE::traceStack();
-    }
     if (AbortIfLoginWarping(false)) {
         return;
     }
@@ -1252,17 +1248,6 @@ void DestinyManager::ClearTurn() {
 
 void DestinyManager::Follow() {
     //  Follow is also used by client as AlignTo.
-    if (mySE->IsDroneSE()) {
-        _log(DESTINY__ERROR, "DESTDIAG %s(%u): FollowTick drone=(%.0f,%.0f,%.0f) target=(%.0f,%.0f,%.0f) heading=(%.3f,%.3f,%.3f) rawDist=%.0f usf=%.2f",
-             mySE->GetName(), mySE->GetID(),
-             m_position.x, m_position.y, m_position.z,
-             m_targetEntity.second ? m_targetEntity.second->GetPosition().x : 0,
-             m_targetEntity.second ? m_targetEntity.second->GetPosition().y : 0,
-             m_targetEntity.second ? m_targetEntity.second->GetPosition().z : 0,
-             m_shipHeading.x, m_shipHeading.y, m_shipHeading.z,
-             m_position.distance(m_targetEntity.second ? m_targetEntity.second->GetPosition() : GPoint()),
-             m_userSpeedFraction);
-    }
     const GPoint& target_point = m_targetEntity.second->GetPosition();
     GVector heading(m_position, target_point);
     // Subtract ship radius AND target radius (stations/gates are massive)
@@ -2278,13 +2263,6 @@ void DestinyManager::BeginMovement() {
 void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
     //called from client as 'CmdFollowBall'
     //  also used by 'Approach'
-    if (mySE->IsDroneSE()) {
-        _log(DESTINY__ERROR, "DESTDIAG %s(%u): Follow(%s, dist=%u) called. drone=(%.0f,%.0f,%.0f) target=(%.0f,%.0f,%.0f)",
-             mySE->GetName(), mySE->GetID(), pSE->GetName(), distance,
-             m_position.x, m_position.y, m_position.z,
-             pSE->GetPosition().x, pSE->GetPosition().y, pSE->GetPosition().z);
-        EvE::traceStack();
-    }
     if (mySE->HasPilot())
         _log(AUTOPILOT__MESSAGE, "Follow(%s): dist=%u isGate=%d isStation=%d AP=%d hasPilot=%d",
              pSE->GetName(), distance, pSE->IsGateSE(), pSE->IsStationSE(),
@@ -2364,10 +2342,6 @@ void DestinyManager::GotoDirection(const GPoint& direction) {
 }
 
 void DestinyManager::GotoPoint(const GPoint& point) {
-    if (mySE->IsDroneSE()) {
-        _log(DESTINY__ERROR, "DESTDIAG %s(%u): GotoPoint(%.0f,%.0f,%.0f) called", mySE->GetName(), mySE->GetID(), point.x, point.y, point.z);
-        EvE::traceStack();
-    }
     //reset orbit vars in case we were orbiting before
     if (m_orbiting)
         ClearOrbit();
@@ -2611,10 +2585,6 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 }
 
 void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
-    if (mySE->IsDroneSE()) {
-        _log(DESTINY__ERROR, "DESTDIAG %s(%u): Orbit(%s, dist=%u) called", mySE->GetName(), mySE->GetID(), pSE->GetName(), distance);
-        EvE::traceStack();
-    }
     if (pSE == nullptr) {
         _log(DESTINY__ERROR, "%s(%u) - Orbit() called with null target. Stopping orbit.", mySE->GetName(), mySE->GetID());
         Halt();
