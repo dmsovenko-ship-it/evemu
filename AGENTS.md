@@ -1,7 +1,7 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Latest commit: `865a5b64`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`.
+Session saved. Latest commit: `04ee6348`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Server online, все фиксы NPC AI задеплоены (см. ниже). Диагностика в log.ini (NPC__AI_TRACE, DESTINY__ORBIT_TRACE) ВКЛЮЧЕНА для проверки NPC — после финальной проверки выключить.
 
 ## Главное достижение (3 августа): AP gate-jump ПОЧИНЕН
 Автопилот теперь проходит много-гейтовый маршрут без зависаний и рывков:
@@ -37,8 +37,17 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 2. **Bracket crash** — `'NoneType' object has no attribute 'lower'` при наведении.
 3. **Мобилка после анчоринга не скрамблит** — проверить.
 4. **Incursion rewards / ISK на сайте Uroborus** — проверить.
-5. **NPC AI** — юзер хочет: NPC не «вклозе», а орбита по оптималам + ремонты/прикрытие (TODO).
+5. **NPC AI** — ОСНОВНОЕ СДЕЛАНО (5 авг): NPC больше не «вклозе», орбитят по дальности, атакуют, скрамлят. Юзер подтвердил: «атака идет, скрамблят, орбитят». См. секцию «NPC AI (5 августа)» ниже. TODO: проверить ремонты на NPC с атрибутами (Plunderer: щит+25/5000мс); мелочи.
 - ВАЖНО про диск: повторные `docker build` копят старые слои образов → диск 100% (237G/249G) → сервер падает на старте в `CachedObjectMgr::SaveCachedToFile` (fwrite assert). Лечится `docker image prune -f` (освободил 193GB). Периодически чистить.
+
+## NPC AI (5 августа) — «не вклозе, а орбита по оптималам»
+- **Диагностика**: NPC в бою орбитили вплотную (Plunderer dist 500-600м, Mortifier ~950м). Причины: (1) `AttrMaxRange` у части NPC = 0/223м (Dire Guristas Murderer/Plunderer, Guristas Plunderer) → команда орбиты = точка-в-точку; (2) `Attack()` вызывается только из `CheckDistance`, а `m_mainAttackTimer` запускался ТОЛЬКО в `Target()` — если NPC агрил через `Targeted()` (игрок/дрон атакует первым), таймер не стартовал → NPC орбитил молча, вообще не стрелял; (3) `AttrSpeed` (цикл оружия в ms) у Guristas Plunderer/Mortifier = **30000 (30 сек!)** → казалось что NPC мёртвые.
+- **Фиксы**:
+  - `672afd73`: минимальная дистанция орбиты — `if (m_optimalRange < 1000) m_optimalRange = max(1500, min(5000, m_maxAttackRange/2))` в конструкторе NPCAI.cpp.
+  - `04ee6348`: в `Targeted()` добавлен запуск `m_mainAttackTimer.Start(m_attackSpeed)` + `m_missileTimer` (раньше только в `Target()`); кламп `m_attackSpeed` — `if (m_attackSpeed < 500 or > 15000) m_attackSpeed = MakeRandomInt(3000, 8000)`.
+- **Данные БД (атрибуты NPC, dgmTypeAttributes)**: `speed`(51)=цикл оружия ms (норма 2500-3500; битые 30000), `maxRange`(54)=оптимальная дистанция (у многих 0), `entityAttackRange`(247)=дальность атаки, `entityFlyRange`(416)=радиус орбиты, `entityAttackDelayMin/Max`(475/476)=задержка первого выстрела (НЕ используется кодом — при желании подключить), `entityChaseMaxDistance`(665)=boostRange, `entityShieldBoostAmount/Duration`(637/636)=ремонт. Guristas Arrogator=2382 (speed 2500, maxRange 500, dmg 0.625), Plunderer=2386 (speed 30000, dmg 0), Dire Mortifier=23307 (speed 30000), Dire Plunderer=23332 (speed 2750, maxRange 11250, dmg 3).
+- **Результат юзера (тест 14:15 UTC)**: «Идет бой», «атака идет, скрамблят, орбитят». Орбиты: Sunder/Decimator Drone (мили) ~1.4-1.75км, Atomizer Drone (дальний) 10-15км — по своим оптималам.
+- **Запросы к БД**: клиент mariadb в db-контейнере = `/usr/bin/mariadb` (НЕ mysql, нет в PATH). sudo-скрипт: `echo gbnjy78 | sudo -S -p '' -v` (кэш креденшелов) потом `sudo docker exec -i db /usr/bin/mariadb -uevemu -pevemu evemu < file.sql`. PowerShell манглит кавычки в plink — писать SQL в файл и передавать base64 (сообщение `base64: invalid input` — НЕ ошибка). entity НЕ имеет solarSystemID — позиции по `locationID=<system>` + x/y/z (устаревшие для движущихся объектов).
 
 ## Дроны — диагностика (4 августа)
 - **«1 пропадает при запуске»**: лимит дронов = 5 (AttrMaxActiveDrones, DCU нет). Клиент шлёт 6 LaunchDrone → 6-й отклоняется лимитом (SE не создаётся) → «1 потерялся». Это корректное поведение лимита, но клиентский drone-window не синхронизируется с отказом. Задеплоен фикс `f86e7191`: `ShipSE::GetDroneLimit()` (char AttrMaxActiveDrones + online DCU-бонусы) — раньше Drop и LaunchDrone считали лимит по-разному (LaunchDrone не учитывал DCU), из-за чего последний дрон партии отклонялся.
@@ -70,6 +79,9 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 
 ## Git Log (верх)
 ```
+04ee6348 fix(npc): NPCs aggroed via Targeted() never fired — attack/missile timers only started in Target(); clamp absurdly long AttrSpeed cycles (30000ms) to 3-8s
+672afd73 fix(npc): minimum orbit range 1500-5000m when AttrMaxRange is tiny/0 — NPCs no longer clinch the player
+670b8635 docs: drone fixes (scoop/orbit/return/messages) + disk-full warning (docker image prune)
 29ecf6ce fix: AP warp-to-gate targets a point radius+apWarptoDistance from gate center (warp-to-point)
 8b674e50 fix: AP warp-to-gate lands apWarptoDistance from gate surface (add gate radius), capped at 25km
 865a5b64 revert: AP warp stop distance back to apWarptoDistance (15000 from gate center)
