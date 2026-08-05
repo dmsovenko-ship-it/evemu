@@ -384,26 +384,44 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                         if (newItem->quantity() > 1)
                             _log(INV__ERROR, "ShipBound::Handle_Drop() - Split item %u qty > 1 (%u).  Continuing.", newItem->itemID(), newItem->quantity());
 
-                        if (pClient->GetShipSE()->LaunchDrone(newItem)) {
+                        if (pClient->GetShipSE()->LaunchDrone(newItem) == ShipSE::DroneLaunchResult::Success) {
                             dropped = true;
                             shipDrop = true;
                             list->AddItem(new PyInt(newItem->itemID()));
-                        } else
-                            throw UserError ("MaxBandwithExceeded2")
-                                    .AddTypeName ("droneNAme", newItem->typeID ())
-                                    .AddAmount ("droneBandwithUsed", newItem->GetAttribute (AttrDroneBandwidthUsed).get_uint32())
-                                    .AddAmount ("bandwidthLeft", pShip->GetAttribute (AttrDroneBandwidth).get_uint32 () - pShip->GetAttribute (AttrDroneBandwidthLoad).get_uint32());
+                        } else {
+                            uint32 droneBW = newItem->GetAttribute(AttrDroneBandwidthUsed).get_uint32();
+                            uint32 bandwidthNeeded = pShip->GetAttribute(AttrDroneBandwidth).get_uint32() - pShip->GetAttribute(AttrDroneBandwidthLoad).get_uint32();
+                            if (droneBW > bandwidthNeeded) {
+                                throw UserError ("MaxBandwidthExceeded2")
+                                        .AddTypeName ("droneName", newItem->typeID ())
+                                        .AddAmount ("droneBandwidthUsed", droneBW)
+                                        .AddAmount ("bandwidthNeeded", bandwidthNeeded);
+                            } else {
+                                throw UserError ("NoDroneManagementAbilitiesLeft")
+                                        .AddFormatValue ("item", new PyInt (newItem->typeID ()))
+                                        .AddAmount ("limit", pClient->GetShipSE()->GetDroneLimit());
+                            }
+                        }
                     }
                 } else {
-                    if (pClient->GetShipSE()->LaunchDrone(iRef)) {
+                    if (pClient->GetShipSE()->LaunchDrone(iRef) == ShipSE::DroneLaunchResult::Success) {
                         dropped = true;
                         shipDrop = true;
                         list->AddItem(new PyInt(iRef->itemID()));
-                    } else
-                            throw UserError ("MaxBandwithExceeded2")
-                                    .AddTypeName ("droneNAme", iRef->typeID ())
-                                    .AddAmount ("droneBandwithUsed", iRef->GetAttribute (AttrDroneBandwidthUsed).get_uint32())
-                                    .AddAmount ("bandwidthLeft", pShip->GetAttribute (AttrDroneBandwidth).get_uint32 () - pShip->GetAttribute (AttrDroneBandwidthLoad).get_uint32());
+                    } else {
+                        uint32 droneBW = iRef->GetAttribute(AttrDroneBandwidthUsed).get_uint32();
+                        uint32 bandwidthNeeded = pShip->GetAttribute(AttrDroneBandwidth).get_uint32() - pShip->GetAttribute(AttrDroneBandwidthLoad).get_uint32();
+                        if (droneBW > bandwidthNeeded) {
+                            throw UserError ("MaxBandwidthExceeded2")
+                                    .AddTypeName ("droneName", iRef->typeID ())
+                                    .AddAmount ("droneBandwidthUsed", droneBW)
+                                    .AddAmount ("bandwidthNeeded", bandwidthNeeded);
+                        } else {
+                            throw UserError ("NoDroneManagementAbilitiesLeft")
+                                    .AddFormatValue ("item", new PyInt (iRef->typeID ()))
+                                    .AddAmount ("limit", pClient->GetShipSE()->GetDroneLimit());
+                        }
+                    }
                 }
             } break;
             case EVEDB::invCategories::Structure: {

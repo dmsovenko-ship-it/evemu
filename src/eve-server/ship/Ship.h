@@ -379,7 +379,8 @@ public:
 
     void AbandonDrones();
     void AbandonDrone(SystemEntity* pSE);   // single-drone abandon
-    bool LaunchDrone(InventoryItemRef dRef);
+    enum class DroneLaunchResult : uint8 { Success, TooManyDrones, BandwidthExceeded };
+    DroneLaunchResult LaunchDrone(InventoryItemRef dRef);
     void ScoopDrone(SystemEntity* pSE);
     void AddDroneToFlight(DroneSE* pDrone); // register drone for reconnect
     void RemoveDroneFromFlight(uint32 droneID);  // cleanup from map (safe if not found)

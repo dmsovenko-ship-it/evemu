@@ -2996,7 +2996,7 @@ uint32 ShipSE::GetDroneLimit() {
     return limit;
 }
 
-bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
+ShipSE::DroneLaunchResult ShipSE::LaunchDrone(InventoryItemRef dRef) {
     Character* pChar = GetPilot()->GetChar().get();
     sLog.Magenta("ShipSE::LaunchDrone()","%s: Launching drone %u",  pChar->name(), dRef->itemID());
 
@@ -3035,7 +3035,7 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     if ((currentDrones + 1) > maxDrones && !isFighter) {
         _log(DRONE__WARNING, "LaunchDrone: %s — maxActiveDrones=%u, already have %u",
              pChar->name(), maxDrones, currentDrones);
-        return false;
+        return DroneLaunchResult::TooManyDrones;
     }
 
     // Check bandwidth BEFORE creating the SE
@@ -3044,7 +3044,7 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     if (bandLoad > m_shipRef->GetAttribute(AttrDroneBandwidth) && !isFighter) {
         _log(DRONE__WARNING, "LaunchDrone: %s — bandwidth exceeded (%.1f/%.1f)",
              pChar->name(), bandLoad.get_float(), m_shipRef->GetAttribute(AttrDroneBandwidth).get_float());
-        return false;
+        return DroneLaunchResult::BandwidthExceeded;
     }
 
     // All checks passed — create the DroneSE
@@ -3068,13 +3068,13 @@ bool ShipSE::LaunchDrone(InventoryItemRef dRef) {
     if (isFighter) {
         pDrone->Online();
         pDrone->GetAI()->SetIdle();
-        return true;
+        return DroneLaunchResult::Success;
     }
 
     pDrone->Online();
     pDrone->GetAI()->SetIdle();
     m_shipRef->SetAttribute(AttrDroneBandwidthLoad, bandLoad, false);
-    return true;
+    return DroneLaunchResult::Success;
 }
 
 void ShipSE::ScoopDrone(SystemEntity* pSE) {
