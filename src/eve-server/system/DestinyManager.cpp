@@ -1977,23 +1977,25 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     // exp-phase distance from: (warpSpeed + expDist)/2*LA + expDist = totalDecelDist
     double expDist = (totalDecelDist - warpSpeed * LA / 2.0) / (LA / 2.0 + 1.0);
     if (expDist < 1.0) expDist = 1.0;
-    double vA = expDist;                             // velocity at the linear->exp handoff
 
-    double v;
+    // Compute remaining distance by FORMULA (not accumulation) so it always decays
+    // to ~0 — accumulation + the 1e-5 velocity clamp left ships stuck at a few hundred
+    // metres (velocity clamped, distance barely moving) -> "You are already warping".
+    double v, remaining;
     if (decelTime < LA) {
-        // phase A — linear ramp from warpSpeed down to vA over LA seconds
-        v = warpSpeed - ((warpSpeed - vA) / LA) * decelTime;
-        if (v < 0.0) v = 0.0;
+        // phase A — linear ramp from warpSpeed down to expDist
+        v = warpSpeed - ((warpSpeed - expDist) / LA) * decelTime;
+        remaining = totalDecelDist - ((totalDecelDist - expDist) / LA) * decelTime;
+        if (remaining < 0.0) remaining = 0.0;
     } else {
         // phase B — exponential decay
         double te = decelTime - LA;
-        v = vA * std::exp(-te);
+        v = expDist * std::exp(-te);
+        remaining = expDist * std::exp(-te);
     }
     if (v < 1e-5) v = 1e-5;
-
-    double currentDistance = v;   // distance moved this tick
-    m_targetDistance -= currentDistance;
-    if (m_targetDistance < 0.0) m_targetDistance = 0.0;
+    if (remaining < 0.0) remaining = 0.0;
+    m_targetDistance = remaining;
     if (is_log_enabled(DESTINY__WARP_TRACE))
         _log(DESTINY__WARP_TRACE, "Destiny::WarpDecel(): %s(%u) - Warp Decelerating(%us/%us): velocity %.4f m/s with %.2f m left to go.", \
                 mySE->GetName(), mySE->GetID(), (uint32)decelTime, sec_into_warp, v, m_targetDistance);
