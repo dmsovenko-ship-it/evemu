@@ -570,11 +570,13 @@ void DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
         pos.y = roomPos.y + sin(angle) * radius;
         pos.z = roomPos.z + height;
 
+        // Spawn as a transient (non-persisted) item — decorations are cosmetic and
+        // must NOT be saved to the entity table. Saved copies piled up on every
+        // dungeon/system reload and were re-spawned on top of each other.
         ItemData itemData(typeID, 1, m_system->GetID(), flagNone, "", pos);
-        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        InventoryItemRef iRef = InventoryItem::SpawnTemp(itemData);
         if (iRef.get() == nullptr)
             continue;
-        iRef->SaveItem();
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
     }
