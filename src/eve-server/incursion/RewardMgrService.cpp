@@ -97,7 +97,11 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
     result->SetItemString("immediateRewards", immediateRewards);
     result->SetItemString("delayedRewards", delayedRewards);
     result->SetItemString("rewardID", new PyInt(id));
-    return new PyObject("util.KeyVal", result);
+    PyObject* ret = new PyObject("util.KeyVal", result);
+    _log(DATABASE__MESSAGE, "RewardMgr::GetRewardData(%u) — response dump:", id);
+    if (is_log_enabled(DATABASE__MESSAGE))
+        ret->Dump(DATABASE__MESSAGE, "   ");
+    return ret;
 }
 
 PyResult RewardMgrService::GetRewardLPLogs(PyCallArgs& call)
