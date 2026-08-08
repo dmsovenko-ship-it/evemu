@@ -460,7 +460,25 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             }
 
             // Spawn procedural decorations based on faction
-            SpawnDecorations(newRoom.position, dData.factionID);
+            std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID);
+            for (uint32 id : decoIDs)
+                newRoom.items.push_back(id);
+
+            // Spawn an acceleration gate leading to the next room (all rooms except
+            // the last). Gate sits at the far edge of the current room, on the +x
+            // axis toward the next room; ActivateAccelerationGate warps +NEXT_DUNGEON_ROOM_DIST.
+            if (dData.rooms.size() > 1 && roomCounter < (dData.rooms.size() - 1)) {
+                GPoint gatePos = newRoom.position;
+                gatePos.x += NEXT_DUNGEON_ROOM_DIST * 0.8;
+                ItemData gateData(17831, sig.ownerID, sig.systemID, flagNone, "Acceleration Gate", gatePos);  // 17831 = Acceleration Gate
+                uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
+                InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
+                if (gateRef.get() != nullptr) {
+                    CelestialSE* gateSE = new CelestialSE(gateRef, m_services, m_system);
+                    m_system->AddEntity(gateSE, false);
+                    newRoom.items.push_back(gateRef->itemID());
+                }
+            }
 
             newDungeon.rooms.insert({roomCounter, newRoom});
             roomCounter++;
@@ -473,8 +491,9 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
     return false;
 }
 
-void DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
+std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
 {
+    std::vector<uint32> spawned;
     // Faction-specific decorative structure typeIDs (common SDE celestial objects).
     // NOTE: Beacons (10645 CelestialBeacon, 10124 Beacon) intentionally EXCLUDED —
     // they are navigation/warp markers, not decorations, and confuse players when
@@ -508,6 +527,17 @@ void DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
         26527,   // GallenteFreighterWreck
         26549,   // MinmatarFreighterWreck
     };
+    // Sansha LCO structures (Sansha Nation architecture — 29596..29604)
+    static const std::vector<uint32> sanshaDeco = {
+        29596,   // LCO Sansha Barricade
+        29597,   // LCO Sansha Barrier
+        29598,   // LCO Sansha Battery
+        29599,   // LCO Sansha Bunker
+        29601,   // LCO Sansha Fence
+        29602,   // LCO Sansha Junction
+        29603,   // LCO Sansha Lookout
+        29604,   // LCO Sansha Wall
+    };
 
     // Faction-specific structure pools
     uint32 decoCount = 8 + MakeRandomInt(0, 7);
@@ -529,8 +559,8 @@ void DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
             break;
         }
         case factionSanshas: {
-            factionDeco = {17366, 26483, 26527, 10754, 3298, 24445};
-            decoCount = 8 + MakeRandomInt(0, 7);
+            factionDeco = sanshaDeco;
+            decoCount = 10 + MakeRandomInt(0, 8);
             break;
         }
         case factionSerpentis: {
@@ -573,13 +603,19 @@ void DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
         // Spawn as a transient (non-persisted) item — decorations are cosmetic and
         // must NOT be saved to the entity table. Saved copies piled up on every
         // dungeon/system reload and were re-spawned on top of each other.
+        // NOTE: InventoryItem::SpawnTemp() routes Celestial types through
+        // CelestialObject::Spawn() which allocates a real DB id — so create the
+        // temp item explicitly here.
         ItemData itemData(typeID, 1, m_system->GetID(), flagNone, "", pos);
-        InventoryItemRef iRef = InventoryItem::SpawnTemp(itemData);
+        uint32 tempID = InventoryItem::CreateTempItemID(itemData);
+        InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, itemData);
         if (iRef.get() == nullptr)
             continue;
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
+        spawned.push_back(iRef->itemID());
     }
+    return spawned;
 }
 
 int8 DungeonMgr::GetFaction(uint32 factionID)
