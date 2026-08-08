@@ -86,6 +86,7 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
             entries->AddItem(new PyObject("util.KeyVal", entry));
             reward->SetItemString("entries", entries);
             rewardList->AddItem(new PyObject("util.KeyVal", reward));
+            _log(DATABASE__MESSAGE, "RewardMgr::GetRewardData(%u) — row type=%u qty=%u", id, row.GetUInt(0), row.GetUInt(1));
         }
         immediateRewards->SetItem(new PyInt(criteriaAll), rewardList);
     }
