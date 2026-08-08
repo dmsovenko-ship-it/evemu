@@ -1,7 +1,30 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Latest commit: `04ee6348`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Server online, все фиксы NPC AI задеплоены (см. ниже). Диагностика в log.ini (NPC__AI_TRACE, DESTINY__ORBIT_TRACE) ВКЛЮЧЕНА для проверки NPC — после финальной проверки выключить.
+Session saved. Latest commit: `42d8e954`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Server online. Всё ниже задеплоено (последний коммит 42d8e954 ещё НЕ собран на сервере — юзер собирает сам).
+
+## Сессия 8 августа: инкурсии, дроны, декор
+- **Incursion ISK награды**: `const.rewardTypeISK = 2` (не 0) в этом клиенте. БД `incursionRewards`: ISK-строки rewardTypeID=2, LP=1. Миграция `20260808000000-incursion_reward_isk_type2.sql` + исправлен pk_fix (INSERT с type=2). Раньше ISK показывал 0, LP работал. Проверено живьём: 25M ISK отображается.
+- **Дроны — «призраки» в дальнем космосе** (`2a8b3921`): `InventoryItem::Delete()` для владельца-игрока делал `Move(locJunkyard)` — дрон оставался в entity (0,0,0) как ghost. Фикс: дроны (категория 18) удаляются полностью. Вреки дронов создавались корректно (позиция = место смерти).
+- **Дроны преследовали мёртвую структуру** (`2b54fa15`): цель без TargetMgr (врата/структуры) удалялась, но дрон не получал TargetLost → летел за висящим указателем. Фикс: в DroneAI::Process проверка `GetSE(pTarget->GetID())==nullptr` → ClearTarget+SetIdle.
+- **Орбита раскручивалась** (`143c28e3`): дрон летел по касательной → серверная позиция уходила на 2.5e12. Фикс: heading к точке круга. Из-за этого вреки дронов появлялись далеко (клиент показывал орбиту, сервер дрейфовал).
+- **Декор невидим** (`42d8e954`): декор-сущности (CelestialSE) `IsStaticEntity()=true` → `SendAddBalls` (dynamic-only) не доставлял их клиенту. Фикс: `AddBallExclusive(cSE)` после спавна. Также врата ускорения.
+- **Очистка мусора**: `sql/cleanup_test_debris.sql` — осиротевшие дроны (flag=0/87 в системах) + старые декорации. Выполнена на сервере (было 35 дронов + 19 декоров → 0).
+- **Декор transient** (`e74345ac`): `SpawnTemp` без SaveItem (раньше накапливался в entity). Sansha-декор = LCO Sansha структуры (29596-29604). Врата ускорения (17831) между комнатами данжа (2+ комнаты).
+- **SpawnDecorations возвращает itemID** → добавлены в room.items (удаляются при экспирации данжа).
+- **Ошибки в логах боя**: `FxError fxID=0 для Rocket Launcher II` — цикл ракет (фикс 4ee3d397, но юзер видит снова?); `DB Error #1366 notificationText` — бинарные данные в utf8 колонке (статус-уведомления).
+
+## Осталось (TODO на завтра)
+1. **Деплой 42d8e954** (декор видим) + 2a8b3921 (призраки дронов) на сервер — юзер собирает сам.
+2. Проверить: декор в аномалии (Guristas), врата ускорения в DED-комплексах.
+3. Проверить: убитый дрон полностью исчезает (призрак не остаётся).
+4. **FxError fxID=0 Rocket Launcher II** — цикл лаунчера всё ещё не показывается? (4ee3d397 деплоен — проверить).
+5. **DB Error #1366 notificationText** — бинарные данные (status change уведомление).
+6. Выключить диагностику в log.ini (NPC__AI_TRACE, DESTINY__ORBIT_TRACE, PHYSICS__TRACE, COSMIC_MGR__MESSAGE) после финальной проверки.
+
+## Лог-каналы включены (диагностика)
+- NPC__AI_TRACE, DESTINY__ORBIT_TRACE (были)
+- PHYSICS__TRACE=1 (врек позиции), COSMIC_MGR__MESSAGE=1 + COSMIC_MGR__WARNING=1 (декор), DATABASE__MESSAGE=1 (reward)
 
 ## Главное достижение (3 августа): AP gate-jump ПОЧИНЕН
 Автопилот теперь проходит много-гейтовый маршрут без зависаний и рывков:
@@ -79,15 +102,12 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 
 ## Git Log (верх)
 ```
-04ee6348 fix(npc): NPCs aggroed via Targeted() never fired — attack/missile timers only started in Target(); clamp absurdly long AttrSpeed cycles (30000ms) to 3-8s
-672afd73 fix(npc): minimum orbit range 1500-5000m when AttrMaxRange is tiny/0 — NPCs no longer clinch the player
-670b8635 docs: drone fixes (scoop/orbit/return/messages) + disk-full warning (docker image prune)
-29ecf6ce fix: AP warp-to-gate targets a point radius+apWarptoDistance from gate center (warp-to-point)
-8b674e50 fix: AP warp-to-gate lands apWarptoDistance from gate surface (add gate radius), capped at 25km
-865a5b64 revert: AP warp stop distance back to apWarptoDistance (15000 from gate center)
-95fe7f34 fix: AP warp-to-gate lands apWarptoDistance from gate surface (REVERTED)
-cc5ffaa2 fix: warp alignment re-arms ship when USF<0.75 regardless of TF
-960d6715 fix: re-send benign session change (nextSessionChange) ~5s after gate jump
+42d8e954 fix(dungeon): decor/gate entities are static (IsStaticEntity=true) so SendAddBalls never delivered them — AddBallExclusive after spawn
+2a8b3921 fix(drone): InventoryItem::Delete no longer junkyard-moves drones (cat 18) — dead drones left ghost entity rows at (0,0,0)
+2b54fa15 fix(drone): drop stale target when destroyed structure (no TargetMgr) is removed — drone chased dead target into deep space
+40b94991 feat(dungeon): transient decorations (Sansha LCO structures), acceleration gates between multi-room dungeons, cleanup script
+e74345ac fix(dungeon): decorations spawn as transient items (SpawnTemp, no SaveItem)
+f502d7ce fix: incursion ISK rewards use rewardTypeID=2 (const.rewardTypeISK) not 0
 f8bca947 fix: StargateJump range check surface-to-surface distance
 92918a2d fix: wrong table name crpCorporations -> crpCorporation
 27afe41d feat: ECM bomb jams targets + Energy bomb drains 1800GJ
@@ -100,6 +120,16 @@ ab1d6677 feat: gate activation effects (GateActivity)
 c5df3622 fix: add jump cloak + invul after gate jump
 a02fca16 fix: StargateJump mirrors Command_tr exactly
 7aa86e89 fix: AP gate jump uses .tr-style MoveToLocation flow
+143c28e3 fix(orbit): point heading at orbit circle point instead of tangent — orbit no longer unwinds
+04ee6348 fix(npc): NPCs aggroed via Targeted() never fired — attack/missile timers only started in Target(); clamp absurdly long AttrSpeed cycles (30000ms) to 3-8s
+672afd73 fix(npc): minimum orbit range 1500-5000m when AttrMaxRange is tiny/0 — NPCs no longer clinch the player
+670b8635 docs: drone fixes (scoop/orbit/return/messages) + disk-full warning (docker image prune)
+29ecf6ce fix: AP warp-to-gate targets a point radius+apWarptoDistance from gate center (warp-to-point)
+8b674e50 fix: AP warp-to-gate lands apWarptoDistance from gate surface (add gate radius), capped at 25km
+865a5b64 revert: AP warp stop distance back to apWarptoDistance (15000 from gate center)
+95fe7f34 fix: AP warp-to-gate lands apWarptoDistance from gate surface (REVERTED)
+cc5ffaa2 fix: warp alignment re-arms ship when USF<0.75 regardless of TF
+960d6715 fix: re-send benign session change (nextSessionChange) ~5s after gate jump
 b6e77ec3 fix: remove double-wrap in AddBalls XML
 fe8ece5b fix: remove double-wrapping in AddBalls2 XML
 ```
