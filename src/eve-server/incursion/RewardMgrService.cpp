@@ -32,6 +32,7 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
 
         uint32 groupID = item->AsInt()->value();
         DBQueryResult res;
+        _log(DATABASE__MESSAGE, "RewardMgr::GetDelayedRewardsByGroupIDs(%u) called", groupID);
         if (sDatabase.RunQuery(res,
             "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount "
             "FROM incursionRewards WHERE rewardGroupID = %u", groupID))
@@ -47,6 +48,7 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
                 // Client expects an 'entries' field (list of sub-entries)
                 reward->SetItemString("entries", new PyList());
                 rewardList->AddItem(new PyObject("util.KeyVal", reward));
+                _log(DATABASE__MESSAGE, "RewardMgr::GetDelayedRewardsByGroupIDs(%u) — row type=%u qty=%u", groupID, row.GetUInt(0), row.GetUInt(1));
             }
             result->SetItem(item, rewardList);
         }
