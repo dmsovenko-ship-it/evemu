@@ -609,11 +609,15 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         ItemData itemData(typeID, 1, m_system->GetID(), flagNone, "", pos);
         uint32 tempID = InventoryItem::CreateTempItemID(itemData);
         InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, itemData);
-        if (iRef.get() == nullptr)
+        if (iRef.get() == nullptr) {
+            _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
             continue;
+        }
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
         spawned.push_back(iRef->itemID());
+        _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: spawned typeID %u for room at (%.0f,%.0f,%.0f)",
+             typeID, pos.x, pos.y, pos.z);
     }
     return spawned;
 }

@@ -236,6 +236,18 @@ void DroneAIMgr::Process() {
             } else if (pTarget->SysBubble() == nullptr) {
                 m_pDrone->TargetMgr()->ClearTarget(pTarget);
                 return;
+            } else if (m_pDrone->SystemMgr() == nullptr
+                    or m_pDrone->SystemMgr()->GetSE(pTarget->GetID()) == nullptr) {
+                // Target entity was destroyed/removed from the system (e.g. an
+                // acceleration gate / structure without a TargetMgr, whose death
+                // never triggers ClearFromTargets). GetFirstTarget() still holds
+                // the stale pointer; drop it and return to the ship instead of
+                // chasing a dead target into deep space.
+                _log(DRONE__AI_TRACE, "Drone %s(%u): Target %s(%u) no longer exists in system. Clearing target.",
+                     m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
+                m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                SetIdle();
+                return;
             } else if (pTarget->DestinyMgr() != nullptr
                    and pTarget->DestinyMgr()->GetState() == Destiny::Ball::Mode::WARP) {
                 _log(DRONE__AI_TRACE, "Drone %s(%u): Target %s(%u) is warping.  Clearing target and returning to idle.",
