@@ -32,7 +32,6 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
 
         uint32 groupID = item->AsInt()->value();
         DBQueryResult res;
-        _log(DATABASE__MESSAGE, "RewardMgr::GetDelayedRewardsByGroupIDs(%u) called", groupID);
         if (sDatabase.RunQuery(res,
             "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount "
             "FROM incursionRewards WHERE rewardGroupID = %u", groupID))
@@ -48,7 +47,6 @@ PyResult RewardMgrService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
                 // Client expects an 'entries' field (list of sub-entries)
                 reward->SetItemString("entries", new PyList());
                 rewardList->AddItem(new PyObject("util.KeyVal", reward));
-                _log(DATABASE__MESSAGE, "RewardMgr::GetDelayedRewardsByGroupIDs(%u) — row type=%u qty=%u", groupID, row.GetUInt(0), row.GetUInt(1));
             }
             result->SetItem(item, rewardList);
         }
@@ -88,7 +86,6 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
             entries->AddItem(new PyObject("util.KeyVal", entry));
             reward->SetItemString("entries", entries);
             rewardList->AddItem(new PyObject("util.KeyVal", reward));
-            _log(DATABASE__MESSAGE, "RewardMgr::GetRewardData(%u) — row type=%u qty=%u", id, row.GetUInt(0), row.GetUInt(1));
         }
         immediateRewards->SetItem(new PyInt(criteriaAll), rewardList);
     }
@@ -97,11 +94,7 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
     result->SetItemString("immediateRewards", immediateRewards);
     result->SetItemString("delayedRewards", delayedRewards);
     result->SetItemString("rewardID", new PyInt(id));
-    PyObject* ret = new PyObject("util.KeyVal", result);
-    _log(DATABASE__MESSAGE, "RewardMgr::GetRewardData(%u) — response dump:", id);
-    if (is_log_enabled(DATABASE__MESSAGE))
-        ret->Dump(DATABASE__MESSAGE, "   ");
-    return ret;
+    return new PyObject("util.KeyVal", result);
 }
 
 PyResult RewardMgrService::GetRewardLPLogs(PyCallArgs& call)

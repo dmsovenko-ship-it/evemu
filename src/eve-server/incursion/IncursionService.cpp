@@ -30,7 +30,6 @@ PyResult IncursionService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
 
         uint32 groupID = item->AsInt()->value();
         DBQueryResult res;
-        _log(DATABASE__MESSAGE, "IncursionSvc::GetDelayedRewardsByGroupIDs(%u) called", groupID);
         if (sDatabase.RunQuery(res,
             "SELECT rewardTypeID, rewardQuantity, lpTypeID, lpAmount "
             "FROM incursionRewards WHERE rewardGroupID = %u", groupID))
@@ -44,7 +43,6 @@ PyResult IncursionService::GetDelayedRewardsByGroupIDs(PyCallArgs& call, PyRep* 
                 reward->SetItemString("lpTypeID",      new PyInt(row.GetUInt(2)));
                 reward->SetItemString("lpAmount",       new PyInt(row.GetUInt(3)));
                 rewardList->AddItem(new PyObject("util.KeyVal", reward));
-                _log(DATABASE__MESSAGE, "IncursionSvc::GetDelayedRewardsByGroupIDs(%u) — row type=%u qty=%u", groupID, row.GetUInt(0), row.GetUInt(1));
             }
             result->SetItem(item, rewardList);
         }
