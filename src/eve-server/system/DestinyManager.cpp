@@ -1521,16 +1521,19 @@ void DestinyManager::Orbit() {
         _log(DESTINY__TRACE, "%s(%u): Orbit position drift %.0fm (max %u). Allowing client to self-correct.",
              mySE->GetName(), mySE->GetID(), mPos.distance(Tp), uint32(refFollow * 3.0));
     }
-    // set heading tangent to orbit (perpendicular to radius) for smooth circular motion
-    // instead of chasing mPosNext which advances faster than ship speed
-    GVector radiusVec(Tp, m_position);
-    radiusVec.normalize();
-    // tangent: perpendicular to radius, following ccw orbit (swap x/z with -z/x)
-    m_shipHeading.x = -radiusVec.z;
-    m_shipHeading.z =  radiusVec.x;
-    m_shipHeading.y =  0.0f;
-    m_shipHeading.normalize();
-    m_targetPoint = m_position + (m_shipHeading * 1.0e16);
+    // Set the orbit target to a point ON the circle (Tp + mPos), and point the ship
+    // heading at it. Moving along a tangent (the old approach) makes the entity fly
+    // AWAY from the orbit circle: over one tick the tangent chord overshoots the arc,
+    // the radius grows ~0.8%/tick and the orbit exponentially unwinds ("drone flew
+    // off / got flung away"). Chasing the circle point keeps the radius bounded.
+    m_targetPoint = mPos;
+    GVector heading(m_position, m_targetPoint);
+    if (heading.length() > 1.0) {
+        heading.normalize();
+        // Blend toward the circle point to avoid abrupt heading snaps.
+        m_shipHeading = m_shipHeading * 0.5 + heading * 0.5;
+        m_shipHeading.normalize();
+    }
     LogMacro( m_shipHeading );
 
     double curSpeed = m_maxSpeed * m_activeSpeedFraction * m_maxOrbitSpeedFraction;
