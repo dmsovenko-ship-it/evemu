@@ -1039,15 +1039,10 @@ void DestinyManager::MoveObject() {
     // (tangent) diverges from the client's angular orbit, so a periodic snap shows up as
     // a small repeated "jerk" in drone/NPC/ship orbits. After the turn-rate fix the server
     // position tracks the client closely (drift is metres), so skip the sync to stay smooth.
-    if (mySE->HasPilot() && ++m_moveSyncCounter >= 50) {
-        m_moveSyncCounter = 0;
-        if (m_ballMode == Destiny::Ball::Mode::ORBIT) {
-            // Orbit uses angular velocity; client's animation matches — skip snap.
-        } else {
-            SetPosition(newPos, true);
-        }
-    } else if (m_userSpeedFraction > 0.0f) {
-        SetPosition(newPos, sConfig.debug.PositionHack);
+    // (Legacy m_moveSyncCounter block removed — every-50-tic SetBallPosition to a pilot
+    //  caused a visible ~12.5s snap/jerk of the player's own ship in non-ORBIT modes.)
+    if (sConfig.debug.PositionHack) {
+        SetPosition(newPos, true);
     }
 
     if (is_log_enabled(DESTINY__MOVE_DEBUG))

@@ -500,7 +500,14 @@ void DroneSE::Killed(Damage &damage) {
             AwardSecurityStatus(m_self, pClient->GetChar().get());  // this awards secStatusChange for npcs in empire space
     }
 
-    // Notify owner that drone is dead
+    // Notify owner that drone is dead. Clear the controller FIRST so the
+    // OnDroneStateChange emitted by SetIdle() (and the explicit one below) carry
+    // a zeroed controllerID/ownerID. That makes the client's drone window
+    // (michelle.py stateByDroneID) prune this dead drone instead of keeping a
+    // phantom "distant space" entry. With a live controllerID the client thinks
+    // the drone is still in space and issues Return commands, which yanks the
+    // remaining drones' orbits around.
+    ClearController();
     if (m_AI != nullptr)
         m_AI->SetIdle();
     StateChange();
