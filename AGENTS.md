@@ -1,7 +1,17 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Latest commit: `3a8490bd`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Server online. Всё ниже задеплоено (юзер собирает сам).
+Session saved. Latest commit: `cc1cebb3`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
+
+## 10 августа: подтверждено юзером — убитый дрон пропадает навсегда, врек остаётся (`2ebb22df` ClearController при DroneSE::Killed).
+## Следующая проверка (cc1cebb3): варп после орбиты вокруг невидимой декорации.
+
+## 9 августа (поздний вечер): SEGV при убийстве NPC — DOUBLE-REMOVE найден и исправлен
+- **Симптом**: сервер упал в Segfault в 08:42:45 при бое в аномалии. Перед крашем `AnomalyMgr::RemoveSignal() - removing 750000078` **дважды** за 08:42:10 (двойное удаление NPC) + корабль юзера `140001543` удалён (варп) + `RemoveSignal(1000000288)` (ракета). Краш через 35с после двойного удаления — классический delayed heap-corruption.
+- **Причина** (`5d086488`): `Damage::ApplyDamage` (Damage.cpp:373-374) вызывает `Killed(d)` (виртуальный → `NPC::Killed`) а затем `SystemEntity::Killed(d)`. Но `NPC::Killed` (конец метода) сам вызывал `m_system->RemoveNPC(this)`, который делает `RemoveEntity` + `pNPC->RemoveNPC()` (`m_self->Delete()`). Потом `SystemEntity::Killed` → `Delete()` снова `RemoveEntity` + `m_self->Delete()` → двойной RemoveEntity + двойной item-delete → heap corruption.
+- **Фикс**: `NPC::Killed` теперь вызывает только `m_system->RemoveNPCFromList(this)` (новый метод: m_npcs.erase + sEntityList.RemoveNPC(), БЕЗ RemoveEntity/item-delete). Полное удаление (RemoveEntity + m_self->Delete) делает `SystemEntity::Killed`→`Delete()` сразу после.
+- Также `/kill` и `/killallnpcs` (SystemCommands.cpp) вызывают `NPC::Killed` напрямую (не через Damage) — они теперь цепляют `npcEntity->SystemEntity::Killed(damage)` для полного удаления; `/kill` для NPC больше не делает отдельный `RemoveEntity` (он внутри SystemEntity::Killed).
+- Комментарий в Damage.cpp:373 «Killed must NOT remove dead SE» — контракт восстановлен.
 
 ## Сессия 9 августа: декор видимость, призраки дронов, орбита/отталкивание
 - **Декор невидим — ИСТИННАЯ причина** (`3a8490bd`): CelestialSE наследует `IsStaticEntity=true` → декор/контейнеры/облака попадали в static-map bubble (`m_entities`), а `GetEntities()`/`SendAddBalls()` шлют только `m_dynamicEntities`. `AddBallExclusive` при спавне не помогал (игрок заходит позже). Фикс: `CelestialSE::IsStaticEntity=false` — декор теперь dynamic и доходит до клиента. Гейты/планеты/луны — отдельные StaticSystemEntity классы, не затронуты.
@@ -94,6 +104,13 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 
 ## Git Log (верх)
 ```
+d52f47a2 fix(destiny): orbit 'TooFar' recomputes approach heading every tick — stale-point early return let ships/NPCs fly toward where the target WAS, distance grew 5->30km ('orbited an NPC', drones followed into space = 'teleport across screen'). Same bug as NPCAI::SetChasing stale point (9d4e8f8c).
+3103b69a fix(drone): no teleport when drone switches chase→orbit (SetEngaged now syncs SetPosition before CmdOrbit, same as SetApproaching/IdleOrbit — client Ballpark re-anchored ball to new orbit point from desynced position)
+f9945956 fix(drone): control-range leash — drone stops chasing targets beyond GetControlRange() (was 2x=40km; NPCs with huge flyRange like Eradicator 27km pulled drones into deep space)
+cc1cebb3 fix(ship): stop orbiting invisible decorations — IsTargetInvalid now stops ORBIT/FOLLOW when target has no DestinyMgr (decorations CelestialSE/ItemSystemEntity have m_destiny=nullptr + IsDynamicEntity()==false, so orbit persisted forever around invisible point -> 'circles invisible object', warp align never settled -> 'warp align/speed incorrect' -> stuck WARP -> 'You are already warping')
+a43b2bab fix(drone): no teleport when drone returns to carrier after target dies — IdleOrbit now syncs position (SetBallPosition) before CmdOrbit, same as SetApproaching; client Ballpark re-anchored ball to new orbit point from desynced position -> visible teleport at moment target dies
+2ebb22df fix(drone+ship): killed drone phantom 'distant space' (ClearController before SetIdle/StateChange so OnDroneStateChange prunes dead drone from client stateByDroneID — live controllerID made client think drone still in space + issue Return commands, yanking other drones) + removed legacy every-50-tic SetBallPosition to pilot's ship (~12.5s jerk in non-ORBIT modes)
+5d086488 fix(npc): NPC killed twice — NPC::Killed called RemoveNPC (RemoveEntity + m_self->Delete) and Damage::ApplyDamage then called SystemEntity::Killed -> Delete() again. Double removal corrupted heap; segfault ~35s later on missile removal. NPC::Killed now only unregisters from lists (RemoveNPCFromList); full removal via SystemEntity::Killed. /kill and /killallnpcs chain SystemEntity::Killed.
 42d8e954 fix(dungeon): decor/gate entities are static (IsStaticEntity=true) so SendAddBalls never delivered them — AddBallExclusive after spawn
 2a8b3921 fix(drone): InventoryItem::Delete no longer junkyard-moves drones (cat 18) — dead drones left ghost entity rows at (0,0,0)
 2b54fa15 fix(drone): drop stale target when destroyed structure (no TargetMgr) is removed — drone chased dead target into deep space
