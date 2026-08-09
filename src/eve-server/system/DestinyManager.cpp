@@ -1416,11 +1416,10 @@ void DestinyManager::Orbit() {
     double refDist = std::max<double>(refFollow, m_targetDistance);
     // check distances for this tic
     if (edges > refDist * 1.5) {
-        if (m_orbiting == Destiny::Ball::Orbit::TooFar) {
-            MoveObject();
-            return;
-        }
-        // too far to realistically orbit.
+        // too far to realistically orbit. Recompute the approach heading EVERY tick
+        // (do NOT early-return on TooFar state): the target moves, so a stale point
+        // made ships/NPCs fly toward where the target WAS, letting the distance grow
+        // unboundedly (ship 'orbited' an NPC 5->30km away, drones followed into space).
         m_orbiting = Destiny::Ball::Orbit::TooFar;
         // set point to side of target (based on current position), to avoid near-zero angular velocity
         double radTarg = atan2(Tp.z - m_position.z, Tp.x - m_position.x);  // rad from '0' to target
