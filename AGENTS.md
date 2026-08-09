@@ -1,7 +1,16 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Latest commit: `cc1cebb3`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
+Session saved. Latest commit: `1edb6957`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
+
+## 10 августа (день): фиксы орбиты/дронов/декора + подготовка к сборке
+- **Орбита вокруг NPC раскручивалась** (`d52f47a2`): TooFar-ветка Orbit() имела ранний return при `m_orbiting==TooFar` — heading вычислялся один раз, корабль летел к устаревшей точке, дистанция росла 5→30км («орбитил NPC», дроны за кораблём = «телепорт в другой конец экрана»). Фикс: TooFar пересчитывает heading каждый тик.
+- **Телепорт дрона при смене chase→orbit** (`3103b69a`): SetEngaged не слал SetPosition перед CmdOrbit (в отличие от SetApproaching/IdleOrbit) — клиентский Ballpark пересоздавал шар на новой орбите. Добавлен sync.
+- **Дрон улетал за NPC** (`f9945956`): leash был 2x control range (40км); NPC с большим flyRange (Eradicator 27км) утаскивали дронов. Теперь 1x control range.
+- **Орбита вокруг невидимой декорации** (`cc1cebb3`): IsTargetInvalid останавливает ORBIT/FOLLOW если у цели нет DestinyMgr (декорации CelestialSE) — фикс варпа «You are already warping».
+- **import_prices.py**: порт 3306 контейнера db проброшен на хост (`-p 3306:3306`, данные в volume evemu_db). Запуск: `/opt/conda/bin/python tools/import_prices.py --db-host 127.0.0.1 --db-user evemu --db-pass evemu --db-name evemu`.
+- **Контейнеры остановлены** для сборки юзером. Сеть evemu_default осталась (db не удалялся).
+
 
 ## 10 августа: подтверждено юзером — убитый дрон пропадает навсегда, врек остаётся (`2ebb22df` ClearController при DroneSE::Killed).
 ## Следующая проверка (cc1cebb3): варп после орбиты вокруг невидимой декорации.
