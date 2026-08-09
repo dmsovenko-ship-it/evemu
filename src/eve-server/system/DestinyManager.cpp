@@ -314,6 +314,12 @@ void DestinyManager::ProcessState() {
     if (IsMoving() && m_ballMode != Ball::Mode::WARP && m_ballMode != Ball::Mode::MISSILE) {
         if (mySE->SystemMgr() != nullptr) {
             for (auto& [id, se] : mySE->SystemMgr()->GetStaticEntities()) {
+                // Only bump off real solid objects (gates/stations/planets/moons).
+                // Decorations & acceleration gates are CelestialSE/ItemSystemEntity with
+                // none of these flags set — bumping off them every tick shoved ships,
+                // NPCs and drones apart (visible "repulsion").
+                if (!se->IsGateSE() && !se->IsStationSE() && !se->IsPlanetSE() && !se->IsMoonSE())
+                    continue;
                 if (se->GetRadius() < 500.0)
                     continue;
                 GPoint delta = m_position - se->GetPosition();
@@ -1507,10 +1513,15 @@ void DestinyManager::Orbit() {
     float s = sin(EvE::Trig::Deg2Rad(360 * period));
     float mu = EvE::Trig::Deg2Rad(inclination * s);
     // here we will adjust orbit plane by adding OrbitRotation angle to theta
-    // calculate position
-    mPos.x = radius /* mu */* cos( theta );
-    mPos.z = radius /* mu */* sin( theta );
-    mPos.y = radius * phi;
+    // calculate position - the orbit target must stay ON the circle. The old
+    // mPos.y = radius * phi treated phi (already in radians, ~0.785) as a
+    // dimensionless fraction, giving a vertical swing of ±0.785*radius
+    // (~1650m) that the ship could never keep up with -> orbit unwound.
+    // Orbit flat (y=0) like the client's native orbit, with a small y wobble
+    // derived from the pendulum factor so ships still get some 3D feel.
+    mPos.x = radius * cos( theta );
+    mPos.z = radius * sin( theta );
+    mPos.y = radius * 0.05f * sin(EvE::Trig::Deg2Rad(360 * period));
     _log(DESTINY__ORBIT_TRACE, "4 - theta:%.5f, phi:%.3f, mu:%.2f period:%.5f, radius:%.3f, inc:%.5f", theta,phi,mu,period,radius,inclination);
     LogMacro(mPos);
     // apply origin to our calculated position
