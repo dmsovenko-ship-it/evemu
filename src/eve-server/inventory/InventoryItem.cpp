@@ -577,10 +577,7 @@ void InventoryItem::Delete()
     m_delete = true;
 
     // get out of client's sight.
-    // Drones (category 18) must be removed entirely, NOT moved to junkyard —
-    // the junkyard move kept a ghost entity row at (0,0,0) in the solar system.
-    bool isDrone = (type().categoryID() == EVEDB::invCategories::Drone);
-    if (!isDrone and !IsNPCCorp(m_data.ownerID) and (m_data.ownerID > 1)) {
+    if (!IsNPCCorp(m_data.ownerID) and (m_data.ownerID > 1)) {
         Move(locJunkyard, flagNone, true);
     } else {
         // remove from current container's inventory
