@@ -1,30 +1,22 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Latest commit: `42d8e954`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Server online. Всё ниже задеплоено (последний коммит 42d8e954 ещё НЕ собран на сервере — юзер собирает сам).
+Session saved. Latest commit: `3a8490bd`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Server online. Всё ниже задеплоено (юзер собирает сам).
 
-## Сессия 8 августа: инкурсии, дроны, декор
-- **Incursion ISK награды**: `const.rewardTypeISK = 2` (не 0) в этом клиенте. БД `incursionRewards`: ISK-строки rewardTypeID=2, LP=1. Миграция `20260808000000-incursion_reward_isk_type2.sql` + исправлен pk_fix (INSERT с type=2). Раньше ISK показывал 0, LP работал. Проверено живьём: 25M ISK отображается.
-- **Дроны — «призраки» в дальнем космосе** (`2a8b3921`): `InventoryItem::Delete()` для владельца-игрока делал `Move(locJunkyard)` — дрон оставался в entity (0,0,0) как ghost. Фикс: дроны (категория 18) удаляются полностью. Вреки дронов создавались корректно (позиция = место смерти).
-- **Дроны преследовали мёртвую структуру** (`2b54fa15`): цель без TargetMgr (врата/структуры) удалялась, но дрон не получал TargetLost → летел за висящим указателем. Фикс: в DroneAI::Process проверка `GetSE(pTarget->GetID())==nullptr` → ClearTarget+SetIdle.
-- **Орбита раскручивалась** (`143c28e3`): дрон летел по касательной → серверная позиция уходила на 2.5e12. Фикс: heading к точке круга. Из-за этого вреки дронов появлялись далеко (клиент показывал орбиту, сервер дрейфовал).
-- **Декор невидим** (`42d8e954`): декор-сущности (CelestialSE) `IsStaticEntity()=true` → `SendAddBalls` (dynamic-only) не доставлял их клиенту. Фикс: `AddBallExclusive(cSE)` после спавна. Также врата ускорения.
-- **Очистка мусора**: `sql/cleanup_test_debris.sql` — осиротевшие дроны (flag=0/87 в системах) + старые декорации. Выполнена на сервере (было 35 дронов + 19 декоров → 0).
-- **Декор transient** (`e74345ac`): `SpawnTemp` без SaveItem (раньше накапливался в entity). Sansha-декор = LCO Sansha структуры (29596-29604). Врата ускорения (17831) между комнатами данжа (2+ комнаты).
-- **SpawnDecorations возвращает itemID** → добавлены в room.items (удаляются при экспирации данжа).
-- **Ошибки в логах боя**: `FxError fxID=0 для Rocket Launcher II` — цикл ракет (фикс 4ee3d397, но юзер видит снова?); `DB Error #1366 notificationText` — бинарные данные в utf8 колонке (статус-уведомления).
+## Сессия 9 августа: декор видимость, призраки дронов, орбита/отталкивание
+- **Декор невидим — ИСТИННАЯ причина** (`3a8490bd`): CelestialSE наследует `IsStaticEntity=true` → декор/контейнеры/облака попадали в static-map bubble (`m_entities`), а `GetEntities()`/`SendAddBalls()` шлют только `m_dynamicEntities`. `AddBallExclusive` при спавне не помогал (игрок заходит позже). Фикс: `CelestialSE::IsStaticEntity=false` — декор теперь dynamic и доходит до клиента. Гейты/планеты/луны — отдельные StaticSystemEntity классы, не затронуты.
+- **Отталкивание корабля/NPC/дронов** (`0ca4a008`): collision check в `DestinyManager::ProcessState` выталкивал движущихся из КАЖДОЙ static-сущности с радиусом ≥500м — декорации (контейнеры 1174м) и врата ускорения (2341м) толкали всех в стороны каждый тик. Фикс: выталкивание только из IsGateSE/IsStationSE/IsPlanetSE/IsMoonSE.
+- **Орбита раскручивалась** (`0ca4a008`): `mPos.y = radius * phi`, где phi уже радианы (~0.785) → вертикальный разлёт ±0.785×radius. Фикс: орбита в горизонтальной плоскости + малая Y-качка (0.05).
+- **Призраки дронов в БД** (`2a8b3921` re-applied `7ec8e576`): `InventoryItem::Delete` для дронов (cat 18) удалял предмет полностью вместо junkyard-Move. Подтверждено: убитые дроны исчезают из entity. Клиентские «призраки» уходят по TerminalExplosion/RemoveBall.
+- **Декор видимый** (`42d8e954` re-applied `c8e04d05`): AddBallExclusive после спавна (дополнительно к CelestialSE dynamic).
 
-## Осталось (TODO на завтра)
-1. **Деплой 42d8e954** (декор видим) + 2a8b3921 (призраки дронов) на сервер — юзер собирает сам.
-2. Проверить: декор в аномалии (Guristas), врата ускорения в DED-комплексах.
-3. Проверить: убитый дрон полностью исчезает (призрак не остаётся).
-4. **FxError fxID=0 Rocket Launcher II** — цикл лаунчера всё ещё не показывается? (4ee3d397 деплоен — проверить).
-5. **DB Error #1366 notificationText** — бинарные данные (status change уведомление).
-6. Выключить диагностику в log.ini (NPC__AI_TRACE, DESTINY__ORBIT_TRACE, PHYSICS__TRACE, COSMIC_MGR__MESSAGE) после финальной проверки.
-
-## Лог-каналы включены (диагностика)
-- NPC__AI_TRACE, DESTINY__ORBIT_TRACE (были)
-- PHYSICS__TRACE=1 (врек позиции), COSMIC_MGR__MESSAGE=1 + COSMIC_MGR__WARNING=1 (декор), DATABASE__MESSAGE=1 (reward)
+## Осталось (TODO)
+1. Деплой `3a8490bd` + `0ca4a008` на сервер — юзер собирает.
+2. Проверить: декор виден в Guristas-аномалии, врата ускорения в DED.
+3. Проверить: убитый дрон исчезает, орбита не раскручивается, нет отталкивания.
+4. FxError fxID=0 Rocket Launcher II (цикл ракет) — проверить 4ee3d397.
+5. DB Error #1366 notificationText — бинарные данные в utf8.
+6. Выключить диагностику в log.ini после финальной проверки.
 
 ## Главное достижение (3 августа): AP gate-jump ПОЧИНЕН
 Автопилот теперь проходит много-гейтовый маршрут без зависаний и рывков:
