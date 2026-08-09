@@ -476,6 +476,8 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 if (gateRef.get() != nullptr) {
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, m_system);
                     m_system->AddEntity(gateSE, false);
+                    if (gateSE->SysBubble() != nullptr)
+                        gateSE->SysBubble()->AddBallExclusive(gateSE);
                     newRoom.items.push_back(gateRef->itemID());
                 }
             }
@@ -615,6 +617,10 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         }
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
+        // Decorations are static entities (IsStaticEntity=true) so SendAddBalls
+        // (dynamic-only) never delivers them to clients — send them explicitly.
+        if (cSE->SysBubble() != nullptr)
+            cSE->SysBubble()->AddBallExclusive(cSE);
         spawned.push_back(iRef->itemID());
         _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: spawned typeID %u for room at (%.0f,%.0f,%.0f)",
              typeID, pos.x, pos.y, pos.z);
