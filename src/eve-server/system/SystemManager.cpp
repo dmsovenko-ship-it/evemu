@@ -1112,6 +1112,21 @@ void SystemManager::RemoveNPC(NPC* pNPC) {
     pNPC->RemoveNPC();   // this deletes NPC from DB.  NPC's dont jump, so no reason to remove from system unless killed
 }
 
+void SystemManager::RemoveNPCFromList(NPC* pNPC) {
+    // Unlike RemoveNPC(), this only drops the NPC from the tracking maps/counters.
+    // It does NOT call RemoveEntity() nor delete the item — the caller is expected
+    // to follow up with SystemEntity::Killed()/Delete() which does the full removal
+    // (RemoveEntity + item delete). Calling RemoveNPC() from NPC::Killed() while
+    // Damage::ApplyDamage then calls SystemEntity::Killed() caused a double
+    // RemoveEntity + double m_self->Delete() (heap corruption / use-after-free).
+    if ( pNPC == nullptr)
+        return;
+    auto itr = m_npcs.find(pNPC->GetID());
+    if (itr != m_npcs.end())
+        m_npcs.erase(itr);
+    sEntityList.RemoveNPC();
+}
+
 void SystemManager::AddEntity(SystemEntity* pSE, bool addSignal/*true*/) {
     if (pSE == nullptr)
         return;

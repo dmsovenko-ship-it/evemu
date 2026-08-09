@@ -654,7 +654,12 @@ void NPC::Killed(Damage &damage) {
     }
 
     m_killed = true;
-    m_system->RemoveNPC(this);
+    // RemoveNPC() would call RemoveEntity() + m_self->Delete() here, but
+    // Damage::ApplyDamage calls SystemEntity::Killed() right after this, which
+    // already does Delete() -> RemoveEntity + m_self->Delete(). Doing both caused
+    // a double RemoveEntity / double item delete (heap corruption, delayed crash).
+    // So only drop the NPC from tracking lists here; full removal happens above.
+    m_system->RemoveNPCFromList(this);
 }
 
 void NPC::FitModules()

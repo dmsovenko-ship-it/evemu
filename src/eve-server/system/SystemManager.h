@@ -129,6 +129,7 @@ public:
 
     void AddNPC(NPC* pNPC);
     void RemoveNPC(NPC* pNPC);
+    void RemoveNPCFromList(NPC* pNPC);   // only m_npcs/sEntityList cleanup — no RemoveEntity, no item delete (caller handles full removal)
     void AddEntity(SystemEntity* pSE, bool addSignal=true);    // add entity to system, and (optionally) add signal to AnomalyMgr
     void RemoveEntity(SystemEntity* pSE);   // this also removes SE* from bubble and sig from AnomalyMgr (if applicable)
     void AddClient(Client* pClient, bool count=false, bool jump=false);

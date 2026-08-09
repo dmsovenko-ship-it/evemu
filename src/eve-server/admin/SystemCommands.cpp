@@ -699,13 +699,16 @@ PyResult Command_kill(Client* pClient, CommandDB* db, EVEServiceManager &service
             throw CustomError ("/kill cannot process this object");
             sLog.Error("GMCommands - Command_kill()", "Cannot process this object, aborting kill: %s [%u]", sRef->name(), sRef->itemID());
         } else {
-            pClient->SystemMgr()->RemoveEntity(shipEntity);
             if (shipEntity->IsNPCSE()) {
+                // full removal is done by SystemEntity::Killed() (RemoveEntity + item delete);
+                // calling RemoveEntity() here too would double-remove the NPC (heap corruption).
                 NPC* npcEntity = shipEntity->GetNPCSE();
                 Damage damage(pClient->GetShipSE(),true);
                 npcEntity->Killed(damage);
+                npcEntity->SystemEntity::Killed(damage);
                 delete npcEntity;
             } else {
+                pClient->SystemMgr()->RemoveEntity(shipEntity);
                 Damage damage(pClient->GetShipSE(),true);
                 shipEntity->Killed(damage);
                 sRef->Delete();
@@ -734,8 +737,10 @@ PyResult Command_killallnpcs(Client* pClient, CommandDB* db, EVEServiceManager &
         if (cur.second == nullptr)
             continue;
         if (cur.second->IsNPCSE()) {
+            NPC* npcEntity = cur.second->GetNPCSE();
             Damage damage(pClient->GetShipSE(),true);
-            cur.second->GetNPCSE()->Killed(damage);
+            npcEntity->Killed(damage);
+            npcEntity->SystemEntity::Killed(damage);   // full removal: RemoveEntity + item delete
         }
     }
 
