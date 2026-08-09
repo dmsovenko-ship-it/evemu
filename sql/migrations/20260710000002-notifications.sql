@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `notification` (
 
 CREATE TABLE IF NOT EXISTS `notificationText` (
     `notificationID` BIGINT UNSIGNED NOT NULL,
-    `data` TEXT NOT NULL,
+    `data` BLOB NOT NULL,
     PRIMARY KEY (`notificationID`)
 ) ENGINE=InnoDB;
 
