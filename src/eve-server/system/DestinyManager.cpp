@@ -2173,6 +2173,14 @@ bool DestinyManager::IsTargetInvalid()
         Stop();
         return true;
     }
+    // Target without a DestinyManager (e.g. decorations/containers — CelestialSE/
+    // ItemSystemEntity have no m_destiny and IsDynamicEntity()==false). You can't
+    // meaningfully orbit/follow a static decoration: the client Ballpark keeps the
+    // ball in ORBIT/FOLLOW around an invisible point -> "ship circles invisible object".
+    if (m_targetEntity.second->DestinyMgr() == nullptr) {
+        Stop();
+        return true;
+    }
     if (!m_targetEntity.second->IsDynamicEntity())
         return false;
     if (m_targetEntity.second->HasPilot()) {
