@@ -99,6 +99,12 @@ public:
     virtual const CelestialSE*  GetCelestialSE()        { return this; }
     /* class type tests. */
     virtual bool                IsCelestialSE()         { return true; }
+    // CelestialSE (containers, clouds, decorations) must be DYNAMIC so bubble
+    // GetEntities()/SendAddBalls() deliver them to clients. ItemSystemEntity
+    // defaults IsStaticEntity=true, which put them in the bubble's static map
+    // where clients never saw them. Real gates/planets/moons are separate
+    // StaticSystemEntity classes and keep IsStaticEntity=true.
+    virtual bool                IsStaticEntity()        { return false; }
 
     /* SystemEntity interface */
     virtual void                MakeDamageState(DoDestinyDamageState &into);
