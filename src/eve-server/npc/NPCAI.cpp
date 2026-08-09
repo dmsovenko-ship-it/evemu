@@ -610,8 +610,15 @@ void NPCAIMgr::SetChasing(SystemEntity* pSE) {
     if (pSE == nullptr)
         return;
     /** @todo implement chase timer using entityChaseMaxDuration to limit chase time. */
-    if ((m_state == NPCAI::State::Chasing) and (m_destiny->IsGoto() or m_destiny->IsFollowing()))
+    if (m_state == NPCAI::State::Chasing) {
+        // Already chasing — re-aim at the target's CURRENT position every tick.
+        // The old early-return left GotoPoint aimed at a stale position, so a
+        // moving target (player orbiting) was never caught up: the NPC chased a
+        // phantom point, distance grew, and shots missed ("far miss").
+        m_destiny->SetMaxVelocity(m_maxSpeed);
+        m_destiny->GotoPoint(pSE->GetPosition());
         return;
+    }
     _log(NPC__AI_TRACE, "%s(%u): Begin chasing.  Target is %s(%u).", \
          m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID());
     // target out of range to attack/follow, but within npc sight range....use mwd/ab if equiped
