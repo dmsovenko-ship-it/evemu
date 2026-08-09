@@ -257,13 +257,13 @@ void DroneAIMgr::Process() {
                 SetIdle();
                 return;
             } else if (m_assignedShip != nullptr and m_assignedShip->DestinyMgr() != nullptr) {
-                // Defensive: if the drone chased its target beyond ~2x control range
+                // Defensive: if the drone chased its target beyond control range
                 // (an NPC fled/warped mid-combat and the client-driven follow ran away),
                 // stop pursuing and return to the ship — prevents "drone flew into
                 // deep space" during combat.
                 double distToShip = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
-                if (distToShip > GetControlRange() * 2.0) {
-                    _log(DRONE__AI_TRACE, "Drone %s(%u): beyond 2x control range (%.0fm) chasing %s(%u). Returning to ship.",
+                if (distToShip > GetControlRange()) {
+                    _log(DRONE__AI_TRACE, "Drone %s(%u): beyond control range (%.0fm) chasing %s(%u). Returning to ship.",
                          m_pDrone->GetName(), m_pDrone->GetID(), distToShip, pTarget->GetName(), pTarget->GetID());
                     m_pDrone->TargetMgr()->ClearTarget(pTarget);
                     Return();
@@ -596,6 +596,24 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
     float rangeMult = 1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::DroneSharpshooting);
     float flyRange = m_entityFlyRange * rangeMult;
     float attackRange = m_entityAttackRange * rangeMult;
+
+    // Control-range leash: a drone must not chase a target beyond the carrier's
+    // control range. NPCs with huge flyRange (e.g. Eradicator 27km) pull drones
+    // away from the ship into "deep space" (visible as drones flinging off /
+    // orbiting nothing). If the target is outside control range, drop it and
+    // return to the carrier — same behaviour as EVE.
+    if (m_assignedShip != nullptr and m_assignedShip->DestinyMgr() != nullptr) {
+        double distToShip = m_pDrone->GetPosition().distance(m_assignedShip->GetPosition());
+        if (distToShip > GetControlRange()) {
+            _log(DRONE__AI_TRACE, "Drone %s(%u): target %s(%u) beyond control range (%.0fm > %.0fm). Returning to ship.",
+                 m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID(),
+                 distToShip, GetControlRange());
+            m_pDrone->DestinyMgr()->Stop();
+            m_pDrone->TargetMgr()->ClearTarget(pSE);
+            Return();
+            return;
+        }
+    }
 
     // If we're approaching and still far away, keep chasing
     if ((m_state == DroneAI::State::Approaching) && (dist > flyRange)) {
