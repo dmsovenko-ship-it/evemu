@@ -294,6 +294,13 @@ void DroneSE::IdleOrbit(ShipSE* pShipSE/*nullptr*/) {
     // set speed and begin orbit
     m_destiny->SetMaxVelocity(m_self->GetAttribute(AttrMaxVelocity).get_float());
     m_destiny->SetSpeedFraction(0.6f);
+    // Sync drone position to client BEFORE issuing CmdOrbit. The client's Ballpark
+    // simulates FOLLOW/ORBIT locally, so when a drone switches from chasing a target
+    // (that just died) back to orbiting the carrier, its ball may be far from the
+    // server's position. CmdOrbit re-anchors the ball to the new orbit point, which
+    // shows up as a "teleport". Sending the current position first lets the client
+    // lerp its ball to the right spot (same pattern as DroneAIMgr::SetApproaching).
+    m_destiny->SetPosition(m_destiny->GetPosition(), true);
     m_destiny->Orbit(pShipSE, m_orbitRange);
 }
 
