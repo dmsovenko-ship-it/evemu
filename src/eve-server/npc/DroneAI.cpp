@@ -528,6 +528,13 @@ void DroneAIMgr::SetEngaged(SystemEntity* pTarget) {
         vel = m_chaseSpeed * skillBonus;
         m_pDrone->DestinyMgr()->Follow(pTarget, m_entityOrbitRange);
     } else {
+        // Sync drone position to client BEFORE issuing CmdOrbit. When switching
+        // from chasing/approaching a target to orbiting it, the client's Ballpark
+        // re-anchors the ball to the new orbit point from its own (desynced)
+        // position — visible as a teleport to "the other side of space". Sending
+        // the current server position first lets the client lerp smoothly (same
+        // pattern as SetApproaching and DroneSE::IdleOrbit).
+        m_pDrone->DestinyMgr()->SetPosition(m_pDrone->GetPosition(), true);
         vel = m_cruiseSpeed * skillBonus;
         m_pDrone->DestinyMgr()->Orbit(pTarget, m_entityOrbitRange);
     }
