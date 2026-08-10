@@ -73,7 +73,9 @@ float TurretFormulas::GetToHit(ShipItemRef shipRef, TurretModule* pMod, SystemEn
     }
     float c = pow((a * b), 2);
     float d = EvE::max(distance - range);
-    float e = pow((d / falloff), 2);
+    // Energy weapons (lasers) have NO falloff — the range term must be 1.0
+    // (no penalty), NOT (d/0)^2 = NaN which made every shot a miss.
+    float e = (falloff > 0) ? pow((d / falloff), 2) : 0.0f;
     float x = pow(0.5, c);
     float y = pow(0.5, e);
     float ChanceToHit = x * y;
@@ -118,7 +120,8 @@ float TurretFormulas::GetNPCToHit(NPC* pNPC, SystemEntity* pTarget)
     }
     float c = pow((a * b), 2);
     float d = EvE::max(distance - range);
-    float e = pow((d / falloff), 2);
+    // Energy weapons (lasers) have NO falloff — range term must be 1.0, NOT NaN.
+    float e = (falloff > 0) ? pow((d / falloff), 2) : 0.0f;
     float x = pow(0.5, c);
     float y = pow(0.5, e);
     float ChanceToHit = x * y;
