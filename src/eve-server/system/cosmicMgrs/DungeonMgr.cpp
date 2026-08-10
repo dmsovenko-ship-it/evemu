@@ -473,11 +473,14 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 newRoom.items.push_back(id);
 
             // Spawn an acceleration gate leading to the next room (all rooms except
-            // the last). Gate sits at the far edge of the current room, on the +x
-            // axis toward the next room; ActivateAccelerationGate warps +NEXT_DUNGEON_ROOM_DIST.
+            // the last). Gate sits ~25-30km from the room center on the +x axis
+            // toward the next room — the player flies to it and activates it;
+            // ActivateAccelerationGate warps +NEXT_DUNGEON_ROOM_DIST (the gap
+            // between rooms). 25-30km keeps the gate in the same bubble as the
+            // pocket (BUBBLE_RADIUS 300km) so it's visible and reachable.
             if (dData.rooms.size() > 1 && roomCounter < (dData.rooms.size() - 1)) {
                 GPoint gatePos = newRoom.position;
-                gatePos.x += NEXT_DUNGEON_ROOM_DIST * 0.8;
+                gatePos.x += 25000 + MakeRandomInt(0, 5000);   // 25-30km
                 ItemData gateData(17831, sig.ownerID, sig.systemID, flagNone, "Acceleration Gate", gatePos);  // 17831 = Acceleration Gate
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
