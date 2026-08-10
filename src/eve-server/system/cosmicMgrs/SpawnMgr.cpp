@@ -557,7 +557,21 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
                     s->SetAttribute(AttrExplosiveDamage, s->GetAttribute(AttrExplosiveDamage).get_float() * scale);
                 }
 
-                pNPC->DestinyMgr()->SetPosition(startPos);
+                // Anomaly ambush formation: spread each NPC on a ring around the
+                // warp-in point (6-14km out, behind rocks/structures/decorations)
+                // instead of stacking them all at the entry point. When the player
+                // drops in, NPCs fly out of cover and converge on them — no more
+                // "pile of rats scattering at the warp-in point".
+                GPoint spawnPos(startPos);
+                if (pBubble->IsAnomaly() && !isIncursion) {
+                    double ang = MakeRandomFloat() * 2.0 * 3.14159;
+                    double rad = 6000.0 + MakeRandomFloat() * 8000.0;
+                    spawnPos.x += cos(ang) * rad;
+                    spawnPos.z += sin(ang) * rad;
+                    spawnPos.y += (MakeRandomFloat() - 0.5) * 1500.0;
+                }
+
+                pNPC->DestinyMgr()->SetPosition(spawnPos);
 
                 m_system->AddNPC(pNPC);
 
@@ -565,10 +579,17 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
                 if (isIncursion)
                     ++m_incursionAlive[pBubble->GetID()];
 
-                // Micro-warp to trigger client crosshair initialization (belt rats get this via WarpTo)
-                GPoint warpTo(startPos);
-                warpTo.MakeRandomPointOnSphere(1000 + rand() % 3000);
-                pNPC->DestinyMgr()->WarpTo(warpTo, 1000);
+                // Trigger client crosshair initialization WITHOUT scattering the rats.
+                // The old WarpTo(random 1-4km) flung the ambush formation apart the
+                // instant the player warped in. Just re-orient toward the room center.
+                if (pBubble->IsAnomaly() && !isIncursion) {
+                    pNPC->GetAIMgr()->SetAmbush(true);
+                    pNPC->DestinyMgr()->Stop();
+                } else {
+                    GPoint warpTo(startPos);
+                    warpTo.MakeRandomPointOnSphere(1000 + rand() % 3000);
+                    pNPC->DestinyMgr()->WarpTo(warpTo, 1000);
+                }
 
                 // Temporary: generate random spawn class
                 uint8 sClass = rand()%(12) + 1;

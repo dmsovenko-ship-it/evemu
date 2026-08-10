@@ -66,7 +66,8 @@ NPCAIMgr::NPCAIMgr(NPC* who)
   m_missileTypeID(0),
   m_webber(false),
   m_warpScram(false),
-  m_isWandering(false)
+  m_isWandering(false),
+  m_isAmbush(false)
 {
     assert(m_self.get() != nullptr);
     m_damageMultiplier = m_self->GetAttribute(AttrDamageMultiplier).get_float();
@@ -365,6 +366,39 @@ void NPCAIMgr::Process() {
             // Customs officials don't auto-target players — only respond when triggered by contraband
             if (m_self->groupID() == EVEDB::invGroups::Customs_Official)
                 return;
+            // Anomaly ambush: NPCs hold position in cover (no wander, no wide-area
+            // scan) until a player gets close — then they fly out of hiding and
+            // converge. This replaces the old "pile of rats scattering at warp-in".
+            if (m_isAmbush) {
+                uint32 scanRange = std::min(m_sightRange, (uint32)30000);
+                std::vector<Client*> clientVec;
+                m_npc->SysBubble()->GetPlayers(clientVec);
+                for (auto cur : clientVec) {
+                    if (cur->IsInvul())
+                        continue;
+                    if (cur->GetShipSE() == nullptr)
+                        continue;
+                    if (cur->InPod())
+                        continue;
+                    DestinyManager* pDestiny = cur->GetShipSE()->DestinyMgr();
+                    if (pDestiny == nullptr || pDestiny->IsCloaked() || pDestiny->IsWarping())
+                        continue;
+                    if (m_npc->GetPosition().distance(cur->GetShipSE()->GetPosition()) > scanRange)
+                        continue;
+                    // Faction patrols only aggro players with negative standing
+                    if (m_npc->GetWarFactionID() > 0) {
+                        if (StandingDB::GetStanding(m_npc->GetWarFactionID(), cur->GetCharacterID()) >= 0.0f)
+                            continue;
+                    }
+                    _log(NPC__AI_TRACE, "%s(%u): AMBUSH sprung — %s(%u) at %.0fm, flying out of cover.",
+                         m_npc->GetName(), m_npc->GetID(), cur->GetName(), cur->GetCharacterID(),
+                         m_npc->GetPosition().distance(cur->GetShipSE()->GetPosition()));
+                    m_isAmbush = false;
+                    Target(cur->GetShipSE());
+                    return;
+                }
+                return;   // no one in range yet — stay hidden
+            }
             if (m_beginFindTarget.Check()) {
                 std::vector<Client*> clientVec;
                 clientVec.clear();
@@ -507,6 +541,18 @@ void NPCAIMgr::WakeUp() {
     // Force target find timer to fire immediately
     m_beginFindTarget.Start(1);
     m_state = NPCAI::State::Idle;
+}
+
+void NPCAIMgr::SetAmbush(bool ambush)
+{
+    m_isAmbush = ambush;
+    if (ambush) {
+        // Stationary ambush: stand in cover, no wandering until the player is
+        // close enough to spot. m_beginFindTarget stays disabled so Idle doesn't
+        // do its normal wide-area player scan.
+        m_isWandering = false;
+        m_destiny->Stop();
+    }
 }
 
 void NPCAIMgr::StartAttackCycle(uint32 intervalMs) {
@@ -775,6 +821,9 @@ void NPCAIMgr::Targeted(SystemEntity* pSE) {
 
     _log(NPC__AI_TRACE, "%s(%u): Targeted by %s(%u) while %s.", \
             m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID(), GetStateName(m_state).c_str());
+
+    // Ambush NPC shot first — spring out of cover immediately
+    m_isAmbush = false;
 
     switch(m_state) {
         case NPCAI::State::Idle: {

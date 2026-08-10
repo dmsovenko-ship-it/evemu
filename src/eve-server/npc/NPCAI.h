@@ -101,6 +101,7 @@ public:
     void WarpOutComplete()                              { m_warpOutTimer.Disable(); m_state = NPCAI::State::Idle; }
     void WakeUp(); // Force target search on next tick
     void StartAttackCycle(uint32 intervalMs); // Force attack timer
+    void SetAmbush(bool ambush); // Anomaly ambush: stay in cover, no wander until player in sight
 
     void LaunchMissile(uint16 typeID, SystemEntity* pTargSE);   // us to them
     void MissileLaunched(Missile* pMissile); // them to us
@@ -137,6 +138,7 @@ private:
     bool m_useSigRadius     :1;
     bool m_useTargSwitching :1;
     bool m_useSecondTarget  :1;
+    bool m_isAmbush         :1;
 
     float m_switchTargChance;   //fuzzy logic
     uint16 m_preferedSigRadius;
