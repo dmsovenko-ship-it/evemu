@@ -84,6 +84,9 @@ private:
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();
+    // A courier reached the destination system — complete its accepted contract
+    // (reward ISK + cargo placed at the destination station).
+    void CompleteContract(uint32 charID, uint32 destSystem);
     // Deterministic real-EVE-style corp logo from a seed id: slot 0 = graphicID,
     // 1-3 = colors (0xRRGGBB), 4-6 = shapes. Same seed → same logo.
     static int64 MakeCorpLogo(uint32 seed, uint8 slot);

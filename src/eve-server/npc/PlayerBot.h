@@ -95,6 +95,11 @@ public:
     void RequestDock()                  { m_wantsDock = true; }
     void ClearDockRequest()             { m_wantsDock = false; }
     bool WantsDock() const              { return m_wantsDock; }
+    // Jump freighter (big cargo / courier contracts): light a cyno, hold an
+    // interception window, then jump to the destination system.
+    void StartJumpFreighter(uint32 destSystem);
+    bool IsJumpFreighter() const        { return m_isJumpFreighter; }
+    bool CynoActive() const             { return m_cynoActive; }
 
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
@@ -120,6 +125,10 @@ protected:
     bool m_inFight;                     // true while fighting (to record outcomes)
     bool m_wantsDock;                   // true when the bot wants to dock (profession)
     uint8 m_mineTrips;                  // mining runs since last dock (ore haul)
+    bool m_isJumpFreighter;             // flying a jump freighter (big cargo)
+    bool m_cynoActive;                  // cyno is lit — interception window open
+    uint32 m_jumpDest;                  // destination system for the jump
+    Timer m_cynoTimer;                  // window before the jump fires
 };
 
 #endif

@@ -39,7 +39,11 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_activityTimer(0),
   m_inFight(false),
   m_wantsDock(false),
-  m_mineTrips(0)
+  m_mineTrips(0),
+  m_isJumpFreighter(false),
+  m_cynoActive(false),
+  m_jumpDest(0),
+  m_cynoTimer(0)
 {
     // A player-like legend: give this NPC a neutral alliance so it doesn't show
     // red crosshairs and isn't auto-aggroed by faction standing checks. The
@@ -309,6 +313,21 @@ void PlayerBot::Process()
     }
     if (!m_activityTimer.Enabled())
         m_activityTimer.Start(120000);   // a profession "run" every ~2 min
+
+    // Jump freighter cyno phase: when the window expires, jump to the
+    // destination (JumpDrive effects), complete the haul.
+    if (m_cynoActive && m_cynoTimer.Check(false)) {
+        m_cynoActive = false;
+        _log(BOT__MESSAGE, "PlayerBot %s(%u): jump freighter jumping to system %u.",
+             m_botName.c_str(), m_botCharID, m_jumpDest);
+        if (m_destiny != nullptr)
+            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                         m_self->itemID(), 0, "effects.JumpDriveOut",
+                                         1, 1, 1, 3000, 0, 0);
+        // Hand off to BotMgr to move the freighter to the destination.
+        SetTravelDestination(m_jumpDest);
+        m_wantsTravel = true;
+    }
 
     // When not fighting or traveling, do the bot's profession activity
     // (mine/trade/courier/hack). Hunters prowl for targets instead.
@@ -607,6 +626,29 @@ void PlayerBot::RequestFleetProtection()
                  m_botName.c_str(), m_botCharID, guard->GetBotName().c_str(), guard->GetBotCharID());
         }
     }
+}
+
+void PlayerBot::StartJumpFreighter(uint32 destSystem)
+{
+    // Big-cargo courier: light a cyno, hold an interception window, then jump.
+    if (destSystem == 0)
+        return;
+    m_isJumpFreighter = true;
+    m_cynoActive = true;
+    m_jumpDest = destSystem;
+    // 60-120s window: players can warp in, shoot the freighter, or its guards.
+    m_cynoTimer.Start(MakeRandomInt(60000, 120000));
+
+    // Visible cyno effect (effects.CynosuralGeneration) so players see the beacon.
+    if (m_destiny != nullptr)
+        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                     m_self->itemID(), 0, "effects.CynosuralGeneration",
+                                     1, 1, 1, 60000, 0, 0);
+    // Guards come protect the freighter while it lights the cyno.
+    RequestFleetProtection();
+
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): JUMP FREIGHTER — cyno lit, jumping to %u in %.0fs.",
+         m_botName.c_str(), m_botCharID, destSystem, m_cynoTimer.GetRemainingTime() / 1000.0);
 }
 
 void PlayerBot::UseCombatAbilities()

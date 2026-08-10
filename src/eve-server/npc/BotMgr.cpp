@@ -1007,7 +1007,7 @@ void BotMgr::ProcessPlayerContracts()
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT contractId, startStationID, startSolarSystemID, endSolarSystemID, reward, dateIssued"
+        "SELECT contractId, startStationID, startSolarSystemID, endSolarSystemID, reward, dateIssued, volume"
         " FROM ctrContracts"
         " WHERE contractType = 3"        // courier
         "   AND status = 0"              // created, not yet accepted
@@ -1022,6 +1022,7 @@ void BotMgr::ProcessPlayerContracts()
             uint32 endSys = row.GetUInt(3);
             int64 reward = row.GetInt64(4);
             int64 dateIssued = row.GetInt64(5);
+            double volume = row.GetDouble(6);
             // Skip contracts that were issued recently — only take ones that
             // have been sitting unaccepted for a while (a real player may still
             // pick up a fresh one). dateIssued is FILETIME (100ns ticks).
@@ -1052,17 +1053,22 @@ void BotMgr::ProcessPlayerContracts()
                 "UPDATE ctrContracts SET acceptorID = %u, status = 1, dateAccepted = %lli WHERE contractId = %u",
                 courier->GetBotCharID(), (int64)GetFileTimeNow(), contractID);
 
-            _log(BOT__MESSAGE, "BotMgr: courier %s(%u) accepted contract %u (reward %.0f ISK) to system %u.",
-                 courier->GetBotName().c_str(), courier->GetBotCharID(), contractID, (double)reward, endSys);
+            _log(BOT__MESSAGE, "BotMgr: courier %s(%u) accepted contract %u (reward %.0f ISK, %.0f m3) to system %u.",
+                 courier->GetBotName().c_str(), courier->GetBotCharID(), contractID, (double)reward, volume, endSys);
 
-            // Fly it to the destination (cross gates / jump).
             if (endSys != 0) {
-                courier->SetTravelDestination(endSys);
-                courier->MarkForTravel(endSys);
-                // Reward ISK credited to the courier for the haul.
-                sDatabase.RunQuery(err,
-                    "UPDATE chrCharacters SET balance = balance + %lli WHERE characterID = %u",
-                    reward, courier->GetBotCharID());
+                // Big cargo (>10,000 m3) goes by JUMP FREIGHTER through a cyno —
+                // lights a visible cyno, holds an interception window (players can
+                // warp in and shoot it or its guards), then jumps. Guards protect it.
+                if (volume > 10000) {
+                    courier->StartJumpFreighter(endSys);
+                } else {
+                    // Small cargo: fly through gates normally.
+                    courier->SetTravelDestination(endSys);
+                    courier->MarkForTravel(endSys);
+                }
+                // Reward ISK is paid on successful delivery (handled when the
+                // freighter/courier completes the run), not at acceptance.
             }
         }
     }
