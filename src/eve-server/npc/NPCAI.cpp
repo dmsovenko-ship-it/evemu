@@ -800,6 +800,17 @@ void NPCAIMgr::SetFleeing(SystemEntity* pSE) {
     m_warpOutTimer.Disable();
 }
 
+void NPCAIMgr::Flee(SystemEntity* pTargSE)
+{
+    if (pTargSE == nullptr)
+        return;
+    // Register the threat as a target so the Fleeing state can track it, then
+    // hand off to SetFleeing (runs away and warps out when out of range).
+    if (m_npc->TargetMgr() != nullptr)
+        m_npc->TargetMgr()->AddTarget(pTargSE);
+    SetFleeing(pTargSE);
+}
+
 // not used yet
 void NPCAIMgr::SetSignaling(SystemEntity* pSE) {
     if (pSE == nullptr)

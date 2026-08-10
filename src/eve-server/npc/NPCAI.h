@@ -102,6 +102,8 @@ public:
     void WakeUp(); // Force target search on next tick
     void StartAttackCycle(uint32 intervalMs); // Force attack timer
     void SetAmbush(bool ambush); // Anomaly ambush: stay in cover, no wander until player in sight
+    void Flee(SystemEntity* pTargSE);   // flee from a target (used by simulated players)
+    uint16 GetMaxShipSpeed() const      { return m_maxSpeed; }
 
     void LaunchMissile(uint16 typeID, SystemEntity* pTargSE);   // us to them
     void MissileLaunched(Missile* pMissile); // them to us

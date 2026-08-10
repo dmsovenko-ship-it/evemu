@@ -10,6 +10,7 @@
 #include "character/CharacterDB.h"
 #include "chat/LSCService.h"
 #include "chat/LSCChannel.h"
+#include "services/ServiceManager.h"
 
 /*
  * @file BotMgr.cpp

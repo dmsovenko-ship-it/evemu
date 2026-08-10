@@ -51,6 +51,126 @@ PyDict* PlayerBot::MakeSlimItem()
     return slim;
 }
 
+void PlayerBot::OnAttacked(SystemEntity* attacker)
+{
+    if (m_killed || attacker == nullptr || m_destiny == nullptr)
+        return;
+
+    // A bot is a neutral pilot: it doesn't gank, but it will defend itself.
+    // First check the RIGHT to kill — a careful pilot won't take CONCORD in
+    // highsec for no reason. Rules mirror EVE:
+    //   highsec (>=0.5): may attack only if the target is already a criminal or
+    //                    has a very low security status (legal target);
+    //   lowsec  (0.1-0.4): almost free (only station guns are a concern);
+    //   nullsec (<0.1):     no restrictions at all.
+    float sysSec = SystemMgr() != nullptr ? SystemMgr()->GetSystemSecurityRating() : 0.0f;
+    bool mayAttack = true;
+    if (sysSec >= 0.5f) {
+        bool targetCriminal = false;
+        bool targetLowSec = false;
+        if (attacker->HasPilot()) {
+            Client* atk = attacker->GetPilot();
+            if (atk->GetCrimeWatch() != nullptr)
+                targetCriminal = atk->GetCrimeWatch()->IsCriminal();
+            targetLowSec = atk->GetSecurityRating() < -5.0f;
+        }
+        mayAttack = targetCriminal || targetLowSec;
+    }
+
+    // Evaluate the fight: compare its own combat power (skill tier + ship class)
+    // to the attacker's ship class. If it thinks it can win (or the fight is
+    // even), it fights back; otherwise it warps out.
+    int attackerClass = 0;
+    if (attacker->GetSelf() != nullptr) {
+        Inv::TypeData tdata;
+        sDataMgr.GetType(attacker->GetSelf()->typeID(), tdata);
+        attackerClass = GetShipClass(tdata.groupID);
+    }
+    int myClass = GetShipClass(m_self->groupID());
+
+    // Combat power = ship class + skill tier (0..5). A skilled pilot in a
+    // weaker hull can beat a rookie in a bigger one — but usually not by much.
+    int myPower = myClass * 2 + (int)m_botSkill;
+    int theirPower = attackerClass * 2 + (sConfig.playerBots.AggroFactor > 0 ? 1 : 0);
+    // AggroFactor: % confidence modifier. +10% → treat enemy as 10% weaker, etc.
+    theirPower -= (int)(theirPower * (sConfig.playerBots.AggroFactor / 100.0f));
+
+    _log(BOT__TRACE, "PlayerBot %s(%u): attacked by %s — sysSec %.1f mayAttack %s, myPower %d vs theirPower %d.",
+         m_botName.c_str(), m_botCharID, attacker->GetName(), sysSec, mayAttack?"yes":"no", myPower, theirPower);
+
+    if (mayAttack && myPower >= theirPower - 1) {
+        // Legal and confident — fight back (NPCAI handles targeting/attack).
+        m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxSpeed());
+        GetAIMgr()->WakeUp();
+        GetAIMgr()->StartAttackCycle(2000);
+        // Intelligent fleet support: call allies (same corp or same alliance)
+        // in this system to join the fight, so fights are decided by force
+        // concentration, not one brave pilot.
+        CallFleetSupport(attacker);
+    } else {
+        // Not legal to fight, or outmatched — flee. A professional pilot warps
+        // out rather than suicide against a superior (or unlawful) force.
+        _log(BOT__TRACE, "PlayerBot %s(%u): fleeing (%s).",
+             m_botName.c_str(), m_botCharID, mayAttack ? "outmatched" : "no kill right");
+        GetAIMgr()->StartAttackCycle(0);
+        GetAIMgr()->Flee(attacker);
+    }
+}
+
+void PlayerBot::CallFleetSupport(SystemEntity* attacker)
+{
+    if (attacker == nullptr || SystemMgr() == nullptr)
+        return;
+    // Rally allies from the same corp OR the same alliance that are in this
+    // system. They join the fight (Target() starts targeting+attack) so a fleet
+    // concentrates force — mirroring real EVE blobs.
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        if (se == this)
+            continue;
+        PlayerBot* ally = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (ally == nullptr)
+            continue;
+        if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
+            continue;   // not same corp / alliance — not an ally
+        // Only rally if the ally isn't already busy fleeing.
+        if (ally->GetAIMgr()->IsFighting())
+            continue;
+        _log(BOT__TRACE, "PlayerBot %s(%u): fleet support — %s(%u) joining.",
+             m_botName.c_str(), m_botCharID, ally->GetBotName().c_str(), ally->GetBotCharID());
+        ally->GetAIMgr()->WakeUp();
+        ally->GetAIMgr()->StartAttackCycle(2000);
+        ally->GetAIMgr()->Target(attacker);
+    }
+}
+
+// Ship class by groupID: bigger index = more combat power.
+int PlayerBot::GetShipClass(uint16 groupID)
+{
+    using namespace EVEDB::invGroups;
+    switch (groupID) {
+        case Frigate: case Assault_Frigate: case Interceptor:
+        case Covert_Ops: case Electronic_Attack_Ship:
+        case Interdictor: case Stealth_Bomber:
+            return 1;
+        case Destroyer: case Interdictor_2: case Interdictor_3:
+            return 2;
+        case Cruiser: case Heavy_Assault_Cruiser: case Heavy_Interceptor:
+        case Logistics_Frigate: case Combat_Recon_Ship:
+            return 3;
+        case Battlecruiser: case Command_Ship: case Strategic_Cruiser:
+        case Force_Recon_Ship: case Logistics_Cruiser:
+            return 4;
+        case Battleship: case Black_Ops: case Marauder:
+            return 5;
+        case Supercarrier: case Titan: case Carrier:
+            return 6;
+        default:
+            return 2;   // unknown / industrial-ish — treat as cruiser-ish
+    }
+}
+
 void PlayerBot::MarkForTravel()
 {
     if (m_traveling || m_wantsTravel)

@@ -23,6 +23,7 @@ public:
     /* SystemEntity interface */
     virtual void Process();
     virtual PyDict* MakeSlimItem();
+    virtual void OnAttacked(SystemEntity* attacker);   // assess threat, fight or flee
 
     /* bot identity */
     uint32 GetBotCharID() const         { return m_botCharID; }
@@ -52,6 +53,8 @@ public:
 
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
+    void CallFleetSupport(SystemEntity* attacker);   // same corp/alliance bots join the fight
+    static int GetShipClass(uint16 groupID);         // combat-power tier by ship group
 
     uint32 m_botCharID;
     std::string m_botName;
