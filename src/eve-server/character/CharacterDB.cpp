@@ -122,89 +122,78 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
                     cdata.schoolID = srow.GetUInt(0);
             }
         }
-        // Random bio: a meme, a veteran tip, a life story, or (rarely) empty.
-        // Composed from parts so combinations are effectively endless; the
+        // Random bio: a coherent meme, a veteran tip, a short story, or (rarely)
+        // empty. Each option reads naturally on its own — no gibberish. The
         // uniqueness check against chrCharacters guarantees absolute uniqueness.
         {
-            static const char* bioStarts[] = {
+            static const char* oneLiners[] = {
                 "Just here for the explosions.",
                 "Never fly what you can't afford to lose.",
                 "AFK in Jita, DM for offers.",
                 "I rat for a living. Literally.",
-                "One day my ship will come back.",
                 "Solo PvP or nothing.",
                 "The ISK is in the haul.",
                 "Beep boop. Not a bot.",
                 "Trust no one, especially your corp.",
                 "Lowsec made me do it.",
-                "My ship has more miles than your pod.",
                 "Nullsec is home.",
                 "o7 capsuleers",
                 "Praise Bob.",
+                "My killboard is public: zkillboard.com. Don't laugh.",
+                "Check my losses on zkillboard — learning by dying.",
+                "eveuniversity.org taught me everything. Well, almost.",
+                "Somewhere in Jita a market bot is judging me.",
+                "I trust my capacitor more than my corpmates.",
+                "Bubbles are just friendly hugs.",
+                "My skill queue is my autobiography.",
+                "PvE is PvP with a delay.",
             };
-            static const char* bioMids[] = {
-                " Lost a Raven to a smartbomb yesterday, 10/10 would fly again.",
-                " Was a miner once. Then I met a ganker named Bob.",
-                " If the gate is red, don't be a hero. Usually.",
-                " My corpmates keep saying the wormhole is safe. It is not.",
-                " I have more pod kills than I have minutes in this game.",
-                " Trading is just PvP with extra steps.",
-                " Scanned my first wormhole solo and only panicked twice.",
-                " I eject before the ship blows. It's called professionalism.",
-                " Been playing since the Crucible days. Still bad at it.",
-                " The market data I sell is 80% guesswork. Don't tell anyone.",
-                " My fitting skills are excellent. My survival skills, less so.",
-                " Cargo full of skill books. Finally profitable.",
-                " Docked in Jita IV. The view never gets old.",
+            // Story bios: two parts that logically follow each other.
+            static const char* storyA[] = {
+                "Lost a Raven to a smartbomb yesterday.",
+                "Was a miner once, then I met a ganker named Bob.",
+                "Scanned my first wormhole solo and only panicked twice.",
+                "Been playing since the Crucible days.",
+                "My fitting skills are excellent, my survival skills less so.",
+                "I named my ship after my ex.",
+                "Tried hauling explosives. Once.",
+                "Spent a month ratting in a Raven.",
+                "Joined a corp that swore the wormhole was safe.",
+                "Got caught at a gate in a shuttle.",
             };
-            static const char* bioEnds[] = {
-                " Fly safe, or fly dangerous — just fly.",
-                " Don't gank my hauler, I'm the one selling your ammo.",
-                " Ask me about my wormhole adventures.",
-                " I mine so you can shoot me.",
-                " Got ganked. Gank back.",
+            static const char* storyB[] = {
+                " 10/10 would fly again.",
+                " Learned a lesson about trust.",
+                " It was not safe.",
+                " Still bad at it.",
+                " The ship is cursed, obviously.",
+                " Never again.",
+                " Now I sell ammo to the gankers.",
+                " The view never got old, though.",
                 " Praise Bob.",
-                " o7",
-                " Contact me for cheap freight.",
-                " Yes, I take contracts.",
-                " No, I don't haul explosives. Ask again.",
-                " Semi-retired, but the isk is too good.",
-                " This bio is not sponsored.",
+                " Now I'm here.",
+            };
+            static const char* advice[] = {
+                "Tip: don't be a hero at a red gate.",
+                "Tip: the ISK is in the haul, not the fight.",
+                "Advice: always check the zkillboard before trusting a fleet.",
+                "Tip: cargo in a shuttle is a statement, not a plan.",
+                "Advice from a veteran: fly what you can afford to lose.",
+                "Tip: a smartbomb is not a solution to your fitting problems.",
+                "Advice: if the gate is red, dock and rethink your life.",
             };
             DBQueryResult bres;
             for (uint8 tryIdx = 0; tryIdx < 64; ++tryIdx) {
-                // 2% chance of an empty bio (rare), otherwise compose a long one.
                 if (MakeRandomInt(0, 49) == 0) {
                     cdata.description = "";
                     break;
                 }
-                cdata.description = std::string(bioStarts[MakeRandomInt(0, 12)])
-                                  + bioMids[MakeRandomInt(0, 12)]
-                                  + " "
-                                  + bioEnds[MakeRandomInt(0, 11)];
-                // Sometimes add a flavor line: an EVE-themed link, a tip, or humor.
-                static const char* flavor[] = {
-                    " My killboard is public: zkillboard.com. Don't laugh.",
-                    " Check my losses on zkillboard — learning by dying.",
-                    " eveonline.com says I should take breaks. Nonsense.",
-                    " eveuniversity.org taught me everything. Well, almost.",
-                    " Somewhere in Jita a market bot is judging me.",
-                    " My corp's CEO said 'fly safe'. I flew faster.",
-                    " Amarr Victor, or whatever the Amarr say.",
-                    " I trust my capacitor more than my corpmates.",
-                    " Ratting in a Raven since 2011. It's a lifestyle.",
-                    " If you see me in lowsec, I'm probably lost.",
-                    " Wormhole mapping is just paid exploring.",
-                    " I named my ship after my ex. It's cursed.",
-                    " The only thing faster than my ship is my mouth.",
-                    " My skill queue is my autobiography.",
-                    " zkillboard is just my portfolio at this point.",
-                    " I mine Veldspar like it's going out of style.",
-                    " PvE is PvP with a delay.",
-                    " Bubbles are just friendly hugs.",
-                };
-                if (MakeRandomInt(0, 2) == 0)
-                    cdata.description += flavor[MakeRandomInt(0, 17)];
+                switch (MakeRandomInt(0, 2)) {
+                    case 0:  cdata.description = oneLiners[MakeRandomInt(0, 19)]; break;
+                    case 1:  cdata.description = std::string(storyA[MakeRandomInt(0, 9)])
+                                                + storyB[MakeRandomInt(0, 9)]; break;
+                    default: cdata.description = advice[MakeRandomInt(0, 6)]; break;
+                }
                 if (cdata.description.size() > 295)
                     cdata.description.resize(295);
                 // Absolute uniqueness: retry until this exact text is unused.
