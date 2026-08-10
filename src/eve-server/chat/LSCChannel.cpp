@@ -263,8 +263,11 @@ void LSCChannel::SendMessage(Client * c, const char * message, bool self/*false*
 
     // Let simulated players in this system react to a player's local chat.
     if (!self && c != nullptr && sConfig.playerBots.Enabled
-        && (m_type == LSC::Type::solarsystem || m_type == LSC::Type::solarsystem2))
+        && (m_type == LSC::Type::solarsystem || m_type == LSC::Type::solarsystem2)) {
+        // If the bot just spoke here, this player line counts as a reply (learning).
+        sBotMgr.HandleLocalReply(m_channelID, c->GetCharacterID(), c->GetName(), message);
         sBotMgr.HandleLocalMessage(m_channelID, c->GetCharacterID(), c->GetName(), message);
+    }
 
     MulticastTarget mct;
     if (self) {

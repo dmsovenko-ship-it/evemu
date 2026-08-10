@@ -534,4 +534,46 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     if (chan != nullptr)
         chan->SendBotMessage(responder->GetBotCharID(), responder->GetBotName(),
                              responder->GetBotCorpID(), reply);
+
+    // Self-learning: this bot sent a chat line. Record it (persisted).
+    if (responder->GetMemory() != nullptr) {
+        responder->GetMemory()->RecordChatLine();
+        responder->GetMemory()->Save();
+    }
+}
+
+void BotMgr::HandleLocalReply(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message)
+{
+    // A real player replied in a channel where a bot recently spoke — treat it
+    // as a reply to that bot (positive reinforcement for its chat tone).
+    if (!m_initalized || !sConfig.playerBots.Enabled || !sConfig.playerBots.ChatEnabled)
+        return;
+    // Only count as a "reply" if a bot spoke here within the last 60s.
+    time_t now = time(nullptr);
+    auto last = m_lastChatReply.find(channelID);
+    if (last == m_lastChatReply.end() || (now - last->second) > 60)
+        return;
+
+    auto& systems = sEntityList.GetSystems();
+    auto it = systems.find((uint32)channelID);
+    if (it == systems.end())
+        return;
+    SystemManager* pSystem = it->second;
+    if (pSystem == nullptr)
+        return;
+
+    for (auto& [id, se] : pSystem->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (pb == nullptr || pb->GetBotCharID() == senderCharID)
+            continue;
+        if (pb->GetMemory() == nullptr)
+            continue;
+        pb->GetMemory()->RecordChatReply();
+        pb->GetMemory()->Save();
+        _log(BOT__TRACE, "BotMgr: %s(%u) chat line got a reply from %s.",
+             pb->GetBotName().c_str(), pb->GetBotCharID(), senderName.c_str());
+        return;
+    }
 }

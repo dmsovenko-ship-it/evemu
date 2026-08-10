@@ -37,6 +37,9 @@ public:
     // Hook called by LSCChannel when a message is sent in a system channel.
     // Lets simulated players in that system react (DeepSeek replies, smalltalk).
     void HandleLocalMessage(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message);
+    // Called when a player writes in a channel where bots recently spoke — records
+    // a chat reply for self-learning (positive chat reinforcement).
+    void HandleLocalReply(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message);
     // Top up bots in a freshly-loaded system that has real players.
     void PopulateSystem(SystemManager* pSystem);
 
