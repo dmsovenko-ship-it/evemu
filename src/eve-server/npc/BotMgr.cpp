@@ -57,6 +57,9 @@ void BotMgr::Process()
     // Occasionally let a bot travel to a neighbouring system (through a gate),
     // so the "population" moves around like a live server.
     ProcessTravel();
+
+    // Manage docked bots: undock some each tick, dock others.
+    ProcessDocking();
 }
 
 void BotMgr::PopulateSystem(SystemManager* pSystem)
@@ -372,6 +375,65 @@ uint32 BotMgr::GetRandomAdjacentSystem(uint32 systemID)
     if (targets.empty())
         return 0;
     return targets[MakeRandomInt(0, (int64)targets.size() - 1)];
+}
+
+void BotMgr::ProcessDocking()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+
+    time_t now = time(nullptr);
+
+    // 1) Undock bots whose wait is over: spawn them at the station, remove from
+    //    the docked list. They'll head for the gate and leave via ProcessTravel.
+    for (auto it = m_docked.begin(); it != m_docked.end(); ) {
+        // Only undock into a system that is actually loaded (has players).
+        if (!sEntityList.IsSystemLoaded(it->first)) { ++it; continue; }
+        SystemManager* pSystem = sEntityList.FindOrBootSystem(it->first);
+        if (pSystem == nullptr) { ++it; continue; }
+
+        for (auto db = it->second.begin(); db != it->second.end(); ) {
+            if (db->undockAt > 0 && db->undockAt > now) { ++db; continue; }
+            _log(BOT__MESSAGE, "BotMgr: %s(%u) undocking from station in system %u.",
+                 db->name.c_str(), db->charID, it->first);
+            SpawnBot(pSystem, db->charID, db->name, db->corpID, db->allianceID);
+            db = it->second.erase(db);
+        }
+        if (it->second.empty())
+            it = m_docked.erase(it);
+        else
+            ++it;
+    }
+
+    // 2) Dock some space bots: remove their SE, keep them in local as docked.
+    //    Only dock bots that are NOT mid-travel, so we don't interrupt the
+    //    visible gate flight.
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+            continue;
+        std::vector<PlayerBot*> toDock;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb == nullptr || pb->WantsToTravel())
+                continue;
+            if (MakeRandomInt(0, 599) == 0)   // ~0.17% per tic decides to dock
+                toDock.push_back(pb);
+        }
+        for (PlayerBot* pb : toDock) {
+            DockedBot db;
+                db.charID = pb->GetBotCharID();
+                db.name = pb->GetBotName();
+                db.corpID = pb->GetBotCorpID();
+                db.allianceID = pb->GetBotAllianceID();
+                db.undockAt = now + MakeRandomInt(60, 900);   // docked for 1-15 min
+            m_docked[pSystem->GetID()].push_back(db);
+            _log(BOT__MESSAGE, "BotMgr: %s(%u) docking at station in system %u.",
+                 db.name.c_str(), db.charID, pSystem->GetID());
+            pb->Delete();   // remove from space; stays in local channel as docked
+        }
+    }
 }
 
 void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message)

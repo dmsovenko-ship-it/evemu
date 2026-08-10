@@ -51,9 +51,21 @@ private:
     // Random system reachable by gate from systemID (mapSolarSystemJumps), 0 if none.
     uint32 GetRandomAdjacentSystem(uint32 systemID);
 
+    // Docked bots: present in local but not flying in space (no SE). They are
+    // "at the station". Occasionally undock (spawn at the station) and leave.
+    struct DockedBot {
+        uint32 charID;
+        std::string name;
+        uint32 corpID;
+        uint32 allianceID;
+        time_t undockAt;   // when to undock (0 = already waiting)
+    };
+    void ProcessDocking();   // manage dock/undock cycle each tick
+
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
     std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
+    std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots
 };
 
 //Singleton
