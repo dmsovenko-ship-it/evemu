@@ -533,6 +533,34 @@ uint32 BotMgr::GetRandomAdjacentSystem(uint32 systemID)
     return targets[MakeRandomInt(0, (int64)targets.size() - 1)];
 }
 
+uint32 BotMgr::GetTradeHubSystem() const
+{
+    // Primary market hub (Jita by default, from botTradeHubs).
+    static uint32 cachedHub = 0;
+    if (cachedHub != 0)
+        return cachedHub;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT systemID FROM botTradeHubs WHERE isPrimary = 1 LIMIT 1")) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            cachedHub = row.GetUInt(0);
+    }
+    return cachedHub;
+}
+
+bool BotMgr::IsTradeHub(uint32 systemID) const
+{
+    if (systemID == 0)
+        return false;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT systemID FROM botTradeHubs WHERE systemID = %u", systemID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            return true;
+    }
+    return false;
+}
+
 std::string BotMgr::MakeRandomShipName()
 {
     // Players name hulls all sorts of ways: made-up words, callsigns, quotes,

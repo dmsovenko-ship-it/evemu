@@ -58,6 +58,9 @@ private:
     void ProcessTravel();
     // Random system reachable by gate from systemID (mapSolarSystemJumps), 0 if none.
     uint32 GetRandomAdjacentSystem(uint32 systemID);
+    // Primary trade hub system (Jita by default), from botTradeHubs. 0 if none.
+    uint32 GetTradeHubSystem() const;
+    bool IsTradeHub(uint32 systemID) const;
     // Random ship name (players rename their hulls to arbitrary words/codes).
     static std::string MakeRandomShipName();
     // Random corp name/ticker for a bot-founded corporation.
