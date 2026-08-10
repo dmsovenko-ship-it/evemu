@@ -252,13 +252,14 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         return;
     }
 
-    // Persist the bot as a REAL character (chrCharacters + skills + history) so
-    // its legend and progress survive restarts. If a charID was supplied, reuse
-    // the existing character; otherwise create one.
-    if (useCharID == 0) {
+    // Persist the bot as a REAL character (chrCharacters + portrait + skills +
+    // history) so its legend and progress survive restarts. useCharID is the
+    // killmail character id — pass it so the character row (and portrait) is
+    // created under that identity. CreateBotCharacter reuses it if it exists.
+    {
         uint8 skillTier = sConfig.playerBots.MinSkillLevel +
             MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
-        useCharID = CharacterDB::CreateBotCharacter(useName, useCorpID, useAllianceID, skillTier);
+        useCharID = CharacterDB::CreateBotCharacter(useName, useCorpID, useAllianceID, skillTier, useCharID);
         if (useCharID == 0) {
             _log(BOT__ERROR, "BotMgr: failed to create persisted bot character '%s'.", useName.c_str());
             return;
