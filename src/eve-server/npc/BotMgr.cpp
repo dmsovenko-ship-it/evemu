@@ -65,6 +65,9 @@ void BotMgr::Process()
     // Manage docked bots: undock some each tick, dock others.
     ProcessDocking();
 
+    // Courier bots pick up unaccepted player courier contracts.
+    ProcessPlayerContracts();
+
     // Experienced leader hunters occasionally found their own corporations.
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
         if (pSystem == nullptr)
@@ -988,6 +991,79 @@ void BotMgr::ProcessDocking()
                  db.name.c_str(), db.charID, pSystem->GetID());
             pb->ClearDockRequest();
             pb->Delete();   // remove from space; stays in local channel as docked
+        }
+    }
+}
+
+void BotMgr::ProcessPlayerContracts()
+{
+    // Courier bots take over player courier contracts that nobody accepted.
+    // A contract that has been sitting unaccepted (issued > 5 min ago) is
+    // picked up by a free courier bot, who then flies it to the destination.
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    if (sEntityList.GetSystems().empty())
+        return;
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT contractId, startStationID, startSolarSystemID, endSolarSystemID, reward, dateIssued"
+        " FROM ctrContracts"
+        " WHERE contractType = 3"        // courier
+        "   AND status = 0"              // created, not yet accepted
+        "   AND acceptorID = 0"          // nobody picked it up
+        "   AND isPrivate = 0"           // public contract
+        " LIMIT 10"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            uint32 contractID = row.GetUInt(0);
+            uint32 startSys = row.GetUInt(2);
+            uint32 endSys = row.GetUInt(3);
+            int64 reward = row.GetInt64(4);
+            int64 dateIssued = row.GetInt64(5);
+            // Skip contracts that were issued recently — only take ones that
+            // have been sitting unaccepted for a while (a real player may still
+            // pick up a fresh one). dateIssued is FILETIME (100ns ticks).
+            if (dateIssued > 0 && (GetFileTimeNow() - dateIssued) < 5LL * EvE::Time::Minute)
+                continue;
+
+            // Find a free courier bot (in the contract's start system if loaded).
+            SystemManager* startSysMgr = sEntityList.IsSystemLoaded(startSys) ? sEntityList.FindOrBootSystem(startSys) : nullptr;
+            PlayerBot* courier = nullptr;
+            if (startSysMgr != nullptr) {
+                for (auto& [id, se] : startSysMgr->GetEntities()) {
+                    if (se == nullptr || se->GetNPCSE() == nullptr)
+                        continue;
+                    PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                    if (pb != nullptr && pb->GetProfession() == PlayerBot::BotProfession::Courier
+                        && !pb->WantsToTravel() && !pb->IsTraveling() && !pb->WantsDock()) {
+                        courier = pb;
+                        break;
+                    }
+                }
+            }
+            if (courier == nullptr)
+                continue;   // no free courier right now — leave contract for later
+
+            // Accept the contract: mark acceptorID and status.
+            DBerror err;
+            sDatabase.RunQuery(err,
+                "UPDATE ctrContracts SET acceptorID = %u, status = 1, dateAccepted = %lli WHERE contractId = %u",
+                courier->GetBotCharID(), (int64)GetFileTimeNow(), contractID);
+
+            _log(BOT__MESSAGE, "BotMgr: courier %s(%u) accepted contract %u (reward %.0f ISK) to system %u.",
+                 courier->GetBotName().c_str(), courier->GetBotCharID(), contractID, (double)reward, endSys);
+
+            // Fly it to the destination (cross gates / jump).
+            if (endSys != 0) {
+                courier->SetTravelDestination(endSys);
+                courier->MarkForTravel(endSys);
+                // Reward ISK credited to the courier for the haul.
+                sDatabase.RunQuery(err,
+                    "UPDATE chrCharacters SET balance = balance + %lli WHERE characterID = %u",
+                    reward, courier->GetBotCharID());
+            }
         }
     }
 }
