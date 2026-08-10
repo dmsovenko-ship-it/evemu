@@ -207,15 +207,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
-    _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u, ship %u, fit %zu items) in system %u",
-         useName.c_str(), useCharID, useCorpID, hullType, useFit.size(), pSystem->GetID());
-
     // Ship hull from the killmail legend (real EVE hull) or a generic cruiser/BC.
     uint32 hullType = useShipType;
     if (hullType == 0) {
         static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
         hullType = hullTypes[MakeRandomInt(0, 7)];
     }
+
+    _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u, ship %u, fit %zu items) in system %u",
+         useName.c_str(), useCharID, useCorpID, hullType, useFit.size(), pSystem->GetID());
 
     // Spawn at a gate — the bot "arrived through the gate from the neighbouring
     // system", matching a real pilot's travel story.
