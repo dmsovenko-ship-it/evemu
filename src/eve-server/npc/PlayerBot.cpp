@@ -559,7 +559,8 @@ void PlayerBot::UseCombatAbilities()
 {
     // Use the bot's full arsenal while fighting: logistics repair allies,
     // commanders apply gang bonuses, support relies on NPCAI EWAR modules
-    // (web/scram/ECM/paint handled in AttackTarget) and fighters just DPS.    if (m_role == BotRole::Logistics) {
+    // (web/scram/ECM/paint handled in AttackTarget) and fighters just DPS.
+    if (m_role == BotRole::Logistics) {
         // Find the most damaged ally in system and remote-repair it.
         PlayerBot* patient = nullptr;
         float lowestHullPct = 2.0f;
