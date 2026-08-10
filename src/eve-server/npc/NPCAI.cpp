@@ -95,6 +95,18 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     m_maxSpeed = m_self->GetAttribute(AttrMaxVelocity).get_uint32();
     // Orbit Velocity
     m_orbitSpeed = m_self->GetAttribute(AttrEntityCruiseSpeed).get_uint32();   // ship speed when not chasing target
+    // Some NPC types in the DB have no maxVelocity / cruise speed (0). That makes
+    // Orbit() produce 'velocity <=0' and the ship can't align/warp — spamming
+    // logs and leaving the rat stuck. Fall back to a sensible speed by hull size.
+    if (m_maxSpeed == 0 || m_orbitSpeed == 0) {
+        float r = m_self->GetAttribute(AttrRadius).get_float();
+        uint16 fallback = 250;
+        if (r >= 280)       fallback = 140;   // battleship-ish: slow
+        else if (r >= 150)  fallback = 190;   // BC
+        else if (r >= 60)   fallback = 230;   // cruiser
+        if (m_maxSpeed == 0)  m_maxSpeed = fallback;
+        if (m_orbitSpeed == 0) m_orbitSpeed = fallback;
+    }
     //AttrEntityChaseMaxDelay  - time before 'chase speed' kicks in
     //AttrEntityChaseMaxDelayChance  - chance npc will wait AttrEntityChaseMaxDelay before chasing
     //AttrEntityChaseMaxDuration  - max time a chase will last (unless weapons fired)

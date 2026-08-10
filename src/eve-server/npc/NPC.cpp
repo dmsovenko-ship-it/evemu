@@ -69,6 +69,16 @@ m_AI(new NPCAIMgr(this))
     m_self->SetAttribute(AttrCapacitorCharge,     m_self->GetAttribute(AttrCapacitorCapacity), false);
     m_self->SetAttribute(AttrWarpSpeedMultiplier, 1.0f, false);
     m_self->SetAttribute(AttrEntityCruiseSpeed,  150.0f, false);
+    // Some NPC types have no maxVelocity in the DB (0) — that breaks Orbit/warp
+    // (velocity <=0, can't align). Give a sensible hull speed by size if missing.
+    if (!m_self->HasAttribute(AttrMaxVelocity) || m_self->GetAttribute(AttrMaxVelocity).get_float() <= 0.0f) {
+        float r = m_self->GetAttribute(AttrRadius).get_float();
+        float speed = 250.0f;
+        if (r >= 280.0f)      speed = 140.0f;
+        else if (r >= 150.0f) speed = 190.0f;
+        else if (r >= 60.0f)  speed = 230.0f;
+        m_self->SetAttribute(AttrMaxVelocity, speed, false);
+    }
     m_self->SetAttribute(AttrShieldRechargeRate, 500000.0f, false);    // ms for full recharge (500s = slow regen)
     m_self->SetAttribute(AttrArmorHP,             10000.0f, false);
     m_self->SetAttribute(AttrHP,                  10000.0f, false);
