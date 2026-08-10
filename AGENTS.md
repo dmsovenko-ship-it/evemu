@@ -113,6 +113,7 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 
 ## Git Log (верх)
 ```
+3ec64963 fix(dungeon): anomaly decorations purely visual — clouds (grp 227/312) + LCO ship Wreckage (grp 226, non-lootable), removed interactive containers/wrecks that rendered as 'gates don't activate, wrecks can't loot, empty containers'
 d52f47a2 fix(destiny): orbit 'TooFar' recomputes approach heading every tick — stale-point early return let ships/NPCs fly toward where the target WAS, distance grew 5->30km ('orbited an NPC', drones followed into space = 'teleport across screen'). Same bug as NPCAI::SetChasing stale point (9d4e8f8c).
 3103b69a fix(drone): no teleport when drone switches chase→orbit (SetEngaged now syncs SetPosition before CmdOrbit, same as SetApproaching/IdleOrbit — client Ballpark re-anchored ball to new orbit point from desynced position)
 f9945956 fix(drone): control-range leash — drone stops chasing targets beyond GetControlRange() (was 2x=40km; NPCs with huge flyRange like Eradicator 27km pulled drones into deep space)
