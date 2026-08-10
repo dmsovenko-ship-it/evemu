@@ -313,8 +313,13 @@ void PlayerBot::DoProfessionActivity()
 
     switch (m_profession) {
         case BotProfession::Hunter: {
-            // Aggressive corp: hunt for legal PvP targets in lowsec/nullsec.
+            // PvP pirate: hunt for legal PvP targets in lowsec/nullsec.
             HuntForTarget();
+        } break;
+
+        case BotProfession::RatHunter: {
+            // Peaceful PvE: only engage NPC red crosses (ratting), never players.
+            RatForTarget();
         } break;
 
         case BotProfession::Miner: {
@@ -414,6 +419,42 @@ void PlayerBot::HuntForTarget()
         }
     }
 }
+
+void PlayerBot::RatForTarget()
+{
+    // Peaceful PvE ratter: engage NPC red crosses only (never players/bots).
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return;
+    if (GetAIMgr()->IsFighting())
+        return;
+
+    // Look for an NPC in our bubble (or the system) that is a rat.
+    SystemBubble* bubble = SysBubble();
+    if (bubble == nullptr)
+        return;
+    std::map<uint32, SystemEntity*> entities;
+    bubble->GetAllEntities(entities);
+    for (auto& [id, se] : entities) {
+        if (se == nullptr || !se->IsNPCSE())
+            continue;
+        if (se == this || se->GetNPCSE() == this)
+            continue;
+        // Skip other PlayerBots (they're NPCSE too) — we only shoot real rats.
+        if (dynamic_cast<PlayerBot*>(se->GetNPCSE()) != nullptr)
+            continue;
+        double d = GetPosition().distance(se->GetPosition());
+        if (d > 100000)
+            continue;
+        // Engage the rat.
+        _log(BOT__TRACE, "PlayerBot %s(%u): ratter engaging NPC %s(%u).",
+             m_botName.c_str(), m_botCharID, se->GetName(), se->GetID());
+        GetAIMgr()->WakeUp();
+        GetAIMgr()->StartAttackCycle(2000);
+        GetAIMgr()->Target(se);
+        return;
+    }
+}
+
 void PlayerBot::RequestFleetProtection()
 {
     // Cooperative behaviour: have same-corp combat pilots (fighter/support)

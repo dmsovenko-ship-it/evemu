@@ -291,20 +291,19 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         _log(BOT__TRACE, "BotMgr: %s(%u) role = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetRole());
     }
 
-    // Assign a profession (livelihood). Some corps are aggressive (hunters /
-    // PvP pirates that gank), some are PvP war corps (claim nullsec), most are
-    // peaceful industrial/trade/mining/hacking corps.
+    // Assign a profession (livelihood). Some corps are aggressive (PvP pirates),
+    // some are peaceful PvE rat hunters, most are industrial/trade/mining/hacking.
     {
         float p = MakeRandomFloat();
-        if (p < 0.15f)
-            bot->SetProfession(PlayerBot::BotProfession::Hunter);       // aggressive pirates
-        else if (p < 0.30f)
-            bot->SetProfession(PlayerBot::BotProfession::Hunter);       // PvP war corps (hunt too)
-        else if (p < 0.55f)
+        if (p < 0.10f)
+            bot->SetProfession(PlayerBot::BotProfession::Hunter);       // PvP pirates
+        else if (p < 0.25f)
+            bot->SetProfession(PlayerBot::BotProfession::RatHunter);    // peaceful PvE (red crosses only)
+        else if (p < 0.50f)
             bot->SetProfession(PlayerBot::BotProfession::Miner);
-        else if (p < 0.75f)
+        else if (p < 0.70f)
             bot->SetProfession(PlayerBot::BotProfession::Trader);
-        else if (p < 0.90f)
+        else if (p < 0.85f)
             bot->SetProfession(PlayerBot::BotProfession::Courier);
         else
             bot->SetProfession(PlayerBot::BotProfession::Hacker);

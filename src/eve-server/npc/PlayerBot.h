@@ -74,7 +74,8 @@ public:
 
     /* bot profession — what this pilot does for a living (mirrors its corp) */
     enum class BotProfession : uint8 {
-        Hunter = 0,     // aggressive corp: hunts and PvPs (kill rights respected)
+        Hunter = 0,     // PvP pirate: hunts players/bots (kill rights respected)
+        RatHunter,      // peaceful PvE: only shoots NPC red crosses (ratting)
         Miner,          // peaceful: mines asteroid belts
         Trader,         // peaceful: shuttles between stations (market activity)
         Courier,        // peaceful: hauls cargo between systems
@@ -84,7 +85,8 @@ public:
     void SetProfession(BotProfession p) { m_profession = p; }
     bool IsAggressive() const           { return m_profession == BotProfession::Hunter; }
     void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
-    void HuntForTarget();               // aggressive: find a legal PvP target and engage
+    void HuntForTarget();               // PvP hunter: find a legal PvP target and engage
+    void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
     void RequestFleetProtection();      // ask corpmate guards to cover this miner/hauler
 
 protected:
