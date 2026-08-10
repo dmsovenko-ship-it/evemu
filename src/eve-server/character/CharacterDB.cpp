@@ -29,6 +29,7 @@
 #include "EVEServerConfig.h"
 #include "character/Character.h"
 #include "character/CharacterDB.h"
+#include "station/StationDataMgr.h"
 
 uint32 CharacterDB::NewCharacter(const CharacterData& data, const CorpData& corpData) {
     DBerror err;
@@ -174,8 +175,12 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
         skill->SetAttribute(AttrSkillPoints, skill->GetSPForLevel(finalLvl), false);
         skill->SaveItem();
         cdata.skillPoints += skill->GetSPForLevel(finalLvl);
-        SaveSkillHistory(EvESkill::Event::SkillPointsApplied, GetFileTimeNow(),
-                         charID, skillTypeID, finalLvl, skill->GetSPForLevel(finalLvl));
+        // Direct INSERT (SaveSkillHistory is a non-static instance method).
+        sDatabase.RunQuery(res,
+            "INSERT INTO chrSkillHistory (eventTypeID, logDate, characterID, skillTypeID, skillLevel, absolutePoints)"
+            " VALUES (%u, %f, %u, %u, %u, %u)",
+            EvESkill::Event::SkillPointsApplied, GetFileTimeNow(),
+            charID, skillTypeID, finalLvl, skill->GetSPForLevel(finalLvl));
     }
 
     // Persist the accumulated skill points on the character row.
