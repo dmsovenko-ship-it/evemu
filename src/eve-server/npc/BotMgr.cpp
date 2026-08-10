@@ -175,6 +175,9 @@ uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
     // so a bot in such a corp breaks the info window (no HQ found). Weight by
     // existing member count so the biggest corp takes the largest share.
     // PvP war corps (requireAlliance) only get corps that are in an alliance.
+    DBQueryResult res;
+    std::vector<std::pair<uint32,uint32>> corps;   // corpID, allianceID
+    std::vector<uint32> weights;                    // members+1 per corp
     std::string corpQuery = std::string(
         "SELECT c.corporationID, c.allianceID, COUNT(ch.characterID) AS members"
         " FROM crpCorporation c"
