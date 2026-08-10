@@ -649,13 +649,21 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         10144,   // Scanner Sentry - Rapid Pulse
     };
     static const std::vector<uint32> bloodDeco = {
+        2832,    // Blood Raider Fortress
+        11081,   // Blood Raider Battlestation
+        23615,   // Asteroid Station - Dark and Spiky
         24457,   // LCO Blood Raider Bunker
         24458,   // LCO Blood Raider Junction
+        23968,   // LCO Blood Raider Barrier
+        24029,   // LCO Blood Raider Fence
         29561,   // LCO Blood Raider Barricade
         29562,   // LCO Blood Raider Battery
         29563,   // LCO Blood Raider Elevator
         29564,   // LCO Blood Raider Lookout
         29565,   // LCO Blood Raider Wall
+        2097,    // Amarr Supercarrier Wreckage
+        2115,    // Amarr Dreadnought Wreckage
+        2121,    // Amarr Titan Wreckage
     };
     static const std::vector<uint32> serpentisDeco = {
         3957,    // LCO Serpentis Stronghold
