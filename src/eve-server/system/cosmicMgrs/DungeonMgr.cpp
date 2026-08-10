@@ -620,6 +620,10 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         29559,   // LCO Angel Wall
         21821,   // LCO Habitation Brothel
         21825,   // LCO Habitation Casino
+        21823,   // Indestructible Residential Habitation Module
+        21827,   // LCO Habitation Roadhouse
+        23237,   // Indestructible Freight Pad
+        10788,   // Gas/Storage Silo
         23763,   // LCO Cargo Rig
         26746,   // LCO Crane
         26860,   // LCO Docked Mammoth
