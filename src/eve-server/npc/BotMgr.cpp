@@ -62,6 +62,21 @@ void BotMgr::Process()
 
     // Manage docked bots: undock some each tick, dock others.
     ProcessDocking();
+
+    // Experienced leader hunters occasionally found their own corporations.
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr)
+            continue;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb != nullptr) {
+                MaybeFoundCorp(pb);
+                MaybeFormAlliance(pb);
+            }
+        }
+    }
 }
 
 void BotMgr::PopulateSystem(SystemManager* pSystem)
@@ -523,6 +538,205 @@ std::string BotMgr::MakeRandomShipName()
             return art[MakeRandomInt(0, 9)];
     }
 }
+
+std::string BotMgr::MakeCorpName()
+{
+    static const char* pre[] = { "Serpent", "Iron", "Void", "Solar", "Night", "Star", "Ghost", "Red", "Black", "Golden" };
+    static const char* suf[] = { " Industries", " Holdings", " Trading", " Dynamics", " Logistics", " Syndicate", " Group", " Alliance Services" };
+    std::string n = pre[MakeRandomInt(0, 9)];
+    n += suf[MakeRandomInt(0, 7)];
+    return n;
+}
+
+std::string BotMgr::MakeTicker()
+{
+    static const char* base[] = { "SRP", "IRN", "VOD", "SOL", "NGT", "STR", "GHT", "RDB", "BLK", "GLD" };
+    return std::string(base[MakeRandomInt(0, 9)]) + std::string(base[MakeRandomInt(0, 9)]);
+}
+
+int64 BotMgr::MakeCorpLogo(uint32 seed, uint8 slot)
+{
+    // Deterministic pseudo-random from the seed (founder char id). Slot mapping:
+    // 0 -> graphicID (1447..1627, matches the seeded corp logo range)
+    // 1-3 -> colors as 0xRRGGBB ints
+    // 4-6 -> shapes (0..23)
+    uint32 h = seed * 2654435761u + slot * 40503u;   // golden-ratio hash
+    h = (h ^ (h >> 16)) * 2246822519u;
+    switch (slot) {
+        case 0:  return 1447 + (h % 181);
+        case 1:  return (int64)(h & 0xFFFFFF);           // color 1
+        case 2:  return (int64)((h >> 8) & 0xFFFFFF);    // color 2
+        case 3:  return (int64)((h >> 16) & 0xFFFFFF);   // color 3
+        default: return h % 24;                          // shapes 0..23
+    }
+}
+
+void BotMgr::MaybeFoundCorp(PlayerBot* bot)
+{
+    // A bot-founder is a practised leader (hunter profession, high skill tier)
+    // with enough experience. Starts in an NPC corp, then founds its own.
+    if (bot == nullptr || !sConfig.playerBots.Enabled)
+        return;
+    if (bot->GetProfession() != PlayerBot::BotProfession::Hunter)
+        return;   // only leader-type pilots found corps
+    if (bot->GetBotSkillLevel() < 5)
+        return;
+    float practice = bot->GetMemory() ? bot->GetMemory()->GetActivitySkill() : 0.0f;
+    if (MakeRandomInt(0, 999) >= (int)(20 + practice * 80))
+        return;   // rare, and more likely with practice
+
+    uint32 charID = bot->GetBotCharID();
+    uint32 oldCorp = bot->GetBotCorpID();
+
+    // Build a new corp owned by this bot (CEO = founder). Logo derived from the
+    // new corp id (deterministic): a real-EVE-style logo = graphicID (1447-1627)
+    // + 3 colours + 3 shapes, so every bot corp looks like a real player corp.
+    std::string cName = MakeCorpName();
+    std::string ticker = MakeTicker();
+    DBerror err;
+    uint32 corpID = 0;
+    if (!sDatabase.RunQueryLID(err, corpID,
+        "INSERT INTO crpCorporation"
+        "  (corporationName, description, tickerName, url, taxRate, corporationType, hasPlayerPersonnelManager,"
+        "   creatorID, ceoID, stationID, raceID, shares, memberLimit, allowedMemberRaceIDs,"
+        "   graphicID, color1, color2, color3, shape1, shape2, shape3, isRecruiting, allianceMemberStartDate)"
+        " VALUES"
+        "  ('%s', 'Bot-founded', '%s', '', 0.1, 2, 1,"
+        "   %u, %u, 60000004, 1, 1000, 100, 1,"
+        "   %u, %u, %u, %u, %u, %u, %u, 1, 0)",
+        cName.c_str(), ticker.c_str(), charID, charID,
+        MakeCorpLogo(charID, 0), MakeCorpLogo(charID, 1), MakeCorpLogo(charID, 2), MakeCorpLogo(charID, 3),
+        MakeCorpLogo(charID, 4), MakeCorpLogo(charID, 5), MakeCorpLogo(charID, 6)))
+    {
+        codelog(DATABASE__ERROR, "MaybeFoundCorp: corp insert failed: %s", err.c_str());
+        return;
+    }
+
+    // Default corp wallet/autopay/share rows (mirror AddCorporation).
+    sDatabase.RunQuery(err, "INSERT INTO crpWalletDivisons (corporationID) VALUES (%u)", corpID);
+    sDatabase.RunQuery(err, "INSERT INTO crpAutoPay (corporationID) VALUES (%u)", corpID);
+    sDatabase.RunQuery(err, "INSERT INTO crpShares (corporationID, shareholderID, shares, shareholderCorporationID)"
+                            " VALUES (%u, %u, 1000, %u)", corpID, corpID, corpID);
+    sDatabase.RunQuery(err, "INSERT INTO eveStaticOwners (ownerID, ownerName, typeID) VALUES (%u, '%s', 2)",
+                       corpID, cName.c_str());
+
+    // Transfer the founder to the new corp (employment history recorded).
+    CharacterDB::AddEmployment(charID, corpID, oldCorp);
+
+    _log(BOT__MESSAGE, "BotMgr: %s(%u) founded corp %s [%s] (%u), left corp %u.",
+         bot->GetBotName().c_str(), charID, cName.c_str(), ticker.c_str(), corpID, oldCorp);
+
+    // The founder recruits a few like-minded bots (same NPC corp they just left)
+    // into the new corporation — the corp grows from one pilot to a small group.
+    uint32 recruited = 0;
+    if (bot->SystemMgr() != nullptr) {
+        for (auto& [rid, rse] : bot->SystemMgr()->GetEntities()) {
+            if (recruited >= 4)
+                break;
+            if (rse == nullptr || rse->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* rbot = dynamic_cast<PlayerBot*>(rse->GetNPCSE());
+            if (rbot == nullptr || rbot == bot)
+                continue;
+            if (rbot->GetBotCorpID() != oldCorp)
+                continue;   // only pull from the corp the founder left
+            CharacterDB::AddEmployment(rbot->GetBotCharID(), corpID, oldCorp);
+            _log(BOT__TRACE, "BotMgr: %s(%u) recruited into %s.", rbot->GetBotName().c_str(), rbot->GetBotCharID(), cName.c_str());
+            ++recruited;
+        }
+    }
+
+    // The corp keeps growing; a practised founder later unites it with other
+    // bot-founded corps into an alliance (MaybeFormAlliance).
+}
+
+std::string BotMgr::MakeAllianceName()
+{
+    static const char* pre[] = { "Void", "Iron", "Solar", "Night", "Star", "Ghost", "Red", "Black", "Golden", "Crimson" };
+    static const char* suf[] = { " Alliance", " Coalition", " Federation", " Pact", " Bloc", " Union", " Concord", " Compact" };
+    std::string n = pre[MakeRandomInt(0, 9)];
+    n += suf[MakeRandomInt(0, 7)];
+    return n;
+}
+
+void BotMgr::MaybeFormAlliance(PlayerBot* bot)
+{
+    // A practised founder (hunter) unites several bot-founded corps into an
+    // alliance when its own corp is big enough. Grouping is by profession or
+    // location: find other bot-founded corps in the same region, or same
+    // profession, with enough total members.
+    if (bot == nullptr || !sConfig.playerBots.Enabled)
+        return;
+    if (bot->GetProfession() != PlayerBot::BotProfession::Hunter)
+        return;
+    if (bot->GetBotSkillLevel() < 5)
+        return;
+    float practice = bot->GetMemory() ? bot->GetMemory()->GetActivitySkill() : 0.0f;
+    if (MakeRandomInt(0, 999) >= (int)(10 + practice * 60))
+        return;
+
+    uint32 myCorp = bot->GetBotCorpID();
+
+    // Find bot-founded corps (CEO is a bot character, not an NPC corp owner).
+    // Group by location/profession: other bot corps not yet in an alliance.
+    DBQueryResult res;
+    std::vector<uint32> memberCorps;
+    memberCorps.push_back(myCorp);
+    if (sDatabase.RunQuery(res,
+        "SELECT c.corporationID"
+        " FROM crpCorporation c"
+        " WHERE c.ceoID >= 90000000"      // bot-founded corps (CEO is a bot char id)
+        "   AND c.corporationID <> %u"
+        "   AND c.allianceID = 0"          // not already in an alliance
+        " LIMIT 6", myCorp))
+    {
+        DBResultRow row;
+        while (res.GetRow(row))
+            memberCorps.push_back(row.GetUInt(0));
+    }
+
+    // Need at least 2 bot corps to justify an alliance.
+    if (memberCorps.size() < 2)
+        return;
+
+    // Check total membership across those corps.
+    uint32 totalMembers = 0;
+    for (uint32 cid : memberCorps) {
+        DBQueryResult mr;
+        if (sDatabase.RunQuery(mr, "SELECT COUNT(*) FROM chrCharacters WHERE corporationID = %u", cid)) {
+            DBResultRow rrow;
+            if (mr.GetRow(rrow))
+                totalMembers += rrow.GetUInt(0);
+        }
+    }
+    if (totalMembers < 6)
+        return;   // alliance needs critical mass
+
+    // Create the alliance (executor = founder's corp).
+    std::string aName = MakeAllianceName();
+    std::string aShort = MakeTicker();
+    DBerror err;
+    uint32 allyID = 0;
+    if (!sDatabase.RunQueryLID(err, allyID,
+        "INSERT INTO alnAlliance (allianceName, shortName, description, executorCorpID, creatorCorpID, creatorCharID, startDate, memberCount, url)"
+        " VALUES ('%s', '%s', 'Bot-founded', %u, %u, %u, %f, %u, '')",
+        aName.c_str(), aShort.c_str(), myCorp, myCorp, bot->GetBotCharID(), GetFileTimeNow(), (uint32)memberCorps.size()))
+    {
+        codelog(DATABASE__ERROR, "MaybeFormAlliance: alliance insert failed: %s", err.c_str());
+        return;
+    }
+    sDatabase.RunQuery(err, "INSERT INTO eveStaticOwners (ownerID, ownerName, typeID) VALUES (%u, '%s', 16159)", allyID, aName.c_str());
+
+    // Set the alliance on all member corps.
+    for (uint32 cid : memberCorps) {
+        sDatabase.RunQuery(err, "UPDATE crpCorporation SET allianceID = %u, allianceMemberStartDate = %f WHERE corporationID = %u",
+                           allyID, GetFileTimeNow(), cid);
+    }
+
+    _log(BOT__MESSAGE, "BotMgr: %s(%u) formed alliance %s [%s] (%u) from %u corps.",
+         bot->GetBotName().c_str(), bot->GetBotCharID(), aName.c_str(), aShort.c_str(), allyID, (uint32)memberCorps.size());
+}
+
 
 void BotMgr::ProcessDocking()
 {

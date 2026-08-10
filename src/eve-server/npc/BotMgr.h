@@ -60,6 +60,19 @@ private:
     uint32 GetRandomAdjacentSystem(uint32 systemID);
     // Random ship name (players rename their hulls to arbitrary words/codes).
     static std::string MakeRandomShipName();
+    // Random corp name/ticker for a bot-founded corporation.
+    static std::string MakeCorpName();
+    static std::string MakeTicker();
+    // Experienced leader bots can found their own corporation (start in NPC corps,
+    // later branch off). Transfers the bot to the new corp as CEO.
+    void MaybeFoundCorp(PlayerBot* bot);
+    // A practised founder unites several bot-founded corps (same profession or
+    // location) into an alliance.
+    void MaybeFormAlliance(PlayerBot* bot);
+    static std::string MakeAllianceName();
+    // Deterministic real-EVE-style corp logo from a seed id: slot 0 = graphicID,
+    // 1-3 = colors (0xRRGGBB), 4-6 = shapes. Same seed → same logo.
+    static int64 MakeCorpLogo(uint32 seed, uint8 slot);
 
     // Docked bots: present in local but not flying in space (no SE). They are
     // "at the station". Occasionally undock (spawn at the station) and leave.
