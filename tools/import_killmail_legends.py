@@ -46,8 +46,9 @@ def fetch_kills(requests_session, params=None):
 
 
 def extract_legend(kill):
-    """Return list of (char_id, corp_id, alliance_id, ship_type, fit_json, sec, time, points)."""
+    """Return list of (killmail_id, char_id, corp_id, alliance_id, ship_type, fit_json, sec, time, points)."""
     out = []
+    kmid = kill.get("killmail_id", 0)
     tm = kill.get("killmail_time", "")
     points = kill.get("zkb", {}).get("points", 0)
 
@@ -56,6 +57,7 @@ def extract_legend(kill):
         fit = [i["item_type_id"] for i in victim.get("items", [])
                if i.get("flag") in FIT_FLAGS]
         out.append((
+            kmid,
             victim.get("character_id"),
             victim.get("corporation_id", 0),
             victim.get("alliance_id", 0),
@@ -68,6 +70,7 @@ def extract_legend(kill):
     for atk in kill.get("attackers", []):
         if atk.get("character_id"):
             out.append((
+                kmid,
                 atk.get("character_id"),
                 atk.get("corporation_id", 0),
                 atk.get("alliance_id", 0),
@@ -171,14 +174,14 @@ def main():
         time.sleep(args.sleep)
 
     # Resolve names for all collected character IDs in one pass.
-    char_ids = [r[0] for r in all_recs]
+    char_ids = [r[1] for r in all_recs]   # index 1 = character_id
     print(f"Resolving {len(set(char_ids))} unique pilot names via ESI...")
     names = fetch_names(char_ids)
 
     rows = []
     for kmid, cid, corp, ally, ship, fit, sec, tm, pts in all_recs:
         rows.append((kmid, cid, names.get(cid, ""), corp, ally, ship, fit, sec, tm, pts))
-    if rows:
+        rows.append((kmid, cid, names.get(cid, ""), corp, ally, ship, fit, sec, tm, pts))    if rows:
         cur.executemany(insert_sql, rows)
         total = len(rows)
 
