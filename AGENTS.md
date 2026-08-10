@@ -1,13 +1,25 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Latest commit: `1edb6957`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
 
-## 11 августа: ИИ-игроки (боты) — полный цикл (реализовано, сборка проверяется)
+## 11 августа: ИИ-игроки (боты) — полный цикл (реализовано, сборка/чистка БД)
 Цель: имитация живого сервера. Боты = полноценные персонажи в SQL (прогресс не пропадает), с легендой из реальных killmails, DeepSeek-чатом, профессиями и самообучением везде.
-- **Каркас** (`830e9d89`): `PlayerBot` (наследник NPC, корабль/Destiny/NPCAI) + `BotMgr` (синглтон, 1Hz тик, заполняет активные системы до `MaxPerSystem`=30, конфиг `<playerBots>`).
-- **Персистентность** (`e83a5f3e`): `CharacterDB::CreateBotCharacter` — бот пишется как настоящий игрок: chrCharacters + entity-навыки + chrSkillHistory + chrEmployment + баланс. Прогресс/легенда переживают рестарты.
-- **Киллмейл-легенды** (`72282a6f`): `botKillmailLegends` таблица + `tools/import_killmail_legends.py` (zKillboard API + ESI имена) → реальные имена/корпы/альянсы/корабли/фитинги. Запуск: `/opt/conda/bin/python tools/import_killmail_legends.py --db-host 127.0.0.1 --db-user evemu --db-pass evemu --db-name evemu --pages 20`.
+- **Прилёт через гейт** (`0692e31c`): боты НЕ спавнятся у игрока — `PopulateSystem` создаёт их в случайных соседних системах, `SetTravelDestination(система игрока)` + `MarkForTravel` → видимый варп к гейту (12-20с) → переход. Per-system фикс. target 60-100% капа (не ровно 30).
+- **Портрет** (`6c1f3ed7`): `CreateBotCharacter` вставляет `chrPortraitData` (случайный фон/поза).
+- **Корень «нет аватаров»** (`cc468334`): киллмейл-боты (charID!=0) РАНЬШЕ пропускали CreateBotCharacter → не было chrCharacters/портрета/навыков. Теперь SpawnBot всегда вызывает CreateBotCharacter с forceCharID (использует только если в серверном диапазоне 90000000..97999999; killmail ID вне его → новый); дедуп по имени.
+- **Фиксы сборки/рантайма** (`e1be7c8e`): миграции ботов получили `-- +migrate Up/Down` (EVEDBTool/sql-migrate падал без них); skill-history INSERT и skillPoints UPDATE переведены на DBerror-вариант RunQuery (был «did not return a result» спам); SpawnBot валидирует killmail-хл (совр. корабли 33816 и т.п. отсутствуют в Crucible invTypes → fallback на T1 крейсер/БК).
+- **Каркас** (`830e9d89`): `PlayerBot` (наследник NPC, корабль/Destiny/NPCAI) + `BotMgr` (синглтон, 1Hz тик, конфиг `<playerBots>`).
+- **Персистентность** (`e83a5f3e`): `CharacterDB::CreateBotCharacter` — бот пишется как игрок: chrCharacters + навыки + chrSkillHistory + chrEmployment + баланс.
+- **Киллмейл-легенды** (`72282a6f` + `147fac66`): `botKillmailLegends` (7438 записей импортировано с 10 регионов) + `tools/import_killmail_legends.py`. Запуск по регионам: `/opt/conda/bin/python tools/import_killmail_legends.py --db-host 127.0.0.1 --db-user evemu --db-pass evemu --db-name evemu --sleep 2 --regions 10000002,...`. beforeKillID даёт 403 — только регионы.
+- **DeepSeek-чат** (`22bbd242`, `08025998`): боты в локале (AddBotChar/SendBotMessage fake sender), отвечают через `BotChat` (curl CLI), throttle 1/30с. Самообучение чата: chatLine при ответе, chatReply если игрок пишет в 60с.
+- **Интеллектуальный бой** (`308a5b95`, `ae20ada0`): kill rights, оценка сил (класс корабля×2 + skillTier + память ±2), бегство, флот-поддержка, kill call, роли (fighter/logistics/support/commander), EWAR+логисты+бонусы.
+- **Профессии** (`bd9ef234`, `a2801351`): 10% PvP-хантеры, 15% раттеры (красные крестики), 35% майнеры, 20% трейдеры, 15% курьеры, 5% хакеры. Кооперативный майнинг (охрана из корпа).
+- **Скирминг нулей** (`7434658e`): PvP-корпы только в альянсах (PickCorp requireAlliance), ClaimSystem() захватывает бесхозные нули.
+- **Самообучение** (`94dfbc52`): botMemory (wins/losses/kills/deaths/chatLines/chatReplies/ratKills/mineRuns/tradeRuns/hackRuns). Бой/чат/деятельность — персистентно.
+- Чистка БД сделана: botMemory=0, ботовых сущностей нет, chrCharacters=только Mr Tort. botKillmailLegends=7438 сохранены.
+- ВАЖНО: `utils/config` в .gitignore — секцию `<playerBots>` в `/opt/evemu/config/eve-server.xml` добавлять вручную (уже добавлена, DeepSeekKey=sk-placeholder — заменить).
+- `git pull` на сервере: root-владение `.git/objects` → `sudo chown -R dmitry:dmitry /opt/evemu/.git`. Локальные правки `tools/import_killmail_legends.py` на сервере → `git checkout -- tools/import_killmail_legends.py` перед pull.
 - **DeepSeek-чат** (`22bbd242`): боты в локале (AddBotChar/SendBotMessage — fake sender), отвечают игрокам через `BotChat` (curl CLI, no HTTP lib), конфиг `ChatEnabled/DeepSeekKey/DeepSeekURL`. Throttle 1/30с на канал.
 - **Перелёт** (`a43f02e1`): бот видимо варпит к гейту (12-20с), потом переносится в соседнюю систему (mapSolarSystemJumps) — появляется у её гейта. **Док/андок** (`e75bc7e7`): боты на станции (в локале, без SE), андок → варп → гейт.
 - **Интеллектуальный бой** (`308a5b95`, `ae20ada0`): kill rights (хайсек только криминалы/низкий sec; лоусек/нули свободно), оценка сил (класс корабля×2 + skillTier, AggroFactor), бегство при слабости, флот-поддержка (союзники того же корпа/альянса), kill call (PickPriorityTarget: командиры/логисты первыми), роли (60% fighter, логисты ремоут-репят, командиры дают бонус, саппорт — EWAR web/scram/ECM/paint через NPCAI::AttackTarget).
