@@ -51,11 +51,13 @@ public:
     BotActivity GetActivity() const     { return m_activity; }
 
     /* travel between systems (via gates) */
-    void MarkForTravel();               // bot decides to head for a gate / next system
+    void MarkForTravel(uint32 destSystem = 0);   // fly to the gate, then cross to destSystem (0 = random)
     bool WantsToTravel() const          { return m_wantsTravel; }
     void ClearTravel()                  { m_wantsTravel = false; }
     bool IsTraveling() const            { return m_traveling; }   // flying to the gate
     void CompleteTravel()               { m_traveling = false; m_wantsTravel = false; }
+    uint32 GetTravelDestination() const { return m_destSystemID; }
+    void SetTravelDestination(uint32 sysID) { m_destSystemID = sysID; }
 
     /* bot role in combat */
     enum class BotRole : uint8 {
@@ -108,6 +110,7 @@ protected:
     Timer m_travelTimer;                // counts down the visible warp to the gate
     bool m_wantsTravel;                 // true when the bot wants to leave via gate
     bool m_traveling;                   // true while the bot visibly warps to the gate
+    uint32 m_destSystemID;              // target system to cross into (0 = random)
     Timer m_abilityTimer;               // logistics/EWAR/bonus tick
     Timer m_activityTimer;              // profession run counter (self-learning)
     bool m_inFight;                     // true while fighting (to record outcomes)

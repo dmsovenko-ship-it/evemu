@@ -34,6 +34,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_travelTimer(0),
   m_wantsTravel(false),
   m_traveling(false),
+  m_destSystemID(0),
   m_abilityTimer(0),
   m_activityTimer(0),
   m_inFight(false)
@@ -227,10 +228,12 @@ int PlayerBot::GetShipClass(uint16 groupID)
     }
 }
 
-void PlayerBot::MarkForTravel()
+void PlayerBot::MarkForTravel(uint32 destSystem /*0*/)
 {
     if (m_traveling || m_wantsTravel)
         return;
+    if (destSystem != 0)
+        m_destSystemID = destSystem;
     // Visibly warp to a gate in this system. The travel timer covers the flight
     // time (a few AU at warp speed); when it expires the bot is gone from here.
     // The bot does NOT get deleted at the moment it decides — it first flies.

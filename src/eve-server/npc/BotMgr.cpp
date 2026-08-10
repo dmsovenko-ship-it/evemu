@@ -70,23 +70,50 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
     if (sConfig.playerBots.MaxPerSystem == 0)
         return;
 
-    // Count existing bots in this system.
+    // Count existing bots in this system (both in-space and docked).
     uint32 botCount = 0;
     for (auto& [id, se] : pSystem->GetEntities()) {
         if (se != nullptr && se->GetNPCSE() != nullptr
             && dynamic_cast<PlayerBot*>(se->GetNPCSE()) != nullptr)
             ++botCount;
     }
+    auto dockIt = m_docked.find(pSystem->GetID());
+    if (dockIt != m_docked.end())
+        botCount += (uint32)dockIt->second.size();
 
+    // Fixed target per system (so we don't keep filling to the cap every tick).
     uint32 target = sConfig.playerBots.MaxPerSystem;
-    // A "live server" feel: usually not the cap. Aim for a random 60-100% of the cap.
-    if (botCount == 0)
+    auto tIt = m_systemTarget.find(pSystem->GetID());
+    if (tIt == m_systemTarget.end()) {
+        // Aim for a random 60-100% of the cap ONCE, then hold it — a live server
+        // isn't at its cap every moment.
         target = (uint32)(sConfig.playerBots.MaxPerSystem * (0.6f + MakeRandomFloat() * 0.4f));
+        m_systemTarget[pSystem->GetID()] = target;
+    } else {
+        target = tIt->second;
+    }
     if (botCount >= target)
         return;
 
-    for (uint32 i = botCount; i < target; ++i)
-        SpawnBot(pSystem, 0, "", 0, 0);
+    // Spawn the missing bots in RANDOM neighbouring systems and have them fly
+    // in through the gate — they "arrive from nearby systems" rather than
+    // popping into existence at the player's location. Different bots come
+    // from different gates (random adjacent systems), and their visible warp
+    // is staggered by MarkForTravel's random 12-20s timer.
+    for (uint32 i = botCount; i < target; ++i) {
+        uint32 origin = GetRandomAdjacentSystem(pSystem->GetID());
+        if (origin == 0) {
+            // No map neighbours — spawn directly at a gate in this system.
+            SpawnBot(pSystem, 0, "", 0, 0);
+            continue;
+        }
+        SystemManager* originSys = sEntityList.FindOrBootSystem(origin);
+        if (originSys == nullptr)
+            continue;
+        // Spawn there, then tell the bot to fly to THIS system's gate.
+        // SpawnBot returns the bot via a helper; we mark it for arrival.
+        SpawnBotArriving(originSys, pSystem->GetID());
+    }
 }
 
 uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
@@ -329,6 +356,27 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     }
 }
 
+void BotMgr::SpawnBotArriving(SystemManager* origin, uint32 destSystem)
+{
+    if (origin == nullptr || destSystem == 0)
+        return;
+    SpawnBot(origin, 0, "", 0, 0);
+    // The bot we just created is the last one in the origin system; have it fly
+    // through the gate toward destSystem (visible 12-20s warp), then cross.
+    for (auto& [id, se] : origin->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (pb != nullptr && !pb->IsTraveling() && !pb->WantsToTravel()) {
+            pb->SetTravelDestination(destSystem);
+            pb->MarkForTravel(destSystem);
+            _log(BOT__TRACE, "BotMgr: %s(%u) inbound to system %u via gate.",
+                 pb->GetBotName().c_str(), pb->GetBotCharID(), destSystem);
+            break;
+        }
+    }
+}
+
 void BotMgr::ReapBots(SystemManager* pSystem)
 {
     // Remove bots from a system that no longer has real players.
@@ -375,8 +423,12 @@ void BotMgr::ProcessTravel()
         }
 
         for (PlayerBot* pb : readyToJump) {
-            // Cross the gate to a neighbouring system.
-            uint32 destSystem = GetRandomAdjacentSystem(pSystem->GetID());
+            // Cross the gate. Use the bot's requested destination if set
+            // (e.g. arriving into a player's system), else pick a random one.
+            uint32 destSystem = pb->GetTravelDestination();
+            if (destSystem == 0)
+                destSystem = GetRandomAdjacentSystem(pSystem->GetID());
+            pb->ClearTravel();
             if (destSystem == 0)
                 continue;   // dead-end system or no map data — stay put
 

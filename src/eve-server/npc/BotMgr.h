@@ -45,6 +45,9 @@ public:
 
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID);
+    // Spawn a bot in `origin` and make it fly to `destSystem`'s gate (arrival
+    // through the gate, visible warp). Used by PopulateSystem.
+    void SpawnBotArriving(SystemManager* origin, uint32 destSystem);
     void ReapBots(SystemManager* pSystem);
     // Realistic corp distribution: one "main" corp holds most bots, 2-3 smaller
     // corps the rest (like live EVE). Picks a corpID for a new bot.
@@ -71,6 +74,7 @@ private:
     uint32 m_botCounter;    // unique bot instance id generator
     std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots
+    std::map<uint32, uint32> m_systemTarget;   // systemID -> fixed bot target (live-server feel)
 };
 
 //Singleton
