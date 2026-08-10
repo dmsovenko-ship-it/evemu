@@ -627,6 +627,12 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         29583,   // LCO Guristas Elevator
         29584,   // LCO Guristas Bunker
         25375,   // LCO Guristas Control Tower
+        23237,   // Indestructible Freight Pad
+        10788,   // Gas/Storage Silo
+        30786,   // Storage Warehouse
+        10779,   // Asteroid Colony - Small Tower
+        30506,   // Talocan Extraction Silo
+        10144,   // Scanner Sentry - Rapid Pulse
     };
     static const std::vector<uint32> bloodDeco = {
         24457,   // LCO Blood Raider Bunker
