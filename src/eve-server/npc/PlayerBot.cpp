@@ -349,7 +349,36 @@ void PlayerBot::DoProfessionActivity()
 
     switch (m_profession) {
         case BotProfession::Hunter: {
-            // PvP pirate: hunt for legal PvP targets in lowsec/nullsec.
+            // PvP pirates hunt; guards (fighter/support role) stick with their
+            // corp's industrials instead of roaming.
+            bool isGuard = (m_role == BotRole::Fighter || m_role == BotRole::Support);
+            if (isGuard && MakeRandomInt(0, 99) < 60) {
+                // Escort: stay near the closest industrial corpmate (miner/hauler).
+                PlayerBot* ward = nullptr;
+                double bestD = 100000;
+                for (auto& [id, se] : SystemMgr()->GetEntities()) {
+                    if (se == nullptr || se->GetNPCSE() == nullptr)
+                        continue;
+                    PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                    if (other == nullptr || other == this)
+                        continue;
+                    if (other->GetBotCorpID() != m_botCorpID)
+                        continue;
+                    auto prof = other->GetProfession();
+                    if (prof != BotProfession::Miner && prof != BotProfession::Courier && prof != BotProfession::Trader)
+                        continue;
+                    double d = GetPosition().distance(other->GetPosition());
+                    if (d < bestD) { bestD = d; ward = other; }
+                }
+                if (ward != nullptr && bestD > 10000 && !m_destiny->IsWarping()) {
+                    m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
+                    m_destiny->WarpTo(ward->GetPosition(), 1500);
+                    _log(BOT__TRACE, "PlayerBot %s(%u): guard escorting %s(%u).",
+                         m_botName.c_str(), m_botCharID, ward->GetBotName().c_str(), ward->GetBotCharID());
+                    return;
+                }
+            }
+            // Otherwise hunt for legal PvP targets in lowsec/nullsec.
             HuntForTarget();
             // PvP war corps claim unowned nullsec (skirmish).
             if (SystemMgr()->GetSystemSecurityRating() < 0.0f)

@@ -276,17 +276,17 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     {
         float p = MakeRandomFloat();
         if (p < 0.10f)
-            prof = PlayerBot::BotProfession::Hunter;       // PvP pirates / war corps
+            prof = PlayerBot::BotProfession::Hunter;       // PvP pirates / war corps / guards
         else if (p < 0.25f)
             prof = PlayerBot::BotProfession::RatHunter;    // peaceful PvE (red crosses only)
-        else if (p < 0.50f)
-            prof = PlayerBot::BotProfession::Miner;
-        else if (p < 0.70f)
-            prof = PlayerBot::BotProfession::Trader;
+        else if (p < 0.55f)
+            prof = PlayerBot::BotProfession::Miner;        // miners (co-op with guards)
+        else if (p < 0.65f)
+            prof = PlayerBot::BotProfession::Trader;       // market / station traders
         else if (p < 0.85f)
-            prof = PlayerBot::BotProfession::Courier;
+            prof = PlayerBot::BotProfession::Courier;      // couriers: haul to/from hub
         else
-            prof = PlayerBot::BotProfession::Hacker;
+            prof = PlayerBot::BotProfession::Hacker;       // data/relic sites
     }
 
     // Corp: realistic distribution (main corp + a few smaller). If the killmail
@@ -487,8 +487,18 @@ void BotMgr::ProcessTravel()
             // Cross the gate. Use the bot's requested destination if set
             // (e.g. arriving into a player's system), else pick a random one.
             uint32 destSystem = pb->GetTravelDestination();
-            if (destSystem == 0)
-                destSystem = GetRandomAdjacentSystem(pSystem->GetID());
+            if (destSystem == 0) {
+                // Trade-inclined bots (traders, couriers, miners hauling ore)
+                // route toward the primary market hub (Jita) to sell/buy.
+                uint32 hub = GetTradeHubSystem();
+                bool wantsHub = (pb->GetProfession() == PlayerBot::BotProfession::Trader
+                              || pb->GetProfession() == PlayerBot::BotProfession::Courier
+                              || pb->GetProfession() == PlayerBot::BotProfession::Miner);
+                if (wantsHub && hub != 0 && hub != pSystem->GetID() && MakeRandomInt(0, 99) < 70)
+                    destSystem = hub;
+                else
+                    destSystem = GetRandomAdjacentSystem(pSystem->GetID());
+            }
             pb->ClearTravel();
             if (destSystem == 0)
                 continue;   // dead-end system or no map data — stay put
