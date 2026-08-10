@@ -1470,6 +1470,29 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
     _log(DRONE__AI_TRACE, "Drone %s(%u): Added %.0f units of ore type %u to ship cargo.",
          m_pDrone->GetName(), m_pDrone->GetID(), oreUnits, oreTypeID);
 
+    // Deplete the asteroid: subtract mined units from its quantity. Without this
+    // mining drones keep extracting from the same rock forever ('never-depleting
+    // ore'). When quantity runs out, remove the asteroid from the system so the
+    // client drops its ball (same behaviour as MiningLaser::ProcessCycle).
+    if (roidRef->HasAttribute(AttrQuantity)) {
+        float qty = roidRef->GetAttribute(AttrQuantity).get_float() - oreUnits;
+        if (qty <= 0.0f) {
+            if (pTarget->DestinyMgr() != nullptr)
+                pTarget->DestinyMgr()->Stop();
+            m_pDrone->TargetMgr()->ClearTarget(pTarget);
+            pTarget->Delete();   // removes from system + sends RemoveBall to bubble
+            SetIdle();
+            m_pDrone->StateChange();
+            return;
+        }
+        roidRef->SetAttribute(AttrQuantity, qty, false);
+        // shrink the rock as it depletes (reverse of belt radius-from-qty formula)
+        if (!roidRef->HasAttribute(AttrRadius) || roidRef->GetAttribute(AttrRadius).get_float() > 100.0f) {
+            double radius = exp((qty + 112404.8) / 25000);
+            roidRef->SetAttribute(AttrRadius, radius, false);
+        }
+    }
+
     // play mining visual effect on the asteroid
     m_pDrone->DestinyMgr()->SendSpecialEffect(
         m_pDrone->GetSelf()->itemID(),

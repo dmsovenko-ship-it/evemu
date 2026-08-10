@@ -87,6 +87,7 @@ protected:
     ManagerDB m_db;
 
     std::vector<uint32> SpawnDecorations(const GPoint& roomPos, uint32 factionID);
+    std::vector<uint32> SpawnMineableAsteroids(const GPoint& roomPos, uint32 count = 30);
 
     /* we do not own any of these */
 private:

@@ -16,6 +16,7 @@
 #include "inventory/InventoryItem.h"
 #include "system/SystemBubble.h"
 #include "system/SystemEntity.h"
+#include "system/Asteroid.h"
 #include "system/cosmicMgrs/SpawnMgr.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/BeltMgr.h"
@@ -464,6 +465,13 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             for (uint32 id : decoIDs)
                 newRoom.items.push_back(id);
 
+            // Spawn a mineable ore belt in this pocket — 30-40 asteroids of one
+            // ore type, like official anomaly sites. Temp items, cleaned up with
+            // the dungeon; depleted via MiningLaser::Depleted -> AsteroidSE::Delete().
+            std::vector<uint32> oreIDs = SpawnMineableAsteroids(newRoom.position, 30 + MakeRandomInt(0, 10));
+            for (uint32 id : oreIDs)
+                newRoom.items.push_back(id);
+
             // Spawn an acceleration gate leading to the next room (all rooms except
             // the last). Gate sits at the far edge of the current room, on the +x
             // axis toward the next room; ActivateAccelerationGate warps +NEXT_DUNGEON_ROOM_DIST.
@@ -574,6 +582,7 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     // Sansha LCO structures (Sansha Nation architecture — 29596..29604)
     static const std::vector<uint32> sanshaDeco = {
         2234,    // Sansha's Battletower LCO
+        3056,    // LCO Sansha Deadspace Outpost I
         29596,   // LCO Sansha Barricade
         29597,   // LCO Sansha Barrier
         29598,   // LCO Sansha Battery
@@ -584,22 +593,84 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         29604,   // LCO Sansha Wall
     };
 
+    // Faction-specific structure pools — the pirate bases / watchtowers / refuges
+    // described for each faction (LCO group 226 = visual only, no loot/access).
+    static const std::vector<uint32> angelDeco = {
+        29551,   // LCO Angel Barricade
+        29552,   // LCO Angel Barrier
+        29553,   // LCO Angel Battery
+        29554,   // LCO Angel Bunker
+        29555,   // LCO Angel Elevator
+        29556,   // LCO Angel Fence
+        29557,   // LCO Angel Junction
+        29558,   // LCO Angel Lookout
+        29559,   // LCO Angel Wall
+        21821,   // LCO Habitation Brothel
+        21825,   // LCO Habitation Casino
+        23763,   // LCO Cargo Rig
+        26746,   // LCO Crane
+        26860,   // LCO Docked Mammoth
+        3789,    // Minmatar Mammoth Industrial Ship
+        10144,   // Scanner Sentry - Rapid Pulse
+    };
+    static const std::vector<uint32> guristasDeco = {
+        29576,   // LCO Guristas Barricade
+        29577,   // LCO Guristas Barrier
+        29578,   // LCO Guristas Battery
+        29579,   // LCO Guristas Wall
+        29580,   // LCO Guristas Lookout
+        29581,   // LCO Guristas Junction
+        29582,   // LCO Guristas Fence
+        29583,   // LCO Guristas Elevator
+        29584,   // LCO Guristas Bunker
+        25375,   // LCO Guristas Control Tower
+    };
+    static const std::vector<uint32> bloodDeco = {
+        24457,   // LCO Blood Raider Bunker
+        24458,   // LCO Blood Raider Junction
+        29561,   // LCO Blood Raider Barricade
+        29562,   // LCO Blood Raider Battery
+        29563,   // LCO Blood Raider Elevator
+        29564,   // LCO Blood Raider Lookout
+        29565,   // LCO Blood Raider Wall
+    };
+    static const std::vector<uint32> serpentisDeco = {
+        3957,    // LCO Serpentis Stronghold
+        32405,   // Serpentis Research Facility
+        32394,   // Serpentis Transport Hub
+        23223,   // LCO Serpentis Barricade
+        23225,   // LCO Serpentis Battery
+        23230,   // LCO Serpentis Lookout
+        29595,   // LCO Serpentis Elevator
+    };
+    // Natural formations — rocks, asteroid colonies, crystal clusters
+    static const std::vector<uint32> rockDeco = {
+        10120,   // Rock - Infested by Rogue Drones
+        10121,   // Small Asteroid w/Drone-tech
+        10137,   // Rock Formation - Branched & Twisted
+        10267,   // Coral Rock Formation
+        10269,   // Space-Stonehenge w/Rotating Centre
+        2612,    // Hollow Asteroid
+        2928,    // LCO Asteroid Colony
+        10256,   // Asteroid Mining Post
+    };
+
     // Faction-specific structure pools
     uint32 decoCount = 8 + MakeRandomInt(0, 7);
     std::vector<uint32> factionDeco;
     switch (factionID) {
         case factionAngel: {
-            factionDeco = {2101, 2102, 2111, 2113, 2114, 10067, 10753, 10759};
+            factionDeco = angelDeco;
             decoCount = 10 + MakeRandomInt(0, 8);
             break;
         }
         case factionGuristas: {
-            factionDeco = {2111, 2112, 2113, 2114, 2116, 10068, 10754, 10757, 10762};
+            factionDeco = guristasDeco;
             decoCount = 8 + MakeRandomInt(0, 6);
             break;
         }
         case factionBloodRaider: {
-            factionDeco = {2097, 2115, 2116, 10066, 10755, 10760, 10131};
+            factionDeco = bloodDeco;
             decoCount = 6 + MakeRandomInt(0, 5);
             break;
         }
@@ -609,12 +680,12 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             break;
         }
         case factionSerpentis: {
-            factionDeco = {2107, 2110, 2111, 2113, 10065, 10753, 10759, 10820};
+            factionDeco = serpentisDeco;
             decoCount = 10 + MakeRandomInt(0, 8);
             break;
         }
         case factionRogueDrones: {
-            factionDeco = {30514, 30515, 2121, 2122, 10067, 10232, 10233};
+            factionDeco = {30514, 30515, 2121, 2122, 29585, 29589, 29593, 10067, 10232, 10233};
             decoCount = 12 + MakeRandomInt(0, 8);
             break;
         }
@@ -631,6 +702,8 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     for (auto t : cloudDeco) decoPool.push_back(t);
     if (MakeRandomInt(0, 2) > 0)
         for (auto t : lcoDeco) decoPool.push_back(t);
+    if (MakeRandomInt(0, 3) > 0)
+        for (auto t : rockDeco) decoPool.push_back(t);
 
     for (uint32 i = 0; i < decoCount; ++i) {
         uint32 typeID = decoPool[MakeRandomInt(0, decoPool.size() - 1)];
@@ -665,6 +738,70 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         spawned.push_back(iRef->itemID());
         _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: spawned typeID %u for room at (%.0f,%.0f,%.0f)",
              typeID, pos.x, pos.y, pos.z);
+    }
+    return spawned;
+}
+
+std::vector<uint32> DungeonMgr::SpawnMineableAsteroids(const GPoint& roomPos, uint32 count /*30*/)
+{
+    // Mineable ore belt inside a dungeon pocket — 30-40 asteroids of one ore type
+    // clustered together, like official mission/anomaly sites. Uses temp items
+    // (AsteroidItem::SpawnTemp) so they are NOT persisted; they are tracked in
+    // room.items and cleaned up when the dungeon expires. Depletion works via
+    // MiningLaser::Depleted -> AsteroidSE::Delete() (belt mgr removal + RemoveBall).
+    std::vector<uint32> spawned;
+    // Pick one common ore type for the whole pocket (players mine it down).
+    static const uint32 oreTypes[] = {
+        1230,   // Veldspar
+        1228,   // Scordite
+        1224,   // Pyroxeres
+        18,     // Plagioclase
+        20,     // Kernite
+        1227,   // Omber
+        1226,   // Jaspet
+        1231,   // Hemorphite
+        1229,   // Gneiss
+    };
+    uint32 typeID = oreTypes[MakeRandomInt(0, 8)];
+    // Clustered within ~3km of the pocket center.
+    double clusterRadius = 2500.0 + MakeRandomFloat() * 2000.0;
+    for (uint32 i = 0; i < count; ++i) {
+        double angle = MakeRandomFloat() * 2.0 * 3.14159;
+        double rad = MakeRandomFloat() * clusterRadius;
+        double height = (MakeRandomFloat() - 0.5) * 1500.0;
+        GPoint pos;
+        pos.x = roomPos.x + cos(angle) * rad;
+        pos.z = roomPos.z + sin(angle) * rad;
+        pos.y = roomPos.y + height;
+
+        // roid radius ~500-900m; quantity from the belt formula
+        double radius = 500.0 + MakeRandomFloat() * 400.0;
+        double quantity = ((25000 * log(radius)) - 112404.8);
+        if (quantity < 1000.0) quantity = 1000.0;
+
+        AsteroidData adata = AsteroidData();
+            adata.beltID = m_system->GetID();           // temp marker (beltID is a system id for temp)
+            adata.systemID = m_system->GetID();
+            adata.typeID = typeID;
+            adata.quantity = quantity;
+            adata.radius = radius;
+            adata.position = pos;
+        ItemData idata(typeID, ownerSystem, m_system->GetID(), flagNone, "", pos);
+        InventoryItemRef iRef = AsteroidItem::SpawnTemp(idata, adata);
+        if (iRef.get() == nullptr) {
+            _log(COSMIC_MGR__WARNING, "SpawnMineableAsteroids: failed to spawn temp asteroid typeID %u", typeID);
+            continue;
+        }
+        AsteroidSE* pASE = new AsteroidSE(iRef, m_system->GetServiceMgr(), m_system);
+        if (pASE == nullptr)
+            continue;
+        BeltMgr* pBelt = m_system->GetBeltMgr();
+        if (pBelt != nullptr)
+            pASE->SetMgr(pBelt, adata.beltID);
+        m_system->AddEntity(pASE, false);
+        spawned.push_back(iRef->itemID());
+        _log(COSMIC_MGR__MESSAGE, "SpawnMineableAsteroids: spawned %s(%u) qty %.0f at (%.0f,%.0f,%.0f)",
+             iRef->name(), iRef->itemID(), quantity, pos.x, pos.y, pos.z);
     }
     return spawned;
 }

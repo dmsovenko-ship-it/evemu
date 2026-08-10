@@ -147,7 +147,8 @@ void AsteroidSE::Delete()
 {
     _log(SPAWN__DEPOP, "AsteroidSE::Delete() - Removing asteroid %s(%u) from beltID %u", \
             m_self->name(), m_self->itemID(), m_beltID);
-    m_beltMgr->RemoveAsteroid(m_beltID, this);
+    if (m_beltMgr != nullptr)
+        m_beltMgr->RemoveAsteroid(m_beltID, this);
     SystemEntity::Delete();
 }
 
