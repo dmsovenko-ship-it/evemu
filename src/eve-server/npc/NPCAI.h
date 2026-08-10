@@ -67,6 +67,7 @@ struct NPCModule {
     float ewarStrength = 0;
     uint32 ewarRange = 0;
     float ewarChance = 0;
+    float effectiveRange = 0;   // max distance this module can actually damage the target
 };
 
 class NPCAIMgr {

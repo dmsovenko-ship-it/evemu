@@ -115,35 +115,53 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     // some npcs have flyRange > boostRange.  this corrects it. (extends boost range)
     if (m_flyRange > m_boostRange)
         m_boostRange += m_boostRange + m_flyRange;
-    // max firing range   default:10000  (lowest in db is 1000)
-    m_maxAttackRange = m_self->GetAttribute(AttrEntityAttackRange).get_uint32();
-    // this should be set according to npc size.
-    if (m_maxAttackRange < 1000)
-        m_maxAttackRange = 10000;
 
     // Ensure the NPC orbits at a sensible distance. Many NPCs have a tiny/zero
     // AttrMaxRange (e.g. 223m on Plunderers, 0 on some Guristas) which made them
     // "clinch" the player at point-blank instead of fighting at weapon range.
     if (m_optimalRange < 1000)
-        m_optimalRange = std::max(1500u, std::min(5000u, m_maxAttackRange / 2));
+        m_optimalRange = 5000;
 
-    // 'sight' range (undefined in db)
+    // Max achievable weapon range = what a PERFECT player with skills+modules can
+    // reach. NPCs can never deal damage past this. Do NOT use entityAttackRange
+    // (Eradicator: 245km) — it gates fire from across the grid.
+    float weaponRange = 0;
+    if (m_missileTypeID > 0) {
+        // missiles fly until flight time runs out: range = velocity * flightTime
+        float missileSpeed = 3750.0f, missileFlightTime = 12.0f;
+        std::vector<DmgTypeAttribute> attrs;
+        sDataMgr.GetDgmTypeAttrVec(m_missileTypeID, attrs);
+        for (const auto& a : attrs) {
+            if (a.attributeID == AttrMaxVelocity)
+                missileSpeed = a.value.get_float();
+            else if (a.attributeID == AttrExplosionDelay)
+                missileFlightTime = a.value.get_float() / 1000.0f;
+        }
+        weaponRange = missileSpeed * missileFlightTime;
+    } else if (m_optimalRange > 0) {
+        weaponRange = (float)m_optimalRange + (float)m_falloff * 2.0f;
+    }
+    if (weaponRange < 10000)
+        weaponRange = 10000;
+    m_maxAttackRange = weaponRange;
+
+    // 'sight' range = how far the NPC notices/targets the player. A perfect player's
+    // targeting range grows with ship class + skills; NPCs must never target farther
+    // than that. Class tiers based on hull radius (frigate<cruiser<bs<capital).
     float radius = m_self->GetAttribute(AttrRadius).get_float();
     if (radius < 30) {
-        m_sightRange = 2500;
+        m_sightRange = 50000;       // frigate
     } else if (radius < 60) {
-        m_sightRange = 5000;
+        m_sightRange = 75000;       // destroyer/cruiser
     } else if (radius < 150) {
-        m_sightRange = 8000;
+        m_sightRange = 100000;      // battlecruiser
     } else if (radius < 280) {
-        m_sightRange = 12000;
+        m_sightRange = 125000;      // battleship
     } else if (radius < 550) {
-        m_sightRange = 15000;
+        m_sightRange = 150000;      // large battleship / carrier
     } else {
-        m_sightRange = 20000;
+        m_sightRange = 200000;      // capital
     }
-    if (m_maxAttackRange > m_sightRange)
-        m_sightRange = m_maxAttackRange *2;
 
     // ship targets
     m_maxAttackTargets = m_self->GetAttribute(AttrMaxAttackTargets).get_uint32();
@@ -899,6 +917,10 @@ void NPCAIMgr::FitModules()
         mod.falloff = m_falloff;
         mod.trackingSpeed = m_trackingSpeed;
         mod.damageMultiplier = m_damageMultiplier;
+        // Max reachable engagement range is computed in the ctor (weapon range for
+        // turrets, missile flight range for missile ships) — the same value a perfect
+        // player could achieve. entityAttackRange (245km on Eradicator) never gates fire.
+        mod.effectiveRange = m_maxAttackRange;
         m_modules.push_back(mod);
     }
 
@@ -984,7 +1006,10 @@ void NPCAIMgr::CycleModules(SystemEntity* pTarget)
         double dist = npcPos.distance(pTarget->GetPosition());
 
         // Determine if this module can reach the target
-        bool inRange = (mod.ewarRange > 0) ? (dist <= mod.ewarRange) : (dist <= m_maxAttackRange);
+        // Modules fire within their own effective range (= weapon reach for a perfect
+        // player), never the huge entityAttackRange.
+        float moduleRange = mod.effectiveRange > 0 ? mod.effectiveRange : (float)m_maxAttackRange;
+        bool inRange = (mod.ewarRange > 0) ? (dist <= mod.ewarRange) : (dist <= moduleRange);
 
         if (!inRange) {
             // Out of range — try to activate anyway for effect (no damage)
