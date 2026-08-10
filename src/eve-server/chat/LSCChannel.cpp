@@ -30,6 +30,7 @@
 #include "ConsoleCommands.h"
 #include "chat/LSCChannel.h"
 #include "chat/LSCService.h"
+#include "npc/BotMgr.h"
 
 
 PyRep *LSCChannelChar::Encode() const {
@@ -137,6 +138,73 @@ bool LSCChannel::JoinChannel(Client* pClient) {
     return true;
 }
 
+bool LSCChannel::AddBotChar(uint32 charID, uint32 corpID, uint32 allianceID, uint32 warFactionID, const std::string& name)
+{
+    if (m_chars.find(charID) != m_chars.end())
+        return false;
+    m_chars.insert(std::make_pair(charID,
+        LSCChannelChar(this, corpID, charID, name, allianceID, warFactionID, 1 /*role*/, 0,
+                       (m_ownerID == charID ? LSC::Mode::chCreator : LSC::Mode::chConversationalist))));
+
+    // Broadcast the join so every player in local sees the bot appear.
+    OnLSC_JoinChannel join;
+        join.sender = _MakeBotSenderInfo(charID, name, corpID);
+        join.member_count = (int32)m_chars.size();
+        join.channelID = EncodeID();
+    MulticastTarget mct;
+    for (auto& [cid, ch] : m_chars)
+        mct.characters.insert(cid);
+    PyTuple* answer = join.Encode();
+    sEntityList.Multicast("OnLSC", GetTypeString(), &answer, mct);
+    _log(LSC__CHANNELS, "Bot %s(%u) joined channel %u - %s", name.c_str(), charID, m_channelID, m_displayName.c_str());
+    return true;
+}
+
+void LSCChannel::RemoveBotChar(uint32 charID)
+{
+    if (m_chars.find(charID) == m_chars.end())
+        return;
+    m_chars.erase(charID);
+
+    OnLSC_LeaveChannel leave;
+        leave.sender = _MakeBotSenderInfo(charID, "", 0);
+        leave.member_count = (int32)m_chars.size();
+        leave.channelID = EncodeID();
+    MulticastTarget mct;
+    for (auto& [cid, ch] : m_chars)
+        mct.characters.insert(cid);
+    PyTuple* answer = leave.Encode();
+    sEntityList.Multicast("OnLSC", GetTypeString(), &answer, mct);
+}
+
+void LSCChannel::SendBotMessage(uint32 charID, const std::string& name, uint32 corpID, const std::string& message)
+{
+    MulticastTarget mct;
+    for (auto& [cid, ch] : m_chars)
+        mct.characters.insert(cid);
+
+    OnLSC_SendMessage sm;
+        sm.sender = _MakeBotSenderInfo(charID, name, corpID);
+        sm.channelID = EncodeID();
+        sm.message = message;
+        sm.member_count = (int32)m_chars.size();
+    PyTuple* answer = sm.Encode();
+    sEntityList.Multicast("OnLSC", GetTypeString(), &answer, mct);
+    _log(LSC__CHANNELS, "Bot %s(%u) says: %s", name.c_str(), charID, message.c_str());
+}
+
+OnLSC_SenderInfo* LSCChannel::_MakeBotSenderInfo(uint32 charID, const std::string& name, uint32 corpID)
+{
+    OnLSC_SenderInfo* sender = new OnLSC_SenderInfo;
+        sender->senderID = charID;
+        sender->senderName = name;
+        sender->senderType = 1;
+        sender->corpID = corpID;
+        sender->role = 1;
+        sender->corp_role = 1;
+    return sender;
+}
+
 void LSCChannel::LeaveChannel(Client *pClient)
 {
     if (sConsole.IsShutdown())
@@ -192,6 +260,11 @@ void LSCChannel::Evacuate(Client * c) {
 
 void LSCChannel::SendMessage(Client * c, const char * message, bool self/*false*/) {
 // to send system msgs, senderID should be 1 (system owner)
+
+    // Let simulated players in this system react to a player's local chat.
+    if (!self && c != nullptr && sConfig.playerBots.Enabled
+        && (m_type == LSC::Type::solarsystem || m_type == LSC::Type::solarsystem2))
+        sBotMgr.HandleLocalMessage(m_channelID, c->GetCharacterID(), c->GetName(), message);
 
     MulticastTarget mct;
     if (self) {

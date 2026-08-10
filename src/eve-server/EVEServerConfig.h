@@ -355,6 +355,9 @@ public:
         uint16 AggroFactor;        // % confidence bonus/penalty when deciding to fight
         uint32 MinSkillLevel;      // min SP-simulated skill level for bots
         uint32 MaxSkillLevel;      // max SP-simulated skill level for bots
+        bool ChatEnabled;          // enable DeepSeek-powered bot chat
+        std::string DeepSeekKey;   // DeepSeek API key (for bot chat)
+        std::string DeepSeekURL;   // DeepSeek API endpoint
     } playerBots;
 
 protected:

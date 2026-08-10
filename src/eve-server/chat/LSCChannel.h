@@ -113,6 +113,12 @@ public:
     void LeaveChannel(Client* pClient);
     bool IsJoined(uint32 charID);
 
+    // Simulated-player (bot) support: add/remove a bot as a channel member so it
+    // shows up in local, and send chat messages on its behalf.
+    bool AddBotChar(uint32 charID, uint32 corpID, uint32 allianceID, uint32 warFactionID, const std::string& name);
+    void RemoveBotChar(uint32 charID);
+    void SendBotMessage(uint32 charID, const std::string& name, uint32 corpID, const std::string& message);
+
     // this is used for updating joined clients when channel config is changed.
     void UpdateConfig();
 
@@ -179,6 +185,7 @@ protected:
     std::map<uint32, LSCChannelChar> m_chars;
 
     OnLSC_SenderInfo *_FakeSenderInfo();
+    OnLSC_SenderInfo *_MakeBotSenderInfo(uint32 charID, const std::string& name, uint32 corpID);
 };
 
 #endif

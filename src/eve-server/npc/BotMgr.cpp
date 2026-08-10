@@ -3,10 +3,13 @@
 #include "npc/PlayerBot.h"
 #include "npc/NPCAI.h"
 #include "npc/NPC.h"
+#include "npc/BotChat.h"
 #include "EntityList.h"
 #include "system/SystemManager.h"
 #include "corporation/CorporationDB.h"
 #include "character/CharacterDB.h"
+#include "chat/LSCService.h"
+#include "chat/LSCChannel.h"
 
 /*
  * @file BotMgr.cpp
@@ -264,6 +267,16 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     bot->GetAIMgr()->SetAmbush(false);   // bots are not ambushing rats
     bot->DestinyMgr()->SetPosition(pos);
     pSystem->AddNPC(bot);
+
+    // Join the system's local channel so the bot shows up in local chat.
+    if (sConfig.playerBots.Enabled) {
+        LSCService* lsc = &LSCService::get();
+        if (lsc != nullptr) {
+            LSCChannel* chan = lsc->GetChannelByID((int32)pSystem->GetID());
+            if (chan != nullptr)
+                chan->AddBotChar(useCharID, useCorpID, useAllianceID, 0, useName);
+        }
+    }
 }
 
 void BotMgr::ReapBots(SystemManager* pSystem)
@@ -282,4 +295,69 @@ void BotMgr::ReapBots(SystemManager* pSystem)
              bot->GetBotName().c_str(), pSystem->GetID());
         bot->Delete();
     }
+}
+
+void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message)
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled || !sConfig.playerBots.ChatEnabled)
+        return;
+    if (sConfig.playerBots.DeepSeekKey.empty())
+        return;
+
+    // Find the system that owns this channel (channelID == systemID for local).
+    auto& systems = sEntityList.GetSystems();
+    auto it = systems.find((uint32)channelID);
+    if (it == systems.end())
+        return;
+    SystemManager* pSystem = it->second;
+    if (pSystem == nullptr)
+        return;
+
+    // Find a bot in that system (other than the sender — bots never message each
+    // other's own ID here, but guard anyway).
+    PlayerBot* responder = nullptr;
+    for (auto& [id, se] : pSystem->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (pb != nullptr && pb->GetBotCharID() != senderCharID) {
+            responder = pb;
+            break;
+        }
+    }
+    if (responder == nullptr)
+        return;
+
+    // Only react sometimes (ChatChance %) to avoid spamming on every line.
+    if (MakeRandomInt(0, 99) >= sConfig.playerBots.ChatChance)
+        return;
+
+    // Throttle: at most one DeepSeek call per channel per 30s (the call blocks
+    // this tick briefly; keeping it rare protects the game loop).
+    time_t now = time(nullptr);
+    auto last = m_lastChatReply.find(channelID);
+    if (last != m_lastChatReply.end() && (now - last->second) < 30)
+        return;
+    m_lastChatReply[channelID] = now;
+
+    _log(BOT__MESSAGE, "BotMgr: %s(%u) reacting to local chat from %s in system %u.",
+         responder->GetBotName().c_str(), responder->GetBotCharID(), senderName.c_str(), (uint32)channelID);
+
+    std::string prompt = senderName + " says: \"" + message + "\"";
+    std::string systemHint =
+        "You are a player in the MMO Eve Online in local chat. Reply as a natural, "
+        "friendly EVE player. Use casual EVE slang (spaceship, isk, ratting, docking, "
+        "gate, warp, fit, lowsec, nullsec). Keep it to 1-2 short sentences. English only.";
+
+    std::string reply = BotChat::QueryDeepSeek(prompt, systemHint);
+    if (reply.empty())
+        return;
+
+    // Post the reply to the system's local channel as this bot.
+    LSCService* lsc = &LSCService::get();
+    if (lsc == nullptr) return;
+    LSCChannel* chan = lsc->GetChannelByID(channelID);
+    if (chan != nullptr)
+        chan->SendBotMessage(responder->GetBotCharID(), responder->GetBotName(),
+                             responder->GetBotCorpID(), reply);
 }

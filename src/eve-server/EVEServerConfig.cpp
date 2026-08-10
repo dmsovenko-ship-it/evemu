@@ -246,6 +246,9 @@ EVEServerConfig::EVEServerConfig()
     playerBots.AggroFactor = 0;
     playerBots.MinSkillLevel = 3;
     playerBots.MaxSkillLevel = 5;
+    playerBots.ChatEnabled = false;
+    playerBots.DeepSeekKey = "";
+    playerBots.DeepSeekURL = "https://api.deepseek.com/chat/completions";
 
     // database
     database.host = "localhost";
@@ -871,6 +874,9 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
     AddValueParser( "AggroFactor",      playerBots.AggroFactor );
     AddValueParser( "MinSkillLevel",    playerBots.MinSkillLevel );
     AddValueParser( "MaxSkillLevel",    playerBots.MaxSkillLevel );
+    AddValueParser( "ChatEnabled",      playerBots.ChatEnabled );
+    AddValueParser( "DeepSeekKey",      playerBots.DeepSeekKey );
+    AddValueParser( "DeepSeekURL",      playerBots.DeepSeekURL );
 
     const bool result = ParseElementChildren( ele );
 
@@ -880,6 +886,9 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
     RemoveParser( "AggroFactor" );
     RemoveParser( "MinSkillLevel" );
     RemoveParser( "MaxSkillLevel" );
+    RemoveParser( "ChatEnabled" );
+    RemoveParser( "DeepSeekKey" );
+    RemoveParser( "DeepSeekURL" );
 
     return result;
 }

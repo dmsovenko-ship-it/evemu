@@ -5,6 +5,8 @@
 #include "eve-common.h"
 #include "utils/Singleton.h"
 #include <unordered_map>
+#include <map>
+#include <ctime>
 
 class SystemManager;
 class PlayerBot;
@@ -32,6 +34,9 @@ public:
     int Initialize();
     void Process();     // called from EntityList on the 1Hz tic
 
+    // Hook called by LSCChannel when a message is sent in a system channel.
+    // Lets simulated players in that system react (DeepSeek replies, smalltalk).
+    void HandleLocalMessage(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message);
     // Top up bots in a freshly-loaded system that has real players.
     void PopulateSystem(SystemManager* pSystem);
 
@@ -44,6 +49,7 @@ private:
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
+    std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
 };
 
 //Singleton
