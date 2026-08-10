@@ -181,7 +181,7 @@ def main():
     rows = []
     for kmid, cid, corp, ally, ship, fit, sec, tm, pts in all_recs:
         rows.append((kmid, cid, names.get(cid, ""), corp, ally, ship, fit, sec, tm, pts))
-        rows.append((kmid, cid, names.get(cid, ""), corp, ally, ship, fit, sec, tm, pts))    if rows:
+    if rows:
         cur.executemany(insert_sql, rows)
         total = len(rows)
 
