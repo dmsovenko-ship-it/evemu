@@ -586,6 +586,10 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     static const std::vector<uint32> sanshaDeco = {
         2234,    // Sansha's Battletower LCO
         3056,    // LCO Sansha Deadspace Outpost I
+        3059,    // LCO Sansha Starbase Control Tower
+        3509,    // LCO Sansha Logistics Control Array
+        3510,    // Sansha Remote Logistics Station
+        3626,    // Sansha Station Ruins
         29596,   // LCO Sansha Barricade
         29597,   // LCO Sansha Barrier
         29598,   // LCO Sansha Battery
@@ -594,6 +598,12 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         29602,   // LCO Sansha Junction
         29603,   // LCO Sansha Lookout
         29604,   // LCO Sansha Wall
+        21829,   // Indestructible Landing Pad
+        21823,   // Indestructible Residential Habitation Module
+        21821,   // LCO Habitation Brothel
+        21799,   // LCO Pleasure Hub
+        2926,    // Serpentis Slave Transport
+        23741,   // LCO Shipyard
     };
 
     // Faction-specific structure pools — the pirate bases / watchtowers / refuges
