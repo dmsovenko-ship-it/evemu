@@ -138,8 +138,38 @@ uint32 BotMgr::PickCorp(uint32& allianceID)
 
 void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID)
 {
-    // Pick a name from the agents DB if none given.
+    // Pull a legend (name, corp, alliance, ship, fit) from real EVE killmail data.
+    // This is the "believable backstory" — a real pilot who actually flew this
+    // hull with this fit in live EVE. Falls back to a random agent name if the
+    // killmail table is empty (first run before import_killmail_legends.py).
     std::string useName = name;
+    uint32 useShipType = 0;
+    uint32 useCharID = charID;
+    uint32 useCorpID = corpID;
+    uint32 useAllianceID = allianceID;
+    std::string useFit;   // JSON array of module typeIDs (parsed later for fitting)
+
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT character_id, character_name, corporation_id, alliance_id,"
+            "       ship_type_id, fitted_item_ids"
+            " FROM botKillmailLegends"
+            " WHERE ship_type_id > 0 AND character_name != ''"
+            " ORDER BY RAND() LIMIT 1"))
+        {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                useCharID = row.GetUInt(0);
+                useName = row.GetText(1);
+                useCorpID = row.GetUInt(2);
+                useAllianceID = row.GetUInt(3);
+                useShipType = row.GetUInt(4);
+                const char* fit = row.GetText(5);
+                if (fit != nullptr) useFit = fit;
+            }
+        }
+    }
     if (useName.empty()) {
         DBQueryResult res;
         if (sDatabase.RunQuery(res,
@@ -152,10 +182,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     if (useName.empty())
         useName = "Pilot " + std::to_string(++m_botCounter);
 
-    // Corp: realistic distribution (main corp + a few smaller). If the caller
-    // already supplied one (e.g. a persisted bot), keep it.
-    uint32 useCorpID = corpID;
-    uint32 useAllianceID = allianceID;
+    // Corp: realistic distribution (main corp + a few smaller). If the killmail
+    // legend already carries a corp, keep it; otherwise pick one by size.
     if (useCorpID == 0)
         useCorpID = PickCorp(useAllianceID);
     if (useCorpID == 0) {
@@ -166,7 +194,6 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // Persist the bot as a REAL character (chrCharacters + skills + history) so
     // its legend and progress survive restarts. If a charID was supplied, reuse
     // the existing character; otherwise create one.
-    uint32 useCharID = charID;
     if (useCharID == 0) {
         uint8 skillTier = sConfig.playerBots.MinSkillLevel +
             MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
@@ -177,12 +204,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
-    _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u) in system %u",
-         useName.c_str(), useCharID, useCorpID, pSystem->GetID());
+    _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u, ship %u, fit %zu items) in system %u",
+         useName.c_str(), useCharID, useCorpID, hullType, useFit.size(), pSystem->GetID());
 
-    // Pick a player-ish ship hull: cruiser or battlecruiser for a "professional".
-    static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
-    uint32 hullType = hullTypes[MakeRandomInt(0, 7)];
+    // Ship hull from the killmail legend (real EVE hull) or a generic cruiser/BC.
+    uint32 hullType = useShipType;
+    if (hullType == 0) {
+        static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
+        hullType = hullTypes[MakeRandomInt(0, 7)];
+    }
 
     // Spawn at a gate — the bot "arrived through the gate from the neighbouring
     // system", matching a real pilot's travel story.
