@@ -182,6 +182,29 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
                                   + bioMids[MakeRandomInt(0, 12)]
                                   + " "
                                   + bioEnds[MakeRandomInt(0, 11)];
+                // Sometimes add a flavor line: an EVE-themed link, a tip, or humor.
+                static const char* flavor[] = {
+                    " My killboard is public: zkillboard.com. Don't laugh.",
+                    " Check my losses on zkillboard — learning by dying.",
+                    " eveonline.com says I should take breaks. Nonsense.",
+                    " eveuniversity.org taught me everything. Well, almost.",
+                    " Somewhere in Jita a market bot is judging me.",
+                    " My corp's CEO said 'fly safe'. I flew faster.",
+                    " Amarr Victor, or whatever the Amarr say.",
+                    " I trust my capacitor more than my corpmates.",
+                    " Ratting in a Raven since 2011. It's a lifestyle.",
+                    " If you see me in lowsec, I'm probably lost.",
+                    " Wormhole mapping is just paid exploring.",
+                    " I named my ship after my ex. It's cursed.",
+                    " The only thing faster than my ship is my mouth.",
+                    " My skill queue is my autobiography.",
+                    " zkillboard is just my portfolio at this point.",
+                    " I mine Veldspar like it's going out of style.",
+                    " PvE is PvP with a delay.",
+                    " Bubbles are just friendly hugs.",
+                };
+                if (MakeRandomInt(0, 2) == 0)
+                    cdata.description += flavor[MakeRandomInt(0, 17)];
                 if (cdata.description.size() > 295)
                     cdata.description.resize(295);
                 // Absolute uniqueness: retry until this exact text is unused.
