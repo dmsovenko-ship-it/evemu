@@ -29,10 +29,9 @@ services:
     image: "mariadb:11.8"
     container_name: db
     volumes:
-      - db:/var/lib/mysql
-    # If you want to connect to the Database pick your host port to map it to, (host-port:container-port) below.
-    #ports:
-    #  - "3306:3306"
+      - evemu_db:/var/lib/mysql
+    ports:
+      - "3306:3306"
     environment:
       - MARIADB_RANDOM_ROOT_PASSWORD=true
       - MARIADB_USER=evemu
@@ -46,7 +45,8 @@ services:
       - --bulk-insert-buffer-size=64M       # Per-thread buffer for INSERT...SELECT
 
 volumes:
-  db:
+  evemu_db:
+    external: true
   server_cache:
   image_cache:
   ccache:
