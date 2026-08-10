@@ -496,41 +496,84 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
 std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
 {
     std::vector<uint32> spawned;
-    // Faction-specific decorative structure typeIDs (common SDE celestial objects).
+    // Decorative typeIDs — PURELY VISUAL objects only.
     // NOTE: Beacons (10645 CelestialBeacon, 10124 Beacon) intentionally EXCLUDED —
-    // they are navigation/warp markers, not decorations, and confuse players when
-    // randomly spawned at anomaly sites.
-    static const std::vector<uint32> genericDeco = {
-        23,      // CargoContainer
-        3298,    // HangarContainer
-        3293,    // MediumStandardContainer
-        3296,    // LargeStandardContainer
-        24445,   // GeneralFreightContainer
-        26468,   // Wreck
-        10753,   // SoftCloud
-        10754,   // WispyOrangeCloud
-        10758,   // WispyChlorineCloud
+    // they are navigation/warp markers, not decorations.
+    // IMPORTANT: only non-interactive types go here. Containers (23/3293/3296/3298/
+    // 24445/17366/3465/3467/19373) and lootable wrecks (26468/26483/26505/26527/26549)
+    // are rendered by the client as lootable — spawning them as decoration made
+    // empty containers / un-lootable wrecks at anomaly sites. Use clouds and LCO
+    // "Wreckage" (Large Collidable Object, group 226) which are visual only.
+    static const std::vector<uint32> cloudDeco = {
+        10065,   // Dark Cloud
+        10066,   // Dark Green Cloud
+        10067,   // Dust Cloud
+        10068,   // Ion Cloud
+        10069,   // Spark Cloud
+        10128,   // Dark Gray Cloud
+        10129,   // Dark Gray Turbulent Cloud
+        10130,   // Electric Cloud
+        10131,   // Fire Cloud
+        10132,   // Plasma Cloud
+        10232,   // Debris Cloud
+        10233,   // Meteor Cloud
+        10753,   // Soft Cloud
+        10754,   // Wispy Orange Cloud
+        10755,   // Sulphuric Cloud
+        10756,   // Dust Streak
+        10757,   // Plasmic Gas Cloud
+        10758,   // Wispy Chlorine Cloud
+        10759,   // Micro Nebula
+        10760,   // Acidic Cloud
+        10761,   // Nebulaic Cloud
+        10762,   // Chlorine Cloud
+        10763,   // Gaseous Cloud
+        10764,   // Amber Cloud
+        10765,   // Green Gas Cloud
+        10809,   // Thick White
+        10810,   // Blue faint
+        10811,   // Blue quarter
+        10812,   // White sharp hemisphere
+        10813,   // Brown hemisphere
+        10814,   // Faint hemisphere
+        10815,   // White Crescent
+        10816,   // Brown crescent
+        10817,   // Brown quarter
+        10818,   // Quarter shard
+        10819,   // Bitter edge
+        10820,   // Thin claw
+        10821,   // White solid
     };
-    // Asteroid chunks for visual debris
-    static const std::vector<uint32> asteroidDeco = {
-        1230,    // Veldspar
-        1231,    // Scordite
-        1232,    // Pyroxeres
-        1228,    // Plagioclase
-        1226,    // Kernite
-        1225,    // Jaspet
-        1227,    // Hemorphite
-        1229,    // Omber
-    };
-    // Wreck types per race
-    static const std::vector<uint32> wreckDeco = {
-        26483,   // AmarrFreighterWreck
-        26505,   // CaldariFreighterWreck
-        26527,   // GallenteFreighterWreck
-        26549,   // MinmatarFreighterWreck
+    // LCO ship wreckage — Large Collidable Object (group 226): visual debris,
+    // NOT lootable wrecks. Looks like a wreck field but has no cargo/access.
+    static const std::vector<uint32> lcoDeco = {
+        2096,    // Caldari Supercarrier Wreckage
+        2097,    // Amarr Supercarrier Wreckage
+        2101,    // Gallente Supercarrier Wreckage
+        2102,    // Minmatar Supercarrier Wreckage
+        2105,    // Amarr Carrier Wreckage
+        2106,    // Caldari Carrier Wreckage
+        2107,    // Gallente Carrier Wreckage
+        2110,    // Minmatar Carrier Wreckage
+        2111,    // Amarr Freighter Wreckage
+        2112,    // Caldari Freighter Wreckage
+        2113,    // Gallente Freighter Wreckage
+        2114,    // Minmatar Freighter Wreckage
+        2115,    // Amarr Dreadnought Wreckage
+        2116,    // Caldari Dreadnought Wreckage
+        2119,    // Gallente Dreadnought Wreckage
+        2120,    // Minmatar Dreadnought Wreckage
+        2121,    // Amarr Titan Wreckage
+        2122,    // Caldari Titan Wreckage
+        2123,    // Gallente Titan Wreckage
+        2124,    // Minmatar Titan Wreckage
+        2910,    // Gallente Passenger Liner Wreckage
+        30514,   // Talocan Wreckage
+        30515,   // Unidentified Wreckage
     };
     // Sansha LCO structures (Sansha Nation architecture — 29596..29604)
     static const std::vector<uint32> sanshaDeco = {
+        2234,    // Sansha's Battletower LCO
         29596,   // LCO Sansha Barricade
         29597,   // LCO Sansha Barrier
         29598,   // LCO Sansha Battery
@@ -546,17 +589,17 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     std::vector<uint32> factionDeco;
     switch (factionID) {
         case factionAngel: {
-            factionDeco = {17366, 3298, 24445, 3465, 3296, 26549, 26527};
+            factionDeco = {2101, 2102, 2111, 2113, 2114, 10067, 10753, 10759};
             decoCount = 10 + MakeRandomInt(0, 8);
             break;
         }
         case factionGuristas: {
-            factionDeco = {17366, 3298, 3465, 26483, 26505, 10754};
+            factionDeco = {2111, 2112, 2113, 2114, 2116, 10068, 10754, 10757, 10762};
             decoCount = 8 + MakeRandomInt(0, 6);
             break;
         }
         case factionBloodRaider: {
-            factionDeco = {17366, 3467, 19373, 24545, 10758, 3465};
+            factionDeco = {2097, 2115, 2116, 10066, 10755, 10760, 10131};
             decoCount = 6 + MakeRandomInt(0, 5);
             break;
         }
@@ -566,17 +609,17 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             break;
         }
         case factionSerpentis: {
-            factionDeco = {17366, 3298, 24445, 10753, 3296, 3465};
+            factionDeco = {2107, 2110, 2111, 2113, 10065, 10753, 10759, 10820};
             decoCount = 10 + MakeRandomInt(0, 8);
             break;
         }
         case factionRogueDrones: {
-            factionDeco = {26468, 26549, 26527, 24445, 10758, 3465};
+            factionDeco = {30514, 30515, 2121, 2122, 10067, 10232, 10233};
             decoCount = 12 + MakeRandomInt(0, 8);
             break;
         }
         default: {
-            factionDeco = {17366, 3298, 24445, 3465, 3296, 26549, 26527, 26483, 26505};
+            factionDeco = {2101, 2107, 2111, 2113, 2116, 10067, 10068, 10753, 10759};
             decoCount = 6 + MakeRandomInt(0, 4);
             break;
         }
@@ -585,11 +628,9 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     // Mix in some of each category
     std::vector<uint32> decoPool;
     for (auto t : factionDeco) decoPool.push_back(t);
-    for (auto t : genericDeco) decoPool.push_back(t);
+    for (auto t : cloudDeco) decoPool.push_back(t);
     if (MakeRandomInt(0, 2) > 0)
-        for (auto t : asteroidDeco) decoPool.push_back(t);
-    if (MakeRandomInt(0, 3) == 0)
-        for (auto t : wreckDeco) decoPool.push_back(t);
+        for (auto t : lcoDeco) decoPool.push_back(t);
 
     for (uint32 i = 0; i < decoCount; ++i) {
         uint32 typeID = decoPool[MakeRandomInt(0, decoPool.size() - 1)];
