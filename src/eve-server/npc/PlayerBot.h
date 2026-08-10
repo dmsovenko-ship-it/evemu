@@ -43,6 +43,13 @@ public:
     void SetActivity(BotActivity act)   { m_activity = act; }
     BotActivity GetActivity() const     { return m_activity; }
 
+    /* travel between systems (via gates) */
+    void MarkForTravel();               // bot decides to head for a gate / next system
+    bool WantsToTravel() const          { return m_wantsTravel; }
+    void ClearTravel()                  { m_wantsTravel = false; }
+    bool IsTraveling() const            { return m_traveling; }   // flying to the gate
+    void CompleteTravel()               { m_traveling = false; m_wantsTravel = false; }
+
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
 
@@ -53,6 +60,9 @@ protected:
     uint8 m_botSkill;                   // simulated pilot skill tier (0..5)
     BotActivity m_activity;
     Timer m_decisionTimer;
+    Timer m_travelTimer;                // counts down the visible warp to the gate
+    bool m_wantsTravel;                 // true when the bot wants to leave via gate
+    bool m_traveling;                   // true while the bot visibly warps to the gate
 };
 
 #endif

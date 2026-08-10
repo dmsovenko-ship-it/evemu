@@ -46,6 +46,10 @@ private:
     // Realistic corp distribution: one "main" corp holds most bots, 2-3 smaller
     // corps the rest (like live EVE). Picks a corpID for a new bot.
     uint32 PickCorp(uint32& allianceID);
+    // Lets a few bots head for a gate / travel to a neighbouring system each tick.
+    void ProcessTravel();
+    // Random system reachable by gate from systemID (mapSolarSystemJumps), 0 if none.
+    uint32 GetRandomAdjacentSystem(uint32 systemID);
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator

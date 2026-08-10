@@ -53,6 +53,10 @@ void BotMgr::Process()
 
         PopulateSystem(pSystem);
     }
+
+    // Occasionally let a bot travel to a neighbouring system (through a gate),
+    // so the "population" moves around like a live server.
+    ProcessTravel();
 }
 
 void BotMgr::PopulateSystem(SystemManager* pSystem)
@@ -295,6 +299,79 @@ void BotMgr::ReapBots(SystemManager* pSystem)
              bot->GetBotName().c_str(), pSystem->GetID());
         bot->Delete();
     }
+}
+
+void BotMgr::ProcessTravel()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    if (sEntityList.GetSystems().empty())
+        return;
+
+    // For each loaded system with bots, with a small chance per tic, a bot heads
+    // for the gate (visible warp). Once its warp timer expires (it has actually
+    // reached the gate), move it to a neighbouring system.
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr)
+            continue;
+
+        std::vector<PlayerBot*> readyToJump;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb == nullptr)
+                continue;
+            if (pb->WantsToTravel())
+                readyToJump.push_back(pb);   // visible flight to the gate is done
+            else if (MakeRandomInt(0, 299) == 0)   // ~0.33% per tic decides to leave
+                pb->MarkForTravel();               // starts the visible warp
+        }
+
+        for (PlayerBot* pb : readyToJump) {
+            // Cross the gate to a neighbouring system.
+            uint32 destSystem = GetRandomAdjacentSystem(pSystem->GetID());
+            if (destSystem == 0)
+                continue;   // dead-end system or no map data — stay put
+
+            uint32 charID = pb->GetBotCharID();
+            std::string name = pb->GetBotName();
+            uint32 corp = pb->GetBotCorpID();
+            uint32 ally = pb->GetBotAllianceID();
+            _log(BOT__MESSAGE, "BotMgr: %s(%u) crossing gate to system %u (from %u).",
+                 name.c_str(), charID, destSystem, pSystem->GetID());
+
+            // Remove from the local channel and the old system.
+            LSCService* lsc = &LSCService::get();
+            if (lsc != nullptr) {
+                LSCChannel* chan = lsc->GetChannelByID((int32)pSystem->GetID());
+                if (chan != nullptr)
+                    chan->RemoveBotChar(charID);
+            }
+            pb->Delete();   // removes SE + item
+
+            // Spawn in the destination system (arrives through its gate).
+            SystemManager* dest = sEntityList.FindOrBootSystem(destSystem);
+            if (dest != nullptr)
+                SpawnBot(dest, charID, name, corp, ally);
+        }
+    }
+}
+
+uint32 BotMgr::GetRandomAdjacentSystem(uint32 systemID)
+{
+    DBQueryResult res;
+    std::vector<uint32> targets;
+    if (sDatabase.RunQuery(res,
+        "SELECT toSolarSystemID FROM mapSolarSystemJumps WHERE fromSolarSystemID = %u", systemID))
+    {
+        DBResultRow row;
+        while (res.GetRow(row))
+            targets.push_back(row.GetUInt(0));
+    }
+    if (targets.empty())
+        return 0;
+    return targets[MakeRandomInt(0, (int64)targets.size() - 1)];
 }
 
 void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message)
