@@ -75,6 +75,9 @@ private:
     void ProcessEconomy(PlayerBot* bot);
     void PayCorpTax(PlayerBot* bot);
     void PlaceBotOrder(PlayerBot* bot);
+    // Docked bots at a station, for the station "pilots at station" (GetGuests).
+    struct GuestInfo { uint32 charID, corpID, allianceID, warFactionID; };
+    void GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) const;
     // Deterministic real-EVE-style corp logo from a seed id: slot 0 = graphicID,
     // 1-3 = colors (0xRRGGBB), 4-6 = shapes. Same seed → same logo.
     static int64 MakeCorpLogo(uint32 seed, uint8 slot);

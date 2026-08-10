@@ -27,6 +27,7 @@
 
 #include "EntityList.h"
 #include "Client.h"
+#include "npc/BotMgr.h"
 #include "station/StationService.h"
 
 StationService::StationService() :
@@ -53,6 +54,21 @@ PyResult StationService::GetGuests(PyCallArgs &call) {
 			t->items[2] = new PyInt(cur->GetAllianceID());
 			t->items[3] = new PyInt(cur->GetWarFactionID());
         res->AddItem(t);
+    }
+
+    // Simulated players (bots) docked at this station show up in the
+    // "pilots at station" window alongside real players.
+    if (sConfig.playerBots.Enabled) {
+        std::vector<BotMgr::GuestInfo> botGuests;
+        sBotMgr.GetDockedAtStation(call.client->GetStationID(), botGuests);
+        for (const auto& g : botGuests) {
+            PyTuple* t = new PyTuple(4);
+                t->items[0] = new PyInt(g.charID);
+                t->items[1] = new PyInt(g.corpID);
+                t->items[2] = new PyInt(g.allianceID);
+                t->items[3] = new PyInt(g.warFactionID);
+            res->AddItem(t);
+        }
     }
 
 	return res;

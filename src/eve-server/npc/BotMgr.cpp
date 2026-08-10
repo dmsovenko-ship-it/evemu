@@ -740,6 +740,35 @@ void BotMgr::MaybeFormAlliance(PlayerBot* bot)
          bot->GetBotName().c_str(), bot->GetBotCharID(), aName.c_str(), aShort.c_str(), allyID, (uint32)memberCorps.size());
 }
 
+void BotMgr::GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) const
+{
+    // Docked bots are stored per-system in m_docked. Map the station back to its
+    // system and return the bots docked there (for the station pilots window).
+    if (m_docked.empty())
+        return;
+    // Resolve the station's solar system once.
+    uint32 sysID = 0;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT solarSystemID FROM staStations WHERE stationID = %u", stationID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            sysID = row.GetUInt(0);
+    }
+    if (sysID == 0)
+        return;
+    auto it = m_docked.find(sysID);
+    if (it == m_docked.end())
+        return;
+    for (const auto& db : it->second) {
+        GuestInfo g;
+            g.charID = db.charID;
+            g.corpID = db.corpID;
+            g.allianceID = db.allianceID;
+            g.warFactionID = 0;
+        out.push_back(g);
+    }
+}
+
 void BotMgr::ProcessEconomy(PlayerBot* bot)
 {
     // Bots take part in the EVE economy with real ISK:
