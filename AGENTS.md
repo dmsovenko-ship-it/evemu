@@ -3,6 +3,14 @@
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
 
+## 12 августа (поздний вечер): чистая сборка, портреты, био без абракадабры
+- **Чистка БД** (финальная, перед сборкой): server остановлен (`sudo docker stop server`), выполнена `cleanup4.sql` — botChars=0, botMemory=0, chrCharacters=только Mr Tort (90000000, accountID=1 — НЕ трогать), crpCorporation=179 штатных NPC. RS Corp (98000000)/RS Corp Alliance (99000000) — штатные seed-объекты. Таблицы `botPortraits` в тот момент НЕ было — скрипт чистки должен не падать на ней (удалена строка).
+- **Сервер пересобран и запущен юзером**; боты спавнятся заново.
+- **Портреты**: `fetch_bot_portraits.py` прогнан (5 ботов получили лица: server 97230261-97230265 ← eveID из killmail-легенд). Таблицу `botPortraits` скрипт создаёт сам. Настроен **cron каждые 15 мин**: `*/15 * * * * /opt/conda/bin/python /opt/evemu/tools/fetch_bot_portraits.py --db-host 127.0.0.1 --db-user evemu --db-pass evemu --db-name evemu --image-dir /opt/evemu/image_cache >> /tmp/bot_portraits.log 2>&1`. Лог: `/tmp/bot_portraits.log`.
+- **Био без абракадабры** (`fb07cac4`): убрана бессвязная конкатенация старт+середина+конец. Три осмысленных режима: цельная фраза (мем/zkillboard), короткая история (событие+логичное следствие), совет бывалого; редко пустое (2%). Уникальность по БД сохранена.
+- **Регрессии закрыты** (в master): чат local (`e3ca1aec` senderType=1377 + cacheOwners, LSCChannel.cpp:215), имена кораблей (`e08a9128` MakeRandomShipName, BotMgr.cpp:589), NPC-спам скорости (`8f20e6b5` maxVelocity fallback, NPC.cpp:72/NPCAI.cpp:98).
+- ВАЖНО про `sudo`: кэш креденшелов протухает; рабочий паттерн `echo gbnjy78 | sudo -S -p '' -v && sudo docker ...` (иногда «Sorry, try again» при пароле из stdin — повторять).
+
 ## 11 августа: ИИ-игроки (боты) — полный цикл (реализовано, сборка/чистка БД)
 Цель: имитация живого сервера. Боты = полноценные персонажи в SQL (прогресс не пропадает), с легендой из реальных killmails, DeepSeek-чатом, профессиями и самообучением везде.
 - **Прилёт через гейт** (`0692e31c`): боты НЕ спавнятся у игрока — `PopulateSystem` создаёт их в случайных соседних системах, `SetTravelDestination(система игрока)` + `MarkForTravel` → видимый варп к гейту (12-20с) → переход. Per-system фикс. target 60-100% капа (не ровно 30).
