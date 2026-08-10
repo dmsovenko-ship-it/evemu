@@ -113,6 +113,8 @@ docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MA
 
 ## Git Log (верх)
 ```
+26cc777d feat(dungeon): Guristas decoration set — freight pads (23237), gas/storage silos (10788), storage warehouse (30786), asteroid colony tower (10779), talocan silo (30506), scanner sentry (10144) — pirate-base logistics clutter per faction lore
+9cf29c15 fix(dungeon): acceleration gate 25-30km from pocket center (was 0.8*NEXT_DUNGEON_ROOM_DIST=40M km, outside bubble, invisible/unreachable)
 cc96e832 feat(dungeon+mining): mineable asteroid belts in dungeon pockets (30-40 of one ore, temp, cleaned on expiry) + DroneAI::MiningAttack now depletes AttrQuantity and deletes rock when empty (was 'never-depleting ore') + AsteroidSE::Delete null-guard on m_beltMgr
 3ec64963 fix(dungeon): anomaly decorations purely visual — clouds (grp 227/312) + LCO ship Wreckage (grp 226, non-lootable), removed interactive containers/wrecks that rendered as 'gates don't activate, wrecks can't loot, empty containers'
 d52f47a2 fix(destiny): orbit 'TooFar' recomputes approach heading every tick — stale-point early return let ships/NPCs fly toward where the target WAS, distance grew 5->30km ('orbited an NPC', drones followed into space = 'teleport across screen'). Same bug as NPCAI::SetChasing stale point (9d4e8f8c).

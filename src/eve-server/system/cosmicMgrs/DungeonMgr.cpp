@@ -652,6 +652,34 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         23230,   // LCO Serpentis Lookout
         29595,   // LCO Serpentis Elevator
     };
+    // Rogue Drone hive esthetics — industrial high-tech mixed with biomechanical /
+    // insectoid themes. Hives and structures are built from scrap and wreckage:
+    // infested rocks, drone bunkers/watchtowers, shuttle wrecks, broken engine and
+    // twisted metal debris, plus darker habitation modules (attacked/derelict).
+    static const std::vector<uint32> rogueDroneDeco = {
+        30900,   // LCO Drone Structure I
+        2468,    // LCO Drone Structure II
+        26968,   // LCO Drone Bunker
+        29585,   // LCO Drone Barricade
+        29586,   // LCO Drone Barrier
+        29589,   // LCO Drone Battery
+        29590,   // LCO Drone Elevator
+        29591,   // LCO Drone Fence
+        29592,   // LCO Drone Junction
+        29593,   // LCO Drone Lookout
+        29594,   // LCO Drone Wall
+        30513,   // Sleeper Drone Hangar
+        10120,   // Rock - Infested by Rogue Drones
+        10121,   // Small Asteroid w/Drone-tech
+        30436,   // Infested Lookout Ruins
+        10138,   // Spaceshuttle Wreck
+        10140,   // Debris - Broken Engine Part 1
+        10141,   // Debris - Broken Engine Part 2
+        10143,   // Debris - Twisted Metal
+        30802,   // Debris - Crumpled Metal
+        21822,   // LCO Habitation Prison
+        21828,   // LCO Habitation Drughouse
+    };
     // Natural formations — rocks, asteroid colonies, crystal clusters
     static const std::vector<uint32> rockDeco = {
         10120,   // Rock - Infested by Rogue Drones
@@ -694,7 +722,7 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             break;
         }
         case factionRogueDrones: {
-            factionDeco = {30514, 30515, 2121, 2122, 29585, 29589, 29593, 10067, 10232, 10233};
+            factionDeco = rogueDroneDeco;
             decoCount = 12 + MakeRandomInt(0, 8);
             break;
         }
