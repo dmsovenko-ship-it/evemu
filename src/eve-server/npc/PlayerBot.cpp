@@ -4,6 +4,9 @@
 #include "Client.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
+#include "system/cosmicMgrs/BeltMgr.h"
+#include "system/Asteroid.h"
+#include "system/cosmicMgrs/AnomalyMgr.h"
 #include <iterator>
 
 /*
@@ -24,6 +27,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_botSkill(3),
   m_activity(BotActivity::Idle),
   m_role(BotRole::Fighter),
+  m_profession(BotProfession::Miner),
   m_memory(std::make_unique<BotMemory>(charID)),
   m_decisionTimer(0),
   m_travelTimer(0),
@@ -274,6 +278,12 @@ void PlayerBot::Process()
         m_inFight = true;
     }
 
+    // When not fighting or traveling, do the bot's profession activity
+    // (mine/trade/courier/hack). Hunters prowl for targets instead.
+    if (!fighting && !m_traveling && !m_wantsTravel && m_decisionTimer.Check(false)) {
+        DoProfessionActivity();
+    }
+
     if (m_decisionTimer.Check(false)) {
         DecideNextAction();
     }
@@ -296,12 +306,147 @@ void PlayerBot::DecideNextAction()
          m_botName.c_str(), m_botCharID, (uint8)m_activity, SystemMgr()->GetID());
 }
 
+void PlayerBot::DoProfessionActivity()
+{
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return;
+
+    switch (m_profession) {
+        case BotProfession::Hunter: {
+            // Aggressive corp: hunt for legal PvP targets in lowsec/nullsec.
+            HuntForTarget();
+        } break;
+
+        case BotProfession::Miner: {
+            // Peaceful miner: warp to a belt asteroid and sit mining. In a fleet
+            // (same corp) miners cooperate at one belt; guard fighters protect them.
+            BeltMgr* beltMgr = SystemMgr()->GetBeltMgr();
+            if (beltMgr != nullptr) {
+                AsteroidSE* roid = beltMgr->GetAnyAsteroid();
+                if (roid != nullptr && roid->DestinyMgr() != nullptr && !m_destiny->IsWarping()) {
+                    m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed() / 2);
+                    m_destiny->WarpTo(roid->GetPosition(), 1000);
+                    _log(BOT__TRACE, "PlayerBot %s(%u): mining — warping to asteroid %u.",
+                         m_botName.c_str(), m_botCharID, roid->GetID());
+                }
+            }
+            // Cooperative mining: ask corpmates (guards) to cover this miner.
+            RequestFleetProtection();
+        } break;
+
+        case BotProfession::Trader:
+        case BotProfession::Courier: {
+            // Peaceful trader/courier: occasionally move between stations/gates.
+            for (auto& [id, se] : SystemMgr()->GetStaticEntities()) {
+                if (se != nullptr && (se->GetStationSE() != nullptr || se->GetGateSE() != nullptr)) {
+                    if (!m_destiny->IsWarping() && MakeRandomInt(0, 99) < 40) {
+                        m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
+                        m_destiny->WarpTo(se->GetPosition(), 2000);
+                        _log(BOT__TRACE, "PlayerBot %s(%u): %s — moving to station/gate.",
+                             m_botName.c_str(), m_botCharID,
+                             m_profession == BotProfession::Trader ? "trading" : "courier");
+                    }
+                    break;
+                }
+            }
+        } break;
+
+        case BotProfession::Hacker: {
+            // Peaceful hacker: warp to an anomaly site (data/relic) and sit there.
+            if (SystemMgr()->GetAnomMgr() != nullptr && MakeRandomInt(0, 99) < 40) {
+                // AnomalyMgr has signatures; we just drift toward a random one.
+                MarkForTravel();   // simulate running sites between systems
+            }
+        } break;
+    }
+}
+
+void PlayerBot::HuntForTarget()
+{
+    // Aggressive (hunter / PvP war corp): actively seek a legal target.
+    // Legal = in lowsec/nullsec any pilot; in highsec only criminals/low-sec.
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return;
+    float sysSec = SystemMgr()->GetSystemSecurityRating();
+
+    // Only hunt where PvP is viable (lowsec/nullsec mostly; highsec rarely).
+    if (sysSec >= 0.5f && MakeRandomInt(0, 99) >= 5)
+        return;
+
+    // Find a target: enemy PlayerBots in this system that are fighting or idle.
+    SystemEntity* prey = nullptr;
+    int bestScore = 0;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* enemy = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (enemy == nullptr || enemy == this)
+            continue;
+        if (enemy->GetBotCorpID() == m_botCorpID || enemy->GetBotAllianceID() == m_botAllianceID)
+            continue;   // ally
+        // Only hunt other aggressive corps' bots or any bot in null — keep it
+        // from ganking peaceful miners constantly.
+        if (sysSec >= 0.5f && !enemy->IsAggressive())
+            continue;   // highsec: only hunt aggressive targets (both flagged)
+        double d = GetPosition().distance(enemy->GetPosition());
+        if (d > 100000)
+            continue;   // out of hunt range
+        int score = (int)(100000 - d) / 1000;
+        if (score > bestScore) { bestScore = score; prey = enemy; }
+    }
+
+    // If a suitable prey is found, evaluate the fight and engage if favoured.
+    if (prey != nullptr) {
+        PlayerBot* enemyBot = (PlayerBot*)prey;
+        int myClass = GetShipClass(m_self->groupID());
+        int enemyClass = GetShipClass(enemyBot->GetSelf()->groupID());
+        int myPower = myClass * 2 + (int)m_botSkill;
+        int theirPower = enemyClass * 2 + (int)enemyBot->GetBotSkillLevel();
+        if (m_memory)
+            myPower += (int)(m_memory->GetAggression() * 2.0f);
+        if (myPower >= theirPower) {
+            _log(BOT__TRACE, "PlayerBot %s(%u): hunter engaging %s(%u).",
+                 m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID());
+            GetAIMgr()->WakeUp();
+            GetAIMgr()->StartAttackCycle(2000);
+            GetAIMgr()->Target(prey);
+            CallFleetSupport(prey);
+        }
+    }
+}
+void PlayerBot::RequestFleetProtection()
+{
+    // Cooperative behaviour: have same-corp combat pilots (fighter/support)
+    // cover this industrial bot while it mines/hauls. Guards fly to us and stay.
+    if (SystemMgr() == nullptr)
+        return;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* guard = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (guard == nullptr || guard == this)
+            continue;
+        if (guard->GetBotCorpID() != m_botCorpID && guard->GetBotAllianceID() != m_botAllianceID)
+            continue;   // only corpmates guard
+        if (guard->GetProfession() != BotProfession::Hunter)
+            continue;   // only combat-profession bots are guards
+        if (guard->GetAIMgr()->IsFighting() || guard->IsTraveling())
+            continue;
+        if (guard->GetPosition().distance(GetPosition()) > 50000 && MakeRandomInt(0, 99) < 50) {
+            guard->GetAIMgr()->WakeUp();
+            guard->DestinyMgr()->SetMaxVelocity(guard->GetAIMgr()->GetMaxShipSpeed());
+            guard->DestinyMgr()->WarpTo(GetPosition(), 1500);
+            _log(BOT__TRACE, "PlayerBot %s(%u): guard %s(%u) covering industrial.",
+                 m_botName.c_str(), m_botCharID, guard->GetBotName().c_str(), guard->GetBotCharID());
+        }
+    }
+}
+
 void PlayerBot::UseCombatAbilities()
 {
     // Use the bot's full arsenal while fighting: logistics repair allies,
     // commanders apply gang bonuses, support relies on NPCAI EWAR modules
-    // (web/scram/ECM/paint handled in AttackTarget) and fighters just DPS.
-    if (m_role == BotRole::Logistics) {
+    // (web/scram/ECM/paint handled in AttackTarget) and fighters just DPS.    if (m_role == BotRole::Logistics) {
         // Find the most damaged ally in system and remote-repair it.
         PlayerBot* patient = nullptr;
         float lowestHullPct = 2.0f;

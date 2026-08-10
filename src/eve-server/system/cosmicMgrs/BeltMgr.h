@@ -52,6 +52,8 @@ public:
     void CheckSpawn(uint16 bubbleID);
 
     void GetList(uint32 beltID, std::vector< AsteroidSE* >& list);
+    // Returns any asteroid currently in the system (for bot mining simulation).
+    AsteroidSE* GetAnyAsteroid();
 
     void RemoveAsteroid(uint32 beltID, AsteroidSE* pASE);
 

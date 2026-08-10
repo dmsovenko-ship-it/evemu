@@ -72,6 +72,21 @@ public:
     // to the attacker. Returns the chosen SystemEntity* (may be attacker).
     SystemEntity* PickPriorityTarget(SystemEntity* attacker);
 
+    /* bot profession — what this pilot does for a living (mirrors its corp) */
+    enum class BotProfession : uint8 {
+        Hunter = 0,     // aggressive corp: hunts and PvPs (kill rights respected)
+        Miner,          // peaceful: mines asteroid belts
+        Trader,         // peaceful: shuttles between stations (market activity)
+        Courier,        // peaceful: hauls cargo between systems
+        Hacker,         // peaceful: runs data/relic sites
+    };
+    BotProfession GetProfession() const { return m_profession; }
+    void SetProfession(BotProfession p) { m_profession = p; }
+    bool IsAggressive() const           { return m_profession == BotProfession::Hunter; }
+    void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
+    void HuntForTarget();               // aggressive: find a legal PvP target and engage
+    void RequestFleetProtection();      // ask corpmate guards to cover this miner/hauler
+
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
     void CallFleetSupport(SystemEntity* attacker);   // same corp/alliance bots join the fight
@@ -84,6 +99,7 @@ protected:
     uint8 m_botSkill;                   // simulated pilot skill tier (0..5)
     BotActivity m_activity;
     BotRole m_role;                     // combat role assigned at spawn
+    BotProfession m_profession;         // livelihood (hunter/miner/trader/courier/hacker)
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     Timer m_decisionTimer;
     Timer m_travelTimer;                // counts down the visible warp to the gate

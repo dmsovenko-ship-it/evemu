@@ -227,6 +227,13 @@ void BeltMgr::GetList(uint32 beltID, std::vector< AsteroidSE* >& list)
         list.push_back(itr->second);
 }
 
+AsteroidSE* BeltMgr::GetAnyAsteroid()
+{
+    if (m_asteroids.empty())
+        return nullptr;
+    return m_asteroids.begin()->second;
+}
+
     /*
 struct CosmicSignature {
     std::string sigID;  // this is unique xxx-nnn id displayed in scanner
