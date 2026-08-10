@@ -122,18 +122,14 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
                     cdata.schoolID = srow.GetUInt(0);
             }
         }
-        // Random bio: a meme, empty, or advice from a veteran pilot. Ensure it
-        // isn't already used by another character, so bios don't repeat.
+        // Random bio: a meme, a veteran tip, a life story, or (rarely) empty.
+        // Composed from parts so combinations are effectively endless; the
+        // uniqueness check against chrCharacters guarantees absolute uniqueness.
         {
-            static const char* bios[] = {
-                "",                                        // rare: some pilots don't write anything
+            static const char* bioStarts[] = {
                 "Just here for the explosions.",
-                "Fly safe o7",
                 "Never fly what you can't afford to lose.",
-                "It's not a bug, it's a feature.",
-                "Belt mining is a lifestyle.",
-                "Don't be a ganker. Unless it pays.",
-                "AFK in Jita. DM for offers.",
+                "AFK in Jita, DM for offers.",
                 "I rat for a living. Literally.",
                 "One day my ship will come back.",
                 "Solo PvP or nothing.",
@@ -144,36 +140,62 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
                 "My ship has more miles than your pod.",
                 "Nullsec is home.",
                 "o7 capsuleers",
-                "Ask me about my wormhole adventures.",
-                "I mine so you can shoot me.",
-                "Got ganked. Gank back.",
                 "Praise Bob.",
             };
-            const uint8 bioCount = 22;
-            uint8 startIdx = (uint8)MakeRandomInt(0, bioCount - 1);
-            uint8 idx = startIdx;
-            cdata.description = bios[idx];
+            static const char* bioMids[] = {
+                " Lost a Raven to a smartbomb yesterday, 10/10 would fly again.",
+                " Was a miner once. Then I met a ganker named Bob.",
+                " If the gate is red, don't be a hero. Usually.",
+                " My corpmates keep saying the wormhole is safe. It is not.",
+                " I have more pod kills than I have minutes in this game.",
+                " Trading is just PvP with extra steps.",
+                " Scanned my first wormhole solo and only panicked twice.",
+                " I eject before the ship blows. It's called professionalism.",
+                " Been playing since the Crucible days. Still bad at it.",
+                " The market data I sell is 80% guesswork. Don't tell anyone.",
+                " My fitting skills are excellent. My survival skills, less so.",
+                " Cargo full of skill books. Finally profitable.",
+                " Docked in Jita IV. The view never gets old.",
+            };
+            static const char* bioEnds[] = {
+                " Fly safe, or fly dangerous — just fly.",
+                " Don't gank my hauler, I'm the one selling your ammo.",
+                " Ask me about my wormhole adventures.",
+                " I mine so you can shoot me.",
+                " Got ganked. Gank back.",
+                " Praise Bob.",
+                " o7",
+                " Contact me for cheap freight.",
+                " Yes, I take contracts.",
+                " No, I don't haul explosives. Ask again.",
+                " Semi-retired, but the isk is too good.",
+                " This bio is not sponsored.",
+            };
             DBQueryResult bres;
-            for (uint8 tryIdx = 0; tryIdx < bioCount; ++tryIdx) {
-                // Empty bio is always "free" — skip the uniqueness check for it.
-                if (!cdata.description.empty()) {
-                    std::string esc;
-                    sDatabase.DoEscapeString(esc, cdata.description);
-                    if (!sDatabase.RunQuery(bres,
-                        "SELECT COUNT(*) FROM chrCharacters WHERE description = '%s'", esc.c_str())) {
-                        break;   // query failed — accept current bio
-                    }
+            for (uint8 tryIdx = 0; tryIdx < 64; ++tryIdx) {
+                // 2% chance of an empty bio (rare), otherwise compose a long one.
+                if (MakeRandomInt(0, 49) == 0) {
+                    cdata.description = "";
+                    break;
+                }
+                cdata.description = std::string(bioStarts[MakeRandomInt(0, 12)])
+                                  + bioMids[MakeRandomInt(0, 12)]
+                                  + " "
+                                  + bioEnds[MakeRandomInt(0, 11)];
+                if (cdata.description.size() > 295)
+                    cdata.description.resize(295);
+                // Absolute uniqueness: retry until this exact text is unused.
+                std::string esc;
+                sDatabase.DoEscapeString(esc, cdata.description);
+                if (sDatabase.RunQuery(bres,
+                    "SELECT COUNT(*) FROM chrCharacters WHERE description = '%s'", esc.c_str())) {
                     DBResultRow brow;
                     uint32 used = 1;
                     if (bres.GetRow(brow))
                         used = brow.GetUInt(0);
                     if (used == 0)
-                        break;   // this bio is free — use it
-                } else {
-                    break;   // empty bio is fine
+                        break;
                 }
-                idx = (uint8)((idx + 1) % bioCount);
-                cdata.description = bios[idx];
             }
         }
         cdata.securityRating = 0.5f;
