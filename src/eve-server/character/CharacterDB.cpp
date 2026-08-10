@@ -183,6 +183,28 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
             charID, skillTypeID, finalLvl, skill->GetSPForLevel(finalLvl));
     }
 
+    // Give the bot a default portrait so the client shows an avatar (not blank).
+    // Neutral/random background + neutral face. Clients request this via
+    // paperDollServer.GetPaperDollPortraitData.
+    {
+        DBerror perr;
+        if (!sDatabase.RunQuery(perr,
+            "INSERT INTO chrPortraitData"
+            " (charID, backgroundID, lightID, lightColorID, cameraX, cameraY, cameraZ,"
+            "  cameraPoiX, cameraPoiY, cameraPoiZ, headLookTargetX, headLookTargetY, headLookTargetZ,"
+            "  lightIntensity, headTilt, orientChar, browLeftCurl, browLeftTighten, browLeftUpDown,"
+            "  browRightCurl, browRightTighten, browRightUpDown, eyeClose, eyesLookVertical, eyesLookHorizontal,"
+            "  squintLeft, squintRight, jawSideways, jawUp, puckerLips, frownLeft, frownRight, smileLeft, smileRight,"
+            "  cameraFieldOfView, portraitPoseNumber)"
+            " VALUES (%u, %u, %u, %u, 0,0,0, 0,0,0, 0,0,0, 1, 0,0, 0,0,0, 0,0,0, 0,0,0, 0,0, 0,0, 0, 0,0, 0,0,"
+            " %f, %f)",
+            charID, MakeRandomInt(0, 30) /*background*/, 0 /*light*/, 0 /*lightColor*/,
+            30.0f /*fov*/, MakeRandomInt(0, 8) /*pose*/))
+        {
+            codelog(DATABASE__ERROR, "CreateBotCharacter: portrait insert failed for %u: %s", charID, perr.c_str());
+        }
+    }
+
     // Persist the accumulated skill points on the character row.
     sDatabase.RunQuery(res,
         "UPDATE chrCharacters SET skillPoints = %u WHERE characterID = %u", cdata.skillPoints, charID);
