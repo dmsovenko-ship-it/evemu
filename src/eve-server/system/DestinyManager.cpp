@@ -1311,13 +1311,31 @@ void DestinyManager::Follow() {
         return;
     }
 
-    // ---- normal follow / approach ----
-    // Ensure a minimum deceleration distance so ships don't overshoot at high speed.
-    // When followDistance is 0 (manual approach), use a sensible default.
+    // ---- normal follow / approach / keep at range ----
+    // Approach (followDistance 0): fly to target and stop close.
+    // Keep at Range (followDistance > 0): hold the commanded distance — chase if
+    // the target pulls away, retreat if it comes too close, and match its speed
+    // within the dead zone so the gap is preserved.
     uint32 decelDist = m_followDistance;
     if (decelDist == 0)
         decelDist = 500;
     const double exitDist = (double)decelDist * 1.5;
+
+    // Keep at Range: target closer than ~70% of commanded distance → fly away.
+    if (decelDist > 0 && rawDist < (double)decelDist * 0.7) {
+        // heading is toward the target; invert it to retreat while the target
+        // approaches, then re-approach once back at range.
+        GVector away(m_position, target_point);
+        away.normalize();
+        m_shipHeading = away * -1.0;
+        m_shipHeading.normalize();
+        m_targetPoint = m_position + (m_shipHeading * 1000.0);
+        if (m_userSpeedFraction < 1.0f)
+            SetSpeedFraction(std::min(1.0f, m_userSpeedFraction + 0.15f));
+        MoveObject();
+        return;
+    }
+
     const double targetSpeed = (rawDist <= (double)decelDist) ? 0.0 : 1.0;
 
     if (rawDist <= exitDist && m_userSpeedFraction > targetSpeed + 0.05f) {
@@ -1327,8 +1345,6 @@ void DestinyManager::Follow() {
         SetSpeedFraction(newSpeed);
     } else if (rawDist <= (double)decelDist) {
         // At the follow distance — stop completely instead of drifting past.
-        // Keep at Range / Approach must hold the ship at the commanded distance;
-        // without this the ship keeps crawling forward (slow decel) and drifts.
         SetSpeedFraction(0.0f);
         m_velocity = NULL_ORIGIN_V;
         m_activeSpeedFraction = m_userSpeedFraction = m_timeFraction = m_prevSpeedFraction = 0.0f;
@@ -1351,6 +1367,24 @@ void DestinyManager::Follow() {
     // when very close to a static target, coast to a gentle stop
     if (decelDist > 0 && rawDist < (double)decelDist * 0.5 && !m_targetEntity.second->IsDynamicEntity()) {
         SetSpeedFraction(std::min(m_userSpeedFraction, 0.1f));
+    }
+
+    // Keep at Range dead zone: within the commanded distance AND the target is a
+    // moving entity — match its velocity so the gap is preserved while it moves.
+    // Without this the ship parks and the target sails off (or runs into us).
+    if (decelDist > 0
+        && m_targetEntity.second->IsDynamicEntity()
+        && m_targetEntity.second->DestinyMgr() != nullptr) {
+        GVector targetVel = m_targetEntity.second->DestinyMgr()->GetVelocity();
+        double targetSpeed = targetVel.length();
+        if (targetSpeed > 1.0) {
+            // copy the target's velocity so we hold position relative to it
+            m_velocity = targetVel;
+            m_shipHeading = targetVel / targetSpeed;
+            m_targetPoint = m_position + m_velocity;
+            MoveObject();
+            return;
+        }
     }
 
     heading.normalize();
