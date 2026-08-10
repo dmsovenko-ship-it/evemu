@@ -43,6 +43,10 @@ public:
     // Top up bots in a freshly-loaded system that has real players.
     void PopulateSystem(SystemManager* pSystem);
 
+    // Docked bots at a station, for the station "pilots at station" (GetGuests).
+    struct GuestInfo { uint32 charID, corpID, allianceID, warFactionID; };
+    void GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) const;
+
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID);
     // Spawn a bot in `origin` and make it fly to `destSystem`'s gate (arrival
@@ -78,9 +82,6 @@ private:
     void ProcessEconomy(PlayerBot* bot);
     void PayCorpTax(PlayerBot* bot);
     void PlaceBotOrder(PlayerBot* bot);
-    // Docked bots at a station, for the station "pilots at station" (GetGuests).
-    struct GuestInfo { uint32 charID, corpID, allianceID, warFactionID; };
-    void GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) const;
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();
