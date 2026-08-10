@@ -103,9 +103,8 @@ public:
     // Creates a simulated player ("bot") as a real character row: chrCharacters,
     // entity skills, skill history, employment — exactly like a live pilot, so the
     // bot's legend and progress (SP, skills, balance, corp history) persist.
-    // If forceCharID != 0 the character is created with that exact ID (e.g. the
-    // killmail character id); otherwise a fresh id is allocated.
-    static uint32 CreateBotCharacter(std::string name, uint32 corpID, uint32 allianceID, uint8 skillTier, uint32 forceCharID = 0);
+    // The character id is allocated normally (sequential free id), like any player.
+    static uint32 CreateBotCharacter(std::string name, uint32 corpID, uint32 allianceID, uint8 skillTier);
     static bool GetCharacterData(uint32 characterID, CharacterData &into);
     static void GetCharacterDataMap(uint32 charID, std::map<std::string, int64> &characterDataMap);
     static bool GetCharHomeStation(uint32 charID, uint32 &stationID);

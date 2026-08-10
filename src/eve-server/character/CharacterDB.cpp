@@ -68,26 +68,10 @@ uint32 CharacterDB::NewCharacter(const CharacterData& data, const CorpData& corp
 // entity skills, skill history, employment — exactly like a live pilot so the
 // bot's legend and progress (SP, skills, balance, corp history) persist across
 // restarts. skillTier 0=rookie .. 5=elite sets the trained skill levels.
-// If forceCharID != 0 and that character doesn't exist yet, it's created with
-// that exact ID (used for killmail-sourced legends).
-uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 allianceID, uint8 skillTier, uint32 forceCharID) {
+// The character id is allocated normally (last-insert-id), like any player.
+uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 allianceID, uint8 skillTier) {
     if (skillTier > 5) skillTier = 5;
 
-    // Only honour a forced ID if it falls in the server's character range;
-    // killmail character ids (real EVE) are outside it, so fall back to a fresh id.
-    if (forceCharID != 0 && !IsCharacterID(forceCharID))
-        forceCharID = 0;
-
-    // If the requested ID already exists (e.g. a previously-created bot that was
-    // cleaned), reuse it — no need to create skills/portrait again.
-    if (forceCharID != 0) {
-        DBQueryResult ex;
-        if (sDatabase.RunQuery(ex, "SELECT characterID FROM chrCharacters WHERE characterID = %u", forceCharID)) {
-            DBResultRow erow;
-            if (ex.GetRow(erow))
-                return forceCharID;
-        }
-    }
     // De-duplicate by name: if a bot with this exact name already exists
     // (from a previous spawn), reuse its character row.
     {
@@ -184,38 +168,9 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
     cdata.locationID = cdata.stationID;
     corpData.baseID = cdata.stationID;
 
-    uint32 charID = 0;
-    if (forceCharID != 0) {
-        // Insert with the requested ID (killmail legend) so the bot's identity
-        // matches the real EVE pilot id.
-        DBerror ierr;
-        std::string nameEsc;
-        sDatabase.DoEscapeString(nameEsc, cdata.name);
-        if (!sDatabase.RunQuery(ierr,
-            "INSERT INTO chrCharacters"
-            "  (characterID, accountID, characterName, typeID, locationID, description, balance, aurBalance,"
-            "   logonDateTime, corpAccountKey, createDateTime, title,"
-            "   ancestryID, bloodlineID, raceID, careerID, schoolID, careerSpecialityID, gender,"
-            "   stationID, solarSystemID, constellationID, regionID, freeRespecs)"
-            " VALUES"
-            "  (%u, 0, '%s', %u, %u, 'Simulated pilot.', %f, 0,"
-            "   %f, %u, %f, 'No Title',"
-            "   %u, %u, %u, %u, %u, %u, %u,"
-            "   %u, %u, %u, %u, 2)",
-            forceCharID, nameEsc.c_str(), cdata.typeID, cdata.locationID, cdata.balance,
-            (double)GetFileTimeNow(), corpData.corpAccountKey, (double)GetFileTimeNow(),
-            cdata.ancestryID, cdata.bloodlineID, cdata.raceID, cdata.careerID,
-            cdata.schoolID, cdata.careerSpecialityID, cdata.gender,
-            cdata.stationID, cdata.solarSystemID, cdata.constellationID, cdata.regionID))
-        {
-            codelog(DATABASE__ERROR, "CreateBotCharacter: forced-id insert failed for %u: %s", forceCharID, ierr.c_str());
-            return 0;
-        }
-        charID = forceCharID;
-        AddEmployment(charID, corpData.corporationID);
-    } else {
-        charID = NewCharacter(cdata, corpData);
-    }
+    // Allocate the character id the normal way (last-insert-id), exactly like a
+    // real player creation — bots get sequential free ids, not forced ones.
+    uint32 charID = NewCharacter(cdata, corpData);
     if (!IsCharacterID(charID)) {
         _log(CHARACTER__ERROR, "CreateBotCharacter: failed to insert bot '%s'.", name.c_str());
         return 0;
