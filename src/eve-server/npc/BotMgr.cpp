@@ -277,7 +277,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
 
     // Join the system's local channel so the bot shows up in local chat.
     if (sConfig.playerBots.Enabled) {
-        LSCService* lsc = &LSCService::get();
+        LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
         if (lsc != nullptr) {
             LSCChannel* chan = lsc->GetChannelByID((int32)pSystem->GetID());
             if (chan != nullptr)
@@ -345,7 +345,7 @@ void BotMgr::ProcessTravel()
                  name.c_str(), charID, destSystem, pSystem->GetID());
 
             // Remove from the local channel and the old system.
-            LSCService* lsc = &LSCService::get();
+            LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
             if (lsc != nullptr) {
                 LSCChannel* chan = lsc->GetChannelByID((int32)pSystem->GetID());
                 if (chan != nullptr)
@@ -493,7 +493,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         return;
 
     // Post the reply to the system's local channel as this bot.
-    LSCService* lsc = &LSCService::get();
+    LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
     if (lsc == nullptr) return;
     LSCChannel* chan = lsc->GetChannelByID(channelID);
     if (chan != nullptr)

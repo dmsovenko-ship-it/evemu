@@ -95,11 +95,6 @@ void PlayerBot::Process()
         m_decisionTimer.Start(15000);   // re-evaluate every ~15s
 }
 
-void PlayerBot::MarkForTravel()
-{
-    m_wantsTravel = true;
-}
-
 void PlayerBot::DecideNextAction()
 {
     // Hook for BotMgr. Placeholder for the state machine that will be wired

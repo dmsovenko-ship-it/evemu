@@ -1,5 +1,6 @@
 #include "eve-server.h"
 #include "npc/BotChat.h"
+#include "EVEServerConfig.h"
 
 #include <cstdio>
 #include <cstdlib>
