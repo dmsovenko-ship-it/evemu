@@ -593,9 +593,23 @@ void NPCAIMgr::SetAmbush(bool ambush)
         // do its normal wide-area player scan.
         m_isWandering = false;
         m_destiny->Stop();
-        // Stagger the rats: each one 'wakes' after a random 0.5-5s delay so the
-        // ambush springs in a wave, not all rats bursting out at once.
-        m_ambushWakeTimer.Start(MakeRandomInt(500, 5000));
+        // Stagger the rats by ROLE for drama — the ambush unfolds in waves:
+        //   brawlers (short-range, scram/web) burst out of cover first (0.5-3s)
+        //   ranged/missile rats hold position longer, then come in (3-8s)
+        //   big ships / officers reveal LAST (adds 5-12s) — they enter when the
+        //   first wave has already drawn the player's fire.
+        uint32 wakeDelay;
+        if (m_missileTypeID > 0 || m_optimalRange > 25000) {
+            wakeDelay = MakeRandomInt(3000, 8000);
+        } else {
+            wakeDelay = MakeRandomInt(500, 3000);
+        }
+        if (m_self->HasAttribute(AttrRadius)) {
+            float r = m_self->GetAttribute(AttrRadius).get_float();
+            if (r >= 550)   // battleship/capital — officer/commander presence
+                wakeDelay += MakeRandomInt(5000, 12000);
+        }
+        m_ambushWakeTimer.Start(wakeDelay);
         // If a player is in the system but never comes within sight range, the
         // rat eventually gives up hiding and patrols (keeps the site alive).
         m_ambushTimeout.Start(60000);
