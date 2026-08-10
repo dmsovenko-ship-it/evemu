@@ -113,7 +113,7 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
 
     if (mayAttack && myPower >= theirPower - 1) {
         // Legal and confident — fight back (NPCAI handles targeting/attack).
-        m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxSpeed());
+        m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
         GetAIMgr()->WakeUp();
         GetAIMgr()->StartAttackCycle(2000);
         // Intelligent fleet support: call allies (same corp or same alliance)
