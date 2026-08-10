@@ -212,6 +212,9 @@ private:
     Timer m_ecmTimer;
     Timer m_paintTimer;
     Timer m_smartbombTimer;
+
+    Timer m_ambushWakeTimer;    // stagger: how long this rat stays in cover before reacting
+    Timer m_ambushTimeout;      // how long before a hidden rat gives up and patrols
 };
 
 #endif

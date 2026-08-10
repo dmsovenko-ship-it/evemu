@@ -63,6 +63,8 @@ NPCAIMgr::NPCAIMgr(NPC* who)
   m_beginFindTarget(0),
   m_warpScramblerTimer(0),
   m_webifierTimer(0),
+  m_ambushWakeTimer(0),
+  m_ambushTimeout(0),
   m_missileTypeID(0),
   m_webber(false),
   m_warpScram(false),
@@ -367,12 +369,33 @@ void NPCAIMgr::Process() {
             if (m_self->groupID() == EVEDB::invGroups::Customs_Official)
                 return;
             // Anomaly ambush: NPCs hold position in cover (no wander, no wide-area
-            // scan) until a player gets close — then they fly out of hiding and
+            // scan) until they spot a player — then they fly out of hiding and
             // converge. This replaces the old "pile of rats scattering at warp-in".
+            //
+            // Two-phase response, depending on how far away the player landed:
+            //   <= 30km  -> classic ambush: burst out of cover and engage right away
+            //   <= sight -> spotted from afar: leave cover and move to intercept
+            //              (ship approaches, orbit/attack begins when in range)
+            //   beyond sight -> stay hidden until the player gets closer
             if (m_isAmbush) {
-                uint32 scanRange = std::min(m_sightRange, (uint32)30000);
+                // Still lying in cover — staggered wake-up so the rats spring as a wave.
+                if (m_ambushWakeTimer.Enabled() && !m_ambushWakeTimer.Check(false))
+                    return;
+                // Nobody came close for a while — leave cover and patrol the site
+                // so it doesn't sit as a pile of static crosses.
+                if (m_ambushTimeout.Enabled() && m_ambushTimeout.Check(false)) {
+                    _log(NPC__AI_TRACE, "%s(%u): Ambush timed out — leaving cover to patrol.",
+                         m_npc->GetName(), m_npc->GetID());
+                    m_isAmbush = false;
+                    SetIdle();
+                    return;
+                }
+                uint32 ambushRange = std::min(m_sightRange, (uint32)30000);
                 std::vector<Client*> clientVec;
                 m_npc->SysBubble()->GetPlayers(clientVec);
+                Client* pClose = nullptr;
+                Client* pFar = nullptr;
+                double closeDist = 0.0, farDist = 0.0;
                 for (auto cur : clientVec) {
                     if (cur->IsInvul())
                         continue;
@@ -383,21 +406,39 @@ void NPCAIMgr::Process() {
                     DestinyManager* pDestiny = cur->GetShipSE()->DestinyMgr();
                     if (pDestiny == nullptr || pDestiny->IsCloaked() || pDestiny->IsWarping())
                         continue;
-                    if (m_npc->GetPosition().distance(cur->GetShipSE()->GetPosition()) > scanRange)
-                        continue;
+                    double d = m_npc->GetPosition().distance(cur->GetShipSE()->GetPosition());
+                    if (d > m_sightRange)
+                        continue;   // beyond sight — ignore for now
                     // Faction patrols only aggro players with negative standing
                     if (m_npc->GetWarFactionID() > 0) {
                         if (StandingDB::GetStanding(m_npc->GetWarFactionID(), cur->GetCharacterID()) >= 0.0f)
                             continue;
                     }
-                    _log(NPC__AI_TRACE, "%s(%u): AMBUSH sprung — %s(%u) at %.0fm, flying out of cover.",
-                         m_npc->GetName(), m_npc->GetID(), cur->GetName(), cur->GetCharacterID(),
-                         m_npc->GetPosition().distance(cur->GetShipSE()->GetPosition()));
+                    if (d <= ambushRange) {
+                        // pick the NEAREST ambush-range player
+                        if (pClose == nullptr || d < closeDist) { pClose = cur; closeDist = d; }
+                    } else {
+                        // pick the NEAREST far player (within sight, outside ambush)
+                        if (pFar == nullptr || d < farDist) { pFar = cur; farDist = d; }
+                    }
+                }
+                if (pClose != nullptr) {
+                    _log(NPC__AI_TRACE, "%s(%u): AMBUSH sprung — %s(%u) at %.0fm, bursting out of cover.",
+                         m_npc->GetName(), m_npc->GetID(), pClose->GetName(), pClose->GetCharacterID(), closeDist);
                     m_isAmbush = false;
-                    Target(cur->GetShipSE());
+                    Target(pClose->GetShipSE());
                     return;
                 }
-                return;   // no one in range yet — stay hidden
+                if (pFar != nullptr) {
+                    _log(NPC__AI_TRACE, "%s(%u): Spotted %s(%u) at %.0fm — leaving cover to intercept.",
+                         m_npc->GetName(), m_npc->GetID(), pFar->GetName(), pFar->GetCharacterID(), farDist);
+                    m_isAmbush = false;
+                    // Target() handles both cases: too far -> SetChasing (intercept),
+                    // in range -> CheckDistance/SetEngaged. Attack timers arm there.
+                    Target(pFar->GetShipSE());
+                    return;
+                }
+                return;   // nobody in sight yet — stay hidden
             }
             if (m_beginFindTarget.Check()) {
                 std::vector<Client*> clientVec;
@@ -552,6 +593,15 @@ void NPCAIMgr::SetAmbush(bool ambush)
         // do its normal wide-area player scan.
         m_isWandering = false;
         m_destiny->Stop();
+        // Stagger the rats: each one 'wakes' after a random 0.5-5s delay so the
+        // ambush springs in a wave, not all rats bursting out at once.
+        m_ambushWakeTimer.Start(MakeRandomInt(500, 5000));
+        // If a player is in the system but never comes within sight range, the
+        // rat eventually gives up hiding and patrols (keeps the site alive).
+        m_ambushTimeout.Start(60000);
+    } else {
+        m_ambushWakeTimer.Disable();
+        m_ambushTimeout.Disable();
     }
 }
 
