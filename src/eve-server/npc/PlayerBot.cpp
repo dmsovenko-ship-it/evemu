@@ -37,7 +37,9 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_destSystemID(0),
   m_abilityTimer(0),
   m_activityTimer(0),
-  m_inFight(false)
+  m_inFight(false),
+  m_wantsDock(false),
+  m_mineTrips(0)
 {
     // A player-like legend: give this NPC a neutral alliance so it doesn't show
     // red crosshairs and isn't auto-aggroed by faction standing checks. The
@@ -374,12 +376,30 @@ void PlayerBot::DoProfessionActivity()
             }
             // Cooperative mining: ask corpmates (guards) to cover this miner.
             RequestFleetProtection();
+            // End of mining run: head to the station to refine the ore. Experienced
+            // miners haul more ore per trip (self-learning), so longer runs.
+            float runLen = 2.0f + practice * 6.0f;   // 2..8 trips between docks
+            if (m_mineTrips >= runLen) {
+                m_mineTrips = 0;
+                RequestDock();
+                _log(BOT__TRACE, "PlayerBot %s(%u): ore hold full — docking to refine/sell.",
+                     m_botName.c_str(), m_botCharID);
+            } else {
+                ++m_mineTrips;
+            }
         } break;
 
         case BotProfession::Trader:
         case BotProfession::Courier: {
-            // Peaceful trader/courier: occasionally move between stations/gates.
-            // Experienced traders route more often (self-learning).
+            // Peaceful trader/courier: mostly WORK the station — sit at the
+            // market, occasionally head out. Experienced traders route more often.
+            if (m_profession == BotProfession::Trader) {
+                // Traders live at the station; short excursions between orders.
+                if (MakeRandomInt(0, 99) < (int)(70 + practice * 20))
+                    RequestDock();   // sitting at the market, buying/selling
+                else
+                    ClearDockRequest();
+            }
             for (auto& [id, se] : SystemMgr()->GetStaticEntities()) {
                 if (se != nullptr && (se->GetStationSE() != nullptr || se->GetGateSE() != nullptr)) {
                     if (!m_destiny->IsWarping() && MakeRandomInt(0, 99) < (int)chanceBoost) {

@@ -916,9 +916,10 @@ void BotMgr::ProcessDocking()
             ++it;
     }
 
-    // 2) Dock some space bots: remove their SE, keep them in local as docked.
+    // 2) Dock space bots: remove their SE, keep them in local as docked.
     //    Only dock bots that are NOT mid-travel, so we don't interrupt the
-    //    visible gate flight.
+    //    visible gate flight. Bots that WANT to dock (end of mining run, traders
+    //    at the market) dock immediately; others dock occasionally.
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
         if (pSystem == nullptr || pSystem->PlayerCount() < 1)
             continue;
@@ -929,7 +930,9 @@ void BotMgr::ProcessDocking()
             PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
             if (pb == nullptr || pb->WantsToTravel())
                 continue;
-            if (MakeRandomInt(0, 599) == 0)   // ~0.17% per tic decides to dock
+            if (pb->WantsDock())
+                toDock.push_back(pb);                       // profession wants the station now
+            else if (MakeRandomInt(0, 599) == 0)            // occasional dock
                 toDock.push_back(pb);
         }
         for (PlayerBot* pb : toDock) {
@@ -938,10 +941,14 @@ void BotMgr::ProcessDocking()
                 db.name = pb->GetBotName();
                 db.corpID = pb->GetBotCorpID();
                 db.allianceID = pb->GetBotAllianceID();
-                db.undockAt = now + MakeRandomInt(60, 900);   // docked for 1-15 min
+                // Traders/market guys sit longer; miners refine/sell quickly then head out.
+                db.undockAt = now + (pb->GetProfession() == PlayerBot::BotProfession::Trader
+                                     ? MakeRandomInt(300, 1800)    // 5-30 min at market
+                                     : MakeRandomInt(30, 300));    // 0.5-5 min for everyone else
             m_docked[pSystem->GetID()].push_back(db);
             _log(BOT__MESSAGE, "BotMgr: %s(%u) docking at station in system %u.",
                  db.name.c_str(), db.charID, pSystem->GetID());
+            pb->ClearDockRequest();
             pb->Delete();   // remove from space; stays in local channel as docked
         }
     }

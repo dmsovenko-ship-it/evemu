@@ -91,6 +91,10 @@ public:
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
     void ClaimSystem();                 // PvP war corps: claim unowned nullsec system (skirmish)
     void RequestFleetProtection();      // ask corpmate guards to cover this miner/hauler
+    // Wants to dock (end a mining run, trader works the station, etc.).
+    void RequestDock()                  { m_wantsDock = true; }
+    void ClearDockRequest()             { m_wantsDock = false; }
+    bool WantsDock() const              { return m_wantsDock; }
 
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
@@ -114,6 +118,8 @@ protected:
     Timer m_abilityTimer;               // logistics/EWAR/bonus tick
     Timer m_activityTimer;              // profession run counter (self-learning)
     bool m_inFight;                     // true while fighting (to record outcomes)
+    bool m_wantsDock;                   // true when the bot wants to dock (profession)
+    uint8 m_mineTrips;                  // mining runs since last dock (ore haul)
 };
 
 #endif
