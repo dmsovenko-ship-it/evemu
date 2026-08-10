@@ -248,6 +248,9 @@ boolean can use either 0/1 OR true/false.
         <AggroFactor>0</AggroFactor><!-- int - % confidence +/- when a bot decides to fight or flee (0 = fair fight) -->
         <MinSkillLevel>3</MinSkillLevel><!-- int - min skill tier for simulated pilots (0=rookie .. 5=elite) -->
         <MaxSkillLevel>5</MaxSkillLevel><!-- int - max skill tier for simulated pilots (0=rookie .. 5=elite) -->
+        <ChatEnabled>false</ChatEnabled><!-- bool - enable DeepSeek-powered bot chat in local -->
+        <DeepSeekKey></DeepSeekKey><!-- string - DeepSeek API key for bot chat -->
+        <DeepSeekURL>https://api.deepseek.com/chat/completions</DeepSeekURL><!-- string - DeepSeek API endpoint -->
     </playerBots>
 
     <crime><!-- not implemented yet -->
