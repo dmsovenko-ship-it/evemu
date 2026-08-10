@@ -470,7 +470,65 @@ void PlayerBot::DoProfessionActivity()
                 MarkForTravel();   // simulate running sites between systems
             }
         } break;
+
+        case BotProfession::Explorer: {
+            // Wormhole/scan explorer: deploys probes, finds signatures and
+            // wormholes, works them, hauls loot to the hub. Explores null/w-space.
+            ScanForSites();
+        } break;
     }
+}
+
+void PlayerBot::ScanForSites()
+{
+    // Explorer: scan for signatures / wormholes, work them, haul loot to the hub.
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return;
+    if (m_destiny->IsWarping())
+        return;
+
+    // Find a wormhole in this system to work.
+    SystemEntity* target = nullptr;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se->GetWormholeSE() == nullptr)
+            continue;
+        target = se;
+        break;
+    }
+    // Else an anomaly/site.
+    if (target == nullptr) {
+        for (auto& [id, se] : SystemMgr()->GetEntities()) {
+            if (se == nullptr || se->GetAnomalySE() == nullptr)
+                continue;
+            target = se;
+            break;
+        }
+    }
+
+    if (target != nullptr) {
+        double d = GetPosition().distance(target->GetPosition());
+        if (d > 5000 && !m_destiny->IsWarping()) {
+            m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
+            m_destiny->WarpTo(target->GetPosition(), 1500);
+            _log(BOT__TRACE, "PlayerBot %s(%u): explorer — scanning/warping to site %s.",
+                 m_botName.c_str(), m_botCharID, target->GetName());
+            return;
+        }
+        // Standing at the site: "scanning" earns loot. Record the run.
+        if (m_memory && MakeRandomInt(0, 99) < 20) {
+            m_memory->RecordHackRun();
+            m_memory->Save();
+        }
+        // After several scans, haul the loot back to the hub to sell.
+        if (m_mineTrips++ > 5) {
+            m_mineTrips = 0;
+            RequestDock();   // go home, sell the loot
+        }
+        return;
+    }
+    // No sites here — move on (explore another system).
+    if (MakeRandomInt(0, 99) < 40)
+        MarkForTravel();
 }
 
 void PlayerBot::HuntForTarget()

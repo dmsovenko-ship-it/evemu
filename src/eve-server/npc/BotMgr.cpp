@@ -282,14 +282,16 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             prof = PlayerBot::BotProfession::Hunter;       // PvP pirates / war corps / guards
         else if (p < 0.25f)
             prof = PlayerBot::BotProfession::RatHunter;    // peaceful PvE (red crosses only)
-        else if (p < 0.55f)
+        else if (p < 0.50f)
             prof = PlayerBot::BotProfession::Miner;        // miners (co-op with guards)
-        else if (p < 0.65f)
+        else if (p < 0.60f)
             prof = PlayerBot::BotProfession::Trader;       // market / station traders
-        else if (p < 0.85f)
+        else if (p < 0.80f)
             prof = PlayerBot::BotProfession::Courier;      // couriers: haul to/from hub
-        else
+        else if (p < 0.90f)
             prof = PlayerBot::BotProfession::Hacker;       // data/relic sites
+        else
+            prof = PlayerBot::BotProfession::Explorer;     // probes / wormholes
     }
 
     // Corp: realistic distribution (main corp + a few smaller). If the killmail
@@ -496,7 +498,8 @@ void BotMgr::ProcessTravel()
                 uint32 hub = GetTradeHubSystem();
                 bool wantsHub = (pb->GetProfession() == PlayerBot::BotProfession::Trader
                               || pb->GetProfession() == PlayerBot::BotProfession::Courier
-                              || pb->GetProfession() == PlayerBot::BotProfession::Miner);
+                              || pb->GetProfession() == PlayerBot::BotProfession::Miner
+                              || pb->GetProfession() == PlayerBot::BotProfession::Explorer);
                 if (wantsHub && hub != 0 && hub != pSystem->GetID() && MakeRandomInt(0, 99) < 70)
                     destSystem = hub;
                 else

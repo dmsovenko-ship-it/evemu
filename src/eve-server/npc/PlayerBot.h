@@ -82,6 +82,7 @@ public:
         Trader,         // peaceful: shuttles between stations (market activity)
         Courier,        // peaceful: hauls cargo between systems
         Hacker,         // peaceful: runs data/relic sites
+        Explorer,       // peaceful: scans probes, finds signatures & wormholes
     };
     BotProfession GetProfession() const { return m_profession; }
     void SetProfession(BotProfession p) { m_profession = p; }
@@ -91,6 +92,7 @@ public:
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
     void ClaimSystem();                 // PvP war corps: claim unowned nullsec system (skirmish)
     void RequestFleetProtection();      // ask corpmate guards to cover this miner/hauler
+    void ScanForSites();                // explorer: scan probes, find signatures/wormholes
     // Wants to dock (end a mining run, trader works the station, etc.).
     void RequestDock()                  { m_wantsDock = true; }
     void ClearDockRequest()             { m_wantsDock = false; }
