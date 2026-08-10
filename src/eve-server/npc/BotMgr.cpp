@@ -5,6 +5,8 @@
 #include "npc/NPC.h"
 #include "EntityList.h"
 #include "system/SystemManager.h"
+#include "corporation/CorporationDB.h"
+#include "character/CharacterDB.h"
 
 /*
  * @file BotMgr.cpp
@@ -76,30 +78,104 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
         SpawnBot(pSystem, 0, "", 0, 0);
 }
 
+uint32 BotMgr::PickCorp(uint32& allianceID)
+{
+    // Realistic corp distribution: a few "main" corps hold most bots, a couple
+    // of smaller ones the rest. Weight by existing member count so the biggest
+    // corp naturally takes the largest share — just like live EVE. Bots are
+    // persisted as real members, so the distribution self-organizes over time.
+    DBQueryResult res;
+    std::vector<std::pair<uint32,uint32>> corps;   // corpID, allianceID
+    std::vector<uint32> weights;                    // members+1 per corp
+
+    if (sDatabase.RunQuery(res,
+        "SELECT c.corporationID, c.allianceID, COUNT(ch.characterID) AS members"
+        " FROM crpCorporation c"
+        " LEFT JOIN chrCharacters ch ON ch.corporationID = c.corporationID"
+        " GROUP BY c.corporationID"
+        " HAVING members >= 1"      // only corps that already have members
+        " ORDER BY members DESC"
+        " LIMIT 12"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            uint32 corpID = row.GetUInt(0);
+            uint32 allyID = row.GetUInt(1);
+            uint32 members = row.GetUInt(2);
+            corps.emplace_back(corpID, allyID);
+            weights.push_back(members + 1);
+        }
+    }
+
+    if (corps.empty()) {
+        // No corps with members yet — fall back to any corp in the DB.
+        if (sDatabase.RunQuery(res,
+            "SELECT corporationID, allianceID FROM crpCorporation LIMIT 1")) {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                allianceID = row.GetUInt(1);
+                return row.GetUInt(0);
+            }
+        }
+        allianceID = 0;
+        return 0;
+    }
+
+    // Weighted random pick (weights = member counts).
+    uint32 total = 0;
+    for (uint32 w : weights) total += w;
+    uint32 roll = MakeRandomInt(0, total - 1);
+    for (size_t i = 0; i < corps.size(); ++i) {
+        if (roll < weights[i]) {
+            allianceID = corps[i].second;
+            return corps[i].first;
+        }
+        roll -= weights[i];
+    }
+    allianceID = corps[corps.size()-1].second;
+    return corps[corps.size()-1].first;
+}
+
 void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID)
 {
-    // Pull a random agent identity (name + corp) from the agents DB.
-    uint32 useCharID = charID;
+    // Pick a name from the agents DB if none given.
     std::string useName = name;
-    uint32 useCorpID = corpID;
     if (useName.empty()) {
         DBQueryResult res;
         if (sDatabase.RunQuery(res,
-            "SELECT a.agentID, c.characterName, a.corporationID"
-            " FROM agtAgents a"
-            " JOIN chrNPCCharacters c ON a.agentID = c.characterID"
-            " ORDER BY RAND() LIMIT 1"))
-        {
+            "SELECT c.characterName FROM chrNPCCharacters c ORDER BY RAND() LIMIT 1")) {
             DBResultRow row;
-            if (res.GetRow(row)) {
-                useCharID = row.GetUInt(0);
-                useName = row.GetText(1);
-                useCorpID = row.GetUInt(2);
-            }
+            if (res.GetRow(row))
+                useName = row.GetText(0);
         }
     }
     if (useName.empty())
         useName = "Pilot " + std::to_string(++m_botCounter);
+
+    // Corp: realistic distribution (main corp + a few smaller). If the caller
+    // already supplied one (e.g. a persisted bot), keep it.
+    uint32 useCorpID = corpID;
+    uint32 useAllianceID = allianceID;
+    if (useCorpID == 0)
+        useCorpID = PickCorp(useAllianceID);
+    if (useCorpID == 0) {
+        _log(BOT__ERROR, "BotMgr: no corporation available for bot, skipping spawn.");
+        return;
+    }
+
+    // Persist the bot as a REAL character (chrCharacters + skills + history) so
+    // its legend and progress survive restarts. If a charID was supplied, reuse
+    // the existing character; otherwise create one.
+    uint32 useCharID = charID;
+    if (useCharID == 0) {
+        uint8 skillTier = sConfig.playerBots.MinSkillLevel +
+            MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
+        useCharID = CharacterDB::CreateBotCharacter(useName, useCorpID, useAllianceID, skillTier);
+        if (useCharID == 0) {
+            _log(BOT__ERROR, "BotMgr: failed to create persisted bot character '%s'.", useName.c_str());
+            return;
+        }
+    }
 
     _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u) in system %u",
          useName.c_str(), useCharID, useCorpID, pSystem->GetID());
@@ -142,10 +218,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     data.corporationID = useCorpID;
     data.ownerID = useCorpID;
     data.factionID = 0;
-    data.allianceID = allianceID;
+    data.allianceID = useAllianceID;
 
     PlayerBot* bot = new PlayerBot(iRef, pSystem->GetServiceMgr(), pSystem, data,
-                                   useCharID, useName, useCorpID, allianceID);
+                                   useCharID, useName, useCorpID, useAllianceID);
     if (bot == nullptr) {
         _log(BOT__ERROR, "BotMgr: failed to create PlayerBot.");
         return;
@@ -155,8 +231,6 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         bot->Delete();
         return;
     }
-    // Professional pilot skill tier.
-    uint8 skill = sConfig.playerBots.MinSkillLevel + MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
     bot->GetAIMgr()->SetAmbush(false);   // bots are not ambushing rats
     bot->DestinyMgr()->SetPosition(pos);
     pSystem->AddNPC(bot);

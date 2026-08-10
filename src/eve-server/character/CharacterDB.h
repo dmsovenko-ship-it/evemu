@@ -95,11 +95,15 @@ class CharacterDB : public ServiceDB
 {
 public:
     static uint32 NewCharacter(const CharacterData& data, const CorpData& corpData);
-    static bool SaveCharacter(uint32 charID, const CharacterData &data);
-    static bool SaveCorpData(uint32 charID, const CorpData &data);
-    static void DeleteCharacter(uint32 charID);
+    static bool SaveCharacter(uint32 characterID, const CharacterData &data);
+    static bool SaveCorpData(uint32 characterID, const CorpData &data);
+    static void DeleteCharacter(uint32 characterID);
     // this changes corp member counts, adds employment history, and updates char's corp and start date
     static void AddEmployment(uint32 charID, uint32 corpID, uint32 oldCorpID=0);
+    // Creates a simulated player ("bot") as a real character row: chrCharacters,
+    // entity skills, skill history, employment — exactly like a live pilot, so the
+    // bot's legend and progress (SP, skills, balance, corp history) persist.
+    static uint32 CreateBotCharacter(std::string name, uint32 corpID, uint32 allianceID, uint8 skillTier);
     static bool GetCharacterData(uint32 characterID, CharacterData &into);
     static void GetCharacterDataMap(uint32 charID, std::map<std::string, int64> &characterDataMap);
     static bool GetCharHomeStation(uint32 charID, uint32 &stationID);

@@ -63,6 +63,130 @@ uint32 CharacterDB::NewCharacter(const CharacterData& data, const CorpData& corp
     return charID;
 }
 
+// Creates a simulated player ("bot") as a real character row — chrCharacters,
+// entity skills, skill history, employment — exactly like a live pilot so the
+// bot's legend and progress (SP, skills, balance, corp history) persist across
+// restarts. skillTier 0=rookie .. 5=elite sets the trained skill levels.
+uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 allianceID, uint8 skillTier) {
+    if (skillTier > 5) skillTier = 5;
+
+    // Random bloodline/ancestry for a believable pilot; fill the rest like a
+    // normal character creation (career by school, type by bloodline).
+    DBQueryResult res;
+    uint8 bloodlineID = 1, ancestryID = 1;
+    if (sDatabase.RunQuery(res, "SELECT bloodlineID FROM chrBloodlines ORDER BY RAND() LIMIT 1")) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            bloodlineID = (uint8)row.GetInt(0);
+    }
+    if (sDatabase.RunQuery(res, "SELECT ancestryID FROM chrAncestries WHERE bloodlineID = %u ORDER BY RAND() LIMIT 1", bloodlineID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            ancestryID = (uint8)row.GetInt(0);
+    }
+
+    const CharacterType *char_type = sItemFactory.GetCharacterTypeByBloodline(bloodlineID);
+    if (char_type == nullptr)
+        return 0;
+
+    CharacterData cdata = CharacterData();
+        cdata.accountID = 0;   // bots have no account — they never log in
+        cdata.gender = (uint8)(MakeRandomInt(0, 1));
+        cdata.ancestryID = ancestryID;
+        cdata.bloodlineID = bloodlineID;
+        cdata.schoolID = 1;   // generic school; career set below
+        cdata.description = "Simulated pilot.";
+        cdata.securityRating = 0.5f;
+        cdata.title = "No Title";
+        cdata.createDateTime = (int64)GetFileTimeNow();
+        cdata.typeID = char_type->id();
+        cdata.name = name;
+        cdata.logonMinutes = 2;
+
+    if (!GetCareerBySchool(cdata.schoolID, cdata.raceID, cdata.careerID)) {
+        cdata.raceID = 1;
+        cdata.careerID = 11;
+        cdata.careerSpecialityID = 11;
+    } else {
+        cdata.careerSpecialityID = cdata.careerID;
+    }
+
+    // Professional pilot: start with a healthy wallet.
+    cdata.balance = 100000000.0f + MakeRandomFloat(0.0f, 900000000.0f);
+
+    CorpData corpData = CorpData();
+        corpData.startDateTime = cdata.createDateTime;
+        corpData.corpRole = Corp::Role::Member;
+        corpData.corpAccountKey = Account::KeyType::Cash;
+        corpData.rolesAtAll = Corp::Role::Member;
+        corpData.rolesAtBase = Corp::Role::Member;
+        corpData.rolesAtHQ = Corp::Role::Member;
+        corpData.rolesAtOther = Corp::Role::Member;
+        corpData.grantableRoles = Corp::Role::Member;
+        corpData.grantableRolesAtBase = Corp::Role::Member;
+        corpData.grantableRolesAtHQ = Corp::Role::Member;
+        corpData.grantableRolesAtOther = Corp::Role::Member;
+        corpData.corporationID = corpID;
+        corpData.allianceID = allianceID;
+
+    // Character spawn writes chrCharacters + base. Give the bot a station-based home.
+    if (sDataMgr.IsStation(sConfig.character.startStation)) {
+        cdata.stationID = sConfig.character.startStation;
+        StationData sData = StationData();
+        stDataMgr.GetStationData(cdata.stationID, sData);
+        cdata.solarSystemID = sData.systemID;
+        cdata.constellationID = sData.constellationID;
+        cdata.regionID = sData.regionID;
+    }
+    cdata.locationID = cdata.stationID;
+    corpData.baseID = cdata.stationID;
+
+    uint32 charID = NewCharacter(cdata, corpData);
+    if (!IsCharacterID(charID)) {
+        _log(CHARACTER__ERROR, "CreateBotCharacter: failed to insert bot '%s'.", name.c_str());
+        return 0;
+    }
+
+    // Train the skill set to the bot's tier. Base + race skills, then a couple
+    // of extra profession skills, all boosted toward the target tier.
+    std::map<uint32, uint8> skills;
+    GetBaseSkills(skills);
+    GetSkillsByRace(char_type->race(), skills);
+    GetSkillsByCareer(cdata.careerID, skills);
+
+    // Ensure a few core profession skills are present (frigate/cruiser/weapons).
+    // skillTier maps 0..5 -> trained levels 1..5 (tier 0 rookies keep basics).
+    uint8 targetLevel = (uint8)(1 + skillTier);
+    if (targetLevel > 5) targetLevel = 5;
+
+    for (auto& [skillTypeID, lvl] : skills) {
+        // Boost most skills toward the tier; keep a few at level 1 for realism.
+        uint8 finalLvl = lvl;
+        if (MakeRandomFloat() < 0.85f)
+            finalLvl = std::max((uint8)1, targetLevel);
+        if (finalLvl > 5) finalLvl = 5;
+
+        ItemData skillItem(skillTypeID, charID, charID, flagSkill);
+        SkillRef skill = sItemFactory.SpawnSkill(skillItem);
+        if (skill.get() == nullptr)
+            continue;
+        skill->SetAttribute(AttrSkillLevel, finalLvl, false);
+        skill->SetAttribute(AttrSkillPoints, skill->GetSPForLevel(finalLvl), false);
+        skill->SaveItem();
+        cdata.skillPoints += skill->GetSPForLevel(finalLvl);
+        SaveSkillHistory(EvESkill::Event::SkillPointsApplied, GetFileTimeNow(),
+                         charID, skillTypeID, finalLvl, skill->GetSPForLevel(finalLvl));
+    }
+
+    // Persist the accumulated skill points on the character row.
+    sDatabase.RunQuery(res,
+        "UPDATE chrCharacters SET skillPoints = %u WHERE characterID = %u", cdata.skillPoints, charID);
+
+    _log(CHARACTER__INFO, "CreateBotCharacter: bot '%s' (char %u, corp %u, tier %u) with %u SP.",
+         name.c_str(), charID, corpID, skillTier, cdata.skillPoints);
+    return charID;
+}
+
 bool CharacterDB::SaveCharacter(uint32 characterID, const CharacterData &data) {
     DBerror err;
 

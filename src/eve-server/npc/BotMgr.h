@@ -38,6 +38,9 @@ public:
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID);
     void ReapBots(SystemManager* pSystem);
+    // Realistic corp distribution: one "main" corp holds most bots, 2-3 smaller
+    // corps the rest (like live EVE). Picks a corpID for a new bot.
+    uint32 PickCorp(uint32& allianceID);
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
