@@ -100,15 +100,15 @@ uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
     std::vector<std::pair<uint32,uint32>> corps;   // corpID, allianceID
     std::vector<uint32> weights;                    // members+1 per corp
 
-    std::string corpQuery =
+    std::string corpQuery = std::string(
         "SELECT c.corporationID, c.allianceID, COUNT(ch.characterID) AS members"
         " FROM crpCorporation c"
         " LEFT JOIN chrCharacters ch ON ch.corporationID = c.corporationID"
         " GROUP BY c.corporationID"
-        " HAVING members >= 1"      // only corps that already have members
+        " HAVING members >= 1")      // only corps that already have members
         + (requireAlliance ? " AND c.allianceID > 0" : "")
-        + " ORDER BY members DESC"
-        " LIMIT 12";
+        + std::string(" ORDER BY members DESC")
+        + " LIMIT 12";
     if (sDatabase.RunQuery(res, corpQuery.c_str()))
     {
         DBResultRow row;
