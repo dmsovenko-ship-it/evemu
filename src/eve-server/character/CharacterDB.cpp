@@ -122,10 +122,10 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
                     cdata.schoolID = srow.GetUInt(0);
             }
         }
-        // Random bio: a meme, empty, or advice from a veteran pilot.
+        // Random bio: a meme, empty, or advice from a veteran pilot. Ensure it
+        // isn't already used by another character, so bios don't repeat.
         {
             static const char* bios[] = {
-                "",
                 "Just here for the explosions.",
                 "Fly safe o7",
                 "Never fly what you can't afford to lose.",
@@ -148,7 +148,27 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
                 "Got ganked. Gank back.",
                 "Praise Bob.",
             };
-            cdata.description = bios[MakeRandomInt(0, 21)];
+            const uint8 bioCount = 21;
+            uint8 startIdx = (uint8)MakeRandomInt(0, bioCount - 1);
+            uint8 idx = startIdx;
+            cdata.description = bios[idx];
+            DBQueryResult bres;
+            for (uint8 tryIdx = 0; tryIdx < bioCount; ++tryIdx) {
+                std::string esc;
+                sDatabase.DoEscapeString(esc, cdata.description);
+                if (!sDatabase.RunQuery(bres,
+                    "SELECT COUNT(*) FROM chrCharacters WHERE description = '%s'", esc.c_str())) {
+                    break;   // query failed — accept current bio
+                }
+                DBResultRow brow;
+                uint32 used = 1;
+                if (bres.GetRow(brow))
+                    used = brow.GetUInt(0);
+                if (used == 0)
+                    break;   // this bio is free — use it
+                idx = (uint8)((idx + 1) % bioCount);
+                cdata.description = bios[idx];
+            }
         }
         cdata.securityRating = 0.5f;
         cdata.title = "No Title";

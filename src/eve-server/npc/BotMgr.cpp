@@ -311,6 +311,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // Persist the bot as a REAL character (chrCharacters + portrait + skills +
     // history) so its legend and progress survive restarts. The character id is
     // allocated normally (sequential free id); CreateBotCharacter de-dupes by name.
+    uint32 killmailCharID = useCharID;   // real EVE id the legend came from (for portraits)
     {
         uint8 skillTier = sConfig.playerBots.MinSkillLevel +
             MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
@@ -319,6 +320,13 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             _log(BOT__ERROR, "BotMgr: failed to create persisted bot character '%s'.", useName.c_str());
             return;
         }
+    }
+    // Remember the EVE portrait source so fetch_bot_portraits.py can grab it.
+    if (killmailCharID != 0 && killmailCharID != useCharID) {
+        DBerror perr;
+        sDatabase.RunQuery(perr,
+            "INSERT IGNORE INTO botPortraits (serverCharID, eveCharID) VALUES (%u, %u)",
+            useCharID, killmailCharID);
     }
 
     // Ship hull from the killmail legend (real EVE hull) or a generic cruiser/BC.
