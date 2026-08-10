@@ -276,6 +276,21 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     bot->DestinyMgr()->SetPosition(pos);
     pSystem->AddNPC(bot);
 
+    // Assign a combat role: mostly fighters, a few logistics/support/commanders
+    // so fights use the full arsenal (EWAR, remote reps, gang bonuses).
+    {
+        float r = MakeRandomFloat();
+        if (r < 0.60f)
+            bot->SetRole(PlayerBot::BotRole::Fighter);
+        else if (r < 0.75f)
+            bot->SetRole(PlayerBot::BotRole::Logistics);
+        else if (r < 0.90f)
+            bot->SetRole(PlayerBot::BotRole::Support);
+        else
+            bot->SetRole(PlayerBot::BotRole::Commander);
+        _log(BOT__TRACE, "BotMgr: %s(%u) role = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetRole());
+    }
+
     // Join the system's local channel so the bot shows up in local chat.
     if (sConfig.playerBots.Enabled) {
         LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");

@@ -51,6 +51,21 @@ public:
     bool IsTraveling() const            { return m_traveling; }   // flying to the gate
     void CompleteTravel()               { m_traveling = false; m_wantsTravel = false; }
 
+    /* bot role in combat */
+    enum class BotRole : uint8 {
+        Fighter = 0,    // pure DPS
+        Logistics,      // remote-repair allies
+        Support,        // EWAR: web/scram/ECM/paint
+        Commander,      // gang bonuses
+    };
+    BotRole GetRole() const             { return m_role; }
+    void SetRole(BotRole r)             { m_role = r; }
+    void UseCombatAbilities();          // logistics / EWAR / bonuses during a fight
+    // Intelligent target selection: pick the most valuable enemy in a fight
+    // (kill call — commanders/logistics/support before fighters), falling back
+    // to the attacker. Returns the chosen SystemEntity* (may be attacker).
+    SystemEntity* PickPriorityTarget(SystemEntity* attacker);
+
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
     void CallFleetSupport(SystemEntity* attacker);   // same corp/alliance bots join the fight
@@ -62,10 +77,12 @@ protected:
     uint32 m_botAllianceID;
     uint8 m_botSkill;                   // simulated pilot skill tier (0..5)
     BotActivity m_activity;
+    BotRole m_role;                     // combat role assigned at spawn
     Timer m_decisionTimer;
     Timer m_travelTimer;                // counts down the visible warp to the gate
     bool m_wantsTravel;                 // true when the bot wants to leave via gate
     bool m_traveling;                   // true while the bot visibly warps to the gate
+    Timer m_abilityTimer;               // logistics/EWAR/bonus tick
 };
 
 #endif

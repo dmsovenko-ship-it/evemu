@@ -22,10 +22,12 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_botAllianceID(allianceID),
   m_botSkill(3),
   m_activity(BotActivity::Idle),
+  m_role(BotRole::Fighter),
   m_decisionTimer(0),
   m_travelTimer(0),
   m_wantsTravel(false),
-  m_traveling(false)
+  m_traveling(false),
+  m_abilityTimer(0)
 {
     // A player-like legend: give this NPC a neutral alliance so it doesn't show
     // red crosshairs and isn't auto-aggroed by faction standing checks.
@@ -122,8 +124,8 @@ void PlayerBot::CallFleetSupport(SystemEntity* attacker)
     if (attacker == nullptr || SystemMgr() == nullptr)
         return;
     // Rally allies from the same corp OR the same alliance that are in this
-    // system. They join the fight (Target() starts targeting+attack) so a fleet
-    // concentrates force — mirroring real EVE blobs.
+    // system. They join the fight and pick a priority target (kill call), so a
+    // fleet concentrates fire on the most valuable enemy — mirroring real EVE.
     for (auto& [id, se] : SystemMgr()->GetEntities()) {
         if (se == nullptr || se->GetNPCSE() == nullptr)
             continue;
@@ -134,15 +136,54 @@ void PlayerBot::CallFleetSupport(SystemEntity* attacker)
             continue;
         if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
             continue;   // not same corp / alliance — not an ally
-        // Only rally if the ally isn't already busy fleeing.
+        // Only rally if the ally isn't already busy fighting or fleeing.
         if (ally->GetAIMgr()->IsFighting())
             continue;
         _log(BOT__TRACE, "PlayerBot %s(%u): fleet support — %s(%u) joining.",
              m_botName.c_str(), m_botCharID, ally->GetBotName().c_str(), ally->GetBotCharID());
         ally->GetAIMgr()->WakeUp();
         ally->GetAIMgr()->StartAttackCycle(2000);
-        ally->GetAIMgr()->Target(attacker);
+        SystemEntity* prio = ally->PickPriorityTarget(attacker);
+        ally->GetAIMgr()->Target(prio != nullptr ? prio : attacker);
     }
+}
+
+// Choose the most valuable enemy currently in a fight with us: commanders and
+// logistics die first (they keep the enemy fleet alive / buffed), then EWAR
+// support, then plain fighters. If we can't tell, fall back to the attacker.
+SystemEntity* PlayerBot::PickPriorityTarget(SystemEntity* attacker)
+{
+    SystemEntity* best = attacker;
+    int bestScore = -1;
+
+    // Consider enemy PlayerBots in this system that are fighting.
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* enemy = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (enemy == nullptr)
+            continue;
+        if (enemy == this)
+            continue;
+        if (enemy->GetBotCorpID() == m_botCorpID || enemy->GetBotAllianceID() == m_botAllianceID)
+            continue;   // ally, not target
+        if (!enemy->GetAIMgr()->IsFighting())
+            continue;   // not engaged — don't pull aggro
+
+        // Score by role value: commanders/logistics most, then support, fighters last.
+        int score = 0;
+        switch (enemy->GetRole()) {
+            case BotRole::Commander:   score = 4; break;
+            case BotRole::Logistics:   score = 3; break;
+            case BotRole::Support:     score = 2; break;
+            default:                   score = 1; break;
+        }
+        // Prefer targets in range (don't chase across the system).
+        if (GetPosition().distance(enemy->GetPosition()) > 60000)
+            score -= 2;
+        if (score > bestScore) { bestScore = score; best = enemy; }
+    }
+    return best;
 }
 
 // Ship class by groupID: bigger index = more combat power.
@@ -208,6 +249,12 @@ void PlayerBot::Process()
     if (m_traveling && m_travelTimer.Check(false))
         m_wantsTravel = true;
 
+    // During a fight, use role abilities (logistics, EWAR, gang bonuses).
+    if (GetAIMgr()->IsFighting() && m_abilityTimer.Check(false))
+        UseCombatAbilities();
+    if (!m_abilityTimer.Enabled())
+        m_abilityTimer.Start(5000);
+
     if (m_decisionTimer.Check(false)) {
         DecideNextAction();
     }
@@ -221,4 +268,64 @@ void PlayerBot::DecideNextAction()
     // to actual travel/combat/mining behaviour.
     _log(BOT__TRACE, "PlayerBot %s(%u): activity = %u, system = %u",
          m_botName.c_str(), m_botCharID, (uint8)m_activity, SystemMgr()->GetID());
+}
+
+void PlayerBot::UseCombatAbilities()
+{
+    // Use the bot's full arsenal while fighting: logistics repair allies,
+    // commanders apply gang bonuses, support relies on NPCAI EWAR modules
+    // (web/scram/ECM/paint handled in AttackTarget) and fighters just DPS.
+    if (m_role == BotRole::Logistics) {
+        // Find the most damaged ally in system and remote-repair it.
+        PlayerBot* patient = nullptr;
+        float lowestHullPct = 2.0f;
+        for (auto& [id, se] : SystemMgr()->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* ally = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (ally == nullptr)
+                continue;
+            if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
+                continue;
+            InventoryItemRef aSelf = ally->GetSelf();
+            float cap = aSelf->GetAttribute(AttrShieldCapacity).get_float();
+            float cur = aSelf->GetAttribute(AttrShieldCharge).get_float();
+            float pct = (cap > 0) ? (cur / cap) : 1.0f;
+            if (pct < lowestHullPct) { lowestHullPct = pct; patient = ally; }
+        }
+        if (patient != nullptr) {
+            // Remote shield boost (logi repper).
+            InventoryItemRef pSelf = patient->GetSelf();
+            float boost = 250.0f * (1.0f + m_botSkill * 0.2f);
+            float newShield = pSelf->GetAttribute(AttrShieldCharge).get_float() + boost;
+            if (newShield > pSelf->GetAttribute(AttrShieldCapacity).get_float())
+                newShield = pSelf->GetAttribute(AttrShieldCapacity).get_float();
+            pSelf->SetAttribute(AttrShieldCharge, newShield);
+            patient->SendDamageStateChanged();
+            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                         patient->GetID(), 0, "effects.ShieldBoosting",
+                                         0, 1, 1, 5000, 0, 0);
+            _log(BOT__TRACE, "PlayerBot %s(%u): logistic — remote repping %s(%u).",
+                 m_botName.c_str(), m_botCharID, patient->GetBotName().c_str(), patient->GetBotCharID());
+        }
+    } else if (m_role == BotRole::Commander) {
+        // Gang bonus: apply a damage/agility boost to all fleet members.
+        float dmgBonus = 1.0f + 0.05f * (1.0f + m_botSkill * 0.1f);   // +5..10%
+        for (auto& [id, se] : SystemMgr()->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* ally = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (ally == nullptr || ally == this)
+                continue;
+            if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
+                continue;
+            if (ally->GetSelf()->HasAttribute(AttrDamageMultiplier))
+                ally->GetSelf()->SetAttribute(AttrDamageMultiplier,
+                    ally->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float() * dmgBonus, false);
+        }
+        _log(BOT__TRACE, "PlayerBot %s(%u): commander — fleet bonus applied.",
+             m_botName.c_str(), m_botCharID);
+    }
+    // Support role: EWAR modules (web/scram/ECM/paint) are fired by NPCAI's
+    // AttackTarget() already; Fighter: pure DPS via NPCAI. Nothing extra here.
 }
