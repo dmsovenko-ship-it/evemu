@@ -616,7 +616,25 @@ uint32 ActiveModule::DoCycle() {
         } break;
         case EVEDB::invGroups::Capacitor_Booster:{
             ConsumeCharge();
-            UpdateCharge(AttrCapacitorCharge, AttrCapacitorCapacity, AttrPowerTransferAmount, m_shipRef);
+            // Cap Boosters give capacitor from the LOADED CHARGE's capacitorBonus (attr 67,
+            // e.g. "Cap Booster 25" = 25 GJ), not from the module. The module has no such
+            // attribute and powerTransferAmount (90) belongs to nos/energy transfer — reading
+            // it here returned 0, so the booster drained charges but added no capacitor.
+            if (m_chargeRef.get() != nullptr and m_chargeRef->HasAttribute(AttrCapacitorBonus)) {
+                EvilNumber boost = m_chargeRef->GetAttribute(AttrCapacitorBonus);
+                EvilNumber newCap = m_shipRef->GetAttribute(AttrCapacitorCharge) + boost;
+                if (newCap > m_shipRef->GetAttribute(AttrCapacitorCapacity)) {
+                    newCap = m_shipRef->GetAttribute(AttrCapacitorCapacity);
+                    if (m_shipRef->GetPilot()->AutoStop())
+                        Deactivate();
+                }
+                float shipTotalCapacitor = m_shipRef->GetAttribute(AttrCapacitorCapacity).get_float();
+                m_shipRef->SetShipCapacitorLevel(newCap.get_float() / shipTotalCapacitor);
+            } else {
+                // no charge loaded — nothing to boost
+                AbortCycle();
+                return 0;
+            }
             m_repeat = 1;
         } break;
         // i *think* these first 2 go here....need testing
