@@ -122,7 +122,34 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
                     cdata.schoolID = srow.GetUInt(0);
             }
         }
-        cdata.description = "Pilot.";
+        // Random bio: a meme, empty, or advice from a veteran pilot.
+        {
+            static const char* bios[] = {
+                "",
+                "Just here for the explosions.",
+                "Fly safe o7",
+                "Never fly what you can't afford to lose.",
+                "It's not a bug, it's a feature.",
+                "Belt mining is a lifestyle.",
+                "Don't be a ganker. Unless it pays.",
+                "AFK in Jita. DM for offers.",
+                "I rat for a living. Literally.",
+                "One day my ship will come back.",
+                "Solo PvP or nothing.",
+                "The ISK is in the haul.",
+                "Beep boop. Not a bot.",
+                "Trust no one, especially your corp.",
+                "Lowsec made me do it.",
+                "My ship has more miles than your pod.",
+                "Nullsec is home.",
+                "o7 capsuleers",
+                "Ask me about my wormhole adventures.",
+                "I mine so you can shoot me.",
+                "Got ganked. Gank back.",
+                "Praise Bob.",
+            };
+            cdata.description = bios[MakeRandomInt(0, 21)];
+        }
         cdata.securityRating = 0.5f;
         cdata.title = "No Title";
         cdata.createDateTime = (int64)GetFileTimeNow();
