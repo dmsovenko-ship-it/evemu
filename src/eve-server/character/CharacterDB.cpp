@@ -125,7 +125,19 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
         cdata.gender = (uint8)(MakeRandomInt(0, 1));
         cdata.ancestryID = ancestryID;
         cdata.bloodlineID = bloodlineID;
-        cdata.schoolID = 1;   // generic school; career set below
+        // Pick a real school from the careers table (schoolIDs 11-25). schoolID 1
+        // doesn't exist there, which spammed "Failed to find matching career" on
+        // every bot creation.
+        {
+            DBQueryResult sres;
+            static const uint32 fallbackSchools[] = { 11, 17, 18, 20, 24, 25 };
+            cdata.schoolID = fallbackSchools[MakeRandomInt(0, 5)];
+            if (sDatabase.RunQuery(sres, "SELECT schoolID FROM careers ORDER BY RAND() LIMIT 1")) {
+                DBResultRow srow;
+                if (sres.GetRow(srow))
+                    cdata.schoolID = srow.GetUInt(0);
+            }
+        }
         cdata.description = "Simulated pilot.";
         cdata.securityRating = 0.5f;
         cdata.title = "No Title";
