@@ -119,22 +119,18 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
 
 uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
 {
-    // Realistic corp distribution: a few "main" corps hold most bots, a couple
-    // of smaller ones the rest. Weight by existing member count so the biggest
-    // corp naturally takes the largest share — just like live EVE. Bots are
-    // persisted as real members, so the distribution self-organizes over time.
+    // Pick a corp that actually exists in this server's crpCorporation table
+    // (179 seeded NPC corps). Killmail corp ids (live EVE) don't exist locally,
+    // so a bot in such a corp breaks the info window (no HQ found). Weight by
+    // existing member count so the biggest corp takes the largest share.
     // PvP war corps (requireAlliance) only get corps that are in an alliance.
-    DBQueryResult res;
-    std::vector<std::pair<uint32,uint32>> corps;   // corpID, allianceID
-    std::vector<uint32> weights;                    // members+1 per corp
-
     std::string corpQuery = std::string(
         "SELECT c.corporationID, c.allianceID, COUNT(ch.characterID) AS members"
         " FROM crpCorporation c"
         " LEFT JOIN chrCharacters ch ON ch.corporationID = c.corporationID"
-        " GROUP BY c.corporationID"
-        " HAVING members >= 1")      // only corps that already have members
+        " WHERE c.corporationID >= 1000000")      // skip 0/placeholder rows
         + (requireAlliance ? " AND c.allianceID > 0" : "")
+        + std::string(" GROUP BY c.corporationID")
         + std::string(" ORDER BY members DESC")
         + " LIMIT 12";
     if (sDatabase.RunQuery(res, corpQuery.c_str()))
@@ -246,8 +242,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // Corp: realistic distribution (main corp + a few smaller). If the killmail
     // legend already carries a corp, keep it; otherwise pick one by size.
     // Hunters (PvP war corps) only join corps inside an alliance.
-    if (useCorpID == 0)
-        useCorpID = PickCorp(useAllianceID, prof == PlayerBot::BotProfession::Hunter);
+    // Corp: ALWAYS from the local crpCorporation table. Killmail corp ids are
+    // from live EVE and don't exist in this server's DB — a bot in such a corp
+    // breaks the info window ('No HQ found for corporation'). Bots are real
+    // members of the chosen corp, so distribution self-organizes.
+    useCorpID = PickCorp(useAllianceID, prof == PlayerBot::BotProfession::Hunter);
     if (useCorpID == 0) {
         _log(BOT__ERROR, "BotMgr: no corporation available for bot, skipping spawn.");
         return;
