@@ -11,6 +11,8 @@
 #include "chat/LSCService.h"
 #include "chat/LSCChannel.h"
 #include "services/ServiceManager.h"
+#include "account/AccountDB.h"
+#include "account/Account.h"
 #include <cctype>
 
 /*
@@ -74,6 +76,7 @@ void BotMgr::Process()
             if (pb != nullptr) {
                 MaybeFoundCorp(pb);
                 MaybeFormAlliance(pb);
+                ProcessEconomy(pb);
             }
         }
     }
@@ -735,6 +738,92 @@ void BotMgr::MaybeFormAlliance(PlayerBot* bot)
 
     _log(BOT__MESSAGE, "BotMgr: %s(%u) formed alliance %s [%s] (%u) from %u corps.",
          bot->GetBotName().c_str(), bot->GetBotCharID(), aName.c_str(), aShort.c_str(), allyID, (uint32)memberCorps.size());
+}
+
+void BotMgr::ProcessEconomy(PlayerBot* bot)
+{
+    // Bots take part in the EVE economy with real ISK:
+    //  - traders place sell orders in their own name,
+    //  - everyone pays corp tax into their corp wallet.
+    if (bot == nullptr || !sConfig.playerBots.Enabled)
+        return;
+    if (bot->GetProfession() == PlayerBot::BotProfession::Trader)
+        PlaceBotOrder(bot);
+    if (MakeRandomInt(0, 999) < 30)
+        PayCorpTax(bot);
+}
+
+void BotMgr::PayCorpTax(PlayerBot* bot)
+{
+    // Corp tax: a fraction of the bot's income flows into the corp wallet.
+    uint32 charID = bot->GetBotCharID();
+    uint32 corpID = bot->GetBotCorpID();
+    if (corpID == 0)
+        return;
+
+    DBQueryResult res;
+    double balance = 0;
+    if (sDatabase.RunQuery(res, "SELECT balance FROM chrCharacters WHERE characterID = %u", charID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            balance = row.GetDouble(0);
+    }
+    if (balance < 1000000)
+        return;   // keep a minimum on the pilot
+
+    double tax = balance * 0.02;   // 2% corp tax
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET balance = balance - %f WHERE characterID = %u", tax, charID);
+    // credit the corp wallet (cash division). Corp may not have a wallet row yet
+    // (NPC corps don't), so upsert.
+    sDatabase.RunQuery(err,
+        "INSERT INTO crpWalletDivisons (corporationID, balance1) VALUES (%u, %f)"
+        " ON DUPLICATE KEY UPDATE balance1 = balance1 + %f",
+        corpID, tax, tax);
+    _log(BOT__TRACE, "BotMgr: %s(%u) paid %.0f ISK corp tax to corp %u.",
+         bot->GetBotName().c_str(), charID, tax, corpID);
+}
+
+void BotMgr::PlaceBotOrder(PlayerBot* bot)
+{
+    // Trader bots sell goods on the market in their own name. Orders are real
+    // mktOrders rows (visible to players); proceeds are credited to the bot's
+    // wallet via direct balance update when the order fills is handled by the
+    // market proxy — here we only create the sell listing.
+    uint32 charID = bot->GetBotCharID();
+    uint32 sysID = bot->SystemMgr() ? bot->SystemMgr()->GetID() : 0;
+    if (sysID == 0)
+        return;
+
+    // A small pool of commonly-traded commodities.
+    static const uint32 goods[] = { 34, 38, 39, 40, 3775, 2488, 2048, 2676, 1229, 1230 };   // ammo, minerals, drone
+    uint32 typeID = goods[MakeRandomInt(0, 9)];
+
+    DBQueryResult res;
+    uint32 stationID = 0;
+    if (sDatabase.RunQuery(res,
+        "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", sysID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            stationID = row.GetUInt(0);
+    }
+    if (stationID == 0)
+        return;
+
+    double price = 100.0 + (MakeRandomInt(0, 90000) / 100.0);
+    uint32 qty = MakeRandomInt(10, 500);
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO mktOrders"
+        "  (typeID, ownerID, regionID, stationID, solarSystemID, orderRange, bid, price,"
+        "   escrow, minVolume, volEntered, volRemaining, issued, duration, isCorp, accountKey, memberID)"
+        " VALUES"
+        "  (%u, %u, (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u, 32767, 0, %f,"
+        "   0, 1, %u, %u, %f, 90, 0, 1000, %u)",
+        typeID, charID, sysID, stationID, sysID, price, qty, qty, GetFileTimeNow(), charID);
+    _log(BOT__TRACE, "BotMgr: %s(%u) placed sell order %ux type %u @ %.2f ISK in %u.",
+         bot->GetBotName().c_str(), charID, qty, typeID, price, sysID);
 }
 
 

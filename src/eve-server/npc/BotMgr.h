@@ -70,6 +70,11 @@ private:
     // location) into an alliance.
     void MaybeFormAlliance(PlayerBot* bot);
     static std::string MakeAllianceName();
+    // Economy: bots earn ISK from profession activity, pay corp tax into the
+    // corp wallet, and trader bots place market orders in their own name.
+    void ProcessEconomy(PlayerBot* bot);
+    void PayCorpTax(PlayerBot* bot);
+    void PlaceBotOrder(PlayerBot* bot);
     // Deterministic real-EVE-style corp logo from a seed id: slot 0 = graphicID,
     // 1-3 = colors (0xRRGGBB), 4-6 = shapes. Same seed → same logo.
     static int64 MakeCorpLogo(uint32 seed, uint8 slot);
