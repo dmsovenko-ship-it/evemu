@@ -681,7 +681,7 @@ void BotMgr::MaybeFoundCorp(PlayerBot* bot)
         "   creatorID, ceoID, stationID, raceID, shares, memberLimit, allowedMemberRaceIDs,"
         "   graphicID, color1, color2, color3, shape1, shape2, shape3, isRecruiting, allianceMemberStartDate)"
         " VALUES"
-        "  ('%s', 'Bot-founded', '%s', '', 0.1, 2, 1,"
+        "  ('%s', '', '%s', '', 0.1, 2, 1,"
         "   %u, %u, 60000004, 1, 1000, 100, 1,"
         "   %u, %u, %u, %u, %u, %u, %u, 1, 0)",
         cName.c_str(), ticker.c_str(), charID, charID,
@@ -799,7 +799,7 @@ void BotMgr::MaybeFormAlliance(PlayerBot* bot)
     uint32 allyID = 0;
     if (!sDatabase.RunQueryLID(err, allyID,
         "INSERT INTO alnAlliance (allianceName, shortName, description, executorCorpID, creatorCorpID, creatorCharID, startDate, memberCount, url)"
-        " VALUES ('%s', '%s', 'Bot-founded', %u, %u, %u, %f, %u, '')",
+        " VALUES ('%s', '%s', '', %u, %u, %u, %f, %u, '')",
         aName.c_str(), aShort.c_str(), myCorp, myCorp, bot->GetBotCharID(), GetFileTimeNow(), (uint32)memberCorps.size()))
     {
         codelog(DATABASE__ERROR, "MaybeFormAlliance: alliance insert failed: %s", err.c_str());

@@ -146,6 +146,20 @@ bool LSCChannel::AddBotChar(uint32 charID, uint32 corpID, uint32 allianceID, uin
         LSCChannelChar(this, corpID, charID, name, allianceID, warFactionID, 1 /*role*/, 0,
                        (m_ownerID == charID ? LSC::Mode::chCreator : LSC::Mode::chConversationalist))));
 
+    // Make sure the bot is resolvable by the client (cfg.eveowners / owners cache).
+    // If the id isn't in cacheOwners the client's AddMember lookup can throw and
+    // the local member list breaks. Ensure an entry exists.
+    {
+        std::string nameEsc;
+        sDatabase.DoEscapeString(nameEsc, name);
+        DBerror cerr;
+        sDatabase.RunQuery(cerr,
+            "INSERT INTO cacheOwners (ownerID, ownerName, typeID)"
+            " VALUES (%u, '%s', 1377)"
+            " ON DUPLICATE KEY UPDATE ownerName = '%s', typeID = 1377",
+            charID, nameEsc.c_str(), nameEsc.c_str());
+    }
+
     // Broadcast the join so every player in local sees the bot appear.
     OnLSC_JoinChannel join;
         join.sender = _MakeBotSenderInfo(charID, name, corpID);
@@ -198,7 +212,7 @@ OnLSC_SenderInfo* LSCChannel::_MakeBotSenderInfo(uint32 charID, const std::strin
     OnLSC_SenderInfo* sender = new OnLSC_SenderInfo;
         sender->senderID = charID;
         sender->senderName = name;
-        sender->senderType = 1;
+        sender->senderType = 1377;   // CharacterGallente — a real character type, so the client's eveowners.Hint resolves it as a player
         sender->corpID = corpID;
         sender->role = 1;
         sender->corp_role = 1;

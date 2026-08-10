@@ -122,7 +122,7 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
                     cdata.schoolID = srow.GetUInt(0);
             }
         }
-        cdata.description = "Simulated pilot.";
+        cdata.description = "Pilot.";
         cdata.securityRating = 0.5f;
         cdata.title = "No Title";
         cdata.createDateTime = (int64)GetFileTimeNow();
