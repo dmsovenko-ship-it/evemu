@@ -134,7 +134,7 @@ NPCAIMgr::NPCAIMgr(NPC* who)
         float missileSpeed = 3750.0f, missileFlightTime = 12.0f;
         std::vector<DmgTypeAttribute> attrs;
         sDataMgr.GetDgmTypeAttrVec(m_missileTypeID, attrs);
-        for (const auto& a : attrs) {
+        for (auto& a : attrs) {
             if (a.attributeID == AttrMaxVelocity)
                 missileSpeed = a.value.get_float();
             else if (a.attributeID == AttrExplosionDelay)
