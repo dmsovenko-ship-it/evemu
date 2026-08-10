@@ -2,6 +2,7 @@
 #include "npc/PlayerBot.h"
 #include "Client.h"
 #include "system/SystemBubble.h"
+#include "system/SystemManager.h"
 
 /*
  * @file PlayerBot.cpp

@@ -1,6 +1,7 @@
 #include "eve-server.h"
 #include "npc/BotMgr.h"
 #include "npc/PlayerBot.h"
+#include "npc/NPCAI.h"
 #include "npc/NPC.h"
 #include "EntityList.h"
 #include "system/SystemManager.h"
