@@ -433,6 +433,10 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
         m_shipRef->GetLinkedWeaponMods(m_modRef->flag(), modules);
         for (auto cur : modules) {
             cur->GetActiveModule()->SetSlaveData(pShip);
+            // Slave modules never received Activate() so their m_effectID is 0 —
+            // copy the master's so ShowEffect() doesn't emit "fxID = 0" and the
+            // turret effect actually plays on the linked weapons too.
+            cur->GetActiveModule()->SetEffectID(m_effectID);
             cur->GetActiveModule()->ShowEffect(true, false);
         }
     } else {

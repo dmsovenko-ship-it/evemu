@@ -1325,6 +1325,13 @@ void DestinyManager::Follow() {
         float newSpeed = m_userSpeedFraction * 0.8f + targetSpeed * 0.2f;
         if (newSpeed < 0.01f) newSpeed = 0.0f;
         SetSpeedFraction(newSpeed);
+    } else if (rawDist <= (double)decelDist) {
+        // At the follow distance — stop completely instead of drifting past.
+        // Keep at Range / Approach must hold the ship at the commanded distance;
+        // without this the ship keeps crawling forward (slow decel) and drifts.
+        SetSpeedFraction(0.0f);
+        m_velocity = NULL_ORIGIN_V;
+        m_activeSpeedFraction = m_userSpeedFraction = m_timeFraction = m_prevSpeedFraction = 0.0f;
     } else if (rawDist > (double)decelDist && m_userSpeedFraction < 1.0f) {
         // Accelerate smoothly toward full speed, but only if target is a moving entity.
         // Static targets (gates, stations) just need approach at moderate speed.
