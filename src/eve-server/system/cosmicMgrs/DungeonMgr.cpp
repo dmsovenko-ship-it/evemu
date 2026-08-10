@@ -713,8 +713,8 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         double height = (MakeRandomFloat() - 0.5) * 4000.0;
         GPoint pos;
         pos.x = roomPos.x + cos(angle) * radius;
-        pos.y = roomPos.y + sin(angle) * radius;
-        pos.z = roomPos.z + height;
+        pos.z = roomPos.z + sin(angle) * radius;
+        pos.y = roomPos.y + height;
 
         // Spawn as a transient (non-persisted) item — decorations are cosmetic and
         // must NOT be saved to the entity table. Saved copies piled up on every
@@ -763,16 +763,32 @@ std::vector<uint32> DungeonMgr::SpawnMineableAsteroids(const GPoint& roomPos, ui
         1229,   // Gneiss
     };
     uint32 typeID = oreTypes[MakeRandomInt(0, 8)];
-    // Clustered within ~3km of the pocket center.
-    double clusterRadius = 2500.0 + MakeRandomFloat() * 2000.0;
+    // Belt ring around the pocket — keep the CENTER clear (that's where the ship
+    // warps in) and keep asteroids from overlapping. Inner ring 2000m (safe warp
+    // zone), outer 5500m; minimum ~2400m between roid centers (rods are 500-900m
+    // radius, so they don't touch).
+    const double minR = 2000.0, maxR = 5500.0;
+    const double minGap = 2400.0;
+    std::vector<GPoint> placed;
+    placed.reserve(count);
     for (uint32 i = 0; i < count; ++i) {
-        double angle = MakeRandomFloat() * 2.0 * 3.14159;
-        double rad = MakeRandomFloat() * clusterRadius;
-        double height = (MakeRandomFloat() - 0.5) * 1500.0;
         GPoint pos;
-        pos.x = roomPos.x + cos(angle) * rad;
-        pos.z = roomPos.z + sin(angle) * rad;
-        pos.y = roomPos.y + height;
+        bool ok = false;
+        for (uint32 attempt = 0; attempt < 12 && !ok; ++attempt) {
+            double angle = MakeRandomFloat() * 2.0 * 3.14159;
+            double rad = minR + MakeRandomFloat() * (maxR - minR);
+            double height = (MakeRandomFloat() - 0.5) * 1500.0;
+            pos.x = roomPos.x + cos(angle) * rad;
+            pos.z = roomPos.z + sin(angle) * rad;
+            pos.y = roomPos.y + height;
+            ok = true;
+            for (auto& p : placed) {
+                if (pos.distance(p) < minGap) { ok = false; break; }
+            }
+        }
+        if (!ok)
+            continue;   // give up on this one, belt is dense enough
+        placed.push_back(pos);
 
         // roid radius ~500-900m; quantity from the belt formula
         double radius = 500.0 + MakeRandomFloat() * 400.0;
