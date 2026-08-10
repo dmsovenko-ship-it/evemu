@@ -36,9 +36,9 @@ API = "https://zkillboard.com/api/"
 FIT_FLAGS = set(range(11, 16)) | set(range(19, 25)) | set(range(27, 34)) | {87, 92, 93, 94}
 
 
-def fetch_kills(requests_session, params=None):
-    """GET /api/kills with pagination-by-time. Returns list of killmail dicts."""
-    url = API + "kills/"
+def fetch_kills(requests_session, region_id=None, params=None):
+    """GET /api/kills (optionally scoped to a region). Returns list of killmail dicts."""
+    url = API + ("regionID/%u/kills/" % region_id if region_id else "kills/")
     headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
     resp = requests_session.get(url, headers=headers, params=params, timeout=60)
     resp.raise_for_status()
@@ -113,9 +113,16 @@ def main():
     ap.add_argument("--db-user", required=True)
     ap.add_argument("--db-pass", required=True)
     ap.add_argument("--db-name", required=True)
-    ap.add_argument("--pages", type=int, default=10, help="number of API pages (each ~200 kills)")
-    ap.add_argument("--sleep", type=float, default=1.0, help="seconds between API pages")
+    ap.add_argument("--pages", type=int, default=1, help="pages per region (each ~200 kills)")
+    ap.add_argument("--sleep", type=float, default=1.0, help="seconds between API calls")
+    ap.add_argument("--regions", default="", help="comma-separated regionIDs; empty = global /kills/")
     args = ap.parse_args()
+
+    regions = []
+    if args.regions.strip():
+        regions = [int(x) for x in args.regions.split(",") if x.strip()]
+    if not regions:
+        regions = [None]   # global scope
 
     db = pymysql.connect(host=args.db_host, port=args.db_port,
                          user=args.db_user, password=args.db_pass,
@@ -154,24 +161,17 @@ def main():
 
     total = 0
     all_recs = []
-    for page in range(args.pages):
-        # Walk backwards in time: zKillboard paginates by max killmail id.
-        # First page (no params) = newest. Subsequent pages use beforeKillID.
-        try:
-            if page == 0:
-                kills = fetch_kills(sess)
-            else:
-                last_id = max(k["killmail_id"] for k in kills)
-                kills = fetch_kills(sess, {"beforeKillID": last_id})
-        except Exception as e:
-            print(f"[page {page}] fetch error: {e}", file=sys.stderr)
-            break
-
-        for k in kills:
-            all_recs.extend(extract_legend(k))
-        print(f"[page {page}] fetched {len(kills)} kills (pilots so far {len(all_recs)})")
-
-        time.sleep(args.sleep)
+    for ridx, region in enumerate(regions):
+        for page in range(args.pages):
+            try:
+                kills = fetch_kills(sess, region_id=region)
+            except Exception as e:
+                print(f"[region {region} page {page}] fetch error: {e}", file=sys.stderr)
+                break
+            for k in kills:
+                all_recs.extend(extract_legend(k))
+            print(f"[region {region} page {page}] fetched {len(kills)} kills (pilots so far {len(all_recs)})")
+            time.sleep(args.sleep)
 
     # Resolve names for all collected character IDs in one pass.
     char_ids = [r[1] for r in all_recs]   # index 1 = character_id
