@@ -34,6 +34,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_wantsTravel(false),
   m_traveling(false),
   m_abilityTimer(0),
+  m_activityTimer(0),
   m_inFight(false)
 {
     // A player-like legend: give this NPC a neutral alliance so it doesn't show
@@ -273,10 +274,33 @@ void PlayerBot::Process()
     if (m_inFight && !fighting && !m_killed) {
         m_inFight = false;
         if (m_memory) { m_memory->RecordWin(); m_memory->Save(); }
+        // PvE rat hunter also learns from a rat kill.
+        if (m_profession == BotProfession::RatHunter && m_memory) {
+            m_memory->RecordRatKill();
+            m_memory->Save();
+        }
         _log(BOT__TRACE, "PlayerBot %s(%u): fight ended, recorded win.", m_botName.c_str(), m_botCharID);
     } else if (fighting) {
         m_inFight = true;
     }
+
+    // Profession learning: each completed activity run adds experience so the bot
+    // gets better at its job (see GetActivitySkill).
+    if (m_profession != BotProfession::Hunter && m_profession != BotProfession::RatHunter
+        && m_activityTimer.Check(false) && m_memory != nullptr)
+    {
+        switch (m_profession) {
+            case BotProfession::Miner:     m_memory->RecordMineRun(); break;
+            case BotProfession::Trader:    m_memory->RecordTradeRun(); break;
+            case BotProfession::Courier:   m_memory->RecordTradeRun(); break;
+            case BotProfession::Hacker:    m_memory->RecordHackRun(); break;
+            default: break;
+        }
+        m_memory->Save();
+        _log(BOT__TRACE, "PlayerBot %s(%u): recorded profession run.", m_botName.c_str(), m_botCharID);
+    }
+    if (!m_activityTimer.Enabled())
+        m_activityTimer.Start(120000);   // a profession "run" every ~2 min
 
     // When not fighting or traveling, do the bot's profession activity
     // (mine/trade/courier/hack). Hunters prowl for targets instead.
@@ -311,6 +335,10 @@ void PlayerBot::DoProfessionActivity()
     if (m_destiny == nullptr || SystemMgr() == nullptr)
         return;
 
+    // Self-learning: practiced bots act more often / more efficiently.
+    float practice = m_memory ? m_memory->GetActivitySkill() : 0.0f;
+    float chanceBoost = 30.0f + practice * 40.0f;   // 30%..70% action chance
+
     switch (m_profession) {
         case BotProfession::Hunter: {
             // PvP pirate: hunt for legal PvP targets in lowsec/nullsec.
@@ -342,9 +370,10 @@ void PlayerBot::DoProfessionActivity()
         case BotProfession::Trader:
         case BotProfession::Courier: {
             // Peaceful trader/courier: occasionally move between stations/gates.
+            // Experienced traders route more often (self-learning).
             for (auto& [id, se] : SystemMgr()->GetStaticEntities()) {
                 if (se != nullptr && (se->GetStationSE() != nullptr || se->GetGateSE() != nullptr)) {
-                    if (!m_destiny->IsWarping() && MakeRandomInt(0, 99) < 40) {
+                    if (!m_destiny->IsWarping() && MakeRandomInt(0, 99) < (int)chanceBoost) {
                         m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
                         m_destiny->WarpTo(se->GetPosition(), 2000);
                         _log(BOT__TRACE, "PlayerBot %s(%u): %s — moving to station/gate.",
@@ -358,7 +387,8 @@ void PlayerBot::DoProfessionActivity()
 
         case BotProfession::Hacker: {
             // Peaceful hacker: warp to an anomaly site (data/relic) and sit there.
-            if (SystemMgr()->GetAnomMgr() != nullptr && MakeRandomInt(0, 99) < 40) {
+            // Experienced hackers run sites more frequently (self-learning).
+            if (SystemMgr()->GetAnomMgr() != nullptr && MakeRandomInt(0, 99) < (int)chanceBoost) {
                 // AnomalyMgr has signatures; we just drift toward a random one.
                 MarkForTravel();   // simulate running sites between systems
             }

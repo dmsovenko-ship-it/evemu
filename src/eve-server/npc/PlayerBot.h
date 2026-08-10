@@ -108,6 +108,7 @@ protected:
     bool m_wantsTravel;                 // true when the bot wants to leave via gate
     bool m_traveling;                   // true while the bot visibly warps to the gate
     Timer m_abilityTimer;               // logistics/EWAR/bonus tick
+    Timer m_activityTimer;              // profession run counter (self-learning)
     bool m_inFight;                     // true while fighting (to record outcomes)
 };
 

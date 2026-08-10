@@ -35,17 +35,29 @@ public:
     void RecordChatLine()    { ++chatLines;   RecordChange(); }
     void RecordChatReply()   { ++chatReplies; RecordChange(); }
 
+    /* profession learning */
+    void RecordRatKill()     { ++ratKills;  RecordChange(); }
+    void RecordMineRun()     { ++mineRuns;  RecordChange(); }
+    void RecordTradeRun()    { ++tradeRuns; RecordChange(); }
+    void RecordHackRun()     { ++hackRuns;  RecordChange(); }
+
     /* derived behaviour modifiers, in [-1..+1] */
     // +1 = very bold (wins far exceed losses); -1 = very cautious.
     float GetAggression() const;
     // 0..1: how "well received" this bot's chat lines are (reply ratio).
     float GetChatQuality() const;
+    // 0..1: how practiced this bot is at its job (activity count, saturating).
+    float GetActivitySkill() const;
 
     uint32 GetCharID() const    { return m_charID; }
     uint32 GetWins() const      { return wins; }
     uint32 GetLosses() const    { return losses; }
     uint32 GetKills() const     { return kills; }
     uint32 GetDeaths() const    { return deaths; }
+    uint32 GetRatKills() const  { return ratKills; }
+    uint32 GetMineRuns() const  { return mineRuns; }
+    uint32 GetTradeRuns() const { return tradeRuns; }
+    uint32 GetHackRuns() const  { return hackRuns; }
 
 private:
     void RecordChange() { m_dirty = true; }
@@ -53,6 +65,7 @@ private:
     uint32 m_charID;
     uint32 wins, losses, kills, deaths;
     uint32 chatLines, chatReplies;
+    uint32 ratKills, mineRuns, tradeRuns, hackRuns;
     bool m_dirty;
 };
 
