@@ -2591,6 +2591,15 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         }
     }
 
+    // Deactivate non-warpsafe modules (MWD/Afterburner, etc.) BEFORE warp alignment.
+    // An active MWD massively boosts mass/agility, so the ship can't turn to the warp
+    // vector within its align time -> 'warp align/speed is incorrect' catchall forces
+    // InitWarp, the client re-activates the MWD, and the ship appears stuck warping.
+    // ShipWarping() is also called inside InitWarp, but that is AFTER alignment — the
+    // MWD must be off before the turn-to-vector phase (real EVE turns it off on warp start).
+    if (mySE->HasPilot())
+        mySE->GetShipSE()->Warp();
+
     m_ballMode = Destiny::Ball::Mode::WARP;
 
     // send client updates
