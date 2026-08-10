@@ -666,12 +666,22 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         2121,    // Amarr Titan Wreckage
     };
     static const std::vector<uint32> serpentisDeco = {
+        2831,    // Serpentis Fortress
         3957,    // LCO Serpentis Stronghold
+        2842,    // LCO Serpentis Station
         32405,   // Serpentis Research Facility
         32394,   // Serpentis Transport Hub
+        23741,   // LCO Shipyard
+        32131,   // LCO Starbase Capital Shipyard
+        21659,   // Dirty Bandit Shipyard
         23223,   // LCO Serpentis Barricade
+        23224,   // LCO Serpentis Barrier
         23225,   // LCO Serpentis Battery
+        23226,   // LCO Serpentis Bunker
+        23228,   // LCO Serpentis Fence
+        23229,   // LCO Serpentis Junction
         23230,   // LCO Serpentis Lookout
+        23231,   // LCO Serpentis Wall
         29595,   // LCO Serpentis Elevator
     };
     // Rogue Drone hive esthetics — industrial high-tech mixed with biomechanical /
