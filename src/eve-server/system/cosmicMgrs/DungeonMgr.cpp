@@ -555,6 +555,83 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         10820,   // Thin claw
         10821,   // White solid
     };
+    // Faction-tinted gas clouds — each pirate faction's anomalies drift in its own
+    // palette (per faction lore):
+    //  Angel Cartel:   dust/sand — amber, orange, sulphurous, dusty brown
+    //  Guristas:       chlorine/acid — toxic greens, chlorine, acidic, nebulae
+    //  Blood Raiders:  the signature blood-RED nebula — fire, plasma, ember, crimson
+    //  Sansha:         clean energy — ion, plasmic, electric blue-white micro nebulae
+    //  Serpentis:      industrial dread — brown or dark-blue gas clouds, dark haze
+    //  Rogue Drones:   wasteland — debris, meteor, dark grey turbulent dust
+    static const std::vector<uint32> angelClouds = {
+        10764,   // Amber Cloud
+        10754,   // Wispy Orange Cloud
+        10755,   // Sulphuric Cloud
+        10756,   // Dust Streak
+        10067,   // Dust Cloud
+        10233,   // Meteor Cloud
+        10813,   // Brown hemisphere
+        10816,   // Brown crescent
+        10817,   // Brown quarter
+    };
+    static const std::vector<uint32> guristasClouds = {
+        10066,   // Dark Green Cloud
+        10765,   // Green Gas Cloud
+        10762,   // Chlorine Cloud
+        10758,   // Wispy Chlorine Cloud
+        10760,   // Acidic Cloud
+        10761,   // Nebulaic Cloud
+        10763,   // Gaseous Cloud
+        10759,   // Micro Nebula
+    };
+    //  Blood Raiders:  the signature RED nebula — fire, plasma, ember sparks,
+    //                  electric crimson clouds (their anomalies drift in a
+    //                  blood-red haze per community lore)
+    static const std::vector<uint32> bloodClouds = {
+        10131,   // Fire Cloud
+        10132,   // Plasma Cloud
+        10069,   // Spark Cloud
+        10130,   // Electric Cloud
+        10068,   // Ion Cloud
+        10065,   // Dark Cloud
+        10128,   // Dark Gray Cloud
+        10755,   // Sulphuric Cloud
+    };
+    static const std::vector<uint32> sanshaClouds = {
+        10068,   // Ion Cloud
+        10130,   // Electric Cloud
+        10757,   // Plasmic Gas Cloud
+        10759,   // Micro Nebula
+        10810,   // Blue faint
+        10811,   // Blue quarter
+        10812,   // White sharp hemisphere
+        10815,   // White Crescent
+        10821,   // White solid
+        10820,   // Thin claw
+    };
+    static const std::vector<uint32> serpentisClouds = {
+        // Serpentis: industrial dread — brown or dark-blue gas clouds, dark/grey
+        // haze, dust (gloomy industrial wasteland, not tropical green).
+        10813,   // Brown hemisphere
+        10816,   // Brown crescent
+        10817,   // Brown quarter
+        10810,   // Blue faint (dark blue)
+        10811,   // Blue quarter
+        10065,   // Dark Cloud
+        10128,   // Dark Gray Cloud
+        10129,   // Dark Gray Turbulent Cloud
+        10067,   // Dust Cloud
+        10756,   // Dust Streak
+    };
+    static const std::vector<uint32> rogueClouds = {
+        10232,   // Debris Cloud
+        10233,   // Meteor Cloud
+        10067,   // Dust Cloud
+        10756,   // Dust Streak
+        10128,   // Dark Gray Cloud
+        10129,   // Dark Gray Turbulent Cloud
+        10065,   // Dark Cloud
+    };
     // LCO ship wreckage — Large Collidable Object (group 226): visual debris,
     // NOT lootable wrecks. Looks like a wreck field but has no cargo/access.
     static const std::vector<uint32> lcoDeco = {
@@ -727,34 +804,41 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     // Faction-specific structure pools
     uint32 decoCount = 8 + MakeRandomInt(0, 7);
     std::vector<uint32> factionDeco;
+    std::vector<uint32> factionClouds = cloudDeco;   // default: generic cloud field
     switch (factionID) {
         case factionAngel: {
             factionDeco = angelDeco;
+            factionClouds = angelClouds;
             decoCount = 10 + MakeRandomInt(0, 8);
             break;
         }
         case factionGuristas: {
             factionDeco = guristasDeco;
+            factionClouds = guristasClouds;
             decoCount = 8 + MakeRandomInt(0, 6);
             break;
         }
         case factionBloodRaider: {
             factionDeco = bloodDeco;
+            factionClouds = bloodClouds;
             decoCount = 6 + MakeRandomInt(0, 5);
             break;
         }
         case factionSanshas: {
             factionDeco = sanshaDeco;
+            factionClouds = sanshaClouds;
             decoCount = 10 + MakeRandomInt(0, 8);
             break;
         }
         case factionSerpentis: {
             factionDeco = serpentisDeco;
+            factionClouds = serpentisClouds;
             decoCount = 10 + MakeRandomInt(0, 8);
             break;
         }
         case factionRogueDrones: {
             factionDeco = rogueDroneDeco;
+            factionClouds = rogueClouds;
             decoCount = 12 + MakeRandomInt(0, 8);
             break;
         }
@@ -768,7 +852,7 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     // Mix in some of each category
     std::vector<uint32> decoPool;
     for (auto t : factionDeco) decoPool.push_back(t);
-    for (auto t : cloudDeco) decoPool.push_back(t);
+    for (auto t : factionClouds) decoPool.push_back(t);
     if (MakeRandomInt(0, 2) > 0)
         for (auto t : lcoDeco) decoPool.push_back(t);
     if (MakeRandomInt(0, 3) > 0)
