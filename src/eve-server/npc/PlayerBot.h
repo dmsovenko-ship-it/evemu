@@ -2,7 +2,9 @@
 #define __PLAYER_BOT__H__INCL__
 
 #include "npc/NPC.h"
+#include "npc/BotMemory.h"
 #include "utils/timer.h"
+#include <memory>
 
 /**
  * @brief Simulated player — an AI-controlled pilot that populates active systems
@@ -24,6 +26,7 @@ public:
     virtual void Process();
     virtual PyDict* MakeSlimItem();
     virtual void OnAttacked(SystemEntity* attacker);   // assess threat, fight or flee
+    virtual void Killed(Damage& damage);               // record death + loss
 
     /* bot identity */
     uint32 GetBotCharID() const         { return m_botCharID; }
@@ -31,6 +34,9 @@ public:
     uint32 GetBotCorpID() const         { return m_botCorpID; }
     uint32 GetBotAllianceID() const     { return m_botAllianceID; }
     uint8 GetBotSkillLevel() const      { return m_botSkill; }
+
+    /* learning */
+    BotMemory* GetMemory() const        { return m_memory.get(); }
 
     /* bot behaviour control */
     enum class BotActivity : uint8 {
@@ -78,11 +84,13 @@ protected:
     uint8 m_botSkill;                   // simulated pilot skill tier (0..5)
     BotActivity m_activity;
     BotRole m_role;                     // combat role assigned at spawn
+    std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     Timer m_decisionTimer;
     Timer m_travelTimer;                // counts down the visible warp to the gate
     bool m_wantsTravel;                 // true when the bot wants to leave via gate
     bool m_traveling;                   // true while the bot visibly warps to the gate
     Timer m_abilityTimer;               // logistics/EWAR/bonus tick
+    bool m_inFight;                     // true while fighting (to record outcomes)
 };
 
 #endif

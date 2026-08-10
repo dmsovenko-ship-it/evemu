@@ -404,6 +404,7 @@ SET( npc_INCLUDE
      "${TARGET_INCLUDE_DIR}/npc/PlayerBot.h"
      "${TARGET_INCLUDE_DIR}/npc/BotMgr.h"
      "${TARGET_INCLUDE_DIR}/npc/BotChat.h"
+     "${TARGET_INCLUDE_DIR}/npc/BotMemory.h"
      "${TARGET_INCLUDE_DIR}/npc/Sentry.h"
       "${TARGET_INCLUDE_DIR}/npc/SentryAI.h"
       "${TARGET_INCLUDE_DIR}/npc/ConvoyAI.h")
@@ -417,6 +418,7 @@ SET( npc_SOURCE
      "${TARGET_SOURCE_DIR}/npc/PlayerBot.cpp"
      "${TARGET_SOURCE_DIR}/npc/BotMgr.cpp"
      "${TARGET_SOURCE_DIR}/npc/BotChat.cpp"
+     "${TARGET_SOURCE_DIR}/npc/BotMemory.cpp"
      "${TARGET_SOURCE_DIR}/npc/Sentry.cpp"
       "${TARGET_SOURCE_DIR}/npc/SentryAI.cpp"
       "${TARGET_SOURCE_DIR}/npc/ConvoyAI.cpp"

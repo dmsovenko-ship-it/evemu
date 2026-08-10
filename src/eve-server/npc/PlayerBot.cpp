@@ -1,5 +1,6 @@
 #include "eve-server.h"
 #include "npc/PlayerBot.h"
+#include "npc/NPCAI.h"
 #include "Client.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
@@ -23,11 +24,13 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_botSkill(3),
   m_activity(BotActivity::Idle),
   m_role(BotRole::Fighter),
+  m_memory(std::make_unique<BotMemory>(charID)),
   m_decisionTimer(0),
   m_travelTimer(0),
   m_wantsTravel(false),
   m_traveling(false),
-  m_abilityTimer(0)
+  m_abilityTimer(0),
+  m_inFight(false)
 {
     // A player-like legend: give this NPC a neutral alliance so it doesn't show
     // red crosshairs and isn't auto-aggroed by faction standing checks.
@@ -35,6 +38,9 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
     m_corpID = m_botCorpID;
     m_warID = 0;
     m_ownerID = m_botCorpID;
+
+    // Load persistent learning (win/loss history, chat quality).
+    m_memory->Load();
 }
 
 PlayerBot::~PlayerBot() = default;
@@ -83,7 +89,7 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
     // to the attacker's ship class. If it thinks it can win (or the fight is
     // even), it fights back; otherwise it warps out.
     int attackerClass = 0;
-    if (attacker->GetSelf() != nullptr) {
+    if (attacker->GetSelf().get() != nullptr) {
         Inv::TypeData tdata;
         sDataMgr.GetType(attacker->GetSelf()->typeID(), tdata);
         attackerClass = GetShipClass(tdata.groupID);
@@ -96,6 +102,11 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
     int theirPower = attackerClass * 2 + (sConfig.playerBots.AggroFactor > 0 ? 1 : 0);
     // AggroFactor: % confidence modifier. +10% → treat enemy as 10% weaker, etc.
     theirPower -= (int)(theirPower * (sConfig.playerBots.AggroFactor / 100.0f));
+
+    // Self-learning: a bot with a history of wins fights more boldly; a bot that
+    // keeps losing is cautious. GetAggression() ∈ [-1..+1] shifts the balance.
+    float learned = m_memory ? m_memory->GetAggression() : 0.0f;
+    myPower += (int)(learned * 2.0f);   // ±2 combat power from experience
 
     _log(BOT__TRACE, "PlayerBot %s(%u): attacked by %s — sysSec %.1f mayAttack %s, myPower %d vs theirPower %d.",
          m_botName.c_str(), m_botCharID, attacker->GetName(), sysSec, mayAttack?"yes":"no", myPower, theirPower);
@@ -191,19 +202,17 @@ int PlayerBot::GetShipClass(uint16 groupID)
 {
     using namespace EVEDB::invGroups;
     switch (groupID) {
-        case Frigate: case Assault_Frigate: case Interceptor:
-        case Covert_Ops: case Electronic_Attack_Ship:
-        case Interdictor: case Stealth_Bomber:
+        case Frigate: case AssaultShip: case Interceptor:
+        case CovertOps: case Interdictor: case StealthBomber:
             return 1;
-        case Destroyer: case Interdictor_2: case Interdictor_3:
+        case Destroyer:
             return 2;
-        case Cruiser: case Heavy_Assault_Cruiser: case Heavy_Interceptor:
-        case Logistics_Frigate: case Combat_Recon_Ship:
+        case Cruiser: case HeavyAssaultShip: case CombatRecon:
+        case Logistics:
             return 3;
-        case Battlecruiser: case Command_Ship: case Strategic_Cruiser:
-        case Force_Recon_Ship: case Logistics_Cruiser:
+        case Battlecruiser: case CommandShip: case StrategicCruiser:
             return 4;
-        case Battleship: case Black_Ops: case Marauder:
+        case Battleship: case BlackOps: case Marauder:
             return 5;
         case Supercarrier: case Titan: case Carrier:
             return 6;
@@ -250,16 +259,33 @@ void PlayerBot::Process()
         m_wantsTravel = true;
 
     // During a fight, use role abilities (logistics, EWAR, gang bonuses).
-    if (GetAIMgr()->IsFighting() && m_abilityTimer.Check(false))
+    bool fighting = GetAIMgr()->IsFighting();
+    if (fighting && m_abilityTimer.Check(false))
         UseCombatAbilities();
     if (!m_abilityTimer.Enabled())
         m_abilityTimer.Start(5000);
+
+    // Learn from fights: when a fight ends and we survived, count it as a win.
+    if (m_inFight && !fighting && !m_killed) {
+        m_inFight = false;
+        if (m_memory) { m_memory->RecordWin(); m_memory->Save(); }
+        _log(BOT__TRACE, "PlayerBot %s(%u): fight ended, recorded win.", m_botName.c_str(), m_botCharID);
+    } else if (fighting) {
+        m_inFight = true;
+    }
 
     if (m_decisionTimer.Check(false)) {
         DecideNextAction();
     }
     if (!m_decisionTimer.Enabled())
         m_decisionTimer.Start(15000);   // re-evaluate every ~15s
+}
+
+void PlayerBot::Killed(Damage& damage)
+{
+    // Record the loss for learning, then let the base NPC clean up.
+    if (m_memory) { m_memory->RecordLoss(); m_memory->RecordDeath(); m_memory->Save(); }
+    NPC::Killed(damage);
 }
 
 void PlayerBot::DecideNextAction()

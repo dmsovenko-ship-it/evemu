@@ -807,7 +807,7 @@ void NPCAIMgr::Flee(SystemEntity* pTargSE)
     // Register the threat as a target so the Fleeing state can track it, then
     // hand off to SetFleeing (runs away and warps out when out of range).
     if (m_npc->TargetMgr() != nullptr)
-        m_npc->TargetMgr()->AddTarget(pTargSE);
+        m_npc->TargetMgr()->TargetedAdd(pTargSE);
     SetFleeing(pTargSE);
 }
 
