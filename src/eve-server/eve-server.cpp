@@ -141,6 +141,7 @@
 #include "market/MarketMgr.h"
 #include "market/MarketProxyService.h"
 #include "market/MarketBotMgr.h"
+#include "npc/BotMgr.h"
 // missions services
 #include "missions/MissionMgrService.h"
 // planet services
@@ -544,6 +545,8 @@ int main( int argc, char* argv[] )
     } else {
         sLog.Warning("   Market Bot Mgr", "TraderJoe is Disabled.");
     }
+    sLog.Green("   PlayerBot Mgr", "Initializing Simulated Players.");
+    sBotMgr.Initialize();
     std::printf("\n");     // spacer
 
     sLog.Blue("     ServerConfig", "Debug Switches");

@@ -43,6 +43,7 @@
 #include "map/MapDB.h"
 #include "market/MarketMgr.h"
 #include "market/MarketBotMgr.h"
+#include "npc/BotMgr.h"
 #include "faction/WarRegistryService.h"
 #include "missions/MissionDataMgr.h"
 #include "incursion/IncursionMgr.h"
@@ -558,6 +559,9 @@ void EntityList::Process() {
         for (auto cur : m_players)
             if (cur.second->IsValidSession())   // verify client is constructed before calling ProcessClient() on it
                 cur.second->ProcessClient();
+
+        // Simulated players: top up active systems with AI pilots on the 1Hz tic.
+        sBotMgr.Process();
 
     /** @todo test for adding OpenMP here to enable MP per system. */
     // this wont work....possibility of removing systems, therefore invalidating the iterator.

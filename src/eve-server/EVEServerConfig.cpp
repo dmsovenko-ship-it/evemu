@@ -239,6 +239,14 @@ EVEServerConfig::EVEServerConfig()
     debug.AnomalyFaction = 0;
     debug.ProfileTraceTime = 150/*ms*/;
 
+    // playerBots
+    playerBots.Enabled = false;
+    playerBots.MaxPerSystem = 30;
+    playerBots.ChatChance = 5;
+    playerBots.AggroFactor = 0;
+    playerBots.MinSkillLevel = 3;
+    playerBots.MaxSkillLevel = 5;
+
     // database
     database.host = "localhost";
     database.port = 3306;
@@ -293,8 +301,9 @@ bool EVEServerConfig::ProcessEveServer( const TiXmlElement* ele )
     AddMemberParser( "database",    &EVEServerConfig::ProcessDatabase );
     AddMemberParser( "files",       &EVEServerConfig::ProcessFiles );
     AddMemberParser( "net",         &EVEServerConfig::ProcessNet );
-    AddMemberParser( "testing",     &EVEServerConfig::ProcessTesting );
-    AddMemberParser( "threads",     &EVEServerConfig::ProcessThreads );
+    AddMemberParser( "testing",     &EVEServerConfig::ProcessTesting );  
+    AddMemberParser( "threads",     &EVEServerConfig::ProcessThreads );  
+    AddMemberParser( "playerBots",  &EVEServerConfig::ProcessPlayerBots );
 
     // parse the element
     const bool result = ParseElementChildren( ele );
@@ -850,6 +859,27 @@ bool EVEServerConfig::ProcessDebug(const TiXmlElement* ele)
     RemoveParser( "SpawnTest" );
     RemoveParser( "BubbleTrack" );
     RemoveParser( "ProfileTraceTime" );
+
+    return result;
+}
+
+bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
+{
+    AddValueParser( "Enabled",          playerBots.Enabled );
+    AddValueParser( "MaxPerSystem",     playerBots.MaxPerSystem );
+    AddValueParser( "ChatChance",       playerBots.ChatChance );
+    AddValueParser( "AggroFactor",      playerBots.AggroFactor );
+    AddValueParser( "MinSkillLevel",    playerBots.MinSkillLevel );
+    AddValueParser( "MaxSkillLevel",    playerBots.MaxSkillLevel );
+
+    const bool result = ParseElementChildren( ele );
+
+    RemoveParser( "Enabled" );
+    RemoveParser( "MaxPerSystem" );
+    RemoveParser( "ChatChance" );
+    RemoveParser( "AggroFactor" );
+    RemoveParser( "MinSkillLevel" );
+    RemoveParser( "MaxSkillLevel" );
 
     return result;
 }

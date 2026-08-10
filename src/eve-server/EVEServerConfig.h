@@ -347,6 +347,16 @@ public:
         uint32 AnomalyFaction;
     } debug;
 
+    // From <playerBots>
+    struct {
+        bool Enabled;              // master switch for simulated players
+        uint8 MaxPerSystem;        // max simulated players per active system
+        uint16 ChatChance;         // % chance per bot tick to say something in local
+        uint16 AggroFactor;        // % confidence bonus/penalty when deciding to fight
+        uint32 MinSkillLevel;      // min SP-simulated skill level for bots
+        uint32 MaxSkillLevel;      // max SP-simulated skill level for bots
+    } playerBots;
+
 protected:
     bool ProcessEveServer( const TiXmlElement* ele );
     bool ProcessServer( const TiXmlElement* ele );
@@ -368,6 +378,7 @@ protected:
     bool ProcessBPTimes( const TiXmlElement* ele );
     bool ProcessTesting( const TiXmlElement* ele );
     bool ProcessDebug( const TiXmlElement* ele );
+    bool ProcessPlayerBots( const TiXmlElement* ele );
 };
 
 /// A macro for easier access to the singleton.
