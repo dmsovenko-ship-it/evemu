@@ -40,11 +40,13 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_inFight(false)
 {
     // A player-like legend: give this NPC a neutral alliance so it doesn't show
-    // red crosshairs and isn't auto-aggroed by faction standing checks.
+    // red crosshairs and isn't auto-aggroed by faction standing checks. The
+    // owner is the PILOT (charID), not the corp — so clients can lock the ship
+    // and show its pilot as the owner.
     m_allyID = m_botAllianceID;
     m_corpID = m_botCorpID;
     m_warID = 0;
-    m_ownerID = m_botCorpID;
+    m_ownerID = m_botCharID;
 
     // Load persistent learning (win/loss history, chat quality).
     m_memory->Load();

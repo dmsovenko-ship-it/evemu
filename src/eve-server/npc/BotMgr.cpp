@@ -11,6 +11,7 @@
 #include "chat/LSCService.h"
 #include "chat/LSCChannel.h"
 #include "services/ServiceManager.h"
+#include <cctype>
 
 /*
  * @file BotMgr.cpp
@@ -306,7 +307,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     if (!posSet)
         pos = GPoint(0, 0, 0);
 
-    ItemData idata(hullType, useCorpID, pSystem->GetID(), flagNone, "", pos, useName.c_str());
+    // Real players almost always rename their ship to something arbitrary
+    // (a word, a name, a code). Give the bot's hull a random ship name too,
+    // NOT the pilot's name — a pilot named after their ship is a tell.
+    std::string shipName = MakeRandomShipName();
+    ItemData idata(hullType, useCorpID, pSystem->GetID(), flagNone, shipName.c_str(), pos);
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
     if (iRef.get() == nullptr) {
         _log(BOT__ERROR, "BotMgr: failed to spawn ship hull %u for bot.", hullType);
@@ -315,7 +320,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
 
     FactionData data = FactionData();
     data.corporationID = useCorpID;
-    data.ownerID = useCorpID;
+    data.ownerID = useCharID;   // pilot owns the ship (client locks + shows owner)
     data.factionID = 0;
     data.allianceID = useAllianceID;
 
@@ -478,6 +483,47 @@ uint32 BotMgr::GetRandomAdjacentSystem(uint32 systemID)
     if (targets.empty())
         return 0;
     return targets[MakeRandomInt(0, (int64)targets.size() - 1)];
+}
+
+std::string BotMgr::MakeRandomShipName()
+{
+    // Players name hulls all sorts of ways: made-up words, callsigns, quotes,
+    // memes, even simple ASCII/box-drawing art. Mirror that variety.
+    static const char* pre[] = { "Re", "Ve", "Ka", "Ni", "Za", "Xo", "Ma", "Ta", "Ru", "Di", "Fo", "Ly" };
+    static const char* mid[] = { "li", "ra", "no", "va", "su", "ro", "ma", "ke", "tu", "go", "pa", "ze" };
+    static const char* suf[] = { "ra", "tor", "rix", "lon", "gus", "nar", "yen", "dax", "mir", "kus", "vel", "tar" };
+    static const char* nbr[] = { "", "-1", "-7", "-X", " II", " V", "9", "13", "-A" };
+
+    // Meme / phrase / culture names (EVE inside jokes, movie, game, song refs).
+    static const char* phrases[] = {
+        "Trust no one", "Fly safe", "Loot fairy", "This is fine", "Almost there",
+        "Space trucker", "Not a ganker", "Show me the isk", "Miner tears",
+        "Oops", "Free ride", "One more jump", "Pod me please", "No cap needed",
+        "RIP my wallet", "Eject soon", "Titan of industry", "Capsuleer's bane",
+        "The Answer", "So it goes", "Never tell me the odds", "I aim to misbehave",
+        "Do you even warp", "Belt is lava", "Scanned & panned", "Lowsec vacuum",
+    };
+    // Simple box-drawing / ASCII art names (client renders them fine).
+    static const char* art[] = {
+        "<====>", "[--==--]", ">==>", "{::}", "[-]~>", "<=<>=<", "*==*", ">o=>", "}{}{}", "|==|",
+    };
+
+    switch (MakeRandomInt(0, 3)) {
+        case 0: {   // made-up word
+            std::string n = std::string(pre[MakeRandomInt(0, 11)]) + mid[MakeRandomInt(0, 11)] + suf[MakeRandomInt(0, 11)];
+            n += nbr[MakeRandomInt(0, 8)];
+            return n;
+        }
+        case 1: {   // capitalised made-up word
+            std::string n = std::string(pre[MakeRandomInt(0, 11)]) + mid[MakeRandomInt(0, 11)] + suf[MakeRandomInt(0, 11)];
+            n[0] = (char)toupper(n[0]);
+            return n;
+        }
+        case 2:     // phrase / meme
+            return phrases[MakeRandomInt(0, 25)];
+        default:    // box-drawing / ASCII art
+            return art[MakeRandomInt(0, 9)];
+    }
 }
 
 void BotMgr::ProcessDocking()

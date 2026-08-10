@@ -287,6 +287,19 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
     sDatabase.RunQuery(uerr,
         "UPDATE chrCharacters SET skillPoints = %u WHERE characterID = %u", cdata.skillPoints, charID);
 
+    // Register the bot in cacheOwners so the client can resolve the pilot's name
+    // in local chat member lists and as a ship owner (bulkData.owners cache).
+    {
+        std::string nEsc;
+        sDatabase.DoEscapeString(nEsc, name);
+        DBerror cerr;
+        sDatabase.RunQuery(cerr,
+            "INSERT INTO cacheOwners (ownerID, ownerName, typeID)"
+            " VALUES (%u, '%s', %u)"
+            " ON DUPLICATE KEY UPDATE ownerName = '%s', typeID = %u",
+            charID, nEsc.c_str(), cdata.typeID, nEsc.c_str(), cdata.typeID);
+    }
+
     _log(CHARACTER__INFO, "CreateBotCharacter: bot '%s' (char %u, corp %u, tier %u) with %u SP.",
          name.c_str(), charID, corpID, skillTier, cdata.skillPoints);
     return charID;

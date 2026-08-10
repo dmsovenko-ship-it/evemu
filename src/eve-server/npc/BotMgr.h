@@ -58,6 +58,8 @@ private:
     void ProcessTravel();
     // Random system reachable by gate from systemID (mapSolarSystemJumps), 0 if none.
     uint32 GetRandomAdjacentSystem(uint32 systemID);
+    // Random ship name (players rename their hulls to arbitrary words/codes).
+    static std::string MakeRandomShipName();
 
     // Docked bots: present in local but not flying in space (no SE). They are
     // "at the station". Occasionally undock (spawn at the station) and leave.
