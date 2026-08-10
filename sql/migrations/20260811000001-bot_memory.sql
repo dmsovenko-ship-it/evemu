@@ -4,6 +4,7 @@
 -- BotMgr uses this to make bots act smarter over time — aggressive after wins,
 -- cautious after losses; better at their job with practice; reusing chat lines
 -- that got responses.
+-- +migrate Up
 CREATE TABLE IF NOT EXISTS `botMemory` (
     `charID` INT UNSIGNED NOT NULL,
     `wins` INT UNSIGNED NOT NULL DEFAULT 0,        -- fights won (enemy destroyed/fled)
@@ -19,3 +20,6 @@ CREATE TABLE IF NOT EXISTS `botMemory` (
     `lastUpdate` DATETIME NOT NULL,
     PRIMARY KEY (`charID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- +migrate Down
+DROP TABLE IF EXISTS `botMemory`;

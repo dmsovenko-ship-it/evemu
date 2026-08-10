@@ -1,7 +1,8 @@
 -- Bot legends from real EVE killmails (zKillboard).
 -- Each row = one real player pilot captured from a killmail: their identity,
 -- the ship hull they flew, and their fitted modules. BotMgr uses this to build
--- believable player legends (names, corps, ship, fit, skill tier).
+-- believable player legends (names, corps, ships, fit, skill tier).
+-- +migrate Up
 CREATE TABLE IF NOT EXISTS `botKillmailLegends` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `killmail_id` BIGINT UNSIGNED NOT NULL,
@@ -19,3 +20,6 @@ CREATE TABLE IF NOT EXISTS `botKillmailLegends` (
     KEY `idx_character` (`character_id`),
     KEY `idx_ship` (`ship_type_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- +migrate Down
+DROP TABLE IF EXISTS `botKillmailLegends`;

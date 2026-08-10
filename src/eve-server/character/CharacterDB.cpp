@@ -237,11 +237,15 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
         skill->SaveItem();
         cdata.skillPoints += skill->GetSPForLevel(finalLvl);
         // Direct INSERT (SaveSkillHistory is a non-static instance method).
-        sDatabase.RunQuery(res,
+        DBerror herr;
+        if (!sDatabase.RunQuery(herr,
             "INSERT INTO chrSkillHistory (eventTypeID, logDate, characterID, skillTypeID, skillLevel, absolutePoints)"
             " VALUES (%u, %f, %u, %u, %u, %u)",
             EvESkill::Event::SkillPointsApplied, GetFileTimeNow(),
-            charID, skillTypeID, finalLvl, skill->GetSPForLevel(finalLvl));
+            charID, skillTypeID, finalLvl, skill->GetSPForLevel(finalLvl)))
+        {
+            codelog(DATABASE__ERROR, "CreateBotCharacter: skill history insert failed for %u: %s", charID, herr.c_str());
+        }
     }
 
     // Give the bot a default portrait so the client shows an avatar (not blank).
@@ -267,7 +271,8 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
     }
 
     // Persist the accumulated skill points on the character row.
-    sDatabase.RunQuery(res,
+    DBerror uerr;
+    sDatabase.RunQuery(uerr,
         "UPDATE chrCharacters SET skillPoints = %u WHERE characterID = %u", cdata.skillPoints, charID);
 
     _log(CHARACTER__INFO, "CreateBotCharacter: bot '%s' (char %u, corp %u, tier %u) with %u SP.",

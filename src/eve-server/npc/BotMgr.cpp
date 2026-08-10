@@ -267,10 +267,17 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     }
 
     // Ship hull from the killmail legend (real EVE hull) or a generic cruiser/BC.
+    // Killmail hull types are from modern EVE — some don't exist in the server's
+    // (Crucible-era) invTypes. Validate; fall back to a T1 cruiser/BC if invalid.
     uint32 hullType = useShipType;
-    if (hullType == 0) {
-        static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
-        hullType = hullTypes[MakeRandomInt(0, 7)];
+    {
+        Inv::TypeData tdata = Inv::TypeData();
+        sDataMgr.GetType((uint16)hullType, tdata);
+        bool valid = (hullType != 0) && (tdata.id == hullType);
+        if (!valid) {
+            static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
+            hullType = hullTypes[MakeRandomInt(0, 7)];
+        }
     }
 
     _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u, ship %u, fit %zu items) in system %u",
