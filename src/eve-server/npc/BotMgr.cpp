@@ -100,37 +100,69 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
     if (dockIt != m_docked.end())
         botCount += (uint32)dockIt->second.size();
 
-    // Fixed target per system (so we don't keep filling to the cap every tick).
-    uint32 target = sConfig.playerBots.MaxPerSystem;
+    time_t now = time(nullptr);
+
+    // Target per system, re-rolled every ~5 min so the local count drifts
+    // up/down (a live server's population breathes, not a fixed number).
     auto tIt = m_systemTarget.find(pSystem->GetID());
     if (tIt == m_systemTarget.end()) {
-        // Aim for a random 60-100% of the cap ONCE, then hold it — a live server
-        // isn't at its cap every moment.
-        target = (uint32)(sConfig.playerBots.MaxPerSystem * (0.6f + MakeRandomFloat() * 0.4f));
-        m_systemTarget[pSystem->GetID()] = target;
-    } else {
-        target = tIt->second;
+        uint32 t0 = (uint32)(sConfig.playerBots.MaxPerSystem * (0.6f + MakeRandomFloat() * 0.4f));
+        m_systemTarget[pSystem->GetID()] = t0;
     }
+    // Occasionally re-roll: previous ± random drift, clamped 40%..100% of cap.
+    {
+        static std::map<uint32, time_t> s_lastTargetRoll;
+        auto lr = s_lastTargetRoll.find(pSystem->GetID());
+        if (lr == s_lastTargetRoll.end() || (now - lr->second) >= 300) {
+            s_lastTargetRoll[pSystem->GetID()] = now;
+            uint32 base = m_systemTarget[pSystem->GetID()];
+            int nt = (int)base + (int)(base * (MakeRandomFloat() * 0.4f - 0.2f));
+            uint32 minT = (uint32)(sConfig.playerBots.MaxPerSystem * 0.4f);
+            if (nt < (int)minT) nt = (int)minT;
+            if (nt > (int)sConfig.playerBots.MaxPerSystem) nt = (int)sConfig.playerBots.MaxPerSystem;
+            m_systemTarget[pSystem->GetID()] = (uint32)nt;
+        }
+    }
+    uint32 target = m_systemTarget[pSystem->GetID()];
     if (botCount >= target)
         return;
 
-    // Spawn the missing bots in RANDOM neighbouring systems and have them fly
-    // in through the gate — they "arrive from nearby systems" rather than
-    // popping into existence at the player's location. Different bots come
-    // from different gates (random adjacent systems), and their visible warp
-    // is staggered by MarkForTravel's random 12-20s timer.
-    for (uint32 i = botCount; i < target; ++i) {
+    // Gradual fill: spawn AT MOST one bot per ~15s per system, so the population
+    // trickles in over minutes (like a live server) instead of all at once.
+    auto last = m_lastPopulate.find(pSystem->GetID());
+    if (last != m_lastPopulate.end() && (now - last->second) < 15)
+        return;
+    m_lastPopulate[pSystem->GetID()] = now;
+
+    // Variety: some bots are already in the system (docked or in space), others
+    // arrive through a gate, others leave. Decide per spawn.
+    uint32 spawnMode = MakeRandomInt(0, 9);
+    if (spawnMode < 3) {
+        // Already here — spawn directly at a gate / station in this system
+        // (they "live" here), no inbound flight.
+        SpawnBot(pSystem, 0, "", 0, 0);
+        // Some of these are just passing through — leave shortly.
+        if (MakeRandomInt(0, 99) < 25) {
+            for (auto& [id, se] : pSystem->GetEntities()) {
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                if (pb != nullptr && !pb->IsTraveling() && !pb->WantsToTravel()) {
+                    pb->MarkForTravel();
+                    break;
+                }
+            }
+        }
+    } else {
+        // Inbound through a gate from a neighbouring system (visible warp).
         uint32 origin = GetRandomAdjacentSystem(pSystem->GetID());
         if (origin == 0) {
-            // No map neighbours — spawn directly at a gate in this system.
             SpawnBot(pSystem, 0, "", 0, 0);
-            continue;
+            return;
         }
         SystemManager* originSys = sEntityList.FindOrBootSystem(origin);
         if (originSys == nullptr)
-            continue;
-        // Spawn there, then tell the bot to fly to THIS system's gate.
-        // SpawnBot returns the bot via a helper; we mark it for arrival.
+            return;
         SpawnBotArriving(originSys, pSystem->GetID());
     }
 }

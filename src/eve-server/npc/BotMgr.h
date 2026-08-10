@@ -98,6 +98,7 @@ private:
     std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots
     std::map<uint32, uint32> m_systemTarget;   // systemID -> fixed bot target (live-server feel)
+    std::map<uint32, time_t> m_lastPopulate;   // systemID -> last bot spawn time (gradual fill)
 };
 
 //Singleton
