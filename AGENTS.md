@@ -3,6 +3,21 @@
 ## Current State
 Session saved. Latest commit: `1edb6957`. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
 
+## 11 августа: ИИ-игроки (боты) — полный цикл (реализовано, сборка проверяется)
+Цель: имитация живого сервера. Боты = полноценные персонажи в SQL (прогресс не пропадает), с легендой из реальных killmails, DeepSeek-чатом, профессиями и самообучением везде.
+- **Каркас** (`830e9d89`): `PlayerBot` (наследник NPC, корабль/Destiny/NPCAI) + `BotMgr` (синглтон, 1Hz тик, заполняет активные системы до `MaxPerSystem`=30, конфиг `<playerBots>`).
+- **Персистентность** (`e83a5f3e`): `CharacterDB::CreateBotCharacter` — бот пишется как настоящий игрок: chrCharacters + entity-навыки + chrSkillHistory + chrEmployment + баланс. Прогресс/легенда переживают рестарты.
+- **Киллмейл-легенды** (`72282a6f`): `botKillmailLegends` таблица + `tools/import_killmail_legends.py` (zKillboard API + ESI имена) → реальные имена/корпы/альянсы/корабли/фитинги. Запуск: `/opt/conda/bin/python tools/import_killmail_legends.py --db-host 127.0.0.1 --db-user evemu --db-pass evemu --db-name evemu --pages 20`.
+- **DeepSeek-чат** (`22bbd242`): боты в локале (AddBotChar/SendBotMessage — fake sender), отвечают игрокам через `BotChat` (curl CLI, no HTTP lib), конфиг `ChatEnabled/DeepSeekKey/DeepSeekURL`. Throttle 1/30с на канал.
+- **Перелёт** (`a43f02e1`): бот видимо варпит к гейту (12-20с), потом переносится в соседнюю систему (mapSolarSystemJumps) — появляется у её гейта. **Док/андок** (`e75bc7e7`): боты на станции (в локале, без SE), андок → варп → гейт.
+- **Интеллектуальный бой** (`308a5b95`, `ae20ada0`): kill rights (хайсек только криминалы/низкий sec; лоусек/нули свободно), оценка сил (класс корабля×2 + skillTier, AggroFactor), бегство при слабости, флот-поддержка (союзники того же корпа/альянса), kill call (PickPriorityTarget: командиры/логисты первыми), роли (60% fighter, логисты ремоут-репят, командиры дают бонус, саппорт — EWAR web/scram/ECM/paint через NPCAI::AttackTarget).
+- **Профессии** (`bd9ef234`, `a2801351`): 10% PvP-хантеры, 15% мирные раттеры (ТОЛЬКО красные крестики, `RatForTarget`), 35% майнеры, 20% трейдеры, 15% курьеры, 5% хакеры. Кооперативный майнинг (`RequestFleetProtection` — охрана из корпа).
+- **Скирминг нулей** (`7434658e`): PvP-корпы помещаются только в альянсы (PickCorp requireAlliance), `ClaimSystem()` захватывает бесхозные нули через `svDataMgr.AddSovClaim` (нужен альянс + практика).
+- **Самообучение** (`94dfbc52`, `08025998`): `botMemory` таблица (wins/losses/kills/deaths/chatLines/chatReplies/ratKills/mineRuns/tradeRuns/hackRuns). Бой: победы→агрессивнее (±2 силы), смерти→осторожнее. Чат: линии+ответы → качество. Деятельность: практика→частота (30-70%). Персистентно.
+- **Фиксы сборки**: `1c563faa`, `bb59ce3c`, `427e87a6`, `cc4a1212`, `d6bed9bc` (includes, invGroups имена, Lookup<LSCService>, GetMaxShipSpeed, syntax).
+- ВАЖНО: `utils/config` в .gitignore — секцию `<playerBots>` в `/opt/evemu/config/eve-server.xml` добавлять вручную (Enabled/MaxPerSystem/ChatChance/AggroFactor/MinSkillLevel/MaxSkillLevel/ChatEnabled/DeepSeekKey/DeepSeekURL).
+- `git pull` на сервере падал из-за root-владения `.git/objects` — лечится `sudo chown -R dmitry:dmitry /opt/evemu/.git`.
+
 ## 10 августа (день): фиксы орбиты/дронов/декора + подготовка к сборке
 - **Орбита вокруг NPC раскручивалась** (`d52f47a2`): TooFar-ветка Orbit() имела ранний return при `m_orbiting==TooFar` — heading вычислялся один раз, корабль летел к устаревшей точке, дистанция росла 5→30км («орбитил NPC», дроны за кораблём = «телепорт в другой конец экрана»). Фикс: TooFar пересчитывает heading каждый тик.
 - **Телепорт дрона при смене chase→orbit** (`3103b69a`): SetEngaged не слал SetPosition перед CmdOrbit (в отличие от SetApproaching/IdleOrbit) — клиентский Ballpark пересоздавал шар на новой орбите. Добавлен sync.
