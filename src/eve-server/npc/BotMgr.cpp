@@ -11,8 +11,6 @@
 #include "chat/LSCService.h"
 #include "chat/LSCChannel.h"
 #include "services/ServiceManager.h"
-#include "account/AccountDB.h"
-#include "account/Account.h"
 #include <cctype>
 
 /*
