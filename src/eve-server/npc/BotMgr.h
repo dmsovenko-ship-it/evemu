@@ -48,7 +48,9 @@ private:
     void ReapBots(SystemManager* pSystem);
     // Realistic corp distribution: one "main" corp holds most bots, 2-3 smaller
     // corps the rest (like live EVE). Picks a corpID for a new bot.
-    uint32 PickCorp(uint32& allianceID);
+    // requireAlliance = only corps inside an alliance (for PvP war corps that
+    // skirmish for sovereignty).
+    uint32 PickCorp(uint32& allianceID, bool requireAlliance=false);
     // Lets a few bots head for a gate / travel to a neighbouring system each tick.
     void ProcessTravel();
     // Random system reachable by gate from systemID (mapSolarSystemJumps), 0 if none.

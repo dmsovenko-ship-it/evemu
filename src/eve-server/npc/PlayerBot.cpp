@@ -7,6 +7,7 @@
 #include "system/cosmicMgrs/BeltMgr.h"
 #include "system/Asteroid.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
+#include "system/sov/SovereigntyDataMgr.h"
 #include <iterator>
 
 /*
@@ -343,6 +344,9 @@ void PlayerBot::DoProfessionActivity()
         case BotProfession::Hunter: {
             // PvP pirate: hunt for legal PvP targets in lowsec/nullsec.
             HuntForTarget();
+            // PvP war corps claim unowned nullsec (skirmish).
+            if (SystemMgr()->GetSystemSecurityRating() < 0.0f)
+                ClaimSystem();
         } break;
 
         case BotProfession::RatHunter: {
@@ -483,6 +487,44 @@ void PlayerBot::RatForTarget()
         GetAIMgr()->Target(se);
         return;
     }
+}
+
+void PlayerBot::ClaimSystem()
+{
+    // PvP war corps skirmish: claim an unowned nullsec system for the corp.
+    // Only corps inside an alliance can claim sovereignty.
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return;
+    if (m_botAllianceID == 0) {
+        _log(BOT__TRACE, "PlayerBot %s(%u): no alliance — cannot claim sovereignty.",
+             m_botName.c_str(), m_botCharID);
+        return;
+    }
+    uint32 sysID = SystemMgr()->GetID();
+
+    // Only claim if the system isn't already owned.
+    SovereigntyData sov = svDataMgr.GetSovereigntyData(sysID);
+    if (sov.allianceID != 0 || sov.corporationID != 0)
+        return;   // already claimed
+
+    // Only occasionally (not every tick), and require a practised attacker.
+    float practice = m_memory ? m_memory->GetActivitySkill() : 0.0f;
+    if (MakeRandomInt(0, 999) >= (int)(10 + practice * 40))
+        return;
+
+    SovereigntyData claim = SovereigntyData();
+        claim.solarSystemID = sysID;
+        claim.constellationID = SystemMgr()->GetConstellationID();
+        claim.regionID = SystemMgr()->GetRegionID();
+        claim.corporationID = m_botCorpID;
+        claim.allianceID = m_botAllianceID;
+        claim.claimStructureID = GetID();
+        claim.claimTime = (int64)GetFileTimeNow();
+        claim.contested = 0;
+    svDataMgr.AddSovClaim(claim);
+
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): nullsec skirmish — claiming system %u for corp %u.",
+         m_botName.c_str(), m_botCharID, sysID, m_botCorpID);
 }
 
 void PlayerBot::RequestFleetProtection()

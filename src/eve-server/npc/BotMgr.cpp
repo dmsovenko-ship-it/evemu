@@ -89,12 +89,13 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
         SpawnBot(pSystem, 0, "", 0, 0);
 }
 
-uint32 BotMgr::PickCorp(uint32& allianceID)
+uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
 {
     // Realistic corp distribution: a few "main" corps hold most bots, a couple
     // of smaller ones the rest. Weight by existing member count so the biggest
     // corp naturally takes the largest share — just like live EVE. Bots are
     // persisted as real members, so the distribution self-organizes over time.
+    // PvP war corps (requireAlliance) only get corps that are in an alliance.
     DBQueryResult res;
     std::vector<std::pair<uint32,uint32>> corps;   // corpID, allianceID
     std::vector<uint32> weights;                    // members+1 per corp
@@ -105,6 +106,7 @@ uint32 BotMgr::PickCorp(uint32& allianceID)
         " LEFT JOIN chrCharacters ch ON ch.corporationID = c.corporationID"
         " GROUP BY c.corporationID"
         " HAVING members >= 1"      // only corps that already have members
+        (requireAlliance ? " AND c.allianceID > 0" : "")
         " ORDER BY members DESC"
         " LIMIT 12"))
     {
@@ -193,10 +195,30 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     if (useName.empty())
         useName = "Pilot " + std::to_string(++m_botCounter);
 
+    // Decide the profession early so PvP war corps (hunters) are placed in an
+    // alliance corp (required for claiming nullsec sovereignty).
+    PlayerBot::BotProfession prof;
+    {
+        float p = MakeRandomFloat();
+        if (p < 0.10f)
+            prof = PlayerBot::BotProfession::Hunter;       // PvP pirates / war corps
+        else if (p < 0.25f)
+            prof = PlayerBot::BotProfession::RatHunter;    // peaceful PvE (red crosses only)
+        else if (p < 0.50f)
+            prof = PlayerBot::BotProfession::Miner;
+        else if (p < 0.70f)
+            prof = PlayerBot::BotProfession::Trader;
+        else if (p < 0.85f)
+            prof = PlayerBot::BotProfession::Courier;
+        else
+            prof = PlayerBot::BotProfession::Hacker;
+    }
+
     // Corp: realistic distribution (main corp + a few smaller). If the killmail
     // legend already carries a corp, keep it; otherwise pick one by size.
+    // Hunters (PvP war corps) only join corps inside an alliance.
     if (useCorpID == 0)
-        useCorpID = PickCorp(useAllianceID);
+        useCorpID = PickCorp(useAllianceID, prof == PlayerBot::BotProfession::Hunter);
     if (useCorpID == 0) {
         _log(BOT__ERROR, "BotMgr: no corporation available for bot, skipping spawn.");
         return;
@@ -291,24 +313,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         _log(BOT__TRACE, "BotMgr: %s(%u) role = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetRole());
     }
 
-    // Assign a profession (livelihood). Some corps are aggressive (PvP pirates),
-    // some are peaceful PvE rat hunters, most are industrial/trade/mining/hacking.
-    {
-        float p = MakeRandomFloat();
-        if (p < 0.10f)
-            bot->SetProfession(PlayerBot::BotProfession::Hunter);       // PvP pirates
-        else if (p < 0.25f)
-            bot->SetProfession(PlayerBot::BotProfession::RatHunter);    // peaceful PvE (red crosses only)
-        else if (p < 0.50f)
-            bot->SetProfession(PlayerBot::BotProfession::Miner);
-        else if (p < 0.70f)
-            bot->SetProfession(PlayerBot::BotProfession::Trader);
-        else if (p < 0.85f)
-            bot->SetProfession(PlayerBot::BotProfession::Courier);
-        else
-            bot->SetProfession(PlayerBot::BotProfession::Hacker);
-        _log(BOT__TRACE, "BotMgr: %s(%u) profession = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetProfession());
-    }
+    // Assign the profession decided earlier (before corp selection).
+    bot->SetProfession(prof);
+    _log(BOT__TRACE, "BotMgr: %s(%u) profession = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)prof);
 
     // Join the system's local channel so the bot shows up in local chat.
     if (sConfig.playerBots.Enabled) {

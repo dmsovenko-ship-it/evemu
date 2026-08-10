@@ -87,6 +87,7 @@ public:
     void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
     void HuntForTarget();               // PvP hunter: find a legal PvP target and engage
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
+    void ClaimSystem();                 // PvP war corps: claim unowned nullsec system (skirmish)
     void RequestFleetProtection();      // ask corpmate guards to cover this miner/hauler
 
 protected:
