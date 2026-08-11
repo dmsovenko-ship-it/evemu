@@ -249,13 +249,18 @@ void PlayerBot::MarkForTravel(uint32 destSystem /*0*/)
     m_travelTimer.Start(MakeRandomInt(12000, 20000));   // visible warp to gate
 
     // Warp toward a random gate in the system so the player sees the ship leave.
+    // Land OUTSIDE the gate's collision sphere (gates are 14-19km radius; warping
+    // to the centre or 1000m out leaves the ship inside it, so collision snaps it
+    // around every tick = teleports). Warp to a point past the gate's surface.
     auto gates = SystemMgr()->GetGates();
     if (!gates.empty()) {
         auto it = gates.begin();
         std::advance(it, MakeRandomInt(0, (int64)gates.size() - 1));
         if (it->second != nullptr) {
             GPoint gatePos = it->second->GetPosition();
-            DestinyMgr()->WarpTo(gatePos, 1000);
+            double gateR = it->second->GetRadius() > 500.0 ? it->second->GetRadius() : 3000.0;
+            GPoint target = gatePos + GPoint(gateR + 15000.0, 0, 0);
+            DestinyMgr()->WarpTo(target, 0);
             _log(BOT__TRACE, "PlayerBot %s(%u): warping to gate for departure.",
                  m_botName.c_str(), m_botCharID);
         }

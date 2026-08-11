@@ -326,6 +326,14 @@ void DestinyManager::ProcessState() {
                 double dist = delta.length();
                 double minDist = se->GetRadius() + mySE->GetRadius();
                 if (dist < minDist && dist > 0.01) {
+                    // Only snap out if the ship is actually heading INTO the
+                    // structure. A ship drifting/parked near a gate (or one that
+                    // just warped in beside it) must not be re-snapped every tick
+                    // — that was the visible "micro-teleports pushing me away".
+                    GVector toStruct = GVector(m_position, se->GetPosition());
+                    double approach = m_velocity.dotProduct(toStruct);
+                    if (approach <= 0.0)
+                        continue;   // moving away or not moving toward it — leave it
                     delta.normalize();
                     m_position = se->GetPosition() + (delta * (minDist + 1.0));
                     m_velocity = GVector(0, 0, 0);

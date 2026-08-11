@@ -12,6 +12,7 @@
 #include "chat/LSCChannel.h"
 #include "services/ServiceManager.h"
 #include <cctype>
+#include <cmath>
 
 /*
  * @file BotMgr.cpp
@@ -183,6 +184,9 @@ uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
         " FROM crpCorporation c"
         " LEFT JOIN chrCharacters ch ON ch.corporationID = c.corporationID"
         " WHERE c.corporationID >= 1000000")      // skip 0/placeholder rows
+        + " AND NOT EXISTS ("                     // never join a corp a REAL player is in
+            " SELECT 1 FROM chrCharacters realc"
+            " WHERE realc.corporationID = c.corporationID AND realc.accountID != 0)"
         + (requireAlliance ? " AND c.allianceID > 0" : "")
         + std::string(" GROUP BY c.corporationID")
         + std::string(" ORDER BY members DESC")
@@ -247,7 +251,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             "SELECT character_id, character_name, corporation_id, alliance_id,"
             "       ship_type_id, fitted_item_ids"
             " FROM botKillmailLegends"
-            " WHERE ship_type_id > 0 AND character_name != ''"
+            " WHERE ship_type_id > 0 AND ship_type_id != 670   -- no capsule legends (pod kills)"
+            "   AND character_name != ''"
             " ORDER BY RAND() LIMIT 1"))
         {
             DBResultRow row;
@@ -312,9 +317,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // history) so its legend and progress survive restarts. The character id is
     // allocated normally (sequential free id); CreateBotCharacter de-dupes by name.
     uint32 killmailCharID = useCharID;   // real EVE id the legend came from (for portraits)
+    uint8 skillTier = sConfig.playerBots.MinSkillLevel +
+        MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
     {
-        uint8 skillTier = sConfig.playerBots.MinSkillLevel +
-            MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
         useCharID = CharacterDB::CreateBotCharacter(useName, useCorpID, useAllianceID, skillTier);
         if (useCharID == 0) {
             _log(BOT__ERROR, "BotMgr: failed to create persisted bot character '%s'.", useName.c_str());
@@ -336,7 +341,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     {
         Inv::TypeData tdata = Inv::TypeData();
         sDataMgr.GetType((uint16)hullType, tdata);
-        bool valid = (hullType != 0) && (tdata.id == hullType);
+        // Capsule/pod (group 29) is a legit type but a bot flying one looks
+        // broken — filter it (and anything non-ship) out, fall back to a T1 hull.
+        bool valid = (hullType != 0) && (tdata.id == hullType) && (tdata.groupID != 29);
         if (!valid) {
             static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
             hullType = hullTypes[MakeRandomInt(0, 7)];
@@ -346,13 +353,24 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u, ship %u, fit %zu items) in system %u",
          useName.c_str(), useCharID, useCorpID, hullType, useFit.size(), pSystem->GetID());
 
-    // Spawn at a gate — the bot "arrived through the gate from the neighbouring
-    // system", matching a real pilot's travel story.
+    // Spawn near a gate — the bot "arrived through the gate from the neighbouring
+    // system", matching a real pilot's travel story. Do NOT put it at the gate's
+    // centre: gates have huge collision spheres (14-19km) and a ship inside one
+    // gets snapped out every tick (visible micro-teleports / "repulsion"). Place
+    // it just outside the gate's radius, offset toward the gate so it looks like
+    // it warped in beside the gate.
     GPoint pos;
     bool posSet = false;
     for (auto& [id, se] : pSystem->GetStaticEntities()) {
         if (se != nullptr && se->GetGateSE() != nullptr) {
-            pos = se->GetPosition();
+            GPoint gatePos = se->GetPosition();
+            double gateR = se->GetRadius() > 500.0 ? se->GetRadius() : 3000.0;
+            // Random offset in the plane, 2-5 km past the gate's surface.
+            double ang = MakeRandomFloat() * 6.2831853;
+            GPoint offset(cos(ang) * (gateR + MakeRandomFloat() * 3000.0 + 2000.0),
+                          sin(ang) * (gateR + MakeRandomFloat() * 3000.0 + 2000.0),
+                          0.0);
+            pos = gatePos + offset;
             posSet = true;
             break;
         }
@@ -378,6 +396,38 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     if (iRef.get() == nullptr) {
         _log(BOT__ERROR, "BotMgr: failed to spawn ship hull %u for bot.", hullType);
         return;
+    }
+
+    // Give the bot's hull a combat profile. Real player ships (Raven etc.) don't
+    // carry the NPC attack attributes (AttrEmDamage/AttrKineticDamage/...) that
+    // NPC::constructor / NPCAI read — without them the bot locks targets but
+    // deals ZERO damage. Set a class-based profile scaled by skill tier.
+    {
+        float base = 6.0f + (float)skillTier * 4.0f;   // 6..26 base DPS-ish
+        uint16 grp = iRef->groupID();
+        // Bigger hulls hit harder (battleship > cruiser > frigate).
+        if (grp == EVEDB::invGroups::Battleship || grp == EVEDB::invGroups::BlackOps
+            || grp == EVEDB::invGroups::Marauder)
+            base *= 5.0f;
+        else if (grp == EVEDB::invGroups::Battlecruiser || grp == EVEDB::invGroups::CommandShip
+                 || grp == EVEDB::invGroups::StrategicCruiser)
+            base *= 3.0f;
+        else if (grp == EVEDB::invGroups::Cruiser || grp == EVEDB::invGroups::HeavyAssaultShip
+                 || grp == EVEDB::invGroups::CombatRecon || grp == EVEDB::invGroups::Logistics)
+            base *= 2.0f;
+        if (!iRef->HasAttribute(AttrEmDamage))          iRef->SetAttribute(AttrEmDamage,         base * 0.4f, false);
+        if (!iRef->HasAttribute(AttrKineticDamage))     iRef->SetAttribute(AttrKineticDamage,    base,         false);
+        if (!iRef->HasAttribute(AttrThermalDamage))     iRef->SetAttribute(AttrThermalDamage,    base * 0.8f, false);
+        if (!iRef->HasAttribute(AttrExplosiveDamage))   iRef->SetAttribute(AttrExplosiveDamage,  base * 0.2f, false);
+        if (!iRef->HasAttribute(AttrDamageMultiplier))  iRef->SetAttribute(AttrDamageMultiplier, 2.0f, false);
+        if (!iRef->HasAttribute(AttrSpeed))             iRef->SetAttribute(AttrSpeed,            (float)MakeRandomInt(2500, 5000), false);   // weapon cycle ms
+        if (!iRef->HasAttribute(AttrMaxRange))          iRef->SetAttribute(AttrMaxRange,         15000.0f, false);   // optimal
+        if (!iRef->HasAttribute(AttrFalloff))           iRef->SetAttribute(AttrFalloff,          10000.0f, false);
+        if (!iRef->HasAttribute(AttrTrackingSpeed))     iRef->SetAttribute(AttrTrackingSpeed,    0.08f, false);
+        if (!iRef->HasAttribute(AttrEntityFlyRange))    iRef->SetAttribute(AttrEntityFlyRange,   15000.0f, false);   // orbit range
+        if (!iRef->HasAttribute(AttrEntityCruiseSpeed)) iRef->SetAttribute(AttrEntityCruiseSpeed, 180.0f, false);
+        if (!iRef->HasAttribute(AttrOptimalSigRadius))  iRef->SetAttribute(AttrOptimalSigRadius, 40.0f, false);
+        if (!iRef->HasAttribute(AttrSignatureRadius))   iRef->SetAttribute(AttrSignatureRadius,  iRef->GetAttribute(AttrRadius).get_float() * 5.0f, false);
     }
 
     FactionData data = FactionData();
