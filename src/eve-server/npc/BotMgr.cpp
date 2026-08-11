@@ -583,6 +583,8 @@ void BotMgr::ProcessTravel()
             PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
             if (pb == nullptr)
                 continue;
+            if (pb->IsAggressed())
+                continue;   // aggression timer — can't jump a gate until it cools down
             if (pb->WantsToTravel())
                 readyToJump.push_back(pb);   // visible flight to the gate is done
             else if (MakeRandomInt(0, 299) == 0)   // ~0.33% per tic decides to leave
@@ -1245,6 +1247,8 @@ void BotMgr::ProcessDocking()
             PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
             if (pb == nullptr || pb->WantsToTravel())
                 continue;
+            if (pb->IsAggressed())
+                continue;   // aggression timer — can't dock mid-aggression
             if (!pb->WantsDock() && MakeRandomInt(0, 599) != 0)
                 continue;   // neither profession wants the station nor occasional roll
             // Fly to the station first so the dock is visible (no teleport).

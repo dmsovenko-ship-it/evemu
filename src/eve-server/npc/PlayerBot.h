@@ -133,6 +133,15 @@ public:
     // bit. Corp-level too, so whole corps slowly become enemies — the basis for
     // future faction/aggression tracking by standings.
     void UpdateBotStandings(const PlayerBot* other, bool otherLost);
+    // Aggression timer: after the bot attacks someone it can't dock or jump a
+    // gate for a while (like a real pilot's aggression flag). Start() it on an
+    // attack; IsAggressed() gates docking/travel in BotMgr.
+    void StartAggressionTimer()   { m_aggressionTimer.Start(MakeRandomInt(30000, 90000)); }
+    bool IsAggressed() const      { return m_aggressionTimer.Enabled(); }
+    // Broadcast an OnAggressionChange notification so players in the bubble see
+    // the bot's blinking aggression icon (like any attacker's). victim = who the
+    // bot attacked (may be a Client or another bot).
+    void BroadcastAggression(uint32 victimCharID);
 
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
@@ -159,6 +168,7 @@ protected:
     Timer m_activityTimer;              // profession run counter (self-learning)
     Timer m_huntCooldown;               // PvP hunter: pause between engages (no gate camping)
     Timer m_scoutTimer;                 // fresh arrival: scout the system before committing
+    Timer m_aggressionTimer;            // aggression flag: can't dock/jump while active
     bool m_inFight;                     // true while fighting (to record outcomes)
     bool m_wantsDock;                   // true when the bot wants to dock (profession)
     uint8 m_mineTrips;                  // mining runs since last dock (ore haul)

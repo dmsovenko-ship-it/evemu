@@ -71,7 +71,21 @@ PyDict* PlayerBot::MakeSlimItem()
         slim->SetItemString("name", new PyString(m_botName));
         slim->SetItemString("corpID", new PyInt(m_botCorpID));
         slim->SetItemString("allianceID", new PyInt(m_botAllianceID));
-        slim->SetItemString("securityStatus", new PyFloat(0.0f));
+        // Security status reflects the bot's history: a veteran killer shows a
+        // red skull (< -5.0), a brawler an orange badge (-5..-0.1), a clean pilot
+        // 0.0+. Kills lower it, deaths/non-pvp don't raise it much.
+        float sec = 0.0f;
+        if (m_memory != nullptr) {
+            int kills = (int)m_memory->GetKills();
+            if (kills > 0)
+                sec = -0.5f - (float)kills * 0.9f;   // each kill ≈ -0.9
+            // Cap: heavy killers deep into criminal range (red skull).
+            if (sec < -10.0f) sec = -10.0f;
+            // A bot that died a lot is a bad pilot, slightly negative but not criminal.
+            if (kills == 0 && m_memory->GetDeaths() > 3)
+                sec = -0.3f;
+        }
+        slim->SetItemString("securityStatus", new PyFloat(sec));
         slim->SetItemString("characterID", new PyInt(m_botCharID));
     }
     return slim;
@@ -136,6 +150,16 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
         ApplyCombatStyle();
         GetAIMgr()->WakeUp();
         GetAIMgr()->StartAttackCycle(2000);
+        // Fighting back = aggression. The bot can't dock or jump until it cools
+        // down — a real pilot can't just leave a fight and dock.
+        StartAggressionTimer();
+        if (attacker->HasPilot())
+            BroadcastAggression(attacker->GetPilot()->GetCharacterID());
+        else if (attacker->GetNPCSE() != nullptr) {
+            PlayerBot* enemyBot = dynamic_cast<PlayerBot*>(attacker->GetNPCSE());
+            if (enemyBot != nullptr)
+                BroadcastAggression(enemyBot->GetBotCharID());
+        }
         // Tackle: hold the attacker so it can't warp while the fleet arrives.
         // NPCAI's AttackTarget applies the scram once in range.
         if (GetAIMgr()->GetScramRange() <= 0)
@@ -551,6 +575,29 @@ void PlayerBot::UpdateBotStandings(const PlayerBot* other, bool otherLost)
          StandingDB::GetStanding(m_botCorpID, other->GetBotCorpID()) - corpToCorp);
 }
 
+void PlayerBot::BroadcastAggression(uint32 victimCharID)
+{
+    // Players see an attacker's blinking aggression icon via the OnAggressionChange
+    // notification: aggressors[attackerCharID] = {victimID: endTime}. A bot that
+    // attacks broadcasts itself as the aggressor so its icon flashes like any
+    // player's. endTime is FILETIME (100ns ticks) in the future.
+    if (m_destiny == nullptr || SysBubble() == nullptr)
+        return;
+    int64 now = GetFileTimeNow();
+    int64 end = now + m_aggressionTimer.GetRemainingTime() * 10000LL;
+    if (victimCharID == 0)
+        return;
+
+    PyDict* timers = new PyDict();
+        timers->SetItem(new PyInt(victimCharID), new PyLong(end));
+    PyDict* aggressors = new PyDict();
+        aggressors->SetItem(new PyInt(m_botCharID), timers);
+    PyTuple* payload = new PyTuple(2);
+        payload->SetItem(0, new PyInt(SystemMgr()->GetID()));
+        payload->SetItem(1, aggressors);
+    SysBubble()->BubblecastSendNotification("OnAggressionChange", "solarsystemid", &payload, true);
+}
+
 void PlayerBot::ApplyCombatStyle()
 {
     if (GetAIMgr() == nullptr)
@@ -880,6 +927,8 @@ void PlayerBot::HuntForTarget()
                  enemyBot->GetBotCharID(), myPower, theirPower);
             // Pre-emptively record the grudge — the hunter declares its enemy.
             UpdateBotStandings(enemyBot, false);
+            StartAggressionTimer();   // attacking = flagged, can't leave for a bit
+            BroadcastAggression(enemyBot->GetBotCharID());   // show the flashing icon
             ApplyCombatStyle();
             GetAIMgr()->WakeUp();
             GetAIMgr()->StartAttackCycle(2000);
