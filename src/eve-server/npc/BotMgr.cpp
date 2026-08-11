@@ -1428,6 +1428,14 @@ void BotMgr::ProcessBotSmalltalk()
         };
 
         std::string msg = lines[MakeRandomInt(0, 14)];
+        // The one phrase with a placeholder: "gate to %s is clear..." — substitute
+        // the actual system name so it reads naturally.
+        {
+            std::string sysName = pSystem->GetName();
+            size_t pos = msg.find("%s");
+            if (pos != std::string::npos)
+                msg.replace(pos, 2, sysName.empty() ? "the gate" : sysName);
+        }
         // Sometimes address the other bot by name.
         if (MakeRandomInt(0, 99) < 40)
             msg = std::string(b->GetBotName().c_str()) + ", " + msg;
