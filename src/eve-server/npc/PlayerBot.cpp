@@ -588,20 +588,18 @@ void PlayerBot::UpdateBotStandings(const PlayerBot* other, bool otherLost)
 
 uint8 PlayerBot::GetDroneCapacity() const
 {
-    // Drone bay size by hull group (Vexor/Dominix/Myrmidon etc.). A frigate has
-    // no bay. Returns 0 for non-drone hulls so the bot doesn't field drones it
-    // has no business flying.
-    switch (m_self->groupID()) {
-        case EVEDB::invGroups::Cruiser:        // Vexor
-        case EVEDB::invGroups::Battlecruiser:  // Myrmidon
-            return 3;
-        case EVEDB::invGroups::Battleship:     // Dominix
-            return 5;
-        case EVEDB::invGroups::Carrier:
-            return 5;
-        default:
-            return 0;
+    // Drone bay capacity from the hull's REAL DroneCapacity attribute (283, m3).
+    // Most ships carry some drones (Vexor 125m3, Dominix 200m3, Raven 50m3...).
+    // A combat drone is ~25 m3, and EVE caps active drones at 5 (AttrMaxActiveDrones),
+    // so the fieldable count = bay/25, clamped 1..5. 0 = no drone bay.
+    if (m_self->HasAttribute(AttrDroneCapacity)) {
+        float cap = m_self->GetAttribute(AttrDroneCapacity).get_float();
+        int n = (int)(cap / 25.0f);
+        if (n < 1) n = 1;
+        if (n > 5) n = 5;
+        return (uint8)n;
     }
+    return 0;
 }
 
 void PlayerBot::SpawnDrones(uint8 count)

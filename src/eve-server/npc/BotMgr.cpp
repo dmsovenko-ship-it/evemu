@@ -522,17 +522,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             if (!iRef->HasAttribute(AttrGfxTurretID))
                 iRef->SetAttribute(AttrGfxTurretID, launcherType, false);
         } else if (raceID != 0) {
-            // Turret boats: the right weapon module typeID per race. Drone-capable
-            // hulls (Vexor 626 / Myrmidon 24700 / Dominix 645) get no turret —
-            // they field actual drones (PlayerBot::SpawnDrones).
-            bool isDroneHull = (hullType == 626 || hullType == 24700 || hullType == 645);
-            if (!isDroneHull) {
-                uint32 turretType = 450;     // default: Amarr Gatling Pulse Laser I
-                if (raceID == 8)      turretType = 561;    // Gallente 75mm Gatling Rail I (hybrid)
-                else if (raceID == 2) turretType = 484;    // Minmatar 125mm Gatling AutoCannon I
-                if (!iRef->HasAttribute(AttrGfxTurretID))
-                    iRef->SetAttribute(AttrGfxTurretID, turretType, false);
-            }
+            // Turret boats: the right weapon module typeID per race. Note drone
+            // hulls (Vexor/Myrmidon/Dominix etc.) ALSO fit turrets — EVE ships
+            // carry both weapon systems. Drones are handled separately via the
+            // hull's AttrDroneCapacity in PlayerBot::GetDroneCapacity/SpawnDrones.
+            uint32 turretType = 450;     // default: Amarr Gatling Pulse Laser I
+            if (raceID == 8)      turretType = 561;    // Gallente 75mm Gatling Rail I (hybrid)
+            else if (raceID == 2) turretType = 484;    // Minmatar 125mm Gatling AutoCannon I
+            if (!iRef->HasAttribute(AttrGfxTurretID))
+                iRef->SetAttribute(AttrGfxTurretID, turretType, false);
         }
     }
 
