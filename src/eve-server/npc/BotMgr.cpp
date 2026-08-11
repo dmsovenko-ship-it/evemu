@@ -485,26 +485,53 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         if (!iRef->HasAttribute(AttrOptimalSigRadius))  iRef->SetAttribute(AttrOptimalSigRadius, 40.0f, false);
         if (!iRef->HasAttribute(AttrSignatureRadius))   iRef->SetAttribute(AttrSignatureRadius,  iRef->GetAttribute(AttrRadius).get_float() * 5.0f, false);
 
-        // Weapon type per hull — the attack effect must match the ship, not a
-        // generic laser. Missile boats (Caracal, Osprey, Raven, Drake, Ferox)
-        // launch real missiles (MissileDeployment effect + flying missile);
-        // everyone else uses the default turret effect (NPCAI's Laser guid).
-        // Drone-capable hulls (Vexor/Myrmidon/Dominix) field actual drones instead
-        // of shooting (PlayerBot::SpawnDrones).
-        bool isMissileBoat = (grp == EVEDB::invGroups::Cruiser || grp == EVEDB::invGroups::Battleship
-                              || grp == EVEDB::invGroups::Battlecruiser)
-            && (hullType == 621 || hullType == 620 || hullType == 638
-                || hullType == 24698 || hullType == 16227);   // Caracal/Osprey/Raven/Drake/Ferox
+        // Weapon type per hull — the attack effect must match the ship. The client
+        // (spaceObject/entityShip.py) builds the turret model from the hull's
+        // gfxTurretID (attribute 245) = the TYPE ID of a real turret/launcher
+        // module. So we set AttrGfxTurretID to a T1 weapon module typeID matching
+        // the hull's race + class:
+        //   races: 1=Caldari(missiles), 4=Amarr(laser), 8=Gallente(hybrid), 2=Minmatar(projectile)
+        // Missile boats also get AttrEntityMissileTypeID so NPCAI launches real
+        // missiles (MissileDeployment effect + flying missile). Drone-capable hulls
+        // (Vexor/Myrmidon/Dominix) field actual drones instead of shooting.
+        uint16 raceID = 0;
+        {
+            Inv::TypeData tdata;
+            sDataMgr.GetType((uint16)hullType, tdata);
+            if (tdata.id == hullType)
+                raceID = tdata.race;
+        }
+        bool isMissileBoat = (raceID == 1)   // Caldari hulls are missile boats
+            && (grp == EVEDB::invGroups::Cruiser || grp == EVEDB::invGroups::Battleship
+                || grp == EVEDB::invGroups::Battlecruiser);
         if (isMissileBoat) {
-            // A real missile per hull class: light for cruisers, cruise for BS.
-            uint16 missileType = 210;   // Scourge Light Missile
-            if (grp == EVEDB::invGroups::Battleship)
-                missileType = 203;      // Scourge Cruise Missile
-            else if (grp == EVEDB::invGroups::Battlecruiser)
-                missileType = 209;      // Scourge Heavy Missile
+            // A real missile per hull class: light for cruisers, heavy for BC, cruise for BS.
+            uint16 missileType = 210;    // Scourge Light Missile
+            uint32 launcherType = 499;   // Light Missile Launcher I
+            if (grp == EVEDB::invGroups::Battleship) {
+                missileType = 203;       // Scourge Cruise Missile
+                launcherType = 13320;    // Cruise Missile Launcher I
+            } else if (grp == EVEDB::invGroups::Battlecruiser) {
+                missileType = 209;       // Scourge Heavy Missile
+                launcherType = 501;      // Heavy Missile Launcher I
+            }
             if (!iRef->HasAttribute(AttrEntityMissileTypeID)) {
                 iRef->SetAttribute(AttrEntityMissileTypeID, missileType, false);
                 iRef->SetAttribute(AttrMissileLaunchDuration, 5000.0f, false);
+            }
+            if (!iRef->HasAttribute(AttrGfxTurretID))
+                iRef->SetAttribute(AttrGfxTurretID, launcherType, false);
+        } else if (raceID != 0) {
+            // Turret boats: the right weapon module typeID per race. Drone-capable
+            // hulls (Vexor 626 / Myrmidon 24700 / Dominix 645) get no turret —
+            // they field actual drones (PlayerBot::SpawnDrones).
+            bool isDroneHull = (hullType == 626 || hullType == 24700 || hullType == 645);
+            if (!isDroneHull) {
+                uint32 turretType = 450;     // default: Amarr Gatling Pulse Laser I
+                if (raceID == 8)      turretType = 561;    // Gallente 75mm Gatling Rail I (hybrid)
+                else if (raceID == 2) turretType = 484;    // Minmatar 125mm Gatling AutoCannon I
+                if (!iRef->HasAttribute(AttrGfxTurretID))
+                    iRef->SetAttribute(AttrGfxTurretID, turretType, false);
             }
         }
     }
