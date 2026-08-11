@@ -1306,10 +1306,13 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
     uint32 gfxID = 0;
     if (m_self->HasAttribute(AttrGfxTurretID))
         gfxID = m_self->GetAttribute(AttrGfxTurretID).get_uint32();
-    if (gfxID > 0)
-        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
-                                     pSE->GetID(),0,guid,1,1,
-                                     1,m_attackSpeed,0,gfxID);
+    // ALWAYS send the weapon effect (moduleID = ship itemID). The client finds the
+    // turret by moduleID on the EntityShip ball — which it builds from the hull's
+    // own gfxTurretID (godma), so even an NPC/bot with no AttrGfxTurretID in the
+    // server DB renders a correct turret. gfxID is only an extra graphic hint.
+    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                 pSE->GetID(),0,guid,1,1,
+                                 1,m_attackSpeed,0,gfxID);
 
     Damage d(m_npc,
              m_self,
