@@ -3,8 +3,10 @@
 
 #include "npc/NPC.h"
 #include "npc/BotMemory.h"
+#include "npc/Drone.h"
 #include "utils/timer.h"
 #include <memory>
+#include <vector>
 
 /**
  * @brief Simulated player — an AI-controlled pilot that populates active systems
@@ -34,6 +36,20 @@ public:
     uint32 GetBotCorpID() const         { return m_botCorpID; }
     uint32 GetBotAllianceID() const     { return m_botAllianceID; }
     uint8 GetBotSkillLevel() const      { return m_botSkill; }
+
+    /* drone warfare (drone-capable hulls) */
+    // Launch up to `count` combat drones around this bot (no ShipSE needed — the
+    // bot commands them directly via DestinyMgr). They orbit the bot when idle.
+    void SpawnDrones(uint8 count);
+    // Called each Process tick: drones orbit the bot when idle, or attack a target
+    // (own or an ally's — assist). Reap drones that drifted too far or died.
+    void ManageDrones();
+    // Return drones to the bot and remove them (scoop / flee / dock).
+    void RecallDrones();
+    // Direct a drone to engage a target (attack) — used for own target and assist.
+    void DroneEngageTarget(DroneSE* drone, SystemEntity* target);
+    // How many drones this hull can realistically field (drone bay size).
+    uint8 GetDroneCapacity() const;
 
     /* learning */
     BotMemory* GetMemory() const        { return m_memory.get(); }
@@ -177,6 +193,8 @@ protected:
     bool m_factionWarrior;              // FW subclass: fights bots of other factions
     uint32 m_jumpDest;                  // destination system for the jump
     Timer m_cynoTimer;                  // window before the jump fires
+    std::vector<DroneSE*> m_drones;     // launched combat drones (bot commands directly)
+    Timer m_droneTimer;                 // drone attack cycle
 };
 
 #endif

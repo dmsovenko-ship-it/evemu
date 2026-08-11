@@ -1,6 +1,7 @@
 #include "eve-server.h"
 #include "npc/PlayerBot.h"
 #include "npc/NPCAI.h"
+#include "npc/Drone.h"
 #include "system/Damage.h"
 #include "Client.h"
 #include "system/SystemBubble.h"
@@ -154,6 +155,9 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
         // Fighting back = aggression. The bot can't dock or jump until it cools
         // down — a real pilot can't just leave a fight and dock.
         StartAggressionTimer();
+        // Drone hulls field their drones when combat starts.
+        if (GetDroneCapacity() > 0 && m_drones.empty())
+            SpawnDrones(0);
         if (attacker->HasPilot())
             BroadcastAggression(attacker->GetPilot()->GetCharacterID());
         else if (attacker->GetNPCSE() != nullptr) {
@@ -181,6 +185,7 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
         // out rather than suicide against a superior (or unlawful) force.
         _log(BOT__TRACE, "PlayerBot %s(%u): fleeing (%s).",
              m_botName.c_str(), m_botCharID, mayAttack ? "outmatched" : "no kill right");
+        RecallDrones();   // scoop drones before warping out
         GetAIMgr()->StartAttackCycle(0);
         GetAIMgr()->Flee(attacker);
     }
@@ -316,6 +321,10 @@ void PlayerBot::Process()
     // which calls DecideNextAction() and issues Destiny commands directly.
     NPC::Process();
 
+    // Manage launched drones: orbit while idle, attack during combat (or assist
+    // an ally), and scoop drones that drift too far.
+    ManageDrones();
+
     // When the visible warp-to-gate flight is done, signal BotMgr we're ready
     // to actually cross the gate. Until then we stay here, visibly flying.
     if (m_traveling && m_travelTimer.Check(false))
@@ -392,6 +401,7 @@ void PlayerBot::Killed(Damage& damage)
 {
     // Record the loss for learning, then let the base NPC clean up.
     if (m_memory) { m_memory->RecordLoss(); m_memory->RecordDeath(); m_memory->Save(); }
+    RecallDrones();   // drones are lost/recalled with the ship
     // The killer (if a bot) has proven itself an enemy — deep grudge, both ways.
     if (damage.srcSE != nullptr && damage.srcSE->GetNPCSE() != nullptr) {
         PlayerBot* killer = dynamic_cast<PlayerBot*>(damage.srcSE->GetNPCSE());
@@ -574,6 +584,210 @@ void PlayerBot::UpdateBotStandings(const PlayerBot* other, bool otherLost)
          StandingDB::GetStanding(other->GetBotCharID(), m_botCharID) - otherToMe,
          m_botCorpID, other->GetBotCorpID(),
          StandingDB::GetStanding(m_botCorpID, other->GetBotCorpID()) - corpToCorp);
+}
+
+uint8 PlayerBot::GetDroneCapacity() const
+{
+    // Drone bay size by hull group (Vexor/Dominix/Myrmidon etc.). A frigate has
+    // no bay. Returns 0 for non-drone hulls so the bot doesn't field drones it
+    // has no business flying.
+    switch (m_self->groupID()) {
+        case EVEDB::invGroups::Cruiser:        // Vexor
+        case EVEDB::invGroups::Battlecruiser:  // Myrmidon
+            return 3;
+        case EVEDB::invGroups::Battleship:     // Dominix
+            return 5;
+        case EVEDB::invGroups::Carrier:
+            return 5;
+        default:
+            return 0;
+    }
+}
+
+void PlayerBot::SpawnDrones(uint8 count)
+{
+    // Create combat drones around the bot. They are real DroneSE entities so the
+    // client renders them; the bot commands them directly (Orbit/Follow) without
+    // DroneAI (which requires a ShipSE owner).
+    if (SystemMgr() == nullptr || m_destiny == nullptr)
+        return;
+    uint8 cap = GetDroneCapacity();
+    if (cap == 0)
+        return;
+    if (count == 0 || count > cap)
+        count = cap;
+    // Don't stack more than the bay allows.
+    if ((uint8)m_drones.size() >= cap)
+        return;
+
+    static const uint32 combatDroneTypes[] = { 2454, 2486, 2183, 2203 };   // Hobgoblin/Warrior/Hammerhead/Acolyte
+    DBQueryResult res;
+    for (uint8 i = 0; i < count && (uint8)m_drones.size() < cap; ++i) {
+        uint16 dType = combatDroneTypes[MakeRandomInt(0, 3)];
+        // Resolve the drone item (must exist in this server's DB).
+        Inv::TypeData tdata;
+        sDataMgr.GetType(dType, tdata);
+        if (tdata.id != dType)
+            continue;
+
+        // Spawn a drone item at the bot's position, then a DroneSE around it.
+        ItemData idata(dType, m_botCharID, SystemMgr()->GetID(), flagNone, "Drone", GetPosition());
+        InventoryItemRef dRef = sItemFactory.SpawnItem(idata);
+        if (dRef.get() == nullptr)
+            continue;
+        dRef->ChangeSingleton(true);
+        dRef->SetPosition(GetPosition());
+
+        FactionData data = FactionData();
+            data.corporationID = m_botCorpID;
+            data.ownerID = m_botCharID;
+            data.allianceID = m_botAllianceID;
+        DroneSE* drone = new DroneSE(dRef, SystemMgr()->GetServiceMgr(), SystemMgr(), data);
+        if (drone == nullptr) { dRef->Delete(); continue; }
+        drone->Enable();                       // keep it alive (not pending removal)
+        drone->SetDisplayOwner(m_botCharID, m_botCharID, GetID());
+        // Register in the system/bubble so clients see it.
+        SystemMgr()->AddEntity(drone);
+        // Orbit the bot while idle.
+        if (drone->DestinyMgr() != nullptr) {
+            drone->DestinyMgr()->SetPosition(GetPosition());
+            drone->DestinyMgr()->SetMaxVelocity(dRef->GetAttribute(AttrMaxVelocity).get_float());
+            drone->DestinyMgr()->SetSpeedFraction(0.6f);
+            drone->DestinyMgr()->Orbit(this, 600.0);
+        }
+        m_drones.push_back(drone);
+        _log(BOT__TRACE, "PlayerBot %s(%u): launched drone %u (%u) — bay %u/%u.",
+             m_botName.c_str(), m_botCharID, drone->GetID(), dType, (uint32)m_drones.size(), cap);
+    }
+}
+
+void PlayerBot::DroneEngageTarget(DroneSE* drone, SystemEntity* target)
+{
+    // Direct a drone to attack a target: fly to it, orbit at weapon range, and
+    // apply damage each attack cycle (same math as DroneAI::CombatAttack but
+    // without a ShipSE owner).
+    if (drone == nullptr || target == nullptr || drone->DestinyMgr() == nullptr)
+        return;
+    if (target->DestinyMgr() == nullptr)
+        return;   // target is a structure/decor — no ship to damage
+
+    double dist = drone->GetPosition().distance(target->GetPosition());
+    if (dist > 20000) {
+        // far: chase it
+        drone->DestinyMgr()->SetMaxVelocity(drone->GetSelf()->GetAttribute(AttrMaxVelocity).get_float());
+        drone->DestinyMgr()->Follow(target, 1000.0);
+        return;
+    }
+    // in weapon range: orbit and fire
+    if (!drone->DestinyMgr()->IsOrbiting())
+        drone->DestinyMgr()->Orbit(target, 800.0);
+
+    if (!m_droneTimer.Enabled())
+        m_droneTimer.Start(2000);
+    if (!m_droneTimer.Check())
+        return;
+
+    // Drone damage — same formula as DroneAI::CombatAttack (owner-less skills).
+    Damage d(drone,
+             drone->GetSelf(),
+             drone->GetKinetic(),
+             drone->GetThermal(),
+             drone->GetEM(),
+             drone->GetExplosive(),
+             1.0f,   // to-hit — drones don't miss in our simplification
+             EVEEffectID::targetAttack);
+    float dmgMult = drone->GetSelf()->HasAttribute(AttrDamageMultiplier)
+        ? drone->GetSelf()->GetAttribute(AttrDamageMultiplier).get_float() : 1.0f;
+    d *= dmgMult;
+    target->ApplyDamage(d);
+
+    // Visible weapon effect from the drone to the target.
+    if (drone->SysBubble() != nullptr)
+        drone->DestinyMgr()->SendSpecialEffect(drone->GetSelf()->itemID(), drone->GetSelf()->itemID(),
+                                               drone->GetSelf()->typeID(), target->GetID(), 0,
+                                               "effects.Laser", 1, 1, 1, 2000, 0, 0);
+}
+
+void PlayerBot::ManageDrones()
+{
+    // Called each Process tick. Drones orbit the bot when idle; during a fight
+    // (own target, or an ally's target for assist) they engage.
+    if (m_drones.empty())
+        return;
+    if (SystemMgr() == nullptr || m_destiny == nullptr)
+        return;
+
+    // Pick the target: my own current target, else an ally's (assist).
+    SystemEntity* target = nullptr;
+    if (GetAIMgr()->IsFighting() && m_targMgr != nullptr)
+        target = m_targMgr->GetFirstTarget(true);
+
+    // Assist: if an ally bot is fighting, send my drones at its target too.
+    if (target == nullptr) {
+        for (auto& [id, se] : SystemMgr()->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* ally = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (ally == nullptr || ally == this)
+                continue;
+            if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
+                continue;
+            if (!ally->GetAIMgr()->IsFighting() || ally->m_targMgr == nullptr)
+                continue;
+            SystemEntity* allyTarget = ally->m_targMgr->GetFirstTarget(true);
+            if (allyTarget != nullptr) { target = allyTarget; break; }
+        }
+    }
+
+    // Drone wants to be near the bot when idle. Leash: drones farther than 30km
+    // drift back to the bot.
+    for (auto it = m_drones.begin(); it != m_drones.end(); ) {
+        DroneSE* drone = *it;
+        if (drone == nullptr || drone->DestinyMgr() == nullptr) {
+            it = m_drones.erase(it);
+            continue;
+        }
+        double distToBot = drone->GetPosition().distance(GetPosition());
+        if (distToBot > 30000 || drone->IsPendingRemoval() || drone->IsEnabled() == false) {
+            // scoop / cleanup
+            drone->DestinyMgr()->Stop();
+            if (drone->SysBubble() != nullptr)
+                SystemMgr()->RemoveEntity(drone);
+            drone->GetSelf()->Delete();
+            delete drone;
+            it = m_drones.erase(it);
+            continue;
+        }
+
+        if (target != nullptr && distToBot < 25000) {
+            DroneEngageTarget(drone, target);   // attack (own or assist target)
+        } else if (!drone->DestinyMgr()->IsOrbiting()) {
+            // idle: orbit the bot
+            drone->DestinyMgr()->SetMaxVelocity(drone->GetSelf()->GetAttribute(AttrMaxVelocity).get_float());
+            drone->DestinyMgr()->SetSpeedFraction(0.6f);
+            drone->DestinyMgr()->SetPosition(GetPosition(), true);
+            drone->DestinyMgr()->Orbit(this, 600.0);
+        }
+        ++it;
+    }
+}
+
+void PlayerBot::RecallDrones()
+{
+    // Scoop all drones (flee / dock / travel): return them to the bot and remove.
+    if (m_drones.empty())
+        return;
+    for (DroneSE* drone : m_drones) {
+        if (drone == nullptr)
+            continue;
+        if (drone->DestinyMgr() != nullptr)
+            drone->DestinyMgr()->Stop();
+        if (drone->SysBubble() != nullptr && SystemMgr() != nullptr)
+            SystemMgr()->RemoveEntity(drone);
+        drone->GetSelf()->Delete();
+        delete drone;
+    }
+    m_drones.clear();
 }
 
 void PlayerBot::BroadcastAggression(uint32 victimCharID)
@@ -930,6 +1144,9 @@ void PlayerBot::HuntForTarget()
             UpdateBotStandings(enemyBot, false);
             StartAggressionTimer();   // attacking = flagged, can't leave for a bit
             BroadcastAggression(enemyBot->GetBotCharID());   // show the flashing icon
+            // Drone hulls launch their drones when engaging.
+            if (GetDroneCapacity() > 0 && m_drones.empty())
+                SpawnDrones(0);
             ApplyCombatStyle();
             GetAIMgr()->WakeUp();
             GetAIMgr()->StartAttackCycle(2000);

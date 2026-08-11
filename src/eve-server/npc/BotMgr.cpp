@@ -484,6 +484,41 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         if (!iRef->HasAttribute(AttrEntityCruiseSpeed)) iRef->SetAttribute(AttrEntityCruiseSpeed, 180.0f, false);
         if (!iRef->HasAttribute(AttrOptimalSigRadius))  iRef->SetAttribute(AttrOptimalSigRadius, 40.0f, false);
         if (!iRef->HasAttribute(AttrSignatureRadius))   iRef->SetAttribute(AttrSignatureRadius,  iRef->GetAttribute(AttrRadius).get_float() * 5.0f, false);
+
+        // Weapon type per hull — the attack effect must match the ship, not a
+        // generic laser. Missile boats (Caracal, Osprey, Raven, Drake, Ferox)
+        // launch real missiles (MissileDeployment effect + flying missile);
+        // everyone else gets a turret effect appropriate to their race.
+        bool isMissileBoat = (grp == EVEDB::invGroups::Cruiser || grp == EVEDB::invGroups::Battleship
+                              || grp == EVEDB::invGroups::Battlecruiser)
+            && (hullType == 621 || hullType == 620 || hullType == 638
+                || hullType == 24698 || hullType == 16227);   // Caracal/Osprey/Raven/Drake/Ferox
+        if (isMissileBoat) {
+            // A real missile per hull class: light for cruisers, cruise for BS.
+            uint16 missileType = 210;   // Scourge Light Missile
+            if (grp == EVEDB::invGroups::Battleship)
+                missileType = 203;      // Scourge Cruise Missile
+            else if (grp == EVEDB::invGroups::Battlecruiser)
+                missileType = 209;      // Scourge Heavy Missile
+            if (!iRef->HasAttribute(AttrEntityMissileTypeID)) {
+                iRef->SetAttribute(AttrEntityMissileTypeID, missileType, false);
+                iRef->SetAttribute(AttrMissileLaunchDuration, 5000.0f, false);
+            }
+        } else {
+            // Turret boats: give a race-appropriate turret gfx so the effect looks
+            // like the hull's actual weapon system (laser/hybrid/projectile).
+            if (!iRef->HasAttribute(AttrGfxTurretID)) {
+                uint16 raceID = 1;
+                Inv::TypeData tdata;
+                if (sDataMgr.GetType((uint16)hullType, tdata))
+                    raceID = tdata.race;
+                uint32 gfx = 28591;   // default: hybrid
+                if (raceID == 4)      gfx = 28591;   // Amarr laser
+                else if (raceID == 8) gfx = 28591;   // Gallente hybrid (blaster/rail)
+                else if (raceID == 2) gfx = 28591;   // Minmatar projectile
+                iRef->SetAttribute(AttrGfxTurretID, gfx, false);
+            }
+        }
     }
 
     FactionData data = FactionData();
@@ -1361,6 +1396,7 @@ void BotMgr::ProcessDocking()
             _log(BOT__MESSAGE, "BotMgr: %s(%u) docking at station in system %u.",
                  db.name.c_str(), db.charID, pSystem->GetID());
             pb->ClearDockRequest();
+            pb->RecallDrones();   // scoop drones before docking
             pb->Delete();   // remove from space; stays in local channel as docked
         }
     }
