@@ -699,10 +699,17 @@ void PlayerBot::HuntForTarget()
     if (!m_scoutTimer.Enabled())
         m_scoutTimer.Start(MakeRandomInt(15000, 30000));
 
+    // Gate camping is a GROUP tactic, not a solo one: a lone pilot at a gate is
+    // just bait (or a corpse). Only hunters who have allies nearby (a camp fleet)
+    // will consider a target sitting at a gate — and even then only rarely and
+    // when the victim has no friends of their own. Everyone else avoids the gate.
+    int myAllies = CountAlliesNearby();
+    bool canCampGate = (myAllies >= 1) && (MakeRandomInt(0, 99) < 20);
+
     // Find a target: enemy PlayerBots in this system. Score by distance but also
     // by "value" (a ratting miner or hauler is a prize; a big hostile fleet is a
-    // trap). Do NOT engage anything within 60km of a gate — that's where camps
-    // and friends hide.
+    // trap). Targets at a gate are only for the rare group camp; solo hunters
+    // avoid them (that's where camps and friends hide).
     SystemEntity* prey = nullptr;
     int bestScore = -1000;
     for (auto& [id, se] : SystemMgr()->GetEntities()) {
@@ -715,8 +722,13 @@ void PlayerBot::HuntForTarget()
             continue;   // ally
         if (sysSec >= 0.5f && !enemy->IsAggressive())
             continue;   // highsec: only hunt aggressive targets (both flagged)
-        if (enemy->IsNearGate(60000.0))
-            continue;   // near a gate = ambush risk, real pilots avoid it
+        if (enemy->IsNearGate(60000.0)) {
+            if (!canCampGate)
+                continue;   // solo: avoid the gate entirely (ambush risk)
+            // group camp: still only if the victim looks alone and weaker
+            if (CountEnemiesNearby(enemy) > 0)
+                continue;   // victim has friends — the camp would turn into a brawl
+        }
         // Combat-probe scan: a hunter with probes "finds" targets across the
         // whole system (battlefield/asteroid/anomaly), not just its own bubble.
         double d = GetPosition().distance(enemy->GetPosition());
