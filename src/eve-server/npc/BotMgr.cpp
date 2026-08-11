@@ -260,7 +260,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         {
             DBResultRow row;
             if (res.GetRow(row)) {
-                useCharID = row.GetUInt(0);
+                useCharID = row.GetUInt(0);   // real EVE killmail charID — kept for the portrait link
                 useName = row.GetText(1);
                 useCorpID = row.GetUInt(2);
                 useAllianceID = row.GetUInt(3);
@@ -345,6 +345,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         // This pilot is already in the system — pick a fresh legend and retry.
         _log(BOT__TRACE, "BotMgr: %s(%u) already in system %u — retrying with another legend.",
              useName.c_str(), useCharID, pSystem->GetID());
+        if (attempt == 7)
+            break;   // give up after retries; caller will skip (no duplicate SE)
         DBQueryResult lres;
         if (!sDatabase.RunQuery(lres,
             "SELECT character_id, character_name, corporation_id, alliance_id,"
@@ -357,13 +359,19 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         DBResultRow lrow;
         if (!lres.GetRow(lrow))
             break;
-        useCharID = lrow.GetUInt(0);
         useName = lrow.GetText(1);
         useCorpID = lrow.GetUInt(2);
         useAllianceID = lrow.GetUInt(3);
         useShipType = lrow.GetUInt(4);
         const char* fit = lrow.GetText(5);
         if (fit != nullptr) useFit = fit;
+        // NOTE: do NOT set useCharID from the legend here — CreateBotCharacter
+        // allocates the real charID on the next loop iteration.
+    }
+    if (botAlreadyHere) {
+        _log(BOT__TRACE, "BotMgr: all candidate legends already in system %u — skipping spawn.",
+             pSystem->GetID());
+        return;
     }
     // Remember the EVE portrait source so fetch_bot_portraits.py can grab it.
     if (killmailCharID != 0 && killmailCharID != useCharID) {
