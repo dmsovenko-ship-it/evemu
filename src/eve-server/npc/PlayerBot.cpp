@@ -9,6 +9,7 @@
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/sov/SovereigntyDataMgr.h"
 #include <iterator>
+#include <cmath>
 
 /*
  * @file PlayerBot.cpp
@@ -446,10 +447,11 @@ bool PlayerBot::ShouldEngage(int myPower, int theirPower, bool defending)
     float learned = m_memory ? m_memory->GetAggression() : 0.0f;
 
     // Margin needed to commit. Defending is easier (self-preservation), hunting
-    // needs a clear edge. AggroFactor shifts this by up to ±2 power.
+    // needs a clear edge. AggroFactor shifts the margin: -40% config → ~2 extra
+    // power needed to attack (the "half the aggression" the operator asked for).
     int margin = defending ? 0 : 2;
-    margin += (int)(aggro * 2.0f);
-    margin -= (int)(learned * 2.0f);        // winners need less margin
+    margin += (int)std::lround(aggro * 4.0f);
+    margin -= (int)std::lround(learned * 2.0f);   // winners need less margin
 
     bool wouldWin = (myPower - theirPower) >= margin;
 
