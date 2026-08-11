@@ -469,6 +469,19 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         _log(BOT__TRACE, "BotMgr: %s(%u) role = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetRole());
     }
 
+    // Assign a combat style: most fight balanced (orbit at weapon range), some
+    // kite (keep distance, chip away), some brawl (close in and scrap).
+    {
+        float r = MakeRandomFloat();
+        if (r < 0.30f)
+            bot->SetCombatStyle(PlayerBot::CombatStyle::Kite);
+        else if (r < 0.55f)
+            bot->SetCombatStyle(PlayerBot::CombatStyle::Brawler);
+        else
+            bot->SetCombatStyle(PlayerBot::CombatStyle::Balanced);
+        _log(BOT__TRACE, "BotMgr: %s(%u) combat style = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetCombatStyle());
+    }
+
     // Assign the profession decided earlier (before corp selection).
     bot->SetProfession(prof);
     _log(BOT__TRACE, "BotMgr: %s(%u) profession = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)prof);

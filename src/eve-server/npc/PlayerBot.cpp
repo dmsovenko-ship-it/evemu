@@ -29,6 +29,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_botSkill(3),
   m_activity(BotActivity::Idle),
   m_role(BotRole::Fighter),
+  m_combatStyle(CombatStyle::Balanced),
   m_profession(BotProfession::Miner),
   m_memory(std::make_unique<BotMemory>(charID)),
   m_decisionTimer(0),
@@ -130,6 +131,7 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
     if (mayAttack && (isBait || ShouldEngage(myPower, theirPower, true))) {
         // Legal and confident — fight back (NPCAI handles targeting/attack).
         m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
+        ApplyCombatStyle();
         GetAIMgr()->WakeUp();
         GetAIMgr()->StartAttackCycle(2000);
         // Tackle: hold the attacker so it can't warp while the fleet arrives.
@@ -466,6 +468,28 @@ bool PlayerBot::ShouldEngage(int myPower, int theirPower, bool defending)
     return wouldWin;
 }
 
+void PlayerBot::ApplyCombatStyle()
+{
+    if (GetAIMgr() == nullptr)
+        return;
+    uint32 optimal = GetAIMgr()->GetOptimalRange();
+    if (optimal == 0) optimal = 15000;
+    switch (m_combatStyle) {
+        case CombatStyle::Kite:
+            // Keep range: orbit just outside the enemy's reach, inside ours.
+            GetAIMgr()->SetOrbitRange(optimal + optimal / 2);
+            break;
+        case CombatStyle::Brawler:
+            // Close in: orbit tight around the target.
+            GetAIMgr()->SetOrbitRange(optimal > 8000 ? 8000 : (optimal / 2));
+            break;
+        default:
+            // Balanced: orbit at weapon optimal (the default).
+            GetAIMgr()->SetOrbitRange(0);
+            break;
+    }
+}
+
 void PlayerBot::DecideNextAction()
 {
     // Hook for BotMgr. Placeholder for the state machine that will be wired
@@ -731,6 +755,7 @@ void PlayerBot::HuntForTarget()
             _log(BOT__TRACE, "PlayerBot %s(%u): hunter engaging %s(%u) — %d vs %d.",
                  m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(),
                  enemyBot->GetBotCharID(), myPower, theirPower);
+            ApplyCombatStyle();
             GetAIMgr()->WakeUp();
             GetAIMgr()->StartAttackCycle(2000);
             GetAIMgr()->Target(prey);

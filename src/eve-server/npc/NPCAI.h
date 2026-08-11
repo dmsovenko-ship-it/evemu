@@ -89,6 +89,9 @@ public:
     bool IsIdle()                                       { return (m_state == NPCAI::State::Idle); }
     bool IsFighting();
     uint16 GetOptimalRange()                            { return m_optimalRange; }
+    // Orbit distance override for bot combat styles. 0 = use weapon optimal range.
+    void SetOrbitRange(uint32 range)                    { m_orbitRange = range; }
+    uint32 GetOrbitRange() const                        { return m_orbitRange; }
     uint16 GetSigRes()                                  { return m_sigResolution; }
     uint32 GetFalloff()                                 { return m_falloff; }
     uint32 GetAttackRange()                             { return m_maxAttackRange; }
@@ -162,6 +165,9 @@ private:
     uint16 m_orbitSpeed;
     uint16 m_targetRange;   // max targeting range  default: m_maxAttackRange (unused)
     uint16 m_optimalRange;
+    uint32 m_orbitRange;    // distance at which the ship orbits its target. Defaults
+                            // to m_optimalRange; bots can override for kite/brawler
+                            // styles (a kiter keeps range, a brawler closes in).
     uint16 m_boostRange;    // distance for Speed Boost activation   default:2500
     uint16 m_armorRepairDuration;
     uint16 m_shieldBoosterDuration;

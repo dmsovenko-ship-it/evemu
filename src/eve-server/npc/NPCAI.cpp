@@ -136,6 +136,7 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     // "clinch" the player at point-blank instead of fighting at weapon range.
     if (m_optimalRange < 1000)
         m_optimalRange = 5000;
+    m_orbitRange = m_optimalRange;   // default orbit at weapon optimal; bots may override
 
     // Max achievable weapon range = what a PERFECT player with skills+modules can
     // reach. NPCs can never deal damage past this. Do NOT use entityAttackRange
@@ -791,7 +792,7 @@ void NPCAIMgr::SetEngaged(SystemEntity* pSE) {
          m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID());
     // actively fighting
     m_destiny->SetMaxVelocity(m_orbitSpeed);
-    m_destiny->Orbit(pSE, m_optimalRange);  //try to get inside orbit range
+    m_destiny->Orbit(pSE, m_orbitRange > 0 ? m_orbitRange : m_optimalRange);  // orbit at weapon optimal (or bot style override)
     m_state = NPCAI::State::Engaged;
     m_warpOutTimer.Disable();
 }

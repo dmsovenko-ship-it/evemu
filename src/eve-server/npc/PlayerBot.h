@@ -74,6 +74,17 @@ public:
     // to the attacker. Returns the chosen SystemEntity* (may be attacker).
     SystemEntity* PickPriorityTarget(SystemEntity* attacker);
 
+    /* combat style — how the bot fights once engaged */
+    enum class CombatStyle : uint8 {
+        Kite = 0,       // keep range, weapons reach, stay out of brawlers' face
+        Brawler,        // close in, orbit tight, scrap it out
+        Balanced,       // default: orbit at weapon optimal
+    };
+    CombatStyle GetCombatStyle() const  { return m_combatStyle; }
+    void SetCombatStyle(CombatStyle s)  { m_combatStyle = s; }
+    // Apply the combat style to the NPC AI (orbit range override).
+    void ApplyCombatStyle();
+
     /* bot profession — what this pilot does for a living (mirrors its corp) */
     enum class BotProfession : uint8 {
         Hunter = 0,     // PvP pirate: hunts players/bots (kill rights respected)
@@ -122,6 +133,7 @@ protected:
     uint8 m_botSkill;                   // simulated pilot skill tier (0..5)
     BotActivity m_activity;
     BotRole m_role;                     // combat role assigned at spawn
+    CombatStyle m_combatStyle;          // kite / brawler / balanced (assigned at spawn)
     BotProfession m_profession;         // livelihood (hunter/miner/trader/courier/hacker)
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     Timer m_decisionTimer;
