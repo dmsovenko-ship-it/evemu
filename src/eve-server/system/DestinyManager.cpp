@@ -266,16 +266,27 @@ void DestinyManager::ProcessState() {
             } else if (m_userSpeedFraction < 0.7499) {
                 // Accelerate to full speed for warp alignment. 30% speed caused
                 // excessive align time and "stuck at 30%" perception.
-                // NOTE: only USF is checked (not TF) вЂ” after a gate jump the ship
+                // NOTE: only USF is checked (not TF) — after a gate jump the ship
                 // can be in a corrupt state (USF=0/m_stop=true yet TF/ASF=1.0 from
                 // the pre-jump follow/warp), and MoveObject() would Halt() because
                 // USF==0. Forcing USF=1.0 here re-arms the ship for the warp.
                 SetSpeedFraction(1.0f, true);
             } else if ((degrees < 30.0f) && (m_timeFraction > 0.5)
                        && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
-                // Close enough to target вЂ” start warp early (final alignment during accel).
+                // Close enough to target — start warp early (final alignment during accel).
                 // Maintain current heading/velocity instead of zeroing, matching
                 // destiny.dll OnActivatingWarp case 3: warp enters with existing momentum.
+                m_shipHeading = toVec;
+                InitWarp();
+                return;
+            } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp) {
+                // Warp alignment: enough time has passed for the ship to turn to the
+                // warp vector. Real EVE finishes the turn during warp acceleration, so
+                // rather than leave the ship spinning for many seconds (m_degPerTic is
+                // slow on a fast-moving hull — a 180° turn could take 18s+), snap the
+                // heading to the target and start the warp. The client renders the
+                // turn during its own align phase.
+                m_shipHeading = toVec;
                 InitWarp();
                 return;
             } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
