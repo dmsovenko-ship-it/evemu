@@ -128,6 +128,11 @@ public:
     // as its fixed enemies (like FW militia). Set for a minority of hunters.
     void SetFactionWarrior(bool w)      { m_factionWarrior = w; }
     bool IsFactionWarrior() const       { return m_factionWarrior; }
+    // Update standings between bots after a fight: the loser's pilot and corp
+    // take a standings hit from the winner's side (grudge), the winner gains a
+    // bit. Corp-level too, so whole corps slowly become enemies — the basis for
+    // future faction/aggression tracking by standings.
+    void UpdateBotStandings(const PlayerBot* other, bool otherLost);
 
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity

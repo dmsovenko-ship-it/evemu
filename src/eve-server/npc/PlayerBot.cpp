@@ -8,6 +8,7 @@
 #include "system/Asteroid.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/sov/SovereigntyDataMgr.h"
+#include "standing/StandingDB.h"
 #include <iterator>
 #include <cmath>
 
@@ -139,6 +140,13 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
         // NPCAI's AttackTarget applies the scram once in range.
         if (GetAIMgr()->GetScramRange() <= 0)
             GetAIMgr()->SetScram(15000.0f, 1, 0.6f);
+        // Record the grudge: being attacked and fighting back means the attacker
+        // is an enemy — set standings (personal + corp). If it's another bot.
+        if (attacker->GetNPCSE() != nullptr) {
+            PlayerBot* enemyBot = dynamic_cast<PlayerBot*>(attacker->GetNPCSE());
+            if (enemyBot != nullptr)
+                UpdateBotStandings(enemyBot, false);   // I'm the victim this round
+        }
         // Intelligent fleet support: call allies (same corp or same alliance)
         // in this system to join the fight, so fights are decided by force
         // concentration, not one brave pilot.
@@ -359,6 +367,12 @@ void PlayerBot::Killed(Damage& damage)
 {
     // Record the loss for learning, then let the base NPC clean up.
     if (m_memory) { m_memory->RecordLoss(); m_memory->RecordDeath(); m_memory->Save(); }
+    // The killer (if a bot) has proven itself an enemy — deep grudge, both ways.
+    if (damage.srcSE != nullptr && damage.srcSE->GetNPCSE() != nullptr) {
+        PlayerBot* killer = dynamic_cast<PlayerBot*>(damage.srcSE->GetNPCSE());
+        if (killer != nullptr)
+            UpdateBotStandings(killer, true);   // other (killer) won, I lost
+    }
     NPC::Killed(damage);
 }
 
@@ -496,6 +510,45 @@ bool PlayerBot::IsFactionEnemy(const PlayerBot* other) const
     if (myFac == 0 || theirFac == 0)
         return false;   // neutrals don't pick fights on principle
     return myFac != theirFac;
+}
+
+void PlayerBot::UpdateBotStandings(const PlayerBot* other, bool otherLost)
+{
+    // After a fight, both pilots' opinions shift: the winner resents the loser
+    // less, the loser hates the winner (and its corp). Persisted in repStandings
+    // like every other standing — so over time whole corps drift apart and the
+    // aggression/faction can be read from standings, not just flags.
+    if (other == nullptr || other == this)
+        return;
+
+    // Personal grudge: loser hates winner (big hit), winner is wary of loser
+    // (small hit, it attacked us). Neutral 0 if never fought.
+    float meToOther = StandingDB::GetStanding(m_botCharID, other->GetBotCharID());
+    float otherToMe = StandingDB::GetStanding(other->GetBotCharID(), m_botCharID);
+
+    // Corp-level too: the loser's corp loses standing with the winner's corp.
+    float corpToCorp = StandingDB::GetStanding(m_botCorpID, other->GetBotCorpID());
+
+    if (otherLost) {
+        // I won — the loser resents me; I'm slightly wary of it.
+        StandingDB::UpdateStanding(m_botCharID, other->GetBotCharID(), -0.4f);      // me -> loser: wary
+        StandingDB::UpdateStanding(other->GetBotCharID(), m_botCharID, -1.2f);      // loser -> me: hates
+        StandingDB::UpdateStanding(m_botCorpID, other->GetBotCorpID(), -0.3f);      // corp -> corp
+        StandingDB::UpdateStanding(other->GetBotCorpID(), m_botCorpID, -0.6f);
+    } else {
+        // I lost (or fled) — I resent it a lot; it's confident toward me.
+        StandingDB::UpdateStanding(m_botCharID, other->GetBotCharID(), -1.0f);
+        StandingDB::UpdateStanding(other->GetBotCharID(), m_botCharID, -0.3f);
+        StandingDB::UpdateStanding(m_botCorpID, other->GetBotCorpID(), -0.5f);
+        StandingDB::UpdateStanding(other->GetBotCorpID(), m_botCorpID, -0.3f);
+    }
+
+    _log(BOT__TRACE, "PlayerBot %s(%u) standings: to %s=%+.2f, from=%+.2f, corp %u vs %u=%+.2f.",
+         m_botName.c_str(), m_botCharID, other->GetBotName().c_str(),
+         StandingDB::GetStanding(m_botCharID, other->GetBotCharID()) - meToOther,
+         StandingDB::GetStanding(other->GetBotCharID(), m_botCharID) - otherToMe,
+         m_botCorpID, other->GetBotCorpID(),
+         StandingDB::GetStanding(m_botCorpID, other->GetBotCorpID()) - corpToCorp);
 }
 
 void PlayerBot::ApplyCombatStyle()
@@ -760,9 +813,16 @@ void PlayerBot::HuntForTarget()
         // factions — and fights them everywhere, even in highsec (militia FW is
         // exempt from normal CONCORD rules). This is just hunting with a filter.
         bool factionEnemy = IsFactionEnemy(enemy);
+        // A standing grudge overrides the usual rules: if THIS bot's corp has
+        // clearly bad standings with the enemy's corp (past fights, wars), it's
+        // a known enemy — treat it as fair game even in highsec (war targets).
+        bool grudge = StandingDB::GetStanding(m_botCorpID, enemy->GetBotCorpID()) <= -1.0f
+                   || StandingDB::GetStanding(m_botCorpID, enemy->GetBotCharID()) <= -1.0f;
         if (m_factionWarrior) {
             if (!factionEnemy)
                 continue;   // FW fights only its faction's enemies
+        } else if (grudge) {
+            // known enemy (from standings) — hunt it anywhere
         } else if (sysSec >= 0.5f) {
             if (!enemy->IsAggressive())
                 continue;   // highsec: only hunt aggressive targets (both flagged)
@@ -818,6 +878,8 @@ void PlayerBot::HuntForTarget()
             _log(BOT__TRACE, "PlayerBot %s(%u): hunter engaging %s(%u) — %d vs %d.",
                  m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(),
                  enemyBot->GetBotCharID(), myPower, theirPower);
+            // Pre-emptively record the grudge — the hunter declares its enemy.
+            UpdateBotStandings(enemyBot, false);
             ApplyCombatStyle();
             GetAIMgr()->WakeUp();
             GetAIMgr()->StartAttackCycle(2000);
