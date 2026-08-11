@@ -1011,6 +1011,26 @@ void BotMgr::ProcessDocking()
             _log(BOT__MESSAGE, "BotMgr: %s(%u) undocking from station in system %u.",
                  db->name.c_str(), db->charID, it->first);
             SpawnBot(pSystem, db->charID, db->name, db->corpID, db->allianceID);
+            // The bot just "undocked": place it at the station (not the gate) and
+            // let it visibly warp to the gate before leaving the system. Otherwise
+            // it appears mid-space at the gate — a teleport, not an undock.
+            for (auto& [uid, use] : pSystem->GetEntities()) {
+                if (use == nullptr || use->GetNPCSE() == nullptr)
+                    continue;
+                PlayerBot* npb = dynamic_cast<PlayerBot*>(use->GetNPCSE());
+                if (npb == nullptr || npb->GetBotCharID() != db->charID)
+                    continue;
+                SystemEntity* station = nullptr;
+                for (auto& [sid, sse] : pSystem->GetStaticEntities()) {
+                    if (sse != nullptr && sse->GetStationSE() != nullptr) { station = sse; break; }
+                }
+                if (station != nullptr) {
+                    double sr = station->GetRadius() > 500.0 ? station->GetRadius() : 2000.0;
+                    npb->DestinyMgr()->SetPosition(station->GetPosition() + GPoint(sr + 5000.0, 0, 0));
+                }
+                npb->MarkForTravel();   // visible warp to the gate, then cross
+                break;
+            }
             db = it->second.erase(db);
         }
         if (it->second.empty())
@@ -1022,7 +1042,8 @@ void BotMgr::ProcessDocking()
     // 2) Dock space bots: remove their SE, keep them in local as docked.
     //    Only dock bots that are NOT mid-travel, so we don't interrupt the
     //    visible gate flight. Bots that WANT to dock (end of mining run, traders
-    //    at the market) dock immediately; others dock occasionally.
+    //    at the market) fly to the station first (visible approach), then dock
+    //    when they get there; others dock occasionally.
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
         if (pSystem == nullptr || pSystem->PlayerCount() < 1)
             continue;
@@ -1033,10 +1054,24 @@ void BotMgr::ProcessDocking()
             PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
             if (pb == nullptr || pb->WantsToTravel())
                 continue;
-            if (pb->WantsDock())
-                toDock.push_back(pb);                       // profession wants the station now
-            else if (MakeRandomInt(0, 599) == 0)            // occasional dock
-                toDock.push_back(pb);
+            if (!pb->WantsDock() && MakeRandomInt(0, 599) != 0)
+                continue;   // neither profession wants the station nor occasional roll
+            // Fly to the station first so the dock is visible (no teleport).
+            SystemEntity* station = nullptr;
+            for (auto& [sid, sse] : pSystem->GetStaticEntities()) {
+                if (sse != nullptr && sse->GetStationSE() != nullptr) { station = sse; break; }
+            }
+            if (station != nullptr) {
+                double stationR = station->GetRadius() > 500.0 ? station->GetRadius() : 2000.0;
+                double dist = pb->GetPosition().distance(station->GetPosition());
+                double approachDist = stationR + 15000.0;
+                if (dist > approachDist) {
+                    if (!pb->DestinyMgr()->IsWarping() && !pb->GetAIMgr()->IsFighting())
+                        pb->DestinyMgr()->WarpTo(station->GetPosition(), (int32)(stationR + 5000.0));
+                    continue;   // not at the station yet — retry next tic
+                }
+            }
+            toDock.push_back(pb);
         }
         for (PlayerBot* pb : toDock) {
             DockedBot db;
