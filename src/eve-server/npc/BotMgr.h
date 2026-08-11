@@ -49,6 +49,10 @@ public:
 
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID);
+    // Download the bot's ESI portrait into the image cache on spawn, so the client
+    // sees a face immediately (no cron lag). Runs curl in a forked child so the
+    // game loop isn't blocked. Path: <imageDir>/Character/<serverCharID>_512.jpg.
+    static void FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID);
     // Spawn a bot in `origin` and make it fly to `destSystem`'s gate (arrival
     // through the gate, visible warp). Used by PopulateSystem.
     void SpawnBotArriving(SystemManager* origin, uint32 destSystem);

@@ -13,6 +13,13 @@
 #include "services/ServiceManager.h"
 #include <cctype>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <vector>
 
 /*
  * @file BotMgr.cpp
@@ -376,12 +383,14 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
              pSystem->GetID());
         return;
     }
-    // Remember the EVE portrait source so fetch_bot_portraits.py can grab it.
+    // Remember the EVE portrait source so fetch_bot_portraits.py can grab it —
+    // AND download it now (async) so the client sees a face immediately.
     if (killmailCharID != 0 && killmailCharID != useCharID) {
         DBerror perr;
         sDatabase.RunQuery(perr,
             "INSERT IGNORE INTO botPortraits (serverCharID, eveCharID) VALUES (%u, %u)",
             useCharID, killmailCharID);
+        FetchPortraitAsync(useCharID, killmailCharID);
     }
 
     // Ship hull from the killmail legend (real EVE hull) or a generic cruiser/BC.
@@ -606,6 +615,42 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 chan->AddBotChar(useCharID, useCorpID, useAllianceID, 0, useName);
         }
     }
+}
+
+void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
+{
+    // Download the bot's ESI portrait into the image cache right now, so the
+    // client shows a face immediately (no cron lag). Runs curl in a forked child
+    // so the game loop never blocks. Path: <imageDir>/Character/<serverCharID>_512.jpg
+    // (ImageServer::GetFilePath). We write exactly what fetch_bot_portraits.py would.
+    if (serverCharID == 0 || eveCharID == 0)
+        return;
+
+    std::string base = sConfig.files.imageDir;
+    if (!base.empty() && base[base.size() - 1] != '/')
+        base += "/";
+    std::string dir = base + "Character/";
+    std::string path = dir + std::to_string(serverCharID) + "_512.jpg";
+
+    // Skip if the portrait already exists.
+    struct stat st;
+    if (::stat(path.c_str(), &st) == 0 && st.st_size > 0)
+        return;
+
+    ::mkdir(dir.c_str(), 0755);
+
+    // ESI portrait endpoint: https://images.evetech.net/characters/{eveID}/portrait?size=512
+    std::string url = "https://images.evetech.net/characters/"
+                    + std::to_string(eveCharID) + "/portrait?size=512";
+
+    pid_t pid = ::fork();
+    if (pid == 0) {
+        // child: curl -sSL --max-time 15 <url> -o <path>
+        ::execlp("curl", "curl", "-sSL", "--max-time", "15", url.c_str(), "-o", path.c_str(), (char*)nullptr);
+        _exit(127);
+    }
+    // parent: don't wait — let it finish in the background
+    _log(BOT__TRACE, "BotMgr: fetching portrait for bot %u (eve %u) -> %s", serverCharID, eveCharID, path.c_str());
 }
 
 void BotMgr::SpawnBotArriving(SystemManager* origin, uint32 destSystem)
