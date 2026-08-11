@@ -1011,9 +1011,11 @@ void BotMgr::ProcessDocking()
             _log(BOT__MESSAGE, "BotMgr: %s(%u) undocking from station in system %u.",
                  db->name.c_str(), db->charID, it->first);
             SpawnBot(pSystem, db->charID, db->name, db->corpID, db->allianceID);
-            // The bot just "undocked": place it at the station (not the gate) and
-            // let it visibly warp to the gate before leaving the system. Otherwise
-            // it appears mid-space at the gate — a teleport, not an undock.
+            // The bot just "undocked": place it beside the station (not at the
+            // gate) so it's scannable right there. Then it behaves like a real
+            // pilot: couriers/traders head out through a gate on business, while
+            // producers (miners/ratters/hackers/explorers) go work — mine, scan,
+            // rat — near the station or at an anomaly. No mid-space teleport.
             for (auto& [uid, use] : pSystem->GetEntities()) {
                 if (use == nullptr || use->GetNPCSE() == nullptr)
                     continue;
@@ -1028,7 +1030,13 @@ void BotMgr::ProcessDocking()
                     double sr = station->GetRadius() > 500.0 ? station->GetRadius() : 2000.0;
                     npb->DestinyMgr()->SetPosition(station->GetPosition() + GPoint(sr + 5000.0, 0, 0));
                 }
-                npb->MarkForTravel();   // visible warp to the gate, then cross
+                npb->ClearDockRequest();   // just undocked — don't immediately re-dock
+                // Travellers (courier/trader) leave via the gate on business;
+                // producers stay and work near the station (their profession will
+                // warp them to a belt/anomaly/site).
+                auto prof = npb->GetProfession();
+                if (prof == PlayerBot::BotProfession::Courier || prof == PlayerBot::BotProfession::Trader)
+                    npb->MarkForTravel();   // visible warp to the gate, then cross
                 break;
             }
             db = it->second.erase(db);
