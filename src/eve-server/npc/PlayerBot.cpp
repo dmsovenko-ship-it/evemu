@@ -1,6 +1,7 @@
 #include "eve-server.h"
 #include "npc/PlayerBot.h"
 #include "npc/NPCAI.h"
+#include "system/Damage.h"
 #include "Client.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
