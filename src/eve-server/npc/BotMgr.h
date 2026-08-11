@@ -82,6 +82,11 @@ private:
     void ProcessEconomy(PlayerBot* bot);
     void PayCorpTax(PlayerBot* bot);
     void PlaceBotOrder(PlayerBot* bot);
+    // A trader occasionally lists a public courier contract for one of its
+    // "shipments". Courier bots (and players) can pick it up — the 5-minute
+    // unaccepted window in ProcessPlayerContracts means a player has a real
+    // chance to grab the profitable ones first.
+    void PlaceBotCourierContract(PlayerBot* bot);
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();

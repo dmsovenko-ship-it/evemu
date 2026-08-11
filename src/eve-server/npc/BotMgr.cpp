@@ -940,11 +940,15 @@ void BotMgr::ProcessEconomy(PlayerBot* bot)
 {
     // Bots take part in the EVE economy with real ISK:
     //  - traders place sell orders in their own name,
+    //  - traders occasionally issue public courier contracts (other bots and
+    //    players can pick them up; players get first pick of the good ones),
     //  - everyone pays corp tax into their corp wallet.
     if (bot == nullptr || !sConfig.playerBots.Enabled)
         return;
-    if (bot->GetProfession() == PlayerBot::BotProfession::Trader)
+    if (bot->GetProfession() == PlayerBot::BotProfession::Trader) {
         PlaceBotOrder(bot);
+        PlaceBotCourierContract(bot);
+    }
     if (MakeRandomInt(0, 999) < 30)
         PayCorpTax(bot);
 }
@@ -1020,6 +1024,82 @@ void BotMgr::PlaceBotOrder(PlayerBot* bot)
         typeID, charID, sysID, stationID, sysID, price, qty, qty, GetFileTimeNow(), charID);
     _log(BOT__TRACE, "BotMgr: %s(%u) placed sell order %ux type %u @ %.2f ISK in %u.",
          bot->GetBotName().c_str(), charID, qty, typeID, price, sysID);
+}
+
+void BotMgr::PlaceBotCourierContract(PlayerBot* bot)
+{
+    // A trader occasionally lists a PUBLIC courier contract for one of its
+    // "shipments" between two stations. Like a real pilot, it wants cheap
+    // freight: it issues the contract, then anyone — a player OR another bot
+    // courier — can accept it. ProcessPlayerContracts only takes contracts that
+    // have sat unaccepted for 5+ minutes, so players get first pick of the
+    // profitable ones and bots mop up the leftovers.
+    if (bot == nullptr || bot->GetProfession() != PlayerBot::BotProfession::Trader)
+        return;
+    if (MakeRandomInt(0, 999) >= 20)
+        return;   // ~2% per economy tick — rare
+
+    uint32 charID = bot->GetBotCharID();
+    uint32 sysID = bot->SystemMgr() ? bot->SystemMgr()->GetID() : 0;
+    if (sysID == 0)
+        return;
+
+    // Start station (where the trader is) and a random other station as the
+    // destination — the courier "hauls goods to the hub".
+    DBQueryResult res;
+    uint32 startStation = 0, endStation = 0, endSys = 0;
+    if (!sDatabase.RunQuery(res, "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", sysID))
+        return;
+    DBResultRow srow;
+    if (!res.GetRow(srow))
+        return;
+    startStation = srow.GetUInt(0);
+
+    // Destination: the primary trade hub, or any random station elsewhere.
+    uint32 hub = GetTradeHubSystem();
+    if (hub != 0 && hub != sysID && MakeRandomInt(0, 99) < 70) {
+        if (!sDatabase.RunQuery(res, "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", hub))
+            return;
+        if (res.GetRow(srow)) {
+            endStation = srow.GetUInt(0);
+            endSys = hub;
+        }
+    }
+    if (endStation == 0) {
+        if (!sDatabase.RunQuery(res, "SELECT stationID, solarSystemID FROM staStations ORDER BY RAND() LIMIT 1"))
+            return;
+        if (res.GetRow(srow)) {
+            endStation = srow.GetUInt(0);
+            endSys = srow.GetUInt(1);
+        }
+    }
+    if (endStation == 0 || endStation == startStation)
+        return;
+
+    // Modest cargo and reward — enough to be worth a courier's time but not a
+    // jackpot a player would hoard. Larger = more visible on the market.
+    double volume = 200.0 + MakeRandomFloat() * 4000.0;
+    int64 reward = (int64)(50000 + volume * 40.0);
+
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+        "INSERT INTO ctrContracts"
+        "  (contractType, issuerID, issuerCorpID, forCorp, isPrivate, assigneeID,"
+        "   dateIssued, dateExpired, duration, numDays, startStationID, startSolarSystemID,"
+        "   startRegionID, endStationID, endSolarSystemID, endRegionID, price, reward, collateral,"
+        "   title, description, status, volume)"
+        " VALUES"
+        "  (3, %u, %u, 0, 0, 0, %lli, %lli, 7, 7, %u, %u,"
+        "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u,"
+        "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), 0, %lli, 0,"
+        "   'Courier shipment', 'Standard courier contract', 0, %f)",
+        charID, bot->GetBotCorpID(),
+        (int64)GetFileTimeNow(), (int64)GetFileTimeNow() + 7LL * EvE::Time::Day,
+        startStation, sysID, sysID, endStation, endSys, endSys, reward, volume))
+    {
+        _log(BOT__MESSAGE, "BotMgr: trader %s(%u) issued courier contract (%.0f m3, reward %.0f ISK) %u -> %u.",
+             bot->GetBotName().c_str(), charID, volume, (double)reward, sysID, endSys);
+    }
 }
 
 

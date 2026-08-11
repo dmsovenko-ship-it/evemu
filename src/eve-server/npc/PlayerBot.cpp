@@ -720,8 +720,19 @@ void PlayerBot::HuntForTarget()
             continue;
         if (enemy->GetBotCorpID() == m_botCorpID || enemy->GetBotAllianceID() == m_botAllianceID)
             continue;   // ally
-        if (sysSec >= 0.5f && !enemy->IsAggressive())
-            continue;   // highsec: only hunt aggressive targets (both flagged)
+        // Who may be attacked — like real pilots, bots don't care about race.
+        // Any bot of a DIFFERENT corp/alliance is a potential target; the decider
+        // is where we are and how confident we are:
+        //  - highsec: CONCORD protects everyone, so only fellow aggressive
+        //    hunters (both flagged) risk a fight there.
+        //  - lowsec/nullsec: open season on anyone of another corp/alliance.
+        if (sysSec >= 0.5f) {
+            if (!enemy->IsAggressive())
+                continue;   // highsec: only hunt aggressive targets (both flagged)
+        } else if (!enemy->IsAggressive() && !m_memory) {
+            continue;   // low/null: peaceful bots are still fair game for hunters,
+                        // but a novice hunter passes on them until it learns to fight
+        }
         if (enemy->IsNearGate(60000.0)) {
             if (!canCampGate)
                 continue;   // solo: avoid the gate entirely (ambush risk)
