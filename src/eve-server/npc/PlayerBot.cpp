@@ -668,6 +668,13 @@ void PlayerBot::HuntForTarget()
         return;
     m_huntCooldown.Start(MakeRandomInt(20000, 45000));   // ~20-45s between engages
 
+    // A freshly-arrived hunter scouts first: scans the system for a few seconds
+    // before committing to any fight (like a scout who warped in ahead). It still
+    // logs who's here but holds fire until the scout window passes.
+    bool scouting = m_scoutTimer.Enabled() && !m_scoutTimer.Check();
+    if (!m_scoutTimer.Enabled())
+        m_scoutTimer.Start(MakeRandomInt(15000, 30000));
+
     // Find a target: enemy PlayerBots in this system. Score by distance but also
     // by "value" (a ratting miner or hauler is a prize; a big hostile fleet is a
     // trap). Do NOT engage anything within 60km of a gate — that's where camps
@@ -686,10 +693,12 @@ void PlayerBot::HuntForTarget()
             continue;   // highsec: only hunt aggressive targets (both flagged)
         if (enemy->IsNearGate(60000.0))
             continue;   // near a gate = ambush risk, real pilots avoid it
+        // Combat-probe scan: a hunter with probes "finds" targets across the
+        // whole system (battlefield/asteroid/anomaly), not just its own bubble.
         double d = GetPosition().distance(enemy->GetPosition());
-        if (d > 150000)
-            continue;   // out of hunt range
-        int score = (int)(150000 - d) / 1000;
+        if (d > 250000)
+            continue;   // beyond probe range
+        int score = (int)(250000 - d) / 1000;
         // Value: miners/haulers/traders are good loot and weak; hunters are not.
         auto prof = enemy->GetProfession();
         if (prof == BotProfession::Miner || prof == BotProfession::Courier
@@ -701,6 +710,11 @@ void PlayerBot::HuntForTarget()
         score -= CountEnemiesNearby(enemy) * 40;
         if (score > bestScore) { bestScore = score; prey = enemy; }
     }
+
+    // While scouting (fresh arrival), the bot only reports, never commits to a
+    // fight — a scout doesn't engage, it feeds intel back to the fleet.
+    if (scouting)
+        return;
 
     // Evaluate the fight like a pilot: my power vs theirs, adjusted by how many
     // of their friends are around. If favoured, engage; else leave it alone.

@@ -132,6 +132,7 @@ protected:
     Timer m_abilityTimer;               // logistics/EWAR/bonus tick
     Timer m_activityTimer;              // profession run counter (self-learning)
     Timer m_huntCooldown;               // PvP hunter: pause between engages (no gate camping)
+    Timer m_scoutTimer;                 // fresh arrival: scout the system before committing
     bool m_inFight;                     // true while fighting (to record outcomes)
     bool m_wantsDock;                   // true when the bot wants to dock (profession)
     uint8 m_mineTrips;                  // mining runs since last dock (ore haul)
