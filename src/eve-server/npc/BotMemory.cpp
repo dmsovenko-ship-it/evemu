@@ -12,6 +12,7 @@ BotMemory::BotMemory(uint32 charID)
   wins(0), losses(0), kills(0), deaths(0),
   chatLines(0), chatReplies(0),
   ratKills(0), mineRuns(0), tradeRuns(0), hackRuns(0),
+  pvpMistakes(0),
   m_dirty(false)
 {
 }
@@ -21,7 +22,7 @@ void BotMemory::Load()
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
         "SELECT wins, losses, kills, deaths, chatLines, chatReplies,"
-        "       ratKills, mineRuns, tradeRuns, hackRuns"
+        "       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes"
         " FROM botMemory WHERE charID = %u", m_charID))
     {
         DBResultRow row;
@@ -36,6 +37,8 @@ void BotMemory::Load()
             mineRuns = row.GetUInt(7);
             tradeRuns = row.GetUInt(8);
             hackRuns = row.GetUInt(9);
+            if (row.ColumnCount() > 10)
+                pvpMistakes = row.GetUInt(10);
         }
     }
     m_dirty = false;
@@ -48,15 +51,15 @@ void BotMemory::Save() const
     DBerror err;
     if (!sDatabase.RunQuery(err,
         "INSERT INTO botMemory (charID, wins, losses, kills, deaths, chatLines, chatReplies,"
-        "                       ratKills, mineRuns, tradeRuns, hackRuns, lastUpdate)"
-        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, NOW())"
+        "                       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, lastUpdate)"
+        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, NOW())"
         " ON DUPLICATE KEY UPDATE"
         "  wins = VALUES(wins), losses = VALUES(losses), kills = VALUES(kills),"
         "  deaths = VALUES(deaths), chatLines = VALUES(chatLines), chatReplies = VALUES(chatReplies),"
         "  ratKills = VALUES(ratKills), mineRuns = VALUES(mineRuns), tradeRuns = VALUES(tradeRuns),"
-        "  hackRuns = VALUES(hackRuns), lastUpdate = NOW()",
+        "  hackRuns = VALUES(hackRuns), pvpMistakes = VALUES(pvpMistakes), lastUpdate = NOW()",
         m_charID, wins, losses, kills, deaths, chatLines, chatReplies,
-        ratKills, mineRuns, tradeRuns, hackRuns))
+        ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes))
     {
         codelog(DATABASE__ERROR, "BotMemory::Save() failed for %u: %s", m_charID, err.c_str());
     }
@@ -86,4 +89,17 @@ float BotMemory::GetActivitySkill() const
     uint32 total = ratKills + mineRuns + tradeRuns + hackRuns;
     float skill = (float)total / 30.0f;
     return skill > 1.0f ? 1.0f : skill;
+}
+
+float BotMemory::GetPvpSkill() const
+{
+    // Judgement of a fight improves with real PvP reps (wins+kills) and is hurt
+    // by misjudged ones. Saturates at 1.0 (a veteran who rarely misreads a fight).
+    uint32 exp = wins + kills + deaths + losses;
+    float base = (float)exp / 8.0f;   // ~8 fights to reach "average" judgement
+    if (base > 1.0f) base = 1.0f;
+    float penalty = pvpMistakes > 0 ? (float)pvpMistakes * 0.25f : 0.0f;
+    float skill = base - penalty;
+    if (skill < 0.0f) skill = 0.0f;
+    return skill;
 }

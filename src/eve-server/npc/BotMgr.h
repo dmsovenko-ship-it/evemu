@@ -102,6 +102,9 @@ private:
         time_t undockAt;   // when to undock (0 = already waiting)
     };
     void ProcessDocking();   // manage dock/undock cycle each tick
+    // Bots occasionally chat among themselves in local (rare, so it doesn't
+    // spam). Makes the channel feel alive without DeepSeek calls.
+    void ProcessBotSmalltalk();
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
@@ -109,6 +112,7 @@ private:
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots
     std::map<uint32, uint32> m_systemTarget;   // systemID -> fixed bot target (live-server feel)
     std::map<uint32, time_t> m_lastPopulate;   // systemID -> last bot spawn time (gradual fill)
+    std::map<int32, time_t> m_lastSmalltalk;   // channelID -> last bot-to-bot chatter time
 };
 
 //Singleton

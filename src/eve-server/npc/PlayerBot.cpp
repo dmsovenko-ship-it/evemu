@@ -44,8 +44,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_cynoActive(false),
   m_jumpDest(0),
   m_cynoTimer(0)
-{
-    // A player-like legend: give this NPC a neutral alliance so it doesn't show
+{    // A player-like legend: give this NPC a neutral alliance so it doesn't show
     // red crosshairs and isn't auto-aggroed by faction standing checks. The
     // owner is the PILOT (charID), not the corp — so clients can lock the ship
     // and show its pilot as the owner.
@@ -111,26 +110,31 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
     }
     int myClass = GetShipClass(m_self->groupID());
 
-    // Combat power = ship class + skill tier (0..5). A skilled pilot in a
-    // weaker hull can beat a rookie in a bigger one — but usually not by much.
     int myPower = myClass * 2 + (int)m_botSkill;
-    int theirPower = attackerClass * 2 + (sConfig.playerBots.AggroFactor > 0 ? 1 : 0);
-    // AggroFactor: % confidence modifier. +10% → treat enemy as 10% weaker, etc.
-    theirPower -= (int)(theirPower * (sConfig.playerBots.AggroFactor / 100.0f));
+    int theirPower = attackerClass * 2;
+    theirPower += CountEnemiesNearby(attacker) * 3;   // friends of the attacker add to its strength
+    myPower += CountAlliesNearby() * 2;               // my fleet helps me
 
-    // Self-learning: a bot with a history of wins fights more boldly; a bot that
-    // keeps losing is cautious. GetAggression() ∈ [-1..+1] shifts the balance.
-    float learned = m_memory ? m_memory->GetAggression() : 0.0f;
-    myPower += (int)(learned * 2.0f);   // ±2 combat power from experience
+    // "Bait": a hunter in a weak-looking hull deliberately lets the enemy commit
+    // (they think it's an easy kill), then the fleet warps in. The bait holds the
+    // attacker with a scram and calls support instead of fleeing.
+    bool isBait = (m_profession == BotProfession::Hunter
+                   && m_role == BotRole::Fighter
+                   && myClass <= 2 && MakeRandomInt(0, 99) < 25);
 
-    _log(BOT__TRACE, "PlayerBot %s(%u): attacked by %s — sysSec %.1f mayAttack %s, myPower %d vs theirPower %d.",
-         m_botName.c_str(), m_botCharID, attacker->GetName(), sysSec, mayAttack?"yes":"no", myPower, theirPower);
+    _log(BOT__TRACE, "PlayerBot %s(%u): attacked by %s — sysSec %.1f mayAttack %s, myPower %d vs theirPower %d%s.",
+         m_botName.c_str(), m_botCharID, attacker->GetName(), sysSec, mayAttack?"yes":"no",
+         myPower, theirPower, isBait ? " [BAIT]" : "");
 
-    if (mayAttack && myPower >= theirPower - 1) {
+    if (mayAttack && (isBait || ShouldEngage(myPower, theirPower, true))) {
         // Legal and confident — fight back (NPCAI handles targeting/attack).
         m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
         GetAIMgr()->WakeUp();
         GetAIMgr()->StartAttackCycle(2000);
+        // Tackle: hold the attacker so it can't warp while the fleet arrives.
+        // NPCAI's AttackTarget applies the scram once in range.
+        if (GetAIMgr()->GetScramRange() <= 0)
+            GetAIMgr()->SetScram(15000.0f, 1, 0.6f);
         // Intelligent fleet support: call allies (same corp or same alliance)
         // in this system to join the fight, so fights are decided by force
         // concentration, not one brave pilot.
@@ -354,6 +358,112 @@ void PlayerBot::Killed(Damage& damage)
     NPC::Killed(damage);
 }
 
+void PlayerBot::RecordPvpOutcome(bool won)
+{
+    if (m_memory == nullptr)
+        return;
+    if (won) { m_memory->RecordWin(); m_memory->RecordKill(); }
+    else     { m_memory->RecordLoss(); m_memory->RecordDeath(); }
+    m_memory->Save();
+}
+
+bool PlayerBot::IsNearGate(double threshold) const
+{
+    if (SystemMgr() == nullptr)
+        return false;
+    for (auto& [id, se] : SystemMgr()->GetStaticEntities()) {
+        if (se != nullptr && se->GetGateSE() != nullptr) {
+            if (GetPosition().distance(se->GetPosition()) < threshold)
+                return true;
+        }
+    }
+    return false;
+}
+
+int PlayerBot::CountEnemiesNearby(SystemEntity* target, double radius) const
+{
+    // How many hostile ships are around `target` (the potential victim): other
+    // PlayerBots from a different corp/alliance plus real players. A target with
+    // friends nearby is a trap — a real hunter warps out instead of ganking.
+    int count = 0;
+    if (SystemMgr() == nullptr || target == nullptr)
+        return 0;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr)
+            continue;
+        if (se == this || se == target)
+            continue;
+        if (target->GetPosition().distance(se->GetPosition()) > radius)
+            continue;
+        if (se->GetNPCSE() != nullptr) {
+            PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (other == nullptr)
+                continue;
+            if (other->GetBotCorpID() == m_botCorpID || other->GetBotAllianceID() == m_botAllianceID)
+                continue;   // ally of mine — not an enemy
+            ++count;
+        } else if (se->GetPilot() != nullptr) {
+            ++count;   // real player near the target is a friend of the target
+        }
+    }
+    return count;
+}
+
+int PlayerBot::CountAlliesNearby(double radius) const
+{
+    int count = 0;
+    if (SystemMgr() == nullptr)
+        return 0;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se == this)
+            continue;
+        if (GetPosition().distance(se->GetPosition()) > radius)
+            continue;
+        if (se->GetNPCSE() != nullptr) {
+            PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (other == nullptr)
+                continue;
+            if (other->GetBotCorpID() == m_botCorpID || other->GetBotAllianceID() == m_botAllianceID)
+                ++count;
+        }
+    }
+    return count;
+}
+
+bool PlayerBot::ShouldEngage(int myPower, int theirPower, bool defending)
+{
+    // Core aggression gate. A bot does NOT attack everyone it meets — it judges
+    // the fight like a real pilot: needs a clear edge, no nearby friends of the
+    // target, and only a practised bot is confident. Self-learning moves the
+    // line: winners grow bolder, losers grow cautious.
+    if (myPower <= 0 || theirPower <= 0)
+        return false;
+
+    // PvP skill (0..1): novices misjudge, veterans are reliable.
+    float skill = m_memory ? m_memory->GetPvpSkill() : 0.0f;
+    // AggroFactor from config: positive = bolder, negative = careful.
+    float aggro = (float)sConfig.playerBots.AggroFactor / 100.0f;
+    float learned = m_memory ? m_memory->GetAggression() : 0.0f;
+
+    // Margin needed to commit. Defending is easier (self-preservation), hunting
+    // needs a clear edge. AggroFactor shifts this by up to ±2 power.
+    int margin = defending ? 0 : 2;
+    margin += (int)(aggro * 2.0f);
+    margin -= (int)(learned * 2.0f);        // winners need less margin
+
+    bool wouldWin = (myPower - theirPower) >= margin;
+
+    // Novices make mistakes: even when they "should" win they sometimes misjudge
+    // and flee; even when they should lose they sometimes overcommit. Veterans
+    // (skill ~1) are reliable.
+    float mistakeChance = 0.30f * (1.0f - skill);
+    if (mistakeChance > 0.0f && MakeRandomFloat() < mistakeChance) {
+        if (m_memory) m_memory->RecordPvpMistake();
+        wouldWin = !wouldWin;   // a misread — acts on the wrong call
+    }
+    return wouldWin;
+}
+
 void PlayerBot::DecideNextAction()
 {
     // Hook for BotMgr. Placeholder for the state machine that will be wired
@@ -538,8 +648,10 @@ void PlayerBot::ScanForSites()
 
 void PlayerBot::HuntForTarget()
 {
-    // Aggressive (hunter / PvP war corp): actively seek a legal target.
-    // Legal = in lowsec/nullsec any pilot; in highsec only criminals/low-sec.
+    // Aggressive (hunter / PvP war corp): actively seek a legal target — but
+    // like a real pilot, NOT at every gate. The bot scans first, judges the
+    // value of the target and the risk (friends nearby, gate camp), and only
+    // commits when it has a clear edge. Novices misjudge; veterans are precise.
     if (m_destiny == nullptr || SystemMgr() == nullptr)
         return;
     float sysSec = SystemMgr()->GetSystemSecurityRating();
@@ -548,9 +660,18 @@ void PlayerBot::HuntForTarget()
     if (sysSec >= 0.5f && MakeRandomInt(0, 99) >= 5)
         return;
 
-    // Find a target: enemy PlayerBots in this system that are fighting or idle.
+    // Hunt cooldown: a hunter doesn't camp the same spot forever — it sweeps,
+    // then moves on. Between sweeps it wanders (looks busy, not static).
+    if (m_huntCooldown.Enabled() && !m_huntCooldown.Check())
+        return;
+    m_huntCooldown.Start(MakeRandomInt(20000, 45000));   // ~20-45s between engages
+
+    // Find a target: enemy PlayerBots in this system. Score by distance but also
+    // by "value" (a ratting miner or hauler is a prize; a big hostile fleet is a
+    // trap). Do NOT engage anything within 60km of a gate — that's where camps
+    // and friends hide.
     SystemEntity* prey = nullptr;
-    int bestScore = 0;
+    int bestScore = -1000;
     for (auto& [id, se] : SystemMgr()->GetEntities()) {
         if (se == nullptr || se->GetNPCSE() == nullptr)
             continue;
@@ -559,33 +680,49 @@ void PlayerBot::HuntForTarget()
             continue;
         if (enemy->GetBotCorpID() == m_botCorpID || enemy->GetBotAllianceID() == m_botAllianceID)
             continue;   // ally
-        // Only hunt other aggressive corps' bots or any bot in null — keep it
-        // from ganking peaceful miners constantly.
         if (sysSec >= 0.5f && !enemy->IsAggressive())
             continue;   // highsec: only hunt aggressive targets (both flagged)
+        if (enemy->IsNearGate(60000.0))
+            continue;   // near a gate = ambush risk, real pilots avoid it
         double d = GetPosition().distance(enemy->GetPosition());
-        if (d > 100000)
+        if (d > 150000)
             continue;   // out of hunt range
-        int score = (int)(100000 - d) / 1000;
+        int score = (int)(150000 - d) / 1000;
+        // Value: miners/haulers/traders are good loot and weak; hunters are not.
+        auto prof = enemy->GetProfession();
+        if (prof == BotProfession::Miner || prof == BotProfession::Courier
+            || prof == BotProfession::Trader || prof == BotProfession::Hacker)
+            score += 30;
+        else if (prof == BotProfession::Hunter)
+            score -= 50;   // fellow hunters fight back — only if we're confident
+        // Risk: friends near the target lower the score hard (bait check).
+        score -= CountEnemiesNearby(enemy) * 40;
         if (score > bestScore) { bestScore = score; prey = enemy; }
     }
 
-    // If a suitable prey is found, evaluate the fight and engage if favoured.
-    if (prey != nullptr) {
+    // Evaluate the fight like a pilot: my power vs theirs, adjusted by how many
+    // of their friends are around. If favoured, engage; else leave it alone.
+    if (prey != nullptr && bestScore > -20) {
         PlayerBot* enemyBot = (PlayerBot*)prey;
         int myClass = GetShipClass(m_self->groupID());
         int enemyClass = GetShipClass(enemyBot->GetSelf()->groupID());
         int myPower = myClass * 2 + (int)m_botSkill;
         int theirPower = enemyClass * 2 + (int)enemyBot->GetBotSkillLevel();
-        if (m_memory)
-            myPower += (int)(m_memory->GetAggression() * 2.0f);
-        if (myPower >= theirPower) {
-            _log(BOT__TRACE, "PlayerBot %s(%u): hunter engaging %s(%u).",
-                 m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID());
+        theirPower += CountEnemiesNearby(enemyBot) * 3;   // friends add to their strength
+        myPower += CountAlliesNearby() * 2;               // my fleet helps me
+
+        if (ShouldEngage(myPower, theirPower, false)) {
+            _log(BOT__TRACE, "PlayerBot %s(%u): hunter engaging %s(%u) — %d vs %d.",
+                 m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(),
+                 enemyBot->GetBotCharID(), myPower, theirPower);
             GetAIMgr()->WakeUp();
             GetAIMgr()->StartAttackCycle(2000);
             GetAIMgr()->Target(prey);
             CallFleetSupport(prey);
+        } else {
+            _log(BOT__TRACE, "PlayerBot %s(%u): hunter passed on %s(%u) — %d vs %d.",
+                 m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(),
+                 enemyBot->GetBotCharID(), myPower, theirPower);
         }
     }
 }

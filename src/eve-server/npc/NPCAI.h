@@ -105,6 +105,12 @@ public:
     void Flee(SystemEntity* pTargSE);   // flee from a target (used by simulated players)
     uint16 GetMaxShipSpeed() const      { return m_maxSpeed; }
 
+    // Warp scrambler capability (bots use this to "tackle": hold a target while
+    // the fleet warps in). range/strength are metres and scram strength (1 = one
+    // point). chance 0..1 per-cycle probability the scram lands.
+    void SetScram(float range, float strength, float chance) { m_warpScram = true; m_warpScramRange = (uint32)range; m_warpScramStrength = strength; m_warpScramChance = chance; }
+    float GetScramRange() const         { return m_warpScram ? (float)m_warpScramRange : 0.0f; }
+
     void LaunchMissile(uint16 typeID, SystemEntity* pTargSE);   // us to them
     void MissileLaunched(Missile* pMissile); // them to us
 

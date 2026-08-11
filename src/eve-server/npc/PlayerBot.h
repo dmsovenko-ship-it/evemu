@@ -103,10 +103,17 @@ public:
     bool IsJumpFreighter() const        { return m_isJumpFreighter; }
     bool CynoActive() const             { return m_cynoActive; }
 
+    /* realistic PvP behaviour (evaluate before engaging, mistakes for novices) */
+    bool IsNearGate(double threshold = 60000.0) const;   // within X m of a gate (ambush risk)
+    int  CountEnemiesNearby(SystemEntity* target, double radius = 100000.0) const;  // hostile ships around target
+    int  CountAlliesNearby(double radius = 100000.0) const;                          // friendly ships around me
+    bool ShouldEngage(int myPower, int theirPower, bool defending);   // power + skill + luck decision
+
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
     void CallFleetSupport(SystemEntity* attacker);   // same corp/alliance bots join the fight
     static int GetShipClass(uint16 groupID);         // combat-power tier by ship group
+    void RecordPvpOutcome(bool won);    // win/loss + PvP judgement learning
 
     uint32 m_botCharID;
     std::string m_botName;
@@ -124,6 +131,7 @@ protected:
     uint32 m_destSystemID;              // target system to cross into (0 = random)
     Timer m_abilityTimer;               // logistics/EWAR/bonus tick
     Timer m_activityTimer;              // profession run counter (self-learning)
+    Timer m_huntCooldown;               // PvP hunter: pause between engages (no gate camping)
     bool m_inFight;                     // true while fighting (to record outcomes)
     bool m_wantsDock;                   // true when the bot wants to dock (profession)
     uint8 m_mineTrips;                  // mining runs since last dock (ore haul)

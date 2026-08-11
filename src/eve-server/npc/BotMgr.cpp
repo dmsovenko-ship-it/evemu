@@ -64,6 +64,9 @@ void BotMgr::Process()
     // Manage docked bots: undock some each tick, dock others.
     ProcessDocking();
 
+    // Bots occasionally chatter among themselves in local (rare).
+    ProcessBotSmalltalk();
+
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
 
@@ -1097,6 +1100,84 @@ void BotMgr::ProcessDocking()
             pb->ClearDockRequest();
             pb->Delete();   // remove from space; stays in local channel as docked
         }
+    }
+}
+
+void BotMgr::ProcessBotSmalltalk()
+{
+    // Simulated players occasionally talk to each other in local. Real servers
+    // have constant low-level chatter; ours should too — but rarely enough that
+    // it doesn't spam the channel or hit the DeepSeek API. Uses canned, natural
+    // EVE-ish lines so it stays believable and free.
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    if (sEntityList.GetSystems().empty())
+        return;
+
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+            continue;
+
+        // Throttle: at most one bot-to-bot line per system per ~4 minutes.
+        time_t now = time(nullptr);
+        auto last = m_lastSmalltalk.find((int32)sysID);
+        if (last != m_lastSmalltalk.end() && (now - last->second) < 240)
+            continue;
+
+        // Need at least two bots in space to talk.
+        std::vector<PlayerBot*> present;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb != nullptr)
+                present.push_back(pb);
+        }
+        if (present.size() < 2)
+            continue;
+
+        // Rare: ~15% chance per eligible system per tick window.
+        if (MakeRandomInt(0, 99) >= 15)
+            continue;
+        m_lastSmalltalk[(int32)sysID] = now;
+
+        PlayerBot* a = present[MakeRandomInt(0, (int64)present.size() - 1)];
+        PlayerBot* b = present[MakeRandomInt(0, (int64)present.size() - 1)];
+        if (a == nullptr || b == nullptr || a == b)
+            continue;
+
+        static const char* lines[] = {
+            "anyone found a good belt here?",
+            "gate to %s is clear, ganked anyone today?",
+            "just lost my hauler to a smartbomb. classic.",
+            "market prices are crazy today.",
+            "anyone wanna fleet up?",
+            "this system is dead, moving on.",
+            "that last ratting run paid off.",
+            "has anyone seen a wormhole in here?",
+            "solo PvP or nothing.",
+            "the ISK is in the haul, not the fight.",
+            "someone left a wreck at the gate. free loot?",
+            "my drones keep orbiting the wrong asteroid lol",
+            "wh trade route is juicy today.",
+            "docking in a sec, brb.",
+            "anyone else hear that anoms got buffed?",
+        };
+
+        std::string msg = lines[MakeRandomInt(0, 14)];
+        // Sometimes address the other bot by name.
+        if (MakeRandomInt(0, 99) < 40)
+            msg = std::string(b->GetBotName().c_str()) + ", " + msg;
+
+        LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
+        if (lsc == nullptr)
+            continue;
+        LSCChannel* chan = lsc->GetChannelByID((int32)sysID);
+        if (chan == nullptr)
+            continue;
+        chan->SendBotMessage(a->GetBotCharID(), a->GetBotName(), a->GetBotCorpID(), msg);
+        _log(BOT__MESSAGE, "BotMgr: %s(%u) said to %s in local: %s",
+             a->GetBotName().c_str(), a->GetBotCharID(), b->GetBotName().c_str(), msg.c_str());
     }
 }
 

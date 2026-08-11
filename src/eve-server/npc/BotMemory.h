@@ -30,6 +30,9 @@ public:
     void RecordLoss()  { ++losses; RecordChange(); }
     void RecordKill()  { ++kills;  RecordChange(); }
     void RecordDeath() { ++deaths; RecordChange(); }
+    // A PvP engagement the bot read wrong (attacked and lost, or fled from a
+    // winnable fight). Marks inexperience; the bot learns to judge fights better.
+    void RecordPvpMistake() { ++pvpMistakes; RecordChange(); }
 
     /* chat learning */
     void RecordChatLine()    { ++chatLines;   RecordChange(); }
@@ -48,6 +51,9 @@ public:
     float GetChatQuality() const;
     // 0..1: how practiced this bot is at its job (activity count, saturating).
     float GetActivitySkill() const;
+    // 0..1: how good the bot is at judging a fight. Grows with PvP experience
+    // (wins+kills) and shrinks the more it misjudges. Novices make mistakes.
+    float GetPvpSkill() const;
 
     uint32 GetCharID() const    { return m_charID; }
     uint32 GetWins() const      { return wins; }
@@ -58,6 +64,7 @@ public:
     uint32 GetMineRuns() const  { return mineRuns; }
     uint32 GetTradeRuns() const { return tradeRuns; }
     uint32 GetHackRuns() const  { return hackRuns; }
+    uint32 GetPvpMistakes() const { return pvpMistakes; }
 
 private:
     void RecordChange() { m_dirty = true; }
@@ -66,6 +73,7 @@ private:
     uint32 wins, losses, kills, deaths;
     uint32 chatLines, chatReplies;
     uint32 ratKills, mineRuns, tradeRuns, hackRuns;
+    uint32 pvpMistakes;
     bool m_dirty;
 };
 
