@@ -81,15 +81,15 @@ private:
     // corp wallet, and trader bots place market orders in their own name.
     void ProcessEconomy(PlayerBot* bot);
     void PayCorpTax(PlayerBot* bot);
+    // Market orders/contracts, placed at a specific station (from a docked bot).
+    // The PlayerBot* overloads are for space bots (kept for compat); the explicit
+    // versions take a sysID/station so docked traders can work the market.
     void PlaceBotOrder(PlayerBot* bot);
-    // Buy orders: producers (miners/industrials) bid for raw ore/materials, and
-    // traders "play the market" (buy low). Complements the sell orders above.
     void PlaceBotBuyOrder(PlayerBot* bot);
-    // A trader occasionally lists a public courier contract for one of its
-    // "shipments". Courier bots (and players) can pick it up — the 5-minute
-    // unaccepted window in ProcessPlayerContracts means a player has a real
-    // chance to grab the profitable ones first.
     void PlaceBotCourierContract(PlayerBot* bot);
+    void PlaceBotOrderAt(uint32 sysID, uint32 charID, uint32 corpID);
+    void PlaceBotBuyOrderAt(uint32 sysID, uint32 charID, uint8 profession);
+    void PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpID);
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();
@@ -107,9 +107,15 @@ private:
         std::string name;
         uint32 corpID;
         uint32 allianceID;
+        uint8  profession;   // PlayerBot::BotProfession while docked
         time_t undockAt;   // when to undock (0 = already waiting)
     };
     void ProcessDocking();   // manage dock/undock cycle each tick
+    // Docked traders work the market FROM THE STATION (that's where a market
+    // order lives). Run each tick: docked traders place sell/buy orders and the
+    // occasional courier contract at their station; docked producers bid for raw
+    // materials. Space bots don't trade — they're flying, not on the market.
+    void ProcessDockedEconomy();
     // Bots occasionally chat among themselves in local (rare, so it doesn't
     // spam). Makes the channel feel alive without DeepSeek calls.
     void ProcessBotSmalltalk();
@@ -121,6 +127,7 @@ private:
     std::map<uint32, uint32> m_systemTarget;   // systemID -> fixed bot target (live-server feel)
     std::map<uint32, time_t> m_lastPopulate;   // systemID -> last bot spawn time (gradual fill)
     std::map<int32, time_t> m_lastSmalltalk;   // channelID -> last bot-to-bot chatter time
+    std::map<uint32, time_t> m_lastTrade;      // charID -> last market order time (throttle)
 };
 
 //Singleton

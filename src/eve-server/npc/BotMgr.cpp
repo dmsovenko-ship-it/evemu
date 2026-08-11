@@ -64,6 +64,9 @@ void BotMgr::Process()
     // Manage docked bots: undock some each tick, dock others.
     ProcessDocking();
 
+    // Docked traders work the market from their station.
+    ProcessDockedEconomy();
+
     // Bots occasionally chatter among themselves in local (rare).
     ProcessBotSmalltalk();
 
@@ -984,26 +987,51 @@ void BotMgr::GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) c
 
 void BotMgr::ProcessEconomy(PlayerBot* bot)
 {
-    // Bots take part in the EVE economy with real ISK:
-    //  - traders place sell orders in their own name,
-    //  - traders occasionally issue public courier contracts (other bots and
-    //    players can pick them up; players get first pick of the good ones),
-    //  - everyone pays corp tax into their corp wallet.
+    // Market work happens DOCKED, not in space — a pilot can't place a sell order
+    // while flying. Space bots just pay corp tax here; docked traders/producers
+    // place orders in ProcessDockedEconomy (which knows their station).
     if (bot == nullptr || !sConfig.playerBots.Enabled)
         return;
-    if (bot->GetProfession() == PlayerBot::BotProfession::Trader) {
-        PlaceBotOrder(bot);
-        PlaceBotBuyOrder(bot);
-        PlaceBotCourierContract(bot);
-    } else if (bot->GetProfession() == PlayerBot::BotProfession::Miner
-               || bot->GetProfession() == PlayerBot::BotProfession::Hacker
-               || bot->GetProfession() == PlayerBot::BotProfession::Explorer) {
-        // Producers bid for the raw materials they consume.
-        if (MakeRandomInt(0, 99) < 20)
-            PlaceBotBuyOrder(bot);
-    }
     if (MakeRandomInt(0, 999) < 30)
         PayCorpTax(bot);
+}
+
+void BotMgr::ProcessDockedEconomy()
+{
+    // Docked traders/producers work the market FROM THEIR STATION: sell orders,
+    // buy orders and the occasional courier contract. A bot in space can't do
+    // this (it's flying), so we iterate the docked list, not the space entities.
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    if (m_docked.empty())
+        return;
+
+    for (auto& [sysID, vec] : m_docked) {
+        if (sysID == 0 || vec.empty())
+            continue;
+        for (auto& db : vec) {
+            // Throttle: a trader works the market every few minutes, not every tick.
+            time_t now = time(nullptr);
+            auto lt = m_lastTrade.find(db.charID);
+            if (lt != m_lastTrade.end() && (now - lt->second) < MakeRandomInt(240, 600))
+                continue;
+            m_lastTrade[db.charID] = now;
+
+            uint8 prof = db.profession;
+            if (prof == (uint8)PlayerBot::BotProfession::Trader) {
+                // Traders: sell + buy (play the spread) + occasional courier job.
+                PlaceBotOrderAt(sysID, db.charID, db.corpID);
+                PlaceBotBuyOrderAt(sysID, db.charID, prof);
+                PlaceBotCourierContractAt(sysID, db.charID, db.corpID);
+            } else if (prof == (uint8)PlayerBot::BotProfession::Miner
+                       || prof == (uint8)PlayerBot::BotProfession::Hacker
+                       || prof == (uint8)PlayerBot::BotProfession::Explorer) {
+                // Producers bid for the raw materials they consume (from the dock).
+                if (MakeRandomInt(0, 99) < 20)
+                    PlaceBotBuyOrderAt(sysID, db.charID, prof);
+            }
+        }
+    }
 }
 
 void BotMgr::PayCorpTax(PlayerBot* bot)
@@ -1039,13 +1067,20 @@ void BotMgr::PayCorpTax(PlayerBot* bot)
 
 void BotMgr::PlaceBotOrder(PlayerBot* bot)
 {
-    // Trader bots sell goods on the market in their own name. Orders are real
-    // mktOrders rows (visible to players); proceeds are credited to the bot's
-    // wallet via direct balance update when the order fills is handled by the
-    // market proxy — here we only create the sell listing.
-    uint32 charID = bot->GetBotCharID();
+    // Trader bots sell goods on the market in their own name (legacy space-bot
+    // entry; the docked path uses PlaceBotOrderAt). Orders are real mktOrders
+    // rows (visible to players).
+    if (bot == nullptr)
+        return;
     uint32 sysID = bot->SystemMgr() ? bot->SystemMgr()->GetID() : 0;
     if (sysID == 0)
+        return;
+    PlaceBotOrderAt(sysID, bot->GetBotCharID(), bot->GetBotCorpID());
+}
+
+void BotMgr::PlaceBotOrderAt(uint32 sysID, uint32 charID, uint32 corpID)
+{
+    if (sysID == 0 || charID == 0)
         return;
 
     // A small pool of commonly-traded commodities.
@@ -1076,7 +1111,7 @@ void BotMgr::PlaceBotOrder(PlayerBot* bot)
         "   0, 1, %u, %u, %f, 90, 0, 1000, %u)",
         typeID, charID, sysID, stationID, sysID, price, qty, qty, GetFileTimeNow(), charID);
     _log(BOT__TRACE, "BotMgr: %s(%u) placed sell order %ux type %u @ %.2f ISK in %u.",
-         bot->GetBotName().c_str(), charID, qty, typeID, price, sysID);
+         "trader", charID, qty, typeID, price, sysID);
 }
 
 void BotMgr::PlaceBotBuyOrder(PlayerBot* bot)
@@ -1086,18 +1121,23 @@ void BotMgr::PlaceBotBuyOrder(PlayerBot* bot)
     // mktOrders rows with bid=1, visible to players like any market order.
     if (bot == nullptr)
         return;
-
-    // Producers (miners/industrials) buy the goods they consume; traders buy
-    // whatever they think is underpriced (play the spread).
-    uint32 charID = bot->GetBotCharID();
     uint32 sysID = bot->SystemMgr() ? bot->SystemMgr()->GetID() : 0;
     if (sysID == 0)
         return;
+    PlaceBotBuyOrderAt(sysID, bot->GetBotCharID(), (uint8)bot->GetProfession());
+}
 
+void BotMgr::PlaceBotBuyOrderAt(uint32 sysID, uint32 charID, uint8 profession)
+{
+    if (sysID == 0 || charID == 0)
+        return;
+
+    // Producers (miners/industrials) buy the goods they consume; traders buy
+    // whatever they think is underpriced (play the spread).
     static const uint32 rawMats[]  = { 34, 38, 39, 40, 1229, 1230, 1231, 1232, 2048, 2488 };   // trit/pye/mex/iso, minerals
     static const uint32 tradeGoods[] = { 3775, 2676, 2048, 1229, 1230, 38, 39, 40 };            // ammo, minerals, common
     uint32 typeID;
-    if (bot->GetProfession() == PlayerBot::BotProfession::Trader)
+    if (profession == (uint8)PlayerBot::BotProfession::Trader)
         typeID = tradeGoods[MakeRandomInt(0, 7)];
     else
         typeID = rawMats[MakeRandomInt(0, 9)];
@@ -1116,7 +1156,7 @@ void BotMgr::PlaceBotBuyOrder(PlayerBot* bot)
     // Buy orders sit below the market price (a trader buys cheap). Producers bid
     // a bit higher so they actually get the ore.
     double price = 50.0 + (MakeRandomInt(0, 40000) / 100.0);
-    if (bot->GetProfession() != PlayerBot::BotProfession::Trader)
+    if (profession != (uint8)PlayerBot::BotProfession::Trader)
         price *= 1.6;   // producers pay more for what they need
     uint32 qty = MakeRandomInt(100, 2000);
 
@@ -1129,27 +1169,31 @@ void BotMgr::PlaceBotBuyOrder(PlayerBot* bot)
         "  (%u, %u, (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u, 32767, 1, %f,"
         "   %f, 1, %u, %u, %f, 90, 0, 1000, %u)",
         typeID, charID, sysID, stationID, sysID, price, price * qty, qty, qty, GetFileTimeNow(), charID);
-    _log(BOT__TRACE, "BotMgr: %s(%u) placed buy order %ux type %u @ %.2f ISK in %u.",
-         bot->GetBotName().c_str(), charID, qty, typeID, price, sysID);
+    _log(BOT__TRACE, "BotMgr: trader(%u) placed buy order %ux type %u @ %.2f ISK in %u.",
+         charID, qty, typeID, price, sysID);
 }
 
 void BotMgr::PlaceBotCourierContract(PlayerBot* bot)
 {
     // A trader occasionally lists a PUBLIC courier contract for one of its
-    // "shipments" between two stations. Like a real pilot, it wants cheap
-    // freight: it issues the contract, then anyone — a player OR another bot
-    // courier — can accept it. ProcessPlayerContracts only takes contracts that
-    // have sat unaccepted for 5+ minutes, so players get first pick of the
-    // profitable ones and bots mop up the leftovers.
+    // "shipments" between two stations (legacy space-bot entry; docked path uses
+    // PlaceBotCourierContractAt).
     if (bot == nullptr || bot->GetProfession() != PlayerBot::BotProfession::Trader)
         return;
     if (MakeRandomInt(0, 999) >= 20)
         return;   // ~2% per economy tick — rare
-
-    uint32 charID = bot->GetBotCharID();
     uint32 sysID = bot->SystemMgr() ? bot->SystemMgr()->GetID() : 0;
     if (sysID == 0)
         return;
+    PlaceBotCourierContractAt(sysID, bot->GetBotCharID(), bot->GetBotCorpID());
+}
+
+void BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpID)
+{
+    if (sysID == 0 || charID == 0)
+        return;
+    if (MakeRandomInt(0, 999) >= 20)
+        return;   // ~2% per economy tick — rare
 
     // Start station (where the trader is) and a random other station as the
     // destination — the courier "hauls goods to the hub".
@@ -1200,12 +1244,12 @@ void BotMgr::PlaceBotCourierContract(PlayerBot* bot)
         "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u,"
         "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), 0, %lli, 0,"
         "   'Courier shipment', 'Standard courier contract', 0, %f)",
-        charID, bot->GetBotCorpID(),
+        charID, corpID,
         (int64)GetFileTimeNow(), (int64)GetFileTimeNow() + 7LL * EvE::Time::Day,
         startStation, sysID, sysID, endStation, endSys, endSys, reward, volume))
     {
-        _log(BOT__MESSAGE, "BotMgr: trader %s(%u) issued courier contract (%.0f m3, reward %.0f ISK) %u -> %u.",
-             bot->GetBotName().c_str(), charID, volume, (double)reward, sysID, endSys);
+        _log(BOT__MESSAGE, "BotMgr: trader %u issued courier contract (%.0f m3, reward %.0f ISK) %u -> %u.",
+             charID, volume, (double)reward, sysID, endSys);
     }
 }
 
@@ -1308,6 +1352,7 @@ void BotMgr::ProcessDocking()
                 db.name = pb->GetBotName();
                 db.corpID = pb->GetBotCorpID();
                 db.allianceID = pb->GetBotAllianceID();
+                db.profession = (uint8)pb->GetProfession();
                 // Traders/market guys sit longer; miners refine/sell quickly then head out.
                 db.undockAt = now + (pb->GetProfession() == PlayerBot::BotProfession::Trader
                                      ? MakeRandomInt(300, 1800)    // 5-30 min at market
