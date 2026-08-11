@@ -254,7 +254,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             "SELECT character_id, character_name, corporation_id, alliance_id,"
             "       ship_type_id, fitted_item_ids"
             " FROM botKillmailLegends"
-            " WHERE ship_type_id > 0 AND ship_type_id != 670   -- no capsule legends (pod kills)"
+            " WHERE ship_type_id > 0 AND ship_type_id != 670"   // no capsule legends (pod kills)
             "   AND character_name != ''"
             " ORDER BY RAND() LIMIT 1"))
         {
@@ -352,7 +352,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             "SELECT character_id, character_name, corporation_id, alliance_id,"
             "       ship_type_id, fitted_item_ids"
             " FROM botKillmailLegends"
-            " WHERE ship_type_id > 0 AND ship_type_id != 670   -- no capsule legends (pod kills)"
+            " WHERE ship_type_id > 0 AND ship_type_id != 670"   // no capsule legends (pod kills)
             "   AND character_name != ''"
             " ORDER BY RAND() LIMIT 1"))
             break;
