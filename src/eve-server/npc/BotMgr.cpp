@@ -318,26 +318,52 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     uint8 skillTier = sConfig.playerBots.MinSkillLevel +
         MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
     uint8 botSchoolID = 0;
-    {
+
+    // Pick a legend whose pilot is NOT already flying in this system. CreateBotCharacter
+    // de-dupes by name (returns the existing charID), so picking a legend whose name is
+    // already spawned here would create a "clone" of that pilot. Retry up to N legends
+    // until we find one that isn't already present in this system.
+    bool botAlreadyHere = false;
+    for (int attempt = 0; attempt < 8; ++attempt) {
         useCharID = CharacterDB::CreateBotCharacter(useName, useAllianceID, skillTier, useCorpID, botSchoolID);
         if (useCharID == 0) {
             _log(BOT__ERROR, "BotMgr: failed to create persisted bot character '%s'.", useName.c_str());
             return;
         }
-    }
-    // Never spawn two SEs of the same bot in one system. CreateBotCharacter
-    // de-dupes by name (returns the existing charID), so a repeated RAND pick of
-    // the same legend would otherwise create a "clone" of the same pilot. If the
-    // character is already flying here, skip this spawn entirely.
-    for (auto& [id, se] : pSystem->GetEntities()) {
-        if (se == nullptr || se->GetNPCSE() == nullptr)
-            continue;
-        PlayerBot* existing = dynamic_cast<PlayerBot*>(se->GetNPCSE());
-        if (existing != nullptr && existing->GetBotCharID() == useCharID) {
-            _log(BOT__TRACE, "BotMgr: %s(%u) already in system %u — skipping duplicate spawn.",
-                 useName.c_str(), useCharID, pSystem->GetID());
-            return;
+        botAlreadyHere = false;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* existing = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (existing != nullptr && existing->GetBotCharID() == useCharID) {
+                botAlreadyHere = true;
+                break;
+            }
         }
+        if (!botAlreadyHere)
+            break;
+        // This pilot is already in the system — pick a fresh legend and retry.
+        _log(BOT__TRACE, "BotMgr: %s(%u) already in system %u — retrying with another legend.",
+             useName.c_str(), useCharID, pSystem->GetID());
+        DBQueryResult lres;
+        if (!sDatabase.RunQuery(lres,
+            "SELECT character_id, character_name, corporation_id, alliance_id,"
+            "       ship_type_id, fitted_item_ids"
+            " FROM botKillmailLegends"
+            " WHERE ship_type_id > 0 AND ship_type_id != 670   -- no capsule legends (pod kills)"
+            "   AND character_name != ''"
+            " ORDER BY RAND() LIMIT 1"))
+            break;
+        DBResultRow lrow;
+        if (!lres.GetRow(lrow))
+            break;
+        useCharID = lrow.GetUInt(0);
+        useName = lrow.GetText(1);
+        useCorpID = lrow.GetUInt(2);
+        useAllianceID = lrow.GetUInt(3);
+        useShipType = lrow.GetUInt(4);
+        const char* fit = lrow.GetText(5);
+        if (fit != nullptr) useFit = fit;
     }
     // Remember the EVE portrait source so fetch_bot_portraits.py can grab it.
     if (killmailCharID != 0 && killmailCharID != useCharID) {
