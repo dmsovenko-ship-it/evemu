@@ -44,6 +44,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_mineTrips(0),
   m_isJumpFreighter(false),
   m_cynoActive(false),
+  m_factionWarrior(false),
   m_jumpDest(0),
   m_cynoTimer(0)
 {    // A player-like legend: give this NPC a neutral alliance so it doesn't show
@@ -468,6 +469,35 @@ bool PlayerBot::ShouldEngage(int myPower, int theirPower, bool defending)
     return wouldWin;
 }
 
+int PlayerBot::GetFaction() const
+{
+    // The bot's starter corp (from its race's school) tells its faction. Real EVE
+    // lore: the four empires have been at war forever — a Caldari and an Amarr,
+    // a Gallente and a Minmatar, etc. are natural enemies.
+    switch (m_botCorpID) {
+        // Amarr starter corps
+        case 1000166: case 1000165: case 1000077:  return 4;
+        // Minmatar starter corps
+        case 1000170: case 1000171: case 1000172:  return 2;
+        // Caldari starter corps
+        case 1000167: case 1000045: case 1000044:  return 1;
+        // Gallente starter corps
+        case 1000168: case 1000115: case 1000169:  return 8;
+        default:  return 0;   // neutral / unaffiliated (Society of Conscious Thought, etc.)
+    }
+}
+
+bool PlayerBot::IsFactionEnemy(const PlayerBot* other) const
+{
+    if (other == nullptr || other == this)
+        return false;
+    int myFac = GetFaction();
+    int theirFac = other->GetFaction();
+    if (myFac == 0 || theirFac == 0)
+        return false;   // neutrals don't pick fights on principle
+    return myFac != theirFac;
+}
+
 void PlayerBot::ApplyCombatStyle()
 {
     if (GetAIMgr() == nullptr)
@@ -726,7 +756,14 @@ void PlayerBot::HuntForTarget()
         //  - highsec: CONCORD protects everyone, so only fellow aggressive
         //    hunters (both flagged) risk a fight there.
         //  - lowsec/nullsec: open season on anyone of another corp/alliance.
-        if (sysSec >= 0.5f) {
+        // A faction warrior (FW subclass stub) has FIXED enemies — bots of other
+        // factions — and fights them everywhere, even in highsec (militia FW is
+        // exempt from normal CONCORD rules). This is just hunting with a filter.
+        bool factionEnemy = IsFactionEnemy(enemy);
+        if (m_factionWarrior) {
+            if (!factionEnemy)
+                continue;   // FW fights only its faction's enemies
+        } else if (sysSec >= 0.5f) {
             if (!enemy->IsAggressive())
                 continue;   // highsec: only hunt aggressive targets (both flagged)
         } else if (!enemy->IsAggressive() && !m_memory) {
@@ -753,6 +790,9 @@ void PlayerBot::HuntForTarget()
             score += 30;
         else if (prof == BotProfession::Hunter)
             score -= 50;   // fellow hunters fight back — only if we're confident
+        // A faction warrior prizes its fixed enemies a little more (war worth).
+        if (m_factionWarrior && factionEnemy)
+            score += 25;
         // Risk: friends near the target lower the score hard (bait check).
         score -= CountEnemiesNearby(enemy) * 40;
         if (score > bestScore) { bestScore = score; prey = enemy; }

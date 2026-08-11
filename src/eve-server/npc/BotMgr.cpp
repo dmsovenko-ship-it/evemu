@@ -502,6 +502,16 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     bot->SetProfession(prof);
     _log(BOT__TRACE, "BotMgr: %s(%u) profession = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)prof);
 
+    // A minority of hunters are "faction warriors": FW-style militia that treats
+    // bots of OTHER factions as their fixed enemies (subclass stub for future
+    // faction-warfare content). It's just hunting with a filter on the enemy set.
+    if (prof == PlayerBot::BotProfession::Hunter && bot->GetFaction() != 0
+        && MakeRandomInt(0, 99) < 30) {
+        bot->SetFactionWarrior(true);
+        _log(BOT__TRACE, "BotMgr: %s(%u) is a faction warrior (faction %d).",
+             bot->GetBotName().c_str(), bot->GetBotCharID(), bot->GetFaction());
+    }
+
     // Join the system's local channel so the bot shows up in local chat.
     if (sConfig.playerBots.Enabled) {
         LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
@@ -947,7 +957,14 @@ void BotMgr::ProcessEconomy(PlayerBot* bot)
         return;
     if (bot->GetProfession() == PlayerBot::BotProfession::Trader) {
         PlaceBotOrder(bot);
+        PlaceBotBuyOrder(bot);
         PlaceBotCourierContract(bot);
+    } else if (bot->GetProfession() == PlayerBot::BotProfession::Miner
+               || bot->GetProfession() == PlayerBot::BotProfession::Hacker
+               || bot->GetProfession() == PlayerBot::BotProfession::Explorer) {
+        // Producers bid for the raw materials they consume.
+        if (MakeRandomInt(0, 99) < 20)
+            PlaceBotBuyOrder(bot);
     }
     if (MakeRandomInt(0, 999) < 30)
         PayCorpTax(bot);
@@ -1023,6 +1040,60 @@ void BotMgr::PlaceBotOrder(PlayerBot* bot)
         "   0, 1, %u, %u, %f, 90, 0, 1000, %u)",
         typeID, charID, sysID, stationID, sysID, price, qty, qty, GetFileTimeNow(), charID);
     _log(BOT__TRACE, "BotMgr: %s(%u) placed sell order %ux type %u @ %.2f ISK in %u.",
+         bot->GetBotName().c_str(), charID, qty, typeID, price, sysID);
+}
+
+void BotMgr::PlaceBotBuyOrder(PlayerBot* bot)
+{
+    // Buy orders work the other way: producers bid for raw materials they need
+    // (ore, minerals, ammo) and traders buy low to resell high. Orders are real
+    // mktOrders rows with bid=1, visible to players like any market order.
+    if (bot == nullptr)
+        return;
+
+    // Producers (miners/industrials) buy the goods they consume; traders buy
+    // whatever they think is underpriced (play the spread).
+    uint32 charID = bot->GetBotCharID();
+    uint32 sysID = bot->SystemMgr() ? bot->SystemMgr()->GetID() : 0;
+    if (sysID == 0)
+        return;
+
+    static const uint32 rawMats[]  = { 34, 38, 39, 40, 1229, 1230, 1231, 1232, 2048, 2488 };   // trit/pye/mex/iso, minerals
+    static const uint32 tradeGoods[] = { 3775, 2676, 2048, 1229, 1230, 38, 39, 40 };            // ammo, minerals, common
+    uint32 typeID;
+    if (bot->GetProfession() == PlayerBot::BotProfession::Trader)
+        typeID = tradeGoods[MakeRandomInt(0, 7)];
+    else
+        typeID = rawMats[MakeRandomInt(0, 9)];
+
+    DBQueryResult res;
+    uint32 stationID = 0;
+    if (sDatabase.RunQuery(res,
+        "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", sysID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            stationID = row.GetUInt(0);
+    }
+    if (stationID == 0)
+        return;
+
+    // Buy orders sit below the market price (a trader buys cheap). Producers bid
+    // a bit higher so they actually get the ore.
+    double price = 50.0 + (MakeRandomInt(0, 40000) / 100.0);
+    if (bot->GetProfession() != PlayerBot::BotProfession::Trader)
+        price *= 1.6;   // producers pay more for what they need
+    uint32 qty = MakeRandomInt(100, 2000);
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO mktOrders"
+        "  (typeID, ownerID, regionID, stationID, solarSystemID, orderRange, bid, price,"
+        "   escrow, minVolume, volEntered, volRemaining, issued, duration, isCorp, accountKey, memberID)"
+        " VALUES"
+        "  (%u, %u, (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u, 32767, 1, %f,"
+        "   %f, 1, %u, %u, %f, 90, 0, 1000, %u)",
+        typeID, charID, sysID, stationID, sysID, price, price * qty, qty, qty, GetFileTimeNow(), charID);
+    _log(BOT__TRACE, "BotMgr: %s(%u) placed buy order %ux type %u @ %.2f ISK in %u.",
          bot->GetBotName().c_str(), charID, qty, typeID, price, sysID);
 }
 

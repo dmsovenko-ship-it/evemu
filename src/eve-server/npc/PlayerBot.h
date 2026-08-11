@@ -119,6 +119,15 @@ public:
     int  CountEnemiesNearby(SystemEntity* target, double radius = 100000.0);  // hostile ships around target
     int  CountAlliesNearby(double radius = 100000.0);                          // friendly ships around me
     bool ShouldEngage(int myPower, int theirPower, bool defending);   // power + skill + luck decision
+    // Faction of the bot's starter corp: 4=Amarr, 2=Minmatar, 1=Caldari, 8=Gallente,
+    // 0=neutral. Stub for a future "faction warfare" bot subclass (faction war =
+    // just a flavour of hunting with fixed enemies). Normal bots ignore it.
+    int GetFaction() const;
+    bool IsFactionEnemy(const PlayerBot* other) const;
+    // Faction-warrior flag: a hunter subclass that treats bots of OTHER factions
+    // as its fixed enemies (like FW militia). Set for a minority of hunters.
+    void SetFactionWarrior(bool w)      { m_factionWarrior = w; }
+    bool IsFactionWarrior() const       { return m_factionWarrior; }
 
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
@@ -150,6 +159,7 @@ protected:
     uint8 m_mineTrips;                  // mining runs since last dock (ore haul)
     bool m_isJumpFreighter;             // flying a jump freighter (big cargo)
     bool m_cynoActive;                  // cyno is lit — interception window open
+    bool m_factionWarrior;              // FW subclass: fights bots of other factions
     uint32 m_jumpDest;                  // destination system for the jump
     Timer m_cynoTimer;                  // window before the jump fires
 };

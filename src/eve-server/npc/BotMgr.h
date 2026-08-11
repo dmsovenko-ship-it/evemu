@@ -82,6 +82,9 @@ private:
     void ProcessEconomy(PlayerBot* bot);
     void PayCorpTax(PlayerBot* bot);
     void PlaceBotOrder(PlayerBot* bot);
+    // Buy orders: producers (miners/industrials) bid for raw ore/materials, and
+    // traders "play the market" (buy low). Complements the sell orders above.
+    void PlaceBotBuyOrder(PlayerBot* bot);
     // A trader occasionally lists a public courier contract for one of its
     // "shipments". Courier bots (and players) can pick it up — the 5-minute
     // unaccepted window in ProcessPlayerContracts means a player has a real
