@@ -324,7 +324,12 @@ void DestinyManager::ProcessState() {
                     continue;
                 GPoint delta = m_position - se->GetPosition();
                 double dist = delta.length();
-                double minDist = se->GetRadius() + mySE->GetRadius();
+                // Real collision only when the ship's CENTRE is inside the object —
+                // gates are huge (14-19km radius), so minDist = radius + shipRadius
+                // would push an approaching ship out every tick (speed resets, the
+                // gate "runs away", approach keeps failing). Only push when actually
+                // overlapping the object, not when merely near it.
+                double minDist = se->GetRadius();
                 if (dist < minDist && dist > 0.01) {
                     // Only snap out if the ship is actually heading INTO the
                     // structure. A ship drifting/parked near a gate (or one that
@@ -2444,7 +2449,10 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         if (strRadius > 0) {
             GVector toTarget(m_position, m_targetEntity.second->GetPosition());
             double distToStructure = toTarget.length();
-            if (distToStructure < strRadius + m_radius) {
+            // Only bump when the ship's CENTRE is inside the structure. Gates are
+            // huge (14-19km) — the old radius+shipRadius threshold treated a ship
+            // approaching/at the gate as "inside", teleporting it sideways on warp.
+            if (distToStructure < strRadius) {
                 // Ship is inside (or nearly inside) a structure вЂ” bump out.
                 // Push the ship away from the structure toward the warp target.
                 GVector bumpDir(m_position, where);
