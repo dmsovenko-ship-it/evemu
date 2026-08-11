@@ -303,18 +303,13 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             prof = PlayerBot::BotProfession::Explorer;     // probes / wormholes
     }
 
-    // Corp: realistic distribution (main corp + a few smaller). If the killmail
-    // legend already carries a corp, keep it; otherwise pick one by size.
-    // Hunters (PvP war corps) only join corps inside an alliance.
-    // Corp: ALWAYS from the local crpCorporation table. Killmail corp ids are
-    // from live EVE and don't exist in this server's DB — a bot in such a corp
-    // breaks the info window ('No HQ found for corporation'). Bots are real
-    // members of the chosen corp, so distribution self-organizes.
-    useCorpID = PickCorp(useAllianceID, prof == PlayerBot::BotProfession::Hunter);
-    if (useCorpID == 0) {
-        _log(BOT__ERROR, "BotMgr: no corporation available for bot, skipping spawn.");
-        return;
-    }
+    // Corp comes from the bot's STARTING SCHOOL — exactly like a real newbie who
+    // picks a faction at character creation. CreateBotCharacter picks a bloodline
+    // (race) then the school that race graduates from and returns the corp that
+    // runs it (Imperial Academy, State War Academy, ...). A bot is thus a real
+    // member of its faction's starter corp — not "Rogue Drone" or "Serpentis".
+    // (Hunter PvP war corps still need an alliance to claim nullsec sovereignty;
+    // that's handled later by MaybeFormAlliance once the bot proves itself.)
 
     // Persist the bot as a REAL character (chrCharacters + portrait + skills +
     // history) so its legend and progress survive restarts. The character id is
@@ -322,10 +317,25 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     uint32 killmailCharID = useCharID;   // real EVE id the legend came from (for portraits)
     uint8 skillTier = sConfig.playerBots.MinSkillLevel +
         MakeRandomInt(0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
+    uint8 botSchoolID = 0;
     {
-        useCharID = CharacterDB::CreateBotCharacter(useName, useCorpID, useAllianceID, skillTier);
+        useCharID = CharacterDB::CreateBotCharacter(useName, useAllianceID, skillTier, useCorpID, botSchoolID);
         if (useCharID == 0) {
             _log(BOT__ERROR, "BotMgr: failed to create persisted bot character '%s'.", useName.c_str());
+            return;
+        }
+    }
+    // Never spawn two SEs of the same bot in one system. CreateBotCharacter
+    // de-dupes by name (returns the existing charID), so a repeated RAND pick of
+    // the same legend would otherwise create a "clone" of the same pilot. If the
+    // character is already flying here, skip this spawn entirely.
+    for (auto& [id, se] : pSystem->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* existing = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (existing != nullptr && existing->GetBotCharID() == useCharID) {
+            _log(BOT__TRACE, "BotMgr: %s(%u) already in system %u — skipping duplicate spawn.",
+                 useName.c_str(), useCharID, pSystem->GetID());
             return;
         }
     }
@@ -344,9 +354,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     {
         Inv::TypeData tdata = Inv::TypeData();
         sDataMgr.GetType((uint16)hullType, tdata);
-        // Capsule/pod (group 29) is a legit type but a bot flying one looks
-        // broken — filter it (and anything non-ship) out, fall back to a T1 hull.
-        bool valid = (hullType != 0) && (tdata.id == hullType) && (tdata.groupID != 29);
+        // Only let bots fly REAL ships. Killmail legends contain pods (group 29),
+        // deployable structures (group 361 = Mobile Warp Disruptor, which the
+        // client renders as a bubble/mobile) and #System (typeID 0, name '#System')
+        // — all of which make a bot look broken in space. Any of those → fall back
+        // to a T1 cruiser/BC.
+        bool valid = (hullType != 0) && (tdata.id == hullType)
+                     && (tdata.groupID != 0)      // '#System' placeholder
+                     && (tdata.groupID != 29)     // Capsule
+                     && (tdata.groupID != 361);   // Mobile Warp Disruptor & co
         if (!valid) {
             static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
             hullType = hullTypes[MakeRandomInt(0, 7)];

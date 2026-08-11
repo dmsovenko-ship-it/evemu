@@ -69,8 +69,10 @@ uint32 CharacterDB::NewCharacter(const CharacterData& data, const CorpData& corp
 // bot's legend and progress (SP, skills, balance, corp history) persist across
 // restarts. skillTier 0=rookie .. 5=elite sets the trained skill levels.
 // The character id is allocated normally (last-insert-id), like any player.
-uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 allianceID, uint8 skillTier) {
+uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 allianceID, uint8 skillTier, uint32& outCorpID, uint8& outSchoolID) {
     if (skillTier > 5) skillTier = 5;
+    outCorpID = 0;
+    outSchoolID = 0;
 
     // De-duplicate by name: if a bot with this exact name already exists
     // (from a previous spawn), reuse its character row.
@@ -78,27 +80,58 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
         std::string nameEsc;
         sDatabase.DoEscapeString(nameEsc, name);
         DBQueryResult nx;
-        if (sDatabase.RunQuery(nx, "SELECT characterID FROM chrCharacters WHERE characterName = '%s'", nameEsc.c_str())) {
+        if (sDatabase.RunQuery(nx, "SELECT characterID, corporationID, schoolID FROM chrCharacters WHERE characterName = '%s'", nameEsc.c_str())) {
             DBResultRow nrow;
-            if (nx.GetRow(nrow))
+            if (nx.GetRow(nrow)) {
+                outCorpID = nrow.GetUInt(1);
+                outSchoolID = (uint8)nrow.GetUInt(2);
                 return nrow.GetUInt(0);
+            }
         }
     }
 
-    // Random bloodline/ancestry for a believable pilot; fill the rest like a
-    // normal character creation (career by school, type by bloodline).
+    // Pick a bloodline (a race), then the school that race starts at, then the
+    // corporation that runs that school — exactly like a real newbie joining EVE.
+    // A bot in "Rogue Drone" or "Serpentis" looks wrong; a bot in its faction's
+    // starter corp (Imperial Academy, State War Academy, ...) looks right.
     DBQueryResult res;
-    uint8 bloodlineID = 1, ancestryID = 1;
-    if (sDatabase.RunQuery(res, "SELECT bloodlineID FROM chrBloodlines ORDER BY RAND() LIMIT 1")) {
+    uint8 bloodlineID = 1, raceID = 1;
+    if (sDatabase.RunQuery(res, "SELECT bloodlineID, raceID FROM chrBloodlines ORDER BY RAND() LIMIT 1")) {
         DBResultRow row;
-        if (res.GetRow(row))
+        if (res.GetRow(row)) {
             bloodlineID = (uint8)row.GetInt(0);
+            raceID = (uint8)row.GetInt(1);
+        }
     }
+    // Ancestry for this bloodline.
+    uint8 ancestryID = 1;
     if (sDatabase.RunQuery(res, "SELECT ancestryID FROM chrAncestries WHERE bloodlineID = %u ORDER BY RAND() LIMIT 1", bloodlineID)) {
         DBResultRow row;
         if (res.GetRow(row))
             ancestryID = (uint8)row.GetInt(0);
     }
+    // School the race graduates from, and the corp that owns it (starter corp).
+    // careers maps schoolID->raceID; chrSchools maps schoolID->corporationID.
+    uint8 schoolID = 0;
+    if (sDatabase.RunQuery(res,
+        "SELECT c.schoolID, s.corporationID"
+        " FROM careers c"
+        "   LEFT JOIN chrSchools s ON s.schoolID = c.schoolID"
+        " WHERE c.raceID = %u"
+        " ORDER BY RAND() LIMIT 1", raceID))
+    {
+        DBResultRow row;
+        if (res.GetRow(row)) {
+            schoolID = (uint8)row.GetInt(0);
+            outCorpID = row.GetUInt(1);
+        }
+    }
+    if (schoolID == 0 || outCorpID == 0) {
+        // Fallback: no school/corp for this race — use the Amarr starter school.
+        schoolID = 11;
+        outCorpID = 1000166;
+    }
+    outSchoolID = schoolID;
 
     const CharacterType *char_type = sItemFactory.GetCharacterTypeByBloodline(bloodlineID);
     if (char_type == nullptr)
@@ -109,19 +142,8 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
         cdata.gender = (uint8)(MakeRandomInt(0, 1));
         cdata.ancestryID = ancestryID;
         cdata.bloodlineID = bloodlineID;
-        // Pick a real school from the careers table (schoolIDs 11-25). schoolID 1
-        // doesn't exist there, which spammed "Failed to find matching career" on
-        // every bot creation.
-        {
-            DBQueryResult sres;
-            static const uint32 fallbackSchools[] = { 11, 17, 18, 20, 24, 25 };
-            cdata.schoolID = fallbackSchools[MakeRandomInt(0, 5)];
-            if (sDatabase.RunQuery(sres, "SELECT schoolID FROM careers ORDER BY RAND() LIMIT 1")) {
-                DBResultRow srow;
-                if (sres.GetRow(srow))
-                    cdata.schoolID = srow.GetUInt(0);
-            }
-        }
+        cdata.raceID = raceID;
+        cdata.schoolID = schoolID;   // chosen from the race's starter schools above
         // Random bio: a coherent meme, a veteran tip, a short story, or (rarely)
         // empty. Each option reads naturally on its own — no gibberish. The
         // uniqueness check against chrCharacters guarantees absolute uniqueness.
@@ -240,7 +262,7 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
         corpData.grantableRolesAtBase = Corp::Role::Member;
         corpData.grantableRolesAtHQ = Corp::Role::Member;
         corpData.grantableRolesAtOther = Corp::Role::Member;
-        corpData.corporationID = corpID;
+        corpData.corporationID = outCorpID;
         corpData.allianceID = allianceID;
 
     // Character spawn writes chrCharacters + base. Give the bot a station-based home.
@@ -343,7 +365,7 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 corpID, uint32 a
     }
 
     _log(CHARACTER__INFO, "CreateBotCharacter: bot '%s' (char %u, corp %u, tier %u) with %u SP.",
-         name.c_str(), charID, corpID, skillTier, cdata.skillPoints);
+         name.c_str(), charID, outCorpID, skillTier, cdata.skillPoints);
     return charID;
 }
 

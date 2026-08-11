@@ -104,7 +104,7 @@ public:
     // entity skills, skill history, employment — exactly like a live pilot, so the
     // bot's legend and progress (SP, skills, balance, corp history) persist.
     // The character id is allocated normally (sequential free id), like any player.
-    static uint32 CreateBotCharacter(std::string name, uint32 corpID, uint32 allianceID, uint8 skillTier);
+    static uint32 CreateBotCharacter(std::string name, uint32 allianceID, uint8 skillTier, uint32& outCorpID, uint8& outSchoolID);
     static bool GetCharacterData(uint32 characterID, CharacterData &into);
     static void GetCharacterDataMap(uint32 charID, std::map<std::string, int64> &characterDataMap);
     static bool GetCharHomeStation(uint32 charID, uint32 &stationID);
