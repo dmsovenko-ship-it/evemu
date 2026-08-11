@@ -1614,10 +1614,16 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
          responder->GetBotName().c_str(), responder->GetBotCharID(), senderName.c_str(), (uint32)channelID);
 
     std::string prompt = senderName + " says: \"" + message + "\"";
+    // Reply in the SAME language the player wrote in (Russian, English, etc.) —
+    // a real pilot from any country chats in their native tongue. The bot's
+    // language/slang improves over time (chat self-learning: replies that drew
+    // a response are "good").
     std::string systemHint =
         "You are a player in the MMO Eve Online in local chat. Reply as a natural, "
         "friendly EVE player. Use casual EVE slang (spaceship, isk, ratting, docking, "
-        "gate, warp, fit, lowsec, nullsec). Keep it to 1-2 short sentences. English only.";
+        "gate, warp, fit, lowsec, nullsec). Match the language and tone of the other "
+        "player's message — if they write in Russian, reply in Russian; if English, "
+        "reply in English. Keep it to 1-2 short sentences.";
 
     std::string reply = BotChat::QueryDeepSeek(prompt, systemHint);
     if (reply.empty())
