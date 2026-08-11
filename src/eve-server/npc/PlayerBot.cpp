@@ -370,7 +370,7 @@ void PlayerBot::RecordPvpOutcome(bool won)
     m_memory->Save();
 }
 
-bool PlayerBot::IsNearGate(double threshold) const
+bool PlayerBot::IsNearGate(double threshold)
 {
     if (SystemMgr() == nullptr)
         return false;
@@ -383,7 +383,7 @@ bool PlayerBot::IsNearGate(double threshold) const
     return false;
 }
 
-int PlayerBot::CountEnemiesNearby(SystemEntity* target, double radius) const
+int PlayerBot::CountEnemiesNearby(SystemEntity* target, double radius)
 {
     // How many hostile ships are around `target` (the potential victim): other
     // PlayerBots from a different corp/alliance plus real players. A target with
@@ -412,7 +412,7 @@ int PlayerBot::CountEnemiesNearby(SystemEntity* target, double radius) const
     return count;
 }
 
-int PlayerBot::CountAlliesNearby(double radius) const
+int PlayerBot::CountAlliesNearby(double radius)
 {
     int count = 0;
     if (SystemMgr() == nullptr)

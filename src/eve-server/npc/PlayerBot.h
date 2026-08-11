@@ -115,9 +115,9 @@ public:
     bool CynoActive() const             { return m_cynoActive; }
 
     /* realistic PvP behaviour (evaluate before engaging, mistakes for novices) */
-    bool IsNearGate(double threshold = 60000.0) const;   // within X m of a gate (ambush risk)
-    int  CountEnemiesNearby(SystemEntity* target, double radius = 100000.0) const;  // hostile ships around target
-    int  CountAlliesNearby(double radius = 100000.0) const;                          // friendly ships around me
+    bool IsNearGate(double threshold = 60000.0);   // within X m of a gate (ambush risk)
+    int  CountEnemiesNearby(SystemEntity* target, double radius = 100000.0);  // hostile ships around target
+    int  CountAlliesNearby(double radius = 100000.0);                          // friendly ships around me
     bool ShouldEngage(int myPower, int theirPower, bool defending);   // power + skill + luck decision
 
 protected:
