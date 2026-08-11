@@ -488,7 +488,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         // Weapon type per hull — the attack effect must match the ship, not a
         // generic laser. Missile boats (Caracal, Osprey, Raven, Drake, Ferox)
         // launch real missiles (MissileDeployment effect + flying missile);
-        // everyone else gets a turret effect appropriate to their race.
+        // everyone else uses the default turret effect (NPCAI's Laser guid).
+        // Drone-capable hulls (Vexor/Myrmidon/Dominix) field actual drones instead
+        // of shooting (PlayerBot::SpawnDrones).
         bool isMissileBoat = (grp == EVEDB::invGroups::Cruiser || grp == EVEDB::invGroups::Battleship
                               || grp == EVEDB::invGroups::Battlecruiser)
             && (hullType == 621 || hullType == 620 || hullType == 638
@@ -503,20 +505,6 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             if (!iRef->HasAttribute(AttrEntityMissileTypeID)) {
                 iRef->SetAttribute(AttrEntityMissileTypeID, missileType, false);
                 iRef->SetAttribute(AttrMissileLaunchDuration, 5000.0f, false);
-            }
-        } else {
-            // Turret boats: give a race-appropriate turret gfx so the effect looks
-            // like the hull's actual weapon system (laser/hybrid/projectile).
-            if (!iRef->HasAttribute(AttrGfxTurretID)) {
-                uint16 raceID = 1;
-                Inv::TypeData tdata;
-                if (sDataMgr.GetType((uint16)hullType, tdata))
-                    raceID = tdata.race;
-                uint32 gfx = 28591;   // default: hybrid
-                if (raceID == 4)      gfx = 28591;   // Amarr laser
-                else if (raceID == 8) gfx = 28591;   // Gallente hybrid (blaster/rail)
-                else if (raceID == 2) gfx = 28591;   // Minmatar projectile
-                iRef->SetAttribute(AttrGfxTurretID, gfx, false);
             }
         }
     }
