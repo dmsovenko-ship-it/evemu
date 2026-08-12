@@ -488,6 +488,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     {
         float base = 6.0f + (float)skillTier * 4.0f;   // 6..26 base DPS-ish
         uint16 grp = iRef->groupID();
+        // Mining barges/exhumers (Retriever, Covetor, Procurer...) have no guns —
+        // a barge "shooting" with a mining laser must not deal combat damage.
+        // Peaceful pilots on real combat hulls still fight back with their weapons.
+        if (grp == EVEDB::invGroups::MiningBarge || grp == EVEDB::invGroups::Exhumer)
+            base = 0.0f;
         // Bigger hulls hit harder (battleship > cruiser > frigate).
         if (grp == EVEDB::invGroups::Battleship || grp == EVEDB::invGroups::BlackOps
             || grp == EVEDB::invGroups::Marauder)

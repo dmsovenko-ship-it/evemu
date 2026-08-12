@@ -123,11 +123,11 @@ void SentryAI::Process() {
                         }
                     }
                 }
-                // In highsec, sentries also attack NPCs that aggress any ship.
-                // Only bots that are actually flagged as aggressive (attacking
-                // someone) — NOT every NPC that happens to have a target (that
-                // would make sentries shoot peaceful ratters/miners too).
-                if (m_npc->SystemMgr()->GetSystemSecurityRating() >= 0.5f) {
+                // Station guns defend the system in highsec AND lowsec — they
+                // shoot any ship (player or bot) that aggresses another. Only
+                // bots that are actually flagged aggressive (attacking someone),
+                // NOT every NPC with a target (would shoot peaceful ratters too).
+                if (m_npc->SystemMgr()->GetSystemSecurityRating() > 0.0f) {
                     std::map<uint32, SystemEntity*> bubbleEnts;
                     m_npc->SysBubble()->GetEntities(bubbleEnts);
                     for (auto& ent : bubbleEnts) {
