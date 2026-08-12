@@ -269,9 +269,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     if (useCharID == 0 && useName.empty()) {
         DBQueryResult bres;
         if (sDatabase.RunQuery(bres,
-            "SELECT c.characterName, c.corporationID, c.allianceID"
+            "SELECT c.characterName, c.corporationID, cc.allianceID"
             " FROM chrCharacters c"
             " JOIN botMemory b ON b.charID = c.characterID"
+            " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
             " WHERE c.characterName != ''"
             " ORDER BY RAND() LIMIT 1"))
         {
