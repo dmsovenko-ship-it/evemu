@@ -1357,8 +1357,8 @@ void PlayerBot::UseCombatAbilities()
             if (se == nullptr || se->GetNPCSE() == nullptr)
                 continue;
             PlayerBot* ally = dynamic_cast<PlayerBot*>(se->GetNPCSE());
-            if (ally == nullptr)
-                continue;
+            if (ally == nullptr || ally == this)
+                continue;   // a logi doesn't remote-rep itself
             if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
                 continue;
             InventoryItemRef aSelf = ally->GetSelf();
