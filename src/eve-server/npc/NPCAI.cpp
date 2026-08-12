@@ -362,7 +362,9 @@ void NPCAIMgr::Process() {
 
     if (m_warpOutTimer.Check(false)) {
         // disallow warpout if spawn has active respawn timer (spawn is being chained)
-        if (m_npc->GetSpawnMgr()->IsChaining(m_npc->SysBubble()->GetID())) {
+        // PlayerBot-owned NPCAIs have no SpawnMgr (m_spawnMgr == nullptr) — guard it.
+        if (m_npc->GetSpawnMgr() != nullptr
+            && m_npc->GetSpawnMgr()->IsChaining(m_npc->SysBubble()->GetID())) {
             m_state = NPCAI::State::Idle;
             m_warpOutTimer.Disable();
         }
@@ -671,8 +673,14 @@ void NPCAIMgr::WarpOut()
             newBeltID = pSys->GetRandBeltID();
 
         SystemEntity* newSE = pSys->GetSE(newBeltID);
+        if (newSE == nullptr) {
+            m_state = NPCAI::State::Idle;
+            return;
+        }
         m_destiny->WarpTo(newSE->GetPosition());
-        m_npc->GetSpawnMgr()->MoveSpawn(m_npc, sBubbleMgr.FindBubble(newSE));
+        // PlayerBot-owned NPCAIs have no SpawnMgr — MoveSpawn would be a nullptr deref.
+        if (m_npc->GetSpawnMgr() != nullptr)
+            m_npc->GetSpawnMgr()->MoveSpawn(m_npc, sBubbleMgr.FindBubble(newSE));
     }
 }
 
