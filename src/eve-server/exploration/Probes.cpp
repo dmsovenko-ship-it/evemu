@@ -474,8 +474,10 @@ void ProbeSE::RemoveProbe()
     m_system->RemoveEntity(this);
     // set item loc to null
     m_self->SetPosition(NULL_ORIGIN);
-    // remove from entity list
-    sEntityList.RemoveProbe(m_self->itemID());
+    // NOTE: do NOT sEntityList.RemoveProbe() here — EntityList::Process iterates
+    // m_probes and calls ProcessTic(); on return false it erases the very node we
+    // are inside of. Erasing it here too invalidates that iterator and the second
+    // erase() dereferences a freed map node -> SIGSEGV on probe recovery.
 
     if (m_client == nullptr)
         return;
