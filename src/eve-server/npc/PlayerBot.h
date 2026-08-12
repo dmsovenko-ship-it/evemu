@@ -29,6 +29,7 @@ public:
     virtual PyDict* MakeSlimItem();
     virtual void OnAttacked(SystemEntity* attacker);   // assess threat, fight or flee
     virtual void Killed(Damage& damage);               // record death + loss
+    virtual bool IsPlayerBot()                          { return true; }
 
     /* bot identity */
     uint32 GetBotCharID() const         { return m_botCharID; }
@@ -135,6 +136,10 @@ public:
     int  CountEnemiesNearby(SystemEntity* target, double radius = 100000.0);  // hostile ships around target
     int  CountAlliesNearby(double radius = 100000.0);                          // friendly ships around me
     bool ShouldEngage(int myPower, int theirPower, bool defending);   // power + skill + luck decision
+    // A hunter's decision to commit against a REAL player (not a bot): strength
+    // check + skill-based confidence. Used by the NPCAI Idle scan so hunters
+    // occasionally prowl for players without the whole crowd jumping them.
+    bool HunterWouldEngage(SystemEntity* target);
     // Faction of the bot's starter corp: 4=Amarr, 2=Minmatar, 1=Caldari, 8=Gallente,
     // 0=neutral. Stub for a future "faction warfare" bot subclass (faction war =
     // just a flavour of hunting with fixed enemies). Normal bots ignore it.

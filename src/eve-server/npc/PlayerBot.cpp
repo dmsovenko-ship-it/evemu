@@ -528,6 +528,42 @@ bool PlayerBot::ShouldEngage(int myPower, int theirPower, bool defending)
     return wouldWin;
 }
 
+bool PlayerBot::HunterWouldEngage(SystemEntity* target)
+{
+    // A hunter's decision to commit against a REAL player. Mirrors ShouldEngage
+    // but tuned for player targets: real players are harder to predict, so a
+    // hunter needs a clear edge and only veteran bots are confident. Used by the
+    // NPCAI Idle scan so hunters occasionally prowl for players without the whole
+    // crowd jumping them.
+    if (target == nullptr || target->GetSelf().get() == nullptr || m_destiny == nullptr)
+        return false;
+    if (target->GetPilot() == nullptr)
+        return false;   // not a real player — handled elsewhere
+
+    Inv::TypeData tdata;
+    sDataMgr.GetType(target->GetSelf()->typeID(), tdata);
+    int enemyClass = GetShipClass(tdata.groupID);
+    int myClass = GetShipClass(m_self->groupID());
+    int myPower = myClass * 2 + (int)m_botSkill;
+    int theirPower = enemyClass * 2 + 2;   // players are less predictable (+2)
+    theirPower += CountEnemiesNearby(target) * 3;   // the target's friends add up
+    myPower += CountAlliesNearby() * 2;             // my fleet helps me
+
+    float skill = m_memory ? m_memory->GetPvpSkill() : 0.0f;
+    float aggro = (float)sConfig.playerBots.AggroFactor / 100.0f;
+    float learned = m_memory ? m_memory->GetAggression() : 0.0f;
+    int margin = 3 + (int)std::lround(aggro * 4.0f) - (int)std::lround(learned * 2.0f);
+
+    bool wouldWin = (myPower - theirPower) >= margin;
+    // Novices misjudge (a chance to still commit or to chicken out).
+    float mistakeChance = 0.30f * (1.0f - skill);
+    if (mistakeChance > 0.0f && MakeRandomFloat() < mistakeChance) {
+        if (m_memory) m_memory->RecordPvpMistake();
+        wouldWin = !wouldWin;
+    }
+    return wouldWin;
+}
+
 int PlayerBot::GetFaction() const
 {
     // The bot's starter corp (from its race's school) tells its faction. Real EVE
@@ -656,6 +692,10 @@ void PlayerBot::SpawnDrones(uint8 count)
         drone->SetDisplayOwner(m_botCharID, m_botCharID, GetID());
         // Register in the system/bubble so clients see it.
         SystemMgr()->AddEntity(drone);
+        // Broadcast OnDroneStateChange so a player's drone window (stateByDroneID)
+        // picks the drone up. Without it the drone renders as a ball but never
+        // appears in the drone window ("I've never seen a chelobot's drone").
+        drone->StateChange();
         // Orbit the bot while idle.
         if (drone->DestinyMgr() != nullptr) {
             drone->DestinyMgr()->SetPosition(GetPosition());

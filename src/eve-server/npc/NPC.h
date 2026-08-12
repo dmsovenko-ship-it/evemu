@@ -54,6 +54,10 @@ public:
     virtual NPC* GetNPCSE()                             { return this; }
     /* class type tests. */
     virtual bool IsNPCSE()                              { return true; }
+    // A simulated-player NPC (PlayerBot): the generic NPCAI Idle scan treats it
+    // specially — bots don't auto-aggro every player in sight; their aggression
+    // is gated by profession, security status and strength (see NPCAI.cpp).
+    virtual bool IsPlayerBot()                          { return false; }
 
     /* SystemEntity interface */
     virtual void Process();

@@ -43,6 +43,7 @@
 #include "inventory/AttributeEnum.h"
 #include "npc/NPC.h"
 #include "npc/NPCAI.h"
+#include "npc/PlayerBot.h"
 #include "ship/Missile.h"
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
@@ -485,6 +486,51 @@ void NPCAIMgr::Process() {
                     if (m_npc->GetWarFactionID() > 0) {
                         if (StandingDB::GetStanding(m_npc->GetWarFactionID(), cur->GetCharacterID()) >= 0.0f)
                             continue;
+                    }
+
+                    // Simulated-player NPCs (PlayerBot): they MAY attack the player,
+                    // but the risk must feel like EVE — safe to roam/mine in highsec,
+                    // danger in low/null, and never a guaranteed jump. The generic
+                    // Idle scan used to make EVERY bot in the bubble attack the player
+                    // at once ("a horde of chelobots warps in to kill me"). Gate it:
+                    // only hunters prowl for players, only in low/null (or highsec for
+                    // criminals), and only with a chance + a long cooldown.
+                    if (m_npc->IsPlayerBot()) {
+                        // Only the bot's hunter profession prowls for players;
+                        // peaceful professions defend only (PlayerBot::OnAttacked).
+                        uint8 prof = 255;
+                        PlayerBot* pbot = dynamic_cast<PlayerBot*>(m_npc);
+                        if (pbot != nullptr)
+                            prof = (uint8)pbot->GetProfession();
+                        if (prof != (uint8)PlayerBot::BotProfession::Hunter) {
+                            continue;   // peaceful bot — leave the player alone
+                        }
+                        float botSec = m_npc->SystemMgr()->GetSystemSecurityRating();
+                        bool playerCriminal = false;
+                        bool playerLowSec = false;
+                        if (cur->GetCrimeWatch() != nullptr)
+                            playerCriminal = cur->GetCrimeWatch()->IsCriminal();
+                        playerLowSec = cur->GetSecurityRating() < -5.0f;
+                        // Highsec: CONCORD protects — a hunter only engages a legal
+                        // target (criminal / very low security status).
+                        if (botSec >= 0.5f && !playerCriminal && !playerLowSec) {
+                            m_beginFindTarget.Start(MakeRandomInt(20000, 40000));
+                            continue;
+                        }
+                        // A hunter doesn't engage every time it spots someone:
+                        // ~15% chance per scan in low/null + long cooldown.
+                        if (MakeRandomInt(0, 99) >= 15) {
+                            m_beginFindTarget.Start(MakeRandomInt(15000, 30000));
+                            continue;
+                        }
+                        // Hunters only commit when they think they can win —
+                        // reuse the same strength check PlayerBot uses.
+                        if (!pbot->HunterWouldEngage(cur->GetShipSE())) {
+                            m_beginFindTarget.Start(MakeRandomInt(20000, 40000));
+                            continue;
+                        }
+                        pbot->StartAggressionTimer();
+                        pbot->BroadcastAggression(cur->GetCharacterID());
                     }
 
                     Target(cur->GetShipSE());
