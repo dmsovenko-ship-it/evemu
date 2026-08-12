@@ -138,7 +138,8 @@ private:
     void ProcessBotReplies();
 
     bool m_initalized;
-    uint32 m_botCounter;    // unique bot instance id generator    std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
+    uint32 m_botCounter;    // unique bot instance id generator
+    std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
     struct BotPhrase { uint32 charID; std::string phrase; time_t when; };
     std::map<int32, BotPhrase> m_lastBotPhrase;   // channelID -> last bot line (for learning replies)
     std::map<int32, std::deque<BotPhrase>> m_channelPhrases;   // channelID -> recent bot lines (no-repeat guard)
