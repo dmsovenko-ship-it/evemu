@@ -310,8 +310,24 @@ PyResult SkillMgrBound::CharAddImplant(PyCallArgs& call, PyInt* itemID)
     std::vector<InventoryItemRef> existingImplants;
     cRef->GetMyInventory()->GetItemsByFlag(flagImplant, existingImplants);
 
+    // Implants are single items: if the source is a stack, take ONE unit out of
+    // it and place a fresh singleton copy in the implant slot; the rest of the
+    // stack stays in the hangar. (Otherwise a stack of 50 would all move.)
+    if (implant->quantity() > 1) {
+        implant->AlterQuantity(-1);   // leave the rest of the stack behind
+        ItemData idata(implant->typeID(), charID, charID, flagImplant, implant->itemName().c_str());
+        InventoryItemRef newImplant = sItemFactory.SpawnItem(idata);
+        if (newImplant.get() == nullptr)
+            return nullptr;
+        newImplant->ChangeSingleton(true);
+        // Re-process character effects to apply implant bonuses
+        cRef->ProcessEffects(nullptr);
+        return PyStatic.NewNone();
+    }
+
     // Move item from hangar to character with flagImplant
     implant->Move(charID, flagImplant, true);
+    implant->ChangeSingleton(true);
 
     // Re-process character effects to apply implant bonuses
     cRef->ProcessEffects(nullptr);
@@ -356,8 +372,21 @@ PyResult SkillMgrBound::CharUseBooster(PyCallArgs& call, PyInt* itemID, PyInt* l
     CharacterRef cRef(call.client->GetChar());
     uint32 charID = cRef->itemID();
 
+    // Boosters are single items: take ONE unit from a stack, keep the rest.
+    if (booster->quantity() > 1) {
+        booster->AlterQuantity(-1);
+        ItemData idata(booster->typeID(), charID, charID, flagBooster, booster->itemName().c_str());
+        InventoryItemRef newBooster = sItemFactory.SpawnItem(idata);
+        if (newBooster.get() == nullptr)
+            return nullptr;
+        newBooster->ChangeSingleton(true);
+        cRef->ProcessEffects(nullptr);
+        return PyStatic.NewNone();
+    }
+
     // Move the booster from its current location (cargo/hangar) onto the character.
     booster->Move(charID, flagBooster, true);
+    booster->ChangeSingleton(true);
 
     // Re-process character effects to apply booster bonuses.
     cRef->ProcessEffects(nullptr);
