@@ -127,7 +127,8 @@ private:
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
     std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
-    std::map<int32, int>   m_botDialogDepth;   // channelID -> consecutive bot<-bot replies (stop long chains)
+    struct BotPhrase { uint32 charID; std::string phrase; time_t when; };
+    std::map<int32, BotPhrase> m_lastBotPhrase;   // channelID -> last bot line (for learning replies)
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots
     std::map<uint32, uint32> m_systemTarget;   // systemID -> fixed bot target (live-server feel)
     std::map<uint32, time_t> m_lastPopulate;   // systemID -> last bot spawn time (gradual fill)

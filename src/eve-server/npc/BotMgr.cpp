@@ -16,6 +16,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sstream>
+#include <algorithm>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -1737,30 +1739,98 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     bool senderIsBot = (sEntityList.FindClientByCharID(senderCharID) == nullptr)
                        && (senderCharID >= 90000000);
 
-    // Bot<-bot dialog depth: a human line resets the chain; consecutive bot
-    // replies are capped so two bots don't bounce DeepSeek calls forever.
-    int& depth = m_botDialogDepth[channelID];
-    if (!senderIsBot)
-        depth = 0;   // fresh human message — start a new conversation
-    else if (depth >= 3)
-        return;      // bots already exchanged a few lines — let it rest
-    ++depth;
-
     // Find a bot in that system (other than the sender — bots never message each
-    // other's own ID here, but guard anyway).
+    // other's own ID here, but guard anyway). If the line ADDRESSES a specific
+    // bot by name ("Name, ...", "@Name ...", "hey Name"), that bot replies; anyone
+    // else may still jump in later. Otherwise the first other bot takes it.
     PlayerBot* responder = nullptr;
+    bool addressed = false;
+    std::string lowerMsg = message;
+    std::transform(lowerMsg.begin(), lowerMsg.end(), lowerMsg.begin(), ::tolower);
     for (auto& [id, se] : pSystem->GetEntities()) {
         if (se == nullptr || se->GetNPCSE() == nullptr)
             continue;
         PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
-        if (pb != nullptr && pb->GetBotCharID() != senderCharID) {
+        if (pb == nullptr || pb->GetBotCharID() == senderCharID)
+            continue;
+        if (responder == nullptr)
+            responder = pb;   // fallback — first other bot
+        // Addressed by name? (case-insensitive). Guards against the sender's own
+        // name matching, and against single-letter names matching inside words.
+        std::string botNameLower = pb->GetBotName();
+        std::transform(botNameLower.begin(), botNameLower.end(), botNameLower.begin(), ::tolower);
+        if (botNameLower.size() >= 3 && lowerMsg.find(botNameLower) != std::string::npos) {
             responder = pb;
-            break;
+            addressed = true;
         }
     }
     if (responder == nullptr)
         return;
 
+    // ---- 1) LEARNED phrases first (lively, no throttle) ----
+    // Answer from phrases this bot learned (a line it said that drew a reply).
+    // Reuse is immediate and frequent — a remembered exchange is "live". Only
+    // when nothing learned matches do we fall back to DeepSeek (rare, throttled).
+    // Match by shared words so "anyone know a good belt" reuses a reply learned
+    // for "good belt here?".
+    {
+        std::string learnedReply;
+        DBQueryResult lres;
+        if (sDatabase.RunQuery(lres,
+            "SELECT reply FROM botChatLearned WHERE charID = %u"
+            " ORDER BY uses DESC, lastUse DESC LIMIT 50", responder->GetBotCharID()))
+        {
+            DBResultRow lrow;
+            while (lres.GetRow(lrow)) {
+                std::string cand = lrow.GetText(0);
+                if (cand.empty())
+                    continue;
+                // Count shared words between the incoming line and the learned
+                // trigger's stored reply-adjacent words. Simple: reuse a reply
+                // whose words overlap the message by 1+ significant word.
+                int overlap = 0;
+                std::string candLower = cand;
+                std::transform(candLower.begin(), candLower.end(), candLower.begin(), ::tolower);
+                std::istringstream iss(lowerMsg);
+                std::string w;
+                while (iss >> w) {
+                    if (w.size() < 4)
+                        continue;   // skip short filler words
+                    if (candLower.find(w) != std::string::npos)
+                        ++overlap;
+                }
+                if (overlap >= 1) {
+                    learnedReply = cand;
+                    break;
+                }
+            }
+        }
+        if (!learnedReply.empty()) {
+            // Reuse the learned reply (mark it used).
+            DBerror uerr;
+            sDatabase.RunQuery(uerr,
+                "UPDATE botChatLearned SET uses = uses + 1, lastUse = NOW()"
+                " WHERE reply = '%s' AND charID = %u", learnedReply.c_str(), responder->GetBotCharID());
+            LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
+            if (lsc != nullptr) {
+                LSCChannel* chan = lsc->GetChannelByID(channelID);
+                if (chan != nullptr) {
+                    chan->SendBotMessage(responder->GetBotCharID(), responder->GetBotName(),
+                                         responder->GetBotCorpID(), learnedReply);
+                    m_lastBotPhrase[channelID] = { responder->GetBotCharID(), learnedReply, time(nullptr) };
+                    _log(BOT__MESSAGE, "BotMgr: %s(%u) reused learned reply: %s",
+                         responder->GetBotName().c_str(), responder->GetBotCharID(), learnedReply.c_str());
+                }
+            }
+            if (responder->GetMemory() != nullptr) {
+                responder->GetMemory()->RecordChatLine();
+                responder->GetMemory()->Save();
+            }
+            return;
+        }
+    }
+
+    // ---- 2) DeepSeek fallback (throttled) ----
     // Only react sometimes (ChatChance %) to avoid spamming on every line.
     if (MakeRandomInt(0, 99) >= sConfig.playerBots.ChatChance)
         return;
@@ -1787,6 +1857,12 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         "gate, warp, fit, lowsec, nullsec). Match the language and tone of the other "
         "player's message — if they write in Russian, reply in Russian; if English, "
         "reply in English. Keep it to 1-2 short sentences.";
+    if (addressed) {
+        // The message was addressed to THIS bot by name — reply as the person
+        // being spoken to (answer the question / acknowledge the call-out).
+        systemHint += " The message is addressed to you personally (your name is mentioned). "
+                      "Answer as yourself — respond to what was asked, keep it natural.";
+    }
 
     std::string reply = BotChat::QueryDeepSeek(prompt, systemHint);
     if (reply.empty())
@@ -1796,9 +1872,12 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
     if (lsc == nullptr) return;
     LSCChannel* chan = lsc->GetChannelByID(channelID);
-    if (chan != nullptr)
+    if (chan != nullptr) {
         chan->SendBotMessage(responder->GetBotCharID(), responder->GetBotName(),
                              responder->GetBotCorpID(), reply);
+        // Remember this line so a reply to it can be LEARNED (botChatLearned).
+        m_lastBotPhrase[channelID] = { responder->GetBotCharID(), reply, time(nullptr) };
+    }
 
     // Self-learning: this bot sent a chat line. Record it (persisted).
     if (responder->GetMemory() != nullptr) {
@@ -1809,15 +1888,37 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
 
 void BotMgr::HandleLocalReply(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message)
 {
-    // A real player replied in a channel where a bot recently spoke — treat it
-    // as a reply to that bot (positive reinforcement for its chat tone).
+    // Someone (player OR bot) replied in a channel where a bot recently spoke —
+    // treat it as a reply to that bot. This is the self-learning loop: the bot
+    // remembers (its line -> the reply it got) in botChatLearned, so later it can
+    // answer a similar line from memory instead of DeepSeek — a pseudo-intellect
+    // that grows from real conversations. Also counts as positive chat
+    // reinforcement (RecordChatReply).
     if (!m_initalized || !sConfig.playerBots.Enabled || !sConfig.playerBots.ChatEnabled)
         return;
-    // Only count as a "reply" if a bot spoke here within the last 60s.
+    // Only a "reply" if a bot spoke here within the last 60s.
     time_t now = time(nullptr);
-    auto last = m_lastChatReply.find(channelID);
-    if (last == m_lastChatReply.end() || (now - last->second) > 60)
+    auto lastPhrase = m_lastBotPhrase.find(channelID);
+    if (lastPhrase == m_lastBotPhrase.end() || (now - lastPhrase->second.when) > 60)
         return;
+    const std::string& botLine = lastPhrase->second.phrase;
+    uint32 botCharID = lastPhrase->second.charID;
+
+    // LEARN the pair: the bot's last line triggered this reply. Store it so the
+    // bot can reuse it later. Escape for SQL.
+    std::string lineEsc, replyEsc;
+    sDatabase.DoEscapeString(lineEsc, botLine);
+    sDatabase.DoEscapeString(replyEsc, message);
+    if (!botLine.empty() && !message.empty()) {
+        DBerror lerr;
+        sDatabase.RunQuery(lerr,
+            "INSERT INTO botChatLearned (charID, trigger, reply, uses, lastUse)"
+            " VALUES (%u, '%s', '%s', 1, NOW())"
+            " ON DUPLICATE KEY UPDATE uses = uses + 1, lastUse = NOW()",
+            botCharID, lineEsc.c_str(), replyEsc.c_str());
+        _log(BOT__TRACE, "BotMgr: bot %u learned reply '%s' -> '%s'.",
+             botCharID, botLine.c_str(), message.c_str());
+    }
 
     auto& systems = sEntityList.GetSystems();
     auto it = systems.find((uint32)channelID);
