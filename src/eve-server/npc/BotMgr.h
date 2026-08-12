@@ -6,6 +6,7 @@
 #include "utils/Singleton.h"
 #include <unordered_map>
 #include <map>
+#include <deque>
 #include <ctime>
 
 class SystemManager;
@@ -52,6 +53,9 @@ public:
     // overflowing the stack (SIGSEGV from nested HandleLocalMessage/SendBotMessage).
     struct PendingBotReply { int32 channelID; uint32 charID; std::string name; std::string message; };
     void QueueBotReply(const PendingBotReply& r)   { m_pendingBotReplies.push_back(r); }
+    // Remember a bot line per channel (with a time cap) so bots don't repeat a
+    // phrase that was just said by another bot in the same channel.
+    void RecordChannelPhrase(int32 channelID, uint32 charID, const std::string& phrase);
 
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID);
@@ -134,10 +138,10 @@ private:
     void ProcessBotReplies();
 
     bool m_initalized;
-    uint32 m_botCounter;    // unique bot instance id generator
-    std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
+    uint32 m_botCounter;    // unique bot instance id generator    std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
     struct BotPhrase { uint32 charID; std::string phrase; time_t when; };
     std::map<int32, BotPhrase> m_lastBotPhrase;   // channelID -> last bot line (for learning replies)
+    std::map<int32, std::deque<BotPhrase>> m_channelPhrases;   // channelID -> recent bot lines (no-repeat guard)
     std::map<int32, uint32> m_botChainDepth;   // channelID -> consecutive bot-bot replies (loop breaker)
     std::vector<PendingBotReply> m_pendingBotReplies;
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots

@@ -1639,9 +1639,20 @@ void BotMgr::ProcessBotSmalltalk()
         if (chan == nullptr)
             continue;
         chan->SendBotMessage(a->GetBotCharID(), a->GetBotName(), a->GetBotCorpID(), msg);
+        RecordChannelPhrase((int32)sysID, a->GetBotCharID(), msg);
         _log(BOT__MESSAGE, "BotMgr: %s(%u) said to %s in local: %s",
              a->GetBotName().c_str(), a->GetBotCharID(), b->GetBotName().c_str(), msg.c_str());
     }
+}
+
+void BotMgr::RecordChannelPhrase(int32 channelID, uint32 charID, const std::string& phrase)
+{
+    // Keep the last 10 lines per channel, drop anything older than 2 minutes.
+    time_t now = time(nullptr);
+    auto& q = m_channelPhrases[channelID];
+    q.push_back({ charID, phrase, now });
+    while (q.size() > 10 || (!q.empty() && (now - q.front().when) > 120))
+        q.pop_front();
 }
 
 void BotMgr::ProcessBotReplies()
@@ -1816,7 +1827,9 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             " ORDER BY lastUse ASC LIMIT 50", responder->GetBotCharID()))
         {
             // Prefer a reply this bot hasn't used in 15-20 min (unique-ish lines);
-            // fall back to the oldest match (a rare repeat) only if nothing fresh.
+            // fall back to the oldest match (a rare repeat) only if nothing fresh
+            // AND it wasn't just used (>= 60s ago) — otherwise the same single
+            // matching phrase would be re-said instantly on every trigger.
             std::string fallback;
             DBResultRow lrow;
             while (lres.GetRow(lrow)) {
@@ -1840,6 +1853,23 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
                 }
                 if (overlap < 1)
                     continue;
+                // No-repeat guard: skip phrases any bot said in this channel within
+                // the last 2 minutes. Every bot was seeded with the SAME phrase set,
+                // so without this two bots bounce the identical lines forever
+                // (X -> Y -> X via a shared word like "scam"/"it's").
+                bool recent = false;
+                auto chIt = m_channelPhrases.find(channelID);
+                if (chIt != m_channelPhrases.end()) {
+                    time_t now0 = time(nullptr);
+                    for (const auto& bp : chIt->second) {
+                        if ((now0 - bp.when) < 120 && bp.phrase == cand) {
+                            recent = true;
+                            break;
+                        }
+                    }
+                }
+                if (recent)
+                    continue;
                 time_t lastUse = (time_t)lrow.GetInt64(1);
                 time_t now = time(nullptr);
                 if (fallback.empty())
@@ -1849,8 +1879,27 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
                     break;
                 }
             }
-            if (learnedReply.empty())
-                learnedReply = fallback;   // rare repeat (nothing old enough)
+            if (learnedReply.empty() && !fallback.empty()) {
+                // Rare repeat: reuse the oldest match only if it hasn't been said
+                // in the last 60s. The 15-min window only guards the primary pick;
+                // without a floor here a single matching phrase loops instantly.
+                time_t fbLast = 0;
+                bool fbFresh = false;
+                std::string fbEsc;
+                sDatabase.DoEscapeString(fbEsc, fallback);
+                DBQueryResult fres;
+                if (sDatabase.RunQuery(fres,
+                    "SELECT UNIX_TIMESTAMP(lastUse) FROM botChatLearned"
+                    " WHERE reply = '%s' AND charID = %u LIMIT 1",
+                    fbEsc.c_str(), responder->GetBotCharID()))
+                {
+                    DBResultRow frow;
+                    if (fres.GetRow(frow))
+                        fbLast = (time_t)frow.GetInt64(0);
+                }
+                if (fbLast == 0 || (time(nullptr) - fbLast) >= 60)
+                    learnedReply = fallback;
+            }
         }
         if (!learnedReply.empty()) {
             // Reuse the learned reply (mark it used).
@@ -1866,6 +1915,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
                 if (chan != nullptr) {
                     chan->SendBotMessage(responder->GetBotCharID(), responder->GetBotName(),
                                          responder->GetBotCorpID(), learnedReply);
+                    RecordChannelPhrase(channelID, responder->GetBotCharID(), learnedReply);
                     m_lastBotPhrase[channelID] = { responder->GetBotCharID(), learnedReply, time(nullptr) };
                     _log(BOT__MESSAGE, "BotMgr: %s(%u) reused learned reply: %s",
                          responder->GetBotName().c_str(), responder->GetBotCharID(), learnedReply.c_str());
@@ -1924,6 +1974,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     if (chan != nullptr) {
         chan->SendBotMessage(responder->GetBotCharID(), responder->GetBotName(),
                              responder->GetBotCorpID(), reply);
+        RecordChannelPhrase(channelID, responder->GetBotCharID(), reply);
         // Remember this line so a reply to it can be LEARNED (botChatLearned).
         m_lastBotPhrase[channelID] = { responder->GetBotCharID(), reply, time(nullptr) };
     }
