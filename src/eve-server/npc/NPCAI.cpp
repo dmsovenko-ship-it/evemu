@@ -1043,7 +1043,16 @@ void NPCAIMgr::FitModules()
     // Primary weapon module (hi slot)
     if (m_optimalRange > 0 || m_missileTypeID > 0) {
         NPCModule mod;
-        mod.typeID = m_missileTypeID > 0 ? m_missileTypeID : 248;
+        // The weapon's real TYPE ID — the client's FitTurrets builds a turret model
+        // from each fitted module's typeID (group must be in const.turretModuleGroups).
+        // Prefer the hull's gfxTurretID (a real weapon module typeID we set on bots),
+        // else the missile type, else fall back to a placeholder.
+        uint32 weaponType = 248;
+        if (m_self->HasAttribute(AttrGfxTurretID))
+            weaponType = m_self->GetAttribute(AttrGfxTurretID).get_uint32();
+        else if (m_missileTypeID > 0)
+            weaponType = m_missileTypeID;
+        mod.typeID = weaponType;
         mod.slotFlag = flagHiSlot0 + slotIdx++;
         mod.active = false;
         mod.cycleTime = m_attackSpeed;
