@@ -483,14 +483,6 @@ struct CosmicSignature {
                     case Dungeon::Type::Unrated:// non-rated dungeon  no waves, possible escalation to complex
                         break;
                 */
-                }
-                // Signatures (Gravimetric/Ladar/Radar/Magnetometric/Wormhole) are
-                // found by CORE probes. Combat probes (CanScanShips) specialize in
-                // ships/structures/drones, not exploration sites — skip them here.
-                if (cur.second->CanScanShips()) {
-                    _log(SCAN__TRACE, "Scan::GetProbeDataForSig()  combat probe %u cannot scan signature %s", cur.first, data.sig.sigName.c_str());
-                    continue;
-                }
             } // this probe can scan this signal; fall thru to add probe to signal's map
             default: {
                 dist = cur.second->GetPosition().distance(data.sig.position);
