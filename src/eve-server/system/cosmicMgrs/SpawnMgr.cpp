@@ -1158,7 +1158,14 @@ void SpawnMgr::MakeSpawn(SystemBubble* pBubble, uint32 factionID, uint8 sClass, 
     } else {
         /** @todo  make method to get/use template positioning data for spawns here */
         // ratspawn will warp in, others will not.
-        startPos.MakeRandomPointOnSphere(MakeRandomInt(10, 15) *100000); //1-1m5 km from current bubble center
+        // Spawn at the EDGE of the bubble (inside it, 150-250 km out) so the
+        // player actually SEES the rats warp in from the belt's edge instead of
+        // them popping into existence in a pile at the belt centre and then
+        // 'rewarping' (the old 10-15 Mm point was far outside the 300 km bubble —
+        // AddEntity placed them at the centre, the client rendered a pile there,
+        // then the position jumped to the deep point and they warped back = a
+        // pile that 'spreads and rewarpes').
+        startPos.MakeRandomPointOnSphere(MakeRandomInt(150, 250) *1000);
     }
 
     uint32 corpID = sDataMgr.GetFactionCorp(factionID);
@@ -1195,11 +1202,14 @@ void SpawnMgr::MakeSpawn(SystemBubble* pBubble, uint32 factionID, uint8 sClass, 
                 continue;
             }
 
-            // Set position to target bubble center FIRST so AddNPC assigns the correct bubble,
-            // then set to offset position for the warp-in visual effect.
-            pNPC->DestinyMgr()->SetPosition(warpToPoint);
-            m_system->AddNPC(pNPC);
+            // Place the NPC at its warp-in point (edge of the bubble) BEFORE
+            // AddNPC so it joins the belt bubble at that position — the client
+            // then renders it out on the rim and sees it warp in toward the belt
+            // centre. (The old code added it at warpToPoint = the centre, so the
+            // client showed a pile at the centre, then the position snapped to the
+            // deep point and it 'rewarped' back = a pile that spreads and rewarpes.)
             pNPC->DestinyMgr()->SetPosition(startPos);
+            m_system->AddNPC(pNPC);
             //  begin warp - timing of rat fleet is ensured by destiny
             if (sClass <= Spawn::Class::Officer) {   // ratspawn will warp in, others will not.
                 // adjust warpIn point so show some variation instead of a straight line.
