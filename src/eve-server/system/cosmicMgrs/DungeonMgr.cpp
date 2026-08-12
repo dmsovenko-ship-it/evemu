@@ -882,6 +882,17 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
             continue;
         }
+        // Gas/planetary clouds in SDE data have radius=1 (a point) — invisible.
+        // Give clouds a real EVE-sized radius (4-12 km) BEFORE creating the SE so
+        // SystemEntity's ctor (which reads AttrRadius into m_radius) uses it and
+        // the client renders the cloud at a visible size.
+        {
+            uint16 grp = iRef->groupID();
+            if (grp == EVEDB::invGroups::Cloud || grp == EVEDB::invGroups::Planetary_Cloud) {
+                double cloudR = 4000.0 + MakeRandomFloat() * 8000.0;
+                iRef->SetAttribute(AttrRadius, cloudR, false);
+            }
+        }
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
         // Decorations are static entities (IsStaticEntity=true) so SendAddBalls
