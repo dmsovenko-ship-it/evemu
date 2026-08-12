@@ -87,6 +87,16 @@ public:
     void SetResists();
     void MarkForRemoval()                               { m_pendingRemoval = true; }
     bool IsPendingRemoval()                            { return m_pendingRemoval; }
+    // Called by a non-pilot owner (e.g. PlayerBot) to scoop a live drone:
+    // removes it from the system, deletes the item, and frees the wrapper
+    // (destructor would re-enter RemoveEntity on the deleted item otherwise).
+    void ScoopAndDelete();
+    // Called by a non-pilot owner (e.g. PlayerBot) when the drone was killed.
+    // SystemEntity::Killed already removed it from the system and deleted the
+    // item, so we must NOT call RemoveEntity() nor touch m_self again — the
+    // destructor would re-enter RemoveEntity() -> RemoveItemFromInventory()
+    // on a freed item (use-after-free). We just drop the wrapper.
+    void RemoveDead();
     void SetOwner(Client* pClient);
 
     uint32 GetBounty() const                            { return (m_pClient == nullptr ? 0 : m_pClient->GetChar()->bounty()); }

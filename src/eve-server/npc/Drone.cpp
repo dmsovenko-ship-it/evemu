@@ -149,6 +149,32 @@ DroneSE::~DroneSE() {
     SafeDelete(m_AI);
 }
 
+void DroneSE::RemoveDead() {
+    // Drone was killed in combat: SystemEntity::Killed() already ran
+    // Delete() -> RemoveEntity() + m_self->Delete(), so the entity is out of
+    // the bubble and the item is freed. Detach from the system so ~DroneSE()
+    // does not re-enter RemoveEntity()/RemoveItemFromInventory() on the freed
+    // item (use-after-free -> SEGV), then free the wrapper.
+    m_system = nullptr;
+    m_bubble = nullptr;
+    SafeDelete(m_AI);
+    delete this;
+}
+
+void DroneSE::ScoopAndDelete() {
+    // Drone is still alive but the owner (PlayerBot) wants it back / out of
+    // space. Remove the entity from the system and delete the item, then free
+    // the wrapper. The destructor would call RemoveEntity() again — on the
+    // just-deleted item that is a use-after-free, so detach first.
+    if (m_system != nullptr && SysBubble() != nullptr)
+        m_system->RemoveEntity(this);
+    m_self->Delete();
+    m_system = nullptr;
+    m_bubble = nullptr;
+    SafeDelete(m_AI);
+    delete this;
+}
+
 void DroneSE::SetOwner(Client* pClient) {
     m_self->ChangeOwner(pClient->GetCharacterID());
     m_pClient = pClient;
@@ -169,6 +195,12 @@ void DroneSE::Process() {
     // (ScoopDrone → Offline already ran; we remove from system on next tick so
     //  the AI Process() stack can unwind safely)
     if (m_pendingRemoval) {
+        // Drones without a pilot-client and ship (PlayerBot-owned) must NOT
+        // self-delete here — their owner's ManageDrones() still holds a raw
+        // pointer in m_drones and would dereference a freed wrapper (SEGV).
+        // The owner frees them via ScoopAndDelete()/RemoveDead() instead.
+        if (m_pClient == nullptr && m_pShipSE == nullptr)
+            return;
         m_killed = true;
         m_system->RemoveEntity(this);
         delete this;

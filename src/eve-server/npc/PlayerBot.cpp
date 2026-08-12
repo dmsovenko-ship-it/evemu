@@ -673,6 +673,8 @@ void PlayerBot::DroneEngageTarget(DroneSE* drone, SystemEntity* target)
     // without a ShipSE owner).
     if (drone == nullptr || target == nullptr || drone->DestinyMgr() == nullptr)
         return;
+    if (drone->IsDead() || target->IsDead())
+        return;
     if (target->DestinyMgr() == nullptr)
         return;   // target is a structure/decor — no ship to damage
 
@@ -748,18 +750,26 @@ void PlayerBot::ManageDrones()
     // drift back to the bot.
     for (auto it = m_drones.begin(); it != m_drones.end(); ) {
         DroneSE* drone = *it;
-        if (drone == nullptr || drone->DestinyMgr() == nullptr) {
+        if (drone == nullptr) {
+            it = m_drones.erase(it);
+            continue;
+        }
+        // Dead drones: SystemEntity::Killed already removed the entity and item,
+        // so we must NOT call RemoveEntity/GetSelf()->Delete() on them — just
+        // drop the wrapper (and free it without touching the freed item).
+        if (drone->IsDead()) {
+            drone->RemoveDead();
+            it = m_drones.erase(it);
+            continue;
+        }
+        if (drone->DestinyMgr() == nullptr) {
             it = m_drones.erase(it);
             continue;
         }
         double distToBot = drone->GetPosition().distance(GetPosition());
         if (distToBot > 30000 || drone->IsPendingRemoval() || drone->IsEnabled() == false) {
             // scoop / cleanup
-            drone->DestinyMgr()->Stop();
-            if (drone->SysBubble() != nullptr)
-                SystemMgr()->RemoveEntity(drone);
-            drone->GetSelf()->Delete();
-            delete drone;
+            drone->ScoopAndDelete();
             it = m_drones.erase(it);
             continue;
         }
@@ -785,12 +795,11 @@ void PlayerBot::RecallDrones()
     for (DroneSE* drone : m_drones) {
         if (drone == nullptr)
             continue;
-        if (drone->DestinyMgr() != nullptr)
-            drone->DestinyMgr()->Stop();
-        if (drone->SysBubble() != nullptr && SystemMgr() != nullptr)
-            SystemMgr()->RemoveEntity(drone);
-        drone->GetSelf()->Delete();
-        delete drone;
+        if (drone->IsDead()) {
+            drone->RemoveDead();   // killed in combat — item already freed
+            continue;
+        }
+        drone->ScoopAndDelete();   // alive — remove entity, delete item, free wrapper
     }
     m_drones.clear();
 }
