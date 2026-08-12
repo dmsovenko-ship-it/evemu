@@ -79,6 +79,10 @@ void BotMgr::Process()
     // Bots occasionally chatter among themselves in local (rare).
     ProcessBotSmalltalk();
 
+    // Drain queued bot chat replies (one per tic) — drives bot<-bot conversations
+    // without recursing the stack.
+    ProcessBotReplies();
+
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
 
@@ -1640,6 +1644,22 @@ void BotMgr::ProcessBotSmalltalk()
     }
 }
 
+void BotMgr::ProcessBotReplies()
+{
+    // Drain ONE queued bot line per tic: the bot that should reply answers now,
+    // and its own answer re-queues the next reaction, so a bot<-bot conversation
+    // advances one line per tick. This is what makes chat alive WITHOUT recursing
+    // through the stack (nested HandleLocalMessage/SendBotMessage used to overflow
+    // it -> SIGSEGV). A human line in a channel still starts/reset a chain.
+    if (m_pendingBotReplies.empty())
+        return;
+    PendingBotReply r = m_pendingBotReplies.front();
+    m_pendingBotReplies.erase(m_pendingBotReplies.begin());
+    if (!m_initalized || !sConfig.playerBots.Enabled || !sConfig.playerBots.ChatEnabled)
+        return;
+    HandleLocalMessage(r.channelID, r.charID, r.name, r.message);
+}
+
 void BotMgr::ProcessPlayerContracts()
 {
     // Courier bots take over player courier contracts that nobody accepted.
@@ -1740,19 +1760,6 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     bool senderIsBot = (sEntityList.FindClientByCharID(senderCharID) == nullptr)
                        && (senderCharID >= 90000000);
 
-    // Break bot<-bot echo: if the PREVIOUS line in this channel was also from a
-    // bot, don't reply — otherwise two bots (or a learned-phrase loop) bounce
-    // replies forever and overflow the stack (SIGSEGV in DBcore::RunQuery).
-    // A human message always starts a fresh reply chain.
-    if (senderIsBot) {
-        auto prev = m_lastBotSender.find(channelID);
-        if (prev != m_lastBotSender.end() && prev->second != 0)
-            return;   // the channel is mid bot-conversation — let it rest
-        m_lastBotSender[channelID] = senderCharID;
-    } else {
-        m_lastBotSender[channelID] = 0;   // a human line — bots may reply
-    }
-
     // Find a bot in that system (other than the sender — bots never message each
     // other's own ID here, but guard anyway). If the line ADDRESSES a specific
     // bot by name ("Name, ...", "@Name ...", "hey Name"), that bot replies; anyone
@@ -1791,19 +1798,24 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         std::string learnedReply;
         DBQueryResult lres;
         if (sDatabase.RunQuery(lres,
-            "SELECT reply FROM botChatLearned WHERE charID = %u"
-            " ORDER BY uses DESC, lastUse DESC LIMIT 50", responder->GetBotCharID()))        {
+            "SELECT reply, UNIX_TIMESTAMP(lastUse) FROM botChatLearned WHERE charID = %u"
+            " ORDER BY lastUse ASC LIMIT 50", responder->GetBotCharID()))
+        {
+            // Prefer a reply this bot hasn't used in 15-20 min (unique-ish lines);
+            // fall back to the oldest match (a rare repeat) only if nothing fresh.
+            std::string fallback;
             DBResultRow lrow;
             while (lres.GetRow(lrow)) {
                 std::string cand = lrow.GetText(0);
                 if (cand.empty())
                     continue;
-                // Count shared words between the incoming line and the learned
-                // trigger's stored reply-adjacent words. Simple: reuse a reply
-                // whose words overlap the message by 1+ significant word.
-                int overlap = 0;
+                // Don't quote the exact same line back (no copy-paste replies).
                 std::string candLower = cand;
                 std::transform(candLower.begin(), candLower.end(), candLower.begin(), ::tolower);
+                if (candLower == lowerMsg)
+                    continue;
+                // Count shared words between the incoming line and the learned reply.
+                int overlap = 0;
                 std::istringstream iss(lowerMsg);
                 std::string w;
                 while (iss >> w) {
@@ -1812,11 +1824,19 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
                     if (candLower.find(w) != std::string::npos)
                         ++overlap;
                 }
-                if (overlap >= 1) {
-                    learnedReply = cand;
+                if (overlap < 1)
+                    continue;
+                time_t lastUse = (time_t)lrow.GetInt64(1);
+                time_t now = time(nullptr);
+                if (fallback.empty())
+                    fallback = cand;
+                if ((now - lastUse) >= 15 * 60) {
+                    learnedReply = cand;   // a phrase not used in the last 15-20 min
                     break;
                 }
             }
+            if (learnedReply.empty())
+                learnedReply = fallback;   // rare repeat (nothing old enough)
         }
         if (!learnedReply.empty()) {
             // Reuse the learned reply (mark it used).

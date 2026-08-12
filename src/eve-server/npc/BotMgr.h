@@ -47,6 +47,12 @@ public:
     struct GuestInfo { uint32 charID, corpID, allianceID, warFactionID; };
     void GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) const;
 
+    // Bot chat replies are QUEUED (not recursed): SendBotMessage feeds the queue,
+    // BotMgr drains one per tic so a bot<-bot conversation advances without
+    // overflowing the stack (SIGSEGV from nested HandleLocalMessage/SendBotMessage).
+    struct PendingBotReply { int32 channelID; uint32 charID; std::string name; std::string message; };
+    void QueueBotReply(const PendingBotReply& r)   { m_pendingBotReplies.push_back(r); }
+
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID);
     // Download the bot's ESI portrait into the image cache on spawn, so the client
@@ -123,13 +129,16 @@ private:
     // Bots occasionally chat among themselves in local (rare, so it doesn't
     // spam). Makes the channel feel alive without DeepSeek calls.
     void ProcessBotSmalltalk();
+    // Drain queued bot chat replies (one per tic) so bot<-bot conversations
+    // advance without recursing the call stack.
+    void ProcessBotReplies();
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
     std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
     struct BotPhrase { uint32 charID; std::string phrase; time_t when; };
     std::map<int32, BotPhrase> m_lastBotPhrase;   // channelID -> last bot line (for learning replies)
-    std::map<int32, uint32> m_lastBotSender;      // channelID -> last bot that spoke (break bot<-bot echo)
+    std::vector<PendingBotReply> m_pendingBotReplies;
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots
     std::map<uint32, uint32> m_systemTarget;   // systemID -> fixed bot target (live-server feel)
     std::map<uint32, time_t> m_lastPopulate;   // systemID -> last bot spawn time (gradual fill)
