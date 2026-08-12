@@ -494,10 +494,12 @@ void ItemSystemEntity::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        // IsMassive like ObjectSystemEntity (asteroids): a RIGID ball with flags=0
-        // isn't created/rendered by the client's Ballpark, so decor/clouds spawned
-        // as ItemSystemEntity (CelestialSE) were invisible ("only asteroids seen").
-        head.flags = Ball::Flag::IsMassive;
+        // IsInteractive (like wrecks/containers): a RIGID ball with no flags isn't
+        // created by the client's Ballpark (decor/clouds were invisible). But
+        // IsMassive = solid — the client would collide the ship with every decor
+        // object and visibly jerk it around when warping out / flying past.
+        // IsInteractive makes the ball exist and be targetable without collisions.
+        head.flags = Ball::Flag::IsInteractive;
     into.Append( head );
     RIGID_Struct main;
         main.formationID = 0xFF;
