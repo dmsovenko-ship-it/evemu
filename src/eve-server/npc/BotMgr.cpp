@@ -258,6 +258,32 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     uint32 useAllianceID = allianceID;
     std::string useFit;   // JSON array of module typeIDs (parsed later for fitting)
 
+    // Random/unspecified spawn (charID==0): prefer REUSING an already-created bot
+    // instead of rolling a fresh random legend every time. Bots persist as real
+    // characters (chrCharacters + botMemory), so a returning pilot should be the
+    // SAME pilot it always was — same face, same name, same learned history —
+    // not a random new legend each respawn. Only roll a fresh legend when no
+    // established bot is available.
+    if (useCharID == 0 && useName.empty()) {
+        DBQueryResult bres;
+        if (sDatabase.RunQuery(bres,
+            "SELECT c.characterName, c.corporationID, c.allianceID"
+            " FROM chrCharacters c"
+            " JOIN botMemory b ON b.charID = c.characterID"
+            " WHERE c.characterName != ''"
+            " ORDER BY RAND() LIMIT 1"))
+        {
+            DBResultRow brow;
+            if (bres.GetRow(brow)) {
+                useName = brow.GetText(0);
+                useCorpID = brow.GetUInt(1);
+                useAllianceID = brow.GetUInt(2);
+                _log(BOT__TRACE, "BotMgr: reusing established bot '%s' (corp %u, ally %u).",
+                     useName.c_str(), useCorpID, useAllianceID);
+            }
+        }
+    }
+
     {
         DBQueryResult res;
         if (sDatabase.RunQuery(res,
