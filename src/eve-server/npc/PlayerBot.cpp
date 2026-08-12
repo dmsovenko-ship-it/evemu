@@ -318,7 +318,10 @@ void PlayerBot::MarkForTravel(uint32 destSystem /*0*/)
                  m_botName.c_str(), m_botCharID);
         }
     }
-    m_wantsTravel = true;
+    // NOTE: m_wantsTravel is set by Process() when the warp-to-gate flight finishes
+    // (m_travelTimer expiry). Setting it here too made ProcessTravel() delete the bot
+    // on the very next tic — the bot vanished instantly without the visible ~12-20s
+    // warp to the gate ("a chelobot arrived, judged the fight and just disappeared").
 }
 
 void PlayerBot::Process()
