@@ -48,6 +48,7 @@ DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemMana
 
     m_online = false;
     m_pendingRemoval = false;
+    m_pShipSE = nullptr;   // MUST be null until Launch()/SetOwner() — ~DroneSE derefs it
 
     m_warID = data.factionID;
     m_allyID = data.allianceID;
@@ -155,6 +156,8 @@ void DroneSE::RemoveDead() {
     // the bubble and the item is freed. Detach from the system so ~DroneSE()
     // does not re-enter RemoveEntity()/RemoveItemFromInventory() on the freed
     // item (use-after-free -> SEGV), then free the wrapper.
+    m_pShipSE = nullptr;   // ~DroneSE would call RemoveDroneFromFlight(m_self->itemID())
+    m_pClient = nullptr;   //   on the already-freed item (garbage itemID -> SEGV)
     m_system = nullptr;
     m_bubble = nullptr;
     SafeDelete(m_AI);
@@ -169,6 +172,8 @@ void DroneSE::ScoopAndDelete() {
     if (m_system != nullptr && SysBubble() != nullptr)
         m_system->RemoveEntity(this);
     m_self->Delete();
+    m_pShipSE = nullptr;   // ~DroneSE would call RemoveDroneFromFlight(m_self->itemID())
+    m_pClient = nullptr;   //   on the just-deleted item (garbage itemID -> SEGV)
     m_system = nullptr;
     m_bubble = nullptr;
     SafeDelete(m_AI);
