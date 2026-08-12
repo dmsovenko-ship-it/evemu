@@ -494,7 +494,10 @@ void ItemSystemEntity::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = 0;
+        // IsMassive like ObjectSystemEntity (asteroids): a RIGID ball with flags=0
+        // isn't created/rendered by the client's Ballpark, so decor/clouds spawned
+        // as ItemSystemEntity (CelestialSE) were invisible ("only asteroids seen").
+        head.flags = Ball::Flag::IsMassive;
     into.Append( head );
     RIGID_Struct main;
         main.formationID = 0xFF;
