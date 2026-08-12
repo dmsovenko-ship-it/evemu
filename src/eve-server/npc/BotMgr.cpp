@@ -1732,6 +1732,20 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     if (pSystem == nullptr)
         return;
 
+    // Is the sender another bot (simulated player), not a real Client?
+    // A bot's charID is in the server bot range and has no Client object.
+    bool senderIsBot = (sEntityList.FindClientByCharID(senderCharID) == nullptr)
+                       && (senderCharID >= 90000000);
+
+    // Bot<-bot dialog depth: a human line resets the chain; consecutive bot
+    // replies are capped so two bots don't bounce DeepSeek calls forever.
+    int& depth = m_botDialogDepth[channelID];
+    if (!senderIsBot)
+        depth = 0;   // fresh human message — start a new conversation
+    else if (depth >= 3)
+        return;      // bots already exchanged a few lines — let it rest
+    ++depth;
+
     // Find a bot in that system (other than the sender — bots never message each
     // other's own ID here, but guard anyway).
     PlayerBot* responder = nullptr;

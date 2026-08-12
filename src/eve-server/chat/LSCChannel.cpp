@@ -193,6 +193,13 @@ void LSCChannel::RemoveBotChar(uint32 charID)
 
 void LSCChannel::SendBotMessage(uint32 charID, const std::string& name, uint32 corpID, const std::string& message)
 {
+    // Let OTHER bots in this system react to this bot's line — a bot-to-bot
+    // conversation (an earlier line gets a topical reply instead of just being
+    // 'said into the void'). The depth cap in BotMgr stops endless chains.
+    if (sConfig.playerBots.Enabled && sConfig.playerBots.ChatEnabled
+        && (m_type == LSC::Type::solarsystem || m_type == LSC::Type::solarsystem2))
+        sBotMgr.HandleLocalMessage(m_channelID, charID, name, message);
+
     MulticastTarget mct;
     for (auto& [cid, ch] : m_chars)
         mct.characters.insert(cid);
