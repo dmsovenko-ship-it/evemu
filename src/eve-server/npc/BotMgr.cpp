@@ -1454,6 +1454,8 @@ void BotMgr::ProcessDocking()
                 continue;
             if (pb->IsAggressed())
                 continue;   // aggression timer — can't dock mid-aggression
+            if (pb->GetAIMgr()->IsFighting())
+                continue;   // in combat — never vanish mid-fight (no teleport)
             if (!pb->WantsDock() && MakeRandomInt(0, 599) != 0)
                 continue;   // neither profession wants the station nor occasional roll
             // Fly to the station first so the dock is visible (no teleport).
@@ -1461,7 +1463,9 @@ void BotMgr::ProcessDocking()
             for (auto& [sid, sse] : pSystem->GetStaticEntities()) {
                 if (sse != nullptr && sse->GetStationSE() != nullptr) { station = sse; break; }
             }
-            if (station != nullptr) {
+            if (station == nullptr)
+                continue;   // no station in this system — don't pop the bot out of space
+            {
                 double stationR = station->GetRadius() > 500.0 ? station->GetRadius() : 2000.0;
                 double dist = pb->GetPosition().distance(station->GetPosition());
                 double approachDist = stationR + 15000.0;
