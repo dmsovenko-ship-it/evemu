@@ -427,6 +427,11 @@ void WormholeMgr::CreateExit(SystemManager* pFromSys, uint32 exitSystemID, uint3
     iRef->SetAttribute(AttrWormholeTargetSystem2, sourceItemID);
     // Set exit wormhole's attributes based upon source wormhole's attributes
     sRef = sItemFactory.GetCelestialRef( sourceItemID );
+    if (sRef.get() == nullptr) {
+        _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::CreateExit() - source wormhole %u not found, skipping exit attrs", sourceItemID);
+        iRef->SaveItem();
+        return;
+    }
     iRef->SetAttribute(AttrWormholeMassRegeneration, sRef->GetAttribute(AttrWormholeMassRegeneration).get_int());
     iRef->SetAttribute(AttrWormholeTargetSystemClass, sDataMgr.GetWHSystemClass(exitSystemID));
     iRef->SetAttribute(AttrWormholeMaxStableTime, sRef->GetAttribute(AttrWormholeMaxStableTime).get_int());

@@ -75,6 +75,10 @@ PyResult WormHoleSvc::WormholeJump(PyCallArgs& call, PyInt* itemID) {
     }
 
     InventoryItemRef wormhole = sItemFactory.GetItemRefFromID(itemID->value());
+    if (wormhole.get() == nullptr) {
+        call.client->SendNotifyMsg("Wormhole not found.");
+        return PyStatic.NewNone();
+    }
 
     //Check for jump fuel and make sure there is enough fuel available
     ShipItemRef ship = call.client->GetShip();

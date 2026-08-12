@@ -1913,6 +1913,10 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
         /** @todo  send error to client here */
         return;
     }
+    if (wormhole.get() == nullptr || pShipSE == nullptr) {
+        sLog.Error("Client", "%s: WormholeJump called with null wormhole/ship. Ignoring.", m_char->name());
+        return;
+    }
 
     // Mass validation — check ship fits through and wormhole has mass remaining
     int64 shipMass = pShipSE->GetSelf()->GetAttribute(AttrMass).get_int();
@@ -1941,8 +1945,31 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
 
 
     // Get destination wormhole position and start jump timer
+    // For a NORMAL wormhole: TargetSystem1 = dest systemID, TargetSystem2 = exit WH itemID.
+    // For an EXIT wormhole (K162): TargetSystem1 = source WH itemID, TargetSystem2 = 0 —
+    // so land at the source wormhole's position and system. Guard the ref: if the
+    // destination can't be resolved, bail out instead of deref'ing a null RefPtr
+    // (crash: RefPtr<InventoryItem>::operator-> assert).
     InventoryItemRef destWh;
-    destWh = sItemFactory.GetItemRefFromID(wormhole->GetAttribute(AttrWormholeTargetSystem2).get_int());
+    int64 destItemID = wormhole->GetAttribute(AttrWormholeTargetSystem2).get_int();
+    if (destItemID != 0) {
+        destWh = sItemFactory.GetItemRefFromID(destItemID);
+    } else {
+        // Exit wormhole: TargetSystem1 holds the source wormhole itemID
+        destWh = sItemFactory.GetItemRefFromID(wormhole->GetAttribute(AttrWormholeTargetSystem1).get_int());
+    }
+    if (destWh.get() == nullptr) {
+        SendNotifyMsg("This wormhole leads nowhere.");
+        return;
+    }
+
+    // Destination system: for normal WH it's TargetSystem1 (systemID). For an exit
+    // wormhole TargetSystem1 is the source WH itemID, so its locationID is the system.
+    int64 destSys = (destItemID != 0)
+        ? wormhole->GetAttribute(AttrWormholeTargetSystem1).get_int()
+        : destWh->locationID();
+    if (destSys != 0)
+        m_moveSystemID = destSys;
 
     m_movePoint = destWh->position();
     m_movePoint.MakeRandomPointOnSphere(2000);
