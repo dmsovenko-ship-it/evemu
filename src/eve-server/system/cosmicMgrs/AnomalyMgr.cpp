@@ -319,24 +319,28 @@ void AnomalyMgr::CreateAnomaly(int8 typeID)
             sig.sigGroupID = EVEDB::invGroups::Cosmic_Signature;
             sig.scanGroupID = Scanning::Group::Signature;
             sig.scanAttributeID = AttrScanGravimetricStrength;
+            sig.sigName = "Gravimetric Site";
         } break;
         case Dungeon::Type::Magnetometric: { // 3,
             sig.sigTypeID = EVEDB::invTypes::DeadspaceSignature;// need probes and exploring skills
             sig.sigGroupID = EVEDB::invGroups::Cosmic_Signature;
             sig.scanGroupID = Scanning::Group::Signature;
             sig.scanAttributeID = AttrScanMagnetometricStrength;
+            sig.sigName = "Magnetometric Site";
         } break;
         case Dungeon::Type::Radar: {       // 4,
             sig.sigTypeID = EVEDB::invTypes::DeadspaceSignature;
             sig.sigGroupID = EVEDB::invGroups::Cosmic_Signature;
             sig.scanGroupID = Scanning::Group::Signature;
             sig.scanAttributeID = AttrScanRadarStrength;
+            sig.sigName = "Radar Site";
         } break;
         case Dungeon::Type::Ladar: {       // 5,
             sig.sigTypeID = EVEDB::invTypes::DeadspaceSignature;
             sig.sigGroupID = EVEDB::invGroups::Cosmic_Signature;
             sig.scanGroupID = Scanning::Group::Signature;
             sig.scanAttributeID = AttrScanLadarStrength;
+            sig.sigName = "Ladar Site";
         } break;
         case Dungeon::Type::Wormhole: {    // 6
             // enable WH to be warped to...they are deco only at this time.
