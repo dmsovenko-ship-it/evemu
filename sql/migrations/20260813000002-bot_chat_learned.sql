@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `botChatLearned` (
     `uses` INT UNSIGNED NOT NULL DEFAULT 1,      -- how often this reply was reused
     `lastUse` DATETIME NOT NULL,
     PRIMARY KEY (`id`),
+    UNIQUE KEY `chatPair` (`charID`, `trigger`, `reply`),
     KEY `charID` (`charID`),
     KEY `trigger` (`trigger`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

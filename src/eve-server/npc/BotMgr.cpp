@@ -1778,8 +1778,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         DBQueryResult lres;
         if (sDatabase.RunQuery(lres,
             "SELECT reply FROM botChatLearned WHERE charID = %u"
-            " ORDER BY uses DESC, lastUse DESC LIMIT 50", responder->GetBotCharID()))
-        {
+            " ORDER BY uses DESC, lastUse DESC LIMIT 50", responder->GetBotCharID()))        {
             DBResultRow lrow;
             while (lres.GetRow(lrow)) {
                 std::string cand = lrow.GetText(0);
@@ -1912,7 +1911,7 @@ void BotMgr::HandleLocalReply(int32 channelID, uint32 senderCharID, const std::s
     if (!botLine.empty() && !message.empty()) {
         DBerror lerr;
         sDatabase.RunQuery(lerr,
-            "INSERT INTO botChatLearned (charID, trigger, reply, uses, lastUse)"
+            "INSERT INTO botChatLearned (charID, `trigger`, reply, uses, lastUse)"
             " VALUES (%u, '%s', '%s', 1, NOW())"
             " ON DUPLICATE KEY UPDATE uses = uses + 1, lastUse = NOW()",
             botCharID, lineEsc.c_str(), replyEsc.c_str());
