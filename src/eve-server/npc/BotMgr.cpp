@@ -1840,10 +1840,12 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         }
         if (!learnedReply.empty()) {
             // Reuse the learned reply (mark it used).
+            std::string replyEsc;
+            sDatabase.DoEscapeString(replyEsc, learnedReply);
             DBerror uerr;
             sDatabase.RunQuery(uerr,
                 "UPDATE botChatLearned SET uses = uses + 1, lastUse = NOW()"
-                " WHERE reply = '%s' AND charID = %u", learnedReply.c_str(), responder->GetBotCharID());
+                " WHERE reply = '%s' AND charID = %u", replyEsc.c_str(), responder->GetBotCharID());
             LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
             if (lsc != nullptr) {
                 LSCChannel* chan = lsc->GetChannelByID(channelID);
