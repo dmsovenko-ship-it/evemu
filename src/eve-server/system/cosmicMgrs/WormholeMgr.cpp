@@ -133,6 +133,8 @@ void WormholeMgr::OnJump(uint32 whItemID, int64 shipMass) {
     if (!wh.get())
         return;
 
+    // shipMass arrives normalized to Mg (tons) by Client::ExecuteWormholeJump,
+    // matching the wormhole mass attributes (also Mg). Keep it consistent.
     int64 remaining = wh->GetAttribute(AttrWormholeMaxStableMass).get_int();
     int64 maxMass = wh->GetDefaultAttribute(AttrWormholeMaxStableMass).get_int();
     if (maxMass <= 0)

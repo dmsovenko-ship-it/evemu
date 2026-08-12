@@ -1918,8 +1918,9 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
         return;
     }
 
-    // Mass validation — check ship fits through and wormhole has mass remaining
-    int64 shipMass = pShipSE->GetSelf()->GetAttribute(AttrMass).get_int();
+    // Mass validation — check ship fits through and wormhole has mass remaining.
+    // Ship AttrMass is in kg; wormhole limits are in Mg (tons). Normalize to tons.
+    int64 shipMass = pShipSE->GetSelf()->GetAttribute(AttrMass).get_int() / 1000;
     int64 maxJumpMass = wormhole->GetAttribute(AttrWormholeMaxJumpMass).get_int();
     int64 remainingMass = wormhole->GetAttribute(AttrWormholeMaxStableMass).get_int();
 
@@ -2059,7 +2060,8 @@ void Client::ExecuteWormholeJump() {
     if (m_jumpWormholeID != 0) {
         InventoryItemRef entWH = sItemFactory.GetItemRefFromID(m_jumpWormholeID);
         if (entWH.get() != nullptr) {
-            int64 shipMass = pShipSE->GetSelf()->GetAttribute(AttrMass).get_int();
+            // AttrMass is kg; wormhole stable-mass is Mg (tons) — normalize.
+            int64 shipMass = pShipSE->GetSelf()->GetAttribute(AttrMass).get_int() / 1000;
 
             // Deduct from entrance WH
             int64 remaining = entWH->GetAttribute(AttrWormholeMaxStableMass).get_int();

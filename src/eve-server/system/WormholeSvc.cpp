@@ -83,7 +83,11 @@ PyResult WormHoleSvc::WormholeJump(PyCallArgs& call, PyInt* itemID) {
     //Check for jump fuel and make sure there is enough fuel available
     ShipItemRef ship = call.client->GetShip();
 
-    if (ship->GetAttribute(AttrMass) > wormhole->GetAttribute(AttrWormholeMaxJumpMass).get_int()) {
+    // Ship AttrMass is in kg; wormhole mass limits are in Mg (tons, 1000 kg).
+    // Compare in the same unit, or every frigate (1.1M kg = 1155 t) would be
+    // rejected by a C1 wormhole (maxJumpMass 62000 t).
+    int64 shipMassT = ship->GetAttribute(AttrMass).get_int() / 1000;
+    if (shipMassT > wormhole->GetAttribute(AttrWormholeMaxJumpMass).get_int()) {
         call.client->SendNotifyMsg("Your ship is too large to fit through the wormhole.");
         return PyStatic.NewNone();
     }
