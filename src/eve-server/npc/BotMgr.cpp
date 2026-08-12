@@ -528,36 +528,44 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             if (tdata.id == hullType)
                 raceID = tdata.race;
         }
-        bool isMissileBoat = (raceID == 1)   // Caldari hulls are missile boats
-            && (grp == EVEDB::invGroups::Cruiser || grp == EVEDB::invGroups::Battleship
-                || grp == EVEDB::invGroups::Battlecruiser);
-        if (isMissileBoat) {
-            // A real missile per hull class: light for cruisers, heavy for BC, cruise for BS.
-            uint16 missileType = 210;    // Scourge Light Missile
-            uint32 launcherType = 499;   // Light Missile Launcher I
-            if (grp == EVEDB::invGroups::Battleship) {
-                missileType = 203;       // Scourge Cruise Missile
-                launcherType = 13320;    // Cruise Missile Launcher I
-            } else if (grp == EVEDB::invGroups::Battlecruiser) {
-                missileType = 209;       // Scourge Heavy Missile
-                launcherType = 501;      // Heavy Missile Launcher I
-            }
-            if (!iRef->HasAttribute(AttrEntityMissileTypeID)) {
-                iRef->SetAttribute(AttrEntityMissileTypeID, missileType, false);
-                iRef->SetAttribute(AttrMissileLaunchDuration, 5000.0f, false);
-            }
+        // Miners carry a real Mining Laser I (483) so the client renders a mining
+        // beam on the hull (group 54 = Mining Laser is in turretModuleGroups) —
+        // same as a player miner's fit. Everyone else gets their race weapon.
+        if (prof == PlayerBot::BotProfession::Miner) {
             if (!iRef->HasAttribute(AttrGfxTurretID))
-                iRef->SetAttribute(AttrGfxTurretID, launcherType, false);
-        } else if (raceID != 0) {
-            // Turret boats: the right weapon module typeID per race. Note drone
-            // hulls (Vexor/Myrmidon/Dominix etc.) ALSO fit turrets — EVE ships
-            // carry both weapon systems. Drones are handled separately via the
-            // hull's AttrDroneCapacity in PlayerBot::GetDroneCapacity/SpawnDrones.
-            uint32 turretType = 450;     // default: Amarr Gatling Pulse Laser I
-            if (raceID == 8)      turretType = 561;    // Gallente 75mm Gatling Rail I (hybrid)
-            else if (raceID == 2) turretType = 484;    // Minmatar 125mm Gatling AutoCannon I
-            if (!iRef->HasAttribute(AttrGfxTurretID))
-                iRef->SetAttribute(AttrGfxTurretID, turretType, false);
+                iRef->SetAttribute(AttrGfxTurretID, 483, false);   // Miner I
+        } else {
+            bool isMissileBoat = (raceID == 1)   // Caldari hulls are missile boats
+                && (grp == EVEDB::invGroups::Cruiser || grp == EVEDB::invGroups::Battleship
+                    || grp == EVEDB::invGroups::Battlecruiser);
+            if (isMissileBoat) {
+                // A real missile per hull class: light for cruisers, heavy for BC, cruise for BS.
+                uint16 missileType = 210;    // Scourge Light Missile
+                uint32 launcherType = 499;   // Light Missile Launcher I
+                if (grp == EVEDB::invGroups::Battleship) {
+                    missileType = 203;       // Scourge Cruise Missile
+                    launcherType = 13320;    // Cruise Missile Launcher I
+                } else if (grp == EVEDB::invGroups::Battlecruiser) {
+                    missileType = 209;       // Scourge Heavy Missile
+                    launcherType = 501;      // Heavy Missile Launcher I
+                }
+                if (!iRef->HasAttribute(AttrEntityMissileTypeID)) {
+                    iRef->SetAttribute(AttrEntityMissileTypeID, missileType, false);
+                    iRef->SetAttribute(AttrMissileLaunchDuration, 5000.0f, false);
+                }
+                if (!iRef->HasAttribute(AttrGfxTurretID))
+                    iRef->SetAttribute(AttrGfxTurretID, launcherType, false);
+            } else if (raceID != 0) {
+                // Turret boats: the right weapon module typeID per race. Note drone
+                // hulls (Vexor/Myrmidon/Dominix etc.) ALSO fit turrets — EVE ships
+                // carry both weapon systems. Drones are handled separately via the
+                // hull's AttrDroneCapacity in PlayerBot::GetDroneCapacity/SpawnDrones.
+                uint32 turretType = 450;     // default: Amarr Gatling Pulse Laser I
+                if (raceID == 8)      turretType = 561;    // Gallente 75mm Gatling Rail I (hybrid)
+                else if (raceID == 2) turretType = 484;    // Minmatar 125mm Gatling AutoCannon I
+                if (!iRef->HasAttribute(AttrGfxTurretID))
+                    iRef->SetAttribute(AttrGfxTurretID, turretType, false);
+            }
         }
     }
 

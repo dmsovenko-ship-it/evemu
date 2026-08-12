@@ -149,11 +149,17 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
                    && m_role == BotRole::Fighter
                    && myClass <= 2 && MakeRandomInt(0, 99) < 25);
 
+    // Only combat professions fight back. A miner (Retriever), trader, courier,
+    // hacker or explorer has no real weapons — they just flee. Fitting them with a
+    // mining laser / cargo as their "gun" looks silly (a barge shooting a player).
+    bool isCombatProf = (m_profession == BotProfession::Hunter
+                         || m_profession == BotProfession::RatHunter);
+
     _log(BOT__TRACE, "PlayerBot %s(%u): attacked by %s — sysSec %.1f mayAttack %s, myPower %d vs theirPower %d%s.",
          m_botName.c_str(), m_botCharID, attacker->GetName(), sysSec, mayAttack?"yes":"no",
          myPower, theirPower, isBait ? " [BAIT]" : "");
 
-    if (mayAttack && (isBait || ShouldEngage(myPower, theirPower, true))) {
+    if (isCombatProf && mayAttack && (isBait || ShouldEngage(myPower, theirPower, true))) {
         // Legal and confident — fight back (NPCAI handles targeting/attack).
         m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
         ApplyCombatStyle();
