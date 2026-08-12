@@ -419,13 +419,16 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         Inv::TypeData tdata = Inv::TypeData();
         sDataMgr.GetType((uint16)hullType, tdata);
         // Only let bots fly REAL ships. Killmail legends contain pods (group 29),
-        // deployable structures (group 361 = Mobile Warp Disruptor, which the
-        // client renders as a bubble/mobile) and #System (typeID 0, name '#System')
-        // — all of which make a bot look broken in space. Any of those → fall back
-        // to a T1 cruiser/BC.
+        // shuttles (group 31 — no weapons, yet a legend pilot on one got a combat
+        // profile and "attacked the player in a shuttle"), deployable structures
+        // (group 361 = Mobile Warp Disruptor, which the client renders as a
+        // bubble/mobile) and #System (typeID 0, name '#System') — all of which
+        // make a bot look broken in space. Any of those → fall back to a T1
+        // cruiser/BC.
         bool valid = (hullType != 0) && (tdata.id == hullType)
                      && (tdata.groupID != 0)      // '#System' placeholder
                      && (tdata.groupID != 29)     // Capsule
+                     && (tdata.groupID != 31)     // Shuttle
                      && (tdata.groupID != 361);   // Mobile Warp Disruptor & co
         if (!valid) {
             static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
