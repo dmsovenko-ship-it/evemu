@@ -1740,6 +1740,19 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     bool senderIsBot = (sEntityList.FindClientByCharID(senderCharID) == nullptr)
                        && (senderCharID >= 90000000);
 
+    // Break bot<-bot echo: if the PREVIOUS line in this channel was also from a
+    // bot, don't reply — otherwise two bots (or a learned-phrase loop) bounce
+    // replies forever and overflow the stack (SIGSEGV in DBcore::RunQuery).
+    // A human message always starts a fresh reply chain.
+    if (senderIsBot) {
+        auto prev = m_lastBotSender.find(channelID);
+        if (prev != m_lastBotSender.end() && prev->second != 0)
+            return;   // the channel is mid bot-conversation — let it rest
+        m_lastBotSender[channelID] = senderCharID;
+    } else {
+        m_lastBotSender[channelID] = 0;   // a human line — bots may reply
+    }
+
     // Find a bot in that system (other than the sender — bots never message each
     // other's own ID here, but guard anyway). If the line ADDRESSES a specific
     // bot by name ("Name, ...", "@Name ...", "hey Name"), that bot replies; anyone
