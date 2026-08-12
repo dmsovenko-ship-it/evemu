@@ -3,6 +3,146 @@
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
 
+## 🔴 КРИТИЧНО ДЛЯ СЛЕДУЮЩЕЙ СЕССИИ: ПОТЕРЯННЫЙ БЛОК SLEEPERAI / W-SPACE (восстановить!)
+
+**Юзер подтвердил: был написан целый блок «Слиперы и червоточины», потом при глобальном сбое всё сломалось и был откат на пару дней. 104 коммита ушли из master ресетом `e512bc1b` (28 июля, «moving to origin/master»). Файлы SleeperAI/Sleeper.cpp в текущем master ОТСУТСТВУЮТ — но коммиты достижимы через reflog и МОГУТ быть восстановлены.**
+
+В текущем коде остались только следы: `Spawn::Group::Sleeper` (пустая заглушка в SpawnMgr.cpp, нигде не присваивается), `factionSleepers=500023` (EVE_Corp.h, hostile-статус в NPC.cpp:278), группы NPC 959-961,982-987 в БД (Deadspace Sleeper Sleepless/Awakened/Emergent Sentinel/Patroller/Defender), Sleeper Turret (группа 53), декор Sleeper Debris (306). Спавна слиперов в ВХ НЕТ.
+
+**Потерянные коммиты (все достижимы, предки `e512bc1b`/`64718231`):**
+- `6748ee96` feat: SleeperAI — remote armor/shield repair, energy neutralizer, advanced target switching (**SleeperAI.cpp 179 строк + SleeperAI.h 38 строк + CMakeLists + NPC.cpp**)
+- `01094494` fix: SleeperAI use m_npc->TargetMgr() instead of m_pDrone
+- `0be18f5d` fix: SleeperAI — public accessors, remove override
+- `85add6d4` fix: SleeperAI — add Client.h include
+- `c269bbe8` feat: Sleeper capital escalation — CheckCapitalEscalation spawns 6/8 Guardians when capital enters bubble
+- `a999b56b` feat: W-space dungeons — acceleration gates between rooms, third wave for C3+ sites
+- `3cabe90b` feat: Sleeper NPC system — typeIDs, W-space dungeons (C1-C6), salvage/relic loot drops (**sql/migrations/20260730000000-sleeper_system.sql 158 строк + NPC.cpp**)
+- `d37cca16` feat: W-space Sleeper anomaly spawning — auto-detect WH class, create Sleeper combat sites with factionSleepers
+- `19f5a188` feat: W-space — guaranteed wormhole per system (1 WH minimum for classes 1-6)
+- `ad5c081e` feat: K-space wormholes — 5% chance for anomaly to become WH in hi/lo/null-sec
+- `bf152208` feat: mapLocationWormholeClasses from SDE
+- миграции-фиксы: `f7439b2d`, `20d81927`, `273a5c24`, `130d2d20`, `2145ab10` (typeName/description, valueFloat, categoryID, salvage typeID 34010-34021→34100-34111, NULL-fix)
+
+**Восстановление**: `git cherry-pick` на master по одному (порядок ~ хронологический, сначала `bf152208`→`3cabe90b`→`6748ee96`→...), аккуратно разрешая конфликты с текущим кодом (за 2 недели код сильно ушёл вперёд: боты, декор, эффекты). Либо `git checkout e512bc1b~1 -- <файлы>` для точечных файлов. **Проверить, что `e512bc1b~1` (= `4074df35`) — голова до ресета, из неё всё достижимо.** После cherry-pick: проверить, что миграции не конфликтуют с текущими, БД-таблицы (invTypes/dgmTypeAttributes для слиперов) на месте.
+
+**ПОЛНЫЙ СПИСОК ПОТЕРЯННЫХ КОММИТОВ (104 шт, `git log --oneline e512bc1b~1 --not master`, достижимы через reflog):**
+```
+4074df35 fix: remove all PackagedAction/SubStream from QueueDestinyUpdate — DoPackage updates go through transformation (no SubStream); SetState is the only immediate path
+4995dd83 fix: auto-generated AddBalls2 format is (stamp, (AddBalls2, ((state, extra),))); inner[1] is already the complete chunk — no extra wrapping needed
+d2595ebd fix: transform BOTH nested and flat non-string formats — (stamp, (str, args)) and (stamp, str, args) → (str, ((args,),))
+5e445eb7 fix: transform (int, (str, args...)) → (str, (args,)) for apply() — wraps args in single-element tuple for correct dispatch
+894ad342 fix: restore Client.cpp from 7599cdcc — was corrupted by null char injection
+b93c1f63 revert: remove all AddBalls2 wrappers — unknown Encode() format causes SIGSEGV; keep only PyIncRef fix from 7599cdcc
+42d9b469 fix: addballs2.Encode() returns (stamp, (AddBalls2, state, extra)) — get state/extra from inner tuple
+7523a47e fix: all 4 AddBalls2 callers wrap as (AddBalls2, (state, extraBallData)); revert _SendQueuedUpdates to original (SubStream crash is pre-existing build-13 bug)
+0458e655 fix: all 4 AddBalls2 callers now wrap as (AddBalls2, (state, extraBallData)) — eliminates TypeError from flat-format tuples
+a37ecc67 fix: SystemManager AddBalls2 — wrap as (AddBalls2, (state, extraBallData)) for client RealFlushState
+2a143703 fix: filter SubStream items from queue before encoding — prevents Marshal recursion from any source
+bb400acd docs: sync AGENTS.md with session end state — SIGSEGV fixed, TypeError fixed, server stable under load
+884fcb41 fix: remove ALL PackagedAction/SubStream from QueueDestinyUpdate — only SetState immediate, all else through queue with transformation; eliminates Marshal recursion entirely
+5892dcf7 fix: ShipService AddBalls2 — use QueueDestinyUpdate with DoPackage=true instead of BubblecastDestiny (no funcName wrapping)
+0f0bd022 fix: transform non-string updates (stamp, (funcName, args...)) → (funcName, stamp, args...) for client RealFlushState
+4b2c241a fix: manual PackagedAction via Marshal+PyBuffer (no PySubStream) — wraps non-string updates as (PackagedAction, buffer); eliminates Marshal recursion
+cb9594b7 fix: disable all PackagedAction wrapping — SubStreams cause infinite Marshal recursion (MarshalStream does not track visited objects); client gets TypeError on non-string updates but server no longer crashes
+7599cdcc fix: re-add PyIncRef in deferred path (was reverted with build 13 rollback) — prevents use-after-free in FlushPendingDestinyUpdates
+780c08a0 fix: remove paList->AddItem(m_destinyUpdateQueue) — causes circular reference in MarshalStream (infinite recursion → SIGSEGV), existed in build 13
+08fb4559 revert: full code rollback to build 13 (9f822aa4) — keep SQL/doc changes
+07a97727 fix: disable DoPackage path (except SetState) — PackagedAction wrapping creates circular refs that crash MarshalStream; all updates go to queue directly
+9b378ca7 fix: re-apply circular reference fix (paList->AddItem(m_destinyUpdateQueue) was restored by Client.cpp revert; clone items instead)
+c455b258 fix: PyIncRef in QueueDestinyUpdate deferred path — prevents use-after-free when caller PyDecRef's after return; pre-existing build-13 bug
+3ce19cff fix: revert Client.cpp to pre-build-14 state — all QueueDestinyUpdate/Flush changes reverted, client was unplayable
+95544d5d revert: remove QueueDestinyUpdate validation — caused client hang (was too aggressive, skipped all binary updates)
+1d5fa3ad fix: validate QueueDestinyUpdate — skip updates with non-string first element (prevents RealFlushState crash)
+db681019 fix: clear destiny queues in SetBallPark — stale data from previous system/crash caused malformed DoDestinyUpdate
+f6a43af0 fix: circular reference in QueueDestinyUpdate — paList->AddItem(m_destinyUpdateQueue) created cycle, causing MarshalStream infinite recursion and SIGSEGV; clone items instead
+127e5f32 fix: new migration for remaining decorations — first cleanup used wrong threshold (>100M instead of >14M)
+6b3f2d96 fix: update cleanup SQL threshold to itemID > 14000000 (was 100M); add 10753 (SoftCloud) to cleanup list
+aaef9200 fix: filter null items from queue before sending DoDestinyUpdate; prevents IndexError on empty list
+bb8c0f03 fix: PyIncRef queues in _SendQueuedUpdates to prevent struct destructor from freeing shared queue pointers
+7aba25be fix: disable SpawnDecorations (causes client issues); cleanup SQL already exists
+067ae3f0 fix: skip empty DoDestinyUpdate — client crashes with IndexError: list index out of range on empty updates list
+3685f466 fix: clear m_pendingUpdates in Client destructor — stale pointers from disconnected session caused use-after-free in FlushPendingDestinyUpdates on reconnect
+cf1278ed fix: use-after-free in FlushPendingDestinyUpdates — DoDestinyAction destructor PyDecRef's update, causing double-free on next iteration
+a46ce6bd fix: SpawnDecorations call/definition mismatch after revert — header expects 4 args, call passed 2
+937bc9e5 docs: sync AGENTS.md with session end state
+64718231 revert: полный откат кода к состоянию до build 14 кроме SleeperAI/SQL
+e97fff61 fix: build error — act.update is PyRep*, use intermediate PyTuple* for SetItem
+7ac9f6ed fix: AnomalyMgr crash — RemoveSignal already erases from m_sigBySigID, don't double-erase
+c47f5af7 fix: replace PackagedAction+PySubStream with manual ('PackagedAction', PyBuffer) to avoid MarshalStream crash
+2ea51171 fix: AnomalyMgr — add signature expiry (5min test / 30min prod) so new types keep spawning
+585f4cfa fix: AnomalyMgr — add extra types on first cycle even if at max (so exploration sites get a chance to spawn)
+104c9103 fix: GetShipState/GetChargeState return empty dict instead of nullptr (client crashes on NoneType iteration)
+53c3b2bb fix: add Survey_Probe to Scan_Probe_Launcher compatibility (Expanded/Sisters launchers accept survey probes too)
+5d261ab1 fix: add Scan_Probe_Launcher and Interdiction_Sphere_Launcher to IsChargeCompatible (probes couldn't be loaded into launcher)
+529a3ae7 fix: AnomalyMgr re-populate typeList each cycle so new signatures keep spawning (not just on first load)
+af891d5c fix: warp exit — use distance-based (ship radius) instead of speed (30 m/s); fix MWD scramble — start warpScrambleTimer on online completion
+b7118100 fix: destiny update use-after-free — PyIncRef pending updates, nullify act.update/pa.substream after Encode to prevent destructor double-free
+e43152c9 revert: откат Client.cpp (QueueDestinyUpdate/FlushPendingDestinyUpdates/_SendQueuedUpdates), DroneAI, WarpStop к состоянию до build 14
+cba83f79 fix: warp exit jerk — use distance-based exit (≤radius) instead of speed (30 m/s), remove position snap in WarpStop
+2145ab10 fix: add SQL fix script for NULL typeName/description on existing sleeper types
+f7439b2d fix: sleeper migration — add typeName/description to all invTypes INSERTs (prevents nullptr crash in StaticDataMgr::Populate)
+1dcc4c72 fix: incursion waves — merge gate INSERT split by comment (syntax error)
+20d81927 fix: sleeper migration — dgmTypeAttributes uses valueFloat, not value
+273a5c24 fix: sleeper migration — remove categoryID from invTypes INSERT, fix salvage typeID collision (34010-34021→34100-34111)
+ecfcef74 docs: sync session info — Sleeper NPCs, WH, exploration, missions, incursion pockets, warp physics, mail, defender, MWD, crash fixes, tutorial
+42ff980d fix: add npc/NPC.h include to DungeonMgr.cpp (incomplete type)
+0ea80bb4 fix: mission destinations — store real coords on accept, return in GetMissionObjectives, create bookmarks, WarpToLocation uses stored coords
+60f3a8bd feat: mission dungeons — acceleration gates + reinforcement wave room (procedural)
+85add6d4 fix: SleeperAI — add Client.h include (incomplete type error)
+aa087d2b feat: incursion waves — 3 pockets per site with acceleration gates (VG/AS/HQ)
+ed14a557 fix: exploration site archetype mapping — dungeonType 2→27(Grav), 3-5→31(Radar/Data/Ladar)
+ad5c081e feat: K-space wormholes — 5% chance for anomaly to become WH in hi/lo/null-sec
+19f5a188 feat: W-space — guaranteed wormhole per system via AnomalyMgr (1 WH minimum for classes 1-6)
+d37cca16 feat: W-space Sleeper anomaly spawning — auto-detect WH class, create Sleeper combat sites with factionSleepers
+c269bbe8 feat: Sleeper capital escalation — CheckCapitalEscalation spawns 6/8 Guardians when capital enters bubble
+a999b56b feat: W-space dungeons — acceleration gates between rooms, third wave for C3+ sites
+0be18f5d fix: SleeperAI — use public accessors instead of private NPCAIMgr members, remove override
+130d2d20 fix: sleeper migration — merge published flag into main INSERT
+3cabe90b feat: Sleeper NPC system — typeIDs, W-space dungeons (C1-C6), salvage/relic loot drops
+0b79c418 fix: FlushPendingDestinyUpdates build error (PyStatic returns PyRep*, not PyTuple*)
+fbcd2202 fix: reduce WarpStop speed threshold to 30 m/s (more deceleration time = smoother exit)
+110b2a8a fix: add direct HasWarpBubble() check in WarpToStuff and WarpTo — blocks warp when in a disruption bubble regardless of AttrWarpScrambleStatus
+d8efe9c7 fix: FlushPendingDestinyUpdates — build tuple manually to avoid auto-generated encode destructor issues
+01094494 fix: SleeperAI use m_npc->TargetMgr() instead of m_pDrone (DroneAI member)
+6748ee96 feat: SleeperAI — remote armor/shield repair, energy neutralizer, advanced target switching
+9ef81719 fix: move strength decl before log line (was using uninitialized value — scramble strength always 0)
+93ca868c fix: add detailed logging to ScrambleProcess and WarpToStuff to debug why scramble is not blocking warp
+bf152208 feat: mapLocationWormholeClasses from SDE — enables WH class lookup for wormhole creation
+acc6caa5 feat: exploration sites — Gravimetric/Radar/Data/Ladar dungeons from SDE + procedural room generation
+88abf0fc fix: s/AttrIsOnline/AttrOnline
+94f36654 fix: DeployableSE — only SetImmediateOnline if AttrIsOnline is set; set AttrIsOnline on Online()
+53477c54 fix: LaunchDrone guard — skip items with zero quantity (stack split edge case)
+ee0130f4 fix: WarpStop — don't send CmdStop, let client's WarpLoop exit naturally; add migration for rewardTypeID fix
+ea50708a fix: revert WarpStop to snap STOP (GOTO overshoots 120km); fix incursion rewardTypeID=1 for ISK, 2 for LP
+3b9ce5b8 fix: WarpStop use-after-free — read warp_vector before SafeDelete(m_warpState)
+e9d02177 fix: drone/NPC flying-in-place — Stop() now zeros velocity; SetIdle calls Stop(); Stop early-return checks velocity
+a4b2edc7 fix: MWD scramble — call SetImmediateOnline when loading DeployableSE from DB (m_onlined was false, Process returned early before timer check)
+284ae870 fix: warp exit — coast to GOTO mode instead of snap STOP; speed-based exit threshold
+dde018cd fix: LaunchDrone double Move/ChangeSingleton — first move before checks loses drone when bandwidth fails
+7b4094f5 fix: incursion rewards ZeroDivisionError — LP entries use lpAmount as quantity, not rewardQuantity (which is 0)
+893c12d7 fix: systemic use-after-free in QueueDestinyUpdate — auto-generated struct destructors double-free raw PyRep pointers after Encode
+9f993654 fix: disable SpawnDecorations until DB cleanup is complete
+5620228b feat: difficulty-based decoration tiers — low/common ore, mid/uncommon+gas, high/rare+ice, faction flavour
+87bbb86d feat: add asteroids (1230-1232) to decoration pool, 1-3 objects per room
+4ceb059d refactor: safe CelestialSE decorations — only 23/26468 typeIDs, 1-2 per room, RIGID mode, no persistence
+7321c9c1 fix: remove SaveItem from SpawnDecorations — decorations are ephemeral, should not persist to entity table
+c4a513cb fix: add container/wreck typeIDs (23,3293,3296,3298,3465,24445,26468) to cleanup migration — old decorations with incomplete destiny data cause client IndexError
+305d46b9 fix: remove items table DELETE from cleanup migration (table does not exist in this schema)
+ac263526 fix: cleanup migration for old decoration entities with invalid typeIDs (beacons, construction parts, etc.)
+14cee9fd fix: SpawnDecorations — remove all beacons/unverified typeIDs, use dungeon ownerID, reduce count to 2-5, reduce radius to 500-2500m
+4aadbf47 fix: QueueDestinyUpdate must PyIncRef before pushing to m_pendingUpdates (caller may PyDecRef after, causing use-after-free)
+```
+⚠️ **ВАЖНО про накат**: в этом списке МНОГО коммитов по destiny-очереди/AddBalls2/SubStream, часть из которых УЖЕ пере-реализована в текущем master по-другому (PyIncRef-фиксы, AddBalls2-форматы). Не слепой cherry-pick всех 104! Накатывать ПОШАГОВО, разбирая каждый: многие destiny-фиксы могут конфликтовать или быть уже неактуальными. САМОЕ ЦЕННОЕ: SleeperAI (6748ee96→01094494→0be18f5d→85add6d4), W-space/Sleeper система (bf152208→3cabe90b→d37cca16→a999b56b→c269bbe8), exploration sites (acc6caa5), incursion waves (aa087d2b, 1dcc4c72), mission dungeons (60f3a8bd, 0ea80bb4). Destiny/AddBalls2/decoration коммиты — сверять с текущим кодом перед накатом.
+
+## 12 августа (поздний вечер) — финальная сессия дня: ВХ-фиксы (краши + масса), пробы (Combat/Core), чат ботов
+**Коммиты запушены в master: `6b72819d` (ВХ краш), `2b540e88` (масса ВХ), `a83f8598` (краш проб), `08e2178e` (типы проб), `d109cf4b` (скобка), `c9030ea3`/`cce6e949` (чат ботов). Юзер пересобрал; финальная проверка на след. сессии.**
+
+- **Краш при входе в ВХ K162** (`6b72819d`): `Client::WormholeJump` брал `destWh = GetItemRefFromID(AttrWormholeTargetSystem2)` — у EXIT-ВХ этот атрибут = 0 → null → `destWh->position()` → ассерт `RefPtr<InventoryItem>::operator->` (SIGABRT). Фикс: для exit ВХ (`TargetSystem2==0`) лететь к исходному ВХ (`TargetSystem1` = его itemID, система = `locationID`); null-guards в `Client::WormholeJump`, `WormholeSvc::WormholeJump`, `CreateExit(unloaded)`.
+- **Краш при возврате пробок** (`a83f8598`): двойной erase из `m_probes` — `RemoveProbe()` звал `sEntityList.RemoveProbe(itemID)` (убивал узел активного итератора), потом `EntityList::Process` erases тот же итератор → SEGV. Убрал лишний `sEntityList.RemoveProbe` из `RemoveProbe()`.
+- **«В половину входов не пускает даже фрегат»** (`2b540e88`): ЕДИНИЦЫ. `AttrMass` корабля в **кг** (фрегат 1,155,000 кг), а `wormholeMaxJumpMass`/`wormholeMaxStableMass` в БД — в **тоннах (Mg=1000 кг)** (C1=62000 т, C3=375000 т, C5=2000000 т). Код сравнивал кг с тоннами → фрегат «слишком велик». Фикс: `/1000` в `WormholeSvc::WormholeJump`, `Client::WormholeJump` (валидация) и `ExecuteWormholeJump` (дедукт массы), `OnJump` — в тоннах. Проверено по лору: C1 (62M кг) пускает крейсер/БК, не линкор; C5 (2G кг) пускает дреды/носители (Moros 1.29M т, Nyx 1.62M т), титан (2.076M+ т) — нет (юзер согласился: «войти не значит выйти» — пусть остаётся возможность).
+- **Пробы: Combat vs Core** (`08e2178e`): офф-клиент (`scanner.py`) рендерит 5 групп (Anomalies/Signatures/Ships/Structures/DronesAndProbes), логика на сервере. Combat (`probeCanScanShips`=1, тип 30028) находит корабли/структуры/дроны в космосе (`GetAllEntities` → scanGroupID Ship/Structure/DroneOrProbe) + сигнатуры (базовые исследовательские функции); Core (30013) — только сигнатуры (Grav/Ladar/Radar/Mag/Wormhole); **аномалии убраны из результатов проб** (видны в сканере без проб, `ShipScanResult`).
+- **Чат ботов без зацикливания** (`c9030ea3`, `cce6e949`): fallback-ответ теперь требует lastUse ≥ 60с; история фраз на канал (`m_channelPhrases`, 10 шт/2 мин) блокирует повтор фразы любого бота; chain-breaker (4 бот-реплики подряд → стоп). SQL-escape апострофов в learned-reply UPDATE.
+
 ## 12 августа (поздний вечер) — большой блок: PvP-тактики, дроны, оружие, варп, экономика, портреты
 **Сборка последних коммитов на сервере**: юзер собрал; ошибок нет. Боты спавнятся РАЗНЫЕ (баг «один бот» исправлен). 375 ботов, 201+ портрет докачан. TODO на потом: в чате боты повторяют фразы — юзер просит запомнить, фиксить позже.
 
