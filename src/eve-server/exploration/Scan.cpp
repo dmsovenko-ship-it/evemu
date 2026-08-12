@@ -483,6 +483,7 @@ struct CosmicSignature {
                     case Dungeon::Type::Unrated:// non-rated dungeon  no waves, possible escalation to complex
                         break;
                 */
+                }
             } // this probe can scan this signal; fall thru to add probe to signal's map
             default: {
                 dist = cur.second->GetPosition().distance(data.sig.position);
