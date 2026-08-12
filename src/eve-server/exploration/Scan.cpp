@@ -299,53 +299,48 @@ void Scan::ProbeScanResult()
     _log(SCAN__TRACE, "Scan::ProbeScanResult()  for %s in system %u", m_client->GetName(), m_client->GetSystemID());
 
     PyList* resultList = new PyList();
-    std::vector<CosmicSignature> sig, anom;
+    std::vector<CosmicSignature> sig;
 
-    // are anomalies shown in probe scan results?  config option?
-    GetSystem()->GetAnomMgr()->GetAnomalyList(anom);
-    for (auto anoms : anom) {
-        SystemScanResult ssr;
-            ssr.typeID = anoms.sigTypeID;
-            ssr.scanGroupID = anoms.scanGroupID;
-            ssr.groupID = anoms.sigGroupID;
-            ssr.strengthAttributeID = anoms.scanAttributeID;
-            ssr.dungeonName = anoms.sigName;
-            ssr.id = anoms.sigID;
-            ssr.deviation = 0;     /* 0 for anomalies */
-            ssr.degraded = false;
-            ssr.probeID = new PyInt(m_client->GetShipID());
-            ssr.certainty = anoms.sigStrength;
-            ssr.pos = new PyToken("foo.Vector3"); //PyStatic.NewNone();
-            /*  this is ship position first, then anomaly position
-             *    [PyString "data"]
-             *    [PyObjectEx Type2]
-             *      [PyTuple 2 items]
-             *        [PyTuple 1 items]
-             *          [PyObjectEx Type2]
-             *            [PyTuple 2 items]
-             *              [PyTuple 1 items]
-             *                [PyToken foo.Vector3]
-             *              [PyTuple 3 items]
-             *                [PyFloat 924428329391.783]
-             *                [PyFloat 8194006649.63061]
-             *                [PyFloat 165918840569.438]
-             *        [PyTuple 3 items]
-             *          [PyFloat 1231197245226]
-             *          [PyFloat -146772910080]
-             *          [PyFloat 111531171840]
-             */
-        ScanResultPos ssr_oed;
-            ssr_oed.x = anoms.position.x;
-            ssr_oed.y = anoms.position.y;
-            ssr_oed.z = anoms.position.z;
-        PyToken* token = new PyToken("foo.Vector3");
-        PyTuple* oed_tuple = new PyTuple(2);
-            oed_tuple->SetItem(0, token);
-            oed_tuple->SetItem(1, ssr_oed.Encode());
-        ssr.data = new PyObjectEx(false, oed_tuple);  // oed goes here
-        resultList->AddItem(ssr.Encode());
+    // Ships, drones and structures in space are probe targets too — Combat probes
+    // (CanScanShips) find them; Core probes find exploration signatures below.
+    // GetAllEntities() builds CosmicSignature rows for dynamic entities (ships,
+    // drones, deployables, structures) with the right scanGroupID.
+    std::vector<CosmicSignature> entities;
+    GetSystem()->GetAllEntities(entities);
+    for (auto& entSig : entities) {
+        SignalData data = SignalData();
+            data.sig = entSig;
+            data.probes = nullptr;
+            data.probePos = nullptr;
+        if (GetProbeDataForSig(data)) {
+            SystemScanResult ssr;
+                ssr.id = entSig.sigID;
+                ssr.dungeonName = entSig.sigName;
+                ssr.typeID = entSig.sigTypeID;
+                ssr.groupID = entSig.sigGroupID;
+                ssr.scanGroupID = entSig.scanGroupID;
+                ssr.strengthAttributeID = entSig.scanAttributeID;
+                ssr.degraded = false;
+                ssr.deviation = data.deviation;
+                ssr.certainty = data.certainty;
+                ssr.probeID = data.probes;
+                ssr.pos = data.probePos;
+            ScanResultPos ssr_oed;
+                ssr_oed.x = entSig.position.x;
+                ssr_oed.y = entSig.position.y;
+                ssr_oed.z = entSig.position.z;
+            PyToken* token = new PyToken("foo.Vector3");
+            PyTuple* oed_tuple = new PyTuple(2);
+                oed_tuple->SetItem(0, token);
+                oed_tuple->SetItem(1, ssr_oed.Encode());
+            ssr.data = new PyObjectEx(false, oed_tuple);
+            resultList->AddItem(ssr.Encode());
+        }
     }
 
+    // Anomalies (combat sites) are NOT found by probes — they are visible in the
+    // scanner without scanning (ShipScanResult shows GetAnomalyList). Probes only
+    // reveal signatures (Gravimetric/Ladar/Radar/Magnetometric/Wormhole).
     GetSystem()->GetAnomMgr()->GetSignatureList(sig);
     for (auto sigs : sig) {
         SignalData data = SignalData();
@@ -488,6 +483,13 @@ struct CosmicSignature {
                     case Dungeon::Type::Unrated:// non-rated dungeon  no waves, possible escalation to complex
                         break;
                 */
+                }
+                // Signatures (Gravimetric/Ladar/Radar/Magnetometric/Wormhole) are
+                // found by CORE probes. Combat probes (CanScanShips) specialize in
+                // ships/structures/drones, not exploration sites — skip them here.
+                if (cur.second->CanScanShips()) {
+                    _log(SCAN__TRACE, "Scan::GetProbeDataForSig()  combat probe %u cannot scan signature %s", cur.first, data.sig.sigName.c_str());
+                    continue;
                 }
             } // this probe can scan this signal; fall thru to add probe to signal's map
             default: {
