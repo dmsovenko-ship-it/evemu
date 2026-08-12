@@ -61,6 +61,7 @@ SkillMgrBound::SkillMgrBound(EVEServiceManager &mgr, SkillMgrService& parent, Ch
     this->Add("GetSkillHistory", &SkillMgrBound::GetSkillHistory);
     this->Add("CharAddImplant", &SkillMgrBound::CharAddImplant);
     this->Add("RemoveImplantFromCharacter", &SkillMgrBound::RemoveImplantFromCharacter);
+    this->Add("CharUseBooster", &SkillMgrBound::CharUseBooster);
     this->Add("GetRespecInfo", &SkillMgrBound::GetRespecInfo);
     this->Add("RespecCharacter", &SkillMgrBound::RespecCharacter);
     this->Add("GetCharacterAttributeModifiers", &SkillMgrBound::GetCharacterAttributeModifiers);
@@ -332,6 +333,33 @@ PyResult SkillMgrBound::RemoveImplantFromCharacter(PyCallArgs& call, PyInt* item
     implant->Move(stationID, flagHangar, true);
 
     // Re-process character effects to remove implant bonuses
+    cRef->ProcessEffects(nullptr);
+
+    return PyStatic.NewNone();
+}
+
+PyResult SkillMgrBound::CharUseBooster(PyCallArgs& call, PyInt* itemID, PyInt* locationID)
+{
+    // Use a booster (group 748): consume it and apply its bonuses to the
+    // character (flagBooster). Mirrors CharAddImplant — the booster's skill
+    // modifiers are picked up by Character::ProcessEffects.
+    InventoryItemRef booster = sItemFactory.GetItemRef(itemID->value());
+    if (booster.get() == nullptr)
+        return nullptr;
+
+    uint16 groupID = booster->groupID();
+    // Booster group (748). Some boosters are in other groups; accept the common one.
+    bool isBooster = (groupID == 748);
+    if (!isBooster)
+        return nullptr;
+
+    CharacterRef cRef(call.client->GetChar());
+    uint32 charID = cRef->itemID();
+
+    // Move the booster from its current location (cargo/hangar) onto the character.
+    booster->Move(charID, flagBooster, true);
+
+    // Re-process character effects to apply booster bonuses.
     cRef->ProcessEffects(nullptr);
 
     return PyStatic.NewNone();
