@@ -1760,6 +1760,20 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     bool senderIsBot = (sEntityList.FindClientByCharID(senderCharID) == nullptr)
                        && (senderCharID >= 90000000);
 
+    // Loop breaker: a bot-to-bot conversation must not echo forever. Track how
+    // many consecutive lines were bots; once the chain is long enough, stop
+    // reacting until a real player speaks again (a player line resets the chain).
+    // Learned replies were so instant that bots ping-ponged the same phrases in
+    // an infinite loop before this guard.
+    uint32& chain = m_botChainDepth[channelID];
+    if (!senderIsBot) {
+        chain = 0;   // a real player's line starts a fresh exchange
+    } else {
+        if (chain >= 4)   // four bot lines in a row with no player input -> enough
+            return;
+        ++chain;
+    }
+
     // Find a bot in that system (other than the sender — bots never message each
     // other's own ID here, but guard anyway). If the line ADDRESSES a specific
     // bot by name ("Name, ...", "@Name ...", "hey Name"), that bot replies; anyone
