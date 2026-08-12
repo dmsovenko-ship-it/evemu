@@ -13,6 +13,7 @@ BotMemory::BotMemory(uint32 charID)
   chatLines(0), chatReplies(0),
   ratKills(0), mineRuns(0), tradeRuns(0), hackRuns(0),
   pvpMistakes(0),
+  profession(0xFF),
   m_dirty(false)
 {
 }
@@ -22,7 +23,7 @@ void BotMemory::Load()
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
         "SELECT wins, losses, kills, deaths, chatLines, chatReplies,"
-        "       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes"
+        "       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession"
         " FROM botMemory WHERE charID = %u", m_charID))
     {
         DBResultRow row;
@@ -37,8 +38,10 @@ void BotMemory::Load()
             mineRuns = row.GetUInt(7);
             tradeRuns = row.GetUInt(8);
             hackRuns = row.GetUInt(9);
-            if (row.ColumnCount() > 10)
+            if (row.ColumnCount() > 10) {
                 pvpMistakes = row.GetUInt(10);
+                profession = (uint8)row.GetUInt(11);
+            }
         }
     }
     m_dirty = false;
@@ -51,15 +54,16 @@ void BotMemory::Save() const
     DBerror err;
     if (!sDatabase.RunQuery(err,
         "INSERT INTO botMemory (charID, wins, losses, kills, deaths, chatLines, chatReplies,"
-        "                       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, lastUpdate)"
-        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, NOW())"
+        "                       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession, lastUpdate)"
+        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, NOW())"
         " ON DUPLICATE KEY UPDATE"
         "  wins = VALUES(wins), losses = VALUES(losses), kills = VALUES(kills),"
         "  deaths = VALUES(deaths), chatLines = VALUES(chatLines), chatReplies = VALUES(chatReplies),"
         "  ratKills = VALUES(ratKills), mineRuns = VALUES(mineRuns), tradeRuns = VALUES(tradeRuns),"
-        "  hackRuns = VALUES(hackRuns), pvpMistakes = VALUES(pvpMistakes), lastUpdate = NOW()",
+        "  hackRuns = VALUES(hackRuns), pvpMistakes = VALUES(pvpMistakes), profession = VALUES(profession),"
+        "  lastUpdate = NOW()",
         m_charID, wins, losses, kills, deaths, chatLines, chatReplies,
-        ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes))
+        ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession))
     {
         codelog(DATABASE__ERROR, "BotMemory::Save() failed for %u: %s", m_charID, err.c_str());
     }

@@ -292,27 +292,6 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     if (useName.empty())
         useName = "Pilot " + std::to_string(++m_botCounter);
 
-    // Decide the profession early so PvP war corps (hunters) are placed in an
-    // alliance corp (required for claiming nullsec sovereignty).
-    PlayerBot::BotProfession prof;
-    {
-        float p = MakeRandomFloat();
-        if (p < 0.10f)
-            prof = PlayerBot::BotProfession::Hunter;       // PvP pirates / war corps / guards
-        else if (p < 0.25f)
-            prof = PlayerBot::BotProfession::RatHunter;    // peaceful PvE (red crosses only)
-        else if (p < 0.50f)
-            prof = PlayerBot::BotProfession::Miner;        // miners (co-op with guards)
-        else if (p < 0.60f)
-            prof = PlayerBot::BotProfession::Trader;       // market / station traders
-        else if (p < 0.80f)
-            prof = PlayerBot::BotProfession::Courier;      // couriers: haul to/from hub
-        else if (p < 0.90f)
-            prof = PlayerBot::BotProfession::Hacker;       // data/relic sites
-        else
-            prof = PlayerBot::BotProfession::Explorer;     // probes / wormholes
-    }
-
     // Corp comes from the bot's STARTING SCHOOL — exactly like a real newbie who
     // picks a faction at character creation. CreateBotCharacter picks a bloodline
     // (race) then the school that race graduates from and returns the corp that
@@ -391,6 +370,45 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             "INSERT IGNORE INTO botPortraits (serverCharID, eveCharID) VALUES (%u, %u)",
             useCharID, killmailCharID);
         FetchPortraitAsync(useCharID, killmailCharID);
+    }
+
+    // Profession: keep the bot's saved job across respawns (a miner stays a miner —
+    // it's been learning it). Only brand-new pilots roll a fresh one.
+    PlayerBot::BotProfession prof = PlayerBot::BotProfession::Miner;
+    {
+        DBQueryResult pres;
+        if (sDatabase.RunQuery(pres,
+            "SELECT profession FROM botMemory WHERE charID = %u AND profession != 255",
+            useCharID))
+        {
+            DBResultRow prow;
+            if (pres.GetRow(prow)) {
+                prof = (PlayerBot::BotProfession)prow.GetUInt(0);
+            } else {
+                // New pilot — roll a profession and persist it for future respawns.
+                float p = MakeRandomFloat();
+                if (p < 0.10f)
+                    prof = PlayerBot::BotProfession::Hunter;       // PvP pirates / war corps / guards
+                else if (p < 0.25f)
+                    prof = PlayerBot::BotProfession::RatHunter;    // peaceful PvE (red crosses only)
+                else if (p < 0.50f)
+                    prof = PlayerBot::BotProfession::Miner;        // miners (co-op with guards)
+                else if (p < 0.60f)
+                    prof = PlayerBot::BotProfession::Trader;       // market / station traders
+                else if (p < 0.80f)
+                    prof = PlayerBot::BotProfession::Courier;      // couriers: haul to/from hub
+                else if (p < 0.90f)
+                    prof = PlayerBot::BotProfession::Hacker;       // data/relic sites
+                else
+                    prof = PlayerBot::BotProfession::Explorer;     // probes / wormholes
+                DBerror perr;
+                sDatabase.RunQuery(perr,
+                    "INSERT INTO botMemory (charID, profession, lastUpdate)"
+                    " VALUES (%u, %u, NOW())"
+                    " ON DUPLICATE KEY UPDATE profession = VALUES(profession), lastUpdate = NOW()",
+                    useCharID, (uint8)prof);
+            }
+        }
     }
 
     // Ship hull from the killmail legend (real EVE hull) or a generic cruiser/BC.

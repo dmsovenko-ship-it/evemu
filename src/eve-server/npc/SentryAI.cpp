@@ -13,6 +13,7 @@
 #include "inventory/AttributeEnum.h"
 #include "npc/Sentry.h"
 #include "npc/SentryAI.h"
+#include "npc/PlayerBot.h"
 #include "standing/StandingDB.h"
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
@@ -122,14 +123,23 @@ void SentryAI::Process() {
                         }
                     }
                 }
-                // In highsec, sentries also attack NPCs that aggress any ship
+                // In highsec, sentries also attack NPCs that aggress any ship.
+                // Only bots that are actually flagged as aggressive (attacking
+                // someone) — NOT every NPC that happens to have a target (that
+                // would make sentries shoot peaceful ratters/miners too).
                 if (m_npc->SystemMgr()->GetSystemSecurityRating() >= 0.5f) {
                     std::map<uint32, SystemEntity*> bubbleEnts;
                     m_npc->SysBubble()->GetEntities(bubbleEnts);
                     for (auto& ent : bubbleEnts) {
                         if (ent.second == nullptr || !ent.second->IsNPCSE()) continue;
-                        if (ent.second->TargetMgr() == nullptr || ent.second->TargetMgr()->HasNoTargets()) continue;
-                        if (ent.second->SysBubble() == nullptr) continue;
+                        PlayerBot* bot = dynamic_cast<PlayerBot*>(ent.second->GetNPCSE());
+                        if (bot == nullptr)
+                            continue;   // real rats/npcs aren't empire criminals
+                        if (!bot->IsAggressed())
+                            continue;   // not actively attacking anyone
+                        if (ent.second->DestinyMgr() == nullptr || ent.second->DestinyMgr()->IsCloaked()
+                            || ent.second->DestinyMgr()->IsWarping())
+                            continue;
                         if (m_npc->GetPosition().distance(ent.second->GetPosition()) > m_sightRange)
                             continue;
                         Target(ent.second);

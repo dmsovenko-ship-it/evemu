@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS `botMemory` (
     `tradeRuns` INT UNSIGNED NOT NULL DEFAULT 0,   -- trade/courier runs completed
     `hackRuns` INT UNSIGNED NOT NULL DEFAULT 0,    -- data/relic hacks completed
     `pvpMistakes` INT UNSIGNED NOT NULL DEFAULT 0, -- PvP fights misjudged (attacked & lost / fled a winnable one)
+    `profession` TINYINT UNSIGNED NOT NULL DEFAULT 255, -- PlayerBot::BotProfession (255 = not assigned); persists the bot's job across respawns
     `lastUpdate` DATETIME NOT NULL,
     PRIMARY KEY (`charID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

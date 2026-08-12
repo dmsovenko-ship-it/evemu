@@ -135,6 +135,13 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
     theirPower += CountEnemiesNearby(attacker) * 3;   // friends of the attacker add to its strength
     myPower += CountAlliesNearby() * 2;               // my fleet helps me
 
+    // A real player is more dangerous than an AI pilot of the same hull — bots
+    // defend cautiously against players but brawl more readily with each other.
+    if (attacker->HasPilot())
+        theirPower += 2;   // cautious vs players
+    else if (attacker->GetNPCSE() != nullptr)
+        theirPower -= 1;   // bolder vs bots
+
     // "Bait": a hunter in a weak-looking hull deliberately lets the enemy commit
     // (they think it's an easy kill), then the fleet warps in. The bait holds the
     // attacker with a scram and calls support instead of fleeing.
@@ -894,7 +901,7 @@ void PlayerBot::DoProfessionActivity()
         } break;
 
         case BotProfession::Miner: {
-            // Peaceful miner: warp to a belt asteroid and sit mining. In a fleet
+            // Peaceful miner: fly/warp to a belt asteroid and sit mining. In a fleet
             // (same corp) miners cooperate at one belt; guard fighters protect them.
             BeltMgr* beltMgr = SystemMgr()->GetBeltMgr();
             if (beltMgr != nullptr) {
@@ -1133,6 +1140,9 @@ void PlayerBot::HuntForTarget()
         int theirPower = enemyClass * 2 + (int)enemyBot->GetBotSkillLevel();
         theirPower += CountEnemiesNearby(enemyBot) * 3;   // friends add to their strength
         myPower += CountAlliesNearby() * 2;               // my fleet helps me
+        // Bots are bolder against each other than against players — an AI pilot is
+        // a more predictable opponent, so the hunter commits a little easier.
+        theirPower -= 2;
 
         if (ShouldEngage(myPower, theirPower, false)) {
             _log(BOT__TRACE, "PlayerBot %s(%u): hunter engaging %s(%u) — %d vs %d.",

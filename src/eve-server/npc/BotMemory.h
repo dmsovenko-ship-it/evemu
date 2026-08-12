@@ -25,6 +25,11 @@ public:
     void Load();                 // read from DB (or init defaults)
     void Save() const;           // write back to DB
 
+    /* persistent profession (survives respawns so the bot keeps its job) */
+    void SetProfession(uint8 p)  { profession = p; RecordChange(); }
+    uint8 GetProfession() const  { return profession; }
+    bool HasProfession() const   { return profession != 0xFF; }
+
     /* combat learning */
     void RecordWin()   { ++wins;   RecordChange(); }
     void RecordLoss()  { ++losses; RecordChange(); }
@@ -74,6 +79,7 @@ private:
     uint32 chatLines, chatReplies;
     uint32 ratKills, mineRuns, tradeRuns, hackRuns;
     uint32 pvpMistakes;
+    uint8  profession;   // PlayerBot::BotProfession; 0xFF = not assigned yet
     bool m_dirty;
 };
 
