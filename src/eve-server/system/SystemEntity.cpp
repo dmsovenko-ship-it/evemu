@@ -494,12 +494,13 @@ void ItemSystemEntity::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        // IsInteractive (like wrecks/containers): a RIGID ball with no flags isn't
-        // created by the client's Ballpark (decor/clouds were invisible). But
-        // IsMassive = solid — the client would collide the ship with every decor
-        // object and visibly jerk it around when warping out / flying past.
-        // IsInteractive makes the ball exist and be targetable without collisions.
-        head.flags = Ball::Flag::IsInteractive;
+        // IsGlobal (like gates/stations, StaticSystemEntity): a RIGID ball with no
+        // flags isn't created by the client's Ballpark (decor/clouds were invisible),
+        // IsMassive = solid (client collides the ship with every decor object and
+        // jerks it around), and IsInteractive wasn't delivered reliably when the
+        // player warped into an already-spawned anomaly (SendAddBalls path). IsGlobal
+        // makes the ball exist, render, and be reachable without being collidable.
+        head.flags = Ball::Flag::IsGlobal;
     into.Append( head );
     RIGID_Struct main;
         main.formationID = 0xFF;
