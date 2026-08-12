@@ -437,28 +437,55 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
-    // Ship hull from the killmail legend (real EVE hull) or a generic cruiser/BC.
-    // Killmail hull types are from modern EVE — some don't exist in the server's
-    // (Crucible-era) invTypes. Validate; fall back to a T1 cruiser/BC if invalid.
+    // Ship hull. For PEACEFUL professions the hull is always profession-fit: a
+    // miner works the belt on a barge/mining frigate, a trader/courier hauls in a
+    // freighter, a hacker probes in a scan frigate. A real pilot swaps ships at a
+    // station (dock -> undock -> new hull), which the bot does on every undock.
+    // Hunters/RatHunters fly a real killmail legend hull (or a combat cruiser/BC
+    // if the legend ship doesn't exist in Crucible-era data).
     uint32 hullType = useShipType;
     {
-        Inv::TypeData tdata = Inv::TypeData();
-        sDataMgr.GetType((uint16)hullType, tdata);
-        // Only let bots fly REAL ships. Killmail legends contain pods (group 29),
-        // shuttles (group 31 — no weapons, yet a legend pilot on one got a combat
-        // profile and "attacked the player in a shuttle"), deployable structures
-        // (group 361 = Mobile Warp Disruptor, which the client renders as a
-        // bubble/mobile) and #System (typeID 0, name '#System') — all of which
-        // make a bot look broken in space. Any of those → fall back to a T1
-        // cruiser/BC.
-        bool valid = (hullType != 0) && (tdata.id == hullType)
-                     && (tdata.groupID != 0)      // '#System' placeholder
-                     && (tdata.groupID != 29)     // Capsule
-                     && (tdata.groupID != 31)     // Shuttle
-                     && (tdata.groupID != 361);   // Mobile Warp Disruptor & co
-        if (!valid) {
-            static const uint32 hullTypes[] = { 621, 633, 626, 613, 609, 597, 606, 601 };   // assorted T1 cruisers/BC
-            hullType = hullTypes[MakeRandomInt(0, 7)];
+        static const uint32 minerHulls[]  = { 17476, 17478, 17480, 582, 592, 599 };   // Covetor/Retriever/Procurer + mining frigates
+        static const uint32 haulerHulls[] = { 648, 650, 651, 653, 1944 };             // Badger/Iteron/Hoarder/Wreathe/Bestower
+        static const uint32 scanHulls[]   = { 605, 607, 586, 590 };                   // Heron/Imicus/Probe/Inquisitor
+        static const uint32 combatHulls[] = { 621, 633, 626, 613, 609, 597, 606, 601 }; // assorted T1 cruisers/BC
+
+        const uint32* pick = nullptr;
+        uint32 pickCount = 0;
+        bool forceProfessionHull = false;
+        switch (prof) {
+            case PlayerBot::BotProfession::Miner:
+                pick = minerHulls; pickCount = sizeof(minerHulls)/sizeof(minerHulls[0]); forceProfessionHull = true;
+                break;
+            case PlayerBot::BotProfession::Trader:
+            case PlayerBot::BotProfession::Courier:
+                pick = haulerHulls; pickCount = sizeof(haulerHulls)/sizeof(haulerHulls[0]); forceProfessionHull = true;
+                break;
+            case PlayerBot::BotProfession::Hacker:
+            case PlayerBot::BotProfession::Explorer:
+                pick = scanHulls; pickCount = sizeof(scanHulls)/sizeof(scanHulls[0]); forceProfessionHull = true;
+                break;
+            default:   // Hunter / RatHunter — combat
+                pick = combatHulls; pickCount = sizeof(combatHulls)/sizeof(combatHulls[0]);
+                break;
+        }
+
+        if (forceProfessionHull) {
+            hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
+        } else {
+            // Combat hull from the killmail legend (real EVE hull). Killmail hull
+            // types are from modern EVE — some don't exist in the server's
+            // (Crucible-era) invTypes, or are pods/shuttles/deployables/#System.
+            // Validate; fall back to a combat cruiser/BC if invalid.
+            Inv::TypeData tdata = Inv::TypeData();
+            sDataMgr.GetType((uint16)hullType, tdata);
+            bool valid = (hullType != 0) && (tdata.id == hullType)
+                         && (tdata.groupID != 0)      // '#System' placeholder
+                         && (tdata.groupID != 29)     // Capsule
+                         && (tdata.groupID != 31)     // Shuttle
+                         && (tdata.groupID != 361);   // Mobile Warp Disruptor & co
+            if (!valid)
+                hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
         }
     }
 
