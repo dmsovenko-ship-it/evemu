@@ -3,6 +3,25 @@
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
 
+## 13 августа (вечер): W-space сайты + СЛОМАННЫЙ ТРЮМ ИСПРАВЛЕН (кастомные typeID 34100+ = KeyError в клиенте)
+**Коммиты: `507b12bd` (реальные typeID лута), `f178afc0`+`5e113ecd` (полный набор W-space сайтов). Сервер пересобран.**
+- **КОРЕНЬ «лут не виден + трюм ломается»**: кастомные typeID 34100-34111 НЕ существуют в клиентском SDE (Crucible). `cfg.invtypes.Get(34100)` → `KeyError('RecordNotFound')` в `uix.GetItemData/GetItemName/GetCategoryGroupTypeStringForItem` → uthread рендера окна врека/трюма умирает → пустые вреки + сломанный трюм. Сервер присылает строки корректно (фильтр длины invCache.py:993 не отсекает), проблема чисто клиентская.
+- **Фикс (`507b12bd`)**: используются РЕАЛЬНЫЕ typeID из клиента (в БД уже были):
+  - Propulsion Relics (971): Intact 30187 / Malf 30558 / Wrecked 30562
+  - Electronics (990): 30599/30600/30605; Offensive (991): 30628/30632/30633
+  - Engineering (992): 30582/30586/30588; Defensive (993): 30614/30615/30618
+  - Hull (997): 30752/30753/30754; Sleeper Components (880): 30744-30747
+  - Тир по классу Sleeper: Sleepless=Intact, Awakened=Malf, Emergent=Wrecked. Кастомные 34100+ удалены из БД и миграции.
+- **W-space сайты по вики EVE University** (`f178afc0`, миграции `20260813000002`+`20260813000003`):
+  - Боевые (Anomaly): 24 данжа 4001-4024, 4 варианта/класс — Perimeter (C1-2), Frontier (C3-4), Core (C5-6); accel-гейты + третий рум C3+.
+  - Data (Magnetometric): 4301-4312 «Unsecured Perimeter/Frontier/Core *» — контейнеры 23 + Sleeper-стражи.
+  - Relic (Radar): 4401-4412 «Forgotten Perimeter/Frontier/Core *» — контейнеры + стражи.
+  - Оре (Gravimetric): процедурно — сигнатурный item + `SpawnMineableAsteroids` (SpawnMineableAsteroids сделан public).
+  - Газ (Ladar): процедурно — сигнатурный item + реальные газовые облака grp 711 (Cytoserocin/Fullerite).
+- **ВАЖНО про миграции**: при ручном применении выполнять ТОЛЬКО Up-часть (до `-- +migrate Down`) — иначе INSERT+DELETE=0. Узнать номер строки Down: `grep -n "migrate Down" file`. Применять `head -N file | mariadb`.
+- **ВАЖНО про кастомные typeID**: любые новые типы, которых нет в клиентском `cfg.invtypes`, ломают интерфейс. Только реальные SDE-типы (уже в БД: 30187-30754, 25268+, 30370+).
+- Трюм юзера очищен от фейковых предметов (140111724/140111723).
+
 ## 13 августа (день): ВХ-связки работают, найден и исправлен «мусор ВХ» в БД
 **Коммиты: `93938f60` (Collapse чистит sysSignatures), `862fdfba` (LoadAnomalies удаляет осиротевшие сигнатуры), `51f15f5f` (лимит ВХ: k-space ≤1, w-space ≤2), `1847064f` (build fix DBerror). Юзер подтвердил: вход/выход через 4 разных ВХ (нули, лоу, 2×w-space) работает без проблем.**
 - **Юзер проверил 4 ВХ**: в нули, лоу и 2 в w-space — вход, выход через дырки, всё ок. Связка (входной ВХ ↔ K162) стабильна.
