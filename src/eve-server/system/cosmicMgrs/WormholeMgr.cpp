@@ -427,7 +427,7 @@ void WormholeMgr::CreateExit(SystemManager* pFromSys, uint32 exitSystemID, uint3
     iRef = sItemFactory.SpawnWormhole(wData);
     if (iRef.get() == nullptr)
         return;
-    iRef->SetAttribute(AttrWormholeTargetSystem1, pFromSys->GetID());
+    iRef->SetAttribute(AttrWormholeTargetSystem1, sourceItemID);
 
     // Set exit wormhole's attributes so it can find its' entrance
     iRef->SetAttribute(AttrWormholeTargetSystem2, sourceItemID);
