@@ -3,6 +3,20 @@
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
 
+## 13 августа (день): ВХ-связки работают, найден и исправлен «мусор ВХ» в БД
+**Коммиты: `93938f60` (Collapse чистит sysSignatures), `862fdfba` (LoadAnomalies удаляет осиротевшие сигнатуры), `51f15f5f` (лимит ВХ: k-space ≤1, w-space ≤2), `1847064f` (build fix DBerror). Юзер подтвердил: вход/выход через 4 разных ВХ (нули, лоу, 2×w-space) работает без проблем.**
+- **Юзер проверил 4 ВХ**: в нули, лоу и 2 в w-space — вход, выход через дырки, всё ок. Связка (входной ВХ ↔ K162) стабильна.
+- **Накопление «мусорных» ВХ** (проверено по БД): 491-509 сигнатур в `sysSignatures` (dungeonType=6), из них 141 в Uemon (30000197), 125 — сироты без живой пары. Причина: каждый вход юзера в ВХ создавал K162 + `SaveAnomaly` INSERT в `sysSignatures`, а `Collapse` НЕ удалял строку → `LoadAnomalies` грузила все навсегда → «много ВХ при сканировании».
+- **Фиксы**:
+  1. `93938f60`: `WormholeMgr::Collapse` удаляет сигнатуры обоих ВХ (entrance + exit) из `sysSignatures` через `sDatabase.RunQuery`.
+  2. `862fdfba`: `AnomalyMgr::LoadAnomalies` пропускает и удаляет осиротевшие ВХ-сигнатуры (entity отсутствует) через `ManagerDB::RemoveAnomaly`.
+  3. `51f15f5f`: `WormholeMgr::Create` кап ВХ на систему (k-space ≤1, w-space ≤2); K162 exit (`exitSystemID!=0`) не лимитируется (паруется с входным).
+  4. `1847064f`: build fix — `RunQuery(DBerror&, ...)` не принимает rvalue `DBerror()`, нужна локальная переменная.
+- **ВАЖНО про пересборку**: `docker-compose build server` кэширует слои — если git pull сделан после сборки, фиксы НЕ попадут в бинарь (бинарь собран 13:05, исходники обновлены 14:52-16:01). Лечится `docker-compose build --no-cache server`. Проверка: `strings /app/bin/eve-server | grep -c RemoveAnomaly` (должно быть >0).
+- **ДИСК ПОЛНЫЙ (0 байт)**: лечится `docker image prune -af` + `docker container prune -f` (освободил 46GB). ⚠️ `container prune` удаляет остановленные контейнеры, включая `db` — данные в volume `evemu_db` не теряются, контейнер пересоздаётся: `docker run -d --name db --network evemu_default -v evemu_db:/var/lib/mysql -e MARIADB_RANDOM_ROOT_PASSWORD=true -e MARIADB_USER=evemu -e MARIADB_PASSWORD=evemu -e MARIADB_DATABASE=evemu mariadb:11.8 --innodb-buffer-pool-size=1G --innodb-log-file-size=256M --innodb-flush-log-at-trx-commit=2 --max-allowed-packet=64M --bulk-insert-buffer-size=64M`.
+- **Текущее состояние БД**: 509 сигнатур ВХ, чистка произойдёт при заходе игрока в систему (LoadAnomalies на новом бинаре удалит сироты автоматически).
+- Проверка связи: C391(140105413)↔K162(140105414) J151817↔Onsooh — рабочая пара.
+
 ## 13 августа (ночь): ВХ-прыжки работают, найден краш в w-space из-за ботов-майнеров
 **Коммиты запушены: `08685d26` (guard maxJumpMass + CreateExit всегда при destItemID==0), `698e1f96` (краш GetRandBeltID в w-space). Юзер пересобрал; вход в ВХ и возврат через K162 работают.**
 - **Вход в ВХ из J151817 → Onsooh (30000013) сработал**: `WormholeSvc mass check: ship=1270.0t maxJump=2000000t` → юзер перенесён, корабль (Buzzard 140102525) сохранён в 30000013, связка C391(140105413)↔K162(140105414) цела. Краш при этом входе — см. ниже.
