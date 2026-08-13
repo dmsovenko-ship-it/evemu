@@ -5,18 +5,18 @@
 -- 1. Sleeper salvage/relic types (34100-34111) — created new (not in SDE DB)
 -- =========================================================================
 INSERT IGNORE INTO `invTypes` (`typeID`, `groupID`, `typeName`, `description`, `graphicID`, `radius`, `mass`, `volume`, `capacity`, `raceID`, `published`) VALUES
-(34100, 754, 'Sleepless Salvage', 'Salvage from a Sleepless sleeper vessel.', 16310, 1, 0, 10, 0, 0, 1),
-(34101, 754, 'Awakened Salvage', 'Salvage from an Awakened sleeper vessel.', 16311, 1, 0, 10, 0, 0, 1),
-(34102, 754, 'Emergent Salvage', 'Salvage from an Emergent sleeper vessel.', 16312, 1, 0, 10, 0, 0, 1),
-(34103, 880, 'Ancient Armor Plate', 'Sleeper component used in Tech 3 construction.', 16318, 1, 0, 5, 0, 0, 1),
-(34104, 880, 'Ancient Core Circuit', 'Sleeper component used in Tech 3 construction.', 16319, 1, 0, 5, 0, 0, 1),
-(34105, 880, 'Ancient Artillery Shell', 'Sleeper component used in Tech 3 construction.', 16320, 1, 0, 5, 0, 0, 1),
-(34106, 971, 'Propulsion Relic', 'Sleeper propulsion relic.', 16321, 1, 0, 1, 0, 0, 1),
-(34107, 990, 'Electronics Relic', 'Sleeper electronics relic.', 16322, 1, 0, 1, 0, 0, 1),
-(34108, 991, 'Offensive Relic', 'Sleeper offensive relic.', 16323, 1, 0, 1, 0, 0, 1),
-(34109, 992, 'Engineering Relic', 'Sleeper engineering relic.', 16324, 1, 0, 1, 0, 0, 1),
-(34110, 993, 'Defensive Relic', 'Sleeper defensive relic.', 16325, 1, 0, 1, 0, 0, 1),
-(34111, 997, 'Hull Relic', 'Sleeper hull relic.', 16326, 1, 0, 1, 0, 0, 1);
+(34100, 754, 'Sleepless Salvage', 'Salvage from a Sleepless sleeper vessel.', 0, 1, 0, 10, 0, 0, 1),
+(34101, 754, 'Awakened Salvage', 'Salvage from an Awakened sleeper vessel.', 0, 1, 0, 10, 0, 0, 1),
+(34102, 754, 'Emergent Salvage', 'Salvage from an Emergent sleeper vessel.', 0, 1, 0, 10, 0, 0, 1),
+(34103, 880, 'Ancient Armor Plate', 'Sleeper component used in Tech 3 construction.', 0, 1, 0, 5, 0, 0, 1),
+(34104, 880, 'Ancient Core Circuit', 'Sleeper component used in Tech 3 construction.', 0, 1, 0, 5, 0, 0, 1),
+(34105, 880, 'Ancient Artillery Shell', 'Sleeper component used in Tech 3 construction.', 0, 1, 0, 5, 0, 0, 1),
+(34106, 971, 'Propulsion Relic', 'Sleeper propulsion relic.', 0, 1, 0, 1, 0, 0, 1),
+(34107, 990, 'Electronics Relic', 'Sleeper electronics relic.', 0, 1, 0, 1, 0, 0, 1),
+(34108, 991, 'Offensive Relic', 'Sleeper offensive relic.', 0, 1, 0, 1, 0, 0, 1),
+(34109, 992, 'Engineering Relic', 'Sleeper engineering relic.', 0, 1, 0, 1, 0, 0, 1),
+(34110, 993, 'Defensive Relic', 'Sleeper defensive relic.', 0, 1, 0, 1, 0, 0, 1),
+(34111, 997, 'Hull Relic', 'Sleeper hull relic.', 0, 1, 0, 1, 0, 0, 1);
 
 -- =========================================================================
 -- 2. SleeperAI dogma attributes on existing Sleeper types (30188-30217)
