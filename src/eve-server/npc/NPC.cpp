@@ -641,21 +641,15 @@ void NPC::Killed(Damage &damage) {
             salvageTID = 34102;  // Emergent Salvage
             componentTID = 34103 + MakeRandomInt(0, 2);
         }
-        auto inv = wreckItemRef->GetMyInventory();
-        if (inv != nullptr) {
-            ItemData sData(salvageTID, killerID, wreckItemRef->itemID(), flagNone, 1 + MakeRandomInt(0, 2));
-            InventoryItemRef sRef = sItemFactory.SpawnItem(sData);
-            if (sRef.get() != nullptr) inv->AddItem(sRef);
-            if (componentTID > 0 && MakeRandomFloat() < 0.3f) {
-                ItemData cData(componentTID, killerID, wreckItemRef->itemID(), flagNone, 1);
-                InventoryItemRef cRef = sItemFactory.SpawnItem(cData);
-                if (cRef.get() != nullptr) inv->AddItem(cRef);
-            }
-            if (MakeRandomFloat() < 0.1f) {  // 10% relic drop
-                ItemData rData(34106 + MakeRandomInt(0, 5), killerID, wreckItemRef->itemID(), flagNone, 1);
-                InventoryItemRef rRef = sItemFactory.SpawnItem(rData);
-                if (rRef.get() != nullptr) inv->AddItem(rRef);
-            }
+        ItemData sData(salvageTID, killerID, wreckItemRef->itemID(), flagNone, 1 + MakeRandomInt(0, 2));
+        wreckItemRef->AddItem(sItemFactory.SpawnItem(sData));
+        if (componentTID > 0 && MakeRandomFloat() < 0.3f) {
+            ItemData cData(componentTID, killerID, wreckItemRef->itemID(), flagNone, 1);
+            wreckItemRef->AddItem(sItemFactory.SpawnItem(cData));
+        }
+        if (MakeRandomFloat() < 0.1f) {  // 10% relic drop
+            ItemData rData(34106 + MakeRandomInt(0, 5), killerID, wreckItemRef->itemID(), flagNone, 1);
+            wreckItemRef->AddItem(sItemFactory.SpawnItem(rData));
         }
     }
 
