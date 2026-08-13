@@ -1923,6 +1923,9 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
     int64 shipMass = pShipSE->GetSelf()->GetAttribute(AttrMass).get_int() / 1000;
     int64 maxJumpMass = wormhole->GetAttribute(AttrWormholeMaxJumpMass).get_int();
     int64 remainingMass = wormhole->GetAttribute(AttrWormholeMaxStableMass).get_int();
+    _log(AUTOPILOT__MESSAGE, "WH mass check: ship=%.1ft(%ukg) maxJump=%lldt rem=%lldt wh=%u",
+         (double)shipMass, (int64)pShipSE->GetSelf()->GetAttribute(AttrMass).get_int(),
+         maxJumpMass, remainingMass, wormhole->itemID());
 
     if (maxJumpMass > 0 && shipMass > maxJumpMass) {
         SendNotifyMsg("Your ship is too large to fit through this wormhole.");

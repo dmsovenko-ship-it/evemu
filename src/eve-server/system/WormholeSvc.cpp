@@ -87,6 +87,9 @@ PyResult WormHoleSvc::WormholeJump(PyCallArgs& call, PyInt* itemID) {
     // Compare in the same unit, or every frigate (1.1M kg = 1155 t) would be
     // rejected by a C1 wormhole (maxJumpMass 62000 t).
     int64 shipMassT = ship->GetAttribute(AttrMass).get_int() / 1000;
+    _log(AUTOPILOT__MESSAGE, "WormholeSvc mass check: ship=%.1ft maxJump=%lldt wh=%u",
+         (double)shipMassT, (int64)wormhole->GetAttribute(AttrWormholeMaxJumpMass).get_int(),
+         wormhole->itemID());
     if (shipMassT > wormhole->GetAttribute(AttrWormholeMaxJumpMass).get_int()) {
         call.client->SendNotifyMsg("Your ship is too large to fit through the wormhole.");
         return PyStatic.NewNone();
