@@ -1341,6 +1341,7 @@ void DestinyManager::Follow() {
     // the target pulls away, retreat if it comes too close, and match its speed
     // within the dead zone so the gap is preserved.
     uint32 decelDist = m_followDistance;
+    const bool isApproach = (decelDist == 0);
     if (decelDist == 0)
         decelDist = 500;
     const double exitDist = (double)decelDist * 1.5;
@@ -1360,7 +1361,11 @@ void DestinyManager::Follow() {
         return;
     }
 
-    const double targetSpeed = (rawDist <= (double)decelDist) ? 0.0 : 1.0;
+    // Approach decelerates across the WHOLE exit window for a smooth stop at the
+    // target; Keep at Range only starts slowing once inside the commanded distance.
+    const double targetSpeed = (isApproach && rawDist <= exitDist)
+        ? 0.0
+        : (rawDist <= (double)decelDist) ? 0.0 : 1.0;
 
     if (rawDist <= exitDist && m_userSpeedFraction > targetSpeed + 0.05f) {
         // Decelerate smoothly: reduce speed by 20% per tick toward targetSpeed
@@ -1368,10 +1373,14 @@ void DestinyManager::Follow() {
         if (newSpeed < 0.01f) newSpeed = 0.0f;
         SetSpeedFraction(newSpeed);
     } else if (rawDist <= (double)decelDist) {
-        // At the follow distance — stop completely instead of drifting past.
-        SetSpeedFraction(0.0f);
-        m_velocity = NULL_ORIGIN_V;
-        m_activeSpeedFraction = m_userSpeedFraction = m_timeFraction = m_prevSpeedFraction = 0.0f;
+        // Approach: the smooth decel above has already slowed us to a crawl by
+        // the time we reach the stop distance — only then fully stop (no jerk).
+        // Keep at Range: stop completely at the commanded distance.
+        if (!isApproach || m_userSpeedFraction <= 0.05f) {
+            SetSpeedFraction(0.0f);
+            m_velocity = NULL_ORIGIN_V;
+            m_activeSpeedFraction = m_userSpeedFraction = m_timeFraction = m_prevSpeedFraction = 0.0f;
+        }
     } else if (rawDist > (double)decelDist && m_userSpeedFraction < 1.0f) {
         // Accelerate smoothly toward full speed, but only if target is a moving entity.
         // Static targets (gates, stations) just need approach at moderate speed.
@@ -1388,8 +1397,9 @@ void DestinyManager::Follow() {
         SetSpeedFraction(newSpeed);
     }
 
-    // when very close to a static target, coast to a gentle stop
-    if (decelDist > 0 && rawDist < (double)decelDist * 0.5 && !m_targetEntity.second->IsDynamicEntity()) {
+    // when very close to a static target, coast to a gentle stop (Keep at Range
+    // only — Approach already decelerates smoothly via targetSpeed above).
+    if (decelDist > 0 && !isApproach && rawDist < (double)decelDist * 0.5 && !m_targetEntity.second->IsDynamicEntity()) {
         SetSpeedFraction(std::min(m_userSpeedFraction, 0.1f));
     }
 
