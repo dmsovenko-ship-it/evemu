@@ -230,6 +230,29 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
     if (sig.dungeonType != Dungeon::Type::Wormhole)
         return;
 
+    // Exit wormholes (K162) are paired to an existing entrance — always allowed.
+    if (exitSystemID != 0)
+        goto create_wh;
+
+    // Cap the number of natural (AnomalyMgr-spawned) wormholes per system:
+    // k-space gets at most 1, w-space at most 2 (realistic EVE density). Exit
+    // wormholes (K162) created on player entry are a separate path (CreateExit).
+    {
+        uint32 whCount = 0;
+        for (uint32 whID : m_wormholes) {
+            auto it = m_whToSystem.find(whID);
+            if (it != m_whToSystem.end() && it->second == sig.systemID)
+                ++whCount;
+        }
+        uint32 whCap = (sig.systemID >= 31000000) ? 2 : 1;
+        if (whCount >= whCap) {
+            _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Create() - system %u already has %u wormholes (cap %u), skipping spawn.", sig.systemID, whCount, whCap);
+            return;
+        }
+    }
+
+create_wh:
+
     /*
      * Band        1/5     1/10    1/15    1/20    1/25    1/40    1/45    1/60    1/80
      * Percentage  20.0%   10.0%   6.67%   5.0%    4.0%    2.5%    2.22%   1.67%   1.25%
