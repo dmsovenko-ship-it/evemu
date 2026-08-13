@@ -1946,33 +1946,39 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
 
 
     // Get destination wormhole position and start jump timer
-    // For a NORMAL wormhole: TargetSystem1 = dest systemID, TargetSystem2 = exit WH itemID.
-    // For an EXIT wormhole (K162): TargetSystem1 = source WH itemID, TargetSystem2 = 0 —
-    // so land at the source wormhole's position and system. Guard the ref: if the
-    // destination can't be resolved, bail out instead of deref'ing a null RefPtr
-    // (crash: RefPtr<InventoryItem>::operator-> assert).
+    // NORMAL wormhole (X702/R943/etc): TargetSystem1 = destination systemID,
+    //   TargetSystem2 = the paired exit (K162) itemID if one was created.
+    // EXIT wormhole (K162, typeID 30831): TargetSystem1 = source wormhole itemID,
+    //   TargetSystem2 = 0 — land at the source wormhole's position and system.
+    // Guard the ref: if the destination can't be resolved, bail out instead of
+    // deref'ing a null RefPtr (crash: RefPtr<InventoryItem>::operator-> assert).
+    bool isExitWH = (wormhole->typeID() == 30831);   // Wormhole K162
     InventoryItemRef destWh;
     int64 destItemID = wormhole->GetAttribute(AttrWormholeTargetSystem2).get_int();
-    if (destItemID != 0) {
-        destWh = sItemFactory.GetItemRefFromID(destItemID);
-    } else {
+    if (isExitWH) {
         // Exit wormhole: TargetSystem1 holds the source wormhole itemID
         destWh = sItemFactory.GetItemRefFromID(wormhole->GetAttribute(AttrWormholeTargetSystem1).get_int());
-    }
-    if (destWh.get() == nullptr) {
-        SendNotifyMsg("This wormhole leads nowhere.");
-        return;
+        if (destWh.get() == nullptr) {
+            SendNotifyMsg("This wormhole leads nowhere.");
+            return;
+        }
+        m_moveSystemID = destWh->locationID();
+        m_movePoint = destWh->position();
+    } else {
+        // Normal wormhole: TargetSystem1 is the destination systemID
+        m_moveSystemID = wormhole->GetAttribute(AttrWormholeTargetSystem1).get_int();
+        if (destItemID != 0) {
+            destWh = sItemFactory.GetItemRefFromID(destItemID);
+            if (destWh.get() != nullptr)
+                m_movePoint = destWh->position();
+        }
+        if (m_movePoint == NULL_ORIGIN) {
+            // No paired exit ball to land on — park at the destination system's
+            // origin (warp-in point); the sun/star is near 0,0,0.
+            m_movePoint = GPoint(0, 0, 0);
+        }
     }
 
-    // Destination system: for normal WH it's TargetSystem1 (systemID). For an exit
-    // wormhole TargetSystem1 is the source WH itemID, so its locationID is the system.
-    int64 destSys = (destItemID != 0)
-        ? wormhole->GetAttribute(AttrWormholeTargetSystem1).get_int()
-        : destWh->locationID();
-    if (destSys != 0)
-        m_moveSystemID = destSys;
-
-    m_movePoint = destWh->position();
     m_movePoint.MakeRandomPointOnSphere(2000);
     SetStateTimer(Player::State::WormholeJump, Player::Timer::Jumping);
 

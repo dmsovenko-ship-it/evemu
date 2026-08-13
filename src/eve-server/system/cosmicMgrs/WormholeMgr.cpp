@@ -390,7 +390,7 @@ void WormholeMgr::CreateExit(SystemManager* pFromSys, SystemManager* pToSys, uin
     sig.position = sMapData.GetAnomalyPoint(pToSys);
 
     // send data to Create() for processing
-    Create(sig, pFromSys->GetID());
+    Create(sig, pFromSys->GetID(), sourceItemID);
 
     // Register this exit wormhole with the destination's AnomalyMgr
     pToSys->GetAnomMgr()->RegisterExitWH(sig);
