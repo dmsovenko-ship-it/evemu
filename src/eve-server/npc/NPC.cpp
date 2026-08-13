@@ -627,29 +627,34 @@ void NPC::Killed(Damage &damage) {
     if ((MakeRandomFloat() < sConfig.npc.LootDropChance) or (m_allyID == factionRogueDrones))
         DropLoot(wreckItemRef, m_self->groupID(), killerID);
 
-    // Sleeper-specific salvage and component drops
+    // Sleeper-specific salvage and component drops.
+    // Uses REAL EVE typeIDs present in the client SDE (Crucible) — custom typeIDs
+    // 34100+ are not in the client's cfg.invtypes and crash the cargo/inventory UI.
+    // Relic quality scales with sleeper tier: Sleepless=Intact, Awakened=Malfunctioning,
+    // Emergent=Wrecked. Groups: 959/982/983 Sleepless, 960/984/985 Awakened, 961/986/987 Emergent.
     uint16 sleeperGID = m_self->groupID();
     if ((sleeperGID >= 959 && sleeperGID <= 961) || (sleeperGID >= 982 && sleeperGID <= 987)) {
-        uint32 salvageTID = 0, componentTID = 0, relicTID = 0;
-        if (sleeperGID == 959 || sleeperGID == 982 || sleeperGID == 983) {
-            salvageTID = 34100;  // Sleepless Salvage
-            componentTID = 34103 + MakeRandomInt(0, 2);
-        } else if (sleeperGID == 960 || sleeperGID == 984 || sleeperGID == 985) {
-            salvageTID = 34101;  // Awakened Salvage
-            componentTID = 34103 + MakeRandomInt(0, 2);
-        } else {
-            salvageTID = 34102;  // Emergent Salvage
-            componentTID = 34103 + MakeRandomInt(0, 2);
-        }
-        ItemData sData(salvageTID, killerID, wreckItemRef->itemID(), flagNone, 1 + MakeRandomInt(0, 2));
+        // Relic typeIDs (Propulsion/Electronics/Offensive/Engineering/Defensive/Hull) by tier
+        static const uint32 intactRelics[]    = { 30187, 30599, 30628, 30582, 30614, 30752 };
+        static const uint32 malfunctionRelics[] = { 30558, 30600, 30632, 30586, 30615, 30753 };
+        static const uint32 wreckedRelics[]   = { 30562, 30605, 30633, 30588, 30618, 30754 };
+        const uint32* relicSet = intactRelics;
+        if (sleeperGID == 960 || sleeperGID == 984 || sleeperGID == 985)
+            relicSet = malfunctionRelics;
+        else if (sleeperGID == 961 || sleeperGID == 986 || sleeperGID == 987)
+            relicSet = wreckedRelics;
+
+        // Sleeper Components (group 880) — Tech3 materials
+        static const uint32 componentTypes[] = { 30744, 30745, 30746, 30747 };
+        uint32 componentTID = componentTypes[MakeRandomInt(0, 3)];
+        uint32 relicTID = relicSet[MakeRandomInt(0, 5)];
+
+        // Guaranteed 1-2 relic items per sleeper wreck
+        ItemData sData(relicTID, killerID, wreckItemRef->itemID(), flagNone, 1 + MakeRandomInt(0, 2));
         wreckItemRef->AddItem(sItemFactory.SpawnItem(sData));
-        if (componentTID > 0 && MakeRandomFloat() < 0.3f) {
+        if (MakeRandomFloat() < 0.3f) {
             ItemData cData(componentTID, killerID, wreckItemRef->itemID(), flagNone, 1);
             wreckItemRef->AddItem(sItemFactory.SpawnItem(cData));
-        }
-        if (MakeRandomFloat() < 0.1f) {  // 10% relic drop
-            ItemData rData(34106 + MakeRandomInt(0, 5), killerID, wreckItemRef->itemID(), flagNone, 1);
-            wreckItemRef->AddItem(sItemFactory.SpawnItem(rData));
         }
     }
 

@@ -2,21 +2,18 @@
 -- +migrate Up
 
 -- =========================================================================
--- 1. Sleeper salvage/relic types (34100-34111) — created new (not in SDE DB)
--- =========================================================================
-INSERT IGNORE INTO `invTypes` (`typeID`, `groupID`, `typeName`, `description`, `graphicID`, `radius`, `mass`, `volume`, `capacity`, `raceID`, `published`) VALUES
-(34100, 754, 'Sleepless Salvage', 'Salvage from a Sleepless sleeper vessel.', 0, 1, 0, 10, 0, 0, 1),
-(34101, 754, 'Awakened Salvage', 'Salvage from an Awakened sleeper vessel.', 0, 1, 0, 10, 0, 0, 1),
-(34102, 754, 'Emergent Salvage', 'Salvage from an Emergent sleeper vessel.', 0, 1, 0, 10, 0, 0, 1),
-(34103, 880, 'Ancient Armor Plate', 'Sleeper component used in Tech 3 construction.', 0, 1, 0, 5, 0, 0, 1),
-(34104, 880, 'Ancient Core Circuit', 'Sleeper component used in Tech 3 construction.', 0, 1, 0, 5, 0, 0, 1),
-(34105, 880, 'Ancient Artillery Shell', 'Sleeper component used in Tech 3 construction.', 0, 1, 0, 5, 0, 0, 1),
-(34106, 971, 'Propulsion Relic', 'Sleeper propulsion relic.', 0, 1, 0, 1, 0, 0, 1),
-(34107, 990, 'Electronics Relic', 'Sleeper electronics relic.', 0, 1, 0, 1, 0, 0, 1),
-(34108, 991, 'Offensive Relic', 'Sleeper offensive relic.', 0, 1, 0, 1, 0, 0, 1),
-(34109, 992, 'Engineering Relic', 'Sleeper engineering relic.', 0, 1, 0, 1, 0, 0, 1),
-(34110, 993, 'Defensive Relic', 'Sleeper defensive relic.', 0, 1, 0, 1, 0, 0, 1),
-(34111, 997, 'Hull Relic', 'Sleeper hull relic.', 0, 1, 0, 1, 0, 0, 1);
+-- 1. Sleeper loot types — REAL EVE typeIDs already present in the client SDE
+--    and server DB (Crucible era). Custom typeIDs 34100+ are NOT in the
+--    client's cfg.invtypes and crash the cargo/inventory UI, so we use the
+--    real ones instead:
+--      Propulsion Relics (grp 971): Intact 30187 / Malf 30558 / Wrecked 30562
+--      Electronics Relics (grp 990): 30599 / 30600 / 30605
+--      Offensive Relics (grp 991): 30628 / 30632 / 30633
+--      Engineering Relics (grp 992): 30582 / 30586 / 30588
+--      Defensive Relics (grp 993): 30614 / 30615 / 30618
+--      Hull Relics (grp 997): 30752 / 30753 / 30754
+--      Sleeper Components (grp 880): 30744 / 30745 / 30746 / 30747
+--    No invTypes INSERTs needed — all exist already.
 
 -- =========================================================================
 -- 2. SleeperAI dogma attributes on existing Sleeper types (30188-30217)
@@ -168,4 +165,3 @@ DELETE FROM `dunRoomObjects` WHERE `roomID` BETWEEN 4001 AND 4016;
 DELETE FROM `dunRooms` WHERE `roomID` BETWEEN 4001 AND 4016;
 DELETE FROM `dunDungeons` WHERE `dungeonID` BETWEEN 4001 AND 4006;
 DELETE FROM `dgmTypeAttributes` WHERE `typeID` BETWEEN 30188 AND 30217 AND `attributeID` IN (1453,1454,1455,1456,1464,1501,937,942,946,931);
-DELETE FROM `invTypes` WHERE `typeID` BETWEEN 34100 AND 34111;
