@@ -39,6 +39,11 @@ class AnomalyMgr
     void SaveAnomaly(CosmicSignature& sig);
     void LoadAnomalies();
 
+    // W-space procedural sites (ore deposits / gas reservoirs) — spawned from
+    // CreateAnomaly when the system is a wormhole (classes 1-6).
+    void SpawnWSpaceOreSite(CosmicSignature& sig);
+    void SpawnWSpaceGasSite(CosmicSignature& sig);
+
     // assign sigID and add to anom list to allow showing on scanner
     void AddSignal(SystemEntity* pSE, uint32 id = 0);
     void AddSignalBySignature(const CosmicSignature& sig);

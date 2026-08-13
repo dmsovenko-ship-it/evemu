@@ -18,6 +18,7 @@
 #include "map/MapData.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
+#include "system/Celestial.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/BeltMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
@@ -375,30 +376,109 @@ void AnomalyMgr::CreateAnomaly(int8 typeID)
         return;
     }
 
-    // W-space: spawn Sleeper combat anomalies instead of pirate sites.
-    // Each system class (C1-C6) maps to a dungeon template (4001-4006) filled
-    // with Sleeper NPCs of the matching tier (Sleepless/Awakened/Emergent).
-    if (whClass >= 1 && whClass <= 6 && sig.dungeonType == Dungeon::Type::Anomaly) {
-        sig.sigTypeID = EVEDB::invTypes::CosmicAnomaly;
-        sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
-        sig.scanGroupID = Scanning::Group::Anomaly;
-        sig.scanAttributeID = AttrScanAllStrength;
-        sig.sigStrength = 1.0;
-        sig.ownerID = factionSleepers;  // 500023
-        // whClass 1→4001, 2→4002, ..., 6→4006
-        uint32 sleeperDunID = 4000 + whClass;
-        m_dungMgr->MakeDungeon(sig, sleeperDunID);
-        if (sig.sigItemID != 0) {
-            Dungeon::Dungeon sData;
-            sDunDataMgr.GetDungeon(sData, sleeperDunID);
-            sig.sigName = sData.name;
-            m_anomByItemID[sig.sigItemID] = sig;
-            m_sigBySigID[sig.sigID] = sig;
-            SaveAnomaly(sig);
-            _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::CreateAnomaly() - Created Sleeper %s in %s(%u) for WH class %u.",
-                 sig.sigName.c_str(), m_system->GetName(), m_system->GetID(), whClass);
+    // W-space: replace generic pirate sites with real EVE wormhole content.
+    // System class (C1-C6) determines the tier: Sleepless/Awakened/Emergent.
+    //  - Anomaly (7)      → combat site, real names (4 variants/class, dungeons 4001-4024)
+    //  - Magnetometric (3) → Data site (Unsecured Perimeter/Frontier/Core, dungeons 4301-4312)
+    //  - Radar (4)        → Relic site (Forgotten Perimeter/Frontier/Core, dungeons 4401-4412)
+    //  - Gravimetric (2)  → ore deposit (procedural, Sleeper guards)
+    //  - Ladar (5)        → gas site (procedural clouds)
+    if (whClass >= 1 && whClass <= 6) {
+        uint32 dunID = 0;
+        switch (sig.dungeonType) {
+            case Dungeon::Type::Anomaly: {          // 7 — combat
+                dunID = 4000 + (whClass - 1) * 4 + 1 + MakeRandomInt(0, 3);  // 4001-4024
+                break;
+            }
+            case Dungeon::Type::Magnetometric: {    // 3 — data
+                dunID = 4300 + (whClass - 1) * 2 + 1 + MakeRandomInt(0, 1);  // 4301-4312
+                break;
+            }
+            case Dungeon::Type::Radar: {            // 4 — relic
+                dunID = 4400 + (whClass - 1) * 2 + 1 + MakeRandomInt(0, 1);  // 4401-4412
+                break;
+            }
+            case Dungeon::Type::Gravimetric: {      // 2 — ore deposit
+                sig.sigTypeID = EVEDB::invTypes::CosmicSignature;
+                sig.sigGroupID = EVEDB::invGroups::Cosmic_Signature;
+                sig.scanGroupID = Scanning::Group::Signature;
+                sig.scanAttributeID = AttrScanGravimetricStrength;
+                sig.ownerID = factionSleepers;
+                static const char* oreNames[] = {
+                    "Common Perimeter Deposit", "Ordinary Perimeter Deposit",
+                    "Average Frontier Deposit", "Unexceptional Frontier Deposit",
+                    "Exceptional Core Deposit", "Infrequent Core Deposit",
+                    "Isolated Core Deposit", "Rarified Core Deposit",
+                    "Uncommon Core Deposit", "Unusual Core Deposit"
+                };
+                sig.sigName = oreNames[MakeRandomInt(0, 9)];
+                // Create a lightweight signature item + ore belt via MakeDungeon-less
+                // procedural spawn (containers + guards not used here).
+                SpawnWSpaceOreSite(sig);
+                if (sig.sigItemID != 0) {
+                    m_sigByItemID[sig.sigItemID] = sig;
+                    m_sigBySigID[sig.sigID] = sig;
+                    SaveAnomaly(sig);
+                    _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::CreateAnomaly() - Created W-space ore site %s in %s(%u) for WH class %u.",
+                         sig.sigName.c_str(), m_system->GetName(), m_system->GetID(), whClass);
+                }
+                return;
+            }
+            case Dungeon::Type::Ladar: {            // 5 — gas site
+                sig.sigTypeID = EVEDB::invTypes::DeadspaceSignature;
+                sig.sigGroupID = EVEDB::invGroups::Cosmic_Signature;
+                sig.scanGroupID = Scanning::Group::Signature;
+                sig.scanAttributeID = AttrScanLadarStrength;
+                sig.ownerID = factionSleepers;
+                static const char* gasNames[] = {
+                    "Barren Perimeter Reservoir", "Minor Perimeter Reservoir",
+                    "Ordinary Perimeter Reservoir", "Sizeable Perimeter Reservoir",
+                    "Token Perimeter Reservoir", "Bountiful Frontier Reservoir",
+                    "Vast Frontier Reservoir", "Instrumental Core Reservoir",
+                    "Vital Core Reservoir"
+                };
+                sig.sigName = gasNames[MakeRandomInt(0, 8)];
+                SpawnWSpaceGasSite(sig);
+                if (sig.sigItemID != 0) {
+                    m_sigByItemID[sig.sigItemID] = sig;
+                    m_sigBySigID[sig.sigID] = sig;
+                    SaveAnomaly(sig);
+                    _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::CreateAnomaly() - Created W-space gas site %s in %s(%u) for WH class %u.",
+                         sig.sigName.c_str(), m_system->GetName(), m_system->GetID(), whClass);
+                }
+                return;
+            }
+            default:
+                break;
         }
-        return;
+        if (dunID != 0) {
+            sig.sigTypeID = (sig.dungeonType == Dungeon::Type::Anomaly)
+                          ? EVEDB::invTypes::CosmicAnomaly : EVEDB::invTypes::DeadspaceSignature;
+            sig.sigGroupID = (sig.dungeonType == Dungeon::Type::Anomaly)
+                           ? EVEDB::invGroups::Cosmic_Anomaly : EVEDB::invGroups::Cosmic_Signature;
+            sig.scanGroupID = (sig.dungeonType == Dungeon::Type::Anomaly)
+                            ? Scanning::Group::Anomaly : Scanning::Group::Signature;
+            sig.scanAttributeID = AttrScanAllStrength;
+            if (sig.dungeonType == Dungeon::Type::Anomaly)
+                sig.sigStrength = 1.0;
+            sig.ownerID = factionSleepers;
+            m_dungMgr->MakeDungeon(sig, dunID);
+            if (sig.sigItemID != 0) {
+                Dungeon::Dungeon sData;
+                sDunDataMgr.GetDungeon(sData, dunID);
+                sig.sigName = sData.name;
+                if (sig.scanGroupID == Scanning::Group::Anomaly) {
+                    m_anomByItemID[sig.sigItemID] = sig;
+                } else {
+                    m_sigByItemID[sig.sigItemID] = sig;
+                }
+                m_sigBySigID[sig.sigID] = sig;
+                SaveAnomaly(sig);
+                _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::CreateAnomaly() - Created W-space site %s in %s(%u) for WH class %u.",
+                     sig.sigName.c_str(), m_system->GetName(), m_system->GetID(), whClass);
+            }
+            return;
+        }
     }
 
     // some sites will use sys sov for ships.  use this for them....
@@ -547,6 +627,74 @@ void AnomalyMgr::RegisterExitWH(CosmicSignature &sig)
     _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::RegisterExitWH() - Created Signal %s(%u) for %s in %s(%u), bubbleID %u with %.3f%% sigStrength.", \
             sDunDataMgr.GetDungeonType(sig.dungeonType), sig.dungeonType, \
             sig.sigName.c_str(), m_system->GetName(), sig.systemID, sig.bubbleID, sig.sigStrength *100);
+}
+
+// W-space ore deposit (Gravimetric signature): a signature item + a belt of
+// valuable ore mined down with MiningLaser. Uses real ore typeIDs already in
+// the client SDE.
+void AnomalyMgr::SpawnWSpaceOreSite(CosmicSignature& sig)
+{
+    // Signature item so the site shows on probes and can be warped to
+    ItemData iData(sig.sigTypeID, sig.ownerID, sig.systemID, flagNone, sig.sigName.c_str(), sig.position);
+    InventoryItemRef iRef = sItemFactory.SpawnItem(iData);
+    if (iRef.get() == nullptr)
+        return;
+    iRef->SetCustomInfo("ws_ore");
+    iRef->SaveItem();
+    sig.sigItemID = iRef->itemID();
+
+    CelestialSE* cSE = new CelestialSE(iRef, m_system->GetServiceMgr(), m_system);
+    m_system->AddEntity(cSE, false);
+    sig.bubbleID = cSE->SysBubble() != nullptr ? cSE->SysBubble()->GetID() : 0;
+
+    // Ore belt around the site (temp asteroids, mined with MiningLaser). The
+    // helper picks a common ore; higher WH classes could map to rarer ore later.
+    m_dungMgr->SpawnMineableAsteroids(sig.position, 25 + MakeRandomInt(0, 15));
+
+    _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::SpawnWSpaceOreSite() - %s(%u) in %s(%u).",
+         sig.sigName.c_str(), sig.sigItemID, m_system->GetName(), m_system->GetID());
+}
+
+// W-space gas reservoir (Ladar signature): a signature item + gas clouds.
+void AnomalyMgr::SpawnWSpaceGasSite(CosmicSignature& sig)
+{
+    ItemData iData(sig.sigTypeID, sig.ownerID, sig.systemID, flagNone, sig.sigName.c_str(), sig.position);
+    InventoryItemRef iRef = sItemFactory.SpawnItem(iData);
+    if (iRef.get() == nullptr)
+        return;
+    iRef->SetCustomInfo("ws_gas");
+    iRef->SaveItem();
+    sig.sigItemID = iRef->itemID();
+
+    CelestialSE* cSE = new CelestialSE(iRef, m_system->GetServiceMgr(), m_system);
+    m_system->AddEntity(cSE, false);
+    sig.bubbleID = cSE->SysBubble() != nullptr ? cSE->SysBubble()->GetID() : 0;
+
+    // Gas clouds (harvestable gas, group 711) around the site — real W-space gases
+    uint8 whClass = sDataMgr.GetWHSystemClass(m_system->GetID());
+    uint32 gasType = 0;
+    if (whClass <= 4) {
+        static const uint32 perimeterGas[] = { 25268, 25273, 25274, 25275, 25276, 25277, 25278, 25279 };
+        gasType = perimeterGas[MakeRandomInt(0, 7)];
+    } else {
+        static const uint32 coreGas[] = { 30370, 30371, 30372, 30373, 30374, 30375, 30376 };
+        gasType = coreGas[MakeRandomInt(0, 6)];
+    }
+    for (uint32 i = 0; i < 8; ++i) {
+        GPoint pos = sig.position;
+        pos.x += MakeRandomFloat() * 3000.0f - 1500.0f;
+        pos.y += MakeRandomFloat() * 3000.0f - 1500.0f;
+        pos.z += MakeRandomFloat() * 1500.0f - 750.0f;
+        ItemData cData(gasType, sig.ownerID, sig.systemID, flagNone, "", pos);
+        InventoryItemRef gRef = sItemFactory.SpawnItem(cData);
+        if (gRef.get() == nullptr)
+            continue;
+        CelestialSE* gasSE = new CelestialSE(gRef, m_system->GetServiceMgr(), m_system);
+        m_system->AddEntity(gasSE, false);
+    }
+
+    _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::SpawnWSpaceGasSite() - %s(%u) in %s(%u) class %u.",
+         sig.sigName.c_str(), sig.sigItemID, m_system->GetName(), m_system->GetID(), whClass);
 }
 
 uint8 AnomalyMgr::GetDungeonType()
