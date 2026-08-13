@@ -281,6 +281,10 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
             return;
         }
         destSystem = GetRandomDestination(whType);
+        if (destSystem == 0) {
+            _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Create() - no destination system for WH type %s(%u)", whType->name(), whType->id());
+            return;
+        }
         // create wormhole here
         sig.sigName = whType->name();
         sig.sigTypeID = whType->id();
@@ -467,7 +471,11 @@ const ItemType* WormholeMgr::GetRandomWormholeType(uint32 systemID) {
 uint32 WormholeMgr::GetRandomDestination(const ItemType* whType) {
     uint8 targetClass = whType->GetAttribute(AttrWormholeTargetSystemClass).get_uint32();
     std::vector<uint32> destSystems = sDataMgr.GetWHClassSystems(targetClass);
-    return destSystems[MakeRandomInt(0,destSystems.size()-1)];
+    if (destSystems.size() < 1) {
+        _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::GetRandomDestination() - no systems found for class %u", targetClass);
+        return 0;
+    }
+    return destSystems[MakeRandomInt(0, destSystems.size() - 1)];
 }
 
 //SELECT `locationID`, `wormholeClassID` FROM `mapLocationWormholeClasses`
