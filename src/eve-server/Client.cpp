@@ -1973,9 +1973,22 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
                 m_movePoint = destWh->position();
         }
         if (m_movePoint == NULL_ORIGIN) {
-            // No paired exit ball to land on — park at the destination system's
-            // origin (warp-in point); the sun/star is near 0,0,0.
-            m_movePoint = GPoint(0, 0, 0);
+            // No paired exit ball exists yet — create the K162 exit on the far
+            // side so the player lands AT the wormhole (not at the sun), and the
+            // exit links back to this one. The exit WH is created in the
+            // destination system at its anomaly point.
+            if (m_system != nullptr && m_moveSystemID != 0) {
+                sWHMgr.CreateExit(m_system, m_moveSystemID, wormhole->itemID());
+                // Re-fetch the freshly created exit to land at its position.
+                uint32 exitID = wormhole->GetAttribute(AttrWormholeTargetSystem2).get_int();
+                if (exitID != 0) {
+                    destWh = sItemFactory.GetItemRefFromID(exitID);
+                    if (destWh.get() != nullptr)
+                        m_movePoint = destWh->position();
+                }
+            }
+            if (m_movePoint == NULL_ORIGIN)
+                m_movePoint = GPoint(0, 0, 0);
         }
     }
 
