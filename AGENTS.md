@@ -4,7 +4,8 @@
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
 
 ## 13 августа (вечер): W-space сайты + СЛОМАННЫЙ ТРЮМ ИСПРАВЛЕН (кастомные typeID 34100+ = KeyError в клиенте)
-**Коммиты: `507b12bd` (реальные typeID лута), `f178afc0`+`5e113ecd` (полный набор W-space сайтов). Сервер пересобран.**
+**Коммиты: `507b12bd` (реальные typeID лута), `f178afc0`+`5e113ecd`+`421f3892` (полный набор W-space сайтов). Сервер пересобран, master синхронизирован (`421f3892`).**
+- **ИЗВЕСТНЫЙ КРАШ (`IncRef() called on deleted object!` — SIGSEGV)**: сервер упал 19:03 (Exited 139) при активном бое ботов (`Zalimir-7`, `Xolirix II`, `MrStmnyy` commander fleet bonus). RefPtr use-after-free (count 4630) в бою. НЕ разобран — нужен анализ (вероятно флот-бонус командира или орбита при смерти цели). Сервер перезапущен юзером.
 - **КОРЕНЬ «лут не виден + трюм ломается»**: кастомные typeID 34100-34111 НЕ существуют в клиентском SDE (Crucible). `cfg.invtypes.Get(34100)` → `KeyError('RecordNotFound')` в `uix.GetItemData/GetItemName/GetCategoryGroupTypeStringForItem` → uthread рендера окна врека/трюма умирает → пустые вреки + сломанный трюм. Сервер присылает строки корректно (фильтр длины invCache.py:993 не отсекает), проблема чисто клиентская.
 - **Фикс (`507b12bd`)**: используются РЕАЛЬНЫЕ typeID из клиента (в БД уже были):
   - Propulsion Relics (971): Intact 30187 / Malf 30558 / Wrecked 30562
