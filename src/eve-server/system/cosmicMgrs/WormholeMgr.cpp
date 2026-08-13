@@ -201,6 +201,8 @@ void WormholeMgr::Collapse(uint32 whItemID) {
         if (exitWH.get())
             exitWH->Delete();
         m_wormholes.erase(std::remove(m_wormholes.begin(), m_wormholes.end(), exitID), m_wormholes.end());
+        // Remove the exit's signature from the DB so it doesn't accumulate
+        sDatabase.RunQuery(DBerror(), "DELETE FROM sysSignatures WHERE sigItemID = %u", exitID);
     }
 
     // Collapse entrance WH
@@ -216,6 +218,8 @@ void WormholeMgr::Collapse(uint32 whItemID) {
     }
     wh->Delete();
     m_wormholes.erase(std::remove(m_wormholes.begin(), m_wormholes.end(), whItemID), m_wormholes.end());
+    // Remove the entrance's signature from the DB so it doesn't accumulate
+    sDatabase.RunQuery(DBerror(), "DELETE FROM sysSignatures WHERE sigItemID = %u", whItemID);
 
     _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Collapse() - Collapsed wormhole %u", whItemID);
 }

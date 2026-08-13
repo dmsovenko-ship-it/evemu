@@ -91,6 +91,7 @@ public:
 
     /* anomaly manager */
     void SaveAnomaly(CosmicSignature& sig);
+    void RemoveAnomaly(uint32 sigItemID);
     void GetAnomalyList(DBQueryResult& res);
     void GetAnomaliesBySystem(uint32 systemID, DBQueryResult& res);
     void GetSystemAnomalies(uint32 systemID, DBQueryResult& res);

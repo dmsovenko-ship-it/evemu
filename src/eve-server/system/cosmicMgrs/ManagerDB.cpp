@@ -343,6 +343,14 @@ void ManagerDB::SaveAnomaly(CosmicSignature& sig)
         }
 }
 
+void ManagerDB::RemoveAnomaly(uint32 sigItemID)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+        "DELETE FROM sysSignatures WHERE sigItemID = %u", sigItemID))
+        _log(DATABASE__ERROR, "RemoveAnomaly - unable to remove signature for itemID %u", sigItemID);
+}
+
 void ManagerDB::GetAnomalyList(DBQueryResult& res)
 {// sysSignatures (sigID,sigItemID,dungeonType,sigName,systemID,sigTypeID,sigGroupID,scanGroupID,scanAttributeID,x,y,z)
     if (!sDatabase.RunQuery(res,
