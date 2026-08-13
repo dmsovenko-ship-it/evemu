@@ -33,6 +33,7 @@
 #include "npc/NPC.h"
 #include "npc/ConvoyAI.h"
 #include "npc/NPCAI.h"
+#include "npc/SleeperAI.h"
 #include "npc/Sentry.h"
 #include "npc/SentryAI.h"
 #include "system/Container.h"
@@ -47,13 +48,32 @@ NPC::NPC(InventoryItemRef self, EVEServiceManager& services, SystemManager* syst
 : DynamicSystemEntity(self, services, system),
 m_spawnMgr(spawnMgr),
 m_convoyAI(nullptr),
-m_AI(new NPCAIMgr(this))
+m_AI(nullptr)
 {
     m_allyID = data.allianceID;
     m_warID = data.factionID;
     m_corpID = data.corporationID;
     m_ownerID = data.ownerID;
     m_isCivilian = false;
+
+    // Create AI based on group — SleeperAI for W-space NPCs (remote repair, neut,
+    // target switching, capital escalation). Everything else uses the default NPCAIMgr.
+    switch (m_self->groupID()) {
+        case EVEDB::invGroups::Deadspace_Sleeper_Sleepless_Sentinel:
+        case EVEDB::invGroups::Deadspace_Sleeper_Awakened_Sentinel:
+        case EVEDB::invGroups::Deadspace_Sleeper_Emergent_Sentinel:
+        case EVEDB::invGroups::Deadspace_Sleeper_Sleepless_Patroller:
+        case EVEDB::invGroups::Deadspace_Sleeper_Sleepless_Defender:
+        case EVEDB::invGroups::Deadspace_Sleeper_Awakened_Patroller:
+        case EVEDB::invGroups::Deadspace_Sleeper_Awakened_Defender:
+        case EVEDB::invGroups::Deadspace_Sleeper_Emergent_Patroller:
+        case EVEDB::invGroups::Deadspace_Sleeper_Emergent_Defender:
+            m_AI = new SleeperAIMgr(this);
+            break;
+        default:
+            m_AI = new NPCAIMgr(this);
+            break;
+    }
 
     // Create default dynamic attributes in the AttributeMap:
     m_self->SetAttribute(AttrInetia,              1.0f, false);
@@ -606,6 +626,38 @@ void NPC::Killed(Damage &damage) {
 
     if ((MakeRandomFloat() < sConfig.npc.LootDropChance) or (m_allyID == factionRogueDrones))
         DropLoot(wreckItemRef, m_self->groupID(), killerID);
+
+    // Sleeper-specific salvage and component drops
+    uint16 sleeperGID = m_self->groupID();
+    if ((sleeperGID >= 959 && sleeperGID <= 961) || (sleeperGID >= 982 && sleeperGID <= 987)) {
+        uint32 salvageTID = 0, componentTID = 0, relicTID = 0;
+        if (sleeperGID == 959 || sleeperGID == 982 || sleeperGID == 983) {
+            salvageTID = 34100;  // Sleepless Salvage
+            componentTID = 34103 + MakeRandomInt(0, 2);
+        } else if (sleeperGID == 960 || sleeperGID == 984 || sleeperGID == 985) {
+            salvageTID = 34101;  // Awakened Salvage
+            componentTID = 34103 + MakeRandomInt(0, 2);
+        } else {
+            salvageTID = 34102;  // Emergent Salvage
+            componentTID = 34103 + MakeRandomInt(0, 2);
+        }
+        auto inv = wreckItemRef->GetMyInventory();
+        if (inv != nullptr) {
+            ItemData sData(salvageTID, killerID, wreckItemRef->itemID(), flagNone, 1 + MakeRandomInt(0, 2));
+            InventoryItemRef sRef = sItemFactory.SpawnItem(sData);
+            if (sRef.get() != nullptr) inv->AddItem(sRef);
+            if (componentTID > 0 && MakeRandomFloat() < 0.3f) {
+                ItemData cData(componentTID, killerID, wreckItemRef->itemID(), flagNone, 1);
+                InventoryItemRef cRef = sItemFactory.SpawnItem(cData);
+                if (cRef.get() != nullptr) inv->AddItem(cRef);
+            }
+            if (MakeRandomFloat() < 0.1f) {  // 10% relic drop
+                ItemData rData(34106 + MakeRandomInt(0, 5), killerID, wreckItemRef->itemID(), flagNone, 1);
+                InventoryItemRef rRef = sItemFactory.SpawnItem(rData);
+                if (rRef.get() != nullptr) inv->AddItem(rRef);
+            }
+        }
+    }
 
     // Convoy-specific loot (always drops)
     if (IsConvoy()) {

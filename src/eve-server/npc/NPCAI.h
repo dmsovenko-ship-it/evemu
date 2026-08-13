@@ -74,10 +74,10 @@ class NPCAIMgr {
 protected:
 public:
     NPCAIMgr(NPC *who);
-    ~NPCAIMgr()                                         { /* do nothing here */ }
+    virtual ~NPCAIMgr()                                         { /* do nothing here */ }
 
     // this is called from NPC::Process() which is called from SystemManager::Process()
-    void Process();
+    virtual void Process();
 
     void Target(SystemEntity* pTargSE);
     void Targeted(SystemEntity* pTargSE);

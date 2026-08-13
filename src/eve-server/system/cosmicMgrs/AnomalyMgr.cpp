@@ -329,6 +329,78 @@ void AnomalyMgr::CreateAnomaly(int8 typeID)
 
     sig.position = sMapData.GetAnomalyPoint(m_system);
 
+    // W-space: ensure at least one wormhole connection exists per system.
+    // (1 WH minimum for classes 1-6)
+    uint8 whClass = sDataMgr.GetWHSystemClass(m_system->GetID());
+    if (whClass >= 1 && whClass <= 6 && m_WH < 1) {
+        sig.dungeonType = Dungeon::Type::Wormhole;
+        sig.sigTypeID = EVEDB::invTypes::CosmicSignature;
+        sig.sigGroupID = EVEDB::invGroups::Wormhole;
+        sig.scanGroupID = Scanning::Group::Signature;
+        sig.scanAttributeID = AttrScanAllStrength;
+        sWHMgr.Create(sig);
+        if (sig.sigItemID) {
+            m_sigByItemID[sig.sigItemID] = sig;
+            m_sigBySigID[sig.sigID] = sig;
+            SaveAnomaly(sig);
+            _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::CreateAnomaly() - Created wormhole in %s(%u) for WH class %u.",
+                 m_system->GetName(), m_system->GetID(), whClass);
+            m_WH++;
+        }
+        // Restore dungeonType so the anomaly follows below
+        sig.dungeonType = typeID;
+    }
+
+    // K-space: small chance for an anomaly to become a wormhole.
+    // hi-sec=7, lo-sec=8, null-sec=9 — 5% chance, max 1 WH per system.
+    if (whClass >= 7 && whClass <= 9
+        && sig.dungeonType == Dungeon::Type::Anomaly
+        && MakeRandomInt(0, 20) == 0
+        && m_WH == 0)
+    {
+        sig.dungeonType = Dungeon::Type::Wormhole;
+        sig.sigTypeID = EVEDB::invTypes::CosmicSignature;
+        sig.sigGroupID = EVEDB::invGroups::Wormhole;
+        sig.scanGroupID = Scanning::Group::Signature;
+        sig.scanAttributeID = AttrScanAllStrength;
+        sWHMgr.Create(sig);
+        if (sig.sigItemID) {
+            m_sigByItemID[sig.sigItemID] = sig;
+            m_sigBySigID[sig.sigID] = sig;
+            SaveAnomaly(sig);
+            _log(COSMIC_MGR__MESSAGE, "AnomalyMgr: WH spawned in %s(%u) class %u",
+                 m_system->GetName(), m_system->GetID(), whClass);
+            m_WH = 1;
+        }
+        return;
+    }
+
+    // W-space: spawn Sleeper combat anomalies instead of pirate sites.
+    // Each system class (C1-C6) maps to a dungeon template (4001-4006) filled
+    // with Sleeper NPCs of the matching tier (Sleepless/Awakened/Emergent).
+    if (whClass >= 1 && whClass <= 6 && sig.dungeonType == Dungeon::Type::Anomaly) {
+        sig.sigTypeID = EVEDB::invTypes::CosmicAnomaly;
+        sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
+        sig.scanGroupID = Scanning::Group::Anomaly;
+        sig.scanAttributeID = AttrScanAllStrength;
+        sig.sigStrength = 1.0;
+        sig.ownerID = factionSleepers;  // 500023
+        // whClass 1→4001, 2→4002, ..., 6→4006
+        uint32 sleeperDunID = 4000 + whClass;
+        m_dungMgr->MakeDungeon(sig, sleeperDunID);
+        if (sig.sigItemID != 0) {
+            Dungeon::Dungeon sData;
+            sDunDataMgr.GetDungeon(sData, sleeperDunID);
+            sig.sigName = sData.name;
+            m_anomByItemID[sig.sigItemID] = sig;
+            m_sigBySigID[sig.sigID] = sig;
+            SaveAnomaly(sig);
+            _log(COSMIC_MGR__MESSAGE, "AnomalyMgr::CreateAnomaly() - Created Sleeper %s in %s(%u) for WH class %u.",
+                 sig.sigName.c_str(), m_system->GetName(), m_system->GetID(), whClass);
+        }
+        return;
+    }
+
     // some sites will use sys sov for ships.  use this for them....
     // sig.ownerID = sDataMgr.GetRegionFaction(m_system->GetRegionID());
     switch(sig.dungeonType) {
