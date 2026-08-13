@@ -1959,8 +1959,15 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
     InventoryItemRef destWh;
     int64 destItemID = wormhole->GetAttribute(AttrWormholeTargetSystem2).get_int();
     if (isExitWH) {
-        // Exit wormhole: TargetSystem1 holds the source wormhole itemID
-        destWh = sItemFactory.GetItemRefFromID(wormhole->GetAttribute(AttrWormholeTargetSystem1).get_int());
+        // Exit wormhole (K162): TargetSystem1 holds the source wormhole itemID.
+        // Legacy K162s created before the f4a46ecc fix may hold the source
+        // SYSTEMID in TargetSystem1 (values < 1e8, not an item) — fall back to
+        // TargetSystem2, which always points back at the entrance wormhole item.
+        int64 srcID = wormhole->GetAttribute(AttrWormholeTargetSystem1).get_int();
+        destWh = sItemFactory.GetItemRefFromID((uint32)srcID);
+        if (destWh.get() == nullptr || srcID < 100000000) {
+            destWh = sItemFactory.GetItemRefFromID((uint32)destItemID);
+        }
         if (destWh.get() == nullptr) {
             SendNotifyMsg("This wormhole leads nowhere.");
             return;
@@ -2115,6 +2122,9 @@ void Client::ExecuteWormholeJump() {
     MoveToLocation(m_moveSystemID, m_movePoint);
     SetBallParkTimer(Player::Timer::Jump);
 
+    // ExecuteJump() resets m_clientState to Idle here — ExecuteWormholeJump must
+    // do the same, or the next wormhole click is rejected as 'move already pending'.
+    m_clientState = Player::State::Idle;
     m_movePoint = NULL_ORIGIN;
     m_moveSystemID = 0;
 }
