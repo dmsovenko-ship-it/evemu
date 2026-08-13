@@ -225,6 +225,15 @@ void AnomalyMgr::LoadAnomalies() {
         sig.position.z = row.GetDouble(11);
 
         // Register loaded signatures
+        // Skip orphaned wormhole signatures — WH rows whose entity no longer exists
+        // (collapsed/cleaned) would otherwise re-appear in the scanner forever.
+        if (sig.dungeonType == Dungeon::Type::Wormhole && sig.sigItemID != 0) {
+            InventoryItemRef whItem = sItemFactory.GetItemRefFromID(sig.sigItemID);
+            if (whItem.get() == nullptr) {
+                m_mdb.RemoveAnomaly(sig.sigItemID);
+                continue;
+            }
+        }
         m_dungMgr->MakeDungeon(sig);
         m_sigBySigID.emplace(sig.sigID, sig);
         if (sig.dungeonType == Dungeon::Type::Anomaly) {
