@@ -3,6 +3,16 @@
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам).
 
+## 13 августа (ночь): ВХ-прыжки работают, найден краш в w-space из-за ботов-майнеров
+**Коммиты запушены: `08685d26` (guard maxJumpMass + CreateExit всегда при destItemID==0), `698e1f96` (краш GetRandBeltID в w-space). Юзер пересобрал; вход в ВХ и возврат через K162 работают.**
+- **Вход в ВХ из J151817 → Onsooh (30000013) сработал**: `WormholeSvc mass check: ship=1270.0t maxJump=2000000t` → юзер перенесён, корабль (Buzzard 140102525) сохранён в 30000013, связка C391(140105413)↔K162(140105414) цела. Краш при этом входе — см. ниже.
+- **Краш `std::out_of_range: vector::_M_range_check: __n (which is 0) >= this->size() (which is 0)`** (`698e1f96`): `NPCAI::WarpOut` → `SystemManager::GetRandBeltID()` использовал `m_beltVector.at(MakeRandomInt(0, m_beltCount))`. В w-space (31000000+) **0 поясов астероидов** (J151817=0, все w-space=0), а боты-майнеры/PvP в системе с игроком звали `GetRandBeltID` → `.at(0)` на пустом векторе → abort. Фикс: `GetRandBeltID` возвращает 0 при пустом векторе; NPCAI:721 проверяет `GetSE(0)==nullptr` → Idle.
+- **`08685d26` (2 фикса ВХ)**:
+  1. `WormholeSvc::WormholeJump` отклонял корабль когда `maxJumpMass=0` (у exit K162 до копирования атрибутов источника) — добавлен guard `maxJumpMass>0` (как в Client).
+  2. `Client::WormholeJump` создавал exit K162 ТОЛЬКО если `m_movePoint==NULL_ORIGIN`, но `m_movePoint` мог нести stale-значение → CreateExit не вызывался, юзер попадал к солнцу. Теперь K162 создаётся всегда при `destItemID==0` (нет парного exit), независимо от m_movePoint.
+- **Проверка данных**: K162 140105414 в 30000013 (`TargetSystem1=31002458` J151817, `TargetSystem2=140105413`, maxJump=2000000, maxStable=4998730); C391 140105413 в J151817 (`TargetSystem1=30000013`, `TargetSystem2=140105414`). 30000013=Onsooh, 30000028=Eshtah (НЕ перепутать: K162 ведёт в Onsooh).
+- **Известный симптом до фиксов**: «unsupported location 20000028» (мусор в TargetSystem1) — устранено восстановлением миграции wormhole_classes + `f4a46ecc` (CreateExit(unloaded) → TargetSystem1=sourceItemID).
+
 ## 🔴 КРИТИЧНО ДЛЯ СЛЕДУЮЩЕЙ СЕССИИ: ПОТЕРЯННЫЙ БЛОК SLEEPERAI / W-SPACE (восстановить!)
 
 **Юзер подтвердил: был написан целый блок «Слиперы и червоточины», потом при глобальном сбое всё сломалось и был откат на пару дней. 104 коммита ушли из master ресетом `e512bc1b` (28 июля, «moving to origin/master»). Файлы SleeperAI/Sleeper.cpp в текущем master ОТСУТСТВУЮТ — но коммиты достижимы через reflog и МОГУТ быть восстановлены.**
