@@ -225,11 +225,20 @@ void AnomalyMgr::LoadAnomalies() {
         sig.position.z = row.GetDouble(11);
 
         // Register loaded signatures
-        // Skip orphaned wormhole signatures — WH rows whose entity no longer exists
-        // (collapsed/cleaned) would otherwise re-appear in the scanner forever.
+        // Skip orphaned wormhole signatures — a WH row whose entity is gone, or
+        // whose paired exit (K162) no longer exists, is dead weight that would
+        // re-appear in the scanner forever. Prune it from the DB at load time.
         if (sig.dungeonType == Dungeon::Type::Wormhole && sig.sigItemID != 0) {
             InventoryItemRef whItem = sItemFactory.GetItemRefFromID(sig.sigItemID);
             if (whItem.get() == nullptr) {
+                m_mdb.RemoveAnomaly(sig.sigItemID);
+                continue;
+            }
+            // Natural wormholes must have a live paired exit (K162) via TargetSystem2.
+            // Lone unpaired WHs (e.g. spawned before CreateExit ran, or whose exit
+            // collapsed) are orphans — remove them so they stop showing in scans.
+            int64 exitID = whItem->GetAttribute(AttrWormholeTargetSystem2).get_int();
+            if (exitID == 0) {
                 m_mdb.RemoveAnomaly(sig.sigItemID);
                 continue;
             }
