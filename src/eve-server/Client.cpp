@@ -1975,7 +1975,7 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
             if (destWh.get() != nullptr)
                 m_movePoint = destWh->position();
         }
-        if (m_movePoint == NULL_ORIGIN) {
+        if (destItemID == 0) {
             // No paired exit ball exists yet — create the K162 exit on the far
             // side so the player lands AT the wormhole (not at the sun), and the
             // exit links back to this one. The exit WH is created in the
@@ -1990,9 +1990,9 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
                         m_movePoint = destWh->position();
                 }
             }
-            if (m_movePoint == NULL_ORIGIN)
-                m_movePoint = GPoint(0, 0, 0);
         }
+        if (m_movePoint == NULL_ORIGIN)
+            m_movePoint = GPoint(0, 0, 0);
     }
 
     m_movePoint.MakeRandomPointOnSphere(2000);
