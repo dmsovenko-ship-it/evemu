@@ -454,16 +454,19 @@ void CrimeWatch::SendAggressionChange() {
     if (pSE == nullptr || pSE->SysBubble() == nullptr)
         return;
     int64 now = GetFileTimeNow();
-    int64 weaponEnd = m_weaponTimer.Enabled() ? now + m_weaponTimer.GetRemainingTime() * 10000LL : 0;
-    int64 aggressionEnd = m_aggressionTimer.Enabled() ? now + m_aggressionTimer.GetRemainingTime() * 10000LL : 0;
+    // Client expects TIMESTAMPS of the last aggression/weapon events, NOT end
+    // times: GetAggressionState does `SimTime - lastAggression < aggressionTime*MIN`
+    // and GetCriminalFlagCountDown does `timestamp + aggressionTime*MIN > SimTime`.
+    // Sending an end time (now + remaining) makes the state never expire.
+    int64 weaponTime = m_weaponTimer.Enabled() ? now : 0;
+    int64 aggressionTime = (m_aggressionTimer.Enabled() && m_aggressionTargetID > 0) ? now : 0;
     // Only use real charID keys (no sentinels). Outer dict = attackerID,
-    // inner dict maps victimID to endTime. Client's GetAggressionState
-    // does aggressors.get(attackerID).get(victimID) to find the timer.
+    // inner dict maps victimID to lastAggression timestamp.
     PyDict* timers = new PyDict();
-    if (weaponEnd > 0)
-        timers->SetItem(new PyInt(m_client->GetCharacterID()), new PyLong(weaponEnd));
-    if (aggressionEnd > 0 && m_aggressionTargetID > 0)
-        timers->SetItem(new PyInt(m_aggressionTargetID), new PyLong(aggressionEnd));
+    if (weaponTime > 0)
+        timers->SetItem(new PyInt(m_client->GetCharacterID()), new PyLong(weaponTime));
+    if (aggressionTime > 0)
+        timers->SetItem(new PyInt(m_aggressionTargetID), new PyLong(aggressionTime));
     if (timers->empty())
         return;
     PyDict* aggressors = new PyDict();

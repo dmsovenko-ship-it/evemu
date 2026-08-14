@@ -34,6 +34,11 @@ public:
     void SetLimitedEngagement();
     void SendAggressionChange();
     void UpdateSessionChangeTimer();
+    // True while aggression/weapon/criminal timers are still running — used so the
+    // session-change timer does not clear the aggression cooldown early.
+    bool HasActiveTimers() const {
+        return m_aggressionTimer.Enabled() || m_weaponTimer.Enabled() || m_criminalTimer.Enabled();
+    }
 
 protected:
     void SpawnConcordShips();

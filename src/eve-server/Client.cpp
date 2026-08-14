@@ -411,7 +411,14 @@ void Client::ProcessClient() {
         m_sessionTimer.Disable();
         m_sessionChangeActive = false;
         m_lastGateID = 0;
-        if (m_char) m_char->SetAttribute(259, int64(0), true);
+        // Clear attribute 259 only if no crimewatch timer still active — otherwise
+        // the aggression/weapon cooldown would be cleared early and the client could
+        // dock/jump while still flagged. Recompute nextSessionChange from timers.
+        if (m_crimeWatch != nullptr && m_crimeWatch->HasActiveTimers()) {
+            m_crimeWatch->UpdateSessionChangeTimer();
+        } else {
+            if (m_char) m_char->SetAttribute(259, int64(0), true);
+        }
     }
 
     /* Check Character Save Timer Expiry:  (not currently used  -allan 17May16)
