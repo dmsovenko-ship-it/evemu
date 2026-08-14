@@ -1241,6 +1241,27 @@ void NPCAIMgr::ClearTarget(SystemEntity* pSE) {
                                          pSE->GetID(), 0, "effects.WarpScramble",
                                          1, 0, 0, m_attackSpeed, 0, 0);
     }
+    // Release stasis webifier (restore target speed + stop the beam).
+    if (m_webRange > 0 and pSE->DestinyMgr() != nullptr) {
+        pSE->DestinyMgr()->WebbedMe(m_self, false);
+        if (m_destiny != nullptr)
+            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                         pSE->GetID(), 0, "effects.ModifyTargetSpeed",
+                                         1, 0, 0, m_attackSpeed, 0, 0);
+    }
+    // Stop target-paint beam and restore the original signature radius.
+    if (m_paintRange > 0 and m_destiny != nullptr) {
+        auto pit = m_paintOriginals.find(pSE->GetID());
+        if (pit != m_paintOriginals.end()) {
+            InventoryItemRef tRef = pSE->GetSelf();
+            if (tRef && tRef->HasAttribute(AttrSignatureRadius))
+                tRef->SetAttribute(AttrSignatureRadius, pit->second);
+            m_paintOriginals.erase(pit);
+        }
+        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                     pSE->GetID(), 0, "effects.TargetPaint",
+                                     1, 0, 0, m_paintDuration, 0, 0);
+    }
     m_npc->TargetMgr()->ClearTarget(pSE);
     //m_npc->TargetMgr()->OnTarget(pSE, TargMgr::Mode::Lost);
 
@@ -1356,6 +1377,9 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
                     InventoryItemRef targetRef = pSE->GetSelf();
                     if (targetRef and targetRef->HasAttribute(AttrSignatureRadius)) {
                         EvilNumber sig = targetRef->GetAttribute(AttrSignatureRadius);
+                        // Remember the original so ClearTarget can restore it (paint is temporary).
+                        if (m_paintOriginals.find(pSE->GetID()) == m_paintOriginals.end())
+                            m_paintOriginals[pSE->GetID()] = sig.get_float();
                         float boost = sig.get_float() * (1.0f + m_paintMultiplier);
                         targetRef->SetAttribute(AttrSignatureRadius, boost);
                         m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),

@@ -536,10 +536,10 @@ void NPC::Killed(Damage &damage) {
     if ((m_spawnMgr != nullptr) and (m_self.get() != nullptr))
         m_spawnMgr->SpawnKilled(m_bubble, m_self->itemID());
 
-    // Clear warp scramble from all our targets — AttrWarpScrambleStatus is set
-    // by AttackTarget() and would otherwise stick forever after this NPC dies,
-    // blocking the player from warping (same bug as mobile warp disruptors).
-    if (m_AI != nullptr && m_AI->HasWarpScrambler()) {
+    // Clear all EWAR effects from our targets (warp scramble status + sticky
+    // beams) — they are set by AttackTarget() and would stick forever after this
+    // NPC dies, blocking the player from warping / leaving a stuck web/paint beam.
+    if (m_AI != nullptr) {
         PyList* targets = TargetMgr()->GetTargets();
         if (targets != nullptr) {
             for (PyRep* t : targets->items) {
@@ -549,11 +549,21 @@ void NPC::Killed(Damage &damage) {
                     continue;
                 if (tSE->GetSelf()->HasAttribute(AttrWarpScrambleStatus))
                     tSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, 0.0f, true);
-                // Stop the sticky WarpScramble beam on the client.
-                if (m_destiny != nullptr)
+                // Release stasis web if this NPC had webbed the target.
+                if (m_AI->HasWeb() && tSE->DestinyMgr() != nullptr)
+                    tSE->DestinyMgr()->WebbedMe(m_self, false);
+                // Stop sticky beams on the client.
+                if (m_destiny != nullptr) {
                     m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
                                                  tSE->GetID(), 0, "effects.WarpScramble",
                                                  1, 0, 0, 1000, 0, 0);
+                    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                                 tSE->GetID(), 0, "effects.ModifyTargetSpeed",
+                                                 1, 0, 0, 1000, 0, 0);
+                    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                                 tSE->GetID(), 0, "effects.TargetPaint",
+                                                 1, 0, 0, 1000, 0, 0);
+                }
             }
         }
     }

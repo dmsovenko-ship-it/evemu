@@ -30,6 +30,8 @@
 #include "ship/Missile.h"
 #include "ship/modules/TurretFormulas.h"
 
+#include <map>
+
 namespace NPCAI {
     namespace State {
         enum {
@@ -108,6 +110,7 @@ public:
     void Flee(SystemEntity* pTargSE);   // flee from a target (used by simulated players)
     uint16 GetMaxShipSpeed() const      { return m_maxSpeed; }
     bool HasWarpScrambler() const       { return (m_warpScramStrength > 0 && m_warpScramRange > 0); }
+    bool HasWeb() const                 { return (m_webRange > 0 && m_webStrength > 0); }
 
     // Warp scrambler capability (bots use this to "tackle": hold a target while
     // the fleet warps in). range/strength are metres and scram strength (1 = one
@@ -201,6 +204,7 @@ private:
     float m_paintMultiplier;
     float m_paintChance;
     uint32 m_paintDuration;
+    std::map<uint32, float> m_paintOriginals;   // targetID -> original signature radius
 
     double m_trackingSpeed;
     float m_damageMultiplier;
