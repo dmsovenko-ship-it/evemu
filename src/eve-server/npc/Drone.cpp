@@ -305,6 +305,12 @@ void DroneSE::Online(ShipSE* pShipSE/*nullptr*/) {
 
 void DroneSE::Offline() {
     // this is called by abandon also
+    // Release any web / warp scramble / target paint still applied to targets
+    // before the drone goes offline (scoop/abandon) — otherwise the effects
+    // stick on the target forever. SetIdle iterates the remaining targets and
+    // cleans them up. Guarded: if already Idle or no destiny, nothing to undo.
+    if ((m_AI != nullptr) and (m_destiny != nullptr))
+        m_AI->SetIdle();
     m_destiny->Stop();
     m_AI->AssignShip(nullptr);
     m_online = false;

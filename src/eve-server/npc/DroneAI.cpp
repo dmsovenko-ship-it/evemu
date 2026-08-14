@@ -49,7 +49,9 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
   m_repairAmount(0.0f),
   m_paintTimer(0),
   m_paintTargetID(0),
-  m_paintedSigRadius(0.0f)
+  m_paintedSigRadius(0.0f),
+  m_webApplied(false),
+  m_webTargetID(0)
 {
     m_processTimer.Start(5000);     //arbitrary.
 
@@ -234,7 +236,7 @@ void DroneAIMgr::Process() {
                 }
                 return;
             } else if (pTarget->SysBubble() == nullptr) {
-                m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                ClearTarget(pTarget);
                 return;
             } else if (m_pDrone->SystemMgr() == nullptr
                     or m_pDrone->SystemMgr()->GetSE(pTarget->GetID()) == nullptr) {
@@ -245,7 +247,7 @@ void DroneAIMgr::Process() {
                 // chasing a dead target into deep space.
                 _log(DRONE__AI_TRACE, "Drone %s(%u): Target %s(%u) no longer exists in system. Clearing target.",
                      m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
-                m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                ClearTarget(pTarget);
                 SetIdle();
                 return;
             } else if (pTarget->DestinyMgr() != nullptr
@@ -253,7 +255,7 @@ void DroneAIMgr::Process() {
                 _log(DRONE__AI_TRACE, "Drone %s(%u): Target %s(%u) is warping.  Clearing target and returning to idle.",
                      m_pDrone->GetName(), m_pDrone->GetID(), pTarget->GetName(), pTarget->GetID());
                 m_pDrone->DestinyMgr()->Stop();
-                m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                ClearTarget(pTarget);
                 SetIdle();
                 return;
             } else if (m_assignedShip != nullptr and m_assignedShip->DestinyMgr() != nullptr) {
@@ -265,7 +267,7 @@ void DroneAIMgr::Process() {
                 if (distToShip > GetControlRange()) {
                     _log(DRONE__AI_TRACE, "Drone %s(%u): beyond control range (%.0fm) chasing %s(%u). Returning to ship.",
                          m_pDrone->GetName(), m_pDrone->GetID(), distToShip, pTarget->GetName(), pTarget->GetID());
-                    m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                    ClearTarget(pTarget);
                     Return();
                     return;
                 }
@@ -300,7 +302,7 @@ void DroneAIMgr::Process() {
                 return;
             }
             if (pTarget->SysBubble() == nullptr) {
-                m_pDrone->TargetMgr()->ClearTarget(pTarget);
+                ClearTarget(pTarget);
                 return;
             }
             double dist = m_pDrone->GetPosition().distance(pTarget->GetPosition());
@@ -453,13 +455,12 @@ void DroneAIMgr::ReturnBay() {
 void DroneAIMgr::SetIdle() {
     if (m_state == DroneAI::State::Idle)
         return;
-    // Clean up target paint effect
+    // Clean up target paint / web / scramble on any lingering target (drone is
+    // returning to idle — e.g. via DroneSE::Killed — so release all applied EWAR).
     if (m_paintTargetID != 0) {
         SystemEntity* paintedSE = m_pDrone->SystemMgr()->GetSE(m_paintTargetID);
         if (paintedSE != nullptr)
-            paintedSE->GetSelf()->SetAttribute(AttrSignatureRadius, m_paintedSigRadius, false);
-        m_paintTargetID = 0;
-        m_paintedSigRadius = 0.0f;
+            CleanupTargetEwar(paintedSE);
     }
     // not doing anything....idle.
     m_pDrone->ClearTargetID();
@@ -493,16 +494,19 @@ void DroneAIMgr::SetIdle() {
         }
     }
 
-    // disable ewar timers (only when no target to re-engage)
+    // disable ewar timers and release EWAR on any remaining targets
     if (m_pDrone->TargetMgr() != nullptr) {
         m_webifierTimer.Disable();
         m_warpScramblerTimer.Disable();
-        // Clear warp scramble status on any lingering targets
-        SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
-        if (pTarget != nullptr) {
-            InventoryItemRef targetItem = pTarget->GetSelf();
-            if (targetItem and targetItem->HasAttribute(AttrWarpScrambleStatus))
-                targetItem->SetAttribute(AttrWarpScrambleStatus, 0.0f);
+        m_paintTimer.Disable();
+        PyList* targets = m_pDrone->TargetMgr()->GetTargets();
+        if (targets != nullptr) {
+            for (PyRep* t : targets->items) {
+                uint32 tID = PyRep::IntegerValueU32(t);
+                SystemEntity* tSE = m_pDrone->SystemMgr()->GetSE(tID);
+                if (tSE != nullptr)
+                    CleanupTargetEwar(tSE);
+            }
         }
     }
 
@@ -593,7 +597,7 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
         _log(DRONE__AI_TRACE, "Drone %s(%u): CheckDistance: target %s(%u) is warping.  Aborting pursuit.",
              m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID());
         m_pDrone->DestinyMgr()->Stop();
-        m_pDrone->TargetMgr()->ClearTarget(pSE);
+        ClearTarget(pSE);
         SetIdle();
         return;
     }
@@ -616,7 +620,7 @@ void DroneAIMgr::CheckDistance(SystemEntity* pSE)
                  m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID(),
                  distToShip, GetControlRange());
             m_pDrone->DestinyMgr()->Stop();
-            m_pDrone->TargetMgr()->ClearTarget(pSE);
+            ClearTarget(pSE);
             Return();
             return;
         }
@@ -830,11 +834,76 @@ void DroneAIMgr::Attack(SystemEntity* pSE)
 }
 
 void DroneAIMgr::ClearTarget(SystemEntity* pSE) {
+    // Release any EWAR (web / warp scramble / target paint) this drone applied
+    // to the target before dropping it. Without this the web slows the target
+    // forever, the warp-scramble status stays set (blocking warp) and the paint
+    // keeps the signature inflated — same bug as NPCAIMgr::ClearTarget.
+    CleanupTargetEwar(pSE);
+
     m_pDrone->TargetMgr()->ClearTarget(pSE);
     //m_pDrone->TargetMgr()->OnTarget(pSE, TargMgr::Mode::Lost);
 
     if (m_pDrone->TargetMgr()->HasNoTargets())
         SetIdle();
+}
+
+void DroneAIMgr::CleanupTargetEwar(SystemEntity* pSE) {
+    if ((pSE == nullptr) or (m_pDrone->DestinyMgr() == nullptr))
+        return;
+    InventoryItemRef targetItem = pSE->GetSelf();
+    if (targetItem.get() == nullptr)
+        return;
+
+    // Warp scramble — clear status + stop the sticky client beam.
+    if (m_subType == DroneAI::SubType_WarpScramble) {
+        if (targetItem->HasAttribute(AttrWarpScrambleStatus))
+            targetItem->SetAttribute(AttrWarpScrambleStatus, 0.0f);
+        m_warpScramblerTimer.Disable();
+        m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->typeID(),
+                                                 pSE->GetID(), 0, "effects.WarpScramble",
+                                                 1, 0, 0, m_attackSpeed, 0, 0);
+    }
+
+    // Stasis web — restore target speed + stop the beam. WebbedMe(false) reads
+    // AttrSpeedFactor from the drone, so temporarily re-apply the boosted factor
+    // to cancel the exact multiplication done in WebAttack (symmetric undo).
+    if (m_subType == DroneAI::SubType_Web and m_webApplied and m_webTargetID == pSE->GetID()
+    and pSE->DestinyMgr() != nullptr) {
+        InventoryItemRef droneRef = m_pDrone->GetSelf();
+        if (droneRef->HasAttribute(AttrSpeedFactor)) {
+            float skillMult = 1.0f;
+            if (m_pDrone->GetOwner() != nullptr)
+                skillMult += 0.10f * GetOwnerSkillLevel(EvESkill::PropulsionJammingDroneInterfacing);
+            float origFactor = droneRef->GetAttribute(AttrSpeedFactor).get_float();
+            droneRef->SetAttribute(AttrSpeedFactor, origFactor * skillMult, false);
+            pSE->DestinyMgr()->WebbedMe(droneRef, false);
+            droneRef->SetAttribute(AttrSpeedFactor, origFactor, false);
+        }
+        m_webApplied = false;
+        m_webTargetID = 0;
+        m_webifierTimer.Disable();
+        m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->typeID(),
+                                                 pSE->GetID(), 0, "effects.ModifyTargetSpeed",
+                                                 1, 0, 0, m_attackSpeed, 0, 0);
+    }
+
+    // Target paint — restore the original signature radius + stop the beam.
+    if (m_subType == DroneAI::SubType_TargetPaint and m_paintTargetID == pSE->GetID()) {
+        if (targetItem->HasAttribute(AttrSignatureRadius))
+            targetItem->SetAttribute(AttrSignatureRadius, m_paintedSigRadius, false);
+        m_paintTargetID = 0;
+        m_paintedSigRadius = 0.0f;
+        m_paintTimer.Disable();
+        m_pDrone->DestinyMgr()->SendSpecialEffect(m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->itemID(),
+                                                 m_pDrone->GetSelf()->typeID(),
+                                                 pSE->GetID(), 0, "effects.TargetPaint",
+                                                 1, 0, 0, m_attackSpeed, 0, 0);
+    }
 }
 
 void DroneAIMgr::AttackTarget(SystemEntity* pTarget) {
@@ -1120,9 +1189,36 @@ void DroneAIMgr::WebAttack(SystemEntity* pTarget) {
     InventoryItemRef droneRef = m_pDrone->GetSelf();
     if (droneRef->HasAttribute(AttrSpeedFactor)) {
         float origFactor = droneRef->GetAttribute(AttrSpeedFactor).get_float();
-        droneRef->SetAttribute(AttrSpeedFactor, origFactor * skillMult, false);
+        float boostedFactor = origFactor * skillMult;
+        // The web stacks multiplicatively each cycle (WeppedMe multiplies
+        // m_maxShipSpeed). Undo the previous application first so repeated cycles
+        // don't collapse the target's speed to zero and so cleanup (ClearTarget /
+        // SetIdle) can restore it with a single symmetric WebbedMe(false).
+        if (m_webApplied) {
+            if (m_webTargetID == pTarget->GetID()) {
+                // Re-applying to the same target — undo then re-apply.
+                if (pTarget->DestinyMgr() != nullptr) {
+                    droneRef->SetAttribute(AttrSpeedFactor, boostedFactor, false);
+                    pTarget->DestinyMgr()->WebbedMe(droneRef, false);
+                    droneRef->SetAttribute(AttrSpeedFactor, origFactor, false);
+                }
+            } else {
+                // Switching targets — release the web on the old one.
+                SystemEntity* oldWebTarget = m_pDrone->SystemMgr()->GetSE(m_webTargetID);
+                if (oldWebTarget != nullptr and oldWebTarget->DestinyMgr() != nullptr) {
+                    droneRef->SetAttribute(AttrSpeedFactor, boostedFactor, false);
+                    oldWebTarget->DestinyMgr()->WebbedMe(droneRef, false);
+                    droneRef->SetAttribute(AttrSpeedFactor, origFactor, false);
+                }
+                m_webApplied = false;
+                m_webTargetID = 0;
+            }
+        }
+        droneRef->SetAttribute(AttrSpeedFactor, boostedFactor, false);
         pTarget->DestinyMgr()->WebbedMe(droneRef, true);
         droneRef->SetAttribute(AttrSpeedFactor, origFactor, false);
+        m_webApplied = true;
+        m_webTargetID = pTarget->GetID();
         m_webifierTimer.Start(m_attackSpeed);
     }
 }
@@ -1251,18 +1347,24 @@ void DroneAIMgr::PaintAttack(SystemEntity* pTarget) {
         paintStr *= (1.0f + 0.10f * GetOwnerSkillLevel(EvESkill::ElectronicWarfareDroneInterfacing));
     InventoryItemRef targetRef = pTarget->GetSelf();
     if (targetRef->HasAttribute(AttrSignatureRadius)) {
-        // Restore previous paint if we painted a different target last cycle
+        // If already painting this exact target, just keep the original base and
+        // re-apply (no stacking). Otherwise restore the previous target first.
         if (m_paintTargetID != 0 and m_paintTargetID != pTarget->GetID()) {
             SystemEntity* oldTarget = m_pDrone->SystemMgr()->GetSE(m_paintTargetID);
-            if (oldTarget != nullptr) {
+            if (oldTarget != nullptr and oldTarget->GetSelf()->HasAttribute(AttrSignatureRadius))
                 oldTarget->GetSelf()->SetAttribute(AttrSignatureRadius, m_paintedSigRadius, false);
-            }
+            m_paintTargetID = 0;
+            m_paintedSigRadius = 0.0f;
         }
-        // Save current as base, apply new paint
-        float currentSig = targetRef->GetAttribute(AttrSignatureRadius).get_float();
-        m_paintedSigRadius = currentSig;
-        m_paintTargetID = pTarget->GetID();
-        targetRef->SetAttribute(AttrSignatureRadius, currentSig * (1.0f + paintStr / 100.0f), false);
+        if (m_paintTargetID != pTarget->GetID()) {
+            // First time painting this target — remember the ORIGINAL signature
+            // radius so cleanup restores the true base (repeated cycles must not
+            // stack the paint, which would inflate sig forever and make the undo
+            // restore a too-high value).
+            m_paintedSigRadius = targetRef->GetAttribute(AttrSignatureRadius).get_float();
+            m_paintTargetID = pTarget->GetID();
+        }
+        targetRef->SetAttribute(AttrSignatureRadius, m_paintedSigRadius * (1.0f + paintStr / 100.0f), false);
     }
 }
 
@@ -1452,7 +1554,7 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
             _log(DRONE__AI_TRACE, "Drone %s(%u): Cargo full (need %.0f, have %.0f), stopping.",
                  m_pDrone->GetName(), m_pDrone->GetID(), oreVol, remaining);
             m_pDrone->GetOwner()->SendNotifyMsg("Mining drones deactivated: cargo hold full.");
-            m_pDrone->TargetMgr()->ClearTarget(pTarget);
+            ClearTarget(pTarget);
             SetIdle();
             m_pDrone->StateChange();
             return;
@@ -1479,7 +1581,7 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
         if (qty <= 0.0f) {
             if (pTarget->DestinyMgr() != nullptr)
                 pTarget->DestinyMgr()->Stop();
-            m_pDrone->TargetMgr()->ClearTarget(pTarget);
+            ClearTarget(pTarget);
             pTarget->Delete();   // removes from system + sends RemoveBall to bubble
             SetIdle();
             m_pDrone->StateChange();
@@ -1509,7 +1611,7 @@ void DroneAIMgr::MiningAttack(SystemEntity* pTarget) {
 
     // single cycle mode — return to orbit after one successful mine
     if (m_singleMineCycle) {
-        m_pDrone->TargetMgr()->ClearTarget(pTarget);
+        ClearTarget(pTarget);
         SetIdle();
         m_pDrone->StateChange();
     }

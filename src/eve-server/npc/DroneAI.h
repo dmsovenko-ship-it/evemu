@@ -106,6 +106,7 @@ protected:
     // helpers
     ShipSE* GetOwnerShip();
     double GetControlRange();
+    void CleanupTargetEwar(SystemEntity* pSE);
 
     int8 m_state;
 
@@ -149,6 +150,9 @@ private:
     Timer m_paintTimer;         // cycle timer for target paint cleanup
     uint32 m_paintTargetID;     // entityID of painted target (0 = none)
     float m_paintedSigRadius;   // the sig radius we set (used to reverse on cleanup)
+
+    bool m_webApplied;          // stasis web currently applied to m_webTargetID
+    uint32 m_webTargetID;       // entityID of webbed target (0 = none)
 };
 
 #endif  // __EVEMU_SHIP_DRONEAI_H__
