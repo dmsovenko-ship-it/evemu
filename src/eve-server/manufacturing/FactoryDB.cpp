@@ -801,12 +801,15 @@ uint32 FactoryDB::GetTech2Blueprint(const uint32 blueprintTypeID) {
 uint32 FactoryDB::GetRandomBlueprint() {
     DBQueryResult res;
 
-    // Pick a random published blueprint type to hand out as an RE result.
+    // Pick a random published T2 blueprint type to hand out as an RE result.
+    // Only category Blueprint (9) — invBlueprintTypes also rows relics (cat 34)
+    // which are NOT spawnable blueprints (GetBlueprintType returns nullptr).
     if (!sDatabase.RunQuery(res,
         "SELECT bt.blueprintTypeID"
         " FROM invBlueprintTypes bt"
         " LEFT JOIN invTypes t ON bt.blueprintTypeID = t.typeID"
-        " WHERE t.published = 1 AND t.typeID IS NOT NULL"
+        " LEFT JOIN invGroups g ON t.groupID = g.groupID"
+        " WHERE t.published = 1 AND g.categoryID = 9 AND bt.techLevel = 2"
         " ORDER BY RAND() LIMIT 1"))
     {
         _log(DATABASE__ERROR, "Unable to query random blueprint: %s", res.error.c_str());

@@ -879,6 +879,17 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                         if (newBp.get() != nullptr) {
                             newBp->Move(args.containerID, data.outputFlag, true);
                             data.jobRuns = 0;
+                        } else {
+                            // Spawn failed (e.g. random type was not a real blueprint).
+                            // Do NOT report success — tell the client it failed so it
+                            // doesn't show a delivered blueprint that never exists.
+                            dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamReverseEngineeringTaskFailed"));
+                            dict->SetItemString("jobCompletedSuccessfully", new PyBool(false));
+                            PyDict* msg = new PyDict();
+                            msg->SetItemString("msg", PyStatic.NewInt(0));
+                            msg->SetItemString("args", PyStatic.NewInt(0));
+                            dict->SetItemString("message", msg);
+                            return dict;
                         }
 
                         dict->SetItemString("messageLabel", new PyString("UI/ScienceAndIndustry/ScienceAndIndustryWindow/RamReverseEngineeringJobSucceeded"));
