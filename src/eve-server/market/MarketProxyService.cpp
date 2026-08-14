@@ -252,6 +252,7 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
     uint16 accountKey(Account::KeyType::Cash);
 
     _log(MARKET__DUMP, "Mkt::PlaceCharOrder()");
+    call.Dump(MARKET__DUMP);
 
     // skill-based order count check
     if (duration->value() > 0) {
@@ -590,6 +591,8 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
             int8 marketingLevel = call.client->GetChar()->GetSkillLevel(EvESkill::Marketing);
             static const uint8 sellRangeBySkill[] = { 5, 5, 10, 20, 40, 60 };
             uint8 maxSellRange = (marketingLevel < 6) ? sellRangeBySkill[marketingLevel] : 60;
+            _log(MARKET__DUMP, "PlaceCharOrder(sell): orderRange=%d maxSellRange=%u marketingLevel=%d",
+                 orderRange->value(), maxSellRange, marketingLevel);
             if (orderRange->value() >= 0 and (uint32)orderRange->value() > maxSellRange) {
                 call.client->SendErrorMsg("Your Marketing skill only allows sell orders within %u jumps.", maxSellRange);
                 return nullptr;
