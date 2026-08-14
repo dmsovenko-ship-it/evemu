@@ -798,6 +798,28 @@ uint32 FactoryDB::GetTech2Blueprint(const uint32 blueprintTypeID) {
     return row.GetUInt(0);
 }
 
+uint32 FactoryDB::GetRandomBlueprint() {
+    DBQueryResult res;
+
+    // Pick a random published blueprint type to hand out as an RE result.
+    if (!sDatabase.RunQuery(res,
+        "SELECT bt.blueprintTypeID"
+        " FROM invBlueprintTypes bt"
+        " LEFT JOIN invTypes t ON bt.blueprintTypeID = t.typeID"
+        " WHERE t.published = 1 AND t.typeID IS NOT NULL"
+        " ORDER BY RAND() LIMIT 1"))
+    {
+        _log(DATABASE__ERROR, "Unable to query random blueprint: %s", res.error.c_str());
+        return 0;
+    }
+
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return 0;
+
+    return row.GetUInt(0);
+}
+
 int64 FactoryDB::GetNextFreeTime(const uint32 assemblyLineID) {
     DBQueryResult res;
     if (!sDatabase.RunQuery(res, "SELECT nextFreeTime FROM ramAssemblyLines WHERE assemblyLineID = %u", assemblyLineID)) {

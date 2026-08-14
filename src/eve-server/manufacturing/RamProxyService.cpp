@@ -155,22 +155,30 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
             throw UserError ("RamActivityRequiresABlueprint");
         }
     }
-    if (installedItem->categoryID() != EVEDB::invCategories::Blueprint)
+    // Reverse Engineering accepts an ancient relic (category 34) as the source
+    // item instead of a blueprint — the relic "decodes" into a T2 BPC on success.
+    bool isRelicRE = (args.activityID == EvERam::Activity::ReverseEngineering)
+                  && (installedItem->categoryID() == EVEDB::invCategories::AncientRelics);
+
+    if (!isRelicRE and installedItem->categoryID() != EVEDB::invCategories::Blueprint)
         throw UserError ("RamActivityRequiresABlueprint");
 
     // installedItem is bp.  change ref to bpRef
-    BlueprintRef bpRef = BlueprintRef::StaticCast(installedItem);
+    BlueprintRef bpRef;
+    if (!isRelicRE)
+        bpRef = BlueprintRef::StaticCast(installedItem);
 
     // check assy line activity
-    sRamMthd.ActivityCheck(call.client, args, bpRef);
+    if (!isRelicRE)
+        sRamMthd.ActivityCheck(call.client, args, bpRef);
 
     // if output flag not set, put it where it came from
     if (args.outputFlag == flagNone)
-        args.outputFlag = bpRef->flag();
+        args.outputFlag = installedItem->flag();
 
     // check permissions
     sRamMthd.LinePermissionCheck(call.client, args);
-    sRamMthd.ItemOwnerCheck(call.client, args, bpRef);
+    sRamMthd.ItemOwnerCheck(call.client, args, installedItem);
 
     // this is a bit funky, but works quite well....
     // decode path to BP and BOM location
@@ -217,7 +225,24 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
     // calculate time and cost
     //   Rsp_InstallJob is used as container while building response to job quote.
     Rsp_InstallJob rsp;
-    if (!sRamMthd.Calculate(args, bpRef, call.client->GetChar().get(), rsp)){
+    if (isRelicRE) {
+        // Ancient relic RE: no blueprint fields (type/runs) — use line properties
+        // plus fixed defaults, mirroring RamMethods::Calculate.
+        FactoryDB::GetAssemblyLineProperties(args.AssemblyLineID, call.client->GetChar().get(), rsp, args.isCorpJob);
+        rsp.charTimeMultiplier = 1.0;
+        rsp.materialMultiplier = 1.0f;
+        rsp.charMaterialMultiplier = EvE::max(1.0f, call.client->GetChar()->GetAttribute(AttrManufactureCostMultiplier).get_float());
+        uint32 baseTime = 3600;   // default 1h for a relic RE job
+        rsp.timeMultiplier = 1.0f;
+        rsp.productionTime = EvEMath::RAM::InventionTime(baseTime,
+            call.client->GetChar()->GetSkillLevel(EvESkill::AdvancedLaboratoryOperation),
+            rsp.timeMultiplier);
+        rsp.productionTime *= sConfig.ram.ReTime;
+        rsp.usageCost *= ceil(rsp.productionTime / 3600.0f);
+        rsp.cost = rsp.installCost + rsp.usageCost;
+        rsp.productionTime *= args.runs;
+        rsp.maxJobStartTime = FactoryDB::GetNextFreeTime(args.AssemblyLineID);
+    } else if (!sRamMthd.Calculate(args, bpRef, call.client->GetChar().get(), rsp)){
         _log(MANUF__ERROR, "Could not Calculate() on %s for %s(%u)", bpRef->name(), call.client->GetName(), call.client->GetCharacterID());
         return nullptr;
     }
@@ -231,7 +256,7 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
 
     // get required items for activity
     std::vector<EvERam::RequiredItem> reqItems;
-    sDataMgr.GetRamRequiredItems(bpRef->typeID(), (int8)args.activityID, reqItems);
+    sDataMgr.GetRamRequiredItems(installedItem->typeID(), (int8)args.activityID, reqItems);
 
     // quoteOnly is sent for all jobs before installation to approve price and timeframe
     if (PyRep::IntegerValueU32(call.byname["quoteOnly"])) {
@@ -311,23 +336,25 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
                                          call.client->GetCharacterID(), args, beginTime, beginTime + rsp.productionTime * EvE::Time::Second, call.client->GetSystemID());
 
     if (jobID < 1) {
-        _log(MANUF__ERROR, "Could not InstallJob for %s using %s", call.client->GetName(), bpRef->name());
+        _log(MANUF__ERROR, "Could not InstallJob for %s using %s", call.client->GetName(), installedItem->name());
         // make client error here...
         return nullptr;
     }
 
-    if (bpRef->quantity() > 1) {
-        BlueprintRef iRef = bpRef->SplitBlueprint(1);
-        if (iRef.get() == nullptr) {
-            _log(MANUF__WARNING, "Failed to split %s for %s.", bpRef->name(), sRamMthd.GetActivityName(args.activityID));
-            throw UserError ("RamActivityRequiresABlueprint");
+    if (!isRelicRE) {
+        if (bpRef->quantity() > 1) {
+            BlueprintRef iRef = bpRef->SplitBlueprint(1);
+            if (iRef.get() == nullptr) {
+                _log(MANUF__WARNING, "Failed to split %s for %s.", bpRef->name(), sRamMthd.GetActivityName(args.activityID));
+                throw UserError ("RamActivityRequiresABlueprint");
+            }
+            bpRef = iRef;
         }
-        bpRef = iRef;
-    }
 
-    // unpackage bpo and move to factory
-    bpRef->ChangeSingleton(true);
-    bpRef->Move(locRAMItems, flagFactoryBlueprint, true);
+        // unpackage bpo and move to factory
+        bpRef->ChangeSingleton(true);
+        bpRef->Move(locRAMItems, flagFactoryBlueprint, true);
+    }
 
     // take required items
     std::vector<InventoryItemRef> items;
@@ -367,7 +394,9 @@ PyResult RamProxyService::InstallJob(PyCallArgs &call, PyRep* locationData, PyRe
             bpRef->UpdateRuns(-args.runs);
         } break;
         case EvERam::Activity::ReverseEngineering: {
-            bpRef->UpdateRuns(-args.runs);
+            // Ancient relic RE consumes the relic (source) — nothing to update.
+            if (!isRelicRE)
+                bpRef->UpdateRuns(-args.runs);
         } break;
         case EvERam::Activity::Invention: {
             bpRef->UpdateRuns(-args.runs);
@@ -791,8 +820,15 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
             } break;
 
             case EvERam::Activity::ReverseEngineering: {
-                BlueprintRef reBpRef = BlueprintRef::StaticCast(installedItem);
-                float baseChance = reBpRef->type().chanceOfRE();
+                bool isRelic = (installedItem->categoryID() == EVEDB::invCategories::AncientRelics);
+                BlueprintRef reBpRef;
+                if (!isRelic)
+                    reBpRef = BlueprintRef::StaticCast(installedItem);
+
+                // Base chance: from the source blueprint type (if blueprint), else 20% for a relic.
+                float baseChance = 0.20f;
+                if (!isRelic)
+                    baseChance = reBpRef->type().chanceOfRE();
                 if (baseChance < 0.01f) baseChance = 0.20f;
 
                 uint8 reSkill = call.client->GetChar()->GetSkillLevel(EvESkill::ReverseEngineering);
@@ -801,7 +837,7 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                 // datacore skill modifier: read RAM requirements for this RE blueprint
                 float dcMod = 1.0f;
                 std::vector<EvERam::RequiredItem> reqItems;
-                sDataMgr.GetRamRequiredItems(reBpRef->typeID(), EvERam::Activity::ReverseEngineering, reqItems);
+                sDataMgr.GetRamRequiredItems(installedItem->typeID(), EvERam::Activity::ReverseEngineering, reqItems);
                 for (auto& req : reqItems) {
                     if (req.isSkill and req.typeID != EvESkill::ReverseEngineering) {
                         uint8 dcLevel = call.client->GetChar()->GetSkillLevel(req.typeID);
@@ -815,13 +851,22 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                 PyDict* dict = new PyDict();
                 if (success) {
                     // Determine output blueprint typeID from parentBlueprintTypeID
-                    uint32 outTypeID = reBpRef->type().parentBlueprintTypeID();
-                    if (outTypeID == 0)
-                        outTypeID = FactoryDB::GetTech2Blueprint(reBpRef->typeID());
+                    uint32 outTypeID = 0;
+                    if (!isRelic) {
+                        outTypeID = reBpRef->type().parentBlueprintTypeID();
+                        if (outTypeID == 0)
+                            outTypeID = FactoryDB::GetTech2Blueprint(reBpRef->typeID());
+                    }
+                    // Ancient relic RE has no associated blueprint — hand out a random one.
+                    if (isRelic)
+                        outTypeID = FactoryDB::GetRandomBlueprint();
 
                     if (outTypeID > 0) {
-                        int8 runs = std::max(1, reBpRef->runs() / 10);
-                        if (runs > 10) runs = 10;
+                        int8 runs = 1;
+                        if (!isRelic) {
+                            runs = std::max(1, reBpRef->runs() / 10);
+                            if (runs > 10) runs = 10;
+                        }
 
                         ItemData idata(outTypeID, data.ownerID, locTemp, flagFactoryOutput);
                         EvERam::bpData bpdata;

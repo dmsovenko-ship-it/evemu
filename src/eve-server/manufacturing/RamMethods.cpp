@@ -233,15 +233,15 @@ void RamMethods::LinePermissionCheck(Client*const pClient, const Call_InstallJob
     }
 }
 
-void RamMethods::ItemOwnerCheck(Client*const pClient, const Call_InstallJob& args, BlueprintRef bpRef)
+void RamMethods::ItemOwnerCheck(Client*const pClient, const Call_InstallJob& args, InventoryItemRef installedItem)
 {
     // ownership
     if (args.isCorpJob) {
-        if (bpRef->ownerID() != pClient->GetCorporationID())
+        if (installedItem->ownerID() != pClient->GetCorporationID())
             throw UserError ("RamCannotInstallItemForAnotherCorp");
     } else {
         // this one is checked in client
-        if (bpRef->ownerID() != pClient->GetCharacterID())
+        if (installedItem->ownerID() != pClient->GetCharacterID())
             throw UserError ("RamCannotInstallItemForAnother");
     }
 }

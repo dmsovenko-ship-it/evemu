@@ -28,7 +28,7 @@ public:
     void InstallationCheck(Client* const pClient, int32 lineLocationID);
     // verify roles and restrictions
     void LinePermissionCheck(Client* const pClient, const Call_InstallJob& args);
-    void ItemOwnerCheck(Client*const pClient, const Call_InstallJob& args, BlueprintRef bpRef);
+    void ItemOwnerCheck(Client*const pClient, const Call_InstallJob& args, InventoryItemRef installedItem);
     void ItemLocationCheck(Client* const pClient, const Call_InstallJob& args, InventoryItemRef installedItem);
 
     void HangarRolesCheck(Client* const pClient, int16 flagID);

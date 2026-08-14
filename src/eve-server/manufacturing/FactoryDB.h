@@ -66,6 +66,7 @@ public:
     static uint32 CountManufacturingJobs(const uint32 installerID);
     static uint32 CountResearchJobs(const uint32 installerID);
     static uint32 GetTech2Blueprint(const uint32 blueprintTypeID);
+    static uint32 GetRandomBlueprint();
     static PyRep* GetBlueprintsAtLocation(const uint32 locationID);
 
     static int64 GetNextFreeTime(const uint32 assemblyLineID);
