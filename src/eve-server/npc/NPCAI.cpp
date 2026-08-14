@@ -1253,11 +1253,9 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
             if (!m_warpScramblerTimer.Enabled() or m_warpScramblerTimer.Check()) {
                 if (MakeRandomFloat() > m_warpScramChance) {
                     InventoryItemRef targetRef = pSE->GetSelf();
-                    if (targetRef->HasAttribute(AttrWarpScrambleStatus)) {
-                        targetRef->SetAttribute(AttrWarpScrambleStatus, m_warpScramStrength);
-                    } else {
-                        targetRef->SetAttribute(AttrWarpScrambleStatus, m_warpScramStrength, false);
-                    }
+                    // notify=true so the client's godma gets OnModuleAttributeChange and
+                    // shows the warp-scramble indicator on the target ship.
+                    targetRef->SetAttribute(AttrWarpScrambleStatus, m_warpScramStrength, true);
                     uint32 scramGfxID = 0;
                     if (m_self->HasAttribute(AttrGfxBoosterID))
                         scramGfxID = m_self->GetAttribute(AttrGfxBoosterID).get_uint32();

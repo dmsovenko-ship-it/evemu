@@ -536,6 +536,23 @@ void NPC::Killed(Damage &damage) {
     if ((m_spawnMgr != nullptr) and (m_self.get() != nullptr))
         m_spawnMgr->SpawnKilled(m_bubble, m_self->itemID());
 
+    // Clear warp scramble from all our targets — AttrWarpScrambleStatus is set
+    // by AttackTarget() and would otherwise stick forever after this NPC dies,
+    // blocking the player from warping (same bug as mobile warp disruptors).
+    if (m_AI != nullptr && m_AI->HasWarpScrambler()) {
+        PyList* targets = TargetMgr()->GetTargets();
+        if (targets != nullptr) {
+            for (PyRep* t : targets->items) {
+                uint32 tID = PyRep::IntegerValueU32(t);
+                SystemEntity* tSE = m_system->GetSE(tID);
+                if (tSE == nullptr || tSE->GetSelf().get() == nullptr)
+                    continue;
+                if (tSE->GetSelf()->HasAttribute(AttrWarpScrambleStatus))
+                    tSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, 0.0f, true);
+            }
+        }
+    }
+
     uint32 killerID = 0;
     Client* pClient(nullptr);
     SystemEntity *killer(damage.srcSE);

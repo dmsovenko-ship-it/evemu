@@ -107,6 +107,7 @@ public:
     void SetAmbush(bool ambush); // Anomaly ambush: stay in cover, no wander until player in sight
     void Flee(SystemEntity* pTargSE);   // flee from a target (used by simulated players)
     uint16 GetMaxShipSpeed() const      { return m_maxSpeed; }
+    bool HasWarpScrambler() const       { return (m_warpScramStrength > 0 && m_warpScramRange > 0); }
 
     // Warp scrambler capability (bots use this to "tackle": hold a target while
     // the fleet warps in). range/strength are metres and scram strength (1 = one
