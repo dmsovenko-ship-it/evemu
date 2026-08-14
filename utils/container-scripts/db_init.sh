@@ -48,12 +48,15 @@ migrations-dir: /src/sql/migrations
 dungeons-dir: /src/sql/dungeons
 EOF
 
-# Remove stale wrecks from DB (transient objects, not persistent)
+# Remove stale wrecks from DB (transient objects, not persistent).
+# IMPORTANT: match the Wreck GROUP (186), NOT itemName LIKE '%Wreck%' — the latter
+# also deletes "Wrecked Thruster Sections" etc. that the player looted into their
+# cargo hold (they have "Wreck" in the name but are ancient-relic loot, not wrecks).
 mysql -h $MARIADB_HOST -u $MARIADB_USER -p$MARIADB_PASSWORD $MARIADB_DATABASE -e "
-    DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%');
-    DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE locationID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%'));
-    DELETE FROM entity WHERE locationID IN (SELECT itemID FROM entity WHERE itemName LIKE '%Wreck%');
-    DELETE FROM entity WHERE itemName LIKE '%Wreck%';
+    DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE groupID = 186);
+    DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE locationID IN (SELECT itemID FROM entity WHERE groupID = 186));
+    DELETE FROM entity WHERE locationID IN (SELECT itemID FROM entity WHERE groupID = 186);
+    DELETE FROM entity WHERE groupID = 186;
 " 2>/dev/null || true
 
 echo "Running EVEDBTool..."
