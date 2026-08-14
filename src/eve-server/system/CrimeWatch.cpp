@@ -98,13 +98,21 @@ void CrimeWatch::Process()
         if (m_client->GetChar())
             m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(0), true);
     }
-    if (m_criminalTimer.Enabled()) m_criminalTimer.Check();
+    if (m_criminalTimer.Enabled() and m_criminalTimer.Check(false)) {
+        // Criminal flag expired — clear the criminal indicator.
+        m_criminalTimer.Disable();
+        if (m_client->GetChar())
+            m_client->GetChar()->SetAttribute(ATTR_CRIMINAL_TIMER, int64(0), true);
+    }
     if (m_weaponTimer.Enabled() and m_weaponTimer.Check(false)) {
         m_weaponTimer.Disable();
         if (m_client->GetChar())
             m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(0), true);
     }
-    if (m_limitedEngagementTimer.Enabled()) m_limitedEngagementTimer.Check();
+    if (m_limitedEngagementTimer.Enabled() and m_limitedEngagementTimer.Check(false)) {
+        m_limitedEngagementTimer.Disable();
+        m_limitedEngagement = false;
+    }
     // Keep session change timer in sync when timers expire
     UpdateSessionChangeTimer();
 }

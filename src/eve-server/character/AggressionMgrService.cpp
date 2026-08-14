@@ -54,23 +54,21 @@ PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* char
     if (pCW == nullptr)
         return new PyDict();
 
-    // Build { ownerID: endTime } dict where keys are real character IDs.
-    // Weapon timer key = attacker's own charID (self-timer, shows weapon icon).
-    // Aggression timer key = victim's charID (shows aggression indicator on target).
+    // Build { ownerID: lastEventTimestamp } dict where keys are real character IDs.
+    // Client treats these as TIMESTAMPS of the last aggression/weapon event and adds
+    // const.aggressionTime*MIN itself (michelle.GetCriminalFlagCountDown does
+    // `timestamp + aggressionTime*MIN > SimTime`, locationInfoSvc subtracts SimTime
+    // from the expiry it computes). Sending an END time would make the countdown
+    // never expire. Weapon timer key = attacker's own charID, aggression key = victim.
     PyDict* timers = new PyDict();
     int64 now = GetFileTimeNow();
 
     if (pCW->HasWeaponTimer()) {
-        uint32 remaining = pCW->GetWeaponTimerRemaining();
-        if (remaining > 0) {
-            int64 endTime = now + (int64)remaining * 10000LL;
-            timers->SetItem(new PyInt(targetCharID), new PyLong(endTime));
-        }
+        timers->SetItem(new PyInt(targetCharID), new PyLong(now));
     }
 
     if (pCW->IsAggressed() && pCW->GetAggressionTargetID() > 0) {
-        int64 remaining = (int64)pCW->GetAggressionTimerRemaining() * 10000LL;
-        timers->SetItem(new PyInt(pCW->GetAggressionTargetID()), new PyLong(now + remaining));
+        timers->SetItem(new PyInt(pCW->GetAggressionTargetID()), new PyLong(now));
     }
 
     return timers;
