@@ -549,6 +549,11 @@ void NPC::Killed(Damage &damage) {
                     continue;
                 if (tSE->GetSelf()->HasAttribute(AttrWarpScrambleStatus))
                     tSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, 0.0f, true);
+                // Stop the sticky WarpScramble beam on the client.
+                if (m_destiny != nullptr)
+                    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                                 tSE->GetID(), 0, "effects.WarpScramble",
+                                                 1, 0, 0, 1000, 0, 0);
             }
         }
     }

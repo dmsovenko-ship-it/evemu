@@ -1235,6 +1235,11 @@ void NPCAIMgr::ClearTarget(SystemEntity* pSE) {
         InventoryItemRef targetItem = pSE->GetSelf();
         if (targetItem and targetItem->HasAttribute(AttrWarpScrambleStatus))
             targetItem->SetAttribute(AttrWarpScrambleStatus, 0.0f);
+        // Stop the sticky WarpScramble beam on the client.
+        if (m_destiny != nullptr)
+            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                         pSE->GetID(), 0, "effects.WarpScramble",
+                                         1, 0, 0, m_attackSpeed, 0, 0);
     }
     m_npc->TargetMgr()->ClearTarget(pSE);
     //m_npc->TargetMgr()->OnTarget(pSE, TargMgr::Mode::Lost);
@@ -1265,6 +1270,15 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
                     m_warpScramblerTimer.Start(m_attackSpeed);
                 }
             }
+        } else {
+            // Target left scrambler range — drop the effect and the status so the
+            // client stops showing the sticky WarpScramble beam.
+            InventoryItemRef targetRef = pSE->GetSelf();
+            if (targetRef && targetRef->HasAttribute(AttrWarpScrambleStatus))
+                targetRef->SetAttribute(AttrWarpScrambleStatus, 0.0f, true);
+            m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                         pSE->GetID(), 0, "effects.WarpScramble",
+                                         1, 0, 0, m_attackSpeed, 0, 0);
         }
     }
 
