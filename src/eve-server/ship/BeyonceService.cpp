@@ -739,6 +739,10 @@ PyResult BeyonceBound::CmdDock(PyCallArgs &call, PyInt* celestialID, PyInt* ship
         // The client sends CmdDock a couple of seconds before a warp-in-to-dock
         // actually finishes. Rejecting it loses the dock request; defer it and
         // WarpStop() will run AttemptDockOperation once the warp completes.
+        // NOTE: must set dockStationID HERE — the common SetDockStationID below
+        // is skipped on this early return, and WarpStop needs it to find the
+        // station ('Station Not Found, Docking Aborted' otherwise).
+        call.client->SetDockStationID(celestialID->value());
         pDestiny->RequestDockAfterWarp();
         call.client->SetAutoPilot(false);
         _log(AUTOPILOT__MESSAGE, "%s: Dock deferred until warp completes.", call.client->GetName());
