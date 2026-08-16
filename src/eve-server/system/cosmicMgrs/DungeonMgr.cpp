@@ -507,6 +507,19 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     whClass = 2;                         // refuge / den / rally points / port
                 else
                     whClass = 1;                         // hideaway / burrow
+            } else if (dData.factionID == factionBloodRaider) {
+                // Blood Raiders: Hideaway/Refuge/Den (light), Yard/Rally/Port/
+                // Hub (medium), Haven/Sanctum + DED Temple Complex (heavy).
+                if (dData.dungeonID >= 2310 && dData.dungeonID <= 2610)
+                    whClass = 3;                         // DED complexes
+                else if (dData.dungeonID == 2710)
+                    whClass = 3;                         // DED Temple Complex
+                else if (dData.dungeonID == 2030 || dData.dungeonID == 2031 || dData.dungeonID == 2028 || dData.dungeonID == 2029)
+                    whClass = 2;                         // haven / sanctum / hub / forsaken hub
+                else if (dData.dungeonID >= 2025 && dData.dungeonID <= 2027)
+                    whClass = 2;                         // yard / rally / port
+                else
+                    whClass = 1;                         // hideaway / refuge / den
             }
             std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID, whClass);
             for (uint32 id : decoIDs)
@@ -869,6 +882,20 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         2832,    // Blood Raider Fortress
         11081,   // Blood Raider Battlestation
         23615,   // Asteroid Station - Dark and Spiky
+        16727,   // Blood Raider Cathedral (LCS 319)
+        16731,   // Blood Raider Chapel (LCS 319)
+        17380,   // Blood Raider Deadspace Tactical Unit (LCS 319)
+        17393,   // Bloodsport Arena (LCS 319)
+        25552,   // LCS Blood Raider Bhaalgorn
+        16766,   // Blood Raider Bunker (LCS 319)
+        16767,   // Blood Raider Elevator
+        16768,   // Blood Raider Junction
+        16769,   // Blood Raider Lookout
+        16770,   // Blood Raider Battery
+        16771,   // Blood Raider Wall
+        16772,   // Blood Raider Barricade
+        16773,   // Blood Raider Fence
+        16774,   // Blood Raider Barrier
         24457,   // LCO Blood Raider Bunker
         24458,   // LCO Blood Raider Junction
         23968,   // LCO Blood Raider Barrier
@@ -970,9 +997,14 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             break;
         }
         case factionBloodRaider: {
+            // Blood Raiders — the blood-red cult: cathedrals, chapels, bloody
+            // arenas and Amarr wreckage in their crimson nebula. Density scales
+            // with site complexity (Hideaway light → Sanctum/DED Temple heavy).
             factionDeco = bloodDeco;
             factionClouds = bloodClouds;
-            decoCount = 6 + MakeRandomInt(0, 5);
+            if (whClass >= 3)      decoCount = 12 + MakeRandomInt(0, 7);
+            else if (whClass == 2) decoCount = 9 + MakeRandomInt(0, 5);
+            else                   decoCount = 6 + MakeRandomInt(0, 4);
             break;
         }
         case factionSanshas: {
