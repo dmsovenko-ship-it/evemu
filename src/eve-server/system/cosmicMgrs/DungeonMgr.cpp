@@ -496,6 +496,17 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     whClass = 2;                         // rally / port / refuge / den
                 else
                     whClass = 1;                         // hideaway / burrow
+            } else if (dData.factionID == factionAngel) {
+                // Angel Cartel: Hideaway/Burrow (light), Rally/Port/Refuge/Den
+                // (medium), Hub/Haven/Sanctum + DED (heavy).
+                if (dData.dungeonID >= 2300 && dData.dungeonID <= 2600)
+                    whClass = 3;                         // DED complexes
+                else if (dData.dungeonID == 2009 || dData.dungeonID == 2010 || dData.dungeonID == 2011 || dData.dungeonID == 2012)
+                    whClass = 2;                         // hub / hidden hub / haven / sanctum
+                else if (dData.dungeonID >= 2004 && dData.dungeonID <= 2008)
+                    whClass = 2;                         // refuge / den / rally points / port
+                else
+                    whClass = 1;                         // hideaway / burrow
             }
             std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID, whClass);
             for (uint32 id : decoIDs)
@@ -815,6 +826,9 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         29557,   // LCO Angel Junction
         29558,   // LCO Angel Lookout
         29559,   // LCO Angel Wall
+        11077,   // Angel Battlestation (LCS 319)
+        17138,   // Augmented Angel Battlestation (LCS 319)
+        28247,   // Angel Battlestation_event (LCS 319)
         21821,   // LCO Habitation Brothel
         21825,   // LCO Habitation Casino
         21823,   // Indestructible Residential Habitation Module
@@ -933,9 +947,15 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     std::vector<uint32> factionClouds = cloudDeco;   // default: generic cloud field
     switch (factionID) {
         case factionAngel: {
+            // Angel Cartel — corporate warlords in brown-gold beetle camouflage;
+            // organized compounds with barricades, freight pads and the big
+            // Angel/Augmented Battlestations on heavy sites. Density scales with
+            // site complexity (Hideaway light → Sanctum/DED heavy).
             factionDeco = angelDeco;
             factionClouds = angelClouds;
-            decoCount = 10 + MakeRandomInt(0, 8);
+            if (whClass >= 3)      decoCount = 14 + MakeRandomInt(0, 8);
+            else if (whClass == 2) decoCount = 10 + MakeRandomInt(0, 6);
+            else                   decoCount = 7 + MakeRandomInt(0, 5);
             break;
         }
         case factionGuristas: {
