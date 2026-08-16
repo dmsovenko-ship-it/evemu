@@ -463,7 +463,9 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             // Spawn procedural decorations based on faction. W-space Sleeper
             // sites derive the wormhole class from the dungeon ID (combat
             // 4001-4024: 4 per class; Data 4301-4312 / Relic 4401-4412: 2 per
-            // class) so decor tier matches the site difficulty.
+            // class) so decor tier matches the site difficulty. Sansha sites
+            // tier by complexity: Den/Rally → 1, Hub/Haven/Sanctum/Port → 2,
+            // DED complexes + Incursions → 3.
             uint8 whClass = 0;
             if (dData.factionID == factionSleepers) {
                 if (dData.dungeonID >= 4001 && dData.dungeonID <= 4024)
@@ -472,6 +474,15 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     whClass = static_cast<uint8>(((dData.dungeonID - 4301) / 2) + 1);
                 else if (dData.dungeonID >= 4401 && dData.dungeonID <= 4412)
                     whClass = static_cast<uint8>(((dData.dungeonID - 4401) / 2) + 1);
+            } else if (dData.factionID == factionSanshas) {
+                if (dData.dungeonID >= 2330 && dData.dungeonID <= 2630)
+                    whClass = 3;                         // DED complexes
+                else if (dData.dungeonID >= 2100 && dData.dungeonID <= 2133)
+                    whClass = 3;                         // incursions
+                else if (dData.dungeonID >= 2066 && dData.dungeonID <= 2072)
+                    whClass = 2;                         // hub / port / haven / sanctum
+                else
+                    whClass = 1;                         // den / rally point / encounters
             }
             std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID, whClass);
             for (uint32 id : decoIDs)
@@ -759,7 +770,19 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         29602,   // LCO Sansha Junction
         29603,   // LCO Sansha Lookout
         29604,   // LCO Sansha Wall
+        16813,   // Sansha Fence (LCS 319)
+        16814,   // Sansha Bunker
+        16815,   // Sansha Elevator
+        16816,   // Sansha Junction
+        16817,   // Sansha Lookout
+        16818,   // Sansha Battery
+        16819,   // Sansha Wall
+        16820,   // Sansha Barricade
+        16821,   // Sansha Barrier
+        17381,   // Sansha Deadspace Outpost I (LCS 319)
+        28252,   // Sansha Battlestation (large, LCS 319)
         21829,   // Indestructible Landing Pad
+        23237,   // Indestructible Freight Pad
         21823,   // Indestructible Residential Habitation Module
         21821,   // LCO Habitation Brothel
         21799,   // LCO Pleasure Hub
@@ -909,9 +932,15 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             break;
         }
         case factionSanshas: {
+            // Sansha Nation — clean ion/plasma micro-nebulae. Decor density
+            // scales with site complexity: Den/Rally (light), Hub/Haven/Sanctum
+            // (heavier watchtowers + batteries), DED complexes + Incursions
+            // (sprawling battlestations and deadspace structures).
             factionDeco = sanshaDeco;
             factionClouds = sanshaClouds;
-            decoCount = 10 + MakeRandomInt(0, 8);
+            if (whClass >= 3)      decoCount = 16 + MakeRandomInt(0, 8);
+            else if (whClass == 2) decoCount = 12 + MakeRandomInt(0, 6);
+            else                   decoCount = 8 + MakeRandomInt(0, 5);
             break;
         }
         case factionSerpentis: {
