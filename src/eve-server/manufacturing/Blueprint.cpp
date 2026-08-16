@@ -80,20 +80,26 @@ BlueprintRef Blueprint::Spawn(ItemData& data, EvERam::bpData& bdata) {
 uint32 Blueprint::CreateItemID(ItemData& data, EvERam::bpData& bdata) {
     // make sure it's a blueprint type
     const BlueprintType* bpType = sItemFactory.GetBlueprintType(data.typeID);
-    if (bpType == nullptr)
+    if (bpType == nullptr) {
+        codelog(MANUF__ERROR, "Blueprint::CreateItemID() - typeID %u is not a loadable BlueprintType (Spawn failed).", data.typeID);
         return 0;
+    }
 
     // make the blueprintID
     uint32 blueprintID(InventoryItem::CreateItemID(data));
-    if (blueprintID == 0)
+    if (blueprintID == 0) {
+        codelog(MANUF__ERROR, "Blueprint::CreateItemID() - InventoryItem::CreateItemID returned 0 for typeID %u (Spawn failed).", data.typeID);
         return 0;
+    }
 
     // insert blueprint data into DB
     if (!FactoryDB::SaveBlueprintData(blueprintID, bdata)) {
+        codelog(MANUF__ERROR, "Blueprint::CreateItemID() - SaveBlueprintData failed for blueprint %u (typeID %u).", blueprintID, data.typeID);
         ItemDB::DeleteItem(blueprintID);
         return 0;
     }
 
+    _log(MANUF__DEBUG, "Blueprint::CreateItemID() - created blueprint %u of typeID %u (copy=%u runs=%u).", blueprintID, data.typeID, bdata.copy, bdata.runs);
     return blueprintID;
 }
 
