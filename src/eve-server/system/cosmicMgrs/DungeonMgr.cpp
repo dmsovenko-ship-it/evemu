@@ -535,6 +535,20 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     whClass = 2;                         // rally / port
                 else
                     whClass = 1;                         // hideaway / burrow / refuge
+            } else if (dData.factionID == factionRogueDrones) {
+                // Rogue Drones: swarm tiering Cluster->Collection->Assembly->
+                // Gathering->Surveillance->Menagerie->Herd->Squad->Patrol->Horde.
+                // 2090-2093 base set; 2140-2145 the new mid/high swarm types.
+                if (dData.dungeonID == 2350)
+                    whClass = 3;                         // DED complex
+                else if (dData.dungeonID == 2093 || dData.dungeonID >= 2142)
+                    whClass = 3;                         // horde / menagerie+ / patrol
+                else if (dData.dungeonID >= 2140)
+                    whClass = 2;                         // gathering / surveillance
+                else if (dData.dungeonID == 2092)
+                    whClass = 2;                         // assembly
+                else
+                    whClass = 1;                         // cluster / collection
             }
             std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID, whClass);
             for (uint32 id : decoIDs)
@@ -975,10 +989,14 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         29592,   // LCO Drone Junction
         29593,   // LCO Drone Lookout
         29594,   // LCO Drone Wall
+        16732,   // Drone Structure II (LCS 319)
+        16733,   // Drone Structure I (LCS 319)
+        16736,   // Infested station ruins (LCS 319)
+        30436,   // Infested Lookout Ruins (LCO 226)
+        4011,    // Reinforced Drone Bunker (LCS 319)
         30513,   // Sleeper Drone Hangar
         10120,   // Rock - Infested by Rogue Drones
         10121,   // Small Asteroid w/Drone-tech
-        30436,   // Infested Lookout Ruins
         10138,   // Spaceshuttle Wreck
         10140,   // Debris - Broken Engine Part 1
         10141,   // Debris - Broken Engine Part 2
@@ -1063,9 +1081,14 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             break;
         }
         case factionRogueDrones: {
+            // Rogue Drones — biomechanical hives welded onto asteroids and
+            // ruined ships/stations. Density scales with swarm tier (Cluster
+            // light → Horde/Patrol heavy).
             factionDeco = rogueDroneDeco;
             factionClouds = rogueClouds;
-            decoCount = 12 + MakeRandomInt(0, 8);
+            if (whClass >= 3)      decoCount = 14 + MakeRandomInt(0, 8);
+            else if (whClass == 2) decoCount = 10 + MakeRandomInt(0, 6);
+            else                   decoCount = 7 + MakeRandomInt(0, 5);
             break;
         }
         case factionSleepers: {
