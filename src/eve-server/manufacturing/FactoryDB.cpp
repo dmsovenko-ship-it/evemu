@@ -817,10 +817,14 @@ uint32 FactoryDB::GetRandomBlueprint() {
     }
 
     DBResultRow row;
-    if (!res.GetRow(row))
+    if (!res.GetRow(row)) {
+        _log(MANUF__DEBUG, "GetRandomBlueprint() - no published T2 blueprints found (cat 9, techLevel 2).");
         return 0;
+    }
 
-    return row.GetUInt(0);
+    uint32 blueprintTypeID = row.GetUInt(0);
+    _log(MANUF__DEBUG, "GetRandomBlueprint() - picked blueprintTypeID %u.", blueprintTypeID);
+    return blueprintTypeID;
 }
 
 int64 FactoryDB::GetNextFreeTime(const uint32 assemblyLineID) {
