@@ -135,9 +135,17 @@ protected:
         if (data.id == 0)
             return nullptr;
         /** @todo  this needs work.  other items we need are "non-published" */
-        if (data.groupID > 23)  // gID < 23 are map items.  will need to search for others
-            if (!data.published)
+        // Only hide non-published types for PLAYER-facing categories. Celestial
+        // objects (decoration clouds, acceleration gates, anomaly structures) are
+        // routinely published=0 yet must still load so dungeon/decor spawning
+        // works — GetType() is used by SpawnDecorations / acceleration-gate
+        // creation and returned nullptr, leaving gates/decor invisible.
+        Inv::GrpData grp = Inv::GrpData();
+        sDataMgr.GetGroup(data.groupID, grp);
+        if (data.groupID > 23) {  // gID < 23 are map items.  will need to search for others
+            if (!data.published and grp.catID != EVEDB::invCategories::Celestial)
                 return nullptr;
+        }
 
         return _Ty::template _LoadType<_Ty>(typeID, data );
     }
