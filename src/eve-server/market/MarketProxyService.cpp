@@ -352,11 +352,17 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
         }
 
         // range validation: Procurement skill limits buy order range
+        // Only jump-based ranges are limited; special client ranges (station -1,
+        // system 0, constellation 4, region 32767) pass regardless of skill.
         int8 procurementLevel = call.client->GetChar()->GetSkillLevel(EvESkill::Procurement);
         // jumpsPerSkillLevel: [5, 10, 20, 40, 60] -> skill 0 = 5 jump, skill 5 = 60
         static const uint8 buyRangeBySkill[] = { 5, 5, 10, 20, 40, 60 };
         uint8 maxBuyRange = (procurementLevel < 6) ? buyRangeBySkill[procurementLevel] : 60;
-        if (orderRange->value() >= 0 and (uint32)orderRange->value() > maxBuyRange) {
+        int32 ordRange = orderRange->value();
+        bool isSpecialRange = (ordRange < 0) || (ordRange == 0) || (ordRange == 4) || (ordRange == 32767);
+        _log(MARKET__DUMP, "PlaceCharOrder(buy): orderRange=%d maxBuyRange=%u procurementLevel=%d isSpecial=%d",
+             ordRange, maxBuyRange, procurementLevel, isSpecialRange);
+        if (!isSpecialRange and (uint32)ordRange > maxBuyRange) {
             call.client->SendErrorMsg("Your Procurement skill only allows buy orders within %u jumps.", maxBuyRange);
             return nullptr;
         }
@@ -587,13 +593,18 @@ PyResult MarketProxyService::PlaceCharOrder(PyCallArgs &call, PyInt* stationID, 
         }
 
         // range validation: Marketing skill limits sell order range
+        // Only jump-based ranges (1..60+) are limited. Special ranges sent by the
+        // client — rangeStation(-1), rangeSolarSystem(0), rangeConstellation(4),
+        // rangeRegion(32767) — are NOT jump counts and must pass.
         if (duration->value() > 0) {
             int8 marketingLevel = call.client->GetChar()->GetSkillLevel(EvESkill::Marketing);
             static const uint8 sellRangeBySkill[] = { 5, 5, 10, 20, 40, 60 };
             uint8 maxSellRange = (marketingLevel < 6) ? sellRangeBySkill[marketingLevel] : 60;
-            _log(MARKET__DUMP, "PlaceCharOrder(sell): orderRange=%d maxSellRange=%u marketingLevel=%d",
-                 orderRange->value(), maxSellRange, marketingLevel);
-            if (orderRange->value() >= 0 and (uint32)orderRange->value() > maxSellRange) {
+            int32 ordRange = orderRange->value();
+            bool isSpecialRange = (ordRange < 0) || (ordRange == 0) || (ordRange == 4) || (ordRange == 32767);
+            _log(MARKET__DUMP, "PlaceCharOrder(sell): orderRange=%d maxSellRange=%u marketingLevel=%d isSpecial=%d",
+                 ordRange, maxSellRange, marketingLevel, isSpecialRange);
+            if (!isSpecialRange and (uint32)ordRange > maxSellRange) {
                 call.client->SendErrorMsg("Your Marketing skill only allows sell orders within %u jumps.", maxSellRange);
                 return nullptr;
             }
