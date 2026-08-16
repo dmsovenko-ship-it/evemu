@@ -715,7 +715,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     }
 
     // Join the system's local channel so the bot shows up in local chat.
-    if (sConfig.playerBots.Enabled) {
+    // W-space local is intentionally hidden (no member list per EVE lore), so
+    // bots there stay visible only in space, never in the channel counter.
+    if (sConfig.playerBots.Enabled && !IsWSpaceID(pSystem->GetID())) {
         LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
         if (lsc != nullptr) {
             LSCChannel* chan = lsc->GetChannelByID((int32)pSystem->GetID());
