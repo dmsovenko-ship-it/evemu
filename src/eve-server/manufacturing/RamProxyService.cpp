@@ -607,7 +607,13 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
         // if job event in calendar, set to deleted for canceled job.
         CalendarDB::DeleteEvent(data.eventID);
     } else {
-        BlueprintRef bpRef = BlueprintRef::StaticCast( installedItem );
+        // Ancient relic RE: installedItem is a relic (cat 34), NOT a blueprint —
+        // never StaticCast it to Blueprint (UB). Other activities use a real BP.
+        bool isRelic = (data.activity == EvERam::Activity::ReverseEngineering)
+                    && (installedItem->categoryID() == EVEDB::invCategories::AncientRelics);
+        BlueprintRef bpRef;
+        if (!isRelic)
+            bpRef = BlueprintRef::StaticCast( installedItem );
         switch(data.activity) {
             case EvERam::Activity::Manufacturing: {
                 ItemData idata(bpRef->productTypeID(), data.ownerID, locTemp, flagFactoryOutput, (bpRef->productType().portionSize() * data.jobRuns));
