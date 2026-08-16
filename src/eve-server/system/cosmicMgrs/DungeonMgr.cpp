@@ -520,6 +520,21 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     whClass = 2;                         // yard / rally / port
                 else
                     whClass = 1;                         // hideaway / refuge / den
+            } else if (dData.factionID == factionSerpentis || dData.factionID == 500013) {
+                // Serpentis narcosyndicate: Hideaway/Burrow/Refuge (light),
+                // Rally/Port/Hub (medium), Haven/Sanctum + DED (heavy).
+                // NOTE: dunDungeons stores Serpentis as 500013 (SDE factionID);
+                // factionSerpentis (500020) is the internal enum constant.
+                if (dData.dungeonID >= 2340 && dData.dungeonID <= 2640)
+                    whClass = 3;                         // DED complexes
+                else if (dData.dungeonID == 2720 || dData.dungeonID == 2920)
+                    whClass = 3;                         // DED Pharmalogical Plant / Research Complex
+                else if (dData.dungeonID == 2050 || dData.dungeonID == 2051 || dData.dungeonID == 2089)
+                    whClass = 2;                         // haven / sanctum / hub
+                else if (dData.dungeonID >= 2087 && dData.dungeonID <= 2088)
+                    whClass = 2;                         // rally / port
+                else
+                    whClass = 1;                         // hideaway / burrow / refuge
             }
             std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID, whClass);
             for (uint32 id : decoIDs)
@@ -913,7 +928,14 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         2831,    // Serpentis Fortress
         3957,    // LCO Serpentis Stronghold
         2842,    // LCO Serpentis Station
+        11076,   // Serpentis Stronghold (LCS 319)
+        23949,   // Serpentis Battlestation (LCS 319)
         32405,   // Serpentis Research Facility
+        28258,   // Research Station (LCS 319)
+        9879,    // Amarr Research Station Ruins
+        9891,    // Gallente Station Ruins - Research
+        9897,    // Minmatar Research Station Ruins
+        4100,    // Caldari Research Outpost LCO
         32394,   // Serpentis Transport Hub
         23741,   // LCO Shipyard
         32131,   // LCO Starbase Capital Shipyard
@@ -927,6 +949,15 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         23230,   // LCO Serpentis Lookout
         23231,   // LCO Serpentis Wall
         29595,   // LCO Serpentis Elevator
+        16822,   // Serpentis Bunker (LCS 319)
+        16823,   // Serpentis Elevator (LCS 319)
+        16824,   // Serpentis Junction (LCS 319)
+        16825,   // Serpentis Lookout (LCS 319)
+        16826,   // Serpentis Battery (LCS 319)
+        16827,   // Serpentis Wall (LCS 319)
+        16828,   // Serpentis Barricade (LCS 319)
+        16829,   // Serpentis Fence (LCS 319)
+        16830,   // Serpentis Barrier (LCS 319)
     };
     // Rogue Drone hive esthetics — industrial high-tech mixed with biomechanical /
     // insectoid themes. Hives and structures are built from scrap and wreckage:
@@ -1019,10 +1050,16 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             else                   decoCount = 8 + MakeRandomInt(0, 5);
             break;
         }
+        case 500013:   // SDE Serpentis factionID — dunDungeons stores 500013
         case factionSerpentis: {
+            // Serpentis narcosyndicate — industrial dread, brown/dark-blue haze,
+            // research-station ruins and strongholds. Density scales with site
+            // complexity (Hideaway light → Sanctum/DED heavy).
             factionDeco = serpentisDeco;
             factionClouds = serpentisClouds;
-            decoCount = 10 + MakeRandomInt(0, 8);
+            if (whClass >= 3)      decoCount = 13 + MakeRandomInt(0, 7);
+            else if (whClass == 2) decoCount = 9 + MakeRandomInt(0, 6);
+            else                   decoCount = 6 + MakeRandomInt(0, 4);
             break;
         }
         case factionRogueDrones: {
