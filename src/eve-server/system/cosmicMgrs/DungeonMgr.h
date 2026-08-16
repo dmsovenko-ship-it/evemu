@@ -89,7 +89,7 @@ public:
 protected:
     ManagerDB m_db;
 
-    std::vector<uint32> SpawnDecorations(const GPoint& roomPos, uint32 factionID);
+    std::vector<uint32> SpawnDecorations(const GPoint& roomPos, uint32 factionID, uint8 whClass = 0);
 
     /* we do not own any of these */
 private:

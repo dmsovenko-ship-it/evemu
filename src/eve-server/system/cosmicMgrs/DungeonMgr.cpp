@@ -460,8 +460,20 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 }
             }
 
-            // Spawn procedural decorations based on faction
-            std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID);
+            // Spawn procedural decorations based on faction. W-space Sleeper
+            // sites derive the wormhole class from the dungeon ID (combat
+            // 4001-4024: 4 per class; Data 4301-4312 / Relic 4401-4412: 2 per
+            // class) so decor tier matches the site difficulty.
+            uint8 whClass = 0;
+            if (dData.factionID == factionSleepers) {
+                if (dData.dungeonID >= 4001 && dData.dungeonID <= 4024)
+                    whClass = static_cast<uint8>(((dData.dungeonID - 4001) / 4) + 1);
+                else if (dData.dungeonID >= 4301 && dData.dungeonID <= 4312)
+                    whClass = static_cast<uint8>(((dData.dungeonID - 4301) / 2) + 1);
+                else if (dData.dungeonID >= 4401 && dData.dungeonID <= 4412)
+                    whClass = static_cast<uint8>(((dData.dungeonID - 4401) / 2) + 1);
+            }
+            std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID, whClass);
             for (uint32 id : decoIDs)
                 newRoom.items.push_back(id);
 
@@ -504,7 +516,7 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
     return false;
 }
 
-std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID)
+std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID, uint8 whClass)
 {
     std::vector<uint32> spawned;
     // Decorative typeIDs — PURELY VISUAL objects only.
@@ -631,6 +643,78 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         10128,   // Dark Gray Cloud
         10129,   // Dark Gray Turbulent Cloud
         10065,   // Dark Cloud
+    };
+    // =====================================================================
+    // Sleeper (W-space) decoration pools — lore-driven, tiered by WH class.
+    // "Post-apocalyptic alien archaeology": ruined structures that still hum
+    // for a forgotten purpose, glowing clouds of unknown origin, Thermoelectric
+    // Converters, Preservation Conduits, Linking Hubs, plus the ruins of the
+    // ancient Talocan race that shared the Sleeper worlds. All real SDE typeIDs
+    // (groups 226/319 Large Collidable Object/Structure — visual only, no loot).
+    // =====================================================================
+    // Signature glowing blue/gas clouds — "weak blue lights", "glowing gas clouds".
+    static const std::vector<uint32> sleeperClouds = {
+        10068,   // Ion Cloud (glowing blue)
+        10759,   // Micro Nebula
+        10810,   // Blue faint
+        10811,   // Blue quarter
+        10812,   // White sharp hemisphere
+        10065,   // Dark Cloud
+        10067,   // Dust Cloud
+        10761,   // Nebulaic Cloud
+    };
+    // Dust / debris / broken conduits — "sitting in a cloud of dust and debris".
+    static const std::vector<uint32> sleeperDebris = {
+        10142,   // Debris - Power Conduit
+        30514,   // Talocan Wreckage
+        10232,   // Debris Cloud
+        10233,   // Meteor Cloud
+        10756,   // Dust Streak
+    };
+    // Thermoelectric Converters — the most common Sleeper element; ring/power
+    // arrays plus small Talocan outpost connectors.
+    static const std::vector<uint32> sleeperConverters = {
+        30300,   // Sleeper Thermoelectric Converter
+        30274,   // Eroded Sleeper Thermoelectric Converter
+        30905,   // Sleeper linkage structure
+        30797,   // Talocan Outpost Hub
+        30798,   // Talocan Outpost Conduit
+        30806,   // Disjointed Talocan Outpost Hub
+        30807,   // Disjointed Talocan Outpost Conduit
+    };
+    // Outposts / strongholds — mid-tier structures (C2-C4).
+    static const std::vector<uint32> sleeperOutposts = {
+        30299,   // Sleeper Enclave
+        30273,   // Abandoned Sleeper Enclave
+        30301,   // Sleeper Multiplex Forwarder
+        30277,   // Malfunctioning Sleeper Multiplex Forwarder
+        30513,   // Sleeper Drone Hangar
+        30512,   // Weakened Sleeper Drone Hangar
+        30901,   // Sleeper Engineering Station
+        30927,   // Sleeper Archive Terminal
+        30902,   // Talocan Embarkment Destroyer
+    };
+    // Citadels / bastions / sprawling ancient complexes — high-tier (C4-C6).
+    static const std::vector<uint32> sleeperCitadels = {
+        30293,   // Sleeper Preservation Conduit
+        30276,   // Crippled Sleeper Preservation Conduit
+        30302,   // Sleeper Interlink Hub
+        30275,   // Exposed Sleeper Interlink Hub
+        30502,   // Talocan Polestar
+        30509,   // Disrupted Talocan Polestar
+        30503,   // Talocan Coupling Array
+        30510,   // Broken Talocan Coupling Array
+        30504,   // Talocan Static Gate
+        30507,   // Worn Talocan Static Gate
+        30505,   // Talocan Exchange Depot
+        30508,   // Inverted Talocan Exchange Depot
+        30506,   // Talocan Extraction Silo
+        30511,   // Hollow Talocan Extraction Silo
+        30903,   // Talocan Disruption Tower
+        30904,   // Talocan Engineering Station
+        30278,   // Decrepit Talocan Outpost Core
+        30279,   // Collapsed Talocan Observation Dome
+        30280,   // Offline Talocan Reactor Spire
     };
     // LCO ship wreckage — Large Collidable Object (group 226): visual debris,
     // NOT lootable wrecks. Looks like a wreck field but has no cargo/access.
@@ -842,6 +926,24 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             decoCount = 12 + MakeRandomInt(0, 8);
             break;
         }
+        case factionSleepers: {
+            // W-space Sleeper sites — decor scales with wormhole class:
+            //   C1-C2 (Perimeter):   dust/debris + a few Thermoelectric Converters
+            //   C3   (Frontier):     + Sleeper/Talocan outposts, strongholds
+            //   C4-C6 (Frontier/Core): + Preservation Conduits, Interlink Hubs,
+            //                          citadels, bastions — sprawling complexes
+            factionClouds = sleeperClouds;
+            factionDeco = sleeperDebris;
+            for (auto t : sleeperConverters) factionDeco.push_back(t);
+            if (whClass >= 3)
+                for (auto t : sleeperOutposts) factionDeco.push_back(t);
+            if (whClass >= 4)
+                for (auto t : sleeperCitadels) factionDeco.push_back(t);
+            if (whClass <= 2)      decoCount = 7 + MakeRandomInt(0, 5);
+            else if (whClass == 3) decoCount = 10 + MakeRandomInt(0, 6);
+            else                   decoCount = 14 + MakeRandomInt(0, 8);
+            break;
+        }
         default: {
             factionDeco = {2101, 2107, 2111, 2113, 2116, 10067, 10068, 10753, 10759};
             decoCount = 6 + MakeRandomInt(0, 4);
@@ -853,9 +955,12 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     std::vector<uint32> decoPool;
     for (auto t : factionDeco) decoPool.push_back(t);
     for (auto t : factionClouds) decoPool.push_back(t);
-    if (MakeRandomInt(0, 2) > 0)
+    // Sleeper sites are pure ancient-ruin archaeology — don't mix in k-space
+    // ship wreckage / natural rocks that would break the W-space mood.
+    bool isSleeper = (factionID == factionSleepers);
+    if (!isSleeper && MakeRandomInt(0, 2) > 0)
         for (auto t : lcoDeco) decoPool.push_back(t);
-    if (MakeRandomInt(0, 3) > 0)
+    if (!isSleeper && MakeRandomInt(0, 3) > 0)
         for (auto t : rockDeco) decoPool.push_back(t);
 
     for (uint32 i = 0; i < decoCount; ++i) {
@@ -882,6 +987,12 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
             continue;
         }
+        // Clouds (groups 227/312) have radius=1 in the SDE; the client renders
+        // them as 2*radius (cloud.py SetRadiusDX8) so they'd be 2m invisible
+        // dots. Give them a real nebula size — the SE picks up AttrRadius on
+        // construction below, so set it before creating the ball.
+        if (iRef->type().groupID() == 227 || iRef->type().groupID() == 312)
+            iRef->SetAttribute(AttrRadius, 1500.0 + MakeRandomFloat() * 4500.0, false);
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
         // Decorations are static entities (IsStaticEntity=true) so SendAddBalls

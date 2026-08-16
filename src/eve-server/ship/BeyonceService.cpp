@@ -152,10 +152,10 @@ PyResult BeyonceBound::CmdFollowBall(PyCallArgs &call, PyInt* ballID, PyRep* dis
     } else if (pDestiny->IsWarping()) {
         call.client->SendNotifyMsg( "You can't do this while warping");
         return PyStatic.NewNone();
+    }  else if (pDestiny->AbortIfLoginWarping(true)) {
+        return PyStatic.NewNone();
     } else if (pDestiny->IsFrozen()) {
         call.client->SendNotifyMsg( "Your ship is frozen and cannot move");
-        return PyStatic.NewNone();
-    }  else if (pDestiny->AbortIfLoginWarping(true)) {
         return PyStatic.NewNone();
     }
     SystemManager* pSystem = call.client->SystemMgr();
@@ -736,7 +736,12 @@ PyResult BeyonceBound::CmdDock(PyCallArgs &call, PyInt* celestialID, PyInt* ship
         codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
         return PyStatic.NewNone();
     } else if (pDestiny->IsWarping()) {
-        call.client->SendNotifyMsg( "You can't do this while warping");
+        // The client sends CmdDock a couple of seconds before a warp-in-to-dock
+        // actually finishes. Rejecting it loses the dock request; defer it and
+        // WarpStop() will run AttemptDockOperation once the warp completes.
+        pDestiny->RequestDockAfterWarp();
+        call.client->SetAutoPilot(false);
+        _log(AUTOPILOT__MESSAGE, "%s: Dock deferred until warp completes.", call.client->GetName());
         return PyStatic.NewNone();
     }  else if (pDestiny->AbortIfLoginWarping(true)) {
         return PyStatic.NewNone();

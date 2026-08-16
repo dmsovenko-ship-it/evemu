@@ -167,6 +167,11 @@ public:
     void UnCloak();
 
     PyResult AttemptDockOperation();
+    // Client sends CmdDock a couple seconds before a warp-in-to-dock finishes;
+    // defer it instead of rejecting (see WarpStop) so the dock actually happens.
+    void RequestDockAfterWarp()                              { m_dockRequested = true; }
+    void CancelDockAfterWarp()                              { m_dockRequested = false; }
+    bool DockAfterWarpPending()                             { return m_dockRequested; }
     void Undock(GPoint dir);
     void SetUndockSpeed();
     void DockingAccepted();
@@ -276,6 +281,7 @@ protected:
     bool m_tractored;
     bool m_tractorPause;
     bool m_apJumping;       // guard against repeated AP auto-jump calls
+    bool m_dockRequested;   // CmdDock arrived during warp — dock once warp ends
 
     uint8 m_ballMode;                   //current state of ball
 

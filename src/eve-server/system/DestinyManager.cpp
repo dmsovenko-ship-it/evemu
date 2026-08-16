@@ -96,6 +96,7 @@ mvPacket(nullptr)
     m_changeDelay = false;
     m_tractorPause = false;
     m_apJumping = false;
+    m_dockRequested = false;
     m_hasSentShipUpdates = false;
     m_moveSyncCounter = 0;
 
@@ -651,6 +652,7 @@ void DestinyManager::Stop() {
         m_accel = false;
         m_decel = true;         // let UpdateVelocity decelerate from drop speed
         SafeDelete(m_warpState);
+        m_dockRequested = false;   // warp aborted — cancel any deferred dock
         m_stop = false;
         // Don't fall through to the common Stop() code below (which zeroes speed).
         m_stateStamp = sEntityList.GetStamp();
@@ -690,6 +692,7 @@ void DestinyManager::Stop() {
 
 void DestinyManager::Halt() {
     SafeDelete(m_warpState);
+    m_dockRequested = false;   // cancel any deferred dock
 
     //  reset ALL movement variables and states.  calling this will set object to a COMPLETE and IMMEDIATE stop.
     m_ballMode = Destiny::Ball::Mode::STOP;
@@ -2216,6 +2219,22 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
             mySE->SysBubble()->AddBallExclusive(mySE);
 
         // GateActivity is sent only during actual gate jumps (in JumpGate/Follow), not here.
+    }
+
+    // Deferred dock: the client sent CmdDock a couple seconds before the warp
+    // finished. Perform it now that we're at the target (AttemptDockOperation
+    // re-checks the docking perimeter and aligns if needed). AttemptDockOperation
+    // can throw UserError (DockingApproach) when out of perimeter — we're outside
+    // the RPC handler here, so swallow it and let the client re-dock on arrival.
+    if (m_dockRequested) {
+        m_dockRequested = false;
+        if (mySE->HasPilot()) {
+            try {
+                AttemptDockOperation();
+            } catch (UserError&) {
+                _log(DESTINY__ERROR, "WarpStop deferred dock aborted — DockingApproach (out of perimeter).");
+            }
+        }
     }
 }
 
