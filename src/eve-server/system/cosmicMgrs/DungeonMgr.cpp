@@ -483,6 +483,19 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     whClass = 2;                         // hub / port / haven / sanctum
                 else
                     whClass = 1;                         // den / rally point / encounters
+            } else if (dData.factionID == factionGuristas) {
+                // Guristas: Hideaway/Burrow (light), Rally/Port/Hub (medium),
+                // Sanctum + DED complexes (heavy). DED ids are 2320-2620/2740/2940.
+                if (dData.dungeonID >= 2320 && dData.dungeonID <= 2620)
+                    whClass = 3;                         // DED complexes
+                else if (dData.dungeonID == 2740 || dData.dungeonID == 2940)
+                    whClass = 3;                         // DED 7/10, 10/10
+                else if (dData.dungeonID == 2099 || dData.dungeonID == 2047 || dData.dungeonID == 2048)
+                    whClass = 2;                         // sanctum / hub / forlorn hub
+                else if (dData.dungeonID >= 2049 && dData.dungeonID <= 2098)
+                    whClass = 2;                         // rally / port / refuge / den
+                else
+                    whClass = 1;                         // hideaway / burrow
             }
             std::vector<uint32> decoIDs = SpawnDecorations(newRoom.position, dData.factionID, whClass);
             for (uint32 id : decoIDs)
@@ -824,12 +837,18 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         29582,   // LCO Guristas Fence
         29583,   // LCO Guristas Elevator
         29584,   // LCO Guristas Bunker
+        16796,   // Guristas Bunker (LCS 319)
         25375,   // LCO Guristas Control Tower
         23237,   // Indestructible Freight Pad
         10788,   // Gas/Storage Silo
         30786,   // Storage Warehouse
+        23741,   // LCO Shipyard
         10779,   // Asteroid Colony - Small Tower
         30506,   // Talocan Extraction Silo
+        10138,   // Spaceshuttle Wreck (recent-fight debris)
+        10140,   // Debris - Broken Engine Part 1
+        10141,   // Debris - Broken Engine Part 2
+        10143,   // Debris - Twisted Metal
         10144,   // Scanner Sentry - Rapid Pulse
     };
     static const std::vector<uint32> bloodDeco = {
@@ -920,9 +939,14 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             break;
         }
         case factionGuristas: {
+            // Guristas — criminal syndicate: bunkers, freight pads, storage
+            // silos, shipyard + shuttle-wreck debris of recent fights. Density
+            // scales with site complexity (Hideaway light → Sanctum/DED heavy).
             factionDeco = guristasDeco;
             factionClouds = guristasClouds;
-            decoCount = 8 + MakeRandomInt(0, 6);
+            if (whClass >= 3)      decoCount = 14 + MakeRandomInt(0, 8);
+            else if (whClass == 2) decoCount = 10 + MakeRandomInt(0, 6);
+            else                   decoCount = 7 + MakeRandomInt(0, 5);
             break;
         }
         case factionBloodRaider: {
