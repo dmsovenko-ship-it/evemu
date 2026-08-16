@@ -739,6 +739,11 @@ PyResult RamProxyService::CompleteJob(PyCallArgs &call, PyRep* info, PyRep* jobI
                         if (newBp.get() != nullptr) {
                             newBp->Move(args.containerID, data.outputFlag, true);
                             data.jobRuns = 0;
+                        } else {
+                            // Spawn failed (output type not spawnable). Don't report
+                            // success — otherwise the client shows a delivered BPC
+                            // that never exists (same as the RE false-success bug).
+                            success = false;
                         }
                     }
                 }
