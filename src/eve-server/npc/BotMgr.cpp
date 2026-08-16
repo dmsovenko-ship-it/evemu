@@ -530,6 +530,20 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             }
         }
     }
+    // W-space systems have no stargates and usually no stations — land the bot
+    // on a random orbit around the first planet/moon instead of the system
+    // centre (0,0,0 = the sun), which triggered a SetPosition traceStack dump.
+    if (!posSet) {
+        for (auto& [id, se] : pSystem->GetStaticEntities()) {
+            if (se != nullptr && (se->IsPlanetSE() || se->IsMoonSE())) {
+                double ang = MakeRandomFloat() * 6.2831853;
+                double rad = 8000.0 + MakeRandomFloat() * 20000.0;
+                pos = se->GetPosition() + GPoint(cos(ang) * rad, sin(ang) * rad, (MakeRandomFloat() - 0.5) * 2000.0);
+                posSet = true;
+                break;
+            }
+        }
+    }
     if (!posSet)
         pos = GPoint(0, 0, 0);
 
