@@ -554,12 +554,14 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             for (uint32 id : decoIDs)
                 newRoom.items.push_back(id);
 
-            // Spawn a mineable ore belt in this pocket — 30-40 asteroids of one
-            // ore type, like official anomaly sites. Temp items, cleaned up with
-            // the dungeon; depleted via MiningLaser::Depleted -> AsteroidSE::Delete().
-            std::vector<uint32> oreIDs = SpawnMineableAsteroids(newRoom.position, 30 + MakeRandomInt(0, 10));
-            for (uint32 id : oreIDs)
-                newRoom.items.push_back(id);
+            // W-space Sleeper sites carry no asteroid belts (their ore/gas sites
+            // spawn their own pockets via AnomalyMgr) — only k-space anomaly
+            // pockets get a mineable ore belt.
+            if (dData.factionID != factionSleepers) {
+                std::vector<uint32> oreIDs = SpawnMineableAsteroids(newRoom.position, 30 + MakeRandomInt(0, 10));
+                for (uint32 id : oreIDs)
+                    newRoom.items.push_back(id);
+            }
 
             // Spawn an acceleration gate leading to the next room (all rooms except
             // the last). Gate sits ~25-30km from the room center on the +x axis
@@ -574,6 +576,9 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
                 if (gateRef.get() != nullptr) {
+                    // Route gates through the static/global path too so they render
+                    // reliably (same reason as decor).
+                    gateRef->SetAttribute(AttrIsGlobal, 1, false);
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, m_system);
                     m_system->AddEntity(gateSE, false);
                     if (gateSE->SysBubble() != nullptr)
@@ -1128,16 +1133,33 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     if (!isSleeper && MakeRandomInt(0, 3) > 0)
         for (auto t : rockDeco) decoPool.push_back(t);
 
+    std::vector<std::pair<GPoint,double>> placed;   // pos + object radius, for non-overlap
+    placed.reserve(decoCount);
     for (uint32 i = 0; i < decoCount; ++i) {
         uint32 typeID = decoPool[MakeRandomInt(0, decoPool.size() - 1)];
-        // Random position within 3000-8000m radius from room center, at various heights
-        double angle = MakeRandomFloat() * 2.0 * 3.14159;
-        double radius = 3000.0 + MakeRandomFloat() * 5000.0;
-        double height = (MakeRandomFloat() - 0.5) * 4000.0;
+        Inv::TypeData tData;
+        sDataMgr.GetType(typeID, tData);
+        double objR = (tData.radius > 1.0 ? tData.radius : 1500.0);
         GPoint pos;
-        pos.x = roomPos.x + cos(angle) * radius;
-        pos.z = roomPos.z + sin(angle) * radius;
-        pos.y = roomPos.y + height;
+        bool ok = false;
+        // Spread objects out (12-28km) so huge structures (radius up to 11km)
+        // never overlap each other or the pocket centre, and keep a gap equal
+        // to the sum of both radii + margin.
+        for (uint32 attempt = 0; attempt < 12 && !ok; ++attempt) {
+            double angle = MakeRandomFloat() * 2.0 * 3.14159;
+            double radius = 12000.0 + MakeRandomFloat() * 16000.0;
+            double height = (MakeRandomFloat() - 0.5) * 6000.0;
+            pos.x = roomPos.x + cos(angle) * radius;
+            pos.z = roomPos.z + sin(angle) * radius;
+            pos.y = roomPos.y + height;
+            ok = true;
+            for (auto& p : placed) {
+                if (pos.distance(p.first) < objR + p.second + 1000.0) { ok = false; break; }
+            }
+        }
+        if (!ok)
+            continue;   // field is dense — skip this one
+        placed.emplace_back(pos, objR);
 
         // Spawn as a transient (non-persisted) item — decorations are cosmetic and
         // must NOT be saved to the entity table. Saved copies piled up on every
