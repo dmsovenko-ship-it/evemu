@@ -1179,6 +1179,11 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         // bubble delivery keeps losing decor to bubble splits. AttrIsGlobal routes
         // the SE into m_staticEntities + SendStaticBall (SystemManager::AddEntity).
         iRef->SetAttribute(AttrIsGlobal, 1, false);
+        // Clouds (groups 227/312) have radius=1 in the SDE — the client renders
+        // them as 2*radius (cloud.py SetRadiusDX8), so give them a real nebula
+        // size. Static/global delivery makes this safe now.
+        if (iRef->type().groupID() == 227 || iRef->type().groupID() == 312)
+            iRef->SetAttribute(AttrRadius, 2000.0 + MakeRandomFloat() * 4000.0, false);
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
         _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: typeID %u -> bubble %u", typeID,
