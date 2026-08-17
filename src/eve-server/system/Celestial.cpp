@@ -88,45 +88,6 @@ CelestialSE::CelestialSE(InventoryItemRef self, EVEServiceManager &services, Sys
     _log(SE__DEBUG, "Created CSE for item %s (%u) with radius of %.1f.", self->name(), self->itemID(), m_radius);
 }
 
-// Decor/clouds/accel-gates are category 2 (Entity). The client's Ballpark only
-// renders category-2 balls that carry a FULL destiny state — a bare RIGID ball
-// (BallHeader + RIGID_Struct) was delivered but never drawn. Visible entities of
-// this category (turrets/sentries) use STOP mode with MassSector+DataSector+
-// STOP_Struct; we encode decor the same way so it renders as a static object.
-void CelestialSE::EncodeDestiny( Buffer& into )
-{
-    using namespace Destiny;
-    BallHeader head = BallHeader();
-        head.entityID = m_self->itemID();
-        head.mode = Ball::Mode::STOP;
-        head.radius = m_radius;
-        head.posX = x();
-        head.posY = y();
-        head.posZ = z();
-        head.flags = Ball::Flag::IsMassive | Ball::Flag::IsFree;
-    into.Append( head );
-    MassSector mass = MassSector();
-        mass.mass = m_self->type().mass();
-        mass.cloak = 0;
-        mass.harmonic = m_harmonic;
-        mass.corporationID = m_corpID;
-        mass.allianceID = (IsAlliance(m_allyID) ? m_allyID : -1);
-    into.Append( mass );
-    DataSector data = DataSector();
-        data.maxSpeed = 0.0f;
-        data.velX = 0.0;
-        data.velY = 0.0;
-        data.velZ = 0.0;
-        data.inertia = 0.0;
-        data.speedfraction = 0.0;
-    into.Append( data );
-    STOP_Struct main;
-        main.formationID = 0xFF;
-    into.Append( main );
-
-    _log(SE__DESTINY, "CSE::EncodeDestiny(): %s - id:%lli, mode:%u, flags:0x%X", GetName(), head.entityID, head.mode, head.flags);
-}
-
 void CelestialSE::MakeDamageState(DoDestinyDamageState &into)
 {
     double shield = 1.0, armor = 1.0, structure = 1.0, recharge = 1000000;
