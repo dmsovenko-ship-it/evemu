@@ -494,12 +494,10 @@ void ItemSystemEntity::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        // IsMassive like ObjectSystemEntity (asteroids): a RIGID ball with no flags
-        // isn't created/rendered by the client's Ballpark (decor/clouds were
-        // invisible), and IsInteractive/IsGlobal weren't delivered reliably when
-        // warping into an already-spawned anomaly. IsMassive is the only flag that
-        // reliably renders decor on both the spawn and warp-in paths.
-        head.flags = Ball::Flag::IsMassive;
+        // flags=0 matches AsteroidSE (visible): the client's Ballpark renders a
+        // plain RIGID ball with no flags. IsMassive (0x4) made decor invisible in
+        // live testing — AddBalls carried the decor but the client never drew it.
+        head.flags = 0;
     into.Append( head );
     RIGID_Struct main;
         main.formationID = 0xFF;
