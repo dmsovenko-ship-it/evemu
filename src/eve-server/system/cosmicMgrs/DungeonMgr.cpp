@@ -21,6 +21,7 @@
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/BeltMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
+#include <sstream>
 
 /*
 Dungeon flow:
@@ -564,11 +565,10 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             }
 
             // Spawn an acceleration gate leading to the next room (all rooms except
-            // the last). Gate sits ~25-30km from the room center on the +x axis
-            // toward the next room — the player flies to it and activates it;
-            // ActivateAccelerationGate warps +NEXT_DUNGEON_ROOM_DIST (the gap
-            // between rooms). 25-30km keeps the gate in the same bubble as the
-            // pocket (BUBBLE_RADIUS 300km) so it's visible and reachable.
+            // the last). Gate sits ~25-30km from the room center exactly along the
+            // +x vector to the next room (rooms are laid out on +x). The gate stores
+            // the NEXT room's position in customInfo so activating it warps precisely
+            // there instead of +NEXT_DUNGEON_ROOM_DIST from the ship (which missed).
             if (dData.rooms.size() > 1 && roomCounter < (dData.rooms.size() - 1)) {
                 GPoint gatePos = newRoom.position;
                 gatePos.x += 25000 + MakeRandomInt(0, 5000);   // 25-30km
@@ -576,6 +576,12 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
                 if (gateRef.get() != nullptr) {
+                    GPoint nextRoomPos = newRoom.position;
+                    nextRoomPos.x += NEXT_DUNGEON_ROOM_DIST;   // next room is +NEXT_DUNGEON_ROOM_DIST on x
+                    std::ostringstream ci;
+                    ci << "gate_to:" << (long long)nextRoomPos.x << ":"
+                       << (long long)nextRoomPos.y << ":" << (long long)nextRoomPos.z;
+                    gateRef->SetCustomInfo(ci.str().c_str());
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, m_system);
                     m_system->AddEntity(gateSE, false);
                     if (gateSE->SysBubble() != nullptr)

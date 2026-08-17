@@ -119,17 +119,27 @@ PyResult KeeperService::ActivateAccelerationGate(PyCallArgs &call, PyInt* itemID
     // Send gate activation effect
     pClient->GetShipSE()->DestinyMgr()->SendSpecialEffect10(itemID->value(), 0, "effects.WarpGateEffect", 0, 1, 0);
 
-    // Currently, next rooms are at a fixed distance from previous room (on x axis), so we can just warp the ship in that direction
-    GPoint currentPosition(pClient->GetShipSE()->GetPosition());
-    GPoint deltaPosition;
-    deltaPosition.x = NEXT_DUNGEON_ROOM_DIST;
-    deltaPosition.y = 0;
-    deltaPosition.z = 0;
-
-    GPoint warpToPoint(currentPosition+deltaPosition);
-    GVector vectorToDestination(currentPosition, warpToPoint);
-    double distanceToDestination = vectorToDestination.length();
-    pClient->GetShipSE()->DestinyMgr()->WarpTo(warpToPoint, distanceToDestination);
+    // Warp to the NEXT room. The gate stores its destination ("gate_to:x:y:z" in
+    // customInfo, set in DungeonMgr::MakeDungeon) — warping to it lands exactly in
+    // the next room. Fallback: +NEXT_DUNGEON_ROOM_DIST from the ship (old behaviour).
+    GPoint warpToPoint;
+    bool haveTarget = false;
+    if (gateItem.get() != nullptr) {
+        std::string ci = gateItem->customInfo();
+        if (ci.rfind("gate_to:", 0) == 0) {
+            long long x = 0, y = 0, z = 0;
+            if (sscanf(ci.c_str(), "gate_to:%lld:%lld:%lld", &x, &y, &z) == 3) {
+                warpToPoint = GPoint((double)x, (double)y, (double)z);
+                haveTarget = true;
+                _log(DUNG__INFO, "ActivateAccelerationGate: warp to room at (%.0f,%.0f,%.0f)", warpToPoint.x, warpToPoint.y, warpToPoint.z);
+            }
+        }
+    }
+    if (!haveTarget) {
+        GPoint currentPosition(pClient->GetShipSE()->GetPosition());
+        warpToPoint = currentPosition + GPoint(NEXT_DUNGEON_ROOM_DIST, 0, 0);
+    }
+    pClient->GetShipSE()->DestinyMgr()->WarpTo(warpToPoint, 0);
 
     /* return error msg from this call, if applicable, else nodeid and timestamp */
     return new PyLong(Win32TimeNow());
