@@ -1198,9 +1198,8 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         spawnOne(typeID, pos);
     }
 
-    // Extra clouds — lots and big, drifting beyond the structures so they frame
-    // the site like a nebula (4-10km radius, 5-15km out).
-    uint32 cloudCount = 6 + MakeRandomInt(0, 6);
+    // Extra clouds — just slightly fewer than before (5-9), radius 4-10km, 5-15km out.
+    uint32 cloudCount = 5 + MakeRandomInt(0, 4);
     for (uint32 i = 0; i < cloudCount; ++i) {
         uint32 typeID = factionClouds[MakeRandomInt(0, factionClouds.size() - 1)];
         double angle = MakeRandomFloat() * 2.0 * 3.14159;
