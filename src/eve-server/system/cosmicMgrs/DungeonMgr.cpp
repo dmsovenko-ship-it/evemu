@@ -454,6 +454,12 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     }
                     iRef->SaveItem();
 
+                    // Many dungeon objects lack AttrRadius — set a real one so the
+                    // ball isn't a 0-radius invisible point.
+                    double objR = iRef->type().radius();
+                    if (objR < 1.0) objR = 500.0;
+                    iRef->SetAttribute(AttrRadius, objR, false);
+
                     cSE = new CelestialSE(iRef, m_system->GetServiceMgr(), m_system);
                     m_system->AddEntity(cSE, false);
                     newRoom.items.push_back(iRef->itemID());
@@ -574,6 +580,11 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
                 if (gateRef.get() != nullptr) {
+                    // Gates also lack AttrRadius in dgmTypeAttributes — without it
+                    // SystemEntity reads radius 0 and the gate is invisible.
+                    double gateR = gateRef->type().radius();
+                    if (gateR < 1.0) gateR = 1500.0;
+                    gateRef->SetAttribute(AttrRadius, gateR, false);
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, m_system);
                     gateSE->AddDestiny();   // accel gates need a DestinyMgr to render
                     m_system->AddEntity(gateSE, false);
@@ -1153,12 +1164,18 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
             continue;
         }
-        // Clouds (groups 227/312) have radius=1 in the SDE; the client renders
-        // them as 2*radius (cloud.py SetRadiusDX8) so they'd be 2m invisible
-        // dots. Give them a real nebula size — the SE picks up AttrRadius on
-        // construction below, so set it before creating the ball.
+        // The client renders a ball by its radius, and most decor types have no
+        // AttrRadius (162) in dgmTypeAttributes — SystemEntity then reads 0 and
+        // the ball is invisible. Set a real radius for EVERY decoration:
+        //  - clouds (groups 227/312): SDE radius is 1m (client scales 2*radius),
+        //    so give them a real nebula size
+        //  - structures: use the SDE invTypes.radius (450m-11km)
+        double decoRadius = iRef->type().radius();
         if (iRef->type().groupID() == 227 || iRef->type().groupID() == 312)
-            iRef->SetAttribute(AttrRadius, 1500.0 + MakeRandomFloat() * 4500.0, false);
+            decoRadius = 1500.0 + MakeRandomFloat() * 4500.0;
+        if (decoRadius < 1.0)
+            decoRadius = 500.0;
+        iRef->SetAttribute(AttrRadius, decoRadius, false);
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         cSE->AddDestiny();   // asteroids/wrecks render with a DestinyMgr; decor needs one too
         m_system->AddEntity(cSE, false);
