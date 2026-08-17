@@ -1139,8 +1139,9 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
             return;
         }
-        // Dynamic delivery like asteroids — decor visible only inside the grid
-        // (bubble), NOT from 1.3 ly away like a global/static object.
+        // Static/global path — decor renders reliably like stations/gates and is
+        // visible from far away (that's fine for scenery).
+        iRef->SetAttribute(AttrIsGlobal, 1, false);
         // Indestructible scenery (huge HP) — shooting it must not kill/delete it.
         iRef->SetAttribute(AttrShieldCapacity, 1.0e12, false);
         iRef->SetAttribute(AttrShieldCharge, 1.0e12, false);

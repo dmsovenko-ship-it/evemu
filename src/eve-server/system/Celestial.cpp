@@ -88,8 +88,10 @@ CelestialSE::CelestialSE(InventoryItemRef self, EVEServiceManager &services, Sys
     _log(SE__DEBUG, "Created CSE for item %s (%u) with radius of %.1f.", self->name(), self->itemID(), m_radius);
 }
 
-// Decor/clouds/gates — encode exactly like asteroids (ObjectSystemEntity:
-// RIGID, flags=0), which render inside the grid and are NOT visible system-wide.
+// Decor/clouds: if the object is marked global (AttrIsGlobal) encode like
+// stations/gates (RIGID + IsGlobal) so it renders system-wide; otherwise (e.g.
+// acceleration gates) encode like asteroids (RIGID, flags=0) so it shows only
+// inside the grid.
 void CelestialSE::EncodeDestiny( Buffer& into )
 {
     using namespace Destiny;
@@ -100,7 +102,7 @@ void CelestialSE::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = 0;
+        head.flags = (isGlobal() ? Ball::Flag::IsGlobal : 0);
     into.Append( head );
     RIGID_Struct main;
         main.formationID = 0xFF;
