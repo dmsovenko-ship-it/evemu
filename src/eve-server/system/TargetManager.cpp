@@ -163,6 +163,14 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
         // Allow targeting outposts (all outposts are conquerable)
     }
 
+    // Cannot target objects that have no target manager — decor, clouds, accel
+    // gates are scenery (CelestialSE) with m_targMgr == nullptr; the TargetedAdd
+    // call below would dereference null and crash the server.
+    if (tSE->TargetMgr() == nullptr) {
+        mySE->GetPilot()->SendNotifyMsg("You cannot target that.");
+        return false;
+    }
+
     // Check against max target range
     double maxTargetRange = sRef->GetAttribute(AttrMaxTargetRange).get_double();
     GVector rangeToTarget( mySE->GetPosition(), tSE->GetPosition() );
@@ -217,6 +225,13 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, float lockTime, uint8 maxL
         _log(TARGET__TRACE, " %s(%u): Told to target %s(%u), but they are too far away.  Begin Approaching.", \
         mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID());
         chase = true;
+        return false;
+    }
+
+    // Cannot target scenery (decor/clouds/gates have no TargetMgr).
+    if (tSE->TargetMgr() == nullptr) {
+        _log(TARGET__TRACE, "NPC %s(%u): refusing to target %s(%u) — no target manager.", \
+            mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID());
         return false;
     }
 

@@ -89,9 +89,10 @@ CelestialSE::CelestialSE(InventoryItemRef self, EVEServiceManager &services, Sys
 }
 
 // Decor/clouds: if the object is marked global (AttrIsGlobal) encode like
-// stations/gates (RIGID + IsGlobal) so it renders system-wide; otherwise (e.g.
-// acceleration gates) encode like asteroids (RIGID, flags=0) so it shows only
-// inside the grid.
+// stations/gates (RIGID + IsGlobal) so it renders system-wide. Acceleration
+// gates are NOT global (they stay in the grid/dynamic delivery path — only
+// visible inside the bubble) but still need the IsGlobal RENDER flag, since
+// a RIGID ball with flags=0 is invisible to the client.
 void CelestialSE::EncodeDestiny( Buffer& into )
 {
     using namespace Destiny;
@@ -102,7 +103,9 @@ void CelestialSE::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = (isGlobal() ? Ball::Flag::IsGlobal : 0);
+        bool isGate = (m_self->typeID() == 17831      // Acceleration Gate
+                    || m_self->typeID() == 2902);     // LCS Acceleration Gate
+        head.flags = (isGlobal() || isGate ? Ball::Flag::IsGlobal : 0);
     into.Append( head );
     RIGID_Struct main;
         main.formationID = 0xFF;

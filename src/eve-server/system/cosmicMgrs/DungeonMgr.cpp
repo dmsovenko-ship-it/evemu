@@ -576,6 +576,9 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
                 if (gateRef.get() != nullptr) {
+                    // Gates render with the IsGlobal flag (like decor) but stay in
+                    // the DYNAMIC/grid path (no AttrIsGlobal) so they are only
+                    // delivered in the grid, not system-wide.
                     GPoint nextRoomPos = newRoom.position;
                     nextRoomPos.x += NEXT_DUNGEON_ROOM_DIST;   // next room is +NEXT_DUNGEON_ROOM_DIST on x
                     std::ostringstream ci;
