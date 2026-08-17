@@ -576,9 +576,6 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
                 if (gateRef.get() != nullptr) {
-                    // Route gates through the static/global path too so they render
-                    // reliably (same reason as decor).
-                    gateRef->SetAttribute(AttrIsGlobal, 1, false);
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, m_system);
                     m_system->AddEntity(gateSE, false);
                     if (gateSE->SysBubble() != nullptr)
@@ -1142,8 +1139,8 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
             return;
         }
-        // Static/global path — decor renders reliably like stations/gates.
-        iRef->SetAttribute(AttrIsGlobal, 1, false);
+        // Dynamic delivery like asteroids — decor visible only inside the grid
+        // (bubble), NOT from 1.3 ly away like a global/static object.
         // Indestructible scenery (huge HP) — shooting it must not kill/delete it.
         iRef->SetAttribute(AttrShieldCapacity, 1.0e12, false);
         iRef->SetAttribute(AttrShieldCharge, 1.0e12, false);
