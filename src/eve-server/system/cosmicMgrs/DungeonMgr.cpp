@@ -1179,6 +1179,17 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         // bubble delivery keeps losing decor to bubble splits. AttrIsGlobal routes
         // the SE into m_staticEntities + SendStaticBall (SystemManager::AddEntity).
         iRef->SetAttribute(AttrIsGlobal, 1, false);
+        // Decor is scenery — make it indestructible (like real EVE anomaly decor).
+        // Without HP attributes, player damage hit divide-by-zero / NaN paths and
+        // could crash the server; giving huge shield/armor/structure means it can
+        // be shot but never killed (and never enters the kill/delete path).
+        iRef->SetAttribute(AttrShieldCapacity, 1.0e12, false);
+        iRef->SetAttribute(AttrShieldCharge, 1.0e12, false);
+        iRef->SetAttribute(AttrShieldRechargeRate, 100000.0, false);
+        iRef->SetAttribute(AttrArmorHP, 1.0e12, false);
+        iRef->SetAttribute(AttrArmorDamage, 0, false);
+        iRef->SetAttribute(AttrHP, 1.0e12, false);
+        iRef->SetAttribute(AttrDamage, 0, false);
         // Clouds (groups 227/312) have radius=1 in the SDE — the client renders
         // them as 2*radius (cloud.py SetRadiusDX8), so give them a real nebula
         // size. Static/global delivery makes this safe now.
