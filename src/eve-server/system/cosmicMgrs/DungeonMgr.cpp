@@ -1135,20 +1135,57 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
 
     std::vector<std::pair<GPoint,double>> placed;   // pos + object radius, for non-overlap
     placed.reserve(decoCount);
+    // Shared spawn helper: temp item + global/indestructible attrs + cloud radius.
+    auto spawnOne = [&](uint32 typeID, const GPoint& pos) {
+        ItemData itemData(typeID, 1, m_system->GetID(), flagNone, "", pos);
+        uint32 tempID = InventoryItem::CreateTempItemID(itemData);
+        InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, itemData);
+        if (iRef.get() == nullptr) {
+            _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
+            return;
+        }
+        // Static/global path — decor renders reliably like stations/gates.
+        iRef->SetAttribute(AttrIsGlobal, 1, false);
+        // Indestructible scenery (huge HP) — shooting it must not kill/delete it.
+        iRef->SetAttribute(AttrShieldCapacity, 1.0e12, false);
+        iRef->SetAttribute(AttrShieldCharge, 1.0e12, false);
+        iRef->SetAttribute(AttrShieldRechargeRate, 100000.0, false);
+        iRef->SetAttribute(AttrArmorHP, 1.0e12, false);
+        iRef->SetAttribute(AttrArmorDamage, 0, false);
+        iRef->SetAttribute(AttrHP, 1.0e12, false);
+        iRef->SetAttribute(AttrDamage, 0, false);
+        // Clouds: real nebula size (client renders 2*radius).
+        if (iRef->type().groupID() == 227 || iRef->type().groupID() == 312)
+            iRef->SetAttribute(AttrRadius, 4000.0 + MakeRandomFloat() * 6000.0, false);
+        CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
+        m_system->AddEntity(cSE, false);
+        if (cSE->SysBubble() != nullptr)
+            cSE->SysBubble()->AddBallExclusive(cSE);
+        spawned.push_back(iRef->itemID());
+        _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: spawned typeID %u for room at (%.0f,%.0f,%.0f)",
+             typeID, pos.x, pos.y, pos.z);
+    };
+
+    // Structures / debris — spread proportionally to size: small bits stay close
+    // (3-8km), mid structures 6-12km, huge ones (radius up to 11km) 10-22km, so
+    // nothing overlaps and small objects aren't lost far away.
+    std::vector<std::pair<GPoint,double>> placed;
+    placed.reserve(decoCount);
     for (uint32 i = 0; i < decoCount; ++i) {
         uint32 typeID = decoPool[MakeRandomInt(0, decoPool.size() - 1)];
         Inv::TypeData tData;
         sDataMgr.GetType(typeID, tData);
         double objR = (tData.radius > 1.0 ? tData.radius : 1500.0);
+        double baseDist;
+        if (objR < 2000.0)      baseDist = 3000.0 + MakeRandomFloat() * 5000.0;
+        else if (objR < 5000.0) baseDist = 6000.0 + MakeRandomFloat() * 6000.0;
+        else                    baseDist = 10000.0 + MakeRandomFloat() * 12000.0;
         GPoint pos;
         bool ok = false;
-        // Spread objects out (12-28km) so huge structures (radius up to 11km)
-        // never overlap each other or the pocket centre, and keep a gap equal
-        // to the sum of both radii + margin.
         for (uint32 attempt = 0; attempt < 12 && !ok; ++attempt) {
             double angle = MakeRandomFloat() * 2.0 * 3.14159;
-            double radius = 12000.0 + MakeRandomFloat() * 16000.0;
-            double height = (MakeRandomFloat() - 0.5) * 6000.0;
+            double radius = baseDist * (0.8 + MakeRandomFloat() * 0.4);
+            double height = (MakeRandomFloat() - 0.5) * 4000.0;
             pos.x = roomPos.x + cos(angle) * radius;
             pos.z = roomPos.z + sin(angle) * radius;
             pos.y = roomPos.y + height;
@@ -1160,52 +1197,22 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         if (!ok)
             continue;   // field is dense — skip this one
         placed.emplace_back(pos, objR);
+        spawnOne(typeID, pos);
+    }
 
-        // Spawn as a transient (non-persisted) item — decorations are cosmetic and
-        // must NOT be saved to the entity table. Saved copies piled up on every
-        // dungeon/system reload and were re-spawned on top of each other.
-        // NOTE: InventoryItem::SpawnTemp() routes Celestial types through
-        // CelestialObject::Spawn() which allocates a real DB id — so create the
-        // temp item explicitly here.
-        ItemData itemData(typeID, 1, m_system->GetID(), flagNone, "", pos);
-        uint32 tempID = InventoryItem::CreateTempItemID(itemData);
-        InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, itemData);
-        if (iRef.get() == nullptr) {
-            _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
-            continue;
-        }
-        // Deliver decor via the STATIC/GLOBAL path exactly like stations/gates —
-        // those render reliably (and are visible from far away), while dynamic
-        // bubble delivery keeps losing decor to bubble splits. AttrIsGlobal routes
-        // the SE into m_staticEntities + SendStaticBall (SystemManager::AddEntity).
-        iRef->SetAttribute(AttrIsGlobal, 1, false);
-        // Decor is scenery — make it indestructible (like real EVE anomaly decor).
-        // Without HP attributes, player damage hit divide-by-zero / NaN paths and
-        // could crash the server; giving huge shield/armor/structure means it can
-        // be shot but never killed (and never enters the kill/delete path).
-        iRef->SetAttribute(AttrShieldCapacity, 1.0e12, false);
-        iRef->SetAttribute(AttrShieldCharge, 1.0e12, false);
-        iRef->SetAttribute(AttrShieldRechargeRate, 100000.0, false);
-        iRef->SetAttribute(AttrArmorHP, 1.0e12, false);
-        iRef->SetAttribute(AttrArmorDamage, 0, false);
-        iRef->SetAttribute(AttrHP, 1.0e12, false);
-        iRef->SetAttribute(AttrDamage, 0, false);
-        // Clouds (groups 227/312) have radius=1 in the SDE — the client renders
-        // them as 2*radius (cloud.py SetRadiusDX8), so give them a real nebula
-        // size. Static/global delivery makes this safe now.
-        if (iRef->type().groupID() == 227 || iRef->type().groupID() == 312)
-            iRef->SetAttribute(AttrRadius, 2000.0 + MakeRandomFloat() * 4000.0, false);
-        CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
-        m_system->AddEntity(cSE, false);
-        _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: typeID %u -> bubble %u", typeID,
-             (cSE->SysBubble() != nullptr ? cSE->SysBubble()->GetID() : 0));
-        // Decorations are static entities (IsStaticEntity=true) so SendAddBalls
-        // (dynamic-only) never delivers them to clients — send them explicitly.
-        if (cSE->SysBubble() != nullptr)
-            cSE->SysBubble()->AddBallExclusive(cSE);
-        spawned.push_back(iRef->itemID());
-        _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: spawned typeID %u for room at (%.0f,%.0f,%.0f)",
-             typeID, pos.x, pos.y, pos.z);
+    // Extra clouds — lots and big, drifting beyond the structures so they frame
+    // the site like a nebula (4-10km radius, 5-15km out).
+    uint32 cloudCount = 6 + MakeRandomInt(0, 6);
+    for (uint32 i = 0; i < cloudCount; ++i) {
+        uint32 typeID = factionClouds[MakeRandomInt(0, factionClouds.size() - 1)];
+        double angle = MakeRandomFloat() * 2.0 * 3.14159;
+        double radius = 5000.0 + MakeRandomFloat() * 10000.0;
+        double height = (MakeRandomFloat() - 0.5) * 5000.0;
+        GPoint pos;
+        pos.x = roomPos.x + cos(angle) * radius;
+        pos.z = roomPos.z + sin(angle) * radius;
+        pos.y = roomPos.y + height;
+        spawnOne(typeID, pos);
     }
     return spawned;
 }
