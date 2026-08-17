@@ -1221,14 +1221,15 @@ std::vector<uint32> DungeonMgr::SpawnMineableAsteroids(const GPoint& roomPos, ui
     };
     uint32 typeID = oreTypes[MakeRandomInt(0, 8)];
     // Belt ring around the pocket — keep the CENTER clear (that's where the ship
-    // warps in) and keep asteroids from overlapping. Inner ring 2000m (safe warp
-    // zone), outer 5500m; minimum ~2400m between roid centers (rods are 500-900m
-    // radius, so they don't touch).
-    const double minR = 2000.0, maxR = 5500.0;
-    const double minGap = 2400.0;
-    std::vector<GPoint> placed;
+    // warps in) and keep asteroids from overlapping each other. Inner ring 3000m
+    // (safe warp zone), outer 7000m; gap between roids is the sum of both radii
+    // + 800m so even the largest (900m) never touch.
+    const double minR = 3000.0, maxR = 7000.0;
+    std::vector<std::pair<GPoint,double>> placed;   // pos + roid radius
     placed.reserve(count);
     for (uint32 i = 0; i < count; ++i) {
+        // roid radius ~500-900m
+        double radius = 500.0 + MakeRandomFloat() * 400.0;
         GPoint pos;
         bool ok = false;
         for (uint32 attempt = 0; attempt < 12 && !ok; ++attempt) {
@@ -1240,15 +1241,13 @@ std::vector<uint32> DungeonMgr::SpawnMineableAsteroids(const GPoint& roomPos, ui
             pos.y = roomPos.y + height;
             ok = true;
             for (auto& p : placed) {
-                if (pos.distance(p) < minGap) { ok = false; break; }
+                if (pos.distance(p.first) < radius + p.second + 800.0) { ok = false; break; }
             }
         }
         if (!ok)
             continue;   // give up on this one, belt is dense enough
-        placed.push_back(pos);
+        placed.emplace_back(pos, radius);
 
-        // roid radius ~500-900m; quantity from the belt formula
-        double radius = 500.0 + MakeRandomFloat() * 400.0;
         double quantity = ((25000 * log(radius)) - 112404.8);
         if (quantity < 1000.0) quantity = 1000.0;
 
