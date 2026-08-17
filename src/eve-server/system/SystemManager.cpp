@@ -334,7 +334,13 @@ void SystemManager::UnloadSystem() {
                 pSE->GetStationSE()->UnloadStation();
                 sEntityList.RemoveStation(itr->first);
             }
-            m_staticEntities.erase(m_staticEntities.find(itr->first));
+            // Not all IsStaticEntity objects live in m_staticEntities — only
+            // global/COSE ones do (e.g. dungeon accel gates are static for the
+            // bubble render path but not global). erase(find()) on an absent key
+            // is erase(end()) = UB -> 'free(): invalid pointer' crash on unload.
+            auto sit = m_staticEntities.find(itr->first);
+            if (sit != m_staticEntities.end())
+                m_staticEntities.erase(sit);
         } else if (pSE->IsShipSE()) {
             pSE->GetShipSE()->GetShipItemRef()->LogOut();
         } else if (pSE->IsNPCSE()) {
@@ -345,7 +351,9 @@ void SystemManager::UnloadSystem() {
         }
 
         if (pSE->IsOperSE()) { //Remove operational statics from list
-            m_opStaticEntities.erase(m_opStaticEntities.find(itr->first));
+            auto oit = m_opStaticEntities.find(itr->first);
+            if (oit != m_opStaticEntities.end())
+                m_opStaticEntities.erase(oit);
         }
 
         sItemFactory.RemoveItem(itr->first);
