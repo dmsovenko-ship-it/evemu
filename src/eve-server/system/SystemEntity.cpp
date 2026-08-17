@@ -132,6 +132,13 @@ PyDict* SystemEntity::MakeSlimItem() {
     PyDict *slim = new PyDict();
         slim->SetItemString("typeID",       new PyInt(m_self->typeID()));
         slim->SetItemString("ownerID",      new PyInt(m_ownerID));
+        // categoryID/groupID are REQUIRED by the client's spaceObject factory to
+        // pick the render class (spaceObject.LargeCollidableObject etc.). Without
+        // them decor (Sleeper/Talocan structures, clouds) had no model and stayed
+        // invisible even though the RIGID ball was delivered. Asteroids/wrecks
+        // include these fields; ObjectSystemEntity::MakeSlimItem already does.
+        slim->SetItemString("categoryID",   new PyInt(m_self->categoryID()));
+        slim->SetItemString("groupID",      new PyInt(m_self->groupID()));
         slim->SetItemString("itemID",       new PyLong(m_self->itemID()));
         slim->SetItemString("name",         new PyString(m_self->itemName()));
         slim->SetItemString("corpID",       IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
