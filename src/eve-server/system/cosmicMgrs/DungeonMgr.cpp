@@ -1154,6 +1154,8 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         }
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
+        _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: typeID %u -> bubble %u", typeID,
+             (cSE->SysBubble() != nullptr ? cSE->SysBubble()->GetID() : 0));
         // Decorations are static entities (IsStaticEntity=true) so SendAddBalls
         // (dynamic-only) never delivers them to clients — send them explicitly.
         if (cSE->SysBubble() != nullptr)

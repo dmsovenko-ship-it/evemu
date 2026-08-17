@@ -88,6 +88,29 @@ CelestialSE::CelestialSE(InventoryItemRef self, EVEServiceManager &services, Sys
     _log(SE__DEBUG, "Created CSE for item %s (%u) with radius of %.1f.", self->name(), self->itemID(), m_radius);
 }
 
+// Decor/clouds/gates are Celestial objects, and the client renders Celestial
+// objects the same way it renders stations/gates: RIGID + IsGlobal (those work
+// and are visible from far away). IsMassive/0/STOP all failed to draw decor, so
+// encode it exactly like StaticSystemEntity (stations) does.
+void CelestialSE::EncodeDestiny( Buffer& into )
+{
+    using namespace Destiny;
+    BallHeader head = BallHeader();
+        head.entityID = m_self->itemID();
+        head.mode = Ball::Mode::RIGID;
+        head.radius = m_radius;
+        head.posX = x();
+        head.posY = y();
+        head.posZ = z();
+        head.flags = Ball::Flag::IsGlobal;
+    into.Append( head );
+    RIGID_Struct main;
+        main.formationID = 0xFF;
+    into.Append( main );
+
+    _log(SE__DESTINY, "CSE::EncodeDestiny(): %s - id:%lli, mode:%u, flags:0x%X, radius:%.1f", GetName(), head.entityID, head.mode, head.flags, head.radius);
+}
+
 void CelestialSE::MakeDamageState(DoDestinyDamageState &into)
 {
     double shield = 1.0, armor = 1.0, structure = 1.0, recharge = 1000000;
