@@ -1152,6 +1152,11 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             _log(COSMIC_MGR__WARNING, "SpawnDecorations: failed to spawn temp item typeID %u", typeID);
             continue;
         }
+        // Deliver decor via the STATIC/GLOBAL path exactly like stations/gates —
+        // those render reliably (and are visible from far away), while dynamic
+        // bubble delivery keeps losing decor to bubble splits. AttrIsGlobal routes
+        // the SE into m_staticEntities + SendStaticBall (SystemManager::AddEntity).
+        iRef->SetAttribute(AttrIsGlobal, 1, false);
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
         m_system->AddEntity(cSE, false);
         _log(COSMIC_MGR__MESSAGE, "SpawnDecorations: typeID %u -> bubble %u", typeID,
