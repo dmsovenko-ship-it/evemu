@@ -113,6 +113,7 @@ public:
 
     /* SystemEntity interface */
     virtual void                MakeDamageState(DoDestinyDamageState &into);
+    virtual void                EncodeDestiny( Buffer& into );
 
 };
 
