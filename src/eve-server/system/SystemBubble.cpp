@@ -774,6 +774,8 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who) {
     Client* pClient = to_who->GetPilot();
     if (pClient == nullptr)
         return;
+    _log(DESTINY__MESSAGE, "SystemBubble::SendAddBalls() to %s — bubble %u, dyn=%zu, static=%zu",
+         pClient->GetName(), m_bubbleID, m_dynamicEntities.size(), m_entities.size());
     if (is_log_enabled(DESTINY__BUBBLE_DEBUG))
         PrintEntityList();
 
