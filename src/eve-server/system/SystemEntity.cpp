@@ -26,11 +26,15 @@
 
 #include "eve-server.h"
 
+#include <cmath>
+#include <cstdio>
+
 #include "ConsoleCommands.h"
 #include "Client.h"
 #include "Container.h"
 #include "EVEServerConfig.h"
 #include "exploration/Probes.h"
+#include "math/Trig.h"
 
 #include "StatisticMgr.h"
 #include "account/AccountService.h"
@@ -466,10 +470,37 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
                 classList->AddItem( new PyInt(830));
             slim->SetItemString("dunShipClasses", classList);   //?
             PyList* dirList = new PyList();
-                dirList->AddItem(PyStatic.NewInt(5));     //234
-                dirList->AddItem(PyStatic.NewInt(-1));
-                dirList->AddItem(PyStatic.NewZero());
+            // dunDirection = unit vector from the gate toward the next room
+            // (the warp path the ship takes through the gate). Stored in
+            // customInfo as "gate_to:x:y:z". Fall back to +x (rooms are laid
+            // out along +x).
+            GPoint from(m_self->position());
+            GPoint to(from.x + 1, from.y, from.z);
+            if (m_self->customInfo().rfind("gate_to:", 0) == 0) {
+                long long gx, gy, gz;
+                if (sscanf(m_self->customInfo().c_str(), "gate_to:%lld:%lld:%lld", &gx, &gy, &gz) == 3)
+                    to = GPoint((double)gx, (double)gy, (double)gz);
+            }
+            double dx = to.x - from.x;
+            double dy = to.y - from.y;
+            double dz = to.z - from.z;
+            double len = sqrt(dx * dx + dy * dy + dz * dz);
+            if (len < 1.0)
+                len = 1.0;
+            dirList->AddItem(PyStatic.NewInt((int)round(dx / len * 10000.0)));
+            dirList->AddItem(PyStatic.NewInt((int)round(dy / len * 10000.0)));
+            dirList->AddItem(PyStatic.NewInt((int)round(dz / len * 10000.0)));
             slim->SetItemString("dunDirection", dirList);
+            // dunRotation = (yaw, pitch, roll). Point the gate plane at the
+            // next room in the horizontal plane (yaw only), keep it strictly
+            // horizontal (pitch=0, roll=0) so the acceleration runs right over
+            // the gate.  yaw = atan2(runX, runZ) as in CustomsOffice.
+            PyTuple* rotTuple = new PyTuple(3);
+                float yawDeg = EvE::Trig::Rad2Deg(atan2(dx, dz));
+                rotTuple->SetItem(0, new PyFloat(yawDeg));
+                rotTuple->SetItem(1, new PyFloat(0.0));
+                rotTuple->SetItem(2, new PyFloat(0.0));
+            slim->SetItemString("dunRotation", rotTuple);
             slim->SetItemString("dunKeyLock", PyStatic.NewNone());   //?
             slim->SetItemString("dunWipeNPC", new PyBool(0));   //?
             slim->SetItemString("dunKeyQuantity", PyStatic.NewOne());   //?

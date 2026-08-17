@@ -565,13 +565,14 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             }
 
             // Spawn an acceleration gate leading to the next room (all rooms except
-            // the last). Gate sits ~25-30km from the room center exactly along the
-            // +x vector to the next room (rooms are laid out on +x). The gate stores
-            // the NEXT room's position in customInfo so activating it warps precisely
-            // there instead of +NEXT_DUNGEON_ROOM_DIST from the ship (which missed).
+            // the last). Gate sits ~28-32km BEYOND the room along the +x vector to
+            // the next room — past the decor clutter (structures up to ~26km, clouds
+            // up to 15km) — so the warp-up runs straight over it. The gate stores the
+            // NEXT room's position in customInfo so activating it warps precisely there
+            // instead of +NEXT_DUNGEON_ROOM_DIST from the ship (which missed).
             if (dData.rooms.size() > 1 && roomCounter < (dData.rooms.size() - 1)) {
                 GPoint gatePos = newRoom.position;
-                gatePos.x += 25000 + MakeRandomInt(0, 5000);   // 25-30km
+                gatePos.x += 28000 + MakeRandomInt(0, 4000);   // 28-32km beyond room, past decor
                 ItemData gateData(17831, sig.ownerID, sig.systemID, flagNone, "Acceleration Gate", gatePos);  // 17831 = Acceleration Gate
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
