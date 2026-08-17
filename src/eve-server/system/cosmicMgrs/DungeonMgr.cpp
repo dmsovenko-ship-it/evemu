@@ -576,9 +576,6 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
                 if (gateRef.get() != nullptr) {
-                    // Gates render with the IsGlobal flag (like decor) but stay in
-                    // the DYNAMIC/grid path (no AttrIsGlobal) so they are only
-                    // delivered in the grid, not system-wide.
                     GPoint nextRoomPos = newRoom.position;
                     nextRoomPos.x += NEXT_DUNGEON_ROOM_DIST;   // next room is +NEXT_DUNGEON_ROOM_DIST on x
                     std::ostringstream ci;
@@ -586,6 +583,10 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                        << (long long)nextRoomPos.y << ":" << (long long)nextRoomPos.z;
                     gateRef->SetCustomInfo(ci.str().c_str());
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, m_system);
+                    // Route through the bubble's static map (like stations) so the
+                    // client renders it — a dynamic RIGID ball is never drawn. No
+                    // AttrIsGlobal, so it stays grid-scoped, not visible system-wide.
+                    gateSE->SetIsStaticEntity(true);
                     m_system->AddEntity(gateSE, false);
                     if (gateSE->SysBubble() != nullptr)
                         gateSE->SysBubble()->AddBallExclusive(gateSE);

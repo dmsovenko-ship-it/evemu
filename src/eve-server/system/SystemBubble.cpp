@@ -767,7 +767,7 @@ void SystemBubble::PrintEntityList() {
 void SystemBubble::SendAddBalls(SystemEntity* to_who) {
     if (!m_system->IsLoaded())
         return;
-    if (m_dynamicEntities.empty())
+    if (m_dynamicEntities.empty() && m_entities.empty())
         return;
     if (!to_who->HasPilot())
         return;

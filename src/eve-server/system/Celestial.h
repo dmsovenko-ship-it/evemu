@@ -104,11 +104,22 @@ public:
     // defaults IsStaticEntity=true, which put them in the bubble's static map
     // where clients never saw them. Real gates/planets/moons are separate
     // StaticSystemEntity classes and keep IsStaticEntity=true.
-    virtual bool                IsStaticEntity()        { return false; }
+    //
+    // Exception: dungeon acceleration gates (typeID 17831/2902) — they render
+    // ONLY when routed through the bubble's static map (like stations); a RIGID
+    // CelestialSE delivered via the dynamic path (SendAddBalls/AddBalls) is
+    // never drawn by the client. Gates are NOT global (no AttrIsGlobal) so they
+    // stay grid-scoped — clients see them only when inside the pocket bubble,
+    // not from 1.3 ly away like the global decor.
+    virtual bool                IsStaticEntity()        { return m_isStaticEntity; }
+    void                        SetIsStaticEntity(bool v) { m_isStaticEntity = v; }
 
     /* SystemEntity interface */
     virtual void                MakeDamageState(DoDestinyDamageState &into);
     virtual void                EncodeDestiny( Buffer& into );
+
+private:
+    bool m_isStaticEntity = false;
 
 };
 
