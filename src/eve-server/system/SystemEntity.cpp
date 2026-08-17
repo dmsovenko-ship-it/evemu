@@ -85,6 +85,16 @@ m_harmonic(oth->m_harmonic)
     // wip
 }
 
+// Lazy-create a DestinyManager for entities that normally have none (decor).
+// Asteroids/wrecks/containers get one at construction and render fine; decor
+// (plain ItemSystemEntity) without destiny stayed invisible even though its
+// RIGID ball was delivered.
+void SystemEntity::AddDestiny()
+{
+    if (m_destiny == nullptr)
+        m_destiny = new DestinyManager(this);
+}
+
 
 void SystemEntity::Process() {
     if (m_killed) {

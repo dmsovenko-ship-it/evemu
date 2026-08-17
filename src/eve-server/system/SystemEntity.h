@@ -221,6 +221,7 @@ public:
     SystemManager*              SystemMgr()             { return m_system; }
     TargetManager*              TargetMgr()             { return m_targMgr; }
     DestinyManager*             DestinyMgr()            { return m_destiny; }
+    void                        AddDestiny();           // create DestinyMgr if absent (asteroids/wrecks have one; decor needs it to render)
 
     /* common functions for all entities handled here */
     /* public data queries  */

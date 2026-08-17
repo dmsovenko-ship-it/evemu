@@ -93,7 +93,12 @@ class EVEServiceManager;
 class CelestialSE : public ItemSystemEntity {
 public:
     CelestialSE(InventoryItemRef self, EVEServiceManager& services, SystemManager* system);
-    virtual ~CelestialSE()                              { /* Do nothing here */ }
+    virtual ~CelestialSE() {
+        // Decor/gates get a lazily-created DestinyMgr (AddDestiny) — free it here
+        // so transient decorations don't leak when the site expires.
+        delete m_destiny;
+        m_destiny = nullptr;
+    }
 
     /* class type pointer querys. */
     virtual const CelestialSE*  GetCelestialSE()        { return this; }

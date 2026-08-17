@@ -575,6 +575,7 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
                 if (gateRef.get() != nullptr) {
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, m_system);
+                    gateSE->AddDestiny();   // accel gates need a DestinyMgr to render
                     m_system->AddEntity(gateSE, false);
                     if (gateSE->SysBubble() != nullptr)
                         gateSE->SysBubble()->AddBallExclusive(gateSE);
@@ -1159,6 +1160,7 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         if (iRef->type().groupID() == 227 || iRef->type().groupID() == 312)
             iRef->SetAttribute(AttrRadius, 1500.0 + MakeRandomFloat() * 4500.0, false);
         CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
+        cSE->AddDestiny();   // asteroids/wrecks render with a DestinyMgr; decor needs one too
         m_system->AddEntity(cSE, false);
         // Decorations are static entities (IsStaticEntity=true) so SendAddBalls
         // (dynamic-only) never delivers them to clients — send them explicitly.
