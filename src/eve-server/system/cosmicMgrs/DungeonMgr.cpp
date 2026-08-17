@@ -1133,8 +1133,6 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
     if (!isSleeper && MakeRandomInt(0, 3) > 0)
         for (auto t : rockDeco) decoPool.push_back(t);
 
-    std::vector<std::pair<GPoint,double>> placed;   // pos + object radius, for non-overlap
-    placed.reserve(decoCount);
     // Shared spawn helper: temp item + global/indestructible attrs + cloud radius.
     auto spawnOne = [&](uint32 typeID, const GPoint& pos) {
         ItemData itemData(typeID, 1, m_system->GetID(), flagNone, "", pos);
