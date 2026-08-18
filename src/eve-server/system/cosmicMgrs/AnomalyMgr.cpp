@@ -293,6 +293,21 @@ void AnomalyMgr::GetAnomalyList(std::vector<CosmicSignature>& sig) {
         sig.push_back(cur.second);
 }
 
+bool AnomalyMgr::GetEscalationByBubble(uint16 bubbleID, CosmicSignature& out)
+{
+    // Find a private expedition signature whose root bubble matches the given
+    // one. Used to detect when an expedition stage's site is fully cleared.
+    for (auto cur : m_sigByItemID) {
+        if (cur.second.dungeonType == Dungeon::Type::Escalation
+            && cur.second.bubbleID == bubbleID)
+        {
+            out = cur.second;
+            return true;
+        }
+    }
+    return false;
+}
+
 void AnomalyMgr::CreateAnomaly(int8 typeID)
 {
     // Skip Jita (systemID 30000142) — no anomalies on official EVE

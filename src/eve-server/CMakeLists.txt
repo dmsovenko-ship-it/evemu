@@ -203,6 +203,11 @@ SET( incursion_SOURCE
      "${TARGET_SOURCE_DIR}/incursion/IncursionMgr.cpp"
      "${TARGET_SOURCE_DIR}/incursion/RewardMgrService.cpp" )
 
+SET( expedition_INCLUDE
+     "${TARGET_INCLUDE_DIR}/expedition/ExpeditionMgr.h" )
+SET( expedition_SOURCE
+     "${TARGET_SOURCE_DIR}/expedition/ExpeditionMgr.cpp" )
+
 SET( corporation_INCLUDE
      "${TARGET_INCLUDE_DIR}/corporation/BillMgr.h"
      "${TARGET_INCLUDE_DIR}/corporation/CorpBookmarkMgr.h"
@@ -775,6 +780,7 @@ ADD_EXECUTABLE( "${TARGET_NAME}"
                 ${contract_INCLUDE}       ${contract_SOURCE}
                 ${corporation_INCLUDE}    ${corporation_SOURCE}
                 ${incursion_INCLUDE}      ${incursion_SOURCE}
+                ${expedition_INCLUDE}     ${expedition_SOURCE}
                 ${dogmaim_INCLUDE}        ${dogmaim_SOURCE}
                 ${dungeon_INCLUDE}        ${dungeon_SOURCE}
                 ${effects_INCLUDE}        ${effects_SOURCE}

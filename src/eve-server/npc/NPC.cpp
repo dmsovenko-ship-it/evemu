@@ -42,6 +42,7 @@
 #include "standing/StandingMgr.h"
 #include "corporation/LPService.h"
 #include "faction/FactionWarMgrDB.h"
+#include "expedition/ExpeditionMgr.h"
 
 
 NPC::NPC(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, SpawnMgr* spawnMgr)
@@ -628,6 +629,16 @@ void NPC::Killed(Damage &damage) {
                 }
             }
         }
+    }
+
+    // PvE escalation trigger: killing a pirate NPC inside an anomaly or unrated
+    // complex can start a private expedition (ExpeditionMgr handles the 5%
+    // roll, lower-sec system pick, and spawning the site in another system).
+    if (pClient != nullptr && m_bubble != nullptr
+        && m_bubble->IsAnomaly() && !m_bubble->IsMission()
+        && m_warID > 0 && m_warID != factionSleepers)
+    {
+        sExpMgr.MaybeTrigger(pClient, m_warID, m_system->GetID());
     }
 
     if (m_self.get() == nullptr) {

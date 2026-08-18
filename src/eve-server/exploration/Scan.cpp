@@ -33,6 +33,7 @@
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
+#include "expedition/ExpeditionMgr.h"
 
 SystemManager* Scan::GetSystem() { return m_client->SystemMgr(); }
 
@@ -260,6 +261,9 @@ void Scan::ShipScanResult() {
     PyList* resultList = new PyList();
     // NOTE. cannot scan pos, wrecks, ships, mission sites, or escalations.  they DO have sigIDs, and can get to type (25%), but no farther
     for (auto anoms : anom) {
+        // Private expeditions are only visible to their owner.
+        if (sExpMgr.IsHidden(anoms, m_client->GetCharacterID()))
+            continue;
         SystemScanResult ssr;
             ssr.typeID = anoms.sigTypeID;
             ssr.scanGroupID = anoms.scanGroupID;
@@ -343,6 +347,9 @@ void Scan::ProbeScanResult()
     // reveal signatures (Gravimetric/Ladar/Radar/Magnetometric/Wormhole).
     GetSystem()->GetAnomMgr()->GetSignatureList(sig);
     for (auto sigs : sig) {
+        // Private expeditions are only visible to their owner.
+        if (sExpMgr.IsHidden(sigs, m_client->GetCharacterID()))
+            continue;
         SignalData data = SignalData();
             data.sig = sigs;
             data.probes = nullptr;
@@ -468,10 +475,17 @@ struct CosmicSignature {
             case Scanning::Group::Signature: {
                 switch (data.sig.dungeonType) {
                     case Dungeon::Type::Mission: // npc mission
-                    case Dungeon::Type::Escalation://  new dungeon from previous site. very limited access
                     case Dungeon::Type::Rated: { // DED rated dungeon
                         _log(SCAN__TRACE, "Scan::GetProbeDataForSig()  probe %u cannot scan signal %s", cur.first, data.sig.sigName.c_str());
                         continue;
+                    }
+                    case Dungeon::Type::Escalation: {
+                        // Private expedition sites: only their owner can scan them.
+                        if (data.sig.ownerID != m_client->GetCharacterID()) {
+                            _log(SCAN__TRACE, "Scan::GetProbeDataForSig()  probe %u cannot scan private expedition %s", cur.first, data.sig.sigName.c_str());
+                            continue;
+                        }
+                        break;
                     }
                 /*  nothing to check for on these...
                     case Dungeon::Type::Gravimetric:// roids

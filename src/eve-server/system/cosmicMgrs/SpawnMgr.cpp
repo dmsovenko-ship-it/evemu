@@ -17,8 +17,10 @@
 #include "system/SystemManager.h"
 #include "system/SystemBubble.h"
 #include "system/cosmicMgrs/SpawnMgr.h"
+#include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "incursion/IncursionMgr.h"
+#include "expedition/ExpeditionMgr.h"
 #include "EVE_Incursion.h"
 #include "EVE_Corp.h"
 #include "account/AccountService.h"
@@ -267,6 +269,21 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
             pBubble->SetSpawned(false);
     } else if (pBubble->IsAnomaly()) {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Anomaly - called by %u.", itemID);
+        // Private expedition site: one-and-done — no respawn waves. When the last
+        // NPC dies, offer the next stage (50% chance) and clear the site.
+        CosmicSignature esc;
+        bool isEscalation = m_system->GetAnomMgr()->GetEscalationByBubble(pBubble->GetID(), esc);
+        if (isEscalation) {
+            if (m_spawns.count(pBubble->GetID()) == 1) {
+                auto itr = m_spawns.find(pBubble->GetID());
+                if (itr != m_spawns.end())
+                    m_spawns.erase(itr);
+                // If this was truly the last NPC, complete the stage.
+                if (pBubble->CountNPCs() <= 1)
+                    sExpMgr.OnSiteCleared(esc.ownerID, esc.sigItemID);
+            }
+            return;
+        }
         if (m_spawns.count(pBubble->GetID()) == 1) {
             // last npc in this wave.  get data needed for next wave, if applicable.
             SpawnEntryDef::iterator itr = m_spawns.find(pBubble->GetID());

@@ -47,6 +47,7 @@
 #include "faction/WarRegistryService.h"
 #include "missions/MissionDataMgr.h"
 #include "incursion/IncursionMgr.h"
+#include "expedition/ExpeditionMgr.h"
 #include "standing/StandingMgr.h"
 #include "station/Station.h"
 #include "system/DestinyManager.h"
@@ -592,6 +593,7 @@ void EntityList::Process() {
             ++m_minutes;
             sMissionDataMgr.Process();  // 1m
             sIncursionMgr.Process();    // 1m
+            sExpMgr.Process();          // 1m — expedition expiry
             ProcessAutoPay();
             ProcessInsuranceExpiry();
             CheckWarDecay();

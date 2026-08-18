@@ -52,6 +52,8 @@ class AnomalyMgr
     void GetAnomalyList(std::vector< CosmicSignature >& sig);
     // list for probe
     void GetSignatureList(std::vector< CosmicSignature >& sig);
+    // find the private expedition signature whose root bubble matches
+    bool GetEscalationByBubble(uint16 bubbleID, CosmicSignature& out);
 
     uint32 GetAnomalyID(std::string& sigID);
     GPoint GetAnomalyPos(std::string& sigID);
