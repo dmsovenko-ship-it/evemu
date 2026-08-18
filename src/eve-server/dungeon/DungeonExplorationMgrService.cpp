@@ -27,7 +27,7 @@
 
 #include "eve-server.h"
 
-
+#include "Client.h"
 #include "dungeon/DungeonExplorationMgrService.h"
 #include "expedition/ExpeditionMgr.h"
 
