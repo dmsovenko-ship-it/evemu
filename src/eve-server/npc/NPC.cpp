@@ -374,7 +374,12 @@ void NPC::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = Ball::Flag::IsFree;
+        // Charbots (PlayerBot) are real pilots — the client's "camera follow"
+        // ("Смотреть за") only targets balls flagged IsInteractive. Plain NPCs
+        // keep IsFree only (IsInteractive on ship-category NPCs caused
+        // "Unknown packet type" client errors historically).
+        head.flags = (IsPlayerBot() ? Ball::Flag::IsFree | Ball::Flag::IsInteractive
+                                    : Ball::Flag::IsFree);
     into.Append( head );
     _log(SE__DESTINY, "NPC::EncodeDestiny: %s(%u) flags=0x%X mode=%u", GetName(), GetID(), head.flags, head.mode);
     MassSector mass = MassSector();
