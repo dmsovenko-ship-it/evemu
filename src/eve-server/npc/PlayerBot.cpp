@@ -89,6 +89,10 @@ PyDict* PlayerBot::MakeSlimItem()
         }
         slim->SetItemString("securityStatus", new PyFloat(sec));
         slim->SetItemString("characterID", new PyInt(m_botCharID));
+        // A charbot is a ship with a pilot: charID must be set (not None like
+        // plain NPCs) or the client doesn't treat it as a piloted ship — camera
+        // follow ("Смотреть за") and pilot identity rely on this field.
+        slim->SetItemString("charID", new PyInt(m_botCharID));
     }
     return slim;
 }
