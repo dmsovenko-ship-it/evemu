@@ -26,6 +26,8 @@
 
 #include "eve-server.h"
 
+#include <cstdlib>
+
 #include "StaticDataMgr.h"
 #include "system/Celestial.h"
 #include "system/SystemBubble.h"
@@ -189,7 +191,22 @@ m_nebulaType(nebulaType)
     int64 stableTime = (int64)m_self->GetAttribute(AttrWormholeMaxStableTime).get_int();
     if (stableTime < 3600)
         stableTime = EvE::Time::Day; // 24h default
-    m_expiryDate = Win32TimeNow() + stableTime * 1000;
+    // Persist the expiry across system reloads: store it in customInfo as
+    // "expiry:<Win32FileTime>" when the wormhole is first created, and restore
+    // it when the system is re-loaded (LoadAnomalies -> BuildEntity). Otherwise
+    // every unload/reload would reset the clock and wormholes would never age.
+    if (m_self->customInfo().rfind("expiry:", 0) == 0) {
+        m_expiryDate = atoll(m_self->customInfo().c_str() + 7);
+        // Wormhole already expired while the system was unloaded — clamp to now
+        // so Process() collapses it on the next tick.
+        if (m_expiryDate < Win32TimeNow())
+            m_expiryDate = Win32TimeNow();
+    } else {
+        m_expiryDate = Win32TimeNow() + stableTime * 1000;
+        std::string ci = "expiry:" + std::to_string(m_expiryDate);
+        m_self->SetCustomInfo(ci.c_str());
+        m_self->SaveItem();
+    }
 }
 
 void WormholeSE::EncodeDestiny(Buffer& into)

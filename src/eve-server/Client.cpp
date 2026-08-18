@@ -1105,6 +1105,12 @@ void Client::UndockFromStation() {
         this->services().Lookup <TradeService>("trademgr")->CancelTrade(this);
     }
 
+    // Forget we loaded this station's hangar — if we leave and come back (even
+    // via a wormhole where the station's system was unloaded in between), the
+    // hangar must be reloaded from disk. Otherwise IsHangarLoaded() short-circuits
+    // LoadStationHangar() and the client sees an empty station hangar.
+    RemoveStationHangar(m_locationID);
+
     m_invul = true;
     m_undock = true;
     //set position and direction of docking ramp for later use
@@ -1988,9 +1994,11 @@ void Client::WormholeJump(InventoryItemRef wormhole) {
             destWh = sItemFactory.GetItemRefFromID(destItemID);
             if (destWh.get() != nullptr)
                 m_movePoint = destWh->position();
+            else
+                destItemID = 0;   // stale exit ref — wormhole collapsed while unloaded
         }
         if (destItemID == 0) {
-            // No paired exit ball exists yet — create the K162 exit on the far
+            // No usable paired exit ball — (re)create the K162 exit on the far
             // side so the player lands AT the wormhole (not at the sun), and the
             // exit links back to this one. The exit WH is created in the
             // destination system at its anomaly point.
