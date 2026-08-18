@@ -495,8 +495,12 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
             // next room in the horizontal plane (yaw only), keep it strictly
             // horizontal (pitch=0, roll=0) so the acceleration runs right over
             // the gate.  yaw = atan2(runX, runZ) as in CustomsOffice.
+            // +180°: the Acceleration Gate model faces AWAY from the oncoming
+            // ship, so rotate half a turn to face the warp vector.
             PyTuple* rotTuple = new PyTuple(3);
-                float yawDeg = EvE::Trig::Rad2Deg(atan2(dx, dz));
+                float yawDeg = EvE::Trig::Rad2Deg(atan2(dx, dz)) + 180.0f;
+                if (yawDeg > 180.0f) yawDeg -= 360.0f;
+                else if (yawDeg < -180.0f) yawDeg += 360.0f;
                 rotTuple->SetItem(0, new PyFloat(yawDeg));
                 rotTuple->SetItem(1, new PyFloat(0.0));
                 rotTuple->SetItem(2, new PyFloat(0.0));

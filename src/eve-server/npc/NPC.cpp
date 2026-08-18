@@ -549,8 +549,11 @@ void NPC::Killed(Damage &damage) {
                     continue;
                 if (tSE->GetSelf()->HasAttribute(AttrWarpScrambleStatus))
                     tSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, 0.0f, true);
-                // Release stasis web if this NPC had webbed the target.
-                if (m_AI->HasWeb() && tSE->DestinyMgr() != nullptr)
+                // Release stasis web ONLY if this NPC had actually webbed that
+                // target. WebbedMe(false) divides m_maxShipSpeed by (1+speedFactor/100)
+                // = 0.4 (x2.5) for a -60% web; without a matching WebbedMe(true) it
+                // inflates the victim's speed on every death (Sleeper SpeedFactor=-60).
+                if (m_AI->IsWebApplied() && m_AI->GetWebTargetID() == tID && tSE->DestinyMgr() != nullptr)
                     tSE->DestinyMgr()->WebbedMe(m_self, false);
                 // Stop sticky beams on the client.
                 if (m_destiny != nullptr) {

@@ -111,6 +111,9 @@ public:
     uint16 GetMaxShipSpeed() const      { return m_maxSpeed; }
     bool HasWarpScrambler() const       { return (m_warpScramStrength > 0 && m_warpScramRange > 0); }
     bool HasWeb() const                 { return (m_webRange > 0 && m_webStrength > 0); }
+    // true when a stasis web is currently applied to a target (symmetric undo only)
+    bool IsWebApplied() const           { return m_webApplied; }
+    uint32 GetWebTargetID() const       { return m_webTargetID; }
 
     // Warp scrambler capability (bots use this to "tackle": hold a target while
     // the fleet warps in). range/strength are metres and scram strength (1 = one
@@ -192,6 +195,8 @@ private:
     uint32 m_webRange;
     float m_webChance;
     float m_webStrength;
+    bool m_webApplied;          // true when a web is currently on a target (symmetric undo)
+    uint32 m_webTargetID;
 
     // EWAR — ECM (target jamming)
     uint32 m_ecmRange;

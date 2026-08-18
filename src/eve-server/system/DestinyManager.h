@@ -235,7 +235,7 @@ protected:
     SystemEntity* const mySE;			//we do not own this.
     SystemBubble* m_targBubble;         //we do not own this.
 
-    bool IsTargetInvalid();              //performs common target checks
+    bool IsTargetInvalid(bool forOrbit = false);   //performs common target checks
 
     bool m_hasSentShipUpdates;
 

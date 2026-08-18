@@ -274,6 +274,8 @@ NPCAIMgr::NPCAIMgr(NPC* who)
         m_webRange = 0;
     m_webChance = 0.3f;  // default 30% chance per cycle
     m_webStrength = 0.6f; // default -60% speed
+    m_webApplied = false;   // symmetric web undo tracking
+    m_webTargetID = 0;
 
     // EWAR — ECM (target jamming)
     if (m_self->HasAttribute(AttrEntityTargetJamMaxRange))
@@ -1242,8 +1244,16 @@ void NPCAIMgr::ClearTarget(SystemEntity* pSE) {
                                          1, 0, 0, m_attackSpeed, 0, 0);
     }
     // Release stasis webifier (restore target speed + stop the beam).
-    if (m_webRange > 0 and pSE->DestinyMgr() != nullptr) {
+    // Only if we actually applied a web to THIS target — WebbedMe(false) divides
+    // m_maxShipSpeed by (1+speedFactor/100) = 0.4 (x2.5) for a -60% web; calling
+    // it without a matching WebbedMe(true) inflates the victim's speed on every
+    // target drop (Sleeper webbers have SpeedFactor=-60 in SDE, so this used to
+    // stack x2.5 per ClearTarget -> player ship speed ballooned to 93383 m/s).
+    if (m_webRange > 0 and m_webApplied and m_webTargetID == pSE->GetID()
+    and pSE->DestinyMgr() != nullptr) {
         pSE->DestinyMgr()->WebbedMe(m_self, false);
+        m_webApplied = false;
+        m_webTargetID = 0;
         if (m_destiny != nullptr)
             m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
                                          pSE->GetID(), 0, "effects.ModifyTargetSpeed",
@@ -1311,10 +1321,31 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
                 if (MakeRandomFloat() > m_webChance) {
                     if (pSE->DestinyMgr() != nullptr and m_self->HasAttribute(AttrSpeedFactor)) {
                         float origFactor = m_self->GetAttribute(AttrSpeedFactor).get_float();
+                        // Undo any web currently applied before re-applying, so
+                        // repeated cycles don't stack the speed multiplier and
+                        // ClearTarget can restore speed symmetrically.
+                        if (m_webApplied) {
+                            if (m_webTargetID == pSE->GetID()) {
+                                m_self->SetAttribute(AttrSpeedFactor, m_webStrength * -100.0f, false);
+                                pSE->DestinyMgr()->WebbedMe(m_self, false);
+                                m_self->SetAttribute(AttrSpeedFactor, origFactor, false);
+                            } else {
+                                SystemEntity* oldWebTarget = m_npc->SystemMgr()->GetSE(m_webTargetID);
+                                if (oldWebTarget != nullptr and oldWebTarget->DestinyMgr() != nullptr) {
+                                    m_self->SetAttribute(AttrSpeedFactor, m_webStrength * -100.0f, false);
+                                    oldWebTarget->DestinyMgr()->WebbedMe(m_self, false);
+                                    m_self->SetAttribute(AttrSpeedFactor, origFactor, false);
+                                }
+                                m_webApplied = false;
+                                m_webTargetID = 0;
+                            }
+                        }
                         // Set web strength (-60% by default) via SpeedFactor attribute
                         m_self->SetAttribute(AttrSpeedFactor, m_webStrength * -100.0f, false);
                         pSE->DestinyMgr()->WebbedMe(m_self, true);
                         m_self->SetAttribute(AttrSpeedFactor, origFactor, false);
+                        m_webApplied = true;
+                        m_webTargetID = pSE->GetID();
                     }
                     m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
                                                  pSE->GetID(), 0, "effects.ModifyTargetSpeed",

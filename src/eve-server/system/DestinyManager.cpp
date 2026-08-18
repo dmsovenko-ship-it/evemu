@@ -182,12 +182,12 @@ void DestinyManager::ProcessState() {
             SetPosition(m_position + m_velocity);
         } break;
         case Ball::Mode::ORBIT: {
-            if (IsTargetInvalid())
+            if (IsTargetInvalid(true))
                 return;
             Orbit();
         } break;
         case Ball::Mode::FOLLOW: {
-            if (IsTargetInvalid())
+            if (IsTargetInvalid(false))
                 return;
             Follow();
         } break;
@@ -2258,7 +2258,7 @@ void DestinyManager::EntityRemoved(SystemEntity *pSE) {
     }
 }
 
-bool DestinyManager::IsTargetInvalid()
+bool DestinyManager::IsTargetInvalid(bool forOrbit/*false*/)
 {
     /** @todo  this needs a good lookover */
     if (mySE->SystemMgr()->GetSE(m_targetEntity.first) == nullptr) {
@@ -2266,13 +2266,18 @@ bool DestinyManager::IsTargetInvalid()
         Stop();
         return true;
     }
-    // Target without a DestinyManager (e.g. decorations/containers — CelestialSE/
-    // ItemSystemEntity have no m_destiny and IsDynamicEntity()==false). You can't
-    // meaningfully orbit/follow a static decoration: the client Ballpark keeps the
-    // ball in ORBIT/FOLLOW around an invisible point -> "ship circles invisible object".
+    // Target without a DestinyManager (decor/containers/accel gates — CelestialSE/
+    // ItemSystemEntity have no m_destiny and IsDynamicEntity()==false). Orbiting
+    // a static decoration is meaningless (the client Ballpark keeps the ball in
+    // ORBIT around an invisible point -> "ship circles invisible object"), so
+    // reject it for ORBIT. But FOLLOW/approach to static objects (gates, stations)
+    // is perfectly valid — the ship just flies to the fixed point and stops.
     if (m_targetEntity.second->DestinyMgr() == nullptr) {
-        Stop();
-        return true;
+        if (forOrbit) {
+            Stop();
+            return true;
+        }
+        return false;
     }
     if (!m_targetEntity.second->IsDynamicEntity())
         return false;
