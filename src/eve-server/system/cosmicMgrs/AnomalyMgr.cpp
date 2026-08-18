@@ -308,6 +308,17 @@ bool AnomalyMgr::GetEscalationByBubble(uint16 bubbleID, CosmicSignature& out)
     return false;
 }
 
+bool AnomalyMgr::HasAnomalyNamed(const std::string& name) const
+{
+    for (auto cur : m_anomByItemID)
+        if (cur.second.sigName == name)
+            return true;
+    for (auto cur : m_sigByItemID)
+        if (cur.second.sigName == name)
+            return true;
+    return false;
+}
+
 void AnomalyMgr::CreateAnomaly(int8 typeID)
 {
     // Skip Jita (systemID 30000142) — no anomalies on official EVE

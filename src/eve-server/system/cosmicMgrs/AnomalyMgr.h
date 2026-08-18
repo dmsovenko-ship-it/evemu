@@ -54,6 +54,9 @@ class AnomalyMgr
     void GetSignatureList(std::vector< CosmicSignature >& sig);
     // find the private expedition signature whose root bubble matches
     bool GetEscalationByBubble(uint16 bubbleID, CosmicSignature& out);
+    // true if an anomaly/signature with this name is already registered
+    // (used by IncursionMgr to avoid duplicating sites after a system reload)
+    bool HasAnomalyNamed(const std::string& name) const;
 
     uint32 GetAnomalyID(std::string& sigID);
     GPoint GetAnomalyPos(std::string& sigID);

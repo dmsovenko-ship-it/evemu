@@ -374,11 +374,14 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         if (influence <= 0.0f)
             continue;
 
-        if (m_activeSystems.find(solarSystemID) != m_activeSystems.end())
-            continue;
-
+        // Skip only if a site is ALREADY live in this system. m_activeSystems
+        // alone is not enough — incursion sites are not persisted to the DB, so
+        // a system reload (player entering the system) drops the site, and
+        // m_activeSystems would then wrongly suppress the respawn forever.
         SystemManager* sMgr = sEntityList.FindOrBootSystem(solarSystemID);
         if (sMgr == nullptr)
+            continue;
+        if (sMgr->GetAnomMgr()->HasAnomalyNamed("Incursion Site"))
             continue;
 
         uint32 playerCount = sMgr->PlayerCount();
