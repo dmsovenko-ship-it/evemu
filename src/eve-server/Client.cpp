@@ -942,6 +942,10 @@ void Client::MoveToLocation(uint32 locationID, const GPoint& pt) {
 
         if (IsJump() and !m_autoPilot) {
             pShipSE->DestinyMgr()->Stop();
+            // Stop() keeps m_velocity from the pre-jump movement; EncodeDestiny
+            // would then send mode=STOP with a non-zero Vel, jittering the client
+            // Ballpark after the teleport into the new system (gate + wormhole).
+            pShipSE->DestinyMgr()->ZeroVelocity();
         } else if (IsJump() and m_autoPilot) {
             m_autoPilot = true;
         }
@@ -1633,6 +1637,12 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
 
     if (IsInSpace()) {
         pShipSE->DestinyMgr()->Stop();
+        // Stop() zeroes speed fraction but keeps m_velocity from the pre-jump
+        // movement — EncodeDestiny/SendSetState would then report mode=STOP with
+        // a non-zero Vel, which makes the client Ballpark jitter the ship
+        // ("space doesn't load, ship jerks" after a gate jump into an incursion
+        // system). Snap velocity to zero so the new system spawns still.
+        pShipSE->DestinyMgr()->ZeroVelocity();
         pShipSE->DestinyMgr()->SetPosition(pShipSE->GetPosition(), true);
         if (pShipSE->SysBubble() == nullptr)
             m_system->AddEntity(pShipSE);
@@ -2046,6 +2056,9 @@ void Client::ExecuteJump() {
 
     if (IsInSpace()) {
         pShipSE->DestinyMgr()->Stop();
+        // zero residual velocity so EncodeDestiny reports STOP with Vel=0 (avoids
+        // client Ballpark jitter after the teleport into the new system)
+        pShipSE->DestinyMgr()->ZeroVelocity();
         if (pShipSE->SysBubble() == nullptr)
             m_system->AddEntity(pShipSE);
         pShipSE->SysBubble()->SendAddBalls(pShipSE);

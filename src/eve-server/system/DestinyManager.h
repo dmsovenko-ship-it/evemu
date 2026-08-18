@@ -216,6 +216,12 @@ public:
 
     float GetRadTic()                                   { return m_orbitRadTic; }
 
+    // hard-zero the current velocity vector (used when teleporting the ship to a
+    // new system/gate — Stop() keeps m_velocity from the pre-jump movement, and
+    // EncodeDestiny would then send mode=STOP with a non-zero Vel, jittering the
+    // client's Ballpark)
+    void ZeroVelocity()                                 { m_velocity = GVector(0, 0, 0); m_maxSpeed = 0.0f; m_activeSpeedFraction = 0.0f; }
+
     void SetCallTime(double set=0)                      { m_callTime = set; }
     double GetCallTime()                                { return m_callTime; }
 
