@@ -33,7 +33,6 @@
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
-#include "expedition/ExpeditionMgr.h"
 
 SystemManager* Scan::GetSystem() { return m_client->SystemMgr(); }
 
@@ -261,9 +260,6 @@ void Scan::ShipScanResult() {
     PyList* resultList = new PyList();
     // NOTE. cannot scan pos, wrecks, ships, mission sites, or escalations.  they DO have sigIDs, and can get to type (25%), but no farther
     for (auto anoms : anom) {
-        // Private expeditions are only visible to their owner.
-        if (sExpMgr.IsHidden(anoms, m_client->GetCharacterID()))
-            continue;
         SystemScanResult ssr;
             ssr.typeID = anoms.sigTypeID;
             ssr.scanGroupID = anoms.scanGroupID;
@@ -347,9 +343,6 @@ void Scan::ProbeScanResult()
     // reveal signatures (Gravimetric/Ladar/Radar/Magnetometric/Wormhole).
     GetSystem()->GetAnomMgr()->GetSignatureList(sig);
     for (auto sigs : sig) {
-        // Private expeditions are only visible to their owner.
-        if (sExpMgr.IsHidden(sigs, m_client->GetCharacterID()))
-            continue;
         SignalData data = SignalData();
             data.sig = sigs;
             data.probes = nullptr;
