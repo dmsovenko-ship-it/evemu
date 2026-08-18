@@ -6,6 +6,7 @@
 #include "EVE_Dungeon.h"
 #include "POD_containers.h"
 #include <map>
+#include <string>
 
 class Client;
 class SystemEntity;
@@ -38,13 +39,24 @@ public:
 
     bool HasActive(uint32 charID) const;
 
-    // Privacy: an escalation signature is only visible to its owner. Returns
-    // true if `sig` is an expedition and charID is not its owner.
+    // Access to the caller's active expedition (for the Journal "Expeditions"
+    // tab / GetMyEscalatingPathDetails). Returns false if none.
+    struct ExpeditionView {
+        uint32 instanceID;      // sigItemID (used by client as instanceID)
+        uint32 solarSystemID;
+        int64  creationTime;
+        int64  expiryTime;
+        uint32 factionID;
+        uint8  stage;
+    };
+    bool GetExpedition(uint32 charID, ExpeditionView& out) const;
+
+    // Privacy: escalation sites are NEVER visible in the scanner (like real EVE
+    // — they only appear in the Journal "Expeditions" tab and are reached by
+    // warping from there). Returns true for any expedition signature.
     static bool IsHidden(const CosmicSignature& sig, uint32 charID)
     {
-        if (sig.dungeonType != Dungeon::Type::Escalation)
-            return false;
-        return sig.ownerID != charID;
+        return sig.dungeonType == Dungeon::Type::Escalation;
     }
 
 private:
@@ -63,6 +75,10 @@ private:
 
     // Spawn the expedition site for stage N in a random lower-sec system.
     bool SpawnStage(Expedition& exp);
+
+    // faction+stage -> expedition chain name (EVE University table) and DED dungeon.
+    static std::string ExpeditionName(uint32 factionID, uint8 stage);
+    static uint32 ExpeditionDungeon(uint32 factionID, uint8 stage);
 
     std::map<uint32, Expedition> m_expeditions;   // charID -> active expedition
     Timer m_procTimer;

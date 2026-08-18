@@ -475,17 +475,10 @@ struct CosmicSignature {
             case Scanning::Group::Signature: {
                 switch (data.sig.dungeonType) {
                     case Dungeon::Type::Mission: // npc mission
+                    case Dungeon::Type::Escalation://  new dungeon from previous site. very limited access
                     case Dungeon::Type::Rated: { // DED rated dungeon
                         _log(SCAN__TRACE, "Scan::GetProbeDataForSig()  probe %u cannot scan signal %s", cur.first, data.sig.sigName.c_str());
                         continue;
-                    }
-                    case Dungeon::Type::Escalation: {
-                        // Private expedition sites: only their owner can scan them.
-                        if (data.sig.ownerID != m_client->GetCharacterID()) {
-                            _log(SCAN__TRACE, "Scan::GetProbeDataForSig()  probe %u cannot scan private expedition %s", cur.first, data.sig.sigName.c_str());
-                            continue;
-                        }
-                        break;
                     }
                 /*  nothing to check for on these...
                     case Dungeon::Type::Gravimetric:// roids

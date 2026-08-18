@@ -93,9 +93,12 @@ PyResult KeeperService::CanWarpToPathPlex(PyCallArgs &call, PyInt* instanceID) {
 
                         */
     _log(DUNG__CALL,  "KeeperService::Handle_CanWarpToPathPlex  size: %lli", call.tuple->size());
-    call.Dump(DUNG__CALL_DUMP);
-
-	return nullptr;
+    // The expedition site's root anom item lives in this system — allow warp
+    // to it (client shows the warp menu when we return True).
+    SystemManager* pSys = call.client->SystemMgr();
+    if (pSys == nullptr || pSys->GetSE(instanceID->value()) == nullptr)
+        return PyStatic.NewFalse();
+    return PyStatic.NewTrue();
 }
 
 PyResult KeeperService::ActivateAccelerationGate(PyCallArgs &call, PyInt* itemID) {

@@ -53,6 +53,21 @@ bool ExpeditionMgr::HasActive(uint32 charID) const
     return m_expeditions.find(charID) != m_expeditions.end();
 }
 
+bool ExpeditionMgr::GetExpedition(uint32 charID, ExpeditionView& out) const
+{
+    auto it = m_expeditions.find(charID);
+    if (it == m_expeditions.end())
+        return false;
+    const Expedition& exp = it->second;
+    out.instanceID   = exp.sigItemID;
+    out.solarSystemID = exp.targetSystemID;
+    out.creationTime = exp.expiry - 24LL * EvE::Time::Hour;
+    out.expiryTime   = exp.expiry;
+    out.factionID    = exp.factionID;
+    out.stage        = exp.stage;
+    return true;
+}
+
 void ExpeditionMgr::MaybeTrigger(Client* pKiller, uint32 factionID, uint32 sourceSystemID)
 {
     if (pKiller == nullptr)
@@ -84,8 +99,13 @@ void ExpeditionMgr::MaybeTrigger(Client* pKiller, uint32 factionID, uint32 sourc
 
     _log(EXPEDITION__MESSAGE, "ExpeditionMgr: started %s expedition for %u — stage 1 in %u",
          sDataMgr.GetFactionName(factionID), charID, exp.targetSystemID);
-    pKiller->SendNotifyMsg("Your scan reveals a new location of interest in %s.",
+    pKiller->SendNotifyMsg("Your scan reveals a %s: %s.",
+                           ExpeditionName(factionID, 1).c_str(),
                            sDataMgr.GetSystemName(exp.targetSystemID));
+    // Refresh the client's Journal "Expeditions" tab.
+    PyTuple* noti = new PyTuple(1);
+        noti->SetItem(0, new PyLong(exp.sigItemID));
+    pKiller->SendNotification("OnEscalatingPathChange", "charid", &noti);
 }
 
 void ExpeditionMgr::OnSiteCleared(uint32 charID, uint32 sigItemID)
@@ -123,9 +143,14 @@ void ExpeditionMgr::OnSiteCleared(uint32 charID, uint32 sigItemID)
     }
     m_expeditions[charID] = exp;
     Client* pClient = sEntityList.FindClientByCharID(charID);
-    if (pClient != nullptr)
-        pClient->SendNotifyMsg("Another location of interest has been found in %s.",
+    if (pClient != nullptr) {
+        pClient->SendNotifyMsg("Another stage of the %s found in %s.",
+                               ExpeditionName(exp.factionID, exp.stage).c_str(),
                                sDataMgr.GetSystemName(exp.targetSystemID));
+        PyTuple* noti = new PyTuple(1);
+            noti->SetItem(0, new PyLong(exp.sigItemID));
+        pClient->SendNotification("OnEscalatingPathChange", "charid", &noti);
+    }
 }
 
 // Pick a random k-space system with LOWER true security than the source.
@@ -147,20 +172,114 @@ uint32 PickLowerSecSystem(uint32 sourceSystemID, float sourceSec)
     return 0;
 }
 
-// Pick a DED dungeon (archetype 10) for this faction, escalating difficulty
-// with stage: stage1 -> 3/10ish, stage2 -> 5/10ish, stage3 -> 8/10ish,
-// stage4 -> 10/10 (the named final complex). We just pick any of the faction's
-// DED sites by stage tier for variety.
-uint32 PickFactionDed(uint32 factionID, uint8 stage)
+// Expedition chain names per EVE University (faction x stage). The site itself
+// reuses the faction's DED complex (3/10 -> 5/10 -> 8/10-ish -> 10/10-ish).
+std::string ExpeditionMgr::ExpeditionName(uint32 factionID, uint8 stage)
 {
-    DBQueryResult res;
-    if (!sDatabase.RunQuery(res,
-        "SELECT dungeonID FROM dunDungeons WHERE archetypeID=10 AND factionID=%u "
-        "ORDER BY RAND() LIMIT 1", factionID))
-        return 0;
-    DBResultRow row;
-    if (res.GetRow(row))
-        return row.GetUInt(0);
+    switch (factionID) {
+        case factionAngel: {
+            switch (stage) {
+                case 1: return "Angel Lookout";
+                case 2: return "Angel Watch";
+                case 3: return "Angel Annex";
+                case 4: return "Angel Military Complex";
+            } break;
+        }
+        case factionBloodRaider: {
+            switch (stage) {
+                case 1: return "Blood Lookout";
+                case 2: return "Blood Watch";
+                case 3: return "Blood Annex";
+                case 4: return "Blood Military Complex";
+            } break;
+        }
+        case factionGuristas: {
+            switch (stage) {
+                case 1: return "Guristas Lookout";
+                case 2: return "Guristas Watch";
+                case 3: return "Guristas Annex";
+                case 4: return "Guristas Military Complex";
+            } break;
+        }
+        case factionSanshas: {
+            switch (stage) {
+                case 1: return "Sansha Lookout";
+                case 2: return "Sansha Watch";
+                case 3: return "Sansha Annex";
+                case 4: return "Sansha Military Complex";
+            } break;
+        }
+        case factionSerpentis: {
+            switch (stage) {
+                case 1: return "Serpentis Lookout";
+                case 2: return "Serpentis Watch";
+                case 3: return "Serpentis Annex";
+                case 4: return "Serpentis Military Complex";
+            } break;
+        }
+        case factionRogueDrones: {
+            switch (stage) {
+                case 1: return "Rogue Drone Lookout";
+                case 2: return "Rogue Drone Watch";
+                case 3: return "Rogue Drone Annex";
+                case 4: return "Rogue Drone Military Complex";
+            } break;
+        }
+    }
+    return "Expedition Site";
+}
+
+uint32 ExpeditionMgr::ExpeditionDungeon(uint32 factionID, uint8 stage)
+{
+    // DED complexes (archetype 10) per faction. Stage maps to difficulty:
+    // 1 -> 3/10, 2 -> 5/10, 3+ -> the faction's hard/final complex.
+    switch (factionID) {
+        case factionAngel: {
+            switch (stage) {
+                case 1: return 2300;   // Angel Repurposed Outpost
+                case 2: return 2600;   // Angel 5/10 DED
+                default: return 2600;  // no 8+/10 for Angel — reuse 5/10
+            } break;
+        }
+        case factionBloodRaider: {
+            switch (stage) {
+                case 1: return 2310;   // Blood 3/10 DED
+                case 2: return 2610;   // Blood 5/10 DED
+                case 3: return 2710;   // Blood Raider Temple Complex
+                default: return 2710;
+            } break;
+        }
+        case factionGuristas: {
+            switch (stage) {
+                case 1: return 2320;   // Guristas 3/10 DED
+                case 2: return 2620;   // Guristas 5/10 DED
+                case 3: return 2740;   // Pith's Penal Complex
+                default: return 2940;  // The Maze (10/10)
+            } break;
+        }
+        case factionSanshas: {
+            switch (stage) {
+                case 1: return 2330;   // Sansha 3/10 DED
+                case 2: return 2630;   // Sansha 5/10 DED
+                case 3: return 2730;   // Sansha Prison Camp
+                default: return 2930;  // Centus Assembly (10/10)
+            } break;
+        }
+        case factionSerpentis: {
+            switch (stage) {
+                case 1: return 2340;   // Serpentis 3/10 DED
+                case 2: return 2640;   // Serpentis 5/10 DED
+                case 3: return 2720;   // Serpentis Pharmalogical Plant
+                default: return 2920;  // Serpentis Research Complex
+            } break;
+        }
+        case factionRogueDrones: {
+            switch (stage) {
+                case 1: return 2350;   // Rogue Drone 3/10 DED
+                default: return 2350;  // only 3/10 available — reuse
+            } break;
+        }
+    }
     return 0;
 }
 
@@ -189,8 +308,8 @@ bool ExpeditionMgr::SpawnStage(Expedition& exp)
         return false;
     }
 
-    // Pick a faction DED dungeon for this stage.
-    uint32 dungeonID = PickFactionDed(exp.factionID, exp.stage);
+    // Pick the faction's DED dungeon for this stage.
+    uint32 dungeonID = ExpeditionDungeon(exp.factionID, exp.stage);
     if (dungeonID == 0) {
         _log(EXPEDITION__ERROR, "ExpeditionMgr: no DED dungeon for faction %u", exp.factionID);
         return false;
@@ -202,7 +321,7 @@ bool ExpeditionMgr::SpawnStage(Expedition& exp)
     CosmicSignature sig;
     sig.sigID           = sEntityList.GetAnomalyID();
     sig.sigItemID       = 0;
-    sig.sigName         = sDataMgr.GetFactionName(exp.factionID) + std::string(" Expedition Site");
+    sig.sigName         = ExpeditionName(exp.factionID, exp.stage);
     sig.dungeonType     = Dungeon::Type::Escalation;
     sig.systemID        = targetSystemID;
     sig.sigTypeID       = EVEDB::invTypes::DeadspaceSignature;

@@ -29,6 +29,7 @@
 
 
 #include "dungeon/DungeonExplorationMgrService.h"
+#include "expedition/ExpeditionMgr.h"
 
 DungeonExplorationMgrService::DungeonExplorationMgrService() :
     Service("dungeonExplorationMgr")
@@ -38,14 +39,61 @@ DungeonExplorationMgrService::DungeonExplorationMgrService() :
 }
 
 PyResult DungeonExplorationMgrService::GetMyEscalatingPathDetails(PyCallArgs &call) {
-    // cached response
-    _log(DUNG__MESSAGE, "DungeonExplorationMgrService::Handle_GetMyEscalatingPathDetails()", "size=%lu", call.tuple->size());
-    call.Dump(SERVICE__CALL_DUMP);
+    // cached response — the Journal "Expeditions" tab. Returns a util.Rowset
+    // whose rows have: instanceID, dungeon, destDungeon, pathStep, expiryTime.
+    // `dungeon`/`pathStep` are util.KeyVal objects (the client reads
+    // dungeon.solarSystemID / dungeon.creationTime / pathStep.journalEntryTemplateID).
+    _log(DUNG__MESSAGE, "DungeonExplorationMgrService::Handle_GetMyEscalatingPathDetails() size=%lu", call.tuple->size());
 
-    return new PyList();
+    uint32 charID = call.client->GetCharacterID();
+    ExpeditionMgr::ExpeditionView exp;
+    if (!sExpMgr.GetExpedition(charID, exp)) {
+        util_Rowset empty;
+        empty.header.push_back("instanceID");
+        empty.header.push_back("dungeon");
+        empty.header.push_back("destDungeon");
+        empty.header.push_back("pathStep");
+        empty.header.push_back("expiryTime");
+        return empty.Encode();
+    }
+
+    // dungeon (source) — where the next site is
+    PyDict* dungeonDict = new PyDict();
+        dungeonDict->SetItemString("instanceID",       new PyLong(exp.instanceID));
+        dungeonDict->SetItemString("solarSystemID",    new PyInt(exp.solarSystemID));
+        dungeonDict->SetItemString("creationTime",     new PyLong(exp.creationTime));
+        dungeonDict->SetItemString("dungeonNameID",    new PyInt(280001));  // generic expedition name
+    // destDungeon — the site the player actually runs (same as dungeon here)
+    PyDict* destDungeonDict = new PyDict();
+        destDungeonDict->SetItemString("instanceID",   new PyLong(exp.instanceID));
+        destDungeonDict->SetItemString("solarSystemID", new PyInt(exp.solarSystemID));
+        destDungeonDict->SetItemString("creationTime", new PyLong(exp.creationTime));
+        destDungeonDict->SetItemString("dungeonNameID", new PyInt(280001));
+    // pathStep — description shown in the journal (message text by templateID)
+    PyDict* pathDict = new PyDict();
+        pathDict->SetItemString("journalEntryTemplateID", new PyInt(280003));  // generic "expedition site"
+        pathDict->SetItemString("instanceID", new PyLong(exp.instanceID));
+
+    util_Rowset rs;
+    rs.header.push_back("instanceID");
+    rs.header.push_back("dungeon");
+    rs.header.push_back("destDungeon");
+    rs.header.push_back("pathStep");
+    rs.header.push_back("expiryTime");
+
+    PyList* fieldData = new PyList();
+        fieldData->AddItem(new PyLong(exp.instanceID));
+        fieldData->AddItem(new PyObject("util.KeyVal", dungeonDict));
+        fieldData->AddItem(new PyObject("util.KeyVal", destDungeonDict));
+        fieldData->AddItem(new PyObject("util.KeyVal", pathDict));
+        fieldData->AddItem(new PyLong(exp.expiryTime));
+    rs.lines->AddItem(fieldData);
+
+    return rs.Encode();
 }
 
 PyResult DungeonExplorationMgrService::DeleteExpiredPathStep(PyCallArgs& call, PyInt* instanceID) {
-    _log(DUNG__MESSAGE, "DungeonExplorationMgrService::Handle_DeleteExpiredPathStep()", "size=%lu", call.tuple->size());
+    _log(DUNG__MESSAGE, "DungeonExplorationMgrService::Handle_DeleteExpiredPathStep() size=%lu", call.tuple->size());
+    // Client removes an expired expedition entry — nothing persistent to delete.
     return PyStatic.NewNone();
 }

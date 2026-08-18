@@ -472,10 +472,17 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
     // the systems below are not implemented yet.  hold on coding till systems are working and we know what needs to be done here
     // more info can be found in client::menuSvc.py
     else if (type->content() == "epinstance") {
-        // epinstance, instanceid
-        //stringArg
-        call.client->SendErrorMsg("WarpToInstance is not implemented at this time.");
-        return PyStatic.NewNone();
+        // epinstance, instanceid — warp to the player's expedition site (its root
+        // anom item lives in this system, found by sigItemID == instanceID).
+        uint32 instID = PyRep::IntegerValueU32(id);
+        SystemEntity* pInstSE = pSystem->GetSE(instID);
+        if (pInstSE == nullptr) {
+            call.client->SendErrorMsg("Expedition site not found in this system.");
+            return PyStatic.NewNone();
+        }
+        pSE = pInstSE;
+        toID = instID;
+        stringArg = type->content();
     } else if (type->content() == "tutorial") {
         // tutorial, none
         call.client->SendErrorMsg("WarpToTutorial is not implemented at this time.");
