@@ -172,6 +172,14 @@ public:
     void RequestDockAfterWarp()                              { m_dockRequested = true; }
     void CancelDockAfterWarp()                              { m_dockRequested = false; }
     bool DockAfterWarpPending()                             { return m_dockRequested; }
+    // Same for CmdStargateJump sent while still warping toward the gate — the
+    // client queues the jump the moment the ship comes out of warp at the gate.
+    // Defer instead of rejecting so the jump actually fires (see WarpStop).
+    void RequestJumpAfterWarp(uint32 fromGate, uint32 toGate) { m_jumpFromGate = fromGate; m_jumpToGate = toGate; m_jumpRequested = true; }
+    void CancelJumpAfterWarp()                              { m_jumpRequested = false; m_jumpFromGate = 0; m_jumpToGate = 0; }
+    bool JumpAfterWarpPending()                             { return m_jumpRequested; }
+    uint32 GetJumpFromGate()                                { return m_jumpFromGate; }
+    uint32 GetJumpToGate()                                  { return m_jumpToGate; }
     void Undock(GPoint dir);
     void SetUndockSpeed();
     void DockingAccepted();
@@ -288,6 +296,9 @@ protected:
     bool m_tractorPause;
     bool m_apJumping;       // guard against repeated AP auto-jump calls
     bool m_dockRequested;   // CmdDock arrived during warp — dock once warp ends
+    bool m_jumpRequested;   // CmdStargateJump arrived during warp — jump once warp ends
+    uint32 m_jumpFromGate;  // source stargate for deferred jump
+    uint32 m_jumpToGate;    // destination stargate for deferred jump
 
     uint8 m_ballMode;                   //current state of ball
 

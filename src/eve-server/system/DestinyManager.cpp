@@ -97,6 +97,9 @@ mvPacket(nullptr)
     m_tractorPause = false;
     m_apJumping = false;
     m_dockRequested = false;
+    m_jumpRequested = false;
+    m_jumpFromGate = 0;
+    m_jumpToGate = 0;
     m_hasSentShipUpdates = false;
     m_moveSyncCounter = 0;
 
@@ -653,6 +656,7 @@ void DestinyManager::Stop() {
         m_decel = true;         // let UpdateVelocity decelerate from drop speed
         SafeDelete(m_warpState);
         m_dockRequested = false;   // warp aborted — cancel any deferred dock
+        m_jumpRequested = false;   // and any deferred gate jump
         m_stop = false;
         // Don't fall through to the common Stop() code below (which zeroes speed).
         m_stateStamp = sEntityList.GetStamp();
@@ -693,6 +697,7 @@ void DestinyManager::Stop() {
 void DestinyManager::Halt() {
     SafeDelete(m_warpState);
     m_dockRequested = false;   // cancel any deferred dock
+    m_jumpRequested = false;   // and any deferred gate jump
 
     //  reset ALL movement variables and states.  calling this will set object to a COMPLETE and IMMEDIATE stop.
     m_ballMode = Destiny::Ball::Mode::STOP;
@@ -2233,6 +2238,25 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
                 AttemptDockOperation();
             } catch (UserError&) {
                 _log(DESTINY__ERROR, "WarpStop deferred dock aborted — DockingApproach (out of perimeter).");
+            }
+        }
+    }
+
+    // Deferred stargate jump: the client sent CmdStargateJump while the ship was
+    // still warping toward the gate. Now that we've arrived, fire the jump (same
+    // as if the RPC arrived after the warp finished). StargateJump runs its own
+    // session change; guard exceptions — we're outside the RPC handler here.
+    if (m_jumpRequested) {
+        uint32 fromGate = m_jumpFromGate;
+        uint32 toGate = m_jumpToGate;
+        m_jumpRequested = false;
+        m_jumpFromGate = 0;
+        m_jumpToGate = 0;
+        if (mySE->HasPilot()) {
+            try {
+                mySE->GetPilot()->StargateJump(fromGate, toGate);
+            } catch (UserError&) {
+                _log(DESTINY__ERROR, "WarpStop deferred jump aborted.");
             }
         }
     }

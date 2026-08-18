@@ -803,10 +803,15 @@ PyResult BeyonceBound::CmdStargateJump(PyCallArgs &call, PyInt* fromStargateID, 
         codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
         return PyStatic.NewNone();
     } else if (pDestiny->IsWarping()) {
-        _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — warping", call.client->GetName());
-        call.client->SendNotifyMsg( "You can't do this while warping");
+        // The client sends CmdStargateJump while the ship is still warping toward
+        // the gate (the warp-in-to-jump queues the jump early). Rejecting it
+        // loses the request — the client showed a jump but nothing fired. Defer
+        // it and WarpStop() will run StargateJump once the warp completes.
+        _log(AUTOPILOT__MESSAGE, "%s: Jump deferred until warp completes.", call.client->GetName());
+        pDestiny->RequestJumpAfterWarp(fromStargateID->value(), toStargateID->value());
+        call.client->SetAutoPilot(false);
         return PyStatic.NewNone();
-    }  else if (pDestiny->AbortIfLoginWarping(true)) {
+    } else if (pDestiny->AbortIfLoginWarping(true)) {
         _log(AUTOPILOT__MESSAGE, "%s: Jump blocked — login warp", call.client->GetName());
         return PyStatic.NewNone();
     } else if (pDestiny->IsFrozen()) {

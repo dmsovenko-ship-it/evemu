@@ -1612,22 +1612,36 @@ void Client::StargateJump(uint32 fromGate, uint32 toGate) {
 
     m_lastGateID = toGate;
 
-    // .tr-style jump (same as Command_tr): JumpOutEffect -> MoveToLocation
-    // -> JumpInEffect -> Stop -> bubble update. Keeps autopilot alive after
-    // the jump — the heavy ExecuteJump machinery (pShipSE->Jump() / state
-    // timers / GateActivity spam) left the client's autoPilot chain broken
-    // after the first gate jump.
     // Interrupt active module cycles (not offline) during the jump — modules
     // stay online but inactive, matching normal EVE gate behavior.
     if (m_ship.get() != nullptr && m_ship->HasModuleManager())
         m_ship->GetModuleManager()->DeactivateAllModules();
 
+    GPoint destPoint = toData.position;
+    destPoint.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
+
+    // MANUAL jumps: play the full gate-crossing animation. Phase 1 sends the
+    // JumpOut effect and waits ~3s for the client to render the ship flying
+    // into the gate; the state timer then fires ExecuteJump(), which performs
+    // the system change + JumpIn. Autopilot keeps the fast path below so the
+    // multi-gate route doesn't stall waiting on animation.
+    if (!m_autoPilot) {
+        JumpOutEffect(fromGate);
+        pShipSE->DestinyMgr()->SendGateActivity(fromGate);
+        m_moveSystemID = toData.systemID;
+        m_movePoint = destPoint;
+        SetStateTimer(Player::State::Jump, Player::Timer::Jumping);
+        return;
+    }
+
+    // .tr-style jump (same as Command_tr): JumpOutEffect -> MoveToLocation
+    // -> JumpInEffect -> Stop -> bubble update. Keeps autopilot alive after
+    // the jump — the heavy ExecuteJump machinery (pShipSE->Jump() / state
+    // timers / GateActivity spam) left the client's autoPilot chain broken
+    // after the first gate jump.
     JumpOutEffect(fromGate);
     // Gate activation effect on the source gate
     pShipSE->DestinyMgr()->SendGateActivity(fromGate);
-
-    GPoint destPoint = toData.position;
-    destPoint.MakeRandomPointOnSphereLayer(toData.radius + 6500, toData.radius + 9500);
 
     MoveToLocation(toData.systemID, destPoint);
 
