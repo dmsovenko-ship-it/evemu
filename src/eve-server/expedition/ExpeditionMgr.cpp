@@ -1,7 +1,6 @@
 #include "eve-server.h"
 
 #include "EVE_Corp.h"
-#include "EVE_Classes.h"
 #include "EVE_Dungeon.h"
 #include "EVE_Scanning.h"
 #include "tables/invTypes.h"
