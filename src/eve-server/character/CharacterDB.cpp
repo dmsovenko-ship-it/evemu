@@ -375,6 +375,21 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 allianceID, uint
 // generic fallback; profession maps 1..7 to the PlayerBot::BotProfession enum
 // (Hunter=1, RatHunter=2, Miner=3, Trader=4, Courier=5, Hacker=6, Explorer=7).
 void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
+    // The bio is frozen once written (botMemory.bioUpdated=1) — a pilot's bio
+    // must not change between sessions. Regenerating it on every spawn made the
+    // text randomly flip-flop, which is a dead giveaway these are bots.
+    {
+        DBQueryResult qres;
+        if (sDatabase.RunQuery(qres,
+            "SELECT bioUpdated FROM botMemory WHERE charID = %u AND bioUpdated = 1",
+            charID))
+        {
+            DBResultRow qrow;
+            if (qres.GetRow(qrow))
+                return;  // bio already set for this pilot — keep it stable
+        }
+    }
+
     static const char* generic[] = {
         "Just another capsuleer. The ISK is in the haul.",
         "o7. I fly stuff, lose stuff, learn stuff.",
@@ -455,6 +470,10 @@ void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
         sDatabase.RunQuery(err,
             "UPDATE chrCharacters SET description = '%s' WHERE characterID = %u",
             esc.c_str(), charID);
+        DBerror merr;
+        sDatabase.RunQuery(merr,
+            "UPDATE botMemory SET bioUpdated = 1 WHERE charID = %u",
+            charID);
         _log(CHARACTER__TRACE, "UpdateBotBio: %u prof=%u bio updated.", charID, profession);
         return;
     }

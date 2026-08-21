@@ -444,8 +444,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
-    // Make the bio match the bot's profession so charbots read like real pilots,
-    // not a clone farm (profession-flavoured text + ASCII art).
+    // The bio is written exactly once per pilot, right after its profession is
+    // rolled on the very first spawn, so it stays stable across respawns (a
+    // player's bio doesn't change every time they log in). Profession-flavoured
+    // text + ASCII art makes charbots read like real pilots, not a clone farm.
     CharacterDB::UpdateBotBio(useCharID, (uint8)prof);
 
     // Ship hull. For PEACEFUL professions the hull is always profession-fit: a
