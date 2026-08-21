@@ -1789,9 +1789,11 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         return;
 
     // Is the sender another bot (simulated player), not a real Client?
-    // A bot's charID is in the server bot range and has no Client object.
-    bool senderIsBot = (sEntityList.FindClientByCharID(senderCharID) == nullptr)
-                       && (senderCharID >= 90000000);
+    // A real player ALWAYS has a Client object (charID >= minCharacter, same range
+    // as bots). So the authoritative test is: no live Client => not a real player.
+    // (The old `&& senderCharID >= 90000000` wrongly flagged real players whose
+    // charID falls in the character range — they'd be treated as bots in chat.)
+    bool senderIsBot = (sEntityList.FindClientByCharID(senderCharID) == nullptr);
 
     // Loop breaker: a bot-to-bot conversation must not echo forever. Track how
     // many consecutive lines were bots; once the chain is long enough, stop

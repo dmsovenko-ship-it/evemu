@@ -76,11 +76,16 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 allianceID, uint
 
     // De-duplicate by name: if a bot with this exact name already exists
     // (from a previous spawn), reuse its character row.
+    // CRITICAL: only match BOTS (accountID=0). Real player characters have
+    // accountID != 0 — reusing one as a bot would hand the player's character
+    // to BotMgr, which then overwrites bio/profession/memory and spawns a
+    // PlayerBot over it, silently destroying the human's character. Real
+    // logins are untouchable: never return (or reuse) a player's charID here.
     {
         std::string nameEsc;
         sDatabase.DoEscapeString(nameEsc, name);
         DBQueryResult nx;
-        if (sDatabase.RunQuery(nx, "SELECT characterID, corporationID, schoolID FROM chrCharacters WHERE characterName = '%s'", nameEsc.c_str())) {
+        if (sDatabase.RunQuery(nx, "SELECT characterID, corporationID, schoolID FROM chrCharacters WHERE characterName = '%s' AND accountID = 0", nameEsc.c_str())) {
             DBResultRow nrow;
             if (nx.GetRow(nrow)) {
                 outCorpID = nrow.GetUInt(1);
