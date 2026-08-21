@@ -105,6 +105,10 @@ public:
     // bot's legend and progress (SP, skills, balance, corp history) persist.
     // The character id is allocated normally (sequential free id), like any player.
     static uint32 CreateBotCharacter(std::string name, uint32 allianceID, uint8 skillTier, uint32& outCorpID, uint8& outSchoolID);
+    // Rewrite a bot's bio to match its profession (miner/hunter/trader/...).
+    // Charbots should read like real pilots, not clones — profession-flavoured
+    // text, humour, pseudo-ASCII art, and personal touches.
+    static void UpdateBotBio(uint32 charID, uint8 profession);
     static bool GetCharacterData(uint32 characterID, CharacterData &into);
     static void GetCharacterDataMap(uint32 charID, std::map<std::string, int64> &characterDataMap);
     static bool GetCharHomeStation(uint32 charID, uint32 &stationID);

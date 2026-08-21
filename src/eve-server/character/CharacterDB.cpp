@@ -369,6 +369,97 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 allianceID, uint
     return charID;
 }
 
+// Profession-flavoured, human-looking bios for charbots. Each entry is a short
+// "personal page" — a mix of backstory, humour, a tagline, optional ASCII art
+// and the odd emoticon, so inspectors don't see a clone farm. Index 0 is a
+// generic fallback; profession maps 1..7 to the PlayerBot::BotProfession enum
+// (Hunter=1, RatHunter=2, Miner=3, Trader=4, Courier=5, Hacker=6, Explorer=7).
+void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
+    static const char* generic[] = {
+        "Just another capsuleer. The ISK is in the haul.",
+        "o7. I fly stuff, lose stuff, learn stuff.",
+        "No bio. Actions speak louder than fits.",
+    };
+    static const char* miner[] = {
+        "Rocks are just ISK with extra steps.\n\n"
+        "  *~*~*~*\n  * * * *\n   \\   /\n    \\_/\n\n"
+        "Covetor or nothing. AFK mining, yell if you need the belt.",
+        "Ex-miner. The gankers made me a believer in tanked Hulk fits.\n"
+        "Now I mine with one eye on the scanner and one on the d-scan.\n\n"
+        "o/ to my escort corp mates.",
+    };
+    static const char* hunter[] = {
+        "Solo PvP. No blobs, no excuses.\n"
+        "zkillboard is public — the losses are part of the art.\n\n"
+        "  /|\\   I look for fights, not fair fights.\n /_|_\\\n",
+        "Red is dead. Blue is suspicious.\n"
+        "If you're reading this bio you're probably already in my pod. <3",
+    };
+    static const char* rathunter[] = {
+        "Ratting is a lifestyle. Bounties pay the bills.\n"
+        "Been farming the same pocket for years. It never gets old.",
+        "PvE with a pension plan.\n"
+        "NPCs are just loot with a respawn timer.",
+    };
+    static const char* trader[] = {
+        "The market is my battlefield. Buy low, sell higher.\n"
+        "My spreadsheet has more tabs than your skill queue.\n\n"
+        "  $$  $$  $$  — Jita, 23/7",
+        "Buy orders are love letters.\n"
+        "Don't hate the trader, hate the margins.",
+    };
+    static const char* courier[] = {
+        "I move things. Discreetly. For a fee.\n"
+        "If it fits in a Badger, it ships.\n\n"
+        "  [|||||]  — en route, ETA is none of your business.",
+        "Hauling is 90% warp, 10% praying at the gate.\n"
+        "Never gank the courier. The cargo might be yours.",
+    };
+    static const char* hacker[] = {
+        "Data sites, relic sites, your inbox if you're careless.\n\n"
+        "  _.-._\n /_  _\\   — tracing the signal...\n",
+        "Relic site certified. Wrecked 'ceptors fear my probe launcher.\n"
+        "The relics I find pay for the ships I lose.",
+    };
+    static const char* explorer[] = {
+        "Wormhole rambler. Found a way in, still looking for a way out.\n\n"
+        "  *  *  *\n   \\   /\n    \\_/    — scanning the next chain...",
+        "Probes out, coffee on.\n"
+        "Every signature is a story; most end in a pod.",
+    };
+
+    const char* pool = nullptr;
+    uint32 count = 0;
+    switch (profession) {
+        case 1: pool = hunter[0]; count = 2; break;     // Hunter
+        case 2: pool = rathunter[0]; count = 2; break;  // RatHunter
+        case 3: pool = miner[0]; count = 2; break;      // Miner
+        case 4: pool = trader[0]; count = 2; break;     // Trader
+        case 5: pool = courier[0]; count = 2; break;    // Courier
+        case 6: pool = hacker[0]; count = 2; break;     // Hacker
+        case 7: pool = explorer[0]; count = 2; break;   // Explorer
+        default: pool = generic[0]; count = 3; break;
+    }
+    if (pool == nullptr)
+        return;
+
+    // Pick one and write it back. Skip empty/degenerate text.
+    for (uint8 attempt = 0; attempt < 8; ++attempt) {
+        const char* bio = pool[MakeRandomInt(0, count - 1)];
+        if (bio == nullptr || bio[0] == '\0')
+            continue;
+        std::string esc;
+        sDatabase.DoEscapeString(esc, bio);
+        if (esc.size() > 3900) esc.resize(3900);
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE chrCharacters SET description = '%s' WHERE characterID = %u",
+            esc.c_str(), charID);
+        _log(CHARACTER__TRACE, "UpdateBotBio: %u prof=%u bio updated.", charID, profession);
+        return;
+    }
+}
+
 bool CharacterDB::SaveCharacter(uint32 characterID, const CharacterData &data) {
     DBerror err;
 

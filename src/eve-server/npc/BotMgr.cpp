@@ -444,6 +444,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
+    // Make the bio match the bot's profession so charbots read like real pilots,
+    // not a clone farm (profession-flavoured text + ASCII art).
+    CharacterDB::UpdateBotBio(useCharID, (uint8)prof);
+
     // Ship hull. For PEACEFUL professions the hull is always profession-fit: a
     // miner works the belt on a barge/mining frigate, a trader/courier hauls in a
     // freighter, a hacker probes in a scan frigate. A real pilot swaps ships at a
@@ -1966,17 +1970,33 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     // a real pilot from any country chats in their native tongue. The bot's
     // language/slang improves over time (chat self-learning: replies that drew
     // a response are "good").
+    // Each bot has its OWN personality (profession + name), so replies aren't
+    // interchangeable — a miner talks about ore, a hunter about ganks. Vary
+    // wording; never repeat a stock phrase.
+    std::string roleText = "an EVE pilot";
+    switch (responder->GetProfession()) {
+        case PlayerBot::BotProfession::Miner:     roleText = "a miner (mines asteroids in a barge, watches d-scan)"; break;
+        case PlayerBot::BotProfession::Hunter:    roleText = "a PvP pirate (lives in lowsec/nullsec, hunts targets)"; break;
+        case PlayerBot::BotProfession::RatHunter: roleText = "a ratter (farms NPC bounties in anomalies)"; break;
+        case PlayerBot::BotProfession::Trader:    roleText = "a market trader (sits at a station working buy/sell orders)"; break;
+        case PlayerBot::BotProfession::Courier:   roleText = "a courier/hauler (moves cargo between stations and systems)"; break;
+        case PlayerBot::BotProfession::Hacker:    roleText = "a hacker/explorer (runs data and relic sites)"; break;
+        case PlayerBot::BotProfession::Explorer:  roleText = "an explorer (scans signatures and wormholes)"; break;
+        default: break;
+    }
     std::string systemHint =
-        "You are a player in the MMO Eve Online in local chat. Reply as a natural, "
-        "friendly EVE player. Use casual EVE slang (spaceship, isk, ratting, docking, "
-        "gate, warp, fit, lowsec, nullsec). Match the language and tone of the other "
-        "player's message — if they write in Russian, reply in Russian; if English, "
-        "reply in English. Keep it to 1-2 short sentences.";
+        "You are " + responder->GetBotName() + ", " + roleText + ", chatting in local in the MMO Eve Online. "
+        "Reply as a natural, friendly, believable EVE player — with your OWN personality, mood and quirks. "
+        "Use casual EVE slang (isk, ratting, dock, gate, warp, fit, lowsec, nullsec, pod, gank). "
+        "Vary your phrasing and tone: sometimes short, sometimes a bit chatty, occasionally sarcastic or dry. "
+        "NEVER start replies the same way, NEVER use generic bot phrases like 'I am a helpful assistant', "
+        "and never sound like a customer-support bot. Match the language and tone of the other player — "
+        "if they write in Russian, reply in Russian; if English, reply in English. Keep it to 1-2 short sentences.";
     if (addressed) {
         // The message was addressed to THIS bot by name — reply as the person
         // being spoken to (answer the question / acknowledge the call-out).
         systemHint += " The message is addressed to you personally (your name is mentioned). "
-                      "Answer as yourself — respond to what was asked, keep it natural.";
+                      "Answer as yourself — respond to what was asked, keep it natural and in character.";
     }
 
     std::string reply = BotChat::QueryDeepSeek(prompt, systemHint);
