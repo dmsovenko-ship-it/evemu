@@ -294,18 +294,21 @@ PyDict* NPC::MakeSlimItem()
                  m_self->itemName(), m_self->itemID(), realGroup, remapped);
         }
 
-        // Add fitted modules list for client display
+        // Add fitted modules list for client display. The client's spaceObject
+        // Ship.FitHardpoints -> turretSet.FitTurrets reads slimItem.modules as a
+        // list of (moduleID, typeID) TUPLES (turretSet.py: modules = [[module[0],
+        // module[1], None, True] for module in moduleItems]). Real ships send
+        // tuples (Ship.cpp MakeSlimItem: new_tuple(itemID, typeID)). NPCs used to
+        // send util.KeyVal{typeID, flag} — module[0] on a KeyVal raises TypeError
+        // inside FitTurrets, which propagates up through Ship.LookAtMe and kills
+        // the camera 'Look at' on that ball. Send tuples like a real ship.
         if (m_AI != nullptr) {
             const auto& modules = m_AI->GetModules();
             if (!modules.empty()) {
                 PyList* modList = new PyList();
                 for (auto& mod : modules) {
-                    if (mod.typeID > 0) {
-                        PyDict* modDict = new PyDict();
-                        modDict->SetItemString("typeID", new PyInt(mod.typeID));
-                        modDict->SetItemString("flag", new PyInt(mod.slotFlag));
-                        modList->AddItem(new PyObject("util.KeyVal", modDict));
-                    }
+                    if (mod.typeID > 0)
+                        modList->AddItem(new_tuple((int64)mod.typeID, (int64)mod.typeID));   // (moduleID, typeID); NPCs have no per-module item, use typeID as both
                 }
                 if (modList->size() > 0)
                     slim->SetItemString("modules", modList);
