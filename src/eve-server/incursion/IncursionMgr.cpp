@@ -450,6 +450,7 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         // Use MakeDungeon to spawn full site (NPCs + static objects from room definitions)
         // Original Entity-category typeIDs from SDE — slim item overrides categoryID=6 for crosshairs
         CosmicSignature sig;
+        sig.sigID = sEntityList.GetAnomalyID();   // unique 'XXX-NNN' — without it the scanner emits an empty result id and the client scan window freezes
         sig.systemID = solarSystemID;
         sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
         sig.ownerID = sDataMgr.GetFactionCorp(factionSanshas);

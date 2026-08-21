@@ -244,11 +244,28 @@ bool Client::ProcessNet()
 
 bool Client::SelectCharacter(int32 charID/*0*/)
 {
+    // A stale session can linger in sEntityList.m_players after a client
+    // disconnected without a clean shutdown (socket drop not yet reaped by the
+    // main loop, or the disconnect poll was deferred). The connection may also
+    // be a half-open one that hasn't hit the idle timeout yet. Only reject the
+    // login when the existing connection is genuinely alive; otherwise force a
+    // logout so the player can get back in.
     if (sEntityList.IsOnline(charID)) {
-        sLog.Error("Client::SelectCharacter()", "Char %u already online.", charID);
-        SendErrorMsg("That Character is already online.  Selection Failed.");
-        CloseClientConnection();
-        return false;
+        Client* existing = sEntityList.FindClientByCharID(charID);
+        if (existing != nullptr
+            && existing->GetState() == TCPConnection::STATE_CONNECTED) {
+            sLog.Error("Client::SelectCharacter()", "Char %u already online.", charID);
+            SendErrorMsg("That Character is already online.  Selection Failed.");
+            CloseClientConnection();
+            return false;
+        }
+        // Stale/dead session: reap it so this login can proceed.
+        if (existing != nullptr) {
+            sLog.Error("Client::SelectCharacter()", "Char %u marked online but connection is dead (state=%d) — force-logging out the stale session.",
+                       charID, existing->GetState());
+            sEntityList.RemovePlayer(existing);   // drop the stale key immediately so IsOnline passes on retry
+            existing->CloseClientConnection();    // lets ProcessNet reap the dead Client next loop
+        }
     }
 
     InitSession(charID);
