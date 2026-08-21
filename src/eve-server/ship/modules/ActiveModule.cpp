@@ -1361,6 +1361,8 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
     std::string guidStr = sFxDataMgr.GetEffectGuid(fxEffectID);
     if (guidStr.empty())
         _log(EFFECTS__ERROR, "guid empty for %s using effectID %u", m_modRef->name(), fxEffectID);
+    else
+        _log(EFFECTS__TRACE, "ShowEffect(%s): effectID %u -> guid %s (start=%d)", m_modRef->name(), fxEffectID, guidStr.c_str(), active);
 
     uint16 chgTypeID(((m_chargeRef.get() != nullptr) ? m_chargeRef->typeID() : 0));
     uint32 timeLeft(GetRemainingCycleTimeMS());

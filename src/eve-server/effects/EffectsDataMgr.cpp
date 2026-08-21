@@ -228,6 +228,17 @@ std::string FxDataMgr::GetEffectGuid(uint16 eID)
             return "effects.Afterburner";
         case EVEEffectID::speedBoostMassSigRad:
             return "effects.MicroWarpDrive";
+        // Turret fire effects. The client's StandardWeapon handles all turret
+        // GUIDs identically (animates locators), so if the server SDE lacks the
+        // canonical guid for the turret effect, fall back to the client-known
+        // ones — otherwise ShowEffect() skips the OnSpecialFX and the player
+        // never sees their own turrets fire.
+        case EVEEffectID::targetAttack:        // 10, laser energy weapons
+            return "effects.Laser";
+        case EVEEffectID::projectileFired:     // 34, projectile weapons
+            return "effects.ProjectileFired";
+        case EVEEffectID::projectileFiredForEntities:   // 1086, NPC turrets
+            return "effects.ProjectileFiredForEntities";
         default:
             break;
     }
