@@ -2304,7 +2304,7 @@ PyDict* ShipItem::GetShipState() {
     if (!pInventory->ContentsLoaded()) {
         if (!pInventory->LoadContents()) {
             _log(INV__ERROR, "%s(%u): Failed to load contents for GetShipState", name(), itemID());
-            return nullptr;
+            return new PyDict();    // never return nullptr — client crashes on NoneType iteration
         }
     }
     // Create new dictionary for shipState:
@@ -2329,7 +2329,7 @@ PyDict* ShipItem::GetChargeState() {
     if (!pInventory->ContentsLoaded()) {
         if (!pInventory->LoadContents()) {
             _log(INV__ERROR, "%s(%u): Failed to load contents for GetShipState", name(), itemID());
-            return nullptr;
+            return new PyDict();    // never return nullptr — client crashes on NoneType iteration
         }
     }
 
@@ -2351,7 +2351,7 @@ PyDict* ShipItem::GetChargeState() {
 PyList* ShipItem::ShipGetModuleList() {
     if (!pInventory->LoadContents()) {
         _log(INV__ERROR, "%s(%u): Failed to load contents for ShipGetModuleList", name(), itemID());
-        return nullptr;
+        return new PyList();    // never return nullptr — goes straight into a slim item dict
     }
 
     PyList* result = new PyList();
