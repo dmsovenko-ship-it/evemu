@@ -2224,6 +2224,13 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
             mySE->SysBubble()->AddBallExclusive(mySE);
 
         // GateActivity is sent only during actual gate jumps (in JumpGate/Follow), not here.
+    } else if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->HasPlayers()) {
+        // Same for NPCs: while warping, Bubble::Add sent AddBallExclusive with a
+        // WARP EncodeDestiny, which the client won't render (a warping NPC ball is
+        // invisible/ignored). After WarpStop the mode is STOP but nobody re-sends
+        // the NPC's ball, so the NPC stays invisible while still existing and
+        // attacking (player takes unseen gate damage). Re-deliver the ball now.
+        mySE->SysBubble()->AddBallExclusive(mySE);
     }
 
     // Deferred dock: the client sent CmdDock a couple seconds before the warp
