@@ -443,17 +443,17 @@ void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
         "Every signature is a story; most end in a pod.",
     };
 
-    const char* pool = nullptr;
+    const char** pool = nullptr;
     uint32 count = 0;
     switch (profession) {
-        case 1: pool = hunter[0]; count = 2; break;     // Hunter
-        case 2: pool = rathunter[0]; count = 2; break;  // RatHunter
-        case 3: pool = miner[0]; count = 2; break;      // Miner
-        case 4: pool = trader[0]; count = 2; break;     // Trader
-        case 5: pool = courier[0]; count = 2; break;    // Courier
-        case 6: pool = hacker[0]; count = 2; break;     // Hacker
-        case 7: pool = explorer[0]; count = 2; break;   // Explorer
-        default: pool = generic[0]; count = 3; break;
+        case 1: pool = hunter; count = 2; break;     // Hunter
+        case 2: pool = rathunter; count = 2; break;  // RatHunter
+        case 3: pool = miner; count = 2; break;      // Miner
+        case 4: pool = trader; count = 2; break;     // Trader
+        case 5: pool = courier; count = 2; break;    // Courier
+        case 6: pool = hacker; count = 2; break;     // Hacker
+        case 7: pool = explorer; count = 2; break;   // Explorer
+        default: pool = generic; count = 3; break;
     }
     if (pool == nullptr)
         return;
