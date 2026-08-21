@@ -134,7 +134,19 @@ PyResult ScanBound::RequestScans(PyCallArgs& call, std::optional <PyDict*> probe
         codelog(CLIENT__ERROR, "%s: Client has no destiny manager!", call.client->GetName());
         return PyStatic.NewNone();
     } else if (pDestiny->IsWarping()) {
-        call.client->SendNotifyMsg( "You can't scan while warping");
+        // The client's scanSvc.RequestScans() sets scanningProbes BEFORE calling us
+        // (scanningProbes = [session.shipid] for a ship scan, or the probe ids), and
+        // only clears it on OnSystemScanStarted/OnSystemScanStopped. If we reject
+        // with just a notify, the scanner window's CheckButtonStates keeps the
+        // Analyze button disabled forever. Send an empty OnSystemScanStopped so the
+        // client resets scanningProbes/currentScan and the button re-enables.
+        call.client->SendNotifyMsg("You can't scan while warping");
+        OnSystemScanStopped osss;
+            osss.scanProbesDict = new PyDict();
+            osss.systemScanResult = new PyList();
+            osss.absentTargets = new PyList();
+        PyTuple* ev = osss.Encode();
+        call.client->SendNotification("OnSystemScanStopped", "charid", &ev);
         return PyStatic.NewNone();
     }
 
