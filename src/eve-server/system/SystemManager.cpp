@@ -1776,8 +1776,12 @@ void SystemManager::GetAllEntities(std::vector< CosmicSignature >& vector)
     /** @todo this will need to put entity's sigID into anomaly map for Scan::WarpTo object */
     /** @todo this should be updated/current/correct in system's AnomalyMgr.  try to get data from there for this list  */
     for (auto cur : m_ticEntities) {
-        // Skip NPCs and billboards — they should not appear on scanner
-        if (cur.second->IsNPCSE()) continue;
+        // Skip plain NPCs and billboards — they should not appear on scanner.
+        // Charbots (PlayerBot) are simulated PILOTS: they show in d-scan/probes
+        // as ships, exactly like real players.
+        if (cur.second->IsNPCSE()
+            && (cur.second->GetNPCSE() == nullptr || !cur.second->GetNPCSE()->IsPlayerBot()))
+            continue;
         uint8 catID = cur.second->GetCategoryID();
         if (catID == EVEDB::invCategories::Entity
             || catID == EVEDB::invCategories::Celestial) continue;
