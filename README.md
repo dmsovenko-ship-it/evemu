@@ -50,6 +50,8 @@
 | **Sovereignty** — TCU claim, IHub reinforcement, outpost capture, sov levels, upgrades | **Суверенность** — TCU захват, IHub reinforce, аутпосты, уровни, апгрейды |
 | **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
 | **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг, encounter, storyline, эпик арки |
+| **PvE Expeditions** — escalation chains (3/10→10/10), faction-specific DED sites, Journal tracking | **Экспедиции** — эскалации, фракционные DED-сайты, трекинг в журнале |
+| **W-space / Sleepers** — SleeperAI (remote rep, energy neut, capital escalation), combat sites by WH class | **W-space / Слиперы** — SleeperAI, боевые сайты по классу ВХ |
 | **Scanning** — probes, cosmic signatures, anomalies, directional scan | **Сканирование** — пробы, сигнатуры, аномалии, D-scan |
 | **Fleet** — fleet warp, boosts, warfare links, specialist skills | **Флот** — флот-варп, бусты, warfare-линки, скиллы |
 | **Incursions** — state machine, wave spawning, contest rewards | **Инкурсии** — стейт-машина, волновой спавн, contest награды |
@@ -105,9 +107,9 @@ See [`current_state_summary.md`](current_state_summary.md) for full session-by-s
 | Ship Navigation | 70% | **99%** | +29% | Combat | 90% | 99% | +9% |
 | Modules & Overheating | 85% | 97% | +12% | Drones | 75% | **96%** | +21% |
 | NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 95% | +25% |
-| **POS** | 70% | **97%** | +27% | Market | 60% | 92% | +32% |
-| **Incursions** | 0% | **91%** | +91% | Fleet | 75% | **100%** | +25% |
-| **Wormholes** | 60% | **90%** | +30% | Scanning | 80% | 99% | +19% |
+| **POS** | 70% | **97%** | +27% | Market | 60% | 95% | +35% |
+| **Incursions** | 0% | **93%** | +93% | Fleet | 75% | **100%** | +25% |
+| **Wormholes** | 60% | **92%** | +32% | Scanning | 80% | 99% | +19% |
 | **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 92% | +32% |
 | **Faction Warfare** | 50% | **99%** | +49% | Calendar | 60% | 93% | +33% |
 | Mail & LSC | 60% | **95%** | +35% | Contracts | 60% | 95% | +35% |

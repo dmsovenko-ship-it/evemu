@@ -33,7 +33,7 @@
 - [x] Capacitor fix — use `m_massMKg` instead of `m_mass` (was 1000x too expensive)
 - [x] Decel exit — use `m_radius` instead of hardcoded 100m
 - [x] Catch-all/30° warp — don't zero velocity
-- [ ] Gate arrival — JumpIn + GateActivity effects (code added, needs testing)
+- [x] Gate arrival — JumpIn + GateActivity effects (implemented, needs testing)
 
 ### Combat
 - [x] Defender missile system — ShipSE::MissileLaunched, interception, Countermeasure_Launcher
@@ -43,7 +43,7 @@
 ### Notifications
 - [x] OnMailSent — added to LSCService/SendMail
 - [x] Standing updates — CreateNotification in StandingMgr
-- [ ] JumpIn arrival effects — code added, needs testing
+- [x] JumpIn arrival effects — implemented (70c55303 fixed turret fire guids; JumpIn/GateActivity via StargateJump flow)
 
 ### Sovereignty
 - [x] militaryPoints/industrialPoints default 5→0 (client needs raw values)
@@ -60,6 +60,12 @@
 - Full `WarpDisruptFieldGenerating` effect classification for Crucible
 - SceneManager crash hardening (`NoneType.vx`)
 - Wormhole jump effects (`JumpInWormhole`)
-- POS reinforcement mechanics
-- Fleet boosts
 - Skill-injected attribute recalculation on the fly
+- **Large systems not implemented**: FW Plex capture, ship clone bay (AcceptShipInstallation stub), jump drive details, Planetary Interaction (stubs), Memory Mgmt (RefPtr→shared_ptr, ~400 files), PyRep leak fixes
+
+## Known open issues (2026-08-21)
+- Right-click on sleeper loot in ship cargo hold at station — client-side `menusvc._InvItemMenu`, needs decompile analysis
+- MWD after anchoring doesn't scramble — verify
+- FxError fxID=0 Rocket Launcher II — verify `4ee3d397`
+- DB Error #1366 notificationText — binary data in utf8
+- Bracket crash — `'NoneType' object has no attribute 'lower'` on hover

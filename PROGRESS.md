@@ -13,9 +13,9 @@
 | Ship Navigation | 99% | `███████████████████` | +29% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 96% | `██████████████████` | +21% |
 | NPC AI & Spawning | 97% | `███████████████████` | +37% | Agents & Missions | 95% | `███████████████████` | +25% |
-| **POS** | 97% | `███████████████████` | +27% | Market | 92% | `██████████████████` | +32% |
-| **Incursions** | 91% | `█████████████████░` | +91% | Fleet | 100% | `████████████████████` | +25% |
-| **Wormholes** | 90% | `██████████████████` | +30% | Scanning | 99% | `███████████████████` | +19% |
+| **POS** | 97% | `███████████████████` | +27% | Market | 95% | `███████████████████` | +35% |
+| **Incursions** | 93% | `██████████████████░` | +93% | Fleet | 100% | `████████████████████` | +25% |
+| **Wormholes** | 92% | `██████████████████░` | +32% | Scanning | 99% | `███████████████████` | +19% |
 | **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 92% | `██████████████████` | +32% |
 | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 95% | `███████████████████` | +35% | Contracts | 95% | `██████████████████` | +35% |
@@ -269,3 +269,7 @@
 - **Client cache analysis** — all 85 bulkdata cache files documented
 - **SDE validation** — all NPC types verified against live API
 - **~400 dungeon definitions** — anomaly, incursion, DED, data/relic, mission
+- **Faction content** — full content for all 6 NPC factions (Sansha/Guristas/Angel/Blood/Serpentis/Rogue Drones): decor, turrets, anomalies, DED complexes, named NPCs (16-17 Aug)
+- **W-space / Sleeper block restored** — SleeperAI (remote rep, energy neut, capital escalation), sleeper combat sites by WH class, guaranteed WH in w-space, sleeper loot (`47f34979`, lost to 28-Jul reset)
+- **PvE expeditions** — escalation system with faction/stage-specific DED sites, Journal integration, warp to site (`e160445c`+`c7dfd566`)
+- **AI charbots** — full simulated players: professions, killmail legends, DeepSeek chat with self-learning and anti-repeat guards, stable bios, portraits, visible in d-scan (`e6f7b2d3`+…+`7e8869a7`)
