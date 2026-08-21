@@ -270,6 +270,30 @@ PyDict* NPC::MakeSlimItem()
     _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u) typeID=%u cat=%u warFaction=%u group=%u", m_self->itemName(), m_self->itemID(), m_self->typeID(), m_self->categoryID(), m_warID, gID);
     PyDict* slim = DynamicSystemEntity::MakeSlimItem();
     if (slim != nullptr) {
+        // Incursion Sansha NPCs use groups 1051-1056 (Incursion Sansha's Nation
+        // Industrial/Capital/Frigate/Cruiser/Battleship). The Crucible client's
+        // spaceObject repository (GetGroupDict) has NO class for these groups, so
+        // spaceMgr falls back to a bare SpaceObject — the ship renders as an
+        // invisible point while still existing/attacking on the server. Remap the
+        // group in the slim item to the matching Asteroid Sansha group the client
+        // knows (Frigate 567 / Cruiser 566 / Battleship 565 / Industrial 568),
+        // which all map to spaceObject.EntityShip and render a proper ship model.
+        uint16 realGroup = m_self->groupID();
+        if (realGroup >= 1051 && realGroup <= 1056) {
+            uint16 remapped = 567;   // default: Asteroid Sansha's Nation Frigate
+            switch (realGroup) {
+                case 1051: remapped = 568; break;   // Industrial -> Hauler
+                case 1052: remapped = 565; break;   // Capital   -> Battleship
+                case 1053: remapped = 567; break;   // Frigate   -> Frigate
+                case 1054: remapped = 566; break;   // Cruiser   -> Cruiser
+                case 1056: remapped = 565; break;   // Battleship-> Battleship
+                default:   remapped = 567; break;
+            }
+            slim->SetItemString("groupID", new PyInt(remapped));
+            _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u): remapped incursion group %u -> %u (client lacks a class for 1051-1056)",
+                 m_self->itemName(), m_self->itemID(), realGroup, remapped);
+        }
+
         // Add fitted modules list for client display
         if (m_AI != nullptr) {
             const auto& modules = m_AI->GetModules();
