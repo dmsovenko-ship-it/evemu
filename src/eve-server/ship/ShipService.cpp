@@ -479,26 +479,38 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 list->AddItem(new PyInt(entity.itemID));
             } break;
             case EVEDB::invCategories::Deployable: {
+                // If the cargo stack has more than one unit, split ONE off to
+                // deploy and keep the rest in the hold (same as drones). Without
+                // this, dropping a stack of 5 MWDs moved the WHOLE stack (qty=5)
+                // into space as a single 'deployed' object — the other 4 vanished.
+                InventoryItemRef deployRef = iRef;
+                if (iRef->quantity() > 1) {
+                    deployRef = iRef->Split(1);
+                    if (deployRef.get() == nullptr) {
+                        _log(INV__ERROR, "ShipBound::Handle_Drop() - Error splitting deployable %u. Skipping.", iRef->itemID());
+                        continue;
+                    }
+                }
                 DBSystemDynamicEntity entity = DBSystemDynamicEntity();
                 entity.ownerID = ownerID;
                 entity.factionID = pClient->GetWarFactionID();
                 entity.allianceID = pClient->GetAllianceID();
                 entity.corporationID = pClient->GetCorporationID();
-                entity.itemID = iRef->itemID();
-                entity.itemName = iRef->itemName();
-                entity.typeID = iRef->typeID();
-                entity.groupID = iRef->groupID();
-                entity.categoryID = iRef->categoryID();
-                iRef->Move(pClient->GetLocationID(), flagNone, true);
-                iRef->SetPosition(location + iRef->radius() + radius);
-                iRef->ChangeOwner(entity.ownerID);
-                entity.position = iRef->position();
+                entity.itemID = deployRef->itemID();
+                entity.itemName = deployRef->itemName();
+                entity.typeID = deployRef->typeID();
+                entity.groupID = deployRef->groupID();
+                entity.categoryID = deployRef->categoryID();
+                deployRef->Move(pClient->GetLocationID(), flagNone, true);
+                deployRef->SetPosition(location + deployRef->radius() + radius);
+                deployRef->ChangeOwner(entity.ownerID);
+                entity.position = deployRef->position();
                 SystemEntity* pSE = DynamicEntityFactory::BuildEntity(*pSystem, entity);
                 if (pSE == nullptr) {
-                    iRef->Donate(pClient->GetCharacterID(), pShip->itemID(), flagCargoHold);
+                    deployRef->Donate(pClient->GetCharacterID(), pShip->itemID(), flagCargoHold);
                     continue;
                 }
-                iRef->ChangeSingleton(true);
+                deployRef->ChangeSingleton(true);
                 dropped = true;
                 shipDrop = true;
                 pSystem->AddEntity(pSE);
@@ -982,17 +994,27 @@ PyResult ShipBound::Jettison(PyCallArgs &call, PyList* itemIDs) {
                 itr = ints.erase(itr);
             } break;
             case EVEDB::invCategories::Deployable: {
+                // Split one unit off a stack before jettisoning (same as Drop):
+                // otherwise a stack of N deployables all end up in space as one
+                // object and the rest vanish from the hold.
                 cRef = sItemFactory.GetItemRef(*itr);
                 if (cRef.get() == nullptr)
                     throw CustomError ("Unable to spawn Deployable item of type %u.", cRef->typeID());
-
-                cRef->Move(pClient->GetLocationID(), flagNone, true);
+                InventoryItemRef deployRef = cRef;
+                if (cRef->quantity() > 1) {
+                    deployRef = cRef->Split(1);
+                    if (deployRef.get() == nullptr) {
+                        _log(INV__ERROR, "ShipBound::JettisonCargo() - Error splitting deployable %u. Skipping.", cRef->itemID());
+                        continue;
+                    }
+                }
+                deployRef->Move(pClient->GetLocationID(), flagNone, true);
                 //flagUnanchored: for some DUMB reason, this flag, 1023 yields a PyNone when notifications
                 // are created inside InventoryItem::Move() from passing it into a PyInt() constructor...WTF?
-                DeployableSE* dSE = new DeployableSE(cRef, this->GetServiceManager(), pSysMgr, data);
-                location.MakeRandomPointOnSphere(1500.0 + cRef->type().radius());
+                DeployableSE* dSE = new DeployableSE(deployRef, this->GetServiceManager(), pSysMgr, data);
+                location.MakeRandomPointOnSphere(1500.0 + deployRef->type().radius());
                 dSE->SetPosition(location);
-                cRef->SaveItem();
+                deployRef->SaveItem();
                 pSysMgr->AddEntity(dSE);
 
                 pClient->GetShipSE()->DestinyMgr()->SendJettisonPacket();
