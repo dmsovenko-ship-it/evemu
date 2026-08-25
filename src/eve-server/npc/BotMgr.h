@@ -57,6 +57,10 @@ public:
     // phrase that was just said by another bot in the same channel.
     void RecordChannelPhrase(int32 channelID, uint32 charID, const std::string& phrase);
 
+    // Primary trade hub system (Jita by default), from botTradeHubs. 0 if none.
+    uint32 GetTradeHubSystem() const;
+    bool IsTradeHub(uint32 systemID) const;
+
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID);
     // Download the bot's ESI portrait into the image cache on spawn, so the client
@@ -76,9 +80,6 @@ private:
     void ProcessTravel();
     // Random system reachable by gate from systemID (mapSolarSystemJumps), 0 if none.
     uint32 GetRandomAdjacentSystem(uint32 systemID);
-    // Primary trade hub system (Jita by default), from botTradeHubs. 0 if none.
-    uint32 GetTradeHubSystem() const;
-    bool IsTradeHub(uint32 systemID) const;
     // Random ship name (players rename their hulls to arbitrary words/codes).
     static std::string MakeRandomShipName();
     // Random corp name/ticker for a bot-founded corporation.

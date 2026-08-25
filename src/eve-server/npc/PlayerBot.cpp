@@ -1107,7 +1107,7 @@ void PlayerBot::ScanForSites()
         MarkForTravel();
 }
 
-bool PlayerBot::HasStationInSystem() const
+bool PlayerBot::HasStationInSystem()
 {
     if (SystemMgr() == nullptr)
         return false;
