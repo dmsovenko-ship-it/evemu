@@ -1,19 +1,14 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам). Коммиты в origin/master: `abdeb8fe`...`f5e22ece` (см. секции ниже). Открыт вопрос «маркет: нет в наличии» — см. секцию «25 августа: МАРКЕТ».
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам). Коммиты в origin/master: `abdeb8fe`...`f5e22ece` (см. секции ниже).
 
-## 25 августа: МАРКЕТ — «нет в наличии» в списке товаров (НЕ РЕШЕНО)
+## 25 августа: МАРКЕТ — «нет в наличии» в списке товаров (РЕШЕНО `1547a65a`)
 **Симптом**: в окне маркета (Browse → группа товаров) ВСЕ предметы показывают «нет в наличии» (NoneAvailable) вместо цены. В БД 38.5M ордеров, на станции юзера (60001795, Uemon, регион 10000002) 10390 типов с ордерами, ордера на продажу ЕСТЬ (юзер подтвердил).**
-- **Сервер отдаёт данные корректно** (проверено дампами): `GetOrders` возвращает CRowset с 269 sell (тип 23512) — работает. `GetStationAsks(60001795)`/`GetRegionBest(10000002)` возвращают ~10390 типов. Запросы к БД напрямую работают. Кэш GetOrders/GetStationAsks грузится из БД на первый запрос.
-- **Что пробовали (все коммиты в origin/master)**:
-  - `8040631b`: поднял `StationOrderLimit`/`SystemOrderLimit`/`RegionOrderLimit` 10→20000 (было: цены только у 10 типов). НЕ помогло.
-  - `70646181`: `GetStationAsks`/`GetSystemAsks`/`GetRegionBest` возвращают `dbutil.CIndexedRowset` (было `util.IndexRowset` — нет `.get()`, ctor ждёт `li` а не `items`). НЕ помогло — клиент декодирует CIndexedRowset в 0 строк.
-  - `9b956859`: возвращают ПРОСТОЙ dict `{typeID: util.KeyVal}` (новый хелпер `DBResultToTypeKeyValDict` в EVEDBUtils) — `.get(typeID)` и `ask.price` оба работают на util.KeyVal. **НЕ помогло**.
-- **Добавлен `f5e22ece`**: debug-дамп ответа GetStationAsks (MARKET__DUMP) — проверить, что реально уходит. СЕРВЕР ВЕРНУЛ dict с данными (дамп показал entries).
-- **Диагностика log.ini**: MARKET__TRACE=1, MARKET__DUMP=1, CACHE=1 + CACHE__DEBUG/TRACE/DUMP=1 включены для маркета.
-- **Вывод**: сервер стопроцентно корректен, клиент вызывает GetStationAsks/GetRegionBest (MktTrace подтверждает), но список пуст. Проблема в клиентской стороне (резолв CachedMethodCallResult ИЛИ отображение). GetMarketGroups (CFilterRowset) грузится тем же механизмом и работает → механизм резолва исправен. Сброс кэша клиента + полный рестарт процесса НЕ помогли.
-- **СЛЕДУЮЩИЕ ШАГИ**: (1) посмотреть клиентский gamelog (marketQuote `[RefreshOrderCache]`, ошибки резолва) — юзер должен предоставить; (2) проверить, что клиент реально получает данные — сравнить GetStationAsks vs GetMarketGroups резолв; (3) попробовать вернуть `util.Rowset` (как в GetMarketGroups-стиле) или `dbutil.RowDict` (конструктор `(rowList, key, columns)`), собрать правильно; (4) возможно проблема в версии/формате CachedMethodCallResult (versionCheck/HackCacheNodeID 333444) для этого метода.
+- **КОРЕНЬ (найден по warning компилятора)**: поля `StationOrderLimit`/`SystemOrderLimit`/`RegionOrderLimit` (и `FindBuyOrder`/`FindSellOrder`/`OldPriceLimit`/`NewPriceLimit`) в `EVEServerConfig::market` объявлены **`uint8`** (unsigned char). Присваивание `20000` в uint8 **оборачивается в 32** (20000 % 256 = 32). Поэтому каждый аск-запрос выполнялся с `LIMIT 32` — `GetStationAsks(60001795)` возвращал dict из 32 типов вместо ~10390. Клиент показывал «нет в наличии» для всех типов вне этих 32. Компилятор предупреждал: *'unsigned conversion from int to uint8 changes value from 20000 to 32'*.
+- **Фикс `1547a65a`**: расширены все order-limit поля до `uint32` (str2<uint32> и LIMIT %u работают). Бонус: `OldPriceLimit`/`NewPriceLimit` (1000 → 232) тоже были сломаны — исправлены.
+- История: `8040631b` (лимит 10→20000, НЕ помог — uint8 оборачивал), `70646181` (CIndexedRowset, клиент декодировал в 0 строк), `9b956859` (dict util.KeyVal), `f5e22ece` (дамп). Формат dict оказался правильным — проблема была только в uint8-лимите.
+- **Юзер подтвердил**: «Цены вижу». Маркет-логи (MARKET__TRACE/DUMP/DB_TRACE, CACHE__DEBUG/INFO/TRACE/DUMP) отключены в log.ini.
 - **ВАЖНО**: тип колонки `price` = DBTYPE_R8 (5) — корректен. Ключи dict = typeID (UI2/18) — корректны.
 
 ## 21 августа (поздний вечер): инкурсия-сессия — сканер, камера ботов, защита реальных игроков; ПОТЕРЯН персонаж юзера
@@ -357,7 +352,7 @@ ac263526 fix: cleanup migration for old decoration entities with invalid typeIDs
 
 ## Осталось (TODO)
 - ЗАКРЫТО: декор/ворота (17 авг), скорость/аппроач/ВХ/анимация прыжка/экспедиции (18 авг), сканер (откат `1d1357cd`), маркет sell-ордер (16 авг `ee9613be`), эффект лазеров у игрока (`70c55303`), incursion ISK (`f502d7ce`+миграции), повтор фраз ботов (`c9030ea3`+`3998b45a`), null-защита GetShipState (`6edff173`), био стабильное (`7e8869a7`+`7838e1b8`), инкурсийные Sansha невидимы (`dc354446`), скан в инкурсии (`1b9bec69`), кнопка скана (`ed62029d`), камера на челоботов (`4debf188`), невидимые NPC после варпа (`e3c7c0f0`).
-- **🔴 МАРКЕТ «нет в наличии» (25 авг, НЕ РЕШЕНО)** — см. секцию «25 августа: МАРКЕТ». Сервер корректен (дампы подтвердили), клиент вызывает методы, но список пуст. Следующие шаги в секции.
+- ЗАКРЫТО (25 авг `1547a65a`): маркет «нет в наличии» — uint8 order-limit поля оборачивали 20000 в 32 (GetStationAsks возвращал 32 типа вместо 10390).
 - **Нерешённое (21 авг вечер)**: пересборка на `450892ca` и проверка — невидимые NPC в инкурсии после e3c7c0f0 (все ли видны); «варп завис при варпе на планету» — гейт 50004103 в ~2700км от центра планеты 40148131 (радиус 2980км), юзер мог быть внутри планеты; новый Mr Tort (97233346) — лаги/ботавское поведение после фикса идентификации; правый клик по луту слиперов в трюме корабля (клиентская `menusvc._InvItemMenu`); MWD после анчоринга не скрамблит; FXError fxID=0 Rocket Launcher II; DB Error #1366 notificationText; NPC-ремонты с атрибутами (Plunderer).
 - **Защита данных**: включить binlog MariaDB (`--log-bin=mysql-bin --binlog-format=ROW` в db-контейнер) + дамп БД перед каждой пересборкой — персонаж 90000000 потерян безвозвратно (binlog OFF, бэкапов нет).
 - Крупные системы (не реализованы): FW Plex capture, ship clone bay (AcceptShipInstallation — stub), jump drives детали, PI (заглушки), Memory Mgmt/RefPtr→shared_ptr (~400 файлов), PyRep leak-фиксы.
