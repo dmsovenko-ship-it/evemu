@@ -959,9 +959,37 @@ void DeployableSE::Process()
         m_anchorTimer.Disable();
         m_anchoring = false;
         m_anchored = true;
-        m_onlined = false;  // separate Online() call required
-        m_posState = EVEPOS::StructureState::Anchored;  // 1 = anchored (waiting for online)
-        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, waiting for online", m_self->name(), m_self->itemID());
+        // Crucible: a deployable goes ONLINE immediately after the anchor timer —
+        // there is no separate 'bring online' step for MWDs. Auto-online sets the
+        // warp bubble + scramble range right away.
+        m_onlined = true;
+        m_posState = EVEPOS::StructureState::Online;  // 4 = online
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, online now", m_self->name(), m_self->itemID());
+        if (m_self->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor && SysBubble() != nullptr) {
+            SysBubble()->SetWarpBubble(true);
+            m_destiny->SendSpecialEffect10(m_self->itemID(), 0, "effects.StructureOnlined", 0, 1, 1);
+            // Send WarpDisruptFieldGenerating with graphicInfo(KeyVal(range=xxx)) for correct bubble radius.
+            OnSpecialFX14 fx;
+                fx.entityID = m_self->itemID();
+                fx.moduleID = m_self->itemID();
+                fx.moduleTypeID = m_self->typeID();
+                fx.targetID = PyStatic.NewNone();
+                fx.chargeTypeID = PyStatic.NewNone();
+                fx.area = new PyList();
+                fx.guid = "effects.WarpDisruptFieldGenerating";
+                fx.isOffensive = 0;
+                fx.start = 1;
+                fx.active = 1;
+                fx.duration = -1;
+                fx.repeat = 0;
+                fx.startTime = GetFileTimeNow();
+                PyDict* gd = new PyDict();
+                gd->SetItemString("range", new PyFloat(m_self->GetAttribute(AttrWarpScrambleRange).get_float()));
+                fx.graphicInfo = new PyObject("util.KeyVal", gd);
+            PyTuple* payload = fx.Encode();
+            m_destiny->SendSingleDestinyUpdate(&payload);
+        }
+        _log(POS__MESSAGE, "DeployableSE::Process %s(%u) — anchor complete, online now", m_self->name(), m_self->itemID());
         m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
         SendSlimUpdate();
     } else if (m_onlining && m_onlineTimer.Check(false)) {
