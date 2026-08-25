@@ -256,7 +256,7 @@ void DestinyManager::ProcessState() {
             double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
             float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
 
-            if (mySE->IsNPCSE() && mySE->SysBubble()->CountPlayers() <= 0)
+            if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->CountPlayers() <= 0)
             {
                 // this is an NPC that was spawned off-grid - nobody will ever see it, so just warp it in so it doesn't get disposed randomly
                 m_shipHeading = toVec;
@@ -760,7 +760,8 @@ void DestinyManager::CheckBump()
 
     // Check against other player ships in the bubble
     std::vector<Client*> vPlayers;
-    mySE->SysBubble()->GetPlayers(vPlayers);
+    if (mySE->SysBubble() != nullptr)
+        mySE->SysBubble()->GetPlayers(vPlayers);
     for (auto cur : vPlayers) {
         if (cur == pClient)
             continue;
@@ -1104,7 +1105,7 @@ void DestinyManager::MoveObject() {
     }
 
     if (sConfig.cosmic.BumpEnabled)
-        if (mySE->HasPilot() and mySE->SysBubble()->HasPlayers()) // no players in bubble = nothing to check against (for now)
+        if (mySE->HasPilot() and mySE->SysBubble() != nullptr and mySE->SysBubble()->HasPlayers()) // no players in bubble = nothing to check against (for now)
             CheckBump();
 }
 
@@ -2116,11 +2117,12 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
         m_targBubble->Add(mySE);
 
         // Crucible: if ship is warping INTO a warp-disruption bubble, pull out of warp.
-        // Check the bubble's HasWarpBubble() flag (set instantly by MWD/probe on anchor)
-        // instead of AttrWarpScrambleStatus (1s timer вЂ” too slow for warp-speed passage).
-        if (mySE->SysBubble() != m_targBubble
-            && mySE->SysBubble() != nullptr
-            && mySE->SysBubble()->HasWarpBubble())
+        // Check HasWarpBubble() (set instantly by MWD/probe on anchor) instead of
+        // AttrWarpScrambleStatus (1s timer вЂ” too slow for warp-speed passage).
+        // Test BOTH the target bubble and any bubble the ship currently overlaps.
+        bool warpBubbled = m_targBubble->HasWarpBubble()
+                           || (mySE->SysBubble() != nullptr && mySE->SysBubble()->HasWarpBubble());
+        if (warpBubbled)
         {
             bool immune = (mySE->GetSelf()->groupID() == EVEDB::invGroups::Shuttle)
                           || (mySE->GetSelf()->HasAttribute(AttrWarpBubbleImmune)
@@ -2166,8 +2168,15 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
             mySE->GetName(),
             mySE->GetID()
         );
-        SystemBubble* midWarpSystemBubble(sBubbleMgr.GetBubble(mySE->SystemMgr(), m_position));
-        midWarpSystemBubble->Add(mySE);
+        // Only join an EXISTING bubble if one already covers this position.
+        // Do NOT create a new bubble here — the ship is mid-warp through empty
+        // space, and GetBubble() would make a fresh bubble at every tick (one per
+        // warp frame), flooding the system with hundreds of empty bubbles that
+        // are then untracked all at once on arrival. The ship needs no bubble
+        // until it reaches the target.
+        SystemBubble* midWarpSystemBubble(sBubbleMgr.FindBubble(mySE->SystemMgr()->GetID(), m_position));
+        if (midWarpSystemBubble != nullptr)
+            midWarpSystemBubble->Add(mySE);
     }
 }
 
