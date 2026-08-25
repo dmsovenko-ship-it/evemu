@@ -2606,10 +2606,12 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
             sfx.active = true;
         updates.push_back(sfx.Encode());
         SendDestinyUpdate(updates);
-        if (is_log_enabled(NPC__MESSAGE))
+        if (is_log_enabled(NPC__MESSAGE)) {
+            uint32 fromBubble = (mySE->SysBubble() != nullptr) ? mySE->SysBubble()->GetID() : 0;
             _log(NPC__MESSAGE, "Destiny::WarpTo() NPC %s(%u) to:%u from:%u, m_targetPoint: %.2f,%.2f,%.2f  m_stopDistance: %i  m_targetDistance: %.2f",\
-                    mySE->GetName(), mySE->GetID(), m_targBubble->GetID(), mySE->SysBubble()->GetID(), \
+                    mySE->GetName(), mySE->GetID(), m_targBubble->GetID(), fromBubble, \
                     m_targetPoint.x, m_targetPoint.y, m_targetPoint.z, m_stopDistance, m_targetDistance);
+        }
         return;
     }
 
@@ -4049,9 +4051,16 @@ void DestinyManager::SendDestinyUpdate( std::vector<PyTuple*>& updates, std::vec
             EvE::traceStack();
         }
 
-        _log(DESTINY__ERROR, "[%u] Adding entity %u to bubble manager as fallback.", sEntityList.GetStamp(), mySE->GetID());
-        sBubbleMgr.Add(mySE);
-        if (mySE->SysBubble() != nullptr)
-            mySE->SysBubble()->BubblecastDestiny( updates, events, "destiny" );
+        // NPCs/charBots that warp (travel, WarpOut) may legitimately be outside a
+        // bubble when they command the warp (e.g. already removed from the grid
+        // while leaving the system). Forcing them back into a bubble would pin
+        // them in place and block the departure, and BubbleCast has nothing to
+        // reach anyway. Only re-register real pilot ships.
+        if (mySE->HasPilot() && !mySE->IsNPCSE()) {
+            _log(DESTINY__ERROR, "[%u] Adding entity %u to bubble manager as fallback.", sEntityList.GetStamp(), mySE->GetID());
+            sBubbleMgr.Add(mySE);
+            if (mySE->SysBubble() != nullptr)
+                mySE->SysBubble()->BubblecastDestiny( updates, events, "destiny" );
+        }
     }
 }
