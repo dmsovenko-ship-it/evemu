@@ -360,7 +360,21 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                             .AddFormatValue ("typeID", new PyInt (iRef->typeID ()));
                     //{'FullPath': u'UI/Messages', 'messageID': 259203, 'label': u'NoDroneManagementAbilitiesBody'}(u'You cannot launch {[item]typeID.nameWithArticle} because you do not have the ability to control any drones.', None, {u'{[item]typeID.nameWithArticle}': {'conditionalValues': [], 'variableType': 2, 'propertyName': 'nameWithArticle', 'args': 0, 'kwargs': {}, 'variableName': 'typeID'}})
                 }
-                if (droneLimit <= pClient->GetShipSE()->DroneCount()) {
+                // Fighters/bombers launch into fighter tubes (carriers 10, supercarriers 20),
+                // not the drone-avionics count. A Nyx shouldn't be able to field 35 bombers.
+                bool isFighter = (iRef->groupID() == EVEDB::invGroups::Fighter_Drone)
+                              or (iRef->groupID() == EVEDB::invGroups::Fighter_Bomber);
+                if (isFighter) {
+                    if (pClient->GetShipSE()->GetFighterTubeCount() == 0) {
+                        throw UserError ("NoDroneManagementAbilities")
+                                .AddFormatValue ("typeID", new PyInt (iRef->typeID ()));
+                    }
+                    if (pClient->GetShipSE()->GetActiveFighterCount() >= pClient->GetShipSE()->GetFighterTubeCount()) {
+                        throw UserError ("NoDroneManagementAbilitiesLeft")
+                                .AddFormatValue ("item", new PyInt (iRef->typeID ()))
+                                .AddFormatValue ("limit", new PyInt (pClient->GetShipSE()->GetFighterTubeCount()));
+                    }
+                } else if (droneLimit <= pClient->GetShipSE()->DroneCount()) {
                     throw UserError ("NoDroneManagementAbilitiesLeft")
                             .AddFormatValue ("item", new PyInt (iRef->typeID ()))
                             .AddFormatValue ("limit", new PyInt (droneLimit));

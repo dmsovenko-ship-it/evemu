@@ -390,7 +390,7 @@ public:
     uint32 GetDroneLimit();
 
     // Fighter tube system (Crucible-era)
-    uint8 GetFighterTubeCount();        // 3 for Carrier, 6 for Supercarrier, 0 otherwise
+    uint8 GetFighterTubeCount();        // 10 for Carrier, 20 for Supercarrier, 0 otherwise
     uint8 GetActiveFighterCount();      // fighters in space limited by tubes
     bool CanLaunchFighter();            // checks tubes and bandwidth
 

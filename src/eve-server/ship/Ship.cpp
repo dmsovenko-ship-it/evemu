@@ -3038,6 +3038,14 @@ ShipSE::DroneLaunchResult ShipSE::LaunchDrone(InventoryItemRef dRef) {
         return DroneLaunchResult::TooManyDrones;
     }
 
+    // Fighters/bombers are limited by the hull's fighter tubes, not drone bandwidth
+    // or the drone-avionics count. Crucible-era: carriers 10 tubes, supercarriers 20.
+    if (isFighter && currentDrones >= GetFighterTubeCount()) {
+        _log(DRONE__WARNING, "LaunchDrone: %s — fighter tubes full (%u/%u)",
+             pChar->name(), currentDrones, GetFighterTubeCount());
+        return DroneLaunchResult::TooManyDrones;
+    }
+
     // Check bandwidth BEFORE creating the SE
     EvilNumber bandLoad = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
     bandLoad += dRef->GetAttribute(AttrDroneBandwidthUsed);
@@ -3162,16 +3170,16 @@ void ShipSE::RemoveDroneFromFlight(uint32 droneID) {
 
 // Fighter tube system (Crucible-era)
 uint8 ShipSE::GetFighterTubeCount() {
-    // Carriers have 3 tubes, Supercarriers have 6, others have 0
+    // Carriers have 10 tubes, Supercarriers have 20, others have 0 (EVE-era values).
     switch (m_self->groupID()) {
         case EVEDB::invGroups::Carrier:
         case EVEDB::invGroups::Mission_Amarr_Empire_Carrier:
         case EVEDB::invGroups::Mission_Caldari_State_Carrier:
         case EVEDB::invGroups::Mission_Gallente_Federation_Carrier:
         case EVEDB::invGroups::Mission_Minmatar_Republic_Carrier:
-            return 3;
+            return 10;
         case EVEDB::invGroups::Supercarrier:
-            return 6;
+            return 20;
         default:
             return 0;
     }
