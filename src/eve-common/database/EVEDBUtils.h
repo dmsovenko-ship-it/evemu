@@ -61,6 +61,9 @@ PyDict *DBResultToIntRowDict(DBQueryResult &result, uint32 key_index, const char
 PyDict *DBResultToIntIntDict(DBQueryResult &result);
 PyDict *DBResultToPackedRowDict(DBQueryResult &result, const char *key);
 PyDict *DBResultToPackedRowDict(DBQueryResult &result, uint32 key_index);
+// plain dict {key: util.KeyVal} — attribute access on values, dict .get() on keys.
+// used by market asks: the client does asksForMyRange.get(typeID).price etc.
+PyDict *DBResultToTypeKeyValDict(DBQueryResult &result, const char *key);
 
 PyList *DBResultToPackedRowList(DBQueryResult &result);
 
