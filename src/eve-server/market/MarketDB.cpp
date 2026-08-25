@@ -54,11 +54,11 @@ PyRep *MarketDB::GetStationAsks(uint32 stationID) {
         return nullptr;
     }
 
-    //NOTE: this SHOULD return a crazy dbutil.RowDict object which is
-    //made up of packed blue.DBRow objects, but we do not understand
-    //the marshalling of those well enough right now, and this object
-    //provides the same interface. It is significantly bigger on the wire though.
-    return DBResultToIndexRowset(res, "typeID");
+    // NOTE: the client's marketQuote expects a dict-like rowset (dbutil.CIndexedRowset)
+    // whose rows support attribute access (ask.price/ask.volRemaining/ask.stationID) and
+    // whose .get(typeID) returns a row. util.IndexRowset (DBResultToIndexRowset) is a
+    // raw-list wrapper with no .get() — the market item list showed "нет в наличии".
+    return DBResultToCIndexedRowset(res, "typeID");
 }
 
 PyRep *MarketDB::GetSystemAsks(uint32 solarSystemID) {
@@ -79,7 +79,7 @@ PyRep *MarketDB::GetSystemAsks(uint32 solarSystemID) {
     //made up of packed blue.DBRow objects, but we do not understand
     //the marshalling of those well enough right now, and this object
     //provides the same interface. It is significantly bigger on the wire though.
-    return DBResultToIndexRowset(res, "typeID");
+    return DBResultToCIndexedRowset(res, "typeID");
 }
 
 PyRep *MarketDB::GetRegionBest(uint32 regionID) {
@@ -100,7 +100,7 @@ PyRep *MarketDB::GetRegionBest(uint32 regionID) {
     //made up of packed blue.DBRow objects, but we do not understand
     //the marshalling of those well enough right now, and this object
     //provides the same interface. It is significantly bigger on the wire though.
-    return DBResultToIndexRowset(res, "typeID");
+    return DBResultToCIndexedRowset(res, "typeID");
 }
 
 PyRep *MarketDB::GetOrders( uint32 regionID, uint16 typeID )
