@@ -1306,6 +1306,18 @@ void PlayerBot::HuntForTarget()
                  enemyBot->GetBotCharID(), myPower, theirPower);
         }
     }
+
+    // No prey worth engaging (or none found): a hunter doesn't hover in one spot.
+    // Between sweeps it drifts to another part of the system (or leaves if this
+    // system is dead). Avoid the gate — sweep toward an anomaly/belt instead.
+    if (!GetAIMgr()->IsFighting() && !m_destiny->IsWarping() && !m_destiny->IsMoving()) {
+        if (MakeRandomInt(0, 99) < 55) {
+            PatrolForIdle();
+        } else if (MakeRandomInt(0, 99) < 25) {
+            // Nothing worth hunting here — move on to greener systems.
+            MarkForTravel();
+        }
+    }
 }
 
 void PlayerBot::RatForTarget()
@@ -1340,6 +1352,29 @@ void PlayerBot::RatForTarget()
         GetAIMgr()->StartAttackCycle(2000);
         GetAIMgr()->Target(se);
         return;
+    }
+
+    // No rat in this bubble. A real ratter doesn't sit at the gate waiting for
+    // rats to come to it — it warps to an anomaly/belt and rats there. Find one
+    // in the system (any NPCSE away from us) and fly to it.
+    if (!m_destiny->IsWarping() && !m_destiny->IsMoving()) {
+        SystemEntity* ratSpot = nullptr;
+        double bestD = 0.0;
+        for (auto& [id, se] : SystemMgr()->GetEntities()) {
+            if (se == nullptr || se == this || se->GetNPCSE() == nullptr)
+                continue;
+            if (dynamic_cast<PlayerBot*>(se->GetNPCSE()) != nullptr)
+                continue;
+            // Prefer an NPC cluster (an anomaly spawn) over a lone far one.
+            double d = GetPosition().distance(se->GetPosition());
+            if (d > 250000 && d > bestD) { bestD = d; ratSpot = se; }
+        }
+        if (ratSpot != nullptr) {
+            m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
+            m_destiny->WarpTo(ratSpot->GetPosition(), 2000);
+            _log(BOT__TRACE, "PlayerBot %s(%u): no rats in bubble — warping to %s(%u) to rat.",
+                 m_botName.c_str(), m_botCharID, ratSpot->GetName(), ratSpot->GetID());
+        }
     }
 }
 
