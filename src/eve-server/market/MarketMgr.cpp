@@ -158,6 +158,7 @@ void MarketMgr::UpdatePriceHistory()
      */
 
 PyRep* MarketMgr::GetStationAsks(uint32 stationID) {
+    _log(MARKET__TRACE, "MarketMgr::GetStationAsks(%u) called", stationID);
     PyRep* result(nullptr);
     std::string method_name("GetStationAsks_");
     method_name += std::to_string(stationID);
@@ -174,6 +175,7 @@ PyRep* MarketMgr::GetStationAsks(uint32 stationID) {
 }
 
 PyRep* MarketMgr::GetSystemAsks(uint32 solarSystemID) {
+    _log(MARKET__TRACE, "MarketMgr::GetSystemAsks(%u) called", solarSystemID);
     PyRep* result(nullptr);
     std::string method_name("GetSystemAsks_");
     method_name += std::to_string(solarSystemID);
@@ -190,6 +192,7 @@ PyRep* MarketMgr::GetSystemAsks(uint32 solarSystemID) {
 }
 
 PyRep* MarketMgr::GetRegionBest(uint32 regionID) {
+    _log(MARKET__TRACE, "MarketMgr::GetRegionBest(%u) called", regionID);
     PyRep* result(nullptr);
     std::string method_name("GetRegionBest_");
     method_name += std::to_string(regionID);

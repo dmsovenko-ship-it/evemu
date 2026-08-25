@@ -115,9 +115,11 @@ EVEServerConfig::EVEServerConfig()
     //market
     market.FindBuyOrder = 10;
     market.FindSellOrder = 10;
-    market.StationOrderLimit = 10;
-    market.SystemOrderLimit = 10;
-    market.RegionOrderLimit = 10;
+    // Ask queries (GetStationAsks/GetSystemAsks/GetRegionBest) must return prices
+    // for ALL market types or the item list shows "нет в наличии" (NoneAvailable).
+    market.StationOrderLimit = 20000;
+    market.SystemOrderLimit = 20000;
+    market.RegionOrderLimit = 20000;
     market.OldPriceLimit = 10;
     market.NewPriceLimit = 10;
     market.HistoryUpdateTime = 6/*h*/;
