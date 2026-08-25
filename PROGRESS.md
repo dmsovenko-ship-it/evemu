@@ -282,7 +282,6 @@
 - **Faction Warfare** — plex spawn, 3 LP channels, militia stats, patrols
 - **Sovereignty** — TCU 8h claim + IHub 2-cycle reinforce + levels + upgrades + outpost capture
 - **Science & Industry** — invention formula, reverse engineering, remote install, POS lines
-- **Decompiled Crucible client** — 1082 Python scripts extracted, autopilot/session/starmap analyzed
 - **Client cache analysis** — all 85 bulkdata cache files documented
 - **SDE validation** — all NPC types verified against live API
 - **~400 dungeon definitions** — anomaly, incursion, DED, data/relic, mission
