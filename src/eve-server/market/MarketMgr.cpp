@@ -168,6 +168,9 @@ PyRep* MarketMgr::GetStationAsks(uint32 stationID) {
         if (result == nullptr) {
             _log(MARKET__DB_ERROR, "GetStationAsks - failed to load cache, generating empty contents.");
             result = PyStatic.NewNone();
+        } else if (is_log_enabled(MARKET__DUMP)) {
+            _log(MARKET__DUMP, "GetStationAsks(%u) result:", stationID);
+            result->Dump(MARKET__DUMP, "    ");
         }
         this->m_cache->GiveCache(method_id, &result);
     }
