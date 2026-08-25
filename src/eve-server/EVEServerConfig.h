@@ -140,13 +140,13 @@ public:
     struct {
         bool UseOrderRange;
         bool DeleteOldTransactions;
-        uint8 StationOrderLimit;
-        uint8 SystemOrderLimit;
-        uint8 RegionOrderLimit;
-        uint8 FindBuyOrder;
-        uint8 FindSellOrder;
-        uint8 OldPriceLimit;
-        uint8 NewPriceLimit;
+        uint32 StationOrderLimit;
+        uint32 SystemOrderLimit;
+        uint32 RegionOrderLimit;
+        uint32 FindBuyOrder;
+        uint32 FindSellOrder;
+        uint32 OldPriceLimit;
+        uint32 NewPriceLimit;
         uint8 HistoryUpdateTime;
         float salesTax;
     } market;
