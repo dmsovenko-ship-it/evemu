@@ -3032,17 +3032,22 @@ ShipSE::DroneLaunchResult ShipSE::LaunchDrone(InventoryItemRef dRef) {
     uint32 currentDrones = 0;
     for (auto& [id, drone] : m_drones)
         if (drone != nullptr) ++currentDrones;
-    if ((currentDrones + 1) > maxDrones && !isFighter) {
+    // Fighters sit in fighter tubes and don't consume the drone-avionics count, so
+    // for a regular drone only the non-fighter drones count against maxDrones.
+    uint32 nonFighterDrones = currentDrones - GetActiveFighterCount();
+    if (!isFighter && (nonFighterDrones + 1) > maxDrones) {
         _log(DRONE__WARNING, "LaunchDrone: %s — maxActiveDrones=%u, already have %u",
-             pChar->name(), maxDrones, currentDrones);
+             pChar->name(), maxDrones, nonFighterDrones);
         return DroneLaunchResult::TooManyDrones;
     }
 
     // Fighters/bombers are limited by the hull's fighter tubes, not drone bandwidth
     // or the drone-avionics count. Crucible-era: carriers 10 tubes, supercarriers 20.
-    if (isFighter && currentDrones >= GetFighterTubeCount()) {
+    // Count ONLY fighters/bombers for the tube check — regular drones (DCU bonus,
+    // drone-avionics) use the drone bay and don't consume fighter tubes.
+    if (isFighter && GetActiveFighterCount() >= GetFighterTubeCount()) {
         _log(DRONE__WARNING, "LaunchDrone: %s — fighter tubes full (%u/%u)",
-             pChar->name(), currentDrones, GetFighterTubeCount());
+             pChar->name(), GetActiveFighterCount(), GetFighterTubeCount());
         return DroneLaunchResult::TooManyDrones;
     }
 

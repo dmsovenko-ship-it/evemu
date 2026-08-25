@@ -374,7 +374,7 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                                 .AddFormatValue ("item", new PyInt (iRef->typeID ()))
                                 .AddFormatValue ("limit", new PyInt (pClient->GetShipSE()->GetFighterTubeCount()));
                     }
-                } else if (droneLimit <= pClient->GetShipSE()->DroneCount()) {
+                } else if (droneLimit <= (pClient->GetShipSE()->DroneCount() - pClient->GetShipSE()->GetActiveFighterCount())) {
                     throw UserError ("NoDroneManagementAbilitiesLeft")
                             .AddFormatValue ("item", new PyInt (iRef->typeID ()))
                             .AddFormatValue ("limit", new PyInt (droneLimit));
