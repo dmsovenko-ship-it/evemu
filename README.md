@@ -30,16 +30,17 @@
 
 | EN | RU |
 |----|----|
-| **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)**, **early warp start (<30°+half align)**, **snap stop (no drift)** | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)** |
+| **Warp & Movement** — smooth warp-to-0, fleet warp, **autopilot (auto-jump, multi-hop)**, **early warp start (<30°+half align)**, **snap stop (no drift)**, two-phase warp decel | **Варп и движение** — плавный варп-ту-0, флот-варп, **автопилот (авто-прыжок, мультихоп)**, **ранний старт варпа**, **мгновенный стоп**, двухфазное торможение |
 | **Drones** — full AI (combat/EWAR/logistics/mining), skills, subtypes, control range, UserError messages, Pursuit/Fleeing AI, Drone Control Unit bonus | **Дроны** — полный AI (бой/EWAR/логистика/майнинг), навыки, подтипы, UserError-сообщения, Pursuit/Fleeing AI, Drone Control Unit |
 | **NPC systems** — anomalies, incursions, belt rats, gate rats, convoys, customs police, module fitting system, per-weapon effects GUIDs | **NPC системы** — аномалии, инкурсии, бельтраты, гейтраты, конвои, таможня, модульная система фита, GUID эффектов по типу оружия |
 | **Crimewatch** — weapon/aggression/criminal timers, CONCORD, sentry guns, kill rights, **probe aggression (15min)** | **Crimewatch** — таймеры, CONCORD, сентри, киллрайты, **агрессия пробок (15мин)** |
+| **Dungeon decor & accel gates** — faction-lore decoration tiers (all 6 factions), acceleration gates with precise warp to next room, asteroid spacing | **Декор данжей и ворота** — тиры декора по фракциям (все 6), ускорительные ворота с точным варпом в комнату, разнос астероидов |
 | **Warp Disruption Probes** — Interdiction Sphere Launcher, bubble 20km, smartbomb destruction, **scramble cleanup on range exit** | **Пробки варп-дисрапта** — лаунчер, баббл 20км, уничтожение смартбомбами, **очистка скрембла при выходе из радиуса** |
 | **Mobile Warp Disruptor** — anchor/online via DogmaIM, SDE timers per type, **WarpDisruptFieldGenerating** visual, StructureOnlined effect, **transient (deleted on restart)** | **MWD** — anchor/online через DogmaIM, таймеры из SDE по типу, **WarpDisruptFieldGenerating** визуал, StructureOnlined эффект, **транзиент (удаляется при ребуте)** |
 | **Clones & Implants** — jump clones, per-clone implants, ship clone bay, SP loss on T3 pod | **Клоны и импланты** — джамп-клоны, импланты на клон, шип-клон-бей, SP loss |
 | **Contracts** — item exchange, courier, auctions with bidding + ISK transfer | **Контракты** — обмен, курьер, аукционы со ставками и переводом ISK |
 | **Corporation & Alliance** — corp/ally contacts with **role checks**, **OnContactLoggedOn/Off**, PyFloat* standing | **Корпорации и альянсы** — контакты с **проверкой ролей**, **OnContactLoggedOn/Off**, PyFloat* standing |
-| **Market** — buy/sell orders, corp market, **market bot spin-lock fix (1000→1)** | **Маркет** — ордера, корп-маркет, **фикс spin-lock бота (1000→1)** |
+| **Market** — buy/sell orders, corp market, **market bot spin-lock fix (1000→1)**, **full price list fix (order-limit fields uint8→uint32)** | **Маркет** — ордера, корп-маркет, **фикс spin-lock бота (1000→1)**, **фикс «нет в наличии» (лимиты uint8→uint32)** |
 | **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
 | **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
 | **Overheating** — heat dmg per slot, OverloadRack, Thermodynamics, Nanite Paste | **Перегрев** — урон по слотам, OverloadRack, Thermodynamics, Nanite Paste |
@@ -48,13 +49,13 @@
 | **Faction Warfare** — join/leave, plex spawn, militia stats, corp/alliance | **ФВ** — вступление/выход, плексы, статистика, корп/альянс |
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
 | **Sovereignty** — TCU claim, IHub reinforcement, outpost capture, sov levels, upgrades | **Суверенность** — TCU захват, IHub reinforce, аутпосты, уровни, апгрейды |
-| **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation | **Варпхолы** — полный цикл, масса/время жизни, K162 |
+| **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation, **signature cleanup (no orphan spam in scanner)** | **Варпхолы** — полный цикл, масса/время жизни, K162, **очистка сигнатур (без мусора в сканере)** |
 | **Missions** — courier, mining, encounter, storyline, epic arcs (Blood-Stained Stars) | **Миссии** — курьер, майнинг, encounter, storyline, эпик арки |
 | **PvE Expeditions** — escalation chains (3/10→10/10), faction-specific DED sites, Journal tracking | **Экспедиции** — эскалации, фракционные DED-сайты, трекинг в журнале |
-| **W-space / Sleepers** — SleeperAI (remote rep, energy neut, capital escalation), combat sites by WH class | **W-space / Слиперы** — SleeperAI, боевые сайты по классу ВХ |
+| **W-space / Sleepers** — SleeperAI (remote rep, energy neut, capital escalation), combat sites by WH class, **full site set (combat/data/relic/ore/gas)** | **W-space / Слиперы** — SleeperAI, боевые сайты по классу ВХ, **полный набор сайтов (бой/дата/релик/руда/газ)** |
 | **Scanning** — probes, cosmic signatures, anomalies, directional scan | **Сканирование** — пробы, сигнатуры, аномалии, D-scan |
 | **Fleet** — fleet warp, boosts, warfare links, specialist skills | **Флот** — флот-варп, бусты, warfare-линки, скиллы |
-| **Incursions** — state machine, wave spawning, contest rewards | **Инкурсии** — стейт-машина, волновой спавн, contest награды |
+| **Incursions** — state machine, wave spawning, contest rewards, **scanner-safe sites, Sansha remap for client rendering** | **Инкурсии** — стейт-машина, волновой спавн, contest награды, **сайты совместимы со сканером, ремап Саньши для клиента** |
 | **GM commands** — spawn, dogma, giveallskills, kick, ban, teleport | **GM команды** — спавн, догма, скиллы, кик, бан, телепорт |
 | **Orbit** — smooth circular motion (no 40km snap), **Approach** — no oscillation, **snap stop (no drift)** | **Орбита** — плавное движение (без 40км скачка), **Approach** — без осцилляции, **мгновенная остановка без дрифта** |
 | **Bubble hopping fix** — player/NPC bubble stability, empty bubble cleanup 5s | **Bubble hopping fix** — стабильность бабблов, очистка пустых за 5с |
@@ -92,14 +93,13 @@ docker logs -f server
 
 ## Changelog / Изменения
 
-See [`current_state_summary.md`](current_state_summary.md) for full session-by-session progress.  
-Подробно по сессиям — в [`current_state_summary.md`](current_state_summary.md).
+Full history in `git log` / полная история — в `git log`.
 
 ---
 
 ## Progress / Прогресс
 
-**Our fork: ~99%** · **Upstream: ~59.5%**
+**Our fork: ~99%** · **Upstream: ~60%**
 
 | System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
 |--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
@@ -124,8 +124,7 @@ See [`PROGRESS.md`](PROGRESS.md) for full breakdown.
 
 <p align="center">
   <a href="https://github.com/EvEmu-Project/evemu_Crucible">Upstream</a> ·
-  <a href="PROGRESS.md">Progress</a> ·
-  <a href="current_state_summary.md">Session log</a>
+  <a href="PROGRESS.md">Progress</a>
 </p>
 
 <p align="center"><b>LGPL v3</b> — educational project. Not for public servers.</p>

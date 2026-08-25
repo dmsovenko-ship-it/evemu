@@ -73,6 +73,11 @@
 | Destiny crash fixes — bubble guard, use-after-free | ❌ | ✅ |
 | **Warp scramble** blocks logoff/emergency warp | 🟡 | ✅ |
 | **Warp scramble cleanup** — on bubble exit (Remove) + per-player range check | ❌ | ✅ |
+| **Two-phase warp decel** — linear ramp + exponential decay, formula-based remainder | ❌ | ✅ |
+| **Manual gate jump animation** — JumpOut + ~4s + JumpIn, deferred jump mid-warp | ❌ | ✅ |
+| **Zero residual velocity on jump** — no post-jump jitter in new system | ❌ | ✅ |
+| **NPC balls re-sent after WarpStop** — no invisible attacking NPCs after warp | ❌ | ✅ |
+| **No bubble creation mid-warp** — only join existing bubbles (no per-frame GetBubble) | ❌ | ✅ |
 
 ### 4. Combat & Crimewatch `████████████████████` 99%
 
@@ -92,14 +97,15 @@
 | Module groups, cyno, cloak, jump portal, titan bridge | ✅ | ✅ |
 | **Overload** — Thermo check, heat damage, Nanite Paste, OverloadRack | ❌ | ✅ |
 
-### 6. Drones `█████████████████░` 90%
+### 6. Drones `██████████████████` 96%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Launch/scoop/return, AI states (10 subtypes) | 🟡 | ✅ |
 | Skills, control range, bandwidth, damage bonuses | ✅ | ✅ |
+| **EWAR cleanup** — web/paint/scramble released on target loss + drone death | ❌ | ✅ |
 
-### 7. NPC AI & Spawning `███████████████████` 92%
+### 7. NPC AI & Spawning `███████████████████` 97%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -111,6 +117,8 @@
 | **Sentry AI vs NPC** — aggro on NPCs attacking players in highsec | ❌ | ✅ |
 | **NPC module system** — weapon/EWAR modules fitted per SDE attrs, proper cycles, effect GUIDs per type | ❌ | ✅ |
 | NPC spawn position fix (no gate-bubble offset) | ❌ | ✅ |
+| **Negative EWAR release** — web/scramble/track-disruption cleaned on target loss, untarget, NPC death | ❌ | ✅ |
+| **NPC web symmetric undo** — no ×2.5 speed stack on target switch | ❌ | ✅ |
 
 ### 8. Agents & Missions `███████████████████` 95%
 
@@ -122,12 +130,13 @@
 | **Mission dungeon spawn** — on accept | ❌ | ✅ |
 | LP store (faction + CONCORD) | 🟡 | ✅ |
 
-### 9. Market `█████████████████░` 88%
+### 9. Market `███████████████████` 95%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Buy/sell orders, corp market, bots, price history | ✅ | ✅ |
 | Trade skills, MarginTrading, escrow, expired auctions | ❌ | ✅ |
+| **Order-limit config fields uint8→uint32** — 20000 wrapped to 32, full type list in ask queries | ❌ | ✅ |
 
 ### 10. Contracts `██████████████████` 95%
 
@@ -166,12 +175,16 @@
 | Reinforced mode (fuel → stront → auto-online), CPU/PG | ❌ | ✅ |
 | Reactions, weapon AI, skill checks, fuel notifications | ❌ | ✅ |
 
-### 14. Wormholes `██████████████████` 90%
+### 14. Wormholes `██████████████████░` 92%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Lifecycle, K162, mass/lifetime tracking | ✅ | ✅ |
 | System effects (Pulsar/Magnetar/etc) | ❌ | ✅ |
+| **Signature cleanup** — Collapse + LoadAnomalies prune orphan WH signatures (no scanner spam) | ❌ | ✅ |
+| **Per-system WH cap** — k-space ≤1, w-space ≤2 natural spawns | ❌ | ✅ |
+| **Mass in tons** — ship kg normalized to Mg for maxJump/maxStable checks | ❌ | ✅ |
+| **K162 exit stability** — landing at wormhole, paired exits across reloads | ❌ | ✅ |
 
 ### 15. Fleet `████████████████████` 100%
 
@@ -180,7 +193,7 @@
 | Create/manage, wings, squads, boosts, broadcasts | ✅ | ✅ |
 | Watchlist, voice chat methods | ❌ | ✅ |
 
-### 16. Incursions `█████████████████░` 91%
+### 16. Incursions `██████████████████░` 93%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -189,6 +202,8 @@
 | **Constellation penalties** (−10/25/50%), **CONCORD LP bonus** | ❌ | ✅ |
 | Client notifications — OnTaleData/OnTaleStart/OnTaleEnd/OnInfluenceUpdate | ❌ | ✅ |
 | Reward data — keyed by rewardCriteria with proper entries | ❌ | ✅ |
+| **Scanner compatibility** — sites carry sigID, no scanner freeze, scan button doesn't stick during warp | ❌ | ✅ |
+| **Client rendering of Sansha** — groupID remap (1051-1056 → known ship groups), NPC balls re-sent after WarpStop | ❌ | ✅ |
 
 ### 17. Scanning `███████████████████` 99%
 
@@ -239,6 +254,8 @@
 | **Invulnerability** — immune except to smartbombs/bombs | ❌ | ✅ |
 | **Shuttle immunity** — group 31 hardcoded | ❌ | ✅ |
 | **AttrWarpBubbleImmune** (Interdiction Nullifier) — all 6 check paths | ❌ | ✅ |
+| **Immediate online after anchor** — MWD active right after anchor timer (bubble + scramble live) | ❌ | ✅ |
+| **Stacked deployable drop** — Split(1) on drop/jettison, rest stays in cargo | ❌ | ✅ |
 
 ### 21. Ship Module Restrictions
 
@@ -272,4 +289,6 @@
 - **Faction content** — full content for all 6 NPC factions (Sansha/Guristas/Angel/Blood/Serpentis/Rogue Drones): decor, turrets, anomalies, DED complexes, named NPCs (16-17 Aug)
 - **W-space / Sleeper block restored** — SleeperAI (remote rep, energy neut, capital escalation), sleeper combat sites by WH class, guaranteed WH in w-space, sleeper loot (`47f34979`, lost to 28-Jul reset)
 - **PvE expeditions** — escalation system with faction/stage-specific DED sites, Journal integration, warp to site (`e160445c`+`c7dfd566`)
-- **AI charbots** — full simulated players: professions, killmail legends, DeepSeek chat with self-learning and anti-repeat guards, stable bios, portraits, visible in d-scan (`e6f7b2d3`+…+`7e8869a7`)
+- **Market full price list** — order-limit config fields uint8→uint32, full station asks returned to client (`1547a65a`)
+- **Dungeon decor & accel gates** — faction-lore decoration tiers, precise warp-to-next-room gates, asteroid spacing (16-17 Aug)
+- **Warp hardening** — two-phase decel, deferred jump mid-warp, zero residual velocity, NPC balls re-sent after WarpStop, no bubble creation mid-warp
