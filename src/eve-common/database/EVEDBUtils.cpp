@@ -411,14 +411,9 @@ PyDict *DBResultToTypeKeyValDict(DBQueryResult &result, const char *key)
 
     PyDict *res = new PyDict();
     DBResultRow row;
-    uint32 count = 0;
     while (result.GetRow(row)) {
         res->SetItem(DBColumnToPyRep(row, key_index), DBRowToKeyVal(row));
-        ++count;
     }
-    // TEMP DIAG: confirm the raw row count vs the dict size — the market 'нет в
-    // наличии' bug returned 32 entries while the SQL query returns ~10390 rows.
-    sLog.Warning("EVEDBUtils", "DBResultToTypeKeyValDict | key='%s' rows=%u dict=%u", key, count, (uint32)res->size());
     return res;
 }
 
