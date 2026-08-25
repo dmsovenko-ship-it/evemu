@@ -548,6 +548,18 @@ void NPCAIMgr::Process() {
                         continue;
                     if (m_npc->GetPosition().distance(pEnt->GetPosition()) > m_sightRange)
                         continue;
+                    // Attacking a player's drone/fighter is PvP — a charbot gets
+                    // flagged like any attacker would (drone hits transfer to the
+                    // pilot who owns it).
+                    if (m_npc->IsPlayerBot() && pEnt->GetDroneSE() != nullptr
+                        && pEnt->GetDroneSE()->GetOwner() != nullptr) {
+                        PlayerBot* pbot = dynamic_cast<PlayerBot*>(m_npc);
+                        if (pbot != nullptr) {
+                            Client* owner = pEnt->GetDroneSE()->GetOwner();
+                            pbot->StartAggressionTimer();
+                            pbot->BroadcastAggression(owner->GetCharacterID());
+                        }
+                    }
                     Target(pEnt);
                     return;
                 }

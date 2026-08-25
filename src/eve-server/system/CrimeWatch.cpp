@@ -303,6 +303,33 @@ void CrimeWatch::OnAggression(Client* pTarget, float systemSecRating)
     }
 }
 
+void CrimeWatch::OnBotAggression(uint32 botCharID, float systemSecRating)
+{
+    // A player attacking a charbot is PvP from the client's perspective: the
+    // charbot is a piloted ship. Aggression timer + criminal flag in highsec,
+    // exactly like attacking any other pilot. botCharID is the victim's ID.
+    if (!sConfig.crime.Enabled || botCharID == 0 || botCharID == m_client->GetCharacterID())
+        return;
+
+    m_aggressionTargetID = botCharID;
+    m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
+    if (m_client->GetChar()) {
+        int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
+        m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
+    }
+    UpdateSessionChangeTimer();
+    SendAggressionChange();
+
+    // Highsec: attacking a (non-criminal) charbot is a criminal act.
+    if (systemSecRating >= 0.5f) {
+        if (!m_criminalTimer.Enabled()) {
+            m_criminalTimer.Start(sConfig.crime.CrimFlagTime * 1000);
+            m_client->SendNotifyMsg("CONCORD response initiated. You have been flagged as a criminal.");
+        }
+        m_client->GetChar()->secStatusChange(-0.025f * systemSecRating);
+    }
+}
+
 void CrimeWatch::RespawnConcordShip(uint32 typeID)
 {
     if (!m_client->IsInSpace() || m_client->GetShipSE() == nullptr) return;

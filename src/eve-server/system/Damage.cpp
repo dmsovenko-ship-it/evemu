@@ -36,6 +36,7 @@
 #include "manufacturing/Blueprint.h"
 #include "map/MapDB.h"
 #include "npc/NPC.h"
+#include "npc/PlayerBot.h"
 #include "pos/sovStructures/IHub.h"
 #include "station/Outpost.h"
 #include "npc/NPCAI.h"
@@ -108,6 +109,46 @@ bool SystemEntity::ApplyDamage(Damage &d) {
     // Null source guard (e.g. sentry gun damage)
     if (d.srcSE == nullptr) {
         d.srcSE = this; // Damage originates from self (no attribution)
+    }
+
+    // PvP aggression — EVE rule: attacking another pilot (or their drones/fighters)
+    // sets an aggression flag on the attacker (15 min, no dock/jump). Works for
+    // player↔player, player↔charbot and drone owners (a drone hit transfers to its
+    // pilot). The attacker is the pilot of the source SE (or the drone's owner);
+    // the victim is the pilot of this SE (or this drone's owner). Charbots are
+    // PlayerBots (NPCSE with a pilot identity) — they flag themselves via their
+    // own StartAggressionTimer, the real-player side is handled here.
+    if (sConfig.crime.Enabled) {
+        Client* atkClient = nullptr;
+        if (d.srcSE->HasPilot())
+            atkClient = d.srcSE->GetPilot();
+        else if (d.srcSE->IsDroneSE() && d.srcSE->GetDroneSE()->GetOwner() != nullptr)
+            atkClient = d.srcSE->GetDroneSE()->GetOwner();
+
+        Client* vicClient = nullptr;
+        if (HasPilot())
+            vicClient = GetPilot();
+        else if (IsDroneSE() && GetDroneSE()->GetOwner() != nullptr)
+            vicClient = GetDroneSE()->GetOwner();
+
+        // A charbot victim doesn't have a Client, but its PlayerBot self-defence
+        // (OnAttacked) handles its own aggression flag. We only set the REAL-player
+        // aggression timer here; the bot side is handled in PlayerBot.
+        if (atkClient != nullptr && vicClient != nullptr && atkClient != vicClient) {
+            float sysSec = m_system ? m_system->GetSystemSecurityRating() : 0.0f;
+            if (atkClient->GetCrimeWatch() != nullptr)
+                atkClient->GetCrimeWatch()->OnAggression(vicClient, sysSec);
+        }
+        // A player attacking a charbot still gets flagged (aggression against a
+        // piloted ship — the charbot IS a pilot to the client). The charbot itself
+        // flags itself in its own OnAttacked path.
+        else if (atkClient != nullptr && vicClient == nullptr && IsNPCSE()
+                 && GetNPCSE() != nullptr && GetNPCSE()->IsPlayerBot()) {
+            float sysSec = m_system ? m_system->GetSystemSecurityRating() : 0.0f;
+            PlayerBot* pbot = dynamic_cast<PlayerBot*>(GetNPCSE());
+            if (pbot != nullptr && atkClient->GetCrimeWatch() != nullptr)
+                atkClient->GetCrimeWatch()->OnBotAggression(pbot->GetBotCharID(), sysSec);
+        }
     }
 
     // Track damage contribution for incursion contest rewards

@@ -28,6 +28,9 @@ public:
 
     void OnWeaponFired();
     void OnAggression(Client* pTarget, float systemSecRating);
+    // Aggression against a charbot (PlayerBot) — the charbot isn't a Client, so
+    // this sets the player's aggression/criminal timer with the charbot as victim.
+    void OnBotAggression(uint32 botCharID, float systemSecRating);
     void OnProbeLaunch();
     void OnLooting();
     void ApplyConcordPenalty();
