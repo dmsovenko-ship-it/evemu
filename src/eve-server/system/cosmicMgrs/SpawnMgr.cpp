@@ -531,7 +531,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
         FactionData data = FactionData();
             data.allianceID = factionID;
             data.corporationID = corpID;
-            data.factionID = (factionID == factionRogueDrones ? 0 : factionID);
+            data.factionID = factionID;
             data.ownerID = corpID;
 
         NPC* pNPC(nullptr);
@@ -1189,7 +1189,7 @@ void SpawnMgr::MakeSpawn(SystemBubble* pBubble, uint32 factionID, uint8 sClass, 
     FactionData data = FactionData();
         data.allianceID = factionID;    // this is to set wreck salvage correctly (tests for faction)
         data.corporationID = corpID;
-        data.factionID = (factionID == factionRogueDrones ? 0 : factionID); // the faction of rogue drones is wrong....should be "0" for client to use it right.
+        data.factionID = factionID;
         data.ownerID = corpID;
 
     NPC* pNPC(nullptr);
