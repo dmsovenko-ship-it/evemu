@@ -577,6 +577,16 @@ void NPCAIMgr::Process() {
                 ClearTarget(pSE);
                 return;
             }
+            // Don't chase a target that has left our bubble — an anomaly rat
+            // (or its drone) shouldn't warp/fly across the system after a player
+            // or charbot that warped away. The fight stays in one bubble.
+            if (m_npc->SysBubble() != nullptr and pSE->SysBubble() != m_npc->SysBubble()) {
+                _log(NPC__AI_TRACE, "%s(%u): target %s(%u) left our bubble (%u != %u) — dropping chase.",
+                     m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID(),
+                     m_npc->SysBubble()->GetID(), pSE->SysBubble()->GetID());
+                ClearTarget(pSE);
+                return;
+            }
             CheckDistance(pSE);
             if (m_missileTimer.Check())
                 LaunchMissile(m_missileTypeID, pSE);
