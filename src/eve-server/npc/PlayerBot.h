@@ -121,6 +121,12 @@ public:
     void ClaimSystem();                 // PvP war corps: claim unowned nullsec system (skirmish)
     void RequestFleetProtection();      // ask corpmate guards to cover this miner/hauler
     void ScanForSites();                // explorer: scan probes, find signatures/wormholes
+    // Behaviour when the current system has NO station (a pirate/wormhole system,
+    // or a waypoint on a route to a hub). Without a station the bot cannot dock,
+    // so it does something plausible instead of standing at the gate forever.
+    bool HasStationInSystem() const;    // true if a dockable station exists here
+    void PatrolForIdle();               // wander between gates/belts/anomalies (no station)
+    void HeadTowardHub(uint32 hubSystem);  // long-range: go to the trade hub
     // Wants to dock (end a mining run, trader works the station, etc.).
     void RequestDock()                  { m_wantsDock = true; }
     void ClearDockRequest()             { m_wantsDock = false; }

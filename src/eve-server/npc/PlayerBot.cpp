@@ -1,5 +1,6 @@
 #include "eve-server.h"
 #include "npc/PlayerBot.h"
+#include "npc/BotMgr.h"
 #include "npc/NPCAI.h"
 #include "npc/Drone.h"
 #include "system/Damage.h"
@@ -913,6 +914,34 @@ void PlayerBot::DoProfessionActivity()
     float practice = m_memory ? m_memory->GetActivitySkill() : 0.0f;
     float chanceBoost = 30.0f + practice * 40.0f;   // 30%..70% action chance
 
+    // ---- No-station behaviour ----
+    // Station-hugging professions (miner refining, trader at the market, courier,
+    // hacker hauling loot) can't do their normal job in a system with no station.
+    // A real pilot doesn't stand at the gate forever — they drift around and,
+    // if they've been around a while, head toward the trade hub to work.
+    if (!HasStationInSystem()) {
+        bool stationProf = (m_profession == BotProfession::Trader
+                         || m_profession == BotProfession::Courier
+                         || m_profession == BotProfession::Miner
+                         || m_profession == BotProfession::Hacker);
+        if (stationProf) {
+            // Experienced bots know their way to the market; novices wander first.
+            bool experienced = m_memory && (m_memory->GetKills() + m_memory->GetTradeRuns() + m_memory->GetHackRuns() > 0);
+            if (experienced) {
+                if (MakeRandomInt(0, 99) < 60) {
+                    HeadTowardHub(sBotMgr.GetTradeHubSystem());
+                    return;
+                }
+            } else {
+                PatrolForIdle();
+                if (MakeRandomInt(0, 99) < 30)
+                    HeadTowardHub(sBotMgr.GetTradeHubSystem());
+                return;
+            }
+        }
+        // Hunters/ratters/explorers work fine without a station — fall through.
+    }
+
     switch (m_profession) {
         case BotProfession::Hunter: {
             // PvP pirates hunt; guards (fighter/support role) stick with their
@@ -1076,6 +1105,61 @@ void PlayerBot::ScanForSites()
     // No sites here — move on (explore another system).
     if (MakeRandomInt(0, 99) < 40)
         MarkForTravel();
+}
+
+bool PlayerBot::HasStationInSystem() const
+{
+    if (SystemMgr() == nullptr)
+        return false;
+    for (auto& [id, se] : SystemMgr()->GetStaticEntities())
+        if (se != nullptr && se->GetStationSE() != nullptr)
+            return true;
+    return false;
+}
+
+void PlayerBot::PatrolForIdle()
+{
+    // A pilot stranded in a station-less system (wormhole, dead-end, pirate hole)
+    // doesn't just sit at the gate. They drift around doing something plausible:
+    // poke an anomaly, hover by a belt, orbit a gate. No spawns are required —
+    // just visible movement so the system looks alive.
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return;
+    if (m_destiny->IsWarping() || m_destiny->IsMoving())
+        return;   // already doing something
+
+    // Pick a random point of interest: a gate, a belt asteroid, or an anomaly.
+    std::vector<GPoint> spots;
+    for (auto& [id, se] : SystemMgr()->GetGates())
+        if (se != nullptr)
+            spots.push_back(se->GetPosition());
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr) continue;
+        if (se->IsAsteroidSE() || se->IsAnomalySE() || se->GetWormholeSE() != nullptr)
+            spots.push_back(se->GetPosition());
+    }
+    if (spots.empty())
+        return;   // truly nothing — stay parked
+
+    GPoint dest = spots[MakeRandomInt(0, (int64)spots.size() - 1)];
+    // Land well clear of any collision sphere.
+    m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed() * 0.6f);   // a cruising pilot, not a racer
+    m_destiny->WarpTo(dest, 5000);
+    _log(BOT__TRACE, "PlayerBot %s(%u): no station here — drifting to %.0f,%.0f,%.0f.",
+         m_botName.c_str(), m_botCharID, dest.x, dest.y, dest.z);
+}
+
+void PlayerBot::HeadTowardHub(uint32 hubSystem)
+{
+    // Long-haul: this system has no station and isn't home — set course for the
+    // trade hub. The travel machinery (ProcessTravel) picks it up and flies the
+    // visible gate-crossing chain.
+    if (hubSystem == 0 || hubSystem == SystemMgr()->GetID())
+        return;
+    SetTravelDestination(hubSystem);
+    MarkForTravel(hubSystem);
+    _log(BOT__TRACE, "PlayerBot %s(%u): no station here — heading to hub %u.",
+         m_botName.c_str(), m_botCharID, hubSystem);
 }
 
 void PlayerBot::HuntForTarget()
