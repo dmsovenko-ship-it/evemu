@@ -762,6 +762,16 @@ Client* EntityList::FindClientByCharID(uint32 charID) const
     return nullptr;
 }
 
+Client* EntityList::FindClientByAccountID(uint32 accountID) const
+{
+    for (auto itr : m_players) {
+        Client* c = itr.second;
+        if (c != nullptr && c->GetUserID() == (int32)accountID)
+            return c;
+    }
+    return nullptr;
+}
+
 StationItemRef EntityList::GetStationByID(uint32 stationID) {
     std::map<uint32, StationItemRef>::iterator res = m_stations.find(stationID);
     if (res != m_stations.end())

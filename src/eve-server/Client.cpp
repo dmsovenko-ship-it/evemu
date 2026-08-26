@@ -3122,8 +3122,19 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
     }
 
     if (aData.online) {
-        failMsg = "This account is currently online.";
-        return _LoginFail(failMsg);
+        // Stale "online" flag: it can survive a crash/hang because the old
+        // Client's destructor (which clears it) never ran. Only reject when a
+        // live connection for this account actually exists; otherwise clear the
+        // stale flag and let the login proceed (mirrors the character-level
+        // stale-session handling in SelectCharacter).
+        Client* existing = sEntityList.FindClientByAccountID(aData.id);
+        if (existing != nullptr && existing->GetState() == TCPConnection::STATE_CONNECTED) {
+            failMsg = "This account is currently online.";
+            return _LoginFail(failMsg);
+        }
+        sLog.Error("Client::Login()", "Account %u (%s) marked online but no live connection — clearing stale flag.",
+                   aData.id, aData.name.c_str());
+        ServiceDB::SetAccountOnlineStatus(aData.id, false);
     }
 
     if (!ccp.user_password.empty()) {

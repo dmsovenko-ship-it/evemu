@@ -97,6 +97,8 @@ public:
     Client* FindClientByName(const char* name) const;
     // will return nullptr if character not online
     Client* FindClientByCharID(uint32 charID) const;
+    // will return nullptr if no client is logged in on this account (userID)
+    Client* FindClientByAccountID(uint32 accountID) const;
 
     // this will return nullptr and throw console msg on failure.
     SystemManager* FindOrBootSystem(uint32 systemID);
