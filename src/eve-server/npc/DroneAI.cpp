@@ -1008,7 +1008,7 @@ void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
          m_pDrone->GetKinetic(), m_pDrone->GetThermal(), m_pDrone->GetEM(), m_pDrone->GetExplosive(),
          dmgMult, skillMult, d.GetModifier(), sConfig.rates.damageRate);
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr) {
+    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
         owner->GetCrimeWatch()->OnWeaponFired();
         if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
             float sec = owner->SystemMgr()->GetSystemSecurityRating();
@@ -1078,7 +1078,7 @@ void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
          pTarget->GetName(), pTarget->GetID(),
          d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr) {
+    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
         owner->GetCrimeWatch()->OnWeaponFired();
         if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
             float sec = owner->SystemMgr()->GetSystemSecurityRating();
@@ -1146,7 +1146,7 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
          pTarget->GetName(), pTarget->GetID(),
          d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr) {
+    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
         owner->GetCrimeWatch()->OnWeaponFired();
         if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
             float sec = owner->SystemMgr()->GetSystemSecurityRating();
@@ -1174,7 +1174,7 @@ void DroneAIMgr::WebAttack(SystemEntity* pTarget) {
                                              1, 1, 1, m_attackSpeed, 0, gfxID);
 
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr) {
+    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
         owner->GetCrimeWatch()->OnWeaponFired();
         if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
             float sec = owner->SystemMgr()->GetSystemSecurityRating();
@@ -1239,7 +1239,7 @@ void DroneAIMgr::ScrambleAttack(SystemEntity* pTarget) {
                                              1, 1, 1, m_attackSpeed, 0, gfxID);
 
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr) {
+    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
         owner->GetCrimeWatch()->OnWeaponFired();
         if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
             float sec = owner->SystemMgr()->GetSystemSecurityRating();
@@ -1278,7 +1278,7 @@ void DroneAIMgr::ECMAttack(SystemEntity* pTarget) {
                                              1, 1, 1, m_attackSpeed, 0, gfxID);
 
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr) {
+    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
         owner->GetCrimeWatch()->OnWeaponFired();
         if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
             float sec = owner->SystemMgr()->GetSystemSecurityRating();
@@ -1334,7 +1334,7 @@ void DroneAIMgr::PaintAttack(SystemEntity* pTarget) {
                                              1, 1, 1, m_attackSpeed, 0, gfxID);
 
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr) {
+    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
         owner->GetCrimeWatch()->OnWeaponFired();
         if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
             float sec = owner->SystemMgr()->GetSystemSecurityRating();
@@ -1488,7 +1488,7 @@ void DroneAIMgr::CapDrainAttack(SystemEntity* pTarget) {
         }
     }
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr) {
+    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
         owner->GetCrimeWatch()->OnWeaponFired();
         if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
             float sec = owner->SystemMgr()->GetSystemSecurityRating();
