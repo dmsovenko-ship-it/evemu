@@ -48,6 +48,22 @@
 #include "ship/modules/JumpPortalModule.h"
 #include "ship/modules/ModuleManager.h"
 
+// A capital jump (and every jump bridge) must target an ACTIVE cynosural field.
+// A deactivated cyno's entity is deleted (CynoModule::DeactivateCycle → cSE->
+// Delete), so a missing item already means "cyno is down". We also reject any
+// non-cyno item (bookmark, ship, structure) and a field in the wrong system.
+static bool IsActiveCynoField(InventoryItemRef beacon, uint32 expectSystemID) {
+    if (beacon.get() == nullptr)
+        return false;
+    uint32 typeID = beacon->typeID();
+    if (typeID != EVEDB::invTypes::CynosuralFieldI
+        && typeID != EVEDB::invTypes::CovertCynosuralFieldI)
+        return false;
+    if (expectSystemID != 0 && beacon->locationID() != expectSystemID)
+        return false;
+    return true;
+}
+
 BeyonceService::BeyonceService(EVEServiceManager& mgr)
 : BindableService("beyonce", mgr, eAccessLevel_SolarSystem2)
 {
@@ -1121,8 +1137,8 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
 
     // Load the beacon and execute jump
     InventoryItemRef beacon = sItemFactory.GetItemRefFromID(beaconID->value());
-    if (!beacon) {
-        call.client->SendNotifyMsg("Target beacon not found.");
+    if (!beacon || !IsActiveCynoField(beacon, solarSystemID->value())) {
+        call.client->SendNotifyMsg("No active cynosural field at the destination.");
         return PyStatic.NewNone();
     }
 
@@ -1261,8 +1277,8 @@ PyResult BeyonceBound::CmdJumpThroughAlliance(PyCallArgs &call, PyInt* otherShip
     }
 
     InventoryItemRef beacon = sItemFactory.GetItemRefFromID(beaconID->value());
-    if (!beacon) {
-        call.client->SendNotifyMsg("Target beacon not found.");
+    if (!beacon || !IsActiveCynoField(beacon, solarSystemID->value())) {
+        call.client->SendNotifyMsg("No active cynosural field at the destination.");
         return PyStatic.NewNone();
     }
 
