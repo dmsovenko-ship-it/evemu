@@ -233,6 +233,9 @@ PyResult JumpCloneBound::DestroyInstalledClone(PyCallArgs &call, PyInt* cloneID)
 PyResult JumpCloneBound::CloneJump(PyCallArgs &call, PyInt* locationID) {
     uint32 charID = call.client->GetCharacterID();
     uint32 destLocationID = locationID->value();
+    // A clone jump's destination is a station holding the target clone.
+    if (destLocationID == 0 || !sDataMgr.IsStation(destLocationID))
+        return PyStatic.NewFalse();
 
     DBQueryResult res;
     m_db->GetClones(charID, res);
@@ -254,6 +257,12 @@ PyResult JumpCloneBound::CloneJump(PyCallArgs &call, PyInt* locationID) {
 
     // Update character's home station to destination
     CharacterDB::ChangeCloneLocation(charID, destLocationID);
+
+    // Actually move the pilot: a clone jump relocates consciousness to the
+    // destination station (docked). Without MoveToLocation the DB state changed
+    // but the pilot stayed at the old station — the client's session change
+    // never completed and the jump looked broken/glitchy.
+    call.client->MoveToLocation(destLocationID, GPoint(0, 0, 0));
 
     PyTuple* payload = new PyTuple(0);
     call.client->SendNotification("OnJumpCloneCacheInvalidated", "clientID", payload, false);
