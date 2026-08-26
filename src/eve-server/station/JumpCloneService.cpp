@@ -305,20 +305,17 @@ PyResult JumpCloneBound::AcceptShipCloneInstallation(PyCallArgs &call) {
     if (offererCharID == 0 || shipID == 0)
         return PyStatic.NewFalse();
 
-    // Create a jump clone in the ship's clone bay (flagClone = 30)
-    uint32 cloneTypeID = itemCloneAlpha;
-    DBerror err;
-    uint32 newCloneID = 0;
-    sDatabase.RunQueryLID(err, newCloneID,
-        "INSERT INTO entity (ownerID, typeID, locationID, flag, name, itemName, "
-        "positionX, positionY, positionZ, entityCustomInfo) "
-        "VALUES (%u, %u, %u, %u, 'Ship Clone', 'Ship Clone', 0, 0, 0, 'shipClone')",
-        charID, cloneTypeID, shipID, (uint16)flagClone);
-
-    if (newCloneID == 0)
+    // Create the clone in the ship's clone bay (flagClone = 30). A raw SQL
+    // INSERT here referenced entity columns that don't exist (name/positionX/
+    // positionY/positionZ/entityCustomInfo) so it always failed — use the item
+    // factory exactly like every other clone creation (CharUnboundMgrService,
+    // CharacterDB).
+    ItemData iData(itemCloneAlpha, charID, shipID, flagClone, 1);
+    iData.customInfo = "Ship Clone";
+    InventoryItemRef clone = sItemFactory.SpawnItem(iData);
+    if (clone.get() == nullptr)
         return PyStatic.NewFalse();
-
-    // Clone starts with no implants; the DB table chrJumpCloneImplants is queried separately
+    clone->SaveItem();
 
     // Notify the offerer that their offer was accepted
     Client* offererClient = sEntityList.FindClientByCharID(offererCharID);
