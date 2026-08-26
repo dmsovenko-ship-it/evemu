@@ -43,6 +43,8 @@ services:
       - --innodb-flush-log-at-trx-commit=2  # Flush every second instead of every commit (safe for dev)
       - --max-allowed-packet=64M            # Prevent packet size errors on large queries
       - --bulk-insert-buffer-size=64M       # Per-thread buffer for INSERT...SELECT
+      - --log-bin=mysql-bin                 # Binary log for crash recovery (data protection)
+      - --binlog-format=ROW                 # Row-based replication format
 
 volumes:
   evemu_db:

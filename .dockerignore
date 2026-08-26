@@ -8,3 +8,13 @@ __pycache__/
 *.bak
 *.log
 build/
+# Heavy local artifacts that must NOT be part of the docker build context
+# (a 4.8GB DB dump + 380MB backups inflate the context to ~5GB every build).
+backup_*.sql
+backup_*.sql.gz
+backups/
+*.cache2
+image_cache/
+server_cache/
+out.txt
+
