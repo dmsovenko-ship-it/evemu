@@ -4038,25 +4038,26 @@ void DestinyManager::SendDestinyUpdate( std::vector<PyTuple*>& updates, std::vec
 
         mySE->SysBubble()->BubblecastDestiny( updates, events, "destiny" );
     } else {
-        _log(
-            DESTINY__ERROR,
-            "[%u] Cannot BubbleCast destiny update (u:%u, e:%u); entity (%u) is not in any bubble.",
-            sEntityList.GetStamp(),
-            updates.size(),
-            events.size(),
-            mySE->GetID()
-        );
-
-        if (sConfig.debug.IsTestServer) {
-            EvE::traceStack();
-        }
-
         // NPCs/charBots that warp (travel, WarpOut) may legitimately be outside a
         // bubble when they command the warp (e.g. already removed from the grid
         // while leaving the system). Forcing them back into a bubble would pin
         // them in place and block the departure, and BubbleCast has nothing to
-        // reach anyway. Only re-register real pilot ships.
+        // reach anyway. Silently drop — don't spam the log with traceStacks on
+        // every bot travel/warp.
         if (mySE->HasPilot() && !mySE->IsNPCSE()) {
+            _log(
+                DESTINY__ERROR,
+                "[%u] Cannot BubbleCast destiny update (u:%u, e:%u); entity (%u) is not in any bubble.",
+                sEntityList.GetStamp(),
+                updates.size(),
+                events.size(),
+                mySE->GetID()
+            );
+
+            if (sConfig.debug.IsTestServer) {
+                EvE::traceStack();
+            }
+
             _log(DESTINY__ERROR, "[%u] Adding entity %u to bubble manager as fallback.", sEntityList.GetStamp(), mySE->GetID());
             sBubbleMgr.Add(mySE);
             if (mySE->SysBubble() != nullptr)
