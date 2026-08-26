@@ -1469,21 +1469,27 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
                                  pSE->GetID(),0,guid,1,1,
                                  1,m_attackSpeed,0,gfxID);
 
-    Damage d(m_npc,
-             m_self,
-             m_npc->GetKinetic(),
-             m_npc->GetThermal(),
-             m_npc->GetEM(),
-             m_npc->GetExplosive(),
-             m_formula.GetNPCToHit(m_npc, pSE),
-             EVEEffectID::targetAttack
-            );
+    // Deal damage only while the target is within weapon reach. NPCs locked on a
+    // target far beyond their max range (e.g. a bot Mega shooting a pilot 574 km
+    // away) would otherwise hit regardless of distance.
+    double dist = m_npc->GetPosition().distance(pSE->GetPosition());
+    if (dist <= m_maxAttackRange) {
+        Damage d(m_npc,
+                 m_self,
+                 m_npc->GetKinetic(),
+                 m_npc->GetThermal(),
+                 m_npc->GetEM(),
+                 m_npc->GetExplosive(),
+                 m_formula.GetNPCToHit(m_npc, pSE),
+                 EVEEffectID::targetAttack
+                );
 
-    if (sConfig.npc.UseDamageMultiplier)
-        if (m_damageMultiplier > 0)
-            d *= m_damageMultiplier;
+        if (sConfig.npc.UseDamageMultiplier)
+            if (m_damageMultiplier > 0)
+                d *= m_damageMultiplier;
 
-    pSE->ApplyDamage(d);
+        pSE->ApplyDamage(d);
+    }
 
     // Smartbomb/AoE: if NPC has EmpFieldRange, deal splash damage to all targets in range
     if (m_smartbombRange > 0 and (!m_smartbombTimer.Enabled() or m_smartbombTimer.Check())) {
