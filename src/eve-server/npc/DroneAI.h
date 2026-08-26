@@ -80,6 +80,7 @@ public:
     void Return();
     void ReturnBay();   // fly back and scoop into drone bay on arrival
     void AssignShip(ShipSE* pSE)                        { m_assignedShip = pSE; }
+    ShipSE* GetAssignedShip()                           { return m_assignedShip; }
     int8 GetSubType() const                             { return m_subType; }
     void MineTarget(SystemEntity* pTarget, bool singleCycle = false);
 

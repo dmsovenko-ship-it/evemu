@@ -88,6 +88,7 @@ public:
 
     EVEServiceManager& GetServiceMgr()                  { return m_services; }
     void AddGhostShip(ShipSE* pShip, int64 expireTime, bool emergencyWarp = false);
+    void ClearDronesAssignedTo(ShipSE* pShip);   // null drone AI m_assignedShip before a ship is freed
     void ProcessGhostShips();
     void SpawnSentryGuns();
     void SpawnBillboards();

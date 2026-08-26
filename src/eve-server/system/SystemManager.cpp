@@ -2170,6 +2170,22 @@ void SystemManager::AddGhostShip(ShipSE* pShip, int64 expireTime, bool emergency
          pShip->GetName(), pShip->GetID(), expireTime, emergencyWarp ? " (emergency warp)" : "");
 }
 
+// A ship is about to be freed. Any player drones still in space hold a raw
+// m_assignedShip pointer to it — leaving it dangling made DroneAIMgr::Process
+// dereference freed memory the moment the ship's ghost expired (SIGSEGV in
+// GaVec3::distance on the next drone tic). Clear every drone assigned to it.
+void SystemManager::ClearDronesAssignedTo(ShipSE* pShip) {
+    if (pShip == nullptr)
+        return;
+    for (auto& [id, se] : m_entities) {
+        if (se == nullptr || !se->IsDroneSE())
+            continue;
+        DroneAIMgr* ai = se->GetDroneSE()->GetAI();
+        if (ai != nullptr && ai->GetAssignedShip() == pShip)
+            ai->AssignShip(nullptr);
+    }
+}
+
 void SystemManager::ProcessGhostShips() {
     if (m_ghostShips.empty())
         return;
@@ -2196,6 +2212,7 @@ void SystemManager::ProcessGhostShips() {
                 _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — done, removing %s(%u).",
                      pShip->GetName(), pShip->GetID());
                 if (m_ticEntities.find(pShip->GetID()) != m_ticEntities.end()) {
+                    ClearDronesAssignedTo(pShip);
                     RemoveEntity(pShip);
                     SafeDelete(pShip);
                 }
@@ -2223,6 +2240,7 @@ void SystemManager::ProcessGhostShips() {
             _log(SE__MESSAGE, "SystemManager::ProcessGhostShips() — removing ghost ship %s(%u).",
                  pShip->GetName(), pShip->GetID());
             if (m_ticEntities.find(pShip->GetID()) != m_ticEntities.end()) {
+                ClearDronesAssignedTo(pShip);
                 RemoveEntity(pShip);
                 SafeDelete(pShip);
             }
