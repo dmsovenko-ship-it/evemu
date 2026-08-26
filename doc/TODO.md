@@ -61,8 +61,9 @@
 - SceneManager crash hardening (`NoneType.vx`)
 - Wormhole jump effects (`JumpInWormhole`)
 - Skill-injected attribute recalculation on the fly
-- **Large systems not implemented**: FW Plex capture, Memory Mgmt (RefPtr→shared_ptr, ~400 files), PyRep leak fixes
-- **Planetary Interaction** — implemented (Colony/PlanetMgr/PlanetDB): CC deploy (90k ISK + customs office), storage/processor/extractor pins, links/routes, programs, launch/transfer. Needs end-to-end testing (buy CC → deploy on planet → build network → produce → launch).
+- **Large systems not implemented**: Memory Mgmt (RefPtr→shared_ptr, ~400 files), PyRep leak fixes
+- **FW Plex capture** — implemented (`b62e1310`): plexes spawn in FW systems, per-plex capture timers with ship-size restrictions, contested pause, NPC defenders, LP rewards, and system flip (occupierID) when a faction reaches the flip threshold.
+- **Planetary Interaction** — implemented (Colony/PlanetMgr/PlanetDB): CC deploy (90k ISK + customs office), storage/processor/extractor pins, links/routes, programs, launch/transfer. Needs end-to-end testing.
 
 ## Known open issues (2026-08-21)
 - Right-click on sleeper loot in ship cargo hold at station — client-side `menusvc._InvItemMenu`, needs decompile analysis
