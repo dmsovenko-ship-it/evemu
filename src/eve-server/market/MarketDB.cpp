@@ -54,12 +54,11 @@ PyRep *MarketDB::GetStationAsks(uint32 stationID) {
         return nullptr;
     }
 
-    // The client's marketQuote does asksForMyRange.get(typeID, None) and reads
-    // ask.price / ask.volRemaining / ask.stationID (attribute access). The only
-    // wire types that satisfy BOTH are a plain dict of util.KeyVal (or RowDict/
-    // CIndexedRowset — but those decode empty/broken in this Crucible client:
-    // util.IndexRowset has no .get(), CIndexedRowset decodes to 0 rows).
-    return DBResultToTypeKeyValDict(res, "typeID");
+    //NOTE: this SHOULD return a crazy dbutil.RowDict object which is
+    //made up of packed blue.DBRow objects, but we do not understand
+    //the marshalling of those well enough right now, and this object
+    //provides the same interface. It is significantly bigger on the wire though.
+    return DBResultToIndexRowset(res, "typeID");
 }
 
 PyRep *MarketDB::GetSystemAsks(uint32 solarSystemID) {
@@ -80,7 +79,7 @@ PyRep *MarketDB::GetSystemAsks(uint32 solarSystemID) {
     //made up of packed blue.DBRow objects, but we do not understand
     //the marshalling of those well enough right now, and this object
     //provides the same interface. It is significantly bigger on the wire though.
-    return DBResultToTypeKeyValDict(res, "typeID");
+    return DBResultToIndexRowset(res, "typeID");
 }
 
 PyRep *MarketDB::GetRegionBest(uint32 regionID) {
@@ -101,7 +100,7 @@ PyRep *MarketDB::GetRegionBest(uint32 regionID) {
     //made up of packed blue.DBRow objects, but we do not understand
     //the marshalling of those well enough right now, and this object
     //provides the same interface. It is significantly bigger on the wire though.
-    return DBResultToTypeKeyValDict(res, "typeID");
+    return DBResultToIndexRowset(res, "typeID");
 }
 
 PyRep *MarketDB::GetOrders( uint32 regionID, uint16 typeID )

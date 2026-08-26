@@ -395,28 +395,6 @@ PyDict *DBResultToPackedRowDict(DBQueryResult &result, uint32 key_index)
     return res;
 }
 
-PyDict *DBResultToTypeKeyValDict(DBQueryResult &result, const char *key)
-{
-    uint32 cc(result.ColumnCount());
-    uint32 key_index(0);
-
-    for (key_index = 0; key_index < cc; ++key_index)
-        if (strcmp(key, result.ColumnName(key_index)) == 0)
-            break;
-
-    if (key_index == cc) {
-        sLog.Error("EVEDBUtils", "DBResultToTypeKeyValDict | Failed to find key column '%s'", key);
-        return nullptr;
-    }
-
-    PyDict *res = new PyDict();
-    DBResultRow row;
-    while (result.GetRow(row)) {
-        res->SetItem(DBColumnToPyRep(row, key_index), DBRowToKeyVal(row));
-    }
-    return res;
-}
-
 /* Class structure
  * PyClass
  *   PyTuple:2
