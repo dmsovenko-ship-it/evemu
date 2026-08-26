@@ -731,7 +731,37 @@ uint32 ActiveModule::DoCycle() {
                 m_targetSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, scramStr);
             }
         } break;
-        case EVEDB::invGroups::ECM:
+        case EVEDB::invGroups::ECM: {
+            // Player ECM: compare the module's jam strength to the target's
+            // strongest sensor strength; on success break the target's lock on us.
+            if (m_targetSE != nullptr && m_targetSE->GetSelf().get() != nullptr) {
+                float jamStrength = m_modRef->HasAttribute(AttrScanStrengthBonus)
+                                  ? m_modRef->GetAttribute(AttrScanStrengthBonus).get_float() : 1.0f;
+                InventoryItemRef tRef = m_targetSE->GetSelf();
+                float sensor = 0.0f;
+                if (tRef->HasAttribute(AttrScanGravimetricStrength))
+                    sensor = std::max(sensor, tRef->GetAttribute(AttrScanGravimetricStrength).get_float());
+                if (tRef->HasAttribute(AttrScanLadarStrength))
+                    sensor = std::max(sensor, tRef->GetAttribute(AttrScanLadarStrength).get_float());
+                if (tRef->HasAttribute(AttrScanRadarStrength))
+                    sensor = std::max(sensor, tRef->GetAttribute(AttrScanRadarStrength).get_float());
+                if (tRef->HasAttribute(AttrScanMagnetometricStrength))
+                    sensor = std::max(sensor, tRef->GetAttribute(AttrScanMagnetometricStrength).get_float());
+                float jamChance = (sensor > 0) ? std::min(jamStrength / sensor, 0.95f) : 0.5f;
+                if (MakeRandomFloat() < jamChance) {
+                    ShipSE* shipSE = m_shipRef->GetPilot()->GetShipSE();
+                    if (m_targetSE->TargetMgr() != nullptr && shipSE != nullptr)
+                        m_targetSE->TargetMgr()->ClearTarget(shipSE);   // break the target's lock on us
+                    if (m_destinyMgr != nullptr)
+                        m_destinyMgr->SendSpecialEffect(m_shipRef->itemID(), m_modRef->itemID(), m_modRef->typeID(),
+                            m_targetSE->GetID(), 0, "effects.ElectronicAttributeModifyTarget",
+                            1, 1, 1, 5000, 0, 0);
+                    _log(MODULE__TRACE, "%s(%u): ECM jammed %s(%u) (str %.1f vs sensor %.1f) — lock broken.",
+                         m_shipRef->name(), m_shipRef->itemID(), m_targetSE->GetName(), m_targetSE->GetID(),
+                         jamStrength, sensor);
+                }
+            }
+        } break;
         case EVEDB::invGroups::ECCM:
         case EVEDB::invGroups::Cloaking_Device:
         case EVEDB::invGroups::Siege_Module:
