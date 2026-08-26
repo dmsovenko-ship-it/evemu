@@ -115,3 +115,20 @@ void FactionWarMgrDB::RemoveCharacter(uint32 charID)
         "UPDATE chrCharacters SET warFactionID = 0 WHERE characterID = %u", charID);
 }
 
+// Flip a FW system to a new occupier (captured by factionID).
+void FactionWarMgrDB::SetSystemOccupier(uint32 systemID, uint32 factionID)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+        "UPDATE facWarSystems SET occupierID = %u WHERE systemID = %u",
+        factionID, systemID))
+    {
+        codelog(FACWAR__DB_ERROR, "SetSystemOccupier(%u, %u) failed: %s",
+                systemID, factionID, err.GetError());
+    }
+    else
+    {
+        _log(FACWAR__DB_MESSAGE, "FW system %u flipped to faction %u.", systemID, factionID);
+    }
+}
+

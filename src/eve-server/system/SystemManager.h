@@ -253,6 +253,8 @@ private:
     // FW plex capture tracking: sigID -> (charID -> remaining seconds)
     std::map<std::string, std::map<int32, int32>> m_fwCapture;
     std::set<std::string> m_fwSpawned;  // plexes with spawned defenders
+    std::map<uint32, int32> m_fwFlipProgress;   // warFactionID -> capture points toward flipping this system
+    static const int32 FW_FLIP_THRESHOLD = 1000;   // flip points needed to take the system
 
     // for bounty processing (20m timer)
     Timer m_bountyTimer;

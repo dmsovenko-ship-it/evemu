@@ -2363,6 +2363,24 @@ void SystemManager::ProcessFWCapture()
                     LPService::AddLP(static_cast<uint32>(p.charID), militiaCorp, lpReward);
                     p.client->SendNotifyMsg("Plex captured! Awarded %d LP.", lpReward);
                 }
+                // System flip: capturing plexes pushes the system toward the capturer's
+                // faction. Accumulate flip points (larger plexes count more); when the
+                // threshold is crossed the system flips occupier to this faction.
+                int32 flipGain = (plexType == 3) ? 200 : (plexType == 2) ? 150 : (plexType == 1) ? 100 : 60;
+                int32& flipPts = m_fwFlipProgress[static_cast<uint32>(p.warFactionID)];
+                flipPts += flipGain;
+                _log(FACWAR__DB_MESSAGE, "FW: %s captured plex (type %u) — faction %u flip progress %d/%d.",
+                     p.client->GetName(), plexType, static_cast<uint32>(p.warFactionID), flipPts, FW_FLIP_THRESHOLD);
+                if (flipPts >= FW_FLIP_THRESHOLD) {
+                    FactionWarMgrDB fwdb;
+                    fwdb.SetSystemOccupier(m_data.systemID, static_cast<uint32>(p.warFactionID));
+                    m_fwFlipProgress.clear();
+                    // Notify everyone in the system the occupier changed.
+                    for (auto& [cid, c] : m_clients) {
+                        if (c != nullptr && c->IsInSpace())
+                            c->SendNotifyMsg("Your faction has taken control of this system!");
+                    }
+                }
                 m_anomMgr->RemoveFWAnomaly(sig.sigID);
                 m_anomMgr->ClearFWAnomalyType(sig.sigID);
                 m_fwCapture.erase(sig.sigID);
