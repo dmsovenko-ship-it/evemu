@@ -169,6 +169,10 @@ public:
     // the bot's blinking aggression icon (like any attacker's). victim = who the
     // bot attacked (may be a Client or another bot).
     void BroadcastAggression(uint32 victimCharID);
+    // Advanced hunter ambush: drop a warp bubble to trap the target, call the
+    // fleet, then engage. Called from NPCAI's Idle scan (player targets) and
+    // HuntForTarget (bot prey).
+    bool TryAmbush(SystemEntity* target);
 
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
@@ -176,7 +180,6 @@ protected:
     static int GetShipClass(uint16 groupID);         // combat-power tier by ship group
     static bool IsCombatHull(uint16 groupID);       // hull that can actually fight
     void AnalyzeCombatSituation();                  // re-target priority + disengage check (runs during fights)
-    bool TryAmbush(SystemEntity* target);           // advanced hunter: warp-bubble ambush + fleet call
     void DeployWarpBubble(const GPoint& pos);       // drop a Mobile Warp Disruptor bubble at pos
     void RecordPvpOutcome(bool won);    // win/loss + PvP judgement learning
 
