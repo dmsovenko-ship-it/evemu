@@ -574,16 +574,25 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
 
                 switch (iRef->groupID()) {
                     case EVEDB::invGroups::Sovereignty_Blockade_Units: {
-                        // Make sure SBU is deployed in the same bubble as a gate
-                        std::vector<uint16> gateBubbles;
-                        for (auto cur: pSystem->GetOperationalStatics()) {
-                            if (cur.second->IsGateSE())
-                            {
-                                gateBubbles.push_back(cur.second->SysBubble()->GetID());
+                        // Make sure SBU is deployed in the same bubble as a gate.
+                        // Gates are NOT in GetOperationalStatics() (m_opStaticEntities —
+                        // that only holds TCU/SBU/IHub/Outpost which override IsOperSE()).
+                        // Use GetGates() (m_gateMap) which holds the actual StargateSEs.
+                        SystemBubble* playerBubble = pClient->GetShipSE()->SysBubble();
+                        bool nearGate = false;
+                        if (playerBubble != nullptr) {
+                            uint32 playerBubbleID = playerBubble->GetID();
+                            for (auto cur : pSystem->GetGates()) {
+                                SystemEntity* gateSE = cur.second;
+                                if (gateSE->IsGateSE()
+                                    && gateSE->SysBubble() != nullptr
+                                    && gateSE->SysBubble()->GetID() == playerBubbleID) {
+                                    nearGate = true;
+                                    break;
+                                }
                             }
                         }
-                        if (!(std::find(gateBubbles.begin(), gateBubbles.end(),pClient->GetShipSE()->SysBubble()->GetID())!=gateBubbles.end()))
-                        {
+                        if (!nearGate) {
                             pClient->SendErrorMsg("Sovereignty blockade units must be deployed near a stargate.");
                             return nullptr;
                         }
