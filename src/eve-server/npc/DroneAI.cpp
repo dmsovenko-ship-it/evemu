@@ -15,6 +15,7 @@
 #include "system/DestinyManager.h"
 #include "npc/Drone.h"
 #include "npc/DroneAI.h"
+#include "npc/NPC.h"
 #include "inventory/ItemFactory.h"
 #include "inventory/Inventory.h"
 #include "ship/Ship.h"
