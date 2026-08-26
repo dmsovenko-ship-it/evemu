@@ -214,6 +214,50 @@ void DroneAIMgr::Process() {
                 if (pTarget != nullptr and pTarget->SysBubble() != nullptr)
                     Target(pTarget);
             }
+            // Drone/fighter behaviour settings (from the ship's drone window):
+            //   - Focus fire (атака одной цели): all drones hit the ship's target.
+            //   - Aggressive (агрессивный): drones auto-engage hostiles (rats) in range.
+            //   - Fighters attack-and-follow (атаковать и преследовать): fighters
+            //     pursue hostiles on their own.
+            if (m_pDrone->TargetMgr() != nullptr) {
+                bool focusFire = m_pDrone->GetSelf()->HasAttribute(AttrDroneFocusFire)
+                              && m_pDrone->GetSelf()->GetAttribute(AttrDroneFocusFire).get_int() > 0;
+                bool aggressive = m_pDrone->GetSelf()->HasAttribute(AttrDroneIsAgressive)
+                               && m_pDrone->GetSelf()->GetAttribute(AttrDroneIsAgressive).get_int() > 0;
+                bool attackFollow = m_pDrone->IsFighter()
+                                && m_pDrone->GetSelf()->HasAttribute(AttrFightersAttackAndFollow)
+                                && m_pDrone->GetSelf()->GetAttribute(AttrFightersAttackAndFollow).get_int() > 0;
+
+                if (focusFire or aggressive or attackFollow) {
+                    // Already fighting something — let the combat states handle it.
+                    if (m_pDrone->TargetMgr()->GetFirstTarget(false) != nullptr)
+                        break;
+
+                    // Focus fire: engage the ship's current target.
+                    if (focusFire and m_assignedShip != nullptr and m_assignedShip->TargetMgr() != nullptr) {
+                        SystemEntity* shipTarget = m_assignedShip->TargetMgr()->GetFirstTarget(true);
+                        if (shipTarget != nullptr and shipTarget->DestinyMgr() != nullptr) {
+                            _log(DRONE__AI_TRACE, "Drone %s(%u): focus fire on %s(%u).",
+                                 m_pDrone->GetName(), m_pDrone->GetID(),
+                                 shipTarget->GetName(), shipTarget->GetID());
+                            Target(shipTarget);
+                            break;
+                        }
+                    }
+
+                    // Aggressive / attack-and-follow: hunt a hostile NPC in range.
+                    if (aggressive or attackFollow) {
+                        SystemEntity* prey = FindAggroTarget();
+                        if (prey != nullptr) {
+                            _log(DRONE__AI_TRACE, "Drone %s(%u): aggressive engage %s(%u).",
+                                 m_pDrone->GetName(), m_pDrone->GetID(),
+                                 prey->GetName(), prey->GetID());
+                            Target(prey);
+                            break;
+                        }
+                    }
+                }
+            }
             // Delegate to Assisting state if assisting, or Idle otherwise
             if (m_pDrone->IsAssisting())
                 m_state = DroneAI::State::Assisting;
@@ -1622,6 +1666,32 @@ int8 DroneAIMgr::GetOwnerSkillLevel(uint16 skillID) const {
     if ((pOwner == nullptr) or (pOwner->GetChar().get() == nullptr))
         return 0;
     return pOwner->GetChar()->GetSkillLevel(skillID);
+}
+
+// Nearest hostile NPC (rat) within control range. Used by the drone's aggressive
+// and the fighter's attack-and-follow behaviour: the drone picks the closest rat
+// and engages on its own (like an EVE aggressive drone guarding a miner).
+SystemEntity* DroneAIMgr::FindAggroTarget() {
+    if (m_pDrone->SysBubble() == nullptr)
+        return nullptr;
+    std::map<uint32, SystemEntity*> entities;
+    m_pDrone->SysBubble()->GetAllEntities(entities);
+    double controlRange = GetControlRange();
+    SystemEntity* best = nullptr;
+    double bestDist = 1e18;
+    for (auto& [id, se] : entities) {
+        if (se == nullptr || se->GetSelf().get() == nullptr)
+            continue;
+        if (se->IsDroneSE() || se->IsStaticEntity())
+            continue;                                  // no drone-vs-drone / structures
+        if (!se->IsNPCSE() || se->GetNPCSE()->IsPlayerBot())
+            continue;                                  // rats only (not chelobots)
+        double d = m_pDrone->GetPosition().distance(se->GetPosition());
+        if (d < bestDist) { bestDist = d; best = se; }
+    }
+    if (best != nullptr && bestDist <= controlRange)
+        return best;
+    return nullptr;
 }
 
 ShipSE* DroneAIMgr::GetOwnerShip() {

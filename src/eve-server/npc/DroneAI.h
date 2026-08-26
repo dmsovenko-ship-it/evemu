@@ -65,6 +65,7 @@ public:
     void Process();
 
     void Target(SystemEntity *by_who);
+    SystemEntity* FindAggroTarget();   // nearest hostile NPC rat in control range (for aggressive mode)
     void Targeted(SystemEntity *by_who);
     void TargetLost(SystemEntity *by_who);
 
