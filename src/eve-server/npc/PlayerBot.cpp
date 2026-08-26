@@ -1349,6 +1349,9 @@ void PlayerBot::HuntForTarget()
             UpdateBotStandings(enemyBot, false);
             StartAggressionTimer();   // attacking = flagged, can't leave for a bit
             BroadcastAggression(enemyBot->GetBotCharID());   // show the flashing icon
+            // Advanced hunter with a fleet: try to set up a warp-bubble ambush
+            // first (drop a bubble to trap the prey, then the fleet warps in).
+            TryAmbush(prey);
             // Drone hulls launch their drones when engaging.
             if (GetDroneCapacity() > 0 && m_drones.empty())
                 SpawnDrones(0);
@@ -1663,4 +1666,91 @@ void PlayerBot::AnalyzeCombatSituation()
         if (fleeFrom != nullptr)
             GetAIMgr()->Flee(fleeFrom);
     }
+}
+
+// Drop a Mobile Warp Disruptor bubble at pos. Uses the same DeployableSE
+// machinery as a player anchoring an MWD: the deployable is online immediately,
+// sets the bubble's warp-disruption flag, and its ScrambleCheck (DeployableSE::
+// Process) applies AttrWarpScrambleStatus to any ship inside the bubble, so the
+// trapped target can't warp out.
+void PlayerBot::DeployWarpBubble(const GPoint& pos)
+{
+    if (SystemMgr() == nullptr || m_destiny == nullptr)
+        return;
+    if (pos.isZero() || pos.isNaN() || pos.isInf())
+        return;
+
+    // Mobile Medium Warp Disruptor I (12199) — 11.5km bubble, good ambush size.
+    const uint32 mwdTypeID = 12199;
+    ItemData idata(mwdTypeID, m_botCharID, SystemMgr()->GetID(), flagNone, "Warp Bubble", pos);
+    InventoryItemRef ref = sItemFactory.SpawnItem(idata);
+    if (ref.get() == nullptr)
+        return;
+    ref->ChangeSingleton(true);
+    ref->SetPosition(pos);
+
+    FactionData data = FactionData();
+    data.corporationID = m_botCorpID;
+    data.ownerID = m_botCharID;
+    data.allianceID = m_botAllianceID;
+    DeployableSE* dSE = new DeployableSE(ref, SystemMgr()->GetServiceMgr(), SystemMgr(), data);
+    if (dSE == nullptr) { ref->Delete(); return; }
+    dSE->SetPosition(pos);
+    SystemMgr()->AddEntity(dSE);
+    dSE->SetImmediateOnline();   // anchored + online instantly; sets bubble warp flag, starts scramble timer
+
+    // Visible WarpDisruptFieldGenerating effect to everyone in the bubble (the
+    // Process timer path would send it on the next tick, but players should SEE
+    // the bubble right away).
+    if (dSE->DestinyMgr() != nullptr && dSE->SysBubble() != nullptr) {
+        OnSpecialFX14 fx;
+            fx.entityID = ref->itemID();
+            fx.moduleID = ref->itemID();
+            fx.moduleTypeID = mwdTypeID;
+            fx.targetID = PyStatic.NewNone();
+            fx.chargeTypeID = PyStatic.NewNone();
+            fx.area = new PyList();
+            fx.guid = "effects.WarpDisruptFieldGenerating";
+            fx.isOffensive = 0;
+            fx.start = 1;
+            fx.active = 1;
+            fx.duration = -1;
+            fx.repeat = 0;
+            fx.startTime = GetFileTimeNow();
+            PyDict* gd = new PyDict();
+            gd->SetItemString("range", new PyFloat(11500.0f));
+            fx.graphicInfo = new PyObject("util.KeyVal", gd);
+        PyTuple* payload = fx.Encode();
+        dSE->DestinyMgr()->SendSingleDestinyUpdate(&payload);
+    }
+    _log(BOT__TRACE, "PlayerBot %s(%u): deployed warp bubble at (%.0f,%.0f,%.0f).",
+         m_botName.c_str(), m_botCharID, pos.x, pos.y, pos.z);
+}
+
+// Advanced hunters set up warp-bubble ambushes: drop a bubble near the target
+// (traps it so it can't warp), call the fleet, then engage. Only experienced
+// pilots (skill tier >= 3) with allies nearby pull this off, and not every time.
+bool PlayerBot::TryAmbush(SystemEntity* target)
+{
+    if (target == nullptr || target->GetSelf().get() == nullptr || m_destiny == nullptr)
+        return false;
+    if (m_botSkill < 3)                 // ambushes are for experienced pilots
+        return false;
+    if (CountAlliesNearby() < 1)        // a solo bubble is just a target's gift
+        return false;
+    if (target->GetPosition().distance(GetPosition()) > 60000)
+        return false;                   // don't chase across the system to drop a bubble
+    if (MakeRandomInt(0, 99) >= 20)     // sometimes it just attacks, no bubble
+        return false;
+
+    // If the target is already inside a warp bubble, no need for another.
+    if (target->SysBubble() != nullptr && target->SysBubble()->HasWarpBubble())
+        return false;
+
+    DeployWarpBubble(target->GetPosition());
+    CallFleetSupport(target);           // the ambush fleet warps in
+    StartAggressionTimer();
+    _log(BOT__TRACE, "PlayerBot %s(%u): warp-bubble ambush on %s(%u).",
+         m_botName.c_str(), m_botCharID, target->GetName(), target->GetID());
+    return true;
 }

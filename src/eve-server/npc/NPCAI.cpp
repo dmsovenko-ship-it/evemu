@@ -533,6 +533,9 @@ void NPCAIMgr::Process() {
                         }
                         pbot->StartAggressionTimer();
                         pbot->BroadcastAggression(cur->GetCharacterID());
+                        // Advanced hunter with allies: try a warp-bubble ambush on
+                        // the player before engaging (trap them so they can't warp).
+                        pbot->TryAmbush(cur->GetShipSE());
                     }
 
                     Target(cur->GetShipSE());

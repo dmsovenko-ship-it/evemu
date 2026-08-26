@@ -176,6 +176,8 @@ protected:
     static int GetShipClass(uint16 groupID);         // combat-power tier by ship group
     static bool IsCombatHull(uint16 groupID);       // hull that can actually fight
     void AnalyzeCombatSituation();                  // re-target priority + disengage check (runs during fights)
+    bool TryAmbush(SystemEntity* target);           // advanced hunter: warp-bubble ambush + fleet call
+    void DeployWarpBubble(const GPoint& pos);       // drop a Mobile Warp Disruptor bubble at pos
     void RecordPvpOutcome(bool won);    // win/loss + PvP judgement learning
 
     uint32 m_botCharID;
