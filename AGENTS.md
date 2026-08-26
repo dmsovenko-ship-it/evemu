@@ -1,7 +1,7 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам). Коммиты в origin/master: `abdeb8fe`...`dda2b6de` (см. секции ниже).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено (юзер собирает сам). Коммиты в origin/master: `abdeb8fe`...`bf6b62d9` (см. секции ниже).
 
 ## 25 августа (ночь): тубы файтеров (20), агрессия PvP/бот↔игрок, логи приглушены (сервер вис от вывода), боты уходят без застревания
 **Коммиты: `df0a1207`+`57940a22` (тубы файтеров), `dcaea8a8` (агрессия), `f5c95912` (логи — только ERROR), `dda2b6de` (NPC/боты не возвращаются в бабл при варпе). Сборка юзером ОБЯЗАТЕЛЬНА на `dda2b6de` (последний).**
@@ -29,6 +29,7 @@ Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password
 - **КОРЕНЬ (найден по warning компилятора)**: поля `StationOrderLimit`/`SystemOrderLimit`/`RegionOrderLimit` (и `FindBuyOrder`/`FindSellOrder`/`OldPriceLimit`/`NewPriceLimit`) в `EVEServerConfig::market` объявлены **`uint8`** (unsigned char). Присваивание `20000` в uint8 **оборачивается в 32** (20000 % 256 = 32). Поэтому каждый аск-запрос выполнялся с `LIMIT 32` — `GetStationAsks(60001795)` возвращал dict из 32 типов вместо ~10390. Клиент показывал «нет в наличии» для всех типов вне этих 32. Компилятор предупреждал: *'unsigned conversion from int to uint8 changes value from 20000 to 32'*.
 - **Фикс `1547a65a`**: расширены все order-limit поля до `uint32` (str2<uint32> и LIMIT %u работают). Бонус: `OldPriceLimit`/`NewPriceLimit` (1000 → 232) тоже были сломаны — исправлены.
 - История: `8040631b` (лимит 10→20000, НЕ помог — uint8 оборачивал), `70646181` (CIndexedRowset, клиент декодировал в 0 строк), `9b956859` (dict util.KeyVal), `f5e22ece` (дамп). Формат dict оказался правильным — проблема была только в uint8-лимите.
+- **⚠️ Мои формат-эксперименты ОТКАЧЕНЫ `bf6b62d9`** (по запросу юзера «откати агента»): MarketDB.cpp снова `DBResultToIndexRowset`, хелпер `DBResultToTypeKeyValDict` удалён из EVEDBUtils, MARKET__TRACE/дампы убраны из MarketMgr. Настоящий фикс — только `1547a65a` (uint8→uint32).
 - **Юзер подтвердил**: «Цены вижу». Маркет-логи (MARKET__TRACE/DUMP/DB_TRACE, CACHE__DEBUG/INFO/TRACE/DUMP) отключены в log.ini.
 - **ВАЖНО**: тип колонки `price` = DBTYPE_R8 (5) — корректен. Ключи dict = typeID (UI2/18) — корректны.
 
