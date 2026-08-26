@@ -61,7 +61,7 @@
 - SceneManager crash hardening (`NoneType.vx`)
 - Wormhole jump effects (`JumpInWormhole`)
 - Skill-injected attribute recalculation on the fly
-- **Large systems not implemented**: FW Plex capture, ship clone bay (AcceptShipInstallation stub), jump drive details, Planetary Interaction (stubs), Memory Mgmt (RefPtr→shared_ptr, ~400 files), PyRep leak fixes
+- **Large systems not implemented**: FW Plex capture, ship clone bay (AcceptShipInstallation stub), Planetary Interaction (stubs), Memory Mgmt (RefPtr→shared_ptr, ~400 files), PyRep leak fixes
 
 ## Known open issues (2026-08-21)
 - Right-click on sleeper loot in ship cargo hold at station — client-side `menusvc._InvItemMenu`, needs decompile analysis
