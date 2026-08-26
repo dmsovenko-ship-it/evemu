@@ -3095,10 +3095,23 @@ void ShipSE::ScoopDrone(SystemEntity* pSE) {
     if (pDrone == nullptr) return;
 
     m_drones.erase(pSE->GetID());
+    // Drop the target before Offline(): SetIdle() has a "reload & re-engage last
+    // target" path that would otherwise make a scooped fighter/bomber keep flying
+    // to the old target (and keep broadcasting from a drone that is in the bay).
+    if (pDrone->TargetMgr() != nullptr)
+        pDrone->TargetMgr()->ClearAllTargets();
     // Null the controller so the client's OnDroneStateChange prunes this drone from its
     // stateByDroneID — otherwise a scooped drone lingers as a phantom "distant space" entry.
     pDrone->ClearController();
     pDrone->Offline();
+    // Immediately remove the drone's ball from its bubble (sends RemoveBall to
+    // everyone in the bubble). The DroneSE wrapper is deliberately kept alive and
+    // deleted a few ticks later by DroneSE::Process (pendingRemoval) so the AI
+    // Process stack can unwind — but the BALL must go now, otherwise it lingers
+    // at the gate and stays visible if the owner warps away before the deferred
+    // cleanup runs ("scooped fighters still visible across the system").
+    if (pDrone->SysBubble() != nullptr)
+        pDrone->SysBubble()->Remove(pDrone);
 
     // Move the drone item back to the ship's drone bay.
     // BUGFIX: was GetLocationID() (the solar system when in space) so the item ended up
