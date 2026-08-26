@@ -155,6 +155,18 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
                    && m_role == BotRole::Fighter
                    && myClass <= 2 && MakeRandomInt(0, 99) < 25);
 
+    // A non-combat hull (industrial, mining barge, freighter, hauler...) has no
+    // real guns — a real pilot in one never fights back, it warps out. Keeps a
+    // courier's Badger from "defending" against a supercarrier.
+    if (!IsCombatHull(m_self->groupID())) {
+        _log(BOT__TRACE, "PlayerBot %s(%u): non-combat hull — fleeing instead of fighting back.",
+             m_botName.c_str(), m_botCharID);
+        RecallDrones();
+        GetAIMgr()->StartAttackCycle(0);
+        GetAIMgr()->Flee(attacker);
+        return;
+    }
+
     // Any bot defends itself when attacked (self-defence is legal and natural) —
     // a miner on a Retriever has no guns so it just flees, but a peaceful pilot on
     // a combat hull fights back. What they never do is initiate the fight: only
@@ -221,6 +233,10 @@ void PlayerBot::CallFleetSupport(SystemEntity* attacker)
             continue;
         if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
             continue;   // not same corp / alliance — not an ally
+        // Don't call a hauler/barge/freighter into a fight — non-combat hulls
+        // can't contribute and would just die (or sit there looking silly).
+        if (!IsCombatHull(ally->GetSelf()->groupID()))
+            continue;
         // Only rally if the ally isn't already busy fighting or fleeing.
         if (ally->GetAIMgr()->IsFighting())
             continue;
@@ -292,6 +308,27 @@ int PlayerBot::GetShipClass(uint16 groupID)
             return 6;
         default:
             return 2;   // unknown / industrial-ish — treat as cruiser-ish
+    }
+}
+
+// A hull that can actually fight. Industrials, mining barges/exhumers,
+// freighters, shuttles etc. carry no real weapons — a pilot in one never fights
+// back, it warps out. Used to keep haulers/barges out of combat entirely.
+bool PlayerBot::IsCombatHull(uint16 groupID)
+{
+    using namespace EVEDB::invGroups;
+    switch (groupID) {
+        case Frigate: case AssaultShip: case Interceptor:
+        case CovertOps: case Interdictor: case StealthBomber:
+        case Destroyer:
+        case Cruiser: case HeavyAssaultShip: case CombatRecon:
+        case Logistics:
+        case Battlecruiser: case CommandShip: case StrategicCruiser:
+        case Battleship: case BlackOps: case Marauder:
+        case Supercarrier: case Titan: case Carrier:
+            return true;
+        default:
+            return false;   // industrial, mining barge, exhumers, freighter, shuttle...
     }
 }
 
@@ -538,13 +575,15 @@ bool PlayerBot::ShouldEngage(int myPower, int theirPower, bool defending)
 
     bool wouldWin = (myPower - theirPower) >= margin;
 
-    // Novices make mistakes: even when they "should" win they sometimes misjudge
-    // and flee; even when they should lose they sometimes overcommit. Veterans
-    // (skill ~1) are reliable.
+    // Novices misjudge. A misread may make a novice PANIC and flee a winnable
+    // fight — but never the reverse: a pilot that judged the fight as lost does
+    // not suddenly attack. This keeps a hauler/frigate from suicide-charging a
+    // supercarrier just because it's a bad judge of strength.
     float mistakeChance = 0.30f * (1.0f - skill);
     if (mistakeChance > 0.0f && MakeRandomFloat() < mistakeChance) {
         if (m_memory) m_memory->RecordPvpMistake();
-        wouldWin = !wouldWin;   // a misread — acts on the wrong call
+        if (wouldWin)
+            wouldWin = false;
     }
     return wouldWin;
 }
@@ -576,11 +615,13 @@ bool PlayerBot::HunterWouldEngage(SystemEntity* target)
     int margin = 3 + (int)std::lround(aggro * 4.0f) - (int)std::lround(learned * 2.0f);
 
     bool wouldWin = (myPower - theirPower) >= margin;
-    // Novices misjudge (a chance to still commit or to chicken out).
+    // Novices misjudge: they may chicken out of a winnable fight, but they never
+    // misjudge INTO an attack on a stronger opponent (self-preservation wins).
     float mistakeChance = 0.30f * (1.0f - skill);
     if (mistakeChance > 0.0f && MakeRandomFloat() < mistakeChance) {
         if (m_memory) m_memory->RecordPvpMistake();
-        wouldWin = !wouldWin;
+        if (wouldWin)
+            wouldWin = false;
     }
     return wouldWin;
 }

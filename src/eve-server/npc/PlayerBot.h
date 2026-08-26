@@ -174,6 +174,7 @@ protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
     void CallFleetSupport(SystemEntity* attacker);   // same corp/alliance bots join the fight
     static int GetShipClass(uint16 groupID);         // combat-power tier by ship group
+    static bool IsCombatHull(uint16 groupID);       // hull that can actually fight
     void RecordPvpOutcome(bool won);    // win/loss + PvP judgement learning
 
     uint32 m_botCharID;
