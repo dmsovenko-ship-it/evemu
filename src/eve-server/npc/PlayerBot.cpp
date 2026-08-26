@@ -1582,4 +1582,85 @@ void PlayerBot::UseCombatAbilities()
     }
     // Support role: EWAR modules (web/scram/ECM/paint) are fired by NPCAI's
     // AttackTarget() already; Fighter: pure DPS via NPCAI. Nothing extra here.
+    // — but before the turn ends, read the battlefield and re-aim if needed.
+    AnalyzeCombatSituation();
+}
+
+void PlayerBot::AnalyzeCombatSituation()
+{
+    // Called every ~5s while fighting. Reads the fight and does two things a
+    // real pilot does: focus fire on the most valuable enemy (logi/commander/
+    // EWAR die first) and disengage when the fight is clearly lost.
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return;
+    if (m_killed)
+        return;
+    if (!GetAIMgr()->IsFighting())
+        return;
+
+    // 1) Re-target toward the priority enemy. Support ships in particular want
+    //    the enemy commander/logi locked so their EWAR (web/scram/ECM/paint)
+    //    lands on the ship that matters most, not whoever locked them first.
+    if (m_role == BotRole::Support || m_role == BotRole::Commander) {
+        SystemEntity* prio = PickPriorityTarget(nullptr);
+        if (prio != nullptr && prio->DestinyMgr() != nullptr) {
+            SystemEntity* cur = m_targMgr != nullptr ? m_targMgr->GetFirstTarget() : nullptr;
+            if (cur != prio) {
+                _log(BOT__TRACE, "PlayerBot %s(%u): re-targeting %s(%u) — priority.",
+                     m_botName.c_str(), m_botCharID, prio->GetName(), prio->GetID());
+                GetAIMgr()->Target(prio);
+            }
+        }
+    }
+
+    // 2) Disengage check — don't throw the ship away.
+    //    a) own hull critically low (< ~35% pooled shield+armor+structure);
+    //    b) badly outnumbered (enemies - allies >= 3) while already hurt.
+    InventoryItemRef self = GetSelf();
+    float shieldCap = self->GetAttribute(AttrShieldCapacity).get_float();
+    float shieldCur = self->GetAttribute(AttrShieldCharge).get_float();
+    float armorHP   = self->GetAttribute(AttrArmorHP).get_float();
+    float armorDmg  = self->GetAttribute(AttrArmorDamage).get_float();
+    float hullHP    = self->GetAttribute(AttrHP).get_float();
+    float hullDmg   = self->GetAttribute(AttrDamage).get_float();
+    float maxHP = shieldCap + armorHP + hullHP;
+    float curHP = shieldCur + (armorHP - armorDmg) + (hullHP - hullDmg);
+    float hpPct = maxHP > 0.0f ? (curHP / maxHP) : 1.0f;
+
+    int allies = 0, enemies = 0;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (other == nullptr || other == this)
+            continue;
+        if (other->GetBotCorpID() == m_botCorpID || other->GetBotAllianceID() == m_botAllianceID)
+            ++allies;
+        else if (other->GetAIMgr()->IsFighting())
+            ++enemies;
+    }
+
+    bool outnumbered = (enemies - allies) >= 3 && hpPct < 0.55f;
+    if (hpPct < 0.35f || outnumbered) {
+        _log(BOT__TRACE, "PlayerBot %s(%u): disengaging (hp=%.0f%%, enemies=%d, allies=%d).",
+             m_botName.c_str(), m_botCharID, hpPct * 100.0f, enemies, allies);
+        RecallDrones();
+        GetAIMgr()->StartAttackCycle(0);
+        // Flee needs a tracked threat; use the current target, else any fighting enemy.
+        SystemEntity* fleeFrom = m_targMgr != nullptr ? m_targMgr->GetFirstTarget() : nullptr;
+        if (fleeFrom == nullptr) {
+            for (auto& [id, se] : SystemMgr()->GetEntities()) {
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                if (other == nullptr || other == this)
+                    continue;
+                if (other->GetBotCorpID() == m_botCorpID || other->GetBotAllianceID() == m_botAllianceID)
+                    continue;
+                if (other->GetAIMgr()->IsFighting()) { fleeFrom = se; break; }
+            }
+        }
+        if (fleeFrom != nullptr)
+            GetAIMgr()->Flee(fleeFrom);
+    }
 }

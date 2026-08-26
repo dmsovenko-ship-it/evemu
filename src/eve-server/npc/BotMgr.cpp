@@ -730,6 +730,39 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         _log(BOT__TRACE, "BotMgr: %s(%u) role = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetRole());
     }
 
+    // EWAR fit per combat role — NPCAI reads these attributes and applies
+    // web/scram/ECM/paint automatically in AttackTarget. Support ships are the
+    // electronic-warfare specialists (jam + paint + web + scram); every fighter
+    // carries a light scram so the fleet can hold targets (tackle).
+    {
+        uint8 role = (uint8)bot->GetRole();
+        if (role == (uint8)PlayerBot::BotRole::Support) {
+            if (!iRef->HasAttribute(AttrWarpScrambleRange))          iRef->SetAttribute(AttrWarpScrambleRange,         18000.0f, false);
+            if (!iRef->HasAttribute(AttrWarpScrambleStrength))       iRef->SetAttribute(AttrWarpScrambleStrength,      2.0f,     false);
+            if (!iRef->HasAttribute(AttrEntityWarpScrambleChance))   iRef->SetAttribute(AttrEntityWarpScrambleChance,  0.55f,    false);   // ~45% chance
+            if (!iRef->HasAttribute(AttrModifyTargetSpeedRange))     iRef->SetAttribute(AttrModifyTargetSpeedRange,    22000.0f, false);   // stasis web
+            if (!iRef->HasAttribute(AttrEntityTargetJamMaxRange))    iRef->SetAttribute(AttrEntityTargetJamMaxRange,   22000.0f, false);   // ECM
+            if (!iRef->HasAttribute(AttrEntityTargetJam))            iRef->SetAttribute(AttrEntityTargetJam,           3.0f,     false);
+            if (!iRef->HasAttribute(AttrEntityTargetJamDurationChance)) iRef->SetAttribute(AttrEntityTargetJamDurationChance, 0.5f, false);
+            if (!iRef->HasAttribute(AttrEntityTargetJamDuration))    iRef->SetAttribute(AttrEntityTargetJamDuration,   10000.0f, false);
+            if (!iRef->HasAttribute(AttrEntityTargetPaintMaxRange))  iRef->SetAttribute(AttrEntityTargetPaintMaxRange, 25000.0f, false);   // target painter
+            if (!iRef->HasAttribute(AttrEntityTargetPaintMultiplier)) iRef->SetAttribute(AttrEntityTargetPaintMultiplier, 0.25f, false);
+            if (!iRef->HasAttribute(AttrEntityTargetPaintDurationChance)) iRef->SetAttribute(AttrEntityTargetPaintDurationChance, 0.6f, false);
+            if (!iRef->HasAttribute(AttrEntityTargetPaintDuration))  iRef->SetAttribute(AttrEntityTargetPaintDuration, 10000.0f, false);
+            _log(BOT__TRACE, "BotMgr: %s(%u) fitted full EWAR (web/scram/ECM/paint).",
+                 bot->GetBotName().c_str(), bot->GetBotCharID());
+        } else if (role == (uint8)PlayerBot::BotRole::Fighter) {
+            if (!iRef->HasAttribute(AttrWarpScrambleRange))          iRef->SetAttribute(AttrWarpScrambleRange,         12000.0f, false);   // tackle scram
+            if (!iRef->HasAttribute(AttrWarpScrambleStrength))       iRef->SetAttribute(AttrWarpScrambleStrength,      1.0f,     false);
+            if (!iRef->HasAttribute(AttrEntityWarpScrambleChance))   iRef->SetAttribute(AttrEntityWarpScrambleChance,  0.75f,    false);   // ~25% chance
+            // Light target painter — bigger sig = the fleet's guns/missiles hit harder.
+            if (!iRef->HasAttribute(AttrEntityTargetPaintMaxRange))      iRef->SetAttribute(AttrEntityTargetPaintMaxRange,     20000.0f, false);
+            if (!iRef->HasAttribute(AttrEntityTargetPaintMultiplier))    iRef->SetAttribute(AttrEntityTargetPaintMultiplier,   0.15f,    false);
+            if (!iRef->HasAttribute(AttrEntityTargetPaintDurationChance)) iRef->SetAttribute(AttrEntityTargetPaintDurationChance, 0.5f,   false);
+            if (!iRef->HasAttribute(AttrEntityTargetPaintDuration))      iRef->SetAttribute(AttrEntityTargetPaintDuration,     10000.0f, false);
+        }
+    }
+
     // Assign a combat style: most fight balanced (orbit at weapon range), some
     // kite (keep distance, chip away), some brawl (close in and scrap).
     {
