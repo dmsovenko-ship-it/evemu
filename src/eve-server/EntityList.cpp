@@ -1107,8 +1107,6 @@ void EntityList::Multicast(const char* notifyType, const char* idType, PyTuple**
 
     // this will need list of interested parties from corp.  update this call to use CorpNotify() where possible.
     if (!mcset.corporations.empty()) {
-        sLog.Error("EntityList::Multicast 2", "Corporation MulticastTarget called.");
-        EvE::traceStack();
         for (auto cur : mcset.corporations) {
             std::map<uint32, corpRole>::const_iterator cItr = m_corpMembers.find(cur);
             if (cItr == m_corpMembers.end())
