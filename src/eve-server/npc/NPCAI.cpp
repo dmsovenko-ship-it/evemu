@@ -166,7 +166,15 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     // targeting range grows with ship class + skills; NPCs must never target farther
     // than that. Class tiers based on hull radius (frigate<cruiser<bs<capital).
     float radius = m_self->GetAttribute(AttrRadius).get_float();
-    if (radius < 30) {
+    // Real player hulls (chelobots fly actual ships like Megathron) carry
+    // AttrMaxTargetRange (Megathron 72500m, Raven 75000m). They must target like
+    // a real pilot: base range boosted by Long Range Targeting (5%/level, V =
+    // x1.25) — NOT the inflated radius-based sight range above.
+    if (m_self->HasAttribute(AttrMaxTargetRange)
+    && m_self->GetAttribute(AttrMaxTargetRange).get_float() > 0) {
+        float baseTargetRange = m_self->GetAttribute(AttrMaxTargetRange).get_float();
+        m_sightRange = (uint32)(baseTargetRange * 1.25f);   // Long Range Targeting V
+    } else if (radius < 30) {
         m_sightRange = 50000;       // frigate
     } else if (radius < 60) {
         m_sightRange = 75000;       // destroyer/cruiser
@@ -927,7 +935,13 @@ void NPCAIMgr::CheckDistance(SystemEntity* pSE)
     if (pSE == nullptr)
         return;
     double dist = m_npc->GetPosition().distance(pSE->GetPosition());
-    if ((dist > m_sightRange) and (!m_npc->TargetMgr()->IsTargetedBy(pSE))) {
+    // A chelobot is a real pilot: it loses lock the moment the target leaves its
+    // targeting range, exactly like a player. A regular NPC keeps hunting an
+    // aggressor that locked it first (IsTargetedBy), but also drops it beyond
+    // its (much larger, radius-based) sight range.
+    bool beyondRange = dist > m_sightRange;
+    bool playerLike = m_npc->IsPlayerBot();
+    if (beyondRange and (playerLike or !m_npc->TargetMgr()->IsTargetedBy(pSE))) {
         _log(NPC__AI_TRACE, "%s(%u): CheckDistance: %s(%u) is too far away (%.0fm).  Return to Idle.", \
              m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID(), dist);
         if (m_state != NPCAI::State::Idle) {
@@ -938,7 +952,6 @@ void NPCAIMgr::CheckDistance(SystemEntity* pSE)
         }
         return;
     }
-
     m_isWandering = false;
 
     if (dist < m_flyRange) {
