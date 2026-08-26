@@ -251,7 +251,7 @@ uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
     return corps[corps.size()-1].first;
 }
 
-void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID)
+void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate /*false*/)
 {
     // Pull a legend (name, corp, alliance, ship, fit) from real EVE killmail data.
     // This is the "believable backstory" — a real pilot who actually flew this
@@ -539,6 +539,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // it warped in beside the gate.
     GPoint pos;
     bool posSet = false;
+    uint32 arriveGateID = 0;   // the gate this bot "came through" — for the jump-in animation
     for (auto& [id, se] : pSystem->GetStaticEntities()) {
         if (se != nullptr && se->GetGateSE() != nullptr) {
             GPoint gatePos = se->GetPosition();
@@ -550,6 +551,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                           0.0);
             pos = gatePos + offset;
             posSet = true;
+            arriveGateID = id;
             break;
         }
     }
@@ -703,6 +705,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     bot->GetAIMgr()->SetAmbush(false);   // bots are not ambushing rats
     bot->DestinyMgr()->SetPosition(pos);
     pSystem->AddNPC(bot);
+
+    // Arrival animation: the bot "jumped through" the gate it spawned beside, so
+    // play the gate flash to everyone in the bubble — otherwise a chelobot just
+    // materialises out of nowhere (a tell that it's not a real pilot).
+    if (arrivedViaGate && arriveGateID != 0 && bot->DestinyMgr() != nullptr) {
+        bot->DestinyMgr()->SendGateActivity(arriveGateID);
+        _log(BOT__TRACE, "BotMgr: %s(%u) gate-arrival animation at gate %u.",
+             bot->GetBotName().c_str(), bot->GetBotCharID(), arriveGateID);
+    }
 
     // Assign a combat role: mostly fighters, a few logistics/support/commanders
     // so fights use the full arsenal (EWAR, remote reps, gang bonuses).
@@ -903,7 +914,7 @@ void BotMgr::ProcessTravel()
             // Spawn in the destination system (arrives through its gate).
             SystemManager* dest = sEntityList.FindOrBootSystem(destSystem);
             if (dest != nullptr)
-                SpawnBot(dest, charID, name, corp, ally);
+                SpawnBot(dest, charID, name, corp, ally, true);   // arrived via gate → jump-in animation
         }
     }
 }

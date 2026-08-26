@@ -187,6 +187,7 @@ protected:
     BotProfession m_profession;         // livelihood (hunter/miner/trader/courier/hacker)
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     Timer m_decisionTimer;
+    uint32 m_decisionCount;             // number of decisions made — first one fires fast after spawn
     Timer m_travelTimer;                // counts down the visible warp to the gate
     bool m_wantsTravel;                 // true when the bot wants to leave via gate
     bool m_traveling;                   // true while the bot visibly warps to the gate

@@ -62,7 +62,7 @@ public:
     bool IsTradeHub(uint32 systemID) const;
 
 private:
-    void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID);
+    void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
     // Download the bot's ESI portrait into the image cache on spawn, so the client
     // sees a face immediately (no cron lag). Runs curl in a forked child so the
     // game loop isn't blocked. Path: <imageDir>/Character/<serverCharID>_512.jpg.

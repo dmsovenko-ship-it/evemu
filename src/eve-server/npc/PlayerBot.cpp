@@ -37,6 +37,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_profession(BotProfession::Miner),
   m_memory(std::make_unique<BotMemory>(charID)),
   m_decisionTimer(0),
+  m_decisionCount(0),
   m_travelTimer(0),
   m_wantsTravel(false),
   m_traveling(false),
@@ -408,8 +409,23 @@ void PlayerBot::Process()
     if (m_decisionTimer.Check(false)) {
         DecideNextAction();
     }
-    if (!m_decisionTimer.Enabled())
-        m_decisionTimer.Start(15000);   // re-evaluate every ~15s
+    if (!m_decisionTimer.Enabled()) {
+        // Decision cadence depends on system security. In lowsec/nullsec a pilot
+        // reacts fast — sitting idle at a gate is how you get ganked — so the bot
+        // makes up its mind within a few seconds. In highsec it can be leisurely.
+        // A freshly spawned bot decides almost immediately instead of standing at
+        // the gate for the old flat 15s before its first move.
+        float sec = SystemMgr() != nullptr ? SystemMgr()->GetSystemSecurityRating() : 1.0f;
+        uint32 delayMs;
+        if (m_decisionCount == 0)
+            delayMs = MakeRandomInt(2, 5) * 1000;           // first action right after arrival
+        else if (sec < 0.45f)
+            delayMs = MakeRandomInt(4, 9) * 1000;           // lowsec / nullsec — act quickly
+        else
+            delayMs = MakeRandomInt(12, 25) * 1000;         // highsec — no hurry
+        ++m_decisionCount;
+        m_decisionTimer.Start(delayMs);
+    }
 }
 
 void PlayerBot::Killed(Damage& damage)
