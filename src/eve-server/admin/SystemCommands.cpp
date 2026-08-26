@@ -67,6 +67,16 @@ static PyResult UpdateBubble(Client *pClient) {
         return new PyString("SessionChange Active.  Request Denied.");
     }
 
+    // Same-system translocate: MoveToLocation->SetDestiny only moved the position —
+    // the ship stays in its OLD bubble's player list (AddEntity early-returns for an
+    // entity already in the system). The client then keeps receiving the old grid's
+    // updates: the gate grid (and charbots warping there) stayed visible from across
+    // the system. Drop the ship from the stale bubble and re-bubble at the new spot
+    // before SendSetState reloads the grid.
+    SystemBubble* curBubble = pClient->GetShipSE()->SysBubble();
+    if (curBubble != nullptr && !curBubble->InBubble(pClient->GetShipSE()->GetPosition()))
+        sBubbleMgr.Remove(pClient->GetShipSE());
+
     pClient->GetShipSE()->DestinyMgr()->SetPosition(pClient->GetShipSE()->GetPosition(), true);
 
     SystemBubble *pBubble = pClient->GetShipSE()->SysBubble();
