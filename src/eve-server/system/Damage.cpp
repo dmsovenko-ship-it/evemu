@@ -431,6 +431,24 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 tuple->SetItem(1, new PyString(Dmg::Msg::Taken[damageID]));
                 tuple->SetItem(2, dict);
             GetPilot()->QueueDestinyEvent(&tuple);
+        } else if (IsDroneSE() && GetDroneSE()->GetOwner() != nullptr) {
+            //  notify the drone/fighter owner that their drone/fighter is taking
+            //  damage — without this the owner sees no combat-log entry when
+            //  NPCs/charbots shoot their drones/fighters.
+            Client* droneOwner = GetDroneSE()->GetOwner();
+            PyDict* dict = new PyDict();
+                dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
+                dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
+                PyTuple* ownerTuple = new PyTuple(2);
+                    ownerTuple->SetItem(0, new PyInt(GetID()));                       // drone/fighter entity
+                    ownerTuple->SetItem(1, new PyInt(droneOwner->GetCharacterID()));  // owning pilot
+                dict->SetItemString("owner", ownerTuple);
+                dict->SetItemString("damage", new PyFloat(total_damage));
+            PyTuple* tuple = new PyTuple(3);
+                tuple->SetItem(0, new PyString("OnDamageMessage"));
+                tuple->SetItem(1, new PyString(Dmg::Msg::Taken[damageID]));
+                tuple->SetItem(2, dict);
+            droneOwner->QueueDestinyEvent(&tuple);
         }
         if (d.srcSE->HasPilot()) {
             //notify to player of damage done:
@@ -481,6 +499,8 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         // not delayed until the player's next input packet.
         if (HasPilot())
             GetPilot()->FlushQueue();
+        else if (IsDroneSE() && GetDroneSE()->GetOwner() != nullptr)
+            GetDroneSE()->GetOwner()->FlushQueue();
     }
 
     if (sConfig.debug.UseProfiling)
