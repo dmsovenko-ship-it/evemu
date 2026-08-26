@@ -488,8 +488,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         } else {
             // Combat hull from the killmail legend (real EVE hull). Killmail hull
             // types are from modern EVE — some don't exist in the server's
-            // (Crucible-era) invTypes, or are pods/shuttles/deployables/#System.
-            // Validate; fall back to a combat cruiser/BC if invalid.
+            // (Crucible-era) invTypes, or are pods/shuttles/deployables/#System,
+            // or are NON-COMBAT ships (mining barges, freighters, haulers) that a
+            // pirate/hunter would never fly. Validate it's a real combat hull and
+            // fall back to a combat cruiser/BC if not.
             Inv::TypeData tdata = Inv::TypeData();
             sDataMgr.GetType((uint16)hullType, tdata);
             bool valid = (hullType != 0) && (tdata.id == hullType)
@@ -497,6 +499,30 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                          && (tdata.groupID != 29)     // Capsule
                          && (tdata.groupID != 31)     // Shuttle
                          && (tdata.groupID != 361);   // Mobile Warp Disruptor & co
+            if (valid) {
+                switch (tdata.groupID) {
+                    case EVEDB::invGroups::Frigate:
+                    case EVEDB::invGroups::Rookieship:
+                    case EVEDB::invGroups::Destroyer:
+                    case EVEDB::invGroups::Cruiser:
+                    case EVEDB::invGroups::Battlecruiser:
+                    case EVEDB::invGroups::Battleship:
+                    case EVEDB::invGroups::AssaultShip:
+                    case EVEDB::invGroups::HeavyAssaultShip:
+                    case EVEDB::invGroups::Interceptor:
+                    case EVEDB::invGroups::Interdictor:
+                    case EVEDB::invGroups::CombatRecon:
+                    case EVEDB::invGroups::Logistics:
+                    case EVEDB::invGroups::CovertOps:
+                    case EVEDB::invGroups::BlackOps:
+                    case EVEDB::invGroups::Marauder:
+                    case EVEDB::invGroups::EliteBattleship:
+                        break;  // combat hull — keep it
+                    default:
+                        valid = false;   // barge/freighter/hauler/other — not a combat hull
+                        break;
+                }
+            }
             if (!valid)
                 hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
         }
