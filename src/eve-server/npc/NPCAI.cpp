@@ -70,10 +70,70 @@ NPCAIMgr::NPCAIMgr(NPC* who)
   m_webber(false),
   m_warpScram(false),
   m_isWandering(false),
-  m_isAmbush(false)
+  m_isAmbush(false),
+  m_isStationary(false),
+  m_ewarOnly(false),
+  m_neutRange(0), m_neutAmount(0), m_neutChance(0), m_neutDuration(0), m_neutTimer(0)
 {
     assert(m_self.get() != nullptr);
     m_damageMultiplier = m_self->GetAttribute(AttrDamageMultiplier).get_float();
+
+    // All NPC sentry/turret structures are stationary — they fire in place and
+    // never chase/orbit/wander. Treating them as moving NPCs made them "fly"
+    // toward targets (flyRange fallback = radius*5 > 0).
+    //   Sentry Gun (99), Protective Sentry Gun (180), Mobile Sentry Gun (336),
+    //   Destructible Sentry Gun (383: Tower Sentry/Sentry Gun/Stasis Tower by
+    //   faction+level), Mobile Missile Sentry (417: Light/Heavy/Cruise/Torpedo/
+    //   Citadel Torpedo Battery).
+    uint32 grp = m_self->groupID();
+    if (grp == EVEDB::invGroups::Sentry_Gun
+     || grp == EVEDB::invGroups::Protective_Sentry_Gun
+     || grp == EVEDB::invGroups::Mobile_Sentry_Gun
+     || grp == EVEDB::invGroups::Destructible_Sentry_Gun
+     || grp == EVEDB::invGroups::Mobile_Missile_Sentry)
+        m_isStationary = true;
+
+    // Turret attack TYPE must match the turret's role:
+    //   - Tower Sentry / Sentry Guns: direct turret fire (has weapon damage).
+    //   - Stasis Towers / Energy Neutralizers: EWAR-only, NO weapon damage.
+    //   - Missile Batteries (group 417): fire actual missiles (from chargeGroup).
+    // A turret is "EWAR-only" when it has EWAR attributes but zero weapon damage
+    // (all four damage types are 0/absent). Missile batteries never have direct
+    // damage either — they're handled by the missile path below.
+    bool hasWeaponDmg =
+        (m_self->GetAttribute(AttrEmDamage).get_float() > 0.0f)
+     || (m_self->GetAttribute(AttrKineticDamage).get_float() > 0.0f)
+     || (m_self->GetAttribute(AttrThermalDamage).get_float() > 0.0f)
+     || (m_self->GetAttribute(AttrExplosiveDamage).get_float() > 0.0f);
+
+    // Missile batteries: pick the actual missile type from the battery's charge
+    // group (384 Light / 385 Heavy / 386 Cruise / 89 Torpedo / 476 Citadel Torpedo).
+    if (grp == EVEDB::invGroups::Mobile_Missile_Sentry) {
+        uint16 missileTypeID = 0;
+        if (m_self->HasAttribute(AttrChargeGroup1))
+            missileTypeID = PickMissileForChargeGroup(m_self->GetAttribute(AttrChargeGroup1).get_uint32());
+        if (missileTypeID == 0)
+            missileTypeID = 210;   // Scourge Light Missile fallback
+        m_self->SetAttribute(AttrEntityMissileTypeID, missileTypeID, false);
+    }
+    if (m_self->HasAttribute(AttrEntityMissileTypeID) && m_self->GetAttribute(AttrEntityMissileTypeID).get_uint32() > 0)
+        m_missileTypeID = m_self->GetAttribute(AttrEntityMissileTypeID).get_uint32();
+
+    // EWAR-only if no direct weapon damage and this is a sentry/turret structure.
+    if (m_isStationary && !hasWeaponDmg && m_missileTypeID == 0)
+        m_ewarOnly = true;
+
+    // Energy neutralizer turrets (Sansha Energy Neutralizer Sentry etc.)
+    if (m_self->HasAttribute(AttrEntityCapacitorDrainMaxRange)) {
+        m_neutRange = m_self->GetAttribute(AttrEntityCapacitorDrainMaxRange).get_uint32();
+        m_neutAmount = m_self->GetAttribute(AttrEntityCapacitorDrainAmount).get_float();
+        m_neutDuration = m_self->GetAttribute(AttrEntityCapacitorDrainDuration).get_uint32();
+        if (m_self->HasAttribute(AttrEntityCapacitorDrainDurationChance))
+            m_neutChance = 1.0f - m_self->GetAttribute(AttrEntityCapacitorDrainDurationChance).get_float();
+        else
+            m_neutChance = 1.0f;
+        if (m_neutDuration == 0) m_neutDuration = m_attackSpeed;
+    }
 
     /* set npc ship data */
     m_sigResolution = m_self->GetAttribute(AttrOptimalSigRadius).get_uint32();
@@ -280,8 +340,17 @@ NPCAIMgr::NPCAIMgr(NPC* who)
         m_webRange = m_self->GetAttribute(AttrModifyTargetSpeedRange).get_uint32();
     else
         m_webRange = 0;
-    m_webChance = 0.3f;  // default 30% chance per cycle
-    m_webStrength = 0.6f; // default -60% speed
+    // Strength: use the turret's real AttrSpeedFactor (Stasis Towers: -75 => -75%)
+    // when present, else default -60%. Chance: AttrModifyTargetSpeedChance (towers
+    // have 100 = always), else default 30%.
+    if (m_self->HasAttribute(AttrSpeedFactor) && m_self->GetAttribute(AttrSpeedFactor).get_float() < 0.0f)
+        m_webStrength = -m_self->GetAttribute(AttrSpeedFactor).get_float() / 100.0f;   // -75 -> 0.75
+    else
+        m_webStrength = 0.6f; // default -60% speed
+    if (m_self->HasAttribute(AttrModifyTargetSpeedChance))
+        m_webChance = 1.0f - m_self->GetAttribute(AttrModifyTargetSpeedChance).get_float();
+    else
+        m_webChance = 0.3f;  // default 30% chance per cycle
     m_webApplied = false;   // symmetric web undo tracking
     m_webTargetID = 0;
 
@@ -769,6 +838,8 @@ void NPCAIMgr::SetWander()
 {
     if (m_npc->GetSpawnMgr() == nullptr)
         return;
+    if (m_isStationary)
+        return;   // sentry turrets hold position, never wander
     if (!m_isWandering) {
         _log(NPC__AI_TRACE, "%s(%u): Wandering:  No Targets within my sight range of %um", \
                 m_npc->GetName(), m_npc->GetID(), m_sightRange);
@@ -953,6 +1024,16 @@ void NPCAIMgr::CheckDistance(SystemEntity* pSE)
         return;
     }
     m_isWandering = false;
+
+    // Stationary sentry turrets (group 99/180/336/383/417) never move — they
+    // hold position and only fire. Don't enter Chasing/Following/Engaged
+    // (which orbit/follow the target); just attack from the spot.
+    if (m_isStationary) {
+        if (m_missileTypeID > 0 && m_missileTimer.Check())
+            LaunchMissile(m_missileTypeID, pSE);
+        Attack(pSE);
+        return;
+    }
 
     if (dist < m_flyRange) {
         SetEngaged(pSE);
@@ -1437,6 +1518,28 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
     // Cycle fitted modules (weapon effects)
     CycleModules(pSE);
 
+    // EWAR — energy neutralizer (energy-drain turrets: Sansha Energy Neutralizer
+    // Sentry etc.). Drains target capacitor; pure-EWAR turrets deal no damage.
+    if (m_neutRange > 0 && m_neutAmount > 0) {
+        double dist = m_npc->GetPosition().distance(pSE->GetPosition());
+        if (dist <= m_neutRange) {
+            if (!m_neutTimer.Enabled() or m_neutTimer.Check()) {
+                if (MakeRandomFloat() < m_neutChance) {
+                    InventoryItemRef targetRef = pSE->GetSelf();
+                    if (targetRef && targetRef->HasAttribute(AttrCapacitorCharge)) {
+                        double cap = targetRef->GetAttribute(AttrCapacitorCharge).get_double() - m_neutAmount;
+                        if (cap < 0.0) cap = 0.0;
+                        targetRef->SetAttribute(AttrCapacitorCharge, cap);
+                        m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                                     pSE->GetID(), 0, "effects.EnergyDestabilization",
+                                                     0, 1, 1, m_neutDuration, 0, 0);
+                    }
+                }
+                m_neutTimer.Start(m_neutDuration);
+            }
+        }
+    }
+
     // EWAR — target painting (increase signature radius)
     if (m_paintRange > 0 and m_paintMultiplier > 0) {
         double dist = m_npc->GetPosition().distance(pSE->GetPosition());
@@ -1461,6 +1564,11 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
         }
     }
 
+    // EWAR-only turrets (stasis/web, energy neutralizer) don't fire a weapon and
+    // deal no direct damage — their EWAR is applied above.
+    if (m_ewarOnly)
+        return;
+
     // Select effect GUID based on NPC weapon type (from SDE attributes).
     // Client's StandardWeapon handles all turret GUIDs identically (animates locators).
     // Missile-using NPCs get MissileDeployment effect instead of turret.
@@ -1484,9 +1592,10 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
 
     // Deal damage only while the target is within weapon reach. NPCs locked on a
     // target far beyond their max range (e.g. a bot Mega shooting a pilot 574 km
-    // away) would otherwise hit regardless of distance.
+    // away) would otherwise hit regardless of distance. Missile batteries deal
+    // their damage via actual missiles (LaunchMissile), not a direct hit.
     double dist = m_npc->GetPosition().distance(pSE->GetPosition());
-    if (dist <= m_maxAttackRange) {
+    if (dist <= m_maxAttackRange && m_missileTypeID == 0) {
         Damage d(m_npc,
                  m_self,
                  m_npc->GetKinetic(),
@@ -1540,6 +1649,21 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
  * //AttrMissileEntityAoeVelocityMultiplier
  * //AttrMissileEntityAoeFalloffMultiplier
  */
+
+uint16 NPCAIMgr::PickMissileForChargeGroup(uint32 chargeGroupID) const
+{
+    // Concrete T1 missiles per charge group (SDE Crucible typeIDs). Used by
+    // missile batteries (group 417) which have no AttrEntityMissileTypeID but a
+    // chargeGroup attribute instead.
+    switch (chargeGroupID) {
+        case 384:   return 210;   // Light Missile   -> Scourge Light Missile
+        case 385:   return 209;   // Heavy Missile   -> Scourge Heavy Missile
+        case 386:   return 203;   // Cruise Missile  -> Scourge Cruise Missile
+        case 89:    return 267;   // Torpedo         -> Scourge Torpedo
+        case 476:   return 2678;  // Citadel Torpedo -> Inferno Citadel Torpedo
+        default:    return 0;
+    }
+}
 
 void NPCAIMgr::LaunchMissile(uint16 typeID, SystemEntity* pSE)
 {

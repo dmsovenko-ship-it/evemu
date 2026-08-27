@@ -123,6 +123,18 @@ public:
 
     void LaunchMissile(uint16 typeID, SystemEntity* pTargSE);   // us to them
     void MissileLaunched(Missile* pMissile); // them to us
+    // Maps a missile charge-group (384 Light / 385 Heavy / 386 Cruise / 89 Torpedo
+    // / 476 Citadel Torpedo) to a concrete missile typeID for missile batteries.
+    uint16 PickMissileForChargeGroup(uint32 chargeGroupID) const;
+
+    // Destructible Sentry Gun turrets (group 383) are stationary structures in
+    // anomalies/missions — they never move, only fire. Set by the ctor.
+    bool IsStationary() const { return m_isStationary; }
+    // True when this NPC is a missile battery (group 417 — fires actual missiles).
+    bool IsMissileBattery() const { return m_missileTypeID > 0; }
+    // True when this NPC is a pure-EWAR turret (stasis/web, energy neutralizer) —
+    // it applies EWAR but deals no weapon damage.
+    bool IsEwarOnly() const { return m_ewarOnly; }
 
     // Module system
     void FitModules();   // create fitted modules from NPC SDE attributes
@@ -157,6 +169,8 @@ private:
     bool m_useTargSwitching :1;
     bool m_useSecondTarget  :1;
     bool m_isAmbush         :1;
+    bool m_isStationary     :1;
+    bool m_ewarOnly         :1;
 
     float m_switchTargChance;   //fuzzy logic
     uint16 m_preferedSigRadius;
@@ -210,6 +224,14 @@ private:
     float m_paintChance;
     uint32 m_paintDuration;
     std::map<uint32, float> m_paintOriginals;   // targetID -> original signature radius
+
+    // EWAR — energy neutralizer (energy-drain turrets: Sansha Energy Neutralizer
+    // Sentry etc.). Drains target capacitor by m_neutAmount per cycle.
+    uint32 m_neutRange;
+    float m_neutAmount;
+    float m_neutChance;
+    uint32 m_neutDuration;
+    Timer m_neutTimer;
 
     double m_trackingSpeed;
     float m_damageMultiplier;
