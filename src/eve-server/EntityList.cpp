@@ -1222,5 +1222,11 @@ uint32 EntityList::CreateNotification(uint32 receiverID, uint8 typeID, uint32 se
         pClient->SendNotification("OnNotificationReceived", "charid", payload, false);
     }
 
+    // The caller passes ownership of the data dict (every call site does
+    // `new PyDict()` with no PyDecRef after) — release it here. Without this,
+    // every notification leaked its data dict (seen: CONCORD sec-status awards
+    // firing hundreds of ContactEdit notifications).
+    PySafeDecRef(data);
+
     return notifyID;
 }
