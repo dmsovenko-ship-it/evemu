@@ -1226,6 +1226,11 @@ uint32 EntityList::CreateNotification(uint32 receiverID, uint8 typeID, uint32 se
     // `new PyDict()` with no PyDecRef after) — release it here. Without this,
     // every notification leaked its data dict (seen: CONCORD sec-status awards
     // firing hundreds of ContactEdit notifications).
+    // NOTE: PyRep container dtors do NOT free their items (PyList/PyDict dtors
+    // have the PySafeDecRef loops commented out), so we must clear() first —
+    // otherwise the dict itself is freed but its key/value reps leak.
+    if (data != nullptr)
+        data->clear();
     PySafeDecRef(data);
 
     return notifyID;
