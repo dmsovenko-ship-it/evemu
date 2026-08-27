@@ -330,6 +330,12 @@ void CrimeWatch::OnBotAggression(uint32 botCharID, float systemSecRating)
     }
 }
 
+void CrimeWatch::RegisterAttackBy(uint32 attackerID)
+{
+    m_attackedByID = attackerID;
+    m_attackedByTimer.Start(sConfig.crime.AggFlagTime * 1000);
+}
+
 void CrimeWatch::RespawnConcordShip(uint32 typeID)
 {
     if (!m_client->IsInSpace() || m_client->GetShipSE() == nullptr) return;

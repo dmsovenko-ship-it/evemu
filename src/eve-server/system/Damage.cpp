@@ -152,7 +152,7 @@ bool SystemEntity::ApplyDamage(Damage &d) {
             if (vicClient->GetCrimeWatch() != nullptr
                 && atkClient->GetCrimeWatch() != nullptr
                 && atkClient->GetCrimeWatch()->WasAttackedBy(vicClient->GetCharacterID()))
-                return;
+                return false;
             // Mark the victim as having been attacked by this attacker first
             // (so THEIR counter-fire is self-defence).
             if (vicClient->GetCrimeWatch() != nullptr && atkID != 0)

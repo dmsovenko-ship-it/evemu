@@ -35,11 +35,7 @@ public:
     // charbot's botCharID). A player defending themselves against whoever started
     // the fight must NOT be flagged for aggression — only the initiator is.
     // Valid for the aggression window (10 min).
-    void RegisterAttackBy(uint32 attackerID)
-    {
-        m_attackedByID = attackerID;
-        m_attackedByTimer.Start(sConfig.crime.AggFlagTime * 1000);
-    }
+    void RegisterAttackBy(uint32 attackerID);
     // True if the given attacker (Client charID or charbot botCharID) started a
     // fight against this player recently — self-defence is legal, no flags.
     bool WasAttackedBy(uint32 attackerID) const
