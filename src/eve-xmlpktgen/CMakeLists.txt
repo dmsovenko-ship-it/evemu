@@ -58,15 +58,14 @@ IF( NOT EVEMU_TARGETS_IMPORT )
   # eve-xmlpktgen is a build-time code generator only (it runs during the build
   # to emit packet headers). Instrumenting it with ASAN/UBSAN makes generation
   # orders of magnitude slower and can hang the build (observed: one packet file
-  # taking >15 min). Strip sanitizer flags from just this target; the runtime
-  # server (eve-server) keeps full sanitization.
-  STRING(REPLACE "-fsanitize=address" "" _xmlpktgen_CFLAGS "${CMAKE_CXX_FLAGS}")
-  STRING(REPLACE "-fsanitize=undefined" "" _xmlpktgen_CFLAGS "${_xmlpktgen_CFLAGS}")
-  STRING(REPLACE "-fno-sanitize=alignment" "" _xmlpktgen_CFLAGS "${_xmlpktgen_CFLAGS}")
-  IF(NOT "${_xmlpktgen_CFLAGS}" STREQUAL "${CMAKE_CXX_FLAGS}")
+  # taking >15 min). COMPILE_FLAGS are APPENDED to CMAKE_CXX_FLAGS, so the
+  # sanitizer flags still apply — we must explicitly turn them OFF for this
+  # target with -fno-sanitize. Note: keep sanitizer LINK flags (it links the
+  # ASAN-instrumented eve-core, which needs libasan). The runtime server
+  # (eve-server) keeps full sanitization.
+  IF(CMAKE_CXX_FLAGS MATCHES "-fsanitize")
     SET_TARGET_PROPERTIES( "${TARGET_NAME}" PROPERTIES
-                           COMPILE_FLAGS "${_xmlpktgen_CFLAGS}"
-                           LINK_FLAGS "${_xmlpktgen_CFLAGS}" )
+                           COMPILE_FLAGS "-fno-sanitize=address -fno-sanitize=undefined -fno-sanitize=alignment" )
   ENDIF()
 
   IF( EVEMU_TARGETS_EXPORT )
