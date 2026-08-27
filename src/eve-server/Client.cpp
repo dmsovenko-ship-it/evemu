@@ -2795,10 +2795,7 @@ void Client::SendSessionChange()
         packet->Dump(CLIENT__SESSION_DUMP, dumper);
     }
 
-    QueuePacket(packet);
-
-    // clean up packet after being created by 'new'
-    //SafeDelete(packet);
+    QueuePacket(packet); // packet is consumed (deleted) by QueuePacket
 }
 
 void Client::FlushQueue() {
@@ -3246,6 +3243,11 @@ void Client::_SendCallReturn(const PyAddress& source, int64 callID, PyResult &rs
 
     packet->payload = new PyTuple(1);
     packet->payload->SetItem(0, new PySubStream(rsp.ssResult));
+    // rsp owns ssResult/ssNamedResult and releases them when Handle_CallReq's
+    // PyResult destructor runs. The packet is deleted at the end of QueuePacket,
+    // which PyDecRef's named_payload — take a counted ref so that doesn't
+    // double-release rsp's pointer.
+    PySafeIncRef(rsp.ssNamedResult);
     packet->named_payload = rsp.ssNamedResult;
 
     if (is_log_enabled(COLLECT__PACKET_DUMP)) {

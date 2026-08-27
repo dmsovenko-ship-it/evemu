@@ -71,10 +71,12 @@ void EVEClientSession::QueuePacket(PyPacket* packet) {
 
     if (res == nullptr) {
         sLog.Error("QueuePacket", "%s: Failed to encode a packet.", GetAddress().c_str());
+        SafeDelete(packet);
         return;
     }
 
     mNet->QueueRep(res);
+    SafeDelete(packet);
 }
 
 PyPacket* EVEClientSession::PopPacket() {
