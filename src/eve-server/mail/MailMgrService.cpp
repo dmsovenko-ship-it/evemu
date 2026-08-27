@@ -179,7 +179,7 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
                 PyDict* extra = new PyDict();
                 extra->SetItemString("senderName", new PyString(call.client->GetName()));
                 payload->SetItem(8, extra);
-                targetClient->SendNotification("OnMailSent", "clientID", payload, false);
+                targetClient->SendNotification("OnMailSent", "charid", payload, false);
             }
         }
     }

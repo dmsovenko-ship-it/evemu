@@ -1219,7 +1219,7 @@ uint32 EntityList::CreateNotification(uint32 receiverID, uint8 typeID, uint32 se
         onn.data     = data;
         PyTuple* payload = new PyTuple(1);
         payload->SetItem(0, onn.Encode());
-        pClient->SendNotification("OnNotificationReceived", "clientID", payload, false);
+        pClient->SendNotification("OnNotificationReceived", "charid", payload, false);
     }
 
     return notifyID;
