@@ -56,7 +56,7 @@ public:
      *
      * @param[in] initRefCount Initial reference count.
      */
-    RefObject(uint16 initRefCount)
+    RefObject(uint32 initRefCount)
     : mRefCount(initRefCount),
     mDeleted(false)
     {
@@ -78,7 +78,7 @@ public:
         mDeleted = true;
     }
 
-    uint16 GetCount()           { return mRefCount; }
+    uint32 GetCount()           { return mRefCount; }
     bool IsDeleted()            { return mDeleted; }
 
 protected:
@@ -92,12 +92,12 @@ protected:
             _log(REFPTR__ERROR, "IncRef() - Attempted to increase ref count on deleted object! Current Count: %u", mRefCount);
             std::cerr << "FATAL: IncRef() called on deleted object! Type: " << typeid(*this).name() << std::endl;
             EvE::traceStack();
-
-            // Optional: Either abort to catch error early, or return to avoid crashing.
-            // abort(); // Uncomment for hard fail (debug build)
-            return; // Production builds, silently fail
+#ifdef REFPTR_HARD_FAIL
+            abort();   // opt-in: build with -DREFPTR_HARD_FAIL to hard-fail on use-after-free
+#else
+            return; // default: do not touch the count on a freed object (reading it is already UB)
+#endif
         }
-        //Removed assert(mDeleted == false); --causing constant server hang, when installing and removed modules from ships.
         ++mRefCount;
     }
     /**
@@ -109,13 +109,16 @@ protected:
     {
         if (mDeleted) {
             // ---modulefix; issue with installing and uninstalling modules caused a soft freeze and unable to make changes to modules in fit screen.
-            _log(REFPTR__ERROR, "IncRef() - Attempted to increase ref count on deleted object! Current Count: %u", mRefCount);
-            std::cerr << "FATAL: IncRef() called on deleted object! Type: " << typeid(*this).name() << std::endl;
+            _log(REFPTR__ERROR, "DecRef() - Attempted to decrease ref count on deleted object! Current Count: %u", mRefCount);
+            std::cerr << "FATAL: DecRef() called on deleted object! Type: " << typeid(*this).name() << std::endl;
             EvE::traceStack();
-            return;
+#ifdef REFPTR_HARD_FAIL
+            abort();   // opt-in: build with -DREFPTR_HARD_FAIL to hard-fail on use-after-free
+#else
+            return; // default: do not touch the count on a freed object (reading it is already UB)
+#endif
         }
 
-        // Removed assert(mDeleted == false);
         assert(mRefCount > 0);
         --mRefCount;
 
@@ -125,7 +128,7 @@ protected:
 
 private:
     /// Reference count of instance.
-    mutable uint16 mRefCount;
+    mutable uint32 mRefCount;
     mutable bool mDeleted;
 };
 
