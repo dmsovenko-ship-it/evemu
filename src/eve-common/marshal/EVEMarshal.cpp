@@ -387,8 +387,8 @@ bool MarshalStream::VisitPackedRow( const PyPackedRow* pyPackedRow )
             unsigned long nullByte = nullBit >> 3;
             // setup the iterator to the proper byte
             Buffer::iterator<uint8> bitIterator = bitData.begin<uint8>() + nullByte;
-            // update the proper bit (read-modify-write; AssignAt for alignment-safe write)
-            bitData.AssignAt( bitIterator, (uint8)((*bitIterator) | (1 << (nullBit & 0x7))) );
+            // update the proper bit
+            *bitIterator |= (1 << (nullBit & 0x7));
         }
 
         // ensure that the proper value is written
@@ -449,8 +449,8 @@ bool MarshalStream::VisitPackedRow( const PyPackedRow* pyPackedRow )
         unsigned long boolByte = boolBit >> 3;
             // setup the iterator to the proper byte
             Buffer::iterator<uint8> bitIterator = bitData.begin<uint8>() + boolByte;
-            // update the proper bit (read-modify-write; AssignAt for alignment-safe write)
-            bitData.AssignAt( bitIterator, (uint8)((*bitIterator) | (1 << (boolBit & 0x7))) );
+            // update the proper bit
+            *bitIterator |= (1 << (boolBit & 0x7));
     }
 
     // concatenate the bit data to the rowData

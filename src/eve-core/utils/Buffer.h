@@ -100,19 +100,21 @@ public:
         const_iterator< T2 > As() const { return const_iterator< T2 >( mBuffer, mIndex ); }
 
         /// Dereference operator.
-        value_type operator*() const
+        const_reference operator*() const
         {
             // make sure we have valid buffer
             assert( mBuffer );
             // make sure we're not going off the bounds
             assert( 1 <= mBuffer->end< value_type >() - *this );
 
-            // obtain the value and return
-            // (memcpy avoids unaligned read UB; UBSAN flags *(T*)&buf[idx])
-            value_type result;
-            memcpy( &result, &( mBuffer->mBuffer )[ mIndex ], sizeof( value_type ) );
-            return result;
+            // obtain the value and return. The EVE marshal format packs values
+            // back-to-back with no padding, so multi-byte reads here are often
+            // misaligned — which is fine on x86 (UBSAN alignment is off for this
+            // file for that reason); the access is defined by the wire format.
+            return *(const_pointer)&( mBuffer->mBuffer )[ mIndex ];
         }
+        /// Dereference operator.
+        const_pointer operator->() const { return &**this; }
         /// Subscript operator.
         const_reference operator[]( difference_type diff ) const { return *( *this + diff ); }
 
@@ -261,13 +263,11 @@ public:
         iterator< T2 > As() const { return iterator< T2 >( _Base::mBuffer, _Base::mIndex ); }
 
         /// Dereference operator.
-        value_type operator*() const
-        {
-            // read through the base (memcpy-safe, returns by value)
-            return *static_cast< const _Base* >( this );
-        }
+        reference operator*() const { return const_cast< reference >( **(_Base*)this ); }
+        /// Dereference operator.
+        pointer operator->() const { return &**this; }
         /// Subscript operator.
-        value_type operator[]( difference_type diff ) const { return *( *this + diff ); }
+        reference operator[]( difference_type diff ) const { return *( *this + diff ); }
 
         /// Sum operator.
         iterator operator+( difference_type diff ) const
