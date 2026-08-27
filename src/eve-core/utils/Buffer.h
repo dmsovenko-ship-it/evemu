@@ -100,7 +100,7 @@ public:
         const_iterator< T2 > As() const { return const_iterator< T2 >( mBuffer, mIndex ); }
 
         /// Dereference operator.
-        const_reference operator*() const
+        value_type operator*() const
         {
             // make sure we have valid buffer
             assert( mBuffer );
@@ -108,10 +108,11 @@ public:
             assert( 1 <= mBuffer->end< value_type >() - *this );
 
             // obtain the value and return
-            return *(const_pointer)&( mBuffer->mBuffer )[ mIndex ];
+            // (memcpy avoids unaligned read UB; UBSAN flags *(T*)&buf[idx])
+            value_type result;
+            memcpy( &result, &( mBuffer->mBuffer )[ mIndex ], sizeof( value_type ) );
+            return result;
         }
-        /// Dereference operator.
-        const_pointer operator->() const { return &**this; }
         /// Subscript operator.
         const_reference operator[]( difference_type diff ) const { return *( *this + diff ); }
 
@@ -260,11 +261,13 @@ public:
         iterator< T2 > As() const { return iterator< T2 >( _Base::mBuffer, _Base::mIndex ); }
 
         /// Dereference operator.
-        reference operator*() const { return const_cast< reference >( **(_Base*)this ); }
-        /// Dereference operator.
-        pointer operator->() const { return &**this; }
+        value_type operator*() const
+        {
+            // read through the base (memcpy-safe, returns by value)
+            return *static_cast< const _Base* >( this );
+        }
         /// Subscript operator.
-        reference operator[]( difference_type diff ) const { return *( *this + diff ); }
+        value_type operator[]( difference_type diff ) const { return *( *this + diff ); }
 
         /// Sum operator.
         iterator operator+( difference_type diff ) const

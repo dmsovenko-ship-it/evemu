@@ -239,7 +239,9 @@ int32 PyLong::hash() const
 
 #define LONG_BIT_PyLong_SHIFT    (8*sizeof(long) - PyLong_SHIFT)
 
-    long x=0;
+    /* Use unsigned arithmetic so the circular shift + overflow wrap is
+     * well-defined (UBSAN flags signed left-shift overflow otherwise). */
+    unsigned long x=0;
     int i=8, sign=1;
 
     /* This is designed so that Python ints and longs with the
@@ -254,18 +256,18 @@ int32 PyLong::hash() const
     resulting x is nonzero if and only if v is. */
     while( --i >= 0 ) {
         /* Force a native long #-bits (32 or 64) circular shift */
-        x = ((x << PyLong_SHIFT) & ~PyLong_MASK) | ((x >> LONG_BIT_PyLong_SHIFT) & PyLong_MASK);
+        x = ((x << PyLong_SHIFT) & ~(unsigned long)PyLong_MASK) | ((x >> LONG_BIT_PyLong_SHIFT) & (unsigned long)PyLong_MASK);
         x += ((uint8*)&mValue)[i];// v->ob_digit[i];
         /* If the addition above overflowed (thinking of x as
         unsigned), we compensate by incrementing.  This preserves
         the value modulo ULONG_MAX. */
-        if ((unsigned long)x < ((uint8*)&mValue)[i] )//v->ob_digit[i])
+        if (x < ((uint8*)&mValue)[i] )//v->ob_digit[i]
             x++;
     }
-    x = x * sign;
-    if (x == -1 )
-        x = -2;
-    return x;
+    x = (unsigned long)((long)x * sign);
+    if (x == (unsigned long)-1 )
+        x = (unsigned long)-2;
+    return (int32)x;
 
 #undef PyLong_SHIFT
 #undef PyLong_BASE
@@ -352,7 +354,8 @@ int32 PyFloat::hash() const
     v *= 2147483648.0;    /* 2**31 */
     hipart = (long)v;    /* take the top 32 bits */
     v = (v - (double)hipart) * 2147483648.0; /* get the next 32 bits */
-    x = hipart + (long)v + (expo << 15);
+    /* unsigned shift avoids UB on negative exponents (UBSAN) */
+    x = hipart + (long)v + (long)((unsigned long)expo << 15);
     if (x == -1)
         x = -2;
     return x;
