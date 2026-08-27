@@ -118,6 +118,11 @@ bool SystemEntity::ApplyDamage(Damage &d) {
     // the victim is the pilot of this SE (or this drone's owner). Charbots are
     // PlayerBots (NPCSE with a pilot identity) — they flag themselves via their
     // own StartAggressionTimer, the real-player side is handled here.
+    //
+    // SELF-DEFENCE: whoever hits FIRST is the aggressor; the victim has the right
+    // to defend without being flagged. When the victim returns fire, their attack
+    // must not grant them aggression. We record who hit the victim first, then
+    // skip aggression for the victim's counter-fire.
     if (sConfig.crime.Enabled) {
         Client* atkClient = nullptr;
         if (d.srcSE->HasPilot())
@@ -131,31 +136,43 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         else if (IsDroneSE() && GetDroneSE()->GetOwner() != nullptr)
             vicClient = GetDroneSE()->GetOwner();
 
-        // A charbot victim doesn't have a Client, but its PlayerBot self-defence
-        // (OnAttacked) handles its own aggression flag. We only set the REAL-player
-        // aggression timer here; the bot side is handled in PlayerBot.
+        // The attacker's identity for self-defence tracking: a Client's charID,
+        // or a charbot's botCharID.
+        uint32 atkID = 0;
+        if (atkClient != nullptr)
+            atkID = atkClient->GetCharacterID();
+        else if (d.srcSE->IsNPCSE() && d.srcSE->GetNPCSE() != nullptr
+                 && d.srcSE->GetNPCSE()->IsPlayerBot())
+            atkID = dynamic_cast<PlayerBot*>(d.srcSE->GetNPCSE())->GetBotCharID();
+
+        // Player↔player / player↔drone-owner: both are Clients.
         if (atkClient != nullptr && vicClient != nullptr && atkClient != vicClient) {
             float sysSec = m_system ? m_system->GetSystemSecurityRating() : 0.0f;
+            // Victim returning fire at whoever hit them first — no new aggression.
+            if (vicClient->GetCrimeWatch() != nullptr
+                && atkClient->GetCrimeWatch() != nullptr
+                && atkClient->GetCrimeWatch()->WasAttackedBy(vicClient->GetCharacterID()))
+                return;
+            // Mark the victim as having been attacked by this attacker first
+            // (so THEIR counter-fire is self-defence).
+            if (vicClient->GetCrimeWatch() != nullptr && atkID != 0)
+                vicClient->GetCrimeWatch()->RegisterAttackBy(atkID);
             if (atkClient->GetCrimeWatch() != nullptr)
                 atkClient->GetCrimeWatch()->OnAggression(vicClient, sysSec);
         }
-        // A player attacking a charbot still gets flagged (aggression against a
-        // piloted ship — the charbot IS a pilot to the client). The charbot itself
-        // flags itself in its own OnAttacked path.
+        // Player attacking a charbot still gets flagged — but only if the charbot
+        // didn't start the fight. The charbot flags itself in its own OnAttacked.
         else if (atkClient != nullptr && vicClient == nullptr && IsNPCSE()
                  && GetNPCSE() != nullptr && GetNPCSE()->IsPlayerBot()) {
             float sysSec = m_system ? m_system->GetSystemSecurityRating() : 0.0f;
             PlayerBot* pbot = dynamic_cast<PlayerBot*>(GetNPCSE());
             if (pbot != nullptr && atkClient->GetCrimeWatch() != nullptr) {
-                // Self-defence: if the charbot started the fight (hit this player
-                // first within the last 10 min), the player's return fire is legal
-                // and must NOT flag them for aggression. Only the initiator gets it.
-                if (atkClient->GetCrimeWatch()->WasAttackedByBot(pbot->GetBotCharID()))
-                    return;
+                // Self-defence: if the charbot started the fight, no flags.
+                if (atkClient->GetCrimeWatch()->WasAttackedBy(pbot->GetBotCharID()))
+                    return false;
                 atkClient->GetCrimeWatch()->OnBotAggression(pbot->GetBotCharID(), sysSec);
             }
         }
-
         // A charbot attacking a REAL player: mark the player as the charbot's
         // victim so their self-defence (return fire) doesn't flag them.
         if (vicClient != nullptr && atkClient == nullptr && d.srcSE->IsNPCSE()
@@ -163,7 +180,7 @@ bool SystemEntity::ApplyDamage(Damage &d) {
             && vicClient->GetCrimeWatch() != nullptr) {
             PlayerBot* atkBot = dynamic_cast<PlayerBot*>(d.srcSE->GetNPCSE());
             if (atkBot != nullptr)
-                vicClient->GetCrimeWatch()->RegisterBotAttack(atkBot->GetBotCharID());
+                vicClient->GetCrimeWatch()->RegisterAttackBy(atkBot->GetBotCharID());
         }
     }
 
