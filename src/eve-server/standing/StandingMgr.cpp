@@ -85,7 +85,8 @@ void StandingMgr::UpdateStandings(uint32 fromID, uint32 toID, uint16 eventType, 
         case Standings::CombatAggressionOwnFaction:
         case Standings::CombatAssistanceOwnFaction:
         case Standings::CombatOtherOwnFaction:
-            break; // skip — these are too frequent
+        case Standings::LawEnforcement:
+            break; // skip — these are too frequent (CONCORD sec-status award per rat kill fires every NPC kill)
         default: {
             PyDict* data = new PyDict();
             data->SetItemString("fromID", new PyInt(fromID));
