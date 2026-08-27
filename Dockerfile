@@ -31,6 +31,7 @@ RUN ln -s /usr/include/mariadb /usr/include/mysql \
 FROM base AS app-build
 
 ARG CMAKE_BUILD_TYPE=Debug
+ARG CMAKE_CXX_FLAGS_EXTRA=""
 ENV CCACHE_DIR=/ccache
 ENV PATH=/usr/lib/ccache:$PATH
 RUN ccache --max-size=5G && mkdir -p /ccache
@@ -49,8 +50,12 @@ RUN mkdir -p /src/build /app /app/logs /app/server_cache /app/image_cache /ccach
 # Set working directory
 WORKDIR /src/build
 
-# Configure and build the project
-RUN cmake -DCMAKE_INSTALL_PREFIX=/app -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} ..
+# Configure and build the project.
+# CMAKE_CXX_FLAGS_EXTRA allows injecting sanitizer/debug flags without touching
+# the source (e.g. ASAN: -fsanitize=address,undefined -DREFPTR_HARD_FAIL).
+RUN cmake -DCMAKE_INSTALL_PREFIX=/app -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+          -DCMAKE_CXX_FLAGS="${CMAKE_CXX_FLAGS_EXTRA}" \
+          -DCMAKE_EXE_LINKER_FLAGS="${CMAKE_CXX_FLAGS_EXTRA}" ..
 RUN make -j$(nproc)
 RUN make install
 
