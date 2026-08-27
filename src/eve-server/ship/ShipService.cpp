@@ -492,6 +492,44 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 pSystem->AddEntity(pSE);
                 list->AddItem(new PyInt(entity.itemID));
             } break;
+            case EVEDB::invCategories::Orbitals: {
+                // Customs Offices / Orbital Construction Platforms (e.g. Customs
+                // Office Gantry, group 1106) — jettisoned from cargo like the
+                // JettisonCargo path, anchored to the nearest planet.
+                if (iRef->groupID() != EVEDB::invGroups::Orbital_Construction_Platform
+                 && iRef->groupID() != EVEDB::invGroups::Orbital_Infrastructure) {
+                    _log(INV__ERROR, "ShipBound::Handle_Drop() - Orbitals item %s (group %u) not handled.", iRef->name(), iRef->groupID());
+                    break;
+                }
+                iRef->Move(pClient->GetLocationID(), flagNone, true);
+                iRef->SetPosition(location + iRef->radius() + radius);
+                iRef->ChangeSingleton(true);
+                StructureItemRef sRef = sItemFactory.GetStructureRef(iRef->itemID());
+                if (sRef.get() == nullptr) {
+                    _log(INV__ERROR, "ShipBound::Handle_Drop() - unable to get structure ref for %u.", iRef->itemID());
+                    iRef->Donate(pClient->GetCharacterID(), pShip->itemID(), flagCargoHold);
+                    break;
+                }
+                FactionData oData = FactionData();
+                    oData.allianceID = pClient->GetAllianceID();
+                    oData.corporationID = pClient->GetCorporationID();
+                    oData.factionID = pClient->GetWarFactionID();
+                    oData.ownerID = pClient->GetCharacterID();
+                CustomsSE* cSE = new CustomsSE(sRef, pClient->services(), pSystem, oData);
+                if (cSE == nullptr) {
+                    _log(INV__ERROR, "ShipBound::Handle_Drop() - unable to create CustomsSE for %u.", iRef->itemID());
+                    iRef->Donate(pClient->GetCharacterID(), pShip->itemID(), flagCargoHold);
+                    break;
+                }
+                cSE->SetPlanet(pSystem->GetClosestPlanetID(location));
+                cSE->SetPosition(iRef->position());
+                cSE->InitData();
+                pSystem->AddEntity(cSE);
+
+                dropped = true;
+                shipDrop = true;
+                list->AddItem(new PyInt(iRef->itemID()));
+            } break;
             case EVEDB::invCategories::Deployable: {
                 // If the cargo stack has more than one unit, split ONE off to
                 // deploy and keep the rest in the hold (same as drones). Without
