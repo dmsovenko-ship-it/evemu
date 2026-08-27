@@ -31,6 +31,20 @@ public:
     // Aggression against a charbot (PlayerBot) — the charbot isn't a Client, so
     // this sets the player's aggression/criminal timer with the charbot as victim.
     void OnBotAggression(uint32 botCharID, float systemSecRating);
+    // Record that a charbot attacked THIS player first. A player defending
+    // themselves against a charbot that started the fight must NOT be flagged
+    // for aggression — only the initiator is. Valid for 10 minutes (matching the
+    // aggression window).
+    void RegisterBotAttack(uint32 botCharID)
+    {
+        m_attackedByBotID = botCharID;
+        m_attackedByBotTimer.Start(600000);
+    }
+    // True if the given charbot started a fight against this player recently.
+    bool WasAttackedByBot(uint32 botCharID) const
+    {
+        return m_attackedByBotTimer.Enabled() && m_attackedByBotID == botCharID;
+    }
     void OnProbeLaunch();
     void OnLooting();
     void ApplyConcordPenalty();
@@ -59,6 +73,8 @@ private:
     Timer m_concordDespawnTimer;
     Timer m_limitedEngagementTimer;
     uint32 m_concordWave;
+    uint32 m_attackedByBotID {0};
+    Timer m_attackedByBotTimer;
     std::vector<float> m_concordDmgMult;
     std::vector<NPC*> m_concordShips;
 };

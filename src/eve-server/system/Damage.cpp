@@ -146,8 +146,24 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                  && GetNPCSE() != nullptr && GetNPCSE()->IsPlayerBot()) {
             float sysSec = m_system ? m_system->GetSystemSecurityRating() : 0.0f;
             PlayerBot* pbot = dynamic_cast<PlayerBot*>(GetNPCSE());
-            if (pbot != nullptr && atkClient->GetCrimeWatch() != nullptr)
+            if (pbot != nullptr && atkClient->GetCrimeWatch() != nullptr) {
+                // Self-defence: if the charbot started the fight (hit this player
+                // first within the last 10 min), the player's return fire is legal
+                // and must NOT flag them for aggression. Only the initiator gets it.
+                if (atkClient->GetCrimeWatch()->WasAttackedByBot(pbot->GetBotCharID()))
+                    return;
                 atkClient->GetCrimeWatch()->OnBotAggression(pbot->GetBotCharID(), sysSec);
+            }
+        }
+
+        // A charbot attacking a REAL player: mark the player as the charbot's
+        // victim so their self-defence (return fire) doesn't flag them.
+        if (vicClient != nullptr && atkClient == nullptr && d.srcSE->IsNPCSE()
+            && d.srcSE->GetNPCSE() != nullptr && d.srcSE->GetNPCSE()->IsPlayerBot()
+            && vicClient->GetCrimeWatch() != nullptr) {
+            PlayerBot* atkBot = dynamic_cast<PlayerBot*>(d.srcSE->GetNPCSE());
+            if (atkBot != nullptr)
+                vicClient->GetCrimeWatch()->RegisterBotAttack(atkBot->GetBotCharID());
         }
     }
 
