@@ -1002,14 +1002,16 @@ void EntityList::CorpNotify(uint32 corpID, uint8 bCastType, const char* notifyTy
         cur.second->SendNotification( notifyType, idType, payload, false );   // are any of these sequenced?
     }
 
+    payload->clear();   // PyRep dtor doesn't free items
     PyDecRef(payload);
 }
 
 void EntityList::Broadcast(const char* notifyType, const char* idType, PyTuple** payload) const {
     //build a little notification out of it.
+    PyTuple* p = *payload;
     EVENotificationStream notify;
         notify.remoteObject = 1;
-        notify.args = *payload;
+        notify.args = p;
     payload = nullptr;    //consumed
 
     //now sent it to the client
@@ -1018,6 +1020,10 @@ void EntityList::Broadcast(const char* notifyType, const char* idType, PyTuple**
         dest.service = notifyType;
         dest.bcast_idtype = idType;
     Broadcast(dest, notify);
+
+    // notify dtor PySafeDecRef's args but PyRep container dtor doesn't free
+    // items — clear() first so the payload's items don't leak.
+    p->clear();
 }
 
 void EntityList::Broadcast(const PyAddress &dest, EVENotificationStream &noti) const {
@@ -1073,6 +1079,9 @@ void EntityList::Multicast( const char* notifyType, const char* idType, PyTuple*
         cur->SendNotification( notifyType, idType, &payload, seq );
     }
 
+    // PyRep container dtors don't free their items — clear() before the final
+    // DecRef or the payload's 6+ items (mail subject, IDs, etc.) leak.
+    payload->clear();
     PyDecRef( payload );
 }
 
