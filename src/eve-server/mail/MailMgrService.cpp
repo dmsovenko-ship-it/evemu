@@ -162,15 +162,23 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
         for (int32 charID : characters) {
             Client* targetClient = sEntityList.FindClientByCharID(charID);
             if (targetClient != nullptr) {
-                PyTuple* payload = new PyTuple(8);
+                // Client's mailSvc.OnMailSent expects the 9-element payload used by
+                // SelfEveMail (messageID, senderID, sentDate, senderID-str, toListID,
+                // toCorpOrAllianceID, title, statusMask, extra{senderName}). A bare
+                // 8-tuple without senderName is not parseable -> mail arrives in DB
+                // but never shows in the recipient's inbox.
+                PyTuple* payload = new PyTuple(9);
                 payload->SetItem(0, new PyInt(mailID));
                 payload->SetItem(1, new PyInt(sender));
                 payload->SetItem(2, new PyLong(GetFileTimeNow()));
-                payload->SetItem(3, PyStatic.NewNone()); // toCharacterIDs — list handled by notification
+                payload->SetItem(3, new PyString(std::to_string(sender)));
                 payload->SetItem(4, PyStatic.NewNone()); // toListID
                 payload->SetItem(5, PyStatic.NewNone()); // toCorpOrAllianceID
-                payload->SetItem(6, PyStatic.NewNone()); // title
+                payload->SetItem(6, new PyString(title->content())); // title
                 payload->SetItem(7, new PyInt(0));       // statusMask
+                PyDict* extra = new PyDict();
+                extra->SetItemString("senderName", new PyString(call.client->GetName()));
+                payload->SetItem(8, extra);
                 targetClient->SendNotification("OnMailSent", "clientID", payload, false);
             }
         }
