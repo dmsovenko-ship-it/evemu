@@ -1,7 +1,16 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено и ПЕРЕСОБРАНО на сервере (обычный образ `evemu_server`, собран быстро, сервер перезапущен вручную `docker run -d -t -i`). Коммиты в origin/master: `abdeb8fe`...`48beaa0a` (см. секции ниже).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Коммиты в origin/master: `abdeb8fe`...`134457b5` (см. секции ниже).
+
+## 28 августа (ночь): PyRep Leak-аудит — исходящий сетевой путь (QueuePacket/Handle_CallReq)
+**Коммиты: `6295bccc` (CreateNotification leak), `d755f32f`+`deebe9cf` (clear() перед DecRef в CorpNotify/Broadcast/Multicast), `134457b5` (QueuePacket delete + _SendCallReturn refcount named_payload), `bdb7285e` (docs). Запушено в origin/master. Юзеру нужна ПЕРЕСБОРКА сервера.**
+- **✅ `QueuePacket` не удалял packet (`134457b5`)**: каждый исходящий RPC/notify строил `PyPacket` (payload/named_payload), `QueuePacket` кодировал его в wrapper через `scn.Encode()`, ставил в очередь — но НЕ удалял `PyPacket` → утечка на каждом ответе/уведомлении. Фикс: `SafeDelete(packet)` в `EVEClientSession::QueuePacket` в ОБЕИХ ветках (после `mNet->QueueRep(res)` и при `res == nullptr`).
+- **✅ `_SendCallReturn` — double-release named_payload (`134457b5`)**: `packet->named_payload = rsp.ssNamedResult` (borrowed из локального `PyResult`). С delete-packet dtor `PyPacket` делает `PySafeDecRef(named_payload)`, а dtor `PyResult` в `Handle_CallReq` тоже DecRef'ит ssNamedResult → use-after-free на каждом ответе. Фикс: `PySafeIncRef(rsp.ssNamedResult)` перед присваиванием. Для `ssResult` НЕ нужен: `packet->payload->SetItem(0, new PySubStream(rsp.ssResult))` уже IncRef'ит PySubStream внутри `PyTuple::SetItem` (PyRep.h:626-636) → delete-packet снимает только реф с обёртки, не с ssResult.
+- **Модель владения (доказано по коду)**: dtor PyTuple/PyList НЕ освобождают items (PyRep.h:647, PyRep.cpp:698-702) → `delete packet` может снять рефы ТОЛЬКО с top-level payload/named_payload; для codec-сайтов `scn.Encode()` возвращает новый объект (реф владельца = packet), вложенные items (scn.changes и пр.) остаются за `scn` — двойного освобождения нет.
+- **`QueueRep` синхронен** (EVETCPConnection.cpp:50-83: MarshalDeflate → Send → `PySafeDecRef(res)`) — удаление packet после возврата безопасно.
+- **Все 8 call sites `QueuePacket` проверены** (Client.cpp 2731/2798/3018/3257/3282/3306/3371, EVESession.cpp:66): все передают fresh-объекты, совместимы с delete packet. В `SendSessionChange` (Client.cpp:2798) удалён мёртвый `//SafeDelete(packet);` (комментарий обновлён).
+- **Продолжение аудита**: следующий кандидат — входящий путь `EVEClientSession::Process`/`Handle_CallReq` и `EVENetwork_StreamDecoder`-объекты; системный фикс dtor'ов PyRep-контейнеров ОСТАЁТСЯ опасен (см. ниже, «Системная проблема»).
 
 ## 27 августа (день): орбита от поверхности, турели по роли, аналитика ботов, чат, самооборона PvP
 **Коммиты: `a12d4095` (орбита), `0c690a5c`+`84ef3e01` (турели), `7673c9e6`+`5ce0cb67` (аналитика силы), `be6c8571`+`734bcb90` (чат), `08b54e29`+`f9aefd79`+`ff78ea34` (самооборона), `30d8ac78` (docs). Образ собран, сервер перезапущен, работает.**
