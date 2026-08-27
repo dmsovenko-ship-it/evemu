@@ -1,7 +1,7 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Коммиты в origin/master: `abdeb8fe`...`134457b5` (см. секции ниже).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Коммиты в origin/master: `abdeb8fe`...`a5502bb8` (см. секции ниже).
 
 ## 28 августа (ночь): PyRep Leak-аудит — исходящий сетевой путь (QueuePacket/Handle_CallReq)
 **Коммиты: `6295bccc` (CreateNotification leak), `d755f32f`+`deebe9cf` (clear() перед DecRef в CorpNotify/Broadcast/Multicast), `134457b5` (QueuePacket delete + _SendCallReturn refcount named_payload), `bdb7285e` (docs). Запушено в origin/master. Юзеру нужна ПЕРЕСБОРКА сервера.**
