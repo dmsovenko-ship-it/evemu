@@ -61,6 +61,9 @@ public:
     double GetItemTypeRadius( uint32 typeID );
     double GetCelestialRadius(uint32 itemID);
     static GPoint GetSolarSystemPosition(uint32 systemID);
+    // Double-precision variant — system coords are ~1e16 m which overflows the
+    // float members of GPoint/GVector; a float distance calc is wrong by ~16x.
+    static bool GetSolarSystemPositionDouble(uint32 systemID, double& x, double& y, double& z);
 
     static bool LoadSystemStaticEntities(uint32 systemID, std::vector<DBSystemEntity>& into);
     static bool LoadSystemDynamicEntities(uint32 systemID, std::vector<DBSystemDynamicEntity>& into);

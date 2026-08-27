@@ -107,6 +107,24 @@ GPoint SystemDB::GetSolarSystemPosition(uint32 systemID) {
     return point;
 }
 
+bool SystemDB::GetSolarSystemPositionDouble(uint32 systemID, double& x, double& y, double& z) {
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT x,y,z"
+        " FROM mapSolarSystems WHERE solarSystemID=%u",
+        systemID))
+        return false;
+
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return false;
+
+    x = row.GetDouble(0);
+    y = row.GetDouble(1);
+    z = row.GetDouble(2);
+    return true;
+}
+
 bool SystemDB::LoadSystemStaticEntities(uint32 systemID, std::vector<DBSystemEntity>& into) {
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,

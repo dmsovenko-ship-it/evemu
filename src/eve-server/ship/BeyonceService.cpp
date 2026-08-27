@@ -1150,11 +1150,13 @@ PyResult BeyonceBound::CmdJumpThroughFleet(PyCallArgs &call, PyInt* otherCharID,
     uint32 fuelBaseConsumption = uint32(ceil(ship->GetAttribute(AttrJumpDriveConsumptionAmount).get_float()));
     uint32 fuelQuantity;
 
-    GPoint startPosition = SystemDB::GetSolarSystemPosition(call.client->GetSystemID());
-    GPoint endPosition = SystemDB::GetSolarSystemPosition(beacon->locationID());
-
-    GVector heading(startPosition, endPosition);
-    double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
+    // Distance in double precision — system coords are ~1e16 m which overflow
+    // float GVector/GPoint (wrong distance -> ~16x too little fuel consumed).
+    double sx, sy, sz, ex, ey, ez;
+    SystemDB::GetSolarSystemPositionDouble(call.client->GetSystemID(), sx, sy, sz);
+    SystemDB::GetSolarSystemPositionDouble(beacon->locationID(), ex, ey, ez);
+    double jdx = ex - sx, jdy = ey - sy, jdz = ez - sz;
+    double jumpDistance = EvEMath::Units::MetersToLightYears(std::sqrt(jdx*jdx + jdy*jdy + jdz*jdz));
 
     // Range check (Crucible mechanics: base range + JDC 25%/level)
     if (ship->HasAttribute(AttrJumpDriveRange)) {
@@ -1290,11 +1292,13 @@ PyResult BeyonceBound::CmdJumpThroughAlliance(PyCallArgs &call, PyInt* otherShip
     uint32 fuelBaseConsumption = uint32(ceil(ship->GetAttribute(AttrJumpDriveConsumptionAmount).get_float()));
     uint32 fuelQuantity;
 
-    GPoint startPosition = SystemDB::GetSolarSystemPosition(call.client->GetSystemID());
-    GPoint endPosition = SystemDB::GetSolarSystemPosition(beacon->locationID());
-
-    GVector heading(startPosition, endPosition);
-    double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
+    // Distance in double precision — system coords are ~1e16 m which overflow
+    // float GVector/GPoint (wrong distance -> ~16x too little fuel consumed).
+    double sx, sy, sz, ex, ey, ez;
+    SystemDB::GetSolarSystemPositionDouble(call.client->GetSystemID(), sx, sy, sz);
+    SystemDB::GetSolarSystemPositionDouble(beacon->locationID(), ex, ey, ez);
+    double jdx = ex - sx, jdy = ey - sy, jdz = ez - sz;
+    double jumpDistance = EvEMath::Units::MetersToLightYears(std::sqrt(jdx*jdx + jdy*jdy + jdz*jdz));
 
     if (ship->HasAttribute(AttrJumpDriveRange)) {
         float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
@@ -1377,11 +1381,13 @@ PyResult BeyonceBound::CmdJumpThroughCorporationStructure(PyCallArgs &call, PyIn
     // Calculate distance-based fuel (same as beacon jump)
     ShipItemRef ship = call.client->GetShip();
 
-    GPoint startPosition = SystemDB::GetSolarSystemPosition(call.client->GetSystemID());
-    GPoint endPosition = SystemDB::GetSolarSystemPosition(beacon->locationID());
-
-    GVector heading(startPosition, endPosition);
-    double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
+    // Distance in double precision — system coords are ~1e16 m which overflow
+    // float GVector/GPoint (wrong distance -> ~16x too little fuel consumed).
+    double sx, sy, sz, ex, ey, ez;
+    SystemDB::GetSolarSystemPositionDouble(call.client->GetSystemID(), sx, sy, sz);
+    SystemDB::GetSolarSystemPositionDouble(beacon->locationID(), ex, ey, ez);
+    double jdx = ex - sx, jdy = ey - sy, jdz = ez - sz;
+    double jumpDistance = EvEMath::Units::MetersToLightYears(std::sqrt(jdx*jdx + jdy*jdy + jdz*jdz));
 
     if (ship->HasAttribute(AttrJumpDriveRange)) {
         float maxRange = ship->GetAttribute(AttrJumpDriveRange).get_float();
@@ -1521,11 +1527,11 @@ PyResult BeyonceBound::CmdBeaconJumpFleet(PyCallArgs &call, PyInt* characterID, 
     uint32 fuelBaseConsumption = uint32(ceil(ship->GetAttribute(AttrJumpDriveConsumptionAmount).get_float()));
     uint32 fuelQuantity;
 
-    GPoint startPosition = SystemDB::GetSolarSystemPosition(call.client->GetSystemID());
-    GPoint endPosition = SystemDB::GetSolarSystemPosition(beacon->locationID());
-
-    GVector heading ( startPosition, endPosition );
-    double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
+    double sx, sy, sz, ex, ey, ez;
+    SystemDB::GetSolarSystemPositionDouble(call.client->GetSystemID(), sx, sy, sz);
+    SystemDB::GetSolarSystemPositionDouble(beacon->locationID(), ex, ey, ez);
+    double jdx = ex - sx, jdy = ey - sy, jdz = ez - sz;
+    double jumpDistance = EvEMath::Units::MetersToLightYears(std::sqrt(jdx*jdx + jdy*jdy + jdz*jdz));
 
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     int8 jumpFreightersLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFreighters);
@@ -1613,11 +1619,11 @@ PyResult BeyonceBound::CmdBeaconJumpAlliance(PyCallArgs &call, PyInt* beaconID, 
     uint32 fuelBaseConsumption = uint32(ceil(ship->GetAttribute(AttrJumpDriveConsumptionAmount).get_float()));
     uint32 fuelQuantity;
 
-    GPoint startPosition = SystemDB::GetSolarSystemPosition(call.client->GetSystemID());
-    GPoint endPosition = SystemDB::GetSolarSystemPosition(beacon->locationID());
-
-    GVector heading ( startPosition, endPosition );
-    double jumpDistance = EvEMath::Units::MetersToLightYears(heading.length());
+    double sx, sy, sz, ex, ey, ez;
+    SystemDB::GetSolarSystemPositionDouble(call.client->GetSystemID(), sx, sy, sz);
+    SystemDB::GetSolarSystemPositionDouble(beacon->locationID(), ex, ey, ez);
+    double jdx = ex - sx, jdy = ey - sy, jdz = ez - sz;
+    double jumpDistance = EvEMath::Units::MetersToLightYears(std::sqrt(jdx*jdx + jdy*jdy + jdz*jdz));
 
     int8 jumpFuelConservationLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFuelConservation);
     int8 jumpFreightersLevel = call.client->GetChar()->GetSkillLevel(EvESkill::JumpFreighters);
