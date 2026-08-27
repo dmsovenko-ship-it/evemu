@@ -1153,14 +1153,19 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
                                              pTarget->GetID(),
                                              0, "effects.Laser", 1, 1, 1, m_attackSpeed, 0, 0);
 
-    // Bomber damage (higher base than regular fighters)
+    // Bomber damage (higher base than regular fighters). Fighter bombers are AoE
+    // munitions (SDE: aoeCloudSize/aoeVelocity/proximityRange) — they detonate on
+    // reaching the target, so they ALWAYS hit (toHit=1.0). Using GetDroneToHit
+    // here produced "misses completely" every shot: the SDE fighter-bomber hulls
+    // have no trackingSpeed/falloff/optimalSigRadius attributes (they're not
+    // turrets), so the formula divided by zero -> toHit 0 -> "too far away".
     Damage d(m_pDrone,
              m_pDrone->GetSelf(),
              m_pDrone->GetKinetic(),
              m_pDrone->GetThermal(),
              m_pDrone->GetEM(),
              m_pDrone->GetExplosive(),
-             m_formula.GetDroneToHit(m_pDrone, pTarget),
+             1.0f,          // fighter-bomber munitions always connect
              EVEEffectID::targetAttack
             );
 
