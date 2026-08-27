@@ -2040,6 +2040,49 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
          responder->GetBotName().c_str(), responder->GetBotCharID(), senderName.c_str(), (uint32)channelID);
 
     std::string prompt = senderName + " says: \"" + message + "\"";
+
+    // ---- minimal message analysis (so the bot actually responds to what was
+    // said instead of spitting a canned line at every message) ----
+    // Lowercased copy for keyword checks (keep the original for the prompt).
+    std::string low = message;
+    for (auto& c : low) c = (char)tolower((unsigned char)c);
+    bool isQuestion = low.find('?') != std::string::npos
+        || low.find("what") != std::string::npos || low.find("who") != std::string::npos
+        || low.find("why") != std::string::npos || low.find("where") != std::string::npos
+        || low.find("when") != std::string::npos || low.find("how") != std::string::npos
+        || low.find("можно") != std::string::npos || low.find("как ") != std::string::npos
+        || low.find("что") != std::string::npos || low.find("кто") != std::string::npos
+        || low.find("почему") != std::string::npos || low.find("где") != std::string::npos
+        || low.find("когда") != std::string::npos || low.find("почем") != std::string::npos;
+    bool isGreeting = low.find("hi") != std::string::npos || low.find("hello") != std::string::npos
+        || low.find("hey") != std::string::npos || low.find("yo ") != std::string::npos
+        || low.find("привет") != std::string::npos || low.find("здравств") != std::string::npos
+        || low.find("салют") != std::string::npos;
+    bool isHelp = low.find("help") != std::string::npos || low.find("помощ") != std::string::npos
+        || low.find("подскаж") != std::string::npos;
+    bool isFleet = low.find("fleet") != std::string::npos || low.find("фит") != std::string::npos
+        || low.find("группа") != std::string::npos || low.find("флот") != std::string::npos;
+    bool isInsult = low.find("nub") != std::string::npos || low.find("noob") != std::string::npos
+        || low.find("nooob") != std::string::npos || low.find("нуб") != std::string::npos
+        || low.find("fuck") != std::string::npos || low.find("idiot") != std::string::npos;
+
+    // Append the intent so the model answers ON TOPIC, not with a generic line.
+    if (isQuestion) {
+        prompt += " [This is a direct QUESTION — answer it properly and concretely,"
+                  " on topic, as yourself. Do not dodge it with an unrelated remark.]";
+    } else if (isGreeting) {
+        prompt += " [This is a GREETING — greet them back naturally and briefly.]";
+    } else if (isHelp) {
+        prompt += " [They are asking for HELP/advice — give a short, useful, in-character answer.]";
+    } else if (isFleet) {
+        prompt += " [They mention a fleet/gang/fit — react as a pilot to that subject.]";
+    } else if (isInsult) {
+        prompt += " [They are INSULTING you — respond in character: dismissive, blunt or mocking,"
+                  " but stay within EVE chat rules.]";
+    } else {
+        prompt += " [They made a casual statement — reply naturally to what was said,"
+                  " on topic if possible; a short relevant remark is better than a random phrase.]";
+    }
     // Reply in the SAME language the player wrote in (Russian, English, etc.) —
     // a real pilot from any country chats in their native tongue. The bot's
     // language/slang improves over time (chat self-learning: replies that drew
