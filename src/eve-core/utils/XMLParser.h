@@ -54,7 +54,11 @@ public:
          * @retval false Parsing failed.
          */
         virtual bool Parse( const TiXmlElement* field ) = 0;
-        //virtual ~ElementParser();
+        // Virtual destructor required: parsers are deleted through
+        // ElementParser* (XMLParser::ClearParsers). Without it, deleting a
+        // derived parser (e.g. Generator, 32 bytes) through the base (8 bytes)
+        // is new-delete-type-mismatch → heap corruption (ASAN catches it).
+        virtual ~ElementParser() { /* do nothing here */ }
     };
 
     /**
