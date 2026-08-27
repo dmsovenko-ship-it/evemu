@@ -70,6 +70,13 @@ protected:
 protected:
     uint32 m_locationID;
     uint32 m_groupID;
+
+    // Parent InvBrokerService. This object implements BOTH BoundServiceParent<InvBrokerBound>
+    // (via BindableService) AND BoundServiceParent<InventoryBound> (directly). Getting the
+    // InventoryBound parent through reinterpret_cast of GetParent() (which returns the
+    // InvBrokerBound parent) is UB — the two are different base subobjects. Keep the service
+    // reference so InventoryBound can be wired to the correct parent with static_cast.
+    InvBrokerService& m_service;
 };
 
 #endif
