@@ -128,8 +128,10 @@ NPCAIMgr::NPCAIMgr(NPC* who)
         m_neutRange = m_self->GetAttribute(AttrEntityCapacitorDrainMaxRange).get_uint32();
         m_neutAmount = m_self->GetAttribute(AttrEntityCapacitorDrainAmount).get_float();
         m_neutDuration = m_self->GetAttribute(AttrEntityCapacitorDrainDuration).get_uint32();
+        // entityCapacitorDrainDurationChance is the chance to apply (1 = always),
+        // same convention as SleeperAI::EnergyNeut.
         if (m_self->HasAttribute(AttrEntityCapacitorDrainDurationChance))
-            m_neutChance = 1.0f - m_self->GetAttribute(AttrEntityCapacitorDrainDurationChance).get_float();
+            m_neutChance = m_self->GetAttribute(AttrEntityCapacitorDrainDurationChance).get_float();
         else
             m_neutChance = 1.0f;
         if (m_neutDuration == 0) m_neutDuration = m_attackSpeed;
@@ -347,8 +349,14 @@ NPCAIMgr::NPCAIMgr(NPC* who)
         m_webStrength = -m_self->GetAttribute(AttrSpeedFactor).get_float() / 100.0f;   // -75 -> 0.75
     else
         m_webStrength = 0.6f; // default -60% speed
-    if (m_self->HasAttribute(AttrModifyTargetSpeedChance))
-        m_webChance = 1.0f - m_self->GetAttribute(AttrModifyTargetSpeedChance).get_float();
+    if (m_self->HasAttribute(AttrModifyTargetSpeedChance)) {
+        // Convention varies: normal NPCs store a 0..1 float chance to NOT use the
+        // web (Police=1 -> always web); sentry turrets store a percentage
+        // (Stasis Tower=100 -> always, Sentinel=50 -> half). Normalize both.
+        float c = m_self->GetAttribute(AttrModifyTargetSpeedChance).get_float();
+        if (c > 1.0f) c /= 100.0f;     // percent form (turrets)
+        m_webChance = 1.0f - c;         // chance to NOT apply, matching MakeRandomFloat()>m_webChance
+    }
     else
         m_webChance = 0.3f;  // default 30% chance per cycle
     m_webApplied = false;   // symmetric web undo tracking
