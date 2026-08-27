@@ -55,6 +55,20 @@ IF( NOT EVEMU_TARGETS_IMPORT )
   TARGET_LINK_LIBRARIES( "${TARGET_NAME}"
                          "eve-core" )
 
+  # eve-xmlpktgen is a build-time code generator only (it runs during the build
+  # to emit packet headers). Instrumenting it with ASAN/UBSAN makes generation
+  # orders of magnitude slower and can hang the build (observed: one packet file
+  # taking >15 min). Strip sanitizer flags from just this target; the runtime
+  # server (eve-server) keeps full sanitization.
+  STRING(REPLACE "-fsanitize=address" "" _xmlpktgen_CFLAGS "${CMAKE_CXX_FLAGS}")
+  STRING(REPLACE "-fsanitize=undefined" "" _xmlpktgen_CFLAGS "${_xmlpktgen_CFLAGS}")
+  STRING(REPLACE "-fno-sanitize=alignment" "" _xmlpktgen_CFLAGS "${_xmlpktgen_CFLAGS}")
+  IF(NOT "${_xmlpktgen_CFLAGS}" STREQUAL "${CMAKE_CXX_FLAGS}")
+    SET_TARGET_PROPERTIES( "${TARGET_NAME}" PROPERTIES
+                           COMPILE_FLAGS "${_xmlpktgen_CFLAGS}"
+                           LINK_FLAGS "${_xmlpktgen_CFLAGS}" )
+  ENDIF()
+
   IF( EVEMU_TARGETS_EXPORT )
     EXPORT( TARGETS "${TARGET_NAME}"
             FILE "${EVEMU_TARGETS_EXPORT}" )
