@@ -526,8 +526,8 @@ public:
 
         // turn iterator into byte offset
         const size_type _index = ( index.template As< uint8 >() - begin< uint8 >() );
-        // assign the value
-        *(T*)&mBuffer[ _index ] = value;
+        // assign the value (memcpy avoids unaligned store UB)
+        memcpy( &mBuffer[ _index ], &value, sizeof( T ) );
     }
     /**
      * @brief Assigns a sequence of elements to buffer at specific point.
