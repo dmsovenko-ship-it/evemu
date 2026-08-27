@@ -2785,6 +2785,18 @@ void DestinyManager::Orbit(SystemEntity *pSE, uint32 distance/*0*/) {
     m_targetEntity.first = pSE->GetID();
     m_targetEntity.second = pSE;
     m_targetPoint = pSE->GetPosition();
+
+    // EVE orbit distance is measured from the STRUCTURE SURFACE, not its centre.
+    // A "2500m" orbit around a gate (radius 3532-14051m) means 2500m off the
+    // surface = radius+2500 from the centre. If we used the commanded value as
+    // distance-from-centre the ship's centre would end up INSIDE the gate, and
+    // the collision push-out in ProcessState would fight the orbit every tick —
+    // speed reset to 0, ship visibly repelled ("the gate jumps"). Add the target
+    // radius for large static structures, exactly like live EVE.
+    if (pSE->IsGateSE() || pSE->IsStationSE() || pSE->IsPlanetSE() || pSE->IsMoonSE()) {
+        distance = (uint32)(distance + pSE->GetRadius());
+    }
+
     m_targetDistance = static_cast<double>(distance);
     BeginMovement();
 
