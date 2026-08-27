@@ -78,6 +78,7 @@
 | **Zero residual velocity on jump** — no post-jump jitter in new system | ❌ | ✅ |
 | **NPC balls re-sent after WarpStop** — no invisible attacking NPCs after warp | ❌ | ✅ |
 | **No bubble creation mid-warp** — only join existing bubbles (no per-frame GetBubble) | ❌ | ✅ |
+| **Orbit from structure surface** — orbit distance measured from gate/station/planet/moon surface, not centre (no inside-the-gate push-out, no speed reset) | ❌ | ✅ |
 
 ### 4. Combat & Crimewatch `████████████████████` 99%
 
@@ -89,6 +90,7 @@
 | **Faction police** — secStatus threshold spawn | ❌ | ✅ |
 | Sentry guns vs NPC, kill rights | 🟡 | ✅ |
 | Combat logoff, outlaw docking | 🟡 | ✅ |
+| **Self-defence** — only the first attacker is flagged for aggression; the victim's return fire is legal (PvP and NPC-pilot initiated fights alike) | ❌ | ✅ |
 
 ### 5. Modules / Overheating `██████████████████` 95%
 
@@ -104,6 +106,7 @@
 | Launch/scoop/return, AI states (10 subtypes) | 🟡 | ✅ |
 | Skills, control range, bandwidth, damage bonuses | ✅ | ✅ |
 | **EWAR cleanup** — web/paint/scramble released on target loss + drone death | ❌ | ✅ |
+| **Fighter-bomber always hits** — AoE munitions (no tracking/falloff attrs) toHit=1.0, no false "too far away" misses | ❌ | ✅ |
 
 ### 7. NPC AI & Spawning `███████████████████` 97%
 
@@ -119,6 +122,8 @@
 | NPC spawn position fix (no gate-bubble offset) | ❌ | ✅ |
 | **Negative EWAR release** — web/scramble/track-disruption cleaned on target loss, untarget, NPC death | ❌ | ✅ |
 | **NPC web symmetric undo** — no ×2.5 speed stack on target switch | ❌ | ✅ |
+| **Stationary sentry turrets** — sentry/turret groups (Sentry Gun, Protective, Mobile, Destructible, Missile Battery) never move; attack type by role: turret fire / web / energy neutralizer / real missiles (chargeGroup→type) | ❌ | ✅ |
+| **Analytic threat assessment** — combat power judged by hull class potential (capitals may cyno a fleet, battleships assumed fitted, fighter screen in space), not a precise fit check | ❌ | ✅ |
 
 ### 8. Agents & Missions `███████████████████` 95%
 
@@ -291,3 +296,8 @@
 - **Market full price list** — order-limit config fields uint8→uint32, full station asks returned to client (`1547a65a`)
 - **Dungeon decor & accel gates** — faction-lore decoration tiers, precise warp-to-next-room gates, asteroid spacing (16-17 Aug)
 - **Warp hardening** — two-phase decel, deferred jump mid-warp, zero residual velocity, NPC balls re-sent after WarpStop, no bubble creation mid-warp
+- **Orbit from structure surface** — gates/stations/planets/moons: orbit distance from surface, no inside-the-gate push-out (`a12d4095`)
+- **Stationary sentry turrets + role-based attack** — sentry/turret groups never move; attack matches role (turret fire / web / energy neutralizer / missiles) (`0c690a5c`+`84ef3e01`)
+- **Fighter-bomber to-hit** — AoE munitions always connect, no false distance misses (`74221cb1`)
+- **Analytic NPC threat assessment** — hull-class potential (capitals can cyno a fleet, battleships assumed fitted, fighter screen) instead of precise fit guess (`7673c9e6`+`5ce0cb67`)
+- **Self-defence crimewatch** — only the first attacker flagged for aggression; victim's return fire is legal (`08b54e29`+`f9aefd79`+`ff78ea34`)
