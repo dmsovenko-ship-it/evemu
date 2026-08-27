@@ -4045,20 +4045,19 @@ void DestinyManager::SendDestinyUpdate( std::vector<PyTuple*>& updates, std::vec
         // reach anyway. Silently drop — don't spam the log with traceStacks on
         // every bot travel/warp.
         if (mySE->HasPilot() && !mySE->IsNPCSE()) {
+            // Known-legitimate case: a real pilot's ship commanding a position
+            // update while between bubbles (after a gate jump, warp-in, etc.).
+            // The fallback re-add below handles it correctly, so a 40-line
+            // traceStack here is pure noise. Keep a single-line log.
             _log(
                 DESTINY__ERROR,
-                "[%u] Cannot BubbleCast destiny update (u:%u, e:%u); entity (%u) is not in any bubble.",
+                "[%u] Cannot BubbleCast destiny update (u:%u, e:%u); entity (%u) is not in any bubble. Re-adding.",
                 sEntityList.GetStamp(),
                 updates.size(),
                 events.size(),
                 mySE->GetID()
             );
 
-            if (sConfig.debug.IsTestServer) {
-                EvE::traceStack();
-            }
-
-            _log(DESTINY__ERROR, "[%u] Adding entity %u to bubble manager as fallback.", sEntityList.GetStamp(), mySE->GetID());
             sBubbleMgr.Add(mySE);
             if (mySE->SysBubble() != nullptr)
                 mySE->SysBubble()->BubblecastDestiny( updates, events, "destiny" );
