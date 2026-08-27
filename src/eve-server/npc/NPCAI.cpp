@@ -648,6 +648,24 @@ void NPCAIMgr::Process() {
                             pbot->BroadcastAggression(owner->GetCharacterID());
                         }
                     }
+                    // A chelobot engages a player's fighter/drone only if it would
+                    // also engage the OWNING ship. Drones aren't free targets: a
+                    // Nyx's fighter-bombers belong to a supercarrier, and a pilot
+                    // who commits to shooting them commits to that fight. Same
+                    // analytic judgement as engaging the hull directly — a frigate
+                    // hunter doesn't suicide into a carrier's fighter screen.
+                    if (m_npc->IsPlayerBot()) {
+                        Client* owner = sEntityList.FindClientByCharID(pEnt->GetSelf()->ownerID());
+                        SystemEntity* ownerSE = (owner != nullptr) ? owner->GetShipSE() : nullptr;
+                        if (ownerSE != nullptr && ownerSE != m_npc) {
+                            PlayerBot* pbot = dynamic_cast<PlayerBot*>(m_npc);
+                            if (pbot != nullptr && !pbot->HunterWouldEngage(ownerSE)) {
+                                // Not worth picking a fight with that pilot's drones.
+                                m_beginFindTarget.Start(MakeRandomInt(15000, 30000));
+                                return;
+                            }
+                        }
+                    }
                     Target(pEnt);
                     return;
                 }
