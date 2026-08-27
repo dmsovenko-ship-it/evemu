@@ -6,6 +6,7 @@
 #include "npc/BotChat.h"
 #include "EntityList.h"
 #include "system/SystemManager.h"
+#include "system/SystemBubble.h"
 #include "corporation/CorporationDB.h"
 #include "character/CharacterDB.h"
 #include "chat/LSCService.h"
@@ -2115,6 +2116,31 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         "You may be blunt, rude or dismissive if the situation calls for it — a grumpy veteran, a cocky PvP'er, "
         "a sarcastic miner — but stay within EVE's rules: no real-life hate speech, threats, slurs or anything "
         "that would get a real account banned. Being human and rough is fine; being toxic is not.";
+
+    // Situational context the bot IS aware of (it's in the same system/bubble):
+    // this keeps replies grounded and prevents the classic "I'm alone ratting"
+    // tell when the player is standing right next to the bot.
+    {
+        bool playerNear = false;
+        bool inCombat = responder->GetAIMgr() != nullptr && responder->GetAIMgr()->IsFighting();
+        SystemBubble* bub = responder->SysBubble();
+        if (bub != nullptr) {
+            std::vector<Client*> clients;
+            bub->GetPlayers(clients);
+            playerNear = !clients.empty();
+        }
+        if (playerNear) {
+            systemHint += " A pilot is in the same grid as you and can see you — "
+                          "do NOT claim you are alone somewhere (no 'I'm all alone in an anomaly' "
+                          "when someone is literally next to you). Reference the other pilot's "
+                          "presence naturally if it fits.";
+        }
+        if (inCombat) {
+            systemHint += " You are currently in a fight — mention it if it fits "
+                          "('bit busy', 'in a scrap', etc.) but don't make it the whole reply.";
+        }
+    }
+
     if (addressed) {
         // The message was addressed to THIS bot by name — reply as the person
         // being spoken to (answer the question / acknowledge the call-out).
