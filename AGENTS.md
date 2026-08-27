@@ -1,7 +1,7 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено и ПЕРЕСОБРАНО на сервере (обычный образ `evemu_server`, собран быстро, сервер перезапущен вручную `docker run -d -t -i`). Коммиты в origin/master: `abdeb8fe`...`30d8ac78` (см. секции ниже).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Всё ниже задеплоено и ПЕРЕСОБРАНО на сервере (обычный образ `evemu_server`, собран быстро, сервер перезапущен вручную `docker run -d -t -i`). Коммиты в origin/master: `abdeb8fe`...`48beaa0a` (см. секции ниже).
 
 ## 27 августа (день): орбита от поверхности, турели по роли, аналитика ботов, чат, самооборона PvP
 **Коммиты: `a12d4095` (орбита), `0c690a5c`+`84ef3e01` (турели), `7673c9e6`+`5ce0cb67` (аналитика силы), `be6c8571`+`734bcb90` (чат), `08b54e29`+`f9aefd79`+`ff78ea34` (самооборона), `30d8ac78` (docs). Образ собран, сервер перезапущен, работает.**
