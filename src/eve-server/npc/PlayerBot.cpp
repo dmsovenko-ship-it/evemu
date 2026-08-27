@@ -141,6 +141,25 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
     theirPower += CountEnemiesNearby(attacker) * 3;   // friends of the attacker add to its strength
     myPower += CountAlliesNearby() * 2;               // my fleet helps me
 
+    // Analytic threat (never a precise fit-check — a pilot can't read the other
+    // fit). Capitals can cyno in a fleet / rarely travel alone; battleships are
+    // assumed fitted to fight; a hull that has fighters/drones out in space is
+    // a real carrier screen, not just a class guess.
+    using namespace EVEDB::invGroups;
+    uint16 atkGroup = 0;
+    if (attacker->GetSelf().get() != nullptr) {
+        Inv::TypeData atkData;
+        sDataMgr.GetType(attacker->GetSelf()->typeID(), atkData);
+        atkGroup = atkData.groupID;
+    }
+    if (atkGroup == Carrier || atkGroup == Supercarrier || atkGroup == Titan)
+        theirPower += 4;   // may cyno in friends / bring a fleet
+    else if (atkGroup == Battleship || atkGroup == BlackOps || atkGroup == Marauder)
+        theirPower += 1;   // heavy hull — assume it's fitted to fight
+    if (attacker->GetDroneSE() != nullptr
+        || (attacker->IsShipSE() && attacker->GetShipSE()->GetActiveFighterCount() > 0))
+        theirPower += 3;   // fighter screen / drones already out
+
     // A real player is more dangerous than an AI pilot of the same hull — bots
     // defend cautiously against players but brawl more readily with each other.
     if (attacker->HasPilot())
@@ -608,6 +627,23 @@ bool PlayerBot::HunterWouldEngage(SystemEntity* target)
     int theirPower = enemyClass * 2 + 2;   // players are less predictable (+2)
     theirPower += CountEnemiesNearby(target) * 3;   // the target's friends add up
     myPower += CountAlliesNearby() * 2;             // my fleet helps me
+
+    // Analytic threat, not a precise fit-check: a pilot never KNOWS the exact
+    // fit on the other side. Capital ships (carriers/supers/titans) get a fleet
+    // bonus — a cap can light a cyno and drop a fleet, and such ships rarely
+    // travel alone. A ship that has fighters/drones out in space is a drone
+    // carrier at least, which adds its fighter screen as real threat.
+    using namespace EVEDB::invGroups;
+    if (tdata.groupID == Carrier || tdata.groupID == Supercarrier || tdata.groupID == Titan)
+        theirPower += 4;   // may cyno in friends / bring a fleet
+    else if (tdata.groupID == Battleship || tdata.groupID == BlackOps || tdata.groupID == Marauder)
+        theirPower += 1;   // heavy hull — assume it's fitted to fight
+
+    // The ship's fighters/drones are already out — that's a real fighter screen
+    // adding DPS and tackle, not just a hull class guess.
+    if (target->GetDroneSE() != nullptr
+        || (target->IsShipSE() && target->GetShipSE()->GetActiveFighterCount() > 0))
+        theirPower += 3;
 
     float skill = m_memory ? m_memory->GetPvpSkill() : 0.0f;
     float aggro = (float)sConfig.playerBots.AggroFactor / 100.0f;
@@ -1340,6 +1376,17 @@ void PlayerBot::HuntForTarget()
         // Bots are bolder against each other than against players — an AI pilot is
         // a more predictable opponent, so the hunter commits a little easier.
         theirPower -= 2;
+        // Analytic threat: capitals may cyno in a fleet, battleships are assumed
+        // fitted to fight, and a carrier with fighters/drones out is a real screen.
+        using namespace EVEDB::invGroups;
+        uint16 preyGroup = enemyBot->GetSelf()->groupID();
+        if (preyGroup == Carrier || preyGroup == Supercarrier || preyGroup == Titan)
+            theirPower += 4;
+        else if (preyGroup == Battleship || preyGroup == BlackOps || preyGroup == Marauder)
+            theirPower += 1;
+        if (enemyBot->GetDroneSE() != nullptr
+            || (enemyBot->IsShipSE() && enemyBot->GetShipSE()->GetActiveFighterCount() > 0))
+            theirPower += 3;
 
         if (ShouldEngage(myPower, theirPower, false)) {
             _log(BOT__TRACE, "PlayerBot %s(%u): hunter engaging %s(%u) — %d vs %d.",
