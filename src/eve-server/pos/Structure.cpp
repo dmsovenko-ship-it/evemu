@@ -1296,6 +1296,18 @@ void StructureSE::Killed(Damage &damage)
     if ((m_bubble == nullptr) or (m_destiny == nullptr) or (m_system == nullptr))
         return; // make error here?
 
+    // Notify every entity currently targeting this structure (player ships, drones,
+    // NPCs) that it is gone. Without this the attackers keep a stale/dangling pointer
+    // in their TargetManager and segfault the next time their AI ticks. Drones/NPCs
+    // have no pilot, so TargetLost() just drops the target from m_targets and returns
+    // them to Idle — exactly the behaviour we want on structure death.
+    // Also stop this structure's own weapons (mirrors SystemEntity::Killed, which
+    // StructureSE::Killed overrides and would otherwise skip).
+    if (m_targMgr != nullptr) {
+        m_targMgr->Destroyed();
+        m_targMgr->ClearFromTargets();
+    }
+
     if (m_tower)
         m_bubble->SetTowerSE(nullptr);
 

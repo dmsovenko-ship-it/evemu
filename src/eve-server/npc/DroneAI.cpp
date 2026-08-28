@@ -316,6 +316,25 @@ void DroneAIMgr::Process() {
                     Return();
                     return;
                 }
+                // Focus fire: if the pilot switched the ship's locked target, the
+                // drone must follow. Without this the drone keeps hammering the old
+                // target after the player retargets (e.g. to a newly-arrived NPC
+                // defender drone or the TCU). Only re-evaluate while the current
+                // target is still valid (the guards above already returned otherwise).
+                bool focusFire = m_pDrone->GetSelf()->HasAttribute(AttrDroneFocusFire)
+                               && m_pDrone->GetSelf()->GetAttribute(AttrDroneFocusFire).get_int() > 0;
+                if (focusFire and m_assignedShip->TargetMgr() != nullptr) {
+                    SystemEntity* shipTarget = m_assignedShip->TargetMgr()->GetFirstTarget(true);
+                    if (shipTarget != nullptr and shipTarget != pTarget
+                            and shipTarget->DestinyMgr() != nullptr) {
+                        _log(DRONE__AI_TRACE, "Drone %s(%u): focus fire switching to ship's new target %s(%u).",
+                             m_pDrone->GetName(), m_pDrone->GetID(),
+                             shipTarget->GetName(), shipTarget->GetID());
+                        ClearTarget(pTarget);
+                        Target(shipTarget);
+                        return;
+                    }
+                }
             }
             CheckDistance(pTarget);
         } break;
@@ -1674,12 +1693,16 @@ int8 DroneAIMgr::GetOwnerSkillLevel(uint16 skillID) const {
     return pOwner->GetChar()->GetSkillLevel(skillID);
 }
 
-// Nearest hostile NPC (rat) within control range. Used by the drone's aggressive
-// and the fighter's attack-and-follow behaviour: the drone picks the closest rat
-// and engages on its own (like an EVE aggressive drone guarding a miner).
+// Nearest hostile target within control range. Used by the drone's aggressive
+// and the fighter's attack-and-follow behaviour: the drone picks the closest
+// hostile and engages on its own (like an EVE aggressive drone guarding a miner).
+// Hostiles include NPC rats, NPC defender drones, and hostile structures such as a
+// TCU/tower being besieged — anything lockable that is not friendly to the owner.
 SystemEntity* DroneAIMgr::FindAggroTarget() {
     if (m_pDrone->SysBubble() == nullptr)
         return nullptr;
+    const uint32 ownerID = m_pDrone->GetSelf()->ownerID();
+    const int32 ownerWar = m_pDrone->GetWarFactionID();
     std::map<uint32, SystemEntity*> entities;
     m_pDrone->SysBubble()->GetAllEntities(entities);
     double controlRange = GetControlRange();
@@ -1688,10 +1711,21 @@ SystemEntity* DroneAIMgr::FindAggroTarget() {
     for (auto& [id, se] : entities) {
         if (se == nullptr || se->GetSelf().get() == nullptr)
             continue;
-        if (se->IsDroneSE() || se->IsStaticEntity())
-            continue;                                  // no drone-vs-drone / structures
-        if (!se->IsNPCSE() || se->GetNPCSE()->IsPlayerBot())
-            continue;                                  // rats only (not chelobots)
+        // Must be a lockable combat target (has a TargetManager). This excludes
+        // scenery with no TargetManager (decor, clouds, acceleration gates).
+        if (se->TargetMgr() == nullptr)
+            continue;
+        // Never attack the owner's own ship or the owner's own drones (friendly).
+        if (se->GetSelf()->ownerID() == ownerID)
+            continue;
+        // Skip friendlies: same non-zero war faction (e.g. same militia in Faction War).
+        const int32 seWar = se->GetWarFactionID();
+        if (seWar != 0 && seWar == ownerWar)
+            continue;
+        // Don't attack the player's own bot allies (chelobots share the pilot-less
+        // path but are friendly assets).
+        if (se->IsNPCSE() && se->GetNPCSE()->IsPlayerBot())
+            continue;
         double d = m_pDrone->GetPosition().distance(se->GetPosition());
         if (d < bestDist) { bestDist = d; best = se; }
     }
