@@ -50,14 +50,7 @@ PyResult::PyResult(PyRep* result, PyDict* namedResult)
 {}
 
 PyResult::PyResult(const PyResult& oth) : ssResult(nullptr), ssNamedResult(nullptr) { *this = oth; }
-PyResult::~PyResult() {
-    if (ssResult != nullptr && ssResult->IsTuple())
-        ssResult->AsTuple()->clear();
-    PySafeDecRef(ssResult);
-    if (ssNamedResult != nullptr && ssNamedResult->IsDict())
-        ssNamedResult->AsDict()->clear();
-    PySafeDecRef(ssNamedResult);
-}
+PyResult::~PyResult() { PySafeDecRef(ssResult); PySafeDecRef(ssNamedResult); }
 
 PyResult& PyResult::operator=(const PyResult& oth)
 {
