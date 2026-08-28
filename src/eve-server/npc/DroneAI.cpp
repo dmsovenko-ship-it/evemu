@@ -1209,6 +1209,35 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
 
     d *= sConfig.rates.damageRate;
 
+    // Missile explosion formula — same as Missile::HitTarget but applied to the
+    // bomb's raw damage.  Without this, target painters are useless against
+    // fighter-bombers: they increase signature radius (Sr) but the server never
+    // feeds Sr into a damage modifier.  With the formula the painter actually
+    //amplify the damage through the Sr/Er ratio.
+    if (pTarget->GetSelf() != nullptr
+            && m_pDrone->GetSelf()->HasAttribute(AttrAoeCloudSize)
+            && m_pDrone->GetSelf()->HasAttribute(AttrAoeVelocity)
+            && m_pDrone->GetSelf()->HasAttribute(AttrAoeDamageReductionFactor)
+            && m_pDrone->GetSelf()->HasAttribute(AttrAoeDamageReductionSensitivity)
+            && pTarget->GetSelf()->HasAttribute(AttrSignatureRadius)) {
+        double Sr = pTarget->GetSelf()->GetAttribute(AttrSignatureRadius).get_float();
+        double Er = m_pDrone->GetSelf()->GetAttribute(AttrAoeCloudSize).get_float();
+        double Ev = m_pDrone->GetSelf()->GetAttribute(AttrAoeVelocity).get_float();
+        double DRF = m_pDrone->GetSelf()->GetAttribute(AttrAoeDamageReductionFactor).get_float();
+        double DRS = m_pDrone->GetSelf()->GetAttribute(AttrAoeDamageReductionSensitivity).get_float();
+        if (Er > 0 && Ev > 0 && DRF > 0 && DRS > 0) {
+            GPoint Vel = pTarget->GetVelocity();
+            double V = Vel.length();
+            if (V <= 0) V = 1;
+            double v1 = Sr / Er;
+            double v2 = pow((Ev / V) * v1, log(DRF) / log(DRS));
+            float modifier = static_cast<float>(EvE::min1(v1, v2));
+            d *= modifier;
+            _log(DRONE__AI_TRACE, "Bomber %s(%u): missile formula Sr=%.0f Er=%.0f Ev=%.0f V=%.0f mod=%.3f",
+                 m_pDrone->GetName(), m_pDrone->GetID(), Sr, Er, Ev, V, modifier);
+        }
+    }
+
     // Apply damage to target
     _log(DRONE__AI_TRACE, "Bomber %s(%u): FighterBomberAttack -> %s(%u) total=%.2f ammo=%u/%u",
          m_pDrone->GetName(), m_pDrone->GetID(),
@@ -1726,6 +1755,26 @@ SystemEntity* DroneAIMgr::FindAggroTarget() {
         // path but are friendly assets).
         if (se->IsNPCSE() && se->GetNPCSE()->IsPlayerBot())
             continue;
+        // Self-preservation: don't engage drones belonging to a capital ship
+        // (carrier / supercarrier / titan).  A frigate fighting near a capital
+        // is suicidal — the capital's main guns/fighters will destroy it.
+        if (se->IsDroneSE()) {
+            DroneSE* drone = se->GetDroneSE();
+            if (drone != nullptr) {
+                Client* droneOwner = drone->GetOwner();
+                if (droneOwner != nullptr) {
+                    ShipItemRef ownerShip = droneOwner->GetShip();
+                    if (ownerShip.get() != nullptr && m_pDrone->SystemMgr() != nullptr) {
+                        SystemEntity* ownerSE = m_pDrone->SystemMgr()->GetSE(ownerShip->itemID());
+                        if (ownerSE != nullptr && ownerSE->GetSelf().get() != nullptr) {
+                            int shipClass = GetShipClass(ownerSE->GetSelf()->groupID());
+                            if (shipClass >= 6)
+                                continue;   // carrier/supercarrier/titan nearby — skip
+                        }
+                    }
+                }
+            }
+        }
         double d = m_pDrone->GetPosition().distance(se->GetPosition());
         if (d < bestDist) { bestDist = d; best = se; }
     }
