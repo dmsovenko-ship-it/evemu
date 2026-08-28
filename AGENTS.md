@@ -1,7 +1,31 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Коммиты в origin/master: `abdeb8fe`...`a5502bb8` (см. секции ниже).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Коммиты в origin/master: `abdeb8fe`...`9041fe35` (см. секции ниже).
+
+## 28 августа (день): суициды ботов на Никс, fighter-bomber пейнтеры, StructureSE::Killed, PyRep leak-аудит (dtor clear)
+**Коммиты: `541fb0c9` (bots skip capital drones + missile formula), `63ca913d` (fighter-bomber ReturnBay + stale re-engage), `6e6a977b` (build fixes), `58f51f1f` (PyRep dtor clears), `eff057e6` (Multicast clear), `042158b1` (Encode null + revert), `6659d44d` (revert ~PyResult), `9041fe35` (revert ~PyPacket clear). Сборка прошла, сервер работает.**
+
+### Боты vs Никс (суицидальные атаки фрегатов)
+- **✅ `FindAggroTarget` skip capital drones (`541fb0c9`)**: когда файтеры Никса атакуют фрегат-бота, бот оценивает ФАЙТЕР (class 2), а не Никс (class 6). Бот с m_botSkill≥4 решает что赢 fight → летит к файтеру → умирает от главного оружия Никса. Фикс: `FindAggroTarget` проверяет владельца дрона — если это carrier/supercarrier/titan (groupID 547/659/30), цель пропускается. Используются прямые константы `EVEDB::invGroups` (PlayerBot::GetShipClass не доступен из DroneAIMgr).
+- **✅ `OnAttacked` power assessment**: `CountEnemiesNearby` считает ownersNearShip как врагов, но НЕ считает владельца дрона-агрессора. С built-in +4 (supercarrier) +3 (fighters) +3 (enemies) power evaluation correctly rejects Nyx fights for most skill levels.
+
+### Fighter-bomber: пейнтеры + deep-space teleport
+- **✅ FighterBomberAttack missile formula (`541fb0c9`)**: бомбы файтер-бомберов наносили сырой урон БЕЗ формулы ракет (Sr/Er/Ev/V). Пейнтеры увеличивали sig radius, но сервер не использовал его в расчёте. Фикс: добавлена `Missile::HitTarget` формула в `FighterBomberAttack` с guard'ами на existence атрибутов (AttrAoeCloudSize и пр.).
+- **✅ Deep-space teleport fix (`63ca913d`)**: `SetIdle()` перезаряжал bomber'ы в космосе (строки 540-544) + перенацеливал на устаревшую цель (строки 550-558, TargetMgr не очищался) → бомбер летел к далёкой цели. Фикс: (1) `FighterBomberAttack` вызывает `ReturnBay()` (return to bay) вместо `Return()` при патроне 0; (2) SetIdle убрана автоперезарядка бомберов (перезаряжаются только в трюме) + убрано перенацеливание для бомберов.
+
+### StructureSE::Killed — краш при убийстве ТКУ
+- **✅ `StructureSE::Killed` ClearFromTargets (`541fb0c9`)**: `StructureSE::Killed` OVERRIDES base `SystemEntity::Killed` и НЕ вызывал `ClearFromTargets()` → дроны/NPC хранили dangling pointer на мёртвую структуру → segfault в `DroneAI::Process` Engaged handler (line 283 `pTarget->SysBubble()`). Фикс: `m_targMgr->Destroyed()` + `m_targMgr->ClearFromTargets()` в начале `StructureSE::Killed`. Аналогичный guard в `ObjectSystemEntity::Killed` НЕ нужен ( structures removing via Delete() path).
+
+### PyRep leak-аудит (итог)
+- **✅ `EntityList::Multicast` clear (`eff057e6`)**: 2 перегрузки Multicast (character_set и MulticastTarget) вызывали `PyDecRef(payload)` БЕЗ `payload->clear()` → items leak. Фикс: добавлен `payload->clear()` перед DecRef (первая перегрузка уже имела).
+- **✅ `Encode()` null pointers (`042158b1`)**: `PyPacket::Encode()` крал `payload`/`named_payload` в `arg_tuple->items[]` БЕЗ IncRef → dual ownership с `~PyPacket` dtor → double-free. Фикс: `payload = nullptr; named_payload = nullptr;` после кражи.
+- **🔴 Деструкторы PyTuple/PyList/PyDict НЕ освобождают items**: `~PyPacket clear()` откачен — `PySubStream` хранит borrowed rep БЕЗ IncRef → clear() каскадно освобождает → `~PyResult`/`~PyObject` потом обращаются к freed memory. Подтверждено на логине: crash в `Handle_CallReq` → `_SendCallReturn` → `PySubStream(rsp.ssResult)` → `~PyPacket clear()` → `~PySubStream` → `PySafeDecRef(ssResult)` → `~PyResult` → access freed. **Системный фикс dtor'ов ОТКЛОНЁН** (ATMOS-AGENTS.md, корень — Encode() без IncRef). Оставлены: Encode null fix + Multicast clear. Утечки в dtor'ахACCEPTABLE (контейнеры маленькие, редкие path-ы).
+
+## Нерешённое (28 авг)
+- **🔴 Revelation/Dreadnought — модули пропадают после дока**: uniquely to Dreadnought group (485). Nyx (659) работает нормально. Слоты в БД ок (Hi=8/Mid=4/Low=4). Проверить `invTypes` для Revelation: `categoryID`, `groupID`, `radius`, `mass`. Вероятно船а не распознается как Ship (categoryID≠6) или отсутствуют критичные атрибуты. siege modules (Siege_Module group) registered as ActiveModule — empty case block (no activation effects, expected for mode-change modules).
+- **Диагностика**: `SELECT typeID, typeName, groupID, categoryID, radius, mass, capacity FROM invTypes WHERE typeName LIKE '%Revelation%';`
+- **PyRep leak-аудит**: точечные fix'ы в конкретных call sites (clear() перед DecRef) вместо системных dtor'ов. Высокотрафичные пути: Handle_CallReq, _SendCallReturn, SendNotification, Multicast — проверены. Низкотрафичные: Agent/Contract/Map/Calendar — НЕ проверены.
 
 ## 28 августа (ночь): PyRep Leak-аудит — исходящий сетевой путь (QueuePacket/Handle_CallReq)
 **Коммиты: `6295bccc` (CreateNotification leak), `d755f32f`+`deebe9cf` (clear() перед DecRef в CorpNotify/Broadcast/Multicast), `134457b5` (QueuePacket delete + _SendCallReturn refcount named_payload), `bdb7285e` (docs). Запушено в origin/master. Юзеру нужна ПЕРЕСБОРКА сервера.**
