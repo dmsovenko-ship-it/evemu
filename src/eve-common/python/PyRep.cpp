@@ -866,6 +866,8 @@ PyObject::PyObject(const PyObject& oth)
 PyObject::~PyObject()
 {
     PyDecRef( mType );
+    if (mArguments != nullptr && mArguments->IsTuple())
+        mArguments->AsTuple()->clear();
     PyDecRef( mArguments );
 }
 
@@ -895,7 +897,11 @@ PyObjectEx::~PyObjectEx()
 {
     PySafeDecRef( mHeader );
 
+    if (mList != nullptr && mList->IsList())
+        mList->AsList()->clear();
     PyDecRef( mList );
+    if (mDict != nullptr && mDict->IsDict())
+        mDict->AsDict()->clear();
     PyDecRef( mDict );
 }
 
@@ -1206,6 +1212,12 @@ PySubStream::PySubStream(const PySubStream& oth )
 PySubStream::~PySubStream()
 {
     PySafeDecRef( mData );
+    if (mDecoded != nullptr && mDecoded->IsTuple())
+        mDecoded->AsTuple()->clear();
+    else if (mDecoded != nullptr && mDecoded->IsDict())
+        mDecoded->AsDict()->clear();
+    else if (mDecoded != nullptr && mDecoded->IsList())
+        mDecoded->AsList()->clear();
     PySafeDecRef( mDecoded );
 }
 

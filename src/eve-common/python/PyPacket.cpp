@@ -71,7 +71,14 @@ contextKey(nullptr)
 
 PyPacket::~PyPacket()
 {
+    // Containers (tuple/list/dict) do NOT free items in their dtors — items
+    // must be released via clear() first.  Without this, every outgoing packet
+    // leaks all PyRep objects inside payload and named_payload.
+    if (payload != nullptr && payload->IsTuple())
+        payload->AsTuple()->clear();
     PySafeDecRef(payload);
+    if (named_payload != nullptr && named_payload->IsDict())
+        named_payload->AsDict()->clear();
     PySafeDecRef(named_payload);
 }
 
