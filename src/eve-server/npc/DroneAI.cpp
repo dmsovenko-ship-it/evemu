@@ -1215,7 +1215,7 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
     // fighter-bombers: they increase signature radius (Sr) but the server never
     // feeds Sr into a damage modifier.  With the formula the painter actually
     //amplify the damage through the Sr/Er ratio.
-    if (pTarget->GetSelf() != nullptr
+    if (pTarget->GetSelf().get() != nullptr
             && m_pDrone->GetSelf()->HasAttribute(AttrAoeCloudSize)
             && m_pDrone->GetSelf()->HasAttribute(AttrAoeVelocity)
             && m_pDrone->GetSelf()->HasAttribute(AttrAoeDamageReductionFactor)
@@ -1768,8 +1768,10 @@ SystemEntity* DroneAIMgr::FindAggroTarget() {
                     if (ownerShip.get() != nullptr && m_pDrone->SystemMgr() != nullptr) {
                         SystemEntity* ownerSE = m_pDrone->SystemMgr()->GetSE(ownerShip->itemID());
                         if (ownerSE != nullptr && ownerSE->GetSelf().get() != nullptr) {
-                            int shipClass = GetShipClass(ownerSE->GetSelf()->groupID());
-                            if (shipClass >= 6)
+                            uint16 grp = ownerSE->GetSelf()->groupID();
+                            if (grp == EVEDB::invGroups::Carrier
+                                    || grp == EVEDB::invGroups::Supercarrier
+                                    || grp == EVEDB::invGroups::Titan)
                                 continue;   // carrier/supercarrier/titan nearby — skip
                         }
                     }
