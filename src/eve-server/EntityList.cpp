@@ -1139,6 +1139,7 @@ void EntityList::Multicast(const char* notifyType, const char* idType, PyTuple**
         }
     }
 
+    payload->clear();
     PyDecRef( payload );
 }
 
@@ -1156,6 +1157,7 @@ void EntityList::Multicast(const character_set &cset, const char* notifyType, co
             itr->second->SendNotification(notifyType, idType, &payload, seq);
         }
     }
+    payload->clear();
     PyDecRef( payload );
 }
 
