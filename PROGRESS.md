@@ -79,6 +79,7 @@
 | **NPC balls re-sent after WarpStop** — no invisible attacking NPCs after warp | ❌ | ✅ |
 | **No bubble creation mid-warp** — only join existing bubbles (no per-frame GetBubble) | ❌ | ✅ |
 | **Orbit from structure surface** — orbit distance measured from gate/station/planet/moon surface, not centre (no inside-the-gate push-out, no speed reset) | ❌ | ✅ |
+| **Jump drives** — capital jumps require an active cynosural field (CynosuralFieldI/CovertCynosuralFieldI) in the destination system; fuel type per race (Caldari→Helium, Minmatar→Hydrogen, Amarr→Nitrogen, Gallente→Oxygen) | ❌ | ✅ |
 
 ### 4. Combat & Crimewatch `████████████████████` 99%
 
@@ -98,6 +99,7 @@
 |---------|:--------:|:----:|
 | Module groups, cyno, cloak, jump portal, titan bridge | ✅ | ✅ |
 | **Overload** — Thermo check, heat damage, Nanite Paste, OverloadRack | ❌ | ✅ |
+| **ECM player jam** — ActiveModule ECM compares jam strength to target's strongest sensor; on success breaks the target's lock (ClearTarget) + sends ElectronicAttributeModifyTarget | ❌ | ✅ |
 
 ### 6. Drones `██████████████████` 96%
 
@@ -122,8 +124,9 @@
 | NPC spawn position fix (no gate-bubble offset) | ❌ | ✅ |
 | **Negative EWAR release** — web/scramble/track-disruption cleaned on target loss, untarget, NPC death | ❌ | ✅ |
 | **NPC web symmetric undo** — no ×2.5 speed stack on target switch | ❌ | ✅ |
-| **Stationary sentry turrets** — sentry/turret groups (Sentry Gun, Protective, Mobile, Destructible, Missile Battery) never move; attack type by role: turret fire / web / energy neutralizer / real missiles (chargeGroup→type) | ❌ | ✅ |
+| **Stationary sentry turrets** — sentry/turret groups (Sentry Gun, Protective, Mobile, Destructible Sentry Gun, Mobile Missile Sentry) never move; attack type by role: turret fire / web / energy neutralizer / real missiles (chargeGroup→type) | ❌ | ✅ |
 | **Analytic threat assessment** — combat power judged by hull class potential (capitals may cyno a fleet, battleships assumed fitted, fighter screen in space), not a precise fit check | ❌ | ✅ |
+| **Self-preservation** — non-combat hulls (industrial/barge/freighter/hauler) never fight back, they warp out; novice misjudge only makes a bot panic-flee a winnable fight, never attack a fight it judged as lost | ❌ | ✅ |
 
 ### 8. Agents & Missions `███████████████████` 95%
 
@@ -261,6 +264,7 @@
 | **AttrWarpBubbleImmune** (Interdiction Nullifier) — all 6 check paths | ❌ | ✅ |
 | **Immediate online after anchor** — MWD active right after anchor timer (bubble + scramble live) | ❌ | ✅ |
 | **Stacked deployable drop** — Split(1) on drop/jettison, rest stays in cargo | ❌ | ✅ |
+| **Warp scramble prevents jumps** — MWD bubble after anchoring scrambles the ship (no dock/jump until aggression timer cools); scramble active immediately on anchor completion | ❌ | ✅ |
 
 ### 21. Ship Module Restrictions
 
@@ -301,3 +305,6 @@
 - **Fighter-bomber to-hit** — AoE munitions always connect, no false distance misses (`74221cb1`)
 - **Analytic NPC threat assessment** — hull-class potential (capitals can cyno a fleet, battleships assumed fitted, fighter screen) instead of precise fit guess (`7673c9e6`+`5ce0cb67`)
 - **Self-defence crimewatch** — only the first attacker flagged for aggression; victim's return fire is legal (`08b54e29`+`f9aefd79`+`ff78ea34`)
+- **Jump drives** — capital jumps require active cyno in destination; fuel type per race (`6dd25d3d`)
+- **ECM player jam** — ActiveModule ECM breaks target lock + sends ElectronicAttributeModifyTarget (`7ae077e2`)
+- **Warp scramble prevents jumps** — MWD bubble after anchoring scrambles the ship (no dock/jump until aggression timer cools) (`d8ace19c`)
