@@ -537,18 +537,19 @@ void DroneAIMgr::SetIdle() {
         _log(DRONE__AI_TRACE, "Fighter %s(%u): Reloaded to %u ammo on return to carrier.",
              m_pDrone->GetName(), m_pDrone->GetID(), m_pDrone->GetFighterAmmo());
     }
-    // Bombers reload when scooped into bay (they need to dock for bomb reload)
-    if (m_pDrone->IsFighterBomber() and (m_pDrone->GetFighterAmmo() < m_pDrone->GetFighterMaxAmmo())) {
-        m_pDrone->ReloadFighter();
-        _log(DRONE__AI_TRACE, "Bomber %s(%u): Reloaded to %u ammo on return to carrier.",
-             m_pDrone->GetName(), m_pDrone->GetID(), m_pDrone->GetFighterAmmo());
-    }
+    // Fighter-bombers do NOT auto-reload here — they return to bay (ReturnBay)
+    // for reload, matching EVE behaviour.  Reloading in space + re-engaging a
+    // stale target caused bombers to chase a distant target into deep space.
+
     m_state = DroneAI::State::Idle;
     m_beginFindTarget.Disable();
     m_mainAttackTimer.Disable();
 
-    // after reload, re-engage the last target if it still exists
-    if (m_pDrone->TargetMgr() != nullptr) {
+    // After reload, re-engage the last target if it still exists — but only for
+    // regular fighters, NOT fighter-bombers.  Bombers that auto-returned (Return)
+    // without ReturnBay have a stale TargetMgr entry pointing at a now-distant
+    // target; re-engaging it sends the bomber flying off into deep space.
+    if (!m_pDrone->IsFighterBomber() and m_pDrone->TargetMgr() != nullptr) {
         SystemEntity* pTarget = m_pDrone->TargetMgr()->GetFirstTarget(false);
         if (pTarget != nullptr) {
             _log(DRONE__AI_TRACE, "Drone %s(%u): SetIdle: re-engaging last target %s(%u) after reload.",
@@ -1157,7 +1158,7 @@ void DroneAIMgr::FighterAttack(SystemEntity* pTarget) {
 void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
     // Fighter Bomber: AoE bomb attack, return to carrier when empty
     if (!m_pDrone->ConsumeFighterAmmo()) {
-        Return();
+        ReturnBay();   // scoop into bay for bomb reload (not bare Return)
         return;
     }
 
