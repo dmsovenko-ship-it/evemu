@@ -259,12 +259,14 @@ PyRep *PyPacket::Encode() {
 
     //payload
     arg_tuple->items[4] = payload;     // dont clone here.  set actual rep in item, and it will be cleaned up by d'tor later
+    payload = nullptr;                  // Encode transfers ownership to the tuple — ~PyPacket must not double-free
 
     //named arguments (OID+ or sn)
     if (named_payload == nullptr) {
         arg_tuple->items[5] = PyStatic.NewNone();
     } else {
         arg_tuple->items[5] = named_payload;    // dont clone here.  set actual rep in item, and it will be cleaned up by d'tor later
+        named_payload = nullptr;                 // transfer ownership
     }
 
     // contextKey, gives the client extra information on what exactly is going on
