@@ -195,7 +195,7 @@ void POS_AI::FireWeapon(uint32 targetID)
 
     m_pWeapon->DestinyMgr()->SendSpecialEffect10(
             m_pWeapon->GetID(), pTarget->GetID(),
-            "effects.Laser", 1, 1, 1);
+            "effects.StandardWeapon", 1, 1, 1);
 
     if (killed) {
         m_targetID = 0;

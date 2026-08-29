@@ -1008,8 +1008,7 @@ void DroneAIMgr::AttackTarget(SystemEntity* pTarget) {
 void DroneAIMgr::CombatAttack(SystemEntity* pTarget) {
     // effects are listed in EVE_Effects.h
     //  NOTE: drones are called 'entities' in client; EVE_Effects has 'entityxxx' for gfx
-    std::string guid = "effects.Laser"; // client looks for 'turret' in ship.ball.modules for 'effects.laser'
-    //effects.ProjectileFiredForEntities
+    std::string guid = "effects.StandardWeapon"; // client's StandardWeapon class handles all turret types
     uint32 gfxID = 0;
     if (m_pDrone->GetSelf()->HasAttribute(AttrGfxTurretID))// graphicID for turret for drone type ships
         gfxID = m_pDrone->GetSelf()->GetAttribute(AttrGfxTurretID).get_uint32();
@@ -1171,7 +1170,7 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
                                              m_pDrone->GetSelf()->itemID(),
                                              m_pDrone->GetSelf()->typeID(),
                                              pTarget->GetID(),
-                                             0, "effects.Laser", 1, 1, 1, m_attackSpeed, 0, 0);
+                                             0, "effects.StandardWeapon", 1, 1, 1, m_attackSpeed, 0, 0);
 
     // Bomber damage (higher base than regular fighters). Fighter bombers are AoE
     // munitions (SDE: aoeCloudSize/aoeVelocity/proximityRange) — they detonate on

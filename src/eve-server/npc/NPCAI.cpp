@@ -1237,7 +1237,7 @@ void NPCAIMgr::FitModules()
     uint8 slotIdx = 0;
 
     // Determine weapon GUID from missile type
-    std::string guid = "effects.Laser";
+    std::string guid = "effects.StandardWeapon";
     if (m_missileTypeID > 0)
         guid = "effects.MissileDeployment";
 
@@ -1598,12 +1598,9 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
     // Select effect GUID based on NPC weapon type (from SDE attributes).
     // Client's StandardWeapon handles all turret GUIDs identically (animates locators).
     // Missile-using NPCs get MissileDeployment effect instead of turret.
-    std::string guid = "effects.Laser";
+    std::string guid = "effects.StandardWeapon";
     if (m_missileTypeID > 0) {
         guid = "effects.MissileDeployment";
-    } else if (m_self->HasAttribute(AttrGfxTurretID)) {
-        // Use ProjectileFiredForEntities as fallback for non-laser NPC turrets
-        guid = "effects.ProjectileFiredForEntities";
     }
     uint32 gfxID = 0;
     if (m_self->HasAttribute(AttrGfxTurretID))

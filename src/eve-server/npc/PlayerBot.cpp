@@ -853,7 +853,7 @@ void PlayerBot::DroneEngageTarget(DroneSE* drone, SystemEntity* target)
     if (drone->SysBubble() != nullptr)
         drone->DestinyMgr()->SendSpecialEffect(drone->GetSelf()->itemID(), drone->GetSelf()->itemID(),
                                                drone->GetSelf()->typeID(), target->GetID(), 0,
-                                               "effects.Laser", 1, 1, 1, 2000, 0, 0);
+                                               "effects.StandardWeapon", 1, 1, 1, 2000, 0, 0);
 }
 
 void PlayerBot::ManageDrones()

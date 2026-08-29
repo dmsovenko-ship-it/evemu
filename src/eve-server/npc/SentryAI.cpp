@@ -334,7 +334,7 @@ void SentryAI::Attack(SystemEntity* pTarget)
 //entityWarpScrambleChance
 void SentryAI::AttackTarget(SystemEntity* pTarget) {
     // some npcs use missiles.....write code for using missiles   -- entityMissileTypeID
-    std::string guid = "effects.Laser";
+    std::string guid = "effects.StandardWeapon";
     // sentry does NOT have a destiny manager...use target's destiny manager for sending fx
     // use antimatter charge (typeID 218) as visual ammo to avoid client crash in SetAmmoColorByTypeID
     pTarget->DestinyMgr()->SendSpecialEffect(m_npc->GetSelf()->itemID(),
