@@ -1283,6 +1283,9 @@ void ActiveModule::OnModuleOffline()
     SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier, false);
     if (m_shipRef->GetModuleManager() != nullptr)
         m_shipRef->GetModuleManager()->EnablePropMods();
+    // Update destiny manager so the ship can move again
+    if (m_destinyMgr != nullptr)
+        m_destinyMgr->SetMaxVelocity(m_savedMaxVelocity);
 
     uint32 typeID = m_modRef->typeID();
     if (typeID == 27951 || typeID == 4294) {

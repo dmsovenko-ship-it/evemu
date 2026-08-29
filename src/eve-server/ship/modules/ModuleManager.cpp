@@ -665,11 +665,15 @@ void ModuleManager::DeactivateAllModules()
 
 void ModuleManager::DisablePropMods()
 {
+    _log(MODULE__INFO, "DisablePropMods() called for %s(%u)", pShipItem->name(), pShipItem->itemID());
     for (auto cur : m_modules) {
         if (cur.second == nullptr)
             continue;
         if (cur.second->groupID() == EVEDB::invGroups::Afterburner
          || cur.second->groupID() == EVEDB::invGroups::Microwarpdrive) {
+            _log(MODULE__INFO, "  Found propulsion mod: %s(%u) online=%s state=%d",
+                cur.second->GetSelf()->name(), cur.second->itemID(),
+                cur.second->isOnline() ? "true" : "false", cur.second->GetModuleState());
             if (cur.second->isOnline()) {
                 _log(MODULE__INFO, "Siege/Triage: offlining propulsion mod %s(%u).", cur.second->GetSelf()->name(), cur.second->itemID());
                 cur.second->Offline();
@@ -680,11 +684,15 @@ void ModuleManager::DisablePropMods()
 
 void ModuleManager::EnablePropMods()
 {
+    _log(MODULE__INFO, "EnablePropMods() called for %s(%u)", pShipItem->name(), pShipItem->itemID());
     for (auto cur : m_modules) {
         if (cur.second == nullptr)
             continue;
         if (cur.second->groupID() == EVEDB::invGroups::Afterburner
          || cur.second->groupID() == EVEDB::invGroups::Microwarpdrive) {
+            _log(MODULE__INFO, "  Found propulsion mod: %s(%u) online=%s state=%d",
+                cur.second->GetSelf()->name(), cur.second->itemID(),
+                cur.second->isOnline() ? "true" : "false", cur.second->GetModuleState());
             if (!cur.second->isOnline() && cur.second->GetModuleState() == Module::State::Offline) {
                 _log(MODULE__INFO, "Siege/Triage: re-onlining propulsion mod %s(%u).", cur.second->GetSelf()->name(), cur.second->itemID());
                 cur.second->Online();
