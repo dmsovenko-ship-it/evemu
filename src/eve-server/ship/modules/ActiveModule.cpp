@@ -1388,6 +1388,22 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
     uint16 fxEffectID = m_effectID;
     if ((m_effectID == EVEEffectID::useMissiles) and (m_chargeRef.get() != nullptr))   //operation defined by charge (use charge's default effectID)
         fxEffectID = m_chargeRef->type().GetDefaultEffect();
+    // Capital turrets (and some other modules) may have effectID=0 in the SDE.
+    // Infer the correct effect from the module's weapon group so the client
+    // still sees the firing animation/beam.
+    if (fxEffectID < 1) {
+        switch (m_modRef->groupID()) {
+            case EVEDB::invGroups::Energy_Weapon:      // 53 — laser turrets
+            case EVEDB::invGroups::Hybrid_Weapon:       // 74 — blaster/rail turrets
+                fxEffectID = EVEEffectID::targetAttack; // 10
+                break;
+            case EVEDB::invGroups::Projectile_Weapon:   // 55 — autocannon/artillery
+                fxEffectID = EVEEffectID::projectileFired; // 34
+                break;
+            default:
+                break;
+        }
+    }
     std::string guidStr = sFxDataMgr.GetEffectGuid(fxEffectID);
     if (guidStr.empty())
         _log(EFFECTS__ERROR, "guid empty for %s using effectID %u", m_modRef->name(), fxEffectID);
