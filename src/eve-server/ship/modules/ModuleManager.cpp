@@ -693,6 +693,22 @@ void ModuleManager::EnablePropMods()
     }
 }
 
+void ModuleManager::DisableECMMods()
+{
+    for (auto cur : m_modules) {
+        if (cur.second == nullptr)
+            continue;
+        if (cur.second->groupID() == EVEDB::invGroups::ECM
+         || cur.second->groupID() == EVEDB::invGroups::Remote_Sensor_Damper
+         || cur.second->groupID() == EVEDB::invGroups::Tracking_Disruptor) {
+            if (cur.second->isOnline()) {
+                _log(MODULE__INFO, "Triage: offlining ECM/EWAR mod %s(%u).", cur.second->GetSelf()->name(), cur.second->itemID());
+                cur.second->Offline();
+            }
+        }
+    }
+}
+
 void ModuleManager::Activate(int32 itemID, uint16 effectID, int32 targetID, int32 repeat)
 {
     if (!pShipItem->HasPilot()) {

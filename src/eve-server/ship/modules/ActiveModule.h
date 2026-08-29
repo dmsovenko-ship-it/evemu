@@ -105,6 +105,7 @@ protected:
     bool                m_siegeApplied :1;
     float               m_savedMaxVelocity;
     float               m_savedDmgMultiplier;
+    float               m_savedMass;
 
     // protected to allow derived usage
     bool                m_Stop :1;
