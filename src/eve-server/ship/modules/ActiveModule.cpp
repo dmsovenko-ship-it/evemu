@@ -428,9 +428,11 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
         return;
     }
 
+    _log(MODULE__INFO, "Activate() before ApplyEffect for %s(%u)", m_modRef->name(), m_modRef->itemID());
     ApplyEffect(FX::State::Active, true);
     if (IsValidTarget(targetID))
         ApplyEffect(FX::State::Target, true);
+    _log(MODULE__INFO, "Activate() before OnModuleOnline for %s(%u)", m_modRef->name(), m_modRef->itemID());
 
     // Apply siege/triage/industrial core mode effects AFTER ApplyEffect
     // so sFxProc.ApplyEffects doesn't override our attribute changes
