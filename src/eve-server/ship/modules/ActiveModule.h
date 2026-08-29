@@ -59,6 +59,8 @@ public:
     virtual bool        CanActivate();
     /* apply charge effects when undocking, as they are reset and not called anywhere else */
     virtual void        ReprocessCharge();
+    virtual void        OnModuleOnline();
+    virtual void        OnModuleOffline();
 
     /* ActiveModule methods */
     virtual uint32      GetTargetID()           { return m_targetID; }

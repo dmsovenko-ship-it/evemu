@@ -767,70 +767,7 @@ uint32 ActiveModule::DoCycle() {
             }
         } break;
         case EVEDB::invGroups::Siege_Module: {
-            // Capital mode modules: Siege (20280/4292), Triage (27951/4294), Industrial Core (28583)
-            // Apply on first cycle only (not every tick).
-            if (!m_siegeApplied) {
-                m_siegeApplied = true;
-
-                // ALL MODES: immobility + block remote reps
-                m_savedMaxVelocity = m_shipRef->GetAttribute(AttrMaxVelocity).get_float();
-                m_shipRef->SetAttribute(AttrMaxVelocity, 0.0f, true);
-                // Block incoming remote reps by setting a flag checked in ApplyDamage/reps
-                m_shipRef->SetAttribute(AttrWarpScrambleStatus, 99.0f, false);
-                // Disable MWD/AB
-                if (m_shipRef->GetModuleManager() != nullptr)
-                    m_shipRef->GetModuleManager()->DisablePropMods();
-
-                uint32 typeID = m_modRef->typeID();
-                if (typeID == 20280 || typeID == 4292) {
-                    // === SIEGE MODULE I/II ===
-                    m_savedDmgMultiplier = GetAttribute(AttrDamageMultiplier).get_float();
-                    // T1: 7x damage (damageMultiplierBonus=700), T2: 8.4x (840)
-                    float dmgBonus = (typeID == 4292) ? 8.4f : 7.0f;
-                    SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier * dmgBonus, false);
-                    // Bonus to own capital repair modules
-                    m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 100.0f, false);
-                    m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 100.0f, false);
-                    _log(MODULE__INFO, "SIEGE %s ACTIVATED on %s(%u) — velocity=0, dmg x%.1f, rep x2.",
-                        (typeID == 4292) ? "II" : "I", m_shipRef->name(), m_shipRef->itemID(), dmgBonus);
-                } else if (typeID == 27951 || typeID == 4294) {
-                    // === TRIAGE MODULE I/II ===
-                    m_savedDmgMultiplier = 1.0f;
-                    // Remote repair bonuses (T1=+100%, T2=+100% base but with -20% cap cost)
-                    float repBonus = 100.0f;
-                    m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, repBonus, false);
-                    m_shipRef->SetAttribute(AttrShieldTransportAmountBonus, repBonus, false);
-                    m_shipRef->SetAttribute(AttrRemoteHullDamageAmountBonus, repBonus, false);
-                    // Local repair bonuses
-                    m_shipRef->SetAttribute(AttrArmorDamageAmountBonus, repBonus, false);
-                    m_shipRef->SetAttribute(AttrShieldBoostMultiplier, repBonus, false);
-                    // Disable drones
-                    m_shipRef->SetAttribute(AttrMaxDronePercentageBonus, -100.0f, false);
-                    // Disable ECM
-                    m_shipRef->SetAttribute(AttrEwCapacitorNeedBonus, 9999900.0f, false);
-                    if (m_shipRef->GetModuleManager() != nullptr)
-                        m_shipRef->GetModuleManager()->DisableECMMods();
-                    // T2 only: reduce remote module cap cost by 20%
-                    if (typeID == 4294)
-                        m_shipRef->SetAttribute(AttrTriageRemoteModuleCapNeed, -20.0f, false);
-                    _log(MODULE__INFO, "TRIAGE %s ACTIVATED on %s(%u) — velocity=0, rep +%.0f%%, drones off, ecm blocked%s.",
-                        (typeID == 4294) ? "II" : "I", m_shipRef->name(), m_shipRef->itemID(), repBonus,
-                        (typeID == 4294) ? ", -20% remote cap" : "");
-                } else {
-                    // === INDUSTRIAL CORE I ===
-                    m_savedDmgMultiplier = 1.0f;
-                    // 10x mass increase
-                    m_savedMass = m_shipRef->GetAttribute(AttrMass).get_float();
-                    m_shipRef->SetAttribute(AttrMass, m_savedMass * 10.0f, false);
-                    // +400% mining drone yield
-                    m_shipRef->SetAttribute(AttrMiningDroneAmountPercent, 400.0f, false);
-                    // Mining Foreman boost bonus
-                    m_shipRef->SetAttribute(AttrCommandBonusEffectiveAdd, 2.0f, false);
-                    // Enable ore/ice/gas/lunar compression
-                    m_shipRef->SetAttribute(AttrOreCompression, 1, false);
-                    _log(MODULE__INFO, "INDUSTRIAL CORE ACTIVATED on %s(%u) — velocity=0, mass x10, mining drone +400%%, compression on.", m_shipRef->name(), m_shipRef->itemID());
-                }
-            }
+            // Siege/Triage/Industrial Core effects applied in OnModuleOnline/OnModuleOffline
         } break;
         case EVEDB::invGroups::ECCM:
         case EVEDB::invGroups::Cloaking_Device:
@@ -869,37 +806,7 @@ void ActiveModule::AbortCycle()
     if (m_Stop)
         return;
 
-    // Siege/Triage mode cleanup: restore velocity, damage, and repair bonuses
-    if (m_siegeApplied) {
-        m_siegeApplied = false;
-        m_shipRef->SetAttribute(AttrMaxVelocity, m_savedMaxVelocity, true);
-        SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier, false);
-        if (m_shipRef->GetModuleManager() != nullptr)
-            m_shipRef->GetModuleManager()->EnablePropMods();
-        // Restore triage repair bonuses to 0
-        uint32 typeID = m_modRef->typeID();
-        if (typeID == 27951 || typeID == 4294) {
-            m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 0.0f, false);
-            m_shipRef->SetAttribute(AttrShieldTransportAmountBonus, 0.0f, false);
-            m_shipRef->SetAttribute(AttrRemoteHullDamageAmountBonus, 0.0f, false);
-            m_shipRef->SetAttribute(AttrArmorDamageAmountBonus, 0.0f, false);
-            m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 0.0f, false);
-            m_shipRef->SetAttribute(AttrMaxDronePercentageBonus, 0.0f, false);
-            m_shipRef->SetAttribute(AttrEwCapacitorNeedBonus, 0.0f, false);
-            if (typeID == 4294)
-                m_shipRef->SetAttribute(AttrTriageRemoteModuleCapNeed, 0.0f, false);
-            _log(MODULE__INFO, "TRIAGE DEACTIVATED on %s(%u) — repair bonuses removed.", m_shipRef->name(), m_shipRef->itemID());
-        } else if (typeID == 28583 && m_savedMass > 0.0f) {
-            // Industrial Core: restore mass and mining bonuses
-            m_shipRef->SetAttribute(AttrMass, m_savedMass, false);
-            m_shipRef->SetAttribute(AttrMiningDroneAmountPercent, 0.0f, false);
-            m_shipRef->SetAttribute(AttrCommandBonusEffectiveAdd, 0.0f, false);
-            m_shipRef->SetAttribute(AttrOreCompression, 0, false);
-            _log(MODULE__INFO, "INDUSTRIAL CORE DEACTIVATED on %s(%u) — mass and mining bonuses restored.", m_shipRef->name(), m_shipRef->itemID());
-        } else {
-            _log(MODULE__INFO, "Siege DEACTIVATED on %s(%u) — velocity restored.", m_shipRef->name(), m_shipRef->itemID());
-        }
-    }
+    // Siege/Triage mode cleanup handled in OnModuleOffline() via GenericModule::Offline()
 
     // Immediately stop active cycle for things such as insufficient cap, remove module, init warp, target destroyed, target left bubble, or miner deactivated by player:
     SetModuleState(Module::State::Deactivating);
@@ -1284,6 +1191,100 @@ void ActiveModule::UpdateDamage(uint16 attrID, uint16 srcAttrID, InventoryItemRe
     }
     iRef->SetAttribute(attrID, newValue);
     m_shipRef->GetPilot()->GetShipSE()->SendDamageStateChanged();
+}
+
+void ActiveModule::OnModuleOnline()
+{
+    // Siege/Triage/Industrial Core mode: apply ship-level effects when module comes online.
+    // This runs AFTER sFxProc.ApplyEffects, so our attribute changes stick.
+    if (groupID() != EVEDB::invGroups::Siege_Module)
+        return;
+    if (m_siegeApplied)
+        return;
+
+    m_siegeApplied = true;
+
+    // ALL MODES: immobility + block remote reps
+    m_savedMaxVelocity = m_shipRef->GetAttribute(AttrMaxVelocity).get_float();
+    m_shipRef->SetAttribute(AttrMaxVelocity, 0.0f, true);
+    m_shipRef->SetAttribute(AttrWarpScrambleStatus, 99.0f, false);
+    if (m_shipRef->GetModuleManager() != nullptr)
+        m_shipRef->GetModuleManager()->DisablePropMods();
+
+    uint32 typeID = m_modRef->typeID();
+    if (typeID == 20280 || typeID == 4292) {
+        // === SIEGE MODULE I/II ===
+        m_savedDmgMultiplier = GetAttribute(AttrDamageMultiplier).get_float();
+        float dmgBonus = (typeID == 4292) ? 8.4f : 7.0f;
+        SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier * dmgBonus, false);
+        m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 100.0f, false);
+        m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 100.0f, false);
+        _log(MODULE__INFO, "SIEGE %s ACTIVATED on %s(%u) — velocity=0, dmg x%.1f, rep x2.",
+            (typeID == 4292) ? "II" : "I", m_shipRef->name(), m_shipRef->itemID(), dmgBonus);
+    } else if (typeID == 27951 || typeID == 4294) {
+        // === TRIAGE MODULE I/II ===
+        m_savedDmgMultiplier = 1.0f;
+        float repBonus = 100.0f;
+        m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, repBonus, false);
+        m_shipRef->SetAttribute(AttrShieldTransportAmountBonus, repBonus, false);
+        m_shipRef->SetAttribute(AttrRemoteHullDamageAmountBonus, repBonus, false);
+        m_shipRef->SetAttribute(AttrArmorDamageAmountBonus, repBonus, false);
+        m_shipRef->SetAttribute(AttrShieldBoostMultiplier, repBonus, false);
+        m_shipRef->SetAttribute(AttrMaxDronePercentageBonus, -100.0f, false);
+        m_shipRef->SetAttribute(AttrEwCapacitorNeedBonus, 9999900.0f, false);
+        if (m_shipRef->GetModuleManager() != nullptr)
+            m_shipRef->GetModuleManager()->DisableECMMods();
+        if (typeID == 4294)
+            m_shipRef->SetAttribute(AttrTriageRemoteModuleCapNeed, -20.0f, false);
+        _log(MODULE__INFO, "TRIAGE %s ACTIVATED on %s(%u) — velocity=0, rep +%.0f%%, drones off, ecm blocked%s.",
+            (typeID == 4294) ? "II" : "I", m_shipRef->name(), m_shipRef->itemID(), repBonus,
+            (typeID == 4294) ? ", -20% remote cap" : "");
+    } else {
+        // === INDUSTRIAL CORE I ===
+        m_savedDmgMultiplier = 1.0f;
+        m_savedMass = m_shipRef->GetAttribute(AttrMass).get_float();
+        m_shipRef->SetAttribute(AttrMass, m_savedMass * 10.0f, false);
+        m_shipRef->SetAttribute(AttrMiningDroneAmountPercent, 400.0f, false);
+        m_shipRef->SetAttribute(AttrCommandBonusEffectiveAdd, 2.0f, false);
+        m_shipRef->SetAttribute(AttrOreCompression, 1, false);
+        _log(MODULE__INFO, "INDUSTRIAL CORE ACTIVATED on %s(%u) — velocity=0, mass x10, mining drone +400%%, compression on.", m_shipRef->name(), m_shipRef->itemID());
+    }
+}
+
+void ActiveModule::OnModuleOffline()
+{
+    if (groupID() != EVEDB::invGroups::Siege_Module)
+        return;
+    if (!m_siegeApplied)
+        return;
+
+    m_siegeApplied = false;
+    m_shipRef->SetAttribute(AttrMaxVelocity, m_savedMaxVelocity, true);
+    SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier, false);
+    if (m_shipRef->GetModuleManager() != nullptr)
+        m_shipRef->GetModuleManager()->EnablePropMods();
+
+    uint32 typeID = m_modRef->typeID();
+    if (typeID == 27951 || typeID == 4294) {
+        m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 0.0f, false);
+        m_shipRef->SetAttribute(AttrShieldTransportAmountBonus, 0.0f, false);
+        m_shipRef->SetAttribute(AttrRemoteHullDamageAmountBonus, 0.0f, false);
+        m_shipRef->SetAttribute(AttrArmorDamageAmountBonus, 0.0f, false);
+        m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 0.0f, false);
+        m_shipRef->SetAttribute(AttrMaxDronePercentageBonus, 0.0f, false);
+        m_shipRef->SetAttribute(AttrEwCapacitorNeedBonus, 0.0f, false);
+        if (typeID == 4294)
+            m_shipRef->SetAttribute(AttrTriageRemoteModuleCapNeed, 0.0f, false);
+        _log(MODULE__INFO, "TRIAGE DEACTIVATED on %s(%u) — bonuses removed.", m_shipRef->name(), m_shipRef->itemID());
+    } else if (typeID == 28583 && m_savedMass > 0.0f) {
+        m_shipRef->SetAttribute(AttrMass, m_savedMass, false);
+        m_shipRef->SetAttribute(AttrMiningDroneAmountPercent, 0.0f, false);
+        m_shipRef->SetAttribute(AttrCommandBonusEffectiveAdd, 0.0f, false);
+        m_shipRef->SetAttribute(AttrOreCompression, 0, false);
+        _log(MODULE__INFO, "INDUSTRIAL CORE DEACTIVATED on %s(%u) — mass and mining bonuses restored.", m_shipRef->name(), m_shipRef->itemID());
+    } else {
+        _log(MODULE__INFO, "SIEGE DEACTIVATED on %s(%u) — velocity restored.", m_shipRef->name(), m_shipRef->itemID());
+    }
 }
 
 // not used
