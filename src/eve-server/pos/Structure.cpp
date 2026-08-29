@@ -1419,7 +1419,7 @@ void StructureSE::Killed(Damage &damage)
 
     data.killBlob = blob.str().c_str();
     data.killTime = GetFileTimeNow();
-    data.moonID = m_moonSE->GetID(); /* denotes moonID for POS/Structure kills */
+    data.moonID = (m_moonSE != nullptr) ? m_moonSE->GetID() : 0; /* denotes moonID for POS/Structure kills */
 
     ServiceDB::SaveKillOrLoss(data);
 
