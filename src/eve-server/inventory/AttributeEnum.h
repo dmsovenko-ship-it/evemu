@@ -1812,8 +1812,6 @@ enum EveAttrEnum {
     */
 
     AttrTriageRemoteModuleCapNeed = 1802,   // triage mode: remote module capacitor need bonus
-    AttrMiningDroneAmountPercent = 428,     // industrial core: mining drone yield bonus
-    AttrOreCompression = 921,               // industrial core: enable ore compression
 };
 
 #endif // AttributeEnum_h__
