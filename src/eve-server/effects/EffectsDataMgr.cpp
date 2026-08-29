@@ -224,6 +224,8 @@ std::string FxDataMgr::GetEffectGuid(uint16 eID)
         case EVEEffectID::projectileFired:     // 34, projectile weapons
         case EVEEffectID::projectileFiredForEntities:   // 1086, NPC turrets
             return "effects.StandardWeapon";
+        case 4877:  // siegeModeEffect6 — client expects effects.SiegeMode
+            return "effects.SiegeMode";
         default:
             break;
     }
