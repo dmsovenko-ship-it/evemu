@@ -428,6 +428,9 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
         return;
     }
 
+    // Apply siege/triage/industrial core mode effects after timer is set
+    OnModuleOnline();
+
     ApplyEffect(FX::State::Active, true);
     if (IsValidTarget(targetID))
         ApplyEffect(FX::State::Target, true);
@@ -961,10 +964,11 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
         } break;
     }
 
-    Clear();
-}
+    // Apply siege/triage/industrial core mode cleanup before clearing
+    OnModuleOffline();
 
-void ActiveModule::ProcessActiveCycle() {
+    Clear();
+}void ActiveModule::ProcessActiveCycle() {
     if (m_Stop) {
         SetModuleState(Module::State::Deactivating);
     }
