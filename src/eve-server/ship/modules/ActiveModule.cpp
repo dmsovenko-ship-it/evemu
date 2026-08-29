@@ -822,7 +822,13 @@ uint32 ActiveModule::DoCycle() {
                     // 10x mass increase
                     m_savedMass = m_shipRef->GetAttribute(AttrMass).get_float();
                     m_shipRef->SetAttribute(AttrMass, m_savedMass * 10.0f, false);
-                    _log(MODULE__INFO, "INDUSTRIAL CORE ACTIVATED on %s(%u) — velocity=0, mass x10, compression enabled.", m_shipRef->name(), m_shipRef->itemID());
+                    // +400% mining drone yield
+                    m_shipRef->SetAttribute(AttrMiningDroneAmountPercent, 400.0f, false);
+                    // Mining Foreman boost bonus
+                    m_shipRef->SetAttribute(AttrCommandBonusEffectiveAdd, 2.0f, false);
+                    // Enable ore/ice/gas/lunar compression
+                    m_shipRef->SetAttribute(AttrOreCompression, 1, false);
+                    _log(MODULE__INFO, "INDUSTRIAL CORE ACTIVATED on %s(%u) — velocity=0, mass x10, mining drone +400%%, compression on.", m_shipRef->name(), m_shipRef->itemID());
                 }
             }
         } break;
@@ -884,9 +890,12 @@ void ActiveModule::AbortCycle()
                 m_shipRef->SetAttribute(AttrTriageRemoteModuleCapNeed, 0.0f, false);
             _log(MODULE__INFO, "TRIAGE DEACTIVATED on %s(%u) — repair bonuses removed.", m_shipRef->name(), m_shipRef->itemID());
         } else if (typeID == 28583 && m_savedMass > 0.0f) {
-            // Industrial Core: restore mass
+            // Industrial Core: restore mass and mining bonuses
             m_shipRef->SetAttribute(AttrMass, m_savedMass, false);
-            _log(MODULE__INFO, "INDUSTRIAL CORE DEACTIVATED on %s(%u) — mass restored.", m_shipRef->name(), m_shipRef->itemID());
+            m_shipRef->SetAttribute(AttrMiningDroneAmountPercent, 0.0f, false);
+            m_shipRef->SetAttribute(AttrCommandBonusEffectiveAdd, 0.0f, false);
+            m_shipRef->SetAttribute(AttrOreCompression, 0, false);
+            _log(MODULE__INFO, "INDUSTRIAL CORE DEACTIVATED on %s(%u) — mass and mining bonuses restored.", m_shipRef->name(), m_shipRef->itemID());
         } else {
             _log(MODULE__INFO, "Siege DEACTIVATED on %s(%u) — velocity restored.", m_shipRef->name(), m_shipRef->itemID());
         }
