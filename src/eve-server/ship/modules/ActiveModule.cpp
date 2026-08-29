@@ -1202,7 +1202,7 @@ void ActiveModule::UpdateDamage(uint16 attrID, uint16 srcAttrID, InventoryItemRe
 
 void ActiveModule::OnModuleOnline()
 {
-    _log(MODULE__INFO, "OnModuleOnline() called for %s(%u) groupID=%u", m_modRef->name(), m_modRef->itemID(), groupID());
+    _log(MODULE__INFO, "OnModuleOnline() called for %s(%u) groupID=%u, siegeApplied=%d", m_modRef->name(), m_modRef->itemID(), groupID(), m_siegeApplied);
     // Siege/Triage/Industrial Core mode: apply ship-level effects when module comes online.
     // This runs AFTER sFxProc.ApplyEffects, so our attribute changes stick.
     if (groupID() != EVEDB::invGroups::Siege_Module)
@@ -1212,9 +1212,13 @@ void ActiveModule::OnModuleOnline()
 
     m_siegeApplied = true;
 
+    _log(MODULE__INFO, "SIEGE CHECK: typeID=%u, shipMaxVel=%.1f, shipName=%s",
+        m_modRef->typeID(), m_shipRef->GetAttribute(AttrMaxVelocity).get_float(), m_shipRef->name());
+
     // ALL MODES: immobility + block remote reps
     m_savedMaxVelocity = m_shipRef->GetAttribute(AttrMaxVelocity).get_float();
     m_shipRef->SetAttribute(AttrMaxVelocity, 0.0f, true);
+    _log(MODULE__INFO, "SIEGE CHECK: velocity set to 0, saved=%.1f", m_savedMaxVelocity);
     m_shipRef->SetAttribute(AttrWarpScrambleStatus, 99.0f, false);
     if (m_shipRef->GetModuleManager() != nullptr)
         m_shipRef->GetModuleManager()->DisablePropMods();
@@ -1227,8 +1231,10 @@ void ActiveModule::OnModuleOnline()
         SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier * dmgBonus, false);
         m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 100.0f, false);
         m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 100.0f, false);
-        _log(MODULE__INFO, "SIEGE %s ACTIVATED on %s(%u) — velocity=0, dmg x%.1f, rep x2.",
-            (typeID == 4292) ? "II" : "I", m_shipRef->name(), m_shipRef->itemID(), dmgBonus);
+        _log(MODULE__INFO, "SIEGE %s ACTIVATED on %s(%u) — velocity=%.1f (should be 0), dmgMult=%.1f.",
+            (typeID == 4292) ? "II" : "I", m_shipRef->name(), m_shipRef->itemID(),
+            m_shipRef->GetAttribute(AttrMaxVelocity).get_float(),
+            GetAttribute(AttrDamageMultiplier).get_float());
     } else if (typeID == 27951 || typeID == 4294) {
         // === TRIAGE MODULE I/II ===
         m_savedDmgMultiplier = 1.0f;
@@ -1257,6 +1263,7 @@ void ActiveModule::OnModuleOnline()
         m_shipRef->SetAttribute(AttrOreCompression, 1, false);
         _log(MODULE__INFO, "INDUSTRIAL CORE ACTIVATED on %s(%u) — velocity=0, mass x10, mining drone +400%%, compression on.", m_shipRef->name(), m_shipRef->itemID());
     }
+    _log(MODULE__INFO, "OnModuleOnline() DONE for %s(%u) — final velocity=%.1f", m_modRef->name(), m_modRef->itemID(), m_shipRef->GetAttribute(AttrMaxVelocity).get_float());
 }
 
 void ActiveModule::OnModuleOffline()
