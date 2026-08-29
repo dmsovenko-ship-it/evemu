@@ -1810,6 +1810,8 @@ enum EveAttrEnum {
     modeAgilityPostDiv  2002
     modeVelocityPostDiv     2003
     */
+
+    AttrTriageRemoteModuleCapNeed = 1802,   // triage mode: remote module capacitor need bonus
 };
 
 #endif // AttributeEnum_h__

@@ -784,31 +784,38 @@ uint32 ActiveModule::DoCycle() {
                 uint32 typeID = m_modRef->typeID();
                 if (typeID == 20280 || typeID == 4292) {
                     // === SIEGE MODULE I/II ===
-                    // 3x damage bonus
                     m_savedDmgMultiplier = GetAttribute(AttrDamageMultiplier).get_float();
-                    SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier * 3.0f, false);
-                    // Bonus to own capital repair modules (remote reps from self)
+                    // T1: 7x damage (damageMultiplierBonus=700), T2: 8.4x (840)
+                    float dmgBonus = (typeID == 4292) ? 8.4f : 7.0f;
+                    SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier * dmgBonus, false);
+                    // Bonus to own capital repair modules
                     m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 100.0f, false);
                     m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 100.0f, false);
-                    _log(MODULE__INFO, "SIEGE ACTIVATED on %s(%u) — velocity=0, dmg x3, rep x2, no remote reps.", m_shipRef->name(), m_shipRef->itemID());
+                    _log(MODULE__INFO, "SIEGE %s ACTIVATED on %s(%u) — velocity=0, dmg x%.1f, rep x2.",
+                        (typeID == 4292) ? "II" : "I", m_shipRef->name(), m_shipRef->itemID(), dmgBonus);
                 } else if (typeID == 27951 || typeID == 4294) {
                     // === TRIAGE MODULE I/II ===
                     m_savedDmgMultiplier = 1.0f;
-                    // Remote repair bonuses (4.5x = +350% for T2, +100% for T1)
-                    m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 100.0f, false);
-                    m_shipRef->SetAttribute(AttrShieldTransportAmountBonus, 100.0f, false);
-                    m_shipRef->SetAttribute(AttrRemoteHullDamageAmountBonus, 100.0f, false);
+                    // Remote repair bonuses (T1=+100%, T2=+100% base but with -20% cap cost)
+                    float repBonus = 100.0f;
+                    m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, repBonus, false);
+                    m_shipRef->SetAttribute(AttrShieldTransportAmountBonus, repBonus, false);
+                    m_shipRef->SetAttribute(AttrRemoteHullDamageAmountBonus, repBonus, false);
                     // Local repair bonuses
-                    m_shipRef->SetAttribute(AttrArmorDamageAmountBonus, 100.0f, false);
-                    m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 100.0f, false);
-                    // Disable drones (drones stop dealing damage)
+                    m_shipRef->SetAttribute(AttrArmorDamageAmountBonus, repBonus, false);
+                    m_shipRef->SetAttribute(AttrShieldBoostMultiplier, repBonus, false);
+                    // Disable drones
                     m_shipRef->SetAttribute(AttrMaxDronePercentageBonus, -100.0f, false);
-                    // Disable ECM (cap cost set to absurd value)
+                    // Disable ECM
                     m_shipRef->SetAttribute(AttrEwCapacitorNeedBonus, 9999900.0f, false);
-                    // Offline all ECM modules on the ship
                     if (m_shipRef->GetModuleManager() != nullptr)
                         m_shipRef->GetModuleManager()->DisableECMMods();
-                    _log(MODULE__INFO, "TRIAGE ACTIVATED on %s(%u) — velocity=0, rep x2, drones off, ecm blocked, no remote reps.", m_shipRef->name(), m_shipRef->itemID());
+                    // T2 only: reduce remote module cap cost by 20%
+                    if (typeID == 4294)
+                        m_shipRef->SetAttribute(AttrTriageRemoteModuleCapNeed, -20.0f, false);
+                    _log(MODULE__INFO, "TRIAGE %s ACTIVATED on %s(%u) — velocity=0, rep +%.0f%%, drones off, ecm blocked%s.",
+                        (typeID == 4294) ? "II" : "I", m_shipRef->name(), m_shipRef->itemID(), repBonus,
+                        (typeID == 4294) ? ", -20% remote cap" : "");
                 } else {
                     // === INDUSTRIAL CORE I ===
                     m_savedDmgMultiplier = 1.0f;
@@ -873,6 +880,8 @@ void ActiveModule::AbortCycle()
             m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 0.0f, false);
             m_shipRef->SetAttribute(AttrMaxDronePercentageBonus, 0.0f, false);
             m_shipRef->SetAttribute(AttrEwCapacitorNeedBonus, 0.0f, false);
+            if (typeID == 4294)
+                m_shipRef->SetAttribute(AttrTriageRemoteModuleCapNeed, 0.0f, false);
             _log(MODULE__INFO, "TRIAGE DEACTIVATED on %s(%u) — repair bonuses removed.", m_shipRef->name(), m_shipRef->itemID());
         } else if (typeID == 28583 && m_savedMass > 0.0f) {
             // Industrial Core: restore mass
