@@ -1222,13 +1222,18 @@ void ActiveModule::OnModuleOnline()
     m_shipRef->SetAttribute(AttrWarpScrambleStatus, 99.0f, false);
     if (m_shipRef->GetModuleManager() != nullptr)
         m_shipRef->GetModuleManager()->DisablePropMods();
+    // Force-stop the ship — setting AttrMaxVelocity alone is not enough,
+    // the destiny manager keeps the cached velocity and the ship still drifts.
+    if (m_destinyMgr != nullptr)
+        m_destinyMgr->Stop();
 
     uint32 typeID = m_modRef->typeID();
     if (typeID == 20280 || typeID == 4292) {
         // === SIEGE MODULE I/II ===
+        // EVE: T1 = 3x damage, T2 = 3.5x damage
         m_savedDmgMultiplier = GetAttribute(AttrDamageMultiplier).get_float();
-        float dmgBonus = (typeID == 4292) ? 8.4f : 7.0f;
-        SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier * dmgBonus, false);
+        float dmgMultiplier = (typeID == 4292) ? 3.5f : 3.0f;
+        SetAttribute(AttrDamageMultiplier, dmgMultiplier, false);
         m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 100.0f, false);
         m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 100.0f, false);
         _log(MODULE__INFO, "SIEGE %s ACTIVATED on %s(%u) — velocity=%.1f (should be 0), dmgMult=%.1f.",
