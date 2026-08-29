@@ -215,6 +215,19 @@ uint16 FxDataMgr::GetEffectID(std::string effectName)
 
 std::string FxDataMgr::GetEffectGuid(uint16 eID)
 {
+    // ALWAYS override turret effect GUIDs — the SDE dgmEffects stores
+    // 'effects.Laser' / 'effects.ProjectileFired' but the client only
+    // registers 'effects.StandardWeapon' (StandardWeapon class in turrets.py).
+    // Without this override the client never sees turret fire animations.
+    switch (eID) {
+        case EVEEffectID::targetAttack:        // 10, laser/hybrid energy weapons
+        case EVEEffectID::projectileFired:     // 34, projectile weapons
+        case EVEEffectID::projectileFiredForEntities:   // 1086, NPC turrets
+            return "effects.StandardWeapon";
+        default:
+            break;
+    }
+
     effectMapType::const_iterator itr = m_effectMap.find(eID);
     if (itr != m_effectMap.end() and !itr->second.guid.empty())
         return itr->second.guid;
@@ -228,17 +241,6 @@ std::string FxDataMgr::GetEffectGuid(uint16 eID)
             return "effects.Afterburner";
         case EVEEffectID::speedBoostMassSigRad:
             return "effects.MicroWarpDrive";
-        // Turret fire effects. The client's StandardWeapon handles all turret
-        // GUIDs identically (animates locators), so if the server SDE lacks the
-        // canonical guid for the turret effect, fall back to the client-known
-        // ones — otherwise ShowEffect() skips the OnSpecialFX and the player
-        // never sees their own turrets fire.
-        case EVEEffectID::targetAttack:        // 10, laser energy weapons
-            return "effects.Laser";
-        case EVEEffectID::projectileFired:     // 34, projectile weapons
-            return "effects.ProjectileFired";
-        case EVEEffectID::projectileFiredForEntities:   // 1086, NPC turrets
-            return "effects.ProjectileFiredForEntities";
         default:
             break;
     }
