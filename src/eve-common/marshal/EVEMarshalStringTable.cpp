@@ -168,7 +168,7 @@ const char* const MarshalStringTable::s_mStringTable[] =
     "corprole",
     "damage",
     "duration",
-    "effects.StandardWeapon",
+    "effects.Laser",
     "gangid",
     "gangrole",
     "hqID",
