@@ -1280,6 +1280,7 @@ void ActiveModule::OnModuleOffline()
 
     m_siegeApplied = false;
     m_shipRef->SetAttribute(AttrMaxVelocity, m_savedMaxVelocity, true);
+    m_shipRef->SetAttribute(AttrWarpScrambleStatus, 0.0f, true);
     SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier, false);
     if (m_shipRef->GetModuleManager() != nullptr)
         m_shipRef->GetModuleManager()->EnablePropMods();
