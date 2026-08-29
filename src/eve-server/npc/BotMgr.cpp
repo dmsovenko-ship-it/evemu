@@ -1516,11 +1516,11 @@ void BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpI
     if (!sDatabase.RunQuery(err,
         "INSERT INTO ctrContracts"
         "  (contractType, issuerID, issuerCorpID, forCorp, isPrivate, assigneeID,"
-        "   dateIssued, dateExpired, duration, numDays, startStationID, startSolarSystemID,"
+        "   dateIssued, dateExpired, expireTimeInMinutes, duration, numDays, startStationID, startSolarSystemID,"
         "   startRegionID, endStationID, endSolarSystemID, endRegionID, price, reward, collateral,"
         "   title, description, status, volume)"
         " VALUES"
-        "  (3, %u, %u, 0, 0, 0, %lli, %lli, 7, 7, %u, %u,"
+        "  (3, %u, %u, 0, 0, 0, %lli, %lli, 10080, 7, 7, %u, %u,"
         "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u,"
         "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), 0, %lli, 0,"
         "   'Courier shipment', 'Standard courier contract', 0, %f)",
