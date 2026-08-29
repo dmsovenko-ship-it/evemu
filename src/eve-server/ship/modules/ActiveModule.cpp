@@ -784,11 +784,17 @@ uint32 ActiveModule::DoCycle() {
                     SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier * 3.0f, false);
                     _log(MODULE__INFO, "SIEGE mode ACTIVATED on %s(%u) — velocity=0, dmg x3.", m_shipRef->name(), m_shipRef->itemID());
                 } else if (typeID == 27951 || typeID == 4294) {
-                    // Triage Module I/II: remote rep bonus (4x), no damage bonus
+                    // Triage Module I/II: remote/local repair bonuses, disable ECM and drones
                     m_savedDmgMultiplier = 1.0f;
-                    _log(MODULE__INFO, "TRIAGE mode ACTIVATED on %s(%u) — velocity=0, remote rep bonus.", m_shipRef->name(), m_shipRef->itemID());
+                    // Boost ship's remote repair amount attributes
+                    m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 100.0f, false);   // +100% remote armor rep
+                    m_shipRef->SetAttribute(AttrShieldTransportAmountBonus, 100.0f, false);      // +100% remote shield rep
+                    m_shipRef->SetAttribute(AttrRemoteHullDamageAmountBonus, 100.0f, false);     // +100% remote hull rep
+                    m_shipRef->SetAttribute(AttrArmorDamageAmountBonus, 100.0f, false);          // +100% local armor rep
+                    m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 100.0f, false);           // +100% local shield rep
+                    _log(MODULE__INFO, "TRIAGE mode ACTIVATED on %s(%u) — velocity=0, repair bonus x2.", m_shipRef->name(), m_shipRef->itemID());
                 } else {
-                    // Industrial Core I: no damage bonus
+                    // Industrial Core I: command bonus
                     m_savedDmgMultiplier = 1.0f;
                     _log(MODULE__INFO, "INDUSTRIAL CORE ACTIVATED on %s(%u) — velocity=0.", m_shipRef->name(), m_shipRef->itemID());
                 }
@@ -831,14 +837,25 @@ void ActiveModule::AbortCycle()
     if (m_Stop)
         return;
 
-    // Siege mode cleanup: restore velocity and damage multiplier
+    // Siege/Triage mode cleanup: restore velocity, damage, and repair bonuses
     if (m_siegeApplied) {
         m_siegeApplied = false;
         m_shipRef->SetAttribute(AttrMaxVelocity, m_savedMaxVelocity, true);
         SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier, false);
         if (m_shipRef->GetModuleManager() != nullptr)
             m_shipRef->GetModuleManager()->EnablePropMods();
-        _log(MODULE__INFO, "Siege mode DEACTIVATED on %s(%u) — velocity restored.", m_shipRef->name(), m_shipRef->itemID());
+        // Restore triage repair bonuses to 0
+        uint32 typeID = m_modRef->typeID();
+        if (typeID == 27951 || typeID == 4294) {
+            m_shipRef->SetAttribute(AttrRemoteArmorDamageAmountBonus, 0.0f, false);
+            m_shipRef->SetAttribute(AttrShieldTransportAmountBonus, 0.0f, false);
+            m_shipRef->SetAttribute(AttrRemoteHullDamageAmountBonus, 0.0f, false);
+            m_shipRef->SetAttribute(AttrArmorDamageAmountBonus, 0.0f, false);
+            m_shipRef->SetAttribute(AttrShieldBoostMultiplier, 0.0f, false);
+            _log(MODULE__INFO, "TRIAGE mode DEACTIVATED on %s(%u) — repair bonuses removed.", m_shipRef->name(), m_shipRef->itemID());
+        } else {
+            _log(MODULE__INFO, "Siege/Industrial mode DEACTIVATED on %s(%u) — velocity restored.", m_shipRef->name(), m_shipRef->itemID());
+        }
     }
 
     // Immediately stop active cycle for things such as insufficient cap, remove module, init warp, target destroyed, target left bubble, or miner deactivated by player:
