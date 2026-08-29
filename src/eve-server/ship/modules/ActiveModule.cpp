@@ -1285,8 +1285,10 @@ void ActiveModule::OnModuleOffline()
     if (m_shipRef->GetModuleManager() != nullptr)
         m_shipRef->GetModuleManager()->EnablePropMods();
     // Update destiny manager so the ship can move again
-    if (m_destinyMgr != nullptr)
+    if (m_destinyMgr != nullptr) {
         m_destinyMgr->SetMaxVelocity(m_savedMaxVelocity);
+        m_destinyMgr->SetSpeedFraction(1.0f, true);
+    }
 
     uint32 typeID = m_modRef->typeID();
     if (typeID == 27951 || typeID == 4294) {
