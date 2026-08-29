@@ -454,6 +454,7 @@ bool SystemEntity::ApplyDamage(Damage &d) {
          */
         if (HasPilot()) {
             //  notify player of damage received
+            _log(DAMAGE__MESSAGE, "OnDamageMessage: %.1f damage to %s(%u) from %s(%u)", total_damage, GetName(), GetID(), d.srcSE->GetName(), d.srcSE->GetID());
             PyDict* dict = new PyDict();
                 dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
                 dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
@@ -485,6 +486,7 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         }
         if (d.srcSE->HasPilot()) {
             //notify to player of damage done:
+            _log(DAMAGE__MESSAGE, "OnDamageMessage(Given): %.1f damage by %s(%u) to %s(%u)", total_damage, d.srcSE->GetName(), d.srcSE->GetID(), GetName(), GetID());
             PyDict* dict = new PyDict();
                 dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
                 dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
