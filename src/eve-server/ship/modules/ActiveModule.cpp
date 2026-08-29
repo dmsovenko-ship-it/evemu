@@ -428,12 +428,13 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
         return;
     }
 
-    // Apply siege/triage/industrial core mode effects after timer is set
-    OnModuleOnline();
-
     ApplyEffect(FX::State::Active, true);
     if (IsValidTarget(targetID))
         ApplyEffect(FX::State::Target, true);
+
+    // Apply siege/triage/industrial core mode effects AFTER ApplyEffect
+    // so sFxProc.ApplyEffects doesn't override our attribute changes
+    OnModuleOnline();
 
     std::vector<GenericModule*> modules;
     if (m_linkMaster) {
