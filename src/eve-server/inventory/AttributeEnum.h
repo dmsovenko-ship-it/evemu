@@ -1704,7 +1704,8 @@ enum EveAttrEnum {
     AttrScanDurationBonus = 1906,  // not used
     AttrScanStrengthBonusModule = 1907,  // not used
     AttrScanWormholeStrength = 1908,  // not used
-    AttrDScanImmune = 1958      // not used, but neat idea
+    AttrDScanImmune = 1958,     // not used, but neat idea
+    AttrTriageRemoteModuleCapNeed = 1802    // triage mode: remote module capacitor need bonus
     /*
     warfareLinkCPUAdd   1882
     warfareLinkCPUPenalty   1883
@@ -1810,8 +1811,6 @@ enum EveAttrEnum {
     modeAgilityPostDiv  2002
     modeVelocityPostDiv     2003
     */
-
-    AttrTriageRemoteModuleCapNeed = 1802,   // triage mode: remote module capacitor need bonus
 };
 
 #endif // AttributeEnum_h__
