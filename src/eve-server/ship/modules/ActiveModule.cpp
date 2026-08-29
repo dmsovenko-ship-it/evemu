@@ -1200,6 +1200,7 @@ void ActiveModule::UpdateDamage(uint16 attrID, uint16 srcAttrID, InventoryItemRe
 
 void ActiveModule::OnModuleOnline()
 {
+    _log(MODULE__INFO, "OnModuleOnline() called for %s(%u) groupID=%u", m_modRef->name(), m_modRef->itemID(), groupID());
     // Siege/Triage/Industrial Core mode: apply ship-level effects when module comes online.
     // This runs AFTER sFxProc.ApplyEffects, so our attribute changes stick.
     if (groupID() != EVEDB::invGroups::Siege_Module)
