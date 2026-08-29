@@ -663,6 +663,36 @@ void ModuleManager::DeactivateAllModules()
             cur.second->Deactivate();
 }
 
+void ModuleManager::DisablePropMods()
+{
+    for (auto cur : m_modules) {
+        if (cur.second == nullptr)
+            continue;
+        if (cur.second->groupID() == EVEDB::invGroups::Afterburner
+         || cur.second->groupID() == EVEDB::invGroups::Microwarpdrive) {
+            if (cur.second->isOnline()) {
+                _log(MODULE__INFO, "Siege/Triage: offlining propulsion mod %s(%u).", cur.second->GetSelf()->name(), cur.second->itemID());
+                cur.second->Offline();
+            }
+        }
+    }
+}
+
+void ModuleManager::EnablePropMods()
+{
+    for (auto cur : m_modules) {
+        if (cur.second == nullptr)
+            continue;
+        if (cur.second->groupID() == EVEDB::invGroups::Afterburner
+         || cur.second->groupID() == EVEDB::invGroups::Microwarpdrive) {
+            if (!cur.second->isOnline() && cur.second->GetModuleState() == Module::State::Offline) {
+                _log(MODULE__INFO, "Siege/Triage: re-onlining propulsion mod %s(%u).", cur.second->GetSelf()->name(), cur.second->itemID());
+                cur.second->Online();
+            }
+        }
+    }
+}
+
 void ModuleManager::Activate(int32 itemID, uint16 effectID, int32 targetID, int32 repeat)
 {
     if (!pShipItem->HasPilot()) {

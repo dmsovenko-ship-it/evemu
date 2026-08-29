@@ -37,7 +37,10 @@ m_needsCharge(false),
 m_needsTarget(false),
 m_targetID(0),
 m_effectID(0),
-m_Stop(true)
+m_Stop(true),
+m_siegeApplied(false),
+m_savedMaxVelocity(0.0f),
+m_savedDmgMultiplier(1.0f)
 {
     m_repeat = 1000;    //based on client data
 
@@ -762,9 +765,37 @@ uint32 ActiveModule::DoCycle() {
                 }
             }
         } break;
+        case EVEDB::invGroups::Siege_Module: {
+            // Capital mode modules: Siege (20280/4292), Triage (27951/4294), Industrial Core (28583)
+            // Apply on first cycle only (not every tick).
+            if (!m_siegeApplied) {
+                m_siegeApplied = true;
+                // All modes: ship becomes immobile
+                m_savedMaxVelocity = m_shipRef->GetAttribute(AttrMaxVelocity).get_float();
+                m_shipRef->SetAttribute(AttrMaxVelocity, 0.0f, true);
+                // Disable MWD/AB
+                if (m_shipRef->GetModuleManager() != nullptr)
+                    m_shipRef->GetModuleManager()->DisablePropMods();
+
+                uint32 typeID = m_modRef->typeID();
+                if (typeID == 20280 || typeID == 4292) {
+                    // Siege Module I/II: 3x damage
+                    m_savedDmgMultiplier = GetAttribute(AttrDamageMultiplier).get_float();
+                    SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier * 3.0f, false);
+                    _log(MODULE__INFO, "SIEGE mode ACTIVATED on %s(%u) — velocity=0, dmg x3.", m_shipRef->name(), m_shipRef->itemID());
+                } else if (typeID == 27951 || typeID == 4294) {
+                    // Triage Module I/II: remote rep bonus (4x), no damage bonus
+                    m_savedDmgMultiplier = 1.0f;
+                    _log(MODULE__INFO, "TRIAGE mode ACTIVATED on %s(%u) — velocity=0, remote rep bonus.", m_shipRef->name(), m_shipRef->itemID());
+                } else {
+                    // Industrial Core I: no damage bonus
+                    m_savedDmgMultiplier = 1.0f;
+                    _log(MODULE__INFO, "INDUSTRIAL CORE ACTIVATED on %s(%u) — velocity=0.", m_shipRef->name(), m_shipRef->itemID());
+                }
+            }
+        } break;
         case EVEDB::invGroups::ECCM:
         case EVEDB::invGroups::Cloaking_Device:
-        case EVEDB::invGroups::Siege_Module:
         case EVEDB::invGroups::Super_Weapon:
         case EVEDB::invGroups::Interdiction_Sphere_Launcher:    // launch a sphere (like missile and probe)
         case EVEDB::invGroups::Jump_Portal_Generator:
@@ -799,6 +830,17 @@ void ActiveModule::AbortCycle()
     // if stop is already set, let module finish cycle.
     if (m_Stop)
         return;
+
+    // Siege mode cleanup: restore velocity and damage multiplier
+    if (m_siegeApplied) {
+        m_siegeApplied = false;
+        m_shipRef->SetAttribute(AttrMaxVelocity, m_savedMaxVelocity, true);
+        SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier, false);
+        if (m_shipRef->GetModuleManager() != nullptr)
+            m_shipRef->GetModuleManager()->EnablePropMods();
+        _log(MODULE__INFO, "Siege mode DEACTIVATED on %s(%u) — velocity restored.", m_shipRef->name(), m_shipRef->itemID());
+    }
+
     // Immediately stop active cycle for things such as insufficient cap, remove module, init warp, target destroyed, target left bubble, or miner deactivated by player:
     SetModuleState(Module::State::Deactivating);
     DeactivateCycle(true);

@@ -61,6 +61,8 @@ public:
     void Activate(int32 itemID, uint16 effectID, int32 targetID, int32 repeat);
     void Deactivate(uint32 itemID, std::string effectName);
     void DeactivateAllModules();
+    void DisablePropMods();     // Siege mode: offline all propulsion modules
+    void EnablePropMods();      // Siege mode: restore propulsion modules
     void Overload(uint32 itemID);
     void DeOverload(uint32 itemID);
     void DamageModule(uint32 itemID, float amount);

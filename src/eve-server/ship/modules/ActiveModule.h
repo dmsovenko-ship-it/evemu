@@ -101,6 +101,11 @@ protected:
     uint16              m_effectID;                     //passed to us by activate
     uint32              m_targetID;                     //passed to us by activate
 
+    // Siege mode state
+    bool                m_siegeApplied :1;
+    float               m_savedMaxVelocity;
+    float               m_savedDmgMultiplier;
+
     // protected to allow derived usage
     bool                m_Stop :1;
     bool                m_usesCharge :1;
