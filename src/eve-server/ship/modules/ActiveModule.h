@@ -103,7 +103,6 @@ public:
     bool                IsSiegeApplied()                { return m_siegeApplied; }
     void                EnforceSiegeEffects();
 
-private:
     uint16              m_reloadTime;
     uint16              m_effectID;                     //passed to us by activate
     uint32              m_targetID;                     //passed to us by activate
@@ -111,6 +110,8 @@ private:
     // Siege mode state
     bool                m_siegeApplied :1;
     float               m_savedMaxVelocity;
+    float               m_savedDmgMultiplier;
+    float               m_savedMass;
     float               m_savedDmgMultiplier;
     float               m_savedMass;
 
