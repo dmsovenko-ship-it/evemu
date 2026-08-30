@@ -356,6 +356,29 @@ void ShipItem::ProcessModules() {
         return;
 
     m_ModuleManager->Process();
+
+    // Enforce siege/triage mode effects every tick — the effects system
+    // (sFxProc.ApplyEffects) can override attributes we set in OnModuleOnline,
+    // so we reassert them here to ensure they stick.
+    if (m_ModuleManager != nullptr) {
+        for (uint8 flag = flagHiSlot0; flag <= flagHiSlot7; ++flag) {
+            GenericModule* pMod = m_ModuleManager->GetModule(flag);
+            if (pMod == nullptr || !pMod->IsActiveModule() || !pMod->isOnline())
+                continue;
+            ActiveModule* pActive = pMod->GetActiveModule();
+            if (pActive != nullptr && pActive->IsSiegeApplied()) {
+                pActive->EnforceSiegeEffects();
+                break;
+            }
+        }
+    }
+}
+                    }
+                }
+                break;
+            }
+        }
+    }
 }
 
 void ShipItem::Eject()

@@ -1271,6 +1271,22 @@ void ActiveModule::OnModuleOnline()
     _log(MODULE__INFO, "OnModuleOnline() DONE for %s(%u) — final velocity=%.1f", m_modRef->name(), m_modRef->itemID(), m_shipRef->GetAttribute(AttrMaxVelocity).get_float());
 }
 
+void ActiveModule::EnforceSiegeEffects()
+{
+    // Re-apply siege mode effects on every tick if the effects system
+    // (sFxProc.ApplyEffects) has overridden them.
+    if (!m_siegeApplied || groupID() != EVEDB::invGroups::Siege_Module)
+        return;
+
+    // Ensure velocity stays at 0
+    float curMaxVel = m_shipRef->GetAttribute(AttrMaxVelocity).get_float();
+    if (curMaxVel > 0.1f) {
+        m_shipRef->SetAttribute(AttrMaxVelocity, 0.0f, true);
+        if (m_destinyMgr != nullptr)
+            m_destinyMgr->Stop();
+    }
+}
+
 void ActiveModule::OnModuleOffline()
 {
     if (groupID() != EVEDB::invGroups::Siege_Module)
