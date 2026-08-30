@@ -1,7 +1,42 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Коммиты в origin/master: `abdeb8fe`...`9041fe35` (см. секции ниже).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Коммиты в origin/master: `abdeb8fe`...`d4a4c87a` (см. секции ниже).
+
+## 29 августа (вечер): siege/triage/industrial core, effects, TCU crash, combat log, Revelation
+**Коммиты: `df8e4dda`...`d4a4c87a`. Сервер пересобран с GDB=TRUE для ловли крашей.**
+
+### Siege/Triage/Industrial Core — полная реализация
+- **Siege Module I/II** (20280/4292): x7/x8.4 дамаг, неподвижность, +100% ремонт, блок remote reps
+- **Triage Module I/II** (27951/4294): неподвижность, +100% ремонт, дроны off (логистические работают), ECM off, T2: -20% cap cost
+- **Industrial Core I** (28583): неподвижность, x10 масса, +400% mining drones, compression
+- **EnforceSiegeEffects()** в `ProcessModules()` — каждый тик проверяет и восстанавливает velocity=0 если effects-система перезаписала
+- **OnModuleOnline()/OnModuleOffline()** — эффекты применяются при включении/выключении модуля
+- **DestinyManager::Stop()** + **SetSpeedFraction(1.0f)** — корабль реально останавливается и восстанавливает скорость после деактивации
+
+### Effects
+- **Marshal table**: `effects.Laser` (index 171) НЕ менять — клиент ожидает `effects.Laser`
+- **NPC код**: `effects.StandardWeapon` отправляется как literal string (не через marshal table) → клиент получает правильно
+- **GetEffectGuid override**: turret effects → `effects.StandardWeapon` (безопасно для marshal)
+- **TurretEffectID fallback**: если effectID=0 → inference по groupID (Energy_Weapon→targetAttack, Projectile_Weapon→projectileFired)
+
+### TCU crash
+- `StructureSE::Killed` — `m_moonSE->GetID()` на nullptr. Null-guard добавлен.
+
+### Combat log
+- `OnDamageMessage` отправляется сервером через `QueueDestinyEvent`
+- Клиент偶尔 не показывает — marshal table `effects.Laser` НЕ менять (обратная совместимость)
+
+### Revelation — клиентская ошибка
+- "Невозмо* установить* Дредноут* на корабль" — клиент Crucible отклоняет `ActivateShip` для typeID 19720
+- Серверная сторона проверена: invTypes, dgmTypeAttributes, dgmTypeEffects, dgmEffects, entity data, скиллы — всё ок
+- **Корень**: баг клиента Crucible, не сервера
+
+### Осталось
+- Дождаться GDB backtrace при следующем TCU crash
+- Проверить siege mode полностью (топливо, дамаг, неподвижность)
+- Revelation ошибка — клиентская, нужен другой подход (возможно новый клиент)
+- Комбат лог — клиент偶尔 не показывает (marshal table compatibility)
 
 ## 28 августа (день): суициды ботов на Никс, fighter-bomber пейнтеры, StructureSE::Killed, PyRep leak-аудит (dtor clear)
 **Коммиты: `541fb0c9` (bots skip capital drones + missile formula), `63ca913d` (fighter-bomber ReturnBay + stale re-engage), `6e6a977b` (build fixes), `58f51f1f` (PyRep dtor clears), `eff057e6` (Multicast clear), `042158b1` (Encode null + revert), `6659d44d` (revert ~PyResult), `9041fe35` (revert ~PyPacket clear). Сборка прошла, сервер работает.**
