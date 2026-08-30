@@ -8,6 +8,7 @@
 #include "account/AccountService.h"
 #include "character/Character.h"
 #include "effects/EffectsProcessor.h"
+#include "ship/modules/ActiveModule.h"
 #include "inventory/Inventory.h"
 #include "npc/Drone.h"
 #include "ship/Ship.h"
