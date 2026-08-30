@@ -99,9 +99,11 @@ protected:
     void                SetTimer(uint32 time);
     void                StopTimer()                     { m_timer.Disable(); }
 
+public:
     bool                IsSiegeApplied()                { return m_siegeApplied; }
     void                EnforceSiegeEffects();
 
+private:
     uint16              m_reloadTime;
     uint16              m_effectID;                     //passed to us by activate
     uint32              m_targetID;                     //passed to us by activate
