@@ -374,13 +374,6 @@ void ShipItem::ProcessModules() {
         }
     }
 }
-                    }
-                }
-                break;
-            }
-        }
-    }
-}
 
 void ShipItem::Eject()
 {
