@@ -773,7 +773,7 @@ PyRep *ObjCacheDB::Generate_invTypes()
         "    END "
         "  ELSE groupID "
         "END as groupID, "
-        "typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID "
+        "categoryID, typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID "
         "FROM invTypes";
     if (!sDatabase.RunQuery(res, q))
     {
