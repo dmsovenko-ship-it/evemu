@@ -45,7 +45,7 @@ Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password
 - Комбат лог — клиент偶尔 не показывает (marshal table compatibility)
 
 ## 2 сентября — задачи НА ЗАВТРА (записал юзер, проверено им)
-- **🔴 Siege module — НЕРЕШЕНО**: с установленным осадным модулем корабль НЕ варпает и скорость 7 м/с. «Вылечивается» полным циклом вкл/выкл модуля, но НЕ всегда. Связано с эффектами осады (неподвижность/скорость) — вероятно `EnforceSiegeEffects()` или `OnModuleOffline()` не всегда сбрасывает WarpScramble/velocity. Копать в `ActiveModule` siege-кейсе + `DestinyManager`.
+- **🔴 Siege module — НЕРЕШЕНО (на ВСЕХ дредах, не только Revelation)**: с установленным осадным модулем корабль НЕ варпает и скорость 7 м/с. «Вылечивается» полным циклом вкл/выкл модуля, но НЕ всегда. Связано с эффектами осады (неподвижность/скорость) — вероятно `EnforceSiegeEffects()` или `OnModuleOffline()` не всегда сбрасывает WarpScramble/velocity. Копать в `ActiveModule` siege-кейсе + `DestinyManager`.
 - **🔴 Анимация лазерных турелей на Revelation — ОТСУТСТВУЕТ**: корабль (Revelation, дредноут) стреляет/работает, но лазерные турели не анимируются. Связано с `GetEffectGuid`/gfxID для капитальных энергетических турелей (X-Large Energy Turret). Копать в turret-эффектах Revelation vs обычные корабли.
 
 ## 28 августа (день): суициды ботов на Никс, fighter-bomber пейнтеры, StructureSE::Killed, PyRep leak-аудит (dtor clear)
