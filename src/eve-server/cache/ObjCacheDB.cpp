@@ -773,8 +773,8 @@ PyRep *ObjCacheDB::Generate_invTypes()
         "    END "
         "  ELSE groupID "
         "END as groupID, "
-        "categoryID, typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID "
-        "FROM invTypes";
+        "g.categoryID, typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID "
+        "FROM invTypes t JOIN invGroups g ON t.groupID = g.groupID";
     if (!sDatabase.RunQuery(res, q))
     {
         _log(DATABASE__ERROR, "Error in query for cached object 'config.BulkData.types': %s", res.error.c_str());
