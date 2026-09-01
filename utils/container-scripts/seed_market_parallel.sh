@@ -139,7 +139,39 @@ SELECT
     s.regionID,
     s.stationID,
     IF(t.basePrice = 0 OR s.security <= 0, 100, t.basePrice / s.security),
-    550, 550, @issued, 1, 250,
+    CASE g.categoryID
+        WHEN 8  THEN 10000                                    -- Charge: ammo/charges/missiles/fuel — consumables
+        WHEN 4  THEN 10000                                    -- Material: minerals/gas isotopes/ice/fuel blocks
+        WHEN 24 THEN 5000                                     -- Reaction
+        WHEN 25 THEN 5000                                     -- Asteroid (ore)
+        WHEN 17 THEN 5000                                     -- Commodity
+        WHEN 42 THEN 10000                                    -- Planetary Resources
+        WHEN 43 THEN 5000                                     -- Planetary Commodities
+        WHEN 18 THEN 100                                      -- Drone
+        WHEN 22 THEN 50                                       -- Deployable
+        WHEN 5  THEN 20                                       -- Accessories (implants/boosters)
+        WHEN 7  THEN 10                                       -- Module
+        WHEN 6  THEN 1                                        -- Ship
+        WHEN 9  THEN 1                                        -- Blueprint
+        ELSE 50                                               -- everything else (rare/collectibles)
+    END,
+    CASE g.categoryID
+        WHEN 8  THEN 10000
+        WHEN 4  THEN 10000
+        WHEN 24 THEN 5000
+        WHEN 25 THEN 5000
+        WHEN 17 THEN 5000
+        WHEN 42 THEN 10000
+        WHEN 43 THEN 5000
+        WHEN 18 THEN 100
+        WHEN 22 THEN 50
+        WHEN 5  THEN 20
+        WHEN 7  THEN 10
+        WHEN 6  THEN 1
+        WHEN 9  THEN 1
+        ELSE 50
+    END,
+    @issued, 1, 250,
     s.solarSystemID, 1
 FROM   tStations s
 CROSS  JOIN invTypes t
