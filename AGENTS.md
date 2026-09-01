@@ -27,15 +27,21 @@ Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password
 - `OnDamageMessage` отправляется сервером через `QueueDestinyEvent`
 - Клиент偶尔 не показывает — marshal table `effects.Laser` НЕ менять (обратная совместимость)
 
-### Revelation — клиентская ошибка
-- "Невозмо* установить* Дредноут* на корабль" — клиент Crucible отклоняет `ActivateShip` для typeID 19720
-- Серверная сторона проверена: invTypes, dgmTypeAttributes, dgmTypeEffects, dgmEffects, entity data, скиллы — всё ок
-- **Корень**: баг клиента Crucible, не сервера
+### Revelation — РЕШЕНО (01 сент): "The Dreadnought cannot be fitted."
+- **Симптом**: клиент Crucible отклоняет `ActivateShip` для typeID 19720 ("Невозможно установить Дредноут на корабль"). Только Revelation; Moros/Naglfar/Phoenix (дреды), Nyx/Thanatos работают.
+- **КОРЕНЬ**: effect 1626 (`dreadnoughtShipBonusLaserCapNeedA1`) ссылался на `preExpression=6466`/`postExpression=6467`, которых **НЕТ в `dgmExpressions`** (и не было в publich Crucible SDE — Fuzzwork `dgmExpressions` не содержит). Клиент при Make Ship Active: `StartPassiveEffects` → `StartEffect(1626)` → exception (нет expression tree) → `FitItemToLocation` → `UserError('ModuleFitFailed')` → "The Dreadnought cannot be fitted." Дополнительно: серверный `FxProc::ParseExpression()` падал `opATTR called with no expressionAttributeID defined`.
+- **✅ Фикс (миграция `20260901000000-revelation_dreadnought_bonus_expressions.sql`)**: созданы expressions 19279-19283 — дерево повторяет рабочий 1627 (`dreadnoughtShipBonusLaserRofA2`), но таргетирует `capacitorNeed` (attr 6) вместо `speed` (attr 51) на модулях X-Large Energy Turret:
+  - 19279: константа `capacitorNeed` (operand 22, `expressionAttributeID=6` ← критично, без него FxProc падал)
+  - 19280: ATT `CurrentShip[X-Large Energy Turret]->capacitorNeed` (operand 12, arg1=6007 LRS, arg2=19279)
+  - 19281: EFF PostPercent (operand 31, arg1=1095, arg2=19280)
+  - 19282/19283: ALRSM/RLRSM (operand 9/61, arg1=19281, arg2=6422 `dreadnoughtShipBonusA1`)
+  - `dgmEffects`: 1626 → pre=19282, post=19283; 1627 → восстановлен (pre=6469, post=6470)
+- **ВАЖНО про `expressionAttributeID`**: константы (operand 22) должны нести ID атрибута (651→51 speed, 6422→875, 6423→876, 6426→879). ATT/EFF/ALRSM/RLRSM выражения имеют `expressionAttributeID=0` — это норма. Без ID на константе серверный FxProc падает и атрибуты не считаются.
+- **ВАЖНО**: публичный Crucible SDE (Fuzzwork `cru16`) НЕ включает `dgmExpressions` — только `dgmEffects` с ссылками pre/post. Часть выражений из нашей БД (6466/6467) отсутствовала из-за неполного импорта.
 
 ### Осталось
 - Дождаться GDB backtrace при следующем TCU crash
 - Проверить siege mode полностью (топливо, дамаг, неподвижность)
-- Revelation ошибка — клиентская, нужен другой подход (возможно новый клиент)
 - Комбат лог — клиент偶尔 не показывает (marshal table compatibility)
 
 ## 28 августа (день): суициды ботов на Никс, fighter-bomber пейнтеры, StructureSE::Killed, PyRep leak-аудит (dtor clear)
@@ -58,7 +64,7 @@ Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password
 - **🔴 Деструкторы PyTuple/PyList/PyDict НЕ освобождают items**: `~PyPacket clear()` откачен — `PySubStream` хранит borrowed rep БЕЗ IncRef → clear() каскадно освобождает → `~PyResult`/`~PyObject` потом обращаются к freed memory. Подтверждено на логине: crash в `Handle_CallReq` → `_SendCallReturn` → `PySubStream(rsp.ssResult)` → `~PyPacket clear()` → `~PySubStream` → `PySafeDecRef(ssResult)` → `~PyResult` → access freed. **Системный фикс dtor'ов ОТКЛОНЁН** (ATMOS-AGENTS.md, корень — Encode() без IncRef). Оставлены: Encode null fix + Multicast clear. Утечки в dtor'ахACCEPTABLE (контейнеры маленькие, редкие path-ы).
 
 ## Нерешённое (28 авг)
-- **🔴 Revelation/Dreadnought — модули пропадают после дока**: uniquely to Dreadnought group (485). Nyx (659) работает нормально. Слоты в БД ок (Hi=8/Mid=4/Low=4). Проверить `invTypes` для Revelation: `categoryID`, `groupID`, `radius`, `mass`. Вероятно船а не распознается как Ship (categoryID≠6) или отсутствуют критичные атрибуты. siege modules (Siege_Module group) registered as ActiveModule — empty case block (no activation effects, expected for mode-change modules).
+- **🔴 Revelation/Dreadnought — модули пропадают после дока**: uniquely to Dreadnought group (485). Nyx (659) работает нормально. Слоты в БД ок (Hi=8/Mid=4/Low=4). Проверить `invTypes` для Revelation: `categoryID`, `groupID`, `radius`, `mass`. Вероятно船а не распознается как Ship (categoryID≠6) или отсутствуют критичные атрибуты. siege modules (Siege_Module group) registered as ActiveModule — empty case block (no activation effects, expected for mode-change modules). *(Активация/boarding Revelation — РЕШЕНО 01 сент, см. секцию 29 авг — expressions 19279-19283. Модули после дока — отдельный вопрос.)*
 - **Диагностика**: `SELECT typeID, typeName, groupID, categoryID, radius, mass, capacity FROM invTypes WHERE typeName LIKE '%Revelation%';`
 - **PyRep leak-аудит**: точечные fix'ы в конкретных call sites (clear() перед DecRef) вместо системных dtor'ов. Высокотрафичные пути: Handle_CallReq, _SendCallReturn, SendNotification, Multicast — проверены. Низкотрафичные: Agent/Contract/Map/Calendar — НЕ проверены.
 
