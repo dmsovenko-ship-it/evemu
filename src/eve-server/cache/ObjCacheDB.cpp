@@ -773,7 +773,7 @@ PyRep *ObjCacheDB::Generate_invTypes()
         "    END "
         "  ELSE t.groupID "
         "END as groupID, "
-        "g.categoryID, typeName, description, graphicID, radius, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, chanceOfDuplicating, soundID, iconID, dataID, typeNameID, descriptionID "
+        "g.categoryID, t.typeName, t.description, t.graphicID, t.radius, t.mass, t.volume, t.capacity, t.portionSize, t.raceID, t.basePrice, t.published, t.marketGroupID, t.chanceOfDuplicating, t.soundID, t.iconID, t.dataID, t.typeNameID, t.descriptionID "
         "FROM invTypes t JOIN invGroups g ON t.groupID = g.groupID";
     if (!sDatabase.RunQuery(res, q))
     {
