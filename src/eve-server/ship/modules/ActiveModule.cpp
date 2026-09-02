@@ -1216,10 +1216,14 @@ void ActiveModule::OnModuleOnline()
         m_modRef->typeID(), m_shipRef->GetAttribute(AttrMaxVelocity).get_float(), m_shipRef->name());
 
     // ALL MODES: immobility + block remote reps
-    m_savedMaxVelocity = m_shipRef->GetAttribute(AttrMaxVelocity).get_float();
-    m_shipRef->SetAttribute(AttrMaxVelocity, 0.0f, true);
-    _log(MODULE__INFO, "SIEGE CHECK: velocity set to 0, saved=%.1f", m_savedMaxVelocity);
-    m_shipRef->SetAttribute(AttrWarpScrambleStatus, 99.0f, false);
+    // Passive effect siegeModeEffect6 (effectCategory=1) already sets
+    // AttrMaxVelocity=0 (PostPercent speedFactor -100%) and
+    // AttrWarpScrambleStatus=100 (ModAdd siegeModeWarpStatus) via
+    // sFxProc.ApplyEffects in GenericModule::Online().
+    // Do NOT manually set AttrMaxVelocity here — OnModuleOnline runs
+    // AFTER ApplyEffects, so saving AttrMaxVelocity at this point would
+    // capture the already-zeroed value, and OnModuleOffline would
+    // restore from it, keeping velocity stuck at 0 forever.
     if (m_shipRef->GetModuleManager() != nullptr)
         m_shipRef->GetModuleManager()->DisablePropMods();
     // Force-stop the ship — setting AttrMaxVelocity alone is not enough,
@@ -1295,14 +1299,19 @@ void ActiveModule::OnModuleOffline()
         return;
 
     m_siegeApplied = false;
-    m_shipRef->SetAttribute(AttrMaxVelocity, m_savedMaxVelocity, true);
-    m_shipRef->SetAttribute(AttrWarpScrambleStatus, 0.0f, true);
+    // AttrMaxVelocity and AttrWarpScrambleStatus are restored by the effect
+    // system — GenericModule::Offline() calls ProcessEffects(Passive, false)
+    // which removes siegeModeEffect6 modifiers via RemoveItemModifier, and
+    // ApplyEffects recalculates the attributes. Do NOT overwrite from
+    // m_savedMaxVelocity — it was captured AFTER the passive effect already
+    // zeroed AttrMaxVelocity, so restoring from it keeps velocity stuck at 0.
     SetAttribute(AttrDamageMultiplier, m_savedDmgMultiplier, false);
     if (m_shipRef->GetModuleManager() != nullptr)
         m_shipRef->GetModuleManager()->EnablePropMods();
-    // Update destiny manager so the ship can move again
+    // Update destiny manager so the ship can move again.
+    // AttrMaxVelocity is already restored by the effect system at this point.
     if (m_destinyMgr != nullptr) {
-        m_destinyMgr->SetMaxVelocity(m_savedMaxVelocity);
+        m_destinyMgr->SetMaxVelocity(m_shipRef->GetAttribute(AttrMaxVelocity).get_float());
         m_destinyMgr->SetSpeedFraction(1.0f, true);
     }
 
