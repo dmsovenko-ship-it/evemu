@@ -1564,7 +1564,17 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
     else
         _log(EFFECTS__TRACE, "ShowEffect(%s): effectID %u -> guid %s (start=%d)", m_modRef->name(), fxEffectID, guidStr.c_str(), active);
 
-    uint16 chgTypeID(((m_chargeRef.get() != nullptr) ? m_chargeRef->typeID() : 0));
+    // When no charge is loaded, m_chargeRef points to the module itself
+    // (set in TurretModule ctor when !m_needsCharge). Sending the turret's
+    // own typeID as chargeTypeID causes the client's SetAmmoColorByTypeID
+    // to look up a non-existent charge graphic, crashing StandardWeapon.Start()
+    // before StartShooting() is reached — no firing animation, no damage.
+    uint16 chgTypeID(0);
+    if (m_chargeRef.get() != nullptr && m_chargeRef.get() != m_modRef.get())
+        chgTypeID = m_chargeRef->typeID();
+    _log(EFFECTS__TRACE, "ShowEffect(%s): chgTypeID=%u, moduleID=%u, moduleTypeID=%u, targetID=%u",
+         m_modRef->name(), chgTypeID, m_modRef->itemID(), m_modRef->typeID(),
+         IsValidTarget(m_targetID) ? m_targetID : m_shipRef->itemID());
     uint32 timeLeft(GetRemainingCycleTimeMS());
 
     // Skip sending OnSpecialFX if GUID is empty or known to crash with graphicInfo=None
