@@ -46,19 +46,20 @@ APIServer::APIServer()
     _url = urlBuilder.str();
 }
 
-void APIServer::CreateServices(const PyServiceMgr &services)
+void APIServer::CreateServices()
 {
     if ( !runonce )
     {
-        m_APIServiceManagers.insert(std::make_pair("base", new APIServiceManager(services)));
-        m_APIServiceManagers.insert(std::make_pair("account", new APIAccountManager(services)));
-        m_APIServiceManagers.insert(std::make_pair("admin", new APIAdminManager(services)));
-        m_APIServiceManagers.insert(std::make_pair("char", new APICharacterManager(services)));
-        m_APIServiceManagers.insert(std::make_pair("corp", new APICorporationManager(services)));
-        m_APIServiceManagers.insert(std::make_pair("eve", new APIEveSystemManager(services)));
-        m_APIServiceManagers.insert(std::make_pair("map", new APIMapManager(services)));
-		m_APIServiceManagers.insert(std::make_pair("object", new APIActiveObjectManager(services)));
-        m_APIServiceManagers.insert(std::make_pair("server", new APIServerManager(services)));
+        PyServiceMgr dummy;
+        m_APIServiceManagers.insert(std::make_pair("base", new APIServiceManager(dummy)));
+        m_APIServiceManagers.insert(std::make_pair("account", new APIAccountManager(dummy)));
+        m_APIServiceManagers.insert(std::make_pair("admin", new APIAdminManager(dummy)));
+        m_APIServiceManagers.insert(std::make_pair("char", new APICharacterManager(dummy)));
+        m_APIServiceManagers.insert(std::make_pair("corp", new APICorporationManager(dummy)));
+        m_APIServiceManagers.insert(std::make_pair("eve", new APIEveSystemManager(dummy)));
+        m_APIServiceManagers.insert(std::make_pair("map", new APIMapManager(dummy)));
+        m_APIServiceManagers.insert(std::make_pair("object", new APIActiveObjectManager(dummy)));
+        m_APIServiceManagers.insert(std::make_pair("server", new APIServerManager(dummy)));
     }
 
     runonce = true;

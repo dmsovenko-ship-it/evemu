@@ -662,7 +662,7 @@ int main( int argc, char* argv[] )
 
     /* start up the API server */
     sLog.Green("       ServerInit", "Starting API Server");
-    sAPIServer.CreateServices(newSvcMgr);
+    sAPIServer.CreateServices();
     sAPIServer.Run();
 
     /* create a command dispatcher */
