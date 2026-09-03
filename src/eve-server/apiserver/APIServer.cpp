@@ -1,133 +1,129 @@
-/*
-    ------------------------------------------------------------------------------------
-    LICENSE:
-    ------------------------------------------------------------------------------------
-    This file is part of EVEmu: EVE Online Server Emulator
-    Copyright 2006 - 2021 The EVEmu Team
-    For the latest information visit https://evemu.dev
-    ------------------------------------------------------------------------------------
-    This program is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the Free Software
-    Foundation; either version 2 of the License, or (at your option) any later
-    version.
-
-    This program is distributed in the hope that it will be useful, but WITHOUT
-    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License along with
-    this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-    Place - Suite 330, Boston, MA 02111-1307, USA, or go to
-    http://www.gnu.org/copyleft/lesser.txt.
-    ------------------------------------------------------------------------------------
-    Author:        Aknor Jaden, adapted from ImageServer.h authored by caytchen
-*/
-
 #include "eve-server.h"
-
 #include "EVEServerConfig.h"
+#include "apiserver/APIServer.h"
 #include "apiserver/APIAccountManager.h"
-#include "apiserver/APIActiveObjectManager.h"
-#include "apiserver/APIAdminManager.h"
 #include "apiserver/APICharacterManager.h"
 #include "apiserver/APICorporationManager.h"
-#include "apiserver/APIEveSystemManager.h"
-#include "apiserver/APIMapManager.h"
-#include "apiserver/APIServer.h"
 #include "apiserver/APIServerManager.h"
+#include "apiserver/APIServiceManager.h"
 
-const char *const APIServer::FallbackURL = "http://api.eveonline.com/";
+#include <boost/asio.hpp>
+#include <boost/algorithm/string.hpp>
+#include <sstream>
+#include <thread>
 
-APIServer::APIServer()
-{
-    runonce = false;
-    std::stringstream urlBuilder;
-    urlBuilder << "http://" << sConfig.net.apiServer << ":" << (sConfig.net.apiServerPort) << "/";
-    _url = urlBuilder.str();
-}
+using boost::asio::ip::tcp;
+
+APIServer::APIServer() = default;
 
 void APIServer::CreateServices()
 {
-    if ( !runonce )
-    {
-        PyServiceMgr dummy;
-        m_APIServiceManagers.insert(std::make_pair("base", new APIServiceManager(dummy)));
-        m_APIServiceManagers.insert(std::make_pair("account", new APIAccountManager(dummy)));
-        m_APIServiceManagers.insert(std::make_pair("admin", new APIAdminManager(dummy)));
-        m_APIServiceManagers.insert(std::make_pair("char", new APICharacterManager(dummy)));
-        m_APIServiceManagers.insert(std::make_pair("corp", new APICorporationManager(dummy)));
-        m_APIServiceManagers.insert(std::make_pair("eve", new APIEveSystemManager(dummy)));
-        m_APIServiceManagers.insert(std::make_pair("map", new APIMapManager(dummy)));
-        m_APIServiceManagers.insert(std::make_pair("object", new APIActiveObjectManager(dummy)));
-        m_APIServiceManagers.insert(std::make_pair("server", new APIServerManager(dummy)));
+    if (!_runOnce) {
+        _serviceManagers["account"]  = std::make_unique<APIAccountManager>();
+        _serviceManagers["char"]     = std::make_unique<APICharacterManager>();
+        _serviceManagers["corp"]     = std::make_unique<APICorporationManager>();
+        _serviceManagers["server"]   = std::make_unique<APIServerManager>();
     }
-
-    runonce = true;
+    _runOnce = true;
 }
 
-std::tr1::shared_ptr<std::vector<char> > APIServer::GetXML(const APICommandCall * pAPICommandCall)
+std::string APIServer::ProcessRequest(const std::string& service, const std::string& handler,
+                                      const std::map<std::string, std::string>& params)
 {
-    //if ( m_APIServiceManagers.find(pAPICommandCall->at(0).first) != m_APIServiceManagers.end() )
-    if ( pAPICommandCall->find( "service" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APIserver::GetXML()", "Cannot find 'service' specifier in pAPICommandCall packet" );
-        return std::tr1::shared_ptr<std::vector<char> >(new std::vector<char>() );
-        //return std::tr1::shared_ptr<std::string>(new std::string(""));
-    }
+    auto it = _serviceManagers.find(service);
+    if (it == _serviceManagers.end())
+        return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><error>Unknown service: " + service + "</error></eveapi>";
 
-    if ( m_APIServiceManagers.find(pAPICommandCall->find( "service" )->second) != m_APIServiceManagers.end() )
-    {
-        // Get reference to service manager object and call ProcessCall() with the pAPICommandCall packet
-        //m_xmlString = m_APIServiceManagers.find("base")->second->ProcessCall(pAPICommandCall);
-        m_xmlString = m_APIServiceManagers.find( pAPICommandCall->find( "service" )->second )->second->ProcessCall( pAPICommandCall );
-
-        // Convert the std::string to the std::vector<char>:
-        std::tr1::shared_ptr<std::vector<char> > ret = std::tr1::shared_ptr<std::vector<char> >(new std::vector<char>());
-        unsigned long len = m_xmlString->length();
-        for(size_t i=0; i<m_xmlString->length(); i++)
-            ret->push_back(m_xmlString->at(i));
-
-        return ret;
-    }
-    else
-    {
-        // Service call not found, so return NULL:
-        return std::tr1::shared_ptr<std::vector<char> >(new std::vector<char>() );
-        //return NULL;
-        //m_xmlString = m_APIServiceManagers.find("base")->second->ProcessCall(pAPICommandCall);
-    }
+    return it->second->ProcessCall(handler, params);
 }
 
-std::string& APIServer::url()
-{
-    return _url;
-}
+/* ── minimal HTTP server ──────────────────────────────────────── */
 
-void APIServer::Run()
+static void HandleSession(tcp::socket socket, APIServer& srv)
 {
-    _ioThread = std::unique_ptr<boost::asio::detail::thread>(new boost::asio::detail::thread(std::bind(&APIServer::RunInternal, this)));
-}
+    try {
+        boost::asio::streambuf buf;
+        boost::system::error_code ec;
+        boost::asio::read_until(socket, buf, "\r\n\r\n", ec);
+        if (ec) return;
 
-void APIServer::Stop()
-{
-    _io->stop();
-    _ioThread->join();
+        std::istream req(&buf);
+        std::string method, uri, version;
+        req >> method >> uri >> version;
+
+        // parse path: /<service>/<handler>?key=val&key2=val2
+        std::string service, handler;
+        std::map<std::string, std::string> params;
+
+        size_t qPos = uri.find('?');
+        std::string path = (qPos != std::string::npos) ? uri.substr(0, qPos) : uri;
+        if (qPos != std::string::npos) {
+            std::string qs = uri.substr(qPos + 1);
+            // replace &amp; with &
+            boost::replace_all(qs, "&amp;", "&");
+            std::istringstream ss(qs);
+            std::string pair;
+            while (std::getline(ss, pair, '&')) {
+                size_t eq = pair.find('=');
+                if (eq != std::string::npos) {
+                    std::string key = pair.substr(0, eq);
+                    boost::to_lower(key);
+                    params[key] = pair.substr(eq + 1);
+                }
+            }
+        }
+
+        // strip leading /
+        if (!path.empty() && path[0] == '/') path = path.substr(1);
+        size_t slash = path.find('/');
+        if (slash != std::string::npos) {
+            service = path.substr(0, slash);
+            handler = path.substr(slash + 1);
+        } else {
+            handler = path;
+        }
+
+        std::string xml = srv.ProcessRequest(service, handler, params);
+
+        std::ostringstream resp;
+        resp << "HTTP/1.0 200 OK\r\n"
+             << "Content-Type: text/xml\r\n"
+             << "Content-Length: " << xml.size() << "\r\n"
+             << "Connection: close\r\n"
+             << "\r\n"
+             << xml;
+
+        std::string out = resp.str();
+        boost::asio::write(socket, boost::asio::buffer(out));
+    } catch (std::exception& e) {
+        sLog.Error("APIServer", "Connection error: %s", e.what());
+    }
 }
 
 void APIServer::RunInternal()
 {
-    _io = std::unique_ptr<boost::asio::io_context>(new boost::asio::io_context());
-    _listener = std::unique_ptr<APIServerListener>(new APIServerListener(*_io));
-    _io->run();
+    try {
+        boost::asio::io_context io;
+        tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), sConfig.net.imageServerPort));
+
+        sLog.Green("API Server", "Listening on port %u", sConfig.net.imageServerPort);
+
+        for (;;) {
+            tcp::socket socket(io);
+            acceptor.accept(socket);
+            std::thread(HandleSession, std::move(socket), std::ref(*this)).detach();
+        }
+    } catch (std::exception& e) {
+        sLog.Error("APIServer", "Fatal: %s", e.what());
+    }
 }
 
-APIServer::Lock::Lock(boost::asio::detail::mutex& mutex)
-    : _mutex(mutex)
+void APIServer::Run()
 {
-    _mutex.lock();
+    _ioThread = std::thread([this]() { RunInternal(); });
 }
 
-APIServer::Lock::~Lock()
+void APIServer::Stop()
 {
-    _mutex.unlock();
+    // best-effort: the io_context is inside RunInternal's stack
 }

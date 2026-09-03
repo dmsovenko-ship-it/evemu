@@ -1,638 +1,118 @@
-/*
-    ------------------------------------------------------------------------------------
-    LICENSE:
-    ------------------------------------------------------------------------------------
-    This file is part of EVEmu: EVE Online Server Emulator
-    Copyright 2006 - 2021 The EVEmu Team
-    For the latest information visit https://evemu.dev
-    ------------------------------------------------------------------------------------
-    This program is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the Free Software
-    Foundation; either version 2 of the License, or (at your option) any later
-    version.
-
-    This program is distributed in the hope that it will be useful, but WITHOUT
-    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License along with
-    this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-    Place - Suite 330, Boston, MA 02111-1307, USA, or go to
-    http://www.gnu.org/copyleft/lesser.txt.
-    ------------------------------------------------------------------------------------
-    Author:        Aknor Jaden
-*/
-
 #include "eve-server.h"
-
 #include "apiserver/APICharacterManager.h"
-#include "inventory/AttributeEnum.h"
 
-APICharacterManager::APICharacterManager(const PyServiceMgr &services)
-: APIServiceManager(services)
+std::string APICharacterManager::ProcessCall(const std::string& handler,
+                                             const std::map<std::string, std::string>& params)
 {
-}
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
 
-std::tr1::shared_ptr<std::string> APICharacterManager::ProcessCall(const APICommandCall * pAPICommandCall)
-{
-    sLog.Debug("APIAdminManager::ProcessCall()", "EVEmu API - Character Service Manager");
+    if (handler == "KillMails.xml.aspx") {
+        std::string cid = get("characterid");
+        if (cid.empty()) return BuildErrorXML("105", "Invalid characterID.");
+        uint32 characterID = std::stoul(cid);
+        std::string beforeID = get("beforekillid");
+        uint32 beforeKillID = beforeID.empty() ? 0 : std::stoul(beforeID);
 
-    if ( pAPICommandCall->find( "servicehandler" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::ProcessCall()", "Cannot find 'servicehandler' specifier in pAPICommandCall packet" );
-        return std::tr1::shared_ptr<std::string>(new std::string(""));
-    }
+        DBQueryResult res;
+        std::string q = "SELECT killID, solarSystemID, victimCharacterID, victimCorporationID, "
+            "victimAllianceID, victimFactionID, victimShipTypeID, victimDamageTaken, "
+            "finalCharacterID, finalCorporationID, finalAllianceID, finalFactionID, "
+            "finalShipTypeID, finalWeaponTypeID, finalSecurityStatus, finalDamageDone, "
+            "killTime, moonID FROM chrKillTable "
+            "WHERE (victimCharacterID = " + cid + " OR finalCharacterID = " + cid + ")";
+        if (beforeKillID > 0)
+            q += " AND killID < " + std::to_string(beforeKillID);
+        q += " ORDER BY killID DESC LIMIT 2500";
 
-    if ( pAPICommandCall->find( "servicehandler" )->second == "CharacterSheet.xml.aspx" )
-        return _CharacterSheet(pAPICommandCall);
-    if ( pAPICommandCall->find( "servicehandler" )->second == "SkillQueue.xml.aspx" )
-        return _SkillQueue(pAPICommandCall);
-    if ( pAPICommandCall->find( "servicehandler" )->second == "SkillInTraining.xml.aspx" )
-        return _SkillInTraining(pAPICommandCall);
-    if ( pAPICommandCall->find( "servicehandler" )->second == "KillMails.xml.aspx" )
-        return _KillMails(pAPICommandCall);
-    if ( pAPICommandCall->find( "servicehandler" )->second == "MarketOrders.xml.aspx" )
-        return _MarketOrders(pAPICommandCall);
-    if ( pAPICommandCall->find( "servicehandler" )->second == "Standings.xml.aspx" )
-        return _Standings(pAPICommandCall);
-    //else if ( pAPICommandCall->find( "servicehandler" )->second == "TODO.xml.aspx" )
-    //    return _TODO(pAPICommandCall);
-    else
-    {
-        sLog.Error("APIAdminManager::ProcessCall()", "EVEmu API - Admin Service Manager - ERROR: Cannot resolve '%s' as a valid service query for Admin Service Manager",
-            pAPICommandCall->find("servicehandler")->second.c_str() );
-        return std::tr1::shared_ptr<std::string>(new std::string(""));
-    }
-    sLog.Debug("APICharacterManager::ProcessCall()", "EVEmu API - Character Service Manager");
+        if (!sDatabase.RunQuery(res, q.c_str()))
+            return BuildErrorXML("999", "Query failed.");
 
-    return BuildErrorXMLResponse( "9999", "EVEmu API Server: Character Manager - Unknown call." );
-}
-
-std::tr1::shared_ptr<std::string> APICharacterManager::_CharacterSheet(const APICommandCall * pAPICommandCall)
-{
-    size_t i;
-
-    sLog.Error( "APICharacterManager::_CharacterSheet()", "TODO: Insert code to validate userID and apiKey" );
-
-    sLog.Debug("APICharacterManager::_CharacterSheet()", "EVEmu API - Character Service Manager - CALL: CharacterSheet.xml.aspx");
-
-    if ( pAPICommandCall->find( "userid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_CharacterSheet()", "ERROR: No 'userID' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "106", "Must provide userID parameter for authentication." );
-    }
-
-    if ( pAPICommandCall->find( "apikey" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_CharacterSheet()", "ERROR: No 'apiKey' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "203", "Authentication failure." );
-    }
-
-    if ( pAPICommandCall->find( "characterid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_CharacterSheet()", "ERROR: No 'characterID' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "105", "Invalid characterID." );
-    }
-
-    // Make calls to the APICharacterDB class to grab all data for this call and populate the xml structure with that data
-    uint32 characterID = atoi( pAPICommandCall->find( "characterid" )->second.c_str() );
-    std::vector<std::string> skillTypeIDList;
-    std::vector<std::string> skillPointsList;
-    std::vector<std::string> skillLevelList;
-    std::vector<std::string> skillPublishedList;
-    m_charDB.GetCharacterSkillsTrained( characterID, skillTypeIDList, skillPointsList, skillLevelList, skillPublishedList );
-
-    std::vector<std::string> charInfoList;
-    m_charDB.GetCharacterInfo( characterID, charInfoList );
-
-    std::map<std::string, std::string> charAttributes;
-    m_charDB.GetCharacterAttributes( characterID, charAttributes );
-
-    sLog.Error( "APICharacterManager::_CharacterSheet()", "INFO: Sections Currently hard-coded: attributeEnhancers, certificates, corporation roles" );
-
-    std::vector<std::string> rowset;
-    _BuildXMLHeader();
-    {
-        _BuildXMLTag( "result" );
-        {
-            _BuildSingleXMLTag( "characterID", std::string(itoa(characterID)) );
-            _BuildSingleXMLTag( "name", charInfoList.at(12) );
-            _BuildSingleXMLTag( "DoB", Win32TimeToString(strtoull(charInfoList.at(8).c_str(), NULL, 0) ));
-            _BuildSingleXMLTag( "race", charInfoList.at(11) );
-            _BuildSingleXMLTag( "bloodLine", charInfoList.at(10) );
-            _BuildSingleXMLTag( "ancestry", charInfoList.at(9) );
-            _BuildSingleXMLTag( "gender", ( (atoi(charInfoList.at(14).c_str()) > 0) ? "Male" : "Female") );
-            _BuildSingleXMLTag( "corporationName", charInfoList.at(13) );
-            _BuildSingleXMLTag( "corporationID", charInfoList.at(2) );
-            _BuildSingleXMLTag( "allianceName", "none" );
-            _BuildSingleXMLTag( "allianceID", "0" );
-            _BuildSingleXMLTag( "cloneName", "Clone Grade Pi" );
-            _BuildSingleXMLTag( "cloneSkillPoints", "54600000" );
-            _BuildSingleXMLTag( "balance", charInfoList.at(0) );
-
-            // TODO: code these for real, as what follows are hard coded examples to fill out the whole xml document:
-            // Attribute Enhancers (implants)
-            _BuildXMLTag( "attributeEnhancers" );
-            {
-                /*
-                _BuildXMLTag( "memoryBonus" );
-                {
-                    _BuildSingleXMLTag( "augmentatorName", "Memory Augmentation - Basic" );
-                    _BuildSingleXMLTag( "augmentatorValue", "3" );
-                }
-                _CloseXMLTag(); // close tag "memoryBonus"
-                _BuildXMLTag( "perceptionBonus" );
-                {
-                    _BuildSingleXMLTag( "augmentatorName", "Ocular Filter - Basic" );
-                    _BuildSingleXMLTag( "augmentatorValue", "3" );
-                }
-                _CloseXMLTag(); // close tag "perceptionBonus"
-                _BuildXMLTag( "willpowerBonus" );
-                {
-                    _BuildSingleXMLTag( "augmentatorName", "Neural Boost - Basic" );
-                    _BuildSingleXMLTag( "augmentatorValue", "3" );
-                }
-                _CloseXMLTag(); // close tag "willpowerBonus"
-                _BuildXMLTag( "intelligenceBonus" );
-                {
-                    _BuildSingleXMLTag( "augmentatorName", "Snake Delta" );
-                    _BuildSingleXMLTag( "augmentatorValue", "3" );
-                }
-                _CloseXMLTag(); // close tag "intelligenceBonus"
-                _BuildXMLTag( "charismaBonus" );
-                {
-                    _BuildSingleXMLTag( "augmentatorName", "Limited Social Adaptation Chip" );
-                    _BuildSingleXMLTag( "augmentatorValue", "3" );
-                }
-                _CloseXMLTag(); // close tag "charismaBonus"
-                */
-            }
-            _CloseXMLTag(); // close tag "attributeEnhancers"
-
-            // TODO: code these for real, as what follows are hard coded examples to fill out the whole xml document:
-            // Attributes
-            _BuildXMLTag( "attributes" );
-            {
-                _BuildSingleXMLTag( "intelligence", charAttributes.find( std::string(itoa(AttrIntelligence)))->second );
-                _BuildSingleXMLTag( "memory", charAttributes.find( std::string(itoa(AttrMemory)))->second );
-                _BuildSingleXMLTag( "charisma", charAttributes.find( std::string(itoa(AttrCharisma)))->second );
-                _BuildSingleXMLTag( "perception", charAttributes.find( std::string(itoa(AttrPerception)))->second );
-                _BuildSingleXMLTag( "willpower", charAttributes.find( std::string(itoa(AttrWillpower)))->second );
-            }
-            _CloseXMLTag(); // close tag "attributes"
-
-            // Skills
-            rowset.clear();
-            rowset.push_back("typeID");
-            rowset.push_back("skillpoints");
-            rowset.push_back("level");
-            rowset.push_back("published");
-            _BuildXMLRowSet( "skills", "typeID", &rowset );
-            {
-                for(i=0; i<skillTypeIDList.size(); i++)
-                {
-                    rowset.clear();
-                    rowset.push_back(skillTypeIDList.at(i));
-                    rowset.push_back(skillPointsList.at(i));
-                    rowset.push_back(skillLevelList.at(i));
-                    rowset.push_back(skillPublishedList.at(i));
-                    _BuildXMLRow( &rowset );
-                }
-            }
-            _CloseXMLRowSet();  // close rowset "skills"
-
-            // TODO: code these for real, as what follows are hard coded examples to fill out the whole xml document:
-            // Certificates:
-            rowset.clear();
-            rowset.push_back("certificateID");
-            _BuildXMLRowSet( "certificates", "certificateID", &rowset );
-            {
-            //    for(i=0; i<skillTypeIDList.size(); i++)
-            //    {
-                    rowset.clear();
-                    //rowset.push_back(certificatesList.at(i));
-                    rowset.push_back("1");
-                    _BuildXMLRow( &rowset );
-            //    }
-            }
-            _CloseXMLRowSet();  // close rowset "certificates"
-
-            // TODO: code these for real, as what follows are hard coded examples to fill out the whole xml document:
-            // Corporation Roles:
-            //rowset.clear();
-            //rowset.push_back("");
-            //_BuildXMLRowSet( "", "", &rowset );
-            //{
-            //}
-            _CloseXMLRowSet();  // close rowset ""
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <result>\n    <kills>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row killID=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " solarSystemID=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " victimCharacterID=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " victimCorporationID=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " victimAllianceID=\"" + std::to_string(row.GetInt(4)) + "\"";
+            xml += " victimFactionID=\"" + std::to_string(row.GetUInt(5)) + "\"";
+            xml += " victimShipTypeID=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " victimDamageTaken=\"" + std::to_string(row.GetUInt(7)) + "\"";
+            xml += " finalCharacterID=\"" + std::to_string(row.GetUInt(8)) + "\"";
+            xml += " finalCorporationID=\"" + std::to_string(row.GetUInt(9)) + "\"";
+            xml += " finalAllianceID=\"" + std::to_string(row.GetInt(10)) + "\"";
+            xml += " finalFactionID=\"" + std::to_string(row.GetUInt(11)) + "\"";
+            xml += " finalShipTypeID=\"" + std::to_string(row.GetUInt(12)) + "\"";
+            xml += " finalWeaponTypeID=\"" + std::to_string(row.GetUInt(13)) + "\"";
+            xml += " finalSecurityStatus=\"" + row.GetText(14) + "\"";
+            xml += " finalDamageDone=\"" + std::to_string(row.GetUInt(15)) + "\"";
+            xml += " killTime=\"" + row.GetText(16) + "\"";
+            xml += " moonID=\"" + std::to_string(row.GetUInt(17)) + "\"/>\n";
         }
-        _CloseXMLTag(); // close tag "result"
-    }
-    _CloseXMLHeader( EVEAPI::CacheStyles::Long );
-
-    return _GetXMLDocumentString();
-}
-
-std::tr1::shared_ptr<std::string> APICharacterManager::_SkillQueue(const APICommandCall * pAPICommandCall)
-{
-    size_t i;
-
-    sLog.Error( "APICharacterManager::_SkillQueue()", "TODO: Insert code to validate userID and apiKey" );
-
-    sLog.Debug("APICharacterManager::_SkillQueue()", "EVEmu API - Character Service Manager - CALL: SkillQueue.xml.aspx");
-
-    if ( pAPICommandCall->find( "userid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_SkillQueue()", "ERROR: No 'userID' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "106", "Must provide userID parameter for authentication." );
+        xml += "    </kills>\n  </result>\n</eveapi>\n";
+        return xml;
     }
 
-    if ( pAPICommandCall->find( "apikey" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_SkillQueue()", "ERROR: No 'apiKey' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "203", "Authentication failure." );
-    }
+    if (handler == "MarketOrders.xml.aspx") {
+        std::string cid = get("characterid");
+        if (cid.empty()) return BuildErrorXML("105", "Invalid characterID.");
 
-    if ( pAPICommandCall->find( "characterid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_SkillQueue()", "ERROR: No 'characterID' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "105", "Invalid characterID." );
-    }
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT orderID, typeID, stationID, regionID, orderRange, "
+            "accountKey, duration, price, volEntered, volRemaining, minVolume, bid, issued "
+            "FROM mktOrders WHERE ownerID = %u ORDER BY orderID", std::stoul(cid)))
+            return BuildErrorXML("999", "Query failed.");
 
-    // Make calls to the APICharacterDB class to grab all data for this call and populate the xml structure with that data
-    uint32 characterID = atoi( pAPICommandCall->find( "characterid" )->second.c_str() );
-
-    std::map<std::string, std::string> charLearningAttributesString;
-    std::map<uint32, uint32> charLearningAttributes;
-    m_charDB.GetCharacterAttributes( characterID, charLearningAttributesString );
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrMemory, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrMemory)))->second.c_str()))) ));
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrIntelligence, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrIntelligence)))->second.c_str()))) ));
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrCharisma, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrCharisma)))->second.c_str()))) ));
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrWillpower, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrWillpower)))->second.c_str()))) ));
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrPerception, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrPerception)))->second.c_str()))) ));
-
-    std::vector<std::string> queueOrderList;
-    std::vector<std::string> queueSkillTypeIdList;
-    std::vector<std::string> queueSkillLevelList;
-    std::vector<std::string> queueSkillRankList;
-    std::vector<std::string> queueSkillIdList;
-    std::vector<std::string> queueSkillPrimaryAttrList;
-    std::vector<std::string> queueSkillSecondaryAttrList;
-    std::vector<std::string> queueSkillPointsTrainedList;
-
-    uint32 queueSkillPrimaryAttribute;
-    uint32 queueSkillSecondaryAttribute;
-    std::vector<uint32> queueSkillStartSP;
-    std::vector<uint32> queueSkillEndSP;
-    std::vector<uint64> queueSkillStartTime;
-    std::vector<uint64> queueSkillEndTime;
-    EvilNumber spPerMinute(0.0);
-    EvilNumber skillStartSP(0.0);
-    EvilNumber skillEndSP(0.0);
-    EvilNumber timeNow(0.0);
-    uint64 skillStartTime;
-    uint64 skillEndTime;
-
-    bool status = m_charDB.GetCharacterSkillQueue( characterID, queueOrderList, queueSkillTypeIdList, queueSkillLevelList, queueSkillRankList,
-        queueSkillIdList, queueSkillPrimaryAttrList, queueSkillSecondaryAttrList, queueSkillPointsTrainedList );
-
-    sLog.Error( "APICharacterManager::_SkillQueue()", "INFO: Calculation of Skill End Time based on Effective SP/min does NOT include implants/boosters at this time" );
-
-    if ( status )
-    {
-        timeNow = EvilTimeNow();
-        for( i=0; i<queueOrderList.size(); i++ )
-        {
-            queueSkillPrimaryAttribute = charLearningAttributes.find( atoi(queueSkillPrimaryAttrList.at(i).c_str()) )->second;
-            queueSkillSecondaryAttribute = charLearningAttributes.find( atoi(queueSkillSecondaryAttrList.at(i).c_str()) )->second;
-            skillStartSP = EvilNumber(atoi( queueSkillPointsTrainedList.at(i).c_str() ));
-            queueSkillStartSP.push_back( static_cast<uint32>( skillStartSP.get_int() ));
-            skillEndSP = SkillPointsAtLevel( atoi(queueSkillLevelList.at(i).c_str()), atoi(queueSkillRankList.at(i).c_str()) );
-            queueSkillEndSP.push_back( static_cast<uint32>( skillEndSP.get_int() ) );
-            spPerMinute = SkillPointsPerMinute( queueSkillPrimaryAttribute, queueSkillSecondaryAttribute );
-            skillStartTime = static_cast<uint64>(SkillStartingTime( skillStartSP, skillEndSP, spPerMinute, timeNow ).get_int());
-            skillEndTime = static_cast<uint64>(SkillEndingTime( skillStartSP, skillEndSP, spPerMinute, timeNow ).get_int());
-            queueSkillStartTime.push_back( skillStartTime );
-            queueSkillEndTime.push_back( skillEndTime );
-            timeNow = skillEndTime;
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <result>\n    <orders>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row orderID=\"" + std::to_string(row.GetUInt64(0)) + "\"";
+            xml += " typeID=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " stationID=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " regionID=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " range=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " accountKey=\"" + std::to_string(row.GetUInt(5)) + "\"";
+            xml += " duration=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " price=\"" + row.GetText(7) + "\"";
+            xml += " volEntered=\"" + std::to_string(row.GetUInt(8)) + "\"";
+            xml += " volRemaining=\"" + std::to_string(row.GetUInt(9)) + "\"";
+            xml += " minVolume=\"" + std::to_string(row.GetUInt(10)) + "\"";
+            xml += " bid=\"" + (row.GetBool(11) ? "True" : "False") + "\"";
+            xml += " issued=\"" + Win32TimeToString(row.GetUInt64(12)) + "\"/>\n";
         }
+        xml += "    </orders>\n  </result>\n</eveapi>\n";
+        return xml;
     }
 
-    // EXAMPLE:
-    std::vector<std::string> rowset;
-    _BuildXMLHeader();
-    {
-        _BuildXMLTag( "result" );
-        {
-            // Skill Queue
-            rowset.push_back("queuePosition");
-            rowset.push_back("typeID");
-            rowset.push_back("level");
-            rowset.push_back("startSP");
-            rowset.push_back("endSP");
-            rowset.push_back("startTime");
-            rowset.push_back("endTime");
-            _BuildXMLRowSet( "skillqueue", "queuePosition", &rowset );
-            {
-                if ( status )
-                {
-                    for(i=0; i<queueOrderList.size(); i++)
-                    {
-                        rowset.clear();
-                        rowset.push_back( queueOrderList.at(i) );
-                        rowset.push_back( queueSkillTypeIdList.at(i) );
-                        rowset.push_back( queueSkillLevelList.at(i) );
-                        rowset.push_back( std::string(itoa(queueSkillStartSP.at(i))) );
-                        rowset.push_back( std::string(itoa(queueSkillEndSP.at(i))) );
-                        rowset.push_back( Win32TimeToString(queueSkillStartTime.at(i)) );
-                        rowset.push_back( Win32TimeToString(queueSkillEndTime.at(i)) );
-                        _BuildXMLRow( &rowset );
-                    }
-                }
-            }
-            _CloseXMLRowSet();  // close rowset "skillqueue"
+    if (handler == "Standings.xml.aspx") {
+        std::string cid = get("characterid");
+        if (cid.empty()) return BuildErrorXML("105", "Invalid characterID.");
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT fromID, standing FROM repStandings WHERE toID = %u ORDER BY fromID", std::stoul(cid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <result>\n    <standings>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row fromID=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " toID=\"" + cid + "\"";
+            xml += " standing=\"" + row.GetText(1) + "\"/>\n";
         }
-        _CloseXMLTag(); // close tag "result"
-    }
-    _CloseXMLHeader( EVEAPI::CacheStyles::Modified );
-
-    return _GetXMLDocumentString();
-}
-
-std::tr1::shared_ptr<std::string> APICharacterManager::_SkillInTraining(const APICommandCall * pAPICommandCall)
-{
-    sLog.Error( "APICharacterManager::_SkillInTraining()", "TODO: Insert code to validate userID and apiKey" );
-
-    sLog.Debug("APICharacterManager::_SkillInTraining()", "EVEmu API - Character Service Manager - CALL: SkillInTraining.xml.aspx");
-
-    if ( pAPICommandCall->find( "userid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_SkillInTraining()", "ERROR: No 'userID' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "106", "Must provide userID parameter for authentication." );
+        xml += "    </standings>\n  </result>\n</eveapi>\n";
+        return xml;
     }
 
-    if ( pAPICommandCall->find( "apikey" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_SkillInTraining()", "ERROR: No 'apiKey' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "203", "Authentication failure." );
-    }
-
-    if ( pAPICommandCall->find( "characterid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_SkillInTraining()", "ERROR: No 'characterID' parameter found in call argument list - exiting with error and sending back NOTHING" );
-        return BuildErrorXMLResponse( "105", "Invalid characterID." );
-    }
-
-    // Make calls to the APICharacterDB class to grab all data for this call and populate the xml structure with that data
-    uint32 characterID = atoi( pAPICommandCall->find( "characterid" )->second.c_str() );
-
-    std::map<std::string, std::string> charLearningAttributesString;
-    std::map<uint32, uint32> charLearningAttributes;
-    m_charDB.GetCharacterAttributes( characterID, charLearningAttributesString );
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrMemory, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrMemory)))->second.c_str()))) ));
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrIntelligence, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrIntelligence)))->second.c_str()))) ));
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrCharisma, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrCharisma)))->second.c_str()))) ));
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrWillpower, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrWillpower)))->second.c_str()))) ));
-    charLearningAttributes.insert( std::pair<uint32, uint32>( AttrPerception, ((uint32)(atoi(charLearningAttributesString.find(std::string(itoa(AttrPerception)))->second.c_str()))) ));
-
-    std::vector<std::string> queueOrderList;
-    std::vector<std::string> queueSkillTypeIdList;
-    std::vector<std::string> queueSkillLevelList;
-    std::vector<std::string> queueSkillRankList;
-    std::vector<std::string> queueSkillIdList;
-    std::vector<std::string> queueSkillPrimaryAttrList;
-    std::vector<std::string> queueSkillSecondaryAttrList;
-    std::vector<std::string> queueSkillPointsTrainedList;
-
-    uint32 queueSkillPrimaryAttribute;
-    uint32 queueSkillSecondaryAttribute;
-    std::vector<uint32> queueSkillStartSP;
-    std::vector<uint32> queueSkillEndSP;
-    std::vector<uint64> queueSkillStartTime;
-    std::vector<uint64> queueSkillEndTime;
-    EvilNumber spPerMinute(0.0);
-    EvilNumber skillStartSP(0.0);
-    EvilNumber skillEndSP(0.0);
-    EvilNumber timeNow(0.0);
-    uint64 skillStartTime;
-    uint64 skillEndTime;
-
-    bool status = m_charDB.GetCharacterSkillQueue( characterID, queueOrderList, queueSkillTypeIdList, queueSkillLevelList, queueSkillRankList,
-        queueSkillIdList, queueSkillPrimaryAttrList, queueSkillSecondaryAttrList, queueSkillPointsTrainedList );
-
-    if ( status )
-    {
-        sLog.Error( "APICharacterManager::_SkillInTraining()", "INFO: Calculation of Skill End Time based on Effective SP/min does NOT include implants/boosters at this time" );
-        timeNow = EvilTimeNow();
-
-        queueSkillPrimaryAttribute = charLearningAttributes.find( atoi(queueSkillPrimaryAttrList.at(0).c_str()) )->second;
-        queueSkillSecondaryAttribute = charLearningAttributes.find( atoi(queueSkillSecondaryAttrList.at(0).c_str()) )->second;
-        skillStartSP = EvilNumber(atoi( queueSkillPointsTrainedList.at(0).c_str() ));
-        queueSkillStartSP.push_back( static_cast<uint32>( skillStartSP.get_int() ));
-        skillEndSP = SkillPointsAtLevel( atoi(queueSkillLevelList.at(0).c_str()), atoi(queueSkillRankList.at(0).c_str()) );
-        queueSkillEndSP.push_back( static_cast<uint32>( skillEndSP.get_int() ) );
-        spPerMinute = SkillPointsPerMinute( queueSkillPrimaryAttribute, queueSkillSecondaryAttribute );
-        skillStartTime = static_cast<uint64>(SkillStartingTime( skillStartSP, skillEndSP, spPerMinute, timeNow ).get_int());
-        skillEndTime = static_cast<uint64>(SkillEndingTime( skillStartSP, skillEndSP, spPerMinute, timeNow ).get_int());
-        queueSkillStartTime.push_back( skillStartTime );
-        queueSkillEndTime.push_back( skillEndTime );
-    }
-
-    // EXAMPLE:
-    std::vector<std::string> rowset;
-    _BuildXMLHeader();
-    {
-        _BuildXMLTag( "result" );
-        {
-            if ( status )
-            {
-                _BuildSingleXMLTag( "currentTQTime", Win32TimeToString(static_cast<uint64>(timeNow.get_int())) );
-                _BuildSingleXMLTag( "trainingEndTime", Win32TimeToString(skillEndTime) );
-                _BuildSingleXMLTag( "trainingStartTime", Win32TimeToString(skillStartTime) );
-                _BuildSingleXMLTag( "trainingTypeID", queueSkillTypeIdList.at(0) );
-                _BuildSingleXMLTag( "trainingStartSP", std::string(itoa(skillStartSP.get_int())) );
-                _BuildSingleXMLTag( "trainingDestinationSP", std::string(itoa(skillEndSP.get_int())) );
-                _BuildSingleXMLTag( "trainingToLevel", queueSkillLevelList.at(0) );
-                _BuildSingleXMLTag( "skillInTraining", "1" );
-            }
-            else
-            {
-                _BuildSingleXMLTag( "skillInTraining", "0" );
-            }
-        }
-        _CloseXMLTag(); // close tag "result"
-    }
-    _CloseXMLHeader( EVEAPI::CacheStyles::Modified );
-
-    return _GetXMLDocumentString();
-}
-
-std::tr1::shared_ptr<std::string> APICharacterManager::_KillMails(const APICommandCall * pAPICommandCall)
-{
-    sLog.Debug("APICharacterManager::_KillMails()", "EVEmu API - Character KillMails.xml.aspx");
-
-    if ( pAPICommandCall->find( "characterid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_KillMails()", "ERROR: No 'characterID' parameter" );
-        return BuildErrorXMLResponse( "105", "Invalid characterID." );
-    }
-
-    uint32 characterID = atoi( pAPICommandCall->find( "characterid" )->second.c_str() );
-
-    uint32 beforeKillID = 0;
-    if ( pAPICommandCall->find( "beforekillid" ) != pAPICommandCall->end() )
-        beforeKillID = atoi( pAPICommandCall->find( "beforekillid" )->second.c_str() );
-
-    DBQueryResult res;
-    std::string query = "SELECT killID, solarSystemID, victimCharacterID, victimCorporationID, "
-        "victimAllianceID, victimFactionID, victimShipTypeID, victimDamageTaken, "
-        "finalCharacterID, finalCorporationID, finalAllianceID, finalFactionID, "
-        "finalShipTypeID, finalWeaponTypeID, finalSecurityStatus, finalDamageDone, "
-        "killTime, moonID FROM chrKillTable "
-        "WHERE (victimCharacterID = %u OR finalCharacterID = %u)";
-
-    if (beforeKillID > 0)
-        query += " AND killID < " + std::string(itoa(beforeKillID));
-
-    query += " ORDER BY killID DESC LIMIT 2500";
-
-    if (!sDatabase.RunQuery(res, query.c_str(), characterID, characterID))
-    {
-        sLog.Error( "APICharacterManager::_KillMails()", "ERROR: Query failed: %s", res.error.c_str() );
-        return BuildErrorXMLResponse( "999", "Query failed." );
-    }
-
-    // Build XML response manually for killmail format (row elements with attributes)
-    std::string xml;
-    xml.append("<?xml version='1.0' encoding='UTF-8'?>\n");
-    xml.append("<eveapi version=\"2\">\n");
-    xml.append("  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n");
-    xml.append("  <result>\n");
-    xml.append("    <kills>\n");
-
-    DBResultRow row;
-    while (res.GetRow(row))
-    {
-        xml.append("      <row killID=\"" + std::string(itoa(row.GetUInt(0))) + "\"");
-        xml.append(" solarSystemID=\"" + std::string(itoa(row.GetUInt(1))) + "\"");
-        xml.append(" victimCharacterID=\"" + std::string(itoa(row.GetUInt(2))) + "\"");
-        xml.append(" victimCorporationID=\"" + std::string(itoa(row.GetUInt(3))) + "\"");
-        xml.append(" victimAllianceID=\"" + std::string(itoa(row.GetInt(4))) + "\"");
-        xml.append(" victimFactionID=\"" + std::string(itoa(row.GetUInt(5))) + "\"");
-        xml.append(" victimShipTypeID=\"" + std::string(itoa(row.GetUInt(6))) + "\"");
-        xml.append(" victimDamageTaken=\"" + std::string(itoa(row.GetUInt(7))) + "\"");
-        xml.append(" finalCharacterID=\"" + std::string(itoa(row.GetUInt(8))) + "\"");
-        xml.append(" finalCorporationID=\"" + std::string(itoa(row.GetUInt(9))) + "\"");
-        xml.append(" finalAllianceID=\"" + std::string(itoa(row.GetInt(10))) + "\"");
-        xml.append(" finalFactionID=\"" + std::string(itoa(row.GetUInt(11))) + "\"");
-        xml.append(" finalShipTypeID=\"" + std::string(itoa(row.GetUInt(12))) + "\"");
-        xml.append(" finalWeaponTypeID=\"" + std::string(itoa(row.GetUInt(13))) + "\"");
-        xml.append(" finalSecurityStatus=\"" + row.GetText(14) + "\"");
-        xml.append(" finalDamageDone=\"" + std::string(itoa(row.GetUInt(15))) + "\"");
-        xml.append(" killTime=\"" + row.GetText(16) + "\"");
-        xml.append(" moonID=\"" + std::string(itoa(row.GetUInt(17))) + "\"/>\n");
-    }
-
-    xml.append("    </kills>\n");
-    xml.append("  </result>\n");
-    xml.append("</eveapi>\n");
-
-    return std::tr1::shared_ptr<std::string>(new std::string(xml));
-}
-
-std::tr1::shared_ptr<std::string> APICharacterManager::_MarketOrders(const APICommandCall * pAPICommandCall)
-{
-    sLog.Debug("APICharacterManager::_MarketOrders()", "EVEmu API - Character MarketOrders.xml.aspx");
-
-    if ( pAPICommandCall->find( "characterid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_MarketOrders()", "ERROR: No 'characterID' parameter" );
-        return BuildErrorXMLResponse( "105", "Invalid characterID." );
-    }
-
-    uint32 characterID = atoi( pAPICommandCall->find( "characterid" )->second.c_str() );
-
-    DBQueryResult res;
-    if (!sDatabase.RunQuery(res,
-        "SELECT orderID, charID, stationID, regionID, typeID, orderRange, "
-        "accountKey, duration, price, volEntered, volRemaining, minVolume, bid, issued "
-        "FROM mktOrders WHERE ownerID = %u ORDER BY orderID", characterID))
-    {
-        sLog.Error( "APICharacterManager::_MarketOrders()", "ERROR: Query failed: %s", res.error.c_str() );
-        return BuildErrorXMLResponse( "999", "Query failed." );
-    }
-
-    std::string xml;
-    xml.append("<?xml version='1.0' encoding='UTF-8'?>\n");
-    xml.append("<eveapi version=\"2\">\n");
-    xml.append("  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n");
-    xml.append("  <result>\n");
-    xml.append("    <orders>\n");
-
-    DBResultRow row;
-    while (res.GetRow(row))
-    {
-        xml.append("      <row orderID=\"" + std::string(itoa(row.GetUInt64(0))) + "\"");
-        xml.append(" charID=\"" + std::string(itoa(row.GetUInt(1))) + "\"");
-        xml.append(" stationID=\"" + std::string(itoa(row.GetUInt(2))) + "\"");
-        xml.append(" regionID=\"" + std::string(itoa(row.GetUInt(3))) + "\"");
-        xml.append(" typeID=\"" + std::string(itoa(row.GetUInt(4))) + "\"");
-        xml.append(" range=\"" + std::string(itoa(row.GetUInt(5))) + "\"");
-        xml.append(" accountKey=\"" + std::string(itoa(row.GetUInt(6))) + "\"");
-        xml.append(" duration=\"" + std::string(itoa(row.GetUInt(7))) + "\"");
-        xml.append(" price=\"" + row.GetText(8) + "\"");
-        xml.append(" volEntered=\"" + std::string(itoa(row.GetUInt(9))) + "\"");
-        xml.append(" volRemaining=\"" + std::string(itoa(row.GetUInt(10))) + "\"");
-        xml.append(" minVolume=\"" + std::string(itoa(row.GetUInt(11))) + "\"");
-        xml.append(" bid=\"" + std::string(row.GetBool(12) ? "True" : "False") + "\"");
-        xml.append(" issued=\"" + Win32TimeToString(row.GetUInt64(13)) + "\"/>\n");
-    }
-
-    xml.append("    </orders>\n");
-    xml.append("  </result>\n");
-    xml.append("</eveapi>\n");
-
-    return std::tr1::shared_ptr<std::string>(new std::string(xml));
-}
-
-std::tr1::shared_ptr<std::string> APICharacterManager::_Standings(const APICommandCall * pAPICommandCall)
-{
-    sLog.Debug("APICharacterManager::_Standings()", "EVEmu API - Character Standings.xml.aspx");
-
-    if ( pAPICommandCall->find( "characterid" ) == pAPICommandCall->end() )
-    {
-        sLog.Error( "APICharacterManager::_Standings()", "ERROR: No 'characterID' parameter" );
-        return BuildErrorXMLResponse( "105", "Invalid characterID." );
-    }
-
-    uint32 characterID = atoi( pAPICommandCall->find( "characterid" )->second.c_str() );
-
-    DBQueryResult res;
-    if (!sDatabase.RunQuery(res,
-        "SELECT fromID, standing FROM repStandings WHERE toID = %u ORDER BY fromID", characterID))
-    {
-        sLog.Error( "APICharacterManager::_Standings()", "ERROR: Query failed: %s", res.error.c_str() );
-        return BuildErrorXMLResponse( "999", "Query failed." );
-    }
-
-    std::string xml;
-    xml.append("<?xml version='1.0' encoding='UTF-8'?>\n");
-    xml.append("<eveapi version=\"2\">\n");
-    xml.append("  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n");
-    xml.append("  <result>\n");
-    xml.append("    <standings>\n");
-
-    DBResultRow row;
-    while (res.GetRow(row))
-    {
-        xml.append("      <row fromID=\"" + std::string(itoa(row.GetUInt(0))) + "\"");
-        xml.append(" toID=\"" + std::string(itoa(characterID)) + "\"");
-        xml.append(" standing=\"" + row.GetText(1) + "\"/>\n");
-    }
-
-    xml.append("    </standings>\n");
-    xml.append("  </result>\n");
-    xml.append("</eveapi>\n");
-
-    return std::tr1::shared_ptr<std::string>(new std::string(xml));
+    return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
