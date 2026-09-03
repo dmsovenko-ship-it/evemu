@@ -11,6 +11,7 @@ services:
     ports:
       - "26000:26000"
       - "26001:26001"
+      - "26002:26002"
     depends_on:
       - db
     links:
