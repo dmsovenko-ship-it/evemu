@@ -114,5 +114,37 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "WalletJournal.xml.aspx") {
+        std::string cid = get("characterid");
+        if (cid.empty()) return BuildErrorXML("105", "Invalid characterID.");
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT transactionID, transactionDate, referenceID, entryTypeID, "
+            "ownerID1, ownerID2, accountKey, amount, balance, description "
+            "FROM acrWalletJournal WHERE ownerID = %u ORDER BY transactionID DESC LIMIT 1000",
+            std::stoul(cid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <result>\n    <transactions>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row transactionID=\"" + std::to_string(row.GetUInt64(0)) + "\"";
+            xml += " transactionDateTime=\"" + Win32TimeToString(row.GetUInt64(1)) + "\"";
+            xml += " referenceID=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " entryTypeID=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " ownerID1=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " ownerID2=\"" + std::to_string(row.GetUInt(5)) + "\"";
+            xml += " accountKey=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " amount=\"" + row.GetText(7) + "\"";
+            xml += " balance=\"" + row.GetText(8) + "\"";
+            xml += " description=\"" + row.GetText(9) + "\"/>\n";
+        }
+        xml += "    </transactions>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }

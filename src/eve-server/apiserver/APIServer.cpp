@@ -15,6 +15,7 @@
 using boost::asio::ip::tcp;
 
 APIServer::APIServer() = default;
+APIServer::~APIServer() = default;
 
 void APIServer::CreateServices()
 {

@@ -25,6 +25,10 @@ public:
     std::string ProcessRequest(const std::string& service, const std::string& handler,
                                const std::map<std::string, std::string>& params);
 
+    APIServer(const APIServer&) = delete;
+    APIServer& operator=(const APIServer&) = delete;
+    ~APIServer();
+
 private:
     APIServer();
     void RunInternal();
@@ -34,5 +38,7 @@ private:
     bool _runOnce = false;
     std::map<std::string, std::unique_ptr<APIServiceManager>> _serviceManagers;
 };
+
+#define sAPIServer ( APIServer::get() )
 
 #endif // __APISERVER__H__INCL__
