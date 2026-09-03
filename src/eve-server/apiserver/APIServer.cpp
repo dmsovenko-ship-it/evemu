@@ -105,7 +105,7 @@ void APIServer::RunInternal()
 {
     try {
         boost::asio::io_context io;
-        tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), sConfig.net.imageServerPort));
+        tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), sConfig.net.imageServerPort + 1));
 
         sLog.Green("API Server", "Listening on port %u", sConfig.net.imageServerPort);
 
