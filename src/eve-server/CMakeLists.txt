@@ -309,6 +309,38 @@ SET( imageserver_SOURCE
      "${TARGET_SOURCE_DIR}/imageserver/ImageServerConnection.cpp"
      "${TARGET_SOURCE_DIR}/imageserver/ImageServerListener.cpp" )
 
+SET( apiserver_INCLUDE
+     "${TARGET_INCLUDE_DIR}/apiserver/APIServer.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIServerConnection.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIServerListener.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIServiceManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIServiceDB.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIAccountManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIActiveObjectManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIAdminManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APICharacterManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APICharacterDB.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APICorporationManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIEveSystemManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIMapManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIServerManager.h" )
+SET( apiserver_SOURCE
+     "${TARGET_SOURCE_DIR}/apiserver/APIServer.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIServerConnection.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIServerListener.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIServiceManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIServiceDB.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIAccountDB.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIAccountManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIActiveObjectManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIAdminManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APICharacterDB.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APICharacterManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APICorporationManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIEveSystemManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIMapManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIServerManager.cpp" )
+
 SET( inventory_INCLUDE
      "${TARGET_INCLUDE_DIR}/inventory/AttributeEnum.h"
      "${TARGET_INCLUDE_DIR}/inventory/AttributeMap.h"
@@ -706,6 +738,7 @@ SOURCE_GROUP( "src\\exploration"   FILES ${explore_INCLUDE} )
 SOURCE_GROUP( "src\\faction"       FILES ${faction_INCLUDE} )
 SOURCE_GROUP( "src\\fleet"         FILES ${fleet_INCLUDE} )
 SOURCE_GROUP( "src\\imageserver"   FILES ${imageserver_INCLUDE} )
+SOURCE_GROUP( "src\\apiserver"    FILES ${apiserver_INCLUDE} )
 SOURCE_GROUP( "src\\inventory"     FILES ${inventory_INCLUDE} )
 SOURCE_GROUP( "src\\mail"          FILES ${mail_INCLUDE} )
 SOURCE_GROUP( "src\\manufacturing" FILES ${manufacturing_INCLUDE} )
@@ -746,6 +779,7 @@ SOURCE_GROUP( "src\\exploration"   FILES ${explore_SOURCE} )
 SOURCE_GROUP( "src\\faction"       FILES ${faction_SOURCE} )
 SOURCE_GROUP( "src\\fleet"         FILES ${fleet_SOURCE} )
 SOURCE_GROUP( "src\\imageserver"   FILES ${imageserver_SOURCE} )
+SOURCE_GROUP( "src\\apiserver"    FILES ${apiserver_SOURCE} )
 SOURCE_GROUP( "src\\inventory"     FILES ${inventory_SOURCE} )
 SOURCE_GROUP( "src\\mail"          FILES ${mail_SOURCE} )
 SOURCE_GROUP( "src\\manufacturing" FILES ${manufacturing_SOURCE} )
@@ -787,7 +821,8 @@ ADD_EXECUTABLE( "${TARGET_NAME}"
                 ${explore_INCLUDE}        ${explore_SOURCE}
                 ${faction_INCLUDE}        ${faction_SOURCE}
                 ${fleet_INCLUDE}          ${fleet_SOURCE}
-                ${imageserver_INCLUDE}    ${imageserver_SOURCE}
+                 ${imageserver_INCLUDE}    ${imageserver_SOURCE}
+                 ${apiserver_INCLUDE}     ${apiserver_SOURCE}
                 ${inventory_INCLUDE}      ${inventory_SOURCE}
                 ${mail_INCLUDE}           ${mail_SOURCE}
                 ${manufacturing_INCLUDE}  ${manufacturing_SOURCE}
