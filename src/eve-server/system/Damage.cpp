@@ -643,10 +643,18 @@ void ShipSE::Killed(Damage &fatal_blow) {
     if (pPilot != nullptr) {
         victimCharID = pPilot->GetCharacterID();
     } else {
-        // check if this is a PlayerBot (simulated player)
-        NPC* pNPC = m_self->GetNPCSE();
-        if (pNPC != nullptr)
-            pBot = dynamic_cast<PlayerBot*>(pNPC);
+        // check if this is a PlayerBot (simulated player) — find the NPC that owns this ship
+        uint32 shipItemID = m_self->itemID();
+        for (auto& [id, se] : m_system->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* bot = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (bot != nullptr && bot->GetShipItemRef().get() != nullptr
+                && bot->GetShipItemRef()->itemID() == shipItemID) {
+                pBot = bot;
+                break;
+            }
+        }
         if (pBot != nullptr) {
             victimCharID = pBot->GetBotCharID();
             victimCorpID = pBot->GetCorporationID();
