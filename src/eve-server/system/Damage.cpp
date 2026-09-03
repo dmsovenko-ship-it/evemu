@@ -636,10 +636,27 @@ void ShipSE::Killed(Damage &fatal_blow) {
     }
 
     Client* pPilot(m_self->GetPilot());
-    if (pPilot == nullptr)
-        return;    //  make error here
+    PlayerBot* pBot = nullptr;
+    uint32 victimCharID = 0;
+    uint32 victimCorpID = m_corpID;
 
-    if (pClient != nullptr)
+    if (pPilot != nullptr) {
+        victimCharID = pPilot->GetCharacterID();
+    } else {
+        // check if this is a PlayerBot (simulated player)
+        NPC* pNPC = m_self->GetNPCSE();
+        if (pNPC != nullptr)
+            pBot = dynamic_cast<PlayerBot*>(pNPC);
+        if (pBot != nullptr) {
+            victimCharID = pBot->GetBotCharID();
+            victimCorpID = pBot->GetCorporationID();
+        } else {
+            return;  // no pilot, no bot — nothing to record
+        }
+    }
+
+    // security status penalty only for real players
+    if (pClient != nullptr && pPilot != nullptr)
         if (m_system->GetSystemSecurityRating() > 0) {
             /* http://www.eveinfo.net/wiki/ind~4067.htm
              *  relative_sec_status_penalty = base_penalty * system_truesec * (1 + (victim_sec_status - agressor_sec_status) / 90)
@@ -658,8 +675,8 @@ void ShipSE::Killed(Damage &fatal_blow) {
     /* populate kill data for killMail and save to db  -allan 01May16  --updated 13July17 */
     KillData data = KillData();
         data.solarSystemID = m_system->GetID();
-        data.victimCharacterID = pPilot->GetCharacterID();
-        data.victimCorporationID = m_corpID;
+        data.victimCharacterID = victimCharID;
+        data.victimCorporationID = victimCorpID;
         data.victimAllianceID = m_allyID;
         data.victimFactionID = m_warID;
         data.victimShipTypeID = m_self->typeID();
@@ -680,7 +697,7 @@ void ShipSE::Killed(Damage &fatal_blow) {
 
     std::stringstream blob;
     std::vector<InventoryItemRef> survivedItems;
-    if (pPilot->InPod()) {
+    if (pPilot != nullptr && pPilot->InPod()) {
         blob << "<items><i t=" << data.victimShipTypeID << " f=0 s=1 d=0 x=1/></items>";
     } else {
         AbortCycle();
@@ -738,61 +755,76 @@ void ShipSE::Killed(Damage &fatal_blow) {
     data.killTime = GetFileTimeNow();
     data.moonID = m_system->GetID();
 
-    pPilot->GetChar()->LogKill(data);
+    // save kill to DB (works for both real players and bots)
+    ServiceDB::SaveKillOrLoss(data);
 
-    // consume active kill rights against the victim
-    {
-        DBQueryResult krRes;
-        uint32 victimCharID = pPilot->GetCharacterID();
-        if (sDatabase.RunQuery(krRes,
-            " SELECT rightID FROM chrKillRights "
-            " WHERE targetID = %u AND used = 0 AND expiryDate > %lli",
-            victimCharID, static_cast<int64>(GetFileTimeNow())))
+    // kill rights and notifications only for real player victims
+    if (pPilot != nullptr) {
+        // consume active kill rights against the victim
         {
-            DBResultRow krRow;
-            while (krRes.GetRow(krRow)) {
-                DBerror err;
-                sDatabase.RunQuery(err,
-                    " UPDATE chrKillRights SET used = 1, activatedBy = %u WHERE rightID = %u",
-                    killerID, krRow.GetInt(0));
+            DBQueryResult krRes;
+            if (sDatabase.RunQuery(krRes,
+                " SELECT rightID FROM chrKillRights "
+                " WHERE targetID = %u AND used = 0 AND expiryDate > %lli",
+                victimCharID, static_cast<int64>(GetFileTimeNow())))
+            {
+                DBResultRow krRow;
+                while (krRes.GetRow(krRow)) {
+                    DBerror err;
+                    sDatabase.RunQuery(err,
+                        " UPDATE chrKillRights SET used = 1, activatedBy = %u WHERE rightID = %u",
+                        killerID, krRow.GetInt(0));
+                }
             }
         }
-    }
 
-    // send killmail notification
-    {
-        const char* victimName = pPilot->GetName();
-        const char* victimShip = sDataMgr.GetTypeName(m_self->typeID());
-        const char* killerShip = sDataMgr.GetTypeName(killer->GetTypeID());
-        const char* weaponName = sDataMgr.GetTypeName(data.finalWeaponTypeID);
-        std::string victimCorp = sDataMgr.GetOwnerName(m_corpID);
-        std::string victimAlly = m_allyID ? sDataMgr.GetOwnerName(m_allyID) : "None";
-        std::string killerName = (pClient != nullptr) ? pClient->GetName() : sDataMgr.GetOwnerName(killerID);
+        // send killmail notification
+        {
+            const char* victimName = pPilot->GetName();
+            const char* victimShip = sDataMgr.GetTypeName(m_self->typeID());
+            const char* killerShip = sDataMgr.GetTypeName(killer->GetTypeID());
+            const char* weaponName = sDataMgr.GetTypeName(data.finalWeaponTypeID);
+            std::string victimCorp = sDataMgr.GetOwnerName(victimCorpID);
+            std::string victimAlly = m_allyID ? sDataMgr.GetOwnerName(m_allyID) : "None";
+            std::string killerName = (pClient != nullptr) ? pClient->GetName() : sDataMgr.GetOwnerName(killerID);
 
-        // notify killer
-        if (pClient != nullptr) {
-            pClient->SendNotifyMsg("Kill: %s (%s) - %s (%s) - %u damage",
-                victimName, victimShip, pClient->GetName(), killerShip, data.victimDamageTaken);
-            pClient->SelfEveMail("Kill Report",
-                "Victim: %s\nCorporation: %s\nAlliance: %s\nShip: %s\nSystem: %s\nDamage Taken: %u\n\nFinal Blow: %s\nShip: %s\nWeapon: %s",
-                victimName, victimCorp.c_str(), victimAlly.c_str(), victimShip,
+            // notify killer
+            if (pClient != nullptr) {
+                pClient->SendNotifyMsg("Kill: %s (%s) - %s (%s) - %u damage",
+                    victimName, victimShip, pClient->GetName(), killerShip, data.victimDamageTaken);
+                pClient->SelfEveMail("Kill Report",
+                    "Victim: %s\nCorporation: %s\nAlliance: %s\nShip: %s\nSystem: %s\nDamage Taken: %u\n\nFinal Blow: %s\nShip: %s\nWeapon: %s",
+                    victimName, victimCorp.c_str(), victimAlly.c_str(), victimShip,
+                    m_system->GetName(), data.victimDamageTaken,
+                    killerName.c_str(), killerShip, weaponName);
+            }
+
+            // notify victim
+            pPilot->SendNotifyMsg("You were destroyed by %s (%s) with %s - %u damage",
+                killerName.c_str(), killerShip, weaponName, data.victimDamageTaken);
+            pPilot->SelfEveMail("Loss Report",
+                "Victim: %s\nCorporation: %s\nShip: %s\nSystem: %s\nDamage Taken: %u\n\nFinal Blow: %s\nShip: %s\nWeapon: %s",
+                victimName, victimCorp.c_str(), victimShip,
                 m_system->GetName(), data.victimDamageTaken,
                 killerName.c_str(), killerShip, weaponName);
         }
+    } else if (pBot != nullptr) {
+        // bot victim — notify killer only
+        const char* victimName = pBot->GetName();
+        const char* victimShip = sDataMgr.GetTypeName(m_self->typeID());
+        const char* killerShip = sDataMgr.GetTypeName(killer->GetTypeID());
+        const char* weaponName = sDataMgr.GetTypeName(data.finalWeaponTypeID);
+        std::string killerName = (pClient != nullptr) ? pClient->GetName() : sDataMgr.GetOwnerName(killerID);
 
-        // notify victim
-        pPilot->SendNotifyMsg("You were destroyed by %s (%s) with %s - %u damage",
-            killerName.c_str(), killerShip, weaponName, data.victimDamageTaken);
-        pPilot->SelfEveMail("Loss Report",
-            "Victim: %s\nCorporation: %s\nShip: %s\nSystem: %s\nDamage Taken: %u\n\nFinal Blow: %s\nShip: %s\nWeapon: %s",
-            victimName, victimCorp.c_str(), victimShip,
-            m_system->GetName(), data.victimDamageTaken,
-            killerName.c_str(), killerShip, weaponName);
+        if (pClient != nullptr) {
+            pClient->SendNotifyMsg("Kill: %s (%s) - %s (%s) - %u damage",
+                victimName, victimShip, pClient->GetName(), killerShip, data.victimDamageTaken);
+        }
     }
 
 
 
-    if (pPilot->InPod()) {
+    if (pPilot != nullptr && pPilot->InPod()) {
         // log podKill
         MapDB::AddPodKill(locationID);
 
