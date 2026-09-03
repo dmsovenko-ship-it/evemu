@@ -70,14 +70,16 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
     if (handler == "BanAccount.xml.aspx") {
         std::string aid = get("accountid");
         if (aid.empty()) return BuildErrorXML("105", "Missing accountid.");
-        sDatabase.RunQuery("UPDATE account SET banned = 1 WHERE accountID = %u", std::stoul(aid));
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE account SET banned = 1 WHERE accountID = %u", std::stoul(aid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
     if (handler == "UnbanAccount.xml.aspx") {
         std::string aid = get("accountid");
         if (aid.empty()) return BuildErrorXML("105", "Missing accountid.");
-        sDatabase.RunQuery("UPDATE account SET banned = 0 WHERE accountID = %u", std::stoul(aid));
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE account SET banned = 0 WHERE accountID = %u", std::stoul(aid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
@@ -93,16 +95,19 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
     };
 
     // ensure table exists
-    sDatabase.RunQuery(
-        "CREATE TABLE IF NOT EXISTS portal_petitions ("
-        "petitionID INT UNSIGNED NOT NULL AUTO_INCREMENT, "
-        "accountID INT UNSIGNED NOT NULL DEFAULT 0, "
-        "authorName VARCHAR(40) NOT NULL DEFAULT '', "
-        "subject VARCHAR(200) NOT NULL DEFAULT '', "
-        "body TEXT, "
-        "status TINYINT NOT NULL DEFAULT 1, "
-        "createDate DATETIME DEFAULT CURRENT_TIMESTAMP, "
-        "PRIMARY KEY (petitionID)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    {
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "CREATE TABLE IF NOT EXISTS portal_petitions ("
+            "petitionID INT UNSIGNED NOT NULL AUTO_INCREMENT, "
+            "accountID INT UNSIGNED NOT NULL DEFAULT 0, "
+            "authorName VARCHAR(40) NOT NULL DEFAULT '', "
+            "subject VARCHAR(200) NOT NULL DEFAULT '', "
+            "body TEXT, "
+            "status TINYINT NOT NULL DEFAULT 1, "
+            "createDate DATETIME DEFAULT CURRENT_TIMESTAMP, "
+            "PRIMARY KEY (petitionID)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
 
     if (handler == "PetitionList.xml.aspx") {
         DBQueryResult res;
@@ -130,7 +135,8 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
     if (handler == "PetitionClose.xml.aspx") {
         std::string pid = get("petitionid");
         if (pid.empty()) return BuildErrorXML("105", "Missing petitionid.");
-        sDatabase.RunQuery("UPDATE portal_petitions SET status = 0 WHERE petitionID = %u", std::stoul(pid));
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE portal_petitions SET status = 0 WHERE petitionID = %u", std::stoul(pid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
@@ -138,8 +144,9 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         std::string pid = get("petitionid");
         std::string reply = get("reply");
         if (pid.empty()) return BuildErrorXML("105", "Missing petitionid.");
-        // store reply as body update for now
-        sDatabase.RunQuery("UPDATE portal_petitions SET body = CONCAT(COALESCE(body,''), '\n--- Admin reply ---\n', '%s') WHERE petitionID = %u",
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE portal_petitions SET body = CONCAT(COALESCE(body,''), '\n--- Admin reply ---\n', '%s') WHERE petitionID = %u",
             reply.c_str(), std::stoul(pid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
@@ -155,13 +162,16 @@ std::string APIAdminManager::ProcessTimecodes(const std::string& handler,
         return it != params.end() ? it->second : "";
     };
 
-    sDatabase.RunQuery(
-        "CREATE TABLE IF NOT EXISTS portal_timecodes ("
-        "id INT UNSIGNED NOT NULL AUTO_INCREMENT, "
-        "accountID INT UNSIGNED NOT NULL DEFAULT 0, "
-        "days INT UNSIGNED NOT NULL DEFAULT 0, "
-        "grantDate DATETIME DEFAULT CURRENT_TIMESTAMP, "
-        "PRIMARY KEY (id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    {
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "CREATE TABLE IF NOT EXISTS portal_timecodes ("
+            "id INT UNSIGNED NOT NULL AUTO_INCREMENT, "
+            "accountID INT UNSIGNED NOT NULL DEFAULT 0, "
+            "days INT UNSIGNED NOT NULL DEFAULT 0, "
+            "grantDate DATETIME DEFAULT CURRENT_TIMESTAMP, "
+            "PRIMARY KEY (id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
 
     if (handler == "TimecodeList.xml.aspx") {
         DBQueryResult res;
@@ -187,7 +197,8 @@ std::string APIAdminManager::ProcessTimecodes(const std::string& handler,
         std::string aid = get("accountid");
         std::string days = get("days");
         if (aid.empty() || days.empty()) return BuildErrorXML("105", "Missing accountid or days.");
-        sDatabase.RunQuery("INSERT INTO portal_timecodes (accountID, days) VALUES (%u, %u)",
+        DBerror err;
+        sDatabase.RunQuery(err, "INSERT INTO portal_timecodes (accountID, days) VALUES (%u, %u)",
             std::stoul(aid), std::stoul(days));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
@@ -224,11 +235,11 @@ std::string APIAdminManager::ProcessItems(const std::string& handler,
             return BuildErrorXML("1004", "Character not found.");
 
         uint32 locationID = row.GetUInt(0);
-        uint32 corpID = row.GetUInt(1);
 
-        // create the item in the character's hangar (flag 4 = Cargo, or flag 5 = Hangar)
+        // create the item in the character's hangar (flag 5 = Hangar)
+        DBerror err;
         uint32 itemID = 0;
-        if (!sDatabase.RunQuery(itemID,
+        if (!sDatabase.RunQueryLID(err, itemID,
             "INSERT INTO entity (typeID, ownerID, locationID, flag, quantity, customName) "
             "VALUES (%u, %u, %u, 5, %u, '')",
             typeID, charID, locationID, quantity))
@@ -257,7 +268,8 @@ std::string APIAdminManager::ProcessRoles(const std::string& handler,
         std::string aid = get("accountid");
         std::string role = get("role");
         if (aid.empty() || role.empty()) return BuildErrorXML("105", "Missing accountid or role.");
-        sDatabase.RunQuery("UPDATE account SET role = %lld WHERE accountID = %u",
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE account SET role = %lld WHERE accountID = %u",
             std::stoll(role), std::stoul(aid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }

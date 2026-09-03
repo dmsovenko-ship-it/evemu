@@ -1,4 +1,5 @@
 #include "eve-server.h"
+#include "EVEServerConfig.h"
 #include "apiserver/APIAuthManager.h"
 
 std::string APIAuthManager::ProcessCall(const std::string& handler,
@@ -37,8 +38,9 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
         uint32 role = sConfig.account.autoAccountRole;
         if (role == 0) role = 1; // ROLE_PLAYER if no auto-role configured
 
+        DBerror err;
         uint32 accountID = 0;
-        if (!sDatabase.RunQuery(accountID,
+        if (!sDatabase.RunQueryLID(err, accountID,
             "INSERT INTO account (accountName, password, hash, role, type) VALUES ('%s', '%s', '', %u, 23)",
             name.c_str(), escapedPass.c_str(), role))
             return BuildErrorXML("999", "Failed to create account.");
@@ -78,7 +80,8 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
             return BuildErrorXML("1003", "Invalid password.");
 
         // update login stats
-        sDatabase.RunQuery("UPDATE account SET logonCount = logonCount + 1, lastLogin = NOW() WHERE accountID = %u", row.GetUInt(0));
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE account SET logonCount = logonCount + 1, lastLogin = NOW() WHERE accountID = %u", row.GetUInt(0));
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
