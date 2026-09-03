@@ -31,7 +31,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
-        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n    <kills>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
@@ -49,9 +49,9 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             xml += " finalFactionID=\"" + std::to_string(row.GetUInt(11)) + "\"";
             xml += " finalShipTypeID=\"" + std::to_string(row.GetUInt(12)) + "\"";
             xml += " finalWeaponTypeID=\"" + std::to_string(row.GetUInt(13)) + "\"";
-            xml += " finalSecurityStatus=\"" + row.GetText(14) + "\"";
+            xml += " finalSecurityStatus=\"" + std::string(row.GetText(14)) + "\"";
             xml += " finalDamageDone=\"" + std::to_string(row.GetUInt(15)) + "\"";
-            xml += " killTime=\"" + row.GetText(16) + "\"";
+            xml += " killTime=\"" + std::string(row.GetText(16)) + "\"";
             xml += " moonID=\"" + std::to_string(row.GetUInt(17)) + "\"/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
@@ -70,23 +70,23 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
-        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n    <orders>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
-            xml += "      <row orderID=\"" + std::to_string(row.GetUInt64(0)) + "\"";
+            xml += "      <row orderID=\"" + std::to_string(row.GetInt64(0)) + "\"";
             xml += " typeID=\"" + std::to_string(row.GetUInt(1)) + "\"";
             xml += " stationID=\"" + std::to_string(row.GetUInt(2)) + "\"";
             xml += " regionID=\"" + std::to_string(row.GetUInt(3)) + "\"";
             xml += " range=\"" + std::to_string(row.GetUInt(4)) + "\"";
             xml += " accountKey=\"" + std::to_string(row.GetUInt(5)) + "\"";
             xml += " duration=\"" + std::to_string(row.GetUInt(6)) + "\"";
-            xml += " price=\"" + row.GetText(7) + "\"";
+            xml += " price=\"" + std::string(row.GetText(7)) + "\"";
             xml += " volEntered=\"" + std::to_string(row.GetUInt(8)) + "\"";
             xml += " volRemaining=\"" + std::to_string(row.GetUInt(9)) + "\"";
             xml += " minVolume=\"" + std::to_string(row.GetUInt(10)) + "\"";
             xml += " bid=\"" + (row.GetBool(11) ? "True" : "False") + "\"";
-            xml += " issued=\"" + Win32TimeToString(row.GetUInt64(12)) + "\"/>\n";
+            xml += " issued=\"" + Win32TimeToString(row.GetInt64(12)) + "\"/>\n";
         }
         xml += "    </orders>\n  </result>\n</eveapi>\n";
         return xml;
@@ -102,13 +102,13 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
-        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n    <standings>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
             xml += "      <row fromID=\"" + std::to_string(row.GetUInt(0)) + "\"";
             xml += " toID=\"" + cid + "\"";
-            xml += " standing=\"" + row.GetText(1) + "\"/>\n";
+            xml += " standing=\"" + std::string(row.GetText(1)) + "\"/>\n";
         }
         xml += "    </standings>\n  </result>\n</eveapi>\n";
         return xml;
@@ -127,20 +127,20 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
-        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n    <transactions>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
-            xml += "      <row transactionID=\"" + std::to_string(row.GetUInt64(0)) + "\"";
-            xml += " transactionDateTime=\"" + Win32TimeToString(row.GetUInt64(1)) + "\"";
+            xml += "      <row transactionID=\"" + std::to_string(row.GetInt64(0)) + "\"";
+            xml += " transactionDateTime=\"" + Win32TimeToString(row.GetInt64(1)) + "\"";
             xml += " referenceID=\"" + std::to_string(row.GetUInt(2)) + "\"";
             xml += " entryTypeID=\"" + std::to_string(row.GetUInt(3)) + "\"";
             xml += " ownerID1=\"" + std::to_string(row.GetUInt(4)) + "\"";
             xml += " ownerID2=\"" + std::to_string(row.GetUInt(5)) + "\"";
             xml += " accountKey=\"" + std::to_string(row.GetUInt(6)) + "\"";
-            xml += " amount=\"" + row.GetText(7) + "\"";
-            xml += " balance=\"" + row.GetText(8) + "\"";
-            xml += " description=\"" + row.GetText(9) + "\"/>\n";
+            xml += " amount=\"" + std::string(row.GetText(7)) + "\"";
+            xml += " balance=\"" + std::string(row.GetText(8)) + "\"";
+            xml += " description=\"" + std::string(row.GetText(9)) + "\"/>\n";
         }
         xml += "    </transactions>\n  </result>\n</eveapi>\n";
         return xml;

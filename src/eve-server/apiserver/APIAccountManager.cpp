@@ -6,7 +6,7 @@ std::string APIAccountManager::ProcessCall(const std::string& handler,
 {
     if (handler == "APIKeyInfo.xml.aspx") {
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
-        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n";
         xml += "    <key accessMask=\"268435455\" type=\"Account\" expires=\"\" />\n";
         xml += "  </result>\n</eveapi>\n";
@@ -21,14 +21,14 @@ std::string APIAccountManager::ProcessCall(const std::string& handler,
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
-        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n    <characters>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
             xml += "      <row characterID=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " characterName=\"" + row.GetText(1) + "\"";
+            xml += " characterName=\"" + std::string(row.GetText(1)) + "\"";
             xml += " corporationID=\"" + std::to_string(row.GetUInt(2)) + "\"";
-            xml += " corporationName=\"" + row.GetText(3) + "\"/>\n";
+            xml += " corporationName=\"" + std::string(row.GetText(3)) + "\"/>\n";
         }
         xml += "    </characters>\n  </result>\n</eveapi>\n";
         return xml;

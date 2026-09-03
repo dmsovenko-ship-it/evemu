@@ -6,11 +6,11 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
 {
     if (handler == "ServerStatus.xml.aspx") {
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
-        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n";
         xml += "    <serverOnline>1</serverOnline>\n";
         xml += "    <serverVersion>EVEmu</serverVersion>\n";
-        xml += "    <onlinePlayers>" + std::to_string(sEntityList.GetClientCount()) + "</onlinePlayers>\n";
+        xml += "    <onlinePlayers>" + std::to_string(0) + "</onlinePlayers>\n";
         xml += "  </result>\n</eveapi>\n";
         return xml;
     }
