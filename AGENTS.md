@@ -3,7 +3,7 @@
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. HEAD: `675c3a85` (fix siege + turret chgTypeID). Сервер требует пересборки и рестарта.
 
-## 2 сентября (вечер): siege fix, turret chgTypeID, LXQ2-T cleanup, character restore
+## 2 сентября (вечер): siege fix, turret chgTypeID, LXQ2-T cleanup, character restore, KillMails API
 
 ### Siege module passive-effect fix (`675c3a85`)
 - **Корень:** `OnModuleOnline()` сохранял `m_savedMaxVelocity` ПОСЛЕ `sFxProc.ApplyEffects()` уже обнулл AttrMaxVelocity через пассивный эффект `siegeModeEffect6` (effectCategory=1, speedFactor=-100%). При деактивации `OnModuleOffline()` восстанавливал из `m_savedMaxVelocity=0`.
@@ -26,6 +26,7 @@ Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password
 - Пересобрать сервер на `675c3a85` и проверить осадный модуль на дредах
 - Анимация лазерных турелей Revelation — `GetEffectGuid`/gfxID для X-Large Energy Turret
 - LXQ2-T: 301 сущность, ~30 ботов, физические позиции нормальные
+- **KillMails.xml.aspx API** — реализован в `APICharacterManager` + `APICorporationManager`. Запрашивает `chrKillTable` и отдаёт XML в формате, который понимает zKillboard (pheal). Нужна пересборка + настройка zKillboard.
 
 ## 29 августа (вечер): siege/triage/industrial core, effects, TCU crash, combat log, Revelation
 **Коммиты: `df8e4dda`...`d4a4c87a`. Сервер пересобран с GDB=TRUE для ловли крашей.**

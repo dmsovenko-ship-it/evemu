@@ -51,6 +51,9 @@ public:
 
 protected:
 
+    APICharacterDB m_charDB;
+    std::tr1::shared_ptr<std::string> _KillMails(const APICommandCall * pAPICommandCall);
+
 };
 
 #endif // __APICORPORATIONMANAGER__H__INCL__
