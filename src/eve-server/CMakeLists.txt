@@ -315,14 +315,18 @@ SET( apiserver_INCLUDE
      "${TARGET_INCLUDE_DIR}/apiserver/APIAccountManager.h"
      "${TARGET_INCLUDE_DIR}/apiserver/APICharacterManager.h"
      "${TARGET_INCLUDE_DIR}/apiserver/APICorporationManager.h"
-     "${TARGET_INCLUDE_DIR}/apiserver/APIServerManager.h" )
+     "${TARGET_INCLUDE_DIR}/apiserver/APIServerManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIAuthManager.h"
+     "${TARGET_INCLUDE_DIR}/apiserver/APIAdminManager.h" )
 SET( apiserver_SOURCE
      "${TARGET_SOURCE_DIR}/apiserver/APIServer.cpp"
      "${TARGET_SOURCE_DIR}/apiserver/APIServiceManager.cpp"
      "${TARGET_SOURCE_DIR}/apiserver/APIAccountManager.cpp"
      "${TARGET_SOURCE_DIR}/apiserver/APICharacterManager.cpp"
      "${TARGET_SOURCE_DIR}/apiserver/APICorporationManager.cpp"
-     "${TARGET_SOURCE_DIR}/apiserver/APIServerManager.cpp" )
+     "${TARGET_SOURCE_DIR}/apiserver/APIServerManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIAuthManager.cpp"
+     "${TARGET_SOURCE_DIR}/apiserver/APIAdminManager.cpp" )
 
 SET( inventory_INCLUDE
      "${TARGET_INCLUDE_DIR}/inventory/AttributeEnum.h"

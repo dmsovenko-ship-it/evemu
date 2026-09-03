@@ -5,6 +5,8 @@
 #include "apiserver/APICharacterManager.h"
 #include "apiserver/APICorporationManager.h"
 #include "apiserver/APIServerManager.h"
+#include "apiserver/APIAuthManager.h"
+#include "apiserver/APIAdminManager.h"
 #include "apiserver/APIServiceManager.h"
 
 #include <boost/asio.hpp>
@@ -24,6 +26,8 @@ void APIServer::CreateServices()
         _serviceManagers["char"]     = std::make_unique<APICharacterManager>();
         _serviceManagers["corp"]     = std::make_unique<APICorporationManager>();
         _serviceManagers["server"]   = std::make_unique<APIServerManager>();
+        _serviceManagers["auth"]     = std::make_unique<APIAuthManager>();
+        _serviceManagers["admin"]    = std::make_unique<APIAdminManager>();
     }
     _runOnce = true;
 }
