@@ -57,5 +57,37 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "MemberTracking.xml.aspx") {
+        std::string cid = get("corporationid");
+        if (cid.empty()) return BuildErrorXML("105", "Invalid corporationID.");
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT characterID, characterName, shipTypeID, solarSystemID, "
+            "logonDateTime, logoffDateTime, logonMinutes, skillPoints, "
+            "online, allianceID FROM chrCharacters "
+            "WHERE corporationID = %u ORDER BY characterName", std::stoul(cid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n";
+        xml += "  <result>\n    <rows>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row characterID=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " name=\"" + row.GetText(1) + "\"";
+            xml += " shipTypeID=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " solarSystemID=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " logonDateTime=\"" + Win32TimeToString(row.GetUInt64(4)) + "\"";
+            xml += " logoffDateTime=\"" + Win32TimeToString(row.GetUInt64(5)) + "\"";
+            xml += " logonMinutes=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " skillPoints=\"" + std::to_string(row.GetUInt(7)) + "\"";
+            xml += " online=\"" + (row.GetBool(8) ? "True" : "False") + "\"";
+            xml += " allianceID=\"" + std::to_string(row.GetInt(9)) + "\"/>\n";
+        }
+        xml += "    </rows>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
