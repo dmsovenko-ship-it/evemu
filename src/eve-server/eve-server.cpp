@@ -27,6 +27,7 @@
 #include "eve-server.h"
 // version
 #include "../eve-common/EVEVersion.h"
+#include "apiserver/APIServer.h"
 
 #include "EVEServerConfig.h"
 #include "NetService.h"
@@ -658,6 +659,12 @@ int main( int argc, char* argv[] )
     /* create a service manager */
     sLog.Green("       ServerInit", "Starting Service Manager");
     EVEServiceManager newSvcMgr(888444);
+
+    /* start up the API server */
+    sLog.Green("       ServerInit", "Starting API Server");
+    sAPIServer.CreateServices(newSvcMgr);
+    sAPIServer.Run();
+
     /* create a command dispatcher */
     sLog.Green("       ServerInit", "Starting Command Dispatch Manager");
     CommandDispatcher command_dispatcher(newSvcMgr);

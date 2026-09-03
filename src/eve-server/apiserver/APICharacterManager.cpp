@@ -51,6 +51,10 @@ std::tr1::shared_ptr<std::string> APICharacterManager::ProcessCall(const APIComm
         return _SkillInTraining(pAPICommandCall);
     if ( pAPICommandCall->find( "servicehandler" )->second == "KillMails.xml.aspx" )
         return _KillMails(pAPICommandCall);
+    if ( pAPICommandCall->find( "servicehandler" )->second == "MarketOrders.xml.aspx" )
+        return _MarketOrders(pAPICommandCall);
+    if ( pAPICommandCall->find( "servicehandler" )->second == "Standings.xml.aspx" )
+        return _Standings(pAPICommandCall);
     //else if ( pAPICommandCall->find( "servicehandler" )->second == "TODO.xml.aspx" )
     //    return _TODO(pAPICommandCall);
     else
@@ -530,6 +534,103 @@ std::tr1::shared_ptr<std::string> APICharacterManager::_KillMails(const APIComma
     }
 
     xml.append("    </kills>\n");
+    xml.append("  </result>\n");
+    xml.append("</eveapi>\n");
+
+    return std::tr1::shared_ptr<std::string>(new std::string(xml));
+}
+
+std::tr1::shared_ptr<std::string> APICharacterManager::_MarketOrders(const APICommandCall * pAPICommandCall)
+{
+    sLog.Debug("APICharacterManager::_MarketOrders()", "EVEmu API - Character MarketOrders.xml.aspx");
+
+    if ( pAPICommandCall->find( "characterid" ) == pAPICommandCall->end() )
+    {
+        sLog.Error( "APICharacterManager::_MarketOrders()", "ERROR: No 'characterID' parameter" );
+        return BuildErrorXMLResponse( "105", "Invalid characterID." );
+    }
+
+    uint32 characterID = atoi( pAPICommandCall->find( "characterid" )->second.c_str() );
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT orderID, charID, stationID, regionID, typeID, orderRange, "
+        "accountKey, duration, price, volEntered, volRemaining, minVolume, bid, issued "
+        "FROM mktOrders WHERE ownerID = %u ORDER BY orderID", characterID))
+    {
+        sLog.Error( "APICharacterManager::_MarketOrders()", "ERROR: Query failed: %s", res.error.c_str() );
+        return BuildErrorXMLResponse( "999", "Query failed." );
+    }
+
+    std::string xml;
+    xml.append("<?xml version='1.0' encoding='UTF-8'?>\n");
+    xml.append("<eveapi version=\"2\">\n");
+    xml.append("  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n");
+    xml.append("  <result>\n");
+    xml.append("    <orders>\n");
+
+    DBResultRow row;
+    while (res.GetRow(row))
+    {
+        xml.append("      <row orderID=\"" + std::string(itoa(row.GetUInt64(0))) + "\"");
+        xml.append(" charID=\"" + std::string(itoa(row.GetUInt(1))) + "\"");
+        xml.append(" stationID=\"" + std::string(itoa(row.GetUInt(2))) + "\"");
+        xml.append(" regionID=\"" + std::string(itoa(row.GetUInt(3))) + "\"");
+        xml.append(" typeID=\"" + std::string(itoa(row.GetUInt(4))) + "\"");
+        xml.append(" range=\"" + std::string(itoa(row.GetUInt(5))) + "\"");
+        xml.append(" accountKey=\"" + std::string(itoa(row.GetUInt(6))) + "\"");
+        xml.append(" duration=\"" + std::string(itoa(row.GetUInt(7))) + "\"");
+        xml.append(" price=\"" + row.GetText(8) + "\"");
+        xml.append(" volEntered=\"" + std::string(itoa(row.GetUInt(9))) + "\"");
+        xml.append(" volRemaining=\"" + std::string(itoa(row.GetUInt(10))) + "\"");
+        xml.append(" minVolume=\"" + std::string(itoa(row.GetUInt(11))) + "\"");
+        xml.append(" bid=\"" + std::string(row.GetBool(12) ? "True" : "False") + "\"");
+        xml.append(" issued=\"" + Win32TimeToString(row.GetUInt64(13)) + "\"/>\n");
+    }
+
+    xml.append("    </orders>\n");
+    xml.append("  </result>\n");
+    xml.append("</eveapi>\n");
+
+    return std::tr1::shared_ptr<std::string>(new std::string(xml));
+}
+
+std::tr1::shared_ptr<std::string> APICharacterManager::_Standings(const APICommandCall * pAPICommandCall)
+{
+    sLog.Debug("APICharacterManager::_Standings()", "EVEmu API - Character Standings.xml.aspx");
+
+    if ( pAPICommandCall->find( "characterid" ) == pAPICommandCall->end() )
+    {
+        sLog.Error( "APICharacterManager::_Standings()", "ERROR: No 'characterID' parameter" );
+        return BuildErrorXMLResponse( "105", "Invalid characterID." );
+    }
+
+    uint32 characterID = atoi( pAPICommandCall->find( "characterid" )->second.c_str() );
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT fromID, standing FROM repStandings WHERE toID = %u ORDER BY fromID", characterID))
+    {
+        sLog.Error( "APICharacterManager::_Standings()", "ERROR: Query failed: %s", res.error.c_str() );
+        return BuildErrorXMLResponse( "999", "Query failed." );
+    }
+
+    std::string xml;
+    xml.append("<?xml version='1.0' encoding='UTF-8'?>\n");
+    xml.append("<eveapi version=\"2\">\n");
+    xml.append("  <currentTime>" + Win32TimeToString(static_cast<uint64>(EvilTimeNow().get_int())) + "</currentTime>\n");
+    xml.append("  <result>\n");
+    xml.append("    <standings>\n");
+
+    DBResultRow row;
+    while (res.GetRow(row))
+    {
+        xml.append("      <row fromID=\"" + std::string(itoa(row.GetUInt(0))) + "\"");
+        xml.append(" toID=\"" + std::string(itoa(characterID)) + "\"");
+        xml.append(" standing=\"" + row.GetText(1) + "\"/>\n");
+    }
+
+    xml.append("    </standings>\n");
     xml.append("  </result>\n");
     xml.append("</eveapi>\n");
 
