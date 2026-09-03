@@ -85,7 +85,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             xml += " volEntered=\"" + std::to_string(row.GetUInt(8)) + "\"";
             xml += " volRemaining=\"" + std::to_string(row.GetUInt(9)) + "\"";
             xml += " minVolume=\"" + std::to_string(row.GetUInt(10)) + "\"";
-            xml += " bid=\"" + (row.GetBool(11) ? "True" : "False") + "\"";
+            xml += " bid=\"" + std::string(row.GetBool(11) ? "True" : "False") + "\"";
             xml += " issued=\"" + Win32TimeToString(row.GetInt64(12)) + "\"/>\n";
         }
         xml += "    </orders>\n  </result>\n</eveapi>\n";

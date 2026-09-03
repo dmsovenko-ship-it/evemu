@@ -82,7 +82,7 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
             xml += " logoffDateTime=\"" + Win32TimeToString(row.GetInt64(5)) + "\"";
             xml += " logonMinutes=\"" + std::to_string(row.GetUInt(6)) + "\"";
             xml += " skillPoints=\"" + std::to_string(row.GetUInt(7)) + "\"";
-            xml += " online=\"" + (row.GetBool(8) ? "True" : "False") + "\"";
+            xml += " online=\"" + std::string(row.GetBool(8) ? "True" : "False") + "\"";
             xml += " allianceID=\"" + std::to_string(row.GetInt(9)) + "\"/>\n";
         }
         xml += "    </rows>\n  </result>\n</eveapi>\n";
