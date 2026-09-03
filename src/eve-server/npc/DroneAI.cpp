@@ -1232,6 +1232,11 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
             double v1 = Sr / Er;
             double v2 = pow((Ev / V) * v1, log(DRF) / log(DRS));
             float modifier = static_cast<float>(EvE::min1(v1, v2));
+            // Fighter-bombers always connect (toHit=1.0) — the Sr/Er
+            // reduction from the standard missile formula should never
+            // penalise them.  Clamp to 1.0 so target painters can still
+            // boost up to cap but raw damage is the floor.
+            if (modifier < 1.0f) modifier = 1.0f;
             d *= modifier;
             _log(DRONE__AI_TRACE, "Bomber %s(%u): missile formula Sr=%.0f Er=%.0f Ev=%.0f V=%.0f mod=%.3f",
                  m_pDrone->GetName(), m_pDrone->GetID(), Sr, Er, Ev, V, modifier);
