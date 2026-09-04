@@ -1,6 +1,23 @@
 #include "eve-server.h"
 #include "apiserver/APICorporationManager.h"
 
+static std::string xmlEscape(const char* s) {
+    if (!s) return "";
+    std::string out;
+    out.reserve(strlen(s) + 16);
+    for (const char* p = s; *p; ++p) {
+        switch (*p) {
+            case '<':  out += "&lt;";   break;
+            case '>':  out += "&gt;";   break;
+            case '&':  out += "&amp;";  break;
+            case '"':  out += "&quot;"; break;
+            case '\'': out += "&apos;"; break;
+            default:   out += *p;       break;
+        }
+    }
+    return out;
+}
+
 std::string APICorporationManager::ProcessCall(const std::string& handler,
                                                const std::map<std::string, std::string>& params)
 {
@@ -75,7 +92,7 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
         DBResultRow row;
         while (res.GetRow(row)) {
             xml += "      <row characterID=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " name=\"" + std::string(row.GetText(1)) + "\"";
+            xml += " name=\"" + xmlEscape(row.GetText(1)) + "\"";
             xml += " shipTypeID=\"" + std::to_string(row.GetUInt(2)) + "\"";
             xml += " solarSystemID=\"" + std::to_string(row.GetUInt(3)) + "\"";
             xml += " logonDateTime=\"" + Win32TimeToString(row.GetInt64(4)) + "\"";

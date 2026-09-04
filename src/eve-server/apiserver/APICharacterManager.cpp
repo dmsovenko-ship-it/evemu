@@ -1,6 +1,23 @@
 #include "eve-server.h"
 #include "apiserver/APICharacterManager.h"
 
+static std::string xmlEscape(const char* s) {
+    if (!s) return "";
+    std::string out;
+    out.reserve(strlen(s) + 16);
+    for (const char* p = s; *p; ++p) {
+        switch (*p) {
+            case '<':  out += "&lt;";   break;
+            case '>':  out += "&gt;";   break;
+            case '&':  out += "&amp;";  break;
+            case '"':  out += "&quot;"; break;
+            case '\'': out += "&apos;"; break;
+            default:   out += *p;       break;
+        }
+    }
+    return out;
+}
+
 std::string APICharacterManager::ProcessCall(const std::string& handler,
                                              const std::map<std::string, std::string>& params)
 {
@@ -70,15 +87,15 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             const char* fShip = row.GetText(21);
             const char* wName = row.GetText(22);
             const char* sName = row.GetText(23);
-            xml += " victimName=\"" + std::string(vName ? vName : "") + "\"";
-            xml += " finalName=\"" + std::string(fName ? fName : "") + "\"";
-            xml += " victimShipName=\"" + std::string(vShip ? vShip : "") + "\"";
-            xml += " finalShipName=\"" + std::string(fShip ? fShip : "") + "\"";
-            xml += " finalWeaponName=\"" + std::string(wName ? wName : "") + "\"";
-            xml += " solarSystemName=\"" + std::string(sName ? sName : "") + "\"";
+            xml += " victimName=\"" + xmlEscape(vName) + "\"";
+            xml += " finalName=\"" + xmlEscape(fName) + "\"";
+            xml += " victimShipName=\"" + xmlEscape(vShip) + "\"";
+            xml += " finalShipName=\"" + xmlEscape(fShip) + "\"";
+            xml += " finalWeaponName=\"" + xmlEscape(wName) + "\"";
+            xml += " solarSystemName=\"" + xmlEscape(sName) + "\"";
             // killBlob for item drops
             const char* blob = row.GetText(24);
-            xml += " killBlob=\"" + std::string(blob ? blob : "") + "\"";
+            xml += " killBlob=\"" + xmlEscape(blob) + "\"";
             xml += "/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
@@ -135,7 +152,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         while (res.GetRow(row)) {
             xml += "      <row fromID=\"" + std::to_string(row.GetUInt(0)) + "\"";
             xml += " toID=\"" + cid + "\"";
-            xml += " standing=\"" + std::string(row.GetText(1)) + "\"/>\n";
+            xml += " standing=\"" + xmlEscape(row.GetText(1)) + "\"/>\n";
         }
         xml += "    </standings>\n  </result>\n</eveapi>\n";
         return xml;
@@ -167,7 +184,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             xml += " accountKey=\"" + std::to_string(row.GetUInt(6)) + "\"";
             xml += " amount=\"" + std::string(row.GetText(7)) + "\"";
             xml += " balance=\"" + std::string(row.GetText(8)) + "\"";
-            xml += " description=\"" + std::string(row.GetText(9)) + "\"/>\n";
+            xml += " description=\"" + xmlEscape(row.GetText(9)) + "\"/>\n";
         }
         xml += "    </transactions>\n  </result>\n</eveapi>\n";
         return xml;
@@ -229,14 +246,14 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             const char* fShip = row.GetText(21);
             const char* wName = row.GetText(22);
             const char* sName = row.GetText(23);
-            xml += " victimName=\"" + std::string(vName ? vName : "") + "\"";
-            xml += " finalName=\"" + std::string(fName ? fName : "") + "\"";
-            xml += " victimShipName=\"" + std::string(vShip ? vShip : "") + "\"";
-            xml += " finalShipName=\"" + std::string(fShip ? fShip : "") + "\"";
-            xml += " finalWeaponName=\"" + std::string(wName ? wName : "") + "\"";
-            xml += " solarSystemName=\"" + std::string(sName ? sName : "") + "\"";
+            xml += " victimName=\"" + xmlEscape(vName) + "\"";
+            xml += " finalName=\"" + xmlEscape(fName) + "\"";
+            xml += " victimShipName=\"" + xmlEscape(vShip) + "\"";
+            xml += " finalShipName=\"" + xmlEscape(fShip) + "\"";
+            xml += " finalWeaponName=\"" + xmlEscape(wName) + "\"";
+            xml += " solarSystemName=\"" + xmlEscape(sName) + "\"";
             const char* blob = row.GetText(24);
-            xml += " killBlob=\"" + std::string(blob ? blob : "") + "\"";
+            xml += " killBlob=\"" + xmlEscape(blob) + "\"";
             xml += "/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
