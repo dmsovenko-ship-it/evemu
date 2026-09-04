@@ -3,6 +3,23 @@
 #include "auth/PasswordModule.h"
 #include "apiserver/APIAuthManager.h"
 
+static std::string xmlEscape(const char* s) {
+    if (!s) return "";
+    std::string out;
+    out.reserve(strlen(s) + 16);
+    for (const char* p = s; *p; ++p) {
+        switch (*p) {
+            case '<':  out += "&lt;";   break;
+            case '>':  out += "&gt;";   break;
+            case '&':  out += "&amp;";  break;
+            case '"':  out += "&quot;"; break;
+            case '\'': out += "&apos;"; break;
+            default:   out += *p;       break;
+        }
+    }
+    return out;
+}
+
 std::string APIAuthManager::ProcessCall(const std::string& handler,
                                         const std::map<std::string, std::string>& params)
 {
@@ -49,7 +66,7 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n";
-        xml += "    <accountID>" + std::to_string(accountID) + "</accountID>\n";
+        xml += "    <accountid>" + std::to_string(accountID) + "</accountid>\n";
         xml += "  </result>\n</eveapi>\n";
         return xml;
     }
@@ -64,7 +81,7 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
 
         DBQueryResult res;
         if (!sDatabase.RunQuery(res,
-            "SELECT accountID, HEX(hash), role, banned, password FROM account WHERE accountName = '%s'",
+            "SELECT accountID, HEX(hash), role, banned, password, accountName FROM account WHERE accountName = '%s'",
             name.c_str()))
             return BuildErrorXML("999", "Database error.");
 
@@ -108,8 +125,8 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n";
-        xml += "    <accountID>" + std::to_string(row.GetUInt(0)) + "</accountID>\n";
-        xml += "    <accountName>" + std::string(row.GetText(0)) + "</accountName>\n";
+        xml += "    <accountid>" + std::to_string(row.GetUInt(0)) + "</accountid>\n";
+        xml += "    <accountname>" + xmlEscape(row.GetText(5)) + "</accountname>\n";
         xml += "    <role>" + std::to_string(row.GetInt64(2)) + "</role>\n";
         xml += "  </result>\n</eveapi>\n";
         return xml;
