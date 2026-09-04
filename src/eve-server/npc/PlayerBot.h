@@ -157,6 +157,11 @@ public:
     // Approximate total volume (m3) currently in the hold, from static type
     // volume (used to decide when a miner's hold is full).
     float GetCargoVolume() const;
+    // After a rat/hack kill the bot tractor-beams in and salvages the wrecks IT
+    // created: real loot items (DropLoot put them in the wreck's container) move
+    // into the bot's hold, the wreck yields salvage materials, then is removed.
+    // Returns the number of wrecks processed.
+    uint32 SalvageMyWrecks();
     // Move everything currently in the bot's hold into the station hangar
     // (ownerID = bot char). Clears the hold. Returns total volume moved.
     double DepositCargoAtStation(uint32 stationID);

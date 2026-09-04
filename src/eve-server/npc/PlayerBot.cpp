@@ -11,6 +11,7 @@
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/BeltMgr.h"
 #include "system/Asteroid.h"
+#include "system/Container.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/sov/SovereigntyDataMgr.h"
 #include "standing/StandingDB.h"
@@ -427,10 +428,12 @@ void PlayerBot::Process()
     if (m_inFight && !fighting && !m_killed) {
         m_inFight = false;
         if (m_memory) { m_memory->RecordWin(); m_memory->Save(); }
-        // PvE rat hunter also learns from a rat kill.
+        // PvE rat hunter also learns from a rat kill, and scoops the wreck it
+        // made (tractor + salvage) so its hold fills with real loot.
         if (m_profession == BotProfession::RatHunter && m_memory) {
             m_memory->RecordRatKill();
             m_memory->Save();
+            SalvageMyWrecks();
         }
         // A surviving fight is practice — check for a skill level-up.
         LevelUpFromPractice();
@@ -1185,6 +1188,77 @@ float PlayerBot::GetCargoVolume() const
     return vol;
 }
 
+// After a rat/hack kill the bot tractor-beams in the wrecks IT created (the
+// NPC death already filled them with real loot via DropLoot), scoops that loot
+// into its hold, salvages the hull (a few salvage materials), and removes the
+// wreck. Only wrecks owned by this bot's own hull are touched — other pilots'
+// wrecks (players, other bots) are left alone.
+uint32 PlayerBot::SalvageMyWrecks()
+{
+    if (SystemMgr() == nullptr || m_destiny == nullptr)
+        return 0;
+
+    // Which hull are we? Wrecks we caused have ownerID == our ship itemID.
+    uint32 myHull = m_self->itemID();
+    uint32 salvaged = 0;
+
+    std::vector<SystemEntity*> wrecks;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || !se->IsWreckSE())
+            continue;
+        wrecks.push_back(se);
+    }
+
+    for (SystemEntity* wse : wrecks) {
+        InventoryItemRef wreckRef = wse->GetSelf();
+        if (wreckRef.get() == nullptr)
+            continue;
+        if (wreckRef->ownerID() != myHull)
+            continue;   // not ours — leave for its owner
+        uint32 wreckID = wreckRef->itemID();
+
+        // Scoop the wreck's contents into our hold (real loot from DropLoot).
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT typeID, SUM(quantity) FROM entity WHERE locationID = %u AND flag = %u GROUP BY typeID",
+            wreckID, (uint32)flagNone))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                uint16 typeID = (uint16)row.GetUInt(0);
+                uint32 qty = row.GetUInt(1);
+                if (typeID != 0 && qty > 0)
+                    AddCargo(typeID, qty);
+            }
+        }
+        // Delete the loot item rows (they move to junkyard / vanish).
+        DBQueryResult cres;
+        if (sDatabase.RunQuery(cres, "SELECT itemID FROM entity WHERE locationID = %u AND flag = %u", wreckID, (uint32)flagNone)) {
+            DBResultRow cRow;
+            while (cres.GetRow(cRow)) {
+                InventoryItemRef itm = sItemFactory.GetItemRef(cRow.GetUInt(0));
+                if (itm.get() != nullptr)
+                    itm->Delete();
+            }
+        }
+
+        // Salvage the hull: a couple of random salvage materials.
+        static const uint16 salvageTypes[] = { 25588, 25589, 25590, 25591, 25593, 25594, 25599, 25605 };
+        uint32 nSalvage = MakeRandomInt(0, 3);
+        for (uint32 s = 0; s < nSalvage; ++s)
+            AddCargo(salvageTypes[MakeRandomInt(0, 7)], MakeRandomInt(1, 3));
+
+        // Remove the wreck entity.
+        wse->Delete();
+        ++salvaged;
+    }
+
+    if (salvaged > 0)
+        _log(BOT__TRACE, "PlayerBot %s(%u): salvaged %u of its wrecks (hold %.0f m3).",
+             m_botName.c_str(), m_botCharID, salvaged, GetCargoVolume());
+    return salvaged;
+}
+
 // Real physical deposit: everything the bot is carrying is spawned as actual
 // entity items in the station hangar, owned by the bot. (Same mechanism a sell
 // order fill uses — SpawnItem in limbo, then Donate into the station hangar.)
@@ -1334,6 +1408,13 @@ void PlayerBot::DoProfessionActivity()
         case BotProfession::RatHunter: {
             // Peaceful PvE: only engage NPC red crosses (ratting), never players.
             RatForTarget();
+            // When the loot hold fills up, head to the station to deposit it
+            // (real salvage + faction loot from the wrecks the bot made).
+            if (GetCargoVolume() >= 10000.0f && HasStationInSystem()) {
+                RequestDock();
+                _log(BOT__TRACE, "PlayerBot %s(%u): loot hold full — docking to deposit.",
+                     m_botName.c_str(), m_botCharID);
+            }
         } break;
 
         case BotProfession::Miner: {
