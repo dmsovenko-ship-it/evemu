@@ -432,6 +432,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         FetchPortraitAsync(useCharID, killmailCharID);
     }
 
+    // Ship hull placeholder — final profession hull is chosen further down and
+    // persisted to botMemory afterwards (used by the portal when the bot is offline).
+    uint32 hullType = useShipType;
+
     // Profession: keep the bot's saved job across respawns (a miner stays a miner —
     // it's been learning it). Only brand-new pilots roll a fresh one.
     PlayerBot::BotProfession prof = PlayerBot::BotProfession::Miner;
@@ -471,15 +475,6 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
-    // Keep the bot's persistent "typical" hull in sync every spawn (used by the
-    // portal to show a ship even when the bot is offline and its hull NPC is gone).
-    {
-        DBerror merr;
-        sDatabase.RunQuery(merr,
-            "UPDATE botMemory SET shipTypeID = %u, lastUpdate = NOW() WHERE charID = %u",
-            hullType, useCharID);
-    }
-
     // The bio is written exactly once per pilot, right after its profession is
     // rolled on the very first spawn, so it stays stable across respawns (a
     // player's bio doesn't change every time they log in). Profession-flavoured
@@ -492,7 +487,6 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // station (dock -> undock -> new hull), which the bot does on every undock.
     // Hunters/RatHunters fly a real killmail legend hull (or a combat cruiser/BC
     // if the legend ship doesn't exist in Crucible-era data).
-    uint32 hullType = useShipType;
     {
         static const uint32 minerHulls[]  = { 17476, 17478, 17480, 582, 592, 599 };   // Covetor/Retriever/Procurer + mining frigates
         static const uint32 haulerHulls[] = { 648, 650, 651, 653, 1944 };             // Badger/Iteron/Hoarder/Wreathe/Bestower
@@ -562,6 +556,16 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             if (!valid)
                 hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
         }
+    }
+
+    // Keep the bot's persistent "typical" hull in sync every spawn (used by the
+    // portal to show a ship even when the bot is offline and its hull NPC is gone).
+    // Runs AFTER the profession-hull pick above so it stores the real flying hull.
+    {
+        DBerror merr;
+        sDatabase.RunQuery(merr,
+            "UPDATE botMemory SET shipTypeID = %u, lastUpdate = NOW() WHERE charID = %u",
+            hullType, useCharID);
     }
 
     _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u, ship %u, fit %zu items) in system %u",
@@ -1578,12 +1582,12 @@ void BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpI
         "  (contractType, issuerID, issuerCorpID, forCorp, isPrivate, assigneeID,"
         "   dateIssued, dateExpired, expireTimeInMinutes, duration, numDays, startStationID, startSolarSystemID,"
         "   startRegionID, endStationID, endSolarSystemID, endRegionID, price, reward, collateral,"
-        "   title, description, status, volume)"
+        "   title, description, status, volume, startStationDivision)"
         " VALUES"
         "  (3, %u, %u, 0, 0, 0, %lli, %lli, 10080, 7, 7, %u, %u,"
         "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u,"
         "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), 0, %lli, 0,"
-        "   'Courier shipment', 'Standard courier contract', 0, %f)",
+        "   'Courier shipment', 'Standard courier contract', 0, %f, 1000)",
         charID, corpID,
         (int64)GetFileTimeNow(), (int64)GetFileTimeNow() + 7LL * EvE::Time::Day,
         startStation, sysID, sysID, endStation, endSys, endSys, reward, volume))
