@@ -85,15 +85,23 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
         /**
          * We're using sort of query constructor here - if request have certain value specified, we add it as another AND block.
          * For now, we will only filter by contract type, item type, item category, min/max price, min/max reward, location/end location, issuer and availability
+         *
+         * The item tables (ctrItems/entity/invTypes/...) are joined ONLY when the search actually
+         * filters by item contents. Courier contracts that carry no items (e.g. chelobot courier
+         * jobs — real cargo, but no ctrItems rows because there is no physical crate to lock)
+         * would otherwise be invisible: an unconditional INNER JOIN against ctrItems returns zero
+         * rows for them. So a plain courier search (no itemTypes/group/category) returns them too.
          */
+        bool needItemJoin = false;
+        std::string itemJoins =
+            "JOIN ctrItems cI on cC.contractId = cI.contractId "
+            "JOIN entity e on cI.itemID = e.itemID "
+            "JOIN invTypes iT on iT.typeID = e.typeID "
+            "JOIN invGroups iG on iG.groupID = iT.groupID "
+            "JOIN invCategories iC on iG.categoryID = iC.categoryID ";
         std::string query = "SELECT cC.contractId FROM ctrContracts cC "
-                            "JOIN ctrItems cI on cC.contractId = cI.contractId "
-                            "JOIN entity e on cI.itemID = e.itemID "
-                            "JOIN invTypes iT on iT.typeID = e.typeID "
-                            "JOIN invGroups iG on iG.groupID = iT.groupID "
-                            "JOIN invCategories iC on iG.categoryID = iC.categoryID "
                             "WHERE cC.contractType IN " + std::string(contractType == 10 ? "(1,2,3)" : "(" + std::to_string(contractType) + ")");
-                                                         // Type 10 is "All" and "Exclude WTB", for some reason. We'll assume it's "All", lol
+                                                          // Type 10 is "All" and "Exclude WTB", for some reason. We'll assume it's "All", lol
 
         if (!call.byname.find("itemTypes")->second->IsNone()) {
             PyList* itemTypes = call.byname.find("itemTypes")->second->AsObjectEx()->header()->AsTuple()->GetItem(1)->AsTuple()->GetItem(0)->AsList();
@@ -106,15 +114,25 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
             }
 
             if (!types.empty()) {
+                needItemJoin = true;
                 query.append(" AND e.typeID IN (" + types + ")");
             }
         }
 
         if (!call.byname.find("itemGroupID")->second->IsNone()) {
+            needItemJoin = true;
             query.append(" AND iG.groupID = " + std::to_string(call.byname.find("itemGroupID")->second->AsInt()->value()));
         }
         if (!call.byname.find("itemCategoryID")->second->IsNone()) {
+            needItemJoin = true;
             query.append(" AND iC.categoryID = " + std::to_string(call.byname.find("itemCategoryID")->second->AsInt()->value()));
+        }
+        // Item joins are only needed when the search actually filters by item
+        // contents. If they were unconditional, courier contracts without
+        // ctrItems rows (e.g. chelobot courier jobs) would vanish — the INNER
+        // JOIN against ctrItems yields zero rows for them.
+        if (needItemJoin) {
+            query.insert(query.find("WHERE"), itemJoins);
         }
         if (!call.byname.find("minPrice")->second->IsNone()) {
             query.append(" AND cC.price >= " + std::to_string(call.byname.find("minPrice")->second->AsInt()->value()));
