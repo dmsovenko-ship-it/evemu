@@ -278,14 +278,18 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                     xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\" name=\"" + std::string(row.GetText(1)) + "\" type=\"character\"/>\n";
             }
         }
-        // ship type names
+        // ship type names (+ average market price for ISK valuation on the portal)
         {
             DBQueryResult res;
             if (sDatabase.RunQuery(res,
-                "SELECT typeID, typeName FROM invTypes WHERE typeID IN (%s)", ids.c_str())) {
+                "SELECT t.typeID, t.typeName, IFNULL((SELECT AVG(price) FROM mktOrders WHERE typeID = t.typeID), t.basePrice) "
+                "FROM invTypes t WHERE t.typeID IN (%s)", ids.c_str())) {
                 DBResultRow row;
-                while (res.GetRow(row))
-                    xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\" name=\"" + std::string(row.GetText(1)) + "\" type=\"ship\"/>\n";
+                while (res.GetRow(row)) {
+                    std::ostringstream prc; prc.precision(2); prc << std::fixed << row.GetDouble(2);
+                    xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\" name=\"" + std::string(row.GetText(1))
+                        + "\" type=\"ship\" price=\"" + prc.str() + "\"/>\n";
+                }
             }
         }
         // system names
