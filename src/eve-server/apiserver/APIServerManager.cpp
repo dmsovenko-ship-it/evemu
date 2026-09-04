@@ -1,4 +1,5 @@
 #include "eve-server.h"
+#include "EntityList.h"
 #include "apiserver/APIServerManager.h"
 
 static std::string xmlEscape(const char* s) {
