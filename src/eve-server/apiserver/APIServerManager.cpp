@@ -485,8 +485,96 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
-    if (handler == "TopValuables.xml.aspx") {
+    if (handler == "Activity.xml.aspx") {
         auto get2 = [&](const std::string& k) -> std::string {
+            auto it = params.find(k);
+            return it != params.end() ? it->second : "";
+        };
+        uint32 days = 7;
+        std::string period = get2("period");
+        if (period == "24h") days = 1;
+        else if (period == "30d") days = 30;
+        else if (period == "all") days = 36500;
+        std::string where = "(k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL " + std::to_string(days) + " DAY))";
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n";
+
+        // Current Activity summary
+        {
+            DBQueryResult res;
+            uint32 total = 0, chars = 0, corps = 0, allies = 0, ships = 0, systems = 0, regions = 0;
+            sDatabase.RunQuery(res, "SELECT COUNT(*) FROM chrKillTable k WHERE " + where);
+            { DBResultRow r; if (res.GetRow(r)) total = r.GetUInt(0); }
+            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.finalCharacterID) FROM chrKillTable k WHERE " + where + " AND k.finalCharacterID > 0");
+            { DBResultRow r; if (res.GetRow(r)) chars = r.GetUInt(0); }
+            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.finalCorporationID) FROM chrKillTable k WHERE " + where + " AND k.finalCorporationID > 0");
+            { DBResultRow r; if (res.GetRow(r)) corps = r.GetUInt(0); }
+            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.finalAllianceID) FROM chrKillTable k WHERE " + where + " AND k.finalAllianceID > 0");
+            { DBResultRow r; if (res.GetRow(r)) allies = r.GetUInt(0); }
+            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.victimShipTypeID) FROM chrKillTable k WHERE " + where + " AND k.victimShipTypeID > 0");
+            { DBResultRow r; if (res.GetRow(r)) ships = r.GetUInt(0); }
+            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.solarSystemID) FROM chrKillTable k WHERE " + where + " AND k.solarSystemID > 0");
+            { DBResultRow r; if (res.GetRow(r)) systems = r.GetUInt(0); }
+            sDatabase.RunQuery(res,
+                "SELECT COUNT(DISTINCT ss.regionID) FROM chrKillTable k "
+                "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID WHERE " + where + " AND ss.regionID > 0");
+            { DBResultRow r; if (res.GetRow(r)) regions = r.GetUInt(0); }
+            xml += "    <summary total=\"" + std::to_string(total) + "\"";
+            xml += " characters=\"" + std::to_string(chars) + "\"";
+            xml += " corporations=\"" + std::to_string(corps) + "\"";
+            xml += " alliances=\"" + std::to_string(allies) + "\"";
+            xml += " ships=\"" + std::to_string(ships) + "\"";
+            xml += " systems=\"" + std::to_string(systems) + "\"";
+            xml += " regions=\"" + std::to_string(regions) + "\"/>\n";
+        }
+
+        auto emitTop = [&](const char* tag, const char* sql) {
+            xml += std::string("    <") + tag + ">\n";
+            DBQueryResult res;
+            if (sDatabase.RunQuery(res, sql)) {
+                DBResultRow row;
+                while (res.GetRow(row)) {
+                    xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\"";
+                    xml += " name=\"" + xmlEscape(row.GetText(1)) + "\"";
+                    xml += " count=\"" + std::to_string(row.GetUInt(2)) + "\"/>\n";
+                }
+            }
+            xml += std::string("    </") + tag + ">\n";
+        };
+
+        emitTop("characters",
+            ("SELECT k.finalCharacterID, c.characterName, COUNT(*) FROM chrKillTable k "
+             "LEFT JOIN chrCharacters c ON c.characterID = k.finalCharacterID "
+             "WHERE " + where + " AND k.finalCharacterID > 0 "
+             "GROUP BY k.finalCharacterID ORDER BY COUNT(*) DESC LIMIT 10").c_str());
+        emitTop("corporations",
+            ("SELECT k.finalCorporationID, cc.corporationName, COUNT(*) FROM chrKillTable k "
+             "LEFT JOIN crpCorporation cc ON cc.corporationID = k.finalCorporationID "
+             "WHERE " + where + " AND k.finalCorporationID > 0 "
+             "GROUP BY k.finalCorporationID ORDER BY COUNT(*) DESC LIMIT 10").c_str());
+        emitTop("alliances",
+            ("SELECT k.finalAllianceID, aa.allianceName, COUNT(*) FROM chrKillTable k "
+             "LEFT JOIN alnAlliance aa ON aa.allianceID = k.finalAllianceID "
+             "WHERE " + where + " AND k.finalAllianceID > 0 "
+             "GROUP BY k.finalAllianceID ORDER BY COUNT(*) DESC LIMIT 10").c_str());
+        emitTop("ships",
+            ("SELECT k.victimShipTypeID, iv.typeName, COUNT(*) FROM chrKillTable k "
+             "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
+             "WHERE " + where + " AND k.victimShipTypeID > 0 "
+             "GROUP BY k.victimShipTypeID ORDER BY COUNT(*) DESC LIMIT 10").c_str());
+        emitTop("systems",
+            ("SELECT k.solarSystemID, ss.solarSystemName, COUNT(*) FROM chrKillTable k "
+             "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
+             "WHERE " + where + " AND k.solarSystemID > 0 "
+             "GROUP BY k.solarSystemID ORDER BY COUNT(*) DESC LIMIT 10").c_str());
+
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    if (handler == "TopValuables.xml.aspx") {        auto get2 = [&](const std::string& k) -> std::string {
             auto it = params.find(k);
             return it != params.end() ? it->second : "";
         };
