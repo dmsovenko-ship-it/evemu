@@ -684,7 +684,10 @@ void NPC::Killed(Damage &damage) {
     }
     uint32 wreckTypeID = sDataMgr.GetWreckID(m_self->typeID());
     if (!IsWreckTypeID(wreckTypeID)) {
-        sLog.Error("NPC::Killed()", "Could not get wreckType for %s of type %u", m_self->name(), m_self->typeID());
+        // Many industrial/hauler hulls (Hoarder/Iteron/...) have no dedicated wreck
+        // mapping — this is expected for chelobot miners/haulers. Not an error:
+        // fall back to a generic frigate wreck below.
+        _log(NPC__TRACE, "NPC::Killed(): No wreckType for %s of type %u, using generic wreck.", m_self->name(), m_self->typeID());
         // default to generic frigate wreck till i get better checks and/or complete wreck data
         wreckTypeID = 26557;
     }
