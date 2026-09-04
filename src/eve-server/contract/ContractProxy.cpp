@@ -779,6 +779,14 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
                 {
                     codelog(DATABASE__ERROR, "Failed to update contract : %s", err.c_str());
                 }
+
+                // The plastic wrap (courier crate) is empty now — delete it so it
+                // doesn't linger in the hangar after delivery.
+                if (crateID > 0) {
+                    InventoryItemRef wrap = sItemFactory.GetItemRef(crateID);
+                    if (wrap.get() != nullptr && wrap->typeID() == 3468)   // itemPlasticWrap
+                        wrap->Delete();
+                }
             } else {
                 call.client->SendNotifyMsg("Not all required items are located in the container");
                 return new PyBool(false);
