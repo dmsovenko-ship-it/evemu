@@ -241,6 +241,68 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "CourierContracts.xml.aspx") {
+        // Public courier contracts on the open market (the haul-jobs board): both
+        // player-created jobs and chelobot courier jobs (some now carrying real
+        // ctrItems cargo that physically travels between stations). Portal shows
+        // route, reward, volume and whether real cargo is attached.
+        DBQueryResult res;
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n";
+
+        // limit param (default 50). Filter by system via fromsystem/tosystem.
+        int limit = 50;
+        std::string lim = get("limit");
+        if (!lim.empty()) { int v = atoi(lim.c_str()); if (v > 0 && v <= 500) limit = v; }
+
+        std::string where = "c.contractType = 3 AND c.status = 0 AND c.isPrivate = 0";
+        std::string fs = get("fromsystem"), ts = get("tosystem");
+        if (!fs.empty() && atoi(fs.c_str()) > 0) where += " AND c.startSolarSystemID = " + fs;
+        if (!ts.empty() && atoi(ts.c_str()) > 0) where += " AND c.endSolarSystemID = " + ts;
+
+        std::string qs =
+            "SELECT c.contractId, "
+            "  ss.stationName as fromstation, cs.solarSystemName as fromsystem, "
+            "  es.stationName as tostation, cs2.solarSystemName as tosystem, "
+            "  c.volume, c.reward, "
+            "  COALESCE(cc.characterName, cr.corporationName, c.issuerID) as issuer, "
+            "  (SELECT COUNT(*) FROM ctrItems ci WHERE ci.contractId = c.contractId AND ci.itemID != 0) as itemcount, "
+            "  (SELECT COALESCE(SUM(e2.quantity),0) FROM ctrItems ci2 "
+            "     LEFT JOIN entity e2 ON e2.itemID = ci2.itemID "
+            "     WHERE ci2.contractId = c.contractId) as units "
+            "FROM ctrContracts c "
+            "LEFT JOIN staStations ss  ON ss.stationID = c.startStationID "
+            "LEFT JOIN mapSolarSystems cs ON cs.solarSystemID = c.startSolarSystemID "
+            "LEFT JOIN staStations es  ON es.stationID = c.endStationID "
+            "LEFT JOIN mapSolarSystems cs2 ON cs2.solarSystemID = c.endSolarSystemID "
+            "LEFT JOIN chrCharacters cc ON cc.characterID = c.issuerID "
+            "LEFT JOIN crpCorporation cr ON cr.corporationID = c.issuerID "
+            "WHERE " + where + " ORDER BY c.dateIssued DESC LIMIT " + std::to_string(limit);
+
+        std::string out;
+        if (sDatabase.RunQuery(res, qs.c_str())) {
+            DBResultRow r;
+            while (res.GetRow(r)) {
+                std::ostringstream vol, rw;
+                vol.precision(0); vol << std::fixed << r.GetDouble(5);
+                rw.precision(0);  rw << std::fixed << r.GetDouble(6);
+                out += "    <contract contractid=\"" + std::to_string(r.GetUInt(0)) + "\"";
+                out += " fromstation=\"" + xmlEscape(r.GetText(1)) + "\"";
+                out += " fromsystem=\"" + xmlEscape(r.GetText(2)) + "\"";
+                out += " tostation=\"" + xmlEscape(r.GetText(3)) + "\"";
+                out += " tosystem=\"" + xmlEscape(r.GetText(4)) + "\"";
+                out += " volume=\"" + vol.str() + "\"";
+                out += " reward=\"" + rw.str() + "\"";
+                out += " issuer=\"" + xmlEscape(r.GetText(7)) + "\"";
+                out += " itemcount=\"" + std::to_string(r.GetUInt(8)) + "\"";
+                out += " units=\"" + std::to_string(r.GetUInt(9)) + "\"/>\n";
+            }
+        }
+        xml += out + "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     if (handler == "MarketStats.xml.aspx") {
         DBQueryResult res;
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
