@@ -478,5 +478,96 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "KillMail.xml.aspx") {
+        std::string kid = get("killid");
+        if (kid.empty()) return BuildErrorXML("105", "Missing killID.");
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT k.killID, k.killTime, k.solarSystemID, k.victimDamageTaken, "
+            "k.victimCharacterID, k.victimCorporationID, k.victimAllianceID, k.victimShipTypeID, "
+            "k.finalCharacterID, k.finalCorporationID, k.finalShipTypeID, k.finalWeaponTypeID, "
+            "k.finalDamageDone, k.finalSecurityStatus, k.killBlob, "
+            "vc.characterName, fc.characterName, "
+            "crp1.corporationName, crp2.corporationName, "
+            "iv.typeName, if_.typeName, iw.typeName, "
+            "ss.solarSystemName "
+            "FROM chrKillTable k "
+            "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
+            "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
+            "LEFT JOIN crpCorporation crp1 ON crp1.corporationID = k.victimCorporationID "
+            "LEFT JOIN crpCorporation crp2 ON crp2.corporationID = k.finalCorporationID "
+            "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
+            "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
+            "LEFT JOIN invTypes iw ON iw.typeID = k.finalWeaponTypeID "
+            "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
+            "WHERE k.killID = %u", std::stoul(kid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        DBResultRow row;
+        if (!res.GetRow(row))
+            return BuildErrorXML("1004", "Kill not found.");
+
+        // Build EVE-style killmail text
+        std::string killmail;
+        killmail += "Victim: " + std::string(row.GetText(15)) + ", " + std::string(row.GetText(19)) + "\n";
+        killmail += "Corp: " + std::string(row.GetText(17)) + "\n";
+        if (row.GetInt(6) > 0) {
+            std::string allyName;
+            DBQueryResult aRes;
+            if (sDatabase.RunQuery(aRes, "SELECT allianceName FROM crpCorporation WHERE corporationID = %u", row.GetUInt(6))) {
+                DBResultRow aRow;
+                if (aRes.GetRow(aRow)) allyName = aRow.GetText(0);
+            }
+            if (!allyName.empty()) killmail += "Alliance: " + allyName + "\n";
+        }
+        killmail += "System: " + std::string(row.GetText(22)) + " (" + std::string(row.GetText(13)) + ")\n";
+        killmail += "Damage Taken: " + std::to_string(row.GetUInt(3)) + "\n";
+        killmail += "\n";
+        killmail += "Final Blow: " + std::string(row.GetText(16)) + " flying " + std::string(row.GetText(20)) + "\n";
+        killmail += "Corp: " + std::string(row.GetText(18)) + "\n";
+        killmail += "Damage Done: " + std::to_string(row.GetUInt(12)) + "\n";
+        killmail += "\nDetails:\n";
+
+        // parse killBlob for items
+        const char* blob = row.GetText(14);
+        if (blob && strlen(blob) > 10) {
+            std::string blobStr(blob);
+            // simple XML parse for items
+            size_t pos = 0;
+            while ((pos = blobStr.find("<i ", pos)) != std::string::npos) {
+                size_t end = blobStr.find("/>", pos);
+                if (end == std::string::npos) break;
+                std::string item = blobStr.substr(pos + 3, end - pos - 3);
+                // extract t= and q=
+                size_t tPos = item.find("t=");
+                size_t qPos = item.find("q=");
+                if (tPos != std::string::npos) {
+                    uint32 typeID = std::stoul(item.substr(tPos + 2));
+                    uint32 qty = 1;
+                    if (qPos != std::string::npos) qty = std::stoul(item.substr(qPos + 2));
+                    // get type name
+                    std::string typeName;
+                    DBQueryResult tRes;
+                    if (sDatabase.RunQuery(tRes, "SELECT typeName FROM invTypes WHERE typeID = %u", typeID)) {
+                        DBResultRow tRow;
+                        if (tRes.GetRow(tRow)) typeName = tRow.GetText(0);
+                    }
+                    if (typeName.empty()) typeName = "Unknown Type " + std::to_string(typeID);
+                    killmail += typeName + " x " + std::to_string(qty) + "\n";
+                }
+                pos = end + 2;
+            }
+        }
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n";
+        xml += "    <killmail>" + xmlEscape(killmail.c_str()) + "</killmail>\n";
+        xml += "    <killblob>" + xmlEscape(blob ? blob : "") + "</killblob>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
