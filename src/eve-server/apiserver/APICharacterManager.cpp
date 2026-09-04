@@ -315,12 +315,24 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
 
     if (handler == "CharacterList.xml.aspx") {
         std::string aid = get("accountid");
-        if (aid.empty()) return BuildErrorXML("105", "Missing accountID.");
+        bool allChars = aid.empty();
 
         DBQueryResult res;
-        if (!sDatabase.RunQuery(res,
-            "SELECT characterID, characterName, skillPoints, corporationID "
-            "FROM chrCharacters WHERE accountID = %u ORDER BY characterID", std::stoul(aid)))
+        std::string q = "SELECT c.characterID, c.characterName, c.skillPoints, c.corporationID, "
+            "c.securityRating, c.raceID, c.gender, c.solarSystemID, c.stationID, "
+            "cr.corporationName, cr.tickerName, "
+            "ss.solarSystemName, "
+            "e.typeID as shipTypeID, t.typeName as shipName "
+            "FROM chrCharacters c "
+            "LEFT JOIN crpCorporation cr ON cr.corporationID = c.corporationID "
+            "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = c.solarSystemID "
+            "LEFT JOIN entity e ON e.itemID = c.shipID "
+            "LEFT JOIN invTypes t ON t.typeID = e.typeID ";
+        if (!allChars)
+            q += "WHERE c.accountID = " + aid + " ";
+        q += "ORDER BY c.skillPoints DESC LIMIT 500";
+
+        if (!sDatabase.RunQuery(res, q.c_str()))
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
@@ -328,10 +340,26 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         xml += "  <result>\n    <characters>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
+            const char* charName = row.GetText(1);
+            const char* corpName = row.GetText(9);
+            const char* ticker = row.GetText(10);
+            const char* sysName = row.GetText(11);
+            const char* shipName = row.GetText(13);
             xml += "      <row characterid=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " charactername=\"" + std::string(row.GetText(1)) + "\"";
+            xml += " charactername=\"" + xmlEscape(charName) + "\"";
             xml += " skillpoints=\"" + std::to_string(row.GetInt64(2)) + "\"";
-            xml += " corporationid=\"" + std::to_string(row.GetUInt(3)) + "\"/>\n";
+            xml += " corporationid=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " corporationname=\"" + xmlEscape(corpName) + "\"";
+            xml += " ticker=\"" + xmlEscape(ticker) + "\"";
+            xml += " securityrating=\"" + std::string(row.GetText(4)) + "\"";
+            xml += " raceid=\"" + std::to_string(row.GetInt(5)) + "\"";
+            xml += " gender=\"" + std::to_string(row.GetInt(6)) + "\"";
+            xml += " systemid=\"" + std::to_string(row.GetUInt(7)) + "\"";
+            xml += " systemname=\"" + xmlEscape(sysName) + "\"";
+            xml += " stationid=\"" + std::to_string(row.GetUInt(8)) + "\"";
+            xml += " shiptypeid=\"" + std::to_string(row.GetUInt(12)) + "\"";
+            xml += " shipname=\"" + xmlEscape(shipName) + "\"";
+            xml += "/>\n";
         }
         xml += "    </characters>\n  </result>\n</eveapi>\n";
         return xml;
