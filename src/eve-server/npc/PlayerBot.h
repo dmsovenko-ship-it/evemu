@@ -154,6 +154,9 @@ public:
     // later pack into a courier contract.
     void AddCargo(uint16 typeID, uint32 qty);
     bool HasCargo() const;
+    // Approximate total volume (m3) currently in the hold, from static type
+    // volume (used to decide when a miner's hold is full).
+    float GetCargoVolume() const;
     // Move everything currently in the bot's hold into the station hangar
     // (ownerID = bot char). Clears the hold. Returns total volume moved.
     double DepositCargoAtStation(uint32 stationID);

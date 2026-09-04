@@ -1171,6 +1171,20 @@ bool PlayerBot::HasCargo() const
     return false;
 }
 
+float PlayerBot::GetCargoVolume() const
+{
+    float vol = 0.0f;
+    for (const auto& entry : m_cargo) {
+        if (entry.second == 0)
+            continue;
+        const ItemType* t = sItemFactory.GetType(entry.first);
+        float unit = t != nullptr ? t->volume() : 1.0f;
+        if (unit < 0.01f) unit = 1.0f;
+        vol += unit * entry.second;
+    }
+    return vol;
+}
+
 // Real physical deposit: everything the bot is carrying is spawned as actual
 // entity items in the station hangar, owned by the bot. (Same mechanism a sell
 // order fill uses — SpawnItem in limbo, then Donate into the station hangar.)
@@ -1325,25 +1339,52 @@ void PlayerBot::DoProfessionActivity()
         case BotProfession::Miner: {
             // Peaceful miner: fly/warp to a belt asteroid and sit mining. In a fleet
             // (same corp) miners cooperate at one belt; guard fighters protect them.
+            // Real physical ore: while sitting at the rock the bot fills its hold
+            // (m_cargo) with the asteroid's ore type, then docks to deposit it.
             BeltMgr* beltMgr = SystemMgr()->GetBeltMgr();
             if (beltMgr != nullptr) {
                 AsteroidSE* roid = beltMgr->GetAnyAsteroid();
                 if (roid != nullptr && roid->DestinyMgr() != nullptr && !m_destiny->IsWarping()) {
-                    m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed() / 2);
-                    m_destiny->WarpTo(roid->GetPosition(), 1000);
-                    _log(BOT__TRACE, "PlayerBot %s(%u): mining — warping to asteroid %u.",
-                         m_botName.c_str(), m_botCharID, roid->GetID());
+                    double dist = GetPosition().distance(roid->GetPosition());
+                    if (dist > 4000.0) {
+                        // Not at the rock yet — warp to it (visible approach).
+                        m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed() / 2);
+                        m_destiny->WarpTo(roid->GetPosition(), 1000);
+                        _log(BOT__TRACE, "PlayerBot %s(%u): mining — warping to asteroid %u.",
+                             m_botName.c_str(), m_botCharID, roid->GetID());
+                    } else {
+                        // Sitting at the rock: mine a strip-miner cycle into the hold.
+                        // Ore type = the asteroid's own ore type. Cycle volume scales
+                        // with the pilot's skill tier (a trained veteran mines faster).
+                        InventoryItemRef roidRef = roid->GetSelf();
+                        if (roidRef.get() != nullptr) {
+                            uint16 oreType = roidRef->typeID();
+                            float oreUnitVol = roidRef->GetAttribute(AttrVolume).get_float();
+                            if (oreUnitVol < 0.1f) oreUnitVol = 1.0f;
+                            float cycleVol = 100.0f + m_botSkill * 60.0f;   // m3 per cycle (skill-scaled)
+                            uint32 units = (uint32)(cycleVol / oreUnitVol);
+                            if (units < 1) units = 1;
+                            // Don't overfill a modest hold (barge-ish).
+                            if (GetCargoVolume() + cycleVol > 15000.0f)
+                                units = 0;
+                            if (units > 0) {
+                                AddCargo(oreType, units);
+                                _log(BOT__TRACE, "PlayerBot %s(%u): mined %u x ore %u (%.0f m3) into hold.",
+                                     m_botName.c_str(), m_botCharID, units, oreType, cycleVol);
+                            }
+                        }
+                    }
                 }
             }
             // Cooperative mining: ask corpmates (guards) to cover this miner.
             RequestFleetProtection();
-            // End of mining run: head to the station to refine the ore. Experienced
+            // End of mining run: head to the station to deposit the ore. Experienced
             // miners haul more ore per trip (self-learning), so longer runs.
             float runLen = 2.0f + practice * 6.0f;   // 2..8 trips between docks
             if (m_mineTrips >= runLen) {
                 m_mineTrips = 0;
                 RequestDock();
-                _log(BOT__TRACE, "PlayerBot %s(%u): ore hold full — docking to refine/sell.",
+                _log(BOT__TRACE, "PlayerBot %s(%u): ore hold full — docking to deposit.",
                      m_botName.c_str(), m_botCharID);
             } else {
                 ++m_mineTrips;

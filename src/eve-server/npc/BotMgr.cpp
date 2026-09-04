@@ -1942,6 +1942,16 @@ void BotMgr::ProcessDocking()
                  db.name.c_str(), db.charID, dockStationID, pSystem->GetID());
             pb->ClearDockRequest();
             pb->RecallDrones();   // scoop drones before docking
+            // Stage-2 physical goods: a miner/ratter/hacker deposits its real
+            // cargo hold into the station hangar when it docks, so the station
+            // accumulates physical minerals/loot a trader can later pack into a
+            // courier contract (which a courier hauls to another station).
+            if (dockStationID != 0 && pb->HasCargo()) {
+                double dep = pb->DepositCargoAtStation(dockStationID);
+                if (dep > 0)
+                    _log(BOT__MESSAGE, "BotMgr: %s(%u) deposited %.0f units of cargo at station %u.",
+                         db.name.c_str(), db.charID, dep, dockStationID);
+            }
             pb->Delete();   // remove from space; stays in local channel as docked
         }
     }
