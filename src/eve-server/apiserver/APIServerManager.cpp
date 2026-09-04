@@ -485,5 +485,131 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "TopValuables.xml.aspx") {
+        auto get2 = [&](const std::string& k) -> std::string {
+            auto it = params.find(k);
+            return it != params.end() ? it->second : "";
+        };
+        uint32 days = 7;
+        std::string period = get2("period");
+        if (period == "24h") days = 1;
+        else if (period == "30d") days = 30;
+        else if (period == "all") days = 36500;
+        uint32 limit = get2("limit").empty() ? 20 : std::stoul(get2("limit"));
+        if (limit < 1) limit = 1; if (limit > 200) limit = 200;
+
+        // Candidate pool (top by raw HP for the window) — capped to bound the
+        // per-type price lookups. Real "value" (ship+fit) is then computed below.
+        struct RowV { uint32 killID, sysID, victimID, shipTypeID, dmg; int64 killTime;
+                      std::string victimName, shipName, sysName, finalName, blob;
+                      int32 catID; double value; };
+        std::vector<RowV> pool;
+        {
+            DBQueryResult res;
+            if (sDatabase.RunQuery(res,
+                "SELECT k.killID, k.solarSystemID, k.victimCharacterID, k.victimShipTypeID, "
+                "k.victimDamageTaken, k.killTime, k.killBlob, k.finalCharacterID, "
+                "vc.characterName, fc.characterName, iv.typeName, iv.groupID, "
+                "ig.categoryID, ss.solarSystemName "
+                "FROM chrKillTable k "
+                "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
+                "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
+                "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
+                "LEFT JOIN invGroups ig ON ig.groupID = iv.groupID "
+                "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
+                "WHERE (k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL " + std::to_string(days) + " DAY)) "
+                "ORDER BY k.victimDamageTaken DESC LIMIT 400")) {
+                DBResultRow row;
+                while (res.GetRow(row)) {
+                    RowV r;
+                    r.killID = row.GetUInt(0); r.sysID = row.GetUInt(1);
+                    r.victimID = row.GetUInt(2); r.shipTypeID = row.GetUInt(3);
+                    r.dmg = row.GetUInt(4); r.killTime = row.GetInt64(5);
+                    r.victimName = xmlEscape(row.GetText(8));
+                    r.finalName = xmlEscape(row.GetText(9));
+                    r.shipName = xmlEscape(row.GetText(10));
+                    r.catID = row.GetInt(12);
+                    r.sysName = xmlEscape(row.GetText(13));
+                    const char* b = row.GetText(6);
+                    r.blob = (b ? b : "");
+                    pool.push_back(std::move(r));
+                }
+            }
+        }
+
+        // one price lookup for every involved typeID (hull + blob items)
+        std::map<uint32, double> price;
+        if (!pool.empty()) {
+            std::map<uint32, double> need;
+            for (auto& r : pool) need[r.shipTypeID] = 0;
+            for (auto& r : pool) {
+                std::string& b = r.blob; size_t pos = 0;
+                while ((pos = b.find("t=", pos)) != std::string::npos) {
+                    size_t e = pos + 2; while (e < b.size() && isdigit((unsigned char)b[e])) ++e;
+                    if (e > pos + 2) need[std::stoul(b.substr(pos + 2, e - pos - 2))] = 0;
+                    pos = e;
+                }
+            }
+            if (!need.empty()) {
+                std::string ids; bool first = true;
+                for (auto& kv : need) { if (!first) ids += ","; first = false; ids += std::to_string(kv.first); }
+                DBQueryResult res;
+                if (sDatabase.RunQuery(res,
+                    "SELECT typeID, AVG(price) FROM mktOrders WHERE typeID IN (%s) GROUP BY typeID", ids.c_str())) {
+                    DBResultRow row;
+                    while (res.GetRow(row)) price[row.GetUInt(0)] = row.GetDouble(1);
+                }
+            }
+        }
+        auto typePrice = [&](uint32 t) -> double { auto it = price.find(t); return it != price.end() ? it->second : 0.0; };
+
+        for (auto& r : pool) {
+            double v = typePrice(r.shipTypeID);   // hull
+            std::string& b = r.blob; size_t pos = 0;
+            while ((pos = b.find("<i ", pos)) != std::string::npos) {
+                size_t te = b.find("t=", pos);
+                size_t qe = b.find("q=", pos);
+                size_t xe = b.find("/>", pos);
+                if (te == std::string::npos || xe == std::string::npos) break;
+                size_t tEnd = te + 2; while (tEnd < xe && isdigit((unsigned char)b[tEnd])) ++tEnd;
+                uint32 tid = std::stoul(b.substr(te + 2, tEnd - te - 2));
+                uint32 qty = 1;
+                if (qe != std::string::npos && qe < xe) {
+                    size_t qEnd = qe + 2; while (qEnd < xe && isdigit((unsigned char)b[qEnd])) ++qEnd;
+                    if (qEnd > qe + 2) qty = std::max<uint32>(1, std::stoul(b.substr(qe + 2, qEnd - qe - 2)));
+                }
+                if (tid != r.shipTypeID)
+                    v += typePrice(tid) * qty;
+                pos = xe + 2;
+            }
+            r.value = v;
+        }
+
+        std::sort(pool.begin(), pool.end(),
+                  [](const RowV& a, const RowV& b) { return a.value > b.value; });
+        if (pool.size() > limit) pool.resize(limit);
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <kills>\n";
+        for (auto& r : pool) {
+            std::ostringstream val; val.precision(2); val << std::fixed << r.value;
+            xml += "      <row killid=\"" + std::to_string(r.killID) + "\"";
+            xml += " systemid=\"" + std::to_string(r.sysID) + "\"";
+            xml += " solarsystemname=\"" + r.sysName + "\"";
+            xml += " victimid=\"" + std::to_string(r.victimID) + "\"";
+            xml += " victimname=\"" + r.victimName + "\"";
+            xml += " victimshiptypeid=\"" + std::to_string(r.shipTypeID) + "\"";
+            xml += " victimshipname=\"" + r.shipName + "\"";
+            xml += " categoryid=\"" + std::to_string(r.catID) + "\"";
+            xml += " damage=\"" + std::to_string(r.dmg) + "\"";
+            xml += " value=\"" + val.str() + "\"";
+            xml += " killtime=\"" + std::to_string(r.killTime) + "\"";
+            xml += " finalname=\"" + r.finalName + "\"/>\n";
+        }
+        xml += "    </kills>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
