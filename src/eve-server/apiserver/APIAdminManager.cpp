@@ -1,6 +1,23 @@
 #include "eve-server.h"
 #include "apiserver/APIAdminManager.h"
 
+static std::string xmlEscape(const char* s) {
+    if (!s) return "";
+    std::string out;
+    out.reserve(strlen(s) + 16);
+    for (const char* p = s; *p; ++p) {
+        switch (*p) {
+            case '<':  out += "&lt;";   break;
+            case '>':  out += "&gt;";   break;
+            case '&':  out += "&amp;";  break;
+            case '"':  out += "&quot;"; break;
+            case '\'': out += "&apos;"; break;
+            default:   out += *p;       break;
+        }
+    }
+    return out;
+}
+
 std::string APIAdminManager::ProcessCall(const std::string& handler,
                                          const std::map<std::string, std::string>& params)
 {
@@ -55,13 +72,13 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
         DBResultRow row;
         while (res.GetRow(row)) {
             const char* email = row.GetText(2);
-            xml += "      <row accountID=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " accountName=\"" + std::string(row.GetText(1)) + "\"";
-            xml += " email=\"" + std::string(email ? email : "") + "\"";
+            xml += "      <row accountid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " accountname=\"" + xmlEscape(row.GetText(1)) + "\"";
+            xml += " email=\"" + xmlEscape(email) + "\"";
             xml += " role=\"" + std::to_string(row.GetInt64(3)) + "\"";
             xml += " online=\"" + std::to_string(row.GetInt(4)) + "\"";
             xml += " banned=\"" + std::to_string(row.GetInt(5)) + "\"";
-            xml += " logonCount=\"" + std::to_string(row.GetUInt(6)) + "\"/>\n";
+            xml += " logoncount=\"" + std::to_string(row.GetUInt(6)) + "\"/>\n";
         }
         xml += "    </accounts>\n  </result>\n</eveapi>\n";
         return xml;
@@ -248,7 +265,7 @@ std::string APIAdminManager::ProcessItems(const std::string& handler,
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n";
-        xml += "    <itemID>" + std::to_string(itemID) + "</itemID>\n";
+        xml += "    <itemid>" + std::to_string(itemID) + "</itemid>\n";
         xml += "  </result>\n</eveapi>\n";
         return xml;
     }

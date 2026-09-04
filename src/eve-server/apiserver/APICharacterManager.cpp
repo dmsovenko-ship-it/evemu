@@ -355,7 +355,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         xml += "  <result>\n";
         xml += "    <total>" + std::to_string(total) + "</total>\n";
         xml += "    <page>" + std::to_string(page) + "</page>\n";
-        xml += "    <perPage>" + std::to_string(perPage) + "</perPage>\n";
+        xml += "    <perpage>" + std::to_string(perPage) + "</perpage>\n";
         xml += "    <characters>\n";
         DBResultRow row;
         while (res.GetRow(row)) {

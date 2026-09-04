@@ -42,30 +42,30 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n";
-        xml += "    <serverOnline>1</serverOnline>\n";
-        xml += "    <serverVersion>EVEmu Crucible</serverVersion>\n";
-        xml += "    <apiVersion>" EVEMU_API_VERSION "</apiVersion>\n";
-        xml += "    <onlinePlayers>" + std::to_string(sEntityList.GetClientCount()) + "</onlinePlayers>\n";
-        xml += "    <accountCount>" + std::to_string(accountCount) + "</accountCount>\n";
-        xml += "    <characterCount>" + std::to_string(charCount) + "</characterCount>\n";
-        xml += "    <botCount>" + std::to_string(botCount) + "</botCount>\n";
+        xml += "    <serveronline>1</serveronline>\n";
+        xml += "    <serverversion>EVEmu Crucible</serverversion>\n";
+        xml += "    <apiversion>" EVEMU_API_VERSION "</apiversion>\n";
+        xml += "    <onlineplayers>" + std::to_string(sEntityList.GetClientCount()) + "</onlineplayers>\n";
+        xml += "    <accountcount>" + std::to_string(accountCount) + "</accountcount>\n";
+        xml += "    <charactercount>" + std::to_string(charCount) + "</charactercount>\n";
+        xml += "    <botcount>" + std::to_string(botCount) + "</botcount>\n";
         xml += "  </result>\n</eveapi>\n";
         return xml;
     }
 
     if (handler == "KillStats.xml.aspx") {
         DBQueryResult res;
-        uint32 totalKills = 0;
+        uint32 totalkills = 0;
         sDatabase.RunQuery(res, "SELECT COUNT(*) FROM chrKillTable");
-        { DBResultRow r; if (res.GetRow(r)) totalKills = r.GetUInt(0); }
+        { DBResultRow r; if (res.GetRow(r)) totalkills = r.GetUInt(0); }
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n";
-        xml += "    <totalKills>" + std::to_string(totalKills) + "</totalKills>\n";
+        xml += "    <totalkills>" + std::to_string(totalkills) + "</totalkills>\n";
 
         // top killers
-        xml += "    <topKillers>\n";
+        xml += "    <topkillers>\n";
         if (sDatabase.RunQuery(res,
             "SELECT finalCharacterID, COUNT(*) as cnt FROM chrKillTable "
             "WHERE finalCharacterID > 0 GROUP BY finalCharacterID ORDER BY cnt DESC LIMIT 10")) {
@@ -84,10 +84,10 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 xml += " kills=\"" + std::to_string(cnt) + "\"/>\n";
             }
         }
-        xml += "    </topKillers>\n";
+        xml += "    </topkillers>\n";
 
         // top victims
-        xml += "    <topVictims>\n";
+        xml += "    <topvictims>\n";
         if (sDatabase.RunQuery(res,
             "SELECT victimCharacterID, COUNT(*) as cnt FROM chrKillTable "
             "WHERE victimCharacterID > 0 GROUP BY victimCharacterID ORDER BY cnt DESC LIMIT 10")) {
@@ -106,10 +106,10 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 xml += " deaths=\"" + std::to_string(cnt) + "\"/>\n";
             }
         }
-        xml += "    </topVictims>\n";
+        xml += "    </topvictims>\n";
 
         // kills by system
-        xml += "    <killsBySystem>\n";
+        xml += "    <killsbysystem>\n";
         if (sDatabase.RunQuery(res,
             "SELECT k.solarSystemID, ss.solarSystemName, COUNT(*) as cnt "
             "FROM chrKillTable k LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
@@ -122,10 +122,10 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 xml += " kills=\"" + std::to_string(row.GetUInt(2)) + "\"/>\n";
             }
         }
-        xml += "    </killsBySystem>\n";
+        xml += "    </killsbysystem>\n";
 
         // most destroyed ship types
-        xml += "    <topShips>\n";
+        xml += "    <topships>\n";
         if (sDatabase.RunQuery(res,
             "SELECT k.victimShipTypeID, t.typeName, COUNT(*) as cnt "
             "FROM chrKillTable k LEFT JOIN invTypes t ON t.typeID = k.victimShipTypeID "
@@ -139,7 +139,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 xml += " destroyed=\"" + std::to_string(row.GetUInt(2)) + "\"/>\n";
             }
         }
-        xml += "    </topShips>\n";
+        xml += "    </topships>\n";
 
         xml += "  </result>\n</eveapi>\n";
         return xml;
@@ -183,13 +183,13 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         xml += "  <result>\n";
 
         // total orders
-        uint32 totalOrders = 0;
+        uint32 totalorders = 0;
         sDatabase.RunQuery(res, "SELECT COUNT(*) FROM mktOrders");
-        { DBResultRow r; if (res.GetRow(r)) totalOrders = r.GetUInt(0); }
-        xml += "    <totalOrders>" + std::to_string(totalOrders) + "</totalOrders>\n";
+        { DBResultRow r; if (res.GetRow(r)) totalorders = r.GetUInt(0); }
+        xml += "    <totalorders>" + std::to_string(totalorders) + "</totalorders>\n";
 
         // total isk volume
-        xml += "    <topTraded>\n";
+        xml += "    <toptraded>\n";
         if (sDatabase.RunQuery(res,
             "SELECT typeID, SUM(volEntered) as totalVol, AVG(price) as avgPrice "
             "FROM mktOrders GROUP BY typeID ORDER BY totalVol DESC LIMIT 10")) {
@@ -208,7 +208,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 xml += " avgprice=\"" + std::string(row.GetText(2)) + "\"/>\n";
             }
         }
-        xml += "    </topTraded>\n";
+        xml += "    </toptraded>\n";
 
         xml += "  </result>\n</eveapi>\n";
         return xml;
