@@ -262,7 +262,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
             "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
             "WHERE k.killTime > DATE_SUB(NOW(), INTERVAL " + std::to_string(days) + " DAY) "
             "ORDER BY k.victimDamageTaken DESC "
-            "LIMIT " + std::to_string(perPage) + " OFFSET " + std::to_string(offset))) {
+            "LIMIT " + std::to_string(perPage) + " OFFSET " + std::to_string(offset)).c_str())) {
             DBResultRow row;
             while (res.GetRow(row)) {
                 xml += "      <row killid=\"" + std::to_string(row.GetUInt(0)) + "\"";
