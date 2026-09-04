@@ -4,7 +4,7 @@
 -- for each bot on spawn here; CharacterList falls back to it for ship display.
 -- +migrate Up
 ALTER TABLE `botMemory`
-    ADD COLUMN `shipTypeID` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `charID`;
+    ADD COLUMN IF NOT EXISTS `shipTypeID` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `charID`;
 
 -- +migrate Down
 ALTER TABLE `botMemory`
