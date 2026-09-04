@@ -233,7 +233,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         {
             DBQueryResult cres;
             sDatabase.RunQuery(cres,
-                "SELECT COUNT(*) FROM chrKillTable WHERE killTime > DATE_SUB(NOW(), INTERVAL %u DAY)", days);
+                "SELECT COUNT(*) FROM chrKillTable WHERE (killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL %u DAY))", days);
             DBResultRow r; if (cres.GetRow(r)) total = r.GetUInt(0);
         }
 
@@ -259,7 +259,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
             "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
             "LEFT JOIN invTypes iw ON iw.typeID = k.finalWeaponTypeID "
             "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
-            "WHERE k.killTime > DATE_SUB(NOW(), INTERVAL " + std::to_string(days) + " DAY) "
+            "WHERE (k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL " + std::to_string(days) + " DAY)) "
             "ORDER BY k.victimDamageTaken DESC "
             "LIMIT " + std::to_string(perPage) + " OFFSET " + std::to_string(offset);
 
