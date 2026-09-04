@@ -70,6 +70,19 @@ public:
     // can then try the next candidate pair.
     double BotArbitrageFill(uint32 botCharID, uint32 stationID, uint32 typeID,
                             uint32 askOrderID, uint32 bidOrderID, uint32 qty);
+    // A docked bot SELLS part of its real stock (a hangar item stack) into a
+    // resting BUY order at the same station. Client-less mirror of what a player
+    // does selling into a buy order (ExecuteBuyOrder), but the seller is an
+    // offline character: goods leave the bot's hangar to the buy order's owner,
+    // escrow / buyer pays the bot, sales tax is deducted, and two real
+    // mktTransactions are recorded. Returns ISK received (>=0).
+    // botCharID : owner of the stock (offline character).
+    // orderID   : the resting buy order to fill.
+    // iRef      : the real item stack in the bot's hangar to sell.
+    // qty       : units to sell (<= both the order and the stack).
+    // Returns 0 if nothing was sold.
+    double SellStockIntoBuyOrder(uint32 botCharID, uint32 orderID, InventoryItemRef iRef,
+                                 uint32 qty, uint32 stationID, uint32 typeID);
 
     //forces a refresh of market data.
     void SendOnOwnOrderChanged(Client* pClient, uint32 orderID, uint8 action, bool isCorp = false, PyRep* order = nullptr);

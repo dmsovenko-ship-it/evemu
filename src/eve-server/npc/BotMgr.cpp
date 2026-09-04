@@ -1392,9 +1392,11 @@ void BotMgr::ProcessDockedEconomy()
                 // any crossing spread they see, otherwise quote tighter than the
                 // current best bid/ask. Old random-order path removed.
                 ProcessDockedTraderEconomy(sysID, db.stationID, db);
-                // Pack any real stock (minerals/loot bought or hauled in) into a
-                // courier job to the hub; fall back to a virtual courier contract.
-                if (PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID) == 0)
+                // At the hub, sell any real stock (hauled in) for ISK; elsewhere,
+                // pack stock into a courier job to the hub (fall back to virtual).
+                if (IsTradeHub(sysID))
+                    SellStockAtHub(sysID, db.stationID, db.charID);
+                else if (PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID) == 0)
                     PlaceBotCourierContractAt(sysID, db.charID, db.corpID);
             } else if (prof == (uint8)PlayerBot::BotProfession::Miner
                        || prof == (uint8)PlayerBot::BotProfession::RatHunter
@@ -1402,10 +1404,13 @@ void BotMgr::ProcessDockedEconomy()
                        || prof == (uint8)PlayerBot::BotProfession::Explorer) {
                 // Producers bid for the raw materials they consume (from the dock),
                 // and ship the real ore/loot they've banked in the hangar to the
-                // hub (living-goods haul).
+                // hub — or, docked at the hub, sell it for ISK directly.
                 if (MakeRandomInt(0, 99) < 20)
                     PlaceBotBuyOrderAt(sysID, db.charID, prof);
-                PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID);
+                if (IsTradeHub(sysID))
+                    SellStockAtHub(sysID, db.stationID, db.charID);
+                else
+                    PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID);
             }
         }
     }
@@ -1986,6 +1991,81 @@ uint32 BotMgr::PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint3
     _log(BOT__MESSAGE, "BotMgr: %u packed %u x types (%.0f m3, reward %.0f ISK) into courier contract %u -> station %u.",
          charID, (uint32)cargo.size(), totalVol, (double)reward, contractId, endStation);
     return contractId;
+}
+
+// A bot docked at the trade hub (Jita) sells the real stock in its hangar into
+// the best resting buy orders for each type — closing the ISK loop: ore/faction
+// loot that miners/ratters hauled to the hub actually becomes ISK in the bot's
+// wallet (offline transfer), not just goods gathering dust in a hangar.
+double BotMgr::SellStockAtHub(uint32 sysID, uint32 stationID, uint32 charID)
+{
+    if (sysID == 0 || stationID == 0 || charID == 0)
+        return 0.0;
+    if (!IsTradeHub(sysID))
+        return 0.0;   // only sell at the market hub
+
+    // All real stock this bot owns in this station's hangar (non-ship stacks).
+    struct StockType { uint16 typeID; uint32 qty; };
+    std::vector<StockType> stock;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT typeID, SUM(quantity) FROM entity"
+        " WHERE ownerID = %u AND locationID = %u AND flag = %u AND quantity > 0 AND singleton = 0"
+        " GROUP BY typeID", charID, stationID, (uint32)flagHangar))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            StockType st; st.typeID = (uint16)row.GetUInt(0); st.qty = row.GetUInt(1);
+            stock.push_back(st);
+        }
+    }
+    if (stock.empty())
+        return 0.0;
+
+    double totalISK = 0.0;
+    for (const auto& st : stock) {
+        // Find the best (highest-priced) resting buy order at this station for
+        // this type that still has room, not owned by the seller.
+        DBQueryResult bres;
+        uint32 bestOrder = 0;
+        if (sDatabase.RunQuery(bres,
+            "SELECT orderID FROM mktOrders"
+            " WHERE stationID = %u AND typeID = %u AND bid = 1 AND volRemaining > 0 AND ownerID <> %u"
+            " ORDER BY price DESC LIMIT 1", stationID, st.typeID, charID))
+        {
+            DBResultRow brow;
+            if (bres.GetRow(brow))
+                bestOrder = brow.GetUInt(0);
+        }
+        if (bestOrder == 0)
+            continue;   // nobody is buying this here — leave it in the hangar
+
+        // Sell into it with the bot's real stack. Grab the stack item.
+        DBQueryResult ires;
+        uint32 stackItemID = 0;
+        if (sDatabase.RunQuery(ires,
+            "SELECT itemID FROM entity"
+            " WHERE ownerID = %u AND locationID = %u AND flag = %u AND typeID = %u AND quantity > 0 AND singleton = 0"
+            " LIMIT 1", charID, stationID, (uint32)flagHangar, st.typeID))
+        {
+            DBResultRow irow;
+            if (ires.GetRow(irow))
+                stackItemID = irow.GetUInt(0);
+        }
+        if (stackItemID == 0)
+            continue;
+        InventoryItemRef iRef = sItemFactory.GetItemRef(stackItemID);
+        if (iRef.get() == nullptr)
+            continue;
+
+        double got = sMktMgr.SellStockIntoBuyOrder(charID, bestOrder, iRef, st.qty, stationID, st.typeID);
+        totalISK += got;
+    }
+
+    if (totalISK > 0)
+        _log(BOT__MESSAGE, "BotMgr: %u sold hub stock at station %u, +%.0f ISK.",
+             charID, stationID, totalISK);
+    return totalISK;
 }
 
 

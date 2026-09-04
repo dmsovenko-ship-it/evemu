@@ -122,6 +122,10 @@ private:
     // CompleteContract delivers them to the issuer's hangar at the hub — real
     // goods physically travel between stations. Returns the contract id, or 0.
     uint32 PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint32 charID, uint32 corpID);
+    // A bot docked at the trade hub SELLS its real stock into the best resting
+    // buy order per type (closing the ISK loop: ore/faction loot hauled to Jita
+    // actually becomes ISK). Returns total ISK received.
+    double SellStockAtHub(uint32 sysID, uint32 stationID, uint32 charID);
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();
