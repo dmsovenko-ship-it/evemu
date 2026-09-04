@@ -428,5 +428,55 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "RelatedKills.xml.aspx") {
+        std::string kid = get("killid");
+        if (kid.empty()) return BuildErrorXML("105", "Missing killID.");
+
+        // find kills in same system within ±24h
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT k2.killID, k2.solarSystemID, k2.killTime, "
+            "k2.victimCharacterID, k2.victimShipTypeID, k2.victimDamageTaken, "
+            "k2.finalCharacterID, k2.finalShipTypeID, k2.finalDamageDone, "
+            "vc.characterName, fc.characterName, "
+            "iv.typeName, if_.typeName "
+            "FROM chrKillTable k1 "
+            "JOIN chrKillTable k2 ON k2.solarSystemID = k1.solarSystemID "
+            "AND k2.killID != k1.killID "
+            "AND ABS(TIMESTAMPDIFF(SECOND, "
+            "FROM_UNIXTIME((k2.killTime - 116444736000000000) / 10000000), "
+            "FROM_UNIXTIME((k1.killTime - 116444736000000000) / 10000000))) < 86400 "
+            "LEFT JOIN chrCharacters vc ON vc.characterID = k2.victimCharacterID "
+            "LEFT JOIN chrCharacters fc ON fc.characterID = k2.finalCharacterID "
+            "LEFT JOIN invTypes iv ON iv.typeID = k2.victimShipTypeID "
+            "LEFT JOIN invTypes if_ ON if_.typeID = k2.finalShipTypeID "
+            "WHERE k1.killID = %u "
+            "ORDER BY k2.killTime DESC LIMIT 20", std::stoul(kid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <related>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row killid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " systemid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " killtime=\"" + std::string(row.GetText(2)) + "\"";
+            xml += " victimid=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " victimshiptypeid=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " victimdamagetaken=\"" + std::to_string(row.GetUInt(5)) + "\"";
+            xml += " finalid=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " finalshiptypeid=\"" + std::to_string(row.GetUInt(7)) + "\"";
+            xml += " finaldamagedone=\"" + std::to_string(row.GetUInt(8)) + "\"";
+            xml += " victimname=\"" + xmlEscape(row.GetText(9)) + "\"";
+            xml += " finalname=\"" + xmlEscape(row.GetText(10)) + "\"";
+            xml += " victimshipname=\"" + xmlEscape(row.GetText(11)) + "\"";
+            xml += " finalshipname=\"" + xmlEscape(row.GetText(12)) + "\"";
+            xml += "/>\n";
+        }
+        xml += "    </related>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
