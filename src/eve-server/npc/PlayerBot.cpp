@@ -4,6 +4,7 @@
 #include "npc/NPCAI.h"
 #include "npc/Drone.h"
 #include "system/Damage.h"
+#include "ship/Ship.h"
 #include "Client.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
@@ -548,10 +549,22 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
     data.victimShipTypeID = GetTypeID();
 
     data.finalCharacterID = killerID;
-    data.finalCorporationID = killer->GetCorporationID();
-    data.finalAllianceID = killer->GetAllianceID();
-    data.finalFactionID = (killer->GetWarFactionID() > 500021 ? 500021 : killer->GetWarFactionID());
-    data.finalShipTypeID = killer->GetTypeID();
+    // Fighter/drone final blow → report the PILOT's ship/corp, drone as the weapon.
+    uint16 finalShipTypeID = killer->GetTypeID();
+    int32 finalCorpID = killer->GetCorporationID();
+    int32 finalAllyID = killer->GetAllianceID();
+    if (pClient != nullptr) {
+        finalCorpID = pClient->GetCorporationID();
+        finalAllyID = pClient->GetAllianceID();
+        ShipSE* kShip = pClient->GetShipSE();
+        if (kShip != nullptr)
+            finalShipTypeID = kShip->GetTypeID();
+    }
+    data.finalCorporationID = finalCorpID;
+    data.finalAllianceID = finalAllyID;
+    data.finalFactionID = (pClient != nullptr ? pClient->GetWarFactionID()
+                          : (killer->GetWarFactionID() > 500021 ? 500021 : killer->GetWarFactionID()));
+    data.finalShipTypeID = finalShipTypeID;
     data.finalWeaponTypeID = (fatal_blow.weaponRef.get() != nullptr) ? fatal_blow.weaponRef->typeID() : killer->GetTypeID();
     data.finalSecurityStatus = (pClient != nullptr) ? pClient->GetSecurityRating() : 0.0;
     data.finalDamageDone = static_cast<uint32>(fatal_blow.GetTotal());

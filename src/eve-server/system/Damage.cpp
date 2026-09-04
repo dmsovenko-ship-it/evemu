@@ -690,10 +690,24 @@ void ShipSE::Killed(Damage &fatal_blow) {
         data.victimShipTypeID = m_self->typeID();
 
         data.finalCharacterID = killerID;
-        data.finalCorporationID = killer->GetCorporationID();
-        data.finalAllianceID = killer->GetAllianceID();
-        data.finalFactionID = (killer->GetWarFactionID() > 500021 ? 500021 : killer->GetWarFactionID());
-        data.finalShipTypeID = killer->GetTypeID();
+        // When the killing blow came from a fighter/drone, EVE reports the PILOT's
+        // ship as the attacker and the drone as the weapon. The corp/alliance are
+        // likewise the pilot's, not the drone's (drones carry no corp).
+        uint16 finalShipTypeID = killer->GetTypeID();
+        int32 finalCorpID = killer->GetCorporationID();
+        int32 finalAllyID = killer->GetAllianceID();
+        if (pClient != nullptr) {
+            finalCorpID = pClient->GetCorporationID();
+            finalAllyID = pClient->GetAllianceID();
+            ShipSE* kShip = pClient->GetShipSE();
+            if (kShip != nullptr)
+                finalShipTypeID = kShip->GetTypeID();
+        }
+        data.finalCorporationID = finalCorpID;
+        data.finalAllianceID = finalAllyID;
+        data.finalFactionID = (pClient != nullptr ? pClient->GetWarFactionID()
+                              : (killer->GetWarFactionID() > 500021 ? 500021 : killer->GetWarFactionID()));
+        data.finalShipTypeID = finalShipTypeID;
         data.finalWeaponTypeID = fatal_blow.weaponRef->typeID();
         data.finalSecurityStatus = (pClient != nullptr) ? pClient->GetSecurityRating() : 0.0;
         data.finalDamageDone = fatal_blow.GetTotal();
