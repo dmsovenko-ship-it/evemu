@@ -1,7 +1,44 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. HEAD: `675c3a85` (fix siege + turret chgTypeID). Сервер требует пересборки и рестарта.
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). HEAD сервера: `d0c2e655`, портала: `e2ec7c0`. **Сервер требует пересборки на `d0c2e655`, портала — `git pull` на `e2ec7c0`.**
+
+## 3-4 сентября: Killboard/портал (полный аналог zkillboard) + челоботы-имитация игроков
+
+**Новая архитектура: портал PHP читает ТОЛЬКО через API-сервер (`:26002`), НЕ в БД напрямую. Отдельный приватный репо `evemu-portal` (настройки в `C:\opencode-projects\evemu-portal`). Портал развёрнут юзером на другом хосте (`video.iks-online.net:26006`), конфиг `config.php` там свой (API_BASE наружу).**
+
+### Ключевые уроки/законы API+портала
+- **SimpleXML в PHP 8 регистрозависим** → ВСЕ элементы/атрибуты API обязаны быть **lowercase** (`accountid`, `solarsystemid`, `onlineplayers`, `serveronline`, `perpage`, `topkillers`…). НЕ добавлять camelCase теги.
+- **Текстовые/блоб-поля в XML атрибутах экранировать** `xmlEscape()` (`<`,`>`,`&`,`"`,`'`) — killBlob содержит `<items>`.
+- `sDatabase.RunQuery(res, ...)` принимает **`const char*`** (не `std::string`) — конкатенацию строить в `std::string q; ... q.c_str()`.
+- **POST body API сервер читает из оставшегося буфера** (не `read_until` после заголовков): парсинг Content-Length+`\r\n\r\n`+`url_decode`+`+`→пробел в `APIServer.cpp`. Формы портала — POST.
+- CCP логин: `password` колонка у клиент-аккаунтов ПУСТА, пароль хранится в `hash` = **PasswordHash(user,pass)** = SHA1(UTF-16 bytes pass + salt), 1000 итераций (`PasswordModule::GeneratePassHash`). Сравнение через HEX(hash).
+- Роли: CCP битмаска `Acct::Role` (`EVE_Roles.h`): ADMIN=`0x0100000000000000` (72057594037927936), GMH=`0x20000000000000`, GML=`0x40000000000000`, WORLDMOD=4096. BOSS=0x63f8000280c41000 у Vugl. Портал использует эти значения.
+- Изображения: **портреты/лого с нашего image server `:26001`** (`/Character/{id}_128.jpg`), иконки кораблей — `images.evetech.net` (`/types/{id}/render?size=N`, `/icon`) через кеш-прокси `img.php` (curl → file_get_contents fallback; zkillboard CDN блокирует серверный curl, НЕ использовать). `img.php` кеширует в `cache/` (давать www-data права на запись).
+
+### Коммиты сервера (последовательность, все в origin/master)
+- killmail челоботов (`38667602`): PlayerBot — NPC SE, смерть идёт через `PlayerBot::Killed→NPC::Killed`, запись была только в `ShipSE::Killed` → добавил `PlayerBot::RecordBotKillMail()` (до NPC::Killed) → `SaveKillOrLoss` + уведомление убийцы.
+- не-боевые халлы (`b8d75376`): в BotMgr `base=0` + `PlayerBot::GetShipClass`→0 для Industrial/Freighter/TransportShip/MiningBarge/Exhumer/Shuttle/Capsule/IndustrialCommandShip/JumpFreighter/CapitalIndustrialShip → грузовики/баржи НЕ дерутся (бегство в `OnAttacked` уже было).
+- онлайн счётчик (`9c4ab952`): `onlineplayers` = клиенты + активные челоботы в космосе + докнутые. Безопасно: `BotMgr::RefreshOnlineCount()` 1 раз/тик на игровом потоке в `std::atomic` поля; API их читает. Также killmail челобота синтезирует фит (High=оружие AttrGfxTurretID, Mid=AB/SSE, Low=DC) — реальных модулей у ботов нет.
+- финал-удар дроном (`d418af65`): `finalShipTypeID`/корпа/альянс = ПИЛОТ (Nyx), оружие = дрон (Cyclops) — в `ShipSE::Killed` и `RecordBotKillMail`.
+- KillDetail+MapData (`ec46ce28`): `KillDetail.xml.aspx?killid=` (полные corp/alliance/регион жертвы+убийцы), `MapData.xml.aspx?systemid=` (системы констелляции+jumps, констелляции региона, координаты x/z).
+- TopKills→solarsystemname (`85e9cc5d`).
+- TopValuables (`4bb81307`): топ киллов по оценке ISK = корпус + фит по `AVG(price)` из mktOrders (общий price-запрос для всех typeID пула).
+- Activity (`920ac542`): Current Activity (distinct chars/corps/alliances/ships/systems/regions) + топ-списки за период.
+- фикс .c_str() (`d0c2e655`).
+
+### Коммиты портала (origin/master evemu-portal)
+- роли CCP (`55b965c`), lowercase+роутинг /kill/{id} и пр., image cache прокси.
+- kill detail (`91b7a50`): через KillDetail (корпы/альянсы/регион), справа SVG-карты System/Constellation/Region (`render_minimap`, точки по x/z, sec-цвет), EFT + Original Killmail + Related Kills.
+- home (`e2ec7c0`): zkillboard — 3 блока по 6 больших карточек (Most Valuable Ships / Structures / Sponsored) с рендером, именем жертвы и `isk_compact()` стоимостью (`57.86b`); сайдбар Current Activity + Top Characters/Corps/Alliances/Ships/Systems; Recent Kills.
+- Админка: аккаунты/бан, петиции, таймкоды, выдача предметов, роли — сделано ранее (auth/admin API), требует донастройки ролей.
+- `img.php` маппинг только evetech/eveonline/zkillboard; kость картинок — curl сначала.
+
+### Челоботы — НЕРЕШЁНО/проверка после пересборки
+- Пересобрать сервер на `d0c2e655`, портал `git pull e2ec7c0`; проверить: главную (карточки+ISK, сайдбар), детальный килл (корпы/альянсы/карты/related), онлайн с челоботами, логин (CCP PasswordHash), киллы челоботов (должны писаться + фит в слотах).
+- "Баржи/грузовики бросаются в самоубийственные атаки" — зафикшено класс 0/урон 0; если всё ещё атакуют после пересборки → включить BOT__TRACE/NPC__AI_TRACE, найти какой путь (assist/флот-саппорт/НПСAI) толкает их в бой.
+- Полная неотличимость челобота (реальные модули-предметы в вреке как лут, а не синтетика в killBlob) — НЕ сделано, по желанию: спавнить модули в корабль + перенос в врек при гибели + чистка при деспавне.
+- Иконки/портреты: evetech и наш image server работают; проверить после ребилда.
 
 ## 2 сентября (вечер): siege fix, turret chgTypeID, LXQ2-T cleanup, character restore, KillMails API
 
