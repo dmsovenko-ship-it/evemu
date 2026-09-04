@@ -150,9 +150,12 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
 
         if (sDatabase.RunQuery(res,
             "SELECT ss.solarSystemID, ss.solarSystemName, ss.security, "
-            "(SELECT COUNT(*) FROM chrCharacters c WHERE c.solarSystemID = ss.solarSystemID) as playerCount, "
-            "(SELECT COUNT(*) FROM entity e WHERE e.locationID = ss.solarSystemID AND e.flag = 0) as shipCount "
+            "COUNT(DISTINCT c.characterID) as playerCount, "
+            "COUNT(DISTINCT e.itemID) as shipCount "
             "FROM mapSolarSystems ss "
+            "LEFT JOIN chrCharacters c ON c.solarSystemID = ss.solarSystemID AND c.characterID < 90000000 "
+            "LEFT JOIN entity e ON e.locationID = ss.solarSystemID AND e.flag = 0 "
+            "GROUP BY ss.solarSystemID, ss.solarSystemName, ss.security "
             "HAVING playerCount > 0 OR shipCount > 0 "
             "ORDER BY playerCount DESC, shipCount DESC LIMIT 50")) {
             DBResultRow row;
