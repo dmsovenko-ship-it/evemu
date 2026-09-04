@@ -815,40 +815,103 @@ void ShipSE::Killed(Damage &fatal_blow) {
             const char* killerShip = sDataMgr.GetTypeName(killer->GetTypeID());
             const char* weaponName = sDataMgr.GetTypeName(data.finalWeaponTypeID);
             std::string victimCorp = sDataMgr.GetOwnerName(victimCorpID);
-            std::string victimAlly = m_allyID ? sDataMgr.GetOwnerName(m_allyID) : "None";
+            std::string victimAlly = m_allyID ? sDataMgr.GetOwnerName(m_allyID) : "";
+            std::string killerCorp = sDataMgr.GetOwnerName(killer->GetCorporationID());
             std::string killerName = (pClient != nullptr) ? pClient->GetName() : sDataMgr.GetOwnerName(killerID);
+
+            // build items list from killBlob
+            std::string itemsList;
+            std::string killBlobStr(data.killBlob);
+            size_t pos = 0;
+            while ((pos = killBlobStr.find("<i ", pos)) != std::string::npos) {
+                size_t end = killBlobStr.find("/>", pos);
+                if (end == std::string::npos) break;
+                std::string item = killBlobStr.substr(pos + 3, end - pos - 3);
+                size_t tPos = item.find("t=");
+                size_t qPos = item.find("q=");
+                if (tPos != std::string::npos) {
+                    uint32 typeID = std::stoul(item.substr(tPos + 2));
+                    uint32 qty = 1;
+                    if (qPos != std::string::npos) qty = std::stoul(item.substr(qPos + 2));
+                    std::string typeName = sDataMgr.GetTypeName(typeID);
+                    if (!typeName.empty() && typeName != "None")
+                        itemsList += typeName + " x " + std::to_string(qty) + "\n";
+                }
+                pos = end + 2;
+            }
+
+            // EVE-style killmail format
+            std::string secStr = std::to_string(m_system->GetSecRating());
+            secStr = secStr.substr(0, secStr.find('.') + 2);
+
+            std::string kmBody;
+            kmBody += "Victim: " + std::string(victimName) + ", Corp: " + victimCorp + "\n";
+            if (!victimAlly.empty() && victimAlly != "None")
+                kmBody += "Alliance: " + victimAlly + "\n";
+            kmBody += "System: " + std::string(m_system->GetName()) + " (" + secStr + ")\n";
+            kmBody += "Damage Taken: " + std::to_string(data.victimDamageTaken) + "\n\n";
+            kmBody += "Final Blow: " + killerName + " flying " + killerShip + "\n";
+            kmBody += "Corp: " + killerCorp + "\n";
+            kmBody += "Damage Done: " + std::to_string(data.finalDamageDone) + "\n\n";
+            kmBody += "Details:\n" + itemsList;
 
             // notify killer
             if (pClient != nullptr) {
                 pClient->SendNotifyMsg("Kill: %s (%s) - %s (%s) - %u damage",
                     victimName, victimShip, pClient->GetName(), killerShip, data.victimDamageTaken);
-                pClient->SelfEveMail("Kill Report",
-                    "Victim: %s\nCorporation: %s\nAlliance: %s\nShip: %s\nSystem: %s\nDamage Taken: %u\n\nFinal Blow: %s\nShip: %s\nWeapon: %s",
-                    victimName, victimCorp.c_str(), victimAlly.c_str(), victimShip,
-                    m_system->GetName(), data.victimDamageTaken,
-                    killerName.c_str(), killerShip, weaponName);
+                pClient->SelfEveMail("Kill Report", kmBody.c_str());
             }
 
             // notify victim
             pPilot->SendNotifyMsg("You were destroyed by %s (%s) with %s - %u damage",
                 killerName.c_str(), killerShip, weaponName, data.victimDamageTaken);
-            pPilot->SelfEveMail("Loss Report",
-                "Victim: %s\nCorporation: %s\nShip: %s\nSystem: %s\nDamage Taken: %u\n\nFinal Blow: %s\nShip: %s\nWeapon: %s",
-                victimName, victimCorp.c_str(), victimShip,
-                m_system->GetName(), data.victimDamageTaken,
-                killerName.c_str(), killerShip, weaponName);
+            pPilot->SelfEveMail("Loss Report", kmBody.c_str());
         }
     } else if (pBot != nullptr) {
         // bot victim — notify killer only
         const char* victimName = pBot->GetName();
         const char* victimShip = sDataMgr.GetTypeName(m_self->typeID());
         const char* killerShip = sDataMgr.GetTypeName(killer->GetTypeID());
-        const char* weaponName = sDataMgr.GetTypeName(data.finalWeaponTypeID);
+        std::string killerCorp = sDataMgr.GetOwnerName(killer->GetCorporationID());
         std::string killerName = (pClient != nullptr) ? pClient->GetName() : sDataMgr.GetOwnerName(killerID);
+
+        // build items list from killBlob
+        std::string itemsList;
+        std::string killBlobStr(data.killBlob);
+        size_t pos = 0;
+        while ((pos = killBlobStr.find("<i ", pos)) != std::string::npos) {
+            size_t end = killBlobStr.find("/>", pos);
+            if (end == std::string::npos) break;
+            std::string item = killBlobStr.substr(pos + 3, end - pos - 3);
+            size_t tPos = item.find("t=");
+            size_t qPos = item.find("q=");
+            if (tPos != std::string::npos) {
+                uint32 typeID = std::stoul(item.substr(tPos + 2));
+                uint32 qty = 1;
+                if (qPos != std::string::npos) qty = std::stoul(item.substr(qPos + 2));
+                std::string typeName = sDataMgr.GetTypeName(typeID);
+                if (!typeName.empty() && typeName != "None")
+                    itemsList += typeName + " x " + std::to_string(qty) + "\n";
+            }
+            pos = end + 2;
+        }
+
+        std::string secStr = std::to_string(m_system->GetSecRating());
+        secStr = secStr.substr(0, secStr.find('.') + 2);
+
+        std::string kmBody;
+        kmBody += "Victim: " + std::string(victimName) + ", Corp: " + sDataMgr.GetOwnerName(pBot->GetCorporationID()) + "\n";
+        kmBody += "System: " + std::string(m_system->GetName()) + " (" + secStr + ")\n";
+        kmBody += "Damage Taken: " + std::to_string(data.victimDamageTaken) + "\n\n";
+        kmBody += "Final Blow: " + killerName + " flying " + killerShip + "\n";
+        kmBody += "Corp: " + killerCorp + "\n";
+        kmBody += "Damage Done: " + std::to_string(data.finalDamageDone) + "\n\n";
+        kmBody += "Details:\n" + itemsList;
 
         if (pClient != nullptr) {
             pClient->SendNotifyMsg("Kill: %s (%s) - %s (%s) - %u damage",
                 victimName, victimShip, pClient->GetName(), killerShip, data.victimDamageTaken);
+            pClient->SelfEveMail("Kill Report", kmBody.c_str());
         }
     }
 
