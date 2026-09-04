@@ -576,5 +576,88 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "KillDetail.xml.aspx") {
+        std::string kid = get("killid");
+        if (kid.empty()) return BuildErrorXML("105", "Missing killID.");
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT k.killID, k.solarSystemID, k.killTime, k.victimDamageTaken, k.finalDamageDone, "
+            "k.victimCharacterID, k.victimCorporationID, k.victimAllianceID, k.victimFactionID, k.victimShipTypeID, "
+            "k.finalCharacterID, k.finalCorporationID, k.finalAllianceID, k.finalFactionID, k.finalShipTypeID, "
+            "k.finalWeaponTypeID, k.finalSecurityStatus, k.moonID, k.killBlob, "
+            "vc.characterName, fc.characterName, "
+            "vcc.corporationName, fcc.corporationName, vcc.tickerName, fcc.tickerName, "
+            "va.allianceName, fa.allianceName, "
+            "iv.typeName, if_.typeName, iw.typeName, "
+            "ss.solarSystemName, ss.security, ss.regionID, ss.constellationID, "
+            "con.constellationName, reg.regionName "
+            "FROM chrKillTable k "
+            "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
+            "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
+            "LEFT JOIN crpCorporation vcc ON vcc.corporationID = k.victimCorporationID "
+            "LEFT JOIN crpCorporation fcc ON fcc.corporationID = k.finalCorporationID "
+            "LEFT JOIN alnAlliance va ON va.allianceID = k.victimAllianceID "
+            "LEFT JOIN alnAlliance fa ON fa.allianceID = k.finalAllianceID "
+            "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
+            "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
+            "LEFT JOIN invTypes iw ON iw.typeID = k.finalWeaponTypeID "
+            "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
+            "LEFT JOIN mapConstellations con ON con.constellationID = ss.constellationID "
+            "LEFT JOIN mapRegions reg ON reg.regionID = ss.regionID "
+            "WHERE k.killID = %u", std::stoul(kid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        DBResultRow row;
+        if (!res.GetRow(row))
+            return BuildErrorXML("1004", "Kill not found.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <row ";
+        xml += "killid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+        xml += " systemid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+        xml += " systemname=\"" + xmlEscape(row.GetText(30)) + "\"";
+        xml += " security=\"" + xmlEscape(row.GetText(31)) + "\"";
+        xml += " regionid=\"" + std::to_string(row.GetUInt(32)) + "\"";
+        xml += " regionname=\"" + xmlEscape(row.GetText(35)) + "\"";
+        xml += " constellationid=\"" + std::to_string(row.GetUInt(33)) + "\"";
+        xml += " constellationname=\"" + xmlEscape(row.GetText(34)) + "\"";
+        xml += " killtime=\"" + std::string(row.GetText(2)) + "\"";
+        xml += " moonid=\"" + std::to_string(row.GetUInt(17)) + "\"";
+
+        xml += " victimid=\"" + std::to_string(row.GetUInt(5)) + "\"";
+        xml += " victimname=\"" + xmlEscape(row.GetText(19)) + "\"";
+        xml += " victimcorpid=\"" + std::to_string(row.GetUInt(6)) + "\"";
+        xml += " victimcorpname=\"" + xmlEscape(row.GetText(21)) + "\"";
+        xml += " victimticker=\"" + xmlEscape(row.GetText(23)) + "\"";
+        xml += " victimallianceid=\"" + std::to_string(row.GetUInt(7)) + "\"";
+        xml += " victimalliancename=\"" + xmlEscape(row.GetText(25)) + "\"";
+        xml += " victimfactionid=\"" + std::to_string(row.GetUInt(8)) + "\"";
+        xml += " victimshiptypeid=\"" + std::to_string(row.GetUInt(9)) + "\"";
+        xml += " victimshipname=\"" + xmlEscape(row.GetText(27)) + "\"";
+        xml += " victimdamagetaken=\"" + std::to_string(row.GetUInt(3)) + "\"";
+
+        xml += " finalid=\"" + std::to_string(row.GetUInt(10)) + "\"";
+        xml += " finalname=\"" + xmlEscape(row.GetText(20)) + "\"";
+        xml += " finalcorpid=\"" + std::to_string(row.GetUInt(11)) + "\"";
+        xml += " finalcorpname=\"" + xmlEscape(row.GetText(22)) + "\"";
+        xml += " finalticker=\"" + xmlEscape(row.GetText(24)) + "\"";
+        xml += " finalallianceid=\"" + std::to_string(row.GetUInt(12)) + "\"";
+        xml += " finalalliancename=\"" + xmlEscape(row.GetText(26)) + "\"";
+        xml += " finalfactionid=\"" + std::to_string(row.GetUInt(13)) + "\"";
+        xml += " finalshiptypeid=\"" + std::to_string(row.GetUInt(14)) + "\"";
+        xml += " finalshipname=\"" + xmlEscape(row.GetText(28)) + "\"";
+        xml += " finalweapontypeid=\"" + std::to_string(row.GetUInt(15)) + "\"";
+        xml += " finalweaponname=\"" + xmlEscape(row.GetText(29)) + "\"";
+        xml += " finalsecstatus=\"" + std::string(row.GetText(16)) + "\"";
+        xml += " finaldamagedone=\"" + std::to_string(row.GetUInt(4)) + "\"";
+
+        const char* blob2 = row.GetText(18);
+        xml += " killblob=\"" + xmlEscape(blob2 ? blob2 : "") + "\"";
+        xml += "/>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }

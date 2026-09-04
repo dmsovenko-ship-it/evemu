@@ -382,5 +382,108 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "MapData.xml.aspx") {
+        auto get2 = [&](const std::string& k) -> std::string {
+            auto it = params.find(k);
+            return it != params.end() ? it->second : "";
+        };
+        std::string sid = get2("systemid");
+        if (sid.empty()) return BuildErrorXML("105", "Missing systemID.");
+        uint32 systemID = std::stoul(sid);
+
+        DBQueryResult res;
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n";
+
+        // current system + its constellation/region
+        if (sDatabase.RunQuery(res,
+            "SELECT ss.solarSystemID, ss.solarSystemName, ss.security, ss.x, ss.z, "
+            "ss.constellationID, ss.regionID, con.constellationName, reg.regionName "
+            "FROM mapSolarSystems ss "
+            "LEFT JOIN mapConstellations con ON con.constellationID = ss.constellationID "
+            "LEFT JOIN mapRegions reg ON reg.regionID = ss.regionID "
+            "WHERE ss.solarSystemID = %u", systemID)) {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                xml += "    <system id=\"" + std::to_string(row.GetUInt(0)) + "\"";
+                xml += " name=\"" + xmlEscape(row.GetText(1)) + "\"";
+                xml += " security=\"" + std::string(row.GetText(2)) + "\"";
+                xml += " x=\"" + std::string(row.GetText(3)) + "\"";
+                xml += " z=\"" + std::string(row.GetText(4)) + "\"";
+                xml += " constellationid=\"" + std::to_string(row.GetUInt(5)) + "\"";
+                xml += " regionid=\"" + std::to_string(row.GetUInt(6)) + "\"";
+                xml += " constellationname=\"" + xmlEscape(row.GetText(7)) + "\"";
+                xml += " regionname=\"" + xmlEscape(row.GetText(8)) + "\"/>\n";
+            }
+        }
+
+        // constellations of the region (for the region map) — centroids x/z
+        uint32 regionID = 0;
+        {
+            DBQueryResult cres;
+            if (sDatabase.RunQuery(cres,
+                "SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u", systemID)) {
+                DBResultRow r0; if (cres.GetRow(r0)) regionID = r0.GetUInt(0);
+            }
+        }
+        if (regionID > 0) {
+            xml += "    <constellations>\n";
+            if (sDatabase.RunQuery(res,
+                "SELECT constellationID, constellationName, x, z FROM mapConstellations WHERE regionID = %u", regionID)) {
+                DBResultRow row;
+                while (res.GetRow(row)) {
+                    xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\"";
+                    xml += " name=\"" + xmlEscape(row.GetText(1)) + "\"";
+                    xml += " x=\"" + std::string(row.GetText(2)) + "\"";
+                    xml += " z=\"" + std::string(row.GetText(3)) + "\"/>\n";
+                }
+            }
+            xml += "    </constellations>\n";
+        }
+
+        // systems of the same constellation (for the constellation / system maps)
+        uint32 constellationID = 0;
+        {
+            DBQueryResult cres;
+            if (sDatabase.RunQuery(cres,
+                "SELECT constellationID FROM mapSolarSystems WHERE solarSystemID = %u", systemID)) {
+                DBResultRow r0; if (cres.GetRow(r0)) constellationID = r0.GetUInt(0);
+            }
+        }
+        if (constellationID > 0) {
+            xml += "    <systems>\n";
+            if (sDatabase.RunQuery(res,
+                "SELECT solarSystemID, solarSystemName, security, x, z "
+                "FROM mapSolarSystems WHERE constellationID = %u", constellationID)) {
+                DBResultRow row;
+                while (res.GetRow(row)) {
+                    xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\"";
+                    xml += " name=\"" + xmlEscape(row.GetText(1)) + "\"";
+                    xml += " security=\"" + std::string(row.GetText(2)) + "\"";
+                    xml += " x=\"" + std::string(row.GetText(3)) + "\"";
+                    xml += " z=\"" + std::string(row.GetText(4)) + "\"/>\n";
+                }
+            }
+            xml += "    </systems>\n";
+
+            // intra-constellation jump lines
+            xml += "    <jumps>\n";
+            if (sDatabase.RunQuery(res,
+                "SELECT fromSolarSystemID, toSolarSystemID FROM mapSolarSystemJumps "
+                "WHERE fromConstellationID = %u AND toConstellationID = %u", constellationID, constellationID)) {
+                DBResultRow row;
+                while (res.GetRow(row)) {
+                    xml += "      <row from=\"" + std::to_string(row.GetUInt(0)) + "\"";
+                    xml += " to=\"" + std::to_string(row.GetUInt(1)) + "\"/>\n";
+                }
+            }
+            xml += "    </jumps>\n";
+        }
+
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
