@@ -1335,7 +1335,7 @@ bool PlayerBot::LevelUpFromPractice()
 // fleet boss (Orca 28606 / Rorqual 28352 — Industrial Command Ship / Capital
 // Industrial) of the same corp mines faster, as if the boss ran mining foreman
 // links. Returns a yield multiplier: 1.0 alone, up to ~1.3 with a boss close.
-float PlayerBot::GetFleetMiningBoost() const
+float PlayerBot::GetFleetMiningBoost()
 {
     if (SystemMgr() == nullptr)
         return 1.0f;

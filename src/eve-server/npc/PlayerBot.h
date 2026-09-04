@@ -137,7 +137,7 @@ public:
     void SetFleetBoss(bool b)           { m_fleetBoss = b; }
     // Mining-yield multiplier from a friendly fleet boss (Orca/Rorqual) within
     // ~80 km of the same corp — the "mining foreman / industrial core" boost.
-    float GetFleetMiningBoost() const;
+    float GetFleetMiningBoost();
     // Behaviour when the current system has NO station (a pirate/wormhole system,
     // or a waypoint on a route to a hub). Without a station the bot cannot dock,
     // so it does something plausible instead of standing at the gate forever.
