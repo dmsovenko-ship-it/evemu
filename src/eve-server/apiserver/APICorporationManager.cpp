@@ -51,24 +51,24 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
         xml += "  <result>\n    <kills>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
-            xml += "      <row killID=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " solarSystemID=\"" + std::to_string(row.GetUInt(1)) + "\"";
-            xml += " victimCharacterID=\"" + std::to_string(row.GetUInt(2)) + "\"";
-            xml += " victimCorporationID=\"" + std::to_string(row.GetUInt(3)) + "\"";
-            xml += " victimAllianceID=\"" + std::to_string(row.GetInt(4)) + "\"";
-            xml += " victimFactionID=\"" + std::to_string(row.GetUInt(5)) + "\"";
-            xml += " victimShipTypeID=\"" + std::to_string(row.GetUInt(6)) + "\"";
-            xml += " victimDamageTaken=\"" + std::to_string(row.GetUInt(7)) + "\"";
-            xml += " finalCharacterID=\"" + std::to_string(row.GetUInt(8)) + "\"";
-            xml += " finalCorporationID=\"" + std::to_string(row.GetUInt(9)) + "\"";
-            xml += " finalAllianceID=\"" + std::to_string(row.GetInt(10)) + "\"";
-            xml += " finalFactionID=\"" + std::to_string(row.GetUInt(11)) + "\"";
-            xml += " finalShipTypeID=\"" + std::to_string(row.GetUInt(12)) + "\"";
-            xml += " finalWeaponTypeID=\"" + std::to_string(row.GetUInt(13)) + "\"";
-            xml += " finalSecurityStatus=\"" + std::string(row.GetText(14)) + "\"";
-            xml += " finalDamageDone=\"" + std::to_string(row.GetUInt(15)) + "\"";
-            xml += " killTime=\"" + std::string(row.GetText(16)) + "\"";
-            xml += " moonID=\"" + std::to_string(row.GetUInt(17)) + "\"/>\n";
+            xml += "      <row killid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " solarsystemid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " victimcharacterid=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " victimcorporationid=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " victimallianceid=\"" + std::to_string(row.GetInt(4)) + "\"";
+            xml += " victimfactionid=\"" + std::to_string(row.GetUInt(5)) + "\"";
+            xml += " victimshiptypeid=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " victimdamagetaken=\"" + std::to_string(row.GetUInt(7)) + "\"";
+            xml += " finalcharacterid=\"" + std::to_string(row.GetUInt(8)) + "\"";
+            xml += " finalcorporationid=\"" + std::to_string(row.GetUInt(9)) + "\"";
+            xml += " finalallianceid=\"" + std::to_string(row.GetInt(10)) + "\"";
+            xml += " finalfactionid=\"" + std::to_string(row.GetUInt(11)) + "\"";
+            xml += " finalshiptypeid=\"" + std::to_string(row.GetUInt(12)) + "\"";
+            xml += " finalweapontypeid=\"" + std::to_string(row.GetUInt(13)) + "\"";
+            xml += " finalsecuritystatus=\"" + std::string(row.GetText(14)) + "\"";
+            xml += " finaldamagedone=\"" + std::to_string(row.GetUInt(15)) + "\"";
+            xml += " killtime=\"" + std::string(row.GetText(16)) + "\"";
+            xml += " moonid=\"" + std::to_string(row.GetUInt(17)) + "\"/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
         return xml;
@@ -91,16 +91,16 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
         xml += "  <result>\n    <rows>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
-            xml += "      <row characterID=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += "      <row characterid=\"" + std::to_string(row.GetUInt(0)) + "\"";
             xml += " name=\"" + xmlEscape(row.GetText(1)) + "\"";
-            xml += " shipTypeID=\"" + std::to_string(row.GetUInt(2)) + "\"";
-            xml += " solarSystemID=\"" + std::to_string(row.GetUInt(3)) + "\"";
-            xml += " logonDateTime=\"" + Win32TimeToString(row.GetInt64(4)) + "\"";
-            xml += " logoffDateTime=\"" + Win32TimeToString(row.GetInt64(5)) + "\"";
-            xml += " logonMinutes=\"" + std::to_string(row.GetUInt(6)) + "\"";
-            xml += " skillPoints=\"" + std::to_string(row.GetUInt(7)) + "\"";
+            xml += " shiptypeid=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " solarsystemid=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " logondatetime=\"" + Win32TimeToString(row.GetInt64(4)) + "\"";
+            xml += " logoffdatetime=\"" + Win32TimeToString(row.GetInt64(5)) + "\"";
+            xml += " logonminutes=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " skillpoints=\"" + std::to_string(row.GetUInt(7)) + "\"";
             xml += " online=\"" + std::string(row.GetBool(8) ? "True" : "False") + "\"";
-            xml += " allianceID=\"" + std::to_string(row.GetInt(9)) + "\"/>\n";
+            xml += " allianceid=\"" + std::to_string(row.GetInt(9)) + "\"/>\n";
         }
         xml += "    </rows>\n  </result>\n</eveapi>\n";
         return xml;
