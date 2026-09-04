@@ -841,7 +841,7 @@ void ShipSE::Killed(Damage &fatal_blow) {
             }
 
             // EVE-style killmail format
-            std::string secStr = std::to_string(m_system->GetSecRating());
+            std::string secStr = std::to_string(m_system->GetSystemSecurityRating());
             secStr = secStr.substr(0, secStr.find('.') + 2);
 
             std::string kmBody;
@@ -896,7 +896,7 @@ void ShipSE::Killed(Damage &fatal_blow) {
             pos = end + 2;
         }
 
-        std::string secStr = std::to_string(m_system->GetSecRating());
+        std::string secStr = std::to_string(m_system->GetSystemSecurityRating());
         secStr = secStr.substr(0, secStr.find('.') + 2);
 
         std::string kmBody;
