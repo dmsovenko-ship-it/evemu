@@ -2,6 +2,8 @@
 #include "EntityList.h"
 #include "apiserver/APIServerManager.h"
 
+#define EVEMU_API_VERSION "2.0.0"
+
 static std::string xmlEscape(const char* s) {
     if (!s) return "";
     std::string out;
@@ -42,6 +44,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         xml += "  <result>\n";
         xml += "    <serverOnline>1</serverOnline>\n";
         xml += "    <serverVersion>EVEmu Crucible</serverVersion>\n";
+        xml += "    <apiVersion>" EVEMU_API_VERSION "</apiVersion>\n";
         xml += "    <onlinePlayers>" + std::to_string(sEntityList.GetClientCount()) + "</onlinePlayers>\n";
         xml += "    <accountCount>" + std::to_string(accountCount) + "</accountCount>\n";
         xml += "    <characterCount>" + std::to_string(charCount) + "</characterCount>\n";
