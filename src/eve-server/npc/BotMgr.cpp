@@ -13,6 +13,7 @@
 #include "chat/LSCService.h"
 #include "chat/LSCChannel.h"
 #include "services/ServiceManager.h"
+#include "account/AccountService.h"
 #include "market/MarketMgr.h"
 #include "market/MarketDB.h"
 #include <cctype>
@@ -1016,6 +1017,10 @@ void BotMgr::ProcessTravel()
             SystemManager* dest = sEntityList.FindOrBootSystem(destSystem);
             if (dest != nullptr)
                 SpawnBot(dest, charID, name, corp, ally, true);   // arrived via gate → jump-in animation
+
+            // A courier that just crossed into its contract's destination system
+            // delivers the cargo and collects the reward (client-less).
+            CompleteContract(charID, destSystem);
         }
     }
 }
@@ -2114,6 +2119,98 @@ void BotMgr::ProcessPlayerContracts()
                 // freighter/courier completes the run), not at acceptance.
             }
         }
+    }
+}
+
+// A courier bot that has reached the destination system completes the courier
+// contracts it accepted: the cargo (ctrItems) is moved to the issuer's hangar
+// at the end station and the reward is paid from the issuer to the courier.
+// Mirrors what ContractProxy::CompleteContract does for a player courier, but
+// runs client-less (the courier is an offline character, so ISK uses the
+// offline wallet path and items are moved straight in the DB).
+void BotMgr::CompleteContract(uint32 charID, uint32 destSystem)
+{
+    if (charID == 0 || destSystem == 0)
+        return;
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT contractId, endStationID, reward"
+        " FROM ctrContracts"
+        " WHERE contractType = 3"        // courier
+        "   AND status = 1"              // accepted, in progress
+        "   AND acceptorID = %u"         // this courier is hauling it
+        "   AND endSolarSystemID = %u"   // and it just reached the destination system
+        "   AND dateCompleted = 0",
+        charID, destSystem))
+    {
+        return;
+    }
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 contractID  = row.GetUInt(0);
+        uint32 endStation   = row.GetUInt(1);
+        int64  reward       = row.GetInt64(2);
+
+        // Who issued the contract — their hangar at the end station receives
+        // the delivered goods (use the corp's office hangar for corp contracts).
+        DBQueryResult ires;
+        uint32 issuerID = 0;
+        if (sDatabase.RunQuery(ires,
+            "SELECT issuerID, issuerCorpID, forCorp FROM ctrContracts WHERE contractId = %u", contractID))
+        {
+            DBResultRow irow;
+            if (ires.GetRow(irow)) {
+                issuerID = irow.GetUInt(0);
+                bool forCorp = irow.GetBool(2);
+                if (forCorp && irow.GetUInt(1) != 0)
+                    issuerID = irow.GetUInt(1);
+            }
+        }
+        if (issuerID == 0)
+            continue;
+
+        // Deliver the cargo: any physical items locked in the contract move to
+        // the issuer's hangar at the end station. (Bot courier contracts have no
+        // ctrItems — real volume only exists for player courier contracts.)
+        std::vector<uint32> cargo;
+        DBQueryResult itres;
+        if (sDatabase.RunQuery(itres, "SELECT itemID FROM ctrItems WHERE contractId = %u AND itemID != 0", contractID)) {
+            DBResultRow itrow;
+            while (itres.GetRow(itrow))
+                cargo.push_back(itrow.GetUInt(0));
+        }
+        EVEItemFlags destFlag = flagHangar;
+        for (uint32 itemID : cargo) {
+            InventoryItemRef itm = sItemFactory.GetItemRef(itemID);
+            if (itm.get() == nullptr)
+                continue;
+            // Contract items were parked on the issuer (owner 1 / limbo) while
+            // the courier hauled them; hand them to the issuer at the destination.
+            itm->ChangeOwner(issuerID, true);
+            itm->Move(endStation, destFlag, true);
+        }
+
+        // Pay the courier the reward from the issuer's wallet.
+        if (reward > 0) {
+            std::string reason = "Reward for courier contract";
+            AccountService::TransferFunds(issuerID, charID, (double)reward, reason.c_str(),
+                Journal::EntryType::ContractReward, contractID,
+                Account::KeyType::Cash, Account::KeyType::Cash);
+        }
+
+        DBerror err;
+        if (!sDatabase.RunQuery(err,
+            "UPDATE ctrContracts SET status = 4, dateCompleted = %lli WHERE contractId = %u",
+            (int64)GetFileTimeNow(), contractID))
+        {
+            codelog(DATABASE__ERROR, "CompleteContract() failed to finish %u: %s", contractID, err.c_str());
+            continue;
+        }
+
+        _log(BOT__MESSAGE, "BotMgr: courier %u delivered contract %u (%zu items) to station %u, +%.0f ISK reward.",
+             charID, contractID, cargo.size(), endStation, (double)reward);
     }
 }
 

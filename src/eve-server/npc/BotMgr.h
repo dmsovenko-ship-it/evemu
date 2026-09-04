@@ -125,6 +125,7 @@ private:
     // it is: after profits it quotes tight and chases volume; after losses it
     // widens its required margin and trades less.
     // sysID/stationID = where the bot is docked; db carries its char/corp/prof.
+    struct DockedBot;   // full definition below (member methods take it by ref)
     void ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const DockedBot& db);
     // A courier reached the destination system — complete its accepted contract
     // (reward ISK + cargo placed at the destination station).
