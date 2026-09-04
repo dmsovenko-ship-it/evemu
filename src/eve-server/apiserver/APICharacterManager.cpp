@@ -663,6 +663,30 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
 
         const char* blob2 = row.GetText(18);
         xml += " killblob=\"" + xmlEscape(blob2 ? blob2 : "") + "\"";
+
+        // victim ship slot counts (for the fitting-window style fit schematic on the portal)
+        uint32 vShipTypeID = row.GetUInt(9);
+        {
+            DBQueryResult sRes;
+            if (sDatabase.RunQuery(sRes,
+                "SELECT "
+                "  (SELECT valueInt FROM dgmTypeAttributes WHERE typeID = %u AND attributeID = 14), "   // hiSlots
+                "  (SELECT valueInt FROM dgmTypeAttributes WHERE typeID = %u AND attributeID = 13), "   // medSlots
+                "  (SELECT valueInt FROM dgmTypeAttributes WHERE typeID = %u AND attributeID = 12), "   // lowSlots
+                "  (SELECT valueInt FROM dgmTypeAttributes WHERE typeID = %u AND attributeID = 1137), " // rigSlots
+                "  (SELECT valueInt FROM dgmTypeAttributes WHERE typeID = %u AND attributeID = 1366) ", // subSystemSlot
+                vShipTypeID, vShipTypeID, vShipTypeID, vShipTypeID, vShipTypeID)) {
+                DBResultRow sRow;
+                if (sRes.GetRow(sRow)) {
+                    xml += " hipslots=\"" + std::to_string(sRow.GetInt(0)) + "\"";
+                    xml += " midslots=\"" + std::to_string(sRow.GetInt(1)) + "\"";
+                    xml += " lowslots=\"" + std::to_string(sRow.GetInt(2)) + "\"";
+                    xml += " rigslots=\"" + std::to_string(sRow.GetInt(3)) + "\"";
+                    xml += " subslots=\"" + std::to_string(sRow.GetInt(4)) + "\"";
+                }
+            }
+        }
+
         xml += "/>\n  </result>\n</eveapi>\n";
         return xml;
     }
