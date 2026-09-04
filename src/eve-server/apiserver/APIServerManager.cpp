@@ -505,21 +505,28 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         {
             DBQueryResult res;
             uint32 total = 0, chars = 0, corps = 0, allies = 0, ships = 0, systems = 0, regions = 0;
-            sDatabase.RunQuery(res, "SELECT COUNT(*) FROM chrKillTable k WHERE " + where);
+            std::string q;
+            q = "SELECT COUNT(*) FROM chrKillTable k WHERE " + where;
+            sDatabase.RunQuery(res, q.c_str());
             { DBResultRow r; if (res.GetRow(r)) total = r.GetUInt(0); }
-            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.finalCharacterID) FROM chrKillTable k WHERE " + where + " AND k.finalCharacterID > 0");
+            q = "SELECT COUNT(DISTINCT k.finalCharacterID) FROM chrKillTable k WHERE " + where + " AND k.finalCharacterID > 0";
+            sDatabase.RunQuery(res, q.c_str());
             { DBResultRow r; if (res.GetRow(r)) chars = r.GetUInt(0); }
-            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.finalCorporationID) FROM chrKillTable k WHERE " + where + " AND k.finalCorporationID > 0");
+            q = "SELECT COUNT(DISTINCT k.finalCorporationID) FROM chrKillTable k WHERE " + where + " AND k.finalCorporationID > 0";
+            sDatabase.RunQuery(res, q.c_str());
             { DBResultRow r; if (res.GetRow(r)) corps = r.GetUInt(0); }
-            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.finalAllianceID) FROM chrKillTable k WHERE " + where + " AND k.finalAllianceID > 0");
+            q = "SELECT COUNT(DISTINCT k.finalAllianceID) FROM chrKillTable k WHERE " + where + " AND k.finalAllianceID > 0";
+            sDatabase.RunQuery(res, q.c_str());
             { DBResultRow r; if (res.GetRow(r)) allies = r.GetUInt(0); }
-            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.victimShipTypeID) FROM chrKillTable k WHERE " + where + " AND k.victimShipTypeID > 0");
+            q = "SELECT COUNT(DISTINCT k.victimShipTypeID) FROM chrKillTable k WHERE " + where + " AND k.victimShipTypeID > 0";
+            sDatabase.RunQuery(res, q.c_str());
             { DBResultRow r; if (res.GetRow(r)) ships = r.GetUInt(0); }
-            sDatabase.RunQuery(res, "SELECT COUNT(DISTINCT k.solarSystemID) FROM chrKillTable k WHERE " + where + " AND k.solarSystemID > 0");
+            q = "SELECT COUNT(DISTINCT k.solarSystemID) FROM chrKillTable k WHERE " + where + " AND k.solarSystemID > 0";
+            sDatabase.RunQuery(res, q.c_str());
             { DBResultRow r; if (res.GetRow(r)) systems = r.GetUInt(0); }
-            sDatabase.RunQuery(res,
-                "SELECT COUNT(DISTINCT ss.regionID) FROM chrKillTable k "
-                "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID WHERE " + where + " AND ss.regionID > 0");
+            q = "SELECT COUNT(DISTINCT ss.regionID) FROM chrKillTable k "
+                "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID WHERE " + where + " AND ss.regionID > 0";
+            sDatabase.RunQuery(res, q.c_str());
             { DBResultRow r; if (res.GetRow(r)) regions = r.GetUInt(0); }
             xml += "    <summary total=\"" + std::to_string(total) + "\"";
             xml += " characters=\"" + std::to_string(chars) + "\"";
@@ -594,7 +601,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         std::vector<RowV> pool;
         {
             DBQueryResult res;
-            if (sDatabase.RunQuery(res,
+            std::string poolQ =
                 "SELECT k.killID, k.solarSystemID, k.victimCharacterID, k.victimShipTypeID, "
                 "k.victimDamageTaken, k.killTime, k.killBlob, k.finalCharacterID, "
                 "vc.characterName, fc.characterName, iv.typeName, iv.groupID, "
@@ -606,7 +613,8 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 "LEFT JOIN invGroups ig ON ig.groupID = iv.groupID "
                 "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
                 "WHERE (k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL " + std::to_string(days) + " DAY)) "
-                "ORDER BY k.victimDamageTaken DESC LIMIT 400")) {
+                "ORDER BY k.victimDamageTaken DESC LIMIT 400";
+            if (sDatabase.RunQuery(res, poolQ.c_str())) {
                 DBResultRow row;
                 while (res.GetRow(row)) {
                     RowV r;
