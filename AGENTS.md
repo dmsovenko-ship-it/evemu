@@ -3,17 +3,40 @@
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) и портал — см. свежие коммиты; портал можно дёргать с сервера эмулятора `curl http://172.20.1.49/...`, SSH на портал `172.20.1.49` (dmitry/gbnjy78), сайт `/var/www/html`.
 
-## 5 сентября (вторая половина): Этап 1 экономики СДЕЛАН (коммиты `bdcd15b1`, `0439027d`, `bb5a4935`) — ЖДЁТ пересборки/проверки
-- `bdcd15b1`: фикс сборки `hullType` (declared before botMemory use в SpawnBot) + `PlaceBotCourierContractAt` теперь вставляет `startStationDivision` (колонка NOT NULL без дефолта → #1364).
-- `0439027d`: миграции `20260905000000/05000001` (shipTypeID, индексы ActiveSystems) применены вручную ранее → в `migrations` их нет → EVEDBTool пере-применял и падал #1060. Сделаны идемпотентными (`ADD COLUMN IF NOT EXISTS`/`ADD INDEX IF NOT EXISTS`).
-- `bb5a4935` (Этап 1): трейдеры-боты **реально двигают рынок** с самообучением:
-  - `MarketMgr::BotArbitrageFill(botCharID, stationID, typeID, askOrderID, bidOrderID, qty)` — без-клиентное исполнение пары resting sell+buy как одной сделки: бот покупает у ask-владельца (деньги оффлайн → chrCharacters.balance), товар минтуется ему в ангар и передаётся владельцу bid, escrow станции платит боту; оба ордера списываются/закрываются, пишутся настоящие mktTransactions (2 зеркальные пары). Skills через `CharacterDB::GetSkillLevel`, ISK через `AccountDB` (OfflineFundXfer), balance-check ДО сделки (не уходит в минус). Никогда не торгует с собой.
-  - `BotMgr::ProcessDockedTraderEconomy(sysID, stationID, DockedBot)` — раз в 4-10 мин трейдер читает книгу своей станции: если есть пересечение чужих ордеров (bestBid > bestAsk сверх margin, зависящего от уверенности) → арбитраж; иначе квотит лучше текущих best bid/ask (маркет-мейкинг) с якорем fair value = midpoint живой книги или `invTypes.basePrice` (обновляется `import_prices.py` с ESI — «подыгрываем ботам реальными ценами»). Старые квоты бота на станции/типе удаляются перед ре-квотой (не стакаются). Buy-квота проверяет баланс (есть чем обеспечить escrow).
-  - `BotMemory`: `tradeProfit`/`tradeLosses` + `GetTradeConfidence()` (-1..1). Каждая сделка кормит память; уверенность гейтит жадность: после прибылей квотит узко и много, после убытков требует более широкий спред.
-  - `DockedBot` хранит `stationID` (заполняется при доке).
-  - Миграция `20260905000002-bot_memory_trade_learning.sql` (идемпотентная, ALTER botMemory ADD tradeProfit BIGINT/tradeLosses INT).
-- ⚠️ `PlaceBotOrderAt/PlaceBotBuyOrderAt` остались только для производителей (Miner/Hacker/Explorer 20%) и legacy PlayerBot*-обёрток (не вызываются). Трейдеры больше НЕ кидают случайные ордера.
-- **ЖДЁТ пересборки + проверки**: git pull на `bb5a4935`; смотреть `MARKET__MESSAGE` в логе (`BotArbitrageFill - bot N arbitraged...`), `mktTransactions` на рост от сделок ботов, живые спреды в окне маркета, боты не уходят в минус. Дальше — этап 2 (межстанционные перевозки/курьерки).
+## 5 сентября: экономика челоботов + этап 2 «физический товар» — СДЕЛАНО И ПРОВЕРЕНО
+Сервер пересобран на `57c13750` (22:17) и работает; игрок Vugl в игре.
+
+### Этап 1 (рынок): коммиты `bb5a4935`, `0439027d`, `bdcd15b1`
+- `MarketMgr::BotArbitrageFill(botCharID, stationID, typeID, askOrderID, bidOrderID, qty)` — без-клиентное исполнение пары resting sell+buy как одной сделки: бот покупает у ask-владельца (деньги оффлайн → chrCharacters.balance), товар минтуется ему в ангар и передаётся владельцу bid, escrow станции платит боту; оба ордера списываются/закрываются, пишутся настоящие mktTransactions. Skills через `CharacterDB::GetSkillLevel`, balance-check ДО сделки, никогда не торгует с собой.
+- `BotMgr::ProcessDockedTraderEconomy(sysID, stationID, DockedBot)` — раз в 4-10 мин трейдер читает книгу своей станции: пересечение чужих ордеров (bestBid>bestAsk сверх confidence-маржа) → арбитраж; иначе маркет-мейкинг (квотит лучше best bid/ask) с якорем fair = midpoint книги или `invTypes.basePrice` (import_prices.py тянет медиану с ESI). Старые квоты бота на станции/типе снимаются перед ре-квотой. Buy-квота проверяет баланс.
+- `BotMemory`: `tradeProfit/tradeLosses` + `GetTradeConfidence()` (-1..1); уверенность гейтит жадность. `DockedBot` хранит `stationID`. Миграция `20260905000002`.
+- ⚠️ `PlaceBotOrderAt/PlaceBotBuyOrderAt` — только производители (Miner/Hacker/Explorer 20%) + legacy. Трейдеры рандомные ордера больше НЕ кидают.
+
+### Этап 2 (физический товар целиком): коммиты `df9bca7a`, `2898722c`, `c53c92f6`, `7627f012`
+Юзер выбрал максимальный масштаб: майнеры/раттеры реально производят товар, он едет курьерками в Джиту, продаётся там.
+- `df9bca7a` **прокачка скиллов**: `botMemory.skillLevel` (0..5, 0xFF=unset) + `GetPractice()`/`PracticeForNextLevel` (4/10/22/46/95) + `PlayerBot::LevelUpFromPractice()` (на каждый profession run / выживший бой) → `CharacterDB::TrainBotToSkillLevel()` тренирует реальные skill-айтмы в БД. SpawnBot читает skillLevel из botMemory (раньше m_botSkill был захардкожен =3 в ctor и никогда не читался из БД; skillTier при респавне роллился заново). Миграция `20260905000003`. Также PlayerBot::AddCargo/DepositCargoAtStation + m_cargo.
+- `2898722c` **минеры добывают реальную руду**: в Miner-кейсе бот летит к астероиду, в <4 км «копает» strip-цикл — тип руды астероида в m_cargo (объём цикла от m_botSkill, hold ~15k м³); при доке `DepositCargoAtStation` материализует трюм как реальные entity в ангар станции (owner=бот).
+- `c53c92f6` **раттеры сальважат свои вреки**: после победы `SalvageMyWrecks()` — находит вреки owner=свой корпус, забирает реальный лут (который DropLoot уже положил) в m_cargo, добавляет salvage-материалы (группа 754, 25588-25605), удаляет врек. Hold≥10k м³ → док.
+- `7627f012` **упаковка реального склада в курьерки**: `PlaceStockCourierContractAt(sysID, stationID, charID, corpID)` — читает реальный склад бота (ownerID=charID, flagHangar, не singleton), грузит до 15k м³/6 типов, назначение = хаб (Jita), создаёт courier-контракт, реальные предметы замораживаются (ChangeOwner(1)) + пишутся в `ctrItems`. `ProcessDockedEconomy`: производители (Miner/RatHunter/Hacker/Explorer) и трейдеры шипят банк в хаб; трейдер при отсутствии реального груза — fallback на виртуальную курьерку. `CompleteContract` (561e0ca5) доставляет ctrItems в ангар issuer'а на конечной станции → товар физически едет между станциями.
+- Ранее: `561e0ca5` courier `CompleteContract` (был объявлен-не-реализован) + forward-declare DockedBot; `21878084` видимость бот-курьерок в публичном поиске (джойны по item только при фильтре по содержимому).
+
+### После `7627f012` (закрывают ISK-цикл + портал): коммиты `1e8a3020`, `5f0d4638`, `57c13750`, `f62e408f`
+- `1e8a3020` **продажа реального склада в Джите**: `MarketMgr::SellStockIntoBuyOrder(botCharID, orderID, iRef, qty, stationID, typeID)` — без-клиентное зеркало ExecuteBuyOrder (оффлайн-продавец): товар из ангара бота уходит владельцу buy-ордера, escrow/покупатель платит боту (offline wallet), налог по Accounting, 2 mktTransactions. `BotMgr::SellStockAtHub(sysID, stationID, charID)` — бот, docked в торговом хабе, продаёт каждый тип своего склада в лучший (по цене) resting buy-ордер. `ProcessDockedEconomy`: у хаба → продажа, не у хаба → упаковка в курьерку. **ISK-цикл замкнут**.
+- `5f0d4638` **флот-майнинг (гайд mmocenter)**: опытный майнер (skillTier≥3, 20%) спавнится флагманом на **Orca 28606** (империя) / **Rorqual 28352** (нули); `PlayerBot::IsFleetBoss/SetFleetBoss`; `GetFleetMiningBoost()` — баржа своего корпа в ~80 км от флагмана копает ×1.3 (mining foreman / industrial core эффект). cycleVol *= boost.
+- `57c13750` фикс сборки: GetFleetMiningBoost не const (звал неконстантные SystemMgr()/GetPosition()).
+- `f62e408f` **API CourierContracts.xml.aspx**: публичные courier-контракты (contractType=3, status=0, isPrivate=0) — contractid, fromstation/fromsystem, tostation/tosystem, volume, reward, issuer, itemcount + units (реальный груз из ctrItems/entity). Параметры limit/fromsystem/tosystem. Все атрибуты lowercase.
+
+### ПРОВЕРЕНО на сервере (22:17, `57c13750`)
+- Сервер стартует чисто, Vugl логинится. Арбитраж работает: на хабе 60001624 боты реально сводят сделки (Megacyte 40: 101.11 → 709.36, Damage Control II 2048: 103.29 → 715.62; двухуровневый спред между 3+ ботами). mktTransactions=234+ растёт. 17 ботов уже имеют tradeProfit (+3.8M ISK суммарно). Физический товар копится в ангарах: у ботов на 60001624 минералы (Trit 550/Nocx 633/Zyd 279/Megacyte 799). Курьерка живая: бот wy yang выставил Uemon→Jita (3608 м³, 194k ISK) — видна через API/портал.
+- ⚠️ Включил в log.ini (на сервере, `/opt/evemu/config/log.ini`): `BOT__ERROR=1`, `BOT__MESSAGE=1`, `MARKET__MESSAGE=1` — иначе новые `_log(BOT__MESSAGE/MARKET__MESSAGE)` не пишутся (был ERROR-only). Дубль MARKET__MESSAGE в конце файла безвреден. Применится после рестарта сервера.
+
+### Дальше (по плану юзера, не сделано / на завтра днём — «доделать остальные профы»)
+- Доделать остальные профессии (юзер: «Днём пройдём доделаем остальные профы») — хакеры/эксплореры пока не производят реальный лут с сайтов (в отличие от майнеров/раттеров); проверить Hacker/Explorer/Courier активность и замкнуть их товар-цепочку.
+- Флот-майнинг доделать: охрана у флагмана (guards у Orca), проверка ×1.3 буста на живом сервере.
+- Портал: `/haul` страница курьерок уже задеплоена (nginx :80 отдаёт 200) — проверить снаружи через video.iks-online.net:26006, добавить при желании фильтры/детали.
+- Понаблюдать: курьеры довозят груз в Джиту и товар продаётся (SellStockAtHub), прокачка skillLevel у активных ботов.
+
+
 
 ## 5 сентября: экономика челоботов (шевеление рынка) — дизайн/этапы
 Юзер хочет полноценную живую экономику: трейдеры-боты **двигают рынок** (не мёртвые случайные ордера), с **самообучением** на прибыли/убытке; движение товара порождает спрос на **перевозку** → боты-курьеры и люди возят грузы между станциями, **курьерки на общем рынке**.
