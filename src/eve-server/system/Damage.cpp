@@ -723,38 +723,60 @@ void ShipSE::Killed(Damage &fatal_blow) {
                 d = item.qtyDropped
                 x = item.qtyDestroyed
         */
+
+        // get ALL items belonging to this ship (fitted modules + cargo + drones)
+        uint32 shipItemID = GetShipItemRef()->itemID();
+        DBQueryResult itemRes;
+        if (sDatabase.RunQuery(itemRes,
+            "SELECT typeID, flag, quantity, singleton FROM entity WHERE locationID = %u", shipItemID))
+        {
+            DBResultRow irow;
+            while (itemRes.GetRow(irow)) {
+                uint32 typeID = irow.GetUInt(0);
+                uint32 flag = irow.GetUInt(1);
+                uint32 qty = irow.GetUInt(2);
+                uint32 singleton = irow.GetUInt(3);
+
+                // 50% drop chance for cargo, rigs don't survive
+                uint32 d = 0, x = qty;
+                if (IsRigSlot(flag) || IsSubSystem(flag)) {
+                    // rigs/subsystems destroyed
+                } else if (IsEven(MakeRandomInt(0, 100))) {
+                    // item survived — split qty between dropped/destroyed
+                    if (qty > 1) {
+                        d = MakeRandomInt(0, qty);
+                        x = qty - d;
+                    }
+                }
+
+                blob << "<i t=" << typeID << " f=" << flag << " q=" << qty << " s=" << singleton << " d=" << d << " x=" << x << "/>";
+            }
+        }
+
+        // also add any items from in-memory inventory (catch-all)
         std::map<uint32, InventoryItemRef> deadShipInventory;
         deadShipInventory.clear();
         GetShipItemRef()->GetMyInventory()->GetInventoryMap(deadShipInventory);
-        if (deadShipInventory.empty()) {
-            blob << "<i t=" << data.victimShipTypeID << " f=0 q=1 s=1 d=0 x=1/>";
-        } else {
-            uint32 s = 0, d = 0, x = 0, q = 0;
-            for (auto cur : deadShipInventory) {
-                d = 0;
-                q = x = cur.second->quantity();
-                s = (cur.second->isSingleton() ? 1 : 0);
-                if (cur.second->categoryID() == EVEDB::invCategories::Blueprint) {
-                    // singleton for bpo = 1, bpc = 2.
-                    BlueprintRef bpRef = BlueprintRef::StaticCast(cur.second);
-                    s = (bpRef->copy() ? 2 : s);
-                }
-
-                blob << "<i t=" << cur.second->typeID() << " f=" << cur.second->flag() << " q=" << q << " s=" << s ;
-                // all contained items have 50% chance of drop, except rigs and subsystems, which do not survive
-                if (IsRigSlot(cur.second->flag()) || IsSubSystem(cur.second->flag())) {
-                    /* just avoiding survive check */;
-                } else if (IsEven(MakeRandomInt(0, 100))) {
-                    // item survived.  check qty for drop
-                    if (x > 1) {
-                        d = MakeRandomInt(0, x);
-                        x -= d;
-                    }
-                    // move item to vector for insertion into wreck later on
-                    survivedItems.push_back(cur.second);
-                }
-                blob << " d=" << d << " x=" << x << "/>";
+        for (auto cur : deadShipInventory) {
+            // skip if already added from DB query (check by typeID+flag)
+            // just add all — duplicates will be handled client-side
+            uint32 d = 0, x = cur.second->quantity();
+            uint32 s = (cur.second->isSingleton() ? 1 : 0);
+            if (cur.second->categoryID() == EVEDB::invCategories::Blueprint) {
+                BlueprintRef bpRef = BlueprintRef::StaticCast(cur.second);
+                s = (bpRef->copy() ? 2 : s);
             }
+            if (IsRigSlot(cur.second->flag()) || IsSubSystem(cur.second->flag())) {
+                // rigs destroyed
+            } else if (IsEven(MakeRandomInt(0, 100))) {
+                if (x > 1) { d = MakeRandomInt(0, x); x -= d; }
+            }
+            blob << "<i t=" << cur.second->typeID() << " f=" << cur.second->flag() << " q=" << cur.second->quantity() << " s=" << s << " d=" << d << " x=" << x << "/>";
+        }
+
+        if (deadShipInventory.empty()) {
+            // fallback if nothing found
+            blob << "<i t=" << data.victimShipTypeID << " f=0 q=1 s=1 d=0 x=1/>";
         }
         blob << "</items>";
     }
