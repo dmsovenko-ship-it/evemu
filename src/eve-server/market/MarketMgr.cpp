@@ -791,6 +791,238 @@ void MarketMgr::ExecuteSellOrder(Client* buyer, uint32 orderID, uint32 sellQuant
     }
 }
 
+// A docked trader bot acts as a market maker: it buys from a resting sell order
+// (ask) and sells the same volume into a resting buy order (bid) for the same
+// type at the same station, capturing the spread. Both orders are real player /
+// bot orders, so the deal shrinks the book (real volume) and records two real
+// mktTransactions (the market actually moves — price discovery, not decoration).
+//
+// No Client session exists for the bot: it's an offline character, so every ISK
+// leg goes through the offline wallet path (AccountDB) and skills are read from
+// the DB (CharacterDB::GetSkillLevel). We never trade against our own order
+// (caller guarantees askOrderID/bidOrderID belong to OTHER owners).
+double MarketMgr::BotArbitrageFill(uint32 botCharID, uint32 stationID, uint32 typeID,
+                                   uint32 askOrderID, uint32 bidOrderID, uint32 qty)
+{
+    if (botCharID == 0 || askOrderID == 0 || bidOrderID == 0 || qty == 0)
+        return 0.0;
+
+    // Load both sides of the deal.
+    Market::OrderInfo ask = Market::OrderInfo();   // resting SELL order (the bot buys this)
+    Market::OrderInfo bid = Market::OrderInfo();   // resting BUY order  (the bot sells into this)
+    if (!MarketDB::GetOrderInfo(askOrderID, ask) || !MarketDB::GetOrderInfo(bidOrderID, bid))
+        return 0.0;
+    if (ask.isBuy || !bid.isBuy) {          // wrong side labels
+        _log(MARKET__ERROR, "BotArbitrageFill - order side mismatch (ask bid=%u, bid bid=%u).", ask.isBuy, bid.isBuy);
+        return 0.0;
+    }
+    if (ask.ownerID == botCharID || bid.ownerID == botCharID) {   // never self-trade
+        _log(MARKET__TRACE, "BotArbitrageFill - refusing to trade against own order.");
+        return 0.0;
+    }
+    if (ask.stationID != stationID || bid.stationID != stationID || ask.typeID != typeID || bid.typeID != typeID) {
+        _log(MARKET__ERROR, "BotArbitrageFill - station/type mismatch (ask %u/%u, bid %u/%u).",
+             ask.stationID, ask.typeID, bid.stationID, bid.typeID);
+        return 0.0;
+    }
+    if (ask.price <= 0 || bid.price <= 0) {
+        _log(MARKET__ERROR, "BotArbitrageFill - non-positive price on an order.");
+        return 0.0;
+    }
+
+    // Quantity is capped by whichever order is thinner.
+    uint32 buyQty = qty;                                   // bot buys this much from the ask
+    uint32 sellQty = qty;                                  // bot sells this much into the bid
+    if (buyQty > ask.quantity) buyQty = ask.quantity;
+    if (sellQty > bid.quantity) sellQty = bid.quantity;
+    uint32 fillQty = buyQty < sellQty ? buyQty : sellQty;
+    if (fillQty == 0) {
+        _log(MARKET__TRACE, "BotArbitrageFill - nothing to fill (ask rem %u, bid rem %u).", ask.quantity, bid.quantity);
+        return 0.0;
+    }
+
+    // The bot must actually be able to pay for the ask leg (offline wallet xfer
+    // does NOT check the balance). Peek at chrCharacters.balance and back out if
+    // it can't cover buy + its own sales tax.
+    double need = ask.price * fillQty;
+    double botBalance = 0;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT balance FROM chrCharacters WHERE characterID = %u", botCharID)) {
+            DBResultRow row;
+            if (res.GetRow(row))
+                botBalance = row.GetDouble(0);
+        }
+    }
+    if (botBalance < need * 1.02) {   // 2% headroom for tax
+        _log(MARKET__TRACE, "BotArbitrageFill - bot %u can't cover %.2f (balance %.2f); skipping.", botCharID, need, botBalance);
+        return 0.0;
+    }
+
+    // Resolve who we deal with. Player/bot chars are handled like players (they
+    // own hangars + escrow); station-owned orders resolve to the station owner
+    // corp; corp/other owners are kept as-is.
+    uint32 askOwner = ask.ownerID;
+    if (sDataMgr.IsStation(askOwner))
+        askOwner = stDataMgr.GetOwnerID(askOwner);
+    uint32 bidOwner = bid.ownerID;
+    if (sDataMgr.IsStation(bidOwner))
+        bidOwner = stDataMgr.GetOwnerID(bidOwner);
+
+    bool askIsPlayer = IsCharacterID(askOwner);
+    bool bidIsPlayer = IsCharacterID(bidOwner);
+    bool bidIsCorp   = IsPlayerCorp(bidOwner);
+
+    std::string stationName = stDataMgr.GetStationName(stationID);
+
+    // --- LEG 1: the bot BUYS fillQty from the resting sell order. ---
+    // Money leaves the bot's wallet (offline path) to the ask owner, sales tax
+    // is paid by the SELLER (the ask owner) to the SCC like a normal fill.
+    float leg1Money = ask.price * fillQty;
+    std::string reason = "DESC:  Buying market items in " + stationName;
+
+    // sales tax of the ask seller (Accounting skill; offline char → from DB)
+    uint32 askSellerChar = ask.isCorp ? ask.memberID : askOwner;
+    uint8 accountingLevel = CharacterDB::GetSkillLevel(askSellerChar, EvESkill::Accounting);
+    uint8 taxEvasionLevel = CharacterDB::GetSkillLevel(askSellerChar, EvESkill::TaxEvasion);
+    float tax = EvEMath::Market::SalesTax(sConfig.market.salesTax, accountingLevel, taxEvasionLevel) * leg1Money;
+
+    // buyer (bot) → ask seller
+    AccountService::TransferFunds(botCharID, askOwner, leg1Money, reason.c_str(),
+        Journal::EntryType::MarketTransaction, askOrderID,
+        Account::KeyType::Cash, ask.accountKey);
+    // ask seller → SCC (sales tax on their proceeds)
+    AccountService::TransferFunds(askOwner, corpSCC, tax, reason.c_str(),
+        Journal::EntryType::TransactionTax, askOrderID, ask.accountKey);
+
+    // The goods are minted fresh for the bot's station hangar (this mirrors how
+    // ExecuteSellOrder hands the item to its buyer). These items sit in the
+    // bot's hangar between the two legs, then move on in leg 2.
+    ItemData idata(typeID, ownerStation, locTemp, flagNone, fillQty);
+    InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+    if (iRef.get() == nullptr) {
+        _log(MARKET__ERROR, "BotArbitrageFill - failed to mint %u x type %u for leg 1.", fillQty, typeID);
+        return 0.0;
+    }
+    iRef->Donate(botCharID, stationID, flagHangar, true);
+
+    // shrink / close the ask order
+    if (fillQty == ask.quantity) {
+        PyRep* order = MarketDB::GetOrderRow(askOrderID);
+        MarketDB::DeleteOrder(askOrderID);
+        if (askIsPlayer) {
+            Client* c = sEntityList.FindClientByCharID(askOwner);
+            SendOnOwnOrderChanged(c, askOrderID, Market::Action::Expiry, ask.isCorp, order);
+        }
+    } else {
+        MarketDB::AlterOrderQuantity(askOrderID, ask.quantity - fillQty);
+        if (askIsPlayer) {
+            Client* c = sEntityList.FindClientByCharID(askOwner);
+            SendOnOwnOrderChanged(c, askOrderID, Market::Action::Modify, ask.isCorp);
+        }
+    }
+    InvalidateOrdersCache(ask.regionID, typeID, stationID);
+
+    // record the buyer (bot) side of the ask fill
+    Market::TxData data = Market::TxData();
+    data.accountKey = Account::KeyType::Cash;
+    data.isBuy = Market::Type::Buy;                 // bot bought
+    data.isCorp = false;
+    data.memberID = botCharID;
+    data.clientID = askOwner;
+    data.price = ask.price;
+    data.quantity = fillQty;
+    data.stationID = stationID;
+    data.regionID = sDataMgr.GetStationRegion(stationID);
+    data.typeID = typeID;
+    if (!MarketDB::RecordTransaction(data))
+        _log(MARKET__ERROR, "BotArbitrageFill - failed to record buy side of leg 1.");
+    data.isBuy = Market::Type::Sell;                // ask seller sold
+    data.clientID = botCharID;
+    data.memberID = askOwner;
+    if (!MarketDB::RecordTransaction(data))
+        _log(MARKET__ERROR, "BotArbitrageFill - failed to record sell side of leg 1.");
+
+    // --- LEG 2: the bot SELLS fillQty into the resting buy order. ---
+    // The buy order's escrow (held at the station owner for player/corp buyers)
+    // pays the bot; tax is paid by the bot as the seller.
+    float leg2Money = bid.price * fillQty;
+    reason = "DESC:  Selling market items in " + stationName;
+
+    uint8 botAccounting = CharacterDB::GetSkillLevel(botCharID, EvESkill::Accounting);
+    uint8 botTaxEvasion = CharacterDB::GetSkillLevel(botCharID, EvESkill::TaxEvasion);
+    float botTax = EvEMath::Market::SalesTax(sConfig.market.salesTax, botAccounting, botTaxEvasion) * leg2Money;
+
+    // bot seller → SCC (sales tax)
+    AccountService::TransferFunds(botCharID, corpSCC, botTax, reason.c_str(),
+        Journal::EntryType::TransactionTax, bidOrderID, Account::KeyType::Cash);
+    // escrow (station owner) → bot, OR npc/other buyer → bot
+    if (bidIsPlayer || bidIsCorp) {
+        AccountService::TransferFunds(stDataMgr.GetOwnerID(stationID), botCharID, leg2Money,
+            reason.c_str(), Journal::EntryType::MarketTransaction, bidOrderID,
+            Account::KeyType::Escrow, Account::KeyType::Cash);
+    } else {
+        AccountService::TransferFunds(bidOwner, botCharID, leg2Money, reason.c_str(),
+            Journal::EntryType::MarketTransaction, bidOrderID,
+            Account::KeyType::Cash, Account::KeyType::Cash);
+    }
+
+    // move the goods from the bot's hangar to the buy-order owner
+    InventoryItemRef stock = sItemFactory.GetItemRef(iRef->itemID());
+    if (stock.get() != nullptr) {
+        if (bidIsPlayer)
+            stock->Donate(bidOwner, stationID, flagHangar, true);
+        else if (bidIsCorp)
+            stock->Donate(bidOwner, stationID, flagCorpMarket, true);
+        else
+            stock->Delete();   // NPC/trader buyer consumes the goods
+    }
+
+    // shrink / close the bid order
+    if (fillQty == bid.quantity) {
+        PyRep* order = MarketDB::GetOrderRow(bidOrderID);
+        MarketDB::DeleteOrder(bidOrderID);
+        if (bidIsPlayer) {
+            Client* c = sEntityList.FindClientByCharID(bidOwner);
+            SendOnOwnOrderChanged(c, bidOrderID, Market::Action::Expiry, bid.isCorp, order);
+        }
+    } else {
+        MarketDB::AlterOrderQuantity(bidOrderID, bid.quantity - fillQty);
+        if (bidIsPlayer) {
+            Client* c = sEntityList.FindClientByCharID(bidOwner);
+            SendOnOwnOrderChanged(c, bidOrderID, Market::Action::Modify, bid.isCorp);
+        }
+    }
+    InvalidateOrdersCache(bid.regionID, typeID, stationID);
+
+    // record the seller (bot) side of the bid fill
+    data.isBuy = Market::Type::Buy;                 // bid buyer bought
+    data.isCorp = bid.isCorp;
+    data.memberID = bidOwner;
+    data.clientID = botCharID;
+    data.price = bid.price;
+    data.quantity = fillQty;
+    if (!MarketDB::RecordTransaction(data))
+        _log(MARKET__ERROR, "BotArbitrageFill - failed to record buy side of leg 2.");
+    data.isBuy = Market::Type::Sell;                // bot sold
+    data.memberID = botCharID;
+    data.clientID = bidOwner;
+    data.isCorp = false;
+    if (!MarketDB::RecordTransaction(data))
+        _log(MARKET__ERROR, "BotArbitrageFill - failed to record sell side of leg 2.");
+
+    sStatMgr.Add(Stat::iskMarket, leg2Money);
+
+    // Net profit = what the buyer side paid minus what the ask side was paid
+    // minus the bot's own sales tax. Positive = the bot earned the spread.
+    double profit = leg2Money - leg1Money - botTax;
+    if (profit < 0.0) profit = 0.0;
+
+    _log(MARKET__MESSAGE, "BotArbitrageFill - bot %u arbitraged %u x type %u at station %u (buy %.2f, sell %.2f, profit %.2f).",
+         botCharID, fillQty, typeID, stationID, ask.price, bid.price, profit);
+    return profit;
+}
+
 
 // after finding price data from Crucible, this may be moot.   -allan 28Feb21
 void MarketMgr::SetBasePrice()

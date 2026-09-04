@@ -48,6 +48,29 @@ public:
     bool ExecuteBuyOrder(Client* seller, uint32 orderID, InventoryItemRef iRef, uint32 quantity, bool useCorp, uint32 typeID, uint32 stationID, double price, uint16 accountKey = Account::KeyType::Cash);
     // market order placed by seller to sell items (usually at higher prices)
     void ExecuteSellOrder(Client *buyer, uint32 orderID, uint32 quantity, float price, uint32 stationID, uint32 typeID, bool useCorp);
+
+    // --- client-less autonomous fills (trader bots / offline characters) ---
+    // A docked trader bot acts as a market-maker / arbitrageur: it fills a
+    // resting SELL order as the buyer (buying low) AND a resting BUY order as
+    // the seller (selling high) for the same type at the same station, in one
+    // atomic deal. The spread lands in the bot's wallet, both orders shrink
+    // (or close), and two real mktTransactions are recorded (so the market
+    // actually moves: volume + price discovery, not just book decoration).
+    //
+    // No Client session is required — the bot is an offline character, so all
+    // ISK legs use the offline wallet path (AccountDB) and skills read straight
+    // from the DB (CharacterDB::GetSkillLevel). Returns true if the deal ran.
+    // botCharID : the trader bot's character (acts as middleman, never its own
+    //             order — caller guarantees both orders belong to other owners).
+    // askOrderID: the resting sell order to fill (bot is buyer at its price).
+    // bidOrderID: the resting buy order to fill (bot is seller at its price).
+    // qty       : units to move (<= volRemaining of both orders).
+    // Returns the bot's net ISK profit on the deal (>=0). Returns 0 if nothing
+    // was filled (order gone, wrong side, self-trade, empty book) — the caller
+    // can then try the next candidate pair.
+    double BotArbitrageFill(uint32 botCharID, uint32 stationID, uint32 typeID,
+                            uint32 askOrderID, uint32 bidOrderID, uint32 qty);
+
     //forces a refresh of market data.
     void SendOnOwnOrderChanged(Client* pClient, uint32 orderID, uint8 action, bool isCorp = false, PyRep* order = nullptr);
 

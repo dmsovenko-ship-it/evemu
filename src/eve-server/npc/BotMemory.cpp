@@ -14,6 +14,7 @@ BotMemory::BotMemory(uint32 charID)
   ratKills(0), mineRuns(0), tradeRuns(0), hackRuns(0),
   pvpMistakes(0),
   profession(0xFF),
+  tradeProfit(0), tradeLosses(0),
   m_dirty(false)
 {
 }
@@ -23,7 +24,8 @@ void BotMemory::Load()
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
         "SELECT wins, losses, kills, deaths, chatLines, chatReplies,"
-        "       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession"
+        "       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,"
+        "       tradeProfit, tradeLosses"
         " FROM botMemory WHERE charID = %u", m_charID))
     {
         DBResultRow row;
@@ -42,6 +44,10 @@ void BotMemory::Load()
                 pvpMistakes = row.GetUInt(10);
                 profession = (uint8)row.GetUInt(11);
             }
+            if (row.ColumnCount() > 12) {
+                tradeProfit = row.GetInt64(12);
+                tradeLosses = row.GetUInt(13);
+            }
         }
     }
     m_dirty = false;
@@ -54,16 +60,18 @@ void BotMemory::Save() const
     DBerror err;
     if (!sDatabase.RunQuery(err,
         "INSERT INTO botMemory (charID, wins, losses, kills, deaths, chatLines, chatReplies,"
-        "                       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession, lastUpdate)"
-        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, NOW())"
+        "                       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,"
+        "                       tradeProfit, tradeLosses, lastUpdate)"
+        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %lli, %u, NOW())"
         " ON DUPLICATE KEY UPDATE"
         "  wins = VALUES(wins), losses = VALUES(losses), kills = VALUES(kills),"
         "  deaths = VALUES(deaths), chatLines = VALUES(chatLines), chatReplies = VALUES(chatReplies),"
         "  ratKills = VALUES(ratKills), mineRuns = VALUES(mineRuns), tradeRuns = VALUES(tradeRuns),"
         "  hackRuns = VALUES(hackRuns), pvpMistakes = VALUES(pvpMistakes), profession = VALUES(profession),"
-        "  lastUpdate = NOW()",
+        "  tradeProfit = VALUES(tradeProfit), tradeLosses = VALUES(tradeLosses), lastUpdate = NOW()",
         m_charID, wins, losses, kills, deaths, chatLines, chatReplies,
-        ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession))
+        ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,
+        (int64)tradeProfit, tradeLosses))
     {
         codelog(DATABASE__ERROR, "BotMemory::Save() failed for %u: %s", m_charID, err.c_str());
     }
@@ -106,4 +114,21 @@ float BotMemory::GetPvpSkill() const
     float skill = base - penalty;
     if (skill < 0.0f) skill = 0.0f;
     return skill;
+}
+
+float BotMemory::GetTradeConfidence() const
+{
+    // Market self-learning signal, normalised to [-1..+1]. Trades only recently
+    // started mattering, so scale the ISK result softly (~20M ISK = full swing).
+    if (tradeProfit == 0 && tradeLosses == 0)
+        return 0.0f;
+    float isk = (float)tradeProfit / 20000000.0f;   // 20M ISK net = ±1.0
+    if (isk > 1.0f) isk = 1.0f;
+    if (isk < -1.0f) isk = -1.0f;
+    // Losing fills push confidence down harder than the raw ISK alone (each loss
+    // is a mistake the bot should learn from, not just a small negative tick).
+    float lossPenalty = (float)tradeLosses * 0.15f;
+    isk -= lossPenalty;
+    if (isk < -1.0f) isk = -1.0f;
+    return isk;
 }

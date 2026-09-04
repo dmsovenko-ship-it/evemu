@@ -1,5 +1,6 @@
 #include "eve-server.h"
 #include "npc/BotMgr.h"
+#include "npc/BotMemory.h"
 #include "npc/PlayerBot.h"
 #include "npc/NPCAI.h"
 #include "npc/NPC.h"
@@ -12,6 +13,8 @@
 #include "chat/LSCService.h"
 #include "chat/LSCChannel.h"
 #include "services/ServiceManager.h"
+#include "market/MarketMgr.h"
+#include "market/MarketDB.h"
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -1363,9 +1366,10 @@ void BotMgr::ProcessDockedEconomy()
 
             uint8 prof = db.profession;
             if (prof == (uint8)PlayerBot::BotProfession::Trader) {
-                // Traders: sell + buy (play the spread) + occasional courier job.
-                PlaceBotOrderAt(sysID, db.charID, db.corpID);
-                PlaceBotBuyOrderAt(sysID, db.charID, prof);
+                // Traders read the book and actually MOVE the market: arbitrage
+                // any crossing spread they see, otherwise quote tighter than the
+                // current best bid/ask. Old random-order path removed.
+                ProcessDockedTraderEconomy(sysID, db.stationID, db);
                 PlaceBotCourierContractAt(sysID, db.charID, db.corpID);
             } else if (prof == (uint8)PlayerBot::BotProfession::Miner
                        || prof == (uint8)PlayerBot::BotProfession::Hacker
@@ -1376,6 +1380,204 @@ void BotMgr::ProcessDockedEconomy()
             }
         }
     }
+}
+
+// Market self-learning for a docked trader. Every few minutes the bot reads the
+// order book at its own station and tries to make money on the spread:
+//   - if any OTHER order has crossed the book (best bid above best ask) it
+//     executes a real arbitrage fill (MarketMgr::BotArbitrageFill) — buying at
+//     the ask and selling at the bid. Volume is consumed, mktTransactions are
+//     written and the profit lands in the bot's wallet.
+//   - if the book is clean it quotes tighter than the current best bid/ask
+//     (market-making): its resting orders invite the next trade to land on it.
+// Self-learning: each fill result is fed back into botMemory.tradeProfit; a bot
+// that keeps making money quotes tight and trades bolder, one that keeps losing
+// widens its required margin and stops chasing the market.
+void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const DockedBot& db)
+{
+    if (sysID == 0 || db.charID == 0)
+        return;
+    if (stationID == 0) {
+        // Fallback (rare): the first station in the system, matching the old path.
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", sysID)) {
+            DBResultRow row;
+            if (res.GetRow(row))
+                stationID = row.GetUInt(0);
+        }
+    }
+    if (stationID == 0)
+        return;
+
+    BotMemory mem(db.charID);
+    mem.Load();
+    float confidence = mem.GetTradeConfidence();   // -1..1 from tradeProfit/tradeLosses
+
+    // A trader works a couple of goods it knows (minerals/ammo/common modules).
+    static const uint32 tradeGoods[] = { 34, 38, 39, 40, 1229, 1230, 1231, 1232, 2048, 3775, 2676, 2488 };
+    const uint32 nGoods = sizeof(tradeGoods)/sizeof(tradeGoods[0]);
+
+    // Try up to a few types: arbitrage the first crossing we find.
+    uint32 startType = MakeRandomInt(0, (int32)nGoods - 1);
+    bool didDeal = false;
+    for (uint32 t = 0; t < nGoods && !didDeal; ++t) {
+        uint32 typeID = tradeGoods[(startType + t) % nGoods];
+
+        // Best resting ask and bid for this type at this station, from OTHER owners.
+        DBQueryResult res;
+        uint32 askOrderID = 0, bidOrderID = 0;
+        double askPrice = 0, bidPrice = 0;
+        uint32 askVol = 0, bidVol = 0;
+        if (sDatabase.RunQuery(res,
+            "SELECT orderID, price, volRemaining FROM mktOrders"
+            " WHERE stationID = %u AND typeID = %u AND bid = 0 AND ownerID <> %u AND volRemaining > 0"
+            " ORDER BY price ASC LIMIT 1", stationID, typeID, db.charID))
+        {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                askOrderID = row.GetUInt(0);
+                askPrice = row.GetDouble(1);
+                askVol = row.GetUInt(2);
+            }
+        }
+        if (sDatabase.RunQuery(res,
+            "SELECT orderID, price, volRemaining FROM mktOrders"
+            " WHERE stationID = %u AND typeID = %u AND bid = 1 AND ownerID <> %u AND volRemaining > 0"
+            " ORDER BY price DESC LIMIT 1", stationID, typeID, db.charID))
+        {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                bidOrderID = row.GetUInt(0);
+                bidPrice = row.GetDouble(1);
+                bidVol = row.GetUInt(2);
+            }
+        }
+
+        // Do we have a real crossing (someone bids above someone else's ask)?
+        // Only chase it if the spread is worth the bot's while.
+        if (askOrderID != 0 && bidOrderID != 0 && bidPrice > askPrice) {
+            // Confidence gates greed: a losing bot needs a WIDER edge to bother;
+            // a winning one is happy with a thinner spread.
+            double minSpread = (0.005 + (1.0 - confidence) * 0.05) * askPrice;  // 0.5%..5.5%
+            if (bidPrice - askPrice >= minSpread) {
+                // Volume scaled by confidence: bold bots move more.
+                uint32 qty = 50 + (uint32)((confidence + 1.0f) * 0.5f * 950);   // 50..1000
+                if (qty > askVol) qty = askVol;
+                if (qty > bidVol) qty = bidVol;
+                double profit = sMktMgr.BotArbitrageFill(db.charID, stationID, typeID,
+                                                         askOrderID, bidOrderID, qty);
+                if (profit > 0.0) {
+                    mem.RecordTradeResult((int64)profit);
+                    _log(BOT__TRACE, "BotMgr: trader %u arbitraged %u x type %u at %u, +%.0f ISK (conf %.2f).",
+                         db.charID, qty, typeID, stationID, profit, confidence);
+                }
+                didDeal = true;   // tried one crossing — that's this cycle's action
+            }
+        }
+    }
+
+    // Market-making: if there was nothing to arbitrage, quote tighter than the
+    // current book so the bot becomes the inside market and its order gets hit
+    // by the next player/bot trade. Remembers its fills via tradeProfit too.
+    if (!didDeal) {
+        uint32 typeID = tradeGoods[(startType + MakeRandomInt(1, 3)) % nGoods];
+        // Price anchor: what's the fair value? Prefer the live book midpoint,
+        // fall back to the static base price (updated from live EVE by
+        // import_prices.py) so bots don't quote nonsense far from reality.
+        double fair = 0;
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT (SELECT MIN(price) FROM mktOrders WHERE stationID=%u AND typeID=%u AND bid=0 AND volRemaining>0 AND ownerID<>%u)"
+            "     , (SELECT MAX(price) FROM mktOrders WHERE stationID=%u AND typeID=%u AND bid=1 AND volRemaining>0 AND ownerID<>%u)",
+            stationID, typeID, db.charID, stationID, typeID, db.charID))
+        {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                double lo = row.GetDouble(0);
+                double hi = row.GetDouble(1);
+                if (lo > 0 && hi > 0)
+                    fair = (lo + hi) / 2.0;
+            }
+        }
+        if (fair <= 0) {
+            const ItemType* type = sItemFactory.GetType(typeID);
+            fair = type != nullptr ? type->basePrice() : 0;
+        }
+        if (fair <= 0)
+            return;
+
+        // Margin from self-learning: confident bots quote 0.5-1% inside; shaken
+        // bots quote 3-6% outside so they don't get picked off repeatedly.
+        double margin = (1.0 - confidence) * 0.04 + 0.006;    // 0.6%..4.6% per side
+        double buyPrice  = fair * (1.0 - margin);
+        double sellPrice = fair * (1.0 + margin);
+        uint32 qty = 100 + (uint32)((confidence + 1.0f) * 0.5f * 1900);   // 100..2000
+
+        // Only quote if we'd actually be inside the book (don't stack behind a
+        // huge wall of stale NPC orders at a worse price).
+        DBQueryResult qres;
+        double bestAsk = 0, bestBid = 0;
+        if (sDatabase.RunQuery(qres,
+            "SELECT (SELECT MIN(price) FROM mktOrders WHERE stationID=%u AND typeID=%u AND bid=0 AND volRemaining>0 AND ownerID<>%u)"
+            "     , (SELECT MAX(price) FROM mktOrders WHERE stationID=%u AND typeID=%u AND bid=1 AND volRemaining>0 AND ownerID<>%u)",
+            stationID, typeID, db.charID, stationID, typeID, db.charID))
+        {
+            DBResultRow row;
+            if (qres.GetRow(row)) {
+                bestAsk = row.GetDouble(0);
+                bestBid = row.GetDouble(1);
+            }
+        }
+        // Under-cut the best ask / over-bid the best bid so we're the inside
+        // quote; but never cross ourselves (sell <= buy would be nonsense).
+        double placeSell = sellPrice, placeBuy = buyPrice;
+        if (bestAsk > 0 && bestAsk < placeSell)
+            placeSell = bestAsk * (1.0 - 0.004);     // 0.4% better than best ask
+        if (bestBid > 0 && bestBid > placeBuy)
+            placeBuy = bestBid * (1.0 + 0.004);      // 0.4% better than best bid
+        if (placeSell <= placeBuy)
+            return;   // crossing ourselves — skip, book is too thin to quote
+
+        // Check the bot can actually fund a buy quote (escrow = price*qty).
+        double balance = 0;
+        DBQueryResult bres;
+        if (sDatabase.RunQuery(bres, "SELECT balance FROM chrCharacters WHERE characterID = %u", db.charID)) {
+            DBResultRow row;
+            if (bres.GetRow(row))
+                balance = row.GetDouble(0);
+        }
+        if (balance < placeBuy * qty)
+            return;   // not enough ISK to back the quote — don't place air
+
+        // Remove any stale quotes we left earlier at this station/type so the
+        // book doesn't fill with old prices (re-quote instead of stacking).
+        sDatabase.RunQuery(bres, "DELETE FROM mktOrders WHERE ownerID = %u AND stationID = %u AND typeID = %u",
+                           db.charID, stationID, typeID);
+
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "INSERT INTO mktOrders"
+            "  (typeID, ownerID, regionID, stationID, solarSystemID, orderRange, bid, price,"
+            "   escrow, minVolume, volEntered, volRemaining, issued, duration, isCorp, accountKey, memberID)"
+            " VALUES"
+            "  (%u, %u, (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u, 32767, 0, %.2f,"
+            "   0, 1, %u, %u, %f, 90, 0, 1000, %u)",
+            typeID, db.charID, sysID, stationID, sysID, placeSell, qty, qty, GetFileTimeNow(), db.charID);
+        sDatabase.RunQuery(err,
+            "INSERT INTO mktOrders"
+            "  (typeID, ownerID, regionID, stationID, solarSystemID, orderRange, bid, price,"
+            "   escrow, minVolume, volEntered, volRemaining, issued, duration, isCorp, accountKey, memberID)"
+            " VALUES"
+            "  (%u, %u, (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u, 32767, 1, %.2f,"
+            "   %.2f, 1, %u, %u, %f, 90, 0, 1000, %u)",
+            typeID, db.charID, sysID, stationID, sysID, placeBuy, placeBuy * qty, qty, qty, GetFileTimeNow(), db.charID);
+
+        sMktMgr.InvalidateOrdersCache(sDataMgr.GetStationRegion(stationID), typeID, stationID);
+        _log(BOT__TRACE, "BotMgr: trader %u quoting %u x type %u @%.2f/%.2f at %u (fair %.2f, conf %.2f).",
+             db.charID, qty, typeID, placeBuy, placeSell, stationID, fair, confidence);
+    }
+
+    mem.Save();
 }
 
 void BotMgr::PayCorpTax(PlayerBot* bot)
@@ -1695,19 +1897,27 @@ void BotMgr::ProcessDocking()
             toDock.push_back(pb);
         }
         for (PlayerBot* pb : toDock) {
+            // Which station is this bot docking at? (first station SE in the
+            // system — the same one it approached above). Used later so a
+            // docked trader works the correct station's order book.
+            uint32 dockStationID = 0;
+            for (auto& [sid, sse] : pSystem->GetStaticEntities()) {
+                if (sse != nullptr && sse->GetStationSE() != nullptr) { dockStationID = sse->GetID(); break; }
+            }
             DockedBot db;
                 db.charID = pb->GetBotCharID();
                 db.name = pb->GetBotName();
                 db.corpID = pb->GetBotCorpID();
                 db.allianceID = pb->GetBotAllianceID();
                 db.profession = (uint8)pb->GetProfession();
+                db.stationID = dockStationID;
                 // Traders/market guys sit longer; miners refine/sell quickly then head out.
                 db.undockAt = now + (pb->GetProfession() == PlayerBot::BotProfession::Trader
                                      ? MakeRandomInt(300, 1800)    // 5-30 min at market
                                      : MakeRandomInt(30, 300));    // 0.5-5 min for everyone else
             m_docked[pSystem->GetID()].push_back(db);
-            _log(BOT__MESSAGE, "BotMgr: %s(%u) docking at station in system %u.",
-                 db.name.c_str(), db.charID, pSystem->GetID());
+            _log(BOT__MESSAGE, "BotMgr: %s(%u) docking at station %u in system %u.",
+                 db.name.c_str(), db.charID, dockStationID, pSystem->GetID());
             pb->ClearDockRequest();
             pb->RecallDrones();   // scoop drones before docking
             pb->Delete();   // remove from space; stays in local channel as docked

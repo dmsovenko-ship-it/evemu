@@ -118,6 +118,14 @@ private:
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();
+    // Market self-learning (stage-1 economy): a docked trader reads its station's
+    // order book and either captures a crossing spread (real arbitrage fills via
+    // MarketMgr::BotArbitrageFill) or quotes tighter than the current best bid/
+    // ask (market-making). Its remembered tradeProfit (BotMemory) tunes how bold
+    // it is: after profits it quotes tight and chases volume; after losses it
+    // widens its required margin and trades less.
+    // sysID/stationID = where the bot is docked; db carries its char/corp/prof.
+    void ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const DockedBot& db);
     // A courier reached the destination system — complete its accepted contract
     // (reward ISK + cargo placed at the destination station).
     void CompleteContract(uint32 charID, uint32 destSystem);
@@ -133,6 +141,7 @@ private:
         uint32 corpID;
         uint32 allianceID;
         uint8  profession;   // PlayerBot::BotProfession while docked
+        uint32 stationID;    // station the bot is docked at (0 = any/unknown)
         time_t undockAt;   // when to undock (0 = already waiting)
     };
     void ProcessDocking();   // manage dock/undock cycle each tick
