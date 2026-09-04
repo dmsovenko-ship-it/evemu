@@ -1,5 +1,6 @@
 #include "eve-server.h"
 #include "EVEServerConfig.h"
+#include "auth/PasswordModule.h"
 #include "apiserver/APIAuthManager.h"
 
 std::string APIAuthManager::ProcessCall(const std::string& handler,
@@ -63,7 +64,7 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
 
         DBQueryResult res;
         if (!sDatabase.RunQuery(res,
-            "SELECT accountID, password, role, banned FROM account WHERE accountName = '%s'",
+            "SELECT accountID, HEX(hash), role, banned, password FROM account WHERE accountName = '%s'",
             name.c_str()))
             return BuildErrorXML("999", "Database error.");
 
@@ -74,9 +75,30 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
         if ((int)row.GetInt(3) != 0)
             return BuildErrorXML("1002", "Account is banned.");
 
-        // compare plain passwords (matches server's auth model)
-        std::string storedPass = row.GetText(1);
-        if (storedPass != pass)
+        // CCP-style auth: hash = PasswordHash(username, password) (SHA1, 1000 iterations).
+        // Account hash column holds the raw 20-byte digest the game client sent (HEX here).
+        // If hash is empty (portal-created account), fall back to plaintext compare.
+        const char* storedHashHex = row.GetText(1);
+        bool ok = false;
+        if (storedHashHex != nullptr && strlen(storedHashHex) == 40) {
+            std::string computed;
+            if (PasswordModule::GeneratePassHash(name, pass, computed)) {
+                // hex-encode computed 20-byte digest
+                std::string hex;
+                hex.reserve(40);
+                static const char* hx = "0123456789ABCDEF";
+                for (unsigned char c : computed) {
+                    hex += hx[c >> 4];
+                    hex += hx[c & 0xF];
+                }
+                ok = (hex == storedHashHex);
+            }
+        } else {
+            // plaintext fallback for portal-registered accounts
+            const char* storedPass = row.GetText(4);
+            ok = (storedPass != nullptr) && (pass == storedPass);
+        }
+        if (!ok)
             return BuildErrorXML("1003", "Invalid password.");
 
         // update login stats
