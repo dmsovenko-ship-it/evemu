@@ -617,6 +617,8 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
             {
                 // Courier contract
                 uint32 acceptorID = acceptForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
+                codelog(DATABASE__ERROR, "AcceptContract case3: contract=%u status=%u acceptor=%u startStation=%u endStation=%u vol=%.0f",
+                        contractID->value(), status, acceptorID, startStationID, endSolarSystemID, volume);
 
                 if (collateral > 0) {
                     if (acceptForCorp) {
@@ -659,6 +661,8 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                                         timestamp, call.client->GetCharacterID(), plasticWrap->itemID(), walletKey, contractID))
                 {
                     codelog(DATABASE__ERROR, "Failed to update contract : %s", err.c_str());
+                } else {
+                    codelog(DATABASE__MESSAGE, "AcceptContract case3: updated contract %u -> status=1 crateID=%u", contractID, plasticWrap->itemID());
                 }
                 break;
             }
