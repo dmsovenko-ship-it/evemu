@@ -202,14 +202,16 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "k.killTime, k.moonID, "
             "vc.characterName, fc.characterName, "
             "iv.typeName, if_.typeName, iw.typeName, "
-            "ss.solarSystemName, k.killBlob "
+            "ss.solarSystemName, k.killBlob, "
+            "igv.groupID, igv.groupName "
             "FROM chrKillTable k "
             "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
             "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
             "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
             "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
             "LEFT JOIN invTypes iw ON iw.typeID = k.finalWeaponTypeID "
-            "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID ";
+            "LEFT JOIN invGroups igv ON igv.groupID = iv.groupID "
+            "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "; 
         if (beforeKillID > 0)
             q += "WHERE k.killID < " + std::to_string(beforeKillID) + " ";
         q += "ORDER BY k.killID DESC LIMIT 2500";
@@ -254,6 +256,8 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             xml += " solarsystemname=\"" + xmlEscape(sName) + "\"";
             const char* blob = row.GetText(24);
             xml += " killblob=\"" + xmlEscape(blob) + "\"";
+            xml += " victimgroupid=\"" + std::to_string(row.GetUInt(25)) + "\"";
+            xml += " victimgroupname=\"" + xmlEscape(row.GetText(26)) + "\"";
             xml += "/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
@@ -597,18 +601,19 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "vc.characterName, fc.characterName, "
             "vcc.corporationName, fcc.corporationName, vcc.tickerName, fcc.tickerName, "
             "va.allianceName, fa.allianceName, "
-            "iv.typeName, if_.typeName, iw.typeName, "
-            "ss.solarSystemName, ss.security, ss.regionID, ss.constellationID, "
+              "iv.typeName, if_.typeName, iw.typeName, "
+              "igv.groupID, igv.groupName, "
+              "ss.solarSystemName, ss.security, ss.regionID, ss.constellationID, "
             "con.constellationName, reg.regionName "
-            "FROM chrKillTable k "
-            "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
-            "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
-            "LEFT JOIN crpCorporation vcc ON vcc.corporationID = k.victimCorporationID "
-            "LEFT JOIN crpCorporation fcc ON fcc.corporationID = k.finalCorporationID "
-            "LEFT JOIN alnAlliance va ON va.allianceID = k.victimAllianceID "
-            "LEFT JOIN alnAlliance fa ON fa.allianceID = k.finalAllianceID "
-            "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
-            "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
+              "FROM chrKillTable k "
+              "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
+              "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
+              "LEFT JOIN crpCorporation vcc ON vcc.corporationID = k.victimCorporationID "
+              "LEFT JOIN crpCorporation fcc ON fcc.corporationID = k.finalCorporationID "
+              "LEFT JOIN alnAlliance va ON va.allianceID = k.victimAllianceID "
+              "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
+              "LEFT JOIN invGroups igv ON igv.groupID = iv.groupID "
+              "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
             "LEFT JOIN invTypes iw ON iw.typeID = k.finalWeaponTypeID "
             "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
             "LEFT JOIN mapConstellations con ON con.constellationID = ss.constellationID "
@@ -625,12 +630,12 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         xml += "  <result>\n    <row ";
         xml += "killid=\"" + std::to_string(row.GetUInt(0)) + "\"";
         xml += " systemid=\"" + std::to_string(row.GetUInt(1)) + "\"";
-        xml += " systemname=\"" + xmlEscape(row.GetText(30)) + "\"";
-        xml += " security=\"" + xmlEscape(row.GetText(31)) + "\"";
-        xml += " regionid=\"" + std::to_string(row.GetUInt(32)) + "\"";
-        xml += " regionname=\"" + xmlEscape(row.GetText(35)) + "\"";
-        xml += " constellationid=\"" + std::to_string(row.GetUInt(33)) + "\"";
-        xml += " constellationname=\"" + xmlEscape(row.GetText(34)) + "\"";
+        xml += " systemname=\"" + xmlEscape(row.GetText(32)) + "\"";
+        xml += " security=\"" + xmlEscape(row.GetText(33)) + "\"";
+        xml += " regionid=\"" + std::to_string(row.GetUInt(34)) + "\"";
+        xml += " regionname=\"" + xmlEscape(row.GetText(37)) + "\"";
+        xml += " constellationid=\"" + std::to_string(row.GetUInt(35)) + "\"";
+        xml += " constellationname=\"" + xmlEscape(row.GetText(36)) + "\"";
         xml += " killtime=\"" + std::string(row.GetText(2)) + "\"";
         xml += " moonid=\"" + std::to_string(row.GetUInt(17)) + "\"";
 
@@ -644,6 +649,8 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         xml += " victimfactionid=\"" + std::to_string(row.GetUInt(8)) + "\"";
         xml += " victimshiptypeid=\"" + std::to_string(row.GetUInt(9)) + "\"";
         xml += " victimshipname=\"" + xmlEscape(row.GetText(27)) + "\"";
+        xml += " victimgroupid=\"" + std::to_string(row.GetUInt(30)) + "\"";
+        xml += " victimgroupname=\"" + xmlEscape(row.GetText(31)) + "\"";
         xml += " victimdamagetaken=\"" + std::to_string(row.GetUInt(3)) + "\"";
 
         xml += " finalid=\"" + std::to_string(row.GetUInt(10)) + "\"";
