@@ -102,19 +102,27 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
 
         // read POST body if present
         if (method == "POST") {
-            // find Content-Length header
-            std::string line;
-            size_t contentLength = 0;
-            while (std::getline(req, line) && line != "\r\n") {
-                if (boost::istarts_with(line, "Content-Length:")) {
-                    contentLength = std::stoul(line.substr(15));
-                }
-            }
-            if (contentLength > 0 && contentLength < 1048576) {
-                std::string body(contentLength, '\0');
-                boost::asio::read(socket, boost::asio::buffer(&body[0], contentLength), ec);
-                if (!ec) {
+            // find Content-Length from what's left in the buffer
+            std::string remaining(
+                (std::istreambuf_iterator<char>(req)),
+                 std::istreambuf_iterator<char>());
+
+            size_t clPos = remaining.find("Content-Length:");
+            if (clPos == std::string::npos)
+                clPos = remaining.find("content-length:");
+            if (clPos != std::string::npos) {
+                size_t start = clPos + 15;
+                size_t end = remaining.find("\r\n", start);
+                std::string clStr = remaining.substr(start, end - start);
+                size_t contentLength = std::stoul(clStr);
+
+                // skip to body (after double CRLF)
+                size_t bodyStart = remaining.find("\r\n\r\n");
+                if (bodyStart != std::string::npos) {
+                    bodyStart += 4;
+                    std::string body = remaining.substr(bodyStart, contentLength);
                     boost::replace_all(body, "&amp;", "&");
+                    boost::replace_all(body, "+", " ");
                     std::istringstream bs(body);
                     std::string pair;
                     while (std::getline(bs, pair, '&')) {
