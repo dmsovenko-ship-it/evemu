@@ -244,8 +244,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         xml += "    <page>" + std::to_string(page) + "</page>\n";
         xml += "    <kills>\n";
 
-        if (sDatabase.RunQuery(res,
-            "SELECT k.killID, k.solarSystemID, k.victimCharacterID, k.victimCorporationID, "
+        std::string q = "SELECT k.killID, k.solarSystemID, k.victimCharacterID, k.victimCorporationID, "
             "k.victimAllianceID, k.victimFactionID, k.victimShipTypeID, k.victimDamageTaken, "
             "k.finalCharacterID, k.finalCorporationID, k.finalAllianceID, k.finalFactionID, "
             "k.finalShipTypeID, k.finalWeaponTypeID, k.finalSecurityStatus, k.finalDamageDone, "
@@ -262,7 +261,9 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
             "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
             "WHERE k.killTime > DATE_SUB(NOW(), INTERVAL " + std::to_string(days) + " DAY) "
             "ORDER BY k.victimDamageTaken DESC "
-            "LIMIT " + std::to_string(perPage) + " OFFSET " + std::to_string(offset)).c_str())) {
+            "LIMIT " + std::to_string(perPage) + " OFFSET " + std::to_string(offset);
+
+        if (sDatabase.RunQuery(res, q.c_str())) {
             DBResultRow row;
             while (res.GetRow(row)) {
                 xml += "      <row killid=\"" + std::to_string(row.GetUInt(0)) + "\"";
