@@ -619,10 +619,10 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
                     emit(weapon, EVEItemFlags::flagHiSlot0);
             }
             // Mid slots.
-            emit(439, EVEItemFlags::flagMedSlot0);        // 1MN Afterburner I
-            emit(377, EVEItemFlags::flagMedSlot1);        // Small Shield Extender I
+            emit(439, EVEItemFlags::flagMidSlot0);        // 1MN Afterburner I
+            emit(377, EVEItemFlags::flagMidSlot1);        // Small Shield Extender I
             // Low slot.
-            emit(2046, EVEItemFlags::flagLoSlot0);        // Damage Control I
+            emit(2046, EVEItemFlags::flagLowSlot0);       // Damage Control I
         }
         blob << "</items>";
         data.killBlob = blob.str();
