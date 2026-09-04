@@ -16,6 +16,28 @@
 
 using boost::asio::ip::tcp;
 
+static std::string url_decode(const std::string& str) {
+    std::string result;
+    result.reserve(str.size());
+    for (size_t i = 0; i < str.size(); ++i) {
+        if (str[i] == '%' && i + 2 < str.size()) {
+            int val = 0;
+            std::istringstream iss(str.substr(i + 1, 2));
+            if (iss >> std::hex >> val) {
+                result += static_cast<char>(val);
+                i += 2;
+            } else {
+                result += str[i];
+            }
+        } else if (str[i] == '+') {
+            result += ' ';
+        } else {
+            result += str[i];
+        }
+    }
+    return result;
+}
+
 APIServer::APIServer() = default;
 APIServer::~APIServer() = default;
 
@@ -74,6 +96,35 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
                     std::string key = pair.substr(0, eq);
                     boost::to_lower(key);
                     params[key] = pair.substr(eq + 1);
+                }
+            }
+        }
+
+        // read POST body if present
+        if (method == "POST") {
+            // find Content-Length header
+            std::string line;
+            size_t contentLength = 0;
+            while (std::getline(req, line) && line != "\r\n") {
+                if (boost::istarts_with(line, "Content-Length:")) {
+                    contentLength = std::stoul(line.substr(15));
+                }
+            }
+            if (contentLength > 0 && contentLength < 1048576) {
+                std::string body(contentLength, '\0');
+                boost::asio::read(socket, boost::asio::buffer(&body[0], contentLength), ec);
+                if (!ec) {
+                    boost::replace_all(body, "&amp;", "&");
+                    std::istringstream bs(body);
+                    std::string pair;
+                    while (std::getline(bs, pair, '&')) {
+                        size_t eq = pair.find('=');
+                        if (eq != std::string::npos) {
+                            std::string key = pair.substr(0, eq);
+                            boost::to_lower(key);
+                            params[key] = url_decode(pair.substr(eq + 1));
+                        }
+                    }
                 }
             }
         }
