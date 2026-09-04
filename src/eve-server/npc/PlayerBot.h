@@ -127,9 +127,17 @@ public:
     void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
     void HuntForTarget();               // PvP hunter: find a legal PvP target and engage
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
-    void ClaimSystem();                 // PvP war corps: claim unowned nullsec system (skirmish)
+    void ClaimSystem();                 // PvP war corps: claim unowned nullsec (skirmish)
     void RequestFleetProtection();      // ask corpmate guards to cover this miner/hauler
     void ScanForSites();                // explorer: scan probes, find signatures/wormholes
+
+    /* professional mining fleet (guide model): an experienced miner flies an
+     * Orca/Rorqual fleet boss that boosts barges of the same corp nearby. */
+    bool IsFleetBoss() const            { return m_fleetBoss; }
+    void SetFleetBoss(bool b)           { m_fleetBoss = b; }
+    // Mining-yield multiplier from a friendly fleet boss (Orca/Rorqual) within
+    // ~80 km of the same corp — the "mining foreman / industrial core" boost.
+    float GetFleetMiningBoost() const;
     // Behaviour when the current system has NO station (a pirate/wormhole system,
     // or a waypoint on a route to a hub). Without a station the bot cannot dock,
     // so it does something plausible instead of standing at the gate forever.
@@ -245,6 +253,7 @@ protected:
     Timer m_droneTimer;                 // drone attack cycle
     std::map<uint16, uint32> m_cargo;   // physical loot/production accumulated this trip (typeID -> qty)
     Timer m_harvestTimer;               // cadence for accumulating cargo while working
+    bool m_fleetBoss;                   // flying an Orca/Rorqual mining fleet boss
 };
 
 #endif

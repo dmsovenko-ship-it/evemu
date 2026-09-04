@@ -505,6 +505,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // station (dock -> undock -> new hull), which the bot does on every undock.
     // Hunters/RatHunters fly a real killmail legend hull (or a combat cruiser/BC
     // if the legend ship doesn't exist in Crucible-era data).
+    bool spawnFleetBoss = false;   // experienced miner flying an Orca/Rorqual
     {
         static const uint32 minerHulls[]  = { 17476, 17478, 17480, 582, 592, 599 };   // Covetor/Retriever/Procurer + mining frigates
         static const uint32 haulerHulls[] = { 648, 650, 651, 653, 1944 };             // Badger/Iteron/Hoarder/Wreathe/Bestower
@@ -517,6 +518,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         switch (prof) {
             case PlayerBot::BotProfession::Miner:
                 pick = minerHulls; pickCount = sizeof(minerHulls)/sizeof(minerHulls[0]); forceProfessionHull = true;
+                // Professional mining fleet: a practised miner (high skill tier)
+                // sometimes brings the boss — an Orca (or Rorqual in null) that
+                // boosts nearby barges of its corp. The rest stay on barges.
+                if (skillTier >= 3 && MakeRandomInt(0, 99) < 20) {
+                    bool isNull = pSystem->GetSystemSecurityRating() < 0.0f;
+                    hullType = isNull ? 28352 : 28606;   // Rorqual / Orca
+                    forceProfessionHull = false;
+                    spawnFleetBoss = true;
+                }
                 break;
             case PlayerBot::BotProfession::Trader:
             case PlayerBot::BotProfession::Courier:
@@ -531,7 +541,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 break;
         }
 
-        if (forceProfessionHull) {
+        if (spawnFleetBoss) {
+            // Boss hull already chosen (Orca/Rorqual) — keep it, no re-pick.
+        } else if (forceProfessionHull) {
             hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
         } else {
             // Combat hull from the killmail legend (real EVE hull). Killmail hull
@@ -774,6 +786,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // The bot's combat/profession tier comes from its persisted skillLevel
     // (levelled up by practice), not the ctor default of 3.
     bot->SetBotSkillLevel(skillTier);
+    bot->SetFleetBoss(spawnFleetBoss);
     bot->GetAIMgr()->SetAmbush(false);   // bots are not ambushing rats
     bot->DestinyMgr()->SetPosition(pos);
     pSystem->AddNPC(bot);

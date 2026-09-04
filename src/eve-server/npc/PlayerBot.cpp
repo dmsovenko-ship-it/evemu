@@ -57,7 +57,8 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_cynoActive(false),
   m_factionWarrior(false),
   m_jumpDest(0),
-  m_cynoTimer(0)
+  m_cynoTimer(0),
+  m_fleetBoss(false)
 {    // A player-like legend: give this NPC a neutral alliance so it doesn't show
     // red crosshairs and isn't auto-aggroed by faction standing checks. The
     // owner is the PILOT (charID), not the corp — so clients can lock the ship
@@ -1330,6 +1331,34 @@ bool PlayerBot::LevelUpFromPractice()
     return true;
 }
 
+// Professional mining fleet boost (guide model): a barge mining near a friendly
+// fleet boss (Orca 28606 / Rorqual 28352 — Industrial Command Ship / Capital
+// Industrial) of the same corp mines faster, as if the boss ran mining foreman
+// links. Returns a yield multiplier: 1.0 alone, up to ~1.3 with a boss close.
+float PlayerBot::GetFleetMiningBoost() const
+{
+    if (SystemMgr() == nullptr)
+        return 1.0f;
+    float boost = 1.0f;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (other == nullptr || other == this)
+            continue;
+        if (other->GetBotCorpID() != m_botCorpID)
+            continue;
+        if (!other->IsFleetBoss())
+            continue;
+        double d = GetPosition().distance(other->GetPosition());
+        if (d < 80000.0) {                 // within ~80 km of the boss
+            boost = 1.3f;
+            break;
+        }
+    }
+    return boost;
+}
+
 void PlayerBot::DoProfessionActivity()
 {
     if (m_destiny == nullptr || SystemMgr() == nullptr)
@@ -1443,6 +1472,7 @@ void PlayerBot::DoProfessionActivity()
                             float oreUnitVol = roidRef->GetAttribute(AttrVolume).get_float();
                             if (oreUnitVol < 0.1f) oreUnitVol = 1.0f;
                             float cycleVol = 100.0f + m_botSkill * 60.0f;   // m3 per cycle (skill-scaled)
+                            cycleVol *= GetFleetMiningBoost();              // fleet boss yields more
                             uint32 units = (uint32)(cycleVol / oreUnitVol);
                             if (units < 1) units = 1;
                             // Don't overfill a modest hold (barge-ish).
