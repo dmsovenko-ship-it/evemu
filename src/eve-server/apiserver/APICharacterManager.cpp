@@ -316,6 +316,9 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
     if (handler == "CharacterList.xml.aspx") {
         std::string aid = get("accountid");
         bool allChars = aid.empty();
+        uint32 page = get("page").empty() ? 1 : std::stoul(get("page"));
+        uint32 perPage = 50;
+        uint32 offset = (page - 1) * perPage;
 
         DBQueryResult res;
         std::string q = "SELECT c.characterID, c.characterName, c.skillPoints, c.corporationID, "
@@ -330,14 +333,30 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "LEFT JOIN invTypes t ON t.typeID = e.typeID ";
         if (!allChars)
             q += "WHERE c.accountID = " + aid + " ";
-        q += "ORDER BY c.skillPoints DESC LIMIT 500";
+        q += "ORDER BY c.skillPoints DESC LIMIT " + std::to_string(perPage) + " OFFSET " + std::to_string(offset);
 
         if (!sDatabase.RunQuery(res, q.c_str()))
             return BuildErrorXML("999", "Query failed.");
 
+        // total count
+        uint32 total = 0;
+        {
+            DBQueryResult cres;
+            std::string cq = "SELECT COUNT(*) FROM chrCharacters";
+            if (!allChars) cq += " WHERE accountID = " + aid;
+            if (sDatabase.RunQuery(cres, cq.c_str())) {
+                DBResultRow crow;
+                if (cres.GetRow(crow)) total = crow.GetUInt(0);
+            }
+        }
+
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
-        xml += "  <result>\n    <characters>\n";
+        xml += "  <result>\n";
+        xml += "    <total>" + std::to_string(total) + "</total>\n";
+        xml += "    <page>" + std::to_string(page) + "</page>\n";
+        xml += "    <perPage>" + std::to_string(perPage) + "</perPage>\n";
+        xml += "    <characters>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
             const char* charName = row.GetText(1);

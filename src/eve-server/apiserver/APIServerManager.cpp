@@ -153,7 +153,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
             "COUNT(DISTINCT c.characterID) as playerCount, "
             "COUNT(DISTINCT e.itemID) as shipCount "
             "FROM mapSolarSystems ss "
-            "LEFT JOIN chrCharacters c ON c.solarSystemID = ss.solarSystemID AND c.characterID < 90000000 "
+            "LEFT JOIN chrCharacters c ON c.solarSystemID = ss.solarSystemID "
             "LEFT JOIN entity e ON e.locationID = ss.solarSystemID AND e.flag = 0 "
             "GROUP BY ss.solarSystemID, ss.solarSystemName, ss.security "
             "HAVING playerCount > 0 OR shipCount > 0 "
