@@ -384,5 +384,49 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "CharacterInfo.xml.aspx") {
+        std::string cid = get("characterid");
+        if (cid.empty()) return BuildErrorXML("105", "Missing characterID.");
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT c.characterID, c.characterName, c.skillPoints, c.corporationID, "
+            "c.securityRating, c.raceID, c.gender, c.solarSystemID, c.stationID, "
+            "cr.corporationName, cr.tickerName, "
+            "ss.solarSystemName, "
+            "e.typeID as shipTypeID, t.typeName as shipName "
+            "FROM chrCharacters c "
+            "LEFT JOIN crpCorporation cr ON cr.corporationID = c.corporationID "
+            "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = c.solarSystemID "
+            "LEFT JOIN entity e ON e.itemID = c.shipID "
+            "LEFT JOIN invTypes t ON t.typeID = e.typeID "
+            "WHERE c.characterID = %u", std::stoul(cid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        DBResultRow row;
+        if (!res.GetRow(row))
+            return BuildErrorXML("1004", "Character not found.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n";
+        xml += "    <characterid>" + std::to_string(row.GetUInt(0)) + "</characterid>\n";
+        xml += "    <charactername>" + xmlEscape(row.GetText(1)) + "</charactername>\n";
+        xml += "    <skillpoints>" + std::to_string(row.GetInt64(2)) + "</skillpoints>\n";
+        xml += "    <corporationid>" + std::to_string(row.GetUInt(3)) + "</corporationid>\n";
+        xml += "    <corporationname>" + xmlEscape(row.GetText(9)) + "</corporationname>\n";
+        xml += "    <ticker>" + xmlEscape(row.GetText(10)) + "</ticker>\n";
+        xml += "    <securityrating>" + std::string(row.GetText(4)) + "</securityrating>\n";
+        xml += "    <raceid>" + std::to_string(row.GetInt(5)) + "</raceid>\n";
+        xml += "    <gender>" + std::to_string(row.GetInt(6)) + "</gender>\n";
+        xml += "    <systemid>" + std::to_string(row.GetUInt(7)) + "</systemid>\n";
+        xml += "    <systemname>" + xmlEscape(row.GetText(11)) + "</systemname>\n";
+        xml += "    <stationid>" + std::to_string(row.GetUInt(8)) + "</stationid>\n";
+        xml += "    <shiptypeid>" + std::to_string(row.GetUInt(12)) + "</shiptypeid>\n";
+        xml += "    <shipname>" + xmlEscape(row.GetText(13)) + "</shipname>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
