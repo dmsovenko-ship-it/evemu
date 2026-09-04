@@ -181,6 +181,66 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "MarketTops.xml.aspx") {
+        DBQueryResult res;
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n";
+
+        auto part = [&](const char* tag, const std::string& where) {
+            std::string out;
+            DBQueryResult q;
+            std::string qs = "SELECT t.typeID, MAX(iv.typeName) as typeName, "
+                "SUM(t.quantity * t.price) as isk, SUM(t.quantity) as qty "
+                "FROM mktTransactions t JOIN invTypes iv ON iv.typeID = t.typeID "
+                "WHERE " + where + " GROUP BY t.typeID "
+                "ORDER BY isk DESC LIMIT 10";
+            if (sDatabase.RunQuery(q, qs.c_str())) {
+                DBResultRow r;
+                while (q.GetRow(r)) {
+                    std::ostringstream isk; isk.precision(0); isk << std::fixed << r.GetDouble(2);
+                    out += "      <row typeid=\"" + std::to_string(r.GetUInt(0)) + "\"";
+                    out += " name=\"" + xmlEscape(r.GetText(1)) + "\"";
+                    out += " isk=\"" + isk.str() + "\"";
+                    out += " qty=\"" + std::to_string(r.GetUInt(3)) + "\"/>\n";
+                }
+            }
+            xml += "    <" + std::string(tag) + ">\n" + out + "    </" + std::string(tag) + ">\n";
+        };
+        auto party = [&](const char* tag, const std::string& where, const char* joinSel, const char* joinOn) {
+            std::string out;
+            DBQueryResult q;
+            std::string qs = std::string("SELECT t.characterID, ") + joinSel + ", "
+                "SUM(t.quantity * t.price) as isk, COUNT(*) as trades "
+                "FROM mktTransactions t " + joinOn + " "
+                "WHERE " + where + " GROUP BY t.characterID, " + joinSel + " "
+                "ORDER BY isk DESC LIMIT 10";
+            if (sDatabase.RunQuery(q, qs.c_str())) {
+                DBResultRow r;
+                while (q.GetRow(r)) {
+                    std::ostringstream isk; isk.precision(0); isk << std::fixed << r.GetDouble(2);
+                    out += "      <row id=\"" + std::to_string(r.GetUInt(0)) + "\"";
+                    out += " name=\"" + xmlEscape(r.GetText(1)) + "\"";
+                    out += " isk=\"" + isk.str() + "\"";
+                    out += " trades=\"" + std::to_string(r.GetUInt(3)) + "\"/>\n";
+                }
+            }
+            xml += "    <" + std::string(tag) + ">\n" + out + "    </" + std::string(tag) + ">\n";
+        };
+
+        part("topboughtitems", "t.transactionType = 1");
+        part("topsolditems",   "t.transactionType = 0");
+        party("topbuyers",     "t.transactionType = 1", "COALESCE(cc.characterName, cr.corporationName, 'Unknown')",
+              "LEFT JOIN chrCharacters cc ON cc.characterID = t.characterID "
+              "LEFT JOIN crpCorporation cr ON cr.corporationID = t.characterID");
+        party("topsellers",    "t.transactionType = 0", "COALESCE(cc.characterName, cr.corporationName, 'Unknown')",
+              "LEFT JOIN chrCharacters cc ON cc.characterID = t.characterID "
+              "LEFT JOIN crpCorporation cr ON cr.corporationID = t.characterID");
+
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     if (handler == "MarketStats.xml.aspx") {
         DBQueryResult res;
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
