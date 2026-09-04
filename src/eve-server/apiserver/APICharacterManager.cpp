@@ -278,11 +278,15 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                     xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\" name=\"" + std::string(row.GetText(1)) + "\" type=\"character\"/>\n";
             }
         }
-        // ship type names (+ average market price for ISK valuation on the portal)
+        // ship type names (+ median market price for ISK valuation on the portal).
+        // MEDIAN (PERCENTILE_CONT 0.5) is robust to outlier orders; fall back to
+        // basePrice when the type has no market orders at all.
         {
             DBQueryResult res;
             if (sDatabase.RunQuery(res,
-                "SELECT t.typeID, t.typeName, IFNULL((SELECT AVG(price) FROM mktOrders WHERE typeID = t.typeID), t.basePrice) "
+                "SELECT t.typeID, t.typeName, "
+                "IFNULL((SELECT DISTINCT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price) OVER (PARTITION BY typeID) "
+                "        FROM mktOrders WHERE typeID = t.typeID), t.basePrice) "
                 "FROM invTypes t WHERE t.typeID IN (%s)", ids.c_str())) {
                 DBResultRow row;
                 while (res.GetRow(row)) {
