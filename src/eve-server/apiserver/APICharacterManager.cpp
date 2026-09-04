@@ -611,6 +611,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
               "LEFT JOIN crpCorporation vcc ON vcc.corporationID = k.victimCorporationID "
               "LEFT JOIN crpCorporation fcc ON fcc.corporationID = k.finalCorporationID "
               "LEFT JOIN alnAlliance va ON va.allianceID = k.victimAllianceID "
+              "LEFT JOIN alnAlliance fa ON fa.allianceID = k.finalAllianceID "
               "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
               "LEFT JOIN invGroups igv ON igv.groupID = iv.groupID "
               "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
