@@ -509,23 +509,30 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             return BuildErrorXML("1004", "Kill not found.");
 
         // Build EVE-style killmail text
+        // NOTE: GetText returns nullptr for NULL columns — wrap in safe helper
+        auto safeText = [](const char* s) -> std::string {
+            return (s != nullptr) ? std::string(s) : "";
+        };
         std::string killmail;
-        killmail += "Victim: " + std::string(row.GetText(15)) + ", " + std::string(row.GetText(19)) + "\n";
-        killmail += "Corp: " + std::string(row.GetText(17)) + "\n";
+        std::string vName = safeText(row.GetText(15));
+        std::string vCorp = safeText(row.GetText(17));
+        std::string vShip = safeText(row.GetText(19));
+        killmail += "Victim: " + vName + ", Corp: " + vCorp + "\n";
+        // victim alliance via alnAlliance (victimAllianceID = col 6)
         if (row.GetInt(6) > 0) {
             std::string allyName;
             DBQueryResult aRes;
-            if (sDatabase.RunQuery(aRes, "SELECT allianceName FROM crpCorporation WHERE corporationID = %u", row.GetUInt(6))) {
+            if (sDatabase.RunQuery(aRes, "SELECT allianceName FROM alnAlliance WHERE allianceID = %u", row.GetUInt(6))) {
                 DBResultRow aRow;
-                if (aRes.GetRow(aRow)) allyName = aRow.GetText(0);
+                if (aRes.GetRow(aRow)) allyName = safeText(aRow.GetText(0));
             }
             if (!allyName.empty()) killmail += "Alliance: " + allyName + "\n";
         }
-        killmail += "System: " + std::string(row.GetText(22)) + " (" + std::string(row.GetText(13)) + ")\n";
+        killmail += "System: " + safeText(row.GetText(22)) + " (" + safeText(row.GetText(13)) + ")\n";
         killmail += "Damage Taken: " + std::to_string(row.GetUInt(3)) + "\n";
         killmail += "\n";
-        killmail += "Final Blow: " + std::string(row.GetText(16)) + " flying " + std::string(row.GetText(20)) + "\n";
-        killmail += "Corp: " + std::string(row.GetText(18)) + "\n";
+        killmail += "Final Blow: " + safeText(row.GetText(16)) + " flying " + safeText(row.GetText(20)) + "\n";
+        killmail += "Corp: " + safeText(row.GetText(18)) + "\n";
         killmail += "Damage Done: " + std::to_string(row.GetUInt(12)) + "\n";
         killmail += "\nDetails:\n";
 
