@@ -744,6 +744,16 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     bot->DestinyMgr()->SetPosition(pos);
     pSystem->AddNPC(bot);
 
+    // Chelobots are real pilots as far as the board is concerned: point their
+    // chrCharacters row at the ship they are flying now (same as a player's
+    // active ship) so lists/portals show the hull. Reset on despawn.
+    {
+        DBerror perr;
+        sDatabase.RunQuery(perr,
+            "UPDATE chrCharacters SET shipID = %u, solarSystemID = %u, stationID = 0, online = 1 WHERE characterID = %u",
+            iRef->itemID(), pSystem->GetID(), useCharID);
+    }
+
     // Arrival animation: the bot "jumped through" the gate it spawned beside, so
     // play the gate flash to everyone in the bubble — otherwise a chelobot just
     // materialises out of nowhere (a tell that it's not a real pilot).
@@ -912,6 +922,10 @@ void BotMgr::ReapBots(SystemManager* pSystem)
     for (PlayerBot* bot : toRemove) {
         _log(BOT__MESSAGE, "BotMgr: reaping simulated player '%s' from system %u",
              bot->GetBotName().c_str(), pSystem->GetID());
+        DBerror perr;
+        sDatabase.RunQuery(perr,
+            "UPDATE chrCharacters SET shipID = 0, solarSystemID = 0, stationID = 0, online = 0 WHERE characterID = %u",
+            bot->GetBotCharID());
         bot->Delete();
     }
 }
