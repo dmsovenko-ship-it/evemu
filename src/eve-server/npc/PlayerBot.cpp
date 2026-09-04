@@ -310,6 +310,9 @@ SystemEntity* PlayerBot::PickPriorityTarget(SystemEntity* attacker)
 }
 
 // Ship class by groupID: bigger index = more combat power.
+// Non-combat hulls (mining barges, industrials, freighters, shuttles...) are 0 —
+// a pilot in one is defenceless and never wins a fight, so power assessments
+// (ShouldEngage/HunterWouldEngage) always make them flee.
 int PlayerBot::GetShipClass(uint16 groupID)
 {
     using namespace EVEDB::invGroups;
@@ -328,8 +331,14 @@ int PlayerBot::GetShipClass(uint16 groupID)
             return 5;
         case Supercarrier: case Titan: case Carrier:
             return 6;
+        // no real weapons — never wins a straight fight
+        case MiningBarge: case Exhumer: case Industrial:
+        case Freighter: case TransportShip: case JumpFreighter:
+        case CapitalIndustrialShip: case Shuttle: case Capsule:
+        case IndustrialCommandShip:
+            return 0;
         default:
-            return 2;   // unknown / industrial-ish — treat as cruiser-ish
+            return 2;   // unknown — treat as cruiser-ish
     }
 }
 

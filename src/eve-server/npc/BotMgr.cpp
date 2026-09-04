@@ -600,11 +600,22 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     {
         float base = 6.0f + (float)skillTier * 4.0f;   // 6..26 base DPS-ish
         uint16 grp = iRef->groupID();
-        // Mining barges/exhumers (Retriever, Covetor, Procurer...) have no guns —
-        // a barge "shooting" with a mining laser must not deal combat damage.
-        // Peaceful pilots on real combat hulls still fight back with their weapons.
-        if (grp == EVEDB::invGroups::MiningBarge || grp == EVEDB::invGroups::Exhumer)
-            base = 0.0f;
+        // Non-combat hulls (mining barges/exhumers, industrials, freighters,
+        // transports, shuttles, capsules...) have no guns — a hauler/barge must
+        // NOT deal combat damage. Peaceful pilots on real combat hulls still fight
+        // back with their weapons. A real pilot in a freighter warps out, it does
+        // not "shoot back" with a cargo bay.
+        using namespace EVEDB::invGroups;
+        switch (grp) {
+            case MiningBarge: case Exhumer: case Industrial:
+            case Freighter: case TransportShip: case JumpFreighter:
+            case CapitalIndustrialShip: case Shuttle: case Capsule:
+            case IndustrialCommandShip:
+                base = 0.0f;
+                break;
+            default:
+                break;
+        }
         // Bigger hulls hit harder (battleship > cruiser > frigate).
         if (grp == EVEDB::invGroups::Battleship || grp == EVEDB::invGroups::BlackOps
             || grp == EVEDB::invGroups::Marauder)
