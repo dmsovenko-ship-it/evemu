@@ -593,7 +593,7 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                     DBerror err;
                     if (!sDatabase.RunQuery(err,
                                             "UPDATE ctrContracts SET status = 4, dateAccepted = %lli, dateCompleted = %lli, acceptorID = %u, acceptorWalletKey = %u WHERE contractId = %u",
-                                            timestamp, timestamp, call.client->GetCharacterID(), walletKey, contractID))
+                                            timestamp, timestamp, call.client->GetCharacterID(), walletKey, contractID->value()))
                     {
                         codelog(DATABASE__ERROR, "Failed to update contract : %s", err.c_str());
                     }
@@ -617,8 +617,6 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
             {
                 // Courier contract
                 uint32 acceptorID = acceptForCorp ? call.client->GetCorporationID() : call.client->GetCharacterID();
-                codelog(DATABASE__ERROR, "AcceptContract case3: contract=%u status=%u acceptor=%u startStation=%u endStation=%u vol=%.0f",
-                        contractID->value(), status, acceptorID, startStationID, endSolarSystemID, volume);
 
                 if (collateral > 0) {
                     if (acceptForCorp) {
@@ -658,11 +656,9 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                 DBerror err;
                 if (!sDatabase.RunQuery(err,
                                         "UPDATE ctrContracts SET status = 1, dateAccepted = %lli, acceptorID = %u, crateID = %u, acceptorWalletKey = %u WHERE contractId = %u",
-                                        timestamp, call.client->GetCharacterID(), plasticWrap->itemID(), walletKey, contractID))
+                                        timestamp, call.client->GetCharacterID(), plasticWrap->itemID(), walletKey, contractID->value()))
                 {
                     codelog(DATABASE__ERROR, "Failed to update contract : %s", err.c_str());
-                } else {
-                    codelog(DATABASE__MESSAGE, "AcceptContract case3: updated contract %u -> status=1 crateID=%u", contractID, plasticWrap->itemID());
                 }
                 break;
             }
@@ -671,7 +667,7 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                 return nullptr;
         }
         // Once type-specific manipulations are done, we query brief contract information (requested by client) and send it out.
-        if (!sDatabase.RunQuery(res, "SELECT contractId, contractType, startStationID, endStationID, dateAccepted, numDays FROM ctrContracts WHERE contractId = %u", contractID))
+        if (!sDatabase.RunQuery(res, "SELECT contractId, contractType, startStationID, endStationID, dateAccepted, numDays FROM ctrContracts WHERE contractId = %u", contractID->value()))
         {
             codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
             return nullptr;
@@ -698,7 +694,7 @@ PyResult ContractProxy::CompleteContract(PyCallArgs &call, PyInt* contractID, Py
     call.Dump(SERVICE__CALL_DUMP);
 
     DBQueryResult res;
-    if (!sDatabase.RunQuery(res, "SELECT contractType, status, price, reward, collateral, volume, startStationID, endStationID, issuerID, forCorp, crateID, acceptorWalletKey FROM ctrContracts WHERE contractId = %u", contractID))
+    if (!sDatabase.RunQuery(res, "SELECT contractType, status, price, reward, collateral, volume, startStationID, endStationID, issuerID, forCorp, crateID, acceptorWalletKey FROM ctrContracts WHERE contractId = %u", contractID->value()))
     {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
         return new PyBool(false);
