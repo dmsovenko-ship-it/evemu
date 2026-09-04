@@ -3,6 +3,18 @@
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) и портал — см. свежие коммиты; портал можно дёргать с сервера эмулятора `curl http://172.20.1.49/...`, SSH на портал `172.20.1.49` (dmitry/gbnjy78), сайт `/var/www/html`.
 
+## 5 сентября (вторая половина): Этап 1 экономики СДЕЛАН (коммиты `bdcd15b1`, `0439027d`, `bb5a4935`) — ЖДЁТ пересборки/проверки
+- `bdcd15b1`: фикс сборки `hullType` (declared before botMemory use в SpawnBot) + `PlaceBotCourierContractAt` теперь вставляет `startStationDivision` (колонка NOT NULL без дефолта → #1364).
+- `0439027d`: миграции `20260905000000/05000001` (shipTypeID, индексы ActiveSystems) применены вручную ранее → в `migrations` их нет → EVEDBTool пере-применял и падал #1060. Сделаны идемпотентными (`ADD COLUMN IF NOT EXISTS`/`ADD INDEX IF NOT EXISTS`).
+- `bb5a4935` (Этап 1): трейдеры-боты **реально двигают рынок** с самообучением:
+  - `MarketMgr::BotArbitrageFill(botCharID, stationID, typeID, askOrderID, bidOrderID, qty)` — без-клиентное исполнение пары resting sell+buy как одной сделки: бот покупает у ask-владельца (деньги оффлайн → chrCharacters.balance), товар минтуется ему в ангар и передаётся владельцу bid, escrow станции платит боту; оба ордера списываются/закрываются, пишутся настоящие mktTransactions (2 зеркальные пары). Skills через `CharacterDB::GetSkillLevel`, ISK через `AccountDB` (OfflineFundXfer), balance-check ДО сделки (не уходит в минус). Никогда не торгует с собой.
+  - `BotMgr::ProcessDockedTraderEconomy(sysID, stationID, DockedBot)` — раз в 4-10 мин трейдер читает книгу своей станции: если есть пересечение чужих ордеров (bestBid > bestAsk сверх margin, зависящего от уверенности) → арбитраж; иначе квотит лучше текущих best bid/ask (маркет-мейкинг) с якорем fair value = midpoint живой книги или `invTypes.basePrice` (обновляется `import_prices.py` с ESI — «подыгрываем ботам реальными ценами»). Старые квоты бота на станции/типе удаляются перед ре-квотой (не стакаются). Buy-квота проверяет баланс (есть чем обеспечить escrow).
+  - `BotMemory`: `tradeProfit`/`tradeLosses` + `GetTradeConfidence()` (-1..1). Каждая сделка кормит память; уверенность гейтит жадность: после прибылей квотит узко и много, после убытков требует более широкий спред.
+  - `DockedBot` хранит `stationID` (заполняется при доке).
+  - Миграция `20260905000002-bot_memory_trade_learning.sql` (идемпотентная, ALTER botMemory ADD tradeProfit BIGINT/tradeLosses INT).
+- ⚠️ `PlaceBotOrderAt/PlaceBotBuyOrderAt` остались только для производителей (Miner/Hacker/Explorer 20%) и legacy PlayerBot*-обёрток (не вызываются). Трейдеры больше НЕ кидают случайные ордера.
+- **ЖДЁТ пересборки + проверки**: git pull на `bb5a4935`; смотреть `MARKET__MESSAGE` в логе (`BotArbitrageFill - bot N arbitraged...`), `mktTransactions` на рост от сделок ботов, живые спреды в окне маркета, боты не уходят в минус. Дальше — этап 2 (межстанционные перевозки/курьерки).
+
 ## 5 сентября: экономика челоботов (шевеление рынка) — дизайн/этапы
 Юзер хочет полноценную живую экономику: трейдеры-боты **двигают рынок** (не мёртвые случайные ордера), с **самообучением** на прибыли/убытке; движение товара порождает спрос на **перевозку** → боты-курьеры и люди возят грузы между станциями, **курьерки на общем рынке**.
 
