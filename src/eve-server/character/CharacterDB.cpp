@@ -374,6 +374,76 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 allianceID, uint
     return charID;
 }
 
+// Stage-2 level-up: raise every trained skill of a bot to at least `newLevel`
+// (like training skills over time). This is what makes practice meaningful — a
+// veteran who has run 200 mining trips actually mines faster / fights better /
+// pays less tax because its real skill items are higher.
+void CharacterDB::TrainBotToSkillLevel(uint32 charID, uint8 newLevel)
+{
+    if (charID == 0)
+        return;
+    if (newLevel > 5) newLevel = 5;
+    if (newLevel == 0)
+        return;
+
+    // All skill items the bot owns (flagSkill, locationID=charID).
+    DBQueryResult res;
+    std::vector<uint32> skillItems;
+    if (sDatabase.RunQuery(res,
+        "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u AND flag = %u",
+        charID, charID, (uint32)flagSkill))
+    {
+        DBResultRow row;
+        while (res.GetRow(row))
+            skillItems.push_back(row.GetUInt(0));
+    }
+
+    uint32 totalSP = 0;
+    for (uint32 itemID : skillItems) {
+        // Current level of this skill item (0 if it has none yet).
+        uint8 cur = 0;
+        DBQueryResult ares;
+        if (sDatabase.RunQuery(ares,
+            "SELECT valueInt FROM entity_attributes WHERE itemID = %u AND attributeID = %u",
+            itemID, (uint32)AttrSkillLevel))
+        {
+            DBResultRow arow;
+            if (ares.GetRow(arow))
+                cur = (uint8)arow.GetUInt(0);
+        }
+        if (cur >= newLevel) {
+            // Already at or above the target — just count its SP.
+            DBQueryResult sres;
+            if (sDatabase.RunQuery(sres,
+                "SELECT valueInt FROM entity_attributes WHERE itemID = %u AND attributeID = %u",
+                itemID, (uint32)AttrSkillPoints))
+            {
+                DBResultRow srow;
+                if (sres.GetRow(srow))
+                    totalSP += srow.GetUInt(0);
+            }
+            continue;
+        }
+
+        // Raise this skill to the new tier.
+        SkillRef skill = Skill::Load(itemID);
+        if (skill.get() == nullptr)
+            continue;
+        skill->SetAttribute(AttrSkillLevel, newLevel, false);
+        uint32 sp = skill->GetSPForLevel(newLevel);
+        skill->SetAttribute(AttrSkillPoints, sp, false);
+        skill->SaveItem();
+        totalSP += sp;
+    }
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE chrCharacters SET skillPoints = %u WHERE characterID = %u",
+        totalSP, charID);
+    _log(CHARACTER__INFO, "TrainBotToSkillLevel: bot %u trained to level %u (%u skills, %u SP).",
+         charID, newLevel, (uint32)skillItems.size(), totalSP);
+}
+
 // Profession-flavoured, human-looking bios for charbots. Each entry is a short
 // "personal page" — a mix of backstory, humour, a tagline, optional ASCII art
 // and the odd emoticon, so inspectors don't see a clone farm. Index 0 is a

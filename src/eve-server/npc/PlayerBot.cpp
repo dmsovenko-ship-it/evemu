@@ -1,4 +1,5 @@
 #include "eve-server.h"
+#include "EVEServerConfig.h"
 #include "npc/PlayerBot.h"
 #include "npc/BotMgr.h"
 #include "npc/NPCAI.h"
@@ -431,13 +432,16 @@ void PlayerBot::Process()
             m_memory->RecordRatKill();
             m_memory->Save();
         }
+        // A surviving fight is practice — check for a skill level-up.
+        LevelUpFromPractice();
         _log(BOT__TRACE, "PlayerBot %s(%u): fight ended, recorded win.", m_botName.c_str(), m_botCharID);
     } else if (fighting) {
         m_inFight = true;
     }
 
     // Profession learning: each completed activity run adds experience so the bot
-    // gets better at its job (see GetActivitySkill).
+    // gets better at its job (see GetActivitySkill). Enough practice also raises
+    // its actual skill tier (see LevelUpFromPractice) — a veteran pilot.
     if (m_profession != BotProfession::Hunter && m_profession != BotProfession::RatHunter
         && m_activityTimer.Check(false) && m_memory != nullptr)
     {
@@ -449,6 +453,7 @@ void PlayerBot::Process()
             default: break;
         }
         m_memory->Save();
+        LevelUpFromPractice();
         _log(BOT__TRACE, "PlayerBot %s(%u): recorded profession run.", m_botName.c_str(), m_botCharID);
     }
     if (!m_activityTimer.Enabled())
@@ -1149,6 +1154,92 @@ void PlayerBot::DecideNextAction()
     // to actual travel/combat/mining behaviour.
     _log(BOT__TRACE, "PlayerBot %s(%u): activity = %u, system = %u",
          m_botName.c_str(), m_botCharID, (uint8)m_activity, SystemMgr()->GetID());
+}
+
+void PlayerBot::AddCargo(uint16 typeID, uint32 qty)
+{
+    if (typeID == 0 || qty == 0)
+        return;
+    m_cargo[typeID] += qty;
+}
+
+bool PlayerBot::HasCargo() const
+{
+    for (const auto& entry : m_cargo)
+        if (entry.second > 0)
+            return true;
+    return false;
+}
+
+// Real physical deposit: everything the bot is carrying is spawned as actual
+// entity items in the station hangar, owned by the bot. (Same mechanism a sell
+// order fill uses — SpawnItem in limbo, then Donate into the station hangar.)
+// After this the station physically holds minerals/loot that a trader bot can
+// pick up and pack into a courier contract. Returns units deposited.
+double PlayerBot::DepositCargoAtStation(uint32 stationID)
+{
+    if (stationID == 0 || !HasCargo())
+        return 0.0;
+
+    double units = 0.0;
+    for (auto& entry : m_cargo) {
+        uint16 typeID = entry.first;
+        uint32 qty = entry.second;
+        if (qty == 0)
+            continue;
+        // Spawn in limbo then hand to the bot's hangar at the station.
+        ItemData idata(typeID, ownerStation, locTemp, flagNone, qty);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+        if (iRef.get() == nullptr) {
+            _log(BOT__ERROR, "PlayerBot %s(%u): failed to deposit %u x type %u at station %u.",
+                 m_botName.c_str(), m_botCharID, qty, typeID, stationID);
+            continue;
+        }
+        iRef->Donate(m_botCharID, stationID, flagHangar, false);
+        units += qty;
+        _log(BOT__TRACE, "PlayerBot %s(%u): deposited %u x type %u in hangar at station %u.",
+             m_botName.c_str(), m_botCharID, qty, typeID, stationID);
+    }
+    m_cargo.clear();
+    return units;
+}
+
+// A bot levels up when its accumulated practice (profession runs / PvP) crosses
+// the threshold for the next tier. On level-up its real skill items are trained
+// to the new level (CharacterDB::TrainBotToSkillLevel) so a veteran genuinely
+// out-performs a rookie — and the tier is persisted so it survives respawns.
+bool PlayerBot::LevelUpFromPractice()
+{
+    if (m_memory == nullptr)
+        return false;
+    uint8 cur = m_memory->GetSkillLevel();
+    if (!m_memory->HasSkillLevel()) {
+        // Legacy bot (no stored tier). Seed it from the config roll used at
+        // character creation, then persist. Further gains level from practice.
+        uint8 seed = sConfig.playerBots.MinSkillLevel + (uint8)MakeRandomInt(
+            0, sConfig.playerBots.MaxSkillLevel - sConfig.playerBots.MinSkillLevel);
+        m_memory->SetSkillLevel(seed);
+        m_botSkill = seed;
+        CharacterDB::TrainBotToSkillLevel(m_botCharID, seed);
+        m_memory->Save();
+        return false;
+    }
+    if (cur >= 5)
+        return false;
+
+    uint32 need = BotMemory::PracticeForNextLevel(cur);
+    uint32 have = m_memory->GetPractice();
+    if (have < need)
+        return false;
+
+    uint8 next = cur + 1;
+    m_memory->SetSkillLevel(next);
+    m_botSkill = next;
+    CharacterDB::TrainBotToSkillLevel(m_botCharID, next);
+    m_memory->Save();
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): levelled up to skill tier %u (practice %u >= %u).",
+         m_botName.c_str(), m_botCharID, next, have, need);
+    return true;
 }
 
 void PlayerBot::DoProfessionActivity()

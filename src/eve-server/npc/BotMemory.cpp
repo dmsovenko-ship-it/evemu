@@ -14,6 +14,7 @@ BotMemory::BotMemory(uint32 charID)
   ratKills(0), mineRuns(0), tradeRuns(0), hackRuns(0),
   pvpMistakes(0),
   profession(0xFF),
+  skillLevel(0xFF),
   tradeProfit(0), tradeLosses(0),
   m_dirty(false)
 {
@@ -25,7 +26,7 @@ void BotMemory::Load()
     if (sDatabase.RunQuery(res,
         "SELECT wins, losses, kills, deaths, chatLines, chatReplies,"
         "       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,"
-        "       tradeProfit, tradeLosses"
+        "       skillLevel, tradeProfit, tradeLosses"
         " FROM botMemory WHERE charID = %u", m_charID))
     {
         DBResultRow row;
@@ -45,8 +46,9 @@ void BotMemory::Load()
                 profession = (uint8)row.GetUInt(11);
             }
             if (row.ColumnCount() > 12) {
-                tradeProfit = row.GetInt64(12);
-                tradeLosses = row.GetUInt(13);
+                skillLevel = (uint8)row.GetUInt(12);
+                tradeProfit = row.GetInt64(13);
+                tradeLosses = row.GetUInt(14);
             }
         }
     }
@@ -61,20 +63,32 @@ void BotMemory::Save() const
     if (!sDatabase.RunQuery(err,
         "INSERT INTO botMemory (charID, wins, losses, kills, deaths, chatLines, chatReplies,"
         "                       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,"
-        "                       tradeProfit, tradeLosses, lastUpdate)"
-        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %lli, %u, NOW())"
+        "                       skillLevel, tradeProfit, tradeLosses, lastUpdate)"
+        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %lli, %u, NOW())"
         " ON DUPLICATE KEY UPDATE"
         "  wins = VALUES(wins), losses = VALUES(losses), kills = VALUES(kills),"
         "  deaths = VALUES(deaths), chatLines = VALUES(chatLines), chatReplies = VALUES(chatReplies),"
         "  ratKills = VALUES(ratKills), mineRuns = VALUES(mineRuns), tradeRuns = VALUES(tradeRuns),"
         "  hackRuns = VALUES(hackRuns), pvpMistakes = VALUES(pvpMistakes), profession = VALUES(profession),"
-        "  tradeProfit = VALUES(tradeProfit), tradeLosses = VALUES(tradeLosses), lastUpdate = NOW()",
+        "  skillLevel = VALUES(skillLevel), tradeProfit = VALUES(tradeProfit), tradeLosses = VALUES(tradeLosses),"
+        "  lastUpdate = NOW()",
         m_charID, wins, losses, kills, deaths, chatLines, chatReplies,
         ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,
-        (int64)tradeProfit, tradeLosses))
+        skillLevel, (int64)tradeProfit, tradeLosses))
     {
         codelog(DATABASE__ERROR, "BotMemory::Save() failed for %u: %s", m_charID, err.c_str());
     }
+}
+
+uint32 BotMemory::PracticeForNextLevel(uint8 cur)
+{
+    // Practice thresholds to climb from one tier to the next. Roughly doubles
+    // each tier so early levels come fast and late ones take real time:
+    //   0->1: 4   actions, 1->2: 10, 2->3: 22, 3->4: 46, 4->5: 95.
+    static const uint32 need[] = { 4, 10, 22, 46, 95 };
+    if (cur >= 5)
+        return 0;   // already maxed
+    return need[cur];
 }
 
 float BotMemory::GetAggression() const

@@ -30,6 +30,21 @@ public:
     uint8 GetProfession() const  { return profession; }
     bool HasProfession() const   { return profession != 0xFF; }
 
+    /* skill progression (stage-2: bots actually level up). skillLevel is the
+     * bot's current combat/profession tier 0..5 (0xFF = unset, roll at spawn).
+     * Every profession activity run / PvP outcome feeds practice; when practice
+     * crosses a threshold the bot's skillLevel rises and its real skill items in
+     * the DB are bumped to match — a veteran flies/ fights/trades better than a
+     * rookie, exactly like a live pilot training skills. */
+    void SetSkillLevel(uint8 s)  { if (s > 5) s = 5; skillLevel = s; RecordChange(); }
+    uint8 GetSkillLevel() const  { return skillLevel; }
+    bool HasSkillLevel() const   { return skillLevel != 0xFF; }
+    // Accumulated practice: how many profession/PvP actions this bot has done.
+    uint32 GetPractice() const   { return ratKills + mineRuns + tradeRuns + hackRuns + wins + losses; }
+    // How much practice is needed to reach the next skill tier above `cur`
+    // (0..5). Saturates at 5 (no more levelling).
+    static uint32 PracticeForNextLevel(uint8 cur);
+
     /* combat learning */
     void RecordWin()   { ++wins;   RecordChange(); }
     void RecordLoss()  { ++losses; RecordChange(); }
@@ -95,6 +110,7 @@ private:
     uint32 ratKills, mineRuns, tradeRuns, hackRuns;
     uint32 pvpMistakes;
     uint8  profession;   // PlayerBot::BotProfession; 0xFF = not assigned yet
+    uint8  skillLevel;   // 0..5 current tier (0xFF = unset, rolled at spawn)
     int64  tradeProfit;  // net ISK from the bot's market-making / arbitrage fills
     uint32 tradeLosses;  // number of losing fills (RecordTradeResult with isk<0)
     bool m_dirty;

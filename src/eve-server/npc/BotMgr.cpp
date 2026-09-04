@@ -441,17 +441,30 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     uint32 hullType = useShipType;
 
     // Profession: keep the bot's saved job across respawns (a miner stays a miner —
-    // it's been learning it). Only brand-new pilots roll a fresh one.
+    // it's been learning it). Only brand-new pilots roll a fresh one. Skill tier
+    // is loaded the same way: a persisted, levelled-up tier survives respawns.
     PlayerBot::BotProfession prof = PlayerBot::BotProfession::Miner;
+    uint8 savedSkill = 0xFF;   // 0xFF = unset → roll fresh below
     {
         DBQueryResult pres;
         if (sDatabase.RunQuery(pres,
-            "SELECT profession FROM botMemory WHERE charID = %u AND profession != 255",
+            "SELECT profession, skillLevel FROM botMemory WHERE charID = %u AND profession != 255",
             useCharID))
         {
             DBResultRow prow;
             if (pres.GetRow(prow)) {
                 prof = (PlayerBot::BotProfession)prow.GetUInt(0);
+                savedSkill = (uint8)prow.GetUInt(1);
+                if (savedSkill <= 5)
+                    skillTier = savedSkill;   // veteran keeps its trained tier
+                else {
+                    // Legacy pilot with no stored tier — seed it now so it stays
+                    // stable across spawns (and can level up from here).
+                    DBerror uerr;
+                    sDatabase.RunQuery(uerr,
+                        "UPDATE botMemory SET skillLevel = %u WHERE charID = %u",
+                        skillTier, useCharID);
+                }
             } else {
                 // New pilot — roll a profession and persist it for future respawns.
                 float p = MakeRandomFloat();
@@ -471,10 +484,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     prof = PlayerBot::BotProfession::Explorer;     // probes / wormholes
                 DBerror perr;
                 sDatabase.RunQuery(perr,
-                    "INSERT INTO botMemory (charID, shipTypeID, profession, lastUpdate)"
-                    " VALUES (%u, %u, %u, NOW())"
-                    " ON DUPLICATE KEY UPDATE shipTypeID = VALUES(shipTypeID), profession = VALUES(profession), lastUpdate = NOW()",
-                    useCharID, hullType, (uint8)prof);
+                    "INSERT INTO botMemory (charID, shipTypeID, profession, skillLevel, lastUpdate)"
+                    " VALUES (%u, %u, %u, %u, NOW())"
+                    " ON DUPLICATE KEY UPDATE shipTypeID = VALUES(shipTypeID), profession = VALUES(profession),"
+                    "  skillLevel = VALUES(skillLevel), lastUpdate = NOW()",
+                    useCharID, hullType, (uint8)prof, skillTier);
             }
         }
     }
@@ -757,6 +771,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         bot->Delete();
         return;
     }
+    // The bot's combat/profession tier comes from its persisted skillLevel
+    // (levelled up by practice), not the ctor default of 3.
+    bot->SetBotSkillLevel(skillTier);
     bot->GetAIMgr()->SetAmbush(false);   // bots are not ambushing rats
     bot->DestinyMgr()->SetPosition(pos);
     pSystem->AddNPC(bot);

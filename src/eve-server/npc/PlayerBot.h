@@ -5,6 +5,7 @@
 #include "npc/BotMemory.h"
 #include "npc/Drone.h"
 #include "utils/timer.h"
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -39,6 +40,12 @@ public:
     uint32 GetBotCorpID() const         { return m_botCorpID; }
     uint32 GetBotAllianceID() const     { return m_botAllianceID; }
     uint8 GetBotSkillLevel() const      { return m_botSkill; }
+    void SetBotSkillLevel(uint8 lvl)    { if (lvl > 5) lvl = 5; m_botSkill = lvl; }
+    // Skill progression: after enough practice (profession runs / PvP outcomes,
+    // tracked in botMemory) the bot levels up: skillLevel rises and its real
+    // skill items in the DB are bumped to the new tier. Call on activity runs.
+    // Returns true if the bot gained a level.
+    bool LevelUpFromPractice();
 
     /* drone warfare (drone-capable hulls) */
     // Launch up to `count` combat drones around this bot (no ShipSE needed — the
@@ -139,6 +146,18 @@ public:
     bool IsJumpFreighter() const        { return m_isJumpFreighter; }
     bool CynoActive() const             { return m_cynoActive; }
 
+    /* real physical loot/production (stage-2 "living goods") */
+    // While a miner/ratter/hacker works, it accumulates a real cargo hold (in
+    // m_cargo, keyed by typeID). On docking (BotMgr calls this with the station)
+    // the hold is deposited as real entity items in the station hangar owned by
+    // the bot — so a station ends up with physical minerals/loot a trader can
+    // later pack into a courier contract.
+    void AddCargo(uint16 typeID, uint32 qty);
+    bool HasCargo() const;
+    // Move everything currently in the bot's hold into the station hangar
+    // (ownerID = bot char). Clears the hold. Returns total volume moved.
+    double DepositCargoAtStation(uint32 stationID);
+
     /* realistic PvP behaviour (evaluate before engaging, mistakes for novices) */
     bool IsNearGate(double threshold = 60000.0);   // within X m of a gate (ambush risk)
     int  CountEnemiesNearby(SystemEntity* target, double radius = 100000.0);  // hostile ships around target
@@ -216,6 +235,8 @@ protected:
     Timer m_cynoTimer;                  // window before the jump fires
     std::vector<DroneSE*> m_drones;     // launched combat drones (bot commands directly)
     Timer m_droneTimer;                 // drone attack cycle
+    std::map<uint16, uint32> m_cargo;   // physical loot/production accumulated this trip (typeID -> qty)
+    Timer m_harvestTimer;               // cadence for accumulating cargo while working
 };
 
 #endif
