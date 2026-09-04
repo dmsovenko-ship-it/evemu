@@ -12,8 +12,11 @@
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/sov/SovereigntyDataMgr.h"
 #include "standing/StandingDB.h"
+#include "ServiceDB.h"
+#include "StaticDataMgr.h"
 #include <iterator>
 #include <cmath>
+#include <sstream>
 
 /*
  * @file PlayerBot.cpp
@@ -495,7 +498,113 @@ void PlayerBot::Killed(Damage& damage)
         if (killer != nullptr)
             UpdateBotStandings(killer, true);   // other (killer) won, I lost
     }
+
+    // Chelobots are real pilots as far as the killboard is concerned — record a
+    // killmail so their ship appears in chrKillTable (like any player loss).
+    RecordBotKillMail(damage);
+
     NPC::Killed(damage);
+}
+
+// Build + persist a killmail for a destroyed chelobot and notify the killer.
+void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
+{
+    if (m_system == nullptr || m_self.get() == nullptr)
+        return;
+
+    SystemEntity* killer = fatal_blow.srcSE;
+    if (killer == nullptr)
+        return;
+
+    // resolve the killer (player, player drone, NPC, or another chelobot)
+    uint32 killerID = 0;
+    Client* pClient = nullptr;
+    if (killer->HasPilot()) {
+        pClient = killer->GetPilot();
+        if (pClient != nullptr) killerID = pClient->GetCharacterID();
+    } else if (killer->IsDroneSE()) {
+        Client* owner = killer->GetDroneSE() != nullptr ? killer->GetDroneSE()->GetOwner() : nullptr;
+        if (owner != nullptr) { pClient = owner; killerID = owner->GetCharacterID(); }
+    } else {
+        killerID = killer->GetCorporationID();
+        if (killerID == 0) killerID = killer->GetID();
+    }
+
+    KillData data = KillData();
+    data.solarSystemID = m_system->GetID();
+    data.victimCharacterID = GetBotCharID();
+    data.victimCorporationID = GetBotCorpID();
+    data.victimAllianceID = GetBotAllianceID();
+    data.victimFactionID = GetWarFactionID();
+    data.victimShipTypeID = GetTypeID();
+
+    data.finalCharacterID = killerID;
+    data.finalCorporationID = killer->GetCorporationID();
+    data.finalAllianceID = killer->GetAllianceID();
+    data.finalFactionID = (killer->GetWarFactionID() > 500021 ? 500021 : killer->GetWarFactionID());
+    data.finalShipTypeID = killer->GetTypeID();
+    data.finalWeaponTypeID = (fatal_blow.weaponRef.get() != nullptr) ? fatal_blow.weaponRef->typeID() : killer->GetTypeID();
+    data.finalSecurityStatus = (pClient != nullptr) ? pClient->GetSecurityRating() : 0.0;
+    data.finalDamageDone = static_cast<uint32>(fatal_blow.GetTotal());
+
+    uint32 totalHP = m_self->GetAttribute(AttrHP).get_int();
+    totalHP += m_self->GetAttribute(AttrArmorHP).get_int();
+    totalHP += m_self->GetAttribute(AttrShieldCapacity).get_int();
+    data.victimDamageTaken = totalHP;
+
+    // dropped/destroyed items (modules + cargo from the ship)
+    {
+        std::stringstream blob;
+        blob << "<items>";
+        bool foundItems = false;
+        uint32 shipItemID = m_self->itemID();
+        DBQueryResult iRes;
+        if (sDatabase.RunQuery(iRes,
+            "SELECT typeID, flag, quantity, singleton FROM entity WHERE locationID = %u", shipItemID)) {
+            DBResultRow irow;
+            while (iRes.GetRow(irow)) {
+                foundItems = true;
+                uint32 typeID = irow.GetUInt(0);
+                uint32 flag   = irow.GetUInt(1);
+                uint32 qty    = irow.GetUInt(2);
+                uint32 single = irow.GetUInt(3);
+                uint32 d = 0, x = qty;
+                if (IsRigSlot(flag) || IsSubSystem(flag)) {
+                    // rigs/subs destroyed
+                } else if (IsEven(MakeRandomInt(0, 100))) {
+                    if (qty > 1) { d = MakeRandomInt(0, qty); x = qty - d; }
+                }
+                blob << "<i t=" << typeID << " f=" << flag << " q=" << qty << " s=" << single << " d=" << d << " x=" << x << "/>";
+            }
+        }
+        if (!foundItems) {
+            blob << "<i t=" << data.victimShipTypeID << " f=0 q=1 s=1 d=0 x=1/>";
+        }
+        blob << "</items>";
+        data.killBlob = blob.str();
+    }
+
+    data.killTime = GetFileTimeNow();
+    data.moonID = m_system->GetID();
+
+    ServiceDB::SaveKillOrLoss(data);
+
+    // notify a real player killer
+    if (pClient != nullptr) {
+        std::string secStr = std::to_string(m_system->GetSystemSecurityRating());
+        size_t dot = secStr.find('.');
+        if (dot != std::string::npos) secStr = secStr.substr(0, dot + 2);
+        std::string km;
+        km += "Victim: " + GetBotName() + ", Corp: " + sDataMgr.GetOwnerName(GetBotCorpID()) + "\n";
+        km += "System: " + std::string(m_system->GetName()) + " (" + secStr + ")\n";
+        km += "Damage Taken: " + std::to_string(data.victimDamageTaken) + "\n\n";
+        km += "Final Blow: " + std::string(pClient->GetName()) + " flying " + std::string(sDataMgr.GetTypeName(data.finalShipTypeID)) + "\n";
+        km += "Damage Done: " + std::to_string(data.finalDamageDone) + "\n";
+        pClient->SendNotifyMsg("Kill: %s (%s) - %s (%s) - %u damage",
+            GetBotName().c_str(), sDataMgr.GetTypeName(data.victimShipTypeID),
+            pClient->GetName(), sDataMgr.GetTypeName(data.finalShipTypeID), data.victimDamageTaken);
+        pClient->SelfEveMail("Kill Report", km.c_str());
+    }
 }
 
 void PlayerBot::RecordPvpOutcome(bool won)

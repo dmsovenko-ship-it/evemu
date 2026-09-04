@@ -31,6 +31,8 @@ public:
     virtual void Killed(Damage& damage);               // record death + loss
     virtual bool IsPlayerBot()                          { return true; }
 
+    void RecordBotKillMail(Damage& fatal_blow);         // persist chelobot loss to chrKillTable + notify killer
+
     /* bot identity */
     uint32 GetBotCharID() const         { return m_botCharID; }
     const std::string& GetBotName() const { return m_botName; }
