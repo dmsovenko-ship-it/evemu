@@ -297,7 +297,7 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 xml += " victimshipname=\"" + xmlEscape(row.GetText(20)) + "\"";
                 xml += " finalshipname=\"" + xmlEscape(row.GetText(21)) + "\"";
                 xml += " finalweaponname=\"" + xmlEscape(row.GetText(22)) + "\"";
-                xml += " systemname=\"" + xmlEscape(row.GetText(23)) + "\"";
+                xml += " solarsystemname=\"" + xmlEscape(row.GetText(23)) + "\"";
                 xml += "/>\n";
             }
         }
