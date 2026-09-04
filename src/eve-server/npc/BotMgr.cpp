@@ -1392,13 +1392,20 @@ void BotMgr::ProcessDockedEconomy()
                 // any crossing spread they see, otherwise quote tighter than the
                 // current best bid/ask. Old random-order path removed.
                 ProcessDockedTraderEconomy(sysID, db.stationID, db);
-                PlaceBotCourierContractAt(sysID, db.charID, db.corpID);
+                // Pack any real stock (minerals/loot bought or hauled in) into a
+                // courier job to the hub; fall back to a virtual courier contract.
+                if (PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID) == 0)
+                    PlaceBotCourierContractAt(sysID, db.charID, db.corpID);
             } else if (prof == (uint8)PlayerBot::BotProfession::Miner
+                       || prof == (uint8)PlayerBot::BotProfession::RatHunter
                        || prof == (uint8)PlayerBot::BotProfession::Hacker
                        || prof == (uint8)PlayerBot::BotProfession::Explorer) {
-                // Producers bid for the raw materials they consume (from the dock).
+                // Producers bid for the raw materials they consume (from the dock),
+                // and ship the real ore/loot they've banked in the hangar to the
+                // hub (living-goods haul).
                 if (MakeRandomInt(0, 99) < 20)
                     PlaceBotBuyOrderAt(sysID, db.charID, prof);
+                PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID);
             }
         }
     }
@@ -1819,6 +1826,166 @@ void BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpI
         _log(BOT__MESSAGE, "BotMgr: trader %u issued courier contract (%.0f m3, reward %.0f ISK) %u -> %u.",
              charID, volume, (double)reward, sysID, endSys);
     }
+}
+
+// Stage-2 physical-goods haul: when a bot has real stock sitting in its station
+// hangar (ore / minerals / salvage / faction loot deposited by miners and rat
+// hunters), it packs that cargo into a PUBLIC courier contract to the trade hub.
+// The real items are locked into the contract (owner -> contract), so a courier
+// bot (or player) can accept and haul them; on completion CompleteContract moves
+// them into the issuer's hangar at the hub. Goods physically travel between
+// stations — the "living economy" haul step. Returns the new contract id (0 if
+// there was nothing worth shipping).
+uint32 BotMgr::PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint32 charID, uint32 corpID)
+{
+    if (sysID == 0 || stationID == 0 || charID == 0)
+        return 0;
+
+    // Pick the cargo: real stock owned by this bot in this station's hangar.
+    // Prefer non-ship stacks (type volume sane); cap the shipment at ~ a
+    // freighter hold so contracts stay reasonable.
+    struct StockType { uint16 typeID; uint32 qty; float vol; };
+    std::vector<StockType> stock;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT typeID, SUM(quantity) FROM entity"
+        " WHERE ownerID = %u AND locationID = %u AND flag = %u AND quantity > 0 AND singleton = 0"
+        " GROUP BY typeID", charID, stationID, (uint32)flagHangar))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            StockType st;
+            st.typeID = (uint16)row.GetUInt(0);
+            st.qty = row.GetUInt(1);
+            const ItemType* t = sItemFactory.GetType(st.typeID);
+            st.vol = t != nullptr ? t->volume() : 1.0f;
+            if (st.vol < 0.01f) st.vol = 1.0f;
+            stock.push_back(st);
+        }
+    }
+    if (stock.empty())
+        return 0;
+
+    // Keep it to a courier-size load (~15k m3, a few distinct types).
+    const double maxVol = 15000.0;
+    double totalVol = 0;
+    uint32 cargoTypes = 0;
+    std::vector<StockType> cargo;
+    for (const auto& st : stock) {
+        if (cargoTypes >= 6)
+            break;
+        if (totalVol + st.vol * st.qty > maxVol) {
+            // Ship what fits of this type.
+            uint32 fit = (uint32)((maxVol - totalVol) / st.vol);
+            if (fit > 0) {
+                StockType part = st; part.qty = fit;
+                cargo.push_back(part);
+                totalVol += st.vol * fit;
+                ++cargoTypes;
+            }
+            break;
+        }
+        cargo.push_back(st);
+        totalVol += st.vol * st.qty;
+        ++cargoTypes;
+    }
+    if (cargo.empty() || totalVol < 500.0)   // not worth a courier's time
+        return 0;
+
+    // Destination: the primary trade hub (Jita) so goods end up where the best
+    // prices are. If we're already at the hub, pick another random station.
+    uint32 endSys = GetTradeHubSystem();
+    uint32 endStation = 0;
+    if (endSys == 0 || endSys == sysID) {
+        DBQueryResult rres;
+        if (!sDatabase.RunQuery(rres, "SELECT stationID, solarSystemID FROM staStations ORDER BY RAND() LIMIT 1"))
+            return 0;
+        DBResultRow rrow;
+        if (!rres.GetRow(rrow))
+            return 0;
+        endStation = rrow.GetUInt(0);
+        endSys = rrow.GetUInt(1);
+        if (endStation == stationID)
+            return 0;
+    } else {
+        DBQueryResult rres;
+        if (!sDatabase.RunQuery(rres, "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", endSys))
+            return 0;
+        DBResultRow rrow;
+        if (!rres.GetRow(rrow))
+            return 0;
+        endStation = rrow.GetUInt(0);
+    }
+    if (endStation == 0 || endStation == stationID)
+        return 0;
+
+    // Reward scales with volume so hauling is worth a courier's time.
+    int64 reward = (int64)(40000 + totalVol * 30.0);
+
+    DBerror err;
+    uint32 contractId = 0;
+    if (!sDatabase.RunQueryLID(err, contractId,
+        "INSERT INTO ctrContracts"
+        "  (contractType, issuerID, issuerCorpID, forCorp, isPrivate, assigneeID,"
+        "   dateIssued, dateExpired, expireTimeInMinutes, duration, numDays, startStationID, startSolarSystemID,"
+        "   startRegionID, endStationID, endSolarSystemID, endRegionID, price, reward, collateral,"
+        "   title, description, status, volume, startStationDivision)"
+        " VALUES"
+        "  (3, %u, %u, 0, 0, 0, %lli, %lli, 10080, 7, 7, %u, %u,"
+        "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u,"
+        "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), 0, %lli, 0,"
+        "   'Mineral shipment', 'Bulk commodity haul', 0, %f, 1000)",
+        charID, corpID,
+        (int64)GetFileTimeNow(), (int64)GetFileTimeNow() + 7LL * EvE::Time::Day,
+        stationID, sysID, sysID, endStation, endSys, endSys, reward, totalVol))
+    {
+        _log(BOT__ERROR, "PlaceStockCourierContractAt: failed to insert contract for %u.", charID);
+        return 0;
+    }
+
+    // Lock the physical cargo into the contract and record it in ctrItems.
+    // Owner -> 1 (contract) so it leaves the hangar and travels with the job.
+    for (const auto& ct : cargo) {
+        DBQueryResult ires;
+        std::vector<uint32> itemIDs;
+        if (sDatabase.RunQuery(ires,
+            "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u AND flag = %u AND typeID = %u AND quantity > 0 AND singleton = 0 LIMIT 5",
+            charID, stationID, (uint32)flagHangar, ct.typeID))
+        {
+            DBResultRow irow;
+            while (ires.GetRow(irow))
+                itemIDs.push_back(irow.GetUInt(0));
+        }
+        uint32 remaining = ct.qty;
+        for (uint32 itemID : itemIDs) {
+            if (remaining == 0)
+                break;
+            InventoryItemRef itm = sItemFactory.GetItemRef(itemID);
+            if (itm.get() == nullptr)
+                continue;
+            uint32 take = itm->quantity();
+            if (take > remaining) take = remaining;
+            InventoryItemRef part = itm;
+            if (itm->quantity() > take)
+                part = itm->Split(take);
+            if (part.get() == nullptr)
+                continue;
+            part->ChangeOwner(1, false);   // locked into the contract
+            part->SaveItem();
+            // ctrItems row.
+            DBerror ierr;
+            sDatabase.RunQuery(ierr,
+                "INSERT INTO ctrItems (contractId, itemID, quantity, itemTypeID, inCrate, parentID,"
+                "  productivityLevel, materialLevel, isCopy, licensedProductionRunsRemaining, damage, flagID)"
+                " VALUES (%u, %u, %u, %u, 0, 0, 0, 0, 0, 0, 0, 0)",
+                contractId, part->itemID(), take, ct.typeID);
+            remaining -= take;
+        }
+    }
+
+    _log(BOT__MESSAGE, "BotMgr: %u packed %u x types (%.0f m3, reward %.0f ISK) into courier contract %u -> station %u.",
+         charID, (uint32)cargo.size(), totalVol, (double)reward, contractId, endStation);
+    return contractId;
 }
 
 

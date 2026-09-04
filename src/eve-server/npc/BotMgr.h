@@ -115,6 +115,13 @@ private:
     void PlaceBotOrderAt(uint32 sysID, uint32 charID, uint32 corpID);
     void PlaceBotBuyOrderAt(uint32 sysID, uint32 charID, uint8 profession);
     void PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpID);
+    // Stage-2 living goods: a bot with REAL stock sitting in its station hangar
+    // (ore/salvage/faction loot deposited by miners/ratters) packs that physical
+    // cargo into a public courier contract to the trade hub. The goods are locked
+    // into the contract (owner -> contract), a courier hauls them there, and
+    // CompleteContract delivers them to the issuer's hangar at the hub — real
+    // goods physically travel between stations. Returns the contract id, or 0.
+    uint32 PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint32 charID, uint32 corpID);
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();
