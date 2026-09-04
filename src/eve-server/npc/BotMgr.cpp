@@ -87,6 +87,10 @@ void BotMgr::Process()
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
 
+    // Refresh the portal's "online" figure (active + docked chelobots) on the
+    // game thread so the API thread can read it race-free.
+    RefreshOnlineCount();
+
     // Experienced leader hunters occasionally found their own corporations.
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
         if (pSystem == nullptr)
@@ -102,6 +106,28 @@ void BotMgr::Process()
             }
         }
     }
+}
+
+void BotMgr::RefreshOnlineCount()
+{
+    uint32 active = 0;
+    uint32 docked = 0;
+    if (sConfig.playerBots.Enabled) {
+        for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+            if (pSystem == nullptr)
+                continue;
+            for (auto& [id, se] : pSystem->GetEntities()) {
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                if (dynamic_cast<PlayerBot*>(se->GetNPCSE()) != nullptr)
+                    ++active;
+            }
+        }
+        for (auto& [sysID, bots] : m_docked)
+            docked += (uint32)bots.size();
+    }
+    m_activeBotCount.store(active);
+    m_dockedBotCount.store(docked);
 }
 
 void BotMgr::PopulateSystem(SystemManager* pSystem)

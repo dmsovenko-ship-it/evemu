@@ -1,5 +1,6 @@
 #include "eve-server.h"
 #include "EntityList.h"
+#include "npc/BotMgr.h"
 #include "apiserver/APIServerManager.h"
 
 #define EVEMU_API_VERSION "2.0.0"
@@ -45,7 +46,11 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         xml += "    <serveronline>1</serveronline>\n";
         xml += "    <serverversion>EVEmu Crucible</serverversion>\n";
         xml += "    <apiversion>" EVEMU_API_VERSION "</apiversion>\n";
-        xml += "    <onlineplayers>" + std::to_string(sEntityList.GetClientCount()) + "</onlineplayers>\n";
+        // Chelobots imitate real pilots, so the world population shown on the
+        // portal = real clients + chelobots flying in space + chelobots docked.
+        uint32 online = sEntityList.GetClientCount() + sBotMgr.CountActiveBots() + sBotMgr.GetDockedBotCount();
+        xml += "    <onlineplayers>" + std::to_string(online) + "</onlineplayers>\n";
+        xml += "    <onlineplayersreal>" + std::to_string(sEntityList.GetClientCount()) + "</onlineplayersreal>\n";
         xml += "    <accountcount>" + std::to_string(accountCount) + "</accountcount>\n";
         xml += "    <charactercount>" + std::to_string(charCount) + "</charactercount>\n";
         xml += "    <botcount>" + std::to_string(botCount) + "</botcount>\n";

@@ -586,8 +586,30 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
                 blob << "<i t=" << typeID << " f=" << flag << " q=" << qty << " s=" << single << " d=" << d << " x=" << x << "/>";
             }
         }
+
+        // Chelobots carry no fitted module ITEMS (their weapon is an attribute),
+        // so a killmail would list only the hull. Synthesize a believable fit from
+        // the hull's known weapon + a generic mid/low set so the kill page shows
+        // slots/cargo like any real player kill. No DB items are created — purely
+        // cosmetic for the killmail blob.
         if (!foundItems) {
-            blob << "<i t=" << data.victimShipTypeID << " f=0 q=1 s=1 d=0 x=1/>";
+            auto emit = [&](uint32 typeID, uint32 flag) {
+                uint32 d = 0, x = 1;
+                if (!IsRigSlot(flag) && !IsSubSystem(flag) && IsEven(MakeRandomInt(0, 100)))
+                    d = 1, x = 0;
+                blob << "<i t=" << typeID << " f=" << flag << " q=1 s=1 d=" << d << " x=" << x << "/>";
+            };
+            // High slot(s): the weapon this bot actually fires (or a miner laser).
+            if (m_self->HasAttribute(AttrGfxTurretID)) {
+                uint32 weapon = m_self->GetAttribute(AttrGfxTurretID).get_int();
+                if (weapon > 0 && weapon != GetTypeID())
+                    emit(weapon, EVEItemFlags::flagHiSlot0);
+            }
+            // Mid slots.
+            emit(439, EVEItemFlags::flagMedSlot0);        // 1MN Afterburner I
+            emit(377, EVEItemFlags::flagMedSlot1);        // Small Shield Extender I
+            // Low slot.
+            emit(2046, EVEItemFlags::flagLoSlot0);        // Damage Control I
         }
         blob << "</items>";
         data.killBlob = blob.str();

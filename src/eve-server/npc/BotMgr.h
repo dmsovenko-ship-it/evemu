@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <map>
 #include <deque>
+#include <atomic>
 #include <ctime>
 
 class SystemManager;
@@ -48,6 +49,14 @@ public:
     struct GuestInfo { uint32 charID, corpID, allianceID, warFactionID; };
     void GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) const;
 
+    // Counts of simulated players for the portal /server status "online" figure.
+    // Chelobots look like real pilots, so the world's population = real clients
+    // + chelobots flying in space + chelobots docked at stations.
+    // Counts are refreshed once per BotMgr tic (game thread) into atomics so the
+    // API thread can read them safely (no cross-thread iteration of live SEs).
+    uint32 CountActiveBots() const   { return m_activeBotCount.load(); }   // in-space chelobots
+    uint32 GetDockedBotCount() const { return m_dockedBotCount.load(); }   // chelobots docked
+
     // Bot chat replies are QUEUED (not recursed): SendBotMessage feeds the queue,
     // BotMgr drains one per tic so a bot<-bot conversation advances without
     // overflowing the stack (SIGSEGV from nested HandleLocalMessage/SendBotMessage).
@@ -71,6 +80,7 @@ private:
     // through the gate, visible warp). Used by PopulateSystem.
     void SpawnBotArriving(SystemManager* origin, uint32 destSystem);
     void ReapBots(SystemManager* pSystem);
+    void RefreshOnlineCount();   // recompute active/docked counts (game thread, once/tic)
     // Realistic corp distribution: one "main" corp holds most bots, 2-3 smaller
     // corps the rest (like live EVE). Picks a corpID for a new bot.
     // requireAlliance = only corps inside an alliance (for PvP war corps that
@@ -140,6 +150,8 @@ private:
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
+    std::atomic<uint32> m_activeBotCount{ 0 };   // refreshed each tic (game thread)
+    std::atomic<uint32> m_dockedBotCount{ 0 };   // refreshed each tic (game thread)
     std::map<int32, time_t> m_lastChatReply;   // channelID -> last DeepSeek reply time (throttle)
     struct BotPhrase { uint32 charID; std::string phrase; time_t when; };
     std::map<int32, BotPhrase> m_lastBotPhrase;   // channelID -> last bot line (for learning replies)
