@@ -463,12 +463,21 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     prof = PlayerBot::BotProfession::Explorer;     // probes / wormholes
                 DBerror perr;
                 sDatabase.RunQuery(perr,
-                    "INSERT INTO botMemory (charID, profession, lastUpdate)"
-                    " VALUES (%u, %u, NOW())"
-                    " ON DUPLICATE KEY UPDATE profession = VALUES(profession), lastUpdate = NOW()",
-                    useCharID, (uint8)prof);
+                    "INSERT INTO botMemory (charID, shipTypeID, profession, lastUpdate)"
+                    " VALUES (%u, %u, %u, NOW())"
+                    " ON DUPLICATE KEY UPDATE shipTypeID = VALUES(shipTypeID), profession = VALUES(profession), lastUpdate = NOW()",
+                    useCharID, hullType, (uint8)prof);
             }
         }
+    }
+
+    // Keep the bot's persistent "typical" hull in sync every spawn (used by the
+    // portal to show a ship even when the bot is offline and its hull NPC is gone).
+    {
+        DBerror merr;
+        sDatabase.RunQuery(merr,
+            "UPDATE botMemory SET shipTypeID = %u, lastUpdate = NOW() WHERE charID = %u",
+            hullType, useCharID);
     }
 
     // The bio is written exactly once per pilot, right after its profession is

@@ -337,12 +337,15 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "c.securityRating, c.raceID, c.gender, c.solarSystemID, c.stationID, "
             "cr.corporationName, cr.tickerName, "
             "ss.solarSystemName, "
-            "e.typeID as shipTypeID, t.typeName as shipName "
+            "COALESCE(e.typeID, t2.typeID, 0) as shipTypeID, "
+            "COALESCE(t.typeName, t2.typeName) as shipName "
             "FROM chrCharacters c "
             "LEFT JOIN crpCorporation cr ON cr.corporationID = c.corporationID "
             "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = c.solarSystemID "
             "LEFT JOIN entity e ON e.itemID = c.shipID "
-            "LEFT JOIN invTypes t ON t.typeID = e.typeID ";
+            "LEFT JOIN invTypes t ON t.typeID = e.typeID "
+            "LEFT JOIN botMemory bm ON bm.charID = c.characterID "
+            "LEFT JOIN invTypes t2 ON t2.typeID = bm.shipTypeID ";
         if (!allChars)
             q += "WHERE c.accountID = " + aid + " ";
         q += "ORDER BY c.skillPoints DESC LIMIT " + std::to_string(perPage) + " OFFSET " + std::to_string(offset);
