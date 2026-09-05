@@ -1011,12 +1011,15 @@ void BotMgr::ProcessTravel()
             // (e.g. arriving into a player's system), else pick a random one.
             uint32 destSystem = pb->GetTravelDestination();
             if (destSystem == 0) {
-                // Trade-inclined bots (traders, couriers, miners hauling ore)
-                // route toward the primary market hub (Jita) to sell/buy.
+                // Trade-inclined bots (traders, couriers, miners hauling ore,
+                // hackers/ratters hauling loot) route toward the primary market
+                // hub (Jita) to sell/buy.
                 uint32 hub = GetTradeHubSystem();
                 bool wantsHub = (pb->GetProfession() == PlayerBot::BotProfession::Trader
                               || pb->GetProfession() == PlayerBot::BotProfession::Courier
                               || pb->GetProfession() == PlayerBot::BotProfession::Miner
+                              || pb->GetProfession() == PlayerBot::BotProfession::Hacker
+                              || pb->GetProfession() == PlayerBot::BotProfession::RatHunter
                               || pb->GetProfession() == PlayerBot::BotProfession::Explorer);
                 if (wantsHub && hub != 0 && hub != pSystem->GetID() && MakeRandomInt(0, 99) < 70)
                     destSystem = hub;
@@ -1461,7 +1464,19 @@ void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const Do
     float confidence = mem.GetTradeConfidence();   // -1..1 from tradeProfit/tradeLosses
 
     // A trader works a couple of goods it knows (minerals/ammo/common modules).
-    static const uint32 tradeGoods[] = { 34, 38, 39, 40, 1229, 1230, 1231, 1232, 2048, 3775, 2676, 2488 };
+    // Includes the datacores / decryptors / salvage that hacker & explorer bots
+    // pull from data/relic sites — so the hub has real buy orders for that loot
+    // and the physical-goods ISK loop closes for hackers too (SellStockAtHub).
+    static const uint32 tradeGoods[] = {
+        34, 38, 39, 40, 1229, 1230, 1231, 1232, 2048, 3775, 2676, 2488,
+        // datacores (group 333) — hacker loot
+        20171, 20172, 20410, 20411, 20412, 20413, 20414, 20417, 20419, 20420, 20421, 25887,
+        // decryptors — hacker loot
+        23178, 23179, 23180, 23181, 23182, 21579, 21580, 21581, 21582, 21583,
+        23183, 23184, 23185, 23186, 23187, 21573, 21574, 21575, 21576, 21577,
+        // salvage (group 754) — hacker/ratter loot
+        25588, 25589, 25590, 25591, 25593, 25594, 25599, 25605
+    };
     const uint32 nGoods = sizeof(tradeGoods)/sizeof(tradeGoods[0]);
 
     // Try up to a few types: arbitrage the first crossing we find.

@@ -1528,12 +1528,11 @@ void PlayerBot::DoProfessionActivity()
         } break;
 
         case BotProfession::Hacker: {
-            // Peaceful hacker: warp to an anomaly site (data/relic) and sit there.
-            // Experienced hackers run sites more frequently (self-learning).
-            if (SystemMgr()->GetAnomMgr() != nullptr && MakeRandomInt(0, 99) < (int)chanceBoost) {
-                // AnomalyMgr has signatures; we just drift toward a random one.
-                MarkForTravel();   // simulate running sites between systems
-            }
+            // Peaceful hacker: run data/relic sites — warp to a Magnetometric
+            // (data) or Radar (relic) signature, "crack" containers there and
+            // pull real datacores/decryptors into the hold, then dock to
+            // deposit them (BotMgr turns the hangar stock into ISK at the hub).
+            HackForSites();
         } break;
 
         case BotProfession::Explorer: {
@@ -1579,21 +1578,132 @@ void PlayerBot::ScanForSites()
                  m_botName.c_str(), m_botCharID, target->GetName());
             return;
         }
-        // Standing at the site: "scanning" earns loot. Record the run.
-        if (m_memory && MakeRandomInt(0, 99) < 20) {
-            m_memory->RecordHackRun();
-            m_memory->Save();
-        }
-        // After several scans, haul the loot back to the hub to sell.
+        // Standing at the site: "scanning" earns loot — an explorer running a
+        // relic/data site pulls real datacores/decryptors into the hold, then
+        // docks to deposit them (same physical-goods chain as miners/ratters).
+        AddHackLoot();
+        // After several scans, haul the loot back to sell. With a local station
+        // the explorer docks and deposits; in a station-less system (wormhole /
+        // null) it keeps the dock request and moves on — the moment it reaches a
+        // system with a station, BotMgr docks it and the hold is banked there.
         if (m_mineTrips++ > 5) {
             m_mineTrips = 0;
-            RequestDock();   // go home, sell the loot
+            if (HasStationInSystem())
+                RequestDock();   // go home, sell the loot
+            else {
+                RequestDock();
+                MarkForTravel(); // keep hunting a station-equipped system
+            }
         }
         return;
     }
     // No sites here — move on (explore another system).
     if (MakeRandomInt(0, 99) < 40)
         MarkForTravel();
+}
+
+// Data/relic site runner (hacker). Real physical loot: warp to a Magnetometric
+// (data) or Radar (relic) cosmic signature the system's AnomalyMgr knows about,
+// crack its containers for datacores/decryptors/salvage into the hold, then dock
+// to deposit them. Without a data/relic site in this system the hacker moves on.
+void PlayerBot::HackForSites()
+{
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return;
+    if (m_destiny->IsWarping())
+        return;
+
+    // Hackers work data/relic sites — those need probing in the client, but a
+    // veteran hacker "already scanned it down" (it's how its AI knows the site).
+    GPoint sitePos;
+    bool found = false;
+    AnomalyMgr* anom = SystemMgr()->GetAnomMgr();
+    if (anom != nullptr) {
+        std::vector<CosmicSignature> sigs;
+        anom->GetSignatureList(sigs);
+        // Prefer relic (4), else data (3); pick a random one if several.
+        for (int pass = 0; pass < 2 && !found; ++pass) {
+            int8 wantType = (pass == 0) ? Dungeon::Type::Radar : Dungeon::Type::Magnetometric;
+            std::vector<CosmicSignature> matching;
+            for (const auto& s : sigs)
+                if (s.dungeonType == wantType && s.sigItemID != 0)
+                    matching.push_back(s);
+            if (!matching.empty()) {
+                sitePos = matching[MakeRandomInt(0, (int64)matching.size() - 1)].position;
+                found = true;
+            }
+        }
+    }
+    if (!found) {
+        // No data/relic site in this system — run the next system over.
+        if (MakeRandomInt(0, 99) < 40)
+            MarkForTravel();
+        return;
+    }
+
+    double dist = GetPosition().distance(sitePos);
+    if (dist > 25000 && !m_destiny->IsWarping()) {
+        m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
+        m_destiny->WarpTo(sitePos, 2000);
+        _log(BOT__TRACE, "PlayerBot %s(%u): hacker — warping to data/relic site.",
+             m_botName.c_str(), m_botCharID);
+        return;
+    }
+
+    // At the site: crack a container on this pass, pull real loot into the hold.
+    AddHackLoot();
+
+    // Haul it back when the run is done (self-learning lengthens runs).
+    float practice = m_memory ? m_memory->GetActivitySkill() : 0.0f;
+    float runLen = 8.0f + practice * 12.0f;   // 8..20 container cracks between docks
+    if (m_mineTrips++ >= runLen) {
+        m_mineTrips = 0;
+        if (HasStationInSystem())
+            RequestDock();
+        else
+            MarkForTravel();
+        _log(BOT__TRACE, "PlayerBot %s(%u): hacker run done — docking to deposit loot.",
+             m_botName.c_str(), m_botCharID);
+    }
+}
+
+// One "hack" tick at a worked site: accumulate real loot into m_cargo the way a
+// data/relic runner pulls from hacked containers — datacores (group 333) and
+// decryptors (the faction decryptor families) most often, salvage sometimes.
+void PlayerBot::AddHackLoot()
+{
+    // A handful of common datacores a hacker would pull from relic containers.
+    static const uint16 datacores[] = { 20171, 20172, 20410, 20411, 20412, 20413,
+                                        20414, 20417, 20419, 20420, 20421, 25887 };
+    const uint32 nDC = sizeof(datacores) / sizeof(datacores[0]);
+    static const uint16 decryptors[] = { 23178, 23179, 23180, 23181, 23182,
+                                         21579, 21580, 21581, 21582, 21583,
+                                         23183, 23184, 23185, 23186, 23187,
+                                         21573, 21574, 21575, 21576, 21577 };
+    const uint32 nDec = sizeof(decryptors) / sizeof(decryptors[0]);
+    static const uint16 salvage[] = { 25588, 25589, 25590, 25591, 25593, 25594, 25599, 25605 };
+    const uint32 nSalv = sizeof(salvage) / sizeof(salvage[0]);
+
+    // Skill-scaled: a practised hacker pulls more per container. Volume builds
+    // so a full run is a courier-worthy hold (datacore/decryptor ~1 m3 each).
+    uint32 pulls = 4 + m_botSkill * 2;        // 4..14 items per container crack
+    for (uint32 i = 0; i < pulls; ++i) {
+        uint32 r = MakeRandomInt(0, 99);
+        if (r < 55)      // datacores — the staple
+            AddCargo(datacores[MakeRandomInt(0, (int64)nDC - 1)], MakeRandomInt(1, 3));
+        else if (r < 80) // decryptors — the prize (faction decryptor families)
+            AddCargo(decryptors[MakeRandomInt(0, (int64)nDec - 1)], 1);
+        else             // occasional salvage (scrap from the site)
+            AddCargo(salvage[MakeRandomInt(0, (int64)nSalv - 1)], MakeRandomInt(1, 3));
+    }
+
+    if (m_memory && MakeRandomInt(0, 99) < 30) {
+        m_memory->RecordHackRun();
+        m_memory->Save();
+    }
+
+    _log(BOT__TRACE, "PlayerBot %s(%u): cracked a container (hold now %.0f m3).",
+         m_botName.c_str(), m_botCharID, GetCargoVolume());
 }
 
 bool PlayerBot::HasStationInSystem()

@@ -130,6 +130,10 @@ public:
     void ClaimSystem();                 // PvP war corps: claim unowned nullsec (skirmish)
     void RequestFleetProtection();      // ask corpmate guards to cover this miner/hauler
     void ScanForSites();                // explorer: scan probes, find signatures/wormholes
+    void HackForSites();                // hacker: run data/relic (Magnetometric/Radar) sites for loot
+    // One "hack" tick at a worked site: accumulate real datacores / decryptors /
+    // salvage into m_cargo (what a real data/relic runner pulls from containers).
+    void AddHackLoot();
 
     /* professional mining fleet (guide model): an experienced miner flies an
      * Orca/Rorqual fleet boss that boosts barges of the same corp nearby. */
