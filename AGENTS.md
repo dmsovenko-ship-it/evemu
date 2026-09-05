@@ -1,7 +1,7 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) и портал — см. свежие коммиты; портал можно дёргать с сервера эмулятора `curl http://172.20.1.49/...`, SSH на портал `172.20.1.49` (dmitry/gbnjy78), сайт `/var/www/html`.
+Session saved (итог 5 сент. вечер: фикс приёма курьерок `a34850f1` подтверждён, авто-удаление wrap `25da872f` запушен, wraps почищены, «кривое описание» = клиентское). Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) и портал — см. свежие коммиты; портал можно дёргать с сервера эмулятора `curl http://172.20.1.49/...`, SSH на портал `172.20.1.49` (dmitry/gbnjy78), сайт `/var/www/html`. ⚠️ Сервер работает на `a34850f1`, ещё НЕ пересобран на `25da872f`.
 
 ## 5 сентября: экономика челоботов + этап 2 «физический товар» — СДЕЛАНО И ПРОВЕРЕНО
 Сервер пересобран на `57c13750` (22:17) и работает; игрок Vugl в игре.
@@ -35,6 +35,11 @@ Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password
 - **Корень**: в `AcceptContract` (case 1 и case 3) и `CompleteContract` вызовы `sDatabase.RunQuery(err, "UPDATE ... WHERE contractId = %u", ..., contractID)` передавали **сырой `PyInt*`** (указатель) вместо `contractID->value()` → varargs-формат подставлял адрес указателя как ID → UPDATE не находил строку, контракт никогда не помечался принятым. Тот же баг в финальном SELECT (возврат клиенту). Исправлено `->value()` во всех 4 местах.
 - **Проверено юзером**: после пересборки исполнил все 3 курьерки — контракты `status=4`, acceptorID/crateID записаны, wraps доставлены в конечные станции (Jita 60000361, Murethand 60012067, ... 60008185).
 - «Кривое описание» в окне (`{[numeric]numJumps}`/`{locationLink}` сырые) — клиентская локализация маршрута, отдельный косметический вопрос (не связан с фиксом).
+
+### Вечер (после `a34850f1`): коммит `25da872f`, чистка wraps, «кривое описание» = клиентское
+- `25da872f` **автоудаление wrap после сдачи**: CompleteContract (case 4) теперь `Delete()` courier crate (typeID 3468) — раньше пустой plastic wrap оставался в ангаре навсегда («self-destruct» был только комментарием). ⚠️ **Сервер ещё НЕ пересобран на `25da872f`** (работает на `a34850f1`) — при следующем рестарте подхватится.
+- **Чистка БД**: удалены осиротевшие plastic wraps Mr Tort `140265776` (60012067) и `140265777` (60008185) + 16 `entity_attributes` (поле itemID обнулено). У Mr Tort wraps = 0. Это были плоды бага `a34850f1` (каждый клик Accept создавал wrap).
+- **«Кривое описание» — подтверждено КЛИЕНТСКОЕ** (юзер видит его в окне деталей открытого контракта): contracts_py.py:2636 строит `NumJumpsAway` через `pathfinder.GetJumpCountFromCurrent`, для удалённых конечных станций (Murethand и пр.) numJumps/locationLink не резолвятся → остаются сырые плейсхолдеры. Серверное описание чистое (`title='Courier shipment'`, `description='Standard courier contract'`). Не лечится с сервера — косметика клиента, оставили.
 
 ### Дальше (по плану юзера, не сделано / на завтра днём — «доделать остальные профы»)
 - Доделать остальные профессии (юзер: «Днём пройдём доделаем остальные профы») — хакеры/эксплореры пока не производят реальный лут с сайтов (в отличие от майнеров/раттеров); проверить Hacker/Explorer/Courier активность и замкнуть их товар-цепочку.
