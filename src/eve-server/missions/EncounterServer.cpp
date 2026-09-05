@@ -116,6 +116,7 @@ uint32 EncounterSpawnServer::SpawnEncounterForOffer(MissionOffer& offer, uint32 
     GPoint base = atPos;
     if (base.x == 0.0 && base.y == 0.0 && base.z == 0.0)
         base = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+    enc.targetPos = base;
     // 4-6 NPCs in a cluster around the site.
     uint32 npcCount = 4 + (enc.encounterID % 3);
     for (uint32 n = 0; n < npcCount; ++n) {
@@ -183,6 +184,17 @@ bool EncounterSpawnServer::IsOfferComplete(uint32 offerID) const
         if (pair.second.offerID == offerID)
             return pair.second.spawnedEntities.empty();
     return false;   // unknown offer — not complete
+}
+
+bool EncounterSpawnServer::GetTargetPosition(uint32 offerID, GPoint& outPos) const
+{
+    for (const auto& pair : m_encounters) {
+        if (pair.second.offerID == offerID) {
+            outPos = pair.second.targetPos;
+            return true;
+        }
+    }
+    return false;
 }
 
 void EncounterSpawnServer::MarkOfferCleared(MissionEncounter& enc)

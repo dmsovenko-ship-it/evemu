@@ -16,6 +16,7 @@ struct MissionEncounter {
     uint8 agentTypeID;
     std::string encounterName;
     std::string anomSigID;  // anomaly sigID for FW mission visibility
+    GPoint targetPos;        // where the target cluster was spawned (client warps here)
     std::vector<uint32> spawnedEntities;
     bool active;
 };
@@ -46,6 +47,9 @@ public:
     // True when all targets of the encounter for this offer are dead (usable by
     // Client::IsMissionComplete for Encounter missions).
     bool IsOfferComplete(uint32 offerID) const;
+    // Position the target cluster was spawned at for this offer (for building the
+    // client's warp-to-site objective). Returns false if the offer is untracked.
+    bool GetTargetPosition(uint32 offerID, GPoint& outPos) const;
 
 private:
     void DespawnEncounters(uint32 encounterID);

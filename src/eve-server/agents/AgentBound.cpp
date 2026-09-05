@@ -1029,17 +1029,41 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
 
     objectiveData->SetItemString("objectives", GetMissionObjectives(pClient, offer));
     PyList* dunList = new PyList();  // this is a list of dunData dicts
-    /*
-    PyDict* dunData = new PyDict();
-        dunData->SetItemString("dungeonID", new PyInt(1000));
-        dunData->SetItemString("completionStatus", new PyInt(Dungeon::Status::Started));
-        dunData->SetItemString("optional", new PyInt());
-        dunData->SetItemString("briefingMessage", new PyInt());
-        dunData->SetItemString("objectiveCompleted", new PyBool(false));
-        dunData->SetItemString("ownerID", new PyInt(m_agent->GetID()));
-        dunData->SetItemString("shipRestrictions", PyStatic.NewInt(0));   // 0=normal 1=special with link to *something else*
-        dunData->SetItemString("location", m_agent->GetLocationWrap());
-    */
+    // Encounter missions spawn a tracked hostile cluster at a known point; give
+    // the client a dungeon objective with those coordinates so it can build the
+    // warp-to-site link ("Objective: <location>"). Without this the player has no
+    // way to reach the spawned targets.
+    if (offer.typeID == Mission::Type::Encounter && EncounterSpawnServer::Get() != nullptr) {
+        GPoint tgt;
+        if (EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, tgt)) {
+            uint32 destSys = offer.destinationSystemID != 0 ? offer.destinationSystemID : offer.dungeonSolarSystemID;
+            if (destSys != 0) {
+                PyDict* dunData = new PyDict();
+                    dunData->SetItemString("dungeonID", new PyInt(1000));
+                    dunData->SetItemString("completionStatus", new PyInt(
+                        pClient->IsMissionComplete(offer) ? 1 : 0));
+                    dunData->SetItemString("optional", new PyInt(0));
+                    dunData->SetItemString("objectiveCompleted", new PyBool(false));
+                    dunData->SetItemString("ownerID", new PyInt(m_agent->GetID()));
+                    dunData->SetItemString("shipRestrictions", PyStatic.NewInt(0));   // 0=normal
+                PyDict* loc = new PyDict();
+                    loc->SetItemString("typeID", new PyInt(offer.destinationTypeID ? offer.destinationTypeID : m_agent->GetLocTypeID()));
+                    loc->SetItemString("locationID", new PyInt(destSys));
+                    loc->SetItemString("locationType", new PyString("dungeon"));
+                    loc->SetItemString("solarsystemID", new PyInt(destSys));
+                    loc->SetItemString("agentID", new PyInt(m_agent->GetID()));
+                    loc->SetItemString("referringAgentID", new PyInt(m_agent->GetID()));
+                    loc->SetItemString("shipTypeID", new PyInt(m_agent->GetTypeID()));
+                    PyTuple* coords = new PyTuple(3);
+                        coords->SetItem(0, new PyFloat(tgt.x));
+                        coords->SetItem(1, new PyFloat(tgt.y));
+                        coords->SetItem(2, new PyFloat(tgt.z));
+                    loc->SetItemString("coords", coords);
+                dunData->SetItemString("location", loc);
+                dunList->AddItem(dunData);
+            }
+        }
+    }
     objectiveData->SetItemString("dungeons", dunList);
     /* dunData data....
      * dungeonID
