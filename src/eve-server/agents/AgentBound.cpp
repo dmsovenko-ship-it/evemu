@@ -1323,19 +1323,30 @@ PyResult AgentBound::GotoLocation(PyCallArgs &call, PyInt* locationType, PyInt* 
     return PyStatic.NewNone();
 }
 
-PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyInt* locationType, PyInt* locationNumber, PyFloat* warpRange, PyBool* fleet, PyInt* referringAgentID) {
+PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyString* locationType, PyInt* locationNumber, PyFloat* warpRange, PyBool* fleet, PyInt* referringAgentID) {
     _log(AGENT__DUMP,  "AgentBound::Handle_WarpToLocation() - size=%lli", call.tuple->size());
-    // Initiate warp to the mission destination
+    // Initiate warp to the mission destination. For an Encounter mission the
+    // 'dungeon' location points at the tracked target cluster — warp the client
+    // to the real coordinates the targets were spawned at (not a random point).
     MissionOffer offer;
     if (m_agent->HasMission(call.client->GetCharacterID(), offer)) {
         Client* pClient = call.client;
         if (pClient != nullptr && pClient->IsInSpace() && pClient->GetShipSE() != nullptr) {
-            // Warp to a random point 30-50 AU away (simulating warp to destination beacon)
             GPoint dest;
-            dest.x = MakeRandomFloat(-1.5e13, 1.5e13);
-            dest.y = MakeRandomFloat(-1.5e13, 1.5e13);
-            dest.z = MakeRandomFloat(-1.5e13, 1.5e13);
+            bool havePos = false;
+            if (offer.typeID == Mission::Type::Encounter && EncounterSpawnServer::Get() != nullptr) {
+                havePos = EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, dest);
+            }
+            if (!havePos) {
+                // Fallback: agent's own solar system origin (old behaviour was a
+                // random deep-space point; better to go to the site's system hub).
+                dest.x = MakeRandomFloat(-1.5e13, 1.5e13);
+                dest.y = MakeRandomFloat(-1.5e13, 1.5e13);
+                dest.z = MakeRandomFloat(-1.5e13, 1.5e13);
+            }
             pClient->GetShipSE()->DestinyMgr()->WarpTo(dest, 0);
+            _log(AGENT__MESSAGE, "WarpToLocation: warping to mission %u offer %u target (%.0f,%.0f,%.0f).",
+                 offer.missionID, offer.offerID, dest.x, dest.y, dest.z);
         }
     }
     return PyStatic.NewNone();

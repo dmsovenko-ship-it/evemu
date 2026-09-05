@@ -43,7 +43,9 @@ protected:
     PyResult GetOfferJournalInfo(PyCallArgs& call);
     PyResult GetEntryPoint(PyCallArgs& call);
     PyResult GotoLocation(PyCallArgs& call, PyInt* locationType, PyInt* locationNumber, PyInt* referringAgentID);
-    PyResult WarpToLocation(PyCallArgs& call, PyInt* locationType, PyInt* locationNumber, PyFloat* warpRange, PyBool* fleet, PyInt* referringAgentID);
+    // locationType arrives as a string from the client ('dungeon'/'agenthomebase'
+    // etc. — see eveBaseLink GetBookmark), locationNumber as an int.
+    PyResult WarpToLocation(PyCallArgs& call, PyString* locationType, PyInt* locationNumber, PyFloat* warpRange, PyBool* fleet, PyInt* referringAgentID);
 
 private:
     PyTuple* GetMissionObjectives(Client* pClient, MissionOffer& offer);
