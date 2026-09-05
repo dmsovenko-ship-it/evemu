@@ -4,12 +4,15 @@
 #include "../eve-server.h"
 #include "../services/ServiceManager.h"
 
+struct MissionOffer;
+
 struct MissionEncounter {
     uint32 encounterID;
     uint32 missionID;
     uint32 agentID;
     uint32 charID;
     uint32 systemID;
+    uint32 offerID;              // agtOffers.offerID this encounter belongs to (completion target)
     uint8 agentTypeID;
     std::string encounterName;
     std::string anomSigID;  // anomaly sigID for FW mission visibility
@@ -29,11 +32,28 @@ public:
     void AddEncounter(uint32 charID, uint32 missionID, uint32 agentID, uint8 agentTypeID, const std::string& name);
     void RemoveEncounter(uint32 encounterID);
 
+    // Server-side mission support (no client needed): an accepted Encounter
+    // offer registers its target cluster here so the agent can mark the mission
+    // complete once every spawned target has been destroyed.
+    static EncounterSpawnServer* Get();          // singleton access (set in ctor)
+    // Spawn this offer's hostile NPC target cluster (if any) and record it.
+    // Returns the number of targets spawned (0 = nothing to do / no system).
+    uint32 SpawnEncounterForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos);
+    // Called from NPC::Killed when a mission-flagged NPC dies. Removes the dead
+    // entity from its encounter; when none remain the offer is marked cleared
+    // (agtOffers.missionNPCsKilled = missionNPCs).
+    void OnMissionTargetKilled(uint32 entityID);
+    // True when all targets of the encounter for this offer are dead (usable by
+    // Client::IsMissionComplete for Encounter missions).
+    bool IsOfferComplete(uint32 offerID) const;
+
 private:
     void DespawnEncounters(uint32 encounterID);
+    void MarkOfferCleared(MissionEncounter& enc);
 
     std::map<uint32, MissionEncounter> m_encounters;
     uint32 m_nextEncounterID;
+    static EncounterSpawnServer* s_instance;
 };
 
 #endif

@@ -43,6 +43,7 @@
 #include "corporation/LPService.h"
 #include "faction/FactionWarMgrDB.h"
 #include "expedition/ExpeditionMgr.h"
+#include "missions/EncounterServer.h"
 
 
 NPC::NPC(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, SpawnMgr* spawnMgr)
@@ -568,6 +569,14 @@ void NPC::Killed(Damage &damage) {
     //notify our spawn manager that we are gone.
     if ((m_spawnMgr != nullptr) and (m_self.get() != nullptr))
         m_spawnMgr->SpawnKilled(m_bubble, m_self->itemID());
+
+    // If this NPC was spawned as a mission target (customInfo "mission:<offerID>"),
+    // tell the EncounterSpawnServer so it can decrement the mission's target count
+    // and (when none are left) let the player complete the encounter mission.
+    if (m_self.get() != nullptr && m_self->customInfo().compare(0, 8, "mission:") == 0) {
+        if (EncounterSpawnServer::Get() != nullptr)
+            EncounterSpawnServer::Get()->OnMissionTargetKilled(m_self->itemID());
+    }
 
     // Clear all EWAR effects from our targets (warp scramble status + sticky
     // beams) — they are set by AttackTarget() and would stick forever after this

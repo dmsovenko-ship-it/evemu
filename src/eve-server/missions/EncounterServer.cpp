@@ -11,6 +11,8 @@
 #include "StaticDataMgr.h"
 #include "EVE_Corp.h"
 #include "EVE_Agent.h"
+#include <algorithm>
+#include <string>
 
 // Pirate NPC typeIDs for encounter missions
 static const std::vector<uint32> s_guristasNPCs = { 33001, 33002, 33003, 33004 };
@@ -20,10 +22,13 @@ static const std::vector<uint32> s_bloodRaiderNPCs = { 33060, 33061, 33062, 3306
 static const std::vector<uint32> s_sanshaNPCs   = { 33080, 33081, 33082, 33083 };
 static const std::vector<uint32> s_rogueDroneNPCs = { 33100, 33101, 33102, 33103 };
 
+EncounterSpawnServer* EncounterSpawnServer::s_instance = nullptr;
+
 EncounterSpawnServer::EncounterSpawnServer()
 : Service("encounterSpawnServer"),
   m_nextEncounterID(1)
 {
+    s_instance = this;
     this->Add("GetMyEncounters", &EncounterSpawnServer::GetMyEncounters);
     this->Add("RequestActivateEncounters", &EncounterSpawnServer::RequestActivateEncounters);
     this->Add("RequestDeactivateEncounters", &EncounterSpawnServer::RequestDeactivateEncounters);
@@ -31,7 +36,18 @@ EncounterSpawnServer::EncounterSpawnServer()
 
 EncounterSpawnServer::~EncounterSpawnServer()
 {
+    if (s_instance == this)
+        s_instance = nullptr;
 }
+
+EncounterSpawnServer* EncounterSpawnServer::Get()
+{
+    return s_instance;
+}
+
+// forward decls for faction target helpers defined below
+static const std::vector<uint32>& GetNPCsForFaction(uint32 factionID);
+static uint32 GetCorpIDForFaction(uint32 factionID);
 
 void EncounterSpawnServer::AddEncounter(uint32 charID, uint32 missionID, uint32 agentID, uint8 agentTypeID, const std::string& name)
 {
@@ -51,6 +67,137 @@ void EncounterSpawnServer::RemoveEncounter(uint32 encounterID)
     auto it = m_encounters.find(encounterID);
     if (it != m_encounters.end())
         m_encounters.erase(it);
+}
+
+// Spawn a hostile NPC cluster for an accepted Encounter mission offer and track
+// it against the offer so the agent can mark the mission complete once every
+// spawned target has been destroyed (Client::IsMissionComplete → IsOfferComplete).
+// Returns the number of NPCs actually spawned (0 if nothing could be done).
+uint32 EncounterSpawnServer::SpawnEncounterForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos)
+{
+    if (offer.offerID == 0)
+        return 0;
+    SystemManager* pSystem = sEntityList.FindOrBootSystem(destinationSystemID);
+    if (pSystem == nullptr)
+        return 0;
+
+    // Faction of the enemies — from the mission/agent corp's rat faction.
+    uint32 factionID = 500014;   // default Guristas
+    uint32 agentCorp = offer.originOwnerID;
+    if (agentCorp != 0) {
+        uint32 f = sDataMgr.GetCorpFaction(agentCorp);
+        if (f != 0)
+            factionID = f;
+    }
+    const std::vector<uint32>& npcTypes = GetNPCsForFaction(factionID);
+    uint32 corpID = GetCorpIDForFaction(factionID);
+    if (npcTypes.empty() || corpID == 0)
+        return 0;
+
+    FactionData faction;
+        faction.allianceID = factionID;
+        faction.corporationID = corpID;
+        faction.factionID = factionID;
+        faction.ownerID = corpID;
+
+    // Register a tracked encounter (server-side; no client activation needed).
+    MissionEncounter enc;
+        enc.encounterID = m_nextEncounterID++;
+        enc.missionID = offer.missionID;
+        enc.agentID = offer.agentID;
+        enc.charID = offer.characterID;
+        enc.offerID = offer.offerID;
+        enc.systemID = destinationSystemID;
+        enc.agentTypeID = offer.typeID;
+        enc.encounterName = offer.name;
+        enc.active = true;
+
+    uint32 spawned = 0;
+    GPoint base = atPos;
+    if (base.x == 0.0 && base.y == 0.0 && base.z == 0.0)
+        base = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+    // 4-6 NPCs in a cluster around the site.
+    uint32 npcCount = 4 + (enc.encounterID % 3);
+    for (uint32 n = 0; n < npcCount; ++n) {
+        uint32 typeID = npcTypes[n % npcTypes.size()];
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Encounter NPC %u-%u", enc.encounterID, n);
+        GPoint pos = base;
+        pos.x += 8000 + (n % 3) * 1500;
+        pos.z += (n / 3) * 1500;
+
+        ItemData itemData(typeID, corpID, destinationSystemID, flagNone, buf, pos);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        if (iRef.get() == nullptr) continue;
+
+        // Tag this NPC as a mission target: mission:<offerID>
+        iRef->SetCustomInfo(("mission:" + std::to_string(offer.offerID)).c_str());
+        iRef->SaveItem();
+
+        NPC* npc = new NPC(iRef, pSystem->GetServiceMgr(), pSystem, faction);
+        if (npc == nullptr) continue;
+        if (npc->Load()) {
+            npc->DestinyMgr()->SetPosition(pos);
+            pSystem->AddNPC(npc);
+            enc.spawnedEntities.push_back(npc->GetID());
+            ++spawned;
+            _log(AGENT__MESSAGE, "EncounterSpawnServer: spawned mission target %s (typeID=%u) for offer %u.",
+                 buf, typeID, offer.offerID);
+        } else {
+            SafeDelete(npc);
+        }
+    }
+
+    if (spawned > 0) {
+        m_encounters.emplace(enc.encounterID, enc);
+        // Record the target count on the offer so IsMissionComplete can compare.
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE agtOffers SET missionNPCs = %u, missionNPCsKilled = 0, dungeonSolarSystemID = %u"
+            " WHERE offerID = %u", spawned, destinationSystemID, offer.offerID);
+        _log(AGENT__MESSAGE, "EncounterSpawnServer: offer %u now tracks %u mission targets in system %u.",
+             offer.offerID, spawned, destinationSystemID);
+    }
+    return spawned;
+}
+
+void EncounterSpawnServer::OnMissionTargetKilled(uint32 entityID)
+{
+    for (auto& pair : m_encounters) {
+        MissionEncounter& enc = pair.second;
+        auto it = std::find(enc.spawnedEntities.begin(), enc.spawnedEntities.end(), entityID);
+        if (it == enc.spawnedEntities.end())
+            continue;
+        enc.spawnedEntities.erase(it);
+        _log(AGENT__MESSAGE, "EncounterSpawnServer: mission target %u destroyed (offer %u, %zu remain).",
+             entityID, enc.offerID, enc.spawnedEntities.size());
+        if (enc.spawnedEntities.empty())
+            MarkOfferCleared(enc);
+        return;
+    }
+}
+
+bool EncounterSpawnServer::IsOfferComplete(uint32 offerID) const
+{
+    for (const auto& pair : m_encounters)
+        if (pair.second.offerID == offerID)
+            return pair.second.spawnedEntities.empty();
+    return false;   // unknown offer — not complete
+}
+
+void EncounterSpawnServer::MarkOfferCleared(MissionEncounter& enc)
+{
+    if (enc.offerID == 0)
+        return;
+    DBQueryResult res;
+    DBResultRow row;
+    if (sDatabase.RunQuery(res, "SELECT missionNPCs FROM agtOffers WHERE offerID = %u", enc.offerID)
+        && res.GetRow(row)) {
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE agtOffers SET missionNPCsKilled = missionNPCs WHERE offerID = %u", enc.offerID);
+    }
+    _log(AGENT__MESSAGE, "EncounterSpawnServer: offer %u cleared (all mission targets dead).", enc.offerID);
 }
 
 PyResult EncounterSpawnServer::GetMyEncounters(PyCallArgs& call)

@@ -47,6 +47,7 @@
 #include "map/MapData.h"
 #include "map/MapDB.h"
 #include "missions/MissionDataMgr.h"
+#include "missions/EncounterServer.h"
 #include "npc/NPC.h"
 #include "npc/NPCAI.h"
 //#include "npc/Drone.h"
@@ -2444,6 +2445,11 @@ bool Client::IsMissionComplete(MissionOffer& data)
         case Mission::Type::Tutorial: {
         } break;
         case Mission::Type::Encounter: {
+            // An encounter mission is complete when every hostile target the
+            // server spawned for its offer has been destroyed (EncounterSpawnServer
+            // tracks the target cluster spawned on Accept).
+            if (EncounterSpawnServer::Get() != nullptr && EncounterSpawnServer::Get()->IsOfferComplete(data.offerID))
+                return true;
         } break;
         case Mission::Type::Courier: {
             if (m_locationID == data.destinationID)

@@ -38,6 +38,7 @@
 #include "station/Station.h"
 #include "services/ServiceManager.h"
 #include "missions/EpicArcMgr.h"
+#include "missions/EncounterServer.h"
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "POD_containers.h"
@@ -339,6 +340,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     sItemFactory.UnsetUsingClient();
                 }
                 // Spawn mission dungeon for encounter/mining type missions
+                GPoint dungeonSite(0.0, 0.0, 0.0);   // position of the spawned dungeon (if any)
                 if (offer.destinationSystemID != 0 && offer.missionID != 0) {
                     uint32 dungeonID = 0;
                     DBQueryResult dunRes;
@@ -363,9 +365,26 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                                 MakeRandomFloat(-2.0e12, 2.0e12)
                             );
                             pDestSys->GetDungMgr()->MakeDungeon(sig, dungeonID);
-                            _log(AGENT__MESSAGE, "Spawned dungeon %u for mission %u in system %u",
+                            // Remember where the dungeon went so the encounter
+                            // target cluster can be placed beside it.
+                            dungeonSite = sig.position;
+                            _log(AGENT__MESSAGE, "Spawned dungeon %u for mission %u in system %u.",
                                  dungeonID, offer.missionID, offer.destinationSystemID);
                         }
+                    }
+                }
+                // Encounter missions: spawn a tracked hostile target cluster so the
+                // player has something to clear and the mission can be completed.
+                // Placed at the mission dungeon's site when one exists (the player
+                // fights dungeon NPCs and the tracked targets together); otherwise
+                // at a random point in the destination system.
+                if (offer.typeID == Mission::Type::Encounter && offer.destinationSystemID != 0) {
+                    EncounterSpawnServer* ess = EncounterSpawnServer::Get();
+                    if (ess != nullptr) {
+                        uint32 n = ess->SpawnEncounterForOffer(offer, offer.destinationSystemID, dungeonSite);
+                        if (n > 0)
+                            _log(AGENT__MESSAGE, "Spawned %u encounter targets for mission %u offer %u.",
+                                 n, offer.missionID, offer.offerID);
                     }
                 }
                 m_agent->UpdateOffer(pchar->itemID(), offer);
