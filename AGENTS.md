@@ -47,6 +47,24 @@ Session saved (итог 5 сент. вечер: фикс приёма курье
 - Портал: `/haul` страница курьерок уже задеплоена (nginx :80 отдаёт 200) — проверить снаружи через video.iks-online.net:26006, добавить при желании фильтры/детали.
 - Понаблюдать: курьеры довозят груз в Джиту и товар продаётся (SellStockAtHub), прокачка skillLevel у активных ботов.
 
+### 🎯 ЗАДАЧА: сдача Encounter-миссий у игроков не работает (полный разбор, НЕ сделано)
+**Симптом**: принял encounter-миссию → прилетел в destination → убил врагов → у агента нет кнопки «сдать» (Complete), миссия висит.
+**Разбор (5 сент., по коду — подтверждено):**
+- `Client::IsMissionComplete` (`Client.cpp:2440`) для `Mission::Type::Encounter` — пустой скелет (`return false`). Courier учитывает destination+груз, всё остальное — false.
+- `AgentBound` case Accept (`AgentBound.cpp:341-370`): миссионный данж спавнится через `MakeDungeon(sig, dungeonID)` если `qstEncounter.dungeonID>0`, НО `offer.dungeonLocationID`/`dungeonSolarSystemID` НЕ заполняются (колонки в `agtOffers`/`MissionOffer` есть) → нет связи «миссия ↔ её данж».
+- `SpawnMgr::DoSpawnForMission` (`SpawnMgr.cpp:808`) — заглушка (`SetMission()` без спавна/подсчёта). NPC миссионных данжей идут через `DoSpawnForAnomaly` (ставит `SetAnomaly`) → в `SpawnKilled` (`SpawnMgr.cpp:233`) попадают в anomaly-ветку, а `else if (pBubble->IsMission())` (`:309`) — placeholder «not coded yet» (список TODO включает «setting mission completion status»).
+- Счётчик живых NPC есть ТОЛЬКО для инкурсий: `m_incursionAlive[bubbleID]` (`SpawnMgr.cpp:321`), декремент в SpawnKilled::Incursion при смерти.
+- `EncounterSpawnServer` (`missions/EncounterServer.*`, Service «encounterSpawnServer», регистрируется `eve-server.cpp:731`) — спроектирован хранить `spawnedEntities`/charID, НО `AddEncounter` нигде не вызывается из игрового пути (мёртвый код), а клиентская активация (`RequestActivateEncounters`) вызывается только из debug-окна. Есть `qaTools/encounterSpawnServer.cpp` — дубль-заглушка.
+- **Блокер контента**: `qstEncounter.dungeonID>0` только у ~8 миссий (мы создавали); у ~2970 миссий dungeonID=0 → после Accept в destination-системе НЕТ ни данжа, ни NPC-целей → выполнять нечего. Нужен спавн целей (см. ниже).
+**План фикса (по юзеру «полный охват»: данж + destination):**
+1. Миграция: добавить в `agtOffers` колонки счётчика целей (напр. `missionNPCs` total / `missionNPCsKilled`) — по аналогии `botMemory` миграций, формат `-- +migrate Up/Down`.
+2. `AgentBound` case Accept (Encounter, `typeID==Mission::Type::Encounter`): заполнить `offer.dungeonLocationID`/`dungeonSolarSystemID` из `sig.sigItemID`/`offer.destinationSystemID` после `MakeDungeon`; задать total целей; `UpdateOffer`.
+3. Спавн целей: если dungeonID>0 — переиспользовать NPC комнат данжа; если 0 — спавнить кластер NPC-целей в destinationSystem (по образцу `EncounterSpawnServer::RequestActivateEncounters`: фракция 500014 Guristas default, `GetNPCsForFaction`/`GetCorpIDForFaction`, 4-6 NPC кластером) + помечать NPC меткой миссии (`customInfo` `mission:<offerID>`), регистрировать в `EncounterSpawnServer::AddEncounter`.
+4. Смерть NPC: в `NPC::Killed` (где уже есть `pClient` из `damage.srcSE`, `NPC.cpp:608`) — если у погибшего NPC customInfo начинается с `mission:` и убийца = владелец оффера → инкремент `missionNPCsKilled` (UPDATE agtOffers); при достижении total оффер готов.
+5. `Client::IsMissionComplete` Encounter: `missionNPCsKilled >= missionNPCs` (SELECT из agtOffers по offerID) — кнопка Complete появится.
+6. (Опц.) `SpawnKilled::Mission` вместо placeholder.
+**Проверка**: нужна живая сборка; зайти на encounter-миссию с dungeonID (8 шт) и без него, убить цели, сдать у агента. После — бот-миссионер (Missioner) сможет переиспользовать тот же механизм.
+
 
 
 ## 5 сентября: экономика челоботов (шевеление рынка) — дизайн/этапы
