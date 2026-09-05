@@ -1140,7 +1140,15 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
                 objType->SetItem(1, objData);
             objectives->SetItem(0, objType);
         } break;
-        case Mission::Type::Encounter:
+        case Mission::Type::Encounter: {
+            // Encounter missions: the objective is the site itself (a dungeon
+            // entry with a warp link, filled in GetMissionObjectiveInfo). No
+            // 'fetch' objective — that rendering is wrong for a kill/clear site.
+            PyTuple* objType = new PyTuple(2);
+                objType->SetItem(0, new PyString("none"));
+                objType->SetItem(1, new PyDict());
+            objectives->SetItem(0, objType);
+        } break;
         case Mission::Type::Mining: {
             PyDict* cargo = new PyDict();
                 cargo->SetItemString("hasCargo", new PyBool(pClient->ContainsTypeQty(offer.courierTypeID, offer.courierAmount)));
