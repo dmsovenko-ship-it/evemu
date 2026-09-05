@@ -1036,6 +1036,8 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
     if (offer.typeID == Mission::Type::Encounter && EncounterSpawnServer::Get() != nullptr) {
         GPoint tgt;
         if (EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, tgt)) {
+            _log(AGENT__ERROR, "Encounter objective: offer %u dungeon at %.0f,%.0f,%.0f",
+                 offer.offerID, tgt.x, tgt.y, tgt.z);
             uint32 destSys = offer.destinationSystemID != 0 ? offer.destinationSystemID : offer.dungeonSolarSystemID;
             if (destSys != 0) {
                 PyDict* dunData = new PyDict();
@@ -1062,6 +1064,9 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
                 dunData->SetItemString("location", loc);
                 dunList->AddItem(dunData);
             }
+        } else {
+            _log(AGENT__ERROR, "Encounter objective: offer %u has NO tracked dungeon (targets missing).",
+                 offer.offerID);
         }
     }
     objectiveData->SetItemString("dungeons", dunList);
