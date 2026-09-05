@@ -1,7 +1,7 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved (итог 5 сент. вечер: фикс приёма курьерок `a34850f1` подтверждён, авто-удаление wrap `25da872f` запушен, wraps почищены, «кривое описание» = клиентское). Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) и портал — см. свежие коммиты; портал можно дёргать с сервера эмулятора `curl http://172.20.1.49/...`, SSH на портал `172.20.1.49` (dmitry/gbnjy78), сайт `/var/www/html`. ⚠️ Сервер работает на `a34850f1`, ещё НЕ пересобран на `25da872f`.
+Session saved (итог 5 сент. вечер/ночь: фикс приёма курьерок `a34850f1` подтверждён; хакеры/эксплореры дают реальный лут `382bb054`; encounter-миссии замкнуты `a7add57b`..`8233b660` — цели спавнятся, варп-объектив уходит, WarpToLocation к целям; последний коммит `8233b660` требует пересборки/живой проверки варпа). Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) и портал — см. свежие коммиты; портал можно дёргать с сервера эмулятора `curl http://172.20.1.49/...`, SSH на портал `172.20.1.49` (dmitry/gbnjy78), сайт `/var/www/html`. ⚠️ Сервер пересобран на `8233b660`? — последняя сборка была на `6557416a` (WarpToLocation-фикс `8233b660` запушен, ожидает пересборки).
 
 ## 5 сентября: экономика челоботов + этап 2 «физический товар» — СДЕЛАНО И ПРОВЕРЕНО
 Сервер пересобран на `57c13750` (22:17) и работает; игрок Vugl в игре.
@@ -47,25 +47,35 @@ Session saved (итог 5 сент. вечер: фикс приёма курье
 - Портал: `/haul` страница курьерок уже задеплоена (nginx :80 отдаёт 200) — проверить снаружи через video.iks-online.net:26006, добавить при желании фильтры/детали.
 - Понаблюдать: курьеры довозят груз в Джиту и товар продаётся (SellStockAtHub), прокачка skillLevel у активных ботов.
 
-### 🎯 ЗАДАЧА: сдача Encounter-миссий у игроков не работает (полный разбор, НЕ сделано)
-**Симптом**: принял encounter-миссию → прилетел в destination → убил врагов → у агента нет кнопки «сдать» (Complete), миссия висит.
-**Разбор (5 сент., по коду — подтверждено):**
-- `Client::IsMissionComplete` (`Client.cpp:2440`) для `Mission::Type::Encounter` — пустой скелет (`return false`). Courier учитывает destination+груз, всё остальное — false.
-- `AgentBound` case Accept (`AgentBound.cpp:341-370`): миссионный данж спавнится через `MakeDungeon(sig, dungeonID)` если `qstEncounter.dungeonID>0`, НО `offer.dungeonLocationID`/`dungeonSolarSystemID` НЕ заполняются (колонки в `agtOffers`/`MissionOffer` есть) → нет связи «миссия ↔ её данж».
-- `SpawnMgr::DoSpawnForMission` (`SpawnMgr.cpp:808`) — заглушка (`SetMission()` без спавна/подсчёта). NPC миссионных данжей идут через `DoSpawnForAnomaly` (ставит `SetAnomaly`) → в `SpawnKilled` (`SpawnMgr.cpp:233`) попадают в anomaly-ветку, а `else if (pBubble->IsMission())` (`:309`) — placeholder «not coded yet» (список TODO включает «setting mission completion status»).
-- Счётчик живых NPC есть ТОЛЬКО для инкурсий: `m_incursionAlive[bubbleID]` (`SpawnMgr.cpp:321`), декремент в SpawnKilled::Incursion при смерти.
-- `EncounterSpawnServer` (`missions/EncounterServer.*`, Service «encounterSpawnServer», регистрируется `eve-server.cpp:731`) — спроектирован хранить `spawnedEntities`/charID, НО `AddEncounter` нигде не вызывается из игрового пути (мёртвый код), а клиентская активация (`RequestActivateEncounters`) вызывается только из debug-окна. Есть `qaTools/encounterSpawnServer.cpp` — дубль-заглушка.
-- **Блокер контента**: `qstEncounter.dungeonID>0` только у ~8 миссий (мы создавали); у ~2970 миссий dungeonID=0 → после Accept в destination-системе НЕТ ни данжа, ни NPC-целей → выполнять нечего. Нужен спавн целей (см. ниже).
-**План фикса (по юзеру «полный охват»: данж + destination):**
-1. Миграция: добавить в `agtOffers` колонки счётчика целей (напр. `missionNPCs` total / `missionNPCsKilled`) — по аналогии `botMemory` миграций, формат `-- +migrate Up/Down`.
-2. `AgentBound` case Accept (Encounter, `typeID==Mission::Type::Encounter`): заполнить `offer.dungeonLocationID`/`dungeonSolarSystemID` из `sig.sigItemID`/`offer.destinationSystemID` после `MakeDungeon`; задать total целей; `UpdateOffer`.
-3. Спавн целей: если dungeonID>0 — переиспользовать NPC комнат данжа; если 0 — спавнить кластер NPC-целей в destinationSystem (по образцу `EncounterSpawnServer::RequestActivateEncounters`: фракция 500014 Guristas default, `GetNPCsForFaction`/`GetCorpIDForFaction`, 4-6 NPC кластером) + помечать NPC меткой миссии (`customInfo` `mission:<offerID>`), регистрировать в `EncounterSpawnServer::AddEncounter`.
-4. Смерть NPC: в `NPC::Killed` (где уже есть `pClient` из `damage.srcSE`, `NPC.cpp:608`) — если у погибшего NPC customInfo начинается с `mission:` и убийца = владелец оффера → инкремент `missionNPCsKilled` (UPDATE agtOffers); при достижении total оффер готов.
-5. `Client::IsMissionComplete` Encounter: `missionNPCsKilled >= missionNPCs` (SELECT из agtOffers по offerID) — кнопка Complete появится.
-6. (Опц.) `SpawnKilled::Mission` вместо placeholder.
-**Проверка**: нужна живая сборка; зайти на encounter-миссию с dungeonID (8 шт) и без него, убить цели, сдать у агента. После — бот-миссионер (Missioner) сможет переиспользовать тот же механизм.
+### 🎯 Сдача Encounter-миссий — СДЕЛАНО (5 сент. вечер, коммиты `a7add57b`..`8233b660`), в процессе живой проверки
+**Симптом (был)**: принял encounter-миссию → прилетел в destination → убил врагов → у агента нет кнопки «сдать» (Complete), миссия висит.
+**Корни (были подтверждены по коду):**
+- `Client::IsMissionComplete` (`Client.cpp:2440`) для Encounter — пустой скелет (`return false`).
+- `Accept` не связывал миссию с данжем/целями (`offer.dungeonLocationID` не писался), NPC целей не трекались (`DoSpawnForMission` заглушка, `EncounterSpawnServer::AddEncounter` мёртвый код).
+- У ~2970 миссий `qstEncounter.dungeonID=0` → в destination НЕ было ни данжа, ни целей (выполнять нечего).
+**Что реализовано (полный цикл «принял → варп к целям → убил → сдал»):**
+1. `agtOffers` + колонки `missionNPCs`/`missionNPCsKilled` (миграция `20260906000000`).
+2. `EncounterSpawnServer` оживлён: singleton `Get()`; `SpawnEncounterForOffer(offer, sys, pos)` спавнит 4-6 враждебных NPC фракции (GetNPCsForFaction/GetCorpIDForFaction, default Guristas) с `customInfo=mission:<offerID>` и помнит `targetPos`; `OnMissionTargetKilled`; `IsOfferComplete`; `GetTargetPosition`.
+3. `AgentBound` Accept (Encounter): спавнит кластер целей через `SpawnEncounterForOffer` (в точке данжа если dungeonID>0, иначе random в destination) → `missionNPCs` заполняется.
+4. `NPC::Killed`: NPC с `customInfo` `mission:` уведомляет EncounterSpawnServer → счётчик.
+5. `Client::IsMissionComplete` Encounter = `EncounterSpawnServer::IsOfferComplete` (все цели мертвы).
+6. Варп-ссылка: Encounter-миссия НЕ рендерится как fetch (убран кривой «Доставка предмета»); в `GetMissionObjectiveInfo` отдаётся dungeon-объектив с реальными `coords` целей → клиент строит варп-ссылку (LocationWrapper/eveBaseLink `GetBookmark`, locationType='dungeon').
+7. `AgentBound::WarpToLocation` теперь принимает строковый `locationType` (клиент шлёт 'dungeon', а не int — раньше диспетчер падал «Unable to find method») и для Encounter-оффера варпит на РЕАЛЬНЫЕ `targetPos` целей (вместо заглушки random ±1.5e13).
 
+**Живая проверка (5 сент. ~17:00 UTC, сервер Otosela/Uemon):**
+- Mr Tort (97233346) на 60010456 «Otosela VII - Moon 4 - Poteque Pharmaceuticals»; боевой агент **3013722** (division 2, level 1, Basic, corp 1000104 Poteque) → даёт Encounter (typeID=2). Агенты mining-дивизий (16/17) дают Mining, их не использовать. Уровневые требования: level 1 = -2.0 стендинг (доступен всем, кроме Research), level 3 = +3.0.
+- Offer #6/#7: после Accept `missionNPCs=5..6`, в логе «spawned mission target ... for offer N» + «offer N now tracks N mission targets». ✅ цели спавнятся.
+- Дамп `GetMissionJournalInfo` RSP: dungeon-объектив с coords уходит корректно. ✅
+- ⚠️ WarpToLocation-фикс (`8233b660`) запушен, но **сервер ещё НЕ пересобран на нём** — до этого клик варпа падал диспетчером (PyInt vs PyWString). После пересборки проверить: варп к целям, убить 5 NPC, вернуться к агенту → Complete.
+- Нюанс: координаты целей ~±2e12 м (13+ AU) — варп дальний; при проблемах ставить спавн ближе к точке входа (гейт/звезда).
+- Остальные типы миссий (Mining «Burnt Traces» и пр.) по-прежнему несдаваемые (IsMissionComplete скелет для не-Encounter/Courier) — НЕ в скоупе этого фикса.
 
+### Дальше (по плану юзера, не сделано / на завтра днём — «доделать остальные профы»)
+- Доделать остальные профессии (юзер: «Днём пройдём доделаем остальные профы») — хакеры/эксплореры теперь производят реальный лут (`382bb054`); проверить активность и замкнуть товар-цепочку.
+- Флот-майнинг доделать: охрана у флагмана (guards у Orca), проверка ×1.3 буста на живом сервере.
+- Портал: `/haul` страница курьерок уже задеплоена (nginx :80 отдаёт 200) — проверить снаружи через video.iks-online.net:26006, добавить при желании фильтры/детали.
+- Понаблюдать: курьеры довозят груз в Джиту и товар продаётся (SellStockAtHub), прокачка skillLevel у активных ботов.
+- Бот-миссионер (Missioner, новая профессия) — переиспользовать encounter-механизм после живой проверки; нужна персистентность состояния «агент/фаза» между доками.
 
 ## 5 сентября: экономика челоботов (шевеление рынка) — дизайн/этапы
 Юзер хочет полноценную живую экономику: трейдеры-боты **двигают рынок** (не мёртвые случайные ордера), с **самообучением** на прибыли/убытке; движение товара порождает спрос на **перевозку** → боты-курьеры и люди возят грузы между станциями, **курьерки на общем рынке**.
