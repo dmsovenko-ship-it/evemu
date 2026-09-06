@@ -1225,12 +1225,6 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
 
 std::vector<uint32> DungeonMgr::SpawnMineableAsteroids(const GPoint& roomPos, uint32 count /*30*/)
 {
-    // Mineable ore belt inside a dungeon pocket — 30-40 asteroids of one ore type
-    // clustered together, like official mission/anomaly sites. Uses temp items
-    // (AsteroidItem::SpawnTemp) so they are NOT persisted; they are tracked in
-    // room.items and cleaned up when the dungeon expires. Depletion works via
-    // MiningLaser::Depleted -> AsteroidSE::Delete() (belt mgr removal + RemoveBall).
-    std::vector<uint32> spawned;
     // Pick one common ore type for the whole pocket (players mine it down).
     static const uint32 oreTypes[] = {
         1230,   // Veldspar
@@ -1244,6 +1238,19 @@ std::vector<uint32> DungeonMgr::SpawnMineableAsteroids(const GPoint& roomPos, ui
         1229,   // Gneiss
     };
     uint32 typeID = oreTypes[MakeRandomInt(0, 8)];
+    return SpawnMineableAsteroids(typeID, roomPos, count);
+}
+
+std::vector<uint32> DungeonMgr::SpawnMineableAsteroids(uint32 typeID, const GPoint& roomPos, uint32 count /*30*/)
+{
+    // Mineable ore belt inside a dungeon pocket — 30-40 asteroids of one ore type
+    // clustered together, like official mission/anomaly sites. Uses temp items
+    // (AsteroidItem::SpawnTemp) so they are NOT persisted; they are tracked in
+    // room.items and cleaned up when the dungeon expires. Depletion works via
+    // MiningLaser::Depleted -> AsteroidSE::Delete() (belt mgr removal + RemoveBall).
+    std::vector<uint32> spawned;
+    if (typeID == 0)
+        return spawned;
     // Belt ring around the pocket — keep the CENTER clear (that's where the ship
     // warps in) and keep asteroids from overlapping each other. Inner ring 3000m
     // (safe warp zone), outer 7000m; gap between roids is the sum of both radii

@@ -387,6 +387,29 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                                  n, offer.missionID, offer.offerID);
                     }
                 }
+                // Mining missions: spawn an ore belt of the requested ore in the
+                // destination system so the player always has something to mine
+                // (SDE mining missions don't point at an existing belt). Registers
+                // the belt position for the journal warp link.
+                if (offer.typeID == Mission::Type::Mining && offer.destinationSystemID != 0
+                    && offer.courierTypeID != 0) {
+                    SystemManager* pDestSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
+                    if (pDestSys != nullptr) {
+                        GPoint beltPos = dungeonSite;
+                        if (beltPos.x == 0 && beltPos.y == 0 && beltPos.z == 0)
+                            beltPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12),
+                                             MakeRandomFloat(-2.0e12, 2.0e12),
+                                             MakeRandomFloat(-2.0e12, 2.0e12));
+                        std::vector<uint32> roids = pDestSys->GetDungMgr()->SpawnMineableAsteroids(
+                            offer.courierTypeID, beltPos, 25 + MakeRandomInt(0, 15));
+                        if (!roids.empty()) {
+                            if (EncounterSpawnServer::Get() != nullptr)
+                                EncounterSpawnServer::Get()->RegisterMiningSite(offer.offerID, beltPos);
+                            _log(AGENT__MESSAGE, "Spawned mining belt (%zu roids of type %u) for mission %u offer %u.",
+                                 roids.size(), offer.courierTypeID, offer.missionID, offer.offerID);
+                        }
+                    }
+                }
                 m_agent->UpdateOffer(pchar->itemID(), offer);
                 m_agent->SendMissionUpdate(call.client, "offer_accepted");
                 agentSays->SetItem(0, new PyInt(m_agent->GetAcceptRsp(pchar->itemID())));
@@ -1033,11 +1056,12 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
     // the client a dungeon objective with those coordinates so it can build the
     // warp-to-site link ("Objective: <location>"). Without this the player has no
     // way to reach the spawned targets.
-    if (offer.typeID == Mission::Type::Encounter && EncounterSpawnServer::Get() != nullptr) {
+    bool isSiteMission = (offer.typeID == Mission::Type::Encounter || offer.typeID == Mission::Type::Mining);
+    if (isSiteMission && EncounterSpawnServer::Get() != nullptr) {
         GPoint tgt;
         if (EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, tgt)) {
-            _log(AGENT__ERROR, "Encounter objective: offer %u dungeon at %.0f,%.0f,%.0f",
-                 offer.offerID, tgt.x, tgt.y, tgt.z);
+            _log(AGENT__ERROR, "Mission objective: offer %u (%s) site at %.0f,%.0f,%.0f",
+                 offer.offerID, sMissionDataMgr.GetTypeLabel(offer.typeID).c_str(), tgt.x, tgt.y, tgt.z);
             uint32 destSys = offer.destinationSystemID != 0 ? offer.destinationSystemID : offer.dungeonSolarSystemID;
             if (destSys != 0) {
                 PyDict* dunData = new PyDict();
@@ -1065,7 +1089,7 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
                 dunList->AddItem(dunData);
             }
         } else {
-            _log(AGENT__ERROR, "Encounter objective: offer %u has NO tracked dungeon (targets missing).",
+            _log(AGENT__ERROR, "Mission objective: offer %u has NO tracked site (nothing spawned).",
                  offer.offerID);
         }
     }

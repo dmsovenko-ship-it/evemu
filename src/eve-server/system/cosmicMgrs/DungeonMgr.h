@@ -85,6 +85,9 @@ public:
 
     // public so AnomalyMgr can build W-space ore sites procedurally
     std::vector<uint32> SpawnMineableAsteroids(const GPoint& roomPos, uint32 count = 30);
+    // Spawn a belt of ONE specific ore type (mission mining sites need the exact
+    // ore the agent asked for). Type is validated against known ores first.
+    std::vector<uint32> SpawnMineableAsteroids(uint32 typeID, const GPoint& roomPos, uint32 count = 30);
 
 protected:
     ManagerDB m_db;

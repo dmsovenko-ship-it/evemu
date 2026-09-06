@@ -186,6 +186,12 @@ bool EncounterSpawnServer::IsOfferComplete(uint32 offerID) const
     return false;   // unknown offer — not complete
 }
 
+void EncounterSpawnServer::RegisterMiningSite(uint32 offerID, const GPoint& pos)
+{
+    if (offerID != 0)
+        m_miningSites[offerID] = pos;
+}
+
 bool EncounterSpawnServer::GetTargetPosition(uint32 offerID, GPoint& outPos) const
 {
     for (const auto& pair : m_encounters) {
@@ -193,6 +199,11 @@ bool EncounterSpawnServer::GetTargetPosition(uint32 offerID, GPoint& outPos) con
             outPos = pair.second.targetPos;
             return true;
         }
+    }
+    auto mit = m_miningSites.find(offerID);
+    if (mit != m_miningSites.end()) {
+        outPos = mit->second;
+        return true;
     }
     return false;
 }

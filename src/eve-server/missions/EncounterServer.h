@@ -47,6 +47,10 @@ public:
     // True when all targets of the encounter for this offer are dead (usable by
     // Client::IsMissionComplete for Encounter missions).
     bool IsOfferComplete(uint32 offerID) const;
+    // Register a mining mission's ore belt position (spawned on Accept). Kept so
+    // GetTargetPosition also serves Mining missions (client warp link + journal
+    // objective), without any NPC kill-tracking.
+    void RegisterMiningSite(uint32 offerID, const GPoint& pos);
     // Position the target cluster was spawned at for this offer (for building the
     // client's warp-to-site objective). Returns false if the offer is untracked.
     bool GetTargetPosition(uint32 offerID, GPoint& outPos) const;
@@ -56,6 +60,7 @@ private:
     void MarkOfferCleared(MissionEncounter& enc);
 
     std::map<uint32, MissionEncounter> m_encounters;
+    std::map<uint32, GPoint> m_miningSites;   // offerID -> ore belt position (mining missions)
     uint32 m_nextEncounterID;
     static EncounterSpawnServer* s_instance;
 };
