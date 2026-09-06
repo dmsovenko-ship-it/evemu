@@ -26,6 +26,7 @@
 #include "eve-server.h"
 
 #include "faction/FactionWarMgrDB.h"
+#include "system/sov/SovereigntyDB.h"
 /*
  * FACWAR__DB_ERROR
  * FACWAR__DB_WARNING
@@ -118,6 +119,16 @@ void FactionWarMgrDB::RemoveCharacter(uint32 charID)
 // Flip a FW system to a new occupier (captured by factionID).
 void FactionWarMgrDB::SetSystemOccupier(uint32 systemID, uint32 factionID)
 {
+    // read current occupier so we can journal the change
+    uint32 oldOccupier = 0;
+    {
+        DBQueryResult res;
+        sDatabase.RunQuery(res, "SELECT occupierID FROM facWarSystems WHERE systemID = %u", systemID);
+        DBResultRow row;
+        if (res.GetRow(row))
+            oldOccupier = row.GetUInt(0);
+    }
+
     DBerror err;
     if (!sDatabase.RunQuery(err,
         "UPDATE facWarSystems SET occupierID = %u WHERE systemID = %u",
@@ -125,10 +136,12 @@ void FactionWarMgrDB::SetSystemOccupier(uint32 systemID, uint32 factionID)
     {
         codelog(FACWAR__DB_ERROR, "SetSystemOccupier(%u, %u) failed: %s",
                 systemID, factionID, err.GetError());
+        return;
     }
-    else
-    {
-        _log(FACWAR__DB_MESSAGE, "FW system %u flipped to faction %u.", systemID, factionID);
-    }
+
+    _log(FACWAR__DB_MESSAGE, "FW system %u flipped to faction %u.", systemID, factionID);
+
+    if (oldOccupier != factionID)
+        SovereigntyDB::LogSystemChange(systemID, "faction", oldOccupier, factionID);
 }
 

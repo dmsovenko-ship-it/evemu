@@ -39,6 +39,12 @@ public:
     static void GetSovereigntyDataForSystem(DBQueryResult& res, uint32 systemID);
     static void AddSovereigntyData(SovereigntyData data, uint32& claimID);
     static void RemoveSovereigntyData(uint32 systemID);
+
+    // Append an entry to the sovChangeLog journal ("смена влияния"). ownerType is
+    // "faction" (FW occupier flips) or "alliance" (sov claim/release); a 0 owner
+    // ID means none/unclaimed. changeTime is stamped with GetFileTimeNow().
+    static void LogSystemChange(uint32 systemID, const char* ownerType,
+                                uint32 oldOwnerID, uint32 newOwnerID);
     static void SetContested(uint32 systemID, bool contested);
     static void SetReinforceHour(uint32 systemID, uint8 hour);
     static void SetHubID(uint32 systemID, uint32 hubID);

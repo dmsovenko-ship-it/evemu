@@ -829,5 +829,74 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "SovChanges.xml.aspx") {
+        auto get2 = [&](const std::string& k) -> std::string {
+            auto it = params.find(k);
+            return it != params.end() ? it->second : "";
+        };
+        uint32 limit = 50;
+        std::string ls = get2("limit");
+        if (!ls.empty()) { try { limit = std::stoul(ls); } catch (...) { limit = 50; } }
+        if (limit < 1) limit = 1; if (limit > 500) limit = 500;
+        std::string where;
+        std::string sysFilter = get2("systemid");
+        if (!sysFilter.empty()) {
+            uint32 sid = 0;
+            try { sid = std::stoul(sysFilter); } catch (...) { sid = 0; }
+            if (sid > 0) where = "WHERE c.systemID = " + std::to_string(sid) + " ";
+        }
+
+        DBQueryResult res;
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <changes>\n";
+        if (sDatabase.RunQuery(res,
+            ("SELECT c.changeID, c.systemID, c.ownerType, c.oldOwnerID, c.newOwnerID, c.changeTime, "
+             "ss.solarSystemName, ss.regionID, reg.regionName "
+             "FROM sovChangeLog c "
+             "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = c.systemID "
+             "LEFT JOIN mapRegions reg ON reg.regionID = ss.regionID "
+             + where +
+             "ORDER BY c.changeID DESC LIMIT " + std::to_string(limit)).c_str())) {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                const char* ot = row.GetText(2);
+                bool isFaction = (ot && std::string(ot) == "faction");
+                uint32 oldID = row.GetUInt(3), newID = row.GetUInt(4);
+
+                auto ownerName = [&](uint32 id) -> std::string {
+                    if (id == 0) return "";
+                    DBQueryResult nres;
+                    if (isFaction) {
+                        if (sDatabase.RunQuery(nres, "SELECT factionName FROM facFactions WHERE factionID = %u", id)) {
+                            DBResultRow nrow; if (nres.GetRow(nrow) && nrow.GetText(0)) return std::string(nrow.GetText(0));
+                        }
+                    } else {
+                        if (sDatabase.RunQuery(nres, "SELECT allianceName FROM alnAlliance WHERE allianceID = %u", id)) {
+                            DBResultRow nrow; if (nres.GetRow(nrow) && nrow.GetText(0)) return std::string(nrow.GetText(0));
+                        }
+                    }
+                    return "";
+                };
+                std::string oldName = ownerName(oldID);
+                std::string newName = ownerName(newID);
+
+                xml += "      <row changeid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+                xml += " systemid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+                xml += std::string(" ownertype=\"") + (isFaction ? "faction" : "alliance") + "\"";
+                xml += " oldownerid=\"" + std::to_string(oldID) + "\"";
+                xml += " oldownername=\"" + xmlEscape(oldName.c_str()) + "\"";
+                xml += " newownerid=\"" + std::to_string(newID) + "\"";
+                xml += " newownername=\"" + xmlEscape(newName.c_str()) + "\"";
+                xml += " systemname=\"" + xmlEscape(row.GetText(6)) + "\"";
+                xml += " regionid=\"" + std::to_string(row.GetUInt(7)) + "\"";
+                xml += " regionname=\"" + xmlEscape(row.GetText(8)) + "\"";
+                xml += " time=\"" + std::to_string(row.GetInt64(5)) + "\"/>\n";
+            }
+        }
+        xml += "    </changes>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }

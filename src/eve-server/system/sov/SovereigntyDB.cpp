@@ -81,6 +81,18 @@ void SovereigntyDB::RemoveSovereigntyData(uint32 systemID)
     }
 }
 
+void SovereigntyDB::LogSystemChange(uint32 systemID, const char* ownerType,
+                                    uint32 oldOwnerID, uint32 newOwnerID)
+{
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+        "INSERT INTO sovChangeLog (systemID, ownerType, oldOwnerID, newOwnerID, changeTime) "
+        "VALUES (%u, '%s', %u, %u, %lli)",
+        systemID, ownerType, oldOwnerID, newOwnerID, (long long)GetFileTimeNow()))
+        codelog(SOV__ERROR, "LogSystemChange(%u, %s, %u->%u) failed: %s",
+                systemID, ownerType, oldOwnerID, newOwnerID, err.GetError());
+}
+
 void SovereigntyDB::SetContested(uint32 systemID, bool contested) 
 {
     DBerror err;

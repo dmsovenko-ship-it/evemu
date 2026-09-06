@@ -3,6 +3,13 @@
 ## Current State
 Session saved (итог 6 сент.: encounter-сдача ПОДТВЕРЖДЕНА на `220a8fb6` — принял/сварпил/убил 5 целей/сдал; фиты челоботов с EDK sotzone импортируются `f3c15934` фоном на сервере, след. — материализация модулей+патронов(по скиллам)+груза(по профессии)). Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) и портал — см. свежие коммиты; портал можно дёргать с сервера эмулятора `curl http://172.20.1.49/...`, SSH на портал `172.20.1.49` (dmitry/gbnjy78), сайт `/var/www/html`. ⚠️ Сервер пересобран на `220a8fb6` (encounter-сдача проверена); фитовый импорт — только в БД, код материализации ещё не написан.
 
+### 6 сентября (вечер): «смена влияния» + кеш тяжёлых API
+Юзер: «на портале уже есть данные по киллам/структурам, кроме смены влияния»; выбрал «API смены влияния» + напомнил про зависание первой загрузки портала → кеш API на сервере.
+- **Журнал `sovChangeLog`** (миграция `20260906000001-sov_change_log.sql`): systemID/ownerType('faction'|'alliance')/oldOwnerID/newOwnerID/changeTime(filetime). Пишется: `FactionWarMgrDB::SetSystemOccupier` (FW-флип; старое значение читается до UPDATE), `SovereigntyDataMgr::AddSovClaim`/`RemoveSovClaim` (alliance, 0=none). Помощник `SovereigntyDB::LogSystemChange`.
+- **`/server/SovChanges.xml.aspx`**: последние N (limit≤500, `systemid` опционально) — changeid/systemid/systemname/regionid/regionname/ownertype/oldownerid/oldownername/newownerid/newownername/time (имена владельцев резолвятся в facFactions/alnAlliance). Всё lowercase.
+- **Кеш ответов API** (`APIServer::ProcessRequest`): in-memory TTL-кеш (мутекс+map, кап 8192) для тяжёлых GET — TopKills 30с/TopValuables 60с/Activity 30с/MarketTops 30с/MarketStats 30с/KillStats 30с/ActiveSystems 60с/CourierContracts 20с/MapData 300с/SovChanges 30с/AllKills 15с/KillMails 20с/KillMail+Resolve+CharacterInfo 300с/CorporationSheet 300с/KillDetail 120с. <error>-ответы не кешируются.
+- **Индекс `mktOrders(typeID)`** (миграция `20260906000002-mktorders_typeid_index.sql`) — AVG(price)/PERCENTILE_CONT в TopValuables/Resolve больше не сканируют 38.5M строк (idx_region_type_bid не годился: typeID не ведущий и нет regionID).
+
 ### 🎯 Фиты челоботов: реальные Crucible-фиты с EDK sotzone + материализация модулей (в работе)
 **Симптом (юзер)**: «фиты челоботов — дурация. Я давал ссылку на киллборду. Фиты оттуда можно использовать челоботам». Реальная киллборда времён Crucible: **https://kb.sotzone.ru** (EDK, SoT Killboard, киллы 2007-2011, ID ~697..~65494).
 **Что найдено:**

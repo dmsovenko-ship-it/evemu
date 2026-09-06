@@ -13,8 +13,55 @@
 #include <boost/algorithm/string.hpp>
 #include <sstream>
 #include <thread>
+#include <map>
+#include <mutex>
 
 using boost::asio::ip::tcp;
+
+// ---- response cache for the API server -----------------------------------
+// Heavy portal read endpoints (killboard lists, activity, market tops) run
+// expensive aggregate queries over chrKillTable / mktOrders on every request.
+// Cache the rendered XML in memory for a short TTL so the first browser load
+// doesn't hang on a cold full-scan and repeat loads are instant.
+namespace {
+
+// Windows FILETIME units are 100ns ticks; EvE::Time::Second == 10000000L.
+static const int64 kFiletimeSecond = 10000000LL;
+
+struct ApiCacheEntry { int64 expireFiletime; std::string body; };
+
+std::mutex g_apiCacheMutex;
+std::map<std::string, ApiCacheEntry> g_apiCache;
+
+// seconds of TTL per handler; 0 = never cache (mutating / live endpoints)
+int g_apiCacheTtl(const std::string& service, const std::string& handler)
+{
+    std::string key = service + "/" + handler;
+    static const std::map<std::string, int> ttl = {
+        { "server/TopKills.xml.aspx",         30 },
+        { "server/TopValuables.xml.aspx",     60 },
+        { "server/Activity.xml.aspx",         30 },
+        { "server/MarketTops.xml.aspx",       30 },
+        { "server/MarketStats.xml.aspx",      30 },
+        { "server/KillStats.xml.aspx",        30 },
+        { "server/ActiveSystems.xml.aspx",    60 },
+        { "server/CourierContracts.xml.aspx", 20 },
+        { "server/MapData.xml.aspx",         300 },
+        { "server/SovChanges.xml.aspx",       30 },
+        { "char/AllKills.xml.aspx",           15 },
+        { "char/KillMails.xml.aspx",          20 },
+        { "char/KillMail.xml.aspx",          300 },
+        { "char/KillDetail.xml.aspx",        120 },
+        { "char/Resolve.xml.aspx",           300 },
+        { "char/CharacterInfo.xml.aspx",     300 },
+        { "corp/KillMails.xml.aspx",          20 },
+        { "corp/CorporationSheet.xml.aspx",  300 },
+    };
+    auto it = ttl.find(key);
+    return it != ttl.end() ? it->second : 0;
+}
+
+} // namespace
 
 static std::string url_decode(const std::string& str) {
     std::string result;
@@ -57,11 +104,44 @@ void APIServer::CreateServices()
 std::string APIServer::ProcessRequest(const std::string& service, const std::string& handler,
                                       const std::map<std::string, std::string>& params)
 {
-    auto it = _serviceManagers.find(service);
-    if (it == _serviceManagers.end())
-        return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><error>Unknown service: " + service + "</error></eveapi>";
+    // Only GET-style read endpoints are cached (whitelist above); POST / admin /
+    // auth calls return TTL 0 and always execute live.
+    int ttl = g_apiCacheTtl(service, handler);
+    std::string cacheKey;
+    if (ttl > 0) {
+        // deterministic key: service/handler?k=v&k=v (params is a std::map, sorted)
+        std::ostringstream ks;
+        ks << service << "/" << handler << "?";
+        for (auto& kv : params) ks << kv.first << "=" << kv.second << "&";
+        cacheKey = ks.str();
 
-    return it->second->ProcessCall(handler, params);
+        std::lock_guard<std::mutex> lk(g_apiCacheMutex);
+        auto it = g_apiCache.find(cacheKey);
+        if (it != g_apiCache.end() && it->second.expireFiletime > GetFileTimeNow())
+            return it->second.body;
+    }
+
+    auto it = _serviceManagers.find(service);
+    std::string body;
+    if (it == _serviceManagers.end())
+        body = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><error>Unknown service: " + service + "</error></eveapi>";
+    else
+        body = it->second->ProcessCall(handler, params);
+
+    if (ttl > 0 && body.find("<error>") == std::string::npos) {
+        std::lock_guard<std::mutex> lk(g_apiCacheMutex);
+        // bound memory: drop expired entries, and if still huge, clear the map
+        if (g_apiCache.size() > 4096) {
+            int64 now = GetFileTimeNow();
+            for (auto it2 = g_apiCache.begin(); it2 != g_apiCache.end();) {
+                if (it2->second.expireFiletime < now) it2 = g_apiCache.erase(it2);
+                else ++it2;
+            }
+            if (g_apiCache.size() > 8192) g_apiCache.clear();
+        }
+        g_apiCache[cacheKey] = { static_cast<int64>(GetFileTimeNow() + double(ttl) * kFiletimeSecond), body };
+    }
+    return body;
 }
 
 /* ── minimal HTTP server ──────────────────────────────────────── */

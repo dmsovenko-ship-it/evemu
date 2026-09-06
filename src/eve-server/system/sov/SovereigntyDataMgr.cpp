@@ -495,6 +495,8 @@ void SovereigntyDataMgr::AddSovClaim(SovereigntyData data)
 {
     _log(SOV__INFO, "AddSovClaim() - Adding claim for %u to DataMgr...", data.solarSystemID);
 
+    uint32 oldAlliance = GetSystemAllianceID(data.solarSystemID);
+
     //Add a new sovereignty claim to DB
     uint32 claimID(0);
     SovereigntyDB::AddSovereigntyData(data, claimID);
@@ -509,6 +511,9 @@ void SovereigntyDataMgr::AddSovClaim(SovereigntyData data)
     {
         bySolar.erase(data.solarSystemID);
     }
+
+    if (data.allianceID != 0 && oldAlliance != data.allianceID)
+        SovereigntyDB::LogSystemChange(data.solarSystemID, "alliance", oldAlliance, data.allianceID);
 
     UpdateClaim(data.solarSystemID);
 }
@@ -528,6 +533,8 @@ void SovereigntyDataMgr::RemoveSovClaim(uint32 systemID)
 {
     _log(SOV__INFO, "RemoveSovClaim() - Removing claim for %u from DataMgr...", systemID);
 
+    uint32 oldAlliance = GetSystemAllianceID(systemID);
+
     //Delete sovereignty claim from DB
     SovereigntyDB::RemoveSovereigntyData(systemID);
     _log(SOV__DEBUG, "RemoveSovClaim() - Claim for %u removed from DB...", systemID);
@@ -535,6 +542,9 @@ void SovereigntyDataMgr::RemoveSovClaim(uint32 systemID)
     //Remove claim from container
     auto &bySolar = m_sovData.get<SovDataBySolarSystem>();
     bySolar.erase(systemID);
+
+    if (oldAlliance != 0)
+        SovereigntyDB::LogSystemChange(systemID, "alliance", oldAlliance, 0);
 }
 
 void SovereigntyDataMgr::UpdateSystemHubID(uint32 systemID, uint32 hubID)
