@@ -26,6 +26,47 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
         return it != params.end() ? it->second : "";
     };
 
+    if (handler == "CorporationSheet.xml.aspx") {
+        std::string cid = get("corporationid");
+        if (cid.empty()) return BuildErrorXML("105", "Invalid corporationID.");
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT c.corporationID, c.corporationName, c.tickerName, c.memberCount, "
+            "c.ceoID, c.allianceID, ch.characterName "
+            "FROM crpCorporation c "
+            "LEFT JOIN chrCharacters ch ON ch.characterID = c.ceoID "
+            "WHERE c.corporationID = %u", std::stoul(cid)))
+            return BuildErrorXML("999", "Query failed.");
+        DBResultRow row;
+        if (!res.GetRow(row))
+            return BuildErrorXML("404", "Corporation not found.");
+
+        std::string aName, aTicker;
+        uint32 allianceID = row.GetUInt(5);
+        if (allianceID != 0) {
+            DBQueryResult ar;
+            if (sDatabase.RunQuery(ar, "SELECT allianceName, shortName FROM alnAlliance WHERE allianceID = %u", allianceID)) {
+                DBResultRow arow;
+                if (ar.GetRow(arow)) { aName = arow.GetText(0) ? arow.GetText(0) : ""; aTicker = arow.GetText(1) ? arow.GetText(1) : ""; }
+            }
+        }
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n";
+        xml += "    <corporationid>" + std::to_string(row.GetUInt(0)) + "</corporationid>\n";
+        xml += "    <corporationname>" + xmlEscape(row.GetText(1)) + "</corporationname>\n";
+        xml += "    <ticker>" + xmlEscape(row.GetText(2)) + "</ticker>\n";
+        xml += "    <membercount>" + std::to_string(row.GetUInt(3)) + "</membercount>\n";
+        xml += "    <ceoid>" + std::to_string(row.GetUInt(4)) + "</ceoid>\n";
+        xml += "    <ceoname>" + xmlEscape(row.GetText(6)) + "</ceoname>\n";
+        xml += "    <allianceid>" + std::to_string(allianceID) + "</allianceid>\n";
+        xml += "    <alliancename>" + xmlEscape(aName.c_str()) + "</alliancename>\n";
+        xml += "    <allianceticker>" + xmlEscape(aTicker.c_str()) + "</allianceticker>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     if (handler == "KillMails.xml.aspx") {
         std::string cid = get("corporationid");
         if (cid.empty()) return BuildErrorXML("105", "Invalid corporationID.");
