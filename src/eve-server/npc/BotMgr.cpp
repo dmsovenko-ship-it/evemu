@@ -2275,36 +2275,11 @@ void BotMgr::ProcessBotSmalltalk()
         if (a == nullptr || b == nullptr || a == b)
             continue;
 
-        static const char* lines[] = {
-            "anyone found a good belt here?",
-            "gate to %s is clear, ganked anyone today?",
-            "just lost my hauler to a smartbomb. classic.",
-            "market prices are crazy today.",
-            "anyone wanna fleet up?",
-            "this system is dead, moving on.",
-            "that last ratting run paid off.",
-            "has anyone seen a wormhole in here?",
-            "solo PvP or nothing.",
-            "the ISK is in the haul, not the fight.",
-            "someone left a wreck at the gate. free loot?",
-            "my drones keep orbiting the wrong asteroid lol",
-            "wh trade route is juicy today.",
-            "docking in a sec, brb.",
-            "anyone else hear that anoms got buffed?",
-        };
-
-        std::string msg = lines[MakeRandomInt(0, 14)];
-        // The one phrase with a placeholder: "gate to %s is clear..." — substitute
-        // the actual system name so it reads naturally.
-        {
-            std::string sysName = pSystem->GetName();
-            size_t pos = msg.find("%s");
-            if (pos != std::string::npos)
-                msg.replace(pos, 2, sysName.empty() ? "the gate" : sysName);
-        }
-        // Sometimes address the other bot by name.
-        if (MakeRandomInt(0, 99) < 40)
-            msg = std::string(b->GetBotName().c_str()) + ", " + msg;
+        // Build a line from THIS bot's real situation: its profession and what is
+        // actually happening around it (fighting, gate, empty system). A miner
+        // talks about ore/belts, a hunter about ganks, a courier about hauls —
+        // never a generic "want to PvP?" from a bot sitting in a belt.
+        std::string msg = BuildBotSmalltalkLine(a, b, pSystem);
 
         LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
         if (lsc == nullptr)
@@ -2317,6 +2292,111 @@ void BotMgr::ProcessBotSmalltalk()
         _log(BOT__MESSAGE, "BotMgr: %s(%u) said to %s in local: %s",
              a->GetBotName().c_str(), a->GetBotCharID(), b->GetBotName().c_str(), msg.c_str());
     }
+}
+
+// Compose a believable local line for a chelobot: profession-flavoured and
+// grounded in what is ACTUALLY happening to it right now (fighting, sitting at a
+// gate, an empty system), addressed at another bot in the same system. Never a
+// generic off-topic phrase (a miner doesn't shout "gf pvp" from a belt).
+std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemManager* pSystem)
+{
+    if (a == nullptr)
+        return "";
+    std::string sysName = pSystem != nullptr ? pSystem->GetName() : "this system";
+
+    bool inFight = a->GetAIMgr() != nullptr && a->GetAIMgr()->IsFighting();
+    bool aggro = a->IsAggressed();
+    // Near a gate? (hunter bait / gate camp / waiting to jump)
+    bool nearGate = a->IsNearGate(150000.0);
+
+    // Profession-flavoured line pools.
+    static const char* miner[] = {
+        "belt's been treating me ok, %s.",
+        "my strip miners are chewing through %s ore like mad.",
+        "anyone got a spare Mining Laser V book? haul keeps getting full.",
+        "think I'll refine this load and call it a day.",
+    };
+    static const char* ratHunter[] = {
+        "anoms are quiet in %s today.",
+        "just popped a nice rat spawn, wallet's happy.",
+        "this system's rats hit harder than the last one.",
+        "anyone seen a good haven around %s?",
+    };
+    static const char* hacker[] = {
+        "datacore prices better hold, I've got a hold full.",
+        "relic site in %s was worth the scan.",
+        "these data sites are getting camped lately.",
+        "found a nice relic, decryptors are mine now.",
+    };
+    static const char* explorer[] = {
+        "found a sig in %s, scanning it down.",
+        "wormhole in here earlier, anyone peeked?",
+        "probes out, system's got a few signatures.",
+        "that null static is tempting.",
+    };
+    static const char* trader[] = {
+        "buy orders up in %s, spread's nice.",
+        "market's moving, good day to be a trader.",
+        "someone undercut me again, classic.",
+        "haul of goods just went out, profit's in.",
+    };
+    static const char* courier[] = {
+        "courier job open to the hub if anyone's hauling.",
+        "just moved a load through %s, easy isk.",
+        "anyone need something moved to Jita?",
+        "cargo's in, contract's up, rates are fair.",
+    };
+    static const char* hunter[] = {
+        "anyone in %s worth engaging?",
+        "scan shows a target, thinking about it.",
+        "this gate's quiet, might camp a bit.",
+        "gf if anyone's up for a scrap.",
+    };
+
+    const char** pool = miner; int n = sizeof(miner)/sizeof(miner[0]);
+    switch (a->GetProfession()) {
+        case PlayerBot::BotProfession::RatHunter: pool = ratHunter; n = sizeof(ratHunter)/sizeof(ratHunter[0]); break;
+        case PlayerBot::BotProfession::Hacker:    pool = hacker;    n = sizeof(hacker)/sizeof(hacker[0]);    break;
+        case PlayerBot::BotProfession::Explorer:  pool = explorer;  n = sizeof(explorer)/sizeof(explorer[0]); break;
+        case PlayerBot::BotProfession::Trader:    pool = trader;    n = sizeof(trader)/sizeof(trader[0]);    break;
+        case PlayerBot::BotProfession::Courier:   pool = courier;   n = sizeof(courier)/sizeof(courier[0]);  break;
+        case PlayerBot::BotProfession::Hunter:    pool = hunter;    n = sizeof(hunter)/sizeof(hunter[0]);    break;
+        case PlayerBot::BotProfession::Miner:
+        default:                                  break;
+    }
+
+    // When the bot is under attack or mid-fight, override with a combat line —
+    // that's the most salient thing happening to it right now.
+    std::string msg;
+    if (inFight || aggro) {
+        static const char* fight[] = {
+            "bit busy here, someone's on me.",
+            "ffs, getting shot at in %s.",
+            "who's engaging me??",
+            "tackled, need backup maybe.",
+        };
+        msg = fight[MakeRandomInt(0, 3)];
+        std::string s = msg;
+        size_t pos = s.find("%s");
+        if (pos != std::string::npos)
+            s.replace(pos, 2, sysName);
+        return s;
+    }
+
+    // Otherwise a profession line, substituting the system name if present.
+    msg = pool[MakeRandomInt(0, n - 1)];
+    {
+        std::string s = msg;
+        size_t pos = s.find("%s");
+        if (pos != std::string::npos)
+            s.replace(pos, 2, sysName);
+        msg = s;
+    }
+
+    // Sometimes mention the other bot by name.
+    if (b != nullptr && MakeRandomInt(0, 99) < 35)
+        msg = std::string(b->GetBotName()) + ", " + msg;
+    return msg;
 }
 
 void BotMgr::RecordChannelPhrase(int32 channelID, uint32 charID, const std::string& phrase)

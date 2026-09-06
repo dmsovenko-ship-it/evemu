@@ -66,6 +66,12 @@ public:
     // phrase that was just said by another bot in the same channel.
     void RecordChannelPhrase(int32 channelID, uint32 charID, const std::string& phrase);
 
+    // Compose a profession-flavoured, situation-aware local line for a chelobot
+    // (what it is ACTUALLY doing: mining/ratting/hauling, or under attack). Used
+    // by ProcessBotSmalltalk so bots never say off-topic things (a miner doesn't
+    // shout "pvp?" from a belt).
+    std::string BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemManager* pSystem);
+
     // Primary trade hub system (Jita by default), from botTradeHubs. 0 if none.
     uint32 GetTradeHubSystem() const;
     bool IsTradeHub(uint32 systemID) const;
