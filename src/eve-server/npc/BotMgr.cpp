@@ -495,6 +495,33 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
+    // A chelobot's corp and alliance are ALWAYS the real ones recorded on its
+    // character row (chrCharacters.corporationID -> crpCorporation.allianceID) —
+    // never the killmail legend's ids. The legend (zkillboard/sotzone) carries
+    // live-EVE corp/alliance ids that don't exist in this server's
+    // crpCorporation/alnAlliance, and the client hard-crashes/hangs rendering
+    // them (character sheet killmail + standings windows). NPC starter corps
+    // have allianceID 0, exactly like a real player fresh out of a school; a bot
+    // only gets an alliance when it actually goes through the player path
+    // (MaybeFoundCorp -> MaybeFormAlliance creates a real alnAlliance row and
+    // stamps allianceID on the corp). Nothing is invented here.
+    {
+        DBQueryResult cq;
+        if (sDatabase.RunQuery(cq,
+            "SELECT ch.corporationID, cc.allianceID"
+            " FROM chrCharacters ch"
+            " LEFT JOIN crpCorporation cc ON cc.corporationID = ch.corporationID"
+            " WHERE ch.characterID = %u", useCharID)) {
+            DBResultRow crow;
+            if (cq.GetRow(crow)) {
+                useCorpID = crow.GetUInt(0);
+                useAllianceID = crow.GetUInt(1);
+                _log(BOT__TRACE, "BotMgr: %s(%u) corp %u alliance %u (from character row).",
+                     useName.c_str(), useCharID, useCorpID, useAllianceID);
+            }
+        }
+    }
+
     // The bio is written exactly once per pilot, right after its profession is
     // rolled on the very first spawn, so it stays stable across respawns (a
     // player's bio doesn't change every time they log in). Profession-flavoured
