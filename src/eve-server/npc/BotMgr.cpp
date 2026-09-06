@@ -104,8 +104,9 @@ void BotMgr::CleanupOrphanedSpaceItems()
 int BotMgr::Initialize()
 {
     m_initalized = true;
-    // Clean the previous session's leftovers before anything can spawn.
-    CleanupOrphanedSpaceItems();
+    // NOTE: the DB may not be connected yet when this runs (eve-server.cpp
+    // connects later), so the space cleanup is NOT done here — main() calls
+    // CleanupOrphanedSpaceItems() right after sDatabase.Initialize().
     if (sConfig.playerBots.Enabled) {
         sLog.Green("      BotMgr", "Simulated players ENABLED (max %u per system, chat %u%%, skill %u-%u).",
                    sConfig.playerBots.MaxPerSystem, sConfig.playerBots.ChatChance,

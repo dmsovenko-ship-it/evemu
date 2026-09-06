@@ -631,6 +631,10 @@ int main( int argc, char* argv[] )
     }
     std::printf("\n");     // spacer
 
+    // Purge orphaned ships/drones left by the previous server session.
+    // Runs right after DB connect and before any bots/clients are spawned.
+    BotMgr::CleanupOrphanedSpaceItems();
+
     // Clean DB upon initialisation
     dbClean.Initialize();
     std::printf("\n");
