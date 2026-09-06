@@ -1323,7 +1323,7 @@ PyResult AgentBound::GotoLocation(PyCallArgs &call, PyInt* locationType, PyInt* 
     return PyStatic.NewNone();
 }
 
-PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyString* locationType, PyInt* locationNumber, PyFloat* warpRange, PyBool* fleet, PyInt* referringAgentID) {
+PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyWString* locationType, PyInt* locationNumber, PyFloat* warpRange, PyBool* fleet, PyInt* referringAgentID) {
     _log(AGENT__DUMP,  "AgentBound::Handle_WarpToLocation() - size=%lli", call.tuple->size());
     // Initiate warp to the mission destination. For an Encounter mission the
     // 'dungeon' location points at the tracked target cluster — warp the client
