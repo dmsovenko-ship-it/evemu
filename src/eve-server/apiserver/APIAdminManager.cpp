@@ -33,7 +33,8 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
 
     // petitions
     if (handler == "PetitionList.xml.aspx" || handler == "PetitionClose.xml.aspx" ||
-        handler == "PetitionReply.xml.aspx")
+        handler == "PetitionReply.xml.aspx" || handler == "PetitionCreate.xml.aspx" ||
+        handler == "PetitionMine.xml.aspx")
         return ProcessPetitions(handler, params);
 
     // timecodes
@@ -129,7 +130,7 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
     if (handler == "PetitionList.xml.aspx") {
         DBQueryResult res;
         if (!sDatabase.RunQuery(res,
-            "SELECT petitionID, accountID, authorName, subject, status, createDate "
+            "SELECT petitionID, accountID, authorName, subject, body, status, createDate "
             "FROM portal_petitions ORDER BY petitionID DESC"))
             return BuildErrorXML("999", "Query failed.");
 
@@ -140,13 +141,65 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         while (res.GetRow(row)) {
             xml += "      <row petitionID=\"" + std::to_string(row.GetUInt(0)) + "\"";
             xml += " accountID=\"" + std::to_string(row.GetUInt(1)) + "\"";
-            xml += " authorName=\"" + std::string(row.GetText(2)) + "\"";
-            xml += " subject=\"" + std::string(row.GetText(3)) + "\"";
+            xml += " authorName=\"" + xmlEscape(row.GetText(2)) + "\"";
+            xml += " subject=\"" + xmlEscape(row.GetText(3)) + "\"";
+            xml += " body=\"" + xmlEscape(row.GetText(4)) + "\"";
+            xml += " status=\"" + std::to_string(row.GetInt(5)) + "\"";
+            xml += " createDate=\"" + std::string(row.GetText(6)) + "\"/>\n";
+        }
+        xml += "    </petitions>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // A player's own petitions (list + statuses). The portal knows the logged-in
+    // account; only that account's rows are returned.
+    if (handler == "PetitionMine.xml.aspx") {
+        std::string aid = get("accountid");
+        if (aid.empty()) return BuildErrorXML("105", "Missing accountid.");
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT petitionID, authorName, subject, body, status, createDate "
+            "FROM portal_petitions WHERE accountID = %u ORDER BY petitionID DESC",
+            std::stoul(aid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <petitions>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row petitionID=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " authorName=\"" + xmlEscape(row.GetText(1)) + "\"";
+            xml += " subject=\"" + xmlEscape(row.GetText(2)) + "\"";
+            xml += " body=\"" + xmlEscape(row.GetText(3)) + "\"";
             xml += " status=\"" + std::to_string(row.GetInt(4)) + "\"";
             xml += " createDate=\"" + std::string(row.GetText(5)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
+    }
+
+    // A player submits a support petition from the portal. accountid/author are
+    // taken from POST (the portal knows the logged-in account). body may span
+    // several lines — escape it before embedding in the SQL string.
+    if (handler == "PetitionCreate.xml.aspx") {
+        std::string aid   = get("accountid");
+        std::string author = get("author");
+        std::string subject = get("subject");
+        std::string body   = get("body");
+        if (aid.empty() || subject.empty() || body.empty())
+            return BuildErrorXML("105", "Missing accountid, subject or body.");
+        std::string sEsc, bEsc, aEsc;
+        sDatabase.DoEscapeString(sEsc, subject);
+        sDatabase.DoEscapeString(bEsc, body);
+        sDatabase.DoEscapeString(aEsc, author);
+        DBerror err;
+        if (!sDatabase.RunQuery(err,
+            "INSERT INTO portal_petitions (accountID, authorName, subject, body, status)"
+            " VALUES (%u, '%s', '%s', '%s', 1)",
+            std::stoul(aid), aEsc.c_str(), sEsc.c_str(), bEsc.c_str()))
+            return BuildErrorXML("999", "Insert failed.");
+        return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
     if (handler == "PetitionClose.xml.aspx") {
@@ -161,10 +214,12 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         std::string pid = get("petitionid");
         std::string reply = get("reply");
         if (pid.empty()) return BuildErrorXML("105", "Missing petitionid.");
+        std::string rEsc;
+        sDatabase.DoEscapeString(rEsc, reply);
         DBerror err;
         sDatabase.RunQuery(err,
             "UPDATE portal_petitions SET body = CONCAT(COALESCE(body,''), '\n--- Admin reply ---\n', '%s') WHERE petitionID = %u",
-            reply.c_str(), std::stoul(pid));
+            rEsc.c_str(), std::stoul(pid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
