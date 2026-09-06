@@ -2456,13 +2456,17 @@ bool Client::IsMissionComplete(MissionOffer& data)
                 if (ContainsTypeQty(data.courierTypeID, data.courierAmount))
                     return true;
         } break;
-        case Mission::Type::Trade: {
-        } break;
-        case Mission::Type::Mining: {
-        } break;
+        case Mission::Type::Trade:
+        case Mission::Type::Mining:
+        case Mission::Type::Data:
         case Mission::Type::Research: {
-        } break;
-        case Mission::Type::Data: {
+            // Trade/Mining/Data/Research missions hand over an item (or ore the
+            // player mined) to the agent. Complete when the pilot has the required
+            // amount in cargo/hangar — no location gate (the agent is in reach
+            // wherever they dock to hand it in).
+            if (data.courierTypeID != 0)
+                if (ContainsTypeQty(data.courierTypeID, data.courierAmount))
+                    return true;
         } break;
         case Mission::Type::Storyline: {
         } break;

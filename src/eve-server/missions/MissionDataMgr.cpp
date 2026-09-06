@@ -557,9 +557,27 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             data.briefingID         = cData.briefingID;
             data.rewardItemID       = cData.rewardItemID;
             data.rewardItemQty      = cData.rewardItemQty;
+            // The SDE's qstMining rows carry no ore type (itemTypeID=0). Assign a
+            // real ore matching the mission level so the player has something to
+            // mine and the mission can be completed (ContainsTypeQty at hand-in).
+            static const uint16 orePoolL1[] = { 1230, 1228, 18, 1224 };   // Veldspar/Scordite/Plagio/Pyrox
+            static const uint16 orePoolL2[] = { 1227, 20, 1226 };         // Omber/Kernite/Jaspet
+            static const uint16 orePoolL3[] = { 1231, 21, 1229 };         // Hemorphite/Hedbergite/Gneiss
+            static const uint16 orePoolL4[] = { 1232, 1225, 19 };         // Dark Ochre/Crokite/Spodumain
+            static const uint16 orePoolL5[] = { 22, 1223, 11396 };        // Arkonor/Bistot/Mercoxit
+            const uint16* orePool = orePoolL1;
+            uint32 oreCount = sizeof(orePoolL1)/sizeof(orePoolL1[0]);
+            if (level >= 2) { orePool = orePoolL2; oreCount = sizeof(orePoolL2)/sizeof(orePoolL2[0]); }
+            if (level >= 3) { orePool = orePoolL3; oreCount = sizeof(orePoolL3)/sizeof(orePoolL3[0]); }
+            if (level >= 4) { orePool = orePoolL4; oreCount = sizeof(orePoolL4)/sizeof(orePoolL4[0]); }
+            if (level >= 5) { orePool = orePoolL5; oreCount = sizeof(orePoolL5)/sizeof(orePoolL5[0]); }
             data.courierTypeID      = cData.itemTypeID;
+            if (data.courierTypeID == 0)
+                data.courierTypeID  = orePool[MakeRandomInt(0, (oreCount - 1))];
+            // Quantity: honour the row if present, else scale by level.
             data.courierAmount      = cData.itemQty;
-            data.courierItemVolume  = cData.itemVolume;
+            if (data.courierAmount == 0)
+                data.courierAmount  = 1000 * level;
             data.range              = cData.range;
         } break;
         case Mission::Type::Tutorial: {
@@ -591,6 +609,20 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             }
         } break;
         case Mission::Type::Trade: {
+            // Trade mission: buy/deliver a commodity to the agent. Model it like a
+            // courier run — the client's fetch objective shows "bring N of X".
+            // Pick a tradeable good (minerals/ammo) + a quantity scaled by level.
+            static const uint16 tradeGoods[] = { 34, 38, 39, 40, 1229, 1230, 2048, 2488, 3775, 2676 };
+            data.name = "Trade Run";
+            data.typeID = Mission::Type::Trade;
+            data.storyline = false;
+            data.important = false;
+            data.rewardISK = 8000 + level * 6000;
+            data.bonusISK = 2000;
+            data.bonusTime = 0;
+            data.range = 1;
+            data.courierTypeID = tradeGoods[MakeRandomInt(0, (sizeof(tradeGoods)/sizeof(tradeGoods[0]) - 1))];
+            data.courierAmount = 50 + level * 50;
         } break;
         case Mission::Type::Research: {
             // R&D agents give a small courier/trade mission for bonus RP
