@@ -636,33 +636,37 @@ void NPCAIMgr::Process() {
                         continue;
                     if (m_npc->GetPosition().distance(pEnt->GetPosition()) > m_sightRange)
                         continue;
-                    // Attacking a player's drone/fighter is PvP — a charbot gets
-                    // flagged like any attacker would (drone hits transfer to the
-                    // pilot who owns it).
-                    if (m_npc->IsPlayerBot() && pEnt->GetDroneSE() != nullptr
-                        && pEnt->GetDroneSE()->GetOwner() != nullptr) {
-                        PlayerBot* pbot = dynamic_cast<PlayerBot*>(m_npc);
-                        if (pbot != nullptr) {
-                            Client* owner = pEnt->GetDroneSE()->GetOwner();
-                            pbot->StartAggressionTimer();
-                            pbot->BroadcastAggression(owner->GetCharacterID());
-                        }
-                    }
-                    // A chelobot engages a player's fighter/drone only if it would
-                    // also engage the OWNING ship. Drones aren't free targets: a
-                    // Nyx's fighter-bombers belong to a supercarrier, and a pilot
-                    // who commits to shooting them commits to that fight. Same
-                    // analytic judgement as engaging the hull directly — a frigate
-                    // hunter doesn't suicide into a carrier's fighter screen.
+                    // A chelobot only reacts to a player's drone if it would also
+                    // engage the OWNING ship. Drones aren't free targets: a Nyx's
+                    // fighter-bombers belong to a supercarrier, and a pilot who
+                    // commits to shooting them commits to that fight. Same analytic
+                    // judgement as engaging the hull directly — a frigate hunter
+                    // doesn't suicide into a carrier's fighter screen. And ONLY the
+                    // hunter profession prowls at all: peaceful bots (miners,
+                    // couriers, rat hunters) leave a stranger's drones alone — they
+                    // have no kill right and nothing to gain from a random drone.
                     if (m_npc->IsPlayerBot()) {
+                        PlayerBot* pbot = dynamic_cast<PlayerBot*>(m_npc);
+                        uint8 prof = 255;
+                        if (pbot != nullptr)
+                            prof = (uint8)pbot->GetProfession();
+                        if (prof != (uint8)PlayerBot::BotProfession::Hunter)
+                            continue;   // peaceful bot — drones are not its business
                         Client* owner = sEntityList.FindClientByCharID(pEnt->GetSelf()->ownerID());
                         SystemEntity* ownerSE = (owner != nullptr) ? owner->GetShipSE() : nullptr;
                         if (ownerSE != nullptr && ownerSE != m_npc) {
-                            PlayerBot* pbot = dynamic_cast<PlayerBot*>(m_npc);
                             if (pbot != nullptr && !pbot->HunterWouldEngage(ownerSE)) {
                                 // Not worth picking a fight with that pilot's drones.
                                 m_beginFindTarget.Start(MakeRandomInt(15000, 30000));
                                 return;
+                            }
+                            // Committed to the fight — only NOW flag aggression
+                            // (attacking a player's drone is PvP; drone hits transfer
+                            // to the pilot who owns it). Never before the decision:
+                            // a bot that merely spots a drone must not flash red.
+                            if (owner != nullptr) {
+                                pbot->StartAggressionTimer();
+                                pbot->BroadcastAggression(owner->GetCharacterID());
                             }
                         }
                     }
