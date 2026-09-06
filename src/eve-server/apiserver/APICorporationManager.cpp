@@ -33,15 +33,24 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
         uint32 beforeKillID = beforeID.empty() ? 0 : std::stoul(beforeID);
 
         DBQueryResult res;
-        std::string q = "SELECT killID, solarSystemID, victimCharacterID, victimCorporationID, "
-            "victimAllianceID, victimFactionID, victimShipTypeID, victimDamageTaken, "
-            "finalCharacterID, finalCorporationID, finalAllianceID, finalFactionID, "
-            "finalShipTypeID, finalWeaponTypeID, finalSecurityStatus, finalDamageDone, "
-            "killTime, moonID FROM chrKillTable "
-            "WHERE (victimCorporationID = " + cid + " OR finalCorporationID = " + cid + ")";
+        std::string q = "SELECT k.killID, k.solarSystemID, k.victimCharacterID, k.victimCorporationID, "
+            "k.victimAllianceID, k.victimFactionID, k.victimShipTypeID, k.victimDamageTaken, "
+            "k.finalCharacterID, k.finalCorporationID, k.finalAllianceID, k.finalFactionID, "
+            "k.finalShipTypeID, k.finalWeaponTypeID, k.finalSecurityStatus, k.finalDamageDone, "
+            "k.killTime, k.moonID, "
+            "vc.characterName, fc.characterName, "
+            "iv.typeName, if_.typeName, "
+            "ss.solarSystemName "
+            "FROM chrKillTable k "
+            "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
+            "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
+            "LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID "
+            "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
+            "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "
+            "WHERE (k.victimCorporationID = " + cid + " OR k.finalCorporationID = " + cid + ")";
         if (beforeKillID > 0)
-            q += " AND killID < " + std::to_string(beforeKillID);
-        q += " ORDER BY killID DESC LIMIT 2500";
+            q += " AND k.killID < " + std::to_string(beforeKillID);
+        q += " ORDER BY k.killID DESC LIMIT 2500";
 
         if (!sDatabase.RunQuery(res, q.c_str()))
             return BuildErrorXML("999", "Query failed.");
@@ -68,7 +77,12 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
             xml += " finalsecuritystatus=\"" + std::string(row.GetText(14)) + "\"";
             xml += " finaldamagedone=\"" + std::to_string(row.GetUInt(15)) + "\"";
             xml += " killtime=\"" + std::string(row.GetText(16)) + "\"";
-            xml += " moonid=\"" + std::to_string(row.GetUInt(17)) + "\"/>\n";
+            xml += " moonid=\"" + std::to_string(row.GetUInt(17)) + "\"";
+            xml += " victimname=\"" + xmlEscape(row.GetText(18)) + "\"";
+            xml += " finalname=\"" + xmlEscape(row.GetText(19)) + "\"";
+            xml += " victimshipname=\"" + xmlEscape(row.GetText(20)) + "\"";
+            xml += " finalshipname=\"" + xmlEscape(row.GetText(21)) + "\"";
+            xml += " solarsystemname=\"" + xmlEscape(row.GetText(22)) + "\"/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
         return xml;
