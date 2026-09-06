@@ -81,9 +81,9 @@ def main():
     ap.add_argument("--db-name", required=True)
     ap.add_argument("--year", type=int, default=0)
     ap.add_argument("--month", type=int, default=0)
-    ap.add_argument("--start-year", type=int, default=2011)
-    ap.add_argument("--end-year", type=int, default=2012)
-    ap.add_argument("--sleep", type=float, default=0.3)
+    ap.add_argument("--start-year", type=int, default=2007)
+    ap.add_argument("--end-year", type=int, default=2011)
+    ap.add_argument("--sleep", type=float, default=0.25)
     args = ap.parse_args()
 
     db = pymysql.connect(host=args.db_host, port=args.db_port,
@@ -116,6 +116,14 @@ def main():
         typeid_by_name.setdefault(str(name).strip(), tid)
     print("Loaded %d published types." % len(typeid_by_name))
 
+    # Resume support: remember killmail_ids we already processed so a restarted
+    # run skips them (both detail fetch and DB insert are idempotent).
+    cur.execute("""CREATE TABLE IF NOT EXISTS edkProcessedKills (
+        killmail_id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB""")
+    cur.execute("SELECT killmail_id FROM edkProcessedKills")
+    done = set(r[0] for r in cur.fetchall())
+    print("Resume: %d killmails already processed." % len(done))
+
     # Decide which months to scan
     months = []
     if args.year and args.month:
@@ -125,11 +133,27 @@ def main():
             for m in range(1, 13):
                 months.append((y, m))
 
-    total_fits = 0
+    insert_sql = """
+        INSERT INTO botKillmailLegends
+        (killmail_id, character_id, character_name, corporation_id,
+         alliance_id, ship_type_id, fitted_item_ids, security_status,
+         kill_time, points)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,0,NOW(),0)
+        ON DUPLICATE KEY UPDATE
+          character_name = VALUES(character_name),
+          ship_type_id = VALUES(ship_type_id),
+          fitted_item_ids = VALUES(fitted_item_ids)
+    """
+
+    total_new = 0
+    total_upd = 0
+    seen = 0
     for y, m in months:
         ids = list(month_kill_ids(y, m, sleep=args.sleep))
-        print("[%d-%02d] %d kills" % (y, m, len(ids)), flush=True)
-        for kll in ids:
+        todo = [k for k in ids if k not in done]
+        print("[%d-%02d] %d kills (%d new)" % (y, m, len(ids), len(todo)), flush=True)
+        for kll in todo:
+            seen += 1
             try:
                 detail = http_get("%s?a=kill_detail&kll_id=%d" % (BASE, kll))
                 eft = http_get("%s?a=eft_fitting&kll_id=%d" % (BASE, kll))
@@ -137,6 +161,12 @@ def main():
                 print("  kll %d fetch err %s" % (kll, e), file=sys.stderr)
                 time.sleep(args.sleep)
                 continue
+            # Mark processed even on HTTP errors so we don't retry forever.
+            try:
+                cur.execute("INSERT IGNORE INTO edkProcessedKills (killmail_id) VALUES (%s)", (kll,))
+                done.add(kll)
+            except Exception:
+                pass
             mods = parse_eft_fit(eft)
             if not mods:
                 time.sleep(args.sleep)
@@ -150,11 +180,13 @@ def main():
             ship_name = ship_m.group(1).strip() if ship_m else ""
             corp_m = re.search(r"Corp:</b></td>\s*<td class=kb-table-cell><b><a[^>]*>([^<]+)</a></b>", detail, re.S)
             corp_name = corp_m.group(1).strip() if corp_m else ""
+            ally_m = re.search(r"Alliance:</b></td>\s*<td class=kb-table-cell><b><a[^>]*>([^<]+)</a></b>", detail, re.S)
+            ally_name = ally_m.group(1).strip() if ally_m else ""
             if not char_id or not vname or not ship_name:
                 time.sleep(args.sleep)
                 continue
             ship_type = typeid_by_name.get(ship_name, 0)
-            # map module names -> typeIDs (skip unknown)
+            # map module names -> typeIDs (skip unknown / ammo/cargo noise we can't map)
             fit = []
             for mn in mods:
                 tid = typeid_by_name.get(mn, 0)
@@ -164,20 +196,19 @@ def main():
                 time.sleep(args.sleep)
                 continue
             try:
-                cur.execute(
-                    """INSERT IGNORE INTO botKillmailLegends
-                       (killmail_id, character_id, character_name, corporation_id,
-                        alliance_id, ship_type_id, fitted_item_ids, security_status,
-                        kill_time, points)
-                       VALUES (%s,%s,%s,0,0,%s,%s,0,NOW(),0)""",
-                    (kll, char_id, vname, ship_type, json.dumps(fit)))
-                if cur.rowcount:
-                    total_fits += 1
+                cur.execute(insert_sql,
+                    (kll, char_id, vname, 0, 0, ship_type, json.dumps(fit)))
+                if cur.rowcount == 1:
+                    total_new += 1
+                elif cur.rowcount == 2:
+                    total_upd += 1
             except Exception as e:
                 print("  insert err %s: %s" % (kll, e), file=sys.stderr)
+            if seen % 25 == 0:
+                print("  ... %d processed, new=%d upd=%d" % (seen, total_new, total_upd), flush=True)
             time.sleep(args.sleep)
     db.close()
-    print("Done. %d new legend fits imported." % total_fits)
+    print("Done. new=%d updated=%d (processed %d)." % (total_new, total_upd, seen))
 
 
 if __name__ == "__main__":
