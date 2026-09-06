@@ -162,7 +162,11 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
             "COUNT(DISTINCT e.itemID) as shipCount "
             "FROM mapSolarSystems ss "
             "LEFT JOIN chrCharacters c ON c.solarSystemID = ss.solarSystemID "
+            // ships only (category 6): flag=0 also matches containers/wrecks/
+            // dropped loot in space, which inflated the portal's ship figure
             "LEFT JOIN entity e ON e.locationID = ss.solarSystemID AND e.flag = 0 "
+            "AND EXISTS (SELECT 1 FROM invTypes it JOIN invGroups ig ON ig.groupID = it.groupID "
+            "            WHERE it.typeID = e.typeID AND ig.categoryID = 6) "
             "GROUP BY ss.solarSystemID, ss.solarSystemName, ss.security "
             "HAVING playerCount > 0 OR shipCount > 0 "
             "ORDER BY playerCount DESC, shipCount DESC LIMIT 50")) {

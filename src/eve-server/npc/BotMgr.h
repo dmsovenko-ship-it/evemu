@@ -36,6 +36,18 @@ public:
     int Initialize();
     void Process();     // called from EntityList on the 1Hz tic
 
+    // Boot sweep for the portal's "147 ships with 3 online" problem: after an
+    // unclean shutdown, chelobot hulls / transient NPC ships and drones stay
+    // behind in the entity table as in-space garbage (nobody is flying them).
+    // At Initialize nothing is in space yet, so every leftover is an orphan:
+    //   * corp-owned ships (ownerID = corporation) not listed as any character's
+    //     active ship — removed with their fitted modules/charges,
+    //   * drones whose pilot is not actively flying in that system (docked or
+    //     logged off) — a player on a station never has legal drones in space.
+    // Stale chelobot session rows (docked bots keep online=1 + a dangling
+    // shipID) are reset first so crash leftovers are caught too.
+    static void CleanupOrphanedSpaceItems();
+
     // Hook called by LSCChannel when a message is sent in a system channel.
     // Lets simulated players in that system react (DeepSeek replies, smalltalk).
     void HandleLocalMessage(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message);

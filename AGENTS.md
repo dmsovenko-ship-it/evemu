@@ -10,6 +10,13 @@ Session saved (итог 6 сент.: encounter-сдача ПОДТВЕРЖДЕН
 - **Кеш ответов API** (`APIServer::ProcessRequest`): in-memory TTL-кеш (мутекс+map, кап 8192) для тяжёлых GET — TopKills 30с/TopValuables 60с/Activity 30с/MarketTops 30с/MarketStats 30с/KillStats 30с/ActiveSystems 60с/CourierContracts 20с/MapData 300с/SovChanges 30с/AllKills 15с/KillMails 20с/KillMail+Resolve+CharacterInfo 300с/CorporationSheet 300с/KillDetail 120с. <error>-ответы не кешируются.
 - **Индекс `mktOrders(typeID)`** (миграция `20260906000002-mktorders_typeid_index.sql`) — AVG(price)/PERCENTILE_CONT в TopValuables/Resolve больше не сканируют 38.5M строк (idx_region_type_bid не годился: typeID не ведущий и нет regionID).
 
+### «Пустые корабли» в системах: чистка сирот при старте (`aa595e34`+)
+Юзер: «на портале очень много пустых кораблей в системах, онлайн 3 и 147 кораблей. Может чистить космос при ребуте?» + «удаляй осиротевшие дроны — если игрок на станции, а дроны в космосе».
+- **Причина**: корабли ботов спавнятся через `SpawnItem` (persist в `entity`, ownerID=корпорация школы) и удаляются только `Delete()` при деспавне — при краше/нечистом рестарте строки остаются навсегда и копятся (найдено 2811 сирот: Uemon 1289, Jita 454…). ActiveSystems к тому же считал ЛЮБЫЕ entity с flag=0 (контейнеры/вреки/лут), завышая цифру.
+- **`BotMgr::CleanupOrphanedSpaceItems()`** — вызывается из `Initialize()` (до спавнов/клиентов), один раз на бOOT: (0) сброс stale-сессий ботов (`UPDATE chrCharacters JOIN botMemory` → online/stationID/shipID/solarSystemID=0; докнутый бот оставлял online=1 + dangling shipID); (1) удаление corp-owned кораблей (cat 6, flag=0, система 3000xxxx..31xxxxxx, ownerID IN crpCorporation, NOT IN chrCharacters.shipID) вместе с модулями/патронами (2 уровня вложенности) и `entity_attributes`; (2) удаление дронов (cat 18: дроны+файтеры/бомберы), чей пилот не летает активно в той же системе (докнут/оффлайн/NPC — anti-join с проверкой существования корабля пилота). Лог: «Space cleanup: removed N …».
+- **Безопасность**: реальные корабли игроков (ownerID=charID>90M) не трогаются; корабли живых ботов исключены (shipID-ссылка); вреки (группа 186, cat 2) и контейнеры (cat 2) не задеваются; докнутые боты корабль в БД не хранят (удаляется при доке, новый спавнится при андоке).
+- **ActiveSystems** теперь считает только корабли (cat 6 через EXISTS в join entity), а не все flag=0 предметы.
+
 ### 🎯 Фиты челоботов: реальные Crucible-фиты с EDK sotzone + материализация модулей (в работе)
 **Симптом (юзер)**: «фиты челоботов — дурация. Я давал ссылку на киллборду. Фиты оттуда можно использовать челоботам». Реальная киллборда времён Crucible: **https://kb.sotzone.ru** (EDK, SoT Killboard, киллы 2007-2011, ID ~697..~65494).
 **Что найдено:**

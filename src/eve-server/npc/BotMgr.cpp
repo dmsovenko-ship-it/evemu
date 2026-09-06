@@ -45,9 +45,67 @@ BotMgr::BotMgr()
 {
 }
 
+void BotMgr::CleanupOrphanedSpaceItems()
+{
+    DBerror err;
+    uint32 affected = 0;
+
+    // 0) Reset stale chelobot session rows first: a docked/reaped bot keeps
+    //    online=1 plus a shipID pointing at a ship that was deleted together
+    //    with it, which would make the sweeps below keep its crash leftovers.
+    //    Bots spawn on demand and rewrite these fields, so a blank slate is
+    //    correct (portal shows the offline hull from botMemory.shipTypeID).
+    if (!sDatabase.RunQuery(err,
+        "UPDATE chrCharacters c JOIN botMemory bm ON bm.charID = c.characterID "
+        "SET c.online = 0, c.stationID = 0, c.shipID = 0, c.solarSystemID = 0"))
+        _log(BOT__ERROR, "BotMgr: bot session reset failed: %s", err.GetError());
+
+    // 1) Orphan ships: corp-owned hulls in space that no character lists as
+    //    its active ship (chelobot hulls after a crash, transient NPC spawns).
+    //    Their fitted modules and loaded charges (children, grandchildren) and
+    //    all entity_attributes are removed with them. System range 3000xxxx
+    //    (k-space) .. 31xxxxxx (w-space) — stations/planets/moons are outside.
+    if (!sDatabase.RunQuery(err, affected,
+        "DELETE e, ea, ec, eac, eg, eag FROM entity e "
+        "LEFT JOIN entity_attributes ea ON ea.itemID = e.itemID "
+        "LEFT JOIN entity ec ON ec.locationID = e.itemID "
+        "LEFT JOIN entity_attributes eac ON eac.itemID = ec.itemID "
+        "LEFT JOIN entity eg ON eg.locationID = ec.itemID "
+        "LEFT JOIN entity_attributes eag ON eag.itemID = eg.itemID "
+        "JOIN invTypes t ON t.typeID = e.typeID "
+        "JOIN invGroups g ON g.groupID = t.groupID "
+        "WHERE g.categoryID = 6 AND e.flag = 0 "
+        "AND e.locationID >= 30000000 AND e.locationID < 40000000 "
+        "AND e.ownerID IN (SELECT corporationID FROM crpCorporation) "
+        "AND e.itemID NOT IN (SELECT shipID FROM chrCharacters WHERE shipID > 0)"))
+        _log(BOT__ERROR, "BotMgr: orphan ship cleanup failed: %s", err.GetError());
+    else if (affected > 0)
+        sLog.White("      BotMgr", "Space cleanup: removed %u leftover in-space ship rows (bot hulls/NPC spawns).", affected);
+
+    // 2) Orphan drones: owner is not a pilot actively flying in that system —
+    //    docked or logged-off pilots never have legal drones in space, and
+    //    NPC drones (owner = faction corp, no character row) are leftovers.
+    if (!sDatabase.RunQuery(err, affected,
+        "DELETE e, ea FROM entity e "
+        "LEFT JOIN entity_attributes ea ON ea.itemID = e.itemID "
+        "LEFT JOIN chrCharacters c ON c.characterID = e.ownerID "
+        "LEFT JOIN entity sh ON sh.itemID = c.shipID "
+        "JOIN invTypes t ON t.typeID = e.typeID "
+        "JOIN invGroups g ON g.groupID = t.groupID "
+        "WHERE g.categoryID = 18 AND e.flag = 0 "
+        "AND e.locationID >= 30000000 AND e.locationID < 40000000 "
+        "AND (c.characterID IS NULL OR c.online = 0 OR c.stationID <> 0 "
+        "OR c.solarSystemID <> e.locationID OR sh.itemID IS NULL)"))
+        _log(BOT__ERROR, "BotMgr: orphan drone cleanup failed: %s", err.GetError());
+    else if (affected > 0)
+        sLog.White("      BotMgr", "Space cleanup: removed %u orphaned drones (pilot docked/offline).", affected);
+}
+
 int BotMgr::Initialize()
 {
     m_initalized = true;
+    // Clean the previous session's leftovers before anything can spawn.
+    CleanupOrphanedSpaceItems();
     if (sConfig.playerBots.Enabled) {
         sLog.Green("      BotMgr", "Simulated players ENABLED (max %u per system, chat %u%%, skill %u-%u).",
                    sConfig.playerBots.MaxPerSystem, sConfig.playerBots.ChatChance,
