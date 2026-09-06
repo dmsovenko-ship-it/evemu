@@ -16,6 +16,8 @@
 #include "account/AccountService.h"
 #include "market/MarketMgr.h"
 #include "market/MarketDB.h"
+#include "ship/Ship.h"
+#include "EVE_Effects.h"
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -783,6 +785,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         bot->Delete();
         return;
     }
+    // Real killmail fit: materialize the fitted modules (from the legend's
+    // fitted_item_ids) as actual items in the ship's slots — the client shows the
+    // genuine fit and a wreck drops real module loot, like a player's lossmail.
+    // Only when the bot is actually flying the legend hull (combat professions
+    // keep the killmail ship). Professional hulls (miner barges, haulers, scan
+    // frigates) are force-picked per profession above and would mismatch a combat
+    // legend's fit — those bots run a profession fit instead, not a lossmail one.
+    if (hullType == useShipType && !useFit.empty())
+        MaterializeBotFit(iRef, useCharID, useFit);
     // The bot's combat/profession tier comes from its persisted skillLevel
     // (levelled up by practice), not the ctor default of 3.
     bot->SetBotSkillLevel(skillTier);
@@ -932,6 +943,143 @@ void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
     }
     // parent: don't wait — let it finish in the background
     _log(BOT__TRACE, "BotMgr: fetching portrait for bot %u (eve %u) -> %s", serverCharID, eveCharID, path.c_str());
+}
+
+// Materialize a killmail fit (JSON array of module typeIDs) as REAL item children
+// of the bot's ship. Each module is spawned as an actual item in the ship with
+// the correct high/mid/low/rig slot flag — the same representation a player's
+// fitted hull has in the entity table. Chelobot hulls are NPC ships that never
+// get a pilot (ShipItem::SetPlayer -> ModuleManager::Initialize never runs), so
+// we do NOT go through ShipItem::AddItemByFlag/ModuleManager (their .at()/pilot
+// derefs would crash on an uninitialized manager). Instead slot flags are chosen
+// directly from the module's power effect + the ship's slot count, mirroring what
+// ModuleManager::Initialize would do when the hull is eventually loaded.
+//
+// Consumers that already read real ship children benefit automatically:
+//   - RecordBotKillMail (PlayerBot.cpp) lists real items in the lossmail, so the
+//     kill page shows the genuine fit instead of a synthesized one.
+//   - A wreck of this ship can drop the real module loot like a player's wreck.
+void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson)
+{
+    if (shipRef.get() == nullptr || charID == 0 || fitJson.empty())
+        return;
+    ShipItemRef ship = ShipItemRef::StaticCast(shipRef);
+    if (ship.get() == nullptr)
+        return;
+
+    // fitted_item_ids is "[typeID, typeID, ...]" — parse the integer list (no
+    // JSON lib in-tree; the format is a plain array of module typeIDs).
+    std::vector<uint32> typeIDs;
+    {
+        std::string cur;
+        for (char c : fitJson) {
+            if (isdigit((unsigned char)c))
+                cur.push_back(c);
+            else if (!cur.empty()) {
+                typeIDs.push_back((uint32)strtoul(cur.c_str(), nullptr, 10));
+                cur.clear();
+            }
+        }
+        if (!cur.empty())
+            typeIDs.push_back((uint32)strtoul(cur.c_str(), nullptr, 10));
+    }
+    if (typeIDs.empty())
+        return;
+
+    // How many slots does this hull actually have? Only fit hulls that can carry
+    // anything (skip shuttles/pods/capsules — no fight fit). Slots mirror the
+    // ship's dogma attributes (AttrLowSlots/AttrMedSlots/AttrHiSlots/AttrRigSlots).
+    uint32 loMax = ship->GetAttribute(AttrLowSlots).get_uint32();
+    uint32 midMax = ship->GetAttribute(AttrMedSlots).get_uint32();
+    uint32 hiMax = ship->GetAttribute(AttrHiSlots).get_uint32();
+    uint32 rigMax = ship->GetAttribute(AttrRigSlots).get_uint32();
+    if (loMax == 0 && midMax == 0 && hiMax == 0 && rigMax == 0)
+        return;
+
+    // Slot banks (EVE_Flags.h): low 11.., mid 19.., hi 27.., rig 92..
+    struct SlotBank { uint16 baseFlag; uint32 used; uint32 max; };
+    SlotBank low  = { flagLowSlot0, 0, loMax };
+    SlotBank mid  = { flagMidSlot0, 0, midMax };
+    SlotBank hi   = { flagHiSlot0, 0, hiMax };
+    SlotBank rig  = { flagRigSlot0, 0, rigMax };
+
+    // Account for modules already fitted on this hull (respawn on an existing
+    // ship, or a DB-loaded hull). Everything currently under the ship in module
+    // slots is counted so new fits don't overwrite occupied slots.
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT flag, COUNT(*) FROM entity WHERE locationID = %u AND flag BETWEEN %u AND %u GROUP BY flag",
+            ship->itemID(), (uint32)flagLowSlot0, (uint32)flagRigSlot7))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                uint32 flag = row.GetUInt(0);
+                uint32 cnt  = row.GetUInt(1);
+                if (flag >= flagRigSlot0)                  rig.used  += cnt;
+                else if (flag >= flagHiSlot0 && flag < flagFixedSlot) hi.used  += cnt;
+                else if (flag >= flagMidSlot0 && flag < flagHiSlot0)  mid.used += cnt;
+                else if (flag >= flagLowSlot0 && flag < flagMidSlot0) low.used += cnt;
+            }
+        }
+    }
+
+    // Slot picker for one module's bank: returns the next free flag or flagIllegal
+    // when that bank is full.
+    auto pickSlot = [](SlotBank& bank) -> EVEItemFlags {
+        if (bank.max == 0 || bank.used >= bank.max)
+            return flagIllegal;
+        return (EVEItemFlags)(bank.baseFlag + bank.used++);
+    };
+
+    uint32 fitted = 0;
+    for (uint32 typeID : typeIDs) {
+        if (typeID == 0)
+            continue;
+        const ItemType* t = sItemFactory.GetType((uint16)typeID);
+        if (t == nullptr)
+            continue;
+        // Only modules belong in slots (charges/ammo in a fit list are dropped —
+        // they belong in cargo or loaded later). Rigs are classed as modules too.
+        if (t->categoryID() != EVEDB::invCategories::Module)
+            continue;
+
+        // Choose the slot bank from the module's power effect (as the client and
+        // ShipItem::FindAvailableModuleSlot do).  Turrets/launchers are hi-slot.
+        SlotBank* bank = nullptr;
+        if (t->HasEffect(EVEEffectID::loPower))       bank = &low;
+        else if (t->HasEffect(EVEEffectID::medPower)) bank = &mid;
+        else if (t->HasEffect(EVEEffectID::rigSlot))  bank = &rig;
+        else if (t->HasEffect(EVEEffectID::hiPower))  bank = &hi;
+        else {
+            _log(BOT__TRACE, "BotMgr: MaterializeBotFit — type %u has no power-slot effect, skipping.", typeID);
+            continue;
+        }
+        EVEItemFlags slot = pickSlot(*bank);
+        if (slot == flagIllegal)
+            continue;   // bank full — skip quietly, the rest of the fit still lands
+
+        // Spawn in limbo owned by the pilot, then MOVE into the ship at the slot
+        // flag. Move() registers the module in the ship's in-memory inventory
+        // (so ShipItem::Delete -> DeleteContents() cleans it up later) AND writes
+        // the new location/flag to the entity table, where the lossmail reader
+        // (RecordBotKillMail) picks it up — same representation as a player's
+        // fitted module. A direct SpawnItem into the ship would bypass the
+        // inventory and orphan the module row on ship delete.
+        ItemData idata((uint16)typeID, charID, locTemp, flagNone, 1);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+        if (iRef.get() == nullptr)
+            continue;
+        // Fitted modules are unique items (singleton), as the client expects.
+        iRef->ChangeSingleton(true, false);
+        iRef->Move(ship->itemID(), slot, false);
+        ++fitted;
+        _log(BOT__TRACE, "BotMgr: MaterializeBotFit — fitted %s(%u) to flag %u.",
+             t->name().c_str(), typeID, (uint32)slot);
+    }
+    if (fitted > 0)
+        _log(BOT__MESSAGE, "BotMgr: materialized %u fitted modules for pilot %u's %s.",
+             fitted, charID, ship->name());
 }
 
 void BotMgr::SpawnBotArriving(SystemManager* origin, uint32 destSystem)

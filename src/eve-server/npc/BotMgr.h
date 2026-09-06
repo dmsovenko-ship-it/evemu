@@ -78,6 +78,11 @@ public:
 
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
+    // Materialize a killmail fit (JSON array of module typeIDs) into a bot's ship:
+    // spawns each module as a real item in the correct slot (hi/mid/low/rig per its
+    // dogma power effect), so the client shows the real fit and the wreck drops
+    // actual module loot. Skipped when the ship has no slots or fit is empty.
+    void MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson);
     // Download the bot's ESI portrait into the image cache on spawn, so the client
     // sees a face immediately (no cron lag). Runs curl in a forked child so the
     // game loop isn't blocked. Path: <imageDir>/Character/<serverCharID>_512.jpg.
