@@ -14,8 +14,14 @@
 #include <algorithm>
 #include <string>
 
-// Pirate NPC typeIDs for encounter missions
-static const std::vector<uint32> s_guristasNPCs = { 33001, 33002, 33003, 33004 };
+// Pirate NPC typeIDs for encounter missions — REAL Crucible rat hulls (Guristas),
+// so the client renders them as hostile red ships that can be locked & killed
+// (custom placeholder typeIDs 33001+ are unknown to the client's invTypes and
+// appear white/untargetable). Ladder: frigate-size rats first, a few cruisers.
+static const std::vector<uint32> s_guristasNPCs = { 2382, 2383, 2384, 2385, 2386,   // Guristas Arrogator..Plunderer (frigate)
+                                                    11027, 11028, 11029, 11030,     // Infiltrator/Saboteur/Destructor/Demolisher
+                                                    10265, 2387,                    // Ascriber / Silencer
+                                                    11031, 11928, 11929, 11930 };   // Murderer / Annihilator / Nullifier / Mortifier (cruiser)
 static const std::vector<uint32> s_angelNPCs    = { 33020, 33021, 33022, 33023 };
 static const std::vector<uint32> s_serpentisNPCs= { 33040, 33041, 33042, 33043 };
 static const std::vector<uint32> s_bloodRaiderNPCs = { 33060, 33061, 33062, 33063 };
