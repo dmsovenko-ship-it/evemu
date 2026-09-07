@@ -1,6 +1,18 @@
 # EVEmu Session Context
 
 ## Current State
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) HEAD: `7bdf3df8`; портал HEAD: `c08dde6`. Сборка в процессе (включает куревскую физику, снабжение/груз, real-rat миссии, честный lossmail, фолбэк-оружие).
+
+### 7 сентября (день): courier-физика, материализация фитов, честный lossmail, real-rat миссии
+- **Курьеры — физический рейс** (`997daa4f`, `db98a9f3`): `BotMgr::ProcessPlayerContracts` при застое (backlog>20 / контракт >1 сут) берёт контракт из любой загруженной системы (`FindFreeCourier(0)`); мелкий груз идёт **gate-by-gate**: `ComputeHaulRoute` (BFS по mapSolarSystemJumps) → `m_hauls[charID]` (маршрут переживает delete/respawn), каждый хоп — `ProcessTravel` (видимый варп к гейту, джемп, прилёт с анимацией в след. систему), по прибытии в endSys — подход к станции + **RequestDock**, сдача при фактическом доке (хук в `ProcessDocking`), fallback 45с если нет доков (пустая система). Крупный >10k м³ / из нулей — джамп-фура (`StartJumpFreighter`, цино), сдача мгновенно по прибытии. Helpers: `GetAdjacentSystems` (кеш), `BotMgr_FindInSystem/BotMgr_RequestCourierDock`, `ProcessHaulDeliveries`.
+- **Материализация фитов** (в ветке, `MaterializeBotFit` в BotMgr.cpp, зовётся в SpawnBot при `hullType==useShipType && !useFit.empty()`): парсит `fitted_item_ids` (плоский JSON typeID), раскладывает модули по слотам (hi/mid/low/rig по эффектам loPower=11/medPower=13/hiPower=12/rigSlot=2663, EVEEffectID), с учётом реальных слотов халла (AttrLow/Med/Hi/RigSlots) и уже занятых; спавнит в лимбо + `Move()` в корабль (в inventory → чистка при Delete, лоссмейл видит реальные предметы).
+- `f547cae1` **MaterializeShipLoad**: заряды ракет (T1/T2 по skillTier≥4, имя +" II") + груз по профессии (Miner-минералы/Hacker-реликты/Courier-руда; Hunter/RatHunter пусто) → реальные item в cargo.
+- `127da4d6` **честный lossmail**: синтетический фит из RecordBotKillMail убран; пустой корабль → только корпус.
+- `7bdf3df8` **фолбэк-оружие**: если фит легенды слишком «современный» (модули не резолвятся) и hi пуст → дозаливка реального оружия из `AttrGfxTurretID` в первый hi-слот.
+- `a7cefde2` **миссии**: encounter-цели — реальные Guristas rat-типы (2382-2386, 11027-11030, 10265, 2387, 11031, 11928-11930) вместо кастомных 33001+ (те были белые/нелочатся).
+- **Портал**: `/battles` без лишней колонки иконок (`2b7070f`), `/battle` EDK-стиль: матрица классов K/L, стороны Killers(green)/Losses(red), клики на /kill (`c08dde6`, `8ac5117`), AllKills += victimgroupname/finalgroupname + Resolve резолвит alliances (`a8195093`).
+
+## Current State (legacy)
 Session saved (итог 6 сент.: orphan-чистка при старте перенесена `a3f0ed27` из `BotMgr::Initialize()` в `main()` сразу после подключения к БД; encounter-сдача ПОДТВЕРЖДЕНА на `220a8fb6`; фиты челоботов с EDK sotzone импортируются `f3c15934` фоном на сервере, след. — материализация модулей+патронов(по скиллам)+груза(по профессии)). Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) и портал — см. свежие коммиты; портал можно дёргать с сервера эмулятора `curl http://172.20.1.49/...`, SSH на портал `172.20.1.49` (dmitry/gbnjy78), сайт `/var/www/html`. ⚠️ Сервер пересобран на `a3f0ed27` (orphan-чистка перенесена); фитовый импорт — только в БД, код материализации ещё не написан.
 
 ### 6 сентября (вечер): «смена влияния» + кеш тяжёлых API
