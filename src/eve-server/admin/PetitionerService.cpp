@@ -56,6 +56,13 @@ static const char* SafeText(const char* s)
     return s != nullptr ? s : "";
 }
 
+// NULL-safe text as std::string (for PyWString, whose const char* ctor is
+// ambiguous between PyString and std::string overloads).
+static std::string SafeStr(const char* s)
+{
+    return std::string(s != nullptr ? s : "");
+}
+
 // The petition window requests the category tree once, then filters rows by the
 // client's own languageID (with an English fallback if its language yields too
 // few groups).  The DB stores one categoryID per logical category shared by all
@@ -160,8 +167,8 @@ static PyRep* PetitionToKeyVal(const DBResultRow& row)
     PyDict* p = new PyDict();
     p->SetItemString("petitionID", new PyInt((int32)row.GetUInt(0)));
     p->SetItemString("categoryID", new PyInt((int32)row.GetUInt(1)));
-    p->SetItemString("subject",    new PyWString(SafeText(row.GetText(2))));
-    p->SetItemString("petition",   new PyWString(SafeText(row.GetText(3))));   // body
+    p->SetItemString("subject",    new PyWString(SafeStr(row.GetText(2))));
+    p->SetItemString("petition",   new PyWString(SafeStr(row.GetText(3))));   // body
     p->SetItemString("closed",     new PyBool(row.GetInt(4) == 0));        // status 1 open/0 closed
     p->SetItemString("claimed",    new PyBool(row.GetUInt(5) != 0));       // claimedBy
     p->SetItemString("deleted",    new PyBool(row.GetInt(6) != 0));
@@ -204,7 +211,7 @@ PyResult PetitionerService::GetCategories(PyCallArgs& call)
     while (res.GetRow(row)) {
         PyDict* c = new PyDict();
         c->SetItemString("categoryID", new PyInt(row.GetInt(0)));
-        c->SetItemString("displayName", new PyWString(SafeText(row.GetText(1))));
+        c->SetItemString("displayName", new PyWString(SafeStr(row.GetText(1))));
         list->AddItem(new PyObject("util.KeyVal", c));
     }
     return list;
@@ -247,7 +254,7 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
 
             if (par == 0) {
                 PyTuple* t = new PyTuple(2);
-                t->SetItem(0, new PyWString(name != nullptr ? name : ""));
+                t->SetItem(0, new PyWString(SafeStr(name)));
                 t->SetItem(1, langTok);
                 parentDict->SetItem(new PyInt(wireID), t);
             } else {
@@ -261,10 +268,10 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
                     childDict->SetItem(new PyInt(wirePar), group);
                 }
                 PyTuple* t = new PyTuple(2);
-                t->SetItem(0, new PyWString(name != nullptr ? name : ""));
+                t->SetItem(0, new PyWString(SafeStr(name)));
                 t->SetItem(1, langTok);
                 group->SetItem(new PyInt(wireID), t);
-                descDict->SetItem(new PyInt(wireID), new PyWString(desc != nullptr ? desc : ""));
+                descDict->SetItem(new PyInt(wireID), new PyWString(SafeStr(desc)));
             }
         }
     }
@@ -378,9 +385,9 @@ PyResult PetitionerService::GetPetitionMessages(PyCallArgs& call, PyInt* petitio
         PyDict* m = new PyDict();
         m->SetItemString("messageID", new PyInt((int32)row.GetUInt(0)));
         m->SetItemString("senderID",  new PyInt((int32)row.GetUInt(1)));
-        m->SetItemString("senderName",new PyWString(SafeText(row.GetText(2))));
+        m->SetItemString("senderName",new PyWString(SafeStr(row.GetText(2))));
         m->SetItemString("comment",   new PyBool(row.GetInt(3) != 0));
-        m->SetItemString("text",      new PyWString(SafeText(row.GetText(4))));
+        m->SetItemString("text",      new PyWString(SafeStr(row.GetText(4))));
         m->SetItemString("sentDate",  new PyLong((int64)(row.GetInt64(5) + 11644473600LL) * 10000000LL));
         list->AddItem(new PyObject("util.KeyVal", m));
     }
@@ -405,7 +412,7 @@ PyResult PetitionerService::GetUnreadMessages(PyCallArgs& call)
         PyDict* m = new PyDict();
         m->SetItemString("messageID", new PyInt((int32)row.GetUInt(0)));
         m->SetItemString("petitionID", new PyInt((int32)row.GetUInt(1)));
-        m->SetItemString("text", new PyWString(SafeText(row.GetText(2))));
+        m->SetItemString("text", new PyWString(SafeStr(row.GetText(2))));
         list->AddItem(new PyObject("util.KeyVal", m));
     }
     return list;
@@ -536,7 +543,7 @@ PyResult PetitionerService::GetQueues(PyCallArgs& call)
     PyList* list = new PyList();
     PyDict* q = new PyDict();
     q->SetItemString("queueID", new PyInt(1));
-        q->SetItemString("queueName", new PyWString("General"));
+        q->SetItemString("queueName", new PyWString(std::string("General")));
     list->AddItem(new PyObject("util.KeyVal", q));
     return list;
 }
