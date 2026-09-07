@@ -139,13 +139,13 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         xml += "  <result>\n    <petitions>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
-            xml += "      <row petitionID=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " accountID=\"" + std::to_string(row.GetUInt(1)) + "\"";
-            xml += " authorName=\"" + xmlEscape(row.GetText(2)) + "\"";
+            xml += "      <row petitionid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " accountid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " authorname=\"" + xmlEscape(row.GetText(2)) + "\"";
             xml += " subject=\"" + xmlEscape(row.GetText(3)) + "\"";
             xml += " body=\"" + xmlEscape(row.GetText(4)) + "\"";
             xml += " status=\"" + std::to_string(row.GetInt(5)) + "\"";
-            xml += " createDate=\"" + std::string(row.GetText(6)) + "\"/>\n";
+            xml += " createdate=\"" + std::string(row.GetText(6)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
@@ -168,12 +168,12 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         xml += "  <result>\n    <petitions>\n";
         DBResultRow row;
         while (res.GetRow(row)) {
-            xml += "      <row petitionID=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " authorName=\"" + xmlEscape(row.GetText(1)) + "\"";
+            xml += "      <row petitionid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " authorname=\"" + xmlEscape(row.GetText(1)) + "\"";
             xml += " subject=\"" + xmlEscape(row.GetText(2)) + "\"";
             xml += " body=\"" + xmlEscape(row.GetText(3)) + "\"";
             xml += " status=\"" + std::to_string(row.GetInt(4)) + "\"";
-            xml += " createDate=\"" + std::string(row.GetText(5)) + "\"/>\n";
+            xml += " createdate=\"" + std::string(row.GetText(5)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
@@ -257,9 +257,9 @@ std::string APIAdminManager::ProcessTimecodes(const std::string& handler,
         DBResultRow row;
         while (res.GetRow(row)) {
             xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " accountID=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " accountid=\"" + std::to_string(row.GetUInt(1)) + "\"";
             xml += " days=\"" + std::to_string(row.GetUInt(2)) + "\"";
-            xml += " grantDate=\"" + std::string(row.GetText(3)) + "\"/>\n";
+            xml += " grantdate=\"" + std::string(row.GetText(3)) + "\"/>\n";
         }
         xml += "    </timecodes>\n  </result>\n</eveapi>\n";
         return xml;
