@@ -83,6 +83,16 @@ public:
     // Returns 0 if nothing was sold.
     double SellStockIntoBuyOrder(uint32 botCharID, uint32 orderID, InventoryItemRef iRef,
                                  uint32 qty, uint32 stationID, uint32 typeID);
+    // A docked bot BUYS goods for real ISK (client-less mirror of ExecuteSellOrder,
+    // using the proven leg-1 of BotArbitrageFill). The best resting SELL order at
+    // the station is filled: money leaves the bot's offline wallet to the seller,
+    // the order shrinks/closes, two real mktTransactions are recorded, and the
+    // goods are minted into the bot's station hangar (ready to be fitted). If no
+    // sell order rests there the station's NPC corp sells at the item's median
+    // basePrice, so a bot can always restock after a loss.
+    // Returns the ISK spent (>0) and mints the item into the bot's hangar; 0 when
+    // the bot cannot afford it or the buy could not complete.
+    double BotBuyStock(uint32 botCharID, uint32 stationID, uint32 typeID, uint32 qty);
 
     //forces a refresh of market data.
     void SendOnOwnOrderChanged(Client* pClient, uint32 orderID, uint8 action, bool isCorp = false, PyRep* order = nullptr);

@@ -1145,6 +1145,164 @@ double MarketMgr::SellStockIntoBuyOrder(uint32 botCharID, uint32 orderID, Invent
     return money;
 }
 
+// A docked chelobot buys goods for real ISK after losing its ship (see
+// BotMgr::ResupplyBotFit). Client-less mirror of ExecuteSellOrder built on the
+// proven leg-1 of BotArbitrageFill: fill the best resting SELL order at the
+// station (or, if none, buy from the station's NPC corp at the item's median
+// basePrice so a bot can always restock), debit the bot's offline wallet, and
+// mint the goods into its hangar ready to be fitted. Two real mktTransactions
+// are recorded so the market actually moves.
+double MarketMgr::BotBuyStock(uint32 botCharID, uint32 stationID, uint32 typeID, uint32 qty)
+{
+    if (botCharID == 0 || stationID == 0 || typeID == 0 || qty == 0)
+        return 0.0;
+
+    // Resolve the best resting sell order at this station (or fall back to a
+    // median-price NPC sale when the book is empty for this item).
+    uint32 orderID = 0;
+    double price = 0.0;
+    double est = 0.0;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT orderID, price FROM mktOrders"
+            " WHERE typeID = %u AND stationID = %u AND bid = 0"
+            "   AND volRemaining >= %u AND price > 0"
+            " ORDER BY price ASC, orderID ASC LIMIT 1",
+            typeID, stationID, qty))
+        {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                orderID = row.GetUInt(0);
+                price = row.GetDouble(1);
+            }
+        }
+        if (price <= 0.0) {
+            // No resting sell — the station's NPC corp will sell at the median.
+            if (sDatabase.RunQuery(res,
+                "SELECT basePrice FROM invTypes WHERE typeID = %u", typeID))
+            {
+                DBResultRow row;
+                if (res.GetRow(row))
+                    est = row.GetDouble(0);
+            }
+            if (est <= 0.0)
+                est = 1.0;   // near-worthless items (e.g. cheap T1) sell for a token ISK
+            price = est;
+        }
+    }
+
+    double money = price * qty;
+    if (money <= 0.0)
+        return 0.0;
+
+    // The offline wallet path does NOT check the balance — verify it ourselves
+    // so a broke pilot never goes negative.
+    double botBalance = 0;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT balance FROM chrCharacters WHERE characterID = %u", botCharID)) {
+            DBResultRow row;
+            if (res.GetRow(row))
+                botBalance = row.GetDouble(0);
+        }
+    }
+    if (botBalance < money) {
+        _log(MARKET__TRACE, "BotBuyStock - bot %u can't cover %.2f for %u x type %u (balance %.2f).",
+             botCharID, money, qty, typeID, botBalance);
+        return 0.0;
+    }
+
+    uint32 regionID = sDataMgr.GetStationRegion(stationID);
+    uint32 seller = 0;
+    uint16 sellerKey = Account::KeyType::Cash;
+    if (orderID != 0) {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT regionID, ownerID, accountKey FROM mktOrders WHERE orderID = %u",
+            orderID))
+        {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                regionID = row.GetUInt(0);
+                seller = row.GetUInt(1);
+                sellerKey = (uint16)row.GetUInt(2);
+            }
+        }
+    } else {
+        seller = stDataMgr.GetOwnerID(stationID);   // NPC corp sells at median
+    }
+    if (sDataMgr.IsStation(seller))
+        seller = stDataMgr.GetOwnerID(seller);
+    if (seller == botCharID)   // never buy from ourselves
+        return 0.0;
+
+    std::string reason = "DESC:  Buying market items in " + stDataMgr.GetStationName(stationID);
+    // Bot (buyer) → seller; sales tax on the seller's proceeds → SCC.
+    AccountService::TransferFunds(botCharID, seller, money, reason.c_str(),
+        Journal::EntryType::MarketTransaction, orderID,
+        Account::KeyType::Cash, sellerKey);
+    uint8 acctLvl = CharacterDB::GetSkillLevel(seller, EvESkill::Accounting);
+    uint8 taxEvLvl = CharacterDB::GetSkillLevel(seller, EvESkill::TaxEvasion);
+    float tax = EvEMath::Market::SalesTax(sConfig.market.salesTax, acctLvl, taxEvLvl) * (float)money;
+    AccountService::TransferFunds(seller, corpSCC, tax, reason.c_str(),
+        Journal::EntryType::TransactionTax, orderID, sellerKey);
+
+    // Shrink / close the sell order.
+    if (orderID != 0) {
+        uint32 volRemaining = 0;
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT volRemaining FROM mktOrders WHERE orderID = %u",
+                               orderID))
+        {
+            DBResultRow row;
+            if (res.GetRow(row))
+                volRemaining = row.GetUInt(0);
+        }
+        if (qty >= volRemaining) {
+            MarketDB::DeleteOrder(orderID);
+        } else {
+            MarketDB::AlterOrderQuantity(orderID, volRemaining - qty);
+        }
+        InvalidateOrdersCache(regionID, typeID, stationID);
+    }
+
+    // Record both sides of the transaction.
+    Market::TxData data = Market::TxData();
+    data.accountKey = Account::KeyType::Cash;
+    data.isBuy = Market::Type::Buy;                 // bot bought
+    data.isCorp = false;
+    data.memberID = botCharID;
+    data.clientID = seller;
+    data.price = price;
+    data.quantity = qty;
+    data.stationID = stationID;
+    data.regionID = regionID;
+    data.typeID = typeID;
+    if (!MarketDB::RecordTransaction(data))
+        _log(MARKET__ERROR, "BotBuyStock - failed to record buy side.");
+    data.isBuy = Market::Type::Sell;                // seller sold
+    data.memberID = seller;
+    data.clientID = botCharID;
+    if (!MarketDB::RecordTransaction(data))
+        _log(MARKET__ERROR, "BotBuyStock - failed to record sell side.");
+
+    // Mint the bought goods into the bot's hangar (as ExecuteSellOrder does for
+    // its buyer) so the resupply fitter can pull them into the new ship.
+    ItemData idata((uint16)typeID, ownerStation, locTemp, flagNone, qty);
+    InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+    if (iRef.get() == nullptr) {
+        _log(MARKET__ERROR, "BotBuyStock - failed to mint %u x type %u for bot %u.", qty, typeID, botCharID);
+        return 0.0;
+    }
+    iRef->Donate(botCharID, stationID, flagHangar, true);
+
+    sStatMgr.Add(Stat::iskMarket, money);
+    _log(MARKET__MESSAGE, "BotBuyStock - bot %u bought %u x type %u at station %u @%.2f (-%.2f ISK).",
+         botCharID, qty, typeID, stationID, price, money);
+    return money;
+}
+
 
 // after finding price data from Crucible, this may be moot.   -allan 28Feb21
 void MarketMgr::SetBasePrice()
