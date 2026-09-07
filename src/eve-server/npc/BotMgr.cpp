@@ -1170,6 +1170,30 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
         _log(BOT__TRACE, "BotMgr: MaterializeBotFit — fitted %s(%u) to flag %u.",
              t->name().c_str(), typeID, (uint32)slot);
     }
+
+    // Top-up: legend fits are real-EVE killboard data, so many module typeIDs are
+    // too new for this Crucible server and were skipped above. When the fit ended
+    // up with NO usable weapon, give the hull a guaranteed Crucible-valid one (the
+    // same weapon the AI fires, read from AttrGfxTurretID) so it isn't stripped.
+    if (hi.used == 0 && hiMax > 0 && ship->HasAttribute(AttrGfxTurretID)) {
+        uint32 weapon = ship->GetAttribute(AttrGfxTurretID).get_uint32();
+        if (weapon > 0 && weapon != (uint32)ship->typeID()) {
+            const ItemType* wt = sItemFactory.GetType((uint16)weapon);
+            EVEItemFlags slot = pickSlot(hi);
+            if (wt != nullptr && slot != flagIllegal) {
+                ItemData idata((uint16)weapon, charID, locTemp, flagNone, 1);
+                InventoryItemRef wRef = sItemFactory.SpawnItem(idata);
+                if (wRef.get() != nullptr) {
+                    wRef->ChangeSingleton(true, false);
+                    wRef->Move(ship->itemID(), slot, false);
+                    ++fitted;
+                    _log(BOT__TRACE, "BotMgr: MaterializeBotFit — Crucible fallback weapon %s(%u) to flag %u.",
+                         wt->name().c_str(), weapon, (uint32)slot);
+                }
+            }
+        }
+    }
+
     if (fitted > 0)
         _log(BOT__MESSAGE, "BotMgr: materialized %u fitted modules for pilot %u's %s.",
              fitted, charID, ship->name());
