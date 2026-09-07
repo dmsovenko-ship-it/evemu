@@ -34,7 +34,9 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
     // petitions
     if (handler == "PetitionList.xml.aspx" || handler == "PetitionClose.xml.aspx" ||
         handler == "PetitionReply.xml.aspx" || handler == "PetitionCreate.xml.aspx" ||
-        handler == "PetitionMine.xml.aspx")
+        handler == "PetitionMine.xml.aspx" || handler == "PetitionMessages.xml.aspx" ||
+        handler == "PetitionAddMessage.xml.aspx" || handler == "PetitionCancel.xml.aspx" ||
+        handler == "PetitionCategories.xml.aspx")
         return ProcessPetitions(handler, params);
 
     // timecodes
@@ -112,26 +114,29 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         return it != params.end() ? it->second : "";
     };
 
-    // ensure table exists
-    {
-        DBerror err;
-        sDatabase.RunQuery(err,
-            "CREATE TABLE IF NOT EXISTS portal_petitions ("
-            "petitionID INT UNSIGNED NOT NULL AUTO_INCREMENT, "
-            "accountID INT UNSIGNED NOT NULL DEFAULT 0, "
-            "authorName VARCHAR(40) NOT NULL DEFAULT '', "
-            "subject VARCHAR(200) NOT NULL DEFAULT '', "
-            "body TEXT, "
-            "status TINYINT NOT NULL DEFAULT 1, "
-            "createDate DATETIME DEFAULT CURRENT_TIMESTAMP, "
-            "PRIMARY KEY (petitionID)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    }
+    // Language used for category names on the portal (defaults to Russian).
+    std::string lang = get("language");
+    if (lang.empty()) lang = "ru";
+    // whitelist — never interpolate arbitrary client text into SQL
+    if (lang != "ru" && lang != "en-us" && lang != "RU" && lang != "EN")
+        lang = "ru";
 
+    // Shared SELECT: one row per petition + its localized category name.
+    // `lang` is whitelisted above, safe to splice.
+    std::string petitionBase =
+        "SELECT p.petitionID, p.accountID, p.characterID, p.authorName, p.categoryID,"
+        " COALESCE(cat.categoryName, '') AS categoryName,"
+        " p.subject, p.status, p.claimedBy, p.updated, p.deleted,"
+        " p.createDate, p.touchDate"
+        " FROM portal_petitions p"
+        " LEFT JOIN portal_petition_categories cat"
+        "   ON cat.categoryID = p.categoryID AND cat.languageID = '" + lang + "' ";
+
+    // All petitions (admin).
     if (handler == "PetitionList.xml.aspx") {
         DBQueryResult res;
-        if (!sDatabase.RunQuery(res,
-            "SELECT petitionID, accountID, authorName, subject, body, status, createDate "
-            "FROM portal_petitions ORDER BY petitionID DESC"))
+        std::string q = petitionBase + " ORDER BY p.petitionID DESC";
+        if (!sDatabase.RunQuery(res, q.c_str()))
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
@@ -141,26 +146,33 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         while (res.GetRow(row)) {
             xml += "      <row petitionid=\"" + std::to_string(row.GetUInt(0)) + "\"";
             xml += " accountid=\"" + std::to_string(row.GetUInt(1)) + "\"";
-            xml += " authorname=\"" + xmlEscape(row.GetText(2)) + "\"";
-            xml += " subject=\"" + xmlEscape(row.GetText(3)) + "\"";
-            xml += " body=\"" + xmlEscape(row.GetText(4)) + "\"";
-            xml += " status=\"" + std::to_string(row.GetInt(5)) + "\"";
-            xml += " createdate=\"" + std::string(row.GetText(6)) + "\"/>\n";
+            xml += " characterid=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " authorname=\"" + xmlEscape(row.GetText(3)) + "\"";
+            xml += " categoryid=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " categoryname=\"" + xmlEscape(row.GetText(5)) + "\"";
+            xml += " subject=\"" + xmlEscape(row.GetText(6)) + "\"";
+            xml += " status=\"" + std::to_string(row.GetInt(7)) + "\"";
+            xml += " claimedby=\"" + std::to_string(row.GetUInt(8)) + "\"";
+            xml += " updated=\"" + std::to_string(row.GetInt(9)) + "\"";
+            xml += " deleted=\"" + std::to_string(row.GetInt(10)) + "\"";
+            xml += " createdate=\"" + std::string(row.GetText(11)) + "\"";
+            xml += " touchdate=\"" + std::string(row.GetText(12)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
     }
 
-    // A player's own petitions (list + statuses). The portal knows the logged-in
-    // account; only that account's rows are returned.
+    // A player's own petitions (accountID-based; covers both portal rows and
+    // in-game rows filed by characters of the account).  Players never see the
+    // rows of other accounts.
     if (handler == "PetitionMine.xml.aspx") {
         std::string aid = get("accountid");
-        if (aid.empty()) return BuildErrorXML("105", "Missing accountid.");
+        if (aid.empty() || aid.find_first_not_of("0123456789") != std::string::npos)
+            return BuildErrorXML("105", "Missing accountid.");
         DBQueryResult res;
-        if (!sDatabase.RunQuery(res,
-            "SELECT petitionID, authorName, subject, body, status, createDate "
-            "FROM portal_petitions WHERE accountID = %u ORDER BY petitionID DESC",
-            std::stoul(aid)))
+        std::string q = petitionBase + " WHERE p.accountID = " + aid + " AND p.deleted = 0"
+                      + " ORDER BY p.petitionID DESC";
+        if (!sDatabase.RunQuery(res, q.c_str()))
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
@@ -169,61 +181,225 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         DBResultRow row;
         while (res.GetRow(row)) {
             xml += "      <row petitionid=\"" + std::to_string(row.GetUInt(0)) + "\"";
-            xml += " authorname=\"" + xmlEscape(row.GetText(1)) + "\"";
-            xml += " subject=\"" + xmlEscape(row.GetText(2)) + "\"";
-            xml += " body=\"" + xmlEscape(row.GetText(3)) + "\"";
-            xml += " status=\"" + std::to_string(row.GetInt(4)) + "\"";
-            xml += " createdate=\"" + std::string(row.GetText(5)) + "\"/>\n";
+            xml += " accountid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " characterid=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " authorname=\"" + xmlEscape(row.GetText(3)) + "\"";
+            xml += " categoryid=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " categoryname=\"" + xmlEscape(row.GetText(5)) + "\"";
+            xml += " subject=\"" + xmlEscape(row.GetText(6)) + "\"";
+            xml += " status=\"" + std::to_string(row.GetInt(7)) + "\"";
+            xml += " updated=\"" + std::to_string(row.GetInt(9)) + "\"";
+            xml += " createdate=\"" + std::string(row.GetText(11)) + "\"";
+            xml += " touchdate=\"" + std::string(row.GetText(12)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
     }
 
-    // A player submits a support petition from the portal. accountid/author are
-    // taken from POST (the portal knows the logged-in account). body may span
-    // several lines — escape it before embedding in the SQL string.
+    // A player submits a petition from the portal. accountid is the session
+    // account; author is the display name (prefer first character).  A category
+    // is optional; body becomes the first message in the shared thread so the
+    // in-game client sees the same conversation.
     if (handler == "PetitionCreate.xml.aspx") {
-        std::string aid   = get("accountid");
-        std::string author = get("author");
+        std::string aid     = get("accountid");
+        std::string author  = get("author");
         std::string subject = get("subject");
-        std::string body   = get("body");
+        std::string body    = get("body");
+        std::string category= get("categoryid");
         if (aid.empty() || subject.empty() || body.empty())
             return BuildErrorXML("105", "Missing accountid, subject or body.");
+        uint32 categoryID = category.empty() ? 0 : std::stoul(category);
+
         std::string sEsc, bEsc, aEsc;
         sDatabase.DoEscapeString(sEsc, subject);
         sDatabase.DoEscapeString(bEsc, body);
         sDatabase.DoEscapeString(aEsc, author);
+        uint32 charID = 0;
+        std::string sid = get("senderid");
+        if (!sid.empty()) charID = std::stoul(sid);
         DBerror err;
-        if (!sDatabase.RunQuery(err,
-            "INSERT INTO portal_petitions (accountID, authorName, subject, body, status)"
-            " VALUES (%u, '%s', '%s', '%s', 1)",
-            std::stoul(aid), aEsc.c_str(), sEsc.c_str(), bEsc.c_str()))
+        uint32 petitionID = 0;
+        if (!sDatabase.RunQueryLID(err, petitionID,
+            "INSERT INTO portal_petitions"
+            " (accountID, characterID, authorName, categoryID, subject, body, status, updated, createDate, touchDate)"
+            " VALUES (%u, %u, '%s', %u, '%s', '%s', 1, 0, NOW(), NOW())",
+            std::stoul(aid), charID, aEsc.c_str(), categoryID, sEsc.c_str(), bEsc.c_str()))
             return BuildErrorXML("999", "Insert failed.");
+
+        // First message = the petition body, so the conversation is uniform.
+        sDatabase.RunQuery(err,
+            "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
+            " VALUES (%u, %u, '%s', 0, 0, '%s', NOW())",
+            petitionID, charID, aEsc.c_str(), bEsc.c_str());
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <ok/>\n    <petitionid>" + std::to_string(petitionID) + "</petitionid>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // Full message thread of one petition.  Admin may read any; a player must
+    // pass accountid and only sees rows owned by that account.
+    if (handler == "PetitionMessages.xml.aspx") {
+        std::string pid = get("petitionid");
+        if (pid.empty()) return BuildErrorXML("105", "Missing petitionid.");
+
+        if (!get("accountid").empty()) {
+            DBQueryResult own;
+            if (!sDatabase.RunQuery(own,
+                "SELECT accountID FROM portal_petitions WHERE petitionID = %u", std::stoul(pid)))
+                return BuildErrorXML("999", "Query failed.");
+            DBResultRow orow;
+            if (own.GetRow(orow) && orow.GetUInt(0) != std::stoul(get("accountid")))
+                return BuildErrorXML("1004", "Not your petition.");
+        }
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT messageID, senderID, senderName, isGM, comment, text, sentDate"
+            " FROM portal_petition_messages WHERE petitionID = %u ORDER BY sentDate, messageID",
+            std::stoul(pid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <messages>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row messageid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " senderid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " sendername=\"" + xmlEscape(row.GetText(2)) + "\"";
+            xml += " isgm=\"" + std::to_string(row.GetInt(3)) + "\"";
+            xml += " comment=\"" + std::to_string(row.GetInt(4)) + "\"";
+            xml += " text=\"" + xmlEscape(row.GetText(5)) + "\"";
+            xml += " sentdate=\"" + std::string(row.GetText(6)) + "\"/>\n";
+        }
+        xml += "    </messages>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // Player adds a message to one of their own open petitions.
+    if (handler == "PetitionAddMessage.xml.aspx") {
+        std::string pid = get("petitionid");
+        std::string aid = get("accountid");
+        std::string msg = get("message");
+        if (pid.empty() || aid.empty() || msg.empty())
+            return BuildErrorXML("105", "Missing petitionid, accountid or message.");
+        if (!PetitionOwnedBy(std::stoul(pid), std::stoul(aid)))
+            return BuildErrorXML("1004", "Not your petition.");
+        if (!PetitionIsOpen(std::stoul(pid)))
+            return BuildErrorXML("1005", "Petition is closed.");
+
+        std::string mEsc;
+        sDatabase.DoEscapeString(mEsc, msg);
+        std::string name = get("sendername");
+        std::string nEsc;
+        sDatabase.DoEscapeString(nEsc, name);
+        uint32 charID = 0;
+        std::string sid = get("senderid");
+        if (!sid.empty()) charID = std::stoul(sid);
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
+            " VALUES (%u, %u, '%s', 0, 0, '%s', NOW())",
+            std::stoul(pid), charID, nEsc.c_str(), mEsc.c_str());
+        sDatabase.RunQuery(err, "UPDATE portal_petitions SET updated = 1, touchDate = NOW() WHERE petitionID = %u",
+            std::stoul(pid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
+    // Admin replies into the thread (isGM = 1 so the player sees it in game).
+    if (handler == "PetitionReply.xml.aspx") {
+        std::string pid = get("petitionid");
+        std::string reply = get("reply");
+        std::string gmName = get("adminname");
+        if (pid.empty() || reply.empty()) return BuildErrorXML("105", "Missing petitionid or reply.");
+        std::string rEsc, nEsc;
+        sDatabase.DoEscapeString(rEsc, reply);
+        sDatabase.DoEscapeString(nEsc, gmName);
+        uint32 charID = 1;   // Eve System by default; real GM char via senderid if given
+        std::string sid = get("senderid");
+        if (!sid.empty()) charID = std::stoul(sid);
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
+            " VALUES (%u, %u, '%s', 1, 0, '%s', NOW())",
+            std::stoul(pid), charID, nEsc.c_str(), rEsc.c_str());
+        sDatabase.RunQuery(err, "UPDATE portal_petitions SET updated = 1, touchDate = NOW() WHERE petitionID = %u",
+            std::stoul(pid));
+        return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
+    }
+
+    // Admin closes a petition.
     if (handler == "PetitionClose.xml.aspx") {
         std::string pid = get("petitionid");
         if (pid.empty()) return BuildErrorXML("105", "Missing petitionid.");
         DBerror err;
-        sDatabase.RunQuery(err, "UPDATE portal_petitions SET status = 0 WHERE petitionID = %u", std::stoul(pid));
+        sDatabase.RunQuery(err, "UPDATE portal_petitions SET status = 0, touchDate = NOW() WHERE petitionID = %u",
+            std::stoul(pid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
-    if (handler == "PetitionReply.xml.aspx") {
+    // Player cancels (closes) one of their own open petitions.
+    if (handler == "PetitionCancel.xml.aspx") {
         std::string pid = get("petitionid");
-        std::string reply = get("reply");
-        if (pid.empty()) return BuildErrorXML("105", "Missing petitionid.");
-        std::string rEsc;
-        sDatabase.DoEscapeString(rEsc, reply);
+        std::string aid = get("accountid");
+        if (pid.empty() || aid.empty())
+            return BuildErrorXML("105", "Missing petitionid or accountid.");
+        if (!PetitionOwnedBy(std::stoul(pid), std::stoul(aid)))
+            return BuildErrorXML("1004", "Not your petition.");
         DBerror err;
-        sDatabase.RunQuery(err,
-            "UPDATE portal_petitions SET body = CONCAT(COALESCE(body,''), '\n--- Admin reply ---\n', '%s') WHERE petitionID = %u",
-            rEsc.c_str(), std::stoul(pid));
+        sDatabase.RunQuery(err, "UPDATE portal_petitions SET status = 0, touchDate = NOW() WHERE petitionID = %u",
+            std::stoul(pid));
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
+    }
+
+    // Category tree for the portal "submit" form.  Emits groups (parent 0) and
+    // leaf categories; the portal groups leaves under their group.
+    if (handler == "PetitionCategories.xml.aspx") {
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT categoryID, parentCategoryID, categoryName, description"
+            " FROM portal_petition_categories WHERE languageID = '%s'"
+            " ORDER BY parentCategoryID, sortOrder, categoryID",
+            lang.c_str()))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <categories>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row categoryid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " parentcategoryid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " categoryname=\"" + xmlEscape(row.GetText(2)) + "\"";
+            xml += " description=\"" + xmlEscape(row.GetText(3)) + "\"/>\n";
+        }
+        xml += "    </categories>\n  </result>\n</eveapi>\n";
+        return xml;
     }
 
     return BuildErrorXML("9999", "Unknown handler");
+}
+
+// Portal ownership/state helpers ----------------------------------------------
+bool APIAdminManager::PetitionOwnedBy(uint32 petitionID, uint32 accountID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res, "SELECT accountID FROM portal_petitions WHERE petitionID = %u", petitionID))
+        return false;
+    DBResultRow row;
+    return res.GetRow(row) && row.GetUInt(0) == accountID;
+}
+
+bool APIAdminManager::PetitionIsOpen(uint32 petitionID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res, "SELECT status FROM portal_petitions WHERE petitionID = %u", petitionID))
+        return false;
+    DBResultRow row;
+    return res.GetRow(row) && row.GetInt(0) == 1;
 }
 
 std::string APIAdminManager::ProcessTimecodes(const std::string& handler,
