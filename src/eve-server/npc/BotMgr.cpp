@@ -1377,7 +1377,7 @@ std::string BotMgr::ResupplyBotFit(uint32 charID, uint32 stationID, uint8 skillT
             continue;   // only modules go in slots — ammo/cargo aren't bought here
         std::vector<uint32> path = FitUpgradePath(typeID, skillTier);
         for (uint32 cand : path) {
-            double cost = sMarketMgr.BotBuyStock(charID, stationID, cand, 1);
+            double cost = sMktMgr.BotBuyStock(charID, stationID, cand, 1);
             if (cost > 0.0) {
                 bought.push_back(cand);
                 spent += cost;
