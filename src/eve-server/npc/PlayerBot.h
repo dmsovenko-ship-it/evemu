@@ -120,6 +120,7 @@ public:
         Courier,        // peaceful: hauls cargo between systems
         Hacker,         // peaceful: runs data/relic sites
         Explorer,       // peaceful: scans probes, finds signatures & wormholes
+        Missioner,      // peaceful: works agent missions (fly out, fight, report back)
     };
     BotProfession GetProfession() const { return m_profession; }
     void SetProfession(BotProfession p) { m_profession = p; }
@@ -233,6 +234,7 @@ protected:
     BotRole m_role;                     // combat role assigned at spawn
     CombatStyle m_combatStyle;          // kite / brawler / balanced (assigned at spawn)
     BotProfession m_profession;         // livelihood (hunter/miner/trader/courier/hacker)
+    uint32 m_nextMissionReport = 0;     // missioner: dock & report when ratKills reaches this
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     Timer m_decisionTimer;
     uint32 m_decisionCount;             // number of decisions made — first one fires fast after spawn

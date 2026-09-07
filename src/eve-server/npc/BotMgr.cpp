@@ -546,6 +546,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     prof = PlayerBot::BotProfession::Courier;      // couriers: haul to/from hub
                 else if (p < 0.90f)
                     prof = PlayerBot::BotProfession::Hacker;       // data/relic sites
+                else if (p < 0.95f)
+                    prof = PlayerBot::BotProfession::Missioner;    // agent mission runners
                 else
                     prof = PlayerBot::BotProfession::Explorer;     // probes / wormholes
                 DBerror perr;
@@ -628,6 +630,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             case PlayerBot::BotProfession::Hacker:
             case PlayerBot::BotProfession::Explorer:
                 pick = scanHulls; pickCount = sizeof(scanHulls)/sizeof(scanHulls[0]); forceProfessionHull = true;
+                break;
+            case PlayerBot::BotProfession::Missioner:
+                // Agent mission runner — a standard combat hull (cruiser/BC), the
+                // kind of ship an agent contract pilot actually uses.
+                pick = combatHulls; pickCount = sizeof(combatHulls)/sizeof(combatHulls[0]); forceProfessionHull = true;
                 break;
             default:   // Hunter / RatHunter — combat
                 pick = combatHulls; pickCount = sizeof(combatHulls)/sizeof(combatHulls[0]);

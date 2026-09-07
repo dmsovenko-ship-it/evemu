@@ -1438,6 +1438,29 @@ void PlayerBot::DoProfessionActivity()
             }
         } break;
 
+        case BotProfession::Missioner: {
+            // Missioner: works agent missions. In the first milestone this is a
+            // visible run like ratting — fly out to hostile NPCs (the mission's
+            // "objectives"), clear them, salvage and report back at the station.
+            // A station is its home base: without one it drifts to the hub.
+            if (!HasStationInSystem()) {
+                PatrolForIdle();
+                if (MakeRandomInt(0, 99) < 30)
+                    HeadTowardHub(sBotMgr.GetTradeHubSystem());
+                break;
+            }
+            RatForTarget();
+            // Report in at the station every few cleared waves (no immediate
+            // re-dock loop — the threshold is raised on each report).
+            uint32 ratKills = m_memory->GetRatKills();
+            if (ratKills >= m_nextMissionReport || GetCargoVolume() >= 8000.0f) {
+                m_nextMissionReport = ratKills + MakeRandomInt(5, 12);
+                RequestDock();
+                _log(BOT__TRACE, "PlayerBot %s(%u): mission run done — docking to report in.",
+                     m_botName.c_str(), m_botCharID);
+            }
+        } break;
+
         case BotProfession::Miner: {
             // Peaceful miner: fly/warp to a belt asteroid and sit mining. In a fleet
             // (same corp) miners cooperate at one belt; guard fighters protect them.
