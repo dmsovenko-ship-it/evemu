@@ -1,28 +1,3 @@
-/*
-    ------------------------------------------------------------------------------------
-    LICENSE:
-    ------------------------------------------------------------------------------------
-    This file is part of EVEmu: EVE Online Server Emulator
-    Copyright 2006 - 2021 The EVEmu Team
-    For the latest information visit https://evemu.dev
-    ------------------------------------------------------------------------------------
-    This program is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the Free Software
-    Foundation; either version 2 of the License, or (at your option) any later
-    version.
-
-    This program is distributed in the hope that it will be useful, but WITHOUT
-    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License along with
-    this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-    Place - Suite 330, Boston, MA 02111-1307, USA, or go to
-    http://www.gnu.org/copyleft/lesser.txt.
-    ------------------------------------------------------------------------------------
-    Author:        Zhur
-    Updates:    Allan
-*/
 #ifndef __PETITIONER_SERVICE_H_INCL__
 #define __PETITIONER_SERVICE_H_INCL__
 
@@ -33,10 +8,47 @@ public:
     PetitionerService();
 
 protected:
+    // -- categories / filing --
+    PyResult GetUserCatalogCountry(PyCallArgs& call);
     PyResult GetCategories(PyCallArgs& call);
     PyResult GetCategoryHierarchicalInfo(PyCallArgs& call);
-    PyResult GetUnreadMessages(PyCallArgs& call);
+    PyResult GetCategoryProperties(PyCallArgs& call, PyRep* categoryID);
+    PyResult MayPetition(PyCallArgs& call, PyRep* categoryID, PyRep* oocCharID);
+    PyResult PropertyPopulationInfo(PyCallArgs& call);
+    PyResult GetClientPickerInfo(PyCallArgs& call);
+    // CreatePetition(subject, petition, categoryID, retval, OocCharacterID, chatLog, combatLog, propertyList)
+    // args 0-4 always present (some None), 5-7 optional/None — accept generically.
+    PyResult CreatePetition(PyCallArgs& call,
+                             PyRep* subject, PyRep* petition, PyRep* categoryID, PyRep* retval,
+                             std::optional<PyRep*> oocCharID,
+                             std::optional<PyRep*> chatLog,
+                             std::optional<PyRep*> combatLog,
+                             std::optional<PyRep*> propertyList);
+
+    // -- my petitions / messages --
     PyResult GetMyPetitionsEx(PyCallArgs& call);
+    PyResult GetPetitionMessages(PyCallArgs& call, PyInt* petitionID);
+    PyResult GetUnreadMessages(PyCallArgs& call);
+    PyResult MarkAsRead(PyCallArgs& call, PyInt* messageID);
+    PyResult PetitionerChat(PyCallArgs& call, PyInt* petitionID, PyRep* message);     // player adds msg
+    PyResult PetitioneeChat(PyCallArgs& call, PyInt* petitionID, PyRep* message, PyRep* comment); // GM replies
+
+    // -- actions --
+    PyResult CancelPetition(PyCallArgs& call, PyInt* petitionID);
+    PyResult ClosePetition(PyCallArgs& call, PyInt* petitionID);
+    PyResult DeletePetition(PyCallArgs& call, PyInt* petitionID);
+    PyResult ClaimPetition(PyCallArgs& call, PyInt* petitionID);
+    PyResult UnClaimPetition(PyCallArgs& call, PyInt* petitionID);
+    PyResult EscalatePetition(PyCallArgs& call, PyInt* petitionID, PyRep* queueID);
+
+    // -- GM views (lightweight) --
+    PyResult GetQueues(PyCallArgs& call);
+    PyResult GetClaimedPetitions(PyCallArgs& call);
+    PyResult GetPetitionQueue(PyCallArgs& call, PyInt* queueID);
+    PyResult GetEvents(PyCallArgs& call);
+    PyResult GetLog(PyCallArgs& call, PyInt* petitionID);
+    PyResult UpdatePetitionRating(PyCallArgs& call, std::optional<PyRep*> petitionID, std::optional<PyRep*> a, std::optional<PyRep*> b, std::optional<PyRep*> c, std::optional<PyRep*> comment);
+    PyResult AddPetitionRating(PyCallArgs& call, std::optional<PyRep*> petitionID, std::optional<PyRep*> a, std::optional<PyRep*> b, std::optional<PyRep*> c, std::optional<PyRep*> comment, std::optional<PyRep*> ratingTime);
 };
 
 #endif

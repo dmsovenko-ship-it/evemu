@@ -20,136 +20,504 @@
     Place - Suite 330, Boston, MA 02111-1307, USA, or go to
     http://www.gnu.org/copyleft/lesser.txt.
     ------------------------------------------------------------------------------------
-    Author:        Zhur
-    Updates:    Allan
+    Author:        Zhur / Allan
+    Updates:       shared portal_petitions backend (2026)
 */
 
 #include "eve-server.h"
 
+#include "Client.h"
+#include "EVEServerConfig.h"
 #include "admin/PetitionerService.h"
+
+#include <cctype>
+#include <map>
+
+// session language -> category table language code ('ru' or 'en-us')
+static std::string CategoryLanguage(const std::string& sessionLang)
+{
+    std::string lang = sessionLang;
+    for (auto& c : lang)
+        c = static_cast<char>(::tolower(c));
+    return lang.find("ru") != std::string::npos ? "ru" : "en-us";
+}
+
+// Escape a string for a SQL literal.
+static std::string SqlEsc(const std::string& in)
+{
+    std::string out;
+    sDatabase.DoEscapeString(out, in);
+    return out;
+}
+
+// NULL-safe DB text for client strings (PyString must not receive nullptr).
+static const char* SafeText(const char* s)
+{
+    return s != nullptr ? s : "";
+}
 
 PetitionerService::PetitionerService() :
     Service("petitioner", eAccessLevel_Character)
 {
+    // player + category
+    this->Add("GetUserCatalogCountry", &PetitionerService::GetUserCatalogCountry);
     this->Add("GetCategories", &PetitionerService::GetCategories);
     this->Add("GetCategoryHierarchicalInfo", &PetitionerService::GetCategoryHierarchicalInfo);
-    this->Add("GetUnreadMessages", &PetitionerService::GetUnreadMessages);
+    this->Add("GetCategoryProperties", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyRep*)>(&PetitionerService::GetCategoryProperties));
+    this->Add("MayPetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyRep*, PyRep*)>(&PetitionerService::MayPetition));
+    this->Add("PropertyPopulationInfo", &PetitionerService::PropertyPopulationInfo);
+    this->Add("GetClientPickerInfo", &PetitionerService::GetClientPickerInfo);
+    this->Add("CreatePetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyRep*, PyRep*, PyRep*, PyRep*, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>)>(&PetitionerService::CreatePetition));
+
+    // my petitions / messages
     this->Add("GetMyPetitionsEx", &PetitionerService::GetMyPetitionsEx);
+    this->Add("GetPetitionMessages", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::GetPetitionMessages));
+    this->Add("GetUnreadMessages", &PetitionerService::GetUnreadMessages);
+    this->Add("MarkAsRead", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::MarkAsRead));
+    this->Add("PetitionerChat", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*, PyRep*)>(&PetitionerService::PetitionerChat));
+    this->Add("PetitioneeChat", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*, PyRep*, PyRep*)>(&PetitionerService::PetitioneeChat));
+
+    // actions
+    this->Add("CancelPetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::CancelPetition));
+    this->Add("ClosePetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::ClosePetition));
+    this->Add("DeletePetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::DeletePetition));
+    this->Add("ClaimPetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::ClaimPetition));
+    this->Add("UnClaimPetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::UnClaimPetition));
+    this->Add("EscalatePetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*, PyRep*)>(&PetitionerService::EscalatePetition));
+
+    // GM views
+    this->Add("GetQueues", &PetitionerService::GetQueues);
+    this->Add("GetClaimedPetitions", &PetitionerService::GetClaimedPetitions);
+    this->Add("GetPetitionQueue", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::GetPetitionQueue));
+    this->Add("GetEvents", &PetitionerService::GetEvents);
+    this->Add("GetLog", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyInt*)>(&PetitionerService::GetLog));
+    this->Add("UpdatePetitionRating", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>)>(&PetitionerService::UpdatePetitionRating));
+    this->Add("AddPetitionRating", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>)>(&PetitionerService::AddPetitionRating));
 }
 
-/*
- *
- *
-        catCountry = sm.RemoteSvc('petitioner').GetUserCatalogCountry()
-
-        can = sm.RemoteSvc('petitioner').MayPetition(categoryID, OocCharacterID)
-
-        self.properties = sm.RemoteSvc('petitioner').GetCategoryProperties(self.category[0])
-        populationInfo = sm.RemoteSvc('petitioner').PropertyPopulationInfo(property.inputInfo, self.OocCharacterID)
-        populationRecords = sm.RemoteSvc('petitioner').GetClientPickerInfo(filterString, elementName)
-                queues = sm.RemoteSvc('petitioner').GetQueues()
-
-                self.categories = sm.RemoteSvc('petitioner').GetCategories()
-                sm.RemoteSvc('petitioner').CreatePetition(subject, petition, categoryID, retval, OocCharacterID, combatLog=combatLog, chatLog=chatLog):
-                sm.RemoteSvc('petitioner').CreatePetition(subject, petition, categoryID, None, self.OocCharacterID, chatLog, combatLog, propertyList)
-
-        sm.RemoteSvc('petitioner').MarkAsRead(messageID)
-
-        newMessages = sm.RemoteSvc('petitioner').GetUnreadMessages()
-        self.NewMessage(newMessages[0].petitionID, newMessages[0].text, newMessages[0].messageID)
-
-        self.mine = sm.RemoteSvc('petitioner').GetMyPetitionsEx()
-
-        sm.RemoteSvc('petitioner').EscalatePetition(petitionid, escalatesTo)
-        sm.RemoteSvc('petitioner').ClaimPetition(p.petitionID)
-        sm.RemoteSvc('petitioner').UnClaimPetition(petitionid)
-        mp = sm.RemoteSvc('petitioner').GetClaimedPetitions()
-        for p in mp:
-            if p.petitionerID not in owners:
-
-
-        parentCategoryDict, childCategoryDict, descriptionDict, self.billingCategories = sm.RemoteSvc('petitioner').GetCategoryHierarchicalInfo()
-
-        sm.RemoteSvc('petitioner').UpdatePetitionRating(p.petitionID, responseTimeRating, helpfulnessRating, attitudeRating, newComment)
-
-        sm.RemoteSvc('petitioner').AddPetitionRating(p.petitionID, responseTimeRating, helpfulnessRating, attitudeRating, newComment, wnd.sr.ratingtime)
-
-
-        mp = sm.RemoteSvc('petitioner').GetPetitionQueue(queueID)
-        for p in mp:
-            if p.petitionerID and p.petitionerID not in owners:
- *
-
- pmsgs = sm.RemoteSvc('petitioner').GetPetitionMessages(p.petitionID)
- for pm in pmsgs:
-     if pm.senderID is not None and pm.senderID not in owners:
- *
-
- plogs = sm.RemoteSvc('petitioner').GetLog(p.petitionID)
- texts = sm.RemoteSvc('petitioner').GetEvents()
- *
-
- sm.RemoteSvc('petitioner').PetitioneeChat(petitionid, message, comment)
- sm.RemoteSvc('petitioner').PetitionerChat(petitionid, message)
-
-
- sm.RemoteSvc('petitioner').CancelPetition(petitionid)
- sm.RemoteSvc('petitioner').ClosePetition(petitionid)
- */
-
-
-PyResult PetitionerService::GetCategories( PyCallArgs& call )
+PyResult PetitionerService::GetUserCatalogCountry(PyCallArgs& call)
 {
-    sLog.White("PetitionerService::Handle_GetCategories()", "size=%u", call.tuple->size());
-
-    PyList* result = new PyList();
-
-    PyTuple* cat1 = new PyTuple(4);
-    cat1->SetItem(0, PyStatic.NewOne());
-    cat1->SetItem(1, new PyString("General"));
-    cat1->SetItem(2, new PyString("General help and support"));
-    cat1->SetItem(3, PyStatic.NewZero());
-    result->AddItem(cat1);
-
-    PyTuple* cat2 = new PyTuple(4);
-    cat2->SetItem(0, new PyInt(2));
-    cat2->SetItem(1, new PyString("Billing"));
-    cat2->SetItem(2, new PyString("Billing and payment issues"));
-    cat2->SetItem(3, PyStatic.NewZero());
-    result->AddItem(cat2);
-
-    PyTuple* cat3 = new PyTuple(4);
-    cat3->SetItem(0, new PyInt(3));
-    cat3->SetItem(1, new PyString("Game Play"));
-    cat3->SetItem(2, new PyString("Gameplay issues and bugs"));
-    cat3->SetItem(3, PyStatic.NewZero());
-    result->AddItem(cat3);
-
-    return result;
+    return PyStatic.NewZero();
 }
 
-PyResult PetitionerService::GetCategoryHierarchicalInfo( PyCallArgs& call )
+// ------------------------------------------------------------------ helpers
+
+static PyRep* PetitionToKeyVal(const DBResultRow& row)
 {
-    sLog.White("PetitionerService::Handle_GetCategoryHierarchicalInfo()", "size=%u", call.tuple->size());
+    PyDict* p = new PyDict();
+    p->SetItemString("petitionID", new PyInt((int32)row.GetUInt(0)));
+    p->SetItemString("categoryID", new PyInt((int32)row.GetUInt(1)));
+    p->SetItemString("subject",    new PyString(SafeText(row.GetText(2))));
+    p->SetItemString("petition",   new PyString(SafeText(row.GetText(3))));   // body
+    p->SetItemString("closed",     new PyBool(row.GetInt(4) == 0));        // status 1 open/0 closed
+    p->SetItemString("claimed",    new PyBool(row.GetUInt(5) != 0));       // claimedBy
+    p->SetItemString("deleted",    new PyBool(row.GetInt(6) != 0));
+    p->SetItemString("updated",    new PyBool(row.GetInt(7) != 0));
+    p->SetItemString("petitionerID", new PyInt((int32)row.GetUInt(10)));   // characterID
+    p->SetItemString("email",      PyStatic.NewNone());
+    p->SetItemString("properties", PyStatic.NewNone());
+    p->SetItemString("rateable",   new PyInt(0));
+    p->SetItemString("rating",     PyStatic.NewNone());
+    p->SetItemString("escalatesTo",PyStatic.NewNone());
+    // FILETIME from UNIX timestamps selected in SQL
+    p->SetItemString("createDate", new PyLong((int64)(row.GetInt64(8) + 11644473600LL) * 10000000LL));
+    p->SetItemString("touchDate",  new PyLong((int64)(row.GetInt64(9) + 11644473600LL) * 10000000LL));
+    return new PyObject("util.KeyVal", p);
+}
+
+// SELECT shape shared by all "petition row" queries. Date columns are
+// UNIX_TIMESTAMP(createDate/touchDate) so we can build FILETIME values.
+static const char* PetitionSelect =
+    "SELECT petitionID, categoryID, subject, body, status, claimedBy, deleted, updated,"
+    " UNIX_TIMESTAMP(createDate), UNIX_TIMESTAMP(touchDate), characterID"
+    " FROM portal_petitions";
+
+PyResult PetitionerService::GetCategories(PyCallArgs& call)
+{
+    // Used by svc.PetitionSvc.GetC_String() to translate categoryID -> displayName.
+    std::string lang = CategoryLanguage(call.client->GetLanguageID());
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT categoryID, categoryName FROM portal_petition_categories"
+        " WHERE languageID = '%s' AND parentCategoryID <> 0 ORDER BY sortOrder, categoryID",
+        lang.c_str()))
+        return nullptr;
+
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* c = new PyDict();
+        c->SetItemString("categoryID", new PyInt(row.GetInt(0)));
+        c->SetItemString("displayName", new PyString(SafeText(row.GetText(1))));
+        list->AddItem(new PyObject("util.KeyVal", c));
+    }
+    return list;
+}
+
+PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
+{
+    std::string lang = CategoryLanguage(call.client->GetLanguageID());
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT categoryID, parentCategoryID, categoryName, description FROM portal_petition_categories"
+        " WHERE languageID = '%s' ORDER BY sortOrder, categoryID",
+        lang.c_str()))
+        return nullptr;
+
+    PyDict* parentDict = new PyDict();   // {parentID: (name, lang)}
+    PyDict* childDict  = new PyDict();   // {parentID: {childID: (name, lang)}}
+    PyDict* descDict   = new PyDict();   // {childID: description}
+    std::map<int32, PyDict*> childGroups;
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        int32 id  = row.GetInt(0);
+        int32 par = row.GetInt(1);
+        const char* name = row.GetText(2);
+        const char* desc = row.GetText(3);
+
+        if (par == 0) {
+            PyTuple* t = new PyTuple(2);
+            t->SetItem(0, new PyString(name != nullptr ? name : ""));
+            t->SetItem(1, new PyString(lang));
+            parentDict->SetItem(new PyInt(id), t);
+        } else {
+            PyDict* group = nullptr;
+            auto it = childGroups.find(par);
+            if (it != childGroups.end()) {
+                group = it->second;
+            } else {
+                group = new PyDict();
+                childGroups[par] = group;
+                childDict->SetItem(new PyInt(par), group);
+            }
+            PyTuple* t = new PyTuple(2);
+            t->SetItem(0, new PyString(name != nullptr ? name : ""));
+            t->SetItem(1, new PyString(lang));
+            group->SetItem(new PyInt(id), t);
+            descDict->SetItem(new PyInt(id), new PyString(desc != nullptr ? desc : ""));
+        }
+    }
 
     PyTuple* result = new PyTuple(4);
-    result->SetItem(0, new PyDict());
-    result->SetItem(1, new PyDict());
-    result->SetItem(2, new PyDict());
-    result->SetItem(3, new PyList());
+    result->SetItem(0, parentDict);
+    result->SetItem(1, childDict);
+    result->SetItem(2, descDict);
+    result->SetItem(3, new PyDict());   // billingCategories: none
     return result;
 }
 
-//00:28:58 L PetitionerService::Handle_GetUnreadMessages(): size=0
-PyResult PetitionerService::GetUnreadMessages( PyCallArgs& call )
+PyResult PetitionerService::GetCategoryProperties(PyCallArgs& call, PyRep* categoryID)
 {
-    //unknown...
     return new PyList();
 }
 
-PyResult PetitionerService::GetMyPetitionsEx( PyCallArgs& call )
+PyResult PetitionerService::MayPetition(PyCallArgs& call, PyRep* categoryID, PyRep* oocCharID)
 {
-    // Returns list of petitions for current character — empty for now
-    // Client expects [petitionID, categoryID, status, title, createdDateTime, ...]
+    return PyStatic.NewZero();
+}
+
+PyResult PetitionerService::PropertyPopulationInfo(PyCallArgs& call)
+{
     return new PyList();
+}
+
+PyResult PetitionerService::GetClientPickerInfo(PyCallArgs& call)
+{
+    return new PyList();
+}
+
+// ------------------------------------------------------------------ create
+
+PyResult PetitionerService::CreatePetition(PyCallArgs& call,
+                                           PyRep* subjectRep, PyRep* petitionRep, PyRep* categoryRep, PyRep* retval,
+                                           std::optional<PyRep*> oocCharID,
+                                           std::optional<PyRep*> chatLog,
+                                           std::optional<PyRep*> combatLog,
+                                           std::optional<PyRep*> propertyList)
+{
+    int32 charID = call.client->GetCharacterID();
+    int32 accountID = call.client->GetUserID();
+
+    std::string subject = PyRep::StringContent(subjectRep);
+    std::string body    = PyRep::StringContent(petitionRep);
+    int32 categoryID    = static_cast<int32>(PyRep::IntegerValue(categoryRep));
+
+    if (subject.empty() || body.empty() || categoryID <= 0)
+        return new PyBool(false);
+
+    std::string author = SqlEsc(call.client->GetName());
+    std::string eSubj  = SqlEsc(subject);
+    std::string eBody  = SqlEsc(body);
+
+    DBerror err;
+    uint32 petitionID = 0;
+    if (!sDatabase.RunQueryLID(err, petitionID,
+        "INSERT INTO portal_petitions (accountID, characterID, authorName, categoryID, subject, body, status, deleted, updated, createDate, touchDate)"
+        " VALUES (%u, %u, '%s', %u, '%s', '%s', 1, 0, 0, NOW(), NOW())",
+        accountID, charID, author.c_str(), categoryID, eSubj.c_str(), eBody.c_str()))
+    {
+        sLog.Error("Petitioner", "CreatePetition insert failed: %s", err.c_str());
+        return new PyBool(false);
+    }
+
+    sDatabase.RunQuery(err,
+        "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
+        " VALUES (%u, %u, '%s', 0, 0, '%s', NOW())",
+        petitionID, charID, author.c_str(), eBody.c_str());
+
+    sLog.Green("Petitioner", "%s(%u) filed petition #%u cat %u.", call.client->GetName(), charID, petitionID, categoryID);
+    return new PyBool(true);
+}
+
+// ------------------------------------------------------------------ list/read
+
+PyResult PetitionerService::GetMyPetitionsEx(PyCallArgs& call)
+{
+    int32 charID = call.client->GetCharacterID();
+    int32 accountID = call.client->GetUserID();
+
+    DBQueryResult res;
+    // A player sees petitions filed by this character; account-level portal
+    // petitions (characterID = 0) filed on the same account are also included.
+    if (!sDatabase.RunQuery(res,
+        "%s WHERE deleted = 0 AND (characterID = %u OR (characterID = 0 AND accountID = %u))"
+        " ORDER BY petitionID DESC",
+        PetitionSelect, charID, accountID))
+        return nullptr;
+
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row))
+        list->AddItem(PetitionToKeyVal(row));
+    return list;
+}
+
+PyResult PetitionerService::GetPetitionMessages(PyCallArgs& call, PyInt* petitionID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT messageID, senderID, senderName, comment, text, UNIX_TIMESTAMP(sentDate)"
+        " FROM portal_petition_messages WHERE petitionID = %u ORDER BY sentDate ASC, messageID ASC",
+        petitionID->value()))
+        return nullptr;
+
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* m = new PyDict();
+        m->SetItemString("messageID", new PyInt((int32)row.GetUInt(0)));
+        m->SetItemString("senderID",  new PyInt((int32)row.GetUInt(1)));
+        m->SetItemString("senderName",new PyString(SafeText(row.GetText(2))));
+        m->SetItemString("comment",   new PyBool(row.GetInt(3) != 0));
+        m->SetItemString("text",      new PyString(SafeText(row.GetText(4))));
+        m->SetItemString("sentDate",  new PyLong((int64)(row.GetInt64(5) + 11644473600LL) * 10000000LL));
+        list->AddItem(new PyObject("util.KeyVal", m));
+    }
+    return list;
+}
+
+PyResult PetitionerService::GetUnreadMessages(PyCallArgs& call)
+{
+    int32 charID = call.client->GetCharacterID();
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT m.messageID, m.petitionID, m.text"
+        " FROM portal_petition_messages m"
+        " JOIN portal_petitions p ON p.petitionID = m.petitionID"
+        " WHERE p.characterID = %u AND m.isGM = 1 AND p.status = 1 AND p.deleted = 0"
+        " ORDER BY m.sentDate DESC LIMIT 20", charID))
+        return nullptr;
+
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* m = new PyDict();
+        m->SetItemString("messageID", new PyInt((int32)row.GetUInt(0)));
+        m->SetItemString("petitionID", new PyInt((int32)row.GetUInt(1)));
+        m->SetItemString("text", new PyString(SafeText(row.GetText(2))));
+        list->AddItem(new PyObject("util.KeyVal", m));
+    }
+    return list;
+}
+
+PyResult PetitionerService::MarkAsRead(PyCallArgs& call, PyInt* messageID)
+{
+    return nullptr;
+}
+
+// ------------------------------------------------------------------ chat
+
+PyResult PetitionerService::PetitionerChat(PyCallArgs& call, PyInt* petitionID, PyRep* message)
+{
+    int32 charID = call.client->GetCharacterID();
+    std::string text = PyRep::StringContent(message);
+    if (text.empty())
+        return new PyBool(false);
+
+    DBQueryResult chk;
+    if (!sDatabase.RunQuery(chk, "SELECT status, deleted FROM portal_petitions WHERE petitionID = %u", petitionID->value()))
+        return new PyBool(false);
+    DBResultRow r;
+    if (!chk.GetRow(r) || r.GetInt(0) != 1 || r.GetInt(1) != 0)
+        return new PyBool(false);
+
+    std::string author = SqlEsc(call.client->GetName());
+    std::string eText  = SqlEsc(text);
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
+        " VALUES (%u, %u, '%s', 0, 0, '%s', NOW())",
+        petitionID->value(), charID, author.c_str(), eText.c_str());
+    sDatabase.RunQuery(err, "UPDATE portal_petitions SET updated = 1, touchDate = NOW() WHERE petitionID = %u",
+        petitionID->value());
+    return new PyBool(true);
+}
+
+PyResult PetitionerService::PetitioneeChat(PyCallArgs& call, PyInt* petitionID, PyRep* message, PyRep* comment)
+{
+    std::string text = PyRep::StringContent(message);
+    if (text.empty())
+        return new PyBool(false);
+    bool isComment = (comment != nullptr) && !comment->IsNone() && comment->IsBool() && comment->AsBool()->value();
+
+    DBQueryResult chk;
+    if (!sDatabase.RunQuery(chk, "SELECT deleted FROM portal_petitions WHERE petitionID = %u", petitionID->value()))
+        return new PyBool(false);
+    DBResultRow r;
+    if (!chk.GetRow(r) || r.GetInt(0) != 0)
+        return new PyBool(false);
+
+    std::string author = SqlEsc(call.client->GetName());
+    std::string eText  = SqlEsc(text);
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
+        " VALUES (%u, %u, '%s', 1, %u, '%s', NOW())",
+        petitionID->value(), call.client->GetCharacterID(), author.c_str(), isComment ? 1 : 0, eText.c_str());
+    if (!isComment)
+        sDatabase.RunQuery(err, "UPDATE portal_petitions SET updated = 1, touchDate = NOW() WHERE petitionID = %u",
+            petitionID->value());
+    return new PyBool(true);
+}
+
+// ------------------------------------------------------------------ actions
+
+PyResult PetitionerService::CancelPetition(PyCallArgs& call, PyInt* petitionID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petitions SET status = 0 WHERE petitionID = %u AND claimedBy = 0",
+        petitionID->value());
+    return new PyBool(true);
+}
+
+PyResult PetitionerService::ClosePetition(PyCallArgs& call, PyInt* petitionID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petitions SET status = 0 WHERE petitionID = %u",
+        petitionID->value());
+    return new PyBool(true);
+}
+
+PyResult PetitionerService::DeletePetition(PyCallArgs& call, PyInt* petitionID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petitions SET deleted = 1 WHERE petitionID = %u",
+        petitionID->value());
+    return new PyBool(true);
+}
+
+PyResult PetitionerService::ClaimPetition(PyCallArgs& call, PyInt* petitionID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petitions SET claimedBy = %u, updated = 0 WHERE petitionID = %u AND claimedBy = 0",
+        call.client->GetCharacterID(), petitionID->value());
+    DBQueryResult chk;
+    if (!sDatabase.RunQuery(chk, "SELECT claimedBy FROM portal_petitions WHERE petitionID = %u", petitionID->value()))
+        return PyStatic.NewZero();
+    DBResultRow r;
+    if (chk.GetRow(r) && r.GetUInt(0) == (uint32)call.client->GetCharacterID())
+        return new PyInt(1);
+    return PyStatic.NewZero();
+}
+
+PyResult PetitionerService::UnClaimPetition(PyCallArgs& call, PyInt* petitionID)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petitions SET claimedBy = 0 WHERE petitionID = %u AND claimedBy = %u",
+        petitionID->value(), call.client->GetCharacterID());
+    return nullptr;
+}
+
+PyResult PetitionerService::EscalatePetition(PyCallArgs& call, PyInt* petitionID, PyRep* queueID)
+{
+    return nullptr;
+}
+
+// ------------------------------------------------------------------ GM views
+
+PyResult PetitionerService::GetQueues(PyCallArgs& call)
+{
+    PyList* list = new PyList();
+    PyDict* q = new PyDict();
+    q->SetItemString("queueID", new PyInt(1));
+    q->SetItemString("queueName", new PyString("General"));
+    list->AddItem(new PyObject("util.KeyVal", q));
+    return list;
+}
+
+PyResult PetitionerService::GetClaimedPetitions(PyCallArgs& call)
+{
+    int32 charID = call.client->GetCharacterID();
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "%s WHERE claimedBy = %u AND deleted = 0 ORDER BY petitionID DESC",
+        PetitionSelect, charID))
+        return nullptr;
+
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row))
+        list->AddItem(PetitionToKeyVal(row));
+    return list;
+}
+
+PyResult PetitionerService::GetPetitionQueue(PyCallArgs& call, PyInt* queueID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "%s WHERE claimedBy = 0 AND status = 1 AND deleted = 0 ORDER BY petitionID DESC",
+        PetitionSelect))
+        return nullptr;
+
+    PyList* list = new PyList();
+    DBResultRow row;
+    while (res.GetRow(row))
+        list->AddItem(PetitionToKeyVal(row));
+    return list;
+}
+
+PyResult PetitionerService::GetEvents(PyCallArgs& call)
+{
+    return new PyList();
+}
+
+PyResult PetitionerService::GetLog(PyCallArgs& call, PyInt* petitionID)
+{
+    return new PyList();
+}
+
+PyResult PetitionerService::UpdatePetitionRating(PyCallArgs& call, std::optional<PyRep*> petitionID, std::optional<PyRep*> a, std::optional<PyRep*> b, std::optional<PyRep*> c, std::optional<PyRep*> comment)
+{
+    return nullptr;
+}
+
+PyResult PetitionerService::AddPetitionRating(PyCallArgs& call, std::optional<PyRep*> petitionID, std::optional<PyRep*> a, std::optional<PyRep*> b, std::optional<PyRep*> c, std::optional<PyRep*> comment, std::optional<PyRep*> ratingTime)
+{
+    return nullptr;
 }
