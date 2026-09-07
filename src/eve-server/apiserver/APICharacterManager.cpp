@@ -203,7 +203,8 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "vc.characterName, fc.characterName, "
             "iv.typeName, if_.typeName, iw.typeName, "
             "ss.solarSystemName, k.killBlob, "
-            "igv.groupID, igv.groupName "
+            "igv.groupID, igv.groupName, "
+            "igf.groupID, igf.groupName "
             "FROM chrKillTable k "
             "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
             "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
@@ -211,6 +212,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID "
             "LEFT JOIN invTypes iw ON iw.typeID = k.finalWeaponTypeID "
             "LEFT JOIN invGroups igv ON igv.groupID = iv.groupID "
+            "LEFT JOIN invGroups igf ON igf.groupID = if_.groupID "
             "LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID "; 
         if (beforeKillID > 0)
             q += "WHERE k.killID < " + std::to_string(beforeKillID) + " ";
@@ -258,6 +260,8 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             xml += " killblob=\"" + xmlEscape(blob) + "\"";
             xml += " victimgroupid=\"" + std::to_string(row.GetUInt(25)) + "\"";
             xml += " victimgroupname=\"" + xmlEscape(row.GetText(26)) + "\"";
+            xml += " finalgroupid=\"" + std::to_string(row.GetUInt(27)) + "\"";
+            xml += " finalgroupname=\"" + xmlEscape(row.GetText(28)) + "\"";
             xml += "/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
@@ -318,6 +322,16 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                 DBResultRow row;
                 while (res.GetRow(row))
                     xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\" name=\"" + std::string(row.GetText(1)) + "\" type=\"corporation\"/>\n";
+            }
+        }
+        // alliance names
+        {
+            DBQueryResult res;
+            if (sDatabase.RunQuery(res,
+                "SELECT allianceID, allianceName FROM alnAlliance WHERE allianceID IN (%s)", ids.c_str())) {
+                DBResultRow row;
+                while (res.GetRow(row))
+                    xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\" name=\"" + std::string(row.GetText(1)) + "\" type=\"alliance\"/>\n";
             }
         }
 
