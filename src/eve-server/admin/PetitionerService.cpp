@@ -239,6 +239,35 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
     result->SetItem(1, childDict);
     result->SetItem(2, descDict);
     result->SetItem(3, new PyDict());   // billingCategories: none
+    // Diagnostic: what the wizard will actually see per language.
+    int ruParents = 0, enParents = 0, ruChildren = 0, enChildren = 0;
+    for (auto itp = parentDict->begin(); itp != parentDict->end(); ++itp) {
+        PyRep* v = itp->second;
+        if (v != nullptr && v->IsTuple() && v->AsTuple()->size() == 2) {
+            PyRep* langRep = v->AsTuple()->GetItem(1);
+            if (langRep != nullptr && langRep->IsString() && std::string(langRep->AsString()->content()) == "ru")
+                ++ruParents;
+            else
+                ++enParents;
+        }
+    }
+    for (auto itc = childDict->begin(); itc != childDict->end(); ++itc) {
+        PyRep* g = itc->second;
+        if (g != nullptr && g->IsDict()) {
+            for (auto it2 = g->AsDict()->begin(); it2 != g->AsDict()->end(); ++it2) {
+                PyRep* v = it2->second;
+                if (v != nullptr && v->IsTuple() && v->AsTuple()->size() == 2) {
+                    PyRep* langRep = v->AsTuple()->GetItem(1);
+                    if (langRep != nullptr && langRep->IsString() && std::string(langRep->AsString()->content()) == "ru")
+                        ++ruChildren;
+                    else
+                        ++enChildren;
+                }
+            }
+        }
+    }
+    sLog.Yellow("Petitioner", "GetCategoryHierarchicalInfo: client lang='%s'  ru:%d parents/%d children  en-us:%d parents/%d children",
+        call.client->GetLanguageID().c_str(), ruParents, ruChildren, enParents, enChildren);
     return result;
 }
 
