@@ -2140,6 +2140,24 @@ void BotMgr::PayCorpTax(PlayerBot* bot)
          bot->GetBotName().c_str(), charID, tax, corpID);
 }
 
+void BotMgr::PayMissionReward(PlayerBot* bot)
+{
+    // Agent mission payout: a missioner is credited ISK when it docks and reports
+    // in after a run (like turning a mission in to an agent). Scaled a little by
+    // how much practice the pilot has, so veterans earn more.
+    uint32 charID = bot->GetBotCharID();
+    if (charID == 0)
+        return;
+    double reward = 30000.0 + MakeRandomInt(0, 80000);   // 30k-110k per report
+    if (bot->GetMemory() != nullptr)
+        reward *= 1.0 + 0.25 * bot->GetMemory()->GetActivitySkill();   // up to +25%
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE chrCharacters SET balance = balance + %f WHERE characterID = %u",
+                       reward, charID);
+    _log(BOT__MESSAGE, "BotMgr: missioner %s(%u) reported in — %.0f ISK mission payout.",
+         bot->GetBotName().c_str(), charID, reward);
+}
+
 void BotMgr::PlaceBotOrder(PlayerBot* bot)
 {
     // Trader bots sell goods on the market in their own name (legacy space-bot
@@ -2738,6 +2756,11 @@ void BotMgr::ProcessDocking()
                 // Let the courier sit for a bit before heading out again.
                 db.undockAt = now + MakeRandomInt(120, 600);
             }
+            // Missioner docked to report in a run (it carried salvage back) — pay
+            // the agent mission reward into its wallet (checked before the cargo
+            // deposit below empties the hold).
+            if (pb->GetProfession() == PlayerBot::BotProfession::Missioner && pb->HasCargo())
+                PayMissionReward(pb);
             // Stage-2 physical goods: a miner/ratter/hacker deposits its real
             // cargo hold into the station hangar when it docks, so the station
             // accumulates physical minerals/loot a trader can later pack into a

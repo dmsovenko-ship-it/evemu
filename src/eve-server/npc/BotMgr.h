@@ -133,6 +133,7 @@ private:
     // corp wallet, and trader bots place market orders in their own name.
     void ProcessEconomy(PlayerBot* bot);
     void PayCorpTax(PlayerBot* bot);
+    void PayMissionReward(PlayerBot* bot);
     // Market orders/contracts, placed at a specific station (from a docked bot).
     // The PlayerBot* overloads are for space bots (kept for compat); the explicit
     // versions take a sysID/station so docked traders can work the market.
