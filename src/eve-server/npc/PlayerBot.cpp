@@ -413,6 +413,15 @@ void PlayerBot::Process()
     // an ally), and scoop drones that drift too far.
     ManageDrones();
 
+    // Fleet boss (Orca/Rorqual): keep combat guards nearby while it boosts the
+    // mining fleet — re-issue the escort periodically so it never drifts off.
+    if (IsFleetBoss()) {
+        if (!m_fleetGuardTimer.Enabled())
+            m_fleetGuardTimer.Start(15000);
+        if (m_fleetGuardTimer.Check(false))
+            RequestFleetProtection();
+    }
+
     // When the visible warp-to-gate flight is done, signal BotMgr we're ready
     // to actually cross the gate. Until then we stay here, visibly flying.
     if (m_traveling && m_travelTimer.Check(false))

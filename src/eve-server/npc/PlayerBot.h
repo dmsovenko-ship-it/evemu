@@ -253,6 +253,7 @@ protected:
     bool m_factionWarrior;              // FW subclass: fights bots of other factions
     uint32 m_jumpDest;                  // destination system for the jump
     Timer m_cynoTimer;                  // window before the jump fires
+    Timer m_fleetGuardTimer;            // fleet boss: periodic request for guard cover
     std::vector<DroneSE*> m_drones;     // launched combat drones (bot commands directly)
     Timer m_droneTimer;                 // drone attack cycle
     std::map<uint16, uint32> m_cargo;   // physical loot/production accumulated this trip (typeID -> qty)
