@@ -222,8 +222,8 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         if (!sDatabase.RunQueryLID(err, petitionID,
             "INSERT INTO portal_petitions"
             " (accountID, characterID, authorName, categoryID, subject, body, status, updated, createDate, touchDate)"
-            " VALUES (%u, %u, '%s', %u, '%s', '%s', 1, 0, NOW(), NOW())",
-            std::stoul(aid), charID, aEsc.c_str(), categoryID, sEsc.c_str(), bEsc.c_str()))
+            " VALUES (%u, 0, '%s', %u, '%s', '%s', 1, 0, NOW(), NOW())",
+            std::stoul(aid), aEsc.c_str(), categoryID, sEsc.c_str(), bEsc.c_str()))
             return BuildErrorXML("999", "Insert failed.");
 
         // First message = the petition body, so the conversation is uniform.
