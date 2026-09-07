@@ -29,6 +29,7 @@
 #include "eve-server.h"
 #include "../eve-common/EVEVersion.h"
 #include "../eve-common/EVE_Character.h"
+#include "../eve-common/auth/PasswordModule.h"
 //#include "../../eve-common/EVE_Skills.h"
 
 #include "Client.h"
@@ -3151,14 +3152,23 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
             return _LoginFail(failMsg);
         }
     } else {
-        //sLog.Warning("  Client::Login()", "%s(%u) - Using Hashed Password", aData.name.c_str(), aData.clientID);
-        if (strcmp(aData.hash.c_str(), ccp.user_password_hash.c_str()) != 0) {
+        // Client authenticates with the CCP password hash (PasswordModule: SHA1
+        // over UTF-16 pass+user, 1000 iterations). Accounts created through the
+        // web portal store only the plain password with an empty hash — for them
+        // recompute the expected digest and verify instead of a direct compare.
+        bool hashOk = !aData.hash.empty()
+                   && aData.hash.size() == ccp.user_password_hash.size()
+                   && memcmp(aData.hash.data(), ccp.user_password_hash.data(), aData.hash.size()) == 0;
+        if (!hashOk && aData.hash.empty() && !aData.password.empty()) {
+            std::string computed;
+            if (PasswordModule::GeneratePassHash(aData.name, aData.password, computed))
+                hashOk = computed.size() == ccp.user_password_hash.size()
+                      && memcmp(computed.data(), ccp.user_password_hash.data(), computed.size()) == 0;
+        }
+        if (!hashOk) {
             failMsg = "The Password you entered is incorrect for this account.";
             return _LoginFail(failMsg);
         }
-
-        if (!ccp.user_password.empty())
-            ServiceDB::UpdatePassword(aData.id, ccp.user_password.c_str());
     }
 
     /** @todo  check this character/account for newbie status and revoke as needed before account update.  */
