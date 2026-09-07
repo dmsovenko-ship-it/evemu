@@ -154,6 +154,8 @@ private:
     void ProcessPlayerContracts();
     // A free courier bot in `systemID`, or across any loaded system when 0.
     PlayerBot* FindFreeCourier(uint32 systemID);
+    // Complete courier hauls that reached their destination but never docked.
+    void ProcessHaulDeliveries();
     // Market self-learning (stage-1 economy): a docked trader reads its station's
     // order book and either captures a crossing spread (real arbitrage fills via
     // MarketMgr::BotArbitrageFill) or quotes tighter than the current best bid/
@@ -209,6 +211,24 @@ private:
     std::map<uint32, time_t> m_lastPopulate;   // systemID -> last bot spawn time (gradual fill)
     std::map<int32, time_t> m_lastSmalltalk;   // channelID -> last bot-to-bot chatter time
     std::map<uint32, time_t> m_lastTrade;      // charID -> last market order time (throttle)
+
+    // Physical courier hauls: a courier accepted a courier contract and flies it
+    // gate-to-gate to the destination system (bot is deleted/re-spawned at each
+    // gate like every traveller). The map is keyed by courier charID so the run
+    // survives the per-hop delete+respawn.
+    struct CourierHaul {
+        uint32 contractID  = 0;
+        uint32 endSys      = 0;     // destination system
+        uint32 endStation  = 0;     // destination station
+        std::vector<uint32> route;  // remaining systems to cross (front = next hop)
+        time_t arrivedAt   = 0;     // when the courier reached endSys (0 = en route)
+    };
+    std::map<uint32, CourierHaul> m_hauls;   // courier charID -> active haul
+
+    // System adjacency cache (lazy, loaded from mapSolarSystemJumps).
+    static std::vector<uint32> GetAdjacentSystems(uint32 systemID);
+    // BFS shortest path from..to over the jump graph; true if a route exists.
+    bool ComputeHaulRoute(uint32 fromSys, uint32 toSys, std::vector<uint32>& out);
 };
 
 //Singleton

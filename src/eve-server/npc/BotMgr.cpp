@@ -25,6 +25,8 @@
 #include <cstring>
 #include <sstream>
 #include <algorithm>
+#include <queue>
+#include <set>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -151,6 +153,9 @@ void BotMgr::Process()
 
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
+
+    // Complete courier hauls that reached their destination but could not dock.
+    ProcessHaulDeliveries();
 
     // Refresh the portal's "online" figure (active + docked chelobots) on the
     // game thread so the API thread can read it race-free.
@@ -1211,6 +1216,9 @@ void BotMgr::ReapBots(SystemManager* pSystem)
     }
 }
 
+static PlayerBot* BotMgr_FindInSystem(SystemManager* sm, uint32 charID);
+static void BotMgr_RequestCourierDock(PlayerBot* pb);
+
 void BotMgr::ProcessTravel()
 {
     if (!m_initalized || !sConfig.playerBots.Enabled)
@@ -1241,10 +1249,36 @@ void BotMgr::ProcessTravel()
         }
 
         for (PlayerBot* pb : readyToJump) {
-            // Cross the gate. Use the bot's requested destination if set
-            // (e.g. arriving into a player's system), else pick a random one.
+            uint32 charID = pb->GetBotCharID();
+            std::string name = pb->GetBotName();
+            uint32 corp = pb->GetBotCorpID();
+            uint32 ally = pb->GetBotAllianceID();
+            uint32 curSys = pSystem->GetID();
+
+            // Physical courier haul: keep following the remaining route toward the
+            // contract's destination system (gate by gate) instead of wandering.
+            auto haulIt = m_hauls.find(charID);
             uint32 destSystem = pb->GetTravelDestination();
+            if (haulIt != m_hauls.end() && haulIt->second.arrivedAt == 0) {
+                CourierHaul& haul = haulIt->second;
+                if (curSys == haul.endSys) {
+                    // Already on the destination system but somehow wants to leave —
+                    // let it dock & deliver instead of roaming on.
+                    haul.arrivedAt = time(nullptr);
+                    destSystem = 0;
+                    pb->ClearTravel();
+                    BotMgr_RequestCourierDock(pb);
+                    continue;
+                }
+                if (!haul.route.empty()) {
+                    destSystem = haul.route.front();
+                    haul.route.erase(haul.route.begin());
+                }
+            }
+
             if (destSystem == 0) {
+                if (pb->IsAggressed())
+                    continue;
                 // Trade-inclined bots (traders, couriers, miners hauling ore,
                 // hackers/ratters hauling loot) route toward the primary market
                 // hub (Jita) to sell/buy.
@@ -1260,14 +1294,9 @@ void BotMgr::ProcessTravel()
                 else
                     destSystem = GetRandomAdjacentSystem(pSystem->GetID());
             }
-            pb->ClearTravel();
             if (destSystem == 0)
                 continue;   // dead-end system or no map data — stay put
 
-            uint32 charID = pb->GetBotCharID();
-            std::string name = pb->GetBotName();
-            uint32 corp = pb->GetBotCorpID();
-            uint32 ally = pb->GetBotAllianceID();
             _log(BOT__MESSAGE, "BotMgr: %s(%u) crossing gate to system %u (from %u).",
                  name.c_str(), charID, destSystem, pSystem->GetID());
 
@@ -1285,9 +1314,39 @@ void BotMgr::ProcessTravel()
             if (dest != nullptr)
                 SpawnBot(dest, charID, name, corp, ally, true);   // arrived via gate → jump-in animation
 
-            // A courier that just crossed into its contract's destination system
-            // delivers the cargo and collects the reward (client-less).
-            CompleteContract(charID, destSystem);
+            // Courier haul bookkeeping for this hop.
+            if (haulIt != m_hauls.end()) {
+                CourierHaul& haul = haulIt->second;
+                if (haul.route.empty() && destSystem == haul.endSys) {
+                    // Reached the destination system. Approach the station and
+                    // dock; delivery fires when the bot is actually docked there.
+                    haul.arrivedAt = time(nullptr);
+                    if (dest != nullptr) {
+                        PlayerBot* arrived = BotMgr_FindInSystem(dest, charID);
+                        if (arrived != nullptr) {
+                            arrived->ClearTravel();
+                            arrived->RequestDock();
+                        }
+                    }
+                } else if (haul.route.empty() && !haul.arrivedAt) {
+                    // Ran out of route without reaching the destination — drop the run.
+                    haulIt = m_hauls.erase(haulIt);
+                } else if (!haul.route.empty()) {
+                    // Intermediate hop — keep the run moving: warp the courier to
+                    // the next gate so ProcessTravel crosses it on the following tick.
+                    PlayerBot* arrived = (dest != nullptr) ? BotMgr_FindInSystem(dest, charID) : nullptr;
+                    if (arrived != nullptr && !arrived->WantsToTravel() && !arrived->IsTraveling()) {
+                        uint32 nextSys = haul.route.front();
+                        arrived->SetTravelDestination(nextSys);
+                        arrived->MarkForTravel(nextSys);
+                    }
+                }
+            }
+
+            // Non-haul crossings (ordinary wanderers, jump-freighter jumps) deliver
+            // instantly on arrival; gate-to-gate hauls deliver on dock or fallback.
+            if (haulIt == m_hauls.end())
+                CompleteContract(charID, destSystem);
         }
     }
 }
@@ -1306,6 +1365,66 @@ uint32 BotMgr::GetRandomAdjacentSystem(uint32 systemID)
     if (targets.empty())
         return 0;
     return targets[MakeRandomInt(0, (int64)targets.size() - 1)];
+}
+
+// Cached system adjacency (mapSolarSystemJumps). Loaded lazily per system.
+std::vector<uint32> BotMgr::GetAdjacentSystems(uint32 systemID)
+{
+    static std::map<uint32, std::vector<uint32>> cache;
+    static std::set<uint32> loaded;
+    if (systemID == 0)
+        return {};
+    if (!loaded.count(systemID)) {
+        std::vector<uint32> v;
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT toSolarSystemID FROM mapSolarSystemJumps WHERE fromSolarSystemID = %u", systemID)) {
+            DBResultRow row;
+            while (res.GetRow(row))
+                v.push_back(row.GetUInt(0));
+        }
+        cache[systemID] = std::move(v);
+        loaded.insert(systemID);
+    }
+    return cache[systemID];
+}
+
+// BFS shortest path from..to over the jump graph. Returns false when no path.
+bool BotMgr::ComputeHaulRoute(uint32 fromSys, uint32 toSys, std::vector<uint32>& out)
+{
+    out.clear();
+    if (fromSys == 0 || toSys == 0)
+        return false;
+    if (fromSys == toSys) {
+        out.push_back(toSys);
+        return true;
+    }
+    std::set<uint32> seen;
+    std::queue<uint32> q;
+    std::map<uint32, uint32> prev;
+    q.push(fromSys);
+    seen.insert(fromSys);
+    while (!q.empty()) {
+        uint32 cur = q.front(); q.pop();
+        for (uint32 n : GetAdjacentSystems(cur)) {
+            if (seen.count(n))
+                continue;
+            seen.insert(n);
+            prev[n] = cur;
+            if (n == toSys) {
+                // reconstruct fromSys -> ... -> toSys
+                std::vector<uint32> rev;
+                for (uint32 x = toSys; x != fromSys && prev.count(x); x = prev[x])
+                    rev.push_back(x);
+                rev.push_back(fromSys);
+                std::reverse(rev.begin(), rev.end());
+                out = rev;
+                return true;
+            }
+            q.push(n);
+        }
+    }
+    return false;
 }
 
 uint32 BotMgr::GetTradeHubSystem() const
@@ -2331,6 +2450,48 @@ double BotMgr::SellStockAtHub(uint32 sysID, uint32 stationID, uint32 charID)
 }
 
 
+// Find a chelobot by charID in a system.
+static PlayerBot* BotMgr_FindInSystem(SystemManager* sm, uint32 charID)
+{
+    if (sm == nullptr) return nullptr;
+    for (auto& [id, se] : sm->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr) continue;
+        PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (pb != nullptr && pb->GetBotCharID() == charID) return pb;
+    }
+    return nullptr;
+}
+
+// Flag a courier to dock at its destination station (delivery happens on dock).
+static void BotMgr_RequestCourierDock(PlayerBot* pb)
+{
+    if (pb == nullptr) return;
+    pb->ClearTravel();
+    pb->RequestDock();
+}
+
+// Per-tick fallback: if a haul arrived at its destination but the bot never got
+// to dock (e.g. the system has no players so docking never runs), complete it.
+void BotMgr::ProcessHaulDeliveries()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    time_t now = time(nullptr);
+    for (auto it = m_hauls.begin(); it != m_hauls.end(); ) {
+        CourierHaul& haul = it->second;
+        bool done = false;
+        if (haul.arrivedAt != 0 && (now - haul.arrivedAt) > 45) {
+            CompleteContract(it->first, haul.endSys);
+            done = true;
+        } else if (haul.arrivedAt != 0 && haul.route.empty()) {
+            // arrived + no more hops: the dock path is expected; if the courier
+            // has already left the docked list it's on its way — leave pending.
+        }
+        if (done) it = m_hauls.erase(it);
+        else ++it;
+    }
+}
+
 void BotMgr::ProcessDocking()
 {
     if (!m_initalized || !sConfig.playerBots.Enabled)
@@ -2451,6 +2612,18 @@ void BotMgr::ProcessDocking()
                  db.name.c_str(), db.charID, dockStationID, pSystem->GetID());
             pb->ClearDockRequest();
             pb->RecallDrones();   // scoop drones before docking
+            // Courier haul arrived at its destination and now docked → deliver the
+            // contract (real physical "dock to complete") and end the run.
+            auto haulIt = m_hauls.find(db.charID);
+            if (haulIt != m_hauls.end() && haulIt->second.arrivedAt != 0
+                && haulIt->second.endSys == pSystem->GetID()) {
+                CompleteContract(db.charID, haulIt->second.endSys);
+                _log(BOT__MESSAGE, "BotMgr: courier %s(%u) docked at destination system %u — haul complete.",
+                     db.name.c_str(), db.charID, pSystem->GetID());
+                m_hauls.erase(haulIt);
+                // Let the courier sit for a bit before heading out again.
+                db.undockAt = now + MakeRandomInt(120, 600);
+            }
             // Stage-2 physical goods: a miner/ratter/hacker deposits its real
             // cargo hold into the station hangar when it docks, so the station
             // accumulates physical minerals/loot a trader can later pack into a
@@ -2742,9 +2915,29 @@ void BotMgr::ProcessPlayerContracts()
             if (volume > 10000) {
                 courier->StartJumpFreighter(endSys);
             } else {
-                // Small cargo: fly through gates normally.
-                courier->SetTravelDestination(endSys);
-                courier->MarkForTravel(endSys);
+                // Small cargo: fly through gates normally, gate by gate (a real
+                // haul — visible warps/jumps through each system). Compute a BFS
+                // route from the courier's current system to the destination.
+                uint32 curSys = (courier->SystemMgr() != nullptr) ? courier->SystemMgr()->GetID() : startSys;
+                std::vector<uint32> route;
+                if (ComputeHaulRoute(curSys, endSys, route) && route.size() > 1) {
+                    CourierHaul haul;
+                    haul.contractID = contractID;
+                    haul.endSys = endSys;
+                    haul.endStation = 0;
+                    haul.route.assign(route.begin() + 1, route.end());   // skip current system
+                    haul.arrivedAt = 0;
+                    m_hauls[courier->GetBotCharID()] = std::move(haul);
+                    courier->SetTravelDestination(route[1]);
+                    courier->MarkForTravel(route[1]);
+                    _log(BOT__MESSAGE, "BotMgr: courier %s(%u) hauling contract %u via gate route (%zu jumps) to system %u.",
+                         courier->GetBotName().c_str(), courier->GetBotCharID(), contractID,
+                         route.size() - 1, endSys);
+                } else {
+                    // No path or already there — fall back to the direct hop.
+                    courier->SetTravelDestination(endSys);
+                    courier->MarkForTravel(endSys);
+                }
             }
             // Reward ISK is paid on successful delivery (handled when the
             // freighter/courier completes the run), not at acceptance.
