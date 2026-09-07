@@ -56,29 +56,56 @@ static const char* SafeText(const char* s)
     return s != nullptr ? s : "";
 }
 
-// The petition window requests category data for ALL languages at once and then
-// filters rows by the client's own languageID (with an English fallback). Our DB
-// uses one categoryID per logical category shared by ru/en-us rows, which would
-// collide in the dictionaries the client builds.  Give each language a distinct
-// "wire" categoryID: ru keeps its id, every other language is offset by
-// LanguageIdOffset() so keys stay unique. CreatePetition decodes back to the DB id.
-static int32 LanguageIdOffset(const std::string& lang)
+// The petition window requests the category tree once, then filters rows by the
+// client's own languageID (with an English fallback if its language yields too
+// few groups).  The DB stores one categoryID per logical category shared by all
+// languages, which would collide in the dictionaries the client builds, so each
+// (category, language-form) is emitted under its own "wire" id.  CCP clients may
+// compare against the short lower-case code ('ru'/'en-us'), the two-letter
+// language-table code ('RU'/'EN') or the numeric language id (1049/1033) — emit
+// all forms so the wizard's filter always finds a group.  CreatePetition decodes
+// any form back to the DB id.
+struct CategoryLangForm {
+    int32   offset;      // unique wire-id offset for this form
+    int32   numericID;   // >0: emit a numeric languageID token (1049 etc.), else 0
+    std::string code;    // string languageID token (ru / RU / en-us / EN ...)
+};
+
+static std::vector<CategoryLangForm> CategoryLanguageForms(const std::string& dbLang)
 {
-    return lang == "ru" ? 0 : 100000;
+    std::vector<CategoryLangForm> out;
+    if (dbLang == "ru") {
+        out.push_back({0,      0,    "ru"});
+        out.push_back({200000, 0,    "RU"});
+        out.push_back({400000, 1049, ""});       // numeric russian
+    } else if (dbLang == "en-us") {
+        out.push_back({100000, 0,    "en-us"});
+        out.push_back({300000, 0,    "EN"});
+        out.push_back({500000, 1033, ""});       // numeric english
+    } else {
+        // unknown DB language: emit as-is plus lower-cased short form
+        out.push_back({600000, 0, dbLang});
+        std::string lower = dbLang;
+        for (auto& c : lower) c = static_cast<char>(::tolower(c));
+        if (lower != dbLang)
+            out.push_back({700000, 0, lower});
+    }
+    return out;
 }
 
-static int32 WireCategoryID(int32 dbID, const std::string& lang)
+static int32 WireCategoryID(int32 dbID, const CategoryLangForm& form)
 {
-    return dbID + LanguageIdOffset(lang);
+    return dbID + form.offset;
 }
 
 static int32 DecodeCategoryID(int32 wireID)
 {
-    // ru is stored as-is; other languages have +100000 (or +200000) baked in.
-    if (wireID >= 200000)
-        return wireID - 200000;
-    if (wireID >= 100000)
-        return wireID - 100000;
+    // strip whichever per-form offset is present (offsets are multiples of 100k)
+    static const int32 kOffsets[] = { 700000, 600000, 500000, 400000, 300000, 200000, 100000, 0 };
+    for (int32 off : kOffsets) {
+        if (wireID >= off)
+            return wireID - off;
+    }
     return wireID;
 }
 
@@ -187,8 +214,8 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
 {
     // The wizard asks for the tree once and filters by the client's own language
     // (falling back to English if its language yields too few groups).  Serve
-    // every language at once, using language-offset wire category ids so ru and
-    // en-us entries don't collide in the returned dictionaries.
+    // every language form at once, using language-offset wire category ids so the
+    // entries don't collide in the returned dictionaries.
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT categoryID, parentCategoryID, languageID, categoryName, description"
@@ -204,33 +231,41 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
     while (res.GetRow(row)) {
         int32 id        = row.GetInt(0);
         int32 par       = row.GetInt(1);
-        std::string lang = SafeText(row.GetText(2));
+        std::string dbLang = SafeText(row.GetText(2));
         const char* name = row.GetText(3);
         const char* desc = row.GetText(4);
 
-        int32 wireID  = WireCategoryID(id, lang);
-        int32 wirePar = (par == 0) ? 0 : WireCategoryID(par, lang);
+        std::vector<CategoryLangForm> forms = CategoryLanguageForms(dbLang);
+        for (const CategoryLangForm& form : forms) {
+            int32 wireID  = WireCategoryID(id, form);
+            int32 wirePar = (par == 0) ? 0 : WireCategoryID(par, form);
 
-        if (par == 0) {
-            PyTuple* t = new PyTuple(2);
-            t->SetItem(0, new PyString(name != nullptr ? name : ""));
-            t->SetItem(1, new PyString(lang));
-            parentDict->SetItem(new PyInt(wireID), t);
-        } else {
-            PyDict* group = nullptr;
-            auto it = childGroups.find(wirePar);
-            if (it != childGroups.end()) {
-                group = it->second;
+            // languageID token the client compares against its own GetLanguageID()
+            PyRep* langTok = form.numericID > 0
+                           ? static_cast<PyRep*>(new PyInt(form.numericID))
+                           : static_cast<PyRep*>(new PyString(form.code));
+
+            if (par == 0) {
+                PyTuple* t = new PyTuple(2);
+                t->SetItem(0, new PyString(name != nullptr ? name : ""));
+                t->SetItem(1, langTok);
+                parentDict->SetItem(new PyInt(wireID), t);
             } else {
-                group = new PyDict();
-                childGroups[wirePar] = group;
-                childDict->SetItem(new PyInt(wirePar), group);
+                PyDict* group = nullptr;
+                auto it = childGroups.find(wirePar);
+                if (it != childGroups.end()) {
+                    group = it->second;
+                } else {
+                    group = new PyDict();
+                    childGroups[wirePar] = group;
+                    childDict->SetItem(new PyInt(wirePar), group);
+                }
+                PyTuple* t = new PyTuple(2);
+                t->SetItem(0, new PyString(name != nullptr ? name : ""));
+                t->SetItem(1, langTok);
+                group->SetItem(new PyInt(wireID), t);
+                descDict->SetItem(new PyInt(wireID), new PyString(desc != nullptr ? desc : ""));
             }
-            PyTuple* t = new PyTuple(2);
-            t->SetItem(0, new PyString(name != nullptr ? name : ""));
-            t->SetItem(1, new PyString(lang));
-            group->SetItem(new PyInt(wireID), t);
-            descDict->SetItem(new PyInt(wireID), new PyString(desc != nullptr ? desc : ""));
         }
     }
 
@@ -239,35 +274,6 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
     result->SetItem(1, childDict);
     result->SetItem(2, descDict);
     result->SetItem(3, new PyDict());   // billingCategories: none
-    // Diagnostic: what the wizard will actually see per language.
-    int ruParents = 0, enParents = 0, ruChildren = 0, enChildren = 0;
-    for (auto itp = parentDict->begin(); itp != parentDict->end(); ++itp) {
-        PyRep* v = itp->second;
-        if (v != nullptr && v->IsTuple() && v->AsTuple()->size() == 2) {
-            PyRep* langRep = v->AsTuple()->GetItem(1);
-            if (langRep != nullptr && langRep->IsString() && std::string(langRep->AsString()->content()) == "ru")
-                ++ruParents;
-            else
-                ++enParents;
-        }
-    }
-    for (auto itc = childDict->begin(); itc != childDict->end(); ++itc) {
-        PyRep* g = itc->second;
-        if (g != nullptr && g->IsDict()) {
-            for (auto it2 = g->AsDict()->begin(); it2 != g->AsDict()->end(); ++it2) {
-                PyRep* v = it2->second;
-                if (v != nullptr && v->IsTuple() && v->AsTuple()->size() == 2) {
-                    PyRep* langRep = v->AsTuple()->GetItem(1);
-                    if (langRep != nullptr && langRep->IsString() && std::string(langRep->AsString()->content()) == "ru")
-                        ++ruChildren;
-                    else
-                        ++enChildren;
-                }
-            }
-        }
-    }
-    sLog.Yellow("Petitioner", "GetCategoryHierarchicalInfo: client lang='%s'  ru:%d parents/%d children  en-us:%d parents/%d children",
-        call.client->GetLanguageID().c_str(), ruParents, ruChildren, enParents, enChildren);
     return result;
 }
 
