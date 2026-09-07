@@ -178,7 +178,7 @@ void EVEServiceManager::ClearBoundObject(const BoundID& service, Client* client)
 
     if (it == this->mBound.end()) {
         // Already released (e.g. a double clear on logout/session change) — benign.
-        _log(SERVICE__TRACE, "EVEServiceManager::ClearBoundObject() - Unable to find bound object %u to release.", service);
+        _log(SERVICE__MESSAGE, "EVEServiceManager::ClearBoundObject() - Unable to find bound object %u to release.", service);
         return;
     }
 
