@@ -1,7 +1,16 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) HEAD: `7bdf3df8`; портал HEAD: `c08dde6`. Сборка в процессе (включает куревскую физику, снабжение/груз, real-rat миссии, честный lossmail, фолбэк-оружие).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) HEAD: `04b0b081`; портал HEAD: `c08dde6`. Сервер запущен юзером под GDB (`RUN_WITH_GDB=TRUE`, SYS_PTRACE) для поимки краша на анлоаде Jita (SIGSEGV, пока не воспроизвёлся за 45+ мин стабильно).
+
+### 🔴 Файтер-бомберы «не бьют/висят» — ПРИЧИНА ЗАФИКСИРОВАНА
+Симптом юзера: «переключились на цель — урона нет, дроны висят; убил цель — показывают что атакуют, целей нет». Разбор (TARGET__WARNING на живом):
+- Каждая попытка лока игроком цели-челобота → `[TargetWarn] Handle_AddTarget - TargMgr.StartTargeting() failed - target warping.` Клиент на это шлёт `UserError(DeniedTargetOtherWarping)`, чей текст отсутствует в Crucible → тост «no message 259683».
+- Варпящуюся цель залочить нельзя (это норма EVE). Челоботы теперь много перемещаются (courier-рейсы `db98a9f3` + случайные перелёты), поэтому рядом с хабом большинство «нелочатся» → у файтеров нет валидной цели → «висят/бьют в никуда». НЕ серверный баг урона файтеров — они корректно стреляют (трейс: missile formula + total=6187 на залоченной цели).
+- Отдельный шум в логе: `SvcError ClearBoundObject() - Unable to find bound object N to release.` — безвреден (разлочка биндов при выходе).
+- log.ini на сервере: ERROR-only + временно `TARGET__WARNING=1` (для диагностики лока). `DRONE__AI_TRACE`/`TARGET__TRACE` НЕ включать массово — 20 бомберов дают тысячи строк/сек → сервер подлагивает («космос не прогружается»).
+
+
 
 ### 7 сентября (день): courier-физика, материализация фитов, честный lossmail, real-rat миссии
 - **Курьеры — физический рейс** (`997daa4f`, `db98a9f3`): `BotMgr::ProcessPlayerContracts` при застое (backlog>20 / контракт >1 сут) берёт контракт из любой загруженной системы (`FindFreeCourier(0)`); мелкий груз идёт **gate-by-gate**: `ComputeHaulRoute` (BFS по mapSolarSystemJumps) → `m_hauls[charID]` (маршрут переживает delete/respawn), каждый хоп — `ProcessTravel` (видимый варп к гейту, джемп, прилёт с анимацией в след. систему), по прибытии в endSys — подход к станции + **RequestDock**, сдача при фактическом доке (хук в `ProcessDocking`), fallback 45с если нет доков (пустая система). Крупный >10k м³ / из нулей — джамп-фура (`StartJumpFreighter`, цино), сдача мгновенно по прибытии. Helpers: `GetAdjacentSystems` (кеш), `BotMgr_FindInSystem/BotMgr_RequestCourierDock`, `ProcessHaulDeliveries`.
