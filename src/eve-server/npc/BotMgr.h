@@ -95,6 +95,10 @@ private:
     // dogma power effect), so the client shows the real fit and the wreck drops
     // actual module loot. Skipped when the ship has no slots or fit is empty.
     void MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson);
+    // After fitting: load charges/ammo for the hull's weapon (T1 for rookies, T2
+    // once the bot's skill tier is high enough) and put a small profession-typical
+    // cargo in the hold — a real pilot has ammo and a hold that matches their job.
+    void MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 profession, uint8 skillTier);
     // Download the bot's ESI portrait into the image cache on spawn, so the client
     // sees a face immediately (no cron lag). Runs curl in a forked child so the
     // game loop isn't blocked. Path: <imageDir>/Character/<serverCharID>_512.jpg.

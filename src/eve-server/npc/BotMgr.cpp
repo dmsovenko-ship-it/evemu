@@ -885,6 +885,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // legend's fit — those bots run a profession fit instead, not a lossmail one.
     if (hullType == useShipType && !useFit.empty())
         MaterializeBotFit(iRef, useCharID, useFit);
+    // Ammo/charges (T1/T2 by skill tier) + small profession-typical cargo.
+    MaterializeShipLoad(iRef, useCharID, (uint8)prof, skillTier);
     // The bot's combat/profession tier comes from its persisted skillLevel
     // (levelled up by practice), not the ctor default of 3.
     bot->SetBotSkillLevel(skillTier);
@@ -1171,6 +1173,87 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
     if (fitted > 0)
         _log(BOT__MESSAGE, "BotMgr: materialized %u fitted modules for pilot %u's %s.",
              fitted, charID, ship->name());
+}
+
+// After a bot's fit is materialized: give its weapons real ammo/charges (T1 for
+// rookies, T2 once the pilot's skill tier is high enough) and put a believable,
+// profession-typical cargo in the hold. Real EVE pilots fly with ammo and cargo
+// that matches their job — a killed chelobot should drop those too.
+void BotMgr::MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 profession, uint8 skillTier)
+{
+    if (shipRef.get() == nullptr || charID == 0)
+        return;
+    uint32 shipID = shipRef->itemID();
+
+    auto stackToCargo = [&](uint32 typeID, uint32 qty) {
+        if (typeID == 0 || qty == 0)
+            return;
+        ItemData idata((uint16)typeID, charID, locTemp, flagNone, qty);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+        if (iRef.get() == nullptr)
+            return;
+        iRef->Move(shipID, flagCargoHold, false);
+        _log(BOT__TRACE, "BotMgr: MaterializeShipLoad — cargo %u x type %u.", qty, typeID);
+    };
+
+    // 1) Ammo for a missile boat (the exact missile the AI fires is in
+    //    AttrEntityMissileTypeID). Veterans (skill tier >= 4) carry the T2
+    //    version of the same charge.
+    if (shipRef->HasAttribute(AttrEntityMissileTypeID)) {
+        uint32 baseMissile = shipRef->GetAttribute(AttrEntityMissileTypeID).get_uint32();
+        if (baseMissile > 0) {
+            uint32 chargeID = baseMissile;
+            if (skillTier >= 4) {
+                // Scourge Light Missile -> Scourge Light Missile II (same DB row)
+                std::string t2Name;
+                DBQueryResult nres;
+                if (sDatabase.RunQuery(nres, "SELECT typeName FROM invTypes WHERE typeID = %u", baseMissile)) {
+                    DBResultRow nrow;
+                    if (nres.GetRow(nrow)) {
+                        std::string base = nrow.GetText(0);
+                        // base is '... Light Missile' -> T2 '... Light Missile II'
+                        t2Name = base + " II";
+                    }
+                }
+                if (!t2Name.empty()) {
+                    DBQueryResult r2;
+                    if (sDatabase.RunQuery(r2, "SELECT typeID FROM invTypes WHERE typeName = '%s' LIMIT 1", t2Name.c_str())) {
+                        DBResultRow rrow;
+                        if (r2.GetRow(rrow))
+                            chargeID = rrow.GetUInt(0);
+                    }
+                }
+            }
+            stackToCargo(chargeID, MakeRandomInt(300, 800));
+        }
+    }
+
+    // 2) Profession-typical cargo. Miners/ratters already carry real ore/loot in
+    //    m_cargo during a run — this seeds a baseline so the hold isn't empty the
+    //    moment they leave the station.
+    using P = PlayerBot::BotProfession;
+    switch ((P)profession) {
+        case P::Hunter:
+        case P::RatHunter:   break;   // combat loadout only — no junk in the hold
+        case P::Miner: {
+            // A handful of common minerals (Tritanium/Pyerite/Mexallon/Isogen).
+            static const uint32 mins[] = { 34, 35, 36, 37 };
+            stackToCargo(mins[MakeRandomInt(0, 3)], MakeRandomInt(50, 400));
+        } break;
+        case P::Hacker:
+        case P::Explorer: {
+            // Relic fragments / data cores for the site runners.
+            static const uint32 relics[] = { 30187, 30558, 30562, 30599, 30600, 30605 };
+            stackToCargo(relics[MakeRandomInt(0, 5)], MakeRandomInt(1, 8));
+        } break;
+        case P::Courier:
+        case P::Trader: {
+            // Sample trade goods to carry (ore/minerals a hauler moves to market).
+            static const uint32 goods[] = { 34, 35, 36, 37, 1230, 1231, 1232 };
+            stackToCargo(goods[MakeRandomInt(0, 6)], MakeRandomInt(40, 300));
+        } break;
+        default: break;
+    }
 }
 
 void BotMgr::SpawnBotArriving(SystemManager* origin, uint32 destSystem)
