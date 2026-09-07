@@ -646,18 +646,32 @@ void NPC::Killed(Damage &damage) {
 
         // Faction standing changes on NPC kill
         if (m_warID > 0) {
-            // Standing decrease with this NPC's faction
-            float penalty = -0.0005f;
-            sStandingMgr.UpdateStandings(m_warID, pClient->GetCharacterID(),
-                                         Standings::CombatShipKill, penalty,
-                                         "NPC kill - faction penalty");
-            // Standing increase with enemy factions
-            std::vector<int32> enemies = StandingDB::GetEnemyFactions(m_warID);
-            for (int32 enemyID : enemies) {
-                float reward = 0.0003f;
-                sStandingMgr.UpdateStandings(enemyID, pClient->GetCharacterID(),
-                                             Standings::CombatShipKill, reward,
-                                             "NPC kill - enemy faction reward");
+            // Rogue-drone / sleeper factions (500022+, not in facFactions) are NOT
+            // real client factions — a standings row toward one crashes the client's
+            // Character Sheet standings window (cfg.factions has no entry for them).
+            // Only penalise factions the client actually knows.
+            bool factionKnown = false;
+            {
+                DBQueryResult fres;
+                if (sDatabase.RunQuery(fres, "SELECT factionID FROM facFactions WHERE factionID = %u", m_warID)) {
+                    DBResultRow frow;
+                    factionKnown = fres.GetRow(frow);
+                }
+            }
+            if (factionKnown) {
+                // Standing decrease with this NPC's faction
+                float penalty = -0.0005f;
+                sStandingMgr.UpdateStandings(m_warID, pClient->GetCharacterID(),
+                                             Standings::CombatShipKill, penalty,
+                                             "NPC kill - faction penalty");
+                // Standing increase with enemy factions
+                std::vector<int32> enemies = StandingDB::GetEnemyFactions(m_warID);
+                for (int32 enemyID : enemies) {
+                    float reward = 0.0003f;
+                    sStandingMgr.UpdateStandings(enemyID, pClient->GetCharacterID(),
+                                                 Standings::CombatShipKill, reward,
+                                                 "NPC kill - enemy faction reward");
+                }
             }
             // FW LP: award if killer is in militia and NPC is from hostile faction
             if (pClient->GetWarFactionID() > 0) {
