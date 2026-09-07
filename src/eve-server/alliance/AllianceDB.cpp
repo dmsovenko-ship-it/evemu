@@ -316,8 +316,8 @@ void AllianceDB::SetLabel(uint32 allyID, uint32 color, std::string name)
     std::string escaped;
     sDatabase.DoEscapeString(escaped, name);
 
-    DBQueryResult res;
-    sDatabase.RunQuery(res, "INSERT INTO alnLabels (color, name, ownerID) VALUES (%u, '%s', %u)", color, escaped.c_str(), allyID);
+    DBerror err;
+    sDatabase.RunQuery(err, "INSERT INTO alnLabels (color, name, ownerID) VALUES (%u, '%s', %u)", color, escaped.c_str(), allyID);
 }
 
 void AllianceDB::DeleteLabel(uint32 allyID, uint32 labelID)

@@ -2649,8 +2649,8 @@ void CorporationDB::EditLabel(uint32 corpID, uint32 labelID, uint32 color, std::
     std::string escaped;
     sDatabase.DoEscapeString(escaped, name);
 
-    DBQueryResult res;
-    sDatabase.RunQuery(res, "UPDATE crpLabels SET color = %u, name = '%s' WHERE ownerID = %u AND labelID = %u", color, escaped.c_str(), corpID, labelID);
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE crpLabels SET color = %u, name = '%s' WHERE ownerID = %u AND labelID = %u", color, escaped.c_str(), corpID, labelID);
 }
 
 PyRep* CorporationDB::GetLabels(uint32 corpID)
@@ -2669,8 +2669,8 @@ void CorporationDB::SetLabel(uint32 corpID, uint32 color, std::string name)
     std::string escaped;
     sDatabase.DoEscapeString(escaped, name);
 
-    DBQueryResult res;
-    sDatabase.RunQuery(res, "INSERT INTO crpLabels (color, name, ownerID) VALUES (%u, '%s', %u)", color, escaped.c_str(), corpID);
+    DBerror err;
+    sDatabase.RunQuery(err, "INSERT INTO crpLabels (color, name, ownerID) VALUES (%u, '%s', %u)", color, escaped.c_str(), corpID);
 }
 
 void CorporationDB::DeleteLabel(uint32 corpID, uint32 labelID)

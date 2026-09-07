@@ -2004,8 +2004,8 @@ void CharacterDB::EditLabel(uint32 charID, uint32 labelID, uint32 color, std::st
     std::string eName;
     sDatabase.DoEscapeString(eName, name);
 
-    DBQueryResult res;
-    sDatabase.RunQuery(res, "UPDATE chrLabels SET color = %u, name = '%s' WHERE ownerID = %u AND labelID = %u", color, eName.c_str(), charID, labelID);
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE chrLabels SET color = %u, name = '%s' WHERE ownerID = %u AND labelID = %u", color, eName.c_str(), charID, labelID);
 }
 
 PyRep* CharacterDB::GetLabels(uint32 charID)
@@ -2024,8 +2024,8 @@ void CharacterDB::SetLabel(uint32 charID, uint32 color, std::string name)
     std::string eName;
     sDatabase.DoEscapeString(eName, name);
 
-    DBQueryResult res;
-    sDatabase.RunQuery(res, "INSERT INTO chrLabels (color, name, ownerID) VALUES (%u, '%s', %u)", color, eName.c_str(), charID);
+    DBerror err;
+    sDatabase.RunQuery(err, "INSERT INTO chrLabels (color, name, ownerID) VALUES (%u, '%s', %u)", color, eName.c_str(), charID);
 }
 
 void CharacterDB::DeleteLabel(uint32 charID, uint32 labelID)

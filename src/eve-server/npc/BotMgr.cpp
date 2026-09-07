@@ -2273,7 +2273,8 @@ void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const Do
 
         // Remove any stale quotes we left earlier at this station/type so the
         // book doesn't fill with old prices (re-quote instead of stacking).
-        sDatabase.RunQuery(bres, "DELETE FROM mktOrders WHERE ownerID = %u AND stationID = %u AND typeID = %u",
+        DBerror delErr;
+        sDatabase.RunQuery(delErr, "DELETE FROM mktOrders WHERE ownerID = %u AND stationID = %u AND typeID = %u",
                            db.charID, stationID, typeID);
 
         DBerror err;
