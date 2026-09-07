@@ -1,7 +1,7 @@
 # EVEmu Session Context
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) HEAD: `04b0b081`; портал HEAD: `c08dde6`. Сервер запущен юзером под GDB (`RUN_WITH_GDB=TRUE`, SYS_PTRACE) для поимки краша на анлоаде Jita (SIGSEGV, пока не воспроизвёлся за 45+ мин стабильно).
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) HEAD: `bd6fe301`. Краш на анлоаде Jita (SIGSEGV) так и не воспроизвёлся под GDB — мониторинг продолжается. 7 сент. (вечер): миссионер, покупка фита после лосса, стендинги (owners-сид + skip неизвестных фракций) — см. секцию ниже.
 
 ### 🔴 Файтер-бомберы «не бьют/висят» — ПРИЧИНА ЗАФИКСИРОВАНА
 Симптом юзера: «переключились на цель — урона нет, дроны висят; убил цель — показывают что атакуют, целей нет». Разбор (TARGET__WARNING на живом):
@@ -10,6 +10,19 @@ Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password
 - Отдельный шум в логе: `SvcError ClearBoundObject() - Unable to find bound object N to release.` — безвреден (разлочка биндов при выходе).
 - log.ini на сервере: ERROR-only + временно `TARGET__WARNING=1` (для диагностики лока). `DRONE__AI_TRACE`/`TARGET__TRACE` НЕ включать массово — 20 бомберов дают тысячи строк/сек → сервер подлагивает («космос не прогружается»).
 
+
+
+### 7 сентября (вечер): миссионер-профессия, ресапплай фита за ISK, стендинги/Character-Sheet починены
+- **Профессия `Missioner`** (`8763a697`): enum BotProfession += Missioner (=7, безопасно для старых ботов), ~5% ролла, халл = T1 крейсер/БК (`forceProfessionHull`). Поведение (милстоун): у станции «ходит на миссию» — бой с красными NPC (RatForTarget), сальваж, док «с отчётом» каждые ~5–12 рат-киллов (порог `m_nextMissionReport`, без ре-док-цикла). Без станции — дрейф/к хабу.
+- **Награда** (`d5166b8e`): `BotMgr::PayMissionReward` — при доке с грузом (до DepositCargoAtStation!) 30–110k ISK ×(1+0.25·activitySkill) в кошелёк бота. Salvage уходит в ангар общим депозитом → курьерка → продажа (экономика замкнута).
+- **Охрана флагмана** (`40f3d18c`): Orca/Rorqual (IsFleetBoss) каждые 15с `RequestFleetProtection()` — охранник-боец корпа держится рядом.
+- **Покупка фита после лосса** (ресапплай): `3bb5a804`+`a6996449`. `MarketMgr::BotBuyStock` — оффлайн-зеркало ExecuteSellOrder (лега arb-филла): бот покупает у лучшего resting sell-ордера своей станции (если нет — NPC-корп станции по медиане basePrice), деньги из кошелька, ордер сжимается/закрывается, 2 mktTransactions, товар минтуется в ангар. В SpawnBot при `hullType==useShipType && useFit` и `botMemory.deaths > resuppliedDeaths` (миграция `20260907000000-bot_fit_resupply.sql`): `ResupplyBotFit` → `FitUpgradePath` (лестница по invMetaTypes.parentTypeID + tech/meta из dgmTypeAttributes 422/633; гейт: T1 tier≤1, +мета 1–3 tier2-3, мета 4–5 tier≥3, T2 tier≥4; сортировка T2→мета→T1) → покупка каждого модуля; `MaterializeBotFit(buyStationID)` надевает КУПЛЕННЫЕ предметы из ангара (не спавнит бесплатно). Без денег — выходит раздетым (без бесплатных модулей).
+- **Стендинги/Character Sheet (пустое окно «Отношения»)**:
+  1. `9ed1c3f0` — `cfg.eveowners` клиента = `config.BulkData.owners` из таблицы **cacheOwners** (`ObjCacheDB::Generate_cacheOwners`). Фракции/NPC-корпы туда НЕ сидились → `cfg.eveowners.Get(500001)` в standings-UI бросал KeyError → пустое окно. Миграция `20260907000001-cacheowners_owners_seed.sql`: сид всех facFactions (typeID 30 → group Faction), 500021/500022 заглушки, корпов crpCorporation (typeID 2 → group Corporation), NPC-чаров chrNPCCharacters.
+  2. `bd6fe301` — строки стендинга к фракциям, которых НЕТ в клиенте Crucible (500022 Rogue Swarm и пр., вне facFactions 500001–500020), роняли отрисовку «Отношения». Источник: киллы Rogue Drone (factionID=500022) писали penalty к faction жертвы в NPC.cpp. Фикс: faction-стоящие дельты пишутся только если `factionID` есть в `facFactions` (флажок в `NPC::Killed`); вреки/эскалации не страдают. Также почищена живая БД (`DELETE repStandings WHERE fromID 500021..<1000000 AND NOT IN facFactions`).
+  - ⚠️ Проверка после фикса owners: данные у 97233346 были валидны (фракции/корпы/агенты), виноваты были owner-строки и 500022-строки. Guristas −0.0293 может показываться «Друзьями» из-за скилла Diplomacy — это норма.
+- **Лог-шум**: `ClearBoundObject already-released` демоутнут из ERROR в SERVICE__MESSAGE (`c42a0fcd`, билд-фикс `11d1618a` — `SERVICE__TRACE` НЕ существует, только __MESSAGE/__ERROR).
+- **Билд-фиксы**: `sMarketMgr` не существует — глобал `sMktMgr` (`66647035`).
 
 
 ### 7 сентября (день): courier-физика, материализация фитов, честный lossmail, real-rat миссии
