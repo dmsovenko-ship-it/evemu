@@ -2664,10 +2664,26 @@ void BotMgr::ProcessPlayerContracts()
     // Courier bots take over player courier contracts that nobody accepted.
     // A contract that has been sitting unaccepted (issued > 5 min ago) is
     // picked up by a free courier bot, who then flies it to the destination.
+    // When contracts pile up — a big public backlog (>20) or one very stale
+    // (>1 day) — bots accept them even from other loaded systems so the market
+    // keeps moving instead of leaving goods parked at a station forever.
     if (!m_initalized || !sConfig.playerBots.Enabled)
         return;
     if (sEntityList.GetSystems().empty())
         return;
+
+    // Global backlog of public, unaccepted courier contracts.
+    uint32 backlog = 0;
+    {
+        DBQueryResult cnt;
+        if (sDatabase.RunQuery(cnt,
+            "SELECT COUNT(*) FROM ctrContracts"
+            " WHERE contractType = 3 AND status = 0 AND acceptorID = 0 AND isPrivate = 0"))
+        {
+            DBResultRow cr;
+            if (cnt.GetRow(cr)) backlog = cr.GetUInt(0);
+        }
+    }
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
@@ -2677,65 +2693,98 @@ void BotMgr::ProcessPlayerContracts()
         "   AND status = 0"              // created, not yet accepted
         "   AND acceptorID = 0"          // nobody picked it up
         "   AND isPrivate = 0"           // public contract
-        " LIMIT 10"))
+        " ORDER BY dateIssued ASC LIMIT 15"))
     {
-        DBResultRow row;
-        while (res.GetRow(row)) {
-            uint32 contractID = row.GetUInt(0);
-            uint32 startSys = row.GetUInt(2);
-            uint32 endSys = row.GetUInt(3);
-            int64 reward = row.GetInt64(4);
-            int64 dateIssued = row.GetInt64(5);
-            double volume = row.GetDouble(6);
-            // Skip contracts that were issued recently — only take ones that
-            // have been sitting unaccepted for a while (a real player may still
-            // pick up a fresh one). dateIssued is FILETIME (100ns ticks).
-            if (dateIssued > 0 && (GetFileTimeNow() - dateIssued) < 5LL * EvE::Time::Minute)
-                continue;
+        return;
+    }
 
-            // Find a free courier bot (in the contract's start system if loaded).
-            SystemManager* startSysMgr = sEntityList.IsSystemLoaded(startSys) ? sEntityList.FindOrBootSystem(startSys) : nullptr;
-            PlayerBot* courier = nullptr;
-            if (startSysMgr != nullptr) {
-                for (auto& [id, se] : startSysMgr->GetEntities()) {
-                    if (se == nullptr || se->GetNPCSE() == nullptr)
-                        continue;
-                    PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
-                    if (pb != nullptr && pb->GetProfession() == PlayerBot::BotProfession::Courier
-                        && !pb->WantsToTravel() && !pb->IsTraveling() && !pb->WantsDock()) {
-                        courier = pb;
-                        break;
-                    }
-                }
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 contractID = row.GetUInt(0);
+        uint32 startSys = row.GetUInt(2);
+        uint32 endSys = row.GetUInt(3);
+        int64 reward = row.GetInt64(4);
+        int64 dateIssued = row.GetInt64(5);
+        double volume = row.GetDouble(6);
+
+        // Age of the contract (FILETIME, 100ns ticks). Skip fresh ones at normal
+        // cadence so a real player can still grab a new job — but when the market
+        // is backed up (backlog > 20) or a job is very stale (>1 day), bots take
+        // even fresh/any contracts to clear the queue.
+        int64 age = (dateIssued > 0) ? (GetFileTimeNow() - dateIssued) : 0;
+        bool urgent = (backlog > 20) || (age > EvE::Time::Day);
+        if (!urgent && age < 5LL * EvE::Time::Minute)
+            continue;
+
+        // Prefer a free courier in the contract's start system...
+        PlayerBot* courier = FindFreeCourier(startSys);
+        // ...but for urgent/backed-up contracts accept from ANY loaded system.
+        if (courier == nullptr && urgent)
+            courier = FindFreeCourier(0);
+
+        if (courier == nullptr)
+            continue;   // no free courier right now — leave contract for later
+
+        // Accept the contract: mark acceptorID and status.
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE ctrContracts SET acceptorID = %u, status = 1, dateAccepted = %lli WHERE contractId = %u",
+            courier->GetBotCharID(), (int64)GetFileTimeNow(), contractID);
+
+        _log(BOT__MESSAGE, "BotMgr: courier %s(%u) accepted contract %u (reward %.0f ISK, %.0f m3) to system %u%s.",
+             courier->GetBotName().c_str(), courier->GetBotCharID(), contractID, (double)reward, volume, endSys,
+             (urgent ? " [urgent]" : ""));
+
+        if (endSys != 0) {
+            // Big cargo (>10,000 m3) goes by JUMP FREIGHTER through a cyno —
+            // lights a visible cyno, holds an interception window (players can
+            // warp in and shoot it or its guards), then jumps. Guards protect it.
+            if (volume > 10000) {
+                courier->StartJumpFreighter(endSys);
+            } else {
+                // Small cargo: fly through gates normally.
+                courier->SetTravelDestination(endSys);
+                courier->MarkForTravel(endSys);
             }
-            if (courier == nullptr)
-                continue;   // no free courier right now — leave contract for later
-
-            // Accept the contract: mark acceptorID and status.
-            DBerror err;
-            sDatabase.RunQuery(err,
-                "UPDATE ctrContracts SET acceptorID = %u, status = 1, dateAccepted = %lli WHERE contractId = %u",
-                courier->GetBotCharID(), (int64)GetFileTimeNow(), contractID);
-
-            _log(BOT__MESSAGE, "BotMgr: courier %s(%u) accepted contract %u (reward %.0f ISK, %.0f m3) to system %u.",
-                 courier->GetBotName().c_str(), courier->GetBotCharID(), contractID, (double)reward, volume, endSys);
-
-            if (endSys != 0) {
-                // Big cargo (>10,000 m3) goes by JUMP FREIGHTER through a cyno —
-                // lights a visible cyno, holds an interception window (players can
-                // warp in and shoot it or its guards), then jumps. Guards protect it.
-                if (volume > 10000) {
-                    courier->StartJumpFreighter(endSys);
-                } else {
-                    // Small cargo: fly through gates normally.
-                    courier->SetTravelDestination(endSys);
-                    courier->MarkForTravel(endSys);
-                }
-                // Reward ISK is paid on successful delivery (handled when the
-                // freighter/courier completes the run), not at acceptance.
-            }
+            // Reward ISK is paid on successful delivery (handled when the
+            // freighter/courier completes the run), not at acceptance.
         }
     }
+}
+
+PlayerBot* BotMgr::FindFreeCourier(uint32 systemID)
+{
+    if (systemID != 0) {
+        // only that system — and only if it is actually loaded
+        if (!sEntityList.IsSystemLoaded(systemID))
+            return nullptr;
+        SystemManager* sm = sEntityList.FindOrBootSystem(systemID);
+        if (sm == nullptr)
+            return nullptr;
+        for (auto& [id, se] : sm->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb != nullptr && pb->GetProfession() == PlayerBot::BotProfession::Courier
+                && !pb->WantsToTravel() && !pb->IsTraveling() && !pb->WantsDock())
+                return pb;
+        }
+        return nullptr;
+    }
+    // scan every loaded system for a free courier
+    for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+        if (sm == nullptr)
+            continue;
+        for (auto& [id, se] : sm->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb != nullptr && pb->GetProfession() == PlayerBot::BotProfession::Courier
+                && !pb->WantsToTravel() && !pb->IsTraveling() && !pb->WantsDock())
+                return pb;
+        }
+    }
+    return nullptr;
 }
 
 // A courier bot that has reached the destination system completes the courier

@@ -152,6 +152,8 @@ private:
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();
+    // A free courier bot in `systemID`, or across any loaded system when 0.
+    PlayerBot* FindFreeCourier(uint32 systemID);
     // Market self-learning (stage-1 economy): a docked trader reads its station's
     // order book and either captures a crossing spread (real arbitrage fills via
     // MarketMgr::BotArbitrageFill) or quotes tighter than the current best bid/
