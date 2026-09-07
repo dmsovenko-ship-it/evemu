@@ -94,7 +94,14 @@ private:
     // spawns each module as a real item in the correct slot (hi/mid/low/rig per its
     // dogma power effect), so the client shows the real fit and the wreck drops
     // actual module loot. Skipped when the ship has no slots or fit is empty.
-    void MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson);
+    void MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson, uint32 buyStationID = 0);
+    // Re-buy a killed bot's fit on the open market (see BotBuyStock) with real
+    // ISK, upgrading each module as far as the pilot's skill tier allows. Returns
+    // a re-serialised fit JSON of what was actually bought (empty if nothing).
+    std::string ResupplyBotFit(uint32 charID, uint32 stationID, uint8 skillTier, const std::string& fitJson);
+    // The T1→meta→T2 ladder for one module, best-first and filtered by the
+    // pilot's tier (see implementation for the tier→tech gating).
+    std::vector<uint32> FitUpgradePath(uint32 baseType, uint8 skillTier);
     // After fitting: load charges/ammo for the hull's weapon (T1 for rookies, T2
     // once the bot's skill tier is high enough) and put a small profession-typical
     // cargo in the hold — a real pilot has ammo and a hold that matches their job.

@@ -890,8 +890,45 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // keep the killmail ship). Professional hulls (miner barges, haulers, scan
     // frigates) are force-picked per profession above and would mismatch a combat
     // legend's fit — those bots run a profession fit instead, not a lossmail one.
-    if (hullType == useShipType && !useFit.empty())
-        MaterializeBotFit(iRef, useCharID, useFit);
+    if (hullType == useShipType && !useFit.empty()) {
+        // After a loss the pilot must re-BUY the fit on the open market with its
+        // own ISK (upgraded as far as its skill tier + wallet allow), exactly like
+        // a real player who lost a ship. New/undocked spawns that were never
+        // killed keep the free legend fit.
+        uint32 stationID = 0;
+        for (auto& [sid, sse] : pSystem->GetStaticEntities())
+            if (sse != nullptr && sse->GetStationSE() != nullptr) { stationID = sse->GetID(); break; }
+        bool resupply = false;
+        uint32 deaths = 0;
+        if (stationID != 0) {
+            DBQueryResult mres;
+            if (sDatabase.RunQuery(mres,
+                "SELECT deaths, resuppliedDeaths FROM botMemory WHERE charID = %u", useCharID))
+            {
+                DBResultRow mrow;
+                if (mres.GetRow(mrow)) {
+                    deaths = mrow.GetUInt(0);
+                    resupply = deaths > mrow.GetUInt(1);
+                }
+            }
+        }
+        if (resupply) {
+            std::string boughtFit = ResupplyBotFit(useCharID, stationID, skillTier, useFit);
+            if (!boughtFit.empty()) {
+                MaterializeBotFit(iRef, useCharID, boughtFit, stationID);
+                DBerror uerr;
+                sDatabase.RunQuery(uerr,
+                    "UPDATE botMemory SET resuppliedDeaths = %u WHERE charID = %u", deaths, useCharID);
+            } else {
+                // Can't afford even a bare hull — the pilot undocks stripped and
+                // has to earn the ISK back before it can fight properly again.
+                _log(BOT__MESSAGE, "BotMgr: pilot %u cannot afford to re-fit after loss — undocking stripped.",
+                     useCharID);
+            }
+        } else {
+            MaterializeBotFit(iRef, useCharID, useFit);
+        }
+    }
     // Ammo/charges (T1/T2 by skill tier) + small profession-typical cargo.
     MaterializeShipLoad(iRef, useCharID, (uint8)prof, skillTier);
     // The bot's combat/profession tier comes from its persisted skillLevel
@@ -1059,7 +1096,7 @@ void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
 //   - RecordBotKillMail (PlayerBot.cpp) lists real items in the lossmail, so the
 //     kill page shows the genuine fit instead of a synthesized one.
 //   - A wreck of this ship can drop the real module loot like a player's wreck.
-void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson)
+void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson, uint32 buyStationID)
 {
     if (shipRef.get() == nullptr || charID == 0 || fitJson.empty())
         return;
@@ -1166,8 +1203,26 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
         // (RecordBotKillMail) picks it up — same representation as a player's
         // fitted module. A direct SpawnItem into the ship would bypass the
         // inventory and orphan the module row on ship delete.
-        ItemData idata((uint16)typeID, charID, locTemp, flagNone, 1);
-        InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+        InventoryItemRef iRef;
+        if (buyStationID != 0) {
+            // After a loss this module was bought on the open market (BotBuyStock
+            // minted it into the bot's hangar) — fit that real item instead of
+            // conjuring one. Nothing in the hangar (broke / no order) → skip slot.
+            DBQueryResult hres;
+            if (sDatabase.RunQuery(hres,
+                "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u"
+                "  AND typeID = %u AND flag = %u AND singleton = 0"
+                "  ORDER BY itemID LIMIT 1",
+                charID, buyStationID, typeID, (uint32)flagHangar))
+            {
+                DBResultRow hrow;
+                if (hres.GetRow(hrow))
+                    iRef = sItemFactory.GetItemRef(hrow.GetUInt(0));
+            }
+        } else {
+            ItemData idata((uint16)typeID, charID, locTemp, flagNone, 1);
+            iRef = sItemFactory.SpawnItem(idata);
+        }
         if (iRef.get() == nullptr)
             continue;
         // Fitted modules are unique items (singleton), as the client expects.
@@ -1204,6 +1259,144 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
     if (fitted > 0)
         _log(BOT__MESSAGE, "BotMgr: materialized %u fitted modules for pilot %u's %s.",
              fitted, charID, ship->name());
+}
+
+// The T1→named-meta→T2 ladder for a module, best-first, gated by the pilot's
+// simulated skill tier (0..5). The ladder is read from the real SDE tables:
+// invMetaTypes links every module variant to its T1 parentTypeID, so a family
+// is "everything that hangs off the same root". dgmTypeAttributes carry the
+// tech level (422: 1=T1/meta, 2=T2) and meta level (633, 0..5). We let a pilot
+// fly:
+//   tier 0-1   → T1 only (base or cheap meta 1-3)
+//   tier 2-3   → + named meta (1-5)
+//   tier 4-5   → + T2
+// A vet with money buys T2 first, then the best named meta, then plain T1; a
+// broke rookie only ever reaches the bottom of the list.
+std::vector<uint32> BotMgr::FitUpgradePath(uint32 baseType, uint8 skillTier)
+{
+    std::vector<uint32> result;
+    if (baseType == 0)
+        return result;
+
+    // Climb to the ladder root (the T1 parent), bounded so a broken link can't
+    // loop forever.
+    uint32 cur = baseType;
+    for (int hop = 0; hop < 6; ++hop) {
+        uint32 parent = 0;
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT parentTypeID FROM invMetaTypes WHERE typeID = %u", cur)) {
+            DBResultRow row;
+            if (res.GetRow(row))
+                parent = row.GetUInt(0);
+        }
+        if (parent == 0 || parent == cur)
+            break;
+        cur = parent;
+    }
+    uint32 root = cur;
+
+    struct Cand { uint32 typeID; double meta; double tech; };
+    std::vector<Cand> cands;
+    cands.push_back({ root, 0.0, 1.0 });   // the T1 base itself
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT v.typeID,"
+            "       COALESCE(aM.valueFloat, aM.valueInt, 0),"
+            "       COALESCE(aT.valueFloat, aT.valueInt, 0)"
+            " FROM invMetaTypes v"
+            " JOIN invTypes t ON t.typeID = v.typeID AND t.published = 1 AND t.categoryID = 7"
+            " LEFT JOIN dgmTypeAttributes aM ON aM.typeID = v.typeID AND aM.attributeID = 633"
+            " LEFT JOIN dgmTypeAttributes aT ON aT.typeID = v.typeID AND aT.attributeID = 422"
+            " WHERE v.parentTypeID = %u", root))
+        {
+            DBResultRow row;
+            while (res.GetRow(row))
+                cands.push_back({ row.GetUInt(0), row.GetDouble(1), row.GetDouble(2) });
+        }
+    }
+
+    // Best first: T2 before named meta before T1.
+    std::sort(cands.begin(), cands.end(),
+        [](const Cand& a, const Cand& b) {
+            if (a.tech != b.tech) return a.tech > b.tech;
+            if (a.meta != b.meta) return a.meta > b.meta;
+            return a.typeID < b.typeID;
+        });
+    for (const Cand& c : cands) {
+        bool usable = true;
+        if (c.tech >= 2.0)        usable = (skillTier >= 4);   // T2: vets only
+        else if (c.meta >= 4.0)   usable = (skillTier >= 3);   // top named meta
+        if (!usable)
+            continue;
+        bool dup = false;
+        for (uint32 t : result)
+            if (t == c.typeID) { dup = true; break; }
+        if (!dup)
+            result.push_back(c.typeID);
+    }
+    if (result.empty())
+        result.push_back(baseType);   // never worse than the original fit entry
+    return result;
+}
+
+// Re-buy a killed bot's fit on the open market. Every module of the legend fit
+// is upgraded along its T1→meta→T2 ladder as far as the pilot's skill tier and
+// wallet allow (BotBuyStock debits real ISK and mints the module into the bot's
+// hangar at `stationID`). Returns a re-serialised "[typeID, ...]" list of what
+// was actually bought — the caller fits those (MaterializeBotFit w/ buyStationID
+// pulls the bought items out of the hangar). An empty result means the pilot is
+// too broke to replace anything and flies out stripped (no free modules).
+std::string BotMgr::ResupplyBotFit(uint32 charID, uint32 stationID, uint8 skillTier, const std::string& fitJson)
+{
+    if (charID == 0 || stationID == 0 || fitJson.empty())
+        return std::string();
+
+    std::vector<uint32> typeIDs;
+    {
+        std::string cur;
+        for (char c : fitJson) {
+            if (isdigit((unsigned char)c))
+                cur.push_back(c);
+            else if (!cur.empty()) {
+                typeIDs.push_back((uint32)strtoul(cur.c_str(), nullptr, 10));
+                cur.clear();
+            }
+        }
+        if (!cur.empty())
+            typeIDs.push_back((uint32)strtoul(cur.c_str(), nullptr, 10));
+    }
+
+    std::vector<uint32> bought;
+    double spent = 0.0;
+    for (uint32 typeID : typeIDs) {
+        if (typeID == 0)
+            continue;
+        const ItemType* t = sItemFactory.GetType((uint16)typeID);
+        if (t == nullptr || t->categoryID() != EVEDB::invCategories::Module)
+            continue;   // only modules go in slots — ammo/cargo aren't bought here
+        std::vector<uint32> path = FitUpgradePath(typeID, skillTier);
+        for (uint32 cand : path) {
+            double cost = sMarketMgr.BotBuyStock(charID, stationID, cand, 1);
+            if (cost > 0.0) {
+                bought.push_back(cand);
+                spent += cost;
+                break;
+            }
+        }
+    }
+    if (bought.empty())
+        return std::string();
+
+    std::string json = "[";
+    for (size_t i = 0; i < bought.size(); ++i) {
+        if (i) json += ",";
+        json += std::to_string(bought[i]);
+    }
+    json += "]";
+    _log(BOT__MESSAGE, "BotMgr: pilot %u re-bought %u modules at station %u for %.0f ISK after loss.",
+         charID, (uint32)bought.size(), stationID, spent);
+    return json;
 }
 
 // After a bot's fit is materialized: give its weapons real ammo/charges (T1 for
