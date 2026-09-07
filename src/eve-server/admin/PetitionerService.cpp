@@ -56,6 +56,32 @@ static const char* SafeText(const char* s)
     return s != nullptr ? s : "";
 }
 
+// The petition window requests category data for ALL languages at once and then
+// filters rows by the client's own languageID (with an English fallback). Our DB
+// uses one categoryID per logical category shared by ru/en-us rows, which would
+// collide in the dictionaries the client builds.  Give each language a distinct
+// "wire" categoryID: ru keeps its id, every other language is offset by
+// LanguageIdOffset() so keys stay unique. CreatePetition decodes back to the DB id.
+static int32 LanguageIdOffset(const std::string& lang)
+{
+    return lang == "ru" ? 0 : 100000;
+}
+
+static int32 WireCategoryID(int32 dbID, const std::string& lang)
+{
+    return dbID + LanguageIdOffset(lang);
+}
+
+static int32 DecodeCategoryID(int32 wireID)
+{
+    // ru is stored as-is; other languages have +100000 (or +200000) baked in.
+    if (wireID >= 200000)
+        return wireID - 200000;
+    if (wireID >= 100000)
+        return wireID - 100000;
+    return wireID;
+}
+
 PetitionerService::PetitionerService() :
     Service("petitioner", eAccessLevel_Character)
 {
@@ -127,14 +153,17 @@ static PyRep* PetitionToKeyVal(const DBResultRow& row)
 
 // SELECT shape shared by all "petition row" queries. Date columns are
 // UNIX_TIMESTAMP(createDate/touchDate) so we can build FILETIME values.
+// COALESCE: portal rows may leave touchDate NULL -> client shows 1970.
 static const char* PetitionSelect =
     "SELECT petitionID, categoryID, subject, body, status, claimedBy, deleted, updated,"
-    " UNIX_TIMESTAMP(createDate), UNIX_TIMESTAMP(touchDate), characterID"
+    " UNIX_TIMESTAMP(createDate), COALESCE(UNIX_TIMESTAMP(touchDate), UNIX_TIMESTAMP(createDate)), characterID"
     " FROM portal_petitions";
 
 PyResult PetitionerService::GetCategories(PyCallArgs& call)
 {
-    // Used by svc.PetitionSvc.GetC_String() to translate categoryID -> displayName.
+    // Flat list used by svc.PetitionSvc.GetC_String() to translate a petition's
+    // categoryID -> displayName.  Petitions store the logical DB categoryID, so
+    // return the calling client's language at those plain ids.
     std::string lang = CategoryLanguage(call.client->GetLanguageID());
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
@@ -156,46 +185,52 @@ PyResult PetitionerService::GetCategories(PyCallArgs& call)
 
 PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
 {
-    std::string lang = CategoryLanguage(call.client->GetLanguageID());
+    // The wizard asks for the tree once and filters by the client's own language
+    // (falling back to English if its language yields too few groups).  Serve
+    // every language at once, using language-offset wire category ids so ru and
+    // en-us entries don't collide in the returned dictionaries.
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT categoryID, parentCategoryID, categoryName, description FROM portal_petition_categories"
-        " WHERE languageID = '%s' ORDER BY sortOrder, categoryID",
-        lang.c_str()))
+        "SELECT categoryID, parentCategoryID, languageID, categoryName, description"
+        " FROM portal_petition_categories ORDER BY languageID, sortOrder, categoryID"))
         return nullptr;
 
-    PyDict* parentDict = new PyDict();   // {parentID: (name, lang)}
-    PyDict* childDict  = new PyDict();   // {parentID: {childID: (name, lang)}}
-    PyDict* descDict   = new PyDict();   // {childID: description}
+    PyDict* parentDict = new PyDict();   // {wireParentID: (name, lang)}
+    PyDict* childDict  = new PyDict();   // {wireParentID: {wireChildID: (name, lang)}}
+    PyDict* descDict   = new PyDict();   // {wireChildID: description}
     std::map<int32, PyDict*> childGroups;
 
     DBResultRow row;
     while (res.GetRow(row)) {
-        int32 id  = row.GetInt(0);
-        int32 par = row.GetInt(1);
-        const char* name = row.GetText(2);
-        const char* desc = row.GetText(3);
+        int32 id        = row.GetInt(0);
+        int32 par       = row.GetInt(1);
+        std::string lang = SafeText(row.GetText(2));
+        const char* name = row.GetText(3);
+        const char* desc = row.GetText(4);
+
+        int32 wireID  = WireCategoryID(id, lang);
+        int32 wirePar = (par == 0) ? 0 : WireCategoryID(par, lang);
 
         if (par == 0) {
             PyTuple* t = new PyTuple(2);
             t->SetItem(0, new PyString(name != nullptr ? name : ""));
             t->SetItem(1, new PyString(lang));
-            parentDict->SetItem(new PyInt(id), t);
+            parentDict->SetItem(new PyInt(wireID), t);
         } else {
             PyDict* group = nullptr;
-            auto it = childGroups.find(par);
+            auto it = childGroups.find(wirePar);
             if (it != childGroups.end()) {
                 group = it->second;
             } else {
                 group = new PyDict();
-                childGroups[par] = group;
-                childDict->SetItem(new PyInt(par), group);
+                childGroups[wirePar] = group;
+                childDict->SetItem(new PyInt(wirePar), group);
             }
             PyTuple* t = new PyTuple(2);
             t->SetItem(0, new PyString(name != nullptr ? name : ""));
             t->SetItem(1, new PyString(lang));
-            group->SetItem(new PyInt(id), t);
-            descDict->SetItem(new PyInt(id), new PyString(desc != nullptr ? desc : ""));
+            group->SetItem(new PyInt(wireID), t);
+            descDict->SetItem(new PyInt(wireID), new PyString(desc != nullptr ? desc : ""));
         }
     }
 
@@ -241,7 +276,7 @@ PyResult PetitionerService::CreatePetition(PyCallArgs& call,
 
     std::string subject = PyRep::StringContent(subjectRep);
     std::string body    = PyRep::StringContent(petitionRep);
-    int32 categoryID    = static_cast<int32>(PyRep::IntegerValue(categoryRep));
+    int32 categoryID    = DecodeCategoryID(static_cast<int32>(PyRep::IntegerValue(categoryRep)));
 
     if (subject.empty() || body.empty() || categoryID <= 0)
         return new PyBool(false);
