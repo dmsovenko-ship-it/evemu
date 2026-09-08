@@ -331,8 +331,11 @@ static void DailyKillDigestTick()
         body += " · damage " + std::to_string(row.GetUInt(5));
         ++count;
     }
-    if (count > 0)
-        TelegramBot::NotifyPlayer("📊 Top-" + std::to_string(count) + " киллов за сутки:" + body);
+    if (count > 0) {
+        std::string digest = "📊 Top-" + std::to_string(count) + " киллов за сутки:" + body;
+        TelegramBot::NotifyPlayer(digest);
+        TelegramBot::NotifyAdmin(digest);
+    }
 }
 
 void BotMgr::RefreshOnlineCount()

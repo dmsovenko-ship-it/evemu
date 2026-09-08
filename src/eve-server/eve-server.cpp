@@ -933,7 +933,9 @@ int main( int argc, char* argv[] )
     sLog.Green("       ServerInit", "EVEmu Server is Online.");
 
     sLog.Cyan("           Server", "Started on %s", currentDateTime().c_str());
-    TelegramBot::NotifyPlayer("🚀 EVEmu online — " + std::string(currentDateTime().c_str()));
+    std::string upMsg = "🚀 EVEmu online — " + std::string(currentDateTime().c_str());
+    TelegramBot::NotifyPlayer(upMsg);
+    TelegramBot::NotifyAdmin(upMsg);
 
     /////////////////////////////////////////////////////////////////////////////////////
     //     !!!  DO NOT PUT ANY INITIALIZATION CODE OR CALLS BELOW THIS LINE   !!!
@@ -979,6 +981,7 @@ int main( int argc, char* argv[] )
      */
     sLog.Warning("   ServerShutdown", "Main loop has stopped." );
     TelegramBot::NotifyPlayer("⛔ EVEmu offline — сервер остановлен.");
+    TelegramBot::NotifyAdmin("⛔ EVEmu offline — сервер остановлен.");
     sLog.Error("   ServerShutdown", "EVEmu Server is Offline." );
     if (!sConsole.IsDbError())
         ServiceDB::SetServerOnlineStatus(false);
@@ -1086,6 +1089,7 @@ static void CatchSignal( int sig_num )
 static void CleanUp() {
     sLog.Warning("   ServerShutdown", "Main loop has stopped." );
     TelegramBot::NotifyPlayer("⛔ EVEmu offline — сервер остановлен.");
+    TelegramBot::NotifyAdmin("⛔ EVEmu offline — сервер остановлен.");
     sLog.Error("   ServerShutdown", "EVEmu Server is Offline." );
     if (!sConsole.IsDbError())
         ServiceDB::SetServerOnlineStatus(false);
