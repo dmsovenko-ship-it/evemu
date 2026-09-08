@@ -358,6 +358,11 @@ public:
         bool ChatEnabled;          // enable DeepSeek-powered bot chat
         std::string DeepSeekKey;   // DeepSeek API key (for bot chat)
         std::string DeepSeekURL;   // DeepSeek API endpoint
+        // Skill training like a real player (offline skill queue simulated in
+        // BotMgr). Attributes are base-by-bloodline x AttrMultiplier; the trainer
+        // accumulates SP over real time with the EVE points-per-minute formula.
+        bool TrainingEnabled;      // master switch for bot skill training
+        float AttrMultiplier;      // multiplier on base attributes (0 = use character.statMultiplier)
     } playerBots;
 
     // From <telegram> — two independent destinations:

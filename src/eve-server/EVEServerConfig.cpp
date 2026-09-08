@@ -249,6 +249,8 @@ EVEServerConfig::EVEServerConfig()
     playerBots.ChatEnabled = false;
     playerBots.DeepSeekKey = "";
     playerBots.DeepSeekURL = "https://api.deepseek.com/chat/completions";
+    playerBots.TrainingEnabled = true;
+    playerBots.AttrMultiplier = 0.0f;   // 0 = use character.statMultiplier
 
     telegram.Endpoint = "https://api.telegram.org";
     telegram.Proxy = "";
@@ -897,6 +899,8 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
     AddValueParser( "ChatEnabled",      playerBots.ChatEnabled );
     AddValueParser( "DeepSeekKey",      playerBots.DeepSeekKey );
     AddValueParser( "DeepSeekURL",      playerBots.DeepSeekURL );
+    AddValueParser( "TrainingEnabled",  playerBots.TrainingEnabled );
+    AddValueParser( "AttrMultiplier",   playerBots.AttrMultiplier );
 
     const bool result = ParseElementChildren( ele );
 
@@ -909,6 +913,8 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
     RemoveParser( "ChatEnabled" );
     RemoveParser( "DeepSeekKey" );
     RemoveParser( "DeepSeekURL" );
+    RemoveParser( "TrainingEnabled" );
+    RemoveParser( "AttrMultiplier" );
 
     return result;
 }
