@@ -297,9 +297,20 @@ static void SecurityAuditTick()
             + " флаг(ов)" + body);
 }
 
-// Daily top-5 kills digest → public (player) Telegram group. Fires at most once
-// per day (24h from the previous run).
+// Daily top-kills digest → public (player) Telegram group. Fires at most once
+// per day (24h from the previous run).  Rows are enriched: local time of the
+// kill, victim (corp + ship class), system + region, the final-blow ship class
+// and who landed it, and damage — so the message reads like a mini killboard.
 static time_t sLastKillDigest = 0;
+
+static std::string HumanizeIsk(double v) {
+    char buf[64];
+    if (v >= 1000000000.0)      snprintf(buf, sizeof(buf), "%.2fb", v / 1000000000.0);
+    else if (v >= 1000000.0)    snprintf(buf, sizeof(buf), "%.2fm", v / 1000000.0);
+    else if (v >= 1000.0)       snprintf(buf, sizeof(buf), "%.1fk", v / 1000.0);
+    else                        snprintf(buf, sizeof(buf), "%.0f", v);
+    return buf;
+}
 
 static void DailyKillDigestTick()
 {
@@ -310,13 +321,26 @@ static void DailyKillDigestTick()
         return;
     sLastKillDigest = now;
 
+    // filetime(µs since 1601) → readable local time.  We fetch the pieces so a
+    // single row already carries everything TG needs; no per-row lookups.
     std::string q =
-        "SELECT k.victimCharacterID, vc.characterName, iv.typeName,"
-        "       k.solarSystemID, ss.solarSystemName, k.victimDamageTaken"
+        "SELECT k.victimCharacterID, vc.characterName,"
+        "       vcc.corporationName,"
+        "       iv.typeName, igv.groupName,"
+        "       k.solarSystemID, ss.solarSystemName, rg.regionName,"
+        "       fc.characterName, if_.typeName, igf.groupName,"
+        "       k.victimDamageTaken,"
+        "       DATE_FORMAT(FROM_UNIXTIME((k.killTime - 116444736000000000) / 10000000), '%d.%m %H:%i') AS kt"
         " FROM chrKillTable k"
         " LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID"
+        " LEFT JOIN crpCorporation vcc ON vcc.corporationID = k.victimCorporationID"
         " LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID"
+        " LEFT JOIN invGroups igv ON igv.groupID = iv.groupID"
+        " LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID"
+        " LEFT JOIN invTypes if_ ON if_.typeID = k.finalShipTypeID"
+        " LEFT JOIN invGroups igf ON igf.groupID = if_.groupID"
         " LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID"
+        " LEFT JOIN mapRegions rg ON rg.regionID = ss.regionID"
         " WHERE (k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 1 DAY))"
         " ORDER BY k.victimDamageTaken DESC LIMIT 5";
     DBQueryResult res;
@@ -327,13 +351,34 @@ static void DailyKillDigestTick()
     int count = 0;
     DBResultRow row;
     while (res.GetRow(row)) {
-        std::string victim = row.GetText(1) ? row.GetText(1) : "unknown";
-        std::string ship   = row.GetText(2) ? row.GetText(2) : "";
-        std::string sys    = row.GetText(4) ? row.GetText(4) : "";
-        body += "\n• " + victim;
-        if (!ship.empty()) body += " (" + ship + ")";
-        if (!sys.empty())  body += " — " + sys;
-        body += " · damage " + std::to_string(row.GetUInt(5));
+        const char* victim = row.GetText(1) ? row.GetText(1) : "unknown";
+        const char* vcorp  = row.GetText(2);
+        const char* ship   = row.GetText(3) ? row.GetText(3) : "";
+        const char* grp    = row.GetText(4);
+        const char* sys    = row.GetText(6) ? row.GetText(6) : "";
+        const char* region = row.GetText(7);
+        const char* killer = row.GetText(8);
+        const char* kship  = row.GetText(9);
+        const char* kgrp   = row.GetText(10);
+        const char* ktime  = row.GetText(12) ? row.GetText(12) : "";
+
+        std::string line = "\n";
+        if (*ktime) { line += "🕐 " + std::string(ktime) + " · "; }
+        line += victim;
+        if (vcorp) line += " <" + std::string(vcorp) + ">";
+        if (*ship) line += " — " + std::string(ship);
+        if (grp)   line += " [" + std::string(grp) + "]";
+        if (*sys)  line += "\n      📍 " + std::string(sys);
+        if (region) line += " (" + std::string(region) + ")";
+        // final blow: pilot name if a character did it, else the NPC ship name
+        line += "\n      ⚔ ";
+        if (killer) line += std::string(killer);
+        else if (kship) line += std::string(kship);
+        else line += "NPC";
+        if (kship && killer) line += " на " + std::string(kship);
+        if (kgrp) line += " [" + std::string(kgrp) + "]";
+        line += " · dmg " + HumanizeIsk(row.GetUInt(11));
+        body += line;
         ++count;
     }
     if (count > 0) {
