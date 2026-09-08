@@ -358,12 +358,15 @@ PyResult PetitionerService::CreatePetition(PyCallArgs& call,
 
     sLog.Green("Petitioner", "%s(%u) filed petition #%u cat %u.", call.client->GetName(), charID, petitionID, categoryID);
 
-    // Botting/RMT petitions (601/602) are admin-priority — notify the admin group.
-    if (categoryID == 601 || categoryID == 602) {
-        std::string tag = categoryID == 601 ? "🤖 Петиция: Боты / мультиаккаунтинг"
-                                            : "💸 Петиция: RMT";
+    // Every new petition notifies the admin group (bots/RMT 601/602 are flagged
+    // with their own emoji).
+    {
+        std::string tag = categoryID == 601 ? "🤖 Боты / мультиаккаунтинг"
+                         : categoryID == 602 ? "💸 RMT"
+                         : "📨 Новая петиция";
         TelegramBot::NotifyAdmin(tag + " #" + std::to_string(petitionID)
-            + " от " + call.client->GetName() + "\n" + subject);
+            + " (cat " + std::to_string(categoryID) + ") от " + call.client->GetName()
+            + "\n" + subject);
     }
     return new PyBool(true);
 }

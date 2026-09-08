@@ -511,12 +511,14 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
             " VALUES (%u, %u, '%s', 0, 0, '%s', NOW())",
             petitionID, charID, aEsc.c_str(), bEsc.c_str());
 
-        // Botting/RMT petitions are admin-priority — notify the admin group.
-        if (categoryID == 601 || categoryID == 602) {
-            std::string tag = categoryID == 601 ? "🤖 Петиция: Боты / мультиаккаунтинг"
-                                                : "💸 Петиция: RMT";
+        // Every new petition notifies the admin group (bots/RMT get own emoji).
+        {
+            std::string tag = categoryID == 601 ? "🤖 Боты / мультиаккаунтинг"
+                             : categoryID == 602 ? "💸 RMT"
+                             : "📨 Новая петиция";
             TelegramBot::NotifyAdmin(tag + " #" + std::to_string(petitionID)
-                + " от " + author + "\n" + subject);
+                + " (cat " + std::to_string(categoryID) + ") от " + author
+                + "\n" + subject);
         }
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
