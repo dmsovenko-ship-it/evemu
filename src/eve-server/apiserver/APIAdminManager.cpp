@@ -205,6 +205,66 @@ static std::string PostNewsXML(const std::map<std::string, std::string>& params)
     return xml;
 }
 
+// Every account with its last-seen login IP (from accountLoginHistory) — used by
+// the portal to group accounts by IP (multiboxing) or by e-mail.
+static std::string AccountsNetworkXML()
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT a.accountID, a.accountName, COALESCE(a.email, ''), a.role, a.online, a.banned,"
+        "       (SELECT h.ip FROM accountLoginHistory h"
+        "         WHERE h.accountID = a.accountID ORDER BY h.loginTime DESC LIMIT 1) AS lastIP"
+        " FROM account a ORDER BY lastIP, a.accountID"))
+        return APIServiceManager::BuildErrorXML("999", "Query failed.");
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <accounts>\n";
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        const char* ip = row.GetText(6);
+        xml += "      <row accountid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+        xml += " accountname=\"" + xmlEscape(row.GetText(1)) + "\"";
+        xml += " email=\"" + xmlEscape(row.GetText(2)) + "\"";
+        xml += " role=\"" + std::to_string(row.GetInt64(3)) + "\"";
+        xml += " online=\"" + std::to_string(row.GetInt(4)) + "\"";
+        xml += " banned=\"" + std::to_string(row.GetInt(5)) + "\"";
+        xml += " ip=\"" + xmlEscape(ip ? ip : "") + "\"/>\n";
+    }
+    xml += "    </accounts>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
+// Ban every account that has ever logged in from the given IP (multiboxing
+// / RMT mitigation). Reason is optional and goes to the public notices.
+static std::string BanByIPXML(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string ip = get("ip");
+    if (ip.empty())
+        return APIServiceManager::BuildErrorXML("105", "Missing ip.");
+    std::string ipEsc;
+    sDatabase.DoEscapeString(ipEsc, ip);
+
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+        "UPDATE account SET banned = 1 WHERE accountID IN"
+        " (SELECT DISTINCT accountID FROM accountLoginHistory WHERE ip = '%s')",
+        ipEsc.c_str()))
+        return APIServiceManager::BuildErrorXML("999", "Query failed.");
+
+    std::string msg = "⛔ Бан по IP " + ip + ": все связанные аккаунты заблокированы.";
+    std::string reason = get("reason");
+    if (!reason.empty()) msg += "\nПричина: " + reason;
+    TelegramBot::NotifyPlayer(msg);
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <ok/>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
 std::string APIAdminManager::ProcessCall(const std::string& handler,
                                          const std::map<std::string, std::string>& params)
 {
@@ -249,6 +309,14 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
     // admin publishes news → public (player) Telegram group + history table
     if (handler == "PostNews.xml.aspx")
         return PostNewsXML(params);
+
+    // accounts with their last-seen IP (multiboxing/network grouping)
+    if (handler == "AccountsNetwork.xml.aspx")
+        return AccountsNetworkXML();
+
+    // ban every account that ever logged in from one IP
+    if (handler == "BanByIP.xml.aspx")
+        return BanByIPXML(params);
 
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
