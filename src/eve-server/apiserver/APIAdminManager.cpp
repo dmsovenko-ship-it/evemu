@@ -207,6 +207,79 @@ static std::string PostNewsXML(const std::map<std::string, std::string>& params)
     return xml;
 }
 
+// News archive: every published item, newest first.  Lets the portal offer
+// re-send (the item is only in Telegram until the group scrolls away) and
+// full delete (remove the record for good).
+static std::string NewsListXML()
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT newsID, title, body, authorName, createdAt FROM serverNews"
+        " ORDER BY newsID DESC"))
+        return APIServiceManager::BuildErrorXML("999", "Query failed.");
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+    xml += "  <result>\n    <news>\n";
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        xml += "      <row newsid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+        xml += " title=\"" + xmlEscape(row.GetText(1)) + "\"";
+        xml += " body=\"" + xmlEscape(row.GetText(2)) + "\"";
+        xml += " authorname=\"" + xmlEscape(row.GetText(3)) + "\"";
+        xml += " createdat=\"" + SafeStr(row.GetText(4)) + "\"/>\n";
+    }
+    xml += "    </news>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
+// Re-push an archived news item to the public (player) Telegram group.
+static std::string NewsResendXML(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string nid = get("newsid");
+    if (nid.empty() || nid.find_first_not_of("0123456789") != std::string::npos)
+        return APIServiceManager::BuildErrorXML("105", "Missing newsid.");
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT title, body FROM serverNews WHERE newsID = %u", std::stoul(nid)))
+        return APIServiceManager::BuildErrorXML("999", "Query failed.");
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return APIServiceManager::BuildErrorXML("404", "News not found.");
+
+    const char* title = row.GetText(0);
+    const char* body  = row.GetText(1);
+    TelegramBot::NotifyPlayer("📢 " + (title ? title : "") + "\n" + (body ? body : ""));
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <ok/>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
+// Permanently remove an archived news item from the database.
+static std::string NewsDeleteXML(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string nid = get("newsid");
+    if (nid.empty() || nid.find_first_not_of("0123456789") != std::string::npos)
+        return APIServiceManager::BuildErrorXML("105", "Missing newsid.");
+
+    DBerror err;
+    sDatabase.RunQuery(err, "DELETE FROM serverNews WHERE newsID = %u", std::stoul(nid));
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <ok/>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
 // Admin saves/clears a free-form note on an account (watchlist / follow-ups).
 static std::string SetAccountCommentXML(const std::map<std::string, std::string>& params)
 {
@@ -338,6 +411,14 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
     // admin publishes news → public (player) Telegram group + history table
     if (handler == "PostNews.xml.aspx")
         return PostNewsXML(params);
+
+    // news archive: list / re-send / delete stored news
+    if (handler == "NewsList.xml.aspx")
+        return NewsListXML();
+    if (handler == "NewsResend.xml.aspx")
+        return NewsResendXML(params);
+    if (handler == "NewsDelete.xml.aspx")
+        return NewsDeleteXML(params);
 
     // accounts with their last-seen IP (multiboxing/network grouping)
     if (handler == "AccountsNetwork.xml.aspx")
