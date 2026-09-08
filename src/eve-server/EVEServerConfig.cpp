@@ -250,6 +250,8 @@ EVEServerConfig::EVEServerConfig()
     playerBots.DeepSeekKey = "";
     playerBots.DeepSeekURL = "https://api.deepseek.com/chat/completions";
 
+    telegram.Endpoint = "https://api.telegram.org";
+    telegram.Proxy = "";
     telegram.PlayerEnabled = false;
     telegram.PlayerBotToken = "";
     telegram.PlayerChatID = "";
@@ -904,6 +906,8 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
 
 bool EVEServerConfig::ProcessTelegram(const TiXmlElement* ele)
 {
+    AddValueParser( "Endpoint",         telegram.Endpoint );
+    AddValueParser( "Proxy",            telegram.Proxy );
     AddValueParser( "PlayerEnabled",    telegram.PlayerEnabled );
     AddValueParser( "PlayerBotToken",   telegram.PlayerBotToken );
     AddValueParser( "PlayerChatID",     telegram.PlayerChatID );
@@ -913,6 +917,8 @@ bool EVEServerConfig::ProcessTelegram(const TiXmlElement* ele)
 
     const bool result = ParseElementChildren( ele );
 
+    RemoveParser( "Endpoint" );
+    RemoveParser( "Proxy" );
     RemoveParser( "PlayerEnabled" );
     RemoveParser( "PlayerBotToken" );
     RemoveParser( "PlayerChatID" );

@@ -363,7 +363,11 @@ public:
     // From <telegram> — two independent destinations:
     //   player = the in-game / public group (news, server events)
     //   admin  = the closed admin-only group (security/RMT/bot flags)
+    // Endpoint/Proxy are shared: Telegram is blocked in RU → point Endpoint at a
+    // mirror/bot API relay and Proxy at an HTTP/SOCKS proxy if needed.
     struct {
+        std::string Endpoint;        // default https://api.telegram.org (or RU mirror)
+        std::string Proxy;           // empty = direct; else --proxy value (http/socks5)
         bool PlayerEnabled;
         std::string PlayerBotToken;
         std::string PlayerChatID;

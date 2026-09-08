@@ -35,17 +35,24 @@ inline std::string UrlEncode(const std::string& s)
     return out;
 }
 
-inline void Notify(const std::string& botToken, const std::string& chatID,
+inline void Notify(const std::string& endpoint, const std::string& proxy,
+                   const std::string& botToken, const std::string& chatID,
                    const std::string& text)
 {
-    if (botToken.empty() || chatID.empty() || text.empty())
+    if (endpoint.empty() || botToken.empty() || chatID.empty() || text.empty())
         return;
-    std::string cmd = "curl -s -X POST 'https://api.telegram.org/bot"
-                    + botToken
+    std::string cmd = "curl -s -X POST '" + endpoint + "/bot" + botToken
                     + "/sendMessage' --data-urlencode 'chat_id=" + chatID
                     + "' --data-urlencode 'text=" + UrlEncode(text)
-                    + "' >/dev/null 2>&1 &";
-    ::system(cmd.c_str());   // fire & forget
+                    + "' >/dev/null 2>&1";
+    if (!proxy.empty())
+        cmd = "curl -s --proxy '" + proxy + "' -X POST '" + endpoint
+            + "/bot" + botToken
+            + "/sendMessage' --data-urlencode 'chat_id=" + chatID
+            + "' --data-urlencode 'text=" + UrlEncode(text)
+            + "' >/dev/null 2>&1";
+    cmd += " &";   // fire & forget (detached background shell)
+    ::system(cmd.c_str());
 }
 
 // Public events → the player group.
@@ -53,7 +60,8 @@ inline void NotifyPlayer(const std::string& text)
 {
     extern EVEServerConfig sConfig;
     if (sConfig.telegram.PlayerEnabled)
-        Notify(sConfig.telegram.PlayerBotToken, sConfig.telegram.PlayerChatID, text);
+        Notify(sConfig.telegram.Endpoint, sConfig.telegram.Proxy,
+               sConfig.telegram.PlayerBotToken, sConfig.telegram.PlayerChatID, text);
 }
 
 // Security/priority alerts → the closed admin group.
@@ -61,7 +69,8 @@ inline void NotifyAdmin(const std::string& text)
 {
     extern EVEServerConfig sConfig;
     if (sConfig.telegram.AdminEnabled)
-        Notify(sConfig.telegram.AdminBotToken, sConfig.telegram.AdminChatID, text);
+        Notify(sConfig.telegram.Endpoint, sConfig.telegram.Proxy,
+               sConfig.telegram.AdminBotToken, sConfig.telegram.AdminChatID, text);
 }
 
 } // namespace TelegramBot
