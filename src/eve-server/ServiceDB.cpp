@@ -110,7 +110,12 @@ bool ServiceDB::GetAccountInformation( CryptoChallengePacket& ccp, AccountData& 
     aData.id         = row.GetInt(0);
     aData.clientID   = row.GetInt(1);
     aData.password   = (row.IsNull(2) ? "" : row.GetText(2));
-    aData.hash       = (row.IsNull(3) ? "" : row.GetText(3));
+    // hash is a tinyblob holding a raw 20-byte digest — read it by its actual
+    // byte length, NOT as a C string. mysql_fetch_row NUL-terminates the blob,
+    // so a digest containing an embedded 0x00 would be truncated by strlen and
+    // a size-checking compare in _VerifyLogin would then wrongly reject the
+    // account (~7.5% of random digests have a NUL byte).
+    aData.hash       = (row.IsNull(3) ? "" : std::string(row.GetText(3), row.ColumnLength(3)));
     aData.role       = row.GetInt64(4);
     aData.type       = row.GetUInt(5);
     aData.online     = row.GetInt(6) ? true : false;

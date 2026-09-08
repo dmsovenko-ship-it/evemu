@@ -156,7 +156,7 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
             xml += " updated=\"" + std::to_string(row.GetInt(9)) + "\"";
             xml += " deleted=\"" + std::to_string(row.GetInt(10)) + "\"";
             xml += " createdate=\"" + std::string(row.GetText(11)) + "\"";
-            xml += " touchdate=\"" + std::string(row.GetText(12)) + "\"/>\n";
+            xml += " touchdate=\"" + std::string(row.IsNull(12) ? "" : row.GetText(12)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
@@ -190,7 +190,7 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
             xml += " status=\"" + std::to_string(row.GetInt(7)) + "\"";
             xml += " updated=\"" + std::to_string(row.GetInt(9)) + "\"";
             xml += " createdate=\"" + std::string(row.GetText(11)) + "\"";
-            xml += " touchdate=\"" + std::string(row.GetText(12)) + "\"/>\n";
+            xml += " touchdate=\"" + std::string(row.IsNull(12) ? "" : row.GetText(12)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
