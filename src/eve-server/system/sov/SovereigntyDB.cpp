@@ -24,6 +24,7 @@
 */
 
 #include "system/sov/SovereigntyDB.h"
+#include "TelegramBot.h"
 
     //TODO: For now, we return 0 as stationCount since such system is not implemented
     //TODO: Handle militaryPoints and industrialPoints, but for now they are 5 by default since we don't have a mechanism for determining them
@@ -89,8 +90,49 @@ void SovereigntyDB::LogSystemChange(uint32 systemID, const char* ownerType,
         "INSERT INTO sovChangeLog (systemID, ownerType, oldOwnerID, newOwnerID, changeTime) "
         "VALUES (%u, '%s', %u, %u, %lli)",
         systemID, ownerType, oldOwnerID, newOwnerID, (long long)GetFileTimeNow()))
+    {
         codelog(SOV__ERROR, "LogSystemChange(%u, %s, %u->%u) failed: %s",
                 systemID, ownerType, oldOwnerID, newOwnerID, err.GetError());
+        return;
+    }
+
+    // Public sovereignty change → player Telegram group.
+    auto ownerName = [&](uint32 id) -> std::string {
+        if (id == 0)
+            return "—";
+        DBQueryResult res;
+        if (std::string(ownerType) == "faction") {
+            if (sDatabase.RunQuery(res,
+                "SELECT factionName FROM facFactions WHERE factionID = %u", id)) {
+                DBResultRow row;
+                if (res.GetRow(row))
+                    return row.GetText(0) ? row.GetText(0) : "";
+            }
+        } else {
+            if (sDatabase.RunQuery(res,
+                "SELECT allianceName FROM alnAlliance WHERE allianceID = %u", id)) {
+                DBResultRow row;
+                if (res.GetRow(row))
+                    return row.GetText(0) ? row.GetText(0) : "";
+            }
+        }
+        return "?";
+    };
+    std::string sysName;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT solarSystemName FROM mapSolarSystems WHERE solarSystemID = %u", systemID)) {
+            DBResultRow row;
+            if (res.GetRow(row) && row.GetText(0))
+                sysName = row.GetText(0);
+        }
+    }
+    if (sysName.empty())
+        sysName = "System " + std::to_string(systemID);
+
+    TelegramBot::NotifyPlayer("[Sov] " + sysName + ": " + ownerName(oldOwnerID)
+        + " → " + ownerName(newOwnerID));
 }
 
 void SovereigntyDB::SetContested(uint32 systemID, bool contested) 

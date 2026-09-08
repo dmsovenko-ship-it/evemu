@@ -172,6 +172,39 @@ static std::string ApproveTransferXML(const std::map<std::string, std::string>& 
     return xml;
 }
 
+// Admin publishes a news item: stored in serverNews and broadcast to the public
+// (player) Telegram group.
+static std::string PostNewsXML(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string title = get("title");
+    std::string body  = get("body");
+    std::string author = get("author");
+    if (title.empty() || body.empty())
+        return APIServiceManager::BuildErrorXML("105", "Missing title or body.");
+
+    std::string tEsc, bEsc, aEsc;
+    sDatabase.DoEscapeString(tEsc, title);
+    sDatabase.DoEscapeString(bEsc, body);
+    sDatabase.DoEscapeString(aEsc, author);
+    DBerror err;
+    uint32 newsID = 0;
+    if (!sDatabase.RunQueryLID(err, newsID,
+        "INSERT INTO serverNews (title, body, authorName) VALUES ('%s', '%s', '%s')",
+        tEsc.c_str(), bEsc.c_str(), aEsc.c_str()))
+        return APIServiceManager::BuildErrorXML("999", "Insert failed.");
+
+    TelegramBot::NotifyPlayer("[News] " + title + "\n" + body);
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <ok/>\n    <newsid>" + std::to_string(newsID) + "</newsid>\n";
+    xml += "  </result>\n</eveapi>\n";
+    return xml;
+}
+
 std::string APIAdminManager::ProcessCall(const std::string& handler,
                                          const std::map<std::string, std::string>& params)
 {
@@ -213,6 +246,10 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
     if (handler == "ApproveTransfer.xml.aspx")
         return ApproveTransferXML(params);
 
+    // admin publishes news → public (player) Telegram group + history table
+    if (handler == "PostNews.xml.aspx")
+        return PostNewsXML(params);
+
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
 
@@ -252,16 +289,38 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
     if (handler == "BanAccount.xml.aspx") {
         std::string aid = get("accountid");
         if (aid.empty()) return BuildErrorXML("105", "Missing accountid.");
+        std::string name;
+        {
+            DBQueryResult nres;
+            if (sDatabase.RunQuery(nres, "SELECT accountName FROM account WHERE accountID = %u", std::stoul(aid))) {
+                DBResultRow nrow;
+                if (nres.GetRow(nrow) && nrow.GetText(0)) name = nrow.GetText(0);
+            }
+        }
+        std::string reason = get("reason");
         DBerror err;
         sDatabase.RunQuery(err, "UPDATE account SET banned = 1 WHERE accountID = %u", std::stoul(aid));
+        std::string msg = "[Server] Аккаунт " + (name.empty() ? "#" + aid : name)
+                        + " забанен.";
+        if (!reason.empty()) msg += " Причина: " + reason;
+        TelegramBot::NotifyPlayer(msg);
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
     if (handler == "UnbanAccount.xml.aspx") {
         std::string aid = get("accountid");
         if (aid.empty()) return BuildErrorXML("105", "Missing accountid.");
+        std::string name;
+        {
+            DBQueryResult nres;
+            if (sDatabase.RunQuery(nres, "SELECT accountName FROM account WHERE accountID = %u", std::stoul(aid))) {
+                DBResultRow nrow;
+                if (nres.GetRow(nrow) && nrow.GetText(0)) name = nrow.GetText(0);
+            }
+        }
         DBerror err;
         sDatabase.RunQuery(err, "UPDATE account SET banned = 0 WHERE accountID = %u", std::stoul(aid));
+        TelegramBot::NotifyPlayer("[Server] Аккаунт " + (name.empty() ? "#" + aid : name) + " разбанен.");
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 

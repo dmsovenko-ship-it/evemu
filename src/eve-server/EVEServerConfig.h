@@ -378,7 +378,7 @@ public:
 
     // From <security> — admin RMT / multiboxing audit thresholds.
     struct {
-        uint64 FlowThresholdISK;   // min ISK moved human<->human in the window to flag
+        int64 FlowThresholdISK;    // min ISK moved human<->human in the window to flag
         uint32 FlowWindowHours;    // look-back window for market flows
         uint32 IPWindowDays;       // look-back window for shared-IP logins
         uint32 MinAccountsSameIP;  // >=N accounts on one IP → multiboxing hint

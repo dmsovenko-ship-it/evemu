@@ -32,6 +32,7 @@
 #include <unistd.h>
 
 static void SecurityAuditTick();
+static void DailyKillDigestTick();
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <vector>
@@ -183,6 +184,9 @@ void BotMgr::Process()
 
     // Periodic admin security audit (RMT flows / multiboxing IPs) → admin TG.
     SecurityAuditTick();
+
+    // Daily top-kills digest → public (player) TG group.
+    DailyKillDigestTick();
 }
 
 // Periodic admin security audit. Scans the last 24h of market fills for
@@ -286,6 +290,49 @@ static void SecurityAuditTick()
     if (found > 0)
         TelegramBot::NotifyAdmin("[SECURITY] " + std::to_string(found)
             + " flag(s):" + body);
+}
+
+// Daily top-5 kills digest → public (player) Telegram group. Fires at most once
+// per day (24h from the previous run).
+static time_t sLastKillDigest = 0;
+
+static void DailyKillDigestTick()
+{
+    if (!sConfig.telegram.PlayerEnabled)
+        return;
+    time_t now = time(nullptr);
+    if (sLastKillDigest != 0 && now - sLastKillDigest < 86400)
+        return;
+    sLastKillDigest = now;
+
+    std::string q =
+        "SELECT k.victimCharacterID, vc.characterName, iv.typeName,"
+        "       k.solarSystemID, ss.solarSystemName, k.victimDamageTaken"
+        " FROM chrKillTable k"
+        " LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID"
+        " LEFT JOIN invTypes iv ON iv.typeID = k.victimShipTypeID"
+        " LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID"
+        " WHERE (k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 1 DAY))"
+        " ORDER BY k.victimDamageTaken DESC LIMIT 5";
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res, q.c_str()))
+        return;
+
+    std::string body;
+    int count = 0;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        std::string victim = row.GetText(1) ? row.GetText(1) : "unknown";
+        std::string ship   = row.GetText(2) ? row.GetText(2) : "";
+        std::string sys    = row.GetText(4) ? row.GetText(4) : "";
+        body += "\n• " + victim;
+        if (!ship.empty()) body += " (" + ship + ")";
+        if (!sys.empty())  body += " — " + sys;
+        body += " · damage " + std::to_string(row.GetUInt(5));
+        ++count;
+    }
+    if (count > 0)
+        TelegramBot::NotifyPlayer("[Kills] Top-" + std::to_string(count) + " за сутки:" + body);
 }
 
 void BotMgr::RefreshOnlineCount()
