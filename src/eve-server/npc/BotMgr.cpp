@@ -303,7 +303,7 @@ static void SecurityAuditTick()
 // and who landed it, and damage — so the message reads like a mini killboard.
 static time_t sLastKillDigest = 0;
 
-static std::string HumanizeIsk(double v) {
+std::string HumanizeIsk(double v) {
     char buf[64];
     if (v >= 1000000000.0)      snprintf(buf, sizeof(buf), "%.2fb", v / 1000000000.0);
     else if (v >= 1000000.0)    snprintf(buf, sizeof(buf), "%.2fm", v / 1000000.0);
@@ -312,17 +312,13 @@ static std::string HumanizeIsk(double v) {
     return buf;
 }
 
-static void DailyKillDigestTick()
+// Builds the enriched top-kills block (shared by the daily digest and the
+// /topkills Telegram command).  `sinceSql` is a SQL boolean restricting the
+// window (e.g. the last 24h) — pass "1" for an overall leaderboard.
+std::string BuildKillDigestText(int limit, const std::string& sinceSql)
 {
-    if (!sConfig.telegram.PlayerEnabled)
-        return;
-    time_t now = time(nullptr);
-    if (sLastKillDigest != 0 && now - sLastKillDigest < 86400)
-        return;
-    sLastKillDigest = now;
-
-    // filetime(µs since 1601) → readable local time.  We fetch the pieces so a
-    // single row already carries everything TG needs; no per-row lookups.
+    char lim[16];
+    snprintf(lim, sizeof(lim), "%d", limit);
     std::string q =
         "SELECT k.victimCharacterID, vc.characterName,"
         "       vcc.corporationName,"
@@ -341,11 +337,11 @@ static void DailyKillDigestTick()
         " LEFT JOIN invGroups igf ON igf.groupID = if_.groupID"
         " LEFT JOIN mapSolarSystems ss ON ss.solarSystemID = k.solarSystemID"
         " LEFT JOIN mapRegions rg ON rg.regionID = ss.regionID"
-        " WHERE (k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 1 DAY))"
-        " ORDER BY k.victimDamageTaken DESC LIMIT 5";
+        " WHERE " + sinceSql +
+        " ORDER BY k.victimDamageTaken DESC LIMIT " + lim;
     DBQueryResult res;
     if (!sDatabase.RunQuery(res, q.c_str()))
-        return;
+        return "";
 
     std::string body;
     int count = 0;
@@ -381,8 +377,23 @@ static void DailyKillDigestTick()
         body += line;
         ++count;
     }
-    if (count > 0) {
-        std::string digest = "📊 Top-" + std::to_string(count) + " киллов за сутки:" + body;
+    if (count == 0)
+        return "";
+    return "📊 Top-" + std::to_string(count) + " киллов за сутки:" + body;
+}
+
+static void DailyKillDigestTick()
+{
+    if (!sConfig.telegram.PlayerEnabled)
+        return;
+    time_t now = time(nullptr);
+    if (sLastKillDigest != 0 && now - sLastKillDigest < 86400)
+        return;
+    sLastKillDigest = now;
+
+    std::string digest = BuildKillDigestText(5,
+        "(k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 1 DAY))");
+    if (!digest.empty()) {
         TelegramBot::NotifyPlayer(digest);
         TelegramBot::NotifyAdmin(digest);
     }

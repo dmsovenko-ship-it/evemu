@@ -247,4 +247,11 @@ private:
 #define sBotMgr \
 ( BotMgr::get() )
 
+// Enriched "top kills" block shared by the daily TG digest and the /topkills
+// Telegram command. sinceSql is a SQL boolean restricting the window ("1" =
+// all time). Returns empty when there are no rows in range.
+std::string BuildKillDigestText(int limit, const std::string& sinceSql);
+// Compact ISK formatting: 30000 → "30.0k", 1200000 → "1.20m", 3.4e9 → "3.40b".
+std::string HumanizeIsk(double v);
+
 #endif  // EVEMU_PLAYERBOT_BOTMGR_H_

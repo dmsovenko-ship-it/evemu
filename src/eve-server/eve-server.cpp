@@ -26,6 +26,7 @@
 
 #include "eve-server.h"
 #include "TelegramBot.h"
+#include "npc/TelegramCmd.h"
 // version
 #include "../eve-common/EVEVersion.h"
 #include "apiserver/APIServer.h"
@@ -670,6 +671,9 @@ int main( int argc, char* argv[] )
     sAPIServer.CreateServices();
     sAPIServer.Run();
 
+    /* start the Telegram command poller (needs the DB up, uses its own thread) */
+    TelegramCmd::Start();
+
     /* create a command dispatcher */
     sLog.Green("       ServerInit", "Starting Command Dispatch Manager");
     CommandDispatcher command_dispatcher(newSvcMgr);
@@ -991,6 +995,8 @@ int main( int argc, char* argv[] )
     /* stop Image Server */
     sImageServer.Stop();
     sLog.Warning("   ServerShutdown", "Image Server stopped." );
+    /* stop the Telegram command poller */
+    TelegramCmd::Stop();
     /* Close the MarketMgr */
     sMktMgr.Close();
     /* Close the bulk data manager */
@@ -1099,6 +1105,8 @@ static void CleanUp() {
     /* stop Image Server */
     sImageServer.Stop();
     sLog.Warning("   ServerShutdown", "Image Server stopped." );
+    /* stop the Telegram command poller */
+    TelegramCmd::Stop();
     /* Close the MarketMgr */
     sLog.Warning("   ServerShutdown", "Shutting down Market Manager." );
     sMktMgr.Close();
