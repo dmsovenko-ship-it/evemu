@@ -18,6 +18,7 @@
 #include "market/MarketDB.h"
 #include "ship/Ship.h"
 #include "EVE_Effects.h"
+#include "TelegramBot.h"
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -25,9 +26,12 @@
 #include <cstring>
 #include <sstream>
 #include <algorithm>
+#include <map>
 #include <queue>
 #include <set>
 #include <unistd.h>
+
+static void SecurityAuditTick();
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <vector>
@@ -176,6 +180,106 @@ void BotMgr::Process()
             }
         }
     }
+
+    // Periodic admin security audit (RMT flows / multiboxing IPs) → admin TG.
+    SecurityAuditTick();
+}
+
+// Periodic admin security audit. Scans the last 24h of market fills for
+// unusually large human↔human ISK flows (RMT) and the login history for several
+// accounts sharing one IP (multiboxing), then notifies the closed admin Telegram
+// group. Runs at most every 10 minutes; per-finding notifications are
+// rate-limited to ~once per 6 hours so a persistent pattern doesn't spam.
+static time_t sLastSecurityScan = 0;
+static std::map<std::string, time_t> sSecuritySent;
+
+static void SecurityAuditTick()
+{
+    if (!sConfig.telegram.AdminEnabled)
+        return;
+    time_t now = time(nullptr);
+    if (now - sLastSecurityScan < 600)
+        return;
+    sLastSecurityScan = now;
+
+    auto dedupe = [&](const std::string& key) -> bool {
+        auto it = sSecuritySent.find(key);
+        if (it != sSecuritySent.end() && now - it->second < 21600)   // 6h
+            return false;
+        sSecuritySent[key] = now;
+        return true;
+    };
+
+    std::string body;
+    int found = 0;
+
+    // 1) Big human↔human ISK flows (mktTransactions, sell side only, 24h).
+    //    Human = a character whose account exists in `account` (chelobots have
+    //    accountID 0 and never trip this).
+    {
+        int64 since = GetFileTimeNow() - 864000000000LL;   // 24h in 100ns units
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT t.clientID AS sellerID, sc.characterName AS sellerName,"
+            "       t.characterID AS buyerID, bc.characterName AS buyerName,"
+            "       COUNT(*) AS trades, SUM(t.price * t.quantity) AS isk"
+            " FROM mktTransactions t"
+            " JOIN chrCharacters sc ON sc.characterID = t.clientID"
+            " JOIN chrCharacters bc ON bc.characterID = t.characterID"
+            " WHERE t.transactionType = 0 AND t.transactionDate >= %lli"
+            "   AND t.clientID IN (SELECT characterID FROM chrCharacters"
+            "                       WHERE accountID IN (SELECT accountID FROM account))"
+            "   AND t.characterID IN (SELECT characterID FROM chrCharacters"
+            "                          WHERE accountID IN (SELECT accountID FROM account))"
+            "   AND t.clientID <> t.characterID"
+            " GROUP BY t.clientID, t.characterID"
+            " HAVING SUM(t.price * t.quantity) >= 150000000"
+            " ORDER BY isk DESC LIMIT 6",
+            (long long)since))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                std::string sig = "flow:" + std::to_string(row.GetUInt(0)) + ">"
+                                + std::to_string(row.GetUInt(2));
+                if (!dedupe(sig))
+                    continue;
+                body += "\n- FLOW " + std::to_string((int64)row.GetDouble(5))
+                      + " ISK over " + std::to_string(row.GetUInt(4)) + " trades: "
+                      + row.GetText(1) + " -> " + row.GetText(3);
+                ++found;
+            }
+        }
+    }
+
+    // 2) Accounts sharing one IP (last 14 days) → multiboxing hint.
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT h.ip, COUNT(DISTINCT h.accountID) AS cnt,"
+            "       GROUP_CONCAT(DISTINCT a.accountName SEPARATOR ', ') AS names"
+            " FROM accountLoginHistory h"
+            " JOIN account a ON a.accountID = h.accountID"
+            " WHERE h.loginTime >= NOW() - INTERVAL 14 DAY"
+            " GROUP BY h.ip"
+            " HAVING cnt >= 2"
+            " ORDER BY cnt DESC LIMIT 8"))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                std::string sig = "ip:" + std::string(row.GetText(0));
+                if (!dedupe(sig))
+                    continue;
+                body += "\n- IP " + std::string(row.GetText(0)) + " -> "
+                      + std::to_string(row.GetUInt(1)) + " accounts: "
+                      + row.GetText(2);
+                ++found;
+            }
+        }
+    }
+
+    if (found > 0)
+        TelegramBot::NotifyAdmin("[SECURITY] " + std::to_string(found)
+            + " flag(s):" + body);
 }
 
 void BotMgr::RefreshOnlineCount()

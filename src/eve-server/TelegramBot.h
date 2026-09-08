@@ -58,19 +58,17 @@ inline void Notify(const std::string& endpoint, const std::string& proxy,
 // Public events → the player group.
 inline void NotifyPlayer(const std::string& text)
 {
-    extern EVEServerConfig sConfig;
-    if (sConfig.telegram.PlayerEnabled)
-        Notify(sConfig.telegram.Endpoint, sConfig.telegram.Proxy,
-               sConfig.telegram.PlayerBotToken, sConfig.telegram.PlayerChatID, text);
+    auto& tg = EVEServerConfig::get().telegram;
+    if (tg.PlayerEnabled)
+        Notify(tg.Endpoint, tg.Proxy, tg.PlayerBotToken, tg.PlayerChatID, text);
 }
 
 // Security/priority alerts → the closed admin group.
 inline void NotifyAdmin(const std::string& text)
 {
-    extern EVEServerConfig sConfig;
-    if (sConfig.telegram.AdminEnabled)
-        Notify(sConfig.telegram.Endpoint, sConfig.telegram.Proxy,
-               sConfig.telegram.AdminBotToken, sConfig.telegram.AdminChatID, text);
+    auto& tg = EVEServerConfig::get().telegram;
+    if (tg.AdminEnabled)
+        Notify(tg.Endpoint, tg.Proxy, tg.AdminBotToken, tg.AdminChatID, text);
 }
 
 } // namespace TelegramBot

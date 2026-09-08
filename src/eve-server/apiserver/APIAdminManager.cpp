@@ -19,6 +19,88 @@ static std::string xmlEscape(const char* s) {
     return out;
 }
 
+// On-demand admin security view: big human↔human flows (24h), shared-IP
+// accounts (multiboxing hint), open bot/RMT petitions. Same signals the
+// periodic audit notifies about; this page lets an admin look at everything
+// (periodic Telegram only fires for NEW findings).
+static std::string BuildSecurityFlagsXML()
+{
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+    xml += "  <result>\n    <flags>\n";
+
+    int64 since = GetFileTimeNow() - 864000000000LL;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT t.clientID AS sellerID, sc.characterName AS sellerName,"
+        "       t.characterID AS buyerID, bc.characterName AS buyerName,"
+        "       COUNT(*) AS trades, SUM(t.price * t.quantity) AS isk"
+        " FROM mktTransactions t"
+        " JOIN chrCharacters sc ON sc.characterID = t.clientID"
+        " JOIN chrCharacters bc ON bc.characterID = t.characterID"
+        " WHERE t.transactionType = 0 AND t.transactionDate >= %lli"
+        "   AND t.clientID IN (SELECT characterID FROM chrCharacters"
+        "                       WHERE accountID IN (SELECT accountID FROM account))"
+        "   AND t.characterID IN (SELECT characterID FROM chrCharacters"
+        "                          WHERE accountID IN (SELECT accountID FROM account))"
+        "   AND t.clientID <> t.characterID"
+        " GROUP BY t.clientID, t.characterID"
+        " HAVING SUM(t.price * t.quantity) >= 150000000"
+        " ORDER BY isk DESC LIMIT 10",
+        (long long)since))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row type=\"flow\"";
+            xml += " sellerid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " sellername=\"" + xmlEscape(row.GetText(1)) + "\"";
+            xml += " buyerid=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " buyername=\"" + xmlEscape(row.GetText(3)) + "\"";
+            xml += " trades=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " isk=\"" + std::to_string((int64)row.GetDouble(5)) + "\"/>\n";
+        }
+    }
+
+    if (sDatabase.RunQuery(res,
+        "SELECT h.ip, COUNT(DISTINCT h.accountID) AS cnt,"
+        "       GROUP_CONCAT(DISTINCT a.accountName SEPARATOR ', ') AS names"
+        " FROM accountLoginHistory h"
+        " JOIN account a ON a.accountID = h.accountID"
+        " WHERE h.loginTime >= NOW() - INTERVAL 14 DAY"
+        " GROUP BY h.ip HAVING cnt >= 2"
+        " ORDER BY cnt DESC LIMIT 10"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row type=\"multibox\"";
+            xml += " ip=\"" + xmlEscape(row.GetText(0)) + "\"";
+            xml += " accounts=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " names=\"" + xmlEscape(row.GetText(2)) + "\"/>\n";
+        }
+    }
+
+    if (sDatabase.RunQuery(res,
+        "SELECT p.petitionID, p.accountID, p.authorName, p.categoryID, p.subject, p.createDate"
+        " FROM portal_petitions p"
+        " WHERE p.status = 1 AND p.deleted = 0 AND p.categoryID IN (601, 602)"
+        " ORDER BY p.petitionID DESC LIMIT 10"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row type=\"petition\"";
+            xml += " petitionid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " accountid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " authorname=\"" + xmlEscape(row.GetText(2)) + "\"";
+            xml += " categoryid=\"" + std::to_string(row.GetUInt(3)) + "\"";
+            xml += " subject=\"" + xmlEscape(row.GetText(4)) + "\"";
+            xml += " createdate=\"" + std::string(row.GetText(5)) + "\"/>\n";
+        }
+    }
+
+    xml += "    </flags>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
 std::string APIAdminManager::ProcessCall(const std::string& handler,
                                          const std::map<std::string, std::string>& params)
 {
@@ -51,6 +133,10 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
     // roles
     if (handler == "SetRole.xml.aspx")
         return ProcessRoles(handler, params);
+
+    // security / RMT-monitoring dashboard
+    if (handler == "SecurityFlags.xml.aspx")
+        return BuildSecurityFlagsXML();
 
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
