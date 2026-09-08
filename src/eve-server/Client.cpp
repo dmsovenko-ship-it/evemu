@@ -3161,7 +3161,11 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
                    && memcmp(aData.hash.data(), ccp.user_password_hash.data(), aData.hash.size()) == 0;
         if (!hashOk && aData.hash.empty() && !aData.password.empty()) {
             std::string computed;
-            if (PasswordModule::GeneratePassHash(aData.name, aData.password, computed))
+            // Hash the RAW typed username (ccp.user_name), not the SQL-escaped
+            // form stored in aData.name — GeneratePassHash lowercases/trims it
+            // itself, mirroring the client; escaping would corrupt names that
+            // contain apostrophes/backslashes and the digest would never match.
+            if (PasswordModule::GeneratePassHash(ccp.user_name, aData.password, computed))
                 hashOk = computed.size() == ccp.user_password_hash.size()
                       && memcmp(computed.data(), ccp.user_password_hash.data(), computed.size()) == 0;
         }

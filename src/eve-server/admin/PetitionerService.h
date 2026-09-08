@@ -14,8 +14,8 @@ protected:
     PyResult GetCategoryHierarchicalInfo(PyCallArgs& call);
     PyResult GetCategoryProperties(PyCallArgs& call, PyRep* categoryID);
     PyResult MayPetition(PyCallArgs& call, PyRep* categoryID, PyRep* oocCharID);
-    PyResult PropertyPopulationInfo(PyCallArgs& call);
-    PyResult GetClientPickerInfo(PyCallArgs& call);
+    PyResult PropertyPopulationInfo(PyCallArgs& call, PyRep* propertyID, PyRep* oocCharID);
+    PyResult GetClientPickerInfo(PyCallArgs& call, PyRep* filterString, PyRep* elementName);
     // CreatePetition(subject, petition, categoryID, retval, OocCharacterID, chatLog, combatLog, propertyList)
     // args 0-4 always present (some None), 5-7 optional/None — accept generically.
     PyResult CreatePetition(PyCallArgs& call,

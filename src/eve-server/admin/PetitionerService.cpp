@@ -29,6 +29,7 @@
 #include "Client.h"
 #include "EVEServerConfig.h"
 #include "admin/PetitionerService.h"
+#include "python/classes/PyExceptions.h"
 
 #include <cctype>
 #include <map>
@@ -125,8 +126,8 @@ PetitionerService::PetitionerService() :
     this->Add("GetCategoryHierarchicalInfo", &PetitionerService::GetCategoryHierarchicalInfo);
     this->Add("GetCategoryProperties", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyRep*)>(&PetitionerService::GetCategoryProperties));
     this->Add("MayPetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyRep*, PyRep*)>(&PetitionerService::MayPetition));
-    this->Add("PropertyPopulationInfo", &PetitionerService::PropertyPopulationInfo);
-    this->Add("GetClientPickerInfo", &PetitionerService::GetClientPickerInfo);
+    this->Add("PropertyPopulationInfo", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyRep*, PyRep*)>(&PetitionerService::PropertyPopulationInfo));
+    this->Add("GetClientPickerInfo", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyRep*, PyRep*)>(&PetitionerService::GetClientPickerInfo));
     this->Add("CreatePetition", static_cast<PyResult(PetitionerService::*)(PyCallArgs&, PyRep*, PyRep*, PyRep*, PyRep*, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>, std::optional<PyRep*>)>(&PetitionerService::CreatePetition));
 
     // my petitions / messages
@@ -294,12 +295,12 @@ PyResult PetitionerService::MayPetition(PyCallArgs& call, PyRep* categoryID, PyR
     return PyStatic.NewZero();
 }
 
-PyResult PetitionerService::PropertyPopulationInfo(PyCallArgs& call)
+PyResult PetitionerService::PropertyPopulationInfo(PyCallArgs& call, PyRep* propertyID, PyRep* oocCharID)
 {
     return new PyList();
 }
 
-PyResult PetitionerService::GetClientPickerInfo(PyCallArgs& call)
+PyResult PetitionerService::GetClientPickerInfo(PyCallArgs& call, PyRep* filterString, PyRep* elementName)
 {
     return new PyList();
 }
@@ -338,10 +339,16 @@ PyResult PetitionerService::CreatePetition(PyCallArgs& call,
         return new PyBool(false);
     }
 
-    sDatabase.RunQuery(err,
+    if (!sDatabase.RunQuery(err,
         "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
         " VALUES (%u, %u, '%s', 0, 0, '%s', NOW())",
-        petitionID, charID, author.c_str(), eBody.c_str());
+        petitionID, charID, author.c_str(), eBody.c_str()))
+    {
+        sLog.Error("Petitioner", "CreatePetition message insert failed: %s", err.c_str());
+        // roll the empty petition back so we never leave a thread-less row
+        sDatabase.RunQuery(err, "DELETE FROM portal_petitions WHERE petitionID = %u", petitionID);
+        return new PyBool(false);
+    }
 
     sLog.Green("Petitioner", "%s(%u) filed petition #%u cat %u.", call.client->GetName(), charID, petitionID, categoryID);
     return new PyBool(true);
@@ -397,13 +404,15 @@ PyResult PetitionerService::GetPetitionMessages(PyCallArgs& call, PyInt* petitio
 PyResult PetitionerService::GetUnreadMessages(PyCallArgs& call)
 {
     int32 charID = call.client->GetCharacterID();
+    int32 accountID = call.client->GetUserID();
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT m.messageID, m.petitionID, m.text"
         " FROM portal_petition_messages m"
         " JOIN portal_petitions p ON p.petitionID = m.petitionID"
-        " WHERE p.characterID = %u AND m.isGM = 1 AND p.status = 1 AND p.deleted = 0"
-        " ORDER BY m.sentDate DESC LIMIT 20", charID))
+        " WHERE (p.characterID = %u OR (p.characterID = 0 AND p.accountID = %u))"
+        "   AND m.isGM = 1 AND p.status = 1 AND p.deleted = 0"
+        " ORDER BY m.sentDate DESC LIMIT 20", charID, accountID))
         return nullptr;
 
     PyList* list = new PyList();
@@ -437,7 +446,7 @@ PyResult PetitionerService::PetitionerChat(PyCallArgs& call, PyInt* petitionID, 
         return new PyBool(false);
     DBResultRow r;
     if (!chk.GetRow(r) || r.GetInt(0) != 1 || r.GetInt(1) != 0)
-        return new PyBool(false);
+        throw UserError("PetitionClosed");   // client shows 'MessageNotSentPetitionAlreadyClosed'
 
     std::string author = SqlEsc(call.client->GetName());
     std::string eText  = SqlEsc(text);
@@ -446,7 +455,9 @@ PyResult PetitionerService::PetitionerChat(PyCallArgs& call, PyInt* petitionID, 
         "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
         " VALUES (%u, %u, '%s', 0, 0, '%s', NOW())",
         petitionID->value(), charID, author.c_str(), eText.c_str());
-    sDatabase.RunQuery(err, "UPDATE portal_petitions SET updated = 1, touchDate = NOW() WHERE petitionID = %u",
+    // Player has seen the thread again — clear the "GM replied since you looked"
+    // marker and touch the row.
+    sDatabase.RunQuery(err, "UPDATE portal_petitions SET updated = 0, touchDate = NOW() WHERE petitionID = %u",
         petitionID->value());
     return new PyBool(true);
 }
@@ -463,7 +474,7 @@ PyResult PetitionerService::PetitioneeChat(PyCallArgs& call, PyInt* petitionID, 
         return new PyBool(false);
     DBResultRow r;
     if (!chk.GetRow(r) || r.GetInt(0) != 0)
-        return new PyBool(false);
+        throw UserError("PetitionClosed");   // client shows 'MessageNotSentPetitionAlreadyClosed'
 
     std::string author = SqlEsc(call.client->GetName());
     std::string eText  = SqlEsc(text);
