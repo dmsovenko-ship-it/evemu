@@ -2,6 +2,7 @@
 #include "EVEServerConfig.h"
 #include "auth/PasswordModule.h"
 #include "apiserver/APIAuthManager.h"
+#include "TelegramBot.h"
 
 static std::string xmlEscape(const char* s) {
     if (!s) return "";
@@ -33,6 +34,7 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
         std::string name = get("name");
         std::string pass = get("password");
         std::string email = get("email");
+        std::string ip = get("ip");   // client IP passed by the portal
 
         if (name.empty() || pass.empty())
             return BuildErrorXML("105", "Name and password required.");
@@ -45,8 +47,11 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
         DBQueryResult res;
         if (sDatabase.RunQuery(res, "SELECT accountID FROM account WHERE accountName = '%s'", name.c_str())) {
             DBResultRow row;
-            if (res.GetRow(row))
+            if (res.GetRow(row)) {
+                TelegramBot::NotifyAdmin("⚠️ Неудачная регистрация (имя занято): " + name
+                    + (ip.empty() ? "" : ", IP " + ip));
                 return BuildErrorXML("108", "Account name already exists.");
+            }
         }
 
         // store plain password (matches server's auth model)
@@ -62,6 +67,11 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
             "INSERT INTO account (accountName, password, hash, role, type) VALUES ('%s', '%s', '', %u, 23)",
             name.c_str(), escapedPass.c_str(), role))
             return BuildErrorXML("999", "Failed to create account.");
+
+        TelegramBot::NotifyAdmin("✅ Новый аккаунт: " + name
+            + " (id " + std::to_string(accountID) + ")"
+            + (email.empty() ? "" : ", email " + email)
+            + (ip.empty() ? "" : ", IP " + ip));
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";

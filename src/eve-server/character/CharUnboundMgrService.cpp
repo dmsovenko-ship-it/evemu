@@ -25,7 +25,8 @@
 */
 
 #include "eve-server.h"
-//#include "../../eve-common/EVE_Skills.h"
+#include "TelegramBot.h"
+//#include "../../eve-common/EVE_Skills.h"  
 
 #include "EntityList.h"
 
@@ -379,6 +380,11 @@ PyResult CharUnboundMgrService::CreateCharacterWithDoll(PyCallArgs &call, PyRep*
     pClient->CreateChar(false);
 
     _log( CLIENT__MESSAGE, "Created New Character - Sending charID %u as reply", charRef->itemID() );
+
+    TelegramBot::NotifyAdmin("✅ Новый персонаж: " + charRef->itemName()
+        + " (id " + std::to_string(charRef->itemID())
+        + ") на аккаунт #" + std::to_string(pClient->GetUserID())
+        + ", IP " + call.client->GetAddress());
 
     return new PyInt(charRef->itemID());
 }
