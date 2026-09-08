@@ -3125,7 +3125,20 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
         return _LoginFail(failMsg);
 
     if (aData.banned) {
-        failMsg = "Your account is banned. Contact Allan for further support";
+        std::string reason;
+        {
+            DBQueryResult rres;
+            if (sDatabase.RunQuery(rres, "SELECT banReason FROM account WHERE accountID = %u", aData.id)) {
+                DBResultRow rrow;
+                if (rres.GetRow(rrow) && rrow.GetText(0))
+                    reason = rrow.GetText(0);
+            }
+        }
+        failMsg = "Your account is banned.";
+        if (!reason.empty())
+            failMsg += "\nReason: " + reason;
+        else
+            failMsg += "\nContact support for further assistance.";
         return _LoginFail(failMsg);
     }
 

@@ -247,16 +247,18 @@ static std::string BanByIPXML(const std::map<std::string, std::string>& params)
         return APIServiceManager::BuildErrorXML("105", "Missing ip.");
     std::string ipEsc;
     sDatabase.DoEscapeString(ipEsc, ip);
+    std::string reason = get("reason");
+    std::string reasonEsc;
+    sDatabase.DoEscapeString(reasonEsc, reason);
 
     DBerror err;
     if (!sDatabase.RunQuery(err,
-        "UPDATE account SET banned = 1 WHERE accountID IN"
+        "UPDATE account SET banned = 1, banReason = '%s' WHERE accountID IN"
         " (SELECT DISTINCT accountID FROM accountLoginHistory WHERE ip = '%s')",
-        ipEsc.c_str()))
+        reasonEsc.c_str(), ipEsc.c_str()))
         return APIServiceManager::BuildErrorXML("999", "Query failed.");
 
     std::string msg = "⛔ Бан по IP " + ip + ": все связанные аккаунты заблокированы.";
-    std::string reason = get("reason");
     if (!reason.empty()) msg += "\nПричина: " + reason;
     TelegramBot::NotifyPlayer(msg);
 
@@ -366,8 +368,12 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
             }
         }
         std::string reason = get("reason");
+        std::string reasonEsc;
+        sDatabase.DoEscapeString(reasonEsc, reason);
         DBerror err;
-        sDatabase.RunQuery(err, "UPDATE account SET banned = 1 WHERE accountID = %u", std::stoul(aid));
+        sDatabase.RunQuery(err,
+            "UPDATE account SET banned = 1, banReason = '%s' WHERE accountID = %u",
+            reasonEsc.c_str(), std::stoul(aid));
         std::string msg = "⛔ Бан аккаунта " + (name.empty() ? "#" + aid : name)
                         + ".";
         if (!reason.empty()) msg += "\nПричина: " + reason;
@@ -387,7 +393,8 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
             }
         }
         DBerror err;
-        sDatabase.RunQuery(err, "UPDATE account SET banned = 0 WHERE accountID = %u", std::stoul(aid));
+        sDatabase.RunQuery(err,
+            "UPDATE account SET banned = 0, banReason = '' WHERE accountID = %u", std::stoul(aid));
         TelegramBot::NotifyPlayer("✅ Разбан аккаунта " + (name.empty() ? "#" + aid : name) + ".");
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
