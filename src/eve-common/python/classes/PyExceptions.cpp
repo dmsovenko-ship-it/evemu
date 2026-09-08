@@ -69,7 +69,9 @@ PyDict* GPSTransportClosed::GetReasonArgs() const
 PyTuple* GPSTransportClosed::_CreateArgs( const char* reason )
 {
     PyTuple* args = new PyTuple( 1 );
-    args->SetItem( 0, new PyString( reason ) );
+    // Unicode (PyWString): reasons may contain non-ASCII (e.g. a Cyrillic ban
+    // reason). PyString would mangle them client-side.
+    args->SetItem( 0, new PyWString( std::string( reason ) ) );
 
     return args;
 }
@@ -82,7 +84,7 @@ PyDict* GPSTransportClosed::_CreateKeywords( const char* reason )
     keywords->SetItemString( "clock", new PyLong( GetFileTimeNow() ) );
     //keywords->SetItemString( "loggedOnUserCount", );
     keywords->SetItemString( "region", new PyString( EVEProjectRegion ) );
-    keywords->SetItemString( "reason", new PyString( reason ) );
+    keywords->SetItemString( "reason", new PyWString( std::string( reason ) ) );
     keywords->SetItemString( "version", new PyFloat( EVEVersionNumber ) );
     keywords->SetItemString( "build", new PyInt( EVEBuildVersion ) );
     //keywords->SetItemString( "reasonCode", );
