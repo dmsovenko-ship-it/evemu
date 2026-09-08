@@ -4,6 +4,30 @@
 #include "apiserver/APIAuthManager.h"
 #include "TelegramBot.h"
 
+#include <vector>
+
+// Reserved / forbidden account names: system-like, staff-like and offensive.
+static bool IsBannedAccountName(const std::string& name)
+{
+    std::string n = name;
+    for (auto& c : n) c = (char)::tolower((unsigned char)c);
+    static const std::vector<std::string> reserved = {
+        "admin", "administrator", "gm", "gamemaster", "ceo", "owner", "moderator",
+        "support", "ccp", "concord", "eve", "system", "server", "test", "root",
+        "god", "hitler", "adolf", "nazi", "fascist", "ss", "kike", "faggot",
+        "nigger", "putin", "lenin", "stalin",
+    };
+    for (const auto& r : reserved)
+        if (n == r) return true;
+    static const std::string bad[] = {
+        "гитлер", "адольф", "нацист", "фашист", "хуй", "пизд", "бляд", "ебал",
+        "ебат", "сука", "соси", "гейтс",
+    };
+    for (const auto& b : bad)
+        if (n.find(b) != std::string::npos) return true;
+    return false;
+}
+
 static std::string xmlEscape(const char* s) {
     if (!s) return "";
     std::string out;
@@ -42,6 +66,14 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
             return BuildErrorXML("106", "Account name must be 3-40 characters.");
         if (pass.length() < 6)
             return BuildErrorXML("107", "Password must be at least 6 characters.");
+
+        // Attempts with reserved/offensive names are refused and reported to the
+        // admin group (possible troll/RMT/impersonation).
+        if (IsBannedAccountName(name)) {
+            TelegramBot::NotifyAdmin("⛔ Запрещённое имя при регистрации: " + name
+                + (ip.empty() ? "" : ", IP " + ip));
+            return BuildErrorXML("109", "This account name is not allowed.");
+        }
 
         // check if name exists
         DBQueryResult res;
