@@ -250,6 +250,13 @@ EVEServerConfig::EVEServerConfig()
     playerBots.DeepSeekKey = "";
     playerBots.DeepSeekURL = "https://api.deepseek.com/chat/completions";
 
+    telegram.PlayerEnabled = false;
+    telegram.PlayerBotToken = "";
+    telegram.PlayerChatID = "";
+    telegram.AdminEnabled = false;
+    telegram.AdminBotToken = "";
+    telegram.AdminChatID = "";
+
     // database
     database.host = "localhost";
     database.port = 3306;
@@ -299,6 +306,7 @@ bool EVEServerConfig::ProcessEveServer( const TiXmlElement* ele )
     AddMemberParser( "exploring",   &EVEServerConfig::ProcessExploring );
     AddMemberParser( "crime",       &EVEServerConfig::ProcessCrime );
     AddMemberParser( "standings",   &EVEServerConfig::ProcessStandings );
+    AddMemberParser( "telegram",    &EVEServerConfig::ProcessTelegram );
     AddMemberParser( "chat",        &EVEServerConfig::ProcessChat );
     AddMemberParser( "debug",       &EVEServerConfig::ProcessDebug );
     AddMemberParser( "database",    &EVEServerConfig::ProcessDatabase );
@@ -324,6 +332,7 @@ bool EVEServerConfig::ProcessEveServer( const TiXmlElement* ele )
     RemoveParser( "exploring" );
     RemoveParser( "crime" );
     RemoveParser( "standings" );
+    RemoveParser( "telegram" );
     RemoveParser( "chat" );
     RemoveParser( "debug" );
     RemoveParser( "database" );
@@ -889,6 +898,27 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
     RemoveParser( "ChatEnabled" );
     RemoveParser( "DeepSeekKey" );
     RemoveParser( "DeepSeekURL" );
+
+    return result;
+}
+
+bool EVEServerConfig::ProcessTelegram(const TiXmlElement* ele)
+{
+    AddValueParser( "PlayerEnabled",    telegram.PlayerEnabled );
+    AddValueParser( "PlayerBotToken",   telegram.PlayerBotToken );
+    AddValueParser( "PlayerChatID",     telegram.PlayerChatID );
+    AddValueParser( "AdminEnabled",     telegram.AdminEnabled );
+    AddValueParser( "AdminBotToken",    telegram.AdminBotToken );
+    AddValueParser( "AdminChatID",      telegram.AdminChatID );
+
+    const bool result = ParseElementChildren( ele );
+
+    RemoveParser( "PlayerEnabled" );
+    RemoveParser( "PlayerBotToken" );
+    RemoveParser( "PlayerChatID" );
+    RemoveParser( "AdminEnabled" );
+    RemoveParser( "AdminBotToken" );
+    RemoveParser( "AdminChatID" );
 
     return result;
 }

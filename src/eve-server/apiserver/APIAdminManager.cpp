@@ -1,5 +1,6 @@
 #include "eve-server.h"
 #include "apiserver/APIAdminManager.h"
+#include "TelegramBot.h"
 
 static std::string xmlEscape(const char* s) {
     if (!s) return "";
@@ -289,6 +290,13 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
             "INSERT INTO portal_petition_messages (petitionID, senderID, senderName, isGM, comment, text, sentDate)"
             " VALUES (%u, %u, '%s', 0, 0, '%s', NOW())",
             petitionID, charID, aEsc.c_str(), bEsc.c_str());
+
+        // Botting/RMT petitions are admin-priority — notify the admin group.
+        if (categoryID == 601 || categoryID == 602) {
+            std::string tag = categoryID == 601 ? "BOTS/MULTIBOXING" : "RMT";
+            TelegramBot::NotifyAdmin(tag + " petition #" + std::to_string(petitionID)
+                + " by " + author + ":\n" + subject);
+        }
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";

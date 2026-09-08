@@ -360,6 +360,18 @@ public:
         std::string DeepSeekURL;   // DeepSeek API endpoint
     } playerBots;
 
+    // From <telegram> — two independent destinations:
+    //   player = the in-game / public group (news, server events)
+    //   admin  = the closed admin-only group (security/RMT/bot flags)
+    struct {
+        bool PlayerEnabled;
+        std::string PlayerBotToken;
+        std::string PlayerChatID;
+        bool AdminEnabled;
+        std::string AdminBotToken;
+        std::string AdminChatID;
+    } telegram;
+
 protected:
     bool ProcessEveServer( const TiXmlElement* ele );
     bool ProcessServer( const TiXmlElement* ele );
@@ -376,6 +388,7 @@ protected:
     bool ProcessCosmic( const TiXmlElement* ele );
     bool ProcessExploring( const TiXmlElement* ele );
     bool ProcessStandings( const TiXmlElement* ele );
+    bool ProcessTelegram( const TiXmlElement* ele );
     bool ProcessChat( const TiXmlElement* ele );
     bool ProcessCrime( const TiXmlElement* ele );
     bool ProcessBPTimes( const TiXmlElement* ele );

@@ -30,6 +30,7 @@
 #include "EVEServerConfig.h"
 #include "admin/PetitionerService.h"
 #include "python/classes/PyExceptions.h"
+#include "TelegramBot.h"
 
 #include <cctype>
 #include <map>
@@ -356,6 +357,13 @@ PyResult PetitionerService::CreatePetition(PyCallArgs& call,
     }
 
     sLog.Green("Petitioner", "%s(%u) filed petition #%u cat %u.", call.client->GetName(), charID, petitionID, categoryID);
+
+    // Botting/RMT petitions (601/602) are admin-priority — notify the admin group.
+    if (categoryID == 601 || categoryID == 602) {
+        std::string tag = categoryID == 601 ? "BOTS/MULTIBOXING" : "RMT";
+        TelegramBot::NotifyAdmin(tag + " petition #" + std::to_string(petitionID)
+            + " by " + call.client->GetName() + ":\n" + subject);
+    }
     return new PyBool(true);
 }
 

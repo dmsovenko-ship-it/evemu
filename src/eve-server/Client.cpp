@@ -3177,6 +3177,19 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
 
     /** @todo  check this character/account for newbie status and revoke as needed before account update.  */
 
+    // Record the login IP (admin multiboxing / RMT monitoring).
+    {
+        std::string addr = GetAddress();
+        if (!addr.empty()) {
+            std::string esc;
+            sDatabase.DoEscapeString(esc, addr);
+            DBerror herr;
+            sDatabase.RunQuery(herr,
+                "INSERT INTO accountLoginHistory (accountID, ip, loginTime) VALUES (%u, '%s', NOW())",
+                aData.id, esc.c_str());
+        }
+    }
+
     /* send our handshake */
     CryptoServerHandshake server_shake;
     //server_shake.context = ??
