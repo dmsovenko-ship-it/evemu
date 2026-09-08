@@ -232,6 +232,9 @@ static void SecurityAuditTick()
             "   AND t.characterID IN (SELECT characterID FROM chrCharacters"
             "                          WHERE accountID IN (SELECT accountID FROM account))"
             "   AND t.clientID <> t.characterID"
+            "   AND NOT EXISTS (SELECT 1 FROM accountTransfers at"
+            "                   WHERE at.sellerAccountID = sc.accountID"
+            "                     AND at.buyerAccountID = bc.accountID)"
             " GROUP BY t.clientID, t.characterID"
             " HAVING SUM(t.price * t.quantity) >= 150000000"
             " ORDER BY isk DESC LIMIT 6",

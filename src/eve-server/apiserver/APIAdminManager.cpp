@@ -44,6 +44,9 @@ static std::string BuildSecurityFlagsXML()
         "   AND t.characterID IN (SELECT characterID FROM chrCharacters"
         "                          WHERE accountID IN (SELECT accountID FROM account))"
         "   AND t.clientID <> t.characterID"
+        "   AND NOT EXISTS (SELECT 1 FROM accountTransfers at"
+        "                   WHERE at.sellerAccountID = sc.accountID"
+        "                     AND at.buyerAccountID = bc.accountID)"
         " GROUP BY t.clientID, t.characterID"
         " HAVING SUM(t.price * t.quantity) >= 150000000"
         " ORDER BY isk DESC LIMIT 10",
@@ -97,7 +100,72 @@ static std::string BuildSecurityFlagsXML()
         }
     }
 
+    // Pending legitimate hand-over requests (category 603): admins approve them
+    // here so the money flow between the pair is excluded from RMT flags.
+    if (sDatabase.RunQuery(res,
+        "SELECT p.petitionID, p.accountID, p.authorName, p.subject, p.createDate"
+        " FROM portal_petitions p"
+        " WHERE p.status = 1 AND p.deleted = 0 AND p.categoryID = 603"
+        " ORDER BY p.petitionID DESC LIMIT 10"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row type=\"transfer\"";
+            xml += " petitionid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " accountid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " authorname=\"" + xmlEscape(row.GetText(2)) + "\"";
+            xml += " subject=\"" + xmlEscape(row.GetText(3)) + "\"";
+            xml += " createdate=\"" + std::string(row.GetText(4)) + "\"/>\n";
+        }
+    }
+
     xml += "    </flags>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
+// Admin records that a character/account hand-over is legitimate (e.g. a
+// category-603 "transfer" petition). Once recorded, flows between that account
+// pair stop being flagged as RMT.
+static std::string ApproveTransferXML(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    auto digits = [](const std::string& s) {
+        return !s.empty() && s.find_first_not_of("0123456789") == std::string::npos;
+    };
+    std::string seller = get("selleraccountid");
+    std::string buyer  = get("buyeraccountid");
+    if (!digits(seller) || !digits(buyer))
+        return BuildErrorXML("105", "Missing selleraccountid/buyeraccountid.");
+    uint32 sellerID = std::stoul(seller);
+    uint32 buyerID  = std::stoul(buyer);
+    if (sellerID == buyerID)
+        return BuildErrorXML("105", "Seller and buyer must differ.");
+
+    uint32 petitionID = 0;
+    std::string pid = get("petitionid");
+    if (digits(pid)) petitionID = std::stoul(pid);
+    uint32 approvedBy = 0;
+    std::string by = get("approvedby");
+    if (digits(by)) approvedBy = std::stoul(by);
+
+    std::string note = get("note");
+    std::string nEsc;
+    sDatabase.DoEscapeString(nEsc, note);
+
+    DBerror err;
+    uint32 transferID = 0;
+    if (!sDatabase.RunQueryLID(err, transferID,
+        "INSERT INTO accountTransfers (sellerAccountID, buyerAccountID, petitionID, approvedBy, note)"
+        " VALUES (%u, %u, %u, %u, '%s')",
+        sellerID, buyerID, petitionID, approvedBy, nEsc.c_str()))
+        return BuildErrorXML("999", "Insert failed.");
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <ok/>\n    <transferid>" + std::to_string(transferID) + "</transferid>\n";
+    xml += "  </result>\n</eveapi>\n";
     return xml;
 }
 
@@ -137,6 +205,10 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
     // security / RMT-monitoring dashboard
     if (handler == "SecurityFlags.xml.aspx")
         return BuildSecurityFlagsXML();
+
+    // admin approves a legitimate account hand-over (stops it being RMT-flagged)
+    if (handler == "ApproveTransfer.xml.aspx")
+        return ApproveTransferXML(params);
 
     return BuildErrorXML("9999", "Unknown handler: " + handler);
 }
