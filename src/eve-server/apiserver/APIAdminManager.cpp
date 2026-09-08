@@ -261,6 +261,7 @@ static std::string BanByIPXML(const std::map<std::string, std::string>& params)
     std::string msg = "⛔ Бан по IP " + ip + ": все связанные аккаунты заблокированы.";
     if (!reason.empty()) msg += "\nПричина: " + reason;
     TelegramBot::NotifyPlayer(msg);
+    TelegramBot::NotifyAdmin(msg);
 
     std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
     xml += "  <result>\n    <ok/>\n  </result>\n</eveapi>\n";
@@ -378,6 +379,7 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
                         + ".";
         if (!reason.empty()) msg += "\nПричина: " + reason;
         TelegramBot::NotifyPlayer(msg);
+        TelegramBot::NotifyAdmin(msg);
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
@@ -395,7 +397,9 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
         DBerror err;
         sDatabase.RunQuery(err,
             "UPDATE account SET banned = 0, banReason = '' WHERE accountID = %u", std::stoul(aid));
-        TelegramBot::NotifyPlayer("✅ Разбан аккаунта " + (name.empty() ? "#" + aid : name) + ".");
+        std::string umsg = "✅ Разбан аккаунта " + (name.empty() ? "#" + aid : name) + ".";
+        TelegramBot::NotifyPlayer(umsg);
+        TelegramBot::NotifyAdmin(umsg);
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
@@ -420,7 +424,8 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
         if (!sDatabase.RunQuery(cres,
             "SELECT c.characterID, c.characterName, c.corporationID, COALESCE(cc.corporationName, ''),"
             "       c.balance, c.skillPoints, c.securityRating, c.online,"
-            "       COALESCE(c.stationID, 0), COALESCE(c.shipID, 0)"
+            "       COALESCE(c.stationID, 0),"
+            "       COALESCE((SELECT e.typeID FROM entity e WHERE e.itemID = c.shipID), 0) AS shiptypeid"
             " FROM chrCharacters c"
             " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
             " WHERE c.accountID = %u ORDER BY c.skillPoints DESC", std::stoul(aid)))
