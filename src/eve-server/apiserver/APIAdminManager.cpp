@@ -1,5 +1,6 @@
 #include "eve-server.h"
 #include "apiserver/APIAdminManager.h"
+#include "apiserver/APIServiceManager.h"
 #include "TelegramBot.h"
 
 static std::string xmlEscape(const char* s) {
@@ -140,11 +141,11 @@ static std::string ApproveTransferXML(const std::map<std::string, std::string>& 
     std::string seller = get("selleraccountid");
     std::string buyer  = get("buyeraccountid");
     if (!digits(seller) || !digits(buyer))
-        return BuildErrorXML("105", "Missing selleraccountid/buyeraccountid.");
+        return APIServiceManager::BuildErrorXML("105", "Missing selleraccountid/buyeraccountid.");
     uint32 sellerID = std::stoul(seller);
     uint32 buyerID  = std::stoul(buyer);
     if (sellerID == buyerID)
-        return BuildErrorXML("105", "Seller and buyer must differ.");
+        return APIServiceManager::BuildErrorXML("105", "Seller and buyer must differ.");
 
     uint32 petitionID = 0;
     std::string pid = get("petitionid");
@@ -163,7 +164,7 @@ static std::string ApproveTransferXML(const std::map<std::string, std::string>& 
         "INSERT INTO accountTransfers (sellerAccountID, buyerAccountID, petitionID, approvedBy, note)"
         " VALUES (%u, %u, %u, %u, '%s')",
         sellerID, buyerID, petitionID, approvedBy, nEsc.c_str()))
-        return BuildErrorXML("999", "Insert failed.");
+        return APIServiceManager::BuildErrorXML("999", "Insert failed.");
 
     std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
     xml += "  <result>\n    <ok/>\n    <transferid>" + std::to_string(transferID) + "</transferid>\n";
