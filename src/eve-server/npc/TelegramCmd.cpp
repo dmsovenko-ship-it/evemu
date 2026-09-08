@@ -288,29 +288,35 @@ std::string CmdMarket()
     std::string out;
     DBQueryResult res;
     std::string since = "t.transactionDate >= NOW() - INTERVAL 1 DAY";
-    if (sDatabase.RunQuery(res,
-        "SELECT MAX(iv.typeName), SUM(t.quantity*t.price), COUNT(*)"
-        " FROM mktTransactions t JOIN invTypes iv ON iv.typeID = t.typeID"
-        " WHERE " + since + " GROUP BY t.typeID ORDER BY 2 DESC LIMIT 5")) {
-        DBResultRow r;
-        out += "🏪 Крупнейшие сделки за 24ч:\n";
-        while (res.GetRow(r)) {
-            const char* nm = r.GetText(0) ? r.GetText(0) : "?";
-            out += "• " + std::string(nm) + " — " + HumanizeIsk(r.GetDouble(1))
-                 + " (" + std::to_string(r.GetUInt(2)) + " сделок)\n";
+    {
+        std::string q1 =
+            "SELECT MAX(iv.typeName), SUM(t.quantity*t.price), COUNT(*)"
+            " FROM mktTransactions t JOIN invTypes iv ON iv.typeID = t.typeID"
+            " WHERE " + since + " GROUP BY t.typeID ORDER BY 2 DESC LIMIT 5";
+        if (sDatabase.RunQuery(res, q1.c_str())) {
+            DBResultRow r;
+            out += "🏪 Крупнейшие сделки за 24ч:\n";
+            while (res.GetRow(r)) {
+                const char* nm = r.GetText(0) ? r.GetText(0) : "?";
+                out += "• " + std::string(nm) + " — " + HumanizeIsk(r.GetDouble(1))
+                     + " (" + std::to_string(r.GetUInt(2)) + " сделок)\n";
+            }
         }
     }
-    if (sDatabase.RunQuery(res,
-        "SELECT COALESCE(cc.characterName, cr.corporationName, '?'), SUM(t.quantity*t.price)"
-        " FROM mktTransactions t"
-        " LEFT JOIN chrCharacters cc ON cc.characterID = t.characterID"
-        " LEFT JOIN crpCorporation cr ON cr.corporationID = t.characterID"
-        " WHERE " + since + " GROUP BY t.characterID ORDER BY 2 DESC LIMIT 3")) {
-        DBResultRow r;
-        out += "Активные трейдеры:\n";
-        while (res.GetRow(r)) {
-            out += "• " + std::string(r.GetText(0) ? r.GetText(0) : "?")
-                 + " — " + HumanizeIsk(r.GetDouble(1)) + "\n";
+    {
+        std::string q2 =
+            "SELECT COALESCE(cc.characterName, cr.corporationName, '?'), SUM(t.quantity*t.price)"
+            " FROM mktTransactions t"
+            " LEFT JOIN chrCharacters cc ON cc.characterID = t.characterID"
+            " LEFT JOIN crpCorporation cr ON cr.corporationID = t.characterID"
+            " WHERE " + since + " GROUP BY t.characterID ORDER BY 2 DESC LIMIT 3";
+        if (sDatabase.RunQuery(res, q2.c_str())) {
+            DBResultRow r;
+            out += "Активные трейдеры:\n";
+            while (res.GetRow(r)) {
+                out += "• " + std::string(r.GetText(0) ? r.GetText(0) : "?")
+                     + " — " + HumanizeIsk(r.GetDouble(1)) + "\n";
+            }
         }
     }
     return out.empty() ? "За 24ч сделок нет." : out;
