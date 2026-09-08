@@ -26,6 +26,7 @@
 
 #include "eve-server.h"
 #include "TelegramBot.h"
+#include "ReservedNames.h"
 //#include "../../eve-common/EVE_Skills.h"  
 
 #include "EntityList.h"
@@ -157,7 +158,15 @@ PyResult CharUnboundMgrService::CreateCharacterWithDoll(PyCallArgs &call, PyRep*
     PyDict* charInfoData = characterInfo->arguments()->AsDict();
     PyDict* portraitInfoData = portraitInfo->arguments()->AsDict();
     // check name and throw on failure before we get too far in this
-    CharacterDB::ValidateCharName(PyRep::StringContent(characterName));
+    std::string charName = PyRep::StringContent(characterName);
+    if (IsReservedName(charName)) {
+        // refusal happens inside ValidateCharName — but the admin group should
+        // know about the attempt (possible troll/impersonation).
+        TelegramBot::NotifyAdmin("⛔ Запрещённое имя персонажа: " + charName
+            + " (аккаунт #" + std::to_string(call.client->GetUserID())
+            + ", IP " + call.client->GetAddress() + ")");
+    }
+    CharacterDB::ValidateCharName(charName);
 
     Client* pClient = call.client;
     pClient->CreateChar(true);

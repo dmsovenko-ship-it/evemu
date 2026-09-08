@@ -3,29 +3,12 @@
 #include "auth/PasswordModule.h"
 #include "apiserver/APIAuthManager.h"
 #include "TelegramBot.h"
+#include "ReservedNames.h"
 
-#include <vector>
-
-// Reserved / forbidden account names: system-like, staff-like and offensive.
+// Reserved / forbidden account names (shared list).
 static bool IsBannedAccountName(const std::string& name)
 {
-    std::string n = name;
-    for (auto& c : n) c = (char)::tolower((unsigned char)c);
-    static const std::vector<std::string> reserved = {
-        "admin", "administrator", "gm", "gamemaster", "ceo", "owner", "moderator",
-        "support", "ccp", "concord", "eve", "system", "server", "test", "root",
-        "god", "hitler", "adolf", "nazi", "fascist", "ss", "kike", "faggot",
-        "nigger", "putin", "lenin", "stalin",
-    };
-    for (const auto& r : reserved)
-        if (n == r) return true;
-    static const std::string bad[] = {
-        "гитлер", "адольф", "нацист", "фашист", "хуй", "пизд", "бляд", "ебал",
-        "ебат", "сука", "соси", "гейтс",
-    };
-    for (const auto& b : bad)
-        if (n.find(b) != std::string::npos) return true;
-    return false;
+    return IsReservedName(name);
 }
 
 static std::string xmlEscape(const char* s) {

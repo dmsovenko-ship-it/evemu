@@ -27,6 +27,7 @@
 #include "eve-server.h"
 
 #include "EVEServerConfig.h"
+#include "ReservedNames.h"
 #include "character/Character.h"
 #include "character/CharacterDB.h"
 #include "station/StationDataMgr.h"
@@ -828,6 +829,10 @@ void CharacterDB::ValidateCharName(std::string name)
     //    throw UserError ("CharNameInvalidMinLength");
     if (name.length() > 37)    //client caps at 24
         throw UserError ("CharNameInvalidMaxLength");
+
+    // Forbidden/reserved names (shared with portal registration).
+    if (IsReservedName(name))
+        throw UserError ("CharNameInvalidBannedWord");
 
     //if (!sDatabase.IsSafeString(name.c_str()))
     //    throw UserError ("CharNameInvalidSomeChar");
