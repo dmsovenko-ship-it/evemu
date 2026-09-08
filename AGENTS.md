@@ -1,5 +1,8 @@
 # EVEmu Session Context
 
+## Хотелки (записано 9 сент.)
+- **eve-mail на портале для игроков**: аналог почты EVE на web-портале (читать/писать, входящие/исходящие, ответ). Таблицы mailMessage/mailStatus (их уже использует LSCService::SelfEveMail). Понадобится серверный API (mail-эндпоинты в APIServer) + страницы `/mail` с авторизацией по аккаунту (паттерн петиций: игрок — только свои). Не начато.
+
 ## Current State
 Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) HEAD: `bd6fe301`. Краш на анлоаде Jita (SIGSEGV) так и не воспроизвёлся под GDB — мониторинг продолжается. 7 сент. (вечер): миссионер, покупка фита после лосса, стендинги (owners-сид + skip неизвестных фракций) — см. секцию ниже.
 
