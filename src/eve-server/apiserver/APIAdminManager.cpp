@@ -205,6 +205,30 @@ static std::string PostNewsXML(const std::map<std::string, std::string>& params)
     return xml;
 }
 
+// Admin saves/clears a free-form note on an account (watchlist / follow-ups).
+static std::string SetAccountCommentXML(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string aid = get("accountid");
+    if (aid.empty() || aid.find_first_not_of("0123456789") != std::string::npos)
+        return APIServiceManager::BuildErrorXML("105", "Missing accountid.");
+    std::string comment = get("comment");
+    std::string esc;
+    sDatabase.DoEscapeString(esc, comment);
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+        "UPDATE account SET adminComment = '%s' WHERE accountID = %u",
+        esc.c_str(), std::stoul(aid)))
+        return APIServiceManager::BuildErrorXML("999", "Query failed.");
+
+    std::string ok = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    ok += "  <result>\n    <ok/>\n  </result>\n</eveapi>\n";
+    return ok;
+}
+
 // Every account with its last-seen login IP (from accountLoginHistory) — used by
 // the portal to group accounts by IP (multiboxing) or by e-mail.
 static std::string AccountsNetworkXML()
@@ -317,6 +341,10 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
     if (handler == "AccountsNetwork.xml.aspx")
         return AccountsNetworkXML();
 
+    // admin notes/comment on an account
+    if (handler == "SetAccountComment.xml.aspx")
+        return SetAccountCommentXML(params);
+
     // ban every account that ever logged in from one IP
     if (handler == "BanByIP.xml.aspx")
         return BanByIPXML(params);
@@ -335,7 +363,7 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
     if (handler == "AccountList.xml.aspx") {
         DBQueryResult res;
         if (!sDatabase.RunQuery(res,
-            "SELECT accountID, accountName, email, role, online, banned, logonCount, lastLogin "
+            "SELECT accountID, accountName, email, role, online, banned, logonCount, lastLogin, banReason, adminComment "
             "FROM account ORDER BY accountID"))
             return BuildErrorXML("999", "Query failed.");
 
@@ -351,7 +379,9 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
             xml += " role=\"" + std::to_string(row.GetInt64(3)) + "\"";
             xml += " online=\"" + std::to_string(row.GetInt(4)) + "\"";
             xml += " banned=\"" + std::to_string(row.GetInt(5)) + "\"";
-            xml += " logoncount=\"" + std::to_string(row.GetUInt(6)) + "\"/>\n";
+            xml += " logoncount=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " banreason=\"" + xmlEscape(row.IsNull(8) ? "" : row.GetText(8)) + "\"";
+            xml += " admincomment=\"" + xmlEscape(row.IsNull(9) ? "" : row.GetText(9)) + "\"/>\n";
         }
         xml += "    </accounts>\n  </result>\n</eveapi>\n";
         return xml;
@@ -413,7 +443,7 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
 
         DBQueryResult ares;
         if (!sDatabase.RunQuery(ares,
-            "SELECT accountID, accountName, email, role, type, online, banned, logonCount, lastLogin"
+            "SELECT accountID, accountName, email, role, type, online, banned, logonCount, lastLogin, banReason, adminComment"
             " FROM account WHERE accountID = %u", std::stoul(aid)))
             return BuildErrorXML("999", "Query failed.");
         DBResultRow arow;
@@ -441,7 +471,9 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
         xml += " online=\"" + std::to_string(arow.GetInt(5)) + "\"";
         xml += " banned=\"" + std::to_string(arow.GetInt(6)) + "\"";
         xml += " logoncount=\"" + std::to_string(arow.GetUInt(7)) + "\"";
-        xml += " lastlogin=\"" + std::string(arow.IsNull(8) ? "" : arow.GetText(8)) + "\"/>\n";
+        xml += " lastlogin=\"" + std::string(arow.IsNull(8) ? "" : arow.GetText(8)) + "\"";
+        xml += " banreason=\"" + xmlEscape(arow.IsNull(9) ? "" : arow.GetText(9)) + "\"";
+        xml += " admincomment=\"" + xmlEscape(arow.IsNull(10) ? "" : arow.GetText(10)) + "\"/>\n";
         xml += "    <characters>\n";
         DBResultRow row;
         while (cres.GetRow(row)) {
