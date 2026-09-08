@@ -19,6 +19,7 @@
 #include "ship/Ship.h"
 #include "EVE_Effects.h"
 #include "TelegramBot.h"
+#include "character/Character.h"
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -33,6 +34,7 @@
 
 static void SecurityAuditTick();
 static void DailyKillDigestTick();
+static void ProcessBotTrainingBatch();
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <vector>
@@ -187,6 +189,9 @@ void BotMgr::Process()
 
     // Daily top-kills digest → public (player) TG group.
     DailyKillDigestTick();
+
+    // Player-like offline skill training for simulated pilots.
+    ProcessBotTrainingBatch();
 }
 
 // Periodic admin security audit. Scans the last 24h of market fills for
@@ -335,6 +340,224 @@ static void DailyKillDigestTick()
         std::string digest = "📊 Top-" + std::to_string(count) + " киллов за сутки:" + body;
         TelegramBot::NotifyPlayer(digest);
         TelegramBot::NotifyAdmin(digest);
+    }
+}
+
+// Player-like skill training for simulated pilots. Runs every 5 minutes over a
+// batch of online chelobots. Attributes are base-by-bloodline x multiplier; the
+// current skill (lowest typeID still below V) accumulates real SP at
+// primary+secondary/2 points/minute; on completion the skill level + points and
+// the character's total skillPoints are bumped. DB-only (no Client session).
+static time_t sLastBotTraining = 0;
+
+static void ProcessBotTrainingBatch()
+{
+    auto& cfg = sConfig.playerBots;
+    if (!cfg.Enabled || !cfg.TrainingEnabled)
+        return;
+    time_t now = time(nullptr);
+    if (sLastBotTraining != 0 && now - sLastBotTraining < 300)
+        return;
+    sLastBotTraining = now;
+
+    const int64 nowFt = GetFileTimeNow();
+    const int64 ftSec = 10000000LL;
+    float mult = cfg.AttrMultiplier > 0.0f ? cfg.AttrMultiplier
+                                          : (float)sConfig.character.statMultiplier;
+    if (mult <= 0.0f) mult = 1.0f;
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT characterID, bloodlineID, raceID FROM chrCharacters"
+        " WHERE accountID = 0 AND online = 1 LIMIT 300"))
+        return;
+
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 charID = row.GetUInt(0);
+        uint32 blood  = row.GetUInt(1);
+        uint32 race   = row.GetUInt(2);
+
+        // --- attributes: bloodline base x multiplier (player-like) ---
+        int16 aInt = 19, aMem = 19, aPer = 19, aWill = 19, aCha = 19;
+        CharacterTypeData td;
+        uint16 ctypeID = 0;
+        if (blood != 0 && CharacterDB::GetCharacterTypeByBloodline((uint8)blood, ctypeID, td)) {
+            aInt = (int16)std::lround(td.intelligence * mult);
+            aMem = (int16)std::lround(td.memory * mult);
+            aPer = (int16)std::lround(td.perception * mult);
+            aWill = (int16)std::lround(td.willpower * mult);
+            aCha = (int16)std::lround(td.charisma * mult);
+        } else {
+            // rough race defaults (Amarr=1, Caldari=2, Minmatar=4, Gallente=8)
+            int16 base[5] = { 19,19,19,19,19 };
+            switch (race) {
+                case 1: base[0]=20;base[1]=20;base[2]=21;base[3]=21;base[4]=18; break; // Amarr
+                case 2: base[0]=21;base[1]=21;base[2]=20;base[3]=19;base[4]=19; break; // Caldari
+                case 4: base[0]=19;base[1]=19;base[2]=21;base[3]=21;base[4]=20; break; // Minmatar
+                case 8: base[0]=20;base[1]=19;base[2]=21;base[3]=20;base[4]=20; break; // Gallente
+            }
+            aInt=(int16)std::lround(base[0]*mult); aMem=(int16)std::lround(base[1]*mult);
+            aPer=(int16)std::lround(base[2]*mult); aWill=(int16)std::lround(base[3]*mult);
+            aCha=(int16)std::lround(base[4]*mult);
+        }
+
+        // --- training row (create if missing) ---
+        DBQueryResult tr;
+        uint32 tSkill = 0, tNext = 1;
+        double tProg = 0;
+        int64 tLast = 0;
+        bool haveRow = false;
+        if (sDatabase.RunQuery(tr, "SELECT skillTypeID, nextLevel, spProgress, lastTrain"
+                                   " FROM botTraining WHERE charID = %u", charID)) {
+            DBResultRow r;
+            if (tr.GetRow(r)) {
+                tSkill = r.GetUInt(0); tNext = r.GetUInt(1);
+                tProg  = r.GetDouble(2); tLast = r.GetInt64(3);
+                haveRow = true;
+            }
+        }
+        if (!haveRow) {
+            DBerror e;
+            sDatabase.RunQuery(e,
+                "INSERT IGNORE INTO botTraining (charID, attrInt, attrMem, attrPer, attrWill, attrCha, lastTrain)"
+                " VALUES (%u, %d, %d, %d, %d, %d, %lli)",
+                charID, aInt, aMem, aPer, aWill, aCha, (long long)nowFt);
+            tLast = nowFt;   // first tick starts now (no retro SP)
+        } else {
+            // re-read attributes (row was created earlier)
+            DBQueryResult ar;
+            if (sDatabase.RunQuery(ar, "SELECT attrInt, attrMem, attrPer, attrWill, attrCha"
+                                       " FROM botTraining WHERE charID = %u", charID)) {
+                DBResultRow r2;
+                if (ar.GetRow(r2)) {
+                    aInt=(int16)r2.GetInt(0); aMem=(int16)r2.GetInt(1);
+                    aPer=(int16)r2.GetInt(2); aWill=(int16)r2.GetInt(3); aCha=(int16)r2.GetInt(4);
+                }
+            }
+        }
+
+        int64 since = nowFt - tLast;
+        if (since < ftSec) {
+            // update lastTrain so later ticks are still accurate
+            DBerror e;
+            sDatabase.RunQuery(e, "UPDATE botTraining SET lastTrain = %lli WHERE charID = %u",
+                               (long long)nowFt, charID);
+            continue;
+        }
+
+        // --- pick current training skill: keep stored if still < V ---
+        uint32 curType = 0, curLevel = 5;
+        {
+            DBQueryResult sres;
+            if (sDatabase.RunQuery(sres,
+                "SELECT s.typeID, COALESCE((SELECT a.valueInt FROM entity_attributes a"
+                "   WHERE a.itemID = s.itemID AND a.attributeID = 280), 0) AS lvl"
+                " FROM entity s WHERE s.ownerID = %u AND s.flag = 7 AND s.typeID > 0"
+                " ORDER BY s.typeID", charID))
+            {
+                DBResultRow srow;
+                bool storedOk = false;
+                while (sres.GetRow(srow)) {
+                    uint32 typeID = srow.GetUInt(0);
+                    uint32 lvl = srow.GetUInt(1);
+                    if (curType == 0) { curType = typeID; curLevel = lvl; }   // lowest first
+                    if (tSkill != 0 && typeID == tSkill) storedOk = (lvl < 5);
+                }
+                if (storedOk) { curType = tSkill; curLevel = 0; }   // refetch below
+            }
+        }
+        if (curType == 0 || curLevel >= 5) {
+            // nothing left to train (all V) — mark idle
+            DBerror e;
+            sDatabase.RunQuery(e, "UPDATE botTraining SET skillTypeID = 0, nextLevel = 1,"
+                                  " spProgress = 0, lastTrain = %lli WHERE charID = %u",
+                               (long long)nowFt, charID);
+            continue;
+        }
+        if (curLevel == 0) {
+            // kept stored skill — load its real level
+            DBQueryResult lr;
+            if (sDatabase.RunQuery(lr, "SELECT valueInt FROM entity_attributes a"
+                                       " JOIN entity e ON e.itemID = a.itemID"
+                                       " WHERE e.ownerID = %u AND e.typeID = %u AND e.flag = 7"
+                                       " AND a.attributeID = 280 LIMIT 1", charID, curType)) {
+                DBResultRow lrow;
+                if (lr.GetRow(lrow)) curLevel = lrow.GetUInt(0); else curLevel = 5;
+            } else curLevel = 5;
+        }
+
+        uint32 next = curLevel + 1;
+        if (next > 5) next = 5;
+
+        // --- rank (time constant) + primary/secondary attribute ids for the skill ---
+        float rank = 1.0f;
+        uint32 priId = 165, secId = 166;   // defaults: Int / Mem
+        {
+            DBQueryResult tq;
+            if (sDatabase.RunQuery(tq, "SELECT typeID, valueFloat FROM dgmTypeAttributes"
+                                       " WHERE typeID = %u AND attributeID = 275", curType)) {
+                DBResultRow trow;
+                if (tq.GetRow(trow)) rank = trow.GetFloat(1);
+            }
+            if (sDatabase.RunQuery(tq, "SELECT valueFloat FROM dgmTypeAttributes"
+                                       " WHERE typeID = %u AND attributeID = 180 LIMIT 1", curType)) {
+                DBResultRow trow;
+                if (tq.GetRow(trow)) priId = (uint32)trow.GetFloat(1);
+            }
+            if (sDatabase.RunQuery(tq, "SELECT valueFloat FROM dgmTypeAttributes"
+                                       " WHERE typeID = %u AND attributeID = 181 LIMIT 1", curType)) {
+                DBResultRow trow;
+                if (tq.GetRow(trow)) secId = (uint32)trow.GetFloat(1);
+            }
+        }
+        int attrFor[170] = {0};
+        attrFor[164] = aCha; attrFor[165] = aInt; attrFor[166] = aMem;
+        attrFor[167] = aPer; attrFor[168] = aWill;
+        int primaryV = attrFor[priId % 170] != 0 ? attrFor[priId % 170] : aInt;
+        int secondaryV = attrFor[secId % 170] != 0 ? attrFor[secId % 170] : aMem;
+        double spm = (double)EvEMath::Skill::PointsPerMinute((uint8)primaryV, (uint8)secondaryV);
+        if (spm <= 0.0) spm = 27.0;
+
+        double minutes = (double)(since / ftSec) / 60.0;
+        if (minutes < 1.0 / 3600.0) {   // <1s
+            DBerror e;
+            sDatabase.RunQuery(e, "UPDATE botTraining SET lastTrain = %lli WHERE charID = %u",
+                               (long long)nowFt, charID);
+            continue;
+        }
+        tProg += minutes * spm;
+
+        uint32 needBase = EvEMath::Skill::PointsAtLevel(curLevel, rank);
+        uint32 needNext = EvEMath::Skill::PointsAtLevel(next, rank);
+        uint32 need = needNext > needBase ? needNext - needBase : 0;
+
+        bool leveled = (need > 0 && tProg >= need);
+        if (leveled) {
+            uint32 newPoints = needNext;
+            // update skill item level/points
+            DBerror e;
+            sDatabase.RunQuery(e,
+                "UPDATE entity_attributes a JOIN entity e ON e.itemID = a.itemID"
+                " SET a.valueInt = %u WHERE e.ownerID = %u AND e.typeID = %u"
+                "   AND e.flag = 7 AND a.attributeID = 280", next, charID, curType);
+            sDatabase.RunQuery(e,
+                "UPDATE entity_attributes a JOIN entity e ON e.itemID = a.itemID"
+                " SET a.valueInt = %u WHERE e.ownerID = %u AND e.typeID = %u"
+                "   AND e.flag = 7 AND a.attributeID = 276", newPoints, charID, curType);
+            // character total SP
+            sDatabase.RunQuery(e,
+                "UPDATE chrCharacters SET skillPoints = skillPoints + %u WHERE characterID = %u",
+                need, charID);
+            tProg = 0.0;
+        }
+
+        DBerror e;
+        sDatabase.RunQuery(e,
+            "UPDATE botTraining SET skillTypeID = %u, nextLevel = %u, spProgress = %f,"
+            " lastTrain = %lli WHERE charID = %u",
+            leveled && next >= 5 ? 0u : curType, leveled ? 1u : next, tProg,
+            (long long)nowFt, charID);
     }
 }
 
