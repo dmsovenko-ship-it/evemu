@@ -182,36 +182,45 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
 
         // read POST body if present
         if (method == "POST") {
-            // find Content-Length from what's left in the buffer
-            std::string remaining(
-                (std::istreambuf_iterator<char>(req)),
-                 std::istreambuf_iterator<char>());
-
-            size_t clPos = remaining.find("Content-Length:");
-            if (clPos == std::string::npos)
-                clPos = remaining.find("content-length:");
-            if (clPos != std::string::npos) {
-                size_t start = clPos + 15;
-                size_t end = remaining.find("\r\n", start);
-                std::string clStr = remaining.substr(start, end - start);
-                size_t contentLength = std::stoul(clStr);
-
-                // skip to body (after double CRLF)
-                size_t bodyStart = remaining.find("\r\n\r\n");
-                if (bodyStart != std::string::npos) {
-                    bodyStart += 4;
-                    std::string body = remaining.substr(bodyStart, contentLength);
-                    boost::replace_all(body, "&amp;", "&");
-                    boost::replace_all(body, "+", " ");
-                    std::istringstream bs(body);
-                    std::string pair;
-                    while (std::getline(bs, pair, '&')) {
-                        size_t eq = pair.find('=');
-                        if (eq != std::string::npos) {
-                            std::string key = pair.substr(0, eq);
-                            boost::to_lower(key);
-                            params[key] = url_decode(pair.substr(eq + 1));
-                        }
+            size_t contentLength = 0;
+            std::string hline;
+            // consume the remaining header lines, looking for Content-Length
+            while (std::getline(req, hline) && hline != "\r") {
+                std::string lower = hline;
+                boost::to_lower(lower);
+                if (lower.find("content-length:") != std::string::npos) {
+                    std::string v = hline.substr(hline.find(':') + 1);
+                    // trim
+                    size_t a = v.find_first_not_of(" \t");
+                    size_t b = v.find_last_not_of(" \t");
+                    if (a != std::string::npos && b != std::string::npos)
+                        v = v.substr(a, b - a + 1);
+                    contentLength = std::stoul(v);
+                }
+            }
+            // req now sits right after the blank header line: any body bytes
+            // that arrived with the headers are available; read_until stops at
+            // the header terminator, so fetch the rest of the body explicitly.
+            if (contentLength > 0) {
+                size_t haveBody = static_cast<size_t>(req.rdbuf()->in_avail());
+                if (haveBody < contentLength) {
+                    boost::asio::read(socket, buf,
+                        boost::asio::transfer_exactly(contentLength - haveBody), ec);
+                }
+                std::string body(
+                    (std::istreambuf_iterator<char>(req)),
+                     std::istreambuf_iterator<char>());
+                if (body.size() > contentLength) body.resize(contentLength);
+                boost::replace_all(body, "&amp;", "&");
+                boost::replace_all(body, "+", " ");
+                std::istringstream bs(body);
+                std::string pair;
+                while (std::getline(bs, pair, '&')) {
+                    size_t eq = pair.find('=');
+                    if (eq != std::string::npos) {
+                        std::string key = pair.substr(0, eq);
+                        boost::to_lower(key);
+                        params[key] = url_decode(pair.substr(eq + 1));
                     }
                 }
             }
