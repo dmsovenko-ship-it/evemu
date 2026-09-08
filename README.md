@@ -41,13 +41,13 @@
 | **Clones & Implants** — jump clones, per-clone implants, ship clone bay, SP loss on T3 pod | **Клоны и импланты** — джамп-клоны, импланты на клон, шип-клон-бей, SP loss |
 | **Contracts** — item exchange, courier, auctions with bidding + ISK transfer | **Контракты** — обмен, курьер, аукционы со ставками и переводом ISK |
 | **Corporation & Alliance** — corp/ally contacts with **role checks**, **OnContactLoggedOn/Off**, PyFloat* standing | **Корпорации и альянсы** — контакты с **проверкой ролей**, **OnContactLoggedOn/Off**, PyFloat* standing |
-| **Market** — buy/sell orders, corp market, **market bot spin-lock fix (1000→1)**, **full price list fix (order-limit fields uint8→uint32)** | **Маркет** — ордера, корп-маркет, **фикс spin-lock бота (1000→1)**, **фикс «нет в наличии» (лимиты uint8→uint32)** |
+| **Market** — buy/sell orders, corp market, **market spin-lock fix (1000→1)**, **full price list fix (order-limit fields uint8→uint32)** | **Маркет** — ордера, корп-маркет, **фикс spin-lock (1000→1)**, **фикс «нет в наличии» (лимиты uint8→uint32)** |
 | **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
 | **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
 | **Overheating** — heat dmg per slot, OverloadRack, Thermodynamics, Nanite Paste | **Перегрев** — урон по слотам, OverloadRack, Thermodynamics, Nanite Paste |
 | **ECM** — player ships actively jam targets (break lock + send ElectronicAttributeModifyTarget) | **ECM** — корабли игроков активно джамят цели (сбивают лок + шлют ElectronicAttributeModifyTarget) |
 | **Notifications** — persistent DB + live push, bill/tower/agent/corp sources | **Нотификации** — БД + live push, счета/POS/агенты/корп |
-| **LSC Chat** — private conversations, channels, mailing lists, contact online notifications, **NPC pilots react on-topic** (message-intent analysis: question/greeting/help/fleet/insult) | **LSC Чат** — разговоры, каналы, списки рассылки, нотификации онлайна контактов, **NPC-пилоты отвечают по теме** (анализ интента сообщения) |
+| **LSC Chat** — private conversations, channels, mailing lists, contact online notifications | **LSC Чат** — разговоры, каналы, списки рассылки, нотификации онлайна контактов |
 | **Faction Warfare** — join/leave, plex spawn, militia stats, corp/alliance | **ФВ** — вступление/выход, плексы, статистика, корп/альянс |
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
 | **Sovereignty** — TCU claim, IHub reinforcement, outpost capture, sov levels, upgrades | **Суверенность** — TCU захват, IHub reinforce, аутпосты, уровни, апгрейды |
@@ -108,11 +108,11 @@ Full history in `git log` / полная история — в `git log`.
 | Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
 | Ship Navigation | 70% | **99%** | +29% | Combat | 90% | 99% | +9% |
 | Modules & Overheating | 85% | 97% | +12% | Drones | 75% | **96%** | +21% |
-| NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 95% | +25% |
+| NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 97% | +27% |
 | **POS** | 70% | **97%** | +27% | Market | 60% | 95% | +35% |
 | **Incursions** | 0% | **93%** | +93% | Fleet | 75% | **100%** | +25% |
 | **Wormholes** | 60% | **92%** | +32% | Scanning | 80% | 99% | +19% |
-| **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 92% | +32% |
+| **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 95% | +35% |
 | **Faction Warfare** | 50% | **99%** | +49% | Calendar | 60% | 93% | +33% |
 | Mail & LSC | 60% | **95%** | +35% | Contracts | 60% | 95% | +35% |
 | Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |

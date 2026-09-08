@@ -12,11 +12,11 @@
 | Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
 | Ship Navigation | 99% | `███████████████████` | +29% | Combat | 99% | `███████████████████` | +9% |
 | Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 96% | `██████████████████` | +21% |
-| NPC AI & Spawning | 97% | `███████████████████` | +37% | Agents & Missions | 95% | `███████████████████` | +25% |
+| NPC AI & Spawning | 97% | `███████████████████` | +37% | Agents & Missions | 97% | `███████████████████` | +27% |
 | **POS** | 97% | `███████████████████` | +27% | Market | 95% | `███████████████████` | +35% |
 | **Incursions** | 93% | `██████████████████░` | +93% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 92% | `██████████████████░` | +32% | Scanning | 99% | `███████████████████` | +19% |
-| **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 92% | `██████████████████` | +32% |
+| **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 95% | `███████████████████` | +35% |
 | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
 | Mail & LSC | 95% | `███████████████████` | +35% | Contracts | 95% | `██████████████████` | +35% |
 | Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
@@ -126,9 +126,9 @@
 | **NPC web symmetric undo** — no ×2.5 speed stack on target switch | ❌ | ✅ |
 | **Stationary sentry turrets** — sentry/turret groups (Sentry Gun, Protective, Mobile, Destructible Sentry Gun, Mobile Missile Sentry) never move; attack type by role: turret fire / web / energy neutralizer / real missiles (chargeGroup→type) | ❌ | ✅ |
 | **Analytic threat assessment** — combat power judged by hull class potential (capitals may cyno a fleet, battleships assumed fitted, fighter screen in space), not a precise fit check | ❌ | ✅ |
-| **Self-preservation** — non-combat hulls (industrial/barge/freighter/hauler) never fight back, they warp out; novice misjudge only makes a bot panic-flee a winnable fight, never attack a fight it judged as lost | ❌ | ✅ |
+| **Self-preservation** — non-combat hulls (industrial/barge/freighter/hauler) never fight back, they warp out; a novice misjudge only causes a panic-flee from a winnable fight, never an attack on a fight judged as lost | ❌ | ✅ |
 
-### 8. Agents & Missions `███████████████████` 95%
+### 8. Agents & Missions `███████████████████` 97%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -137,12 +137,14 @@
 | **Courier fixup** — destinationID, agentDB COALESCE | ❌ | ✅ |
 | **Mission dungeon spawn** — on accept | ❌ | ✅ |
 | LP store (faction + CONCORD) | 🟡 | ✅ |
+| **Encounter full cycle** — accept → dungeon objectives spawn with real faction rat targets (client-lockable) → warp link → clear → mission complete & hand-in | ❌ | ✅ |
+| **Standings UI fixed** — owner cache seeded for factions/corps/agents; rows toward client-unknown factions no longer written (Character Sheet no blank window) | ❌ | ✅ |
 
 ### 9. Market `███████████████████` 95%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
-| Buy/sell orders, corp market, bots, price history | ✅ | ✅ |
+| Buy/sell orders, corp market, price history | ✅ | ✅ |
 | Trade skills, MarginTrading, escrow, expired auctions | ❌ | ✅ |
 | **Order-limit config fields uint8→uint32** — 20000 wrapped to 32, full type list in ask queries | ❌ | ✅ |
 
@@ -281,6 +283,16 @@
 | Passive/online/active effects, implants/subsystems | ✅ | ✅ |
 | Wormhole system effects, sov upgrade effects | ❌ | ✅ |
 
+### 22. Petitions & Support `███████████████████` 95%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| In-game petition window (F12) — category tree per language, file/list/messages | ❌ | ✅ |
+| GM workflow — reply, claim/unclaim, close, escalation | ❌ | ✅ |
+| Shared thread backend (portal + game see the same conversation), FILETIME timestamps | ❌ | ✅ |
+| **Category safety** — only client-known factions get standing rows; Character Sheet never blanks | ❌ | ✅ |
+| Admin monitoring — login IP history, large human↔human flow audit, shared-IP multiboxing, approved account transfers, dual Telegram alerts (public/admins) | ❌ | ✅ |
+
 ---
 
 ## Key Enhancements vs Upstream / Ключевые улучшения
@@ -291,7 +303,6 @@
 - **Faction Warfare** — plex spawn, 3 LP channels, militia stats, patrols
 - **Sovereignty** — TCU 8h claim + IHub 2-cycle reinforce + levels + upgrades + outpost capture
 - **Science & Industry** — invention formula, reverse engineering, remote install, POS lines
-- **Client cache analysis** — all 85 bulkdata cache files documented
 - **SDE validation** — all NPC types verified against live API
 - **~400 dungeon definitions** — anomaly, incursion, DED, data/relic, mission
 - **Faction content** — full content for all 6 NPC factions (Sansha/Guristas/Angel/Blood/Serpentis/Rogue Drones): decor, turrets, anomalies, DED complexes, named NPCs (16-17 Aug)
@@ -308,3 +319,7 @@
 - **Jump drives** — capital jumps require active cyno in destination; fuel type per race (`6dd25d3d`)
 - **ECM player jam** — ActiveModule ECM breaks target lock + sends ElectronicAttributeModifyTarget (`7ae077e2`)
 - **Warp scramble prevents jumps** — MWD bubble after anchoring scrambles the ship (no dock/jump until aggression timer cools) (`d8ace19c`)
+- **Encounter missions full cycle** — accept → dungeon objectives spawn with real faction rat targets (lockable by client) → warp link → clear → complete & hand-in; objective/warp link via LocationWrapper (`220a8fb6` family)
+- **Character Sheet standings fixed** — client owner cache (`config.BulkData.owners`) seeded with factions/NPC corps/NPC characters; standing deltas toward client-unknown factions (rogue 500022/sleeper 500023+) no longer written; blank-standings crash gone (`9ed1c3f0`+`bd6fe301`)
+- **In-game petitions (F12)** — DB-backed `petitioner` service over a shared thread/category backend: category tree per language, create/list/messages, GM reply/claim/close queue, FILETIME timestamps, portal-account game login (`7562ff44` family)
+- **Admin monitoring & notifications** — login IP history, periodic audit (large human↔human ISK flows, shared-IP multiboxing), legitimate account-transfer approvals, dual Telegram channels (public events for players + closed admin alerts) with RU-friendly endpoint/proxy (`72291e72` family)
