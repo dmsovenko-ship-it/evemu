@@ -24,6 +24,21 @@
 
 namespace TelegramBot {
 
+inline std::string HtmlEscape(const std::string& s)
+{
+    std::string out;
+    out.reserve(s.size() + 16);
+    for (char c : s) {
+        switch (c) {
+            case '&':  out += "&amp;";  break;
+            case '<':  out += "&lt;";   break;
+            case '>':  out += "&gt;";   break;
+            default:   out += c;        break;
+        }
+    }
+    return out;
+}
+
 inline void Notify(const std::string& endpoint, const std::string& proxy,
                    const std::string& botToken, const std::string& chatID,
                    const std::string& text)
@@ -31,12 +46,25 @@ inline void Notify(const std::string& endpoint, const std::string& proxy,
     if (endpoint.empty() || botToken.empty() || chatID.empty() || text.empty())
         return;
 
+    // Nicer formatting: HTML parse mode with the first line (the message title)
+    // rendered bold. Everything is HTML-escaped first so special chars are safe.
+    std::string title = text;
+    std::string rest;
+    size_t nl = text.find('\n');
+    if (nl != std::string::npos) {
+        title = text.substr(0, nl);
+        rest  = text.substr(nl + 1);
+    }
+    std::string html = "<b>" + HtmlEscape(title) + "</b>";
+    if (!rest.empty())
+        html += "\n" + HtmlEscape(rest);
+
     const std::string file = "/tmp/evemu_tg_msg.txt";
     {
         std::ofstream of(file.c_str(), std::ios::out | std::ios::trunc);
         if (!of)
             return;
-        of << text;
+        of << html;
     }
 
     std::string cmd = "curl -s --max-time 10";
@@ -45,6 +73,7 @@ inline void Notify(const std::string& endpoint, const std::string& proxy,
     cmd += " -X POST '" + endpoint + "/bot" + botToken + "/sendMessage'";
     cmd += " --data-urlencode 'chat_id=" + chatID + "'";
     cmd += " --data-urlencode 'text@" + file + "'";
+    cmd += " --data-urlencode 'parse_mode=HTML'";
     cmd += " >/dev/null 2>&1 &";   // fire & forget (detached background shell)
     ::system(cmd.c_str());
 }
