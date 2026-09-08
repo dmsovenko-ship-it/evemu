@@ -288,8 +288,8 @@ static void SecurityAuditTick()
     }
 
     if (found > 0)
-        TelegramBot::NotifyAdmin("[SECURITY] " + std::to_string(found)
-            + " flag(s):" + body);
+        TelegramBot::NotifyAdmin("🛡 Security: " + std::to_string(found)
+            + " флаг(ов)" + body);
 }
 
 // Daily top-5 kills digest → public (player) Telegram group. Fires at most once
@@ -332,7 +332,7 @@ static void DailyKillDigestTick()
         ++count;
     }
     if (count > 0)
-        TelegramBot::NotifyPlayer("[Kills] Top-" + std::to_string(count) + " за сутки:" + body);
+        TelegramBot::NotifyPlayer("📊 Top-" + std::to_string(count) + " киллов за сутки:" + body);
 }
 
 void BotMgr::RefreshOnlineCount()

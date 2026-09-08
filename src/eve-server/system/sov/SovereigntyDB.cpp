@@ -131,8 +131,8 @@ void SovereigntyDB::LogSystemChange(uint32 systemID, const char* ownerType,
     if (sysName.empty())
         sysName = "System " + std::to_string(systemID);
 
-    TelegramBot::NotifyPlayer("[Sov] " + sysName + ": " + ownerName(oldOwnerID)
-        + " → " + ownerName(newOwnerID));
+    TelegramBot::NotifyPlayer("🏴 Смена суверенитета: " + sysName + ": "
+        + ownerName(oldOwnerID) + " → " + ownerName(newOwnerID));
 }
 
 void SovereigntyDB::SetContested(uint32 systemID, bool contested) 

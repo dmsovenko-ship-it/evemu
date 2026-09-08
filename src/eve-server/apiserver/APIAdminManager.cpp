@@ -197,7 +197,7 @@ static std::string PostNewsXML(const std::map<std::string, std::string>& params)
         tEsc.c_str(), bEsc.c_str(), aEsc.c_str()))
         return APIServiceManager::BuildErrorXML("999", "Insert failed.");
 
-    TelegramBot::NotifyPlayer("[News] " + title + "\n" + body);
+    TelegramBot::NotifyPlayer("📢 " + title + "\n" + body);
 
     std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
     xml += "  <result>\n    <ok/>\n    <newsid>" + std::to_string(newsID) + "</newsid>\n";
@@ -300,9 +300,9 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
         std::string reason = get("reason");
         DBerror err;
         sDatabase.RunQuery(err, "UPDATE account SET banned = 1 WHERE accountID = %u", std::stoul(aid));
-        std::string msg = "[Server] Аккаунт " + (name.empty() ? "#" + aid : name)
-                        + " забанен.";
-        if (!reason.empty()) msg += " Причина: " + reason;
+        std::string msg = "⛔ Бан аккаунта " + (name.empty() ? "#" + aid : name)
+                        + ".";
+        if (!reason.empty()) msg += "\nПричина: " + reason;
         TelegramBot::NotifyPlayer(msg);
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
@@ -320,7 +320,7 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
         }
         DBerror err;
         sDatabase.RunQuery(err, "UPDATE account SET banned = 0 WHERE accountID = %u", std::stoul(aid));
-        TelegramBot::NotifyPlayer("[Server] Аккаунт " + (name.empty() ? "#" + aid : name) + " разбанен.");
+        TelegramBot::NotifyPlayer("✅ Разбан аккаунта " + (name.empty() ? "#" + aid : name) + ".");
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
@@ -513,9 +513,10 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
 
         // Botting/RMT petitions are admin-priority — notify the admin group.
         if (categoryID == 601 || categoryID == 602) {
-            std::string tag = categoryID == 601 ? "BOTS/MULTIBOXING" : "RMT";
-            TelegramBot::NotifyAdmin(tag + " petition #" + std::to_string(petitionID)
-                + " by " + author + ":\n" + subject);
+            std::string tag = categoryID == 601 ? "🤖 Петиция: Боты / мультиаккаунтинг"
+                                                : "💸 Петиция: RMT";
+            TelegramBot::NotifyAdmin(tag + " #" + std::to_string(petitionID)
+                + " от " + author + "\n" + subject);
         }
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";

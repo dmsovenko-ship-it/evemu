@@ -47,7 +47,8 @@ inline void Notify(const std::string& endpoint, const std::string& proxy,
         return;
 
     // Nicer formatting: HTML parse mode with the first line (the message title)
-    // rendered bold. Everything is HTML-escaped first so special chars are safe.
+    // rendered bold, every newline turned into a <br> so blocks/lists keep their
+    // layout. Everything is HTML-escaped first so special chars are safe.
     std::string title = text;
     std::string rest;
     size_t nl = text.find('\n');
@@ -56,8 +57,18 @@ inline void Notify(const std::string& endpoint, const std::string& proxy,
         rest  = text.substr(nl + 1);
     }
     std::string html = "<b>" + HtmlEscape(title) + "</b>";
-    if (!rest.empty())
-        html += "\n" + HtmlEscape(rest);
+    if (!rest.empty()) {
+        std::string r = HtmlEscape(rest);
+        std::string out;
+        out.reserve(r.size() + 16);
+        for (char c : r) {
+            if (c == '\n')
+                out += "<br>";
+            else
+                out += c;
+        }
+        html += "<br>" + out;
+    }
 
     const std::string file = "/tmp/evemu_tg_msg.txt";
     {
