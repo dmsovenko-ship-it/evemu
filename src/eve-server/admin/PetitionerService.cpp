@@ -187,11 +187,16 @@ static PyRep* PetitionToKeyVal(const DBResultRow& row)
 }
 
 // SELECT shape shared by all "petition row" queries. Date columns are
-// UNIX_TIMESTAMP(createDate/touchDate) so we can build FILETIME values.
-// COALESCE: portal rows may leave touchDate NULL -> client shows 1970.
+// UNIX_TIMESTAMP(...) so we can build FILETIME values. touchDate is NOT the
+// (often stale/NULL) column: the client's "last modified" must reflect the real
+// last activity, so it's derived from the newest thread message (falling back to
+// the creation time when a petition has no messages yet).
 static const char* PetitionSelect =
     "SELECT petitionID, categoryID, subject, body, status, claimedBy, deleted, updated,"
-    " UNIX_TIMESTAMP(createDate), COALESCE(UNIX_TIMESTAMP(touchDate), UNIX_TIMESTAMP(createDate)), characterID"
+    " UNIX_TIMESTAMP(createDate),"
+    " COALESCE((SELECT UNIX_TIMESTAMP(MAX(m.sentDate)) FROM portal_petition_messages m"
+    "           WHERE m.petitionID = portal_petitions.petitionID), UNIX_TIMESTAMP(createDate)),"
+    " characterID"
     " FROM portal_petitions";
 
 PyResult PetitionerService::GetCategories(PyCallArgs& call)

@@ -28,7 +28,7 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
 
     // account management
     if (handler == "AccountList.xml.aspx" || handler == "BanAccount.xml.aspx" ||
-        handler == "UnbanAccount.xml.aspx")
+        handler == "UnbanAccount.xml.aspx" || handler == "AccountInfo.xml.aspx")
         return ProcessAccounts(handler, params);
 
     // petitions
@@ -103,6 +103,62 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><result><ok/></result></eveapi>\n";
     }
 
+    // Full account + its characters for the admin "author" panel. Characters are
+    // a real row each: balance (wallet), skill points, corp, security, current
+    // ship/station and online flag — everything an admin needs about a petitioner.
+    if (handler == "AccountInfo.xml.aspx") {
+        std::string aid = get("accountid");
+        if (aid.empty() || aid.find_first_not_of("0123456789") != std::string::npos)
+            return BuildErrorXML("105", "Missing accountid.");
+
+        DBQueryResult ares;
+        if (!sDatabase.RunQuery(ares,
+            "SELECT accountID, accountName, email, role, type, online, banned, logonCount, lastLogin"
+            " FROM account WHERE accountID = %u", std::stoul(aid)))
+            return BuildErrorXML("999", "Query failed.");
+        DBResultRow arow;
+        if (!ares.GetRow(arow))
+            return BuildErrorXML("404", "Account not found.");
+
+        DBQueryResult cres;
+        if (!sDatabase.RunQuery(cres,
+            "SELECT c.characterID, c.characterName, c.corporationID, COALESCE(cc.corporationName, ''),"
+            "       c.balance, c.skillPoints, c.securityRating, c.online,"
+            "       COALESCE(c.stationID, 0), COALESCE(c.shipID, 0)"
+            " FROM chrCharacters c"
+            " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
+            " WHERE c.accountID = %u ORDER BY c.skillPoints DESC", std::stoul(aid)))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <account accountid=\"" + std::to_string(arow.GetUInt(0)) + "\"";
+        xml += " accountname=\"" + xmlEscape(arow.GetText(1)) + "\"";
+        xml += " email=\"" + xmlEscape(arow.GetText(2)) + "\"";
+        xml += " role=\"" + std::to_string(arow.GetInt64(3)) + "\"";
+        xml += " type=\"" + std::to_string(arow.GetUInt(4)) + "\"";
+        xml += " online=\"" + std::to_string(arow.GetInt(5)) + "\"";
+        xml += " banned=\"" + std::to_string(arow.GetInt(6)) + "\"";
+        xml += " logoncount=\"" + std::to_string(arow.GetUInt(7)) + "\"";
+        xml += " lastlogin=\"" + std::string(arow.IsNull(8) ? "" : arow.GetText(8)) + "\"/>\n";
+        xml += "    <characters>\n";
+        DBResultRow row;
+        while (cres.GetRow(row)) {
+            xml += "      <row characterid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " charactername=\"" + xmlEscape(row.GetText(1)) + "\"";
+            xml += " corporationid=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " corporationname=\"" + xmlEscape(row.GetText(3)) + "\"";
+            xml += " balance=\"" + std::to_string((int64)row.GetDouble(4)) + "\"";
+            xml += " skillpoints=\"" + std::to_string(row.GetInt64(5)) + "\"";
+            xml += " securityrating=\"" + std::string(row.GetText(6)) + "\"";
+            xml += " online=\"" + std::to_string(row.GetInt(7)) + "\"";
+            xml += " stationid=\"" + std::to_string(row.GetUInt(8)) + "\"";
+            xml += " shiptypeid=\"" + std::to_string(row.GetUInt(9)) + "\"/>\n";
+        }
+        xml += "    </characters>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     return BuildErrorXML("9999", "Unknown handler");
 }
 
@@ -127,7 +183,9 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
         "SELECT p.petitionID, p.accountID, p.characterID, p.authorName, p.categoryID,"
         " COALESCE(cat.categoryName, '') AS categoryName,"
         " p.subject, p.status, p.claimedBy, p.updated, p.deleted,"
-        " p.createDate, p.touchDate"
+        " p.createDate,"
+        " COALESCE((SELECT MAX(m.sentDate) FROM portal_petition_messages m"
+        "           WHERE m.petitionID = p.petitionID), p.createDate) AS touchDate"
         " FROM portal_petitions p"
         " LEFT JOIN portal_petition_categories cat"
         "   ON cat.categoryID = p.categoryID AND cat.languageID = '" + lang + "' ";
