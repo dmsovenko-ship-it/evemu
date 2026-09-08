@@ -3,6 +3,8 @@
 #include "apiserver/APIServiceManager.h"
 #include "TelegramBot.h"
 
+static std::string SafeStr(const char* s) { return s ? s : ""; }
+
 static std::string xmlEscape(const char* s) {
     if (!s) return "";
     std::string out;
@@ -546,8 +548,8 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
             xml += " claimedby=\"" + std::to_string(row.GetUInt(8)) + "\"";
             xml += " updated=\"" + std::to_string(row.GetInt(9)) + "\"";
             xml += " deleted=\"" + std::to_string(row.GetInt(10)) + "\"";
-            xml += " createdate=\"" + std::string(row.GetText(11)) + "\"";
-            xml += " touchdate=\"" + std::string(row.IsNull(12) ? "" : row.GetText(12)) + "\"/>\n";
+            xml += " createdate=\"" + SafeStr(row.GetText(11)) + "\"";
+            xml += " touchdate=\"" + SafeStr(row.GetText(12)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
@@ -580,8 +582,8 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
             xml += " subject=\"" + xmlEscape(row.GetText(6)) + "\"";
             xml += " status=\"" + std::to_string(row.GetInt(7)) + "\"";
             xml += " updated=\"" + std::to_string(row.GetInt(9)) + "\"";
-            xml += " createdate=\"" + std::string(row.GetText(11)) + "\"";
-            xml += " touchdate=\"" + std::string(row.IsNull(12) ? "" : row.GetText(12)) + "\"/>\n";
+            xml += " createdate=\"" + SafeStr(row.GetText(11)) + "\"";
+            xml += " touchdate=\"" + SafeStr(row.GetText(12)) + "\"/>\n";
         }
         xml += "    </petitions>\n  </result>\n</eveapi>\n";
         return xml;
@@ -674,7 +676,7 @@ std::string APIAdminManager::ProcessPetitions(const std::string& handler,
             xml += " isgm=\"" + std::to_string(row.GetInt(3)) + "\"";
             xml += " comment=\"" + std::to_string(row.GetInt(4)) + "\"";
             xml += " text=\"" + xmlEscape(row.GetText(5)) + "\"";
-            xml += " sentdate=\"" + std::string(row.GetText(6)) + "\"/>\n";
+            xml += " sentdate=\"" + SafeStr(row.GetText(6)) + "\"/>\n";
         }
         xml += "    </messages>\n  </result>\n</eveapi>\n";
         return xml;
@@ -836,7 +838,7 @@ std::string APIAdminManager::ProcessTimecodes(const std::string& handler,
             xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\"";
             xml += " accountid=\"" + std::to_string(row.GetUInt(1)) + "\"";
             xml += " days=\"" + std::to_string(row.GetUInt(2)) + "\"";
-            xml += " grantdate=\"" + std::string(row.GetText(3)) + "\"/>\n";
+            xml += " grantdate=\"" + SafeStr(row.GetText(3)) + "\"/>\n";
         }
         xml += "    </timecodes>\n  </result>\n</eveapi>\n";
         return xml;
