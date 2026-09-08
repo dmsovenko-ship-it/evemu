@@ -376,6 +376,16 @@ public:
         std::string AdminChatID;
     } telegram;
 
+    // From <security> — admin RMT / multiboxing audit thresholds.
+    struct {
+        uint64 FlowThresholdISK;   // min ISK moved human<->human in the window to flag
+        uint32 FlowWindowHours;    // look-back window for market flows
+        uint32 IPWindowDays;       // look-back window for shared-IP logins
+        uint32 MinAccountsSameIP;  // >=N accounts on one IP → multiboxing hint
+        uint32 AuditIntervalSec;   // periodic audit cadence (BotMgr tick)
+        uint32 AlertCooldownSec;   // min seconds between alerts for the same finding
+    } security;
+
 protected:
     bool ProcessEveServer( const TiXmlElement* ele );
     bool ProcessServer( const TiXmlElement* ele );
@@ -393,6 +403,7 @@ protected:
     bool ProcessExploring( const TiXmlElement* ele );
     bool ProcessStandings( const TiXmlElement* ele );
     bool ProcessTelegram( const TiXmlElement* ele );
+    bool ProcessSecurity( const TiXmlElement* ele );
     bool ProcessChat( const TiXmlElement* ele );
     bool ProcessCrime( const TiXmlElement* ele );
     bool ProcessBPTimes( const TiXmlElement* ele );

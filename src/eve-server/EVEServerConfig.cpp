@@ -259,6 +259,13 @@ EVEServerConfig::EVEServerConfig()
     telegram.AdminBotToken = "";
     telegram.AdminChatID = "";
 
+    security.FlowThresholdISK = 150000000;
+    security.FlowWindowHours  = 24;
+    security.IPWindowDays     = 14;
+    security.MinAccountsSameIP = 2;
+    security.AuditIntervalSec = 600;
+    security.AlertCooldownSec = 21600;
+
     // database
     database.host = "localhost";
     database.port = 3306;
@@ -309,6 +316,7 @@ bool EVEServerConfig::ProcessEveServer( const TiXmlElement* ele )
     AddMemberParser( "crime",       &EVEServerConfig::ProcessCrime );
     AddMemberParser( "standings",   &EVEServerConfig::ProcessStandings );
     AddMemberParser( "telegram",    &EVEServerConfig::ProcessTelegram );
+    AddMemberParser( "security",    &EVEServerConfig::ProcessSecurity );
     AddMemberParser( "chat",        &EVEServerConfig::ProcessChat );
     AddMemberParser( "debug",       &EVEServerConfig::ProcessDebug );
     AddMemberParser( "database",    &EVEServerConfig::ProcessDatabase );
@@ -335,6 +343,7 @@ bool EVEServerConfig::ProcessEveServer( const TiXmlElement* ele )
     RemoveParser( "crime" );
     RemoveParser( "standings" );
     RemoveParser( "telegram" );
+    RemoveParser( "security" );
     RemoveParser( "chat" );
     RemoveParser( "debug" );
     RemoveParser( "database" );
@@ -900,6 +909,27 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
     RemoveParser( "ChatEnabled" );
     RemoveParser( "DeepSeekKey" );
     RemoveParser( "DeepSeekURL" );
+
+    return result;
+}
+
+bool EVEServerConfig::ProcessSecurity(const TiXmlElement* ele)
+{
+    AddValueParser( "FlowThresholdISK",  security.FlowThresholdISK );
+    AddValueParser( "FlowWindowHours",   security.FlowWindowHours );
+    AddValueParser( "IPWindowDays",      security.IPWindowDays );
+    AddValueParser( "MinAccountsSameIP", security.MinAccountsSameIP );
+    AddValueParser( "AuditIntervalSec",  security.AuditIntervalSec );
+    AddValueParser( "AlertCooldownSec",  security.AlertCooldownSec );
+
+    const bool result = ParseElementChildren( ele );
+
+    RemoveParser( "FlowThresholdISK" );
+    RemoveParser( "FlowWindowHours" );
+    RemoveParser( "IPWindowDays" );
+    RemoveParser( "MinAccountsSameIP" );
+    RemoveParser( "AuditIntervalSec" );
+    RemoveParser( "AlertCooldownSec" );
 
     return result;
 }

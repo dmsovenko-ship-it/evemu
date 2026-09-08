@@ -29,7 +29,8 @@ static std::string BuildSecurityFlagsXML()
     xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
     xml += "  <result>\n    <flags>\n";
 
-    int64 since = GetFileTimeNow() - 864000000000LL;
+    int64 since = GetFileTimeNow()
+                - (int64)sConfig.security.FlowWindowHours * 3600LL * 10000000LL;
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
         "SELECT t.clientID AS sellerID, sc.characterName AS sellerName,"
@@ -48,9 +49,9 @@ static std::string BuildSecurityFlagsXML()
         "                   WHERE at.sellerAccountID = sc.accountID"
         "                     AND at.buyerAccountID = bc.accountID)"
         " GROUP BY t.clientID, t.characterID"
-        " HAVING SUM(t.price * t.quantity) >= 150000000"
+        " HAVING SUM(t.price * t.quantity) >= %llu"
         " ORDER BY isk DESC LIMIT 10",
-        (long long)since))
+        (long long)since, (unsigned long long)sConfig.security.FlowThresholdISK))
     {
         DBResultRow row;
         while (res.GetRow(row)) {
@@ -69,9 +70,10 @@ static std::string BuildSecurityFlagsXML()
         "       GROUP_CONCAT(DISTINCT a.accountName SEPARATOR ', ') AS names"
         " FROM accountLoginHistory h"
         " JOIN account a ON a.accountID = h.accountID"
-        " WHERE h.loginTime >= NOW() - INTERVAL 14 DAY"
-        " GROUP BY h.ip HAVING cnt >= 2"
-        " ORDER BY cnt DESC LIMIT 10"))
+        " WHERE h.loginTime >= NOW() - INTERVAL %u DAY"
+        " GROUP BY h.ip HAVING cnt >= %u"
+        " ORDER BY cnt DESC LIMIT 10",
+        sConfig.security.IPWindowDays, sConfig.security.MinAccountsSameIP))
     {
         DBResultRow row;
         while (res.GetRow(row)) {
