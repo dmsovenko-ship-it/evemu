@@ -292,6 +292,8 @@
 | Shared thread backend (portal + game see the same conversation), FILETIME timestamps | ❌ | ✅ |
 | **Category safety** — only client-known factions get standing rows; Character Sheet never blanks | ❌ | ✅ |
 | Admin monitoring — login IP history, large human↔human flow audit, shared-IP multiboxing, approved account transfers, dual Telegram alerts (public/admins) | ❌ | ✅ |
+| **Ban UX** — persisted ban reason shown verbatim on banned login (unicode-safe); reserved/offensive account+character names refused with admin alert | ❌ | ✅ |
+| **Account tooling** — per-account admin comment, ban reason, accounts grouped by IP/e-mail, ban-all-by-IP | ❌ | ✅ |
 
 ---
 
@@ -323,3 +325,5 @@
 - **Character Sheet standings fixed** — client owner cache (`config.BulkData.owners`) seeded with factions/NPC corps/NPC characters; standing deltas toward client-unknown factions (rogue 500022/sleeper 500023+) no longer written; blank-standings crash gone (`9ed1c3f0`+`bd6fe301`)
 - **In-game petitions (F12)** — DB-backed `petitioner` service over a shared thread/category backend: category tree per language, create/list/messages, GM reply/claim/close queue, FILETIME timestamps, portal-account game login (`7562ff44` family)
 - **Admin monitoring & notifications** — login IP history, periodic audit (large human↔human ISK flows, shared-IP multiboxing), legitimate account-transfer approvals, dual Telegram channels (public events for players + closed admin alerts) with RU-friendly endpoint/proxy (`72291e72` family)
+- **Ban UX** — ban reason persisted (`banReason`) and shown verbatim on the banned login (single line, unicode-safe); reserved/offensive account & character names refused (`ReservedNames.h`) with admin alert
+- **Account admin notes** — per-account free-form comment + ban reason exposed through the admin API; accounts grouped by IP/e-mail, ban-by-IP (all accounts from one address) (`76f6373e` family)
