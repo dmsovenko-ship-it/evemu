@@ -3134,11 +3134,12 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
                     reason = rrow.GetText(0);
             }
         }
-        failMsg = "Your account is banned.";
+        // Single-line message: the client shows this GPSTransportClosed reason
+        // verbatim; newlines/broken text degrade into a placeholder.
         if (!reason.empty())
-            failMsg += "\nReason: " + reason;
+            failMsg = "Your account is banned. Reason: " + reason;
         else
-            failMsg += "\nContact support for further assistance.";
+            failMsg = "Your account is banned. Contact support for further assistance.";
         return _LoginFail(failMsg);
     }
 
