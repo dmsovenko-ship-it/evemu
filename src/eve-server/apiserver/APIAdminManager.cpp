@@ -254,7 +254,7 @@ static std::string NewsResendXML(const std::map<std::string, std::string>& param
 
     const char* title = row.GetText(0);
     const char* body  = row.GetText(1);
-    TelegramBot::NotifyPlayer("📢 " + (title ? title : "") + "\n" + (body ? body : ""));
+    TelegramBot::NotifyPlayer("📢 " + SafeStr(title) + "\n" + SafeStr(body));
 
     std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
     xml += "  <result>\n    <ok/>\n  </result>\n</eveapi>\n";
