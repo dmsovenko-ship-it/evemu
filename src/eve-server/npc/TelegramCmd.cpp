@@ -176,8 +176,10 @@ void TelegramBan(const std::string& ep, const std::string& px,
 // message contains a link/url or forbidden/ad word → remove
 bool IsForbiddenContent(const std::string& lower)
 {
-    static const std::string links[] = { "http://", "https://", "t.me/",
-        "telegram.me", "www.", ".ru/", ".com/", ".xyz/", ".top/", "invite" };
+    static const std::string links[] = { "http://", "https://", "t.me/", "t.me/+",
+        "telegram.me", "www.", ".ru/", ".com/", ".xyz/", ".top/", "invite",
+        "joinchat", "присоедин", "вступай", "заходите", "ссылка на группу",
+        "приглашаю в", "приглашение" };
     for (auto& l : links)
         if (lower.find(l) != std::string::npos)
             return true;
@@ -193,6 +195,29 @@ bool IsForbiddenContent(const std::string& lower)
         if (lower.find(w) != std::string::npos)
             return true;
     return false;
+}
+
+// caps-lock flood: mostly-uppercase message of meaningful length
+bool IsCapsFlood(const std::string& text)
+{
+    int letters = 0, upper = 0;
+    for (unsigned char c : text) {
+        if (isalpha(c)) { ++letters; if (isupper(c)) ++upper; }
+    }
+    return letters >= 8 && (upper * 100 / letters) >= 60;
+}
+
+// per-user send-rate guard: more than 5 messages in 10 seconds → spam
+static std::map<std::string, std::vector<time_t>> g_msgTimes;
+bool IsRateSpam(const std::string& chatUser)
+{
+    time_t now = time(nullptr);
+    auto& v = g_msgTimes[chatUser];
+    // prune older than 10s
+    while (!v.empty() && now - v.front() > 10)
+        v.erase(v.begin());
+    v.push_back(now);
+    return v.size() > 5;
 }
 
 // tiny helpers shared by moderation
@@ -828,14 +853,16 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                 }
                 std::string lower = u.text;
                 for (auto& c : lower) c = (char)tolower((unsigned char)c);
-                if (IsForbiddenContent(lower)) {
+                bool capsBad = IsCapsFlood(u.text);
+                bool rateBad = !u.fromID.empty() && IsRateSpam(u.chatID + ":" + u.fromID);
+                if (IsForbiddenContent(lower) || capsBad || rateBad) {
                     ModLog("FORBIDDEN chat=" + u.chatID + " from=" + u.fromID
                          + " msg=" + u.messageID + " text='" + u.text + "'");
                     if (!u.messageID.empty())
                         TelegramDeleteMessage(endpoint, proxy, token, u.chatID, u.messageID);
                     if (!u.fromID.empty()) {
                         std::string key = u.chatID + ":" + u.fromID;
-                        int st = ++g_spamStrikes[key];
+                        int st = rateBad ? 99 : ++g_spamStrikes[key];
                         if (st >= 2) {
                             TelegramRestrict(endpoint, proxy, token, u.chatID, u.fromID, false);
                             SendMessage(endpoint, proxy, token, u.chatID,
