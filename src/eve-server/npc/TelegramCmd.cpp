@@ -334,6 +334,7 @@ struct Update {
     bool fromIsBot = false;
     std::string joinUserID;   // non-empty when someone joined (new_chat_members)
     bool joinIsBot = false;
+    bool fromChannel = false; // posted as a linked channel / anonymous (no user)
 };
 
 // Extract the numeric id of the message sender, if any.
@@ -393,6 +394,8 @@ std::vector<Update> ParseUpdates(const std::string& json)
                 std::string member = close == std::string::npos
                                    ? msg.substr(ncm) : msg.substr(ncm, close - ncm);
                 upd.joinUserID = JsonNumStr(member, 0, "id");
+            upd.fromChannel = msg.find("\"sender_chat\":") != std::string::npos
+                           || msg.find("\"channel_post\":") != std::string::npos;
                 upd.joinIsBot  = member.find("\"is_bot\":true") != std::string::npos;
             }
             if (!upd.chatID.empty()
@@ -809,6 +812,11 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
         // re-deliver it forever, even when it is not for our groups.
         if (u.updateID >= offset)
             offset = u.updateID + 1;
+
+        // Messages posted as a linked channel / anonymous admins are not real
+        // users — never moderate, gate or answer them.
+        if (u.fromChannel)
+            continue;
 
         // role by chat list (ids may be comma-separated)
         bool isAdmin  = !adminChat.empty() && InChatList(adminChat, u.chatID);
