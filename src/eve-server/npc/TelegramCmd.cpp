@@ -878,7 +878,7 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                 g_pendingVerify[u.joinUserID] = u.chatID;
                 TelegramRestrict(endpoint, proxy, token, u.chatID, u.joinUserID, false);
                 SendMessage(endpoint, proxy, token, u.chatID,
-                            "👋 Добро пожаловать! Для защиты от спама вы временно в муте — напишите боту в личку /verify, чтобы разблокироваться.");
+                            "👋 Добро пожаловать! Для защиты от спама вы временно в муте. Напишите боту в личку — он пришлёт проверочный пример; решите его и ответьте числом.");
                 continue;
             }
             if (!u.text.empty() && u.text[0] != '/') {
@@ -897,7 +897,7 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                             TelegramDeleteMessage(endpoint, proxy, token, u.chatID, u.messageID);
                         TelegramRestrict(endpoint, proxy, token, u.chatID, u.fromID, false);
                         SendMessage(endpoint, proxy, token, u.chatID,
-                                    "👋 Для защиты от спама вы временно в муте — напишите боту в личку /verify, чтобы разблокироваться.");
+                                    "👋 Для защиты от спама вы временно в муте. Напишите боту в личку — он пришлёт проверочный пример; решите его и ответьте числом.");
                         continue;
                     }
                 }
