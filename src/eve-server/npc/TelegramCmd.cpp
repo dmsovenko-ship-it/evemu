@@ -13,11 +13,12 @@
 #include <fstream>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <atomic>
-#include <thread>
-#include <vector>
-#include <string>
-#include <memory>
+#include <atomic>    
+#include <thread>    
+#include <vector>    
+#include <map>       
+#include <string>    
+#include <memory>    
 
 /*
  * @file TelegramCmd.cpp
@@ -122,6 +123,90 @@ void SendMessage(const std::string& endpoint, const std::string& proxy,
     RunCurlCapture(args, out, 15);
 }
 
+// Generic Bot API POST (argv-style, no shell). `params` are literal
+// `key=value` pieces passed via curl --data-urlencode.
+void BotPost(const std::string& endpoint, const std::string& proxy,
+             const std::string& token, const std::string& method,
+             const std::vector<std::string>& params)
+{
+    if (endpoint.empty() || token.empty())
+        return;
+    std::vector<std::string> args = {
+        "curl", "-s", "--max-time", "15",
+        "-X", "POST", endpoint + "/bot" + token + "/" + method,
+    };
+    for (const auto& kv : params) {
+        args.push_back("--data-urlencode");
+        args.push_back(kv);
+    }
+    if (!proxy.empty())
+        args.insert(args.end(), { "--proxy", proxy });
+    std::string out;
+    RunCurlCapture(args, out, 15);
+}
+
+void TelegramDeleteMessage(const std::string& ep, const std::string& px,
+                           const std::string& tok, const std::string& chat,
+                           const std::string& msgID)
+{
+    BotPost(ep, px, tok, "deleteMessage",
+            { "chat_id=" + chat, "message_id=" + msgID });
+}
+
+void TelegramRestrict(const std::string& ep, const std::string& px,
+                      const std::string& tok, const std::string& chat,
+                      const std::string& user, bool allow)
+{
+    std::string perms = allow
+        ? "{\"can_send_messages\":true,\"can_send_media_messages\":true,"
+          "\"can_send_other_messages\":true,\"can_add_web_page_previews\":true}"
+        : "{\"can_send_messages\":false}";
+    BotPost(ep, px, tok, "restrictChatMember",
+            { "chat_id=" + chat, "user_id=" + user, "permissions=" + perms });
+}
+
+void TelegramBan(const std::string& ep, const std::string& px,
+                 const std::string& tok, const std::string& chat,
+                 const std::string& user)
+{
+    BotPost(ep, px, tok, "banChatMember",
+            { "chat_id=" + chat, "user_id=" + user });
+}
+
+// message contains a link/url or forbidden/ad word → remove
+bool IsForbiddenContent(const std::string& lower)
+{
+    static const std::string links[] = { "http://", "https://", "t.me/",
+        "telegram.me", "www.", ".ru/", ".com/", ".xyz/", ".top/", "invite" };
+    for (auto& l : links)
+        if (lower.find(l) != std::string::npos)
+            return true;
+    static const std::string words[] = {
+        "казино", "casino", "порно", "xxx", "крипт", "бот фарм", "продам isk",
+        "куплю isk", "продам иск", "rmt", "реклам", "работа в интернете",
+        "заработок", "разведу", "знакомство досуг",
+        "хуй", "пизд", "бляд", "ебат", "сука", "гандон",
+    };
+    for (auto& w : words)
+        if (lower.find(w) != std::string::npos)
+            return true;
+    return false;
+}
+
+// tiny helpers shared by moderation
+std::string JsonNumStr(const std::string& s, size_t from, const std::string& key)
+{
+    std::string pat = "\"" + key + "\":";
+    size_t p = s.find(pat, from);
+    if (p == std::string::npos)
+        return "";
+    p += pat.size();
+    size_t e = p;
+    while (e < s.size() && (isdigit((unsigned char)s[e]) || s[e] == '-'))
+        ++e;
+    return s.substr(p, e - p);
+}
+
 // ---- tiny JSON field extractors (Telegram getUpdates shape is stable) ----
 // Each returns the raw (unescaped) string value for "key": or "" if absent.
 std::string JsonStrField(const std::string& s, size_t from, const std::string& key)
@@ -174,9 +259,27 @@ struct Update {
     int64 updateID = 0;
     std::string chatID;
     std::string text;
+    std::string messageID;
+    std::string fromID;
+    bool fromIsBot = false;
+    std::string joinUserID;   // non-empty when someone joined (new_chat_members)
+    bool joinIsBot = false;
 };
 
-// Splits "result":[...] into update objects and pulls update_id/chat/text.
+// Extract the numeric id of the message sender, if any.
+std::string JsonFromID(const std::string& block)
+{
+    std::string pat = "\"from\":{\"id\":";
+    size_t p = block.find(pat);
+    if (p == std::string::npos) return "";
+    p += pat.size();
+    size_t e = p;
+    while (e < block.size() && (isdigit((unsigned char)block[e]) || block[e] == '-'))
+        ++e;
+    return block.substr(p, e - p);
+}
+
+// Splits "result":[...] into update objects and pulls update_id/chat/text/etc.
 std::vector<Update> ParseUpdates(const std::string& json)
 {
     std::vector<Update> out;
@@ -201,13 +304,24 @@ std::vector<Update> ParseUpdates(const std::string& json)
                 ++n;
             }
         }
-        // message → chat.id & text; only handle message objects
+        // message → chat.id, text, from, joins; only message objects
         size_t m = obj.find("\"message\":");
         if (m != std::string::npos) {
             std::string msg = obj.substr(m);
-            upd.chatID = JsonChatID(msg);
-            upd.text   = JsonStrField(msg, 0, "text");
-            if (!upd.chatID.empty() && !upd.text.empty())
+            upd.chatID    = JsonChatID(msg);
+            upd.text      = JsonStrField(msg, 0, "text");
+            upd.messageID = JsonNumStr(msg, 0, "message_id");
+            upd.fromID    = JsonFromID(msg);
+            size_t ncm = msg.find("\"new_chat_members\":[");
+            if (ncm != std::string::npos) {
+                size_t close = msg.find(']', ncm);
+                std::string member = close == std::string::npos
+                                   ? msg.substr(ncm) : msg.substr(ncm, close - ncm);
+                upd.joinUserID = JsonNumStr(member, 0, "id");
+                upd.joinIsBot  = member.find("\"is_bot\":true") != std::string::npos;
+            }
+            if (!upd.chatID.empty()
+                && (!upd.text.empty() || !upd.joinUserID.empty() || !upd.messageID.empty()))
                 out.push_back(upd);
         }
         pos = u + 12;
@@ -590,12 +704,72 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
         if (u.updateID >= offset)
             offset = u.updateID + 1;
 
-        // only accept commands from our own configured groups (ids may be a
-        // comma-separated list)
-        bool isAdmin = false;
-        if (!adminChat.empty() && InChatList(adminChat, u.chatID))    isAdmin = true;
-        else if (!playerChat.empty() && InChatList(playerChat, u.chatID)) isAdmin = false;
-        else continue;   // some other group that added the bot → ignore
+        // role by chat list (ids may be comma-separated)
+        bool isAdmin  = !adminChat.empty() && InChatList(adminChat, u.chatID);
+        bool inPlayer = !playerChat.empty() && InChatList(playerChat, u.chatID);
+        bool isPrivate = !u.chatID.empty() && u.chatID[0] != '-'
+                      && u.chatID == u.fromID;
+
+        // private chat with the bot → anti-spam verification
+        if (isPrivate && !u.text.empty()) {
+            std::string t = Trim(u.text);
+            for (auto& c : t) c = (char)tolower((unsigned char)c);
+            bool verify = t.find("/verify") != std::string::npos;
+            if (verify) {
+                auto it = g_pendingVerify.find(u.fromID);
+                if (it != g_pendingVerify.end()) {
+                    TelegramRestrict(endpoint, proxy, token, it->second, u.fromID, true);
+                    SendMessage(endpoint, proxy, token, it->second,
+                                "✅ Проверка пройдена, добро пожаловать!");
+                    SendMessage(endpoint, proxy, token, u.chatID,
+                                "✅ Вы разблокированы в чате.");
+                    g_pendingVerify.erase(it);
+                } else {
+                    SendMessage(endpoint, proxy, token, u.chatID,
+                                "Ожидающей проверки нет — вы уже в чате.");
+                }
+            }
+            continue;
+        }
+
+        if (!inPlayer && !isAdmin)
+            continue;   // some other group that added the bot → ignore
+
+        // --- moderation (player chats only) ---
+        if (inPlayer) {
+            if (!u.joinUserID.empty()) {
+                if (u.joinIsBot) {
+                    TelegramBan(endpoint, proxy, token, u.chatID, u.joinUserID);
+                    continue;
+                }
+                g_pendingVerify[u.joinUserID] = u.chatID;
+                TelegramRestrict(endpoint, proxy, token, u.chatID, u.joinUserID, false);
+                SendMessage(endpoint, proxy, token, u.chatID,
+                            "👋 Добро пожаловать! Для защиты от спама вы временно в муте — напишите боту в личку /verify, чтобы разблокироваться.");
+                continue;
+            }
+            if (!u.text.empty() && u.text[0] != '/') {
+                std::string lower = u.text;
+                for (auto& c : lower) c = (char)tolower((unsigned char)c);
+                if (IsForbiddenContent(lower)) {
+                    if (!u.messageID.empty())
+                        TelegramDeleteMessage(endpoint, proxy, token, u.chatID, u.messageID);
+                    if (!u.fromID.empty()) {
+                        std::string key = u.chatID + ":" + u.fromID;
+                        int st = ++g_spamStrikes[key];
+                        if (st >= 2) {
+                            TelegramRestrict(endpoint, proxy, token, u.chatID, u.fromID, false);
+                            SendMessage(endpoint, proxy, token, u.chatID,
+                                        "⛔ Спам/реклама — участник замучен.");
+                        } else {
+                            SendMessage(endpoint, proxy, token, u.chatID,
+                                        "🚫 В чате запрещены ссылки, реклама и запрещённые слова.");
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
 
         std::string text = Trim(u.text);
         if (text.empty() || text[0] != '/')
@@ -618,6 +792,12 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
             SendMessage(endpoint, proxy, token, u.chatID, reply);
     }
 }
+
+// --- moderator state (in-memory, resets on server restart) ---
+// pending anti-spam verification: user id -> group chat id
+static std::map<std::string, std::string> g_pendingVerify;
+// spam strikes per chat:user
+static std::map<std::string, int> g_spamStrikes;
 
 // background thread: poll player + admin bots (dedup token, per-token offset)
 void PollLoop(std::atomic<bool>& run, std::string endpoint, std::string proxy,
