@@ -4560,8 +4560,8 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
                     if (sres.GetRow(srow))
                         v = { srow.GetText(0) ? srow.GetText(0) : "", (float)srow.GetFloat(1) };
                 }
-                sCache[channelID] = v;
-                cit = sCache.find(channelID);
+                sSysCache[channelID] = v;
+                cit = sSysCache.find(channelID);
             }
             const std::string& sysName = cit->second.first;
             float sysSec = cit->second.second;
