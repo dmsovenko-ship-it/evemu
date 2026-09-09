@@ -204,7 +204,9 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
                 size_t p = lower.find("content-length:");
                 if (p != std::string::npos) {
                     std::string v = head.substr(p + 15);   // len of "Content-Length:"
-                    size_t e = v.find_first_of("\r\n \t");
+                    size_t a = v.find_first_not_of(" \t");
+                    if (a != std::string::npos) v = v.substr(a);
+                    size_t e = v.find_first_of(" \t\r\n");
                     if (e != std::string::npos) v = v.substr(0, e);
                     if (!v.empty()) contentLength = std::stoul(v);
                 }
