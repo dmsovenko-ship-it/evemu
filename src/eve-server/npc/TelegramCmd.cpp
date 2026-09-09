@@ -688,6 +688,13 @@ static std::map<std::string, std::string> g_pendingVerify;
 // spam strikes per chat:user
 static std::map<std::string, int> g_spamStrikes;
 
+// temporary debug log for moderator behaviour
+static void ModLog(const std::string& line)
+{
+    std::ofstream f("/tmp/evemu_mod.log", std::ios::app);
+    if (f) f << line << "\n";
+}
+
 // poll once per bot token; keep the last update id per token so a shared bot
 // that serves both groups doesn't re-deliver
 void PollOnce(const std::string& endpoint, const std::string& proxy,
@@ -742,6 +749,9 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
         if (!inPlayer && !isAdmin)
             continue;   // some other group that added the bot → ignore
 
+        ModLog("update chat=" + u.chatID + " player=" + std::to_string(inPlayer)
+             + " admin=" + std::to_string(isAdmin) + " text='" + u.text + "'");
+
         // --- moderation (player chats only) ---
         if (inPlayer) {
             if (!u.joinUserID.empty()) {
@@ -759,6 +769,8 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                 std::string lower = u.text;
                 for (auto& c : lower) c = (char)tolower((unsigned char)c);
                 if (IsForbiddenContent(lower)) {
+                    ModLog("FORBIDDEN chat=" + u.chatID + " from=" + u.fromID
+                         + " msg=" + u.messageID + " text='" + u.text + "'");
                     if (!u.messageID.empty())
                         TelegramDeleteMessage(endpoint, proxy, token, u.chatID, u.messageID);
                     if (!u.fromID.empty()) {
