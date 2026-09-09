@@ -424,39 +424,30 @@ static void ProcessBotTrainingBatch()
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT characterID, bloodlineID, raceID FROM chrCharacters"
+        "SELECT characterID, raceID FROM chrCharacters"
         " WHERE accountID = 0 AND online = 1 LIMIT 300"))
         return;
 
     DBResultRow row;
     while (res.GetRow(row)) {
         uint32 charID = row.GetUInt(0);
-        uint32 blood  = row.GetUInt(1);
-        uint32 race   = row.GetUInt(2);
+        uint32 race   = row.GetUInt(1);
 
-        // --- attributes: bloodline base x multiplier (player-like) ---
-        int16 aInt = 19, aMem = 19, aPer = 19, aWill = 19, aCha = 19;
-        CharacterTypeData td;
-        uint16 ctypeID = 0;
-        if (blood != 0 && CharacterDB::GetCharacterTypeByBloodline((uint8)blood, ctypeID, td)) {
-            aInt = (int16)std::lround(td.intelligence * mult);
-            aMem = (int16)std::lround(td.memory * mult);
-            aPer = (int16)std::lround(td.perception * mult);
-            aWill = (int16)std::lround(td.willpower * mult);
-            aCha = (int16)std::lround(td.charisma * mult);
-        } else {
-            // rough race defaults (Amarr=1, Caldari=2, Minmatar=4, Gallente=8)
-            int16 base[5] = { 19,19,19,19,19 };
-            switch (race) {
-                case 1: base[0]=20;base[1]=20;base[2]=21;base[3]=21;base[4]=18; break; // Amarr
-                case 2: base[0]=21;base[1]=21;base[2]=20;base[3]=19;base[4]=19; break; // Caldari
-                case 4: base[0]=19;base[1]=19;base[2]=21;base[3]=21;base[4]=20; break; // Minmatar
-                case 8: base[0]=20;base[1]=19;base[2]=21;base[3]=20;base[4]=20; break; // Gallente
-            }
-            aInt=(int16)std::lround(base[0]*mult); aMem=(int16)std::lround(base[1]*mult);
-            aPer=(int16)std::lround(base[2]*mult); aWill=(int16)std::lround(base[3]*mult);
-            aCha=(int16)std::lround(base[4]*mult);
+        // --- attributes: race-based base x multiplier with per-pilot variation
+        // (deterministic — no dependence on bloodline tables that may be empty).
+        int16 baseA[5] = { 19, 19, 19, 19, 19 };
+        switch (race) {
+            case 1: baseA[0]=20;baseA[1]=20;baseA[2]=21;baseA[3]=21;baseA[4]=18; break; // Amarr
+            case 2: baseA[0]=21;baseA[1]=21;baseA[2]=20;baseA[3]=19;baseA[4]=19; break; // Caldari
+            case 4: baseA[0]=19;baseA[1]=19;baseA[2]=21;baseA[3]=21;baseA[4]=20; break; // Minmatar
+            case 8: baseA[0]=20;baseA[1]=19;baseA[2]=21;baseA[3]=20;baseA[4]=20; break; // Gallente
         }
+        int seed = (int)(charID % 7) - 3;   // -3..+3 individual variance
+        int16 aInt  = (int16)std::lround((baseA[0] + seed) * mult);
+        int16 aMem  = (int16)std::lround((baseA[1] + seed) * mult);
+        int16 aPer  = (int16)std::lround((baseA[2] + seed) * mult);
+        int16 aWill = (int16)std::lround((baseA[3] + seed) * mult);
+        int16 aCha  = (int16)std::lround((baseA[4] + seed) * mult);
 
         // --- training row (create if missing) ---
         DBQueryResult tr;
@@ -480,17 +471,14 @@ static void ProcessBotTrainingBatch()
                 " VALUES (%u, %d, %d, %d, %d, %d, %lli)",
                 charID, aInt, aMem, aPer, aWill, aCha, (long long)nowFt);
             tLast = nowFt;   // first tick starts now (no retro SP)
-        } else {
-            // re-read attributes (row was created earlier)
-            DBQueryResult ar;
-            if (sDatabase.RunQuery(ar, "SELECT attrInt, attrMem, attrPer, attrWill, attrCha"
-                                       " FROM botTraining WHERE charID = %u", charID)) {
-                DBResultRow r2;
-                if (ar.GetRow(r2)) {
-                    aInt=(int16)r2.GetInt(0); aMem=(int16)r2.GetInt(1);
-                    aPer=(int16)r2.GetInt(2); aWill=(int16)r2.GetInt(3); aCha=(int16)r2.GetInt(4);
-                }
-            }
+        }
+        // Always refresh attributes in the row (fixes any rows created with 0).
+        {
+            DBerror e;
+            sDatabase.RunQuery(e,
+                "UPDATE botTraining SET attrInt = %d, attrMem = %d, attrPer = %d,"
+                " attrWill = %d, attrCha = %d WHERE charID = %u",
+                aInt, aMem, aPer, aWill, aCha, charID);
         }
 
         int64 since = nowFt - tLast;
