@@ -186,7 +186,9 @@ bool IsForbiddenContent(const std::string& lower)
     static const std::string words[] = {
         "казино", "casino", "порно", "xxx", "крипт", "бот фарм", "продам isk",
         "куплю isk", "продам иск", "rmt", "реклам", "работа в интернете",
-        "заработок", "разведу", "знакомство досуг",
+        "заработок", "разведу", "знакомство досуг", "выгул", "плачу", "оплата",
+        "ищу ребят", "нужно помочь", "разобрать гараж", "подработк", "услуг за",
+        "зарплат", "раскрутк", "накрутк", "лайки", "подписки",
         "хуй", "хуё", "хуя", "нахуй", "похуй", "бля", "бляд", "пизд", "пидор",
         "пидр", "ебал", "ебат", "ебаш", "заеб", "наеб", "разъеб", "сука", "сук",
         "гандон", "чмо", "мудак", "шлюх", "проститутк",
@@ -324,6 +326,7 @@ struct Update {
     std::string text;
     std::string messageID;
     std::string fromID;
+    std::string fromName;
     bool fromIsBot = false;
     std::string joinUserID;   // non-empty when someone joined (new_chat_members)
     bool joinIsBot = false;
@@ -375,6 +378,11 @@ std::vector<Update> ParseUpdates(const std::string& json)
             upd.text      = JsonStrField(msg, 0, "text");
             upd.messageID = JsonNumStr(msg, 0, "message_id");
             upd.fromID    = JsonFromID(msg);
+            {
+                std::string fn = JsonStrField(msg, 0, "first_name");
+                std::string un = JsonStrField(msg, 0, "username");
+                upd.fromName = !fn.empty() ? fn : (!un.empty() ? "@" + un : "");
+            }
             size_t ncm = msg.find("\"new_chat_members\":[");
             if (ncm != std::string::npos) {
                 size_t close = msg.find(']', ncm);
@@ -850,6 +858,8 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
             if (!u.joinUserID.empty()) {
                 if (u.joinIsBot) {
                     TelegramBan(endpoint, proxy, token, u.chatID, u.joinUserID);
+                    SendMessage(endpoint, proxy, token, u.chatID,
+                                "🚫 Бот (id " + u.joinUserID + ") забанен за спам/рекламу.");
                     continue;
                 }
                 g_pendingVerify[u.joinUserID] = u.chatID;
@@ -887,16 +897,18 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                          + " msg=" + u.messageID + " text='" + u.text + "'");
                     if (!u.messageID.empty())
                         TelegramDeleteMessage(endpoint, proxy, token, u.chatID, u.messageID);
+                    std::string who = u.fromName.empty() ? ("@" + u.fromID) : u.fromName;
+                    std::string why = rateBad ? "флуд" : capsBad ? "КАПС" : "мат/реклама/ссылка";
                     if (!u.fromID.empty()) {
                         std::string key = u.chatID + ":" + u.fromID;
                         int st = rateBad ? 99 : ++g_spamStrikes[key];
                         if (st >= 2) {
                             TelegramRestrict(endpoint, proxy, token, u.chatID, u.fromID, false);
                             SendMessage(endpoint, proxy, token, u.chatID,
-                                        "⛔ Спам/реклама — участник замучен.");
+                                        "👮 " + who + " замучен за нарушение в чате: " + why + ".");
                         } else {
                             SendMessage(endpoint, proxy, token, u.chatID,
-                                        "🚫 В чате запрещены ссылки, реклама и запрещённые слова.");
+                                        "🚫 " + who + ", в чате запрещены " + why + " (удалено). Предупреждение 1/2.");
                         }
                     }
                     continue;
