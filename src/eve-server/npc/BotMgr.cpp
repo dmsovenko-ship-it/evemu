@@ -571,6 +571,17 @@ static void ProcessBotTrainingBatch()
             continue;
         }
         tProg += minutes * spm;
+        // Visible, continuous SP growth: add what was earned this tick to the
+        // character's total (like EVE counts partial SP toward the level).
+        {
+            int64 tickEarn = (int64)(minutes * spm);
+            if (tickEarn > 0) {
+                DBerror e;
+                sDatabase.RunQuery(e,
+                    "UPDATE chrCharacters SET skillPoints = skillPoints + %lld WHERE characterID = %u",
+                    (long long)tickEarn, charID);
+            }
+        }
 
         uint32 needBase = EvEMath::Skill::PointsAtLevel(curLevel, rank);
         uint32 needNext = EvEMath::Skill::PointsAtLevel(next, rank);
@@ -589,10 +600,7 @@ static void ProcessBotTrainingBatch()
                 "UPDATE entity_attributes a JOIN entity e ON e.itemID = a.itemID"
                 " SET a.valueInt = %u WHERE e.ownerID = %u AND e.typeID = %u"
                 "   AND e.flag = 7 AND a.attributeID = 276", newPoints, charID, curType);
-            // character total SP
-            sDatabase.RunQuery(e,
-                "UPDATE chrCharacters SET skillPoints = skillPoints + %u WHERE characterID = %u",
-                need, charID);
+            // total SP already gained incrementally via tickEarn
             tProg = 0.0;
         }
 
