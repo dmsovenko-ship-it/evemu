@@ -230,6 +230,22 @@ std::string Trim(const std::string& s)
     return s.substr(b, e - b + 1);
 }
 
+// Is `chat` one of the ids in the comma-separated config value?
+bool InChatList(const std::string& csv, const std::string& chat)
+{
+    if (csv.empty()) return false;
+    size_t start = 0;
+    while (start <= csv.size()) {
+        size_t comma = csv.find(',', start);
+        std::string item = csv.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        if (Trim(item) == chat)
+            return true;
+        if (comma == std::string::npos) break;
+        start = comma + 1;
+    }
+    return false;
+}
+
 std::string PlayerHelp()
 {
     return "Доступные команды:\n"
@@ -574,10 +590,11 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
         if (u.updateID >= offset)
             offset = u.updateID + 1;
 
-        // only accept commands from our own configured groups
+        // only accept commands from our own configured groups (ids may be a
+        // comma-separated list)
         bool isAdmin = false;
-        if (!adminChat.empty() && u.chatID == adminChat)        isAdmin = true;
-        else if (!playerChat.empty() && u.chatID == playerChat) isAdmin = false;
+        if (!adminChat.empty() && InChatList(adminChat, u.chatID))    isAdmin = true;
+        else if (!playerChat.empty() && InChatList(playerChat, u.chatID)) isAdmin = false;
         else continue;   // some other group that added the bot → ignore
 
         std::string text = Trim(u.text);

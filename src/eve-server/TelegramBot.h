@@ -67,20 +67,42 @@ inline void Notify(const std::string& endpoint, const std::string& proxy,
     ::system(cmd.c_str());
 }
 
-// Public events → the player group.
+// Send to every chat in a comma-separated chat-id list (e.g. channel + group).
+inline void NotifyToChats(const std::string& endpoint, const std::string& proxy,
+                          const std::string& botToken, const std::string& chatList,
+                          const std::string& text)
+{
+    if (chatList.empty()) return;
+    size_t start = 0;
+    while (start <= chatList.size()) {
+        size_t comma = chatList.find(',', start);
+        std::string chatID = chatList.substr(start,
+            comma == std::string::npos ? std::string::npos : comma - start);
+        // trim
+        size_t b = chatID.find_first_not_of(" \t\r\n");
+        size_t e = chatID.find_last_not_of(" \t\r\n");
+        if (b != std::string::npos)
+            chatID = chatID.substr(b, e - b + 1);
+        Notify(endpoint, proxy, botToken, chatID, text);
+        if (comma == std::string::npos) break;
+        start = comma + 1;
+    }
+}
+
+// Public events → the player group(s).
 inline void NotifyPlayer(const std::string& text)
 {
     auto& tg = EVEServerConfig::get().telegram;
     if (tg.PlayerEnabled)
-        Notify(tg.Endpoint, tg.Proxy, tg.PlayerBotToken, tg.PlayerChatID, text);
+        NotifyToChats(tg.Endpoint, tg.Proxy, tg.PlayerBotToken, tg.PlayerChatID, text);
 }
 
-// Security/priority alerts → the closed admin group.
+// Security/priority alerts → the closed admin group(s).
 inline void NotifyAdmin(const std::string& text)
 {
     auto& tg = EVEServerConfig::get().telegram;
     if (tg.AdminEnabled)
-        Notify(tg.Endpoint, tg.Proxy, tg.AdminBotToken, tg.AdminChatID, text);
+        NotifyToChats(tg.Endpoint, tg.Proxy, tg.AdminBotToken, tg.AdminChatID, text);
 }
 
 } // namespace TelegramBot
