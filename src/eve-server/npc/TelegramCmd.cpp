@@ -777,8 +777,8 @@ static std::map<std::string, int> g_spamStrikes;
 static std::map<std::string, int> g_verified;
 // pending math-challenge answers: user id -> expected number
 static std::map<std::string, int> g_verifyAns;
-// already got the "how to verify" hint in private chat
-static std::map<std::string, int> g_privateHinted;
+// last time a "how to verify" hint was shown in private chat (user id -> ms)
+static std::map<std::string, int64> g_privateHinted;
 
 // temporary debug log for moderator behaviour
 static void ModLog(const std::string& line)
@@ -850,11 +850,17 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                     }
                 }
             } else {
-                if (!g_privateHinted[u.fromID]) {
-                    g_privateHinted[u.fromID] = 1;
+                int64 nowMs = (int64)time(nullptr) * 1000;
+                auto h = g_privateHinted.find(u.fromID);
+                bool first = h == g_privateHinted.end();
+                int64 last = first ? 0 : h->second;
+                if (first || nowMs - last > 30000) {
+                    g_privateHinted[u.fromID] = nowMs;
                     SendMessage(endpoint, proxy, token, u.chatID,
-                                "Здравствуйте! Я слежу за порядком в игровом чате.\n"
-                                "Чтобы писать в чат, вступите в него и отправьте первое сообщение — я пришлю сюда проверочный пример.");
+                        first
+                        ? "Здравствуйте! Я слежу за порядком в игровом чате.\n"
+                          "Вступите в игровую группу и отправьте в неё первое сообщение — бот замутит вас и пришлёт сюда проверочный пример. Решите его и ответьте числом."
+                        : "Жду вашего первого сообщения в игровой группе — после него я пришлю сюда проверочный пример.");
                 }
             }
             continue;
