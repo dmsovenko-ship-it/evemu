@@ -363,6 +363,7 @@ public:
         // accumulates SP over real time with the EVE points-per-minute formula.
         bool TrainingEnabled;      // master switch for bot skill training
         float AttrMultiplier;      // multiplier on base attributes (0 = use character.statMultiplier)
+        uint32 MaxTotalPilots;     // hard cap on persistent chelobot characters (pool reuse)
     } playerBots;
 
     // From <telegram> — two independent destinations:
