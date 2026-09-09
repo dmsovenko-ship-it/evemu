@@ -1,10 +1,19 @@
 # EVEmu Session Context
 
 ## Хотелки (записано 9 сент.)
-- **eve-mail на портале для игроков**: аналог почты EVE на web-портале (читать/писать, входящие/исходящие, ответ). Таблицы mailMessage/mailStatus (их уже использует LSCService::SelfEveMail). Понадобится серверный API (mail-эндпоинты в APIServer) + страницы `/mail` с авторизацией по аккаунту (паттерн петиций: игрок — только свои). Не начато.
+- ✅ **eve-mail на портале — СДЕЛАНО** (сервер `ef353750`+`d46a0f72`, портал `cb5e723`; см. секцию 9 сент. вечер ниже). Открытая задача: оформление и пагинация `/mail` на портале (в эви-почте их нет).
 
 ## Current State
-Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) HEAD: `bd6fe301`. Краш на анлоаде Jita (SIGSEGV) так и не воспроизвёлся под GDB — мониторинг продолжается. 7 сент. (вечер): миссионер, покупка фита после лосса, стендинги (owners-сид + skip неизвестных фракций) — см. секцию ниже.
+Session saved. Server on remote host `172.20.1.47`, SSH user: `dmitry` (password `gbnjy78`), path: `/opt/evemu`. Web-портал на `video.iks-online.net:26006` (другой хост, PHP+nginx, репо `https://github.com/dmsovenko-ship-it/evemu-portal` private). Сервер (origin/master) HEAD: `004a37b8`. Краш на анлоаде Jita (SIGSEGV) так и не воспроизвёлся под GDB — мониторинг продолжается. 9 сент. (вечер): eve-mail API + live-push + обязательный email/SetEmail (сервер), портал — eve-mail/SMTP/2FA/правила; следующий заход — оформить+пагинировать `/mail`.
+
+### 9 сентября (вечер): eve-mail API для портала, live-push, обязательный email + SetEmail (безопасность регистрации)
+- **eve-mail эндпоинты** в `APICharacterManager::ProcessCall` (коммиты `ef353750` сервер, детали/портал `cb5e723`+): `char/MailList.xml.aspx`(folder=inbox|sent; inbox — join mailStatus по чарам accountID, unread=нет readCount; sent — senderID в чарах аккаунта; limit≤500), `MailGet`(ownership: mailStatus-строка чара аккаунта ИЛИ sender=чар аккаунта; body распаковывается `MailBodyToText` — zlib по 0x78, иначе raw; авто-mark-read только своих строк), `MailSend`(POST: senderid должен принадлежать accountid, recipient по имени/ID, INSERT mailMessage+mailStatus как MailDB::SendMail, Deflate body), `MailRead/MailUnread`(mask |1 / &~1 только свои строки), `Notifications`(receiverID в чарах аккаунта, processed filter), `NotifRead/NotifReadAll`(только числовые id, sanitized), `MailStatus`(unread count, notifications count, lastmessageid, lastnotificationid). Все ownership-проверки через `chrCharacters.accountID`.
+- **Live-push** (`d46a0f72`): `MailSend` шлёт онлайн-получателю `OnMailSent` (9-tuple как MailMgrService::SendMail/SelfEveMail, senderName из chrCharacters) → письмо с портала сразу появляется в инбоксе в игре.
+- **Email обязателен при регистрации** (`004a37b8`): `auth/Register` требует валидный email (IsValidEmail: ≤60, @, домен с точкой), уникальность (`account.email` колонка уже была в схеме), сохранение; `auth/Login` возвращает `<email>`; новый `auth/SetEmail` (name+password+email, для старых аккаунтов; ошибка 110 invalid/111 duplicate). Экранирование name/email во всех запросах (SQL-инъекция по имени закрыта в Register/Login/SetEmail).
+- Портал: `/mail`+поллинг+Web Push(выкл), SMTP, 2FA, правила регистрации — см. AGENTS evemu-portal. НЕ забыть: `auth/Register` теперь отклоняет регистрацию без email → старый `Register` с пустым email (клиенты вне портала) упадёт с «105 Name, password and email required».
+
+## TODO / next session
+- 🔴 Оформить `/mail` на портале + пагинация (юзер: «в еве почте нет оформления и пагинации»). CSS в style.css, пагинация `MailList/Notifications` (сервер имеет limit, но НЕ page/offset — добавить или резать в PHP как haul).
 
 ### 9 сентября (день): единые петиции портала+игры, архив новостей, POST-тело дочитывается, команды Telegram-бота
 - **Портал теперь и на `http://router.iks-online.net:26006`** (тот же деплой на 172.20.1.49 через SSH-мост 172.20.1.47; рабочий паттерн деплоя — base64-скрипт через plink→sudo bash; прод-репо с незакоммиченными правками `pages/battle*.php` (устаревшие, работа уже в origin) застейджирован `stash@{0}`).
