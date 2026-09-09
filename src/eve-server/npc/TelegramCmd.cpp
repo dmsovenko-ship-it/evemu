@@ -407,6 +407,17 @@ std::string Trim(const std::string& s)
     return s.substr(b, e - b + 1);
 }
 
+// number → Russian words ("семь") for the verification examples
+std::string NumRu(int n)
+{
+    static const char* w[] = { "ноль","один","два","три","четыре","пять","шесть",
+        "семь","восемь","девять","десять","одиннадцать","двенадцать","тринадцать",
+        "четырнадцать","пятнадцать","шестнадцать","семнадцать","восемнадцать",
+        "девятнадцать","двадцать" };
+    if (n >= 0 && n <= 20) return w[n];
+    return std::to_string(n);
+}
+
 // Is `chat` one of the ids in the comma-separated config value?
 bool InChatList(const std::string& csv, const std::string& chat)
 {
@@ -752,6 +763,8 @@ static std::map<std::string, std::string> g_pendingVerify;
 static std::map<std::string, int> g_spamStrikes;
 // users that passed verification in a chat: "chat:user" -> 1
 static std::map<std::string, int> g_verified;
+// pending math-challenge answers: user id -> expected number
+static std::map<std::string, int> g_verifyAns;
 
 // temporary debug log for moderator behaviour
 static void ModLog(const std::string& line)
@@ -789,24 +802,38 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
         bool isPrivate = !u.chatID.empty() && u.chatID[0] != '-'
                       && u.chatID == u.fromID;
 
-        // private chat with the bot → anti-spam verification
+        // private chat with the bot → anti-spam verification with a math example
         if (isPrivate && !u.text.empty()) {
-            std::string t = Trim(u.text);
-            for (auto& c : t) c = (char)tolower((unsigned char)c);
-            bool verify = t.find("/verify") != std::string::npos;
-            if (verify) {
-                auto it = g_pendingVerify.find(u.fromID);
-                if (it != g_pendingVerify.end()) {
-                    TelegramRestrict(endpoint, proxy, token, it->second, u.fromID, true);
-                    SendMessage(endpoint, proxy, token, it->second,
-                                "✅ Проверка пройдена, добро пожаловать!");
+            auto it = g_pendingVerify.find(u.fromID);
+            if (it != g_pendingVerify.end()) {
+                static bool seeded = false;
+                if (!seeded) { srand((unsigned)time(nullptr)); seeded = true; }
+                auto ai = g_verifyAns.find(u.fromID);
+                if (ai == g_verifyAns.end()) {
+                    int a = rand() % 8 + 2, b = rand() % 9 + 1;
+                    g_verifyAns[u.fromID] = a + b;
                     SendMessage(endpoint, proxy, token, u.chatID,
-                                "✅ Вы разблокированы в чате.");
-                    g_verified[it->second + ":" + u.fromID] = 1;
-                    g_pendingVerify.erase(it);
+                                "🔐 Проверка: решите пример и напишите число.\n"
+                                + NumRu(a) + " плюс " + NumRu(b) + " = ?");
                 } else {
-                    SendMessage(endpoint, proxy, token, u.chatID,
-                                "Ожидающей проверки нет — вы уже в чате.");
+                    long got = 0; bool any = false;
+                    for (char c : u.text) if (isdigit((unsigned char)c)) { got = got * 10 + (c - '0'); any = true; }
+                    if (any && (int)got == ai->second) {
+                        TelegramRestrict(endpoint, proxy, token, it->second, u.fromID, true);
+                        SendMessage(endpoint, proxy, token, it->second,
+                                    "✅ Проверка пройдена, добро пожаловать!");
+                        SendMessage(endpoint, proxy, token, u.chatID,
+                                    "✅ Вы разблокированы в чате.");
+                        g_verified[it->second + ":" + u.fromID] = 1;
+                        g_pendingVerify.erase(it);
+                        g_verifyAns.erase(ai);
+                    } else {
+                        int a = rand() % 8 + 2, b = rand() % 9 + 1;
+                        g_verifyAns[u.fromID] = a + b;
+                        SendMessage(endpoint, proxy, token, u.chatID,
+                                    "❌ Неверно. Новая проверка:\n"
+                                    + NumRu(a) + " плюс " + NumRu(b) + " = ?");
+                    }
                 }
             }
             continue;
