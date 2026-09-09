@@ -3195,14 +3195,12 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
     // TCP remote address, NOT the session "address" variable (which defaults to
     // 0.0.0.0).
     {
-        std::string addr = GetSession()->GetAddress();
-        if (!addr.empty()) {
-            // "ip:port" → keep only the IP for grouping/lookups
-            size_t colon = addr.find(':');
-            if (colon != std::string::npos)
-                addr = addr.substr(0, colon);
-            if (addr.empty() || addr == "0.0.0.0" || addr == "127.0.0.1")
-                return;   // unknown/local — nothing useful to record
+        // EVEClientSession::GetAddress() = real TCP remote ("ip:port").
+        std::string addr = EVEClientSession::GetAddress();
+        size_t colon = addr.find(':');
+        if (colon != std::string::npos)
+            addr = addr.substr(0, colon);
+        if (!addr.empty() && addr != "0.0.0.0" && addr != "127.0.0.1") {
             std::string esc;
             sDatabase.DoEscapeString(esc, addr);
             DBerror herr;

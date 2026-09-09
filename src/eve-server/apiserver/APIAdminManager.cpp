@@ -124,6 +124,34 @@ static std::string BuildSecurityFlagsXML()
         }
     }
 
+    // Capital ships held by human accounts (RMT monitoring: capitals are the
+    // usual prize of an account sale).
+    if (sDatabase.RunQuery(res,
+        "SELECT a.accountID, a.accountName, c.characterID, c.characterName,"
+        "       t.typeID, t.typeName, g.groupName"
+        " FROM chrCharacters c"
+        " JOIN account a ON a.accountID = c.accountID"
+        " JOIN entity e ON e.itemID = c.shipID"
+        " JOIN invTypes t ON t.typeID = e.typeID"
+        " JOIN invGroups g ON g.groupID = t.groupID"
+        " WHERE (g.groupName LIKE '%Titan%' OR g.groupName LIKE '%Dreadnought%'"
+        "    OR g.groupName LIKE '%Carrier%' OR g.groupName LIKE '%Supercarrier%'"
+        "    OR g.groupName LIKE '%Freighter%' OR g.groupName LIKE '%Rorqual%')"
+        " ORDER BY a.accountID LIMIT 20"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row type=\"capital\"";
+            xml += " accountid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " accountname=\"" + xmlEscape(row.GetText(1)) + "\"";
+            xml += " characterid=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " charactername=\"" + xmlEscape(row.GetText(3)) + "\"";
+            xml += " shiptypeid=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " shipname=\"" + xmlEscape(row.GetText(5)) + "\"";
+            xml += " groupname=\"" + xmlEscape(row.GetText(6)) + "\"/>\n";
+        }
+    }
+
     xml += "    </flags>\n  </result>\n</eveapi>\n";
     return xml;
 }
