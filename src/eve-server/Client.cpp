@@ -3191,10 +3191,18 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
 
     /** @todo  check this character/account for newbie status and revoke as needed before account update.  */
 
-    // Record the login IP (admin multiboxing / RMT monitoring).
+    // Record the login IP (admin multiboxing / RMT monitoring). Use the real
+    // TCP remote address, NOT the session "address" variable (which defaults to
+    // 0.0.0.0).
     {
-        std::string addr = GetAddress();
+        std::string addr = GetSession()->GetAddress();
         if (!addr.empty()) {
+            // "ip:port" → keep only the IP for grouping/lookups
+            size_t colon = addr.find(':');
+            if (colon != std::string::npos)
+                addr = addr.substr(0, colon);
+            if (addr.empty() || addr == "0.0.0.0" || addr == "127.0.0.1")
+                return;   // unknown/local — nothing useful to record
             std::string esc;
             sDatabase.DoEscapeString(esc, addr);
             DBerror herr;
