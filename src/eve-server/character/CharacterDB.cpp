@@ -649,14 +649,19 @@ void CharacterDB::TrainBotToSkillLevel(uint32 charID, uint8 newLevel)
 }
 
 // Profession-flavoured, human-looking bios for charbots. Each entry is a short
-// "personal page" — a mix of backstory, humour, a tagline, optional ASCII art
-// and the odd emoticon, so inspectors don't see a clone farm. Index 0 is a
+// "personal page" — a mix of backstory, humour, a tagline, ASCII art,
+// emoticons and EVE memes so inspectors don't see a clone farm. Index 0 is a
 // generic fallback; profession maps 1..7 to the PlayerBot::BotProfession enum
 // (Hunter=1, RatHunter=2, Miner=3, Trader=4, Courier=5, Hacker=6, Explorer=7).
+// User rule: bios MAY change over time — a pilot with an EMPTY bio gets a
+// freshly generated one (even if it was flagged before), and every now and
+// then a pilot refreshes its page on respawn (12% per spawn). Regenerated
+// bios may include pseudo-graphics, EVE memes and short image links.
 void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
-    // The bio is frozen once written (botMemory.bioUpdated=1) — a pilot's bio
-    // must not change between sessions. Regenerating it on every spawn made the
-    // text randomly flip-flop, which is a dead giveaway these are bots.
+    // Keep an existing bio stable MOST of the time (a bio flipping every hour
+    // would be a dead giveaway); always regenerate when the bio is EMPTY.
+    bool frozen = false;
+    bool hasBio = false;
     {
         DBQueryResult qres;
         if (sDatabase.RunQuery(qres,
@@ -665,14 +670,34 @@ void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
         {
             DBResultRow qrow;
             if (qres.GetRow(qrow))
-                return;  // bio already set for this pilot — keep it stable
+                frozen = true;
         }
     }
+    {
+        DBQueryResult dres;
+        if (sDatabase.RunQuery(dres,
+            "SELECT COALESCE(description,'') FROM chrCharacters WHERE characterID = %u",
+            charID))
+        {
+            DBResultRow qrow;
+            if (qres.GetRow(qrow)) {
+                const char* d = qrow.GetText(0);
+                hasBio = (d != nullptr && d[0] != '\0');
+            }
+        }
+    }
+    // occasionally refresh even an existing bio (bios may change over time)
+    if (frozen && hasBio && MakeRandomInt(0, 99) >= 12)
+        return;
+    // empty bio always (re)generates
 
     static const char* generic[] = {
         "Just another capsuleer. The ISK is in the haul.",
         "o7. I fly stuff, lose stuff, learn stuff.",
         "No bio. Actions speak louder than fits.",
+        "o7\n  \\ \\   bon voyage!\n   \\_\\\n",
+        "Jita is fine. Don't panic.\n"
+        "https://images.evetech.net/types/11379/render?size=256  <- my ride"
     };
     static const char* miner[] = {
         "Rocks are just ISK with extra steps.\n\n"
@@ -681,6 +706,9 @@ void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
         "Ex-miner. The gankers made me a believer in tanked Hulk fits.\n"
         "Now I mine with one eye on the scanner and one on the d-scan.\n\n"
         "o/ to my escort corp mates.",
+        "  .--.\n (####).  Ice belt certified.\n  \\##/\n",
+        "Burn Jita is for tourists. My belt pays rent.\n"
+        "https://images.evetech.net/types/28606/render?size=256  <- fleet boss",
     };
     static const char* hunter[] = {
         "Solo PvP. No blobs, no excuses.\n"
@@ -688,12 +716,17 @@ void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
         "  /|\\   I look for fights, not fair fights.\n /_|_\\\n",
         "Red is dead. Blue is suspicious.\n"
         "If you're reading this bio you're probably already in my pod. <3",
+        "(\\_/)\n(+_+)\n ( )OO   — warp scrambler noises.",
+        "Kill right or kill rightly. 50/50.\n"
+        "zkills don't lie; only the fit names do.",
     };
     static const char* rathunter[] = {
         "Ratting is a lifestyle. Bounties pay the bills.\n"
         "Been farming the same pocket for years. It never gets old.",
         "PvE with a pension plan.\n"
         "NPCs are just loot with a respawn timer.",
+        "  *~ ratting ~*\n   \\o/\n   /|\\\n  / \\\n",
+        "The belt is crowded. The local is quiet. All is well.",
     };
     static const char* trader[] = {
         "The market is my battlefield. Buy low, sell higher.\n"
@@ -701,6 +734,9 @@ void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
         "  $$  $$  $$  — Jita, 23/7",
         "Buy orders are love letters.\n"
         "Don't hate the trader, hate the margins.",
+        "  \\_/\n   |    <- up. Always up. That's the plan.\n  /_\\\n",
+        "0.01 ISK under you. Every time. Forever.\n"
+        "Jita 4-4 locker is my home address.",
     };
     static const char* courier[] = {
         "I move things. Discreetly. For a fee.\n"
@@ -708,31 +744,44 @@ void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
         "  [|||||]  — en route, ETA is none of your business.",
         "Hauling is 90% warp, 10% praying at the gate.\n"
         "Never gank the courier. The cargo might be yours.",
+        "Tailor-made fit: [ каналы чисты, врата прогружены ].",
     };
     static const char* hacker[] = {
         "Data sites, relic sites, your inbox if you're careless.\n\n"
         "  _.-._\n /_  _\\   — tracing the signal...\n",
         "Relic site certified. Wrecked 'ceptors fear my probe launcher.\n"
         "The relics I find pay for the ships I lose.",
+        "(o_o) < derail detected. Nullsec welcome.",
     };
     static const char* explorer[] = {
         "Wormhole rambler. Found a way in, still looking for a way out.\n\n"
         "  *  *  *\n   \\   /\n    \\_/    — scanning the next chain...",
         "Probes out, coffee on.\n"
         "Every signature is a story; most end in a pod.",
+        "C3 static of yours is my new office. K162 at the entrance. o7",
+    };
+    static const char* missioner[] = {
+        "Agent work. Salutes, bounties, insurance premiums.\n\n"
+        "  o7\n   /|\\\n  / \\",
+        "Red crosses are a fully legitimate business model here.\n"
+        "Salvage percentage under debate.",
     };
 
     const char** pool = nullptr;
     uint32 count = 0;
+    // NOTE: profession is the raw PlayerBot::BotProfession enum (Hunter=0...
+    // Missioner=7) — the switch previously mapped 1..7, shifting every pool
+    // one slot down (miners got the ratter's bio, orcs got hunter's etc.).
     switch (profession) {
-        case 1: pool = hunter; count = 2; break;     // Hunter
-        case 2: pool = rathunter; count = 2; break;  // RatHunter
-        case 3: pool = miner; count = 2; break;      // Miner
-        case 4: pool = trader; count = 2; break;     // Trader
-        case 5: pool = courier; count = 2; break;    // Courier
-        case 6: pool = hacker; count = 2; break;     // Hacker
-        case 7: pool = explorer; count = 2; break;   // Explorer
-        default: pool = generic; count = 3; break;
+        case 0: pool = hunter; count = 4; break;     // Hunter (PvP pirate)
+        case 1: pool = rathunter; count = 4; break;  // RatHunter
+        case 2: pool = miner; count = 4; break;      // Miner
+        case 3: pool = trader; count = 4; break;     // Trader
+        case 4: pool = courier; count = 4; break;    // Courier
+        case 5: pool = hacker; count = 3; break;     // Hacker
+        case 6: pool = explorer; count = 3; break;   // Explorer
+        case 7: pool = missioner; count = 2; break;  // Missioner
+        default: pool = generic; count = 5; break;
     }
     if (pool == nullptr)
         return;

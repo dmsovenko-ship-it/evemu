@@ -48,6 +48,19 @@ public:
     // shipID) are reset first so crash leftovers are caught too.
     static void CleanupOrphanedSpaceItems();
 
+    // Boot-time pilot-pool trim: if the persistent pool exceeded MaxTotalPilots
+    // (e.g. after a cleanup+respawn race), delete the NEWEST characters beyond
+    // the cap (plus their memory/portrait/mail/killmail/skill rows) so the
+    // spawner reuses the stable capped pool instead of growing it.
+    static void TrimPilotPool();
+
+    // Procedural portrait: writes a deterministic randomised 512x512 PNG "pilot
+    // bust" to `path` (seed = serverCharID → same pilot always renders the same
+    // face). Used by genportrait standalone mode (called from a forked child in
+    // FetchPortraitAsync when ESI download is unavailable — image.evetech.net
+    // is blocked from RU); ensures a bot is never left without a portrait.
+    static bool GeneratePortraitPNG(const std::string& path, uint32 seed);
+
     // Hook called by LSCChannel when a message is sent in a system channel.
     // Lets simulated players in that system react (DeepSeek replies, smalltalk).
     void HandleLocalMessage(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message);

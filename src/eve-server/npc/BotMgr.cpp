@@ -108,6 +108,70 @@ void BotMgr::CleanupOrphanedSpaceItems()
         _log(BOT__ERROR, "BotMgr: orphan drone cleanup failed: %s", err.GetError());
     else if (affected > 0)
         sLog.White("      BotMgr", "Space cleanup: removed %u orphaned drones (pilot docked/offline).", affected);
+
+    // 3) Pilot-pool trim: if a previous over-spawn (or repeated cleanup+spawn
+    //    cycles) pushed the persistent pool past MaxTotalPilots, delete the
+    //    NEWEST characters beyond the cap together with their memory/portrait
+    //    maps, private mail, killmails and owned items. The oldest ~Nam pilots
+    //    stay — the spawner reuses them with their saved professions instead
+    //    of rolling fresh legends, so the population is a stable set.
+    uint32 cap = sConfig.playerBots.MaxTotalPilots;
+    if (cap == 0)
+        return;
+    DBQueryResult cres;
+    uint32 poolCount = 0;
+    sDatabase.RunQuery(cres,
+        "SELECT COUNT(*) FROM chrCharacters WHERE accountID = 0 AND characterName != ''");
+    {
+        DBResultRow crow;
+        if (cres.GetRow(crow))
+            poolCount = crow.GetUInt(0);
+    }
+    uint32 overflow = (poolCount > cap) ? poolCount - cap : 0;
+    if (overflow == 0)
+        return;
+
+    DBQueryResult ores;
+    if (!sDatabase.RunQuery(ores,
+        "SELECT characterID FROM chrCharacters WHERE accountID = 0 AND characterName != ''"
+        " ORDER BY characterID DESC LIMIT %u", overflow)) {
+        _log(BOT__ERROR, "BotMgr: pool trim query failed.");
+        return;
+    }
+    std::string ids;
+    DBResultRow orow;
+    bool any = false;
+    while (ores.GetRow(orow)) {
+        if (any) ids += ",";
+        ids += std::to_string(orow.GetUInt(0));
+        any = true;
+    }
+    if (!any)
+        return;
+
+    sDatabase.RunQuery(err,
+        "DELETE k FROM chrKillTable k WHERE k.victimCharacterID IN (%s) OR k.finalCharacterID IN (%s)",
+        ids.c_str(), ids.c_str());
+    sDatabase.RunQuery(err,
+        "DELETE p FROM botPortraits p WHERE p.serverCharID IN (%s)", ids.c_str());
+    sDatabase.RunQuery(err,
+        "DELETE b FROM botMemory b WHERE b.charID IN (%s)", ids.c_str());
+    sDatabase.RunQuery(err,
+        "DELETE h FROM chrSkillHistory h WHERE h.characterID IN (%s)", ids.c_str());
+    sDatabase.RunQuery(err,
+        "DELETE e FROM chrEmployment e WHERE e.characterID IN (%s)", ids.c_str());
+    sDatabase.RunQuery(err,
+        "DELETE st FROM mailStatus st WHERE st.characterID IN (%s)", ids.c_str());
+    sDatabase.RunQuery(err,
+        "DELETE m FROM mailMessage m WHERE m.senderID IN (%s)", ids.c_str());
+    sDatabase.RunQuery(err,
+        "DELETE e, ea FROM entity e LEFT JOIN entity_attributes ea ON ea.itemID = e.itemID"
+        " WHERE e.ownerID IN (%s)", ids.c_str());
+    sDatabase.RunQuery(err,
+        "DELETE FROM chrCharacters WHERE characterID IN (%s)", ids.c_str());
+
+    sLog.White("      BotMgr", "Pilot pool trim: removed %u newest overflow pilots (pool %u -> %u).",
+               overflow, poolCount, cap);
 }
 
 int BotMgr::Initialize()
@@ -416,6 +480,63 @@ static void ProcessBotTrainingBatch()
         return;
     sLastBotTraining = now;
 
+    // ---- roster profession rebalance (user rule): a biologist/trainee keeps
+    // its own job; ONLY when a profession runs short roster-wide do a few
+    // pilots switch to the missing one WITHOUT losing progress — all learned
+    // skills stay on the character, only botMemory.profession (and, on the
+    // next respawn, the hull/behaviour) changes. Runs at most once per 30 min.
+    static time_t sLastProfBalance = 0;
+    if (sLastProfBalance == 0 || now - sLastProfBalance >= 1800) {
+        sLastProfBalance = now;
+        DBQueryResult pc;
+        if (sDatabase.RunQuery(pc,
+            "SELECT b.profession, COUNT(*) FROM botMemory b"
+            " JOIN chrCharacters c ON c.characterID = b.charID AND c.accountID = 0"
+            " GROUP BY b.profession"))
+        {
+            uint32 cnt[8] = {0};
+            DBResultRow prow;
+            while (pc.GetRow(prow)) {
+                uint8 p = prow.GetUInt(0);
+                if (p < 8) cnt[p] = prow.GetUInt(1);
+            }
+            uint8 least = 0xFF, most = 0;
+            uint32 total = 0;
+            for (int i = 0; i < 8; ++i) {
+                total += cnt[i];
+                if (least == 0xFF || cnt[i] < cnt[least]) least = (uint8)i;
+                if (cnt[i] > cnt[most]) most = (uint8)i;
+            }
+            uint32 minPer = std::max<uint32>(3, total / 8 / 4);   // quarter of the even share
+            if (least != 0xFF && least != most && cnt[least] < minPer) {
+                uint32 toMove = std::max<uint32>(1, std::min<uint32>(
+                    (cnt[most] - cnt[least]) / 3, 5));
+                // movers: LOWEST-skillPoints pilots of the biggest profession
+                // (newcomers switch careers easiest; veterans keep their job).
+                DBQueryResult mres;
+                if (sDatabase.RunQuery(mres,
+                    "SELECT b.charID FROM botMemory b"
+                    " JOIN chrCharacters c ON c.characterID = b.charID AND c.accountID = 0"
+                    " WHERE b.profession = %u"
+                    " ORDER BY COALESCE(c.skillPoints, 0) ASC LIMIT %u", most, toMove))
+                {
+                    DBerror merr;
+                    DBResultRow mrow;
+                    uint32 moved = 0;
+                    while (mres.GetRow(mrow)) {
+                        sDatabase.RunQuery(merr,
+                            "UPDATE botMemory SET profession = %u WHERE charID = %u",
+                            least, mrow.GetUInt(0));
+                        ++moved;
+                    }
+                    if (moved > 0)
+                        sLog.White("      BotMgr", "Roster rebalance: %u pilot(s) switched %u -> %u"
+                            " (short profession; skills kept).", moved, (unsigned)most, (unsigned)least);
+                }
+            }
+        }
+    }
+
     const int64 nowFt = GetFileTimeNow();
     const int64 ftSec = 10000000LL;
     float mult = cfg.AttrMultiplier > 0.0f ? cfg.AttrMultiplier
@@ -424,14 +545,16 @@ static void ProcessBotTrainingBatch()
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT characterID, raceID FROM chrCharacters"
-        " WHERE accountID = 0 AND online = 1 LIMIT 300"))
+        "SELECT c.characterID, c.raceID, b.profession FROM chrCharacters c"
+        " JOIN botMemory b ON b.charID = c.characterID"
+        " WHERE c.accountID = 0 AND c.online = 1 LIMIT 300"))
         return;
 
     DBResultRow row;
     while (res.GetRow(row)) {
         uint32 charID = row.GetUInt(0);
         uint32 race   = row.GetUInt(1);
+        uint8  prof   = (uint8)row.GetUInt(2);
 
         // --- attributes: race-based base x multiplier with per-pilot variation
         // (deterministic — no dependence on bloodline tables that may be empty).
@@ -490,7 +613,8 @@ static void ProcessBotTrainingBatch()
             continue;
         }
 
-        // --- pick current training skill: keep stored if still < V ---
+        // --- pick current training skill: keep stored if still < V; otherwise
+        // the bot trains the skills of ITS OWN profession (user rule) ---
         uint32 curType = 0, curLevel = 5;
         {
             DBQueryResult sres;
@@ -509,6 +633,64 @@ static void ProcessBotTrainingBatch()
                     if (tSkill != 0 && typeID == tSkill) storedOk = (lvl < 5);
                 }
                 if (storedOk) { curType = tSkill; curLevel = 0; }   // refetch below
+            }
+        }
+        if (curType != 0 && curLevel < 5) {
+            // Profession-first preference (user rule): the pilot levels the
+            // skillbook of its own job while something below V remains there.
+            static const char* profPool[8][10] = {
+                /* Hunter   */ { "Gunnery", "Shield ", "Armor ", "Navigation", "Afterburner",
+                                 "Warp Drive%", "Propulsion Jamming", "Motion Prediction",
+                                 "Trajectory Analysis", "Evasive Maneuvering" },
+                /* RatHunter*/ { "Drones", "Drone Interfacing", "Drone Navigation",
+                                 "Drone Durability", "Gunnery", "Repair Systems",
+                                 "Repair Commissioning", "Shield ", "Armor ", "Leadership" },
+                /* Miner    */ { "Mining", "Astrogeology", "Ice Harvesting", "Deep Core Mining",
+                                 "Mining Upgrades", "Mining Foreman", "Mining Barge", "Exhumer",
+                                 "Refining", "Industrial Command Ships" },
+                /* Trader   */ { "Trade", "Retail", "Marketing", "Accounting", "Broker Relations",
+                                 "Visibility", "Procurement", "Daytrading", "Margin Trading",
+                                 "Negotiation" },
+                /* Courier  */ { "Navigation", "Warp Drive Operation", "Evasive Maneuvering",
+                                 "Afterburner", "Industrial", "Freight Containers",
+                                 "Jump Drive%", "Hull Upgrades", "Energy Grid%", "Mechanics" },
+                /* Hacker   */ { "Hacking", "Archeology", "Data Analysis", "CPU Management",
+                                 "Survey", "Codebreaker", "Electronics", "Signature Analysis",
+                                 "Target Management", "Long Range Targeting" },
+                /* Explorer */ { "Astrometric", "Astrometry", "Cloaking", "Hacking", "Archeology",
+                                 "Survey", "Long Range Targeting", "Signature Analysis",
+                                 "Cruiser", "Evasive Maneuvering" },
+                /* Missioner*/ { "Social", "Connections", "Diplomacy", "Gunnery", "Drones",
+                                 "Repair Systems", "Shield ", "Armor ", "Leadership",
+                                 "Targeting" },
+            };
+            uint8 pi = prof < 8 ? prof : 0;
+            std::string profWhere;
+            for (int k = 0; k < 10; ++k) {
+                if (profPool[pi][k] == nullptr || profPool[pi][k][0] == 0) break;
+                std::string pat = profPool[pi][k];
+                if (pat.find('%') == std::string::npos) pat += "%";
+                if (!profWhere.empty()) profWhere += " OR ";
+                profWhere += "t.typeName LIKE '";
+                profWhere += pat;
+                profWhere += "'";
+            }
+            if (!profWhere.empty()) {
+                DBQueryResult psel;
+                if (sDatabase.RunQuery(psel,
+                    "SELECT s.typeID, COALESCE((SELECT a.valueInt FROM entity_attributes a"
+                    "   WHERE a.itemID = s.itemID AND a.attributeID = 280), 0) AS lvl"
+                    " FROM entity s JOIN invTypes t ON t.typeID = s.typeID"
+                    " WHERE s.ownerID = %u AND s.flag = 7 AND s.typeID > 0"
+                    "   AND (%s)"
+                    " ORDER BY s.typeID LIMIT 1", charID, profWhere.c_str()))
+                {
+                    DBResultRow prow;
+                    if (psel.GetRow(prow) && prow.GetUInt(1) < 5) {
+                        curType = prow.GetUInt(0);
+                        curLevel = 0;   // refetch below
+                    }
+                }
             }
         }
         if (curType == 0 || curLevel >= 5) {
@@ -802,6 +984,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // playerBots.MaxTotalPilots — so the population is a stable set of ~N pilots
     // that respawn, not an ever-growing pile of new characters.
     bool reuseExisting = false;
+    uint32 poolEveID = 0;   // ESI portrait source for pooled pilots (botPortraits)
     uint32 poolCount = 0;
     if (useCharID == 0 && useName.empty()) {
         {
@@ -815,10 +998,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         if (poolCount > 0) {
             DBQueryResult bres;
             if (sDatabase.RunQuery(bres,
-                "SELECT c.characterName, c.corporationID, cc.allianceID"
+                "SELECT c.characterName, c.corporationID, cc.allianceID, p.eveCharID"
                 " FROM chrCharacters c"
                 " JOIN botMemory b ON b.charID = c.characterID"
                 " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
+                " LEFT JOIN botPortraits p ON p.serverCharID = c.characterID"
                 " WHERE c.characterName != ''"
                 " ORDER BY RAND() LIMIT 1"))
             {
@@ -827,6 +1011,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     useName = brow.GetText(0);
                     useCorpID = brow.GetUInt(1);
                     useAllianceID = brow.GetUInt(2);
+                    poolEveID = brow.GetUInt(3);
                     reuseExisting = true;
                     _log(BOT__TRACE, "BotMgr: reusing established bot '%s' (corp %u, ally %u).",
                          useName.c_str(), useCorpID, useAllianceID);
@@ -922,10 +1107,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             // pick another established pilot from the pool
             DBQueryResult rres;
             if (!sDatabase.RunQuery(rres,
-                "SELECT c.characterName, c.corporationID, cc.allianceID"
+                "SELECT c.characterName, c.corporationID, cc.allianceID, p.eveCharID"
                 " FROM chrCharacters c"
                 " JOIN botMemory b ON b.charID = c.characterID"
                 " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
+                " LEFT JOIN botPortraits p ON p.serverCharID = c.characterID"
                 " WHERE c.characterName != ''"
                 " ORDER BY RAND() LIMIT 1"))
                 break;
@@ -935,6 +1121,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             useName = rrow.GetText(0);
             useCorpID = rrow.GetUInt(1);
             useAllianceID = rrow.GetUInt(2);
+            poolEveID = rrow.GetUInt(3);
             useShipType = 0;
             useFit.clear();
         } else {
@@ -970,6 +1157,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         CharacterDB::EnsureExtendedBotSkills(useCharID, skillTier < 5 ? (uint8)(skillTier + 1) : 5);
     // Remember the EVE portrait source so fetch_bot_portraits.py can grab it —
     // AND download it now (async) so the client sees a face immediately.
+    // Pooled pilots were minted from legends in earlier sessions, so their
+    // portrait source comes from the botPortraits map (poolEveID); freshly
+    // rolled legends carry their real EVE id in useCharID directly.
+    if (poolEveID != 0 && useCharID != poolEveID)
+        killmailCharID = poolEveID;
     if (killmailCharID != 0 && killmailCharID != useCharID) {
         DBerror perr;
         sDatabase.RunQuery(perr,
@@ -1522,12 +1714,176 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     }
 }
 
+// ---- procedural portrait generator (fallback when ESI is unreachable) ----
+// Minimal PNG encoder (8-bit RGB, no interlace) + a deterministically randomised
+// "pilot bust": nebula-gradient backdrop, head/shoulders silhouette, one of
+// several skin/hair/shirt palettes. The same seed always renders the same
+// generated portrait, so a given pilot keeps its face across regenerations.
+// zlib (compress2/crc32) is already linked via eve-core's Deflate utils.
+
+#include <zlib.h>
+
+// PNG chunk: length + type + data + crc32(type+data)
+static void PngChunk(std::vector<uint8>& png, const char* type,
+                     const uint8* data, size_t len)
+{
+    uint32 n = (uint32)len;
+    png.push_back((n >> 24) & 0xFF); png.push_back((n >> 16) & 0xFF);
+    png.push_back((n >> 8) & 0xFF);  png.push_back(n & 0xFF);
+    size_t hdr = png.size();
+    for (int i = 0; i < 4; ++i) png.push_back((uint8)type[i]);
+    png.insert(png.end(), data, data + len);
+    uint32 crc = crc32(0L, Z_NULL, 0);
+    crc = crc32(crc, &png[hdr], (uInt)(png.size() - hdr));
+    png.push_back((crc >> 24) & 0xFF); png.push_back((crc >> 16) & 0xFF);
+    png.push_back((crc >> 8) & 0xFF);  png.push_back(crc & 0xFF);
+}
+
+bool BotMgr::GeneratePortraitPNG(const std::string& path, uint32 seed)
+{
+    const int W = 512, H = 512;
+    // deterministic LCG: identical seed -> identical image
+    uint32 rngState = seed * 2654435761u + 0x9E3779B9u;
+    auto nxt = [&]() -> uint32 {
+        rngState = rngState * 1664525u + 1013904223u;
+        return rngState >> 16;
+    };
+    auto rndRange = [&](int a, int b) -> int {
+        return a + (int)(nxt() % (uint32)(b - a + 1));
+    };
+
+    // ---- palette ----
+    int bgA[3] = { rndRange(16, 40), rndRange(26, 56), rndRange(44, 84) };
+    int bgB[3] = { bgA[0] + rndRange(4, 26), bgA[1] + rndRange(6, 34), bgA[2] + rndRange(10, 46) };
+    static const int skins[8][3] = {
+        {233,190,157},{205,160,120},{210,180,150},{190,140,110},
+        {170,120,95},{240,200,170},{150,105,80},{255,220,190}
+    };
+    const int* skin = skins[rndRange(0, 7)];
+    int skinDk[3] = { skin[0] * 8 / 10, skin[1] * 8 / 10, skin[2] * 8 / 10 };
+    static const int hairs[6][3] = {
+        {40,30,24},{90,60,40},{150,110,60},{190,160,120},{70,55,45},{120,40,30}
+    };
+    const int* hair = hairs[rndRange(0, 5)];
+    static const int shirts[8][3] = {
+        {70,90,140},{140,80,60},{60,110,90},{120,90,150},{110,110,120},
+        {180,150,60},{90,70,110},{60,140,120}
+    };
+    const int* shirt = shirts[rndRange(0, 7)];
+
+    // ---- geometry ----
+    float hcx = (float)rndRange(W * 42, W * 58) / 100.0f;
+    float hcy = (float)rndRange(H * 30, H * 40) / 100.0f * H;
+    float hrx = (float)rndRange(W * 10, W * 15) / 100.0f;
+    float hry = hrx * 1.28f;
+    float shY  = hcy + hry * 1.06f;
+    float bodyW = (float)rndRange(36, 50) / 100.0f;
+    float gx = W / 2.0f, gy = hcy - hry * 0.4f;
+    float gr = (float)rndRange(W, W + W / 2);
+
+    std::vector<uint8> raw((size_t)(1 + W * 3) * H);
+    for (int y = 0; y < H; ++y) {
+        uint8* row = &raw[(size_t)y * (1 + W * 3)];
+        row[0] = 0;   // PNG filter: none
+        uint8* px = &row[1];
+        float fy = (float)y / (float)H;
+        for (int x = 0; x < W; ++x) {
+            float c[3];
+            for (int i = 0; i < 3; ++i)
+                c[i] = (float)(bgA[i] + (bgB[i] - bgA[i]) * fy);
+            // nebula glow behind the head
+            {
+                float dx = x - gx, dy = y - gy;
+                float dist = sqrtf(dx * dx + dy * dy);
+                if (dist < gr) {
+                    float k = 1.0f - dist / gr;
+                    k *= k;
+                    for (int i = 0; i < 3; ++i)
+                        c[i] += k * 26.0f;
+                }
+            }
+            // shoulders/torso: rounded trapezoid widening downward
+            bool inTorso = false;
+            if (y > shY) {
+                float widen = (y - shY) / (float)(H - shY);
+                float halfW = bodyW * W * (0.42f + 0.58f * widen);
+                if (fabsf((float)x - hcx * W) < halfW)
+                    inTorso = true;
+            }
+            // circular neck/edge underline of the shirt collar
+            bool inHead = false;
+            float nx = (x - hcx * W) / hrx;
+            float ny = (y - hcy) / hry;
+            float e = nx * nx + ny * ny;
+            if (e <= 1.0f)
+                inHead = true;
+
+            int col[3];
+            const int* faceCol = (y < hcy + hry * 0.12f && e <= 1.0f) ? skin : skinDk;
+            if (inHead) {
+                // hair cap: top third of the head ellipse
+                if (e <= 1.0f && y < hcy - hry * 0.25f)
+                    for (int i = 0; i < 3; ++i) col[i] = hair[i];
+                else
+                    for (int i = 0; i < 3; ++i) col[i] = faceCol[i];
+            } else if (inTorso) {
+                for (int i = 0; i < 3; ++i) col[i] = shirt[i];
+            } else {
+                for (int i = 0; i < 3; ++i) col[i] = (int)c[i];
+            }
+            for (int i = 0; i < 3; ++i) {
+                if (col[i] < 0) col[i] = 0;
+                if (col[i] > 255) col[i] = 255;
+                px[i] = (uint8)col[i];
+            }
+            px += 3;
+        }
+    }
+
+    // ---- zlib deflate ----
+    uLongf dstLen = compressBound(raw.size());
+    std::vector<uint8> idat(dstLen);
+    if (compress2(idat.data(), &dstLen, raw.data(), raw.size(), 6) != Z_OK)
+        return false;
+    idat.resize(dstLen);
+
+    // ---- assemble PNG ----
+    std::vector<uint8> png;
+    static const uint8 sig[8] = {137,80,78,71,13,10,26,10};
+    png.insert(png.end(), sig, sig + 8);
+    {
+        uint8 ihdr[13];
+        ihdr[0] = (W >> 24) & 0xFF; ihdr[1] = (W >> 16) & 0xFF;
+        ihdr[2] = (W >> 8) & 0xFF;  ihdr[3] = W & 0xFF;
+        ihdr[4] = (H >> 24) & 0xFF; ihdr[5] = (H >> 16) & 0xFF;
+        ihdr[6] = (H >> 8) & 0xFF;  ihdr[7] = H & 0xFF;
+        ihdr[8] = 8;   // bit depth
+        ihdr[9] = 2;   // color type: truecolor RGB
+        ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+        PngChunk(png, "IHDR", ihdr, 13);
+    }
+    PngChunk(png, "IDAT", idat.data(), idat.size());
+    uint8 empty = 0;
+    PngChunk(png, "IEND", &empty, 0);
+
+    FILE* f = fopen(path.c_str(), "wb");
+    if (f == nullptr)
+        return false;
+    fwrite(png.data(), 1, png.size(), f);
+    fclose(f);
+    return true;
+}
+
+// Download the bot's ESI portrait into the image cache right now, so the
+// client shows a face immediately (no cron lag). Runs the whole chain in a
+// forked child so the game loop never blocks. Path:
+// <imageDir>/Character/<serverCharID>_512.jpg (ImageServer::GetFilePath).
+// Chain: 1) ESI (image.evetech.net is blocked from RU); 2) the same URL via
+// the configured proxy; 3) procedural generation with this binary's
+// standalone "genportrait" mode — a bot is NEVER left without a face, its
+// random portrait is generated onto the image server.
 void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
 {
-    // Download the bot's ESI portrait into the image cache right now, so the
-    // client shows a face immediately (no cron lag). Runs curl in a forked child
-    // so the game loop never blocks. Path: <imageDir>/Character/<serverCharID>_512.jpg
-    // (ImageServer::GetFilePath). We write exactly what fetch_bot_portraits.py would.
     if (serverCharID == 0 || eveCharID == 0)
         return;
 
@@ -1548,10 +1904,31 @@ void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
     std::string url = "https://images.evetech.net/characters/"
                     + std::to_string(eveCharID) + "/portrait?size=512";
 
+    const std::string tmp = path + ".tmp";
+    std::string proxy = sConfig.telegram.Proxy;
+
+    // Use --fail so a failed request writes nothing, and fetch into .tmp then
+    // move — the generated fallback is never destroyed by a failed download.
+    std::string sh =
+        "curl -sSL --fail --max-time 20 -o '" + tmp + "' '" + url + "'"
+        " && [ -s '" + tmp + "' ] && mv '" + tmp + "' '" + path + "' && exit 0";
+    if (!proxy.empty())
+        sh += " ; curl -sSL --fail --max-time 20 --proxy '" + proxy + "' -o '"
+            + tmp + "' '" + url + "'"
+            + " && [ -s '" + tmp + "' ] && mv '" + tmp + "' '" + path + "' && exit 0";
+    // final fallback: random procedural portrait by this binary itself
+    char self[2048];
+    ssize_t slen = ::readlink("/proc/self/exe", self, sizeof(self) - 1);
+    if (slen > 0) {
+        self[slen] = 0;
+        sh += " ; '" + std::string(self) + "' genportrait '" + path + "' "
+            + std::to_string(serverCharID);
+    }
+
     pid_t pid = ::fork();
     if (pid == 0) {
-        // child: curl -sSL --max-time 15 <url> -o <path>
-        ::execlp("curl", "curl", "-sSL", "--max-time", "15", url.c_str(), "-o", path.c_str(), (char*)nullptr);
+        // child: /bin/sh -c "<chain>"
+        ::execl("/bin/sh", "sh", "-c", sh.c_str(), (char*)nullptr);
         _exit(127);
     }
     // parent: don't wait — let it finish in the background
@@ -4146,6 +4523,8 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         "NEVER start replies the same way, NEVER use generic bot phrases like 'I am a helpful assistant', "
         "and never sound like a customer-support bot. Match the language and tone of the other player — "
         "if they write in Russian, reply in Russian; if English, reply in English. Keep it to 1-2 short sentences. "
+        "Russian chat is absolutely allowed and natural here (EVE has a huge RU community: ratted 'не в чате', "
+        "'ц', 'оф', 'ку', 'оф', сленг: fit/фит, гейт, лоу, нули, ратта). "
         "You are a real living human player — write the way a real person types in a game chat: casual, "
         "imperfect, with typos and dropped words, mixed registers, your own habits. Don't chase perfect grammar "
         "or full sentences. Use varied speech patterns, idioms and local flavor. "
@@ -4165,6 +4544,36 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             bub->GetPlayers(clients);
             playerNear = !clients.empty();
         }
+        // Where the bot actually is right now (user rule): system + security —
+        // cached (one lookup per system per session, game-thread only).
+        {
+            static std::map<int32, std::pair<std::string, float>> sSysCache;
+            auto cit = sSysCache.find(channelID);
+            if (cit == sSysCache.end()) {
+                DBQueryResult sres;
+                std::pair<std::string, float> v;
+                if (sDatabase.RunQuery(sres,
+                    "SELECT solarSystemName, COALESCE(security,1) FROM mapSolarSystems"
+                    " WHERE solarSystemID = %u", (uint32)channelID))
+                {
+                    DBResultRow srow;
+                    if (sres.GetRow(srow))
+                        v = { srow.GetText(0) ? srow.GetText(0) : "", (float)srow.GetFloat(1) };
+                }
+                sCache[channelID] = v;
+                cit = sCache.find(channelID);
+            }
+            const std::string& sysName = cit->second.first;
+            float sysSec = cit->second.second;
+            if (!sysName.empty()) {
+                char sb[32];
+                snprintf(sb, sizeof(sb), "%.1f", sysSec);
+                systemHint += " You are currently in the " + sysName + " system (security " + sb + ").";
+                // space-event awareness: keep the mind on TODAY's surroundings
+                if (sysSec < 0.5f)
+                    systemHint += " This is dangerous space — expected behaviour here: gates plates, cloak, d-scan.";
+            }
+        }
         if (playerNear) {
             systemHint += " A pilot is in the same grid as you and can see you — "
                           "do NOT claim you are alone somewhere (no 'I'm all alone in an anomaly' "
@@ -4175,6 +4584,12 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             systemHint += " You are currently in a fight — mention it if it fits "
                           "('bit busy', 'in a scrap', etc.) but don't make it the whole reply.";
         }
+        // Line the bot is CURRENTLY busy with (its profession activity phrase
+        // is built by the same code as smalltalk) — grounding the reply in what
+        // the bot is actually doing RIGHT NOW, per its job.
+        std::string doing = BuildBotSmalltalkLine(responder, nullptr, pSystem);
+        if (!doing.empty())
+            systemHint += " Right now you are: " + doing + ".";
     }
 
     if (addressed) {

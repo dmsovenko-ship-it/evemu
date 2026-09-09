@@ -208,6 +208,14 @@ CommandDispatcher* g_dispatcher = nullptr; // ---commandlist update
 
 int main( int argc, char* argv[] )
 {
+    // Standalone utility mode: `eve-server genportrait <path.png> <seed>`
+    // generates a random procedural portrait (no server boot, no log/config).
+    // Used by BotMgr::FetchPortraitAsync when ESI download is unavailable.
+    if (argc == 4 && strcmp(argv[1], "genportrait") == 0) {
+        uint32 seed = (uint32)strtoul(argv[3], nullptr, 10);
+        return BotMgr::GeneratePortraitPNG(argv[2], seed) ? 0 : 1;
+    }
+
     double profileStartTime(GetTimeMSeconds());
 
     /* set current time for timer */
@@ -636,6 +644,9 @@ int main( int argc, char* argv[] )
     // Purge orphaned ships/drones left by the previous server session.
     // Runs right after DB connect and before any bots/clients are spawned.
     BotMgr::CleanupOrphanedSpaceItems();
+    // Heal the persistent pilot pool back to MaxTotalPilots if it grew past
+    // the cap (over-spawn from earlier cleanup+respawn cycles).
+    BotMgr::TrimPilotPool();
 
     // Clean DB upon initialisation
     dbClean.Initialize();
