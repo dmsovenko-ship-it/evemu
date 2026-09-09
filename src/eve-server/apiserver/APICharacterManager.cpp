@@ -1,6 +1,8 @@
 #include "eve-server.h"
 #include "apiserver/APICharacterManager.h"
 #include "utils/Deflate.h"
+#include "Client.h"
+#include "EntityList.h"
 #include <sstream>
 #include <algorithm>
 
@@ -930,6 +932,38 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask)"
             " VALUES (%u, %u, %u, %u)", messageID, recipientID, 0, 1)) {
             return BuildErrorXML("999", "Mail saved but delivery failed.");
+        }
+
+        // live-push: notify an ONLINE recipient immediately (same 9-tuple that
+        // MailMgrService::SendMail / SelfEveMail use, so it lands in the inbox).
+        {
+            Client* target = sEntityList.FindClientByCharID(recipientID);
+            if (target != nullptr) {
+                std::string senderName;
+                DBQueryResult snRes;
+                if (sDatabase.RunQuery(snRes,
+                    "SELECT characterName FROM chrCharacters WHERE characterID = %u", std::stoul(sid))) {
+                    DBResultRow snRow;
+                    if (snRes.GetRow(snRow)) {
+                        const char* sn = snRow.GetText(0);
+                        if (sn != nullptr) senderName = sn;
+                    }
+                }
+                uint32 senderID = std::stoul(sid);
+                PyTuple* payload = new PyTuple(9);
+                payload->SetItem(0, new PyInt(messageID));
+                payload->SetItem(1, new PyInt(senderID));
+                payload->SetItem(2, new PyLong(GetFileTimeNow()));
+                payload->SetItem(3, new PyString(std::to_string(senderID)));
+                payload->SetItem(4, PyStatic.NewNone()); // toListID
+                payload->SetItem(5, PyStatic.NewNone()); // toCorpOrAllianceID
+                payload->SetItem(6, new PyString(title.c_str())); // title (utf8)
+                payload->SetItem(7, new PyInt(0));       // statusMask
+                PyDict* extra = new PyDict();
+                extra->SetItemString("senderName", new PyString(senderName.c_str()));
+                payload->SetItem(8, extra);
+                target->SendNotification("OnMailSent", "charid", payload, false);
+            }
         }
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
