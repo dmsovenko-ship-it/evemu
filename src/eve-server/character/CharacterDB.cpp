@@ -32,6 +32,9 @@
 #include "character/CharacterDB.h"
 #include "station/StationDataMgr.h"
 
+#include <set>
+#include <vector>
+
 uint32 CharacterDB::NewCharacter(const CharacterData& data, const CorpData& corpData) {
     DBerror err;
     std::string nameEsc, titleEsc, descriptionEsc;
@@ -327,6 +330,102 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 allianceID, uint
             charID, skillTypeID, finalLvl, skill->GetSPForLevel(finalLvl)))
         {
             codelog(DATABASE__ERROR, "CreateBotCharacter: skill history insert failed for %u: %s", charID, herr.c_str());
+        }
+    }
+
+    // Extended skill trees: give the pilot a broad real-pilot skillbook beyond
+    // base+race+career — leadership/fleet links, corporate, anchoring, POS,
+    // navigation, capitals etc. Levels are mixed (not everything V) so the bot
+    // keeps meaningful training targets, like a real player's skill queue.
+    {
+        static const char* extraNames[] = {
+            "Leadership","Skirmish Warfare","Armored Warfare","Siege Warfare",
+            "Information Warfare","Skirmish Warfare Specialist","Armored Warfare Specialist",
+            "Siege Warfare Specialist","Information Warfare Specialist","Warfare Link Specialist",
+            "Command Center Upgrades","Fleet Command","Wing Command","Squad Command",
+            "Mining Director","Anchoring","Cloaking","Corporate Management",
+            "Corporation Management","Diplomacy","Negotiation","Social",
+            "Propulsion Jamming","Weapon Disruption","Target Management",
+            "Signature Analysis","Long Range Targeting","Advanced Target Management",
+            "Electronics","Electronic Warfare","Gunnery","Sharpshooter",
+            "Motion Prediction","Trajectory Analysis","Weapon Upgrades",
+            "Advanced Weapon Upgrades","Missile Launcher Operation","Missile Projection",
+            "Missile Bombardment","Rapid Launch","Shield Management","Shield Operation",
+            "Shield Emission Systems","Shield Compensation","Hull Upgrades","Mechanics",
+            "Repair Systems","Armor Layering","Energy Management","Energy Systems Operation",
+            "Energy Grid Upgrades","Navigation","Warp Drive Operation","Jump Drive Operation",
+            "Jump Fuel Conservation","Jump Drive Calibration","Drones","Drone Interfacing",
+            "Mining","Astrogeology","Refining","Capital Ships","Capital Industrial Ships",
+            "Jump Freighters","Industrial Command Ships","Capital Core Systems",
+            "Advanced Spaceship Command","Marauders","Black Ops",
+            "Tactical Logistics Reconfiguration"
+        };
+        const int extraCount = (int)(sizeof(extraNames) / sizeof(extraNames[0]));
+
+        std::set<uint32> addedTypes;
+        for (const auto& sk : skills)
+            addedTypes.insert(sk.first);
+
+        // query matching typeIDs (published skills)
+        std::vector<std::pair<uint32, const char*>> found;
+        {
+            std::string q = "SELECT typeID, typeName FROM invTypes WHERE published = 1"
+                            " AND typeName IN (";
+            for (int i = 0; i < extraCount; ++i) {
+                if (i) q += ",";
+                q += "'";
+                q += extraNames[i];
+                q += "'";
+            }
+            q += ")";
+            DBQueryResult eres;
+            if (sDatabase.RunQuery(eres, q.c_str())) {
+                DBResultRow erow;
+                while (eres.GetRow(erow)) {
+                    const char* nm = erow.GetText(1);
+                    found.emplace_back(erow.GetUInt(0), nm ? nm : "");
+                }
+            }
+        }
+        if (!found.empty()) {
+            // Give ~60% of them, at mixed levels (keeps later training meaningful)
+            for (const auto& ft : found) {
+                uint32 typeID = ft.first;
+                (void)ft.second;
+                if (addedTypes.count(typeID))
+                    continue;
+                if (MakeRandomInt(0, 99) >= 60)
+                    continue;   // not everyone has everything
+                addedTypes.insert(typeID);
+
+                uint8 finalLvl;
+                if (MakeRandomInt(0, 99) < 40)
+                    finalLvl = (uint8)(1 + MakeRandomInt(0, targetLevel > 1 ? targetLevel - 1 : 1));
+                else
+                    finalLvl = targetLevel;
+                if (finalLvl > 5) finalLvl = 5;
+                if (finalLvl < 1) finalLvl = 1;
+
+                ItemData skillItem(typeID, charID, charID, flagSkill);
+                SkillRef skill = sItemFactory.SpawnSkill(skillItem);
+                if (skill.get() == nullptr)
+                    continue;
+                skill->SetAttribute(AttrSkillLevel, finalLvl, false);
+                uint32 sp = skill->GetSPForLevel(finalLvl);
+                skill->SetAttribute(AttrSkillPoints, sp, false);
+                skill->SaveItem();
+                cdata.skillPoints += sp;
+                DBerror herr;
+                if (!sDatabase.RunQuery(herr,
+                    "INSERT INTO chrSkillHistory (eventTypeID, logDate, characterID, skillTypeID, skillLevel, absolutePoints)"
+                    " VALUES (%u, %f, %u, %u, %u, %u)",
+                    EvESkill::Event::SkillPointsApplied, GetFileTimeNow(),
+                    charID, typeID, finalLvl, sp))
+                {
+                    codelog(DATABASE__ERROR, "CreateBotCharacter: extra-skill history insert failed for %u: %s",
+                            charID, herr.c_str());
+                }
+            }
         }
     }
 
