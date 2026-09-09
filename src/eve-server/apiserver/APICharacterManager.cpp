@@ -1,5 +1,31 @@
 #include "eve-server.h"
 #include "apiserver/APICharacterManager.h"
+#include "utils/Deflate.h"
+#include <sstream>
+#include <algorithm>
+
+// mailMessage.body is zlib(deflate)-compressed UTF-8 (MailDB::SendMail).
+// Mail sent through the legacy path may be plain — sniff the 0x78 header.
+static std::string MailBodyToText(DBResultRow& row, int col) {
+    if (row.IsNull(col)) return "";
+    const char* raw = row.GetText(col);
+    const size_t n = (size_t)row.ColumnLength(col);
+    if (raw == nullptr || n == 0) return "";
+    if (((unsigned char)raw[0]) != 0x78)
+        return std::string(raw, n);
+    std::string compressed(raw, n);
+    Buffer in(compressed.begin(), compressed.end());
+    Buffer out;
+    if (InflateData(in, out))
+        return std::string(out.begin<char>(), out.end<char>());
+    return std::string(raw, n);
+}
+
+static bool IsNumericStr(const std::string& s) {
+    if (s.empty()) return false;
+    for (char c : s) if (c < '0' || c > '9') return false;
+    return true;
+}
 
 static std::string xmlEscape(const char* s) {
     if (!s) return "";
@@ -713,6 +739,349 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         }
 
         xml += "/>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // ---- portal eve-mail: inbox/sent list -----------------------------------
+    if (handler == "MailList.xml.aspx") {
+        std::string aid = get("accountid");
+        if (!IsNumericStr(aid)) return BuildErrorXML("105", "Missing accountid.");
+        std::string folder = get("folder");
+        if (folder.empty()) folder = "inbox";
+        std::string lim = get("limit");
+        uint32 limit = lim.empty() ? 100 : std::min<uint32>(std::stoul(lim), 500);
+
+        std::string q;
+        if (folder == "sent") {
+            q = "SELECT m.messageID, m.senderID, sender.characterName, "
+                " m.toCharacterIDs, m.toListID, m.toCorpOrAllianceID, m.title, m.sentDate "
+                " FROM mailMessage m "
+                " LEFT JOIN chrCharacters sender ON sender.characterID = m.senderID "
+                " WHERE m.senderID IN (SELECT characterID FROM chrCharacters WHERE accountID = " + aid + ")"
+                " ORDER BY m.sentDate DESC LIMIT " + std::to_string(limit);
+        } else { // inbox (default)
+            q = "SELECT m.messageID, m.senderID, sender.characterName, "
+                " m.toCharacterIDs, m.toListID, m.toCorpOrAllianceID, m.title, m.sentDate, "
+                " COUNT(*) AS rowCount, SUM(st.statusMask & 1) AS readCount "
+                " FROM mailStatus st "
+                " JOIN mailMessage m ON m.messageID = st.messageID "
+                " LEFT JOIN chrCharacters sender ON sender.characterID = m.senderID "
+                " WHERE st.characterID IN (SELECT characterID FROM chrCharacters WHERE accountID = " + aid + ")"
+                " GROUP BY m.messageID "
+                " ORDER BY m.sentDate DESC LIMIT " + std::to_string(limit);
+        }
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res, q.c_str()))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result folder=\"" + xmlEscape(folder.c_str()) + "\">\n    <mail>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row messageid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " senderid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " sendername=\"" + xmlEscape(row.GetText(2)) + "\"";
+            const char* tc = row.GetText(3);
+            xml += " tocharacterids=\"" + xmlEscape(tc ? tc : "") + "\"";
+            xml += " tolistid=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " tocorpallianceid=\"" + std::to_string(row.GetUInt(5)) + "\"";
+            xml += " title=\"" + xmlEscape(row.GetText(6)) + "\"";
+            xml += " sentdate=\"" + std::to_string(row.GetInt64(7)) + "\"";
+            if (folder == "sent") {
+                xml += " unread=\"0\"";
+            } else {
+                bool hasRead = row.IsNull(9) ? false : (row.GetInt64(9) > 0);
+                xml += " unread=\"" + std::string(hasRead ? "0" : "1") + "\"";
+            }
+            xml += "/>\n";
+        }
+        xml += "    </mail>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // ---- portal eve-mail: full message + body (auto-marks read) -------------
+    if (handler == "MailGet.xml.aspx") {
+        std::string aid = get("accountid");
+        std::string mid = get("messageid");
+        if (!IsNumericStr(aid) || !IsNumericStr(mid))
+            return BuildErrorXML("105", "Missing accountid or messageid.");
+
+        // ownership: a mailStatus row for one of the account's chars, or the
+        // account sent it (senderID is an account char).
+        DBQueryResult own;
+        if (!sDatabase.RunQuery(own,
+            "SELECT (SELECT COUNT(*) FROM mailStatus st"
+            "         WHERE st.messageID = %u AND st.characterID IN"
+            "           (SELECT characterID FROM chrCharacters WHERE accountID = %u))"
+            "      + (SELECT COUNT(*) FROM mailMessage m"
+            "         WHERE m.messageID = %u AND m.senderID IN"
+            "           (SELECT characterID FROM chrCharacters WHERE accountID = %u))",
+            std::stoul(mid), std::stoul(aid), std::stoul(mid), std::stoul(aid))) {
+            return BuildErrorXML("999", "Query failed.");
+        }
+        DBResultRow orow;
+        if (!own.GetRow(orow) || orow.GetUInt(0) == 0)
+            return BuildErrorXML("1004", "Mail not found or not yours.");
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT m.senderID, sender.characterName, m.toCharacterIDs, m.toListID,"
+            "       m.toCorpOrAllianceID, m.title, m.sentDate, m.body"
+            " FROM mailMessage m"
+            " LEFT JOIN chrCharacters sender ON sender.characterID = m.senderID"
+            " WHERE m.messageID = %u", std::stoul(mid))) {
+            return BuildErrorXML("999", "Query failed.");
+        }
+        DBResultRow row;
+        if (!res.GetRow(row))
+            return BuildErrorXML("1004", "Mail not found.");
+
+        // mark read for THIS account's characters only
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE mailStatus SET statusMask = statusMask | 1"
+            " WHERE messageID = %u AND characterID IN"
+            "   (SELECT characterID FROM chrCharacters WHERE accountID = %u)",
+            std::stoul(mid), std::stoul(aid));
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <row";
+        xml += " messageid=\"" + mid + "\"";
+        xml += " senderid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+        xml += " sendername=\"" + xmlEscape(row.GetText(1)) + "\"";
+        const char* tc = row.GetText(2);
+        xml += " tocharacterids=\"" + xmlEscape(tc ? tc : "") + "\"";
+        xml += " tolistid=\"" + std::to_string(row.GetUInt(3)) + "\"";
+        xml += " tocorpallianceid=\"" + std::to_string(row.GetUInt(4)) + "\"";
+        xml += " title=\"" + xmlEscape(row.GetText(5)) + "\"";
+        xml += " sentdate=\"" + std::to_string(row.GetInt64(6)) + "\"";
+        xml += ">\n      <body>" + xmlEscape(MailBodyToText(row, 7).c_str()) + "</body>\n    </row>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // ---- portal eve-mail: send from an account character --------------------
+    if (handler == "MailSend.xml.aspx") {
+        std::string aid = get("accountid");
+        std::string sid = get("senderid");
+        std::string recipient = get("recipient");
+        std::string title = get("title");
+        std::string body = get("body");
+        if (!IsNumericStr(aid) || !IsNumericStr(sid) || recipient.empty() || title.empty())
+            return BuildErrorXML("105", "Missing accountid, senderid, recipient or title.");
+
+        // sender must belong to the account
+        DBQueryResult sRes;
+        if (!sDatabase.RunQuery(sRes,
+            "SELECT characterID FROM chrCharacters WHERE characterID = %u AND accountID = %u",
+            std::stoul(sid), std::stoul(aid))) {
+            return BuildErrorXML("999", "Query failed.");
+        }
+        if (!sRes.GetRowCount())
+            return BuildErrorXML("1004", "Sender is not one of your characters.");
+
+        // resolve recipient: numeric id or exact character name
+        uint32 recipientID = 0;
+        DBQueryResult rRes;
+        if (IsNumericStr(recipient)) {
+            sDatabase.RunQuery(rRes, "SELECT characterID FROM chrCharacters WHERE characterID = %u",
+                               std::stoul(recipient));
+        } else {
+            std::string esc;
+            sDatabase.DoEscapeString(esc, recipient);
+            sDatabase.RunQuery(rRes, "SELECT characterID FROM chrCharacters WHERE characterName = '%s'",
+                               esc.c_str());
+        }
+        DBResultRow rRow;
+        if (rRes.GetRow(rRow)) recipientID = rRow.GetUInt(0);
+        if (recipientID == 0)
+            return BuildErrorXML("1004", "Recipient not found.");
+
+        // build + insert the message exactly like MailDB::SendMail (no Client needed)
+        std::string toStr = std::to_string(recipientID);
+        std::string bodyCompressedStr;
+        {
+            Buffer bodyCompressed;
+            Buffer bodyInput(body.begin(), body.end());
+            if (DeflateData(bodyInput, bodyCompressed))
+                bodyCompressedStr.assign(bodyCompressed.begin<char>(), bodyCompressed.end<char>());
+        }
+        std::string titleEsc, bodyEsc;
+        sDatabase.DoEscapeString(titleEsc, title);
+        if (bodyCompressedStr.empty())
+            sDatabase.DoEscapeString(bodyEsc, body); // plain fallback
+        else
+            sDatabase.DoEscapeString(bodyEsc, bodyCompressedStr);
+
+        DBerror err;
+        uint32 messageID = 0;
+        if (!sDatabase.RunQueryLID(err, messageID,
+            "INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID,"
+            " title, body, sentDate)"
+            " VALUES (%u, '%s', %d, %d, '%s', '%s', %" PRIu64 ")",
+            std::stoul(sid), toStr.c_str(), 0, 0, titleEsc.c_str(), bodyEsc.c_str(), Win32TimeNow()))
+        {
+            return BuildErrorXML("999", "Insert failed.");
+        }
+        if (!sDatabase.RunQuery(err,
+            "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask)"
+            " VALUES (%u, %u, %u, %u)", messageID, recipientID, 0, 1)) {
+            return BuildErrorXML("999", "Mail saved but delivery failed.");
+        }
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <result>\n    <messageid>" + std::to_string(messageID) + "</messageid>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // ---- portal eve-mail: mark read / unread for account chars --------------
+    if (handler == "MailRead.xml.aspx" || handler == "MailUnread.xml.aspx") {
+        std::string aid = get("accountid");
+        std::string mid = get("messageid");
+        if (!IsNumericStr(aid) || !IsNumericStr(mid))
+            return BuildErrorXML("105", "Missing accountid or messageid.");
+        uint32 mask = (handler == "MailRead.xml.aspx") ? 1 : 1;
+        const char* op = (handler == "MailRead.xml.aspx") ? "|" : "&~";
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE mailStatus SET statusMask = statusMask %s %u"
+            " WHERE messageID = %u AND characterID IN"
+            "   (SELECT characterID FROM chrCharacters WHERE accountID = %u)",
+            op, mask, std::stoul(mid), std::stoul(aid));
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <result>\n    <ok>1</ok>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // ---- portal notifications list (in-game, account chars) -----------------
+    if (handler == "Notifications.xml.aspx") {
+        std::string aid = get("accountid");
+        if (!IsNumericStr(aid)) return BuildErrorXML("105", "Missing accountid.");
+        std::string proc = get("processed");
+        std::string lim = get("limit");
+        uint32 limit = lim.empty() ? 100 : std::min<uint32>(std::stoul(lim), 300);
+
+        std::string q =
+            "SELECT n.notificationID, n.typeID, n.senderID, sender.characterName,"
+            "       n.receiverID, rec.characterName, n.processed, n.created"
+            " FROM notification n"
+            " LEFT JOIN chrCharacters sender ON sender.characterID = n.senderID"
+            " LEFT JOIN chrCharacters rec ON rec.characterID = n.receiverID"
+            " WHERE n.receiverID IN (SELECT characterID FROM chrCharacters WHERE accountID = " + aid + ")"
+            "   AND n.deleted = 0";
+        if (proc == "0")
+            q += " AND n.processed = 0";
+        else if (proc == "1")
+            q += " AND n.processed = 1";
+        q += " ORDER BY n.created DESC LIMIT " + std::to_string(limit);
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res, q.c_str()))
+            return BuildErrorXML("999", "Query failed.");
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <notifications>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row notificationid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " typeid=\"" + std::to_string(row.GetUInt(1)) + "\"";
+            xml += " senderid=\"" + std::to_string(row.GetUInt(2)) + "\"";
+            xml += " sendername=\"" + xmlEscape(row.GetText(3)) + "\"";
+            xml += " receiverid=\"" + std::to_string(row.GetUInt(4)) + "\"";
+            xml += " receivername=\"" + xmlEscape(row.GetText(5)) + "\"";
+            xml += " processed=\"" + std::to_string(row.GetUInt(6)) + "\"";
+            xml += " created=\"" + std::to_string(row.GetInt64(7)) + "\"";
+            xml += "/>\n";
+        }
+        xml += "    </notifications>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // ---- portal notifications: mark processed --------------------------------
+    if (handler == "NotifRead.xml.aspx" || handler == "NotifReadAll.xml.aspx") {
+        std::string aid = get("accountid");
+        if (!IsNumericStr(aid)) return BuildErrorXML("105", "Missing accountid.");
+        if (handler == "NotifReadAll.xml.aspx") {
+            DBerror err;
+            sDatabase.RunQuery(err,
+                "UPDATE notification SET processed = 1"
+                " WHERE receiverID IN (SELECT characterID FROM chrCharacters WHERE accountID = %u)"
+                "   AND deleted = 0", std::stoul(aid));
+        } else {
+            std::string ids = get("notificationid");
+            if (ids.empty()) return BuildErrorXML("105", "Missing notificationid.");
+            std::string safeIds;
+            std::stringstream ss(ids);
+            std::string tok;
+            while (std::getline(ss, tok, ',')) {
+                tok.erase(0, tok.find_first_not_of(" \t"));
+                tok.erase(tok.find_last_not_of(" \t") + 1);
+                if (tok.empty() || tok.find_first_not_of("0123456789") != std::string::npos)
+                    continue;
+                if (!safeIds.empty()) safeIds += ",";
+                safeIds += tok;
+            }
+            if (safeIds.empty()) return BuildErrorXML("105", "Invalid notificationid.");
+            DBerror err;
+            sDatabase.RunQuery(err,
+                "UPDATE notification SET processed = 1"
+                " WHERE notificationID IN (%s)"
+                "   AND receiverID IN (SELECT characterID FROM chrCharacters WHERE accountID = %u)"
+                "   AND deleted = 0", safeIds.c_str(), std::stoul(aid));
+        }
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <result>\n    <ok>1</ok>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // ---- portal polling: unread/unprocessed counts + latest ids --------------
+    if (handler == "MailStatus.xml.aspx") {
+        std::string aid = get("accountid");
+        if (!IsNumericStr(aid)) return BuildErrorXML("105", "Missing accountid.");
+
+        uint32 unread = 0, notif = 0;
+        int64 lastMail = 0, lastNotif = 0;
+        DBQueryResult res;
+        DBResultRow row;
+        if (sDatabase.RunQuery(res,
+            "SELECT COUNT(DISTINCT m.messageID) FROM mailStatus st"
+            " JOIN mailMessage m ON m.messageID = st.messageID"
+            " WHERE st.characterID IN (SELECT characterID FROM chrCharacters WHERE accountID = %u)"
+            "   AND (st.statusMask & 1) = 0", std::stoul(aid))) {
+            if (res.GetRow(row)) unread = row.GetUInt(0);
+        }
+        if (sDatabase.RunQuery(res,
+            "SELECT COUNT(*) FROM notification"
+            " WHERE receiverID IN (SELECT characterID FROM chrCharacters WHERE accountID = %u)"
+            "   AND processed = 0 AND deleted = 0", std::stoul(aid))) {
+            if (res.GetRow(row)) notif = row.GetUInt(0);
+        }
+        if (sDatabase.RunQuery(res,
+            "SELECT MAX(m.messageID) FROM mailStatus st"
+            " JOIN mailMessage m ON m.messageID = st.messageID"
+            " WHERE st.characterID IN (SELECT characterID FROM chrCharacters WHERE accountID = %u)",
+            std::stoul(aid))) {
+            if (res.GetRow(row)) lastMail = row.GetInt64(0);
+        }
+        if (sDatabase.RunQuery(res,
+            "SELECT MAX(notificationID) FROM notification"
+            " WHERE receiverID IN (SELECT characterID FROM chrCharacters WHERE accountID = %u)"
+            "   AND deleted = 0", std::stoul(aid))) {
+            if (res.GetRow(row)) lastNotif = row.GetInt64(0);
+        }
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <result>\n";
+        xml += "    <unread>" + std::to_string(unread) + "</unread>\n";
+        xml += "    <notifications>" + std::to_string(notif) + "</notifications>\n";
+        xml += "    <lastmessageid>" + std::to_string(lastMail) + "</lastmessageid>\n";
+        xml += "    <lastnotificationid>" + std::to_string(lastNotif) + "</lastnotificationid>\n";
+        xml += "  </result>\n</eveapi>\n";
         return xml;
     }
 
