@@ -965,6 +965,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
              pSystem->GetID());
         return;
     }
+    // Pooled (reused) pilots keep growing their skillbook across respawns.
+    if (reuseExisting)
+        CharacterDB::EnsureExtendedBotSkills(useCharID, skillTier < 5 ? (uint8)(skillTier + 1) : 5);
     // Remember the EVE portrait source so fetch_bot_portraits.py can grab it —
     // AND download it now (async) so the client sees a face immediately.
     if (killmailCharID != 0 && killmailCharID != useCharID) {

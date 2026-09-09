@@ -105,6 +105,11 @@ public:
     // bot's legend and progress (SP, skills, balance, corp history) persist.
     // The character id is allocated normally (sequential free id), like any player.
     static uint32 CreateBotCharacter(std::string name, uint32 allianceID, uint8 skillTier, uint32& outCorpID, uint8& outSchoolID);
+    // Idempotently top up an EXISTING bot's skillbook with the extended trees
+    // (leadership/fleet/corporate/anchoring/POS/capitals...) at mixed levels —
+    // used on respawn of pool pilots so reused characters gain the broad
+    // real-pilot skillset over time.
+    static void EnsureExtendedBotSkills(uint32 charID, uint8 targetLevel);
     // Raise a bot's trained skills to a new tier (stage-2 level-up). Every skill
     // item the character owns (flagSkill) gets its AttrSkillLevel/AttrSkillPoints
     // bumped to `newLevel` if it isn't already at least that high, and

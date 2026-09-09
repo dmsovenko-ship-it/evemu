@@ -478,6 +478,110 @@ uint32 CharacterDB::CreateBotCharacter(std::string name, uint32 allianceID, uint
 // (like training skills over time). This is what makes practice meaningful — a
 // veteran who has run 200 mining trips actually mines faster / fights better /
 // pays less tax because its real skill items are higher.
+// Idempotent top-up of an existing (reused) bot's skillbook with the extended
+// real-pilot trees. Each spawn adds whatever missing extras the roll allows, so
+// over a few respawns every kept pilot accumulates the broad skill set.
+void CharacterDB::EnsureExtendedBotSkills(uint32 charID, uint8 targetLevel)
+{
+    if (charID == 0) return;
+    if (targetLevel > 5) targetLevel = 5;
+    if (targetLevel < 1) targetLevel = 1;
+
+    std::set<uint32> existing;
+    {
+        DBQueryResult xres;
+        if (sDatabase.RunQuery(xres,
+            "SELECT typeID FROM entity WHERE ownerID = %u AND flag = 7 AND typeID > 0", charID)) {
+            DBResultRow xrow;
+            while (xres.GetRow(xrow)) existing.insert(xrow.GetUInt(0));
+        }
+    }
+
+    static const char* extraNames[] = {
+        "Leadership","Skirmish Warfare","Armored Warfare","Siege Warfare",
+        "Information Warfare","Skirmish Warfare Specialist","Armored Warfare Specialist",
+        "Siege Warfare Specialist","Information Warfare Specialist","Warfare Link Specialist",
+        "Command Center Upgrades","Fleet Command","Wing Command","Squad Command",
+        "Mining Director","Anchoring","Cloaking","Corporate Management",
+        "Corporation Management","Diplomacy","Negotiation","Social",
+        "Propulsion Jamming","Weapon Disruption","Target Management",
+        "Signature Analysis","Long Range Targeting","Advanced Target Management",
+        "Electronics","Electronic Warfare","Gunnery","Sharpshooter",
+        "Motion Prediction","Trajectory Analysis","Weapon Upgrades",
+        "Advanced Weapon Upgrades","Missile Launcher Operation","Missile Projection",
+        "Missile Bombardment","Rapid Launch","Shield Management","Shield Operation",
+        "Shield Emission Systems","Shield Compensation","Hull Upgrades","Mechanics",
+        "Repair Systems","Armor Layering","Energy Management","Energy Systems Operation",
+        "Energy Grid Upgrades","Navigation","Warp Drive Operation","Jump Drive Operation",
+        "Jump Fuel Conservation","Jump Drive Calibration","Drones","Drone Interfacing",
+        "Mining","Astrogeology","Refining","Capital Ships","Capital Industrial Ships",
+        "Jump Freighters","Industrial Command Ships","Capital Core Systems",
+        "Advanced Spaceship Command","Marauders","Black Ops",
+        "Tactical Logistics Reconfiguration"
+    };
+    const int extraCount = (int)(sizeof(extraNames) / sizeof(extraNames[0]));
+
+    std::vector<std::pair<uint32, const char*>> found;
+    {
+        std::string q = "SELECT typeID, typeName FROM invTypes WHERE published = 1"
+                        " AND typeName IN (";
+        for (int i = 0; i < extraCount; ++i) {
+            if (i) q += ",";
+            q += "'";
+            q += extraNames[i];
+            q += "'";
+        }
+        q += ")";
+        DBQueryResult eres;
+        if (sDatabase.RunQuery(eres, q.c_str())) {
+            DBResultRow erow;
+            while (eres.GetRow(erow)) {
+                const char* nm = erow.GetText(1);
+                found.emplace_back(erow.GetUInt(0), nm ? nm : "");
+            }
+        }
+    }
+    if (found.empty())
+        return;
+
+    int64 spAdded = 0;
+    DBerror err;
+    for (const auto& ft : found) {
+        uint32 typeID = ft.first;
+        (void)ft.second;
+        if (existing.count(typeID))
+            continue;
+        if (MakeRandomInt(0, 99) >= 60)
+            continue;
+        existing.insert(typeID);
+
+        uint8 finalLvl = targetLevel;
+        if (MakeRandomInt(0, 99) < 40)
+            finalLvl = (uint8)(1 + MakeRandomInt(0, targetLevel > 1 ? targetLevel - 1 : 1));
+        if (finalLvl > 5) finalLvl = 5;
+        if (finalLvl < 1) finalLvl = 1;
+
+        ItemData skillItem(typeID, charID, charID, flagSkill);
+        SkillRef skill = sItemFactory.SpawnSkill(skillItem);
+        if (skill.get() == nullptr)
+            continue;
+        uint32 sp = skill->GetSPForLevel(finalLvl);
+        skill->SetAttribute(AttrSkillLevel, finalLvl, false);
+        skill->SetAttribute(AttrSkillPoints, sp, false);
+        skill->SaveItem();
+        spAdded += sp;
+        sDatabase.RunQuery(err,
+            "INSERT INTO chrSkillHistory (eventTypeID, logDate, characterID, skillTypeID, skillLevel, absolutePoints)"
+            " VALUES (%u, %f, %u, %u, %u, %u)",
+            EvESkill::Event::SkillPointsApplied, GetFileTimeNow(), charID, typeID, finalLvl, sp);
+    }
+    if (spAdded > 0) {
+        sDatabase.RunQuery(err,
+            "UPDATE chrCharacters SET skillPoints = skillPoints + %lld WHERE characterID = %u",
+            (long long)spAdded, charID);
+    }
+}
+
 void CharacterDB::TrainBotToSkillLevel(uint32 charID, uint8 newLevel)
 {
     if (charID == 0)
