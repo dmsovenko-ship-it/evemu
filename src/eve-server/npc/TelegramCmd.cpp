@@ -777,6 +777,8 @@ static std::map<std::string, int> g_spamStrikes;
 static std::map<std::string, int> g_verified;
 // pending math-challenge answers: user id -> expected number
 static std::map<std::string, int> g_verifyAns;
+// already got the "how to verify" hint in private chat
+static std::map<std::string, int> g_privateHinted;
 
 // temporary debug log for moderator behaviour
 static void ModLog(const std::string& line)
@@ -845,6 +847,13 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                         SendMessage(endpoint, proxy, token, u.chatID,
                                     "❌ Неверно. Новая проверка:\n"
                                     + NumRu(a) + " плюс " + NumRu(b) + " = ?");
+                    }
+                } else {
+                    if (!g_privateHinted[u.fromID]) {
+                        g_privateHinted[u.fromID] = 1;
+                        SendMessage(endpoint, proxy, token, u.chatID,
+                                    "Здравствуйте! Я слежу за порядком в игровом чате.\n"
+                                    "Чтобы писать в чат, вступите в него и отправьте первое сообщение — я пришлю сюда проверочный пример.");
                     }
                 }
             }
