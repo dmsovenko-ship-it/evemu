@@ -386,10 +386,11 @@ std::string CmdOnline()
 {
     DBQueryResult res;
     std::string out;
-    // Real clients + chelobots, mirroring the portal's /server online figure.
-    out += "👥 Онлайн игроков: " + std::to_string(sEntityList.GetClientCount()) + "\n";
-    out += "🤖 Челоботов в космосе: " + std::to_string(sBotMgr.CountActiveBots())
-         + ", на станциях: " + std::to_string(sBotMgr.GetDockedBotCount()) + "\n";
+    // Everyone counts as a player — no separate "simulated pilots" figure.
+    uint32 total = sEntityList.GetClientCount()
+                 + sBotMgr.CountActiveBots()
+                 + sBotMgr.GetDockedBotCount();
+    out += "👥 Онлайн игроков: " + std::to_string(total) + "\n";
     if (sDatabase.RunQuery(res,
         "SELECT COUNT(*) FROM account"))
     { DBResultRow r; if (res.GetRow(r)) out += "Аккаунтов всего: " + std::to_string(r.GetUInt(0)) + "\n"; }
