@@ -432,6 +432,9 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 newRoom.position = pos;
             }
 
+            // Incursion dungeons (2100-2133) — scope hoisted to the room so the
+            // wave bookkeeping after the object loop can see it.
+            bool isIncursionDun = (dungeonID >= 2100 && dungeonID <= 2133);
             for (auto object : room.second.objects ) {
                 GPoint pos;
                 // Set position for each object
@@ -452,7 +455,6 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 // Force the NPC path for them; foreign pirate typeIDs that
                 // SDE room data drags in (e.g. Renegade Blood Raider on a
                 // Sansha site) get replaced with a real Sansha pick per tier.
-                bool isIncursionDun = (dungeonID >= 2100 && dungeonID <= 2133);
                 bool isSanshaStub  = (objType.groupID >= 1051 && objType.groupID <= 1056);
                 uint16 spawnTypeID = object.typeID;
                 if (isIncursionDun && !isSanshaStub
