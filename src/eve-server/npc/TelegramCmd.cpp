@@ -819,6 +819,8 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
         // private chat with the bot → anti-spam verification with a math example
         if (isPrivate && !u.text.empty()) {
             auto it = g_pendingVerify.find(u.fromID);
+            ModLog("PRIVATE user=" + u.fromID + " pending="
+                 + std::to_string(it != g_pendingVerify.end()) + " text='" + u.text + "'");
             if (it != g_pendingVerify.end()) {
                 static bool seeded = false;
                 if (!seeded) { srand((unsigned)time(nullptr)); seeded = true; }
@@ -826,6 +828,7 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                 if (ai == g_verifyAns.end()) {
                     int a = rand() % 8 + 2, b = rand() % 9 + 1;
                     g_verifyAns[u.fromID] = a + b;
+                    ModLog("CHALLENGE user=" + u.fromID + " ans=" + std::to_string(g_verifyAns[u.fromID]));
                     SendMessage(endpoint, proxy, token, u.chatID,
                                 "🔐 Проверка: решите пример и напишите число.\n"
                                 + NumRu(a) + " плюс " + NumRu(b) + " = ?");
@@ -833,6 +836,7 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                     long got = 0; bool any = false;
                     for (char c : u.text) if (isdigit((unsigned char)c)) { got = got * 10 + (c - '0'); any = true; }
                     if (any && (int)got == ai->second) {
+                        ModLog("VERIFY-OK user=" + u.fromID + " chat=" + it->second);
                         TelegramRestrict(endpoint, proxy, token, it->second, u.fromID, true);
                         SendMessage(endpoint, proxy, token, it->second,
                                     "✅ Проверка пройдена, добро пожаловать!");
@@ -842,6 +846,8 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                         g_pendingVerify.erase(it);
                         g_verifyAns.erase(ai);
                     } else {
+                        ModLog("VERIFY-WRONG user=" + u.fromID + " got=" + std::to_string(got)
+                             + " want=" + std::to_string(ai->second));
                         int a = rand() % 8 + 2, b = rand() % 9 + 1;
                         g_verifyAns[u.fromID] = a + b;
                         SendMessage(endpoint, proxy, token, u.chatID,
