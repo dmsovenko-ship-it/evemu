@@ -157,6 +157,13 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
         std::istream req(&buf);
         std::string method, uri, version;
         req >> method >> uri >> version;
+        // swallow the trailing CRLF of the request line — otherwise the header
+        // scan below sees the bare '\r' as the blank line and stops immediately,
+        // never reading Content-Length / the POST body.
+        {
+            std::string reqLineRest;
+            std::getline(req, reqLineRest);
+        }
 
         // parse path: /<service>/<handler>?key=val&key2=val2
         std::string service, handler;
