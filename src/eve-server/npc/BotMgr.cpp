@@ -796,34 +796,51 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     uint32 useAllianceID = allianceID;
     std::string useFit;   // JSON array of module typeIDs (parsed later for fitting)
 
-    // Random/unspecified spawn (charID==0): prefer REUSING an already-created bot
-    // instead of rolling a fresh random legend every time. Bots persist as real
-    // characters (chrCharacters + botMemory), so a returning pilot should be the
-    // SAME pilot it always was — same face, same name, same learned history —
-    // not a random new legend each respawn. Only roll a fresh legend when no
-    // established bot is available.
+    // Random/unspecified spawn (charID==0): always REUSE an already-created pilot
+    // from the persistent pool (chrCharacters accountID=0 + botMemory) when any
+    // exist. New legends are only rolled to TOP UP a fresh/empty pool — never past
+    // playerBots.MaxTotalPilots — so the population is a stable set of ~N pilots
+    // that respawn, not an ever-growing pile of new characters.
+    bool reuseExisting = false;
+    uint32 poolCount = 0;
     if (useCharID == 0 && useName.empty()) {
-        DBQueryResult bres;
-        if (sDatabase.RunQuery(bres,
-            "SELECT c.characterName, c.corporationID, cc.allianceID"
-            " FROM chrCharacters c"
-            " JOIN botMemory b ON b.charID = c.characterID"
-            " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
-            " WHERE c.characterName != ''"
-            " ORDER BY RAND() LIMIT 1"))
         {
-            DBResultRow brow;
-            if (bres.GetRow(brow)) {
-                useName = brow.GetText(0);
-                useCorpID = brow.GetUInt(1);
-                useAllianceID = brow.GetUInt(2);
-                _log(BOT__TRACE, "BotMgr: reusing established bot '%s' (corp %u, ally %u).",
-                     useName.c_str(), useCorpID, useAllianceID);
+            DBQueryResult cres;
+            if (sDatabase.RunQuery(cres,
+                "SELECT COUNT(*) FROM chrCharacters WHERE accountID = 0 AND characterName != ''")) {
+                DBResultRow crow;
+                if (cres.GetRow(crow)) poolCount = crow.GetUInt(0);
+            }
+        }
+        if (poolCount > 0) {
+            DBQueryResult bres;
+            if (sDatabase.RunQuery(bres,
+                "SELECT c.characterName, c.corporationID, cc.allianceID"
+                " FROM chrCharacters c"
+                " JOIN botMemory b ON b.charID = c.characterID"
+                " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
+                " WHERE c.characterName != ''"
+                " ORDER BY RAND() LIMIT 1"))
+            {
+                DBResultRow brow;
+                if (bres.GetRow(brow)) {
+                    useName = brow.GetText(0);
+                    useCorpID = brow.GetUInt(1);
+                    useAllianceID = brow.GetUInt(2);
+                    reuseExisting = true;
+                    _log(BOT__TRACE, "BotMgr: reusing established bot '%s' (corp %u, ally %u).",
+                         useName.c_str(), useCorpID, useAllianceID);
+                }
             }
         }
     }
 
-    {
+    // New pilots: only when the pool is below the cap (fresh server top-up).
+    if (!reuseExisting) {
+        if (poolCount >= sConfig.playerBots.MaxTotalPilots) {
+            _log(BOT__TRACE, "BotMgr: pilot pool at cap (%u) — not creating another.", poolCount);
+            return;
+        }
         DBQueryResult res;
         if (sDatabase.RunQuery(res,
             "SELECT character_id, character_name, corporation_id, alliance_id,"
@@ -901,24 +918,45 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
              useName.c_str(), useCharID, pSystem->GetID());
         if (attempt == 7)
             break;   // give up after retries; caller will skip (no duplicate SE)
-        DBQueryResult lres;
-        if (!sDatabase.RunQuery(lres,
-            "SELECT character_id, character_name, corporation_id, alliance_id,"
-            "       ship_type_id, fitted_item_ids"
-            " FROM botKillmailLegends"
-            " WHERE ship_type_id > 0 AND ship_type_id != 670"   // no capsule legends (pod kills)
-            "   AND character_name != ''"
-            " ORDER BY RAND() LIMIT 1"))
-            break;
-        DBResultRow lrow;
-        if (!lres.GetRow(lrow))
-            break;
-        useName = lrow.GetText(1);
-        useCorpID = lrow.GetUInt(2);
-        useAllianceID = lrow.GetUInt(3);
-        useShipType = lrow.GetUInt(4);
-        const char* fit = lrow.GetText(5);
-        if (fit != nullptr) useFit = fit;
+        if (reuseExisting) {
+            // pick another established pilot from the pool
+            DBQueryResult rres;
+            if (!sDatabase.RunQuery(rres,
+                "SELECT c.characterName, c.corporationID, cc.allianceID"
+                " FROM chrCharacters c"
+                " JOIN botMemory b ON b.charID = c.characterID"
+                " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
+                " WHERE c.characterName != ''"
+                " ORDER BY RAND() LIMIT 1"))
+                break;
+            DBResultRow rrow;
+            if (!rres.GetRow(rrow))
+                break;
+            useName = rrow.GetText(0);
+            useCorpID = rrow.GetUInt(1);
+            useAllianceID = rrow.GetUInt(2);
+            useShipType = 0;
+            useFit.clear();
+        } else {
+            DBQueryResult lres;
+            if (!sDatabase.RunQuery(lres,
+                "SELECT character_id, character_name, corporation_id, alliance_id,"
+                "       ship_type_id, fitted_item_ids"
+                " FROM botKillmailLegends"
+                " WHERE ship_type_id > 0 AND ship_type_id != 670"   // no capsule legends (pod kills)
+                "   AND character_name != ''"
+                " ORDER BY RAND() LIMIT 1"))
+                break;
+            DBResultRow lrow;
+            if (!lres.GetRow(lrow))
+                break;
+            useName = lrow.GetText(1);
+            useCorpID = lrow.GetUInt(2);
+            useAllianceID = lrow.GetUInt(3);
+            useShipType = lrow.GetUInt(4);
+            const char* fit = lrow.GetText(5);
+            if (fit != nullptr) useFit = fit;
+        }
         // NOTE: do NOT set useCharID from the legend here — CreateBotCharacter
         // allocates the real charID on the next loop iteration.
     }
