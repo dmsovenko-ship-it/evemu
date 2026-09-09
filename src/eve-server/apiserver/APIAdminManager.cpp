@@ -474,8 +474,10 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
     if (handler == "AccountList.xml.aspx") {
         DBQueryResult res;
         if (!sDatabase.RunQuery(res,
-            "SELECT accountID, accountName, email, role, online, banned, logonCount, lastLogin, banReason, adminComment "
-            "FROM account ORDER BY accountID"))
+            "SELECT accountID, accountName, email, role, online, banned, logonCount, lastLogin, banReason, adminComment,"
+            " (SELECT h.ip FROM accountLoginHistory h WHERE h.accountID = account.accountID"
+            "   ORDER BY h.loginTime DESC LIMIT 1) AS lastIP"
+            " FROM account ORDER BY accountID"))
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
@@ -492,7 +494,8 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
             xml += " banned=\"" + std::to_string(row.GetInt(5)) + "\"";
             xml += " logoncount=\"" + std::to_string(row.GetUInt(6)) + "\"";
             xml += " banreason=\"" + xmlEscape(row.IsNull(8) ? "" : row.GetText(8)) + "\"";
-            xml += " admincomment=\"" + xmlEscape(row.IsNull(9) ? "" : row.GetText(9)) + "\"/>\n";
+            xml += " admincomment=\"" + xmlEscape(row.IsNull(9) ? "" : row.GetText(9)) + "\"";
+            xml += " ip=\"" + xmlEscape(row.IsNull(10) ? "" : row.GetText(10)) + "\"/>\n";
         }
         xml += "    </accounts>\n  </result>\n</eveapi>\n";
         return xml;
@@ -554,7 +557,9 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
 
         DBQueryResult ares;
         if (!sDatabase.RunQuery(ares,
-            "SELECT accountID, accountName, email, role, type, online, banned, logonCount, lastLogin, banReason, adminComment"
+            "SELECT accountID, accountName, email, role, type, online, banned, logonCount, lastLogin, banReason, adminComment,"
+            " (SELECT h.ip FROM accountLoginHistory h WHERE h.accountID = account.accountID"
+            "   ORDER BY h.loginTime DESC LIMIT 1) AS lastIP"
             " FROM account WHERE accountID = %u", std::stoul(aid)))
             return BuildErrorXML("999", "Query failed.");
         DBResultRow arow;
@@ -584,7 +589,8 @@ std::string APIAdminManager::ProcessAccounts(const std::string& handler,
         xml += " logoncount=\"" + std::to_string(arow.GetUInt(7)) + "\"";
         xml += " lastlogin=\"" + std::string(arow.IsNull(8) ? "" : arow.GetText(8)) + "\"";
         xml += " banreason=\"" + xmlEscape(arow.IsNull(9) ? "" : arow.GetText(9)) + "\"";
-        xml += " admincomment=\"" + xmlEscape(arow.IsNull(10) ? "" : arow.GetText(10)) + "\"/>\n";
+        xml += " admincomment=\"" + xmlEscape(arow.IsNull(10) ? "" : arow.GetText(10)) + "\"";
+        xml += " ip=\"" + xmlEscape(arow.IsNull(11) ? "" : arow.GetText(11)) + "\"/>\n";
         xml += "    <characters>\n";
         DBResultRow row;
         while (cres.GetRow(row)) {
