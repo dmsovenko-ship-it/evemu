@@ -752,6 +752,16 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         if (folder.empty()) folder = "inbox";
         std::string lim = get("limit");
         uint32 limit = lim.empty() ? 100 : std::min<uint32>(std::stoul(lim), 500);
+        // the account's character / corp / alliance ids scope the folder query
+        std::string chars =
+            "(SELECT characterID FROM chrCharacters WHERE accountID = " + aid + ")";
+        std::string corps =
+            "(SELECT corporationID FROM chrCharacters WHERE accountID = " + aid + ")";
+        std::string allies =
+            "(SELECT allianceID FROM crpCorporation WHERE corporationID IN " + corps + ")";
+        std::string lists =
+            "(SELECT u.listID FROM mailListUsers u JOIN mailList l ON l.id = u.listID"
+            " WHERE u.characterID IN " + chars + " GROUP BY u.listID)";
 
         std::string q;
         if (folder == "sent") {
@@ -759,7 +769,29 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                 " m.toCharacterIDs, m.toListID, m.toCorpOrAllianceID, m.title, m.sentDate "
                 " FROM mailMessage m "
                 " LEFT JOIN chrCharacters sender ON sender.characterID = m.senderID "
-                " WHERE m.senderID IN (SELECT characterID FROM chrCharacters WHERE accountID = " + aid + ")"
+                " WHERE m.senderID IN " + chars +
+                " ORDER BY m.sentDate DESC LIMIT " + std::to_string(limit);
+        } else if (folder == "corp" || folder == "alliance") {
+            // Corp / alliance mail: the mail is addressed to the corp/alliance
+            // (mailMessage.toCorpOrAllianceID), not to single characters.
+            q = "SELECT m.messageID, m.senderID, sender.characterName, "
+                " m.toCharacterIDs, m.toListID, m.toCorpOrAllianceID, m.title, m.sentDate "
+                " FROM mailMessage m "
+                " LEFT JOIN chrCharacters sender ON sender.characterID = m.senderID "
+                " WHERE m.toCorpOrAllianceID IN "
+                + (folder == "corp" ? corps : allies) +
+                " ORDER BY m.sentDate DESC LIMIT " + std::to_string(limit);
+        } else if (folder == "lists") {
+            // Mailing-list mail: message.toListID = a list the account's chars
+            // are subscribed to; list name resolved on the portal side.
+            q = "SELECT m.messageID, m.senderID, sender.characterName, "
+                " m.toCharacterIDs, m.toListID, m.toCorpOrAllianceID, m.title, m.sentDate, "
+                " COUNT(*) AS rowCount, SUM(st.statusMask & 1) AS readCount "
+                " FROM mailStatus st "
+                " JOIN mailMessage m ON m.messageID = st.messageID "
+                " LEFT JOIN chrCharacters sender ON sender.characterID = m.senderID "
+                " WHERE m.toListID IN " + lists +
+                " GROUP BY m.messageID "
                 " ORDER BY m.sentDate DESC LIMIT " + std::to_string(limit);
         } else { // inbox (default)
             q = "SELECT m.messageID, m.senderID, sender.characterName, "
@@ -768,7 +800,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                 " FROM mailStatus st "
                 " JOIN mailMessage m ON m.messageID = st.messageID "
                 " LEFT JOIN chrCharacters sender ON sender.characterID = m.senderID "
-                " WHERE st.characterID IN (SELECT characterID FROM chrCharacters WHERE accountID = " + aid + ")"
+                " WHERE st.characterID IN " + chars +
                 " GROUP BY m.messageID "
                 " ORDER BY m.sentDate DESC LIMIT " + std::to_string(limit);
         }
@@ -791,8 +823,8 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             xml += " tocorpallianceid=\"" + std::to_string(row.GetUInt(5)) + "\"";
             xml += " title=\"" + xmlEscape(row.GetText(6)) + "\"";
             xml += " sentdate=\"" + std::to_string(row.GetInt64(7)) + "\"";
-            if (folder == "sent") {
-                xml += " unread=\"0\"";
+            if (folder == "sent" || folder == "corp" || folder == "alliance") {
+                xml += " unread=\"0\"";   // corp/alliance mail has no per-char status rows
             } else {
                 bool hasRead = row.IsNull(9) ? false : (row.GetInt64(9) > 0);
                 xml += " unread=\"" + std::string(hasRead ? "0" : "1") + "\"";
@@ -810,8 +842,9 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         if (!IsNumericStr(aid) || !IsNumericStr(mid))
             return BuildErrorXML("105", "Missing accountid or messageid.");
 
-        // ownership: a mailStatus row for one of the account's chars, or the
-        // account sent it (senderID is an account char).
+        // ownership: a mailStatus row for one of the account's chars, the
+        // account sent it, OR the mail is addressed to the chars' corp/
+        // alliance or one of their mailing lists (corp/list mail).
         DBQueryResult own;
         if (!sDatabase.RunQuery(own,
             "SELECT (SELECT COUNT(*) FROM mailStatus st"
@@ -819,8 +852,19 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "           (SELECT characterID FROM chrCharacters WHERE accountID = %u))"
             "      + (SELECT COUNT(*) FROM mailMessage m"
             "         WHERE m.messageID = %u AND m.senderID IN"
-            "           (SELECT characterID FROM chrCharacters WHERE accountID = %u))",
-            std::stoul(mid), std::stoul(aid), std::stoul(mid), std::stoul(aid))) {
+            "           (SELECT characterID FROM chrCharacters WHERE accountID = %u))"
+            "      + (SELECT COUNT(*) FROM mailMessage m"
+            "         WHERE m.messageID = %u AND"
+            "             ( m.toListID IN (SELECT u.listID FROM mailListUsers u"
+            "                WHERE u.characterID IN"
+            "                  (SELECT characterID FROM chrCharacters WHERE accountID = %u))"
+            "            OR m.toCorpOrAllianceID IN"
+            "                (SELECT corporationID FROM chrCharacters WHERE accountID = %u)"
+            "            OR m.toCorpOrAllianceID IN"
+            "                (SELECT allianceID FROM crpCorporation WHERE corporationID IN"
+            "                  (SELECT corporationID FROM chrCharacters WHERE accountID = %u))))",
+            std::stoul(mid), std::stoul(aid), std::stoul(mid), std::stoul(aid),
+            std::stoul(mid), std::stoul(aid), std::stoul(aid), std::stoul(aid))) {
             return BuildErrorXML("999", "Query failed.");
         }
         DBResultRow orow;
@@ -1116,6 +1160,34 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         xml += "    <lastmessageid>" + std::to_string(lastMail) + "</lastmessageid>\n";
         xml += "    <lastnotificationid>" + std::to_string(lastNotif) + "</lastnotificationid>\n";
         xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    // ---- portal: mailing lists the account's chars are subscribed to ---------
+    // Powers the mail page's left-menu "Списки рассылки" section. Rows:
+    // listid/displayname (display access is not enforced - list mail belongs
+    // to every member; a member listing its own lists is not a leak).
+    if (handler == "MailingLists.xml.aspx") {
+        std::string aid = get("accountid");
+        if (!IsNumericStr(aid)) return BuildErrorXML("105", "Missing accountid.");
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT l.id, l.displayName, COUNT(*) AS membercount"
+            " FROM mailList l"
+            " JOIN mailListUsers u ON u.listID = l.id"
+            " WHERE u.characterID IN (SELECT characterID FROM chrCharacters WHERE accountID = %u)"
+            " GROUP BY l.id, l.displayName"
+            " ORDER BY l.displayName", std::stoul(aid)))
+            return BuildErrorXML("999", "Query failed.");
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <lists>\n";
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            xml += "      <row listid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+            xml += " displayname=\"" + xmlEscape(row.GetText(1)) + "\"/>\n";
+        }
+        xml += "    </lists>\n  </result>\n</eveapi>\n";
         return xml;
     }
 
