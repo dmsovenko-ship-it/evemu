@@ -539,20 +539,20 @@ static void ProcessBotTrainingBatch()
         uint32 priId = 165, secId = 166;   // defaults: Int / Mem
         {
             DBQueryResult tq;
-            if (sDatabase.RunQuery(tq, "SELECT typeID, valueFloat FROM dgmTypeAttributes"
-                                       " WHERE typeID = %u AND attributeID = 275", curType)) {
+            if (sDatabase.RunQuery(tq, "SELECT valueFloat FROM dgmTypeAttributes"
+                                       " WHERE typeID = %u AND attributeID = 275 LIMIT 1", curType)) {
                 DBResultRow trow;
-                if (tq.GetRow(trow)) rank = trow.GetFloat(1);
+                if (tq.GetRow(trow)) rank = trow.GetFloat(0);
             }
             if (sDatabase.RunQuery(tq, "SELECT valueFloat FROM dgmTypeAttributes"
                                        " WHERE typeID = %u AND attributeID = 180 LIMIT 1", curType)) {
                 DBResultRow trow;
-                if (tq.GetRow(trow)) priId = (uint32)trow.GetFloat(1);
+                if (tq.GetRow(trow)) priId = (uint32)trow.GetFloat(0);
             }
             if (sDatabase.RunQuery(tq, "SELECT valueFloat FROM dgmTypeAttributes"
                                        " WHERE typeID = %u AND attributeID = 181 LIMIT 1", curType)) {
                 DBResultRow trow;
-                if (tq.GetRow(trow)) secId = (uint32)trow.GetFloat(1);
+                if (tq.GetRow(trow)) secId = (uint32)trow.GetFloat(0);
             }
         }
         int attrFor[170] = {0};
