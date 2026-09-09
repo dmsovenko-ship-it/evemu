@@ -681,6 +681,12 @@ std::string RunCommand(const std::string& cmdLower, const std::string& arg, bool
     return "";
 }
 
+// --- moderator state (in-memory, resets on server restart) ---
+// pending anti-spam verification: user id -> group chat id
+static std::map<std::string, std::string> g_pendingVerify;
+// spam strikes per chat:user
+static std::map<std::string, int> g_spamStrikes;
+
 // poll once per bot token; keep the last update id per token so a shared bot
 // that serves both groups doesn't re-deliver
 void PollOnce(const std::string& endpoint, const std::string& proxy,
@@ -792,12 +798,6 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
             SendMessage(endpoint, proxy, token, u.chatID, reply);
     }
 }
-
-// --- moderator state (in-memory, resets on server restart) ---
-// pending anti-spam verification: user id -> group chat id
-static std::map<std::string, std::string> g_pendingVerify;
-// spam strikes per chat:user
-static std::map<std::string, int> g_spamStrikes;
 
 // background thread: poll player + admin bots (dedup token, per-token offset)
 void PollLoop(std::atomic<bool>& run, std::string endpoint, std::string proxy,
