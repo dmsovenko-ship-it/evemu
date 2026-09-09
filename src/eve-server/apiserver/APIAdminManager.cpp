@@ -134,9 +134,9 @@ static std::string BuildSecurityFlagsXML()
         " JOIN entity e ON e.itemID = c.shipID"
         " JOIN invTypes t ON t.typeID = e.typeID"
         " JOIN invGroups g ON g.groupID = t.groupID"
-        " WHERE (g.groupName LIKE '%Titan%' OR g.groupName LIKE '%Dreadnought%'"
-        "    OR g.groupName LIKE '%Carrier%' OR g.groupName LIKE '%Supercarrier%'"
-        "    OR g.groupName LIKE '%Freighter%' OR g.groupName LIKE '%Rorqual%')"
+        " WHERE (g.groupName LIKE '%%Titan%%' OR g.groupName LIKE '%%Dreadnought%%'"
+        "    OR g.groupName LIKE '%%Carrier%%' OR g.groupName LIKE '%%Supercarrier%%'"
+        "    OR g.groupName LIKE '%%Freighter%%' OR g.groupName LIKE '%%Rorqual%%')"
         " ORDER BY a.accountID LIMIT 20"))
     {
         DBResultRow row;
