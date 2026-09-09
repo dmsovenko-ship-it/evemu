@@ -725,6 +725,8 @@ std::string RunCommand(const std::string& cmdLower, const std::string& arg, bool
 static std::map<std::string, std::string> g_pendingVerify;
 // spam strikes per chat:user
 static std::map<std::string, int> g_spamStrikes;
+// users that passed verification in a chat: "chat:user" -> 1
+static std::map<std::string, int> g_verified;
 
 // temporary debug log for moderator behaviour
 static void ModLog(const std::string& line)
@@ -775,6 +777,7 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                                 "✅ Проверка пройдена, добро пожаловать!");
                     SendMessage(endpoint, proxy, token, u.chatID,
                                 "✅ Вы разблокированы в чате.");
+                    g_verified[it->second + ":" + u.fromID] = 1;
                     g_pendingVerify.erase(it);
                 } else {
                     SendMessage(endpoint, proxy, token, u.chatID,
@@ -804,6 +807,25 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                 continue;
             }
             if (!u.text.empty() && u.text[0] != '/') {
+                // Authorization gate: a user must /verify in private chat before
+                // its first message in the group is accepted. Until then the
+                // message is removed and the user is muted (bots get banned).
+                if (!u.fromID.empty() && !isAdmin) {
+                    std::string vkey = u.chatID + ":" + u.fromID;
+                    bool pending = g_pendingVerify.find(u.fromID) != g_pendingVerify.end();
+                    bool verified = g_verified.find(vkey) != g_verified.end();
+                    if (!pending && !verified) {
+                        ModLog("AUTH-GATE chat=" + u.chatID + " from=" + u.fromID
+                             + " text='" + u.text + "'");
+                        g_pendingVerify[u.fromID] = u.chatID;
+                        if (!u.messageID.empty())
+                            TelegramDeleteMessage(endpoint, proxy, token, u.chatID, u.messageID);
+                        TelegramRestrict(endpoint, proxy, token, u.chatID, u.fromID, false);
+                        SendMessage(endpoint, proxy, token, u.chatID,
+                                    "👋 Для защиты от спама вы временно в муте — напишите боту в личку /verify, чтобы разблокироваться.");
+                        continue;
+                    }
+                }
                 std::string lower = u.text;
                 for (auto& c : lower) c = (char)tolower((unsigned char)c);
                 if (IsForbiddenContent(lower)) {
