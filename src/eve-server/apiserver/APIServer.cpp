@@ -14,6 +14,7 @@
 #include <sstream>
 #include <thread>
 #include <map>
+#include <vector>
 #include <mutex>
 
 using boost::asio::ip::tcp;
@@ -187,48 +188,48 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
             }
         }
 
-        // read POST body if present
+        // read POST body if present (robust): take all bytes already buffered
+        // (headers + any body that arrived together), find Content-Length in the
+        // header block, then top up the remaining body bytes straight from the
+        // socket.
         if (method == "POST") {
+            std::string raw((std::istreambuf_iterator<char>(req)),
+                            std::istreambuf_iterator<char>());
+            size_t hEnd = raw.find("\r\n\r\n");
+            std::string head = (hEnd == std::string::npos) ? raw : raw.substr(0, hEnd);
             size_t contentLength = 0;
-            std::string hline;
-            // consume the remaining header lines, looking for Content-Length
-            while (std::getline(req, hline) && hline != "\r") {
-                std::string lower = hline;
+            {
+                std::string lower = head;
                 boost::to_lower(lower);
-                if (lower.find("content-length:") != std::string::npos) {
-                    std::string v = hline.substr(hline.find(':') + 1);
-                    // trim
-                    size_t a = v.find_first_not_of(" \t");
-                    size_t b = v.find_last_not_of(" \t");
-                    if (a != std::string::npos && b != std::string::npos)
-                        v = v.substr(a, b - a + 1);
-                    contentLength = std::stoul(v);
+                size_t p = lower.find("content-length:");
+                if (p != std::string::npos) {
+                    std::string v = head.substr(p + 15);   // len of "Content-Length:"
+                    size_t e = v.find_first_of("\r\n \t");
+                    if (e != std::string::npos) v = v.substr(0, e);
+                    if (!v.empty()) contentLength = std::stoul(v);
                 }
             }
-            // req now sits right after the blank header line: any body bytes
-            // that arrived with the headers are available; read_until stops at
-            // the header terminator, so fetch the rest of the body explicitly.
-            if (contentLength > 0) {
-                size_t haveBody = static_cast<size_t>(req.rdbuf()->in_avail());
-                if (haveBody < contentLength) {
-                    boost::asio::read(socket, buf,
-                        boost::asio::transfer_exactly(contentLength - haveBody), ec);
-                }
-                std::string body(
-                    (std::istreambuf_iterator<char>(req)),
-                     std::istreambuf_iterator<char>());
-                if (body.size() > contentLength) body.resize(contentLength);
-                boost::replace_all(body, "&amp;", "&");
-                boost::replace_all(body, "+", " ");
-                std::istringstream bs(body);
-                std::string pair;
-                while (std::getline(bs, pair, '&')) {
-                    size_t eq = pair.find('=');
-                    if (eq != std::string::npos) {
-                        std::string key = pair.substr(0, eq);
-                        boost::to_lower(key);
-                        params[key] = url_decode(pair.substr(eq + 1));
-                    }
+            std::string body;
+            if (hEnd != std::string::npos && hEnd + 4 <= raw.size())
+                body = raw.substr(hEnd + 4);
+            if (body.size() > contentLength) body.resize(contentLength);
+            if (contentLength > body.size()) {
+                size_t more = contentLength - body.size();
+                std::vector<char> tmp(more);
+                boost::asio::read(socket, boost::asio::buffer(tmp),
+                                  boost::asio::transfer_exactly(more), ec);
+                body.append(tmp.data(), tmp.size());
+            }
+            boost::replace_all(body, "&amp;", "&");
+            boost::replace_all(body, "+", " ");
+            std::istringstream bs(body);
+            std::string pair;
+            while (std::getline(bs, pair, '&')) {
+                size_t eq = pair.find('=');
+                if (eq != std::string::npos) {
+                    std::string key = pair.substr(0, eq);
+                    boost::to_lower(key);
+                    params[key] = url_decode(pair.substr(eq + 1));
                 }
             }
         }
