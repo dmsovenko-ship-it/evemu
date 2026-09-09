@@ -848,6 +848,7 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                                     "❌ Неверно. Новая проверка:\n"
                                     + NumRu(a) + " плюс " + NumRu(b) + " = ?");
                     }
+                }
                 } else {
                     if (!g_privateHinted[u.fromID]) {
                         g_privateHinted[u.fromID] = 1;
