@@ -229,7 +229,43 @@ std::string JsonStrField(const std::string& s, size_t from, const std::string& k
                 else if (nx == 'r') { v += '\r'; ++p; }
                 else if (nx == '"') { v += '"'; ++p; }
                 else if (nx == '\\') { v += '\\'; ++p; }
-                else if (nx == 'u') { v += '?'; p += 4; }   // not decoding unicode
+                else if (nx == 'u') {
+                    auto hexv = [](char h) -> int {
+                        if (h >= '0' && h <= '9') return h - '0';
+                        int l = h | 32;
+                        if (l >= 'a' && l <= 'f') return l - 'a' + 10;
+                        return 0;
+                    };
+                    unsigned cp = 0;
+                    if (p + 5 < s.size())
+                        for (int k = 1; k <= 4; ++k)
+                            cp = (cp << 4) | (unsigned)hexv(s[p + 1 + k]);
+                    if (cp >= 0xD800 && cp <= 0xDBFF && p + 11 < s.size()
+                        && s[p + 6] == '\\' && s[p + 7] == 'u') {
+                        unsigned lo = 0;
+                        for (int k = 0; k < 4; ++k)
+                            lo = (lo << 4) | (unsigned)hexv(s[p + 8 + k]);
+                        cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
+                        p += 11;   // skip low-surrogate escape
+                    } else {
+                        p += 4;
+                    }
+                    // UTF-8 encode cp
+                    if (cp < 0x80) v += (char)cp;
+                    else if (cp < 0x800) {
+                        v += (char)(0xC0 | (cp >> 6));
+                        v += (char)(0x80 | (cp & 0x3F));
+                    } else if (cp < 0x10000) {
+                        v += (char)(0xE0 | (cp >> 12));
+                        v += (char)(0x80 | ((cp >> 6) & 0x3F));
+                        v += (char)(0x80 | (cp & 0x3F));
+                    } else {
+                        v += (char)(0xF0 | (cp >> 18));
+                        v += (char)(0x80 | ((cp >> 12) & 0x3F));
+                        v += (char)(0x80 | ((cp >> 6) & 0x3F));
+                        v += (char)(0x80 | (cp & 0x3F));
+                    }
+                }
                 else { v += nx; ++p; }
             }
         } else if (c == '"') {
