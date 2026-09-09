@@ -897,7 +897,7 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                 // Authorization gate: a user must /verify in private chat before
                 // its first message in the group is accepted. Until then the
                 // message is removed and the user is muted (bots get banned).
-                if (!u.fromID.empty() && !isAdmin) {
+                if (!u.fromID.empty() && u.fromID != "777000" && !isAdmin) {
                     std::string vkey = u.chatID + ":" + u.fromID;
                     bool pending = g_pendingVerify.find(u.fromID) != g_pendingVerify.end();
                     bool verified = g_verified.find(vkey) != g_verified.end();
