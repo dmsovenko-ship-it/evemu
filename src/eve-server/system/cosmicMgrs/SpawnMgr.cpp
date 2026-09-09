@@ -349,7 +349,7 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                 nxtPocket.x += NEXT_DUNGEON_ROOM_DIST;
                 SpawnIncursionWave(w.dungeonID, nxtWave, nxtPocket);
                 sLog.White("SpawnMgr", "Incursion wave %u cleared in %s — wave %u spawned %u km out, gate placed.",
-                           w.waveNum, m_system->GetName().c_str(), (unsigned)(NEXT_DUNGEON_ROOM_DIST/1000));
+                           w.waveNum, m_system->GetName(), (unsigned)(NEXT_DUNGEON_ROOM_DIST/1000));
                 return;   // site not complete yet
             }
             // last wave done -> fall through to completion/rewards below
@@ -505,12 +505,11 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
     pocket->SetIncursion();
 
     // composition: per scene tier, per wave
-    uint8 roleClass = 0;
+    uint8 levelBase = 1 + MakeRandomInt(0, 3);
     auto addRat = [&](uint8 cls) {
         uint16 tID = DungeonMgr::IncursionSanshaType(dungeonID, cls);
         DoSpawnForAnomaly(pocket, toPocket, levelBase, tID, true);
     };
-    uint8 levelBase = 1 + MakeRandomInt(0, 3);
     if (dungeonID <= 2103) {            // vanguard: frigates only
         addRat(0); addRat(0); addRat(0);
         if (waveNum > 1) { addRat(0); addRat(1); }

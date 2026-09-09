@@ -444,9 +444,7 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 Inv::GrpData objGroup;
                 sDataMgr.GetType(object.typeID, objType);
                 sDataMgr.GetGroup(objType.groupID, objGroup);
-                if (objGroup.catID == EVEDB::invCategories::Ship || 
-                    objGroup.catID == EVEDB::invCategories::Drone ||
-                    objGroup.catID == EVEDB::invCategories::Entity) {
+
                 // Incursion dungeons (2100-2133): Sansha Nation NPC types live
                 // in groups 1051-1056 whose category is 11 in our dataset —
                 // routing them through the Celestial branch spawned static
@@ -465,17 +463,16 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     // swap for a real Sansha of the scene's class mix
                     spawnTypeID = IncursionSanshaType(dungeonID, GetRandLevel());
                     sLog.Debug("MakeDungeon", "Incursion guest NPC %u (%s) replaced with Sansha %u",
-                        object.typeID, sDataMgr.GetTypeName(object.typeID).c_str(), spawnTypeID);
+                        object.typeID, sDataMgr.GetTypeName(object.typeID), spawnTypeID);
                 }
                 bool npcThis = isSanshaStub ||
                     (objGroup.catID == EVEDB::invCategories::Ship ||
                      objGroup.catID == EVEDB::invCategories::Drone ||
                      objGroup.catID == EVEDB::invCategories::Entity);
                 if (npcThis) {
-                    bool isIncursion = isIncursionDun;
                     sLog.Debug("MakeDungeon", "Spawning NPC typeID=%u cat=%u group=%u",
                         spawnTypeID, objGroup.catID, objType.groupID);
-                    m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), spawnTypeID, isIncursion);
+                    m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), spawnTypeID, isIncursionDun);
                 } else if (isIncursionDun) {
                     // Incursion rooms carry SDE junk that renders as nothing:
                     // LCS gates (group 42) and belt markers (Xray S). Our own
