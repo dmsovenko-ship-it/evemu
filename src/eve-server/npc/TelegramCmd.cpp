@@ -849,13 +849,12 @@ void PollOnce(const std::string& endpoint, const std::string& proxy,
                                     + NumRu(a) + " плюс " + NumRu(b) + " = ?");
                     }
                 }
-                } else {
-                    if (!g_privateHinted[u.fromID]) {
-                        g_privateHinted[u.fromID] = 1;
-                        SendMessage(endpoint, proxy, token, u.chatID,
-                                    "Здравствуйте! Я слежу за порядком в игровом чате.\n"
-                                    "Чтобы писать в чат, вступите в него и отправьте первое сообщение — я пришлю сюда проверочный пример.");
-                    }
+            } else {
+                if (!g_privateHinted[u.fromID]) {
+                    g_privateHinted[u.fromID] = 1;
+                    SendMessage(endpoint, proxy, token, u.chatID,
+                                "Здравствуйте! Я слежу за порядком в игровом чате.\n"
+                                "Чтобы писать в чат, вступите в него и отправьте первое сообщение — я пришлю сюда проверочный пример.");
                 }
             }
             continue;
