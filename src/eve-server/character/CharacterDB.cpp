@@ -679,9 +679,9 @@ void CharacterDB::UpdateBotBio(uint32 charID, uint8 profession) {
             "SELECT COALESCE(description,'') FROM chrCharacters WHERE characterID = %u",
             charID))
         {
-            DBResultRow qrow;
-            if (qres.GetRow(qrow)) {
-                const char* d = qrow.GetText(0);
+            DBResultRow drow;
+            if (dres.GetRow(drow)) {
+                const char* d = drow.GetText(0);
                 hasBio = (d != nullptr && d[0] != '\0');
             }
         }

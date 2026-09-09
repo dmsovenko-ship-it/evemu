@@ -83,6 +83,15 @@ public:
 
     bool MakeDungeon(CosmicSignature& sig, uint32 dungeonID = 0);
 
+    // Picks a REAL Sansha Nation typeID for an incursion site (dungeonID
+    // 2100-2133). roleClass: 0 = frigate, 1 = cruiser, 2 = battleship. The
+    // static shared helper is used by SpawnMgr's wave chaining too, so the
+    // use site has one source of truth for the Sansha pools (real Crucible
+    // typeIDs out of groups 1053/1054/1056).
+    static uint16 IncursionSanshaType(uint32 dungeonID, uint8 roleClass);
+    // Total waves per incursion scene (vanguard 2, others 3), by dungeonID.
+    static uint8 IncursionWaveTotal(uint32 dungeonID);
+
     // public so AnomalyMgr can build W-space ore sites procedurally
     std::vector<uint32> SpawnMineableAsteroids(const GPoint& roomPos, uint32 count = 30);
     // Spawn a belt of ONE specific ore type (mission mining sites need the exact

@@ -19,6 +19,9 @@
 #include "system/cosmicMgrs/SpawnMgr.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
+#include "system/Celestial.h"
+#include "inventory/InventoryItem.h"
+#include <sstream>
 #include "incursion/IncursionMgr.h"
 #include "expedition/ExpeditionMgr.h"
 #include "EVE_Incursion.h"
@@ -325,7 +328,31 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                 return;  // NPCs still alive
             m_incursionAlive.erase(it);  // all dead
         } else {
-            return;  // not our tracked bubble
+            // not our tracked bubble — maybe it belongs to a chained wave pocket
+            if (m_incursionWave.find(pBubble->GetID()) == m_incursionWave.end())
+                return;  // not our tracked bubble
+        }
+        // ---- wave chain (user rule: gates + waves, sleeper layout) ----
+        // After every wave but the last, the next wave spawns in a new pocket
+        // 50M km along +x and a real 17831 Acceleration Gate (the mechanism
+        // sleepers use) spawns ~30km past the cleared pocket and teleports
+        // into the new pocket. After the LAST wave the site completes and
+        // rewards run as before.
+        auto wit = m_incursionWave.find(pBubble->GetID());
+        if (wit != m_incursionWave.end()) {
+            IncursionWave w = wit->second;
+            m_incursionWave.erase(wit);
+            uint8 total = DungeonMgr::IncursionWaveTotal(w.dungeonID);
+            if (w.waveNum < total) {
+                uint8 nxtWave = w.waveNum + 1;
+                GPoint nxtPocket = w.pocket;
+                nxtPocket.x += NEXT_DUNGEON_ROOM_DIST;
+                SpawnIncursionWave(w.dungeonID, nxtWave, nxtPocket);
+                sLog.White("SpawnMgr", "Incursion wave %u cleared in %s — wave %u spawned %u km out, gate placed.",
+                           w.waveNum, m_system->GetName().c_str(), (unsigned)(NEXT_DUNGEON_ROOM_DIST/1000));
+                return;   // site not complete yet
+            }
+            // last wave done -> fall through to completion/rewards below
         }
         // All NPCs dead — complete site, distribute rewards
         uint32 incursionID = 0;
@@ -460,6 +487,76 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
 }
 
 // Spawn an individual enemy inside a dungeon (called by dungeonMgr)
+// ---- incursion wave chain (user rule: gates + waves, sleeper layout) ----
+// Spawns wave `waveNum` of a Sansha incursion at `pocket` (new bubbles are
+// created on demand), registers the per-bubble wave state, then places the
+// real 17831 Acceleration Gate ~30km past the CLEARED pocket — the exact
+// mechanism sleeper dungeons use — whose customInfo `gate_to` teleports the
+// activating pilot into this wave's pocket (KeeperService handles the warp).
+void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint& toPocket)
+{
+    if (dungeonID < 2100 || dungeonID > 2133)
+        return;
+    SystemBubble* pocket = sBubbleMgr.GetBubble(m_system, toPocket);
+    if (pocket == nullptr) {
+        _log(COSMIC_MGR__ERROR, "SpawnIncursionWave - no bubble for wave %u in %u", waveNum, m_system->GetID());
+        return;
+    }
+    pocket->SetIncursion();
+
+    // composition: per scene tier, per wave
+    uint8 roleClass = 0;
+    auto addRat = [&](uint8 cls) {
+        uint16 tID = DungeonMgr::IncursionSanshaType(dungeonID, cls);
+        DoSpawnForAnomaly(pocket, toPocket, levelBase, tID, true);
+    };
+    uint8 levelBase = 1 + MakeRandomInt(0, 3);
+    if (dungeonID <= 2103) {            // vanguard: frigates only
+        addRat(0); addRat(0); addRat(0);
+        if (waveNum > 1) { addRat(0); addRat(1); }
+    } else if (dungeonID <= 2112) {      // assault
+        addRat(0); addRat(0); addRat(1);
+        if (waveNum > 1) { addRat(0); addRat(1); }
+    } else if (dungeonID <= 2122) {      // headquarters
+        addRat(1); addRat(1); addRat(0);
+        addRat(2); if (waveNum > 1) addRat(0);
+    } else {                             // staging 2130-2133
+        addRat(1); addRat(1); addRat(0);
+        addRat(2); if (waveNum > 1) addRat(2);
+    }
+
+    IncursionWave w;
+    w.dungeonID = dungeonID;
+    w.waveNum   = waveNum;
+    w.pocket    = toPocket;
+    m_incursionAlive.erase(pocket->GetID());
+    m_incursionWave[pocket->GetID()] = w;
+
+    // Gate ~30km past the CLEARED pocket (n-1), pointing at this wave's new
+    // pocket: the same sleeper layout (type 17831, static-map render,
+    // AddBallExclusive). Pockets sit NEXT_DUNGEON_ROOM_DIST apart on +x.
+    GPoint clearedPocket = toPocket;
+    clearedPocket.x -= NEXT_DUNGEON_ROOM_DIST;
+    GPoint nextRoomPos = toPocket;
+    nextRoomPos.x += NEXT_DUNGEON_ROOM_DIST;
+    GPoint gatePos = clearedPocket;
+    gatePos.x += 28000 + MakeRandomInt(0, 4000);   // 28-32km beyond the cleared pocket
+    ItemData gateData(17831, 0, m_system->GetID(), flagNone, "Acceleration Gate", gatePos);
+    uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
+    InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
+    if (gateRef.get() != nullptr) {
+        std::ostringstream ci;
+        ci << "gate_to:" << (long long)nextRoomPos.x << ":"
+           << (long long)nextRoomPos.y << ":" << (long long)nextRoomPos.z;
+        gateRef->SetCustomInfo(ci.str().c_str());
+        CelestialSE* gateSE = new CelestialSE(gateRef, m_system->GetServiceMgr(), m_system);
+        gateSE->SetIsStaticEntity(true);
+        m_system->AddEntity(gateSE, false);
+        if (gateSE->SysBubble() != nullptr)
+            gateSE->SysBubble()->AddBallExclusive(gateSE);
+    }
+}
+
 void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion)
 {
     if (pBubble == nullptr) {

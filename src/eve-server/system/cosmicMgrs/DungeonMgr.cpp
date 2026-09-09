@@ -346,9 +346,34 @@ void DungeonMgr::Process()
     }
 }
 
+// Sansha Nation type pools (real Crucible typeIDs, groups 1053/1054/1056).
+static const uint16 sSanshaFrigates[] = { 2190, 2907, 2909, 2939, 2966, 3259, 3492, 3524, 3525, 3526 };
+static const uint16 sSanshaCruisers[] = { 2191, 2207, 2208, 2209, 2859, 2931, 2936, 2950, 3527 };
+static const uint16 sSanshaBS[]       = { 2192, 3071, 2845, 2855, 2932 };
+
+uint16 DungeonMgr::IncursionSanshaType(uint32 dungeonID, uint8 roleClass)
+{
+    uint16 pick = 0;
+    switch (roleClass) {
+        case 1:  { const int n = (int)(sizeof(sSanshaCruisers)/sizeof(sSanshaCruisers[0]));
+                   pick = sSanshaCruisers[MakeRandomInt(0, n - 1)]; } break;
+        case 2:  { const int n = (int)(sizeof(sSanshaBS)/sizeof(sSanshaBS[0]));
+                   pick = sSanshaBS[MakeRandomInt(0, n - 1)]; } break;
+        default: { const int n = (int)(sizeof(sSanshaFrigates)/sizeof(sSanshaFrigates[0]));
+                   pick = sSanshaFrigates[MakeRandomInt(0, n - 1)]; }
+    }
+    return pick;
+}
+
+uint8 DungeonMgr::IncursionWaveTotal(uint32 dungeonID)
+{
+    if (dungeonID >= 2100 && dungeonID <= 2103)   // vanguard: two waves
+        return 2;
+    return 3;                                     // assault / HQ / staging
+}
+
 bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
 {
-    // TODO: create a new dungeon using the given signature
 
     Dungeon::Dungeon dData;
 
@@ -422,9 +447,43 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 if (objGroup.catID == EVEDB::invCategories::Ship || 
                     objGroup.catID == EVEDB::invCategories::Drone ||
                     objGroup.catID == EVEDB::invCategories::Entity) {
-                    bool isIncursion = (dungeonID >= 2100 && dungeonID <= 2122);
-                    sLog.Debug("MakeDungeon", "Spawning NPC typeID=%u cat=%u group=%u", object.typeID, objGroup.catID, objType.groupID);
-                    m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), object.typeID, isIncursion);
+                // Incursion dungeons (2100-2133): Sansha Nation NPC types live
+                // in groups 1051-1056 whose category is 11 in our dataset —
+                // routing them through the Celestial branch spawned static
+                // balloons with no AI/faction (white crosshair, no waves).
+                // Force the NPC path for them; foreign pirate typeIDs that
+                // SDE room data drags in (e.g. Renegade Blood Raider on a
+                // Sansha site) get replaced with a real Sansha pick per tier.
+                bool isIncursionDun = (dungeonID >= 2100 && dungeonID <= 2133);
+                bool isSanshaStub  = (objType.groupID >= 1051 && objType.groupID <= 1056);
+                uint16 spawnTypeID = object.typeID;
+                if (isIncursionDun && !isSanshaStub
+                    && (objGroup.catID == EVEDB::invCategories::Ship ||
+                        objGroup.catID == EVEDB::invCategories::Drone ||
+                        objGroup.catID == EVEDB::invCategories::Entity)) {
+                    // wrong-faction rat dragged in by the SDE room data —
+                    // swap for a real Sansha of the scene's class mix
+                    spawnTypeID = IncursionSanshaType(dungeonID, GetRandLevel());
+                    sLog.Debug("MakeDungeon", "Incursion guest NPC %u (%s) replaced with Sansha %u",
+                        object.typeID, sDataMgr.GetTypeName(object.typeID).c_str(), spawnTypeID);
+                }
+                bool npcThis = isSanshaStub ||
+                    (objGroup.catID == EVEDB::invCategories::Ship ||
+                     objGroup.catID == EVEDB::invCategories::Drone ||
+                     objGroup.catID == EVEDB::invCategories::Entity);
+                if (npcThis) {
+                    bool isIncursion = isIncursionDun;
+                    sLog.Debug("MakeDungeon", "Spawning NPC typeID=%u cat=%u group=%u",
+                        spawnTypeID, objGroup.catID, objType.groupID);
+                    m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), spawnTypeID, isIncursion);
+                } else if (isIncursionDun) {
+                    // Incursion rooms carry SDE junk that renders as nothing:
+                    // LCS gates (group 42) and belt markers (Xray S). Our own
+                    // wave chain spawns real 17831 gates, so skip those here —
+                    // the ore belt still comes from SpawnMineableAsteroids.
+                    sLog.Debug("MakeDungeon", "Skipping incursion celestial typeID=%u (group=%u)",
+                        object.typeID, objType.groupID);
+                    continue;
                 } else {
                     sLog.Debug("MakeDungeon", "Spawning CELESTIAL typeID=%u cat=%u group=%u", object.typeID, objGroup.catID, objType.groupID);
                     ItemData itemData(object.typeID, sig.ownerID, sig.systemID, flagNone, sDataMgr.GetTypeName(object.typeID), pos);
@@ -458,6 +517,15 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     cSE = new CelestialSE(iRef, m_system->GetServiceMgr(), m_system);
                     m_system->AddEntity(cSE, false);
                     newRoom.items.push_back(iRef->itemID());
+                }
+            }
+
+            // Incursion wave bookkeeping (user rule: gates + waves). Wave 1 is
+            // what the room objects just spawned; SpawnMgr chains the rest.
+            if (isIncursionDun) {
+                if (SystemBubble* wBubble = sBubbleMgr.FindBubble(m_system->GetID(), newRoom.position);
+                    wBubble != nullptr) {
+                    m_spawnMgr->RegisterIncursionWave(wBubble->GetID(), dungeonID, 1, newRoom.position);
                 }
             }
 

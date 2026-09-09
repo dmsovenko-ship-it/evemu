@@ -42,6 +42,19 @@ public:
 
     bool DoSpawnForBubble(SystemBubble* pBubble);
     void DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion = false);
+    // DungeonMgr registers each incursion site bubble (dungeonID, wave #,
+    // pocket center); the wave chain itself runs out of SpawnKilled.
+    void RegisterIncursionWave(uint32 bubbleID, uint32 dungeonID, uint8 waveNum, const GPoint& pocket) {
+        IncursionWave w;
+        w.dungeonID = dungeonID;
+        w.waveNum   = waveNum;
+        w.pocket    = pocket;
+        m_incursionAlive.erase(bubbleID);
+        m_incursionWave[bubbleID] = w;
+    }
+    // Spawns wave N of an incursion at the new pocket + places the 17831 gate
+    // that leads there (from the cleared pocket in wave N-1).
+    void SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint& toPocket);
     void DoSpawnForMission(SystemBubble* pBubble, uint32 regionID);
     void DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8 sceneType = 3, uint32 incursionID = 0);
     void DoSpawnMothership(SystemBubble* pBubble, uint32 incursionID);
@@ -100,6 +113,18 @@ private:
     RatBubbleVec m_bubbles;
     SpawnEntryDef m_spawns;
     std::map<uint32, uint32> m_incursionAlive;   // bubbleID -> NPC count for incursion wave tracking
+    // incursion wave chain (user rule: gates + waves). SpawnMgr tracks the
+    // dungeon/wave per site bubble; when wave N's NPCs all die, the NEXT wave
+    // spawns in a new pocket 50M km along +x and a real 17831 Acceleration Gate
+    // (the mechanism sleepers use) spawns ~30km past the cleared pocket and
+    // teleports into the new pocket on activation. After the LAST wave, the
+    // regular site-completion/reward path runs as before.
+    struct IncursionWave {
+        uint32 dungeonID = 0;
+        uint8  waveNum   = 1;
+        GPoint pocket;
+    };
+    std::map<uint32, IncursionWave> m_incursionWave;   // bubbleID -> wave state
     RatSpawningVec m_ratSpawns;
     RatSpawnGroupVec m_toSpawn;
     RatSpawnClassVec m_ratSpawnClass;               // not used
