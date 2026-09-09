@@ -109,12 +109,19 @@ void BotMgr::CleanupOrphanedSpaceItems()
     else if (affected > 0)
         sLog.White("      BotMgr", "Space cleanup: removed %u orphaned drones (pilot docked/offline).", affected);
 
-    // 3) Pilot-pool trim: if a previous over-spawn (or repeated cleanup+spawn
-    //    cycles) pushed the persistent pool past MaxTotalPilots, delete the
-    //    NEWEST characters beyond the cap together with their memory/portrait
-    //    maps, private mail, killmails and owned items. The oldest ~Nam pilots
-    //    stay — the spawner reuses them with their saved professions instead
-    //    of rolling fresh legends, so the population is a stable set.
+    // 3) the stable-pilot-pool trim (see TrimPilotPool below for details).
+    TrimPilotPool();
+}
+
+// Boot-time pilot-pool trim: if a previous over-spawn (or repeated cleanup+
+// spawn cycles) pushed the persistent pool past MaxTotalPilots, delete the
+// NEWEST characters beyond the cap together with their memory/portrait maps,
+// private mail, killmails and owned items. The oldest ~N capped pilots stay —
+// the spawner reuses them with their saved professions instead of rolling
+// fresh legends, so the population is one stable capped set (user rule).
+void BotMgr::TrimPilotPool()
+{
+    DBerror err;
     uint32 cap = sConfig.playerBots.MaxTotalPilots;
     if (cap == 0)
         return;
