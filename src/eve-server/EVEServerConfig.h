@@ -377,6 +377,7 @@ public:
         bool PlayerEnabled;
         std::string PlayerBotToken;
         std::string PlayerChatID;
+        std::string PlayerAnnounceChatID;   // broadcasts (news/digests) only go here; if empty → PlayerChatID
         bool AdminEnabled;
         std::string AdminBotToken;
         std::string AdminChatID;

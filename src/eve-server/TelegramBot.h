@@ -89,12 +89,15 @@ inline void NotifyToChats(const std::string& endpoint, const std::string& proxy,
     }
 }
 
-// Public events → the player group(s).
+// Public events → the player announce channel (defaults to PlayerChatID so a
+// group-only setup keeps working unchanged). Group duplicates come from the
+// channel's own "linked channel" posts, not from the bot.
 inline void NotifyPlayer(const std::string& text)
 {
     auto& tg = EVEServerConfig::get().telegram;
     if (tg.PlayerEnabled)
-        NotifyToChats(tg.Endpoint, tg.Proxy, tg.PlayerBotToken, tg.PlayerChatID, text);
+        NotifyToChats(tg.Endpoint, tg.Proxy, tg.PlayerBotToken,
+                      tg.PlayerAnnounceChatID.empty() ? tg.PlayerChatID : tg.PlayerAnnounceChatID, text);
 }
 
 // Security/priority alerts → the closed admin group(s).

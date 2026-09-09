@@ -258,6 +258,7 @@ EVEServerConfig::EVEServerConfig()
     telegram.PlayerEnabled = false;
     telegram.PlayerBotToken = "";
     telegram.PlayerChatID = "";
+    telegram.PlayerAnnounceChatID = "";
     telegram.AdminEnabled = false;
     telegram.AdminBotToken = "";
     telegram.AdminChatID = "";
@@ -950,6 +951,7 @@ bool EVEServerConfig::ProcessTelegram(const TiXmlElement* ele)
     AddValueParser( "PlayerEnabled",    telegram.PlayerEnabled );
     AddValueParser( "PlayerBotToken",   telegram.PlayerBotToken );
     AddValueParser( "PlayerChatID",     telegram.PlayerChatID );
+    AddValueParser( "PlayerAnnounceChatID", telegram.PlayerAnnounceChatID );
     AddValueParser( "AdminEnabled",     telegram.AdminEnabled );
     AddValueParser( "AdminBotToken",    telegram.AdminBotToken );
     AddValueParser( "AdminChatID",      telegram.AdminChatID );
@@ -961,6 +963,7 @@ bool EVEServerConfig::ProcessTelegram(const TiXmlElement* ele)
     RemoveParser( "PlayerEnabled" );
     RemoveParser( "PlayerBotToken" );
     RemoveParser( "PlayerChatID" );
+    RemoveParser( "PlayerAnnounceChatID" );
     RemoveParser( "AdminEnabled" );
     RemoveParser( "AdminBotToken" );
     RemoveParser( "AdminChatID" );
