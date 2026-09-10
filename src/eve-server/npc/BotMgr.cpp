@@ -3415,10 +3415,10 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
 
     if (BotCraftRecursive(db.charID, stationID, productID, runs, 0)) {
         _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) built %u x %s at station %u.",
-             db.name.c_str(), db.charID, runs, sDataMgr.GetTypeName(productID).c_str(), stationID);
+             db.name.c_str(), db.charID, runs, sDataMgr.GetTypeName(productID), stationID);
     } else {
         _log(BOT__TRACE, "BotMgr: industrialist %s(%u) could not source materials for %s — skipping.",
-             db.name.c_str(), db.charID, sDataMgr.GetTypeName(productID).c_str());
+             db.name.c_str(), db.charID, sDataMgr.GetTypeName(productID));
     }
 }
 
