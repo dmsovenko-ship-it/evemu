@@ -42,15 +42,15 @@ public:
 
     bool DoSpawnForBubble(SystemBubble* pBubble);
     void DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion = false);
-    // DungeonMgr registers each incursion site bubble (dungeonID, wave #,
-    // pocket center); the wave chain itself runs out of SpawnKilled.
+    // DungeonMgr registers the system's incursion site (one per system). The
+    // wave chain runs out of SpawnKilled; registration must NOT touch the alive
+    // counter (the NPC spawn already counted them).
     void RegisterIncursionWave(uint32 bubbleID, uint32 dungeonID, uint8 waveNum, const GPoint& pocket) {
-        IncursionWave w;
-        w.dungeonID = dungeonID;
-        w.waveNum   = waveNum;
-        w.pocket    = pocket;
-        m_incursionAlive.erase(bubbleID);
-        m_incursionWave[bubbleID] = w;
+        (void)bubbleID;
+        m_incursionSite.dungeonID = dungeonID;
+        m_incursionSite.waveNum   = waveNum;
+        m_incursionSite.pocket    = pocket;
+        m_hasIncursionSite = true;
     }
     // Spawns wave N of an incursion at the new pocket + places the 17831 gate
     // that leads there (from the cleared pocket in wave N-1).
@@ -112,19 +112,19 @@ private:
 
     RatBubbleVec m_bubbles;
     SpawnEntryDef m_spawns;
-    std::map<uint32, uint32> m_incursionAlive;   // bubbleID -> NPC count for incursion wave tracking
-    // incursion wave chain (user rule: gates + waves). SpawnMgr tracks the
-    // dungeon/wave per site bubble; when wave N's NPCs all die, the NEXT wave
-    // spawns in a new pocket 50M km along +x and a real 17831 Acceleration Gate
-    // (the mechanism sleepers use) spawns ~30km past the cleared pocket and
-    // teleports into the new pocket on activation. After the LAST wave, the
-    // regular site-completion/reward path runs as before.
+    // ONE incursion site per system: a plain alive counter + the site's wave
+    // state. Keying by bubbleID was fragile — NPCs spawned at object offsets
+    // often sit in a different bubble than the anomaly centre, so the kill's
+    // bubble never matched the registered one and the wave chain never
+    // advanced (no next wave, no gate).
     struct IncursionWave {
         uint32 dungeonID = 0;
         uint8  waveNum   = 1;
         GPoint pocket;
     };
-    std::map<uint32, IncursionWave> m_incursionWave;   // bubbleID -> wave state
+    uint32 m_incursionAliveCount = 0;   // live NPCs at the system's incursion site
+    bool   m_hasIncursionSite = false;
+    IncursionWave m_incursionSite;
     RatSpawningVec m_ratSpawns;
     RatSpawnGroupVec m_toSpawn;
     RatSpawnClassVec m_ratSpawnClass;               // not used

@@ -320,26 +320,19 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
          * 5- more/others?
          */
     } else if (pBubble->IsIncursion()) {
-        _log(SPAWN__MESSAGE, "SpawnKilled::Incursion - kill by %u in bubble %u (tracked=%d, waveEntry=%d).",
-             itemID, pBubble->GetID(), (int)m_incursionAlive.count(pBubble->GetID()),
-             (int)m_incursionWave.count(pBubble->GetID()));
-        // Track incursion NPC kills — m_incursionAlive counts NPCs spawned via DoSpawnForAnomaly
-        auto it = m_incursionAlive.find(pBubble->GetID());
-        if (it != m_incursionAlive.end()) {
-            if (--it->second > 0)
-                return;  // NPCs still alive
-            m_incursionAlive.erase(it);  // all dead
-        }
+        _log(SPAWN__MESSAGE, "SpawnKilled::Incursion - kill by %u in bubble %u (alive=%u, site=%d).",
+             itemID, pBubble->GetID(), m_incursionAliveCount, (int)m_hasIncursionSite);
+        // One incursion site per system: a single alive counter (bubble-agnostic,
+        // the spawns can straddle bubble edges). Decrement; only when the last
+        // NPC dies does the wave advance.
+        if (m_incursionAliveCount > 0)
+            --m_incursionAliveCount;
+        if (m_incursionAliveCount > 0)
+            return;   // NPCs of this wave still alive
+
         // ---- wave chain (user rule: gates + waves, sleeper layout) ----
-        // Find this site's wave state. If the kill happened in a bubble other
-        // than the one registered (spread spawns can cross a bubble edge), fall
-        // back to the single site in this system so the chain still advances.
-        auto wit = m_incursionWave.find(pBubble->GetID());
-        if (wit == m_incursionWave.end() && !m_incursionWave.empty())
-            wit = m_incursionWave.begin();
-        if (wit != m_incursionWave.end()) {
-            IncursionWave w = wit->second;
-            m_incursionWave.erase(wit);
+        if (m_hasIncursionSite) {
+            IncursionWave w = m_incursionSite;
             uint8 total = DungeonMgr::IncursionWaveTotal(w.dungeonID);
             if (w.waveNum < total) {
                 uint8 nxtWave = w.waveNum + 1;
@@ -351,6 +344,7 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                 return;   // site not complete yet
             }
             // last wave done -> fall through to completion/rewards below
+            m_hasIncursionSite = false;
         }
         // All NPCs dead — complete site, distribute rewards
         uint32 incursionID = 0;
@@ -505,7 +499,7 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
     // Decorations for this pocket — the first room gets them from MakeDungeon,
     // but the chained wave pockets are created here, so dress them too.
     if (m_dungMgr != nullptr)
-        m_dungMgr->SpawnDecorations(toPocket, factionSanshas, 0);
+        m_dungMgr->SpawnDecorations(toPocket, factionSanshas, 3);   // same tier as the site
 
     // composition: per scene tier, per wave
     uint8 levelBase = 1 + MakeRandomInt(0, 3);
@@ -527,12 +521,12 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
         addRat(2); if (waveNum > 1) addRat(2);
     }
 
-    IncursionWave w;
-    w.dungeonID = dungeonID;
-    w.waveNum   = waveNum;
-    w.pocket    = toPocket;
-    m_incursionAlive.erase(pocket->GetID());
-    m_incursionWave[pocket->GetID()] = w;
+    // Update the system's single site state to this wave. Do NOT touch the
+    // alive counter — addRat() above already counted the newly spawned NPCs.
+    m_incursionSite.dungeonID = dungeonID;
+    m_incursionSite.waveNum   = waveNum;
+    m_incursionSite.pocket    = toPocket;
+    m_hasIncursionSite = true;
 
     // Gate well BEYOND the current pocket along the jump direction (+x toward
     // the next room), past the NPC cluster/decor — not between the pockets.
@@ -702,7 +696,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
                 // Track incursion NPCs for wave completion detection
                 if (isIncursion)
-                    ++m_incursionAlive[pBubble->GetID()];
+                    ++m_incursionAliveCount;
 
                 // Trigger client crosshair initialization WITHOUT scattering the rats.
                 // The old WarpTo(random 1-4km) flung the ambush formation apart the
