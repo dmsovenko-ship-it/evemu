@@ -93,6 +93,9 @@ public:
     // Returns the ISK spent (>0) and mints the item into the bot's hangar; 0 when
     // the bot cannot afford it or the buy could not complete.
     double BotBuyStock(uint32 botCharID, uint32 stationID, uint32 typeID, uint32 qty);
+    // Deficit logistics: buy from the best sell order anywhere in the region and
+    // deliver into the bot's hangar at destStationID (abstract courier/import).
+    double BotBuyStockRemote(uint32 botCharID, uint32 destStationID, uint32 typeID, uint32 qty);
 
     //forces a refresh of market data.
     void SendOnOwnOrderChanged(Client* pClient, uint32 orderID, uint8 action, bool isCorp = false, PyRep* order = nullptr);

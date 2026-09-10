@@ -3365,8 +3365,12 @@ static bool BotCraftRecursive(uint32 charID, uint32 stationID, uint32 typeID, ui
     // Leaf (no recipe): must be bought from the market.
     if (mats.empty()) {
         uint32 have = BotHangarQty(charID, stationID, typeID);
-        if (have < runs)
+        if (have < runs) {
             sMktMgr.BotBuyStock(charID, stationID, typeID, runs - have);
+            have = BotHangarQty(charID, stationID, typeID);
+            if (have < runs)
+                sMktMgr.BotBuyStockRemote(charID, stationID, typeID, runs - have);  // import from the region
+        }
         return BotHangarQty(charID, stationID, typeID) >= runs;
     }
 
@@ -3380,6 +3384,9 @@ static bool BotCraftRecursive(uint32 charID, uint32 stationID, uint32 typeID, ui
                     return false;
             } else {
                 sMktMgr.BotBuyStock(charID, stationID, m.typeID, missing);
+                uint32 nowHave = BotHangarQty(charID, stationID, m.typeID);
+                if (nowHave < needTotal)
+                    sMktMgr.BotBuyStockRemote(charID, stationID, m.typeID, needTotal - nowHave); // import
             }
             if (BotHangarQty(charID, stationID, m.typeID) < needTotal)
                 return false;   // market couldn't supply the input

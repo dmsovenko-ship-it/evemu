@@ -1303,6 +1303,112 @@ double MarketMgr::BotBuyStock(uint32 botCharID, uint32 stationID, uint32 typeID,
     return money;
 }
 
+// Deficit logistics: buy a missing input from the best resting SELL order
+// ANYWHERE in the region (e.g. Jita) and have it delivered into the bot's
+// hangar at destStationID (abstract courier). Used by the Industrialist when
+// the local market cannot supply a material.
+double MarketMgr::BotBuyStockRemote(uint32 botCharID, uint32 destStationID, uint32 typeID, uint32 qty)
+{
+    if (botCharID == 0 || destStationID == 0 || typeID == 0 || qty == 0)
+        return 0.0;
+
+    uint32 regionID = sDataMgr.GetStationRegion(destStationID);
+
+    uint32 orderID = 0, orderStation = 0, seller = 0;
+    uint16 sellerKey = Account::KeyType::Cash;
+    double price = 0.0;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT orderID, price, stationID, ownerID, accountKey FROM mktOrders"
+            " WHERE typeID = %u AND bid = 0 AND volRemaining >= %u AND price > 0"
+            "   AND regionID = %u AND ownerID <> %u"
+            " ORDER BY price ASC, orderID ASC LIMIT 1",
+            typeID, qty, regionID, botCharID))
+        {
+            DBResultRow row;
+            if (res.GetRow(row)) {
+                orderID      = row.GetUInt(0);
+                price        = row.GetDouble(1);
+                orderStation = row.GetUInt(2);
+                seller       = row.GetUInt(3);
+                sellerKey    = (uint16)row.GetUInt(4);
+            }
+        }
+    }
+    if (orderID == 0 || price <= 0.0)
+        return 0.0;
+
+    double money = price * qty;
+
+    double botBalance = 0;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT balance FROM chrCharacters WHERE characterID = %u", botCharID)) {
+            DBResultRow row;
+            if (res.GetRow(row)) botBalance = row.GetDouble(0);
+        }
+    }
+    if (botBalance < money) {
+        _log(MARKET__TRACE, "BotBuyStockRemote - bot %u can't cover %.2f for %u x type %u (balance %.2f).",
+             botCharID, money, qty, typeID, botBalance);
+        return 0.0;
+    }
+
+    std::string reason = "DESC:  Importing market items from " + stDataMgr.GetStationName(orderStation)
+                       + " to " + stDataMgr.GetStationName(destStationID);
+    AccountService::TransferFunds(botCharID, seller, money, reason.c_str(),
+        Journal::EntryType::MarketTransaction, orderID, Account::KeyType::Cash, sellerKey);
+    uint8 acctLvl = CharacterDB::GetSkillLevel(seller, EvESkill::Accounting);
+    uint8 taxEvLvl = CharacterDB::GetSkillLevel(seller, EvESkill::TaxEvasion);
+    float tax = EvEMath::Market::SalesTax(sConfig.market.salesTax, acctLvl, taxEvLvl) * (float)money;
+    AccountService::TransferFunds(seller, corpSCC, tax, reason.c_str(),
+        Journal::EntryType::TransactionTax, orderID, sellerKey);
+
+    uint32 volRemaining = 0;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT volRemaining FROM mktOrders WHERE orderID = %u", orderID)) {
+            DBResultRow row;
+            if (res.GetRow(row)) volRemaining = row.GetUInt(0);
+        }
+    }
+    if (qty >= volRemaining)
+        MarketDB::DeleteOrder(orderID);
+    else
+        MarketDB::AlterOrderQuantity(orderID, volRemaining - qty);
+    InvalidateOrdersCache(regionID, typeID, orderStation);
+
+    Market::TxData data = Market::TxData();
+    data.accountKey = Account::KeyType::Cash;
+    data.isBuy = Market::Type::Buy;
+    data.isCorp = false;
+    data.memberID = botCharID;
+    data.clientID = seller;
+    data.price = price;
+    data.quantity = qty;
+    data.stationID = orderStation;
+    data.regionID = regionID;
+    data.typeID = typeID;
+    MarketDB::RecordTransaction(data);
+    data.isBuy = Market::Type::Sell;
+    data.memberID = seller;
+    data.clientID = botCharID;
+    MarketDB::RecordTransaction(data);
+
+    ItemData idata((uint16)typeID, destStationID, locTemp, flagNone, qty);
+    InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+    if (iRef.get() == nullptr) {
+        _log(MARKET__ERROR, "BotBuyStockRemote - failed to mint %u x type %u for bot %u.", qty, typeID, botCharID);
+        return 0.0;
+    }
+    iRef->Donate(botCharID, destStationID, flagHangar, true);
+
+    _log(MARKET__MESSAGE, "BotBuyStockRemote - bot %u imported %u x type %u from station %u to %u @%.2f (-%.2f ISK).",
+         botCharID, qty, typeID, orderStation, destStationID, price, money);
+    return money;
+}
+
 
 // after finding price data from Crucible, this may be moot.   -allan 28Feb21
 void MarketMgr::SetBasePrice()
