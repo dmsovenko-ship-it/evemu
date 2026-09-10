@@ -98,10 +98,12 @@ public:
     // ore the agent asked for). Type is validated against known ores first.
     std::vector<uint32> SpawnMineableAsteroids(uint32 typeID, const GPoint& roomPos, uint32 count = 30);
 
+    // Spawn procedural decorations for a room/pocket. Public so SpawnMgr can
+    // dress the chained incursion wave pockets (not just the first room).
+    std::vector<uint32> SpawnDecorations(const GPoint& roomPos, uint32 factionID, uint8 whClass = 0);
+
 protected:
     ManagerDB m_db;
-
-    std::vector<uint32> SpawnDecorations(const GPoint& roomPos, uint32 factionID, uint8 whClass = 0);
 
     /* we do not own any of these */
 private:
