@@ -2080,15 +2080,12 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     // snap happens once, in WarpStop.
     if (m_targetDistance <= 1.0) {
         if (!m_warpStopDelay.Enabled()) {
-            // Hold must cover the CLIENT-side decel tail (destiny.dll's two-phase
-            // decel finishes later than our server-side convergence), so derive
-            // it from the actual decel duration: decelDist / warpSpeed, rounded
-            // up, plus a 5s base margin. For 11 AU on a supercarrier the decel
-            // alone is ~8-10 s, so the hold lands at 13-15 s; short warps only
-            // need the 5s base.
+            // Independent of distance (10 or 35 AU same residual); the warp-exit
+            // mismatch is a fixed-latency settle window. 8s base + 1s per AU of
+            // decel duration when it matters (capital long warps).
             double decelTime = (m_warpState->decelDist / m_warpState->warpSpeed);
-            double holdMs = 5000.0 + (1000.0 * std::ceil(decelTime));
-            if (holdMs < 5000.0) holdMs = 5000.0;
+            double holdMs = 8000.0 + (1000.0 * std::ceil(decelTime));
+            if (holdMs < 8000.0) holdMs = 8000.0;
             if (holdMs > 20000.0) holdMs = 20000.0;
             m_warpStopDelay.Start((uint32)holdMs);
         }
