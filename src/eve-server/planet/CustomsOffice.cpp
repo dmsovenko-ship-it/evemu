@@ -53,7 +53,7 @@ m_system(system)
     m_oData.planetID = atoi(m_self->customInfo().c_str());
     m_planetSE = nullptr;
     if (m_oData.planetID != 0) {
-        PlanetSE* pPlanet = m_system->GetPlanet(m_oData.planetID);
+        SystemEntity* pPlanet = m_system->GetPlanet(m_oData.planetID);
         if (pPlanet != nullptr)
             m_planetSE = pPlanet->GetPlanetSE();
     }
