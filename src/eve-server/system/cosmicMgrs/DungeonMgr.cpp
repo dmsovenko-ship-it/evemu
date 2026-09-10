@@ -461,14 +461,17 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 // Sansha site) get replaced with a real Sansha pick per tier.
                 bool isSanshaStub  = (objType.groupID >= 1051 && objType.groupID <= 1056);
                 uint16 spawnTypeID = object.typeID;
-                if (isIncursionDun && !isSanshaStub
-                    && (objGroup.catID == EVEDB::invCategories::Ship ||
+                if (isIncursionDun &&
+                    (isSanshaStub
+                     || objGroup.catID == EVEDB::invCategories::Ship ||
                         objGroup.catID == EVEDB::invCategories::Drone ||
                         objGroup.catID == EVEDB::invCategories::Entity)) {
-                    // wrong-faction rat dragged in by the SDE room data —
-                    // swap for a real Sansha of the scene's class mix
+                    // Both the damage-less Sansha "stub" types (groups 1051-1056,
+                    // white crosshair, 0 damage) AND foreign-faction rats dragged
+                    // in by the SDE room data are replaced with a REAL Sansha pick
+                    // of the scene's class mix.
                     spawnTypeID = IncursionSanshaType(dungeonID, GetRandLevel());
-                    sLog.Debug("MakeDungeon", "Incursion guest NPC %u (%s) replaced with Sansha %u",
+                    sLog.Debug("MakeDungeon", "Incursion NPC %u (%s) replaced with Sansha %u",
                         object.typeID, sDataMgr.GetTypeName(object.typeID), spawnTypeID);
                 }
                 bool npcThis = isSanshaStub ||
