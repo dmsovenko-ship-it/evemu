@@ -339,7 +339,7 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                 GPoint nxtPocket = w.pocket;
                 nxtPocket.x += NEXT_DUNGEON_ROOM_DIST;
                 SpawnIncursionWave(w.dungeonID, nxtWave, nxtPocket);
-                sLog.White("SpawnMgr", "Incursion wave %u cleared in %s — wave %u spawned %u km out, gate placed.",
+                sLog.Warning("SpawnMgr", "Incursion wave %u cleared in %s — wave %u spawned %u km out, gate placed.",
                            w.waveNum, m_system->GetName(), (unsigned)(NEXT_DUNGEON_ROOM_DIST/1000));
                 return;   // site not complete yet
             }
@@ -528,12 +528,15 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
     m_incursionSite.pocket    = toPocket;
     m_hasIncursionSite = true;
 
-    // Gate well BEYOND the current pocket along the jump direction (+x toward
-    // the next room), past the NPC cluster/decor — not between the pockets.
-    GPoint nextRoomPos = toPocket;
-    nextRoomPos.x += NEXT_DUNGEON_ROOM_DIST;
-    GPoint gatePos = toPocket;
-    gatePos.x += 30000 + MakeRandomInt(0, 4000);   // 48-56km beyond the pocket center
+    // The gate must appear NEXT TO THE PLAYER — i.e. at the pocket that was
+    // just cleared (this wave's pocket minus one room distance), ~30km past its
+    // centre — and teleport INTO this wave's pocket (toPocket). Previously it
+    // was placed at toPocket+30km, which is 50M km away: invisible and useless.
+    GPoint clearedPocket = toPocket;
+    clearedPocket.x -= NEXT_DUNGEON_ROOM_DIST;
+    GPoint gatePos = clearedPocket;
+    gatePos.x += 30000 + MakeRandomInt(0, 4000);   // 30-34km past the cleared pocket centre
+    GPoint nextRoomPos = toPocket;                 // gate_to = this wave's pocket
     ItemData gateData(17831, 0, m_system->GetID(), flagNone, "Acceleration Gate", gatePos);
     uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
     InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
@@ -547,7 +550,7 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
         m_system->AddEntity(gateSE, false);
         if (gateSE->SysBubble() != nullptr)
             gateSE->SysBubble()->AddBallExclusive(gateSE);
-        sLog.White("SpawnMgr", "Incursion wave %u gate placed at (%.0f,%.0f,%.0f) -> next room (%.0f,%.0f,%.0f).",
+        sLog.Warning("SpawnMgr", "Incursion wave %u gate placed at (%.0f,%.0f,%.0f) -> next pocket (%.0f,%.0f,%.0f).",
                    waveNum, gatePos.x, gatePos.y, gatePos.z, nextRoomPos.x, nextRoomPos.y, nextRoomPos.z);
     }
 }
