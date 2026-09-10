@@ -1232,20 +1232,22 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 float p = MakeRandomFloat();
                 if (p < 0.10f)
                     prof = PlayerBot::BotProfession::Hunter;       // PvP pirates / war corps / guards
-                else if (p < 0.25f)
+                else if (p < 0.24f)
                     prof = PlayerBot::BotProfession::RatHunter;    // peaceful PvE (red crosses only)
-                else if (p < 0.50f)
+                else if (p < 0.46f)
                     prof = PlayerBot::BotProfession::Miner;        // miners (co-op with guards)
-                else if (p < 0.60f)
+                else if (p < 0.56f)
                     prof = PlayerBot::BotProfession::Trader;       // market / station traders
-                else if (p < 0.80f)
+                else if (p < 0.72f)
                     prof = PlayerBot::BotProfession::Courier;      // couriers: haul to/from hub
-                else if (p < 0.90f)
+                else if (p < 0.82f)
                     prof = PlayerBot::BotProfession::Hacker;       // data/relic sites
-                else if (p < 0.95f)
+                else if (p < 0.88f)
                     prof = PlayerBot::BotProfession::Missioner;    // agent mission runners
-                else
+                else if (p < 0.93f)
                     prof = PlayerBot::BotProfession::Explorer;     // probes / wormholes
+                else
+                    prof = PlayerBot::BotProfession::Industrialist; // producers/builders (POS, PI, logistics)
                 DBerror perr;
                 sDatabase.RunQuery(perr,
                     "INSERT INTO botMemory (charID, shipTypeID, profession, skillLevel, lastUpdate)"
@@ -1331,6 +1333,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 // Agent mission runner — a standard combat hull (cruiser/BC), the
                 // kind of ship an agent contract pilot actually uses.
                 pick = combatHulls; pickCount = sizeof(combatHulls)/sizeof(combatHulls[0]); forceProfessionHull = true;
+                break;
+            case PlayerBot::BotProfession::Industrialist:
+                // Producer/builder flies an industrial hauler (moves its own goods
+                // between the POS/station and the market).
+                pick = haulerHulls; pickCount = sizeof(haulerHulls)/sizeof(haulerHulls[0]); forceProfessionHull = true;
                 break;
             default:   // Hunter / RatHunter — combat
                 pick = combatHulls; pickCount = sizeof(combatHulls)/sizeof(combatHulls[0]);
@@ -3005,6 +3012,16 @@ void BotMgr::ProcessDockedEconomy()
                     SellStockAtHub(sysID, db.stationID, db.charID);
                 else if (PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID) == 0)
                     PlaceBotCourierContractAt(sysID, db.charID, db.corpID);
+            } else if (prof == (uint8)PlayerBot::BotProfession::Industrialist) {
+                // Producer/builder: run the manufacturing chain, then move the
+                // output to the hub (courier) or sell it if already at the hub.
+                ProcessDockedIndustrialEconomy(sysID, db.stationID, db);
+                if (MakeRandomInt(0, 99) < 20)
+                    PlaceBotBuyOrderAt(sysID, db.charID, prof);
+                if (IsTradeHub(sysID))
+                    SellStockAtHub(sysID, db.stationID, db.charID);
+                else
+                    PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID);
             } else if (prof == (uint8)PlayerBot::BotProfession::Miner
                        || prof == (uint8)PlayerBot::BotProfession::RatHunter
                        || prof == (uint8)PlayerBot::BotProfession::Hacker
@@ -3232,6 +3249,177 @@ void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const Do
     }
 
     mem.Save();
+}
+
+// ============================================================================
+// Industrialist (producer/builder)
+//
+// Runs a REAL multi-level manufacturing chain: the bill of materials is read
+// from invTypeMaterials and resolved recursively (a T2 module needs components,
+// which need minerals, ...). Missing inputs are bought from the best resting
+// sell orders at the bot's station (MarketMgr::BotBuyStock mints them into the
+// bot's hangar); crafted intermediates are consumed from the hangar and the
+// finished product is minted back into it. The caller then ships/sells the
+// output exactly like the other producers (courier to hub or direct sale).
+//
+// POS anchoring (tower/assembly array at a moon) and real PI colonies are the
+// next stage; this function is the manufacturing core they will feed.
+// ============================================================================
+
+static uint32 BotHangarQty(uint32 charID, uint32 stationID, uint32 typeID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT COALESCE(SUM(quantity),0) FROM entity"
+        " WHERE ownerID = %u AND locationID = %u AND flag = %u AND typeID = %u"
+        "   AND singleton = 0 AND quantity > 0",
+        charID, stationID, (uint32)flagHangar, typeID))
+        return 0;
+    DBResultRow row;
+    if (res.GetRow(row)) return row.GetUInt(0);
+    return 0;
+}
+
+static void BotHangarConsume(uint32 charID, uint32 stationID, uint32 typeID, uint32 qty)
+{
+    if (qty == 0) return;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT itemID, quantity FROM entity"
+        " WHERE ownerID = %u AND locationID = %u AND flag = %u AND typeID = %u"
+        "   AND singleton = 0 AND quantity > 0 ORDER BY quantity ASC",
+        charID, stationID, (uint32)flagHangar, typeID))
+        return;
+    DBResultRow row;
+    uint32 need = qty;
+    while (need > 0 && res.GetRow(row)) {
+        uint32 itemID = row.GetUInt(0);
+        uint32 have   = row.GetUInt(1);
+        InventoryItemRef iRef = sItemFactory.GetItemRef(itemID);
+        if (iRef.get() == nullptr)
+            continue;
+        if (have <= need) {
+            need -= have;
+            iRef->Delete();
+        } else {
+            iRef->SetQuantity((int32)(have - need), false);
+            need = 0;
+        }
+    }
+}
+
+static bool BotHangarMint(uint32 charID, uint32 stationID, uint32 typeID, uint32 qty)
+{
+    if (qty == 0) return true;
+    ItemData idata((uint16)typeID, charID, stationID, flagHangar, qty);
+    InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+    if (iRef.get() == nullptr) {
+        _log(BOT__ERROR, "BotHangarMint: failed to mint %u x type %u for %u.", qty, typeID, charID);
+        return false;
+    }
+    iRef->SaveItem();
+    return true;
+}
+
+static bool BotTypeHasMaterials(uint32 typeID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT COUNT(*) FROM invTypeMaterials WHERE typeID = %u", typeID)) {
+        DBResultRow row;
+        if (res.GetRow(row)) return row.GetUInt(0) > 0;
+    }
+    return false;
+}
+
+// Recursively ensure `runs` of typeID are in the bot's hangar, crafting
+// intermediates and buying base materials. Returns false if some input could
+// not be sourced (market empty) — the caller then skips the job.
+static bool BotCraftRecursive(uint32 charID, uint32 stationID, uint32 typeID, uint32 runs, int depth)
+{
+    if (depth > 8)
+        return false;
+    if (runs == 0)
+        return true;
+
+    // Read the bill of materials for one run.
+    struct Mat { uint32 typeID; uint32 qty; };
+    std::vector<Mat> mats;
+    {
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT materialTypeID, quantity FROM invTypeMaterials WHERE typeID = %u", typeID))
+            return false;
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            Mat m; m.typeID = row.GetUInt(0); m.qty = row.GetUInt(1);
+            if (m.typeID != 0 && m.qty != 0) mats.push_back(m);
+        }
+    }
+
+    // Leaf (no recipe): must be bought from the market.
+    if (mats.empty()) {
+        uint32 have = BotHangarQty(charID, stationID, typeID);
+        if (have < runs)
+            sMktMgr.BotBuyStock(charID, stationID, typeID, runs - have);
+        return BotHangarQty(charID, stationID, typeID) >= runs;
+    }
+
+    for (const auto& m : mats) {
+        uint32 needTotal = m.qty * runs;
+        uint32 have = BotHangarQty(charID, stationID, m.typeID);
+        if (have < needTotal) {
+            uint32 missing = needTotal - have;
+            if (BotTypeHasMaterials(m.typeID)) {
+                if (!BotCraftRecursive(charID, stationID, m.typeID, missing, depth + 1))
+                    return false;
+            } else {
+                sMktMgr.BotBuyStock(charID, stationID, m.typeID, missing);
+            }
+            if (BotHangarQty(charID, stationID, m.typeID) < needTotal)
+                return false;   // market couldn't supply the input
+        }
+        BotHangarConsume(charID, stationID, m.typeID, needTotal);
+    }
+
+    return BotHangarMint(charID, stationID, typeID, runs);
+}
+
+void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, const DockedBot& db)
+{
+    if (sysID == 0 || stationID == 0 || db.charID == 0)
+        return;
+
+    // Pick a random T1 product we can actually build (module/charge/ship), cheap
+    // enough for a bot wallet. T2 lines are reachable through recursion once the
+    // T1/components are available on the local market.
+    uint32 productID = 0, productCat = 0;
+    DBQueryResult pres;
+    if (sDatabase.RunQuery(pres,
+        "SELECT bp.productTypeID, g.categoryID FROM invBlueprintTypes bp"
+        " JOIN invTypes t ON t.typeID = bp.productTypeID"
+        " JOIN invGroups g ON g.groupID = t.groupID"
+        " JOIN invCategories c ON c.categoryID = g.categoryID"
+        " WHERE bp.techLevel = 1 AND t.published = 1"
+        "   AND c.categoryID IN (6, 7, 8)"            // Ship, Module, Charge
+        "   AND t.basePrice > 0 AND t.basePrice < 20000000"
+        " ORDER BY RAND() LIMIT 1"))
+    {
+        DBResultRow prow;
+        if (pres.GetRow(prow)) { productID = prow.GetUInt(0); productCat = prow.GetUInt(1); }
+    }
+    if (productID == 0)
+        return;
+
+    uint32 runs = (productCat == 8) ? 100 : 1;   // ammo/charges in batches
+
+    if (BotCraftRecursive(db.charID, stationID, productID, runs, 0)) {
+        _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) built %u x %s at station %u.",
+             db.name.c_str(), db.charID, runs, sDataMgr.GetTypeName(productID).c_str(), stationID);
+    } else {
+        _log(BOT__TRACE, "BotMgr: industrialist %s(%u) could not source materials for %s — skipping.",
+             db.name.c_str(), db.charID, sDataMgr.GetTypeName(productID).c_str());
+    }
 }
 
 void BotMgr::PayCorpTax(PlayerBot* bot)

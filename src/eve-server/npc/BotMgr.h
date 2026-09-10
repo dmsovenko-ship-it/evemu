@@ -190,6 +190,9 @@ private:
     // sysID/stationID = where the bot is docked; db carries its char/corp/prof.
     struct DockedBot;   // full definition below (member methods take it by ref)
     void ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const DockedBot& db);
+    // Producer/builder: runs the full recursive manufacturing chain (invTypeMaterials),
+    // buys missing inputs on the market, then ships/sells the output like other producers.
+    void ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, const DockedBot& db);
     // A courier reached the destination system — complete its accepted contract
     // (reward ISK + cargo placed at the destination station).
     void CompleteContract(uint32 charID, uint32 destSystem);

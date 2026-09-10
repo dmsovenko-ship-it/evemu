@@ -122,6 +122,7 @@ public:
         Hacker,         // peaceful: runs data/relic sites
         Explorer,       // peaceful: scans probes, finds signatures & wormholes
         Missioner,      // peaceful: works agent missions (fly out, fight, report back)
+        Industrialist,  // peaceful: builds modules/ammo/ships (POS/PI chain) + logistics
     };
     BotProfession GetProfession() const { return m_profession; }
     void SetProfession(BotProfession p) { m_profession = p; }
