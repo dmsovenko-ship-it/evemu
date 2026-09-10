@@ -23,6 +23,7 @@
 #include "pos/Module.h"
 #include "pos/Structure.h"
 #include "pos/Battery.h"
+#include "pos/Weapon.h"
 #include "planet/CustomsOffice.h"
 #include "tables/invGroups.h"
 #include "TelegramBot.h"
@@ -3585,23 +3586,33 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
     spawnModule(arrayType, "Assembly Array", 12000.0);
     spawnModule(siloType,  "Silo",           24000.0);
 
-    // Standard POS defenses (real modules): a warp-scrambling and a stasis-web
-    // battery. NOTE: POS turret AI is not implemented in EVEmu, so these are
-    // the visible "standard defense"; the actual protection comes from the
-    // owner bot and its corp guards (see guards below).
-    auto spawnBattery = [&](uint32 typeID, double dx) {
+    // Standard POS defenses: WEAPON batteries (WeaponSE owns a POS_AI, which is
+    // implemented and now fires at valid hostiles). Anchored online so the tower
+    // is genuinely defended, not just decorated.
+    uint32 weaponType1 = 0, weaponType2 = 0;
+    {
+        DBQueryResult wres;
+        if (sDatabase.RunQuery(wres,
+            "SELECT typeID FROM invTypes WHERE groupID IN (430,426,417,449) AND published = 1"
+            " ORDER BY RAND() LIMIT 2")) {
+            DBResultRow wr;
+            if (wres.GetRow(wr)) weaponType1 = wr.GetUInt(0);
+            if (wres.GetRow(wr)) weaponType2 = wr.GetUInt(0);
+        }
+    }
+    auto spawnWeapon = [&](uint32 typeID, double dx) {
         if (typeID == 0) return;
         GPoint p = pos; p.x += dx;
-        ItemData idata(typeID, corpID, sysID, flagNone, "Battery", p);
+        ItemData idata(typeID, corpID, sysID, flagNone, "Weapon Battery", p);
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
         if (sRef.get() == nullptr) return;
         sRef->SaveItem();
-        BatterySE* se = new BatterySE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
+        WeaponSE* se = new WeaponSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
         sysMgr->AddEntity(se);
         se->BotDeployAndAnchor(p);
     };
-    spawnBattery(17182, -12000.0);   // Warp Scrambling Battery
-    spawnBattery(17178, -24000.0);   // Stasis Webification Battery
+    spawnWeapon(weaponType1, -12000.0);
+    spawnWeapon(weaponType2, -24000.0);
 
     // Cost of the installation (tower + modules + defenses + initial guards'
     // retainer), debited from the owner's wallet so a POS is an investment
@@ -3610,8 +3621,9 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
     {
         DBQueryResult cres;
         if (sDatabase.RunQuery(cres,
-            "SELECT COALESCE(SUM(basePrice),0) FROM invTypes WHERE typeID IN (%u,%u,%u,17182,17178)",
-            towerType, arrayType ? arrayType : towerType, siloType ? siloType : towerType)) {
+            "SELECT COALESCE(SUM(basePrice),0) FROM invTypes WHERE typeID IN (%u,%u,%u,%u,%u)",
+            towerType, arrayType ? arrayType : towerType, siloType ? siloType : towerType,
+            weaponType1 ? weaponType1 : towerType, weaponType2 ? weaponType2 : towerType)) {
             DBResultRow cr;
             if (cres.GetRow(cr)) cost = cr.GetDouble(0);
         }

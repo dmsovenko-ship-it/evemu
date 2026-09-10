@@ -13,6 +13,7 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "StaticDataMgr.h"
+#include "system/CrimeWatch.h"
 #include "pos/POS_AI.h"
 #include "pos/Tower.h"
 #include "ship/Ship.h"
@@ -97,7 +98,7 @@ void POS_AI::Process()
     }
 }
 
-static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower)
+static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower, WeaponSE* pWeapon)
 {
     if (pEntity == nullptr)
         return false;
@@ -116,6 +117,20 @@ static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower)
 
     if (pTower != nullptr) {
         if (pClient->GetCorporationID() == pTower->GetCorporationID())
+            return false;
+        uint32 towerAlly = pTower->GetAllianceID();
+        if (towerAlly != 0 && pClient->GetAllianceID() == towerAlly)
+            return false;
+    }
+
+    // High-sec: POS guns may only engage criminals / aggressors / outlaws.
+    // (Low/null: any non-corp pilot is a valid target.)
+    float sec = pWeapon->SystemMgr() != nullptr ? pWeapon->SystemMgr()->GetSystemSecurityRating() : 0.0f;
+    if (sec >= 0.5f) {
+        CrimeWatch* cw = pClient->GetCrimeWatch();
+        if (cw == nullptr)
+            return false;
+        if (!cw->IsCriminal() && !cw->IsAggressed() && !cw->IsOutlaw())
             return false;
     }
 
@@ -140,7 +155,7 @@ void POS_AI::FindTarget()
 
     for (auto& cur : entities) {
         SystemEntity* pEntity = cur.second;
-        if (!IsValidTargetInternal(pEntity, m_pTower))
+        if (!IsValidTargetInternal(pEntity, m_pTower, m_pWeapon))
             continue;
 
         float dist = m_pWeapon->GetPosition().distance(pEntity->GetPosition());
