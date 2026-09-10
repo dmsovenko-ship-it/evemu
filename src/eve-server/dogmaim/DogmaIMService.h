@@ -88,6 +88,9 @@ protected:
     PyResult GetTargeters(PyCallArgs& call);
     PyResult AddTarget(PyCallArgs& call, PyInt* targetID);
     PyResult RemoveTarget(PyCallArgs& call, PyInt* targetID);
+    // Manual POS gunnery (playerOwnedTargetMgr): (structureID, targetID)
+    PyResult AddTargetOBO(PyCallArgs& call, PyInt* structureID, PyInt* targetID);
+    PyResult RemoveTargetOBO(PyCallArgs& call, PyInt* structureID, PyInt* targetID);
     PyResult ClearTargets(PyCallArgs& call);
     PyResult InitiateModuleRepair(PyCallArgs& call, PyInt* itemID);
     PyResult StopModuleRepair(PyCallArgs& call, PyInt* itemID);

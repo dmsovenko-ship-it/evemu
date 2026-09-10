@@ -107,7 +107,8 @@
 
 TowerSE::TowerSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& fData)
 : StructureSE(structure, services, system, fData),
-m_pShieldSE(nullptr)
+m_pShieldSE(nullptr),
+m_manualTargetID(0)
 {
     m_hasShield = false;
     m_structs.clear();

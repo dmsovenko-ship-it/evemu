@@ -22,6 +22,8 @@
 #include "eve-server.h"
 
 #include "character/Character.h"
+#include "character/CharacterDB.h"
+#include "ship/Ship.h"
 #include "planet/CustomsOffice.h"
 #include "pos/Module.h"
 
@@ -683,6 +685,29 @@ PyResult PosMgrBound::AssumeStructureControl(PyCallArgs &call, PyInt* itemID) {
     TowerSE* pTSE = pSE->GetTowerSE();
     if (pTSE == nullptr)
         return PyStatic.NewFalse();
+
+    // Manual POS gunnery requirements (Crucible): Starbase Defense Management
+    // skill, and the operator must be within 15 km of the control tower. Taking
+    // control immobilizes the pilot while he mans the guns.
+    {
+        uint32 skillID = 0;
+        DBQueryResult sres;
+        if (sDatabase.RunQuery(sres,
+            "SELECT typeID FROM invTypes WHERE typeName = 'Starbase Defense Management' LIMIT 1")) {
+            DBResultRow sr; if (sres.GetRow(sr)) skillID = sr.GetUInt(0);
+        }
+        if (skillID != 0 && CharacterDB::GetSkillLevel(call.client->GetCharacterID(), skillID) < 1)
+            throw CustomError("You need the Starbase Defense Management skill to control this tower.");
+
+        ShipSE* ship = call.client->GetShipSE();
+        if (ship == nullptr)
+            return PyStatic.NewFalse();
+        if (ship->GetPosition().distance(pTSE->GetPosition()) > 15000.0)
+            throw CustomError("You must be within 15 km of the control tower to operate its defenses.");
+
+        if (ship->DestinyMgr() != nullptr)
+            ship->DestinyMgr()->Stop();   // manning the guns pins the pilot
+    }
 
     // notify old controller
     uint32 oldControllerID = pTSE->GetControllerID();

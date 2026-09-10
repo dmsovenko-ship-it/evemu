@@ -69,7 +69,10 @@ void POS_AI::Process()
 
     if ((now - m_lastTargetScan) > (EvE::Time::Second * 5)) {
         m_lastTargetScan = now;
-        if (m_targetID == 0)
+        uint32 manual = (m_pTower != nullptr) ? m_pTower->GetManualTarget() : 0;
+        if (manual != 0)
+            m_targetID = manual;          // operator-selected target (focus fire)
+        else if (m_targetID == 0)
             FindTarget();
     }
 
@@ -80,12 +83,19 @@ void POS_AI::Process()
             return;
         }
 
+        bool isManual = (m_pTower != nullptr && m_pTower->GetManualTarget() == m_targetID);
         float range = m_pWeapon->GetPosition().distance(pTarget->GetPosition());
         float maxRange = m_pWeapon->GetSelf()->GetAttribute(AttrMaxRange).get_float();
         float falloff = m_pWeapon->GetSelf()->GetAttribute(AttrFalloff).get_float();
         float sightRange = m_pWeapon->GetSelf()->GetAttribute(AttrProximityRange).get_float();
 
-        if (range > (maxRange + falloff) and range > sightRange) {
+        // Manual gunnery ignores the automatic sight range (an operator can use
+        // the gun's full range); only the weapon's own reach still applies.
+        if (range > (maxRange + falloff) and !isManual and range > sightRange) {
+            m_targetID = 0;
+            return;
+        }
+        if (isManual && range > (maxRange + falloff)) {
             m_targetID = 0;
             return;
         }

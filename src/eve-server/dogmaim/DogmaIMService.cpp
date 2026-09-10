@@ -98,6 +98,8 @@ DogmaIMBound::DogmaIMBound(EVEServiceManager& mgr, DogmaIMService& parent, uint3
     this->Add("GetTargeters", &DogmaIMBound::GetTargeters);
     this->Add("AddTarget", &DogmaIMBound::AddTarget);       //AddTargetOBO
     this->Add("RemoveTarget", &DogmaIMBound::RemoveTarget);
+    this->Add("AddTargetOBO", &DogmaIMBound::AddTargetOBO);
+    this->Add("RemoveTargetOBO", &DogmaIMBound::RemoveTargetOBO);
     this->Add("ClearTargets", &DogmaIMBound::ClearTargets);
     this->Add("InitiateModuleRepair", &DogmaIMBound::InitiateModuleRepair);
     this->Add("StopModuleRepair", &DogmaIMBound::StopModuleRepair);
@@ -443,6 +445,46 @@ PyResult DogmaIMBound::AddTarget(PyCallArgs& call, PyInt* targetID) {
     rsp.flag = true;    // false = immediate target lock in client, true = wait for OnTarget::add from server for lock
     rsp.targetList.push_back(targetID->value()); // not used in client
     return rsp.Encode();
+}
+
+PyResult DogmaIMBound::AddTargetOBO(PyCallArgs& call, PyInt* structureID, PyInt* targetID) {
+    // Manual POS gunnery: an operator who assumed control of a tower selects a
+    // target for its batteries (focus fire, full weapon range).
+    SystemManager* pSysMgr = call.client->SystemMgr();
+    if (pSysMgr == nullptr)
+        throw CustomError("No system.");
+
+    SystemEntity* pSE = pSysMgr->GetSE(structureID->value());
+    if (pSE == nullptr)
+        throw CustomError("Structure not found.");
+    TowerSE* pTSE = pSE->GetTowerSE();
+    if (pTSE == nullptr)
+        throw CustomError("Not a control tower.");
+
+    if (pTSE->GetControllerID() != call.client->GetCharacterID())
+        throw UserError("NotControllingStructure");
+
+    pTSE->SetManualTarget(targetID->value());
+    _log(POS__MESSAGE, "DogmaIMBound::AddTargetOBO - %s set manual target %u on tower %u.",
+         call.client->GetName(), targetID->value(), structureID->value());
+
+    Rsp_Dogma_AddTarget rsp;
+    rsp.flag = false;
+    rsp.targetList.push_back(targetID->value());
+    return rsp.Encode();
+}
+
+PyResult DogmaIMBound::RemoveTargetOBO(PyCallArgs& call, PyInt* structureID, PyInt* targetID) {
+    SystemManager* pSysMgr = call.client->SystemMgr();
+    if (pSysMgr != nullptr) {
+        SystemEntity* pSE = pSysMgr->GetSE(structureID->value());
+        if (pSE != nullptr) {
+            TowerSE* pTSE = pSE->GetTowerSE();
+            if (pTSE != nullptr && pTSE->GetControllerID() == call.client->GetCharacterID())
+                pTSE->ClearManualTarget();
+        }
+    }
+    return PyStatic.NewNone();
 }
 
 PyResult DogmaIMBound::RemoveTarget(PyCallArgs& call, PyInt* targetID) {

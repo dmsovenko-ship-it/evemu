@@ -74,6 +74,12 @@ public:
     void SetStandingOwnerID(bool set)                   { m_tdata.standingOwnerID = set; }
     void SetPassword(std::string pass)                  { m_tdata.password = pass; }
 
+    // Manual POS gunnery: the operator (Starbase Defense Management) selects a
+    // target; POS_AI prioritizes it over the automatic scan.
+    void SetManualTarget(uint32 id)                     { m_manualTargetID = id; }
+    void ClearManualTarget()                            { m_manualTargetID = 0; }
+    uint32 GetManualTarget()                            { return m_manualTargetID; }
+
     bool HasForceField()                                { return (m_hasShield? true : false); }
     bool GetStatusDrop()                                { return m_tdata.statusDrop; }
     bool GetCorpWar()                                   { return m_tdata.corpWar; }
@@ -133,7 +139,6 @@ protected:
     //POS_AI* m_ai;
 
 private:
-    void CreateForceField();
 
     bool m_hasShield;
 
@@ -151,6 +156,7 @@ private:
     uint32 m_fuelPerHour;       // fuel units consumed per hour (10/20/40 for S/M/L)
     uint32 m_strontTypeID;      // typeID of strontium for reinforced (16275)
     uint32 m_strontPerHour;     // strontium consumed per reinforced hour (100/200/400)
+    uint32 m_manualTargetID;    // manual POS gunnery target (0 = none, use auto)
     int64  m_lastFuelCheck;     // FileTime of last fuel consumption check
     float  m_lastFuelPct;       // last fuel percentage (for notification thresholds)
 
