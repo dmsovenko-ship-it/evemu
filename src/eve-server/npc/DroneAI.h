@@ -155,6 +155,7 @@ private:
 
     bool m_webApplied;          // stasis web currently applied to m_webTargetID
     uint32 m_webTargetID;       // entityID of webbed target (0 = none)
+    uint32 m_ewarTargetID;      // entityID we last applied EWAR (scramble/web/paint) to (0 = none)
 };
 
 #endif  // __EVEMU_SHIP_DRONEAI_H__

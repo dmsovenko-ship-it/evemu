@@ -52,7 +52,8 @@ DroneAIMgr::DroneAIMgr(DroneSE* who)
   m_paintTargetID(0),
   m_paintedSigRadius(0.0f),
   m_webApplied(false),
-  m_webTargetID(0)
+  m_webTargetID(0),
+  m_ewarTargetID(0)
 {
     m_processTimer.Start(5000);     //arbitrary.
 
@@ -521,6 +522,14 @@ void DroneAIMgr::SetIdle() {
         return;
     // Clean up target paint / web / scramble on any lingering target (drone is
     // returning to idle — e.g. via DroneSE::Killed — so release all applied EWAR).
+    // Explicit EWAR target first: it may no longer be in TargetMgr, which left
+    // the warp scramble stuck on the victim ("Warp drive is disrupted" forever).
+    if (m_ewarTargetID != 0) {
+        SystemEntity* ewarSE = m_pDrone->SystemMgr()->GetSE(m_ewarTargetID);
+        if (ewarSE != nullptr)
+            CleanupTargetEwar(ewarSE);
+        m_ewarTargetID = 0;
+    }
     if (m_paintTargetID != 0) {
         SystemEntity* paintedSE = m_pDrone->SystemMgr()->GetSE(m_paintTargetID);
         if (paintedSE != nullptr)
@@ -1322,6 +1331,7 @@ void DroneAIMgr::WebAttack(SystemEntity* pTarget) {
         droneRef->SetAttribute(AttrSpeedFactor, origFactor, false);
         m_webApplied = true;
         m_webTargetID = pTarget->GetID();
+        m_ewarTargetID = pTarget->GetID();
         m_webifierTimer.Start(m_attackSpeed);
     }
 }
@@ -1360,6 +1370,7 @@ void DroneAIMgr::ScrambleAttack(SystemEntity* pTarget) {
     } else {
         targetRef->SetAttribute(AttrWarpScrambleStatus, scrambleStr, false);
     }
+    m_ewarTargetID = pTarget->GetID();   // remember whom we scrambled (released on death/idle)
 
     // Set timer to remove scramble after cycle time
     m_warpScramblerTimer.Start(m_attackSpeed);
@@ -1466,6 +1477,7 @@ void DroneAIMgr::PaintAttack(SystemEntity* pTarget) {
             // restore a too-high value).
             m_paintedSigRadius = targetRef->GetAttribute(AttrSignatureRadius).get_float();
             m_paintTargetID = pTarget->GetID();
+            m_ewarTargetID = pTarget->GetID();
         }
         targetRef->SetAttribute(AttrSignatureRadius, m_paintedSigRadius * (1.0f + paintStr / 100.0f), false);
     }
