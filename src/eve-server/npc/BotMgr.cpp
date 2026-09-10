@@ -22,6 +22,7 @@
 #include "pos/Array.h"
 #include "pos/Module.h"
 #include "pos/Structure.h"
+#include "planet/CustomsOffice.h"
 #include "tables/invGroups.h"
 #include "TelegramBot.h"
 #include "character/Character.h"
@@ -3669,6 +3670,59 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
     ProcessIndustrialistPI(sysID, stationID, db);
 }
 
+void BotMgr::DeployBotCustomsOffice(SystemManager* sysMgr, uint32 charID, uint32 corpID, uint32 planetID)
+{
+    if (sysMgr == nullptr || corpID == 0 || planetID == 0)
+        return;
+    uint32 sysID = sysMgr->GetID();
+
+    // Idempotent: one corp office per planet.
+    {
+        DBQueryResult chk;
+        if (sDatabase.RunQuery(chk,
+            "SELECT COUNT(*) FROM entity WHERE locationID = %u AND ownerID = %u AND typeID = 2233 AND customInfo = '%u'",
+            sysID, corpID, planetID)) {
+            DBResultRow r;
+            if (chk.GetRow(r) && r.GetUInt(0) > 0)
+                return;
+        }
+    }
+
+    GPoint pos;
+    {
+        DBQueryResult pr;
+        if (!sDatabase.RunQuery(pr,
+            "SELECT x, y, z, IFNULL(radius,0) FROM mapDenormalize WHERE itemID = %u", planetID))
+            return;
+        DBResultRow r;
+        if (!pr.GetRow(r))
+            return;
+        pos.x = r.GetDouble(0) + r.GetDouble(3) + 50000.0;
+        pos.y = r.GetDouble(1);
+        pos.z = r.GetDouble(2);
+    }
+
+    ItemData idata(2233, corpID, sysID, flagNone, "Customs Office", pos);
+    StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
+    if (sRef.get() == nullptr) {
+        _log(BOT__ERROR, "DeployBotCustomsOffice: failed to spawn office for corp %u at planet %u.", corpID, planetID);
+        return;
+    }
+    sRef->SetCustomInfo(std::to_string(planetID).c_str());
+    sRef->SaveItem();
+
+    FactionData data = FactionData();
+        data.ownerID = corpID;
+        data.corporationID = corpID;
+        data.allianceID = 0;
+        data.factionID = 0;
+
+    CustomsSE* se = new CustomsSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
+    sysMgr->AddEntity(se);   // Init() binds the planet from customInfo and marks it online
+    _log(BOT__MESSAGE, "BotMgr: industrialist %u anchored a corp Customs Office at planet %u (corp %u).",
+         charID, planetID, corpID);
+}
+
 void BotMgr::ProcessIndustrialistPI(uint32 sysID, uint32 stationID, const DockedBot& db)
 {
     if (db.charID == 0 || sysID == 0)
@@ -3728,6 +3782,13 @@ void BotMgr::ProcessIndustrialistPI(uint32 sysID, uint32 stationID, const Docked
 
     if (sch == 0)
         return;
+
+    // Corp customs office on the colony planet (PI export/import structure).
+    if (db.corpID != 0 && planetID != 0) {
+        SystemManager* sMgr = sEntityList.FindOrBootSystem(sysID);
+        if (sMgr != nullptr)
+            DeployBotCustomsOffice(sMgr, db.charID, db.corpID, planetID);
+    }
 
     uint32 cycleTime = 1800, outType = 0, outQty = 1;
     {

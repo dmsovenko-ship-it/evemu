@@ -195,6 +195,8 @@ private:
     void ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, const DockedBot& db);
     // Run the bot's planetary colony schematic chain (P1->P2->P3->P4).
     void ProcessIndustrialistPI(uint32 sysID, uint32 stationID, const DockedBot& db);
+    // Anchor a corp-owned Customs Office at the bot's colony planet (idempotent).
+    void DeployBotCustomsOffice(SystemManager* sysMgr, uint32 charID, uint32 corpID, uint32 planetID);
     // Deploy a POS (Control Tower + Assembly Array + Silo) at a moon in the
     // system for this producer corp. No-op if the corp already has one there.
     void DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID);
