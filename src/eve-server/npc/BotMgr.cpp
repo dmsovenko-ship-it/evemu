@@ -215,8 +215,13 @@ void BotMgr::Process()
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
         if (pSystem == nullptr)
             continue;
-        if (pSystem->PlayerCount() < 1)
-            continue;   // only simulate where real players are present
+        if (pSystem->PlayerCount() < 1) {
+            // No real player here any more — reap the simulated population so
+            // bots follow the players (they were staying in the old system
+            // forever because ReapBots() was never called).
+            ReapBots(pSystem);
+            continue;
+        }
 
         PopulateSystem(pSystem);
     }
@@ -2476,6 +2481,8 @@ void BotMgr::ReapBots(SystemManager* pSystem)
             bot->GetBotCharID());
         bot->Delete();
     }
+    // Also drop the docked list for this (now empty) system.
+    m_docked.erase(pSystem->GetID());
 }
 
 static PlayerBot* BotMgr_FindInSystem(SystemManager* sm, uint32 charID);

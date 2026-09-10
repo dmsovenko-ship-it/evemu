@@ -69,3 +69,5 @@
  // ---comandlist update; new commands
  COMMAND(marketbot_run, Acct::Role::PROGRAMMER,
           " - Forces MarketBot to refresh orders immediately.")
+ COMMAND(incursion, Acct::Role::GMH,
+          " - force-spawns an incursion site in your current system (testing).")

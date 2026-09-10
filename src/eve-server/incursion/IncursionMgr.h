@@ -31,6 +31,13 @@ public:
     // session change so the HUD appears when entering an incursed system.
     void NotifyClients(uint32 incursionID);
 
+    // Testing/GM: force-spawn an incursion site in the given system (if an
+    // incursion covers it), ignoring the random chance and player gate.
+    bool ForceSpawnSiteHere(uint32 solarSystemID);
+    // Testing/GM: start an incursion in the system's constellation if none, then
+    // force a site into the system.
+    bool ForceStartHere(uint32 solarSystemID);
+
 private:
     void ProgressStateMachine(uint32 incursionID);
     void UpdateInfluence(uint32 incursionID);

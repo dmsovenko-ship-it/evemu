@@ -27,6 +27,7 @@
 #include "system/cosmicMgrs/BeltMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "testing/test.h"
+#include "incursion/IncursionMgr.h"
 #include "admin/CommandDispatcher.h" // ---commandlist update
 #include "EVE_Roles.h" // ---commandlist update
 #include "market/MarketBotMgr.h" // ---marketbot update
@@ -1264,6 +1265,19 @@ PyResult Command_marketbot_run(Client* pClient, CommandDB* db, EVEServiceManager
     sMktBotMgr.ForceRun();
     pClient->SendNotifyMsg("MarketBot has been forced to refresh orders.");
     return new PyString("MarketBot refresh cycle triggered.");
+}
+
+// /incursion — force an incursion site into the current system (testing).
+PyResult Command_incursion(Client* pClient, CommandDB* db, EVEServiceManager& services, const Seperator& args) {
+    if (!pClient->IsInSpace() || pClient->SystemMgr() == nullptr)
+        throw CustomError("You must be in space.");
+    uint32 sysID = pClient->GetSystemID();
+    bool ok = sIncursionMgr.ForceStartHere(sysID);
+    if (ok)
+        pClient->SendNotifyMsg("Incursion started and a site was spawned in this system.");
+    else
+        pClient->SendNotifyMsg("Could not start an incursion here.");
+    return nullptr;
 }
 
 /* groove's new command.....

@@ -562,6 +562,99 @@ void IncursionMgr::SpawnMothership(uint32 incursionID, uint32 solarSystemID)
         "UPDATE incursions SET hasBoss = 2 WHERE incursionID = %u", incursionID);
 }
 
+bool IncursionMgr::ForceSpawnSiteHere(uint32 solarSystemID)
+{
+    DBQueryResult r;
+    if (!sDatabase.RunQuery(r,
+        "SELECT i.incursionID, iss.sceneType, i.hasBoss, i.lastUpdated, i.regionID"
+        " FROM incursionSystems iss JOIN incursions i ON i.incursionID = iss.incursionID"
+        " WHERE iss.solarSystemID = %u AND i.state > 0 LIMIT 1", solarSystemID))
+        return false;
+    DBResultRow row;
+    if (!r.GetRow(row))
+        return false;
+    uint32 incursionID = row.GetUInt(0);
+    uint8 sceneType = row.GetUInt(1);
+    (void)row.GetUInt(2);
+    (void)row.GetInt64(3);
+    uint32 regionID = row.GetUInt(4);
+    (void)incursionID; (void)regionID;
+
+    SystemManager* sMgr = sEntityList.FindOrBootSystem(solarSystemID);
+    if (sMgr == nullptr)
+        return false;
+    if (sMgr->GetAnomMgr() != nullptr && sMgr->GetAnomMgr()->HasAnomalyNamed("Incursion Site"))
+        return true;   // already there
+
+    uint32 dungeonID = 0;
+    switch (sceneType) {
+        case Incursion::scenesType::vanguard:      dungeonID = 2100 + MakeRandomInt(0, 3); break;
+        case Incursion::scenesType::assault:        dungeonID = 2110 + MakeRandomInt(0, 2); break;
+        case Incursion::scenesType::headquarters:   dungeonID = 2120 + MakeRandomInt(0, 2); break;
+        case Incursion::scenesType::staging:        dungeonID = 2130 + MakeRandomInt(0, 3); break;
+        default: return false;
+    }
+
+    GPoint pos;
+    pos.x = MakeRandomFloat(-1.0e12, 1.0e12);
+    pos.y = MakeRandomFloat(-1.0e12, 1.0e12);
+    pos.z = MakeRandomFloat(-1.0e12, 1.0e12);
+
+    CosmicSignature sig = CosmicSignature();
+    sig.sigID = sEntityList.GetAnomalyID();
+    sig.systemID = solarSystemID;
+    sig.sigGroupID = EVEDB::invGroups::Cosmic_Anomaly;
+    sig.ownerID = sDataMgr.GetFactionCorp(factionSanshas);
+    sig.dungeonType = 7;
+    sig.position = pos;
+    sig.sigName = "Incursion Site";
+    sig.sigTypeID = EVEDB::invTypes::CosmicAnomaly;
+    sig.sigStrength = 100.0f;
+    sig.scanAttributeID = AttrScanAllStrength;
+    sig.sigItemID = 0;
+    sig.bubbleID = 0;
+
+    DungeonMgr* dMgr = sMgr->GetDungMgr();
+    if (dMgr == nullptr)
+        return false;
+
+    if (dMgr->MakeDungeon(sig, dungeonID)) {
+        AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
+        if (anomMgr != nullptr) {
+            sig.sigName = "Incursion Site";
+            sig.sigStrength = 1.0f;
+            sig.scanGroupID = Scanning::Group::Anomaly;
+            sig.dungeonType = Dungeon::Type::Anomaly;
+            anomMgr->AddSignalBySignature(sig);
+        }
+        m_activeSystems.insert(solarSystemID);
+        sLog.Warning("IncursionMgr", "Force-spawned incursion site dungeonID=%u in system %u (sceneType=%u)",
+            dungeonID, solarSystemID, sceneType);
+        return true;
+    }
+    return false;
+}
+
+bool IncursionMgr::ForceStartHere(uint32 solarSystemID)
+{
+    if (ForceSpawnSiteHere(solarSystemID))
+        return true;
+
+    // No active incursion covers this system — start one in its constellation.
+    DBQueryResult r;
+    uint32 constellationID = 0;
+    if (sDatabase.RunQuery(r,
+        "SELECT constellationID FROM mapSolarSystems WHERE solarSystemID = %u", solarSystemID)) {
+        DBResultRow row;
+        if (r.GetRow(row)) constellationID = row.GetUInt(0);
+    }
+    if (constellationID == 0)
+        return false;
+
+    StartIncursion(factionSanshas, constellationID);
+    return ForceSpawnSiteHere(solarSystemID);
+}
+
 void IncursionMgr::DespawnSites(uint32 incursionID)
 {
     DBerror err;
