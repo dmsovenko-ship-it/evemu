@@ -200,6 +200,10 @@ private:
     // Deploy a POS (Control Tower + Assembly Array + Silo) at a moon in the
     // system for this producer corp. No-op if the corp already has one there.
     void DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID);
+    // Spawn same-corp guard pilots at a POS. Two arrival models: "login at a
+    // station then warp in" or "login at the POS" (warp-in out of nowhere).
+    // Null-sec mostly the latter, high-sec 50/50.
+    void SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& pos);
     // A courier reached the destination system — complete its accepted contract
     // (reward ISK + cargo placed at the destination station).
     void CompleteContract(uint32 charID, uint32 destSystem);

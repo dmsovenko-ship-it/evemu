@@ -3672,6 +3672,94 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
 
     _log(BOT__MESSAGE, "BotMgr: industrialist %u deployed a POS at a moon in system %u (tower %u, array %u, silo %u).",
          charID, sysID, towerType, arrayType, siloType);
+
+    // Corp guards: defend the tower (2-3 pilots of the owner corp).
+    SpawnPosGuards(sysMgr, corpID, pos);
+}
+
+void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& pos)
+{
+    if (sysMgr == nullptr || corpID == 0)
+        return;
+    uint32 sysID = sysMgr->GetID();
+    float sec = sysMgr->GetSystemSecurityRating();
+
+    // Find same-corp pool pilots to man the tower.
+    std::vector<std::pair<uint32,std::string>> candidates;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT c.characterID, c.characterName FROM chrCharacters c"
+            " JOIN botMemory b ON b.charID = c.characterID"
+            " WHERE c.accountID = 0 AND c.corporationID = %u AND c.characterName != ''"
+            " ORDER BY RAND() LIMIT 6", corpID)) {
+            DBResultRow r;
+            while (res.GetRow(r))
+                candidates.push_back({ r.GetUInt(0), r.GetText(1) });
+        }
+    }
+    if (candidates.empty())
+        return;
+
+    int want = 2 + MakeRandomInt(0, 1);   // 2-3 guards
+    int spawned = 0;
+    for (auto& cand : candidates) {
+        if (spawned >= want)
+            break;
+        uint32 charID = cand.first;
+
+        // Skip if this pilot is already flying in the system.
+        bool present = false;
+        for (auto& [eid, se] : sysMgr->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr) continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb != nullptr && pb->GetBotCharID() == charID) { present = true; break; }
+        }
+        if (present)
+            continue;
+
+        SpawnBot(sysMgr, charID, cand.second, corpID, 0);
+
+        // Locate the freshly spawned guard and turn it into a tower defender.
+        PlayerBot* guard = nullptr;
+        for (auto& [eid, se] : sysMgr->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr) continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb != nullptr && pb->GetBotCharID() == charID) { guard = pb; break; }
+        }
+        if (guard == nullptr)
+            continue;
+
+        guard->SetProfession(PlayerBot::BotProfession::Hunter);
+
+        // Arrival model: null-sec mostly "login at the POS"; high-sec 50/50.
+        bool loginAtPos = (sec < 0.5f) ? true : (MakeRandomInt(0, 1) == 1);
+
+        // Find the tower to orbit.
+        SystemEntity* tower = nullptr;
+        for (auto& [eid, se] : sysMgr->GetEntities()) {
+            if (se != nullptr && se->GetTowerSE() != nullptr) { tower = se; break; }
+        }
+
+        if (loginAtPos) {
+            // "Login warp": the pilot appears at the POS (out of nowhere).
+            GPoint p = pos;
+            p.x += MakeRandomInt(-4000, 4000);
+            p.y += MakeRandomInt(-4000, 4000);
+            guard->DestinyMgr()->SetPosition(p);
+        } else if (tower != nullptr) {
+            // "Login at station, then warp in": visible warp to the tower.
+            guard->DestinyMgr()->WarpTo(pos, 0);
+        }
+
+        // Hold station on the tower (guards don't wander off).
+        if (tower != nullptr && guard->DestinyMgr() != nullptr)
+            guard->DestinyMgr()->Orbit(tower, 5000 + MakeRandomInt(0, 3000));
+
+        _log(BOT__MESSAGE, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s arrival).",
+             cand.second.c_str(), charID, sysID, loginAtPos ? "login-at-POS" : "station-warp");
+        ++spawned;
+    }
 }
 
 void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, const DockedBot& db)
