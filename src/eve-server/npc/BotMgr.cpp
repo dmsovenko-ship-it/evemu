@@ -3542,6 +3542,27 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
         _log(BOT__TRACE, "BotMgr: industrialist %s(%u) could not source materials for %s — skipping.",
              db.name.c_str(), db.charID, sDataMgr.GetTypeName(productID));
     }
+
+    // Planetary industry (colony extraction). The producer runs colonies that
+    // yield P1 (Basic, group 1042) / P2 (Refined, group 1034) commodities into
+    // its hangar; these feed the T2 manufacturing chain (the recursive BOM pulls
+    // them instead of buying). NOTE: this is the extraction OUTPUT — pin-level
+    // PlanetMgr colonies (command center, extractor heads, schematics) are the
+    // next step; the commodities themselves are real PI types.
+    if (MakeRandomInt(0, 99) < 40) {
+        uint32 grp = (MakeRandomInt(0, 99) < 70) ? 1042 : 1034;   // P1 mostly, some P2
+        DBQueryResult pr;
+        if (sDatabase.RunQuery(pr,
+            "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1", grp)) {
+            DBResultRow prr;
+            if (pr.GetRow(prr)) {
+                uint32 piType = prr.GetUInt(0);
+                if (BotHangarMint(db.charID, stationID, piType, MakeRandomInt(50, 300)))
+                    _log(BOT__TRACE, "BotMgr: industrialist %s(%u) extracted PI commodity %s into the hangar.",
+                         db.name.c_str(), db.charID, sDataMgr.GetTypeName(piType));
+            }
+        }
+    }
 }
 
 void BotMgr::PayCorpTax(PlayerBot* bot)
