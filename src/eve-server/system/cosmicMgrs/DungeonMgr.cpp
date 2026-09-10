@@ -347,9 +347,13 @@ void DungeonMgr::Process()
 }
 
 // Sansha Nation type pools (real Crucible typeIDs, groups 1053/1054/1056).
-static const uint16 sSanshaFrigates[] = { 2190, 2907, 2909, 2939, 2966, 3259, 3492, 3524, 3525, 3526 };
-static const uint16 sSanshaCruisers[] = { 2191, 2207, 2208, 2209, 2859, 2931, 2936, 2950, 3527 };
-static const uint16 sSanshaBS[]       = { 2192, 3071, 2845, 2855, 2932 };
+// REAL Sansha Nation NPCs (client-known groups 565/566/567, and they actually
+// have EM/Thermal damage attributes). The old pool used incursion "stub" types
+// 2190-2192 (groups 1052-1056) which have NO damage attributes -> the client
+// showed white/neutral squares and the NPCs dealt 0 damage.
+static const uint16 sSanshaFrigates[] = { 10025, 10273, 11032, 13047, 23360, 23361 };
+static const uint16 sSanshaCruisers[] = { 10030, 11909, 23370, 24002, 24019 };
+static const uint16 sSanshaBS[]       = { 11913, 23372, 23376, 23377 };
 
 uint16 DungeonMgr::IncursionSanshaType(uint32 dungeonID, uint8 roleClass)
 {
