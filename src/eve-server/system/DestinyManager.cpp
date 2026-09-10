@@ -2080,15 +2080,16 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     // snap happens once, in WarpStop.
     if (m_targetDistance <= 1.0) {
         if (!m_warpStopDelay.Enabled()) {
-            // Hold scales with ship mass: a capital's client-side decel lags the
-            // server's by more than three seconds, and the WarpStop snap was the
-            // residual end-of-warp mini-teleport. Hold 3000 + 2000*sqrt(mass MKg)
-            // (frigate ~3.1s, battleship ~3.7s, capital ~5-9s), cap 12s; + 2s user
-            // margin (empirical): the last frames of the client's decel still
-            // lagged by 1-2s on capitals even with the scaled hold.
-            double holdMs = 5000.0 + (2000.0 * std::sqrt(m_massMKg));
-            if (holdMs > 14000.0) holdMs = 14000.0;
+            // Hold must cover the CLIENT-side decel tail (destiny.dll's two-phase
+            // decel finishes later than our server-side convergence), so derive
+            // it from the actual decel duration: decelDist / warpSpeed, rounded
+            // up, plus a 5s base margin. For 11 AU on a supercarrier the decel
+            // alone is ~8-10 s, so the hold lands at 13-15 s; short warps only
+            // need the 5s base.
+            double decelTime = (m_warpState->decelDist / m_warpState->warpSpeed);
+            double holdMs = 5000.0 + (1000.0 * std::ceil(decelTime));
             if (holdMs < 5000.0) holdMs = 5000.0;
+            if (holdMs > 20000.0) holdMs = 20000.0;
             m_warpStopDelay.Start((uint32)holdMs);
         }
         return;
