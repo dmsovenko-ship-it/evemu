@@ -27,12 +27,15 @@ public:
     std::map<uint32, double>& GetBubbleDamage(uint32 bubbleID);
     void ClearDamageData(uint32 bubbleID);
 
+    // Push incursion tale data to clients (0 = all incursions). Called on
+    // session change so the HUD appears when entering an incursed system.
+    void NotifyClients(uint32 incursionID);
+
 private:
     void ProgressStateMachine(uint32 incursionID);
     void UpdateInfluence(uint32 incursionID);
     void SpawnSites(uint32 incursionID);
     void DespawnSites(uint32 incursionID);
-    void NotifyClients(uint32 incursionID);
 
     Timer m_spawnTimer;
     std::set<uint32> m_activeSystems;  // solarSystemIDs that currently have active incursion sites
