@@ -378,6 +378,11 @@ uint8 DungeonMgr::IncursionWaveTotal(uint32 dungeonID)
 
 bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
 {
+    if (m_system == nullptr || m_spawnMgr == nullptr) {
+        _log(COSMIC_MGR__ERROR, "MakeDungeon: uninitialized manager (system=%p spawn=%p) for dungeon %u",
+             (void*)m_system, (void*)m_spawnMgr, dungeonID);
+        return false;
+    }
 
     Dungeon::Dungeon dData;
 

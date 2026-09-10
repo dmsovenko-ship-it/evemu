@@ -475,6 +475,10 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         if (dMgr == nullptr)
             continue;
 
+        // Pinpoint diagnostics: a crash was seen right after this call, so log
+        // exactly which system/dungeon is being built (Warning → visible).
+        sLog.Warning("IncursionMgr", "SpawnSites: building site sys=%u scene=%u players=%u dungeon=%u",
+                     solarSystemID, sceneType, playerCount, dungeonID);
         if (dMgr->MakeDungeon(sig, dungeonID)) {
             // Register with AnomalyMgr using pre-built signature (bypasses AddSignal's Celestial filter)
             AnomalyMgr* anomMgr = sMgr->GetAnomMgr();
