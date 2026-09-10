@@ -371,9 +371,8 @@ uint16 DungeonMgr::IncursionSanshaType(uint32 dungeonID, uint8 roleClass)
 
 uint8 DungeonMgr::IncursionWaveTotal(uint32 dungeonID)
 {
-    if (dungeonID >= 2100 && dungeonID <= 2103)   // vanguard: two waves
-        return 2;
-    return 3;                                     // assault / HQ / staging
+    (void)dungeonID;
+    return 3;   // every incursion scene runs 3 waves/pockets (live-EVE style)
 }
 
 bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)

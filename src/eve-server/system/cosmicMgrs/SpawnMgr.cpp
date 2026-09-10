@@ -340,7 +340,8 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                 nxtPocket.x += NEXT_DUNGEON_ROOM_DIST;
                 SpawnIncursionWave(w.dungeonID, nxtWave, nxtPocket);
                 sLog.Warning("SpawnMgr", "Incursion wave %u cleared in %s — wave %u spawned %u km out, gate placed.",
-                           w.waveNum, m_system->GetName(), (unsigned)(NEXT_DUNGEON_ROOM_DIST/1000));
+                           w.waveNum, m_system->GetName(), (unsigned)nxtWave,
+                           (unsigned)(NEXT_DUNGEON_ROOM_DIST/1000));
                 return;   // site not complete yet
             }
             // last wave done -> fall through to completion/rewards below
