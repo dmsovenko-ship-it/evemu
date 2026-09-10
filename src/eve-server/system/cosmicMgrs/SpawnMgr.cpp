@@ -320,7 +320,9 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
          * 5- more/others?
          */
     } else if (pBubble->IsIncursion()) {
-        _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Incursion - called by %u.", itemID);
+        _log(SPAWN__MESSAGE, "SpawnKilled::Incursion - kill by %u in bubble %u (tracked=%d, waveEntry=%d).",
+             itemID, pBubble->GetID(), (int)m_incursionAlive.count(pBubble->GetID()),
+             (int)m_incursionWave.count(pBubble->GetID()));
         // Track incursion NPC kills — m_incursionAlive counts NPCs spawned via DoSpawnForAnomaly
         auto it = m_incursionAlive.find(pBubble->GetID());
         if (it != m_incursionAlive.end()) {

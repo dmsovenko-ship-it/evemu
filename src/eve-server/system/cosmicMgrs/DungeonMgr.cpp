@@ -532,6 +532,8 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 if (SystemBubble* wBubble = sBubbleMgr.FindBubble(m_system->GetID(), newRoom.position);
                     wBubble != nullptr) {
                     m_spawnMgr->RegisterIncursionWave(wBubble->GetID(), dungeonID, 1, newRoom.position);
+                    _log(COSMIC_MGR__MESSAGE, "MakeDungeon: registered incursion wave 1 (dungeon %u) in bubble %u at (%.0f,%.0f,%.0f)",
+                         dungeonID, wBubble->GetID(), newRoom.position.x, newRoom.position.y, newRoom.position.z);
                 }
             }
 
