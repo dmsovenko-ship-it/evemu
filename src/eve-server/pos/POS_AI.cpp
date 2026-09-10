@@ -14,17 +14,20 @@
 #include "EntityList.h"
 #include "StaticDataMgr.h"
 #include "system/CrimeWatch.h"
+#include "standing/StandingDB.h"
+#include "tables/invGroups.h"
 #include "pos/POS_AI.h"
 #include "pos/Tower.h"
 #include "ship/Ship.h"
-#include "pos/Weapon.h"
+#include "pos/Structure.h"
 #include "system/Damage.h"
 #include "system/SystemBubble.h"
 #include "system/SystemEntity.h"
 #include "system/SystemManager.h"
+#include "inventory/AttributeEnum.h"
 
 
-POS_AI::POS_AI(WeaponSE* pWeapon)
+POS_AI::POS_AI(StructureSE* pWeapon)
 : m_pWeapon(pWeapon),
   m_pTower(nullptr),
   m_targetID(0),
@@ -123,10 +126,34 @@ static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower, Weapon
             return false;
     }
 
-    // High-sec: POS guns may only engage criminals / aggressors / outlaws.
-    // (Low/null: any non-corp pilot is a valid target.)
+    // --- tower sentry settings: standings / war ------------------------------
+    // The tower owner configures a standing threshold and whether to shoot at
+    // war targets. A target at/below the threshold (or at war) is hostile even
+    // in high-sec.
+    bool hostileBySettings = false;
+    if (pTower != nullptr) {
+        float threshold = pTower->GetStanding();       // e.g. -5.0
+        if (threshold < 0.0f) {
+            uint32 towerOwner = pTower->GetCorporationID();
+            double stChar = StandingDB::GetStanding(towerOwner, pClient->GetCharacterID());
+            double stCorp = StandingDB::GetStanding(towerOwner, pClient->GetCorporationID());
+            double stAlly = (pClient->GetAllianceID() != 0)
+                          ? StandingDB::GetStanding(towerOwner, pClient->GetAllianceID()) : 0.0;
+            double worst = stChar;
+            if (stCorp < worst) worst = stCorp;
+            if (stAlly < worst) worst = stAlly;
+            if (worst <= threshold)
+                hostileBySettings = true;
+        }
+        // At war with the target's corp/alliance → hostile.
+        if (pTower->GetCorpWar() && pClient->GetCorporationID() != pTower->GetCorporationID())
+            hostileBySettings = true;
+    }
+
+    // High-sec: POS guns may only engage hostiles (criminals / aggressors /
+    // outlaws / standings-or-war hostiles). Low/null: any non-corp pilot.
     float sec = pWeapon->SystemMgr() != nullptr ? pWeapon->SystemMgr()->GetSystemSecurityRating() : 0.0f;
-    if (sec >= 0.5f) {
+    if (sec >= 0.5f && !hostileBySettings) {
         CrimeWatch* cw = pClient->GetCrimeWatch();
         if (cw == nullptr)
             return false;
@@ -183,12 +210,75 @@ void POS_AI::FireWeapon(uint32 targetID)
         return;
 
     InventoryItemRef weaponRef = m_pWeapon->GetSelf();
+    uint16 grp = weaponRef->groupID();
+
+    float range = m_pWeapon->GetPosition().distance(pTarget->GetPosition());
+
+    // --- EWAR batteries: apply the matching effect instead of damage ---------
+    switch (grp) {
+        case EVEDB::invGroups::Stasis_Webification_Battery: {
+            if (pTarget->DestinyMgr() != nullptr)
+                pTarget->DestinyMgr()->WebbedMe(weaponRef, true);
+            m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), pTarget->GetID(),
+                                                         "effects.ModifyTargetSpeed", 1, 1, 1);
+            _log(POS__MESSAGE, "POS_AI: %s webbed %s.", m_pWeapon->GetName(), pTarget->GetName());
+            return;
+        }
+        case EVEDB::invGroups::Warp_Scrambling_Battery: {
+            EvilNumber strength = weaponRef->HasAttribute(AttrWarpScrambleStrength)
+                                ? weaponRef->GetAttribute(AttrWarpScrambleStrength) : EvilOne;
+            pTarget->GetSelf()->SetAttribute(AttrWarpScrambleStatus, strength, true);
+            m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), pTarget->GetID(),
+                                                         "effects.WarpScramble", 1, 1, 1);
+            _log(POS__MESSAGE, "POS_AI: %s scrambled %s.", m_pWeapon->GetName(), pTarget->GetName());
+            return;
+        }
+        case EVEDB::invGroups::Energy_Neutralizing_Battery: {
+            float amount = weaponRef->HasAttribute(AttrEntityCapacitorDrainAmount)
+                         ? weaponRef->GetAttribute(AttrEntityCapacitorDrainAmount).get_float() : 100.0f;
+            EvilNumber cap = pTarget->GetSelf()->GetAttribute(AttrCapacitorCharge);
+            cap -= amount;
+            if (cap < EvilZero) cap = EvilZero;
+            pTarget->GetSelf()->SetAttribute(AttrCapacitorCharge, cap, true);
+            m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), pTarget->GetID(),
+                                                         "effects.EnergyDestabilization", 1, 1, 1);
+            _log(POS__MESSAGE, "POS_AI: %s neutralized %.0f GJ from %s.", m_pWeapon->GetName(), amount, pTarget->GetName());
+            return;
+        }
+        default:
+            break;   // weapon batteries -> damage below
+    }
+
+    // --- weapon batteries need a loaded charge (chargeGroup1) ----------------
+    if (weaponRef->HasAttribute(AttrChargeGroup1)) {
+        uint32 chargeGroup = weaponRef->GetAttribute(AttrChargeGroup1).get_uint32();
+        if (chargeGroup != 0) {
+            DBQueryResult cres;
+            uint32 chargeItemID = 0, chargeQty = 0;
+            if (sDatabase.RunQuery(cres,
+                "SELECT e.itemID, e.quantity FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+                " WHERE e.locationID = %u AND t.groupID = %u AND e.quantity > 0 LIMIT 1",
+                m_pWeapon->GetID(), chargeGroup)) {
+                DBResultRow cr;
+                if (cres.GetRow(cr)) { chargeItemID = cr.GetUInt(0); chargeQty = cr.GetUInt(1); }
+            }
+            if (chargeItemID == 0) {
+                // out of ammo — no shot
+                _log(POS__MESSAGE, "POS_AI: %s is out of charges (group %u).", m_pWeapon->GetName(), chargeGroup);
+                return;
+            }
+            InventoryItemRef cRef = sItemFactory.GetItemRef(chargeItemID);
+            if (cRef.get() != nullptr) {
+                if (chargeQty <= 1) cRef->Delete();
+                else cRef->SetQuantity((int32)(chargeQty - 1), false);
+            }
+        }
+    }
 
     float dmgMult = weaponRef->GetAttribute(AttrDamageMultiplier).get_float();
     if (dmgMult < 0.01f)
         dmgMult = 1.0f;
 
-    float range = m_pWeapon->GetPosition().distance(pTarget->GetPosition());
     float maxRange = weaponRef->GetAttribute(AttrMaxRange).get_float();
     float falloff = weaponRef->GetAttribute(AttrFalloff).get_float();
     float hitChance = 0.8f;

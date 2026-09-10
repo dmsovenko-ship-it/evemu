@@ -26,6 +26,7 @@
 #include "pos/Weapon.h"
 #include "planet/CustomsOffice.h"
 #include "tables/invGroups.h"
+#include "inventory/AttributeEnum.h"
 #include "TelegramBot.h"
 #include "character/Character.h"
 #include <cctype>
@@ -3607,12 +3608,45 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
         if (sRef.get() == nullptr) return;
         sRef->SaveItem();
+        // Load the gun: mint a stack of its chargeGroup1 ammunition into the
+        // module's own hold (consumed 1 per shot by POS_AI).
+        if (sRef->HasAttribute(AttrChargeGroup1)) {
+            uint32 cg = sRef->GetAttribute(AttrChargeGroup1).get_uint32();
+            if (cg != 0) {
+                DBQueryResult cr;
+                uint32 chargeType = 0;
+                if (sDatabase.RunQuery(cr,
+                    "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1", cg)) {
+                    DBResultRow cRow;
+                    if (cr.GetRow(cRow)) chargeType = cRow.GetUInt(0);
+                }
+                if (chargeType != 0) {
+                    ItemData cdata((uint16)chargeType, corpID, sRef->itemID(), flagNone, 5000);
+                    InventoryItemRef cRef = sItemFactory.SpawnItem(cdata);
+                    if (cRef.get() != nullptr)
+                        cRef->SaveItem();
+                }
+            }
+        }
         WeaponSE* se = new WeaponSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
         sysMgr->AddEntity(se);
         se->BotDeployAndAnchor(p);
     };
     spawnWeapon(weaponType1, -12000.0);
     spawnWeapon(weaponType2, -24000.0);
+
+    // EWAR defense: a stasis webification battery (BatterySE now runs POS_AI too).
+    {
+        GPoint p = pos; p.x -= 36000.0;
+        ItemData idata(17178, corpID, sysID, flagNone, "Stasis Webification Battery", p);
+        StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
+        if (sRef.get() != nullptr) {
+            sRef->SaveItem();
+            BatterySE* se = new BatterySE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
+            sysMgr->AddEntity(se);
+            se->BotDeployAndAnchor(p);
+        }
+    }
 
     // Cost of the installation (tower + modules + defenses + initial guards'
     // retainer), debited from the owner's wallet so a POS is an investment

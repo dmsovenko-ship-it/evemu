@@ -20,17 +20,25 @@
 
 
 #include "pos/Battery.h"
+#include "pos/POS_AI.h"
 
 
 BatterySE::BatterySE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& data)
-: StructureSE(structure, services, system, data)
+: StructureSE(structure, services, system, data),
+  m_ai(nullptr)
 {
 
+}
+
+BatterySE::~BatterySE()
+{
+    SafeDelete(m_ai);
 }
 
 void BatterySE::Init()
 {
     StructureSE::Init();
+    m_ai = new POS_AI(this);
 }
 
 void BatterySE::Process()
@@ -38,5 +46,12 @@ void BatterySE::Process()
     /* called by EntityList::Process on every loop */
     /*  Enable base call to Process state changes  */
     StructureSE::Process();
-    /** @todo (Allan)  will need some form of AI to engage defensive modules if/when any structure is attacked */
+    if (m_ai != nullptr)
+        m_ai->Process();
+}
+
+void BatterySE::TargetLost(uint32 entityID)
+{
+    if (m_ai != nullptr)
+        m_ai->TargetLost(entityID);
 }

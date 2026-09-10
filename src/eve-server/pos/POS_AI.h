@@ -13,12 +13,12 @@
 
 
 class TowerSE;
-class WeaponSE;
+class StructureSE;
 
 class POS_AI
 {
 public:
-    POS_AI(WeaponSE* pWeapon);
+    POS_AI(StructureSE* pWeapon);
     ~POS_AI();
 
     void Process();
@@ -30,7 +30,7 @@ protected:
     void FireWeapon(uint32 targetID);
 
 private:
-    WeaponSE* m_pWeapon;
+    StructureSE* m_pWeapon;
     TowerSE* m_pTower;
 
     uint32 m_targetID;
