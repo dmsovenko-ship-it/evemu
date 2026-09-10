@@ -3396,6 +3396,90 @@ static bool BotCraftRecursive(uint32 ownerID, uint32 locationID, uint32 flag, ui
     return BotInvMint(ownerID, locationID, flag, typeID, runs);
 }
 
+// ---- planetary industry: real schematic chain (P1 -> P2 -> P3 -> P4) --------
+static uint32 BotTypeGroup(uint32 typeID)
+{
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT groupID FROM invTypes WHERE typeID = %u", typeID)) {
+        DBResultRow row;
+        if (res.GetRow(row)) return row.GetUInt(0);
+    }
+    return 0;
+}
+
+static uint32 BotSchematicForOutput(uint32 typeID)
+{
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT schematicID FROM schematicsTypeMap WHERE typeID = %u AND isInput = 0 LIMIT 1", typeID)) {
+        DBResultRow row;
+        if (res.GetRow(row)) return row.GetUInt(0);
+    }
+    return 0;
+}
+
+// Produce `qty` of a PI commodity: P1 (Basic) is EXTRACTED (minted free by the
+// colony), higher tiers are refined via their real schematic (inputs produced
+// recursively). Non-PI leaves fall back to the market.
+static bool BotCraftPI(uint32 ownerID, uint32 locationID, uint32 flag, uint32 typeID, uint32 qty, int depth)
+{
+    if (depth > 6 || qty == 0)
+        return true;
+
+    if (BotTypeGroup(typeID) == EVEDB::invGroups::Basic_Commodities) {
+        return BotInvMint(ownerID, locationID, flag, typeID, qty);   // extraction
+    }
+
+    uint32 sch = BotSchematicForOutput(typeID);
+    if (sch == 0) {
+        uint32 have = BotInvQty(ownerID, locationID, flag, typeID);
+        if (have < qty) {
+            sMktMgr.BotBuyStock(ownerID, locationID, typeID, qty - have);
+            have = BotInvQty(ownerID, locationID, flag, typeID);
+            if (have < qty)
+                sMktMgr.BotBuyStockRemote(ownerID, locationID, typeID, qty - have);
+        }
+        return BotInvQty(ownerID, locationID, flag, typeID) >= qty;
+    }
+
+    // output quantity per cycle
+    uint32 outQty = 1;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT quantity FROM schematicsTypeMap WHERE schematicID = %u AND typeID = %u AND isInput = 0 LIMIT 1",
+            sch, typeID)) {
+            DBResultRow row;
+            if (res.GetRow(row)) outQty = row.GetUInt(0) ? row.GetUInt(0) : 1;
+        }
+    }
+    uint32 cycles = (qty + outQty - 1) / outQty;
+
+    // consume inputs (produce recursively first)
+    DBQueryResult ir;
+    if (!sDatabase.RunQuery(ir,
+        "SELECT typeID, quantity FROM schematicsTypeMap WHERE schematicID = %u AND isInput = 1", sch))
+        return false;
+    std::vector<std::pair<uint32,uint32>> ins;
+    {
+        DBResultRow r;
+        while (ir.GetRow(r)) ins.push_back({ r.GetUInt(0), r.GetUInt(1) });
+    }
+    for (auto& in : ins) {
+        uint32 need = in.second * cycles;
+        uint32 have = BotInvQty(ownerID, locationID, flag, in.first);
+        if (have < need) {
+            if (!BotCraftPI(ownerID, locationID, flag, in.first, need - have, depth + 1))
+                return false;
+        }
+        if (BotInvQty(ownerID, locationID, flag, in.first) < need)
+            return false;
+        BotInvConsume(ownerID, locationID, flag, in.first, need);
+    }
+
+    return BotInvMint(ownerID, locationID, flag, typeID, cycles * outQty);
+}
+
 void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
 {
     if (sysMgr == nullptr || charID == 0 || corpID == 0)
@@ -3580,25 +3664,100 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
              db.name.c_str(), db.charID, sDataMgr.GetTypeName(productID));
     }
 
-    // Planetary industry (colony extraction). The producer runs colonies that
-    // yield P1 (Basic, group 1042) / P2 (Refined, group 1034) commodities into
-    // its hangar; these feed the T2 manufacturing chain (the recursive BOM pulls
-    // them instead of buying). NOTE: this is the extraction OUTPUT — pin-level
-    // PlanetMgr colonies (command center, extractor heads, schematics) are the
-    // next step; the commodities themselves are real PI types.
-    if (MakeRandomInt(0, 99) < 40) {
-        uint32 grp = (MakeRandomInt(0, 99) < 70) ? 1042 : 1034;   // P1 mostly, some P2
-        DBQueryResult pr;
-        if (sDatabase.RunQuery(pr,
-            "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1", grp)) {
-            DBResultRow prr;
-            if (pr.GetRow(prr)) {
-                uint32 piType = prr.GetUInt(0);
-                if (BotInvMint(db.charID, stationID, (uint32)flagHangar, piType, MakeRandomInt(50, 300)))
-                    _log(BOT__TRACE, "BotMgr: industrialist %s(%u) extracted PI commodity %s into the hangar.",
-                         db.name.c_str(), db.charID, sDataMgr.GetTypeName(piType));
+    // Planetary industry: run the bot's colony schematic chain (P1 extracted,
+    // refined up to P2/P3/P4) and deliver the output into the hangar.
+    ProcessIndustrialistPI(sysID, stationID, db);
+}
+
+void BotMgr::ProcessIndustrialistPI(uint32 sysID, uint32 stationID, const DockedBot& db)
+{
+    if (db.charID == 0 || sysID == 0)
+        return;
+
+    uint32 planetID = 0, sch = 0;
+    int64 lastRun = 0;
+    bool have = false;
+    {
+        DBQueryResult cr;
+        if (sDatabase.RunQuery(cr,
+            "SELECT planetID, schematicID, lastRun FROM botColonies WHERE charID = %u", db.charID)) {
+            DBResultRow r;
+            if (cr.GetRow(r)) {
+                planetID = r.GetUInt(0); sch = r.GetUInt(1); lastRun = r.GetInt64(2);
+                have = true;
             }
         }
+    }
+
+    if (!have) {
+        // Pick a planet and a self-contained schematic (all inputs are PI
+        // commodities, so the colony needs nothing but its own extraction).
+        DBQueryResult pr;
+        if (sDatabase.RunQuery(pr,
+            "SELECT itemID FROM mapDenormalize WHERE solarSystemID = %u AND groupID = 7 ORDER BY RAND() LIMIT 1",
+            sysID)) {
+            DBResultRow r; if (pr.GetRow(r)) planetID = r.GetUInt(0);
+        }
+        if (planetID == 0)
+            return;
+        DBQueryResult sr;
+        if (sDatabase.RunQuery(sr,
+            "SELECT s.schematicID FROM schematics s"
+            " JOIN schematicsTypeMap stm ON stm.schematicID = s.schematicID AND stm.isInput = 0"
+            " JOIN invTypes t ON t.typeID = stm.typeID"
+            " WHERE t.groupID IN (1034,1040,1041)"
+            "   AND s.schematicID NOT IN ("
+            "       SELECT stm2.schematicID FROM schematicsTypeMap stm2"
+            "       JOIN invTypes t2 ON t2.typeID = stm2.typeID"
+            "       WHERE stm2.isInput = 1 AND t2.groupID NOT IN (1042,1034,1040,1041))"
+            " ORDER BY RAND() LIMIT 1")) {
+            DBResultRow r; if (sr.GetRow(r)) sch = r.GetUInt(0);
+        }
+        if (sch == 0)
+            return;
+        lastRun = GetFileTimeNow();
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "INSERT INTO botColonies (charID, planetID, schematicID, lastRun) VALUES (%u, %u, %u, %lli)"
+            " ON DUPLICATE KEY UPDATE planetID=VALUES(planetID), schematicID=VALUES(schematicID), lastRun=VALUES(lastRun)",
+            db.charID, planetID, sch, lastRun);
+        _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) established a PI colony on planet %u (schematic %u).",
+             db.name.c_str(), db.charID, planetID, sch);
+        return;
+    }
+
+    if (sch == 0)
+        return;
+
+    uint32 cycleTime = 1800, outType = 0, outQty = 1;
+    {
+        DBQueryResult r1;
+        if (sDatabase.RunQuery(r1, "SELECT cycleTime FROM schematics WHERE schematicID = %u", sch)) {
+            DBResultRow r; if (r1.GetRow(r)) cycleTime = r.GetUInt(0) ? r.GetUInt(0) : 1800;
+        }
+        DBQueryResult r2;
+        if (sDatabase.RunQuery(r2,
+            "SELECT typeID, quantity FROM schematicsTypeMap WHERE schematicID = %u AND isInput = 0 LIMIT 1", sch)) {
+            DBResultRow r;
+            if (r2.GetRow(r)) { outType = r.GetUInt(0); outQty = r.GetUInt(1) ? r.GetUInt(1) : 1; }
+        }
+    }
+    if (outType == 0)
+        return;
+
+    int64 now = GetFileTimeNow();
+    int64 per = (int64)cycleTime * 10000000LL;   // seconds -> filetime (100ns)
+    if (per <= 0) per = 1800LL * 10000000LL;
+    uint32 cycles = (uint32)((now - lastRun) / per);
+    if (cycles == 0)
+        return;
+    if (cycles > 20) cycles = 20;
+
+    if (BotCraftPI(db.charID, stationID, (uint32)flagHangar, outType, cycles * outQty, 0)) {
+        DBerror err;
+        sDatabase.RunQuery(err, "UPDATE botColonies SET lastRun = %lli WHERE charID = %u", now, db.charID);
+        _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) ran its PI colony (%u cycles): %u x %s.",
+             db.name.c_str(), db.charID, cycles, cycles * outQty, sDataMgr.GetTypeName(outType));
     }
 }
 
