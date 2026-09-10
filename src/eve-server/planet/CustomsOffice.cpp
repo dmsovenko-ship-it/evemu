@@ -51,7 +51,12 @@ m_system(system)
     m_oData = EVEPOS::OrbitalData();
 
     m_oData.planetID = atoi(m_self->customInfo().c_str());
-    m_planetSE = m_system->GetPlanet(m_oData.planetID)->GetPlanetSE();
+    m_planetSE = nullptr;
+    if (m_oData.planetID != 0) {
+        PlanetSE* pPlanet = m_system->GetPlanet(m_oData.planetID);
+        if (pPlanet != nullptr)
+            m_planetSE = pPlanet->GetPlanetSE();
+    }
 
     sRef->SetMySE(this);
 
@@ -116,6 +121,11 @@ void CustomsSE::InitData()
      *  +roll is counterclockwise from y 0
      */
     GPoint pos(m_self->position());
+    if (m_planetSE == nullptr) {
+        // No planet bound (e.g. launched before the customInfo fix) — skip the
+        // orientation math instead of dereferencing a null planet.
+        return;
+    }
     GPoint targ(m_planetSE->GetPosition());
     float z = targ.z - pos.z;   // rise on z axis
     float x = targ.x - pos.x;    // run on x axis

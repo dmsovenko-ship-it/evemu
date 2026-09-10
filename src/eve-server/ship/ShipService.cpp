@@ -1045,6 +1045,13 @@ PyResult ShipBound::Jettison(PyCallArgs &call, PyList* itemIDs) {
                 if (sRef.get() == nullptr)
                     throw CustomError ("Unable to spawn Structure item of type %u.", sRef->typeID());
 
+                // Bind the orbital (customs office) to the nearest planet —
+                // CustomsSE reads the planet id from customInfo; without it the
+                // structure is un-anchorable in any space (incl. empire).
+                SystemEntity* pPlanetSE = pSysMgr->GetClosestPlanetSE(location);
+                if (pPlanetSE != nullptr)
+                    sRef->SetCustomInfo(std::to_string(pPlanetSE->GetID()).c_str());
+
                 sRef->Move(pClient->GetLocationID(), flagNone, true);
                 CustomsSE* sSE = new CustomsSE(sRef, this->GetServiceManager(), pSysMgr, data);
                 location.MakeRandomPointOnSphere(1500.0 + sRef->type().radius());
