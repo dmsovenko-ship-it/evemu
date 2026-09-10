@@ -2079,8 +2079,16 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     // ship onto the target along the formula (asymptotic, sub-metre); the exact
     // snap happens once, in WarpStop.
     if (m_targetDistance <= 1.0) {
-        if (!m_warpStopDelay.Enabled())
-            m_warpStopDelay.Start(3000);
+        if (!m_warpStopDelay.Enabled()) {
+            // Hold scales with ship mass: a capital's client-side decel lags the
+            // server's by more than three seconds, and the WarpStop snap was the
+            // residual end-of-warp mini-teleport. Base 3s + 2s*sqrt(mass in MKg).
+            // (frigate ~3.1s, battleship ~3.7s, capital ~5-9s), capped at 12s.
+            double holdMs = 3000.0 + (2.0 * 1000.0 * std::sqrt(m_massMKg));
+            if (holdMs > 12000.0) holdMs = 12000.0;
+            if (holdMs < 3000.0) holdMs = 3000.0;
+            m_warpStopDelay.Start((uint32)holdMs);
+        }
         return;
     }
 }
