@@ -3271,21 +3271,21 @@ void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const Do
 // next stage; this function is the manufacturing core they will feed.
 // ============================================================================
 
-static uint32 BotHangarQty(uint32 charID, uint32 stationID, uint32 typeID)
+static uint32 BotInvQty(uint32 ownerID, uint32 locationID, uint32 flag, uint32 typeID)
 {
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT COALESCE(SUM(quantity),0) FROM entity"
         " WHERE ownerID = %u AND locationID = %u AND flag = %u AND typeID = %u"
         "   AND singleton = 0 AND quantity > 0",
-        charID, stationID, (uint32)flagHangar, typeID))
+        ownerID, locationID, flag, typeID))
         return 0;
     DBResultRow row;
     if (res.GetRow(row)) return row.GetUInt(0);
     return 0;
 }
 
-static void BotHangarConsume(uint32 charID, uint32 stationID, uint32 typeID, uint32 qty)
+static void BotInvConsume(uint32 ownerID, uint32 locationID, uint32 flag, uint32 typeID, uint32 qty)
 {
     if (qty == 0) return;
     DBQueryResult res;
@@ -3293,7 +3293,7 @@ static void BotHangarConsume(uint32 charID, uint32 stationID, uint32 typeID, uin
         "SELECT itemID, quantity FROM entity"
         " WHERE ownerID = %u AND locationID = %u AND flag = %u AND typeID = %u"
         "   AND singleton = 0 AND quantity > 0 ORDER BY quantity ASC",
-        charID, stationID, (uint32)flagHangar, typeID))
+        ownerID, locationID, flag, typeID))
         return;
     DBResultRow row;
     uint32 need = qty;
@@ -3313,13 +3313,13 @@ static void BotHangarConsume(uint32 charID, uint32 stationID, uint32 typeID, uin
     }
 }
 
-static bool BotHangarMint(uint32 charID, uint32 stationID, uint32 typeID, uint32 qty)
+static bool BotInvMint(uint32 ownerID, uint32 locationID, uint32 flag, uint32 typeID, uint32 qty)
 {
     if (qty == 0) return true;
-    ItemData idata((uint16)typeID, charID, stationID, flagHangar, qty);
+    ItemData idata((uint16)typeID, ownerID, locationID, (EVEItemFlags)flag, qty);
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
     if (iRef.get() == nullptr) {
-        _log(BOT__ERROR, "BotHangarMint: failed to mint %u x type %u for %u.", qty, typeID, charID);
+        _log(BOT__ERROR, "BotInvMint: failed to mint %u x type %u for %u.", qty, typeID, ownerID);
         return false;
     }
     iRef->SaveItem();
@@ -3337,10 +3337,9 @@ static bool BotTypeHasMaterials(uint32 typeID)
     return false;
 }
 
-// Recursively ensure `runs` of typeID are in the bot's hangar, crafting
-// intermediates and buying base materials. Returns false if some input could
-// not be sourced (market empty) — the caller then skips the job.
-static bool BotCraftRecursive(uint32 charID, uint32 stationID, uint32 typeID, uint32 runs, int depth)
+// Recursively ensure `runs` of typeID are in the given container (a station
+// hangar or a POS module), crafting intermediates and buying base materials.
+static bool BotCraftRecursive(uint32 ownerID, uint32 locationID, uint32 flag, uint32 typeID, uint32 runs, int depth)
 {
     if (depth > 8)
         return false;
@@ -3362,39 +3361,39 @@ static bool BotCraftRecursive(uint32 charID, uint32 stationID, uint32 typeID, ui
         }
     }
 
-    // Leaf (no recipe): must be bought from the market.
+    // Leaf (no recipe): must be bought from the market (local station).
     if (mats.empty()) {
-        uint32 have = BotHangarQty(charID, stationID, typeID);
+        uint32 have = BotInvQty(ownerID, locationID, flag, typeID);
         if (have < runs) {
-            sMktMgr.BotBuyStock(charID, stationID, typeID, runs - have);
-            have = BotHangarQty(charID, stationID, typeID);
+            sMktMgr.BotBuyStock(ownerID, locationID, typeID, runs - have);
+            have = BotInvQty(ownerID, locationID, flag, typeID);
             if (have < runs)
-                sMktMgr.BotBuyStockRemote(charID, stationID, typeID, runs - have);  // import from the region
+                sMktMgr.BotBuyStockRemote(ownerID, locationID, typeID, runs - have);  // import from the region
         }
-        return BotHangarQty(charID, stationID, typeID) >= runs;
+        return BotInvQty(ownerID, locationID, flag, typeID) >= runs;
     }
 
     for (const auto& m : mats) {
         uint32 needTotal = m.qty * runs;
-        uint32 have = BotHangarQty(charID, stationID, m.typeID);
+        uint32 have = BotInvQty(ownerID, locationID, flag, m.typeID);
         if (have < needTotal) {
             uint32 missing = needTotal - have;
             if (BotTypeHasMaterials(m.typeID)) {
-                if (!BotCraftRecursive(charID, stationID, m.typeID, missing, depth + 1))
+                if (!BotCraftRecursive(ownerID, locationID, flag, m.typeID, missing, depth + 1))
                     return false;
             } else {
-                sMktMgr.BotBuyStock(charID, stationID, m.typeID, missing);
-                uint32 nowHave = BotHangarQty(charID, stationID, m.typeID);
+                sMktMgr.BotBuyStock(ownerID, locationID, m.typeID, missing);
+                uint32 nowHave = BotInvQty(ownerID, locationID, flag, m.typeID);
                 if (nowHave < needTotal)
-                    sMktMgr.BotBuyStockRemote(charID, stationID, m.typeID, needTotal - nowHave); // import
+                    sMktMgr.BotBuyStockRemote(ownerID, locationID, m.typeID, needTotal - nowHave); // import
             }
-            if (BotHangarQty(charID, stationID, m.typeID) < needTotal)
+            if (BotInvQty(ownerID, locationID, flag, m.typeID) < needTotal)
                 return false;   // market couldn't supply the input
         }
-        BotHangarConsume(charID, stationID, m.typeID, needTotal);
+        BotInvConsume(ownerID, locationID, flag, m.typeID, needTotal);
     }
 
-    return BotHangarMint(charID, stationID, typeID, runs);
+    return BotInvMint(ownerID, locationID, flag, typeID, runs);
 }
 
 void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
@@ -3542,9 +3541,40 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
 
     uint32 runs = (productCat == 8) ? 100 : 1;   // ammo/charges in batches
 
-    if (BotCraftRecursive(db.charID, stationID, productID, runs, 0)) {
-        _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) built %u x %s at station %u.",
-             db.name.c_str(), db.charID, runs, sDataMgr.GetTypeName(productID), stationID);
+    // Craft location: the POS Assembly Array when the corp has one in this
+    // system (physical production at the tower), otherwise the station hangar.
+    uint32 craftLoc = stationID;
+    bool craftAtPOS = false;
+    if (db.corpID != 0) {
+        DBQueryResult pa;
+        if (sDatabase.RunQuery(pa,
+            "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u AND groupID = %u LIMIT 1",
+            db.corpID, sysID, EVEDB::invGroups::Assembly_Array)) {
+            DBResultRow par;
+            if (pa.GetRow(par)) { craftLoc = par.GetUInt(0); craftAtPOS = true; }
+        }
+    }
+
+    if (BotCraftRecursive(db.charID, craftLoc, (uint32)flagHangar, productID, runs, 0)) {
+        _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) built %u x %s %s.",
+             db.name.c_str(), db.charID, runs, sDataMgr.GetTypeName(productID),
+             craftAtPOS ? "at its POS" : "at the station");
+
+        // Physical production at the POS: haul the finished goods back to the
+        // station hangar so the normal courier/sale logistics can move them.
+        if (craftAtPOS) {
+            DBQueryResult mv;
+            if (sDatabase.RunQuery(mv,
+                "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u AND flag = %u",
+                db.charID, craftLoc, (uint32)flagHangar)) {
+                DBResultRow mvr;
+                while (mv.GetRow(mvr)) {
+                    InventoryItemRef iRef = sItemFactory.GetItemRef(mvr.GetUInt(0));
+                    if (iRef.get() != nullptr)
+                        iRef->Move(stationID, flagHangar);
+                }
+            }
+        }
     } else {
         _log(BOT__TRACE, "BotMgr: industrialist %s(%u) could not source materials for %s — skipping.",
              db.name.c_str(), db.charID, sDataMgr.GetTypeName(productID));
@@ -3564,7 +3594,7 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
             DBResultRow prr;
             if (pr.GetRow(prr)) {
                 uint32 piType = prr.GetUInt(0);
-                if (BotHangarMint(db.charID, stationID, piType, MakeRandomInt(50, 300)))
+                if (BotInvMint(db.charID, stationID, (uint32)flagHangar, piType, MakeRandomInt(50, 300)))
                     _log(BOT__TRACE, "BotMgr: industrialist %s(%u) extracted PI commodity %s into the hangar.",
                          db.name.c_str(), db.charID, sDataMgr.GetTypeName(piType));
             }
