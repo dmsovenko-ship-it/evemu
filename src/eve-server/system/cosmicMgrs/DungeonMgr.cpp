@@ -646,7 +646,7 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             // instead of +NEXT_DUNGEON_ROOM_DIST from the ship (which missed).
             if (dData.rooms.size() > 1 && roomCounter < (dData.rooms.size() - 1)) {
                 GPoint gatePos = newRoom.position;
-                gatePos.x += 48000 + MakeRandomInt(0, 8000);   // ~48-56km beyond room, well past decor, behind the anomaly in the jump direction
+                gatePos.x += 38000 + MakeRandomInt(0, 4000);   // ~48-56km beyond room, well past decor, behind the anomaly in the jump direction
                 ItemData gateData(17831, sig.ownerID, sig.systemID, flagNone, "Acceleration Gate", gatePos);  // 17831 = Acceleration Gate
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
