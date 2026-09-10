@@ -27,6 +27,8 @@
 
 #include "imageserver/ImageServer.h"
 #include "imageserver/ImageServerListener.h"
+#include "npc/BotMgr.h"
+#include <sys/stat.h>
 
 #include <unistd.h>
 #include <netdb.h>
@@ -142,8 +144,18 @@ std::shared_ptr<std::vector<char> > ImageServer::GetImage(std::string& category,
     //std::ifstream stream;
     std::string path(GetFilePath(category, id, size));
     FILE * fp = fopen(path.c_str(), "rb");
-    if (fp == NULL)
-        return std::shared_ptr<std::vector<char> >();
+    if (fp == NULL) {
+        // No portrait on disk: NPCs/agents/CEOs get a deterministic generated
+        // face (same tech as bots) so the portal/UI never shows a blank avatar.
+        if (category == "Character") {
+            std::string dir = _basePath + "Character";
+            ::mkdir(dir.c_str(), 0777);
+            if (BotMgr::GeneratePortraitPNG(path, id))
+                fp = fopen(path.c_str(), "rb");
+        }
+        if (fp == NULL)
+            return std::shared_ptr<std::vector<char> >();
+    }
     fseek(fp, 0, SEEK_END);
     size_t length = ftell(fp);
     fseek(fp, 0, SEEK_SET);

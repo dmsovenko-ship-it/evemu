@@ -88,13 +88,25 @@ void StandingMgr::UpdateStandings(uint32 fromID, uint32 toID, uint16 eventType, 
         case Standings::LawEnforcement:
             break; // skip — these are too frequent (CONCORD sec-status award per rat kill fires every NPC kill)
         default: {
+            // The client's notificationUtil formats ContactEdit with
+            // data['level'] (const.contact*Standing) and data.get('message').
+            // Without 'level' the notification fails to render ("formatting
+            // error"). Bucket the resulting standing into the 5 EVE levels.
+            double newStanding = StandingDB::GetStanding(fromID, toID);
+            int level;
+            if (newStanding > 5.0)        level = 10;   // Excellent
+            else if (newStanding > 0.0)   level = 5;    // Good
+            else if (newStanding == 0.0)  level = 0;    // Neutral
+            else if (newStanding >= -5.0) level = -5;   // Bad
+            else                          level = -10;  // Terrible
+
             PyDict* data = new PyDict();
             data->SetItemString("fromID", new PyInt(fromID));
             data->SetItemString("toID", new PyInt(toID));
             data->SetItemString("amount", new PyFloat(amount));
             data->SetItemString("eventType", new PyInt(eventType));
-            if (!msg.empty())
-                data->SetItemString("msg", new PyString(msg));
+            data->SetItemString("level", new PyInt(level));
+            data->SetItemString("message", new PyString(msg.empty() ? std::string("Standing changed") : msg));
             sEntityList.CreateNotification(toID, Notify::Types::ContactEdit, fromID, data);
         }
     }

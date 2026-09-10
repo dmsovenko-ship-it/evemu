@@ -1046,7 +1046,8 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         std::string q =
             "SELECT n.notificationID, n.typeID, n.senderID, "
             "       COALESCE(sender.characterName, npc.characterName, corp.corporationName, fac.factionName),"
-            "       n.receiverID, rec.characterName, n.processed, n.created"
+            "       n.receiverID, rec.characterName, n.processed, n.created,"
+            "       sender.characterID, npc.characterID, corp.ceoID, corp.corporationID, fac.factionID"
             " FROM notification n"
             " LEFT JOIN chrCharacters sender ON sender.characterID = n.senderID"
             " LEFT JOIN chrNPCCharacters npc ON npc.characterID = n.senderID"
@@ -1078,6 +1079,16 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             xml += " receivername=\"" + xmlEscape(row.GetText(5)) + "\"";
             xml += " processed=\"" + std::to_string(row.GetUInt(6)) + "\"";
             xml += " created=\"" + std::to_string(row.GetInt64(7)) + "\"";
+            // avatar: character (incl. agent NPC) → CEO for a corp → faction
+            uint32 avId = 0;
+            const char* avType = "character";
+            if (!row.IsNull(8))       avId = row.GetUInt(8);
+            else if (!row.IsNull(9))  avId = row.GetUInt(9);
+            else if (!row.IsNull(10) && row.GetUInt(10) > 0) avId = row.GetUInt(10);
+            else if (!row.IsNull(11)) { avId = row.GetUInt(11); avType = "corporation"; }
+            else if (!row.IsNull(12)) { avId = row.GetUInt(12); avType = "faction"; }
+            xml += " senderavatarid=\"" + std::to_string(avId) + "\"";
+            xml += " senderavatartype=\"" + std::string(avType) + "\"";
             xml += "/>\n";
         }
         xml += "    </notifications>\n  </result>\n</eveapi>\n";
