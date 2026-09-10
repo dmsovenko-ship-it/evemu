@@ -1,5 +1,8 @@
 # EVEmu Session Context
 
+## TODO (пометка на след. пересборку): отключить шумные логи
+Живой host-конфиг `/opt/evemu/config/log.ini` (mount) шумит (включено для отладки инкурсий): `BOT__TRACE=1`, `BOT__MESSAGE=1`, `SPAWN__MESSAGE=1`, `COSMIC_MGR__MESSAGE=1`, `POS__MESSAGE=1`, `TARGET__WARNING=1`. При следующей пересборке/рестарте вернуть ERROR-only — выставить эти каналы в `0` (репозиторный `utils/config/log.ini` уже чист, синхронизировать с ним). `BOT__TRACE` даёт тысячи строк/сек и подлагивает сервер.
+
 ## 10 сентября: профессия Industrialist (POS/PI/логистика/оборона), кап ботов, инкурсии, лут/заряды, кастом-офисы
 HEAD origin/master: `12ddef0c`. Все изменения закоммичены/запушены. **Требуется применить миграции** `20260910000000-bot_pi_colonies.sql` и `20260910000001-interbus_customs_offices.sql` (на 10 сент. применены: `botColonies` есть, InterBus-офисов 9340).
 - **Инкурсия HUD (информер со штрафами) — ПОЧИНЕН** (`68557a79`): клиент `incursionSvc.OnTaleData(systemID, data)` ждёт `data` = словарь `{taleID: taleData}`; сервер слал голый taleData → HUD стартовал только через `OnTaleStart` (кто онлайн в момент старта). Теперь `OnTaleData` = `(systemID, {taleID: taleData})` и только пилотам в системах инкурсии; `Client::SendSessionChange` вызывает `sIncursionMgr.NotifyClients(0)` → HUD появляется при входе в систему. `NotifyClients` сделан public (`f82f8fce`).
