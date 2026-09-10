@@ -610,9 +610,16 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
                 uint32 single = irow.GetUInt(3);
                 uint32 d = 0, x = qty;
                 if (IsRigSlot(flag) || IsSubSystem(flag)) {
-                    // rigs/subs destroyed
+                    // rigs/subsystems are always destroyed
                 } else if (IsEven(MakeRandomInt(0, 100))) {
-                    if (qty > 1) { d = MakeRandomInt(0, qty); x = qty - d; }
+                    // 50% survive per stack (CCP standard): whole stack for singles,
+                    // a random subset for multi-item stacks.
+                    if (qty > 1) {
+                        d = MakeRandomInt(0, qty);
+                        x = qty - d;
+                    } else {
+                        d = 1; x = 0;
+                    }
                 }
                 blob << "<i t=" << typeID << " f=" << flag << " q=" << qty << " s=" << single << " d=" << d << " x=" << x << "/>";
             }

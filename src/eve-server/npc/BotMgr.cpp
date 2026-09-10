@@ -2312,6 +2312,56 @@ void BotMgr::MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 
         }
     }
 
+    // 1b) Charges for TURRETS (lasers use frequency crystals, hybrids/projectiles
+    //     use ammo). Read the fitted high-slot weapons' chargeGroup1 (attr 604)
+    //     and carry a real charge of that group in the hold.
+    {
+        DBQueryResult cgRes;
+        if (sDatabase.RunQuery(cgRes,
+            "SELECT DISTINCT a.valueInt FROM entity e "
+            " JOIN dgmTypeAttributes a ON a.typeID = e.typeID AND a.attributeID = 604 "
+            " WHERE e.locationID = %u AND e.flag BETWEEN 27 AND 34 AND a.valueInt > 0", shipID)) {
+            DBResultRow cgRow;
+            std::set<uint32> groups;
+            while (cgRes.GetRow(cgRow))
+                groups.insert(cgRow.GetUInt(0));
+            for (uint32 g : groups) {
+                uint32 chargeID = 0;
+                DBQueryResult cRes;
+                // prefer a T2 charge for veterans, else a plain T1 one
+                if (skillTier >= 4 &&
+                    sDatabase.RunQuery(cRes,
+                        "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 "
+                        " AND typeName LIKE '%% II' ORDER BY RAND() LIMIT 1", g)) {
+                    DBResultRow cRow;
+                    if (cRes.GetRow(cRow)) chargeID = cRow.GetUInt(0);
+                }
+                if (chargeID == 0 &&
+                    sDatabase.RunQuery(cRes,
+                        "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 "
+                        " ORDER BY RAND() LIMIT 1", g)) {
+                    DBResultRow cRow;
+                    if (cRes.GetRow(cRow)) chargeID = cRow.GetUInt(0);
+                }
+                if (chargeID != 0)
+                    stackToCargo(chargeID, MakeRandomInt(100, 400));
+            }
+        }
+    }
+
+    // 1c) If the pilot has Thermodynamics (overheat) trained, they may carry
+    //     Nanite Repair Paste ("термопаста") to repair burnt modules.
+    {
+        DBQueryResult skRes;
+        if (sDatabase.RunQuery(skRes,
+            "SELECT COUNT(*) FROM entity WHERE ownerID = %u AND flag = 7 "
+            " AND typeID = (SELECT typeID FROM invTypes WHERE typeName = 'Thermodynamics' LIMIT 1)", charID)) {
+            DBResultRow skRow;
+            if (skRes.GetRow(skRow) && skRow.GetUInt(0) > 0)
+                stackToCargo(28668, MakeRandomInt(20, 120)); // Nanite Repair Paste
+        }
+    }
+
     // 2) Profession-typical cargo. Miners/ratters already carry real ore/loot in
     //    m_cargo during a run — this seeds a baseline so the hold isn't empty the
     //    moment they leave the station.
