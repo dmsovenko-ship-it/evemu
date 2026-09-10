@@ -496,7 +496,9 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
             // horizontal (pitch=0, roll=0) so the acceleration runs right over
             // the gate.  yaw = atan2(runX, runZ) as in CustomsOffice.
             PyTuple* rotTuple = new PyTuple(3);
-                float yawDeg = EvE::Trig::Rad2Deg(atan2(dx, dz));
+                // The gate MODEL faces opposite the warp vector, so add 180° to
+                // the yaw (the earlier removal flipped the gate backwards).
+                float yawDeg = EvE::Trig::Rad2Deg(atan2(dx, dz)) + 180.0f;
                 if (yawDeg > 180.0f) yawDeg -= 360.0f;
                 else if (yawDeg < -180.0f) yawDeg += 360.0f;
                 rotTuple->SetItem(0, new PyFloat(yawDeg));

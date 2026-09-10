@@ -30,6 +30,9 @@
 #include "corporation/LPService.h"
 #include "ship/Ship.h"
 #include "inventory/Inventory.h"
+#include "system/SystemEntity.h"
+#include <cmath>
+#include <map>
 #include <algorithm>
 
 /** @todo  this can be updated to spawn mission, anomaly and deadspace rats.
@@ -529,14 +532,30 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
     m_incursionSite.pocket    = toPocket;
     m_hasIncursionSite = true;
 
-    // The gate must appear NEXT TO THE PLAYER — i.e. at the pocket that was
-    // just cleared (this wave's pocket minus one room distance), ~30km past its
-    // centre — and teleport INTO this wave's pocket (toPocket). Previously it
-    // was placed at toPocket+30km, which is 50M km away: invisible and useless.
+    // The gate must appear NEXT TO THE PLAYER — at the pocket that was just
+    // cleared — but PAST the furthest structure of that pocket, not at a fixed
+    // offset from the centre (user: "from the edge of the last structure, not
+    // the centre"). Scan the entities around the cleared pocket for the max +x
+    // extent and add ~9km; floor at 30km so an empty pocket still spaces it out.
     GPoint clearedPocket = toPocket;
     clearedPocket.x -= NEXT_DUNGEON_ROOM_DIST;
+    double maxExtent = 0.0;
+    {
+        std::map<uint32, SystemEntity*> ents = m_system->GetEntities();
+        for (auto& kv : ents) {
+            SystemEntity* se = kv.second;
+            if (se == nullptr) continue;
+            GPoint p = se->GetPosition();
+            if (fabs(p.y - clearedPocket.y) > 80000.0 || fabs(p.z - clearedPocket.z) > 80000.0)
+                continue;
+            double d = p.x - clearedPocket.x;
+            if (d > 0.0 && d < 300000.0 && d > maxExtent)
+                maxExtent = d;
+        }
+    }
+    double gateOffset = std::max(30000.0, maxExtent + 9000.0) + MakeRandomInt(0, 4000);
     GPoint gatePos = clearedPocket;
-    gatePos.x += 30000 + MakeRandomInt(0, 4000);   // 30-34km past the cleared pocket centre
+    gatePos.x += gateOffset;
     GPoint nextRoomPos = toPocket;                 // gate_to = this wave's pocket
     ItemData gateData(17831, 0, m_system->GetID(), flagNone, "Acceleration Gate", gatePos);
     uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
