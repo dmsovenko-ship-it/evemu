@@ -148,6 +148,12 @@ static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower, Weapon
         // At war with the target's corp/alliance → hostile.
         if (pTower->GetCorpWar() && pClient->GetCorporationID() != pTower->GetCorporationID())
             hostileBySettings = true;
+        // Security-status threshold (tower setting): engage targets at/below it.
+        float statusThreshold = pTower->GetStatus();
+        if (statusThreshold < 0.0f && statusThreshold > -10.0f) {
+            if (pClient->GetSecurityRating() <= statusThreshold)
+                hostileBySettings = true;
+        }
     }
 
     // High-sec: POS guns may only engage hostiles (criminals / aggressors /
