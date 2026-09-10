@@ -146,8 +146,7 @@ m_pShieldSE(nullptr)
 }
 
 void TowerSE::Init()
-{
-    StructureSE::Init();
+{    StructureSE::Init();
 
     if (!m_db.GetTowerData(m_tdata, m_data)) {
         _log(SE__TRACE, "TowerSE %s(%u) has no saved data.  Initializing default set.", m_self->name(), m_self->itemID());
@@ -191,6 +190,22 @@ void TowerSE::InitData() {
     m_tdata.standingOwnerID = 0;    /** @todo  get sov holder here. */
 
     m_db.SaveTowerData(m_tdata, m_data);
+}
+
+// Called by StructureSE::BotDeployAndAnchor after the common anchored/online
+// state is set: link the tower to its moon, register it in the bubble and
+// persist the tower data so a reload brings the force field back.
+void TowerSE::OnBotAnchorComplete()
+{
+    if (m_moonSE != nullptr)
+        m_moonSE->SetTower(this);
+    if (m_bubble != nullptr)
+        m_bubble->SetTowerSE(this);
+
+    m_harmonic = EVEPOS::Harmonic::Offline;
+    m_tdata.harmonic = m_harmonic;
+    m_db.SaveTowerData(m_tdata, m_data);
+    InitFuelData();
 }
 
 void TowerSE::Scoop() {

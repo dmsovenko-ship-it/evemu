@@ -193,6 +193,9 @@ private:
     // Producer/builder: runs the full recursive manufacturing chain (invTypeMaterials),
     // buys missing inputs on the market, then ships/sells the output like other producers.
     void ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, const DockedBot& db);
+    // Deploy a POS (Control Tower + Assembly Array + Silo) at a moon in the
+    // system for this producer corp. No-op if the corp already has one there.
+    void DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID);
     // A courier reached the destination system — complete its accepted contract
     // (reward ISK + cargo placed at the destination station).
     void CompleteContract(uint32 charID, uint32 destSystem);

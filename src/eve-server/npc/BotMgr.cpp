@@ -18,6 +18,11 @@
 #include "market/MarketDB.h"
 #include "ship/Ship.h"
 #include "EVE_Effects.h"
+#include "pos/Tower.h"
+#include "pos/Array.h"
+#include "pos/Module.h"
+#include "pos/Structure.h"
+#include "tables/invGroups.h"
 #include "TelegramBot.h"
 #include "character/Character.h"
 #include <cctype>
@@ -3385,10 +3390,127 @@ static bool BotCraftRecursive(uint32 charID, uint32 stationID, uint32 typeID, ui
     return BotHangarMint(charID, stationID, typeID, runs);
 }
 
+void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
+{
+    if (sysMgr == nullptr || charID == 0 || corpID == 0)
+        return;
+    uint32 sysID = sysMgr->GetID();
+
+    // Already a tower for this corp here? nothing to do.
+    {
+        DBQueryResult chk;
+        if (sDatabase.RunQuery(chk,
+            "SELECT COUNT(*) FROM entity WHERE locationID = %u AND ownerID = %u AND groupID = %u",
+            sysID, corpID, EVEDB::invGroups::Control_Tower)) {
+            DBResultRow r;
+            if (chk.GetRow(r) && r.GetUInt(0) > 0)
+                return;
+        }
+    }
+
+    // Pick a moon in this system (groupID 8 = Moon in mapDenormalize).
+    GPoint moonPos;
+    {
+        DBQueryResult mres;
+        if (!sDatabase.RunQuery(mres,
+            "SELECT x, y, z FROM mapDenormalize WHERE solarSystemID = %u AND groupID = 8 ORDER BY RAND() LIMIT 1",
+            sysID))
+            return;
+        DBResultRow mrow;
+        if (!mres.GetRow(mrow))
+            return;
+        moonPos.x = mrow.GetDouble(0);
+        moonPos.y = mrow.GetDouble(1);
+        moonPos.z = mrow.GetDouble(2);
+    }
+    // Anchor ~80-120 km off the moon (EVE moonAnchorDistance).
+    GPoint pos = moonPos;
+    pos.x += 80000.0 + MakeRandomInt(0, 40000);
+
+    uint32 towerType = 0, arrayType = 0, siloType = 0;
+    {
+        DBQueryResult tres;
+        if (sDatabase.RunQuery(tres,
+            "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1",
+            EVEDB::invGroups::Control_Tower)) {
+            DBResultRow r; if (tres.GetRow(r)) towerType = r.GetUInt(0);
+        }
+    }
+    if (towerType == 0)
+        return;
+    {
+        DBQueryResult ares;
+        if (sDatabase.RunQuery(ares,
+            "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1",
+            EVEDB::invGroups::Assembly_Array)) {
+            DBResultRow r; if (ares.GetRow(r)) arrayType = r.GetUInt(0);
+        }
+        DBQueryResult sres;
+        if (sDatabase.RunQuery(sres,
+            "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1",
+            EVEDB::invGroups::Silo)) {
+            DBResultRow r; if (sres.GetRow(r)) siloType = r.GetUInt(0);
+        }
+    }
+
+    FactionData data = FactionData();
+        data.ownerID = charID;
+        data.corporationID = corpID;
+        data.allianceID = 0;
+        data.factionID = 0;
+
+    // Spawn the tower first (modules need the tower in the bubble).
+    {
+        ItemData idata(towerType, corpID, sysID, flagNone, "Control Tower", pos);
+        StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
+        if (sRef.get() == nullptr) {
+            _log(BOT__ERROR, "DeployBotPOS: failed to spawn tower type %u for corp %u.", towerType, corpID);
+            return;
+        }
+        sRef->SaveItem();
+        TowerSE* tSE = new TowerSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
+        sysMgr->AddEntity(tSE);
+        tSE->BotDeployAndAnchor(pos);
+    }
+
+    auto spawnModule = [&](uint32 typeID, const char* name, double dx) {
+        if (typeID == 0) return;
+        GPoint p = pos; p.x += dx;
+        ItemData idata(typeID, corpID, sysID, flagNone, name, p);
+        StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
+        if (sRef.get() == nullptr) return;
+        sRef->SaveItem();
+        // Assembly arrays and silos get their proper SE classes.
+        uint16 gid = sRef->groupID();
+        StructureSE* se = nullptr;
+        if (gid == EVEDB::invGroups::Assembly_Array)
+            se = new ArraySE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
+        else
+            se = new ReactorSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
+        sysMgr->AddEntity(se);
+        se->BotDeployAndAnchor(p);
+    };
+    spawnModule(arrayType, "Assembly Array", 12000.0);
+    spawnModule(siloType,  "Silo",           24000.0);
+
+    _log(BOT__MESSAGE, "BotMgr: industrialist %u deployed a POS at a moon in system %u (tower %u, array %u, silo %u).",
+         charID, sysID, towerType, arrayType, siloType);
+}
+
 void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, const DockedBot& db)
 {
     if (sysID == 0 || stationID == 0 || db.charID == 0)
         return;
+
+    // In empire (highsec) the producer anchors its own POS at a moon, then runs
+    // the manufacturing chain there. (In nullsec this will move to claimed
+    // systems with bridge logistics; for now only highsec stations have bots.)
+    SystemManager* sMgr = sEntityList.FindOrBootSystem(sysID);
+    if (sMgr != nullptr && sMgr->GetSystemSecurityRating() >= 0.5f && db.corpID != 0) {
+        // Only bother once in a while (the deploy itself is idempotent).
+        if (MakeRandomInt(0, 99) < 25)
+            DeployBotPOS(sMgr, db.charID, db.corpID);
+    }
 
     // Pick a random T1 product we can actually build (module/charge/ship), cheap
     // enough for a bot wallet. T2 lines are reachable through recursion once the

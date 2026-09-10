@@ -803,6 +803,36 @@ void StructureSE::SetAnchor(Client *pClient, GPoint &pos)
     m_destiny->SendSpecialEffect(m_data.itemID, m_data.itemID, m_self->typeID(), 0, 0, "effects.AnchorDrop", 0, 1, 1, -1, 0);
 }
 
+// Bot anchoring (no Client*): used by the Industrialist to deploy a POS at a
+// moon. Places the structure, links it to the nearest moon, marks it anchored
+// + online, and persists it so a server restart reloads it (SystemManager
+// rebuilds TowerSE/ArraySE/ReactorSE from the entity row).
+void StructureSE::BotDeployAndAnchor(const GPoint& pos)
+{
+    if (m_data.state > EVEPOS::StructureState::Unanchored)
+        return;
+
+    // Resolve the anchor point (moon) from our position and persist it.
+    InitData();
+    m_db.SaveBaseData(m_data);
+
+    m_self->SetPosition(pos);
+    if (m_destiny != nullptr)
+        m_destiny->SetPosition(pos);
+
+    m_data.state = EVEPOS::StructureState::Online;
+    m_self->SetFlag(flagStructureActive);
+    m_self->SaveItem();
+    m_db.SaveBaseData(m_data);
+
+    OnBotAnchorComplete();   // TowerSE: force field, moon link, fuel data
+
+    SendSlimUpdate();
+    if (m_destiny != nullptr)
+        m_destiny->SendSpecialEffect(m_data.itemID, m_data.itemID, m_self->typeID(),
+                                     0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
+}
+
 void StructureSE::PullAnchor()
 {
     if (m_data.state > EVEPOS::StructureState::Anchored)

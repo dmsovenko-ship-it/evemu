@@ -167,6 +167,11 @@ public:
     void                        Offline();
     void                        PullAnchor();
     void                        SetAnchor(Client* pClient, GPoint& pos);
+    // Bot (no Client) anchoring: places the structure at `pos`, links it to the
+    // nearest moon, marks it anchored+online and persists it. Towers override
+    // OnBotAnchorComplete() to register the force field / moon / fuel data.
+    void                        BotDeployAndAnchor(const GPoint& pos);
+    virtual void                OnBotAnchorComplete() { }
     void                        Activate(int32 effectID);
     void                        Deactivate(int32 effectID);
     void                        GetEffectState(PyList& into);

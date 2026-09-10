@@ -36,6 +36,7 @@ public:
     /* virtual functions default to base class and overridden as needed */
     virtual void                Init();
     virtual void                InitData();
+    virtual void                OnBotAnchorComplete();   // bot POS deployment: moon link + fuel/force field
 
     /* virtual functions to be overridden in derived classes */
     virtual void     MissileLaunched(Missile* pMissile) { /* Do nothing here */ }
