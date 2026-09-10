@@ -1260,7 +1260,7 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         else                    baseDist = 10000.0 + MakeRandomFloat() * 12000.0;
         GPoint pos;
         bool ok = false;
-        for (uint32 attempt = 0; attempt < 12 && !ok; ++attempt) {
+        for (uint32 attempt = 0; attempt < 16 && !ok; ++attempt) {
             double angle = MakeRandomFloat() * 2.0 * 3.14159;
             double radius = baseDist * (0.8 + MakeRandomFloat() * 0.4);
             double height = (MakeRandomFloat() - 0.5) * 4000.0;
@@ -1269,7 +1269,9 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
             pos.y = roomPos.y + height;
             ok = true;
             for (auto& p : placed) {
-                if (pos.distance(p.first) < objR + p.second + 1000.0) { ok = false; break; }
+                // margin grows with size so big structures never look merged
+                double margin = std::max(1500.0, objR * 0.4);
+                if (pos.distance(p.first) < objR + p.second + margin) { ok = false; break; }
             }
         }
         if (!ok)
@@ -1278,17 +1280,29 @@ std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 f
         spawnOne(typeID, pos);
     }
 
-    // Extra clouds — just a bit fewer (4-7), radius 4-10km, 5-15km out.
+    // Extra clouds — placed with the SAME separation logic as the bulky
+    // structures (share `placed`) so large structures and clouds never overlap.
     uint32 cloudCount = 4 + MakeRandomInt(0, 3);
     for (uint32 i = 0; i < cloudCount; ++i) {
         uint32 typeID = factionClouds[MakeRandomInt(0, factionClouds.size() - 1)];
-        double angle = MakeRandomFloat() * 2.0 * 3.14159;
-        double radius = 5000.0 + MakeRandomFloat() * 10000.0;
-        double height = (MakeRandomFloat() - 0.5) * 5000.0;
+        double cloudR = 3000.0 + MakeRandomFloat() * 4000.0;
         GPoint pos;
-        pos.x = roomPos.x + cos(angle) * radius;
-        pos.z = roomPos.z + sin(angle) * radius;
-        pos.y = roomPos.y + height;
+        bool ok = false;
+        for (uint32 attempt = 0; attempt < 16 && !ok; ++attempt) {
+            double angle = MakeRandomFloat() * 2.0 * 3.14159;
+            double radius = 6000.0 + MakeRandomFloat() * 12000.0;
+            double height = (MakeRandomFloat() - 0.5) * 6000.0;
+            pos.x = roomPos.x + cos(angle) * radius;
+            pos.z = roomPos.z + sin(angle) * radius;
+            pos.y = roomPos.y + height;
+            ok = true;
+            for (auto& p : placed) {
+                if (pos.distance(p.first) < cloudR + p.second + 1500.0) { ok = false; break; }
+            }
+        }
+        if (!ok)
+            continue;   // dense field — skip
+        placed.emplace_back(pos, cloudR);
         spawnOne(typeID, pos);
     }
     return spawned;
