@@ -1,7 +1,29 @@
 # EVEmu Session Context
 
 ## TODO (пометка на след. пересборку): отключить шумные логи
-Живой host-конфиг `/opt/evemu/config/log.ini` (mount) шумит (включено для отладки инкурсий): `BOT__TRACE=1`, `BOT__MESSAGE=1`, `SPAWN__MESSAGE=1`, `COSMIC_MGR__MESSAGE=1`, `POS__MESSAGE=1`, `TARGET__WARNING=1`. При следующей пересборке/рестарте вернуть ERROR-only — выставить эти каналы в `0` (репозиторный `utils/config/log.ini` уже чист, синхронизировать с ним). `BOT__TRACE` даёт тысячи строк/сек и подлагивает сервер.
+Живой host-конфиг `/opt/evemu/config/log.ini` (mount) шумит (включено для отладки инкурсий): `BOT__TRACE=1`, `BOT__MESSAGE=1`, `SPAWN__MESSAGE=1`, `COSMIC_MGR__MESSAGE=1`, `POS__MESSAGE=1`, `TARGET__WARNING=1`. При следующей пересборке/рестарте вернуть ERROR-only — выставить эти каналы в `0` (репозиторный `utils/config/log.ini` уже чист, синхронизировать с ним). `BOT__TRACE` даёт тысячи строк/сек и подлагивает сервер. **10 сент.: выключено (все на 0 в live log.ini, бэкап `log.ini.bak_<ts>`); при свежих Updates синхронизировать с repo default повторно.**
+
+## 🔴 WARP — МИКРОРЫВОК В КОНЦЕ (10 сент., не решено, отложено)
+Юзер: на капитал (Nyx, 3 AU/s, 10-35 АУ) après warp — **упорный «микро-рывок»** (был заметнее, снизился, но остался). Эксперименты и факты:
+- **Фикс, который сделал прогресс: `69c191bc`** — убран mid-warp снап в WarpDecel (снап телепортировал шар на целевую точку при distance ≤1м; клиент продолжал ffить decel → выглядело как телепорт в конец варпа).
+- **Синхрон порога entry: `f85475bb`** — `WARP_ALIGNMENT 6° → 0.57° (0.01 rad)` по клиенту destiny.dll (OnActivatingWarp case 3 GOTO branch — angle diff ≤ 0.01 rad → enter warp). Это привело серверное и клиентское время входа в warp в единый кадр.
+- **`cf0638d0`** — доставка balls из ОПЕРЕЖАЮЩИХ баббл радиуса прибытия (`Bubbles straddle`): астероиды/данж-объекты renderащ immediately, а не 2-5с.
+- **Hold patch: `b2324fa3` по mass, `9e6ff358` +2s base, `eed3354a` derive by decelDist/warpSpeed, `0310d9e1` settle-window 8s** — вариант пробован; **завершен** последний «settle-888 basis»; юзер после испытания: «микро-рывок всё ещё присутствует» при shields 10-35 АУ.
+
+**Анализ, что накоплено (для гонки след. сессии):**
+- Клиентский destiny.dll на warp-mode спавнится: **OnActivatingWarp case 3 GOTO branch**: клиент сам в GOTO-режиме ведёт balls через процедуры: incident angular `heading compared to vector`. Клиент позиционного broadcast сервера во время warp не требуется.
+- **Известные константы клиента destiny.dll** (из AGENTS 15 авг): `DAT_100640a0 = 0.01` (angle diff), `DAT_10063eb0 = -1`, `DAT_10064018 = 0.3333` (branch 1), `DAT_10064020 = -3` (branch 2 множ), `DAT_1005f710=0.5`, `DAT_1005f718=1.0`, `DAT_1005f948=1.496e11 (1 AU)`, `DAT_10063fe0=3.0`, `DAT_10064028=1.5`, `DAT_100640a0=0.01`, `DAT_10063f10=1e-5`, `DAT_10063f20=0.1`, `DAT_10064088`.
+- **Бай формула server WARP**: наш WarpAccel = `e^(3t)`, `speed = 3·e^(3t)`; WarpDecel — двухфазный ветке 3с linear + exp — согласно клиенту.
+- **Но серверная окончательная broadcast WarpStop** включает (третий момент): наш burn/decel converge **sub-metre** —disconnect — юзер видит «mикро-jerk» in final frame. 
+- **Важно:** клиентский decay event on warp exit is a fixed **frame-latency**, не dist- 相关 related (10/35 AU идент了我的 perception), но не объясняет полностью.
+
+**Где копать дальше** (в этом порядке):
+1. **Проверить WarpStop final broadcast позиции**: возможно сервер видит `m_position` на hold (после formula converge) и на broadcast`SetBallPosition` отправляет server-side позицию, но клиент WarpLoop должна завершиться по времени клиента — сверить: клиентская WarpLoop вход соответствует **клиентскому OnActivatingWarp** с балансом-порогом 0.57°; а серверный «брокная позиция broadcast» держит 3с. Maybe hold надо интерпретировать иначе (убрать «settle window» и сразу WarpStop на arrival).
+2. Проверить, что серверная `m_ballMode` при WarpStop Returned и CLIENT получает mode STOP (не GOTO) и сверить клиенту.
+3. Испробовать серверную клиентский**matching «SetBallPosition» broadcast** в WarpStop с Broadcast=true вместо默默 (одна строка), чтобы согласовать клиентский расчет шару на прибытии.
+4. Сверить судьбу client vs server после arrival via ball-mode-follow.
+
+## ПРАВИЛА ЮЗЕРА (записано 9 сент. — соблюдать!)
 
 ## 10 сентября: профессия Industrialist (POS/PI/логистика/оборона), кап ботов, инкурсии, лут/заряды, кастом-офисы
 HEAD origin/master: `12ddef0c`. Все изменения закоммичены/запушены. **Требуется применить миграции** `20260910000000-bot_pi_colonies.sql` и `20260910000001-interbus_customs_offices.sql` (на 10 сент. применены: `botColonies` есть, InterBus-офисов 9340).
