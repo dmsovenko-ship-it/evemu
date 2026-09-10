@@ -204,6 +204,8 @@ private:
     // station then warp in" or "login at the POS" (warp-in out of nowhere).
     // Null-sec mostly the latter, high-sec 50/50.
     void SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& pos);
+    // POS guards assist the tower operator's manual target (focus fire).
+    void ProcessPosGuards();
     // A courier reached the destination system — complete its accepted contract
     // (reward ISK + cargo placed at the destination station).
     void CompleteContract(uint32 charID, uint32 destSystem);

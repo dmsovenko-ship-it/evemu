@@ -231,6 +231,9 @@ void BotMgr::Process()
     // Docked traders work the market from their station.
     ProcessDockedEconomy();
 
+    // POS guards assist the tower operator's target (manual gunnery focus fire).
+    ProcessPosGuards();
+
     // Bots occasionally chatter among themselves in local (rare).
     ProcessBotSmalltalk();
 
@@ -3731,6 +3734,7 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
             continue;
 
         guard->SetProfession(PlayerBot::BotProfession::Hunter);
+        guard->SetPosGuard(true);
 
         // Arrival model: null-sec mostly "login at the POS"; high-sec 50/50.
         bool loginAtPos = (sec < 0.5f) ? true : (MakeRandomInt(0, 1) == 1);
@@ -3759,6 +3763,44 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
         _log(BOT__MESSAGE, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s arrival).",
              cand.second.c_str(), charID, sysID, loginAtPos ? "login-at-POS" : "station-warp");
         ++spawned;
+    }
+}
+
+void BotMgr::ProcessPosGuards()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr)
+            continue;
+
+        // Find the tower (if any) in this system.
+        SystemEntity* tower = nullptr;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se != nullptr && se->GetTowerSE() != nullptr) { tower = se; break; }
+        }
+        if (tower == nullptr)
+            continue;
+
+        uint32 manual = tower->GetTowerSE()->GetManualTarget();
+        if (manual == 0)
+            continue;   // no operator target — guards rely on their own Hunter AI
+
+        SystemEntity* targ = pSystem->GetSE(manual);
+        if (targ == nullptr)
+            continue;
+
+        // Guards focus the operator's target too (helps kill it fast).
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb == nullptr || !pb->IsPosGuard())
+                continue;
+            if (pb->GetAIMgr() != nullptr && !pb->GetAIMgr()->IsFighting())
+                pb->GetAIMgr()->Target(targ);
+        }
     }
 }
 
@@ -4556,17 +4598,48 @@ void BotMgr::ProcessDocking()
                 // warp them to a belt/anomaly/site).
                 auto prof = npb->GetProfession();
                 if (prof == PlayerBot::BotProfession::Industrialist) {
-                    // Fly to the corp POS so production is actually VISIBLE at
-                    // the tower (then it lingers and docks again later).
-                    SystemEntity* tower = nullptr;
-                    for (auto& [eid, e] : pSystem->GetEntities()) {
-                        if (e != nullptr && e->GetTowerSE() != nullptr) { tower = e; break; }
+                    // Producer visits either its POS or its colony planet so the
+                    // activity is VISIBLE (then it lingers and docks again later).
+                    bool goToColony = (MakeRandomInt(0, 1) == 1);
+                    GPoint dest;
+                    bool haveDest = false;
+
+                    if (goToColony) {
+                        DBQueryResult cr;
+                        uint32 planetID = 0;
+                        if (sDatabase.RunQuery(cr,
+                            "SELECT planetID FROM botColonies WHERE charID = %u", npb->GetBotCharID())) {
+                            DBResultRow r; if (cr.GetRow(r)) planetID = r.GetUInt(0);
+                        }
+                        if (planetID != 0) {
+                            DBQueryResult pr;
+                            if (sDatabase.RunQuery(pr,
+                                "SELECT x, y, z, IFNULL(radius,0) FROM mapDenormalize WHERE itemID = %u", planetID)) {
+                                DBResultRow r;
+                                if (pr.GetRow(r)) {
+                                    dest.x = r.GetDouble(0) + r.GetDouble(3) + 200000.0;
+                                    dest.y = r.GetDouble(1);
+                                    dest.z = r.GetDouble(2);
+                                    haveDest = true;
+                                }
+                            }
+                        }
                     }
-                    if (tower != nullptr) {
-                        GPoint p = tower->GetPosition();
-                        p.x += 9000.0;
-                        npb->DestinyMgr()->WarpTo(p, 0);
+
+                    if (!haveDest) {
+                        SystemEntity* tower = nullptr;
+                        for (auto& [eid, e] : pSystem->GetEntities()) {
+                            if (e != nullptr && e->GetTowerSE() != nullptr) { tower = e; break; }
+                        }
+                        if (tower != nullptr) {
+                            dest = tower->GetPosition();
+                            dest.x += 9000.0;
+                            haveDest = true;
+                        }
                     }
+
+                    if (haveDest)
+                        npb->DestinyMgr()->WarpTo(dest, 0);
                 } else if (prof == PlayerBot::BotProfession::Courier || prof == PlayerBot::BotProfession::Trader) {
                     npb->MarkForTravel();   // visible warp to the gate, then cross
                 }

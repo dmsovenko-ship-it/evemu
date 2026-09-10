@@ -127,6 +127,8 @@ public:
     BotProfession GetProfession() const { return m_profession; }
     void SetProfession(BotProfession p) { m_profession = p; }
     bool IsAggressive() const           { return m_profession == BotProfession::Hunter; }
+    bool IsPosGuard() const             { return m_posGuard; }
+    void SetPosGuard(bool v)            { m_posGuard = v; }
     void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
     void HuntForTarget();               // PvP hunter: find a legal PvP target and engage
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
@@ -208,8 +210,7 @@ public:
     // gate for a while (like a real pilot's aggression flag). Start() it on an
     // attack; IsAggressed() gates docking/travel in BotMgr.
     void StartAggressionTimer()   { m_aggressionTimer.Start(MakeRandomInt(30000, 90000)); }
-    bool IsAggressed() const      { return m_aggressionTimer.Enabled(); }
-    // Broadcast an OnAggressionChange notification so players in the bubble see
+    bool IsAggressed() const      { return m_aggressionTimer.Enabled(); }    // Broadcast an OnAggressionChange notification so players in the bubble see
     // the bot's blinking aggression icon (like any attacker's). victim = who the
     // bot attacked (may be a Client or another bot).
     void BroadcastAggression(uint32 victimCharID);
@@ -236,6 +237,7 @@ protected:
     BotRole m_role;                     // combat role assigned at spawn
     CombatStyle m_combatStyle;          // kite / brawler / balanced (assigned at spawn)
     BotProfession m_profession;         // livelihood (hunter/miner/trader/courier/hacker)
+    bool m_posGuard = false;            // POS tower guard: assists the operator's target
     uint32 m_nextMissionReport = 0;     // missioner: dock & report when ratKills reaches this
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     std::vector<InventoryItemRef> m_droppedItems; // modules/cargo rolled as "dropped" (moved to wreck on death)
