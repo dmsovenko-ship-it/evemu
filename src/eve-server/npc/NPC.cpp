@@ -797,6 +797,9 @@ void NPC::Killed(Damage &damage) {
         wreckItemRef->Delete();
         return;
     }
+    // PlayerBot: move the modules/cargo that "survived" (same roll as the
+    // killmail) into the wreck so players can actually loot them.
+    MoveDroppedItemsToWreck(wreckItemRef);
     m_destiny->SendJettisonPacket();
 
     // Unlock DED containers in this bubble when NPC dies

@@ -592,37 +592,45 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
     totalHP += m_self->GetAttribute(AttrShieldCapacity).get_int();
     data.victimDamageTaken = totalHP;
 
-    // dropped/destroyed items (modules + cargo from the ship)
+    // dropped/destroyed items (modules + cargo from the ship). Read the ship's
+    // in-memory inventory (like a real player loss) so we can BOTH list them in
+    // the killmail AND physically move the survivors into the wreck later.
     {
         std::stringstream blob;
         blob << "<items>";
         bool foundItems = false;
-        uint32 shipItemID = m_self->itemID();
-        DBQueryResult iRes;
-        if (sDatabase.RunQuery(iRes,
-            "SELECT typeID, flag, quantity, singleton FROM entity WHERE locationID = %u", shipItemID)) {
-            DBResultRow irow;
-            while (iRes.GetRow(irow)) {
-                foundItems = true;
-                uint32 typeID = irow.GetUInt(0);
-                uint32 flag   = irow.GetUInt(1);
-                uint32 qty    = irow.GetUInt(2);
-                uint32 single = irow.GetUInt(3);
-                uint32 d = 0, x = qty;
-                if (IsRigSlot(flag) || IsSubSystem(flag)) {
-                    // rigs/subsystems are always destroyed
-                } else if (IsEven(MakeRandomInt(0, 100))) {
-                    // 50% survive per stack (CCP standard): whole stack for singles,
-                    // a random subset for multi-item stacks.
-                    if (qty > 1) {
-                        d = MakeRandomInt(0, qty);
-                        x = qty - d;
-                    } else {
-                        d = 1; x = 0;
-                    }
+        m_droppedItems.clear();
+
+        std::map<uint32, InventoryItemRef> deadShipInventory;
+        if (m_self->GetMyInventory() != nullptr)
+            m_self->GetMyInventory()->GetInventoryMap(deadShipInventory);
+
+        for (auto cur : deadShipInventory) {
+            EVEItemFlags flag = cur.second->flag();
+            if (flag == flagPilot)
+                continue;                       // pilot is not an item
+            foundItems = true;
+            uint32 typeID   = cur.second->typeID();
+            uint32 qty      = cur.second->quantity();
+            uint32 single   = (cur.second->isSingleton() ? 1 : 0);
+
+            uint32 d = 0, x = qty;
+            if (IsRigSlot(flag) || IsSubSystem(flag)) {
+                // rigs/subsystems are always destroyed
+            } else if (IsEven(MakeRandomInt(0, 100))) {
+                // 50% survive per stack (CCP standard): whole stack for singles,
+                // a random subset for multi-item stacks.
+                if (qty > 1) {
+                    d = MakeRandomInt(0, qty);
+                    x = qty - d;
+                    if (d == 0)
+                        continue;               // nothing dropped — destroyed entirely
+                } else {
+                    d = 1; x = 0;
                 }
-                blob << "<i t=" << typeID << " f=" << flag << " q=" << qty << " s=" << single << " d=" << d << " x=" << x << "/>";
+                m_droppedItems.push_back(cur.second);
             }
+            blob << "<i t=" << typeID << " f=" << flag << " q=" << qty << " s=" << single << " d=" << d << " x=" << x << "/>";
         }
 
         // Chelobots fly REAL fitted items now (MaterializeBotFit puts the legend's
@@ -657,6 +665,21 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
             pClient->GetName(), sDataMgr.GetTypeName(data.finalShipTypeID), data.victimDamageTaken);
         pClient->SelfEveMail("Kill Report", km.c_str());
     }
+}
+
+// Move the modules/cargo rolled as "dropped" (see RecordBotKillMail) into the
+// wreck NPC::Killed just created, so a destroyed chelobot is lootable exactly
+// like a player ship.
+void PlayerBot::MoveDroppedItemsToWreck(WreckContainerRef wreck)
+{
+    if (wreck.get() == nullptr)
+        return;
+    for (auto& it : m_droppedItems) {
+        if (it.get() == nullptr)
+            continue;
+        it->Move(wreck->itemID(), flagNone);
+    }
+    m_droppedItems.clear();
 }
 
 void PlayerBot::RecordPvpOutcome(bool won)

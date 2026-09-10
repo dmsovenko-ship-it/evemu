@@ -102,6 +102,10 @@ public:
     /* for command dropLoot - commands all npcs in bubble to jettison loot */
     void CmdDropLoot();
 
+    // PlayerBot overrides this to move its own dropped modules/cargo (computed
+    // for the killmail) into the wreck — full imitation of a player loss.
+    virtual void MoveDroppedItemsToWreck(WreckContainerRef wreck) { }
+
     // Module fitting
     void FitModules();  // creates and fits weapon/EWAR modules based on SDE attributes
 

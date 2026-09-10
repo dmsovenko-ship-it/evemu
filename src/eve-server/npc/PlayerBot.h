@@ -33,6 +33,7 @@ public:
     virtual bool IsPlayerBot()                          { return true; }
 
     void RecordBotKillMail(Damage& fatal_blow);         // persist chelobot loss to chrKillTable + notify killer
+    virtual void MoveDroppedItemsToWreck(WreckContainerRef wreck); // move survived modules/cargo into the wreck
 
     /* bot identity */
     uint32 GetBotCharID() const         { return m_botCharID; }
@@ -236,6 +237,7 @@ protected:
     BotProfession m_profession;         // livelihood (hunter/miner/trader/courier/hacker)
     uint32 m_nextMissionReport = 0;     // missioner: dock & report when ratKills reaches this
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
+    std::vector<InventoryItemRef> m_droppedItems; // modules/cargo rolled as "dropped" (moved to wreck on death)
     Timer m_decisionTimer;
     uint32 m_decisionCount;             // number of decisions made — first one fires fast after spawn
     Timer m_travelTimer;                // counts down the visible warp to the gate
