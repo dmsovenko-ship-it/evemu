@@ -428,6 +428,18 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
         return;
     }
 
+    // Client re-sends Activate (often with repeat:1000) while a prop mod is
+    // already running (e.g. during warp). sFxProc.ApplyEffects MULTIPLIES the
+    // current attribute value, so re-applying on every re-activation stacked the
+    // MWD/AB speed bonus (capital showed ~500 m/s after a few calls). If the
+    // propulsion module is already active, just refresh repeat/timer and return.
+    if (IsActive() && (groupID() == EVEDB::invGroups::Afterburner
+                    || groupID() == EVEDB::invGroups::Microwarpdrive)) {
+        _log(MODULE__INFO, "Activate() ignored for %s(%u) - prop mod already active (no effect re-apply)",
+             m_modRef->name(), m_modRef->itemID());
+        return;
+    }
+
     _log(MODULE__INFO, "Activate() before ApplyEffect for %s(%u)", m_modRef->name(), m_modRef->itemID());
     ApplyEffect(FX::State::Active, true);
     if (IsValidTarget(targetID))

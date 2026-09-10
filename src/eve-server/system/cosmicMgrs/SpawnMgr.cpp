@@ -504,6 +504,11 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
     }
     pocket->SetIncursion();
 
+    // Decorations for this pocket — the first room gets them from MakeDungeon,
+    // but the chained wave pockets are created here, so dress them too.
+    if (m_dungMgr != nullptr)
+        m_dungMgr->SpawnDecorations(toPocket, factionSanshas, 0);
+
     // composition: per scene tier, per wave
     uint8 levelBase = 1 + MakeRandomInt(0, 3);
     auto addRat = [&](uint8 cls) {
@@ -624,6 +629,13 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
             if (corpID == 0)
                 corpID = sDataMgr.GetFactionCorp(factionID);
         }
+        // Incursion sites are always Sansha Nation — force the faction so the
+        // crosshairs are red (a Sansha stub type whose race maps to an empire
+        // faction would otherwise spawn as a white/neutral square).
+        if (isIncursion) {
+            factionID = factionSanshas;
+            corpID = sDataMgr.GetFactionCorp(factionID);
+        }
         FactionData data = FactionData();
             data.allianceID = factionID;
             data.corporationID = corpID;
@@ -676,9 +688,12 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
                 // drops in, NPCs fly out of cover and converge on them — no more
                 // "pile of rats scattering at the warp-in point".
                 GPoint spawnPos(startPos);
-                if (pBubble->IsAnomaly() && !isIncursion) {
+                if (pBubble->IsAnomaly() || isIncursion) {
+                    // spread on a ring around the warp-in point instead of piling
+                    // every NPC on the same coordinate (incursion pockets looked
+                    // like one "heap" of rats).
                     double ang = MakeRandomFloat() * 2.0 * 3.14159;
-                    double rad = 6000.0 + MakeRandomFloat() * 8000.0;
+                    double rad = (isIncursion ? 5000.0 : 6000.0) + MakeRandomFloat() * (isIncursion ? 7000.0 : 8000.0);
                     spawnPos.x += cos(ang) * rad;
                     spawnPos.z += sin(ang) * rad;
                     spawnPos.y += (MakeRandomFloat() - 0.5) * 1500.0;
@@ -695,7 +710,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
                 // Trigger client crosshair initialization WITHOUT scattering the rats.
                 // The old WarpTo(random 1-4km) flung the ambush formation apart the
                 // instant the player warped in. Just re-orient toward the room center.
-                if (pBubble->IsAnomaly() && !isIncursion) {
+                if (pBubble->IsAnomaly() || isIncursion) {
                     pNPC->GetAIMgr()->SetAmbush(true);
                     pNPC->DestinyMgr()->Stop();
                 } else {
