@@ -536,15 +536,12 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
     m_incursionAlive.erase(pocket->GetID());
     m_incursionWave[pocket->GetID()] = w;
 
-    // Gate ~30km past the CLEARED pocket (n-1), pointing at this wave's new
-    // pocket: the same sleeper layout (type 17831, static-map render,
-    // AddBallExclusive). Pockets sit NEXT_DUNGEON_ROOM_DIST apart on +x.
-    GPoint clearedPocket = toPocket;
-    clearedPocket.x -= NEXT_DUNGEON_ROOM_DIST;
+    // Gate well BEYOND the current pocket along the jump direction (+x toward
+    // the next room), past the NPC cluster/decor — not between the pockets.
     GPoint nextRoomPos = toPocket;
     nextRoomPos.x += NEXT_DUNGEON_ROOM_DIST;
-    GPoint gatePos = clearedPocket;
-    gatePos.x += 28000 + MakeRandomInt(0, 4000);   // 28-32km beyond the cleared pocket
+    GPoint gatePos = toPocket;
+    gatePos.x += 48000 + MakeRandomInt(0, 8000);   // 48-56km beyond the pocket center
     ItemData gateData(17831, 0, m_system->GetID(), flagNone, "Acceleration Gate", gatePos);
     uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
     InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
