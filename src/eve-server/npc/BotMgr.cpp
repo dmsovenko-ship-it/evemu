@@ -212,14 +212,20 @@ void BotMgr::Process()
         return;
 
     // Walk every loaded system; top up any that has real players in it.
+    static time_t sLastReap = 0;
+    time_t reapClock = time(nullptr);
+    bool reapNow = (sLastReap == 0 || reapClock - sLastReap >= 30);
+    if (reapNow) sLastReap = reapClock;
+
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
         if (pSystem == nullptr)
             continue;
         if (pSystem->PlayerCount() < 1) {
             // No real player here any more — reap the simulated population so
             // bots follow the players (they were staying in the old system
-            // forever because ReapBots() was never called).
-            ReapBots(pSystem);
+            // forever because ReapBots() was never called). Throttled.
+            if (reapNow)
+                ReapBots(pSystem);
             continue;
         }
 

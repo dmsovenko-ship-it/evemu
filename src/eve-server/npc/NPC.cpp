@@ -564,6 +564,15 @@ void NPC::Killed(Damage &damage) {
     if ((m_bubble == nullptr) or (m_destiny == nullptr) or (m_system == nullptr))
         return; // make error here?
 
+    // Drop every entity that is targeting us BEFORE the spawn/wave cleanup
+    // deletes this NPC. Otherwise a drone/player still holding this SE (e.g.
+    // drones killing incursion Sansha) dereferences freed memory on the next
+    // tick -> SIGSEGV. Mirrors the StructureSE::Killed fix.
+    if (m_targMgr != nullptr) {
+        m_targMgr->Destroyed();
+        m_targMgr->ClearFromTargets();
+    }
+
     // Fitted modules will be cleaned up when NPCAIMgr is destroyed
 
     //notify our spawn manager that we are gone.
