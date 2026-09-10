@@ -111,7 +111,7 @@ void POS_AI::Process()
     }
 }
 
-static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower, WeaponSE* pWeapon)
+static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower, StructureSE* pWeapon)
 {
     if (pEntity == nullptr)
         return false;

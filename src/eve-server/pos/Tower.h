@@ -37,6 +37,7 @@ public:
     virtual void                Init();
     virtual void                InitData();
     virtual void                OnBotAnchorComplete();   // bot POS deployment: moon link + fuel/force field
+    void                        CreateForceField();       // (re)create the tower force field
 
     /* virtual functions to be overridden in derived classes */
     virtual void     MissileLaunched(Missile* pMissile) { /* Do nothing here */ }
