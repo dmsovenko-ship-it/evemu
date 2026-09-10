@@ -2072,11 +2072,15 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     WarpUpdate(v);
     // Fire WarpStop once the ship is at the target, but hold ~3s first so the
     // client's (slower) two-phase decel always finishes and arrives first.
+    // NOTE: do NOT snap to the target point during the hold — the client's own
+    // decel still moves its ball, and a mid-holder position snap is the visible
+    // "warp ends with a teleport to the arrival point" (long align) and the
+    // end-of-warp jerk (short warp). WarpUpdate above already converges the
+    // ship onto the target along the formula (asymptotic, sub-metre); the exact
+    // snap happens once, in WarpStop.
     if (m_targetDistance <= 1.0) {
         if (!m_warpStopDelay.Enabled())
             m_warpStopDelay.Start(3000);
-        m_position = m_targetPoint;
-        mySE->SetPosition(m_position);
         return;
     }
 }
