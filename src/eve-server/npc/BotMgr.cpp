@@ -513,23 +513,28 @@ static void ProcessBotTrainingBatch()
             " JOIN chrCharacters c ON c.characterID = b.charID AND c.accountID = 0"
             " GROUP BY b.profession"))
         {
-            uint32 cnt[8] = {0};
+            uint32 cnt[9] = {0};   // Hunter..Industrialist (0..8)
             DBResultRow prow;
             while (pc.GetRow(prow)) {
                 uint8 p = prow.GetUInt(0);
-                if (p < 8) cnt[p] = prow.GetUInt(1);
+                if (p < 9) cnt[p] = prow.GetUInt(1);
             }
             uint8 least = 0xFF, most = 0;
             uint32 total = 0;
-            for (int i = 0; i < 8; ++i) {
+            for (int i = 0; i < 9; ++i) {
                 total += cnt[i];
                 if (least == 0xFF || cnt[i] < cnt[least]) least = (uint8)i;
                 if (cnt[i] > cnt[most]) most = (uint8)i;
             }
-            uint32 minPer = std::max<uint32>(3, total / 8 / 4);   // quarter of the even share
+            uint32 minPer = std::max<uint32>(3, total / 9 / 4);   // quarter of the even share
             if (least != 0xFF && least != most && cnt[least] < minPer) {
-                uint32 toMove = std::max<uint32>(1, std::min<uint32>(
-                    (cnt[most] - cnt[least]) / 3, 5));
+                // A brand-new profession (e.g. Industrialist) starts empty — seed a
+                // real share of the roster in one pass so it is actually present.
+                uint32 toMove;
+                if (cnt[least] == 0)
+                    toMove = std::max<uint32>(5, std::min<uint32>(cnt[most] / 8, 80));
+                else
+                    toMove = std::max<uint32>(1, std::min<uint32>((cnt[most] - cnt[least]) / 3, 5));
                 // movers: LOWEST-skillPoints pilots of the biggest profession
                 // (newcomers switch careers easiest; veterans keep their job).
                 DBQueryResult mres;
