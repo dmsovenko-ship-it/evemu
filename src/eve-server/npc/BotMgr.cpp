@@ -992,17 +992,12 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // that respawn, not an ever-growing pile of new characters.
     bool reuseExisting = false;
     uint32 poolEveID = 0;   // ESI portrait source for pooled pilots (botPortraits)
-    uint32 poolCount = 0;
     if (useCharID == 0 && useName.empty()) {
+        // 1) ALWAYS try to reuse an established pool pilot first. This used to be
+        //    gated on a separate COUNT query (`if (poolCount > 0)`); if that count
+        //    failed/returned 0 under DB load, reuse was skipped and the spawner
+        //    minted a brand-new character every time — the pool grew past the cap.
         {
-            DBQueryResult cres;
-            if (sDatabase.RunQuery(cres,
-                "SELECT COUNT(*) FROM chrCharacters WHERE accountID = 0 AND characterName != ''")) {
-                DBResultRow crow;
-                if (cres.GetRow(crow)) poolCount = crow.GetUInt(0);
-            }
-        }
-        if (poolCount > 0) {
             DBQueryResult bres;
             if (sDatabase.RunQuery(bres,
                 "SELECT c.characterName, c.corporationID, cc.allianceID, p.eveCharID"
@@ -1025,32 +1020,43 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 }
             }
         }
-    }
 
-    // New pilots: only when the pool is below the cap (fresh server top-up).
-    if (!reuseExisting) {
-        if (poolCount >= sConfig.playerBots.MaxTotalPilots) {
-            _log(BOT__TRACE, "BotMgr: pilot pool at cap (%u) — not creating another.", poolCount);
-            return;
-        }
-        DBQueryResult res;
-        if (sDatabase.RunQuery(res,
-            "SELECT character_id, character_name, corporation_id, alliance_id,"
-            "       ship_type_id, fitted_item_ids"
-            " FROM botKillmailLegends"
-            " WHERE ship_type_id > 0 AND ship_type_id != 670"   // no capsule legends (pod kills)
-            "   AND character_name != ''"
-            " ORDER BY RAND() LIMIT 1"))
-        {
-            DBResultRow row;
-            if (res.GetRow(row)) {
-                useCharID = row.GetUInt(0);   // real EVE killmail charID — kept for the portrait link
-                useName = row.GetText(1);
-                useCorpID = row.GetUInt(2);
-                useAllianceID = row.GetUInt(3);
-                useShipType = row.GetUInt(4);
-                const char* fit = row.GetText(5);
-                if (fit != nullptr) useFit = fit;
+        // 2) Empty pool → top up to the cap only. On a failed count assume the cap
+        //    is reached (never risk creating past MaxTotalPilots).
+        if (!reuseExisting) {
+            uint32 cap = sConfig.playerBots.MaxTotalPilots;
+            uint32 poolCount = 0;
+            bool countOk = false;
+            DBQueryResult cres;
+            if (sDatabase.RunQuery(cres,
+                "SELECT COUNT(*) FROM chrCharacters WHERE accountID = 0 AND characterName != ''")) {
+                DBResultRow crow;
+                if (cres.GetRow(crow)) { poolCount = crow.GetUInt(0); countOk = true; }
+            }
+            if (!countOk || (cap > 0 && poolCount >= cap)) {
+                _log(BOT__TRACE, "BotMgr: pilot pool at cap (%u/%u) — not creating another.",
+                     poolCount, cap);
+                return;
+            }
+            DBQueryResult res;
+            if (sDatabase.RunQuery(res,
+                "SELECT character_id, character_name, corporation_id, alliance_id,"
+                "       ship_type_id, fitted_item_ids"
+                " FROM botKillmailLegends"
+                " WHERE ship_type_id > 0 AND ship_type_id != 670"   // no capsule legends (pod kills)
+                "   AND character_name != ''"
+                " ORDER BY RAND() LIMIT 1"))
+            {
+                DBResultRow row;
+                if (res.GetRow(row)) {
+                    useCharID = row.GetUInt(0);   // real EVE killmail charID — kept for the portrait link
+                    useName = row.GetText(1);
+                    useCorpID = row.GetUInt(2);
+                    useAllianceID = row.GetUInt(3);
+                    useShipType = row.GetUInt(4);
+                    const char* fit = row.GetText(5);
+                    if (fit != nullptr) useFit = fit;
+                }
             }
         }
     }
@@ -1132,6 +1138,21 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             useShipType = 0;
             useFit.clear();
         } else {
+            // Fresh top-up retry: never overshoot the cap (each retry would
+            // otherwise mint another character).
+            uint32 cap = sConfig.playerBots.MaxTotalPilots;
+            if (cap > 0) {
+                DBQueryResult ccres;
+                uint32 cnt = 0;
+                bool ok = false;
+                if (sDatabase.RunQuery(ccres,
+                    "SELECT COUNT(*) FROM chrCharacters WHERE accountID = 0 AND characterName != ''")) {
+                    DBResultRow ccrow;
+                    if (ccres.GetRow(ccrow)) { cnt = ccrow.GetUInt(0); ok = true; }
+                }
+                if (!ok || cnt >= cap)
+                    break;
+            }
             DBQueryResult lres;
             if (!sDatabase.RunQuery(lres,
                 "SELECT character_id, character_name, corporation_id, alliance_id,"
