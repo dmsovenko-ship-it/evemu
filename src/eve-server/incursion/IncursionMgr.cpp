@@ -22,23 +22,11 @@ void IncursionMgr::Process()
     if (!m_spawnTimer.Enabled())
         m_spawnTimer.Start(300000);  // 5 min
 
-    // Allow up to 5 simultaneous incursions (1 HS, 1 LS, 3 NS) with 12-36h respawn
-    DBQueryResult activeRes;
-    uint32 activeCount = 0;
-    bool hasHS = false, hasLS = false;
-    if (sDatabase.RunQuery(activeRes,
-        "SELECT i.incursionID, i.lastUpdated, "
-        "  (SELECT COALESCE(AVG(s.security),0) FROM mapSolarSystems s JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID WHERE isys.incursionID=i.incursionID) as avgSec "
-        "FROM incursions i WHERE i.state > 0"))
-    {
-        DBResultRow aRow;
-        while (activeRes.GetRow(aRow)) {
-            ++activeCount;
-            float avgSec = aRow.GetFloat(2);
-            if (avgSec >= 0.5f) hasHS = true;
-            else hasLS = true;
-        }
-    }
+    // Evaluate the 5-minute tick ONCE per call. Previously Check(false) was
+    // called inside the per-incursion loop, which disabled the timer after the
+    // first incursion — only one incursion ever got sites and the "start new
+    // incursion" branch below never ran.
+    const bool spawnTick = m_spawnTimer.Check(true);
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
@@ -48,18 +36,38 @@ void IncursionMgr::Process()
     DBResultRow row;
     while (res.GetRow(row)) {
         uint32 incursionID = row.GetUInt(0);
-        uint8 state = row.GetUInt(1);
-        double lastUpdated = row.GetDouble(2);
 
-        UpdateInfluence(incursionID);
+        // Cheap per-tick bookkeeping.
         ProgressStateMachine(incursionID);
-        // Spawn sites only every 5 minutes to avoid constant DB queries
-        if (m_spawnTimer.Check(false))
+        if (spawnTick)
+            UpdateInfluence(incursionID);
+
+        // Site spawning is the expensive part — only every 5 minutes.
+        if (spawnTick)
             SpawnSites(incursionID);
     }
 
-    // Try to start new incursions if below the cap
-    if (m_spawnTimer.Check(false) && activeCount < 5) {
+    if (!spawnTick)
+        return;
+
+    // Try to start new incursions if below the cap (allow 1 HS, 1 LS, 3 NS).
+    DBQueryResult activeRes;
+    uint32 activeCount = 0;
+    bool hasHS = false, hasLS = false;
+    if (sDatabase.RunQuery(activeRes,
+        "SELECT i.incursionID, "
+        "  (SELECT COALESCE(AVG(s.security),0) FROM mapSolarSystems s JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID WHERE isys.incursionID=i.incursionID) as avgSec "
+        "FROM incursions i WHERE i.state > 0"))
+    {
+        DBResultRow aRow;
+        while (activeRes.GetRow(aRow)) {
+            ++activeCount;
+            if (aRow.GetFloat(1) >= 0.5f) hasHS = true;
+            else hasLS = true;
+        }
+    }
+
+    if (activeCount < 5) {
         bool spawnHS = !hasHS;
         bool spawnLS = !hasLS && hasHS;
         bool spawnNS = !spawnHS && !spawnLS;
@@ -87,6 +95,7 @@ void IncursionMgr::Process()
 
         sLog.Warning("IncursionMgr", "Starting new incursion (%u active, need%s%s%s)...",
                      activeCount, spawnHS?" HS":"", spawnLS?" LS":"", spawnNS?" NS":"");
+
         DBQueryResult constRes;
         if (sDatabase.RunQuery(constRes,
             "SELECT constellationID, regionID FROM mapConstellations "
@@ -355,24 +364,42 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
 {
     sLog.Warning("IncursionMgr", "SpawnSites called for incursion %u", incursionID);
 
+    // Only consider incursion systems that actually have an online player.
+    // Previously every system of the constellation was FindOrBootSystem()'d
+    // (loading the whole system: belts, NPCs, decorations) even with 0 players,
+    // which made site generation crawl / freeze the game thread.
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT iss.solarSystemID, iss.sceneType, iss.influence, i.regionID "
+        "SELECT iss.solarSystemID, iss.sceneType, iss.influence, i.regionID, i.hasBoss, i.lastUpdated "
         "FROM incursionSystems iss "
         "JOIN incursions i ON iss.incursionID = i.incursionID "
-        "WHERE iss.incursionID = %u AND i.state > 0",
+        "WHERE iss.incursionID = %u AND i.state > 0 AND iss.influence > 0.0 "
+        "  AND EXISTS (SELECT 1 FROM chrCharacters c "
+        "              WHERE c.online = 1 AND c.solarSystemID = iss.solarSystemID)",
         incursionID))
         return;
+
+    // Security of the incursion (for the mothership focus period) — once.
+    double avgSec = 0.0;
+    {
+        DBQueryResult secRes;
+        if (sDatabase.RunQuery(secRes,
+            "SELECT COALESCE(AVG(s.security),0) FROM mapSolarSystems s "
+            "JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID "
+            "WHERE isys.incursionID = %u", incursionID)) {
+            DBResultRow secRow;
+            if (secRes.GetRow(secRow)) avgSec = secRow.GetDouble(0);
+        }
+    }
 
     DBResultRow row;
     while (res.GetRow(row)) {
         uint32 solarSystemID = row.GetUInt(0);
         uint8 sceneType = row.GetUInt(1);
-        float influence = row.GetFloat(2);
         uint32 regionID = row.GetUInt(3);
-
-        if (influence <= 0.0f)
-            continue;
+        (void)regionID;
+        uint8 hasBoss = row.GetUInt(4);
+        int64 incLastUpdated = row.GetInt64(5);
 
         // Skip only if a site is ALREADY live in this system. m_activeSystems
         // alone is not enough — incursion sites are not persisted to the DB, so
@@ -396,36 +423,13 @@ void IncursionMgr::SpawnSites(uint32 incursionID)
         if (MakeRandomInt(0, 100) > spawnChance)
             continue;
 
-        DBQueryResult bossRes;
-        uint8 hasBoss = 0;
-        if (sDatabase.RunQuery(bossRes,
-            "SELECT hasBoss FROM incursions WHERE incursionID = %u", incursionID))
-        {
-            DBResultRow bossRow;
-            if (bossRes.GetRow(bossRow))
-                hasBoss = bossRow.GetUInt(0);
-        }
-
         // Focus period: mothership spawns after 72h (HS), 24h (LS), 0h (NS)
         if (hasBoss == 1 && sceneType == Incursion::scenesType::headquarters) {
-            DBQueryResult focusRes;
-            if (sDatabase.RunQuery(focusRes,
-                "SELECT UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(lastUpdated), "
-                "  (SELECT AVG(s.security) FROM mapSolarSystems s "
-                "   JOIN incursionSystems isys ON s.solarSystemID=isys.solarSystemID "
-                "   WHERE isys.incursionID=%u) as avgSec "
-                "FROM incursions WHERE incursionID=%u", incursionID, incursionID))
-            {
-                DBResultRow focusRow;
-                if (focusRes.GetRow(focusRow)) {
-                    double elapsedHours = focusRow.GetDouble(0) / 3600.0;
-                    double avgSec = focusRow.GetDouble(1);
-                    uint32 minHours = (avgSec >= 0.5f) ? 72 : (avgSec >= 0.0f) ? 24 : 0;
-                    if (elapsedHours < minHours) {
-                        _log(COSMIC_MGR__TRACE, "IncursionMgr: Mothership focus period active (%.1f/%uh)", elapsedHours, minHours);
-                        continue;
-                    }
-                }
+            double elapsedHours = (GetFileTimeNow() - incLastUpdated) / EvE::Time::Hour;
+            uint32 minHours = (avgSec >= 0.5f) ? 72 : (avgSec >= 0.0f) ? 24 : 0;
+            if (elapsedHours < minHours) {
+                _log(COSMIC_MGR__TRACE, "IncursionMgr: Mothership focus period active (%.1f/%uh)", elapsedHours, minHours);
+                continue;
             }
             SpawnMothership(incursionID, solarSystemID);
             m_activeSystems.insert(solarSystemID);
