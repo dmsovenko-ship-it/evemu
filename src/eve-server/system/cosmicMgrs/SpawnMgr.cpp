@@ -327,18 +327,14 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
             if (--it->second > 0)
                 return;  // NPCs still alive
             m_incursionAlive.erase(it);  // all dead
-        } else {
-            // not our tracked bubble — maybe it belongs to a chained wave pocket
-            if (m_incursionWave.find(pBubble->GetID()) == m_incursionWave.end())
-                return;  // not our tracked bubble
         }
         // ---- wave chain (user rule: gates + waves, sleeper layout) ----
-        // After every wave but the last, the next wave spawns in a new pocket
-        // 50M km along +x and a real 17831 Acceleration Gate (the mechanism
-        // sleepers use) spawns ~30km past the cleared pocket and teleports
-        // into the new pocket. After the LAST wave the site completes and
-        // rewards run as before.
+        // Find this site's wave state. If the kill happened in a bubble other
+        // than the one registered (spread spawns can cross a bubble edge), fall
+        // back to the single site in this system so the chain still advances.
         auto wit = m_incursionWave.find(pBubble->GetID());
+        if (wit == m_incursionWave.end() && !m_incursionWave.empty())
+            wit = m_incursionWave.begin();
         if (wit != m_incursionWave.end()) {
             IncursionWave w = wit->second;
             m_incursionWave.erase(wit);
@@ -555,6 +551,8 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
         m_system->AddEntity(gateSE, false);
         if (gateSE->SysBubble() != nullptr)
             gateSE->SysBubble()->AddBallExclusive(gateSE);
+        sLog.White("SpawnMgr", "Incursion wave %u gate placed at (%.0f,%.0f,%.0f) -> next room (%.0f,%.0f,%.0f).",
+                   waveNum, gatePos.x, gatePos.y, gatePos.z, nextRoomPos.x, nextRoomPos.y, nextRoomPos.z);
     }
 }
 
