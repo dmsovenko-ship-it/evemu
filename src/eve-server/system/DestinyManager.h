@@ -69,7 +69,12 @@ class SystemManager;
 
 // common variables to denote accpetable alignment deviations
 static const float TURN_ALIGNMENT = 4.0f;
-static const float WARP_ALIGNMENT = 6.0f;
+// Client destiny.dll OnActivatingWarp case 3 enters warp at an angular
+// difference of <= DAT_100640a0 = 0.01 rad (~0.57 deg). Our 6.0 deg tolerance
+// made the server enter warp far later than the client's own warp activation —
+// the visible source of warp timing mismatch (teleport on arrival, end-of-warp
+// jerk, ship left standing sideways).
+static const float WARP_ALIGNMENT = 0.57f;      // == 0.01 rad, matches client
 static const uint16 BUMP_DISTANCE = 50;     //in meters.  < this = hit.
 
 /*
