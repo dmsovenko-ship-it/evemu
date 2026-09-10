@@ -541,7 +541,7 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
     GPoint nextRoomPos = toPocket;
     nextRoomPos.x += NEXT_DUNGEON_ROOM_DIST;
     GPoint gatePos = toPocket;
-    gatePos.x += 38000 + MakeRandomInt(0, 4000);   // 48-56km beyond the pocket center
+    gatePos.x += 30000 + MakeRandomInt(0, 4000);   // 48-56km beyond the pocket center
     ItemData gateData(17831, 0, m_system->GetID(), flagNone, "Acceleration Gate", gatePos);
     uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
     InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
