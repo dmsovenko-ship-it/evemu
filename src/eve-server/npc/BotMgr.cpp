@@ -22,6 +22,7 @@
 #include "pos/Array.h"
 #include "pos/Module.h"
 #include "pos/Structure.h"
+#include "pos/Battery.h"
 #include "planet/CustomsOffice.h"
 #include "tables/invGroups.h"
 #include "TelegramBot.h"
@@ -3584,6 +3585,45 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
     spawnModule(arrayType, "Assembly Array", 12000.0);
     spawnModule(siloType,  "Silo",           24000.0);
 
+    // Standard POS defenses (real modules): a warp-scrambling and a stasis-web
+    // battery. NOTE: POS turret AI is not implemented in EVEmu, so these are
+    // the visible "standard defense"; the actual protection comes from the
+    // owner bot and its corp guards (see guards below).
+    auto spawnBattery = [&](uint32 typeID, double dx) {
+        if (typeID == 0) return;
+        GPoint p = pos; p.x += dx;
+        ItemData idata(typeID, corpID, sysID, flagNone, "Battery", p);
+        StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
+        if (sRef.get() == nullptr) return;
+        sRef->SaveItem();
+        BatterySE* se = new BatterySE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
+        sysMgr->AddEntity(se);
+        se->BotDeployAndAnchor(p);
+    };
+    spawnBattery(17182, -12000.0);   // Warp Scrambling Battery
+    spawnBattery(17178, -24000.0);   // Stasis Webification Battery
+
+    // Cost of the installation (tower + modules + defenses + initial guards'
+    // retainer), debited from the owner's wallet so a POS is an investment
+    // comparable to the value of what it produces.
+    double cost = 0.0;
+    {
+        DBQueryResult cres;
+        if (sDatabase.RunQuery(cres,
+            "SELECT COALESCE(SUM(basePrice),0) FROM invTypes WHERE typeID IN (%u,%u,%u,17182,17178)",
+            towerType, arrayType ? arrayType : towerType, siloType ? siloType : towerType)) {
+            DBResultRow cr;
+            if (cres.GetRow(cr)) cost = cr.GetDouble(0);
+        }
+    }
+    cost = cost * 1.5 + 5000000.0;   // + fit/defense/guards retainer
+    if (cost > 0.0) {
+        DBerror cerr;
+        sDatabase.RunQuery(cerr,
+            "UPDATE chrCharacters SET balance = GREATEST(0, balance - %.2f) WHERE characterID = %u", cost, charID);
+        _log(BOT__MESSAGE, "BotMgr: POS installation cost %.0f ISK charged to %u.", cost, charID);
+    }
+
     _log(BOT__MESSAGE, "BotMgr: industrialist %u deployed a POS at a moon in system %u (tower %u, array %u, silo %u).",
          charID, sysID, towerType, arrayType, siloType);
 }
@@ -4381,8 +4421,21 @@ void BotMgr::ProcessDocking()
                 // producers stay and work near the station (their profession will
                 // warp them to a belt/anomaly/site).
                 auto prof = npb->GetProfession();
-                if (prof == PlayerBot::BotProfession::Courier || prof == PlayerBot::BotProfession::Trader)
+                if (prof == PlayerBot::BotProfession::Industrialist) {
+                    // Fly to the corp POS so production is actually VISIBLE at
+                    // the tower (then it lingers and docks again later).
+                    SystemEntity* tower = nullptr;
+                    for (auto& [eid, e] : pSystem->GetEntities()) {
+                        if (e != nullptr && e->GetTowerSE() != nullptr) { tower = e; break; }
+                    }
+                    if (tower != nullptr) {
+                        GPoint p = tower->GetPosition();
+                        p.x += 9000.0;
+                        npb->DestinyMgr()->WarpTo(p, 0);
+                    }
+                } else if (prof == PlayerBot::BotProfession::Courier || prof == PlayerBot::BotProfession::Trader) {
                     npb->MarkForTravel();   // visible warp to the gate, then cross
+                }
                 break;
             }
             db = it->second.erase(db);
