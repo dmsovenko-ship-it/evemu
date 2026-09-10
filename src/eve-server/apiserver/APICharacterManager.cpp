@@ -1044,10 +1044,14 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         uint32 limit = lim.empty() ? 100 : std::min<uint32>(std::stoul(lim), 300);
 
         std::string q =
-            "SELECT n.notificationID, n.typeID, n.senderID, sender.characterName,"
+            "SELECT n.notificationID, n.typeID, n.senderID, "
+            "       COALESCE(sender.characterName, npc.characterName, corp.corporationName, fac.factionName),"
             "       n.receiverID, rec.characterName, n.processed, n.created"
             " FROM notification n"
             " LEFT JOIN chrCharacters sender ON sender.characterID = n.senderID"
+            " LEFT JOIN chrNPCCharacters npc ON npc.characterID = n.senderID"
+            " LEFT JOIN crpCorporation corp ON corp.corporationID = n.senderID"
+            " LEFT JOIN facFactions fac ON fac.factionID = n.senderID"
             " LEFT JOIN chrCharacters rec ON rec.characterID = n.receiverID"
             " WHERE n.receiverID IN (SELECT characterID FROM chrCharacters WHERE accountID = " + aid + ")"
             "   AND n.deleted = 0";
