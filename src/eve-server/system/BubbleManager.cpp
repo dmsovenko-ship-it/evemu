@@ -330,6 +330,74 @@ void BubbleManager::AddSpawnID(uint16 bubbleID, uint32 spawnID)
     m_spawnIDs.emplace(bubbleID, spawnID);
 }
 
+void BubbleManager::SendOverlappingBalls(SystemManager* sysMgr, const GPoint& pos,
+                                         SystemEntity* to_who,
+                                         const std::map<uint32, SystemEntity*>& alreadySent)
+{
+    if (sysMgr == nullptr || to_who == nullptr)
+        return;
+    if (!to_who->HasPilot())
+        return;
+    Client* pClient = to_who->GetPilot();
+    if (pClient == nullptr)
+        return;
+
+    const double twoRadius = (double)BUBBLE_RADIUS_METERS * 2.0;
+    auto range = m_sysBubbleMap.equal_range(sysMgr->GetID());
+
+    Buffer* destinyBuffer = new Buffer();
+    Destiny::AddBall_header head = Destiny::AddBall_header();
+        head.packet_type = 1;   // balls
+        head.stamp = sEntityList.GetStamp();
+    destinyBuffer->Append(head);
+
+    AddBalls addballs;
+    addballs.slims = new PyList();
+    size_t count = 0;
+
+    for (auto it = range.first; it != range.second; ++it) {
+        SystemBubble* pBubble = it->second;
+        if (pBubble == nullptr)
+            continue;
+        // only bubbles whose centre is within 2x radius of the arrival point
+        // (their volumes overlap the arrival area)
+        if (pBubble->GetCenter().distance(pos) > twoRadius)
+            continue;
+        for (auto& [id, se] : pBubble->GetDynamicEntities()) {
+            if (se == nullptr)
+                continue;
+            // already delivered via the arrival bubble?  skip
+            if (alreadySent.find(se->GetID()) != alreadySent.end())
+                continue;
+            // too far from the actual arrival point to be relevant? (client grid range)
+            if (se->GetPosition().distance(pos) > twoRadius)
+                continue;
+            if (se->DestinyMgr() != nullptr && se->DestinyMgr()->IsCloaked())
+                continue;
+            size_t bufBefore = destinyBuffer->size();
+            se->EncodeDestiny(*destinyBuffer);
+            size_t encodedSize = destinyBuffer->size() - bufBefore;
+            if (encodedSize == 0 || encodedSize > 4096) {
+                destinyBuffer->Resize<uint8>(bufBefore);
+                continue;
+            }
+            if (!se->IsMissileSE() or !se->IsFieldSE())
+                addballs.damageDict[se->GetID()] = se->MakeDamageState();
+            addballs.slims->AddItem(new PyObject("foo.SlimItem", se->MakeSlimItem()));
+            ++count;
+        }
+    }
+    if (count == 0) {
+        SafeDelete(destinyBuffer);
+        return;
+    }
+    addballs.state = new PyBuffer(&destinyBuffer);
+    PyTuple* t = addballs.Encode();
+    pClient->QueueDestinyUpdate(&t);
+    _log(DESTINY__MESSAGE, "BubbleManager::SendOverlappingBalls(): %s — sent %zu extra balls near arrival.",
+         pClient->GetName(), count);
+}
+
 void BubbleManager::RemoveSpawnID(uint16 bubbleID, uint32 spawnID)
 {
     // is this right??

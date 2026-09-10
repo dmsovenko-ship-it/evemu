@@ -83,6 +83,15 @@ public:
     void RemoveSpawnID(uint16 bubbleID, uint32 spawnID);
     uint32 GetBeltID(uint16 bubbleID);
 
+    // Delivers the balls of all OTHER bubbles of this system whose centres lie
+    // within 2x bubble radius of `pos` (i.e. overlapping the arrival area) to
+    // `to_who`, skipping entities that already live in the arrival bubble
+    // (those are sent by its own SendAddBalls). Used on warp-arrival at belts
+    // and anomaly pockets that straddle more than one bubble, so asteroids and
+    // dungeon objects render immediately instead of several seconds later.
+    void SendOverlappingBalls(SystemManager* sysMgr, const GPoint& pos,
+                              SystemEntity* to_who, const std::map<uint32, SystemEntity*>& alreadySent);
+
     // for .list command
     uint32 GetBubbleCount(uint32 systemID);
 

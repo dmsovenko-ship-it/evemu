@@ -92,6 +92,9 @@ public:
     uint32 GetSystemID()                                { return m_systemID; }
     GPoint GetCenter() const                            { return m_center; }
     ContainerSE* GetCenterMarker()                      { return m_centerSE; }
+    // Read-only access to tracked dynamic entities (used by BubbleManager to
+    // deliver overlapping-bubble balls on warp arrival).
+    const std::map<uint32, SystemEntity*>& GetDynamicEntities() const { return m_dynamicEntities; }
 
     void clear();
     void PrintEntityList();
