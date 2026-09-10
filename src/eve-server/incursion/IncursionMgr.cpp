@@ -11,6 +11,7 @@
 #include "system/cosmicMgrs/SpawnMgr.h"
 #include "system/Celestial.h"
 #include "corporation/LPService.h"
+#include <set>
 
 IncursionMgr::IncursionMgr()
 {
@@ -613,9 +614,12 @@ void IncursionMgr::NotifyClients(uint32 incursionID)
         DBQueryResult sysRes;
         sDatabase.RunQuery(sysRes, "SELECT solarSystemID, sceneType, influence FROM incursionSystems WHERE incursionID = %u", id);
         PyList* incursedSystems = new PyList();
+        std::set<uint32> incursedSet;
         DBResultRow sysRow;
         while (sysRes.GetRow(sysRow)) {
-            incursedSystems->AddItem(new PyInt(sysRow.GetUInt(0)));
+            uint32 sid = sysRow.GetUInt(0);
+            incursedSystems->AddItem(new PyInt(sid));
+            incursedSet.insert(sid);
         }
 
         // severity: 1=HQ, 2=Assault, 3=Vanguard, 4=Staging (from client)
@@ -646,13 +650,18 @@ void IncursionMgr::NotifyClients(uint32 incursionID)
 
         // Send notifications to all clients
         for (auto client : clients) {
-            // OnTaleData: per-system data with full taleData structure
-            // PyIncRef before each send (SendNotification may decref).
-            PyIncRef(taleData);
-            PyTuple* tdPayload = new PyTuple(2);
-            tdPayload->SetItem(0, new PyInt(stagingSys));
-            tdPayload->SetItem(1, taleData);
-            client->SendNotification("OnTaleData", "clientID", tdPayload, false);
+            // OnTaleData: only to pilots currently in an incursed system. The
+            // client expects (solarSystemID, {taleID: taleData}) and iterates
+            // data.itervalues() — a bare taleData here never started the HUD.
+            if (incursedSet.find(client->GetSystemID()) != incursedSet.end()) {
+                PyDict* taleMap = new PyDict();
+                PyIncRef(taleData);
+                taleMap->SetItemString(std::to_string(taleID > 0 ? taleID : id).c_str(), taleData);
+                PyTuple* tdPayload = new PyTuple(2);
+                tdPayload->SetItem(0, new PyInt(client->GetSystemID()));
+                tdPayload->SetItem(1, taleMap);
+                client->SendNotification("OnTaleData", "clientID", tdPayload, false);
+            }
 
             // OnInfluenceUpdate: influence change
             PyIncRef(influenceData);

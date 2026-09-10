@@ -44,6 +44,7 @@
 #include "corporation/CorporationDB.h"
 #include "fleet/FleetService.h"
 #include "imageserver/ImageServer.h"
+#include "incursion/IncursionMgr.h"
 #include "inventory/Inventory.h"
 #include "map/MapData.h"
 #include "map/MapDB.h"
@@ -2807,6 +2808,10 @@ void Client::SendSessionChange()
     }
 
     QueuePacket(packet); // packet is consumed (deleted) by QueuePacket
+
+    // Re-push incursion tale data after a session change so the incursion HUD
+    // appears when the pilot enters an incursed system (not only at tale start).
+    sIncursionMgr.NotifyClients(0);
 }
 
 void Client::FlushQueue() {
