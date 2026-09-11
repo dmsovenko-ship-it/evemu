@@ -200,8 +200,16 @@ void DestinyManager::ProcessState() {
             if (m_warpState == nullptr
                 && mySE->GetSelf()->GetAttribute(AttrWarpScrambleStatus).get_int() > 0)
             {
-                if (mySE->HasPilot())
+                if (mySE->HasPilot()) {
+                    // Log the scramble STRENGTH — the value identifies the source:
+                    //   1-2  = NPC/player warp scrambler
+                    //   100  = siege/triage mode (ModAdd on the ship)
+                    //   1e6+ = MWD bubble (strength scales with the field)
                     mySE->GetPilot()->SendErrorMsg("Warp drive is disrupted.");
+                    _log(DESTINY__WARP_TRACE, "%s(%u): warp denied — WarpScrambleStatus=%.0f (1-2=NPC scram, 100=siege/triage mode)",
+                         mySE->GetName(), mySE->GetID(),
+                         mySE->GetSelf()->GetAttribute(AttrWarpScrambleStatus).get_float());
+                }
                 m_ballMode = Destiny::Ball::Mode::STOP;
                 return;
             }
