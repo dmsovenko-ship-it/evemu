@@ -2611,11 +2611,8 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     GPoint clientDest = m_targetPoint;
     {
         GVector dirUnit(m_position, where);
-        double dirLen = dirUnit.length();
-        if (dirLen > 1.0) {
-            dirUnit /= dirLen;
-            clientDest += (dirUnit * 4500.0);
-        }
+        dirUnit.normalize();
+        clientDest += (dirUnit * 4500.0);
     }
     if (is_log_enabled(DESTINY__WARP_TRACE))
         _log(DESTINY__TRACE, "Destiny::WarpTo() - %s(%u) target bubble: %u  m_stopDistance: %i  m_targetDistance: %.2f",
