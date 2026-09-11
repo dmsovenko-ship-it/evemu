@@ -369,6 +369,11 @@ void BubbleManager::SendOverlappingBalls(SystemManager* sysMgr, const GPoint& po
             // already delivered via the arrival bubble?  skip
             if (alreadySent.find(se->GetID()) != alreadySent.end())
                 continue;
+            // do NOT re-deliver the arriving pilot's own ship ball (client
+            // tracks its own ball — resending it at the snapped position is
+            // the visible end-of-warp teleport)
+            if (id == to_who->GetID())
+                continue;
             // too far from the actual arrival point to be relevant? (client grid range)
             if (se->GetPosition().distance(pos) > twoRadius)
                 continue;

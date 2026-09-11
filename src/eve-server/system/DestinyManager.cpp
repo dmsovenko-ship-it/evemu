@@ -2070,15 +2070,22 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
                 mySE->GetName(), mySE->GetID(), (uint32)decelTime, sec_into_warp, v, m_targetDistance);
 
     WarpUpdate(v);
-    // Fire WarpStop the instant the server's decel converges (sub-metre).
-    // The previous 8-20 s "settle window" made the end-of-warp jerk WORSE:
-    // during the hold the client fully stops at ITS OWN convergence point,
-    // which differs from the server target by tens of metres — so the later
-    // position fix showed up as a visible teleport. Ending warp at convergence
-    // corrects both ends at the same instant -> the residual is sub-metre and
-    // effectively invisible.
+    // Fire WarpStop once the ship is at the target, but hold first so the
+    // client's (slower) two-phase decel always finishes and arrives first.
+    // During the hold do NOT snap to the target point — the client's own decel
+    // still moves its ball; a mid-holder snap is the visible end-of-warp teleport.
     if (m_targetDistance <= 1.0) {
-        WarpStop(v);
+        if (!m_warpStopDelay.Enabled()) {
+            // Per client destiny.dll OnDeactivatingWarp: the client's decel runs
+            // LONGER than ours, so hold ~8s base (+1s per AU of decel duration
+            // on capital-long warps) before finalizing. The final position
+            // broadcast below is then a sub-metre, invisible correction.
+            double decelTime = (m_warpState->decelDist / m_warpState->warpSpeed);
+            double holdMs = 8000.0 + (1000.0 * std::ceil(decelTime));
+            if (holdMs < 8000.0) holdMs = 8000.0;
+            if (holdMs > 20000.0) holdMs = 20000.0;
+            m_warpStopDelay.Start((uint32)holdMs);
+        }
         return;
     }
 }
@@ -2196,24 +2203,11 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
 
     SafeDelete(m_warpState);
 
-    // Snap server position to the exact target point. At trigger time the
-    // ship is within 1 m of target вЂ” snapping avoids a position discrepancy
-    // vs the client (whose WarpLoop arrives at the exact destination).
+    // Snap server position to the exact target point. The client's own ball is
+    // NOT re-delivered below (SendAddBalls skips it), so the pilot keeps their
+    // client-ball at its own convergence point — no visible end-of-warp teleport.
     m_position = m_targetPoint;
     mySE->SetPosition(m_position);
-
-    // Explicit SetBallPosition in the same packet window: the client's ball
-    // lands EXACTLY on the arrival point at the same instant the server
-    // settles. Without this the client's ball drifts to its own convergence
-    // point (tens of metres off) and the later ball re-delivery shows as the
-    // end-of-warp teleport.
-    SetBallPosition du;
-        du.entityID = mySE->GetID();
-        du.x = m_position.x;
-        du.y = m_position.y;
-        du.z = m_position.z;
-    PyTuple* sbpUp = du.Encode();
-    SendSingleDestinyUpdate(&sbpUp);
 
     m_ballMode = Destiny::Ball::Mode::STOP;
     m_stop = true;
@@ -2243,7 +2237,10 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     // SendAddBalls/AddBallExclusive because the ship was in WARP mode.
     // Now mode is STOP so the ship's EncodeDestiny is correct.
     if (mySE->HasPilot() && mySE->SysBubble() != nullptr) {
-        mySE->SysBubble()->SendAddBalls(mySE);
+        // Pilot's own ball is NOT re-delivered (skip my ship's ID) — the client
+        // keeps its OWN ball at its own convergence point; snapping it here is
+        // the visible end-of-warp teleport. The rest of the grid loads.
+        mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
         if (mySE->SysBubble()->HasPlayers())
             mySE->SysBubble()->AddBallExclusive(mySE);
 

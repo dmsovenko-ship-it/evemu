@@ -764,7 +764,7 @@ void SystemBubble::PrintEntityList() {
     }
 }
 
-void SystemBubble::SendAddBalls(SystemEntity* to_who) {
+void SystemBubble::SendAddBalls(SystemEntity* to_who, uint32 skipItemID /*0*/) {
     if (!m_system->IsLoaded())
         return;
     if (m_dynamicEntities.empty() && m_entities.empty())
@@ -774,7 +774,7 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who) {
     Client* pClient = to_who->GetPilot();
     if (pClient == nullptr)
         return;
-    _log(DESTINY__MESSAGE, "SystemBubble::SendAddBalls() to %s — bubble %u, dyn=%zu, static=%zu",
+    _log(DESTINY__MESSAGE, "SystemBubble::SendAddBalls() to %s - bubble %u, dyn=%zu, static=%zu",
          pClient->GetName(), m_bubbleID, m_dynamicEntities.size(), m_entities.size());
     if (is_log_enabled(DESTINY__BUBBLE_DEBUG))
         PrintEntityList();
@@ -789,9 +789,15 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who) {
     AddBalls addballs;
     addballs.slims = new PyList();
 
-    // Send ALL entities — both dynamic (ships, MWD) and static (gates, stations)
+    // Send ALL entities - both dynamic (ships, MWD) and static (gates, stations)
     // Validate each entity's encoding size to prevent "Unknown packet type" crash.
     for (auto cur : m_dynamicEntities) {
+        // The arriving pilot's own ship ball is NOT re-delivered: the client
+        // already tracks its own ball locally (at its own convergence point);
+        // re-sending it at the snapped arrival position is the visible
+        // end-of-warp teleport.
+        if (skipItemID != 0 && cur.first == skipItemID)
+            continue;
         if (cur.second->DestinyMgr() != nullptr)
             if (cur.second->DestinyMgr()->IsCloaked())
                 continue;

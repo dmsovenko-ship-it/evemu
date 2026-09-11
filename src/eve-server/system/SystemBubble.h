@@ -111,7 +111,7 @@ public:
     void Remove(SystemEntity* pSE);
     void ProcessWander(std::vector< SystemEntity* >& wanderers);
 
-    void SendAddBalls(SystemEntity* to_who);
+    void SendAddBalls(SystemEntity* to_who, uint32 skipItemID = 0);
     void SendAddBalls2(SystemEntity* to_who);
     void RemoveExclusive(SystemEntity* pSE);
     void AddBallExclusive(SystemEntity* about_who);
