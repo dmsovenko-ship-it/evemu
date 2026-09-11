@@ -469,6 +469,7 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
                 classList->AddItem( new PyInt(25));
                 classList->AddItem( new PyInt(830));
             slim->SetItemString("dunShipClasses", classList);   //?
+            PyList* dirList = new PyList();
             // Acceleration gates are rendered by the client's spaceObject.WarpGate
             // script, which calls SetStaticDirection() -> AlignToDirection(dunDirection).
             // AlignToDirection maps the model's local +Z axis to -dunDirection, so the
