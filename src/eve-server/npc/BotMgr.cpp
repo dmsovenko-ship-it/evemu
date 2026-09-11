@@ -3832,9 +3832,9 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
     // systems with bridge logistics; for now only highsec stations have bots.)
     SystemManager* sMgr = sEntityList.FindOrBootSystem(sysID);
     if (sMgr != nullptr && sMgr->GetSystemSecurityRating() >= 0.5f && db.corpID != 0) {
-        // Only bother once in a while (the deploy itself is idempotent).
-        if (MakeRandomInt(0, 99) < 25)
-            DeployBotPOS(sMgr, db.charID, db.corpID);
+        // The deploy itself is idempotent (one tower per corp/system), so try on
+        // every docked cycle until the corp has its POS.
+        DeployBotPOS(sMgr, db.charID, db.corpID);
     }
 
     // Pick a random T1 product we can actually build (module/charge/ship), cheap
