@@ -16,7 +16,7 @@
 <h1 align="center">EVEmu Crucible</h1>
 
 <p align="center">
-  <b>EVE Online (Crucible era) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork — ~99% complete
+  <b>EVE Online (Crucible era) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork — game systems ~96%
 </p>
 
 <br>
@@ -63,6 +63,13 @@
 | **Bubble hopping fix** — player/NPC bubble stability, empty bubble cleanup 5s | **Bubble hopping fix** — стабильность бабблов, очистка пустых за 5с |
 | **Jump cloak** — 60s cloak works, enemies don't see you | **Клок прыжка** — 60с клок работает, враг не видит |
 | **Missile fix** — use-after-free guard on target | **Ракеты** — защита use-after-free цели |
+| **End-of-warp landing** — compensation for the client-side warp-loop shortfall, no teleport/short-landing at stations and gates | **Прилёт в конце варпа** — компенсация недолёта, без телепорта/недолёта у станций и гейтов |
+| **POS defence** — weapon batteries with charge consumption, role-based web/scram/neut, standings + security-status + tower-war targeting, manual fire control, orbiting guards | **Оборона POS** — орудийные батареи с расходом зарядов, web/scram/нейтрализация по роли, наведение по стендингам/секьюрити/войне башни, ручное управление огнём, орбитальные охранники |
+| **Planetary Interaction** — colonies, extractor/processor chains (P1→P4), custom offices anchored to their planet, orbital launches | **Планетарка** — колонии, цепочки экстракторов/заводов (P1→P4), таможенные офисы у своей планеты, орбитальные запуски |
+| **Customs offices** — NPC offices seeded on high-sec planets, anchoring bound to the nearest planet, tax handling | **Таможенные офисы** — NPC-офисы на хайсек-планетах, анкор у ближайшей планеты, налоги |
+| **Incursion gates & HUD** — acceleration gates between pockets, penalty informer HUD (state re-sent on session change) | **Ворота и HUD инкурсий** — ускорительные ворота между карманами, информер штрафов (состояние переотправляется при смене системы) |
+| **EVE-mail** — folders (inbox/sent), read/unread, notifications, live delivery | **EVE-почта** — папки (входящие/отправленные), прочтение, уведомления, живая доставка |
+| **Petitions (F12) & admin** — category tree, threads, GM queue; login-IP history, human↔human flow audit, shared-IP detection, account notes, ban reasons | **Петиции (F12) и админ** — дерево категорий, треды, очередь GM; история IP, аудит потоков, детект shared-IP, заметки аккаунта, причины бана |
 
 ---
 
@@ -101,25 +108,31 @@ Full history in `git log` / полная история — в `git log`.
 
 ## Progress / Прогресс
 
-**Our fork: ~99%** · **Upstream: ~60%**
+**Our fork · game systems `███████████████████░` ~96%**
+**Our fork · infrastructure (memory mgmt) `█████░░░░░░░░░░░░░░░` 25%**
+**Upstream `████████████░░░░░░░░` ~60%**
 
 | System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
 |--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
 | Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
-| Ship Navigation | 70% | **99%** | +29% | Combat | 90% | 99% | +9% |
-| Modules & Overheating | 85% | 97% | +12% | Drones | 75% | **96%** | +21% |
+| Ship Navigation | 70% | **99%** | +29% | Combat & Crimewatch | 90% | 99% | +9% |
+| Modules & Overheating | 85% | 96% | +11% | Drones | 75% | **96%** | +21% |
 | NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 97% | +27% |
-| **POS** | 70% | **97%** | +27% | Market | 60% | 95% | +35% |
-| **Incursions** | 0% | **93%** | +93% | Fleet | 75% | **100%** | +25% |
+| **POS** | 70% | **98%** | +28% | Market | 60% | 95% | +35% |
+| **Incursions** | 0% | **96%** | +96% | Fleet | 75% | **100%** | +25% |
 | **Wormholes** | 60% | **92%** | +32% | Scanning | 80% | 99% | +19% |
 | **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 95% | +35% |
 | **Faction Warfare** | 50% | **99%** | +49% | Calendar | 60% | 93% | +33% |
 | Mail & LSC | 60% | **95%** | +35% | Contracts | 60% | 95% | +35% |
 | Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |
-| **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **90%** | +45% |
+| **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **92%** | +47% |
 | Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **96%** | +31% |
+| Planetary Interaction | 50% | **95%** | +45% | Deployables (MWD/Probes) | 40% | **99%** | +59% |
+| **Petitions & Support** | 0% | **95%** | +95% | Memory Management | 20% | 25% | +5% |
 
-See [`PROGRESS.md`](PROGRESS.md) for full breakdown.  
+> Totals are the mean of the player-facing game systems; infrastructure (memory management) is tracked separately.
+
+See [`PROGRESS.md`](PROGRESS.md) for the full breakdown.  
 Полная раскладка — в [`PROGRESS.md`](PROGRESS.md).
 
 ---

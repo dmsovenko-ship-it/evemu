@@ -1,7 +1,12 @@
 # EVEmu Crucible — Progress / Прогресс
 
-> **Our fork: `████████████████████` ~99%** · **Upstream: `████████░░░░░░░░░░░░` ~60%**
+> **Our fork · game systems: `███████████████████░` ~96%**
+> **Our fork · infrastructure (memory mgmt): `█████░░░░░░░░░░░░░░░` 25%**
+> **Upstream: `████████████░░░░░░░░` ~60%**
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
+
+> Totals are the mean of the player-facing game systems (infrastructure tracked separately).
+> Итог — среднее по игровым системам (инфраструктура считается отдельно).
 
 ---
 
@@ -9,20 +14,21 @@
 
 | System | % | Bar | Δ up | System | % | Bar | Δ up |
 |--------|---|-----|------|--------|---|-----|------|
-| Account & Character | 97% | `██████████████████░` | +2% | Skills & Certificates | 99% | `███████████████████` | +9% |
-| Ship Navigation | 99% | `███████████████████` | +29% | Combat | 99% | `███████████████████` | +9% |
-| Modules & Overheating | 97% | `███████████████████` | +12% | Drones | 96% | `██████████████████` | +21% |
-| NPC AI & Spawning | 97% | `███████████████████` | +37% | Agents & Missions | 97% | `███████████████████` | +27% |
-| **POS** | 97% | `███████████████████` | +27% | Market | 95% | `███████████████████` | +35% |
-| **Incursions** | 93% | `██████████████████░` | +93% | Fleet | 100% | `████████████████████` | +25% |
-| **Wormholes** | 92% | `██████████████████░` | +32% | Scanning | 99% | `███████████████████` | +19% |
-| **Notifications** | 97% | `██████████████████` | +37% | **Standings** | 95% | `███████████████████` | +35% |
-| **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████` | +33% |
-| Mail & LSC | 95% | `███████████████████` | +35% | Contracts | 95% | `██████████████████` | +35% |
-| Corporation | 93% | `███████████████████` | +28% | **Alliance** | 92% | `██████████████████` | +37% |
-| **Sovereignty** | 95% | `███████████████████` | +35% | Science & Industry | 90% | `██████████████████` | +45% |
-| Bookmark System | 95% | `██████████████████` | +25% | **Effects System** | 96% | `██████████████████` | +31% |
-| Memory Mgmt | 20% | `████░░░░░░░░░░░░░░` | — | Deployables (MWD) | 97% | `███████████████████` | — |
+| Account & Character | 97% | `███████████████████░` | +2% | Skills & Certificates | 99% | `████████████████████` | +9% |
+| Ship Navigation | 99% | `████████████████████` | +29% | Combat & Crimewatch | 99% | `████████████████████` | +9% |
+| Modules & Overheating | 96% | `███████████████████░` | +11% | Drones | 96% | `███████████████████░` | +21% |
+| NPC AI & Spawning | 97% | `███████████████████░` | +37% | Agents & Missions | 97% | `███████████████████░` | +27% |
+| **POS** | 98% | `███████████████████░` | +28% | Market | 95% | `███████████████████░` | +35% |
+| **Incursions** | 96% | `███████████████████░` | +96% | Fleet | 100% | `████████████████████` | +25% |
+| **Wormholes** | 92% | `██████████████████░░` | +32% | Scanning | 99% | `████████████████████` | +19% |
+| **Notifications** | 97% | `███████████████████░` | +37% | **Standings** | 95% | `███████████████████░` | +35% |
+| **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████░` | +33% |
+| Mail & LSC | 95% | `███████████████████░` | +35% | Contracts | 95% | `███████████████████░` | +35% |
+| Corporation | 93% | `███████████████████░` | +28% | **Alliance** | 92% | `██████████████████░░` | +37% |
+| **Sovereignty** | 95% | `███████████████████░` | +35% | Science & Industry | 92% | `██████████████████░░` | +47% |
+| Bookmark System | 95% | `███████████████████░` | +25% | **Effects System** | 96% | `███████████████████░` | +31% |
+| **Planetary Interaction** | 95% | `███████████████████░` | +45% | Deployables (MWD/Probes) | 99% | `████████████████████` | +59% |
+| **Petitions & Support** | 95% | `███████████████████░` | +95% | Memory Management | 25% | `█████░░░░░░░░░░░░░░░` | +5% |
 
 ---
 
@@ -30,7 +36,7 @@
 
 > ✅ done · 🟡 partial · ❌ not implemented · **bold** = significantly improved vs upstream
 
-### 1. Account / Character `██████████████████░` 97%
+### 1. Account / Character `███████████████████░` 97%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -39,15 +45,16 @@
 | Jump clones + per-clone implants | 🟡 | ✅ |
 | Clone jump, install/destroy clones | 🟡 | ✅ |
 | KillMail, image server (portraits/logos) | ✅ | ✅ |
+| **Registration email** — required, validated, unique; `SetEmail` for legacy accounts | ❌ | ✅ |
 
-### 2. Skills / Certificates `███████████████████` 99%
+### 2. Skills / Certificates `████████████████████` 99%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Queue, train, certificates, implants | ✅ | ✅ |
 | SP loss on T3 pod kill | ❌ | ✅ |
 
-### 3. Ship Navigation `███████████████████` 99%
+### 3. Ship Navigation `████████████████████` 99%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -80,6 +87,7 @@
 | **No bubble creation mid-warp** — only join existing bubbles (no per-frame GetBubble) | ❌ | ✅ |
 | **Orbit from structure surface** — orbit distance measured from gate/station/planet/moon surface, not centre (no inside-the-gate push-out, no speed reset) | ❌ | ✅ |
 | **Jump drives** — capital jumps require an active cynosural field (CynosuralFieldI/CovertCynosuralFieldI) in the destination system; fuel type per race (Caldari→Helium, Minmatar→Hydrogen, Amarr→Nitrogen, Gallente→Oxygen) | ❌ | ✅ |
+| **End-of-warp landing** — the pilot's own ball is no longer re-delivered at the snapped arrival point (the client keeps its own ball), and the client-side destination is offset to cancel the warp-loop shortfall — no end-of-warp teleport, no 4.4–5 km short-landing at stations/gates | ❌ | ✅ |
 
 ### 4. Combat & Crimewatch `████████████████████` 99%
 
@@ -93,15 +101,15 @@
 | Combat logoff, outlaw docking | 🟡 | ✅ |
 | **Self-defence** — only the first attacker is flagged for aggression; the victim's return fire is legal (PvP and NPC-pilot initiated fights alike) | ❌ | ✅ |
 
-### 5. Modules / Overheating `██████████████████` 95%
+### 5. Modules / Overheating `███████████████████░` 96%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
-| Module groups, cyno, cloak, jump portal, titan bridge | ✅ | ✅ |
+| Module groups, cyno, cloak, titan jump bridge | ✅ | ✅ |
 | **Overload** — Thermo check, heat damage, Nanite Paste, OverloadRack | ❌ | ✅ |
 | **ECM player jam** — ActiveModule ECM compares jam strength to target's strongest sensor; on success breaks the target's lock (ClearTarget) + sends ElectronicAttributeModifyTarget | ❌ | ✅ |
 
-### 6. Drones `██████████████████` 96%
+### 6. Drones `███████████████████░` 96%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -110,7 +118,7 @@
 | **EWAR cleanup** — web/paint/scramble released on target loss + drone death | ❌ | ✅ |
 | **Fighter-bomber always hits** — AoE munitions (no tracking/falloff attrs) toHit=1.0, no false "too far away" misses | ❌ | ✅ |
 
-### 7. NPC AI & Spawning `███████████████████` 97%
+### 7. NPC AI & Spawning `███████████████████░` 97%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -127,8 +135,9 @@
 | **Stationary sentry turrets** — sentry/turret groups (Sentry Gun, Protective, Mobile, Destructible Sentry Gun, Mobile Missile Sentry) never move; attack type by role: turret fire / web / energy neutralizer / real missiles (chargeGroup→type) | ❌ | ✅ |
 | **Analytic threat assessment** — combat power judged by hull class potential (capitals may cyno a fleet, battleships assumed fitted, fighter screen in space), not a precise fit check | ❌ | ✅ |
 | **Self-preservation** — non-combat hulls (industrial/barge/freighter/hauler) never fight back, they warp out; a novice misjudge only causes a panic-flee from a winnable fight, never an attack on a fight judged as lost | ❌ | ✅ |
+| **EWAR stickiness fix** — warp scramble / web / paint released when the target leaves the manager, no lingering "Warp drive is disrupted" | ❌ | ✅ |
 
-### 8. Agents & Missions `███████████████████` 97%
+### 8. Agents & Missions `███████████████████░` 97%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -140,22 +149,24 @@
 | **Encounter full cycle** — accept → dungeon objectives spawn with real faction rat targets (client-lockable) → warp link → clear → mission complete & hand-in | ❌ | ✅ |
 | **Standings UI fixed** — owner cache seeded for factions/corps/agents; rows toward client-unknown factions no longer written (Character Sheet no blank window) | ❌ | ✅ |
 
-### 9. Market `███████████████████` 95%
+### 9. Market `███████████████████░` 95%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Buy/sell orders, corp market, price history | ✅ | ✅ |
 | Trade skills, MarginTrading, escrow, expired auctions | ❌ | ✅ |
 | **Order-limit config fields uint8→uint32** — 20000 wrapped to 32, full type list in ask queries | ❌ | ✅ |
+| **Offline order execution** — resting buy/sell pairs settle without a live session; escrow, taxes, `mktTransactions` written | ❌ | ✅ |
 
-### 10. Contracts `██████████████████` 95%
+### 10. Contracts `███████████████████░` 95%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Item exchange, courier, auctions with bidding | 🟡 | ✅ |
 | Auction item transfer, refund, notifications, auto-finish | ❌ | ✅ |
+| **Courier complete** — accepted contract marks status/acceptor, crate delivered to destination, wrap cleaned up | ❌ | ✅ |
 
-### 11. Corporation / Alliance `███████████████████` 93% / `██████████████████` 92%
+### 11. Corporation / Alliance `███████████████████░` 93% / `██████████████████░░` 92%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -165,7 +176,7 @@
 | Medals — CreateMedal/GiveMedalToCharacters with cost confirmation | ❌ | ✅ |
 | War declarations — RetractWar/ChangeMutualWarFlag on CorpRegistry | ❌ | ✅ |
 
-### 12. Science & Industry `██████████████████` 90%
+### 12. Science & Industry `██████████████████░░` 92%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -176,16 +187,20 @@
 | **Adjusted materials** — correct extra/waste/base, neg ME handling | ❌ | ✅ |
 | **POS assembly lines** — auto-create for POS structures | ❌ | ✅ |
 | **Cancel job** — returns all materials on abort | ❌ | ✅ |
+| **Material-chain production** — recursive build from `invTypeMaterials`, local stock then regional import, output hauled to a hub | ❌ | ✅ |
 
-### 13. POS `███████████████████` 97%
+### 13. POS `███████████████████░` 98%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Towers, modules, force field, fuel | ✅ | ✅ |
 | Reinforced mode (fuel → stront → auto-online), CPU/PG | ❌ | ✅ |
 | Reactions, weapon AI, skill checks, fuel notifications | ❌ | ✅ |
+| **Defence grid** — weapon batteries consume charges (chargeGroup1), role-based web/scram/energy-neutralizer, targeting honours standings / security status / tower war + high-sec gate | ❌ | ✅ |
+| **Manual fire control** — AssumeStructureControl (Starbase Defense Management + 15 km + immobilise), AddTargetOBO/RemoveTargetOBO, POS AI prioritises the manual target | ❌ | ✅ |
+| **Guards** — orbiting defence ships that assist the manual target | ❌ | ✅ |
 
-### 14. Wormholes `██████████████████░` 92%
+### 14. Wormholes `██████████████████░░` 92%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -203,7 +218,7 @@
 | Create/manage, wings, squads, boosts, broadcasts | ✅ | ✅ |
 | Watchlist, voice chat methods | ❌ | ✅ |
 
-### 16. Incursions `██████████████████░` 93%
+### 16. Incursions `███████████████████░` 96%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -211,15 +226,19 @@
 | Gate camps, belt replacement, focus period, 5 simultaneous | ❌ | ✅ |
 | **Constellation penalties** (−10/25/50%), **CONCORD LP bonus** | ❌ | ✅ |
 | Client notifications — OnTaleData/OnTaleStart/OnTaleEnd/OnInfluenceUpdate | ❌ | ✅ |
+| **Penalty informer HUD** — tale data sent as `{taleID: taleData}` per system, re-sent on session change | ❌ | ✅ |
 | Reward data — keyed by rewardCriteria with proper entries | ❌ | ✅ |
 | **Scanner compatibility** — sites carry sigID, no scanner freeze, scan button doesn't stick during warp | ❌ | ✅ |
 | **Client rendering of Sansha** — groupID remap (1051-1056 → known ship groups), NPC balls re-sent after WarpStop | ❌ | ✅ |
+| **Real targets in the first pocket** — incursion placeholder groups replaced by real Sansha combat hulls, faction forced | ❌ | ✅ |
+| **Acceleration gates between pockets** — placed ~30 km past the anomaly (behind the last structure), wave chain resilient to bubble changes, gate log on placement | ❌ | ✅ |
 
-### 17. Scanning `███████████████████` 99%
+### 17. Scanning `████████████████████` 99%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Probes, scan signatures, anomalies, D-scan | ✅ | ✅ |
+| **Combat vs Core probes** — combat probes find ships/structures/drones, core probes signatures only | ❌ | ✅ |
 
 ### 18. Faction Warfare `████████████████████` 99%
 
@@ -228,8 +247,9 @@
 | Join/leave, militia stats (char/corp/alliance/faction) | 🟡 | ✅ |
 | **Plex spawning** (Scout/Small/Medium/Large), LP from NPC/PvP/plex | ❌ | ✅ |
 | **Faction patrols**, **LP exchange rates** | ❌ | ✅ |
+| **System flip** — plex capture accumulates flip points, occupier switches at threshold + notification | ❌ | ✅ |
 
-### 19. Sovereignty `███████████████████` 95%
+### 19. Sovereignty `███████████████████░` 95%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -238,8 +258,19 @@
 | Sov level (weeks), dev indices, upgrade effects | ❌ | ✅ |
 | Outpost capture framework | ❌ | ✅ |
 | **Alliance conflict zones** — SBU contested flag, ProcessSovStatusChanged, map display | ❌ | ✅ |
+| **Change journal** — `sovChangeLog` records every owner flip (faction/alliance) with old/new owner | ❌ | ✅ |
 
-### 20. Deployables (Mobile Warp Disruptor + Probes) `████████████████████` 99%
+### 20. Planetary Interaction `███████████████████░` 95%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| Colonies, command center, pins, links, routes, programs | 🟡 | ✅ |
+| Extractor → processor chains (P1→P4 by `schematicsTypeMap`) | ❌ | ✅ |
+| **Customs offices** — anchored to the nearest planet, launch pad tied to `customInfo=planetID`, taxes | ❌ | ✅ |
+| **NPC customs offices** — InterBus offices seeded on all high-sec planets | ❌ | ✅ |
+| Orbital launch from colony to office | ❌ | ✅ |
+
+### 21. Deployables (Mobile Warp Disruptor + Probes) `████████████████████` 99%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -268,7 +299,7 @@
 | **Stacked deployable drop** — Split(1) on drop/jettison, rest stays in cargo | ❌ | ✅ |
 | **Warp scramble prevents jumps** — MWD bubble after anchoring scrambles the ship (no dock/jump until aggression timer cools); scramble active immediately on anchor completion | ❌ | ✅ |
 
-### 21. Ship Module Restrictions
+### 22. Ship Module Restrictions
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -276,54 +307,101 @@
 | Allow capitals to fit in space | ❌ | ✅ |
 | Allow T3 subsystem swap in space | ❌ | ✅ |
 
-### 21. Effects System `██████████████████` 96%
+### 23. Effects System `███████████████████░` 96%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Passive/online/active effects, implants/subsystems | ✅ | ✅ |
 | Wormhole system effects, sov upgrade effects | ❌ | ✅ |
+| **Dreadnought bonus expressions** — missing `dgmExpressions` rebuilt so capital hulls fit/activate | ❌ | ✅ |
 
-### 22. Petitions & Support `███████████████████` 95%
+### 24. Notifications `███████████████████░` 97%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| Persistent DB notifications + live push | 🟡 | ✅ |
+| Bill / tower / agent / corp sources, unread tracking | ❌ | ✅ |
+
+### 25. Mail & LSC `███████████████████░` 95%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| Private conversations, channels, mailing lists | ✅ | ✅ |
+| Contact online notifications, corp mail role filter | ❌ | ✅ |
+| **EVE-mail API** — inbox/sent listing, get, send, read/unread, notifications, unread counts; live push on send | ❌ | ✅ |
+
+### 26. Standings `███████████████████░` 95%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| NPC/corp/faction standings, skills | 🟡 | ✅ |
+| **Owner cache seeding** — factions, NPC corps, NPC characters present in the client owner table | ❌ | ✅ |
+| **Safe standing writes** — deltas toward client-unknown factions skipped | ❌ | ✅ |
+
+### 27. Bookmark System `███████████████████░` 95%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| Personal/corp bookmarks, folders, coordinates | ✅ | ✅ |
+
+### 28. Calendar `███████████████████░` 93%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| Events, responses, notifications | 🟡 | ✅ |
+
+### 29. Petitions & Support `███████████████████░` 95%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | In-game petition window (F12) — category tree per language, file/list/messages | ❌ | ✅ |
 | GM workflow — reply, claim/unclaim, close, escalation | ❌ | ✅ |
-| Shared thread backend (portal + game see the same conversation), FILETIME timestamps | ❌ | ✅ |
+| Shared thread backend across web and in-game views, FILETIME timestamps | ❌ | ✅ |
 | **Category safety** — only client-known factions get standing rows; Character Sheet never blanks | ❌ | ✅ |
-| Admin monitoring — login IP history, large human↔human flow audit, shared-IP multiboxing, approved account transfers, dual Telegram alerts (public/admins) | ❌ | ✅ |
+| Admin monitoring — login IP history, large human↔human flow audit, shared-IP multiboxing, approved account transfers, dual alert channels (public/admins) | ❌ | ✅ |
 | **Ban UX** — persisted ban reason shown verbatim on banned login (unicode-safe); reserved/offensive account+character names refused with admin alert | ❌ | ✅ |
 | **Account tooling** — per-account admin comment, ban reason, accounts grouped by IP/e-mail, ban-all-by-IP | ❌ | ✅ |
+
+### 30. Memory Management `█████░░░░░░░░░░░░░░░` 25%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| Reference-count hardening — 32-bit refcount, separated diagnostics, opt-in hard-fail | ❌ | ✅ |
+| **Sanitizer audit** — XMLParser virtual dtor, hash signed-shift overflow, aligned assign, bound-service cast | ❌ | ✅ |
+| Ownership model for the reference objects (long-term, not started) | 🟡 | ❌ |
 
 ---
 
 ## Key Enhancements vs Upstream / Ключевые улучшения
 
 - **Autopilot** — complete rewrite: auto-jump via `.tr` teleport, multi-hop via CmdStop → gate follow, 60s jump cloak, gate animation effects
-- **POS** — reinforced mode, CPU/PG, reactions, weapon AI, skills, fuel notifications
-- **Incursions** — full state machine, 5 simultaneous, named NPCs, gate camps, constellation penalties
-- **Faction Warfare** — plex spawn, 3 LP channels, militia stats, patrols
-- **Sovereignty** — TCU 8h claim + IHub 2-cycle reinforce + levels + upgrades + outpost capture
-- **Science & Industry** — invention formula, reverse engineering, remote install, POS lines
-- **SDE validation** — all NPC types verified against live API
+- **POS** — reinforced mode, CPU/PG, reactions, weapon AI, skills, fuel notifications, role-based defence grid, manual fire control
+- **Incursions** — full state machine, 5 simultaneous, named NPCs, gate camps, constellation penalties, penalty informer HUD, acceleration gates between pockets
+- **Faction Warfare** — plex spawn, 3 LP channels, militia stats, patrols, system flip
+- **Sovereignty** — TCU 8h claim + IHub 2-cycle reinforce + levels + upgrades + outpost capture + change journal
+- **Science & Industry** — invention formula, reverse engineering, remote install, POS lines, recursive material chains
+- **Planetary Interaction** — colonies, P1→P4 chains, planet-bound customs offices, NPC offices on high-sec planets
+- **SDE validation** — all NPC types verified against the live API
 - **~400 dungeon definitions** — anomaly, incursion, DED, data/relic, mission
-- **Faction content** — full content for all 6 NPC factions (Sansha/Guristas/Angel/Blood/Serpentis/Rogue Drones): decor, turrets, anomalies, DED complexes, named NPCs (16-17 Aug)
-- **W-space / Sleeper block restored** — SleeperAI (remote rep, energy neut, capital escalation), sleeper combat sites by WH class, guaranteed WH in w-space, sleeper loot (`47f34979`, lost to 28-Jul reset)
-- **PvE expeditions** — escalation system with faction/stage-specific DED sites, Journal integration, warp to site (`e160445c`+`c7dfd566`)
-- **Market full price list** — order-limit config fields uint8→uint32, full station asks returned to client (`1547a65a`)
-- **Dungeon decor & accel gates** — faction-lore decoration tiers, precise warp-to-next-room gates, asteroid spacing (16-17 Aug)
-- **Warp hardening** — two-phase decel, deferred jump mid-warp, zero residual velocity, NPC balls re-sent after WarpStop, no bubble creation mid-warp
-- **Orbit from structure surface** — gates/stations/planets/moons: orbit distance from surface, no inside-the-gate push-out (`a12d4095`)
-- **Stationary sentry turrets + role-based attack** — sentry/turret groups never move; attack matches role (turret fire / web / energy neutralizer / missiles) (`0c690a5c`+`84ef3e01`)
-- **Fighter-bomber to-hit** — AoE munitions always connect, no false distance misses (`74221cb1`)
-- **Analytic NPC threat assessment** — hull-class potential (capitals can cyno a fleet, battleships assumed fitted, fighter screen) instead of precise fit guess (`7673c9e6`+`5ce0cb67`)
-- **Self-defence crimewatch** — only the first attacker flagged for aggression; victim's return fire is legal (`08b54e29`+`f9aefd79`+`ff78ea34`)
-- **Jump drives** — capital jumps require active cyno in destination; fuel type per race (`6dd25d3d`)
-- **ECM player jam** — ActiveModule ECM breaks target lock + sends ElectronicAttributeModifyTarget (`7ae077e2`)
-- **Warp scramble prevents jumps** — MWD bubble after anchoring scrambles the ship (no dock/jump until aggression timer cools) (`d8ace19c`)
-- **Encounter missions full cycle** — accept → dungeon objectives spawn with real faction rat targets (lockable by client) → warp link → clear → complete & hand-in; objective/warp link via LocationWrapper (`220a8fb6` family)
-- **Character Sheet standings fixed** — client owner cache (`config.BulkData.owners`) seeded with factions/NPC corps/NPC characters; standing deltas toward client-unknown factions (rogue 500022/sleeper 500023+) no longer written; blank-standings crash gone (`9ed1c3f0`+`bd6fe301`)
-- **In-game petitions (F12)** — DB-backed `petitioner` service over a shared thread/category backend: category tree per language, create/list/messages, GM reply/claim/close queue, FILETIME timestamps, portal-account game login (`7562ff44` family)
-- **Admin monitoring & notifications** — login IP history, periodic audit (large human↔human ISK flows, shared-IP multiboxing), legitimate account-transfer approvals, dual Telegram channels (public events for players + closed admin alerts) with RU-friendly endpoint/proxy (`72291e72` family)
-- **Ban UX** — ban reason persisted (`banReason`) and shown verbatim on the banned login (single line, unicode-safe); reserved/offensive account & character names refused (`ReservedNames.h`) with admin alert
-- **Account admin notes** — per-account free-form comment + ban reason exposed through the admin API; accounts grouped by IP/e-mail, ban-by-IP (all accounts from one address) (`76f6373e` family)
+- **Faction content** — full content for all 6 NPC factions (Sansha/Guristas/Angel/Blood/Serpentis/Rogue Drones): decor, turrets, anomalies, DED complexes, named NPCs
+- **W-space / Sleeper block restored** — SleeperAI (remote rep, energy neut, capital escalation), sleeper combat sites by WH class, guaranteed WH in w-space, sleeper loot
+- **PvE expeditions** — escalation system with faction/stage-specific DED sites, Journal integration, warp to site
+- **Market full price list** — order-limit config fields uint8→uint32, full station asks returned to the client
+- **Dungeon decor & accel gates** — faction-lore decoration tiers, precise warp-to-next-room gates, asteroid spacing
+- **Warp hardening** — two-phase decel, deferred jump mid-warp, zero residual velocity, NPC balls re-sent after WarpStop, no bubble creation mid-warp, end-of-warp landing compensation (no teleport, no short-landing)
+- **Orbit from structure surface** — gates/stations/planets/moons: orbit distance from surface, no inside-the-gate push-out
+- **Stationary sentry turrets + role-based attack** — sentry/turret groups never move; attack matches role (turret fire / web / energy neutralizer / missiles)
+- **Fighter-bomber to-hit** — AoE munitions always connect, no false distance misses
+- **Analytic NPC threat assessment** — hull-class potential (capitals can cyno a fleet, battleships assumed fitted, fighter screen) instead of a precise fit guess
+- **Self-defence crimewatch** — only the first attacker flagged for aggression; the victim's return fire is legal
+- **Jump drives** — capital jumps require an active cyno in the destination; fuel type per race
+- **ECM player jam** — ActiveModule ECM breaks target lock + sends ElectronicAttributeModifyTarget
+- **Warp scramble prevents jumps** — MWD bubble after anchoring scrambles the ship (no dock/jump until the aggression timer cools)
+- **Encounter missions full cycle** — accept → dungeon objectives spawn with real faction rat targets (lockable by the client) → warp link → clear → complete & hand-in
+- **Character Sheet standings fixed** — client owner cache seeded with factions/NPC corps/NPC characters; standing deltas toward client-unknown factions no longer written; blank-standings crash gone
+- **In-game petitions (F12)** — DB-backed `petitioner` service over a shared thread/category backend: category tree per language, create/list/messages, GM reply/claim/close queue, FILETIME timestamps
+- **Admin monitoring & notifications** — login IP history, periodic audit (large human↔human ISK flows, shared-IP multiboxing), legitimate account-transfer approvals, dual alert channels with RU-friendly endpoint/proxy
+- **Ban UX** — ban reason persisted (`banReason`) and shown verbatim on the banned login (single line, unicode-safe); reserved/offensive account & character names refused with admin alert
+- **Account admin notes** — per-account free-form comment + ban reason exposed through the admin API; accounts grouped by IP/e-mail, ban-by-IP (all accounts from one address)
+- **EVE-mail** — inbox/sent listing, read/unread, notifications and unread counts with live delivery on send
+- **Memory hardening** — 32-bit refcount, split diagnostics, opt-in hard-fail, sanitizer-driven fixes (XMLParser virtual dtor, hash overflow, aligned assign, bound-service cast)
