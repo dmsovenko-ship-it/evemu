@@ -87,33 +87,31 @@ void SleeperAIMgr::Process()
 
 void SleeperAIMgr::CheckCapitalEscalation()
 {
-    if (m_escalationCount >= 2) return;  // max 2 escalations per site
     if (m_pNPC->SysBubble() == nullptr) return;
 
     SpawnMgr* spawnMgr = m_pNPC->GetSpawnMgr();
     if (spawnMgr == nullptr) return;
 
-    // Check for capital ships in this bubble
+    // Count capital ships in this pocket. Rorqual / capital industrial (group 883)
+    // does NOT trigger an escalation (live behaviour); carriers, dreadnoughts and
+    // supercarriers do — one wave per NEW capital, state kept in SpawnMgr.
     std::vector<Client*> players;
     m_pNPC->SysBubble()->GetPlayers(players);
 
-    bool hasCapital = false;
+    uint8 capitals = 0;
     for (auto p : players) {
         if (p == nullptr) continue;
         ShipItemRef ship = p->GetShip();
         if (ship.get() == nullptr) continue;
         uint16 gid = ship->groupID();
-        // Capital ship groups: Carrier=547, Dreadnought=485, Supercarrier=659, CapIndustrial=883
-        if (gid == 547 || gid == 485 || gid == 659 || gid == 883) {
-            hasCapital = true;
-            break;
-        }
+        // Capital ship groups: Carrier=547, Dreadnought=485, Supercarrier=659
+        if (gid == 547 || gid == 485 || gid == 659)
+            ++capitals;
     }
-    if (!hasCapital) return;
+    if (capitals == 0) return;
 
-    // Determine guardian typeID based on this NPC's tier — use existing Sleeper
-    // Defender types (strongest per tier) as escalation guardians:
-    // Sleepless=30195, Awakened=30205, Emergent=30214
+    // Guardian type by this NPC's tier — Sleepless=30195, Awakened=30205,
+    // Emergent=30214 (per-site, not per-NPC — SpawnMgr deduplicates).
     uint16 guardianType = 30195;  // default Sleepless Safeguard
     uint16 gid = m_pNPC->GetSelf()->groupID();
     // Awakened sites → Awakened Preserver (30205)
@@ -121,19 +119,13 @@ void SleeperAIMgr::CheckCapitalEscalation()
     // Emergent sites → Emergent Preserver (30214)
     if (gid == 961 || gid == 986 || gid == 987) guardianType = 30214;
 
-    uint8 count = (m_escalationCount == 0) ? 6 : 8;
-    m_escalationCount++;
+    uint8 level = 1;
+    // Guardian scene tier follows the site's own tier (stat scaling in
+    // DoSpawnForAnomaly is level-driven): Sleepless=1, Awakened=3, Emergent=5.
+    if (gid == 960 || gid == 984 || gid == 985) level = 3;
+    if (gid == 961 || gid == 986 || gid == 987) level = 5;
 
-    _log(NPC__AI_TRACE, "SleeperAIMgr: %s(%u) — capital escalation %u spawning %u guardians type %u",
-         m_pNPC->GetName(), m_pNPC->GetID(), m_escalationCount, count, guardianType);
-
-    for (uint8 i = 0; i < count; ++i) {
-        GPoint pos = m_pNPC->GetPosition();
-        pos.x += MakeRandomFloat() * 2000.0f - 1000.0f;
-        pos.y += MakeRandomFloat() * 2000.0f - 1000.0f;
-        pos.z += MakeRandomFloat() * 1000.0f - 500.0f;
-        spawnMgr->DoSpawnForAnomaly(m_pNPC->SysBubble(), pos, 1, guardianType, false);
-    }
+    spawnMgr->TryCapitalEscalation(m_pNPC->SysBubble(), capitals, guardianType, level);
 }
 
 void SleeperAIMgr::OnCapitalEntered()

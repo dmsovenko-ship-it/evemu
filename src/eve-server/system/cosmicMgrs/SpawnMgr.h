@@ -41,7 +41,16 @@ public:
     std::string GetSpawnGroupName(int8 sGroup);
 
     bool DoSpawnForBubble(SystemBubble* pBubble);
-    void DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion = false);
+    // Spawns a single NPC for an anomaly pocket and returns its itemID (0 on
+    // failure). The return value lets dungeon wave bookkeeping track the wave's
+    // NPCs and the trigger NPC.
+    uint32 DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion = false, uint32 forceFactionID = 0);
+
+    // Site-level Sleeper capital escalation (EVE-Survival): every NEW capital
+    // entering the pocket (Rorqual excluded at the call site) pulls a wave of
+    // Sleeper battleships (6 / 8 / 6 / 8 = up to 28). State is per pocket, NOT
+    // per NPC — each SleeperAI calls in and we only act on new capital arrivals.
+    bool TryCapitalEscalation(SystemBubble* bubble, uint8 capitalCount, uint16 guardianType, uint8 level);
     // DungeonMgr registers the system's incursion site (one per system). The
     // wave chain runs out of SpawnKilled; registration must NOT touch the alive
     // counter (the NPC spawn already counted them).
@@ -83,6 +92,7 @@ protected:
     uint8 GetSpawnGroup(uint8 sClass);
 
     uint16 GetRandTypeID(uint8 sClass);
+    std::map<uint32, std::pair<uint8, uint8>> m_capitalWaves;   // bubbleID -> <capitalCount, wavesSpawned>
 
     typedef std::vector<NPC*> RatSpawningVec;
     typedef std::vector<SystemBubble*> RatBubbleVec;

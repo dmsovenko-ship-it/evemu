@@ -167,6 +167,8 @@ namespace Dungeon {
         double pitch;
         double roll;
         double radius;
+        uint8 wave;         // 1 = spawns with the site; N>1 spawns after wave N-1 is cleared
+        uint8 isTrigger;    // 1 = killing this NPC pulls the next wave early
     };
 
     struct Room {

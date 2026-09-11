@@ -65,7 +65,8 @@ void DungeonDB::GetAllDungeonData(DBQueryResult& res)
     "dungeonName, dungeonStatus, factionID, archetypeID, "
     "dunRooms.roomID, dunRooms.roomName, objectID, typeID, groupID, "
     "x, y, z, yaw, pitch, roll, radius, "
-    "minSecurity, maxSecurity, difficulty "
+    "minSecurity, maxSecurity, difficulty, "
+    "dunRoomObjects.wave, dunRoomObjects.isTrigger "
 	"FROM dunDungeons "
 	"INNER JOIN dunRooms ON dunDungeons.dungeonID = dunRooms.dungeonID "
 	"INNER JOIN dunRoomObjects ON dunRooms.roomID = dunRoomObjects.roomID"))
@@ -78,7 +79,8 @@ void DungeonDB::GetAllDungeonDataByDungeonID(DBQueryResult& res, uint32 dungeonI
     "dungeonName, dungeonStatus, factionID, archetypeID, "
     "dunRooms.roomID, dunRooms.roomName, objectID, typeID, groupID, "
     "x, y, z, yaw, pitch, roll, radius, "
-    "minSecurity, maxSecurity, difficulty "
+    "minSecurity, maxSecurity, difficulty, "
+    "dunRoomObjects.wave, dunRoomObjects.isTrigger "
 	"FROM dunDungeons "
 	"INNER JOIN dunRooms ON dunDungeons.dungeonID = dunRooms.dungeonID "
 	"INNER JOIN dunRoomObjects ON dunRooms.roomID = dunRoomObjects.roomID "
@@ -164,7 +166,7 @@ void DungeonDB::GetRoomObjects(uint32 roomID, std::vector< Dungeon::RoomObject >
 {
     DBQueryResult res;
 
-    if (!sDatabase.RunQuery(res, "SELECT objectID, roomID, typeID, groupID, x, y, z, yaw, pitch, roll, radius "
+    if (!sDatabase.RunQuery(res, "SELECT objectID, roomID, typeID, groupID, x, y, z, yaw, pitch, roll, radius, wave, isTrigger "
     "FROM dunRoomObjects "
     "WHERE roomID=%u", roomID))
     _log(DATABASE__ERROR, "Error in GetRoomObjects query: %s", res.error.c_str());
@@ -185,6 +187,8 @@ void DungeonDB::GetRoomObjects(uint32 roomID, std::vector< Dungeon::RoomObject >
             entry.roll = row.GetDouble(8);
             entry.yaw = row.GetDouble(9);
             entry.radius = row.GetDouble(10);
+            entry.wave = row.GetUInt(11);
+            entry.isTrigger = row.GetUInt(12);
         into.push_back(entry);
     }
 }

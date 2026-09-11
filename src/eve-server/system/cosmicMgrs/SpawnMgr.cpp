@@ -275,6 +275,11 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
             pBubble->SetSpawned(false);
     } else if (pBubble->IsAnomaly()) {
         _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled::Anomaly - called by %u.", itemID);
+        // Dungeon wave engine: wave-controlled pockets (dunRoomObjects.wave) run
+        // entirely through DungeonMgr — the legacy MakeSpawn rat chaining below
+        // would spawn RANDOM rats that aren't part of the designed dungeon.
+        if (m_dungMgr != nullptr && m_dungMgr->OnDungeonNPCDestroyed(pBubble, itemID))
+            return;
         // Private expedition site: one-and-done — no respawn waves. When the last
         // NPC dies, offer the next stage (50% chance) and clear the site.
         CosmicSignature esc;
@@ -575,14 +580,14 @@ void SpawnMgr::SpawnIncursionWave(uint32 dungeonID, uint8 waveNum, const GPoint&
     }
 }
 
-void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion)
+uint32 SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level, uint16 typeID, bool isIncursion, uint32 forceFactionID)
 {
     if (pBubble == nullptr) {
         _log(COSMIC_MGR__ERROR, "DoSpawnForAnomaly - bubble is null for typeID=%u, creating new bubble", typeID);
         pBubble = sBubbleMgr.GetBubble(m_system, pos);
         if (pBubble == nullptr) {
             _log(COSMIC_MGR__ERROR, "DoSpawnForAnomaly FAILED - could not create bubble for typeID=%u", typeID);
-            return;
+            return 0;
         }
     }
     if (isIncursion)
@@ -643,6 +648,16 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
             if (corpID == 0)
                 corpID = sDataMgr.GetFactionCorp(factionID);
         }
+        // Dungeon sites: force EVERY NPC to the site's own faction (same rule the
+        // incursion fixes use). SDE room data drags in foreign-faction rats
+        // (Serpentis hulls on an Angel site, etc.) — the type's stats/tier stay,
+        // but the crosshair/faction must match the anomaly's faction.
+        if (forceFactionID != 0) {
+            factionID = forceFactionID;
+            uint32 forceCorp = sDataMgr.GetFactionCorp(forceFactionID);
+            if (forceCorp != 0)
+                corpID = forceCorp;
+        }
         // Incursion sites are always Sansha Nation — force the faction so the
         // crosshairs are red (a Sansha stub type whose race maps to an empire
         // faction would otherwise spawn as a white/neutral square).
@@ -658,6 +673,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
         NPC* pNPC(nullptr);
         InventoryItemRef iRef(nullptr);
+        uint32 lastID = 0;
         for (auto cur : m_toSpawn) {
             ItemData idata(cur.typeID, corpID, m_system->GetID(), flagNone, "", startPos, name.c_str());
             for (uint8 x=0; x < cur.quantity; ++x) {
@@ -679,6 +695,7 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
                     pNPC->Delete();
                     continue;
                 }
+                lastID = iRef->itemID();
 
                 // Scale NPC stats by site level (1-5): level 1 = ~0.4x, level 5 = ~2.0x
                 {
@@ -769,12 +786,52 @@ void SpawnMgr::DoSpawnForAnomaly(SystemBubble* pBubble, GPoint pos, uint8 level,
 
     _log(SPAWN__TRACE, "MakeSpawn() completed in %s(%u) with %u bubbles in m_bubbles and %u entities in m_spawns.", \
                 m_system->GetName(), m_system->GetID(), m_bubbles.size(), m_spawns.size());
-        return;
+        return lastID;
     } else {
         _log(SPAWN__ERROR, "SpawnMgr::PrepSpawn() - Nothing to spawn.");
     }
 
-    return;
+    return 0;
+}
+
+// Site-level Sleeper capital escalation. Returns true when a new guardian wave
+// was spawned for this pocket. Tracks <capitalCount, wavesSpawned> per bubble so
+// N sleeping NPCs polling the same bubble never each start their own escalation.
+bool SpawnMgr::TryCapitalEscalation(SystemBubble* bubble, uint8 capitalCount, uint16 guardianType, uint8 level)
+{
+    if (bubble == nullptr || guardianType == 0)
+        return false;
+    auto it = m_capitalWaves.find(bubble->GetID());
+    uint8 prevCaps = 0, waves = 0;
+    if (it != m_capitalWaves.end()) {
+        prevCaps = it->second.first;
+        waves    = it->second.second;
+    }
+    if (capitalCount <= prevCaps)
+        return false;   // the same capital(s) still sitting in the pocket
+    if (waves >= 4) {
+        m_capitalWaves[bubble->GetID()] = {capitalCount, waves};
+        return false;
+    }
+    uint8 count = (waves % 2 == 0) ? 6 : 8;   // 6, 8, 6, 8 = up to 28 guardians
+    ++waves;
+    m_capitalWaves[bubble->GetID()] = {capitalCount, waves};
+
+    GPoint base = bubble->GetCenter();
+    uint8 spawned = 0;
+    for (uint8 i = 0; i < count; ++i) {
+        GPoint pos = base;
+        double ang = MakeRandomFloat() * 2.0 * 3.14159;
+        double rad = 2000.0 + MakeRandomFloat() * 6000.0;
+        pos.x += cos(ang) * rad;
+        pos.z += sin(ang) * rad;
+        pos.y += (MakeRandomFloat() - 0.5) * 1500.0;
+        if (DoSpawnForAnomaly(bubble, pos, level, guardianType, false, 0) != 0)
+            ++spawned;
+    }
+    sLog.Warning("SpawnMgr", "Sleeper capital escalation: pocket %u wave %u — spawned %u guardians of %u capitals.",
+                 bubble->GetID(), (unsigned)waves, (unsigned)spawned, (unsigned)capitalCount);
+    return spawned > 0;
 }
 
 void SpawnMgr::DoSpawnForIncursion(SystemBubble* pBubble, uint32 regionID, uint8 sceneType, uint32 incursionID)

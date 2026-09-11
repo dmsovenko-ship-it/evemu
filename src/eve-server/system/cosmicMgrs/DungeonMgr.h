@@ -11,6 +11,7 @@
 #define _EVEMU_SYSTEM_DUNGEONMGR_H
 
 #include <unordered_map>
+#include <set>
 #include "EVE_Dungeon.h"
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/ManagerDB.h"
@@ -83,6 +84,12 @@ public:
 
     bool MakeDungeon(CosmicSignature& sig, uint32 dungeonID = 0);
 
+    // Called by SpawnMgr when an NPC in an anomaly bubble dies. Returns true if
+    // this bubble is a wave-controlled dungeon pocket (so the caller must skip
+    // the legacy random rat chaining). Advances the pocket's wave when the
+    // current wave is cleared or its trigger NPC is killed.
+    bool OnDungeonNPCDestroyed(SystemBubble* bubble, uint32 itemID);
+
     // Picks a REAL Sansha Nation typeID for an incursion site (dungeonID
     // 2100-2133). roleClass: 0 = frigate, 1 = cruiser, 2 = battleship. The
     // static shared helper is used by SpawnMgr's wave chaining too, so the
@@ -118,6 +125,23 @@ private:
     int8 GetFaction(uint32 factionID);
     int8 GetRandLevel();
     void PopulateDEDContainer(InventoryItemRef containerRef, uint32 factionID, uint8 difficulty);
+
+    // --- dungeon wave runtime (per pocket) ---
+    // A pocket's NPCs can be split into waves (dunRoomObjects.wave). Wave 1
+    // spawns with the site; later waves spawn when the current one is cleared or
+    // its trigger NPC dies early. Keyed by the bubble the pocket centre sits in.
+    struct WaveRuntime {
+        uint32 anomalyID = 0;
+        uint16 roomID = 0;
+        uint8  currentWave = 0;
+        uint32 siteFaction = 0;     // dungeon factionID — staged NPCs are forced to it
+        GPoint basePos;
+        uint32 triggerItemID = 0;
+        std::set<uint32> aliveItems;                               // NPCs of the current wave
+        std::map<uint8, std::vector<Dungeon::RoomObject>> pending; // wave -> staged NPCs
+    };
+    std::map<uint32, WaveRuntime> m_waveRuntime;    // bubbleID -> runtime
+    bool AdvanceWaveRuntime(std::map<uint32, WaveRuntime>::iterator rtIt, SystemBubble* bubble);
 
     std::map<uint32, Dungeon::LiveDungeon> m_dungeonList; // This holds all live dungeons in the current system
 };

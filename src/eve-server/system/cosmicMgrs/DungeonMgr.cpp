@@ -202,6 +202,8 @@ void DungeonDataMgr::FillObject(DBResultRow row) {
         oData.pitch = row.GetInt(14);
         oData.roll = row.GetInt(15);
         oData.radius = row.GetInt(16);
+        oData.wave = row.GetUInt(20);
+        oData.isTrigger = row.GetUInt(21);
         dData.rooms[row.GetUInt(5)].objects.push_back(oData);
         // Populate all data for the dungeon and room
         dData.name = row.GetText(1);
@@ -375,6 +377,80 @@ uint8 DungeonMgr::IncursionWaveTotal(uint32 dungeonID)
     return 3;   // every incursion scene runs 3 waves/pockets (live-EVE style)
 }
 
+// Dungeon wave engine (see WaveRuntime in DungeonMgr.h). Called by SpawnMgr when
+// an NPC of an anomaly pocket died. Returns true when the pocket is wave-run —
+// the caller then skips the legacy random rat chaining for that bubble.
+bool DungeonMgr::OnDungeonNPCDestroyed(SystemBubble* bubble, uint32 itemID)
+{
+    if (bubble == nullptr)
+        return false;
+    auto rtIt = m_waveRuntime.find(bubble->GetID());
+    if (rtIt == m_waveRuntime.end())
+        return false;
+    WaveRuntime& rt = rtIt->second;
+
+    // Only wave NPCs count; strangers (e.g. leftovers of an earlier wave after a
+    // trigger kill) are ignored.
+    auto aliveIt = rt.aliveItems.find(itemID);
+    if (aliveIt == rt.aliveItems.end()) {
+        if (rt.aliveItems.empty()) {
+            // nobody of the current wave alive -> advance
+            return AdvanceWaveRuntime(rtIt, bubble);
+        }
+        return true;
+    }
+    rt.aliveItems.erase(aliveIt);
+
+    bool triggerKilled = (rt.triggerItemID != 0 && itemID == rt.triggerItemID);
+    rt.triggerItemID = 0;
+    if (triggerKilled) {
+        _log(COSMIC_MGR__MESSAGE, "DungeonMgr: trigger NPC %u killed — pulling next wave early (bubble %u)", itemID, bubble->GetID());
+        AdvanceWaveRuntime(rtIt, bubble);
+        return true;
+    }
+    if (!rt.aliveItems.empty())
+        return true;   // wave still alive
+    return AdvanceWaveRuntime(rtIt, bubble);
+}
+
+bool DungeonMgr::AdvanceWaveRuntime(std::map<uint32, WaveRuntime>::iterator rtIt, SystemBubble* bubble)
+{
+    WaveRuntime& rt = rtIt->second;
+    rt.triggerItemID = 0;
+    while (!rt.pending.empty()) {
+        std::vector<Dungeon::RoomObject> objs = rt.pending.begin()->second;
+        uint8 nextWave = rt.pending.begin()->first;
+        rt.pending.erase(rt.pending.begin());
+        if (objs.empty())
+            continue;
+        SystemBubble* pb = sBubbleMgr.FindBubble(m_system->GetID(), rt.basePos);
+        if (pb == nullptr)
+            pb = bubble;
+        if (pb == nullptr) {
+            m_waveRuntime.erase(rtIt);
+            return true;
+        }
+        rt.aliveItems.clear();
+        for (auto& o : objs) {
+            GPoint pos(rt.basePos.x + o.x, rt.basePos.y + o.y, rt.basePos.z + o.z);
+            uint32 id = m_spawnMgr->DoSpawnForAnomaly(pb, pos, GetRandLevel(), o.typeID, false, rt.siteFaction);
+            if (id == 0)
+                continue;
+            rt.aliveItems.insert(id);
+            if (o.isTrigger)
+                rt.triggerItemID = id;
+        }
+        rt.currentWave = nextWave;
+        _log(COSMIC_MGR__MESSAGE, "DungeonMgr: wave %u spawned in bubble %u — %u NPCs, trigger %s",
+             (unsigned)nextWave, pb->GetID(), (unsigned)rt.aliveItems.size(),
+             rt.triggerItemID != 0 ? "armed" : "none");
+        return true;
+    }
+    // No pending waves left — the pocket is done.
+    m_waveRuntime.erase(rtIt);
+    return true;
+}
+
 bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
 {
     if (m_system == nullptr || m_spawnMgr == nullptr) {
@@ -443,6 +519,12 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             // Incursion dungeons (2100-2133) — scope hoisted to the room so the
             // wave bookkeeping after the object loop can see it.
             bool isIncursionDun = (dungeonID >= 2100 && dungeonID <= 2133);
+            // Per-room wave staging: NPCs with wave>1 are held back and spawned
+            // by OnDungeonNPCDestroyed() when the current wave is cleared (or its
+            // trigger NPC dies early). wave==1 keeps the old behaviour.
+            std::map<uint8, std::vector<Dungeon::RoomObject>> pendingWaves;
+            std::vector<uint32> wave1ItemIDs;
+            uint32 wave1Trigger = 0;
             for (auto object : room.second.objects ) {
                 GPoint pos;
                 // Set position for each object
@@ -483,9 +565,26 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                      objGroup.catID == EVEDB::invCategories::Drone ||
                      objGroup.catID == EVEDB::invCategories::Entity);
                 if (npcThis) {
+                    // Wave staging: NPCs with wave>1 (dunRoomObjects.wave) are held
+                    // back and spawned by OnDungeonNPCDestroyed() when the current
+                    // wave is cleared or its trigger NPC dies. Incursion dungeons
+                    // run their own SpawnMgr wave chain and spawn everything now.
+                    uint8 w = (object.wave > 0) ? object.wave : 1;
+                    if (!isIncursionDun && w > 1) {
+                        Dungeon::RoomObject staged = object;
+                        staged.typeID = spawnTypeID;
+                        pendingWaves[w].push_back(staged);
+                        continue;
+                    }
                     sLog.Debug("MakeDungeon", "Spawning NPC typeID=%u cat=%u group=%u",
                         spawnTypeID, objGroup.catID, objType.groupID);
-                    m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), spawnTypeID, isIncursionDun);
+                    uint32 spawnedID = m_spawnMgr->DoSpawnForAnomaly(sBubbleMgr.FindBubble(m_system->GetID(), pos), pos, GetRandLevel(), spawnTypeID, isIncursionDun, dData.factionID);
+                    if (!isIncursionDun) {
+                        if (spawnedID != 0)
+                            wave1ItemIDs.push_back(spawnedID);
+                        if (object.isTrigger && spawnedID != 0)
+                            wave1Trigger = spawnedID;
+                    }
                 } else if (isIncursionDun) {
                     // Incursion rooms carry SDE junk that renders as nothing:
                     // LCS gates (group 42) and belt markers (Xray S). Our own
@@ -527,6 +626,36 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                     cSE = new CelestialSE(iRef, m_system->GetServiceMgr(), m_system);
                     m_system->AddEntity(cSE, false);
                     newRoom.items.push_back(iRef->itemID());
+                }
+            }
+
+            // Wave pocket bookkeeping: NPCs of waves >1 were staged above. Register
+            // the runtime so OnDungeonNPCDestroyed() can pull them in when wave 1
+            // is cleared (or its trigger dies).
+            if (!isIncursionDun && !pendingWaves.empty()) {
+                SystemBubble* pb = sBubbleMgr.FindBubble(m_system->GetID(), newRoom.position);
+                if (pb != nullptr && !wave1ItemIDs.empty()) {
+                    WaveRuntime rt;
+                    rt.anomalyID = newDungeon.anomalyID;
+                    rt.roomID = room.first;
+                    rt.currentWave = 1;
+                    rt.siteFaction = dData.factionID;
+                    rt.basePos = newRoom.position;
+                    rt.triggerItemID = wave1Trigger;
+                    rt.pending = pendingWaves;
+                    for (uint32 id : wave1ItemIDs)
+                        rt.aliveItems.insert(id);
+                    m_waveRuntime[pb->GetID()] = rt;
+                    _log(COSMIC_MGR__MESSAGE, "MakeDungeon: wave pocket registered (room %u, bubble %u, wave1 alive=%u, staged waves=%u)",
+                         rt.roomID, pb->GetID(), (unsigned)wave1ItemIDs.size(), (unsigned)pendingWaves.size());
+                } else {
+                    // Fallback — no bubble/wave-1 NPCs: spawn the staged NPCs as usual.
+                    SystemBubble* fb = sBubbleMgr.FindBubble(m_system->GetID(), newRoom.position);
+                    for (auto& kv : pendingWaves)
+                        for (auto& o : kv.second) {
+                            GPoint p2(newRoom.position.x + o.x, newRoom.position.y + o.y, newRoom.position.z + o.z);
+                            m_spawnMgr->DoSpawnForAnomaly(fb, p2, GetRandLevel(), o.typeID, false, dData.factionID);
+                        }
                 }
             }
 
