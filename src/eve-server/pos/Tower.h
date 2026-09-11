@@ -37,6 +37,7 @@ public:
     virtual void                Init();
     virtual void                InitData();
     virtual void                OnBotAnchorComplete();   // bot POS deployment: moon link + fuel/force field
+    void                        BotEnsureFuel(uint32 hours = 720);   // bot POS: top the tower up with fuel (and re-online it if it ran dry)
     void                        CreateForceField();       // (re)create the tower force field
 
     /* virtual functions to be overridden in derived classes */
@@ -158,6 +159,7 @@ private:
     uint32 m_strontTypeID;      // typeID of strontium for reinforced (16275)
     uint32 m_strontPerHour;     // strontium consumed per reinforced hour (100/200/400)
     uint32 m_manualTargetID;    // manual POS gunnery target (0 = none, use auto)
+    bool   m_botFuelled;        // bot POS: fuel/re-online one-shot done on first Process tick
     int64  m_lastFuelCheck;     // FileTime of last fuel consumption check
     float  m_lastFuelPct;       // last fuel percentage (for notification thresholds)
 

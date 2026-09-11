@@ -3511,15 +3511,23 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         return;
     uint32 sysID = sysMgr->GetID();
 
-    // Already a tower for this corp here? nothing to do.
+    // Already a tower for this corp here? top up its fuel (and re-online it if it
+    // ran dry) instead of deploying a duplicate. NOTE: entity has no groupID
+    // column — join invTypes (the old query used a non-existent column and the
+    // check never matched, so a new tower was spawned on every docked cycle).
     {
         DBQueryResult chk;
         if (sDatabase.RunQuery(chk,
-            "SELECT COUNT(*) FROM entity WHERE locationID = %u AND ownerID = %u AND groupID = %u",
+            "SELECT e.itemID FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+            " WHERE e.locationID = %u AND e.ownerID = %u AND t.groupID = %u LIMIT 1",
             sysID, corpID, EVEDB::invGroups::Control_Tower)) {
             DBResultRow r;
-            if (chk.GetRow(r) && r.GetUInt(0) > 0)
+            if (chk.GetRow(r)) {
+                SystemEntity* existing = sysMgr->GetSE(r.GetUInt(0));
+                if (existing != nullptr && existing->GetTowerSE() != nullptr)
+                    existing->GetTowerSE()->BotEnsureFuel(720);
                 return;
+            }
         }
     }
 
@@ -3582,6 +3590,8 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
             _log(BOT__ERROR, "DeployBotPOS: failed to spawn tower type %u for corp %u.", towerType, corpID);
             return;
         }
+        // Mark it as a bot POS so TowerSE fuels/re-onlines it on load (Process).
+        sRef->SetCustomInfo("botpos");
         sRef->SaveItem();
         TowerSE* tSE = new TowerSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
         sysMgr->AddEntity(tSE);

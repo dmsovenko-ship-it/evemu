@@ -108,7 +108,8 @@
 TowerSE::TowerSE(StructureItemRef structure, EVEServiceManager& services, SystemManager* system, const FactionData& fData)
 : StructureSE(structure, services, system, fData),
 m_pShieldSE(nullptr),
-m_manualTargetID(0)
+m_manualTargetID(0),
+m_botFuelled(false)
 {
     m_hasShield = false;
     m_structs.clear();
@@ -207,6 +208,53 @@ void TowerSE::OnBotAnchorComplete()
     m_tdata.harmonic = m_harmonic;
     m_db.SaveTowerData(m_tdata, m_data);
     InitFuelData();
+    BotEnsureFuel(720);   // bots fuel the tower before launch so it never drops to reinforced
+}
+
+// Bot POS fuel: top the tower up to `hours` of fuel in its cargo hold (default
+// 30 days) and, if it had already run dry and gone reinforced/offline, bring it
+// back online now that it has fuel. Idempotent — safe to call every docked cycle.
+void TowerSE::BotEnsureFuel(uint32 hours)
+{
+    if (hours == 0)
+        hours = 720;
+    if (m_fuelPerHour == 0)
+        m_fuelPerHour = m_tsize * 10;
+
+    Inventory* inv = m_self->GetMyInventory();
+    if (inv == nullptr)
+        return;
+
+    uint32 have = 0;
+    {
+        std::vector<InventoryItemRef> items;
+        inv->GetItemsByFlag(flagCargoHold, items);
+        for (auto& it : items)
+            if (it->typeID() == m_fuelTypeID)
+                have += it->quantity();
+    }
+
+    uint32 target = hours * m_fuelPerHour;
+    if (have < target) {
+        uint32 add = target - have;
+        ItemData idata((uint16)m_fuelTypeID, m_self->ownerID(), m_self->itemID(), flagCargoHold, add);
+        InventoryItemRef fuel = sItemFactory.SpawnItem(idata);
+        if (fuel.get() != nullptr) {
+            inv->AddItem(fuel);
+            _log(POS__MESSAGE, "TowerSE::BotEnsureFuel() - %s(%u) fuelled with %u x %u (had %u).",
+                 GetName(), m_self->itemID(), add, m_fuelTypeID, have);
+        }
+    }
+
+    // If the tower dropped offline/reinforced (e.g. it ran dry before the bot
+    // started topping it up), bring it back online now that it has fuel.
+    if (m_data.state > EVEPOS::StructureState::Unanchored
+        && m_data.state != EVEPOS::StructureState::Online
+        && m_data.state != EVEPOS::StructureState::Operating) {
+        _log(POS__MESSAGE, "TowerSE::BotEnsureFuel() - %s(%u) re-onlining (state was %u).",
+             GetName(), m_self->itemID(), (unsigned)m_data.state);
+        SetOnline();
+    }
 }
 
 void TowerSE::Scoop() {
@@ -220,6 +268,15 @@ void TowerSE::Scoop() {
 void TowerSE::Process()
 {
     /* called by EntityList::Process on every loop */
+
+    // Bot-owned POS (customInfo "botpos"): fuel it on the first tick after a
+    // load/boot and re-online it if it had run dry — so an industrialist's tower
+    // never sits reinforced/invisible. Done here (not in Init) so m_destiny is
+    // ready for the state/effect updates.
+    if (!m_botFuelled && m_self.get() != nullptr && m_self->customInfo() == "botpos") {
+        m_botFuelled = true;
+        BotEnsureFuel(720);
+    }
 
     // starbase charter checks for empire space
 
