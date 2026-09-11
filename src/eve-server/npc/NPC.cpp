@@ -564,32 +564,13 @@ void NPC::Killed(Damage &damage) {
     if ((m_bubble == nullptr) or (m_destiny == nullptr) or (m_system == nullptr))
         return; // make error here?
 
-    // Drop every entity that is targeting us BEFORE the spawn/wave cleanup
-    // deletes this NPC. Otherwise a drone/player still holding this SE (e.g.
-    // drones killing incursion Sansha) dereferences freed memory on the next
-    // tick -> SIGSEGV. Mirrors the StructureSE::Killed fix.
-    if (m_targMgr != nullptr) {
-        m_targMgr->Destroyed();
-        m_targMgr->ClearFromTargets();
-    }
-
-    // Fitted modules will be cleaned up when NPCAIMgr is destroyed
-
-    //notify our spawn manager that we are gone.
-    if ((m_spawnMgr != nullptr) and (m_self.get() != nullptr))
-        m_spawnMgr->SpawnKilled(m_bubble, m_self->itemID());
-
-    // If this NPC was spawned as a mission target (customInfo "mission:<offerID>"),
-    // tell the EncounterSpawnServer so it can decrement the mission's target count
-    // and (when none are left) let the player complete the encounter mission.
-    if (m_self.get() != nullptr && m_self->customInfo().compare(0, 8, "mission:") == 0) {
-        if (EncounterSpawnServer::Get() != nullptr)
-            EncounterSpawnServer::Get()->OnMissionTargetKilled(m_self->itemID());
-    }
-
     // Clear all EWAR effects from our targets (warp scramble status + sticky
     // beams) — they are set by AttackTarget() and would stick forever after this
     // NPC dies, blocking the player from warping / leaving a stuck web/paint beam.
+    // NOTE: this MUST run BEFORE m_targMgr->Destroyed()/ClearFromTargets() —
+    // Destroyed() empties the target list, so the cleanup below would find no
+    // targets and a dying Sansha scrambler would leave "Warp drive is disrupted"
+    // stuck on the player (regression from the 11-Sep drone-UAF fix order).
     if (m_AI != nullptr) {
         PyList* targets = TargetMgr()->GetTargets();
         if (targets != nullptr) {
@@ -620,6 +601,29 @@ void NPC::Killed(Damage &damage) {
                 }
             }
         }
+    }
+
+    // Drop every entity that is targeting us BEFORE the spawn/wave cleanup
+    // deletes this NPC. Otherwise a drone/player still holding this SE (e.g.
+    // drones killing incursion Sansha) dereferences freed memory on the next
+    // tick -> SIGSEGV. Mirrors the StructureSE::Killed fix.
+    if (m_targMgr != nullptr) {
+        m_targMgr->Destroyed();
+        m_targMgr->ClearFromTargets();
+    }
+
+    // Fitted modules will be cleaned up when NPCAIMgr is destroyed
+
+    //notify our spawn manager that we are gone.
+    if ((m_spawnMgr != nullptr) and (m_self.get() != nullptr))
+        m_spawnMgr->SpawnKilled(m_bubble, m_self->itemID());
+
+    // If this NPC was spawned as a mission target (customInfo "mission:<offerID>"),
+    // tell the EncounterSpawnServer so it can decrement the mission's target count
+    // and (when none are left) let the player complete the encounter mission.
+    if (m_self.get() != nullptr && m_self->customInfo().compare(0, 8, "mission:") == 0) {
+        if (EncounterSpawnServer::Get() != nullptr)
+            EncounterSpawnServer::Get()->OnMissionTargetKilled(m_self->itemID());
     }
 
     uint32 killerID = 0;
