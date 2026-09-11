@@ -65,10 +65,34 @@ void CustomsNPCManager::SpawnCustomsNPCs(SystemManager* sysMgr)
     for (auto& [gateID, pGate] : gates) {
         if (pGate == nullptr) continue;
 
+        // Dedup: this system may be re-booted regularly (unload/load); without
+        // this check the customs NPC set grows on every boot -> entity spam
+        // and system-wide lag.
+        if (sysMgr->HasCustomsAtGate(gateID)) continue;
+
         // 20% chance for customs NPCs at this gate
         if (MakeRandomFloat(0.0f, 1.0f) >= 0.20f) continue;
 
         GPoint gatePos = pGate->GetPosition();
+
+        // Persistent dedup: NPCs are saved as dynamic entities, so check the
+        // DB for customs NPCs already standing near this gate before spawning.
+        {
+            std::string types = "19367,19370,19371,19369,19385,19388,17286,19383,19563,19564";
+            DBQueryResult chk;
+            if (sDatabase.RunQuery(chk,
+                "SELECT COUNT(*) FROM entity"
+                " WHERE locationID = %u AND typeID IN (%s)"
+                "   AND ABS(x - %.0f) < 20000 AND ABS(y - %.0f) < 20000"
+                "   AND ABS(z - %.0f) < 20000",
+                sysMgr->GetID(), types.c_str(), gatePos.x, gatePos.y, gatePos.z)) {
+                DBResultRow crow;
+                if (chk.GetRow(chk) && chk.GetUInt(0) > 0) {
+                    sysMgr->AddCustomsGate(gateID);   // already there — remember in-memory too
+                    continue;
+                }
+            }
+        }
 
         uint32 count = 0;
 
