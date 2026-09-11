@@ -87,7 +87,7 @@ void CustomsNPCManager::SpawnCustomsNPCs(SystemManager* sysMgr)
                 "   AND ABS(z - %.0f) < 20000",
                 sysMgr->GetID(), types.c_str(), gatePos.x, gatePos.y, gatePos.z)) {
                 DBResultRow crow;
-                if (chk.GetRow(chk) && chk.GetUInt(0) > 0) {
+                if (chk.GetRow(crow) && crow.GetUInt(0) > 0) {
                     sysMgr->AddCustomsGate(gateID);   // already there — remember in-memory too
                     continue;
                 }
