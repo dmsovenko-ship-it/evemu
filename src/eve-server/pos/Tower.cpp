@@ -255,6 +255,48 @@ void TowerSE::BotEnsureFuel(uint32 hours)
              GetName(), m_self->itemID(), (unsigned)m_data.state);
         SetOnline();
     }
+
+    // Tower is up — now anchor+online its modules (same sequence a real pilot
+    // follows: tower first, then each module).
+    BotOnlineModules();
+}
+
+// Bot POS: bring the tower's modules online once the tower itself is online.
+// Modules are found by scanning the system for POS structures within the force
+// field that belong to the same owner (the tower does not track its modules).
+void TowerSE::BotOnlineModules()
+{
+    if (m_system == nullptr)
+        return;
+
+    double r = 20000.0;
+    if (m_self->HasAttribute(AttrShieldRadius)) {
+        double v = m_self->GetAttribute(AttrShieldRadius).get_float();
+        if (v > 5000.0)
+            r = v;
+    }
+    GPoint tp = GetPosition();
+
+    for (auto& [id, se] : m_system->GetEntities()) {
+        if (se == nullptr || se == this)
+            continue;
+        StructureSE* mod = se->GetPOSSE();
+        if (mod == nullptr || mod == this)
+            continue;
+        if (mod->IsTowerSE() || mod->IsTCUSE() || mod->IsSBUSE() || mod->IsIHubSE())
+            continue;
+        if (mod->GetSelf().get() == nullptr)
+            continue;
+        if (mod->GetSelf()->ownerID() != m_self->ownerID())
+            continue;
+        if (tp.distance(mod->GetPosition()) > r)
+            continue;
+        if (mod->GetState() >= EVEPOS::StructureState::Online)
+            continue;   // already online/operating
+        _log(POS__MESSAGE, "TowerSE::BotOnlineModules() - onlining %s(%u) at tower %s(%u).",
+             mod->GetName(), mod->GetID(), GetName(), m_self->itemID());
+        mod->SetOnline();
+    }
 }
 
 void TowerSE::Scoop() {

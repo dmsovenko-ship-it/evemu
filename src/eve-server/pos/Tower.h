@@ -38,6 +38,7 @@ public:
     virtual void                InitData();
     virtual void                OnBotAnchorComplete();   // bot POS deployment: moon link + fuel/force field
     void                        BotEnsureFuel(uint32 hours = 720);   // bot POS: top the tower up with fuel (and re-online it if it ran dry)
+    void                        BotOnlineModules();     // bot POS: anchor+online the tower's modules after the tower is online
     void                        CreateForceField();       // (re)create the tower force field
 
     /* virtual functions to be overridden in derived classes */

@@ -3583,12 +3583,18 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         data.factionID = 0;
 
     // Spawn the tower first (modules need the tower in the bubble).
+    double ffRadius = 20000.0;   // tower force-field radius — module anchor limit
     {
         ItemData idata(towerType, corpID, sysID, flagNone, "Control Tower", pos);
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
         if (sRef.get() == nullptr) {
             _log(BOT__ERROR, "DeployBotPOS: failed to spawn tower type %u for corp %u.", towerType, corpID);
             return;
+        }
+        if (sRef->HasAttribute(AttrShieldRadius)) {
+            double r = sRef->GetAttribute(AttrShieldRadius).get_float();
+            if (r > 5000.0)
+                ffRadius = r;
         }
         // Mark it as a bot POS so TowerSE fuels/re-onlines it on load (Process).
         sRef->SetCustomInfo("botpos");
@@ -3598,9 +3604,16 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         tSE->BotDeployAndAnchor(pos);
     }
 
-    auto spawnModule = [&](uint32 typeID, const char* name, double dx) {
+    // --- POS layout ---------------------------------------------------------
+    // Every module must sit INSIDE the tower's force field (an inscribed circle)
+    // or the client treats it as unanchored. Production (array + silo) is
+    // clustered within 2500 m of each other just off the tower; the batteries are
+    // spread out — top, bottom and on the ring — for all-round coverage.
+    const double R = ffRadius;
+
+    auto spawnModule = [&](uint32 typeID, const char* name, const GPoint& off) {
         if (typeID == 0) return;
-        GPoint p = pos; p.x += dx;
+        GPoint p = pos; p.x += off.x; p.y += off.y; p.z += off.z;
         ItemData idata(typeID, corpID, sysID, flagNone, name, p);
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
         if (sRef.get() == nullptr) return;
@@ -3615,8 +3628,11 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         sysMgr->AddEntity(se);
         se->BotDeployAndAnchor(p);
     };
-    spawnModule(arrayType, "Assembly Array", 12000.0);
-    spawnModule(siloType,  "Silo",           24000.0);
+
+    // Production cluster ~2.2 km off the tower; array and silo 1.8 km apart
+    // (well within the 2500 m the user asked for).
+    spawnModule(arrayType, "Assembly Array", GPoint(2200.0, 0.0,  900.0));
+    spawnModule(siloType,  "Silo",           GPoint(2200.0, 0.0, -900.0));
 
     // Standard POS defenses: WEAPON batteries (WeaponSE owns a POS_AI, which is
     // implemented and now fires at valid hostiles). Anchored online so the tower
@@ -3632,9 +3648,9 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
             if (wres.GetRow(wr)) weaponType2 = wr.GetUInt(0);
         }
     }
-    auto spawnWeapon = [&](uint32 typeID, double dx) {
+    auto spawnWeapon = [&](uint32 typeID, const GPoint& off) {
         if (typeID == 0) return;
-        GPoint p = pos; p.x += dx;
+        GPoint p = pos; p.x += off.x; p.y += off.y; p.z += off.z;
         ItemData idata(typeID, corpID, sysID, flagNone, "Weapon Battery", p);
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
         if (sRef.get() == nullptr) return;
@@ -3663,12 +3679,15 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         sysMgr->AddEntity(se);
         se->BotDeployAndAnchor(p);
     };
-    spawnWeapon(weaponType1, -12000.0);
-    spawnWeapon(weaponType2, -24000.0);
+
+    // Defenses spread for all-round coverage: one gun high (+Y), one low (-Y),
+    // and the EWAR battery out on the ring (+X) — all inside the force field.
+    spawnWeapon(weaponType1, GPoint(0.0,  0.60 * R, 0.0));   // top
+    spawnWeapon(weaponType2, GPoint(0.0, -0.60 * R, 0.0));   // bottom
 
     // EWAR defense: a stasis webification battery (BatterySE now runs POS_AI too).
     {
-        GPoint p = pos; p.x -= 36000.0;
+        GPoint p = pos; p.x += 0.70 * R;   // on the force-field ring
         ItemData idata(17178, corpID, sysID, flagNone, "Stasis Webification Battery", p);
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
         if (sRef.get() != nullptr) {
