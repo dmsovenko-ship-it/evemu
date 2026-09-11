@@ -651,8 +651,28 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             // NEXT room's position in customInfo so activating it warps precisely there
             // instead of +NEXT_DUNGEON_ROOM_DIST from the ship (which missed).
             if (dData.rooms.size() > 1 && roomCounter < (dData.rooms.size() - 1)) {
+                // Place the gate PAST the furthest object of this room (not at a fixed
+                // offset from the centre) so the run-up is clear — same rule the
+                // incursion wave gates use (SpawnMgr::SpawnIncursionWave). Scan the
+                // entities near the room for the max +x extent, add ~9 km, floor at
+                // 30 km so an empty room still spaces the gate out.
+                double maxExtent = 0.0;
+                {
+                    std::map<uint32, SystemEntity*> ents = m_system->GetEntities();
+                    for (auto& kv : ents) {
+                        SystemEntity* se = kv.second;
+                        if (se == nullptr) continue;
+                        GPoint p = se->GetPosition();
+                        if (fabs(p.y - newRoom.position.y) > 80000.0 || fabs(p.z - newRoom.position.z) > 80000.0)
+                            continue;
+                        double d = p.x - newRoom.position.x;
+                        if (d > 0.0 && d < 300000.0 && d > maxExtent)
+                            maxExtent = d;
+                    }
+                }
+                double gateOffset = std::max(30000.0, maxExtent + 9000.0) + MakeRandomInt(0, 4000);
                 GPoint gatePos = newRoom.position;
-                gatePos.x += 30000 + MakeRandomInt(0, 4000);   // ~48-56km beyond room, well past decor, behind the anomaly in the jump direction
+                gatePos.x += gateOffset;
                 ItemData gateData(17831, sig.ownerID, sig.systemID, flagNone, "Acceleration Gate", gatePos);  // 17831 = Acceleration Gate
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);

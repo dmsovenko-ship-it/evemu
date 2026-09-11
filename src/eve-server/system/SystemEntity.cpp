@@ -469,11 +469,14 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
                 classList->AddItem( new PyInt(25));
                 classList->AddItem( new PyInt(830));
             slim->SetItemString("dunShipClasses", classList);   //?
-            PyList* dirList = new PyList();
-            // dunDirection = unit vector from the gate toward the next room
-            // (the warp path the ship takes through the gate). Stored in
-            // customInfo as "gate_to:x:y:z". Fall back to +x (rooms are laid
-            // out along +x).
+            // Acceleration gates are rendered by the client's spaceObject.WarpGate
+            // script, which calls SetStaticDirection() -> AlignToDirection(dunDirection).
+            // AlignToDirection maps the model's local +Z axis to -dunDirection, so the
+            // vector we send must be the OPPOSITE of the gate's visual forward axis.
+            // dunRotation is IGNORED for gates (it only drives SetStaticRotation, used
+            // by structures/customs offices) — which is why changing it by 0/180 had no
+            // visible effect. We send the launch direction (gate -> next room, from
+            // customInfo "gate_to:x:y:z", fallback +x) negated by 180°.
             GPoint from(m_self->position());
             GPoint to(from.x + 1, from.y, from.z);
             if (m_self->customInfo().rfind("gate_to:", 0) == 0) {
@@ -487,18 +490,15 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
             double len = sqrt(dx * dx + dy * dy + dz * dz);
             if (len < 1.0)
                 len = 1.0;
-            dirList->AddItem(PyStatic.NewInt((int)round(dx / len * 10000.0)));
-            dirList->AddItem(PyStatic.NewInt((int)round(dy / len * 10000.0)));
-            dirList->AddItem(PyStatic.NewInt((int)round(dz / len * 10000.0)));
+            dirList->AddItem(PyStatic.NewInt((int)round(-dx / len * 10000.0)));
+            dirList->AddItem(PyStatic.NewInt((int)round(-dy / len * 10000.0)));
+            dirList->AddItem(PyStatic.NewInt((int)round(-dz / len * 10000.0)));
             slim->SetItemString("dunDirection", dirList);
-            // dunRotation = (yaw, pitch, roll). Point the gate plane at the
-            // next room in the horizontal plane (yaw only), keep it strictly
-            // horizontal (pitch=0, roll=0) so the acceleration runs right over
-            // the gate.  yaw = atan2(runX, runZ) as in CustomsOffice.
+            // dunRotation = (yaw, pitch, roll). Not used by the WarpGate script, but
+            // kept for completeness/other viewers: horizontal yaw toward the launch
+            // run (pitch=0, roll=0).  yaw = atan2(runX, runZ) as in CustomsOffice.
             PyTuple* rotTuple = new PyTuple(3);
-                // The gate MODEL faces opposite the warp vector, so add 180° to
-                // the yaw (the earlier removal flipped the gate backwards).
-                float yawDeg = EvE::Trig::Rad2Deg(atan2(dx, dz)) + 180.0f;
+                float yawDeg = EvE::Trig::Rad2Deg(atan2(dx, dz));
                 if (yawDeg > 180.0f) yawDeg -= 360.0f;
                 else if (yawDeg < -180.0f) yawDeg += 360.0f;
                 rotTuple->SetItem(0, new PyFloat(yawDeg));

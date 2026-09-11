@@ -940,6 +940,14 @@ void NPCAIMgr::SetIdle() {
 void NPCAIMgr::SetChasing(SystemEntity* pSE) {
     if (pSE == nullptr)
         return;
+    // Sentry turrets (group 99/180/336/383/417) are static structures — they
+    // hold position and only fire. Target()/Targeted() used to call this
+    // directly, bypassing CheckDistance()'s stationary guard, so a locked/aggroed
+    // turret flew off toward the target.
+    if (m_isStationary) {
+        m_destiny->Stop();
+        return;
+    }
     /** @todo implement chase timer using entityChaseMaxDuration to limit chase time. */
     if (m_state == NPCAI::State::Chasing) {
         // Already chasing — re-aim at the target's CURRENT position every tick.
@@ -962,6 +970,10 @@ void NPCAIMgr::SetChasing(SystemEntity* pSE) {
 void NPCAIMgr::SetFollowing(SystemEntity* pSE) {
     if (pSE == nullptr)
         return;
+    if (m_isStationary) {
+        m_destiny->Stop();
+        return;   // turrets hold position, never follow
+    }
     if ((m_state == NPCAI::State::Following) and (m_destiny->IsGoto() or m_destiny->IsFollowing()))
         return;
     _log(NPC__AI_TRACE, "%s(%u): Begin following.  Target is %s(%u).", \
@@ -976,6 +988,10 @@ void NPCAIMgr::SetFollowing(SystemEntity* pSE) {
 void NPCAIMgr::SetEngaged(SystemEntity* pSE) {
     if (pSE == nullptr)
         return;
+    if (m_isStationary) {
+        m_destiny->Stop();
+        return;   // turrets attack in place (CheckDistance handles it), never orbit
+    }
     if ((m_state == NPCAI::State::Engaged) and m_destiny->IsOrbiting())
         return;
     _log(NPC__AI_TRACE, "%s(%u): Begin engaging.  Target is %s(%u).", \
@@ -1086,7 +1102,7 @@ void NPCAIMgr::Target(SystemEntity* pSE) {
     bool chase = false;
 
     if (!m_npc->TargetMgr()->StartTargeting(pSE, targetTime, m_maxLockedTargets, m_sightRange, chase)) {
-        if (chase) {
+        if (chase && !m_isStationary) {
             _log(NPC__AI_TRACE, "%s(%u): Targeting of %s(%u) failed.  Begin Chasing.", \
                         m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID());
             SetChasing(pSE);
@@ -1122,6 +1138,15 @@ void NPCAIMgr::Targeted(SystemEntity* pSE) {
         case NPCAI::State::Idle: {
             _log(NPC__AI_TRACE, "%s(%u): Begin Approaching and start Targeting sequence.", \
                     m_npc->GetName(), m_npc->GetID());
+            if (m_isStationary) {
+                // Sentry turrets never move — acquire the target and fire from
+                // position (CheckDistance attacks in place for stationary NPCs).
+                bool chase = false;
+                if (m_npc->TargetMgr()->StartTargeting(pSE, targetTime, m_maxLockedTargets, m_sightRange, chase))
+                    CheckDistance(pSE);
+                m_beginFindTarget.Disable();
+                break;
+            }
             SetChasing(pSE);
 
             bool chase = false;
