@@ -2603,6 +2603,20 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     m_targetPoint -= warp_distance;
 
     m_targBubble = sBubbleMgr.GetBubble(mySE->SystemMgr(), m_targetPoint);
+    // Measured Crucible-land behaviour: the client's own destiny.dll WarpLoop
+    // terminates 4400-5000 m SHORT of the commanded destination (both stations
+    // and gates). Compensate the CLIENT's ball target (not the server's decel
+    // point) by aiming it that much past the destination, so the client's own
+    // decel curve lands ON the station/gate.
+    GPoint clientDest = m_targetPoint;
+    {
+        GVector dirUnit(m_position, where);
+        double dirLen = dirUnit.length();
+        if (dirLen > 1.0) {
+            dirUnit /= dirLen;
+            clientDest += (dirUnit * 4500.0);
+        }
+    }
     if (is_log_enabled(DESTINY__WARP_TRACE))
         _log(DESTINY__TRACE, "Destiny::WarpTo() - %s(%u) target bubble: %u  m_stopDistance: %i  m_targetDistance: %.2f",
             mySE->GetName(), mySE->GetID(), m_targBubble->GetID(), m_stopDistance, m_targetDistance);
@@ -2731,12 +2745,12 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     // send client updates
     std::vector<PyTuple*> updates;
 
-    // acknowledge client's warpto request
+    // acknowledge client's warpto request (ball-dest compensation, see above)
     CmdWarpTo wt;
     wt.entityID = mySE->GetID();
-    wt.dest_x = m_targetPoint.x;
-    wt.dest_y = m_targetPoint.y;
-    wt.dest_z = m_targetPoint.z;
+    wt.dest_x = clientDest.x;
+    wt.dest_y = clientDest.y;
+    wt.dest_z = clientDest.z;
     wt.distance = m_stopDistance;
     wt.warpSpeed = GetWarpSpeed(); // warp speed x10
 
