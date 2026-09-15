@@ -243,6 +243,11 @@ StructureSE::StructureSE(StructureItemRef structure, EVEServiceManager&services,
 
 void StructureSE::InitData()
 {
+    // the anchor row is keyed by itemID — never persist with 0 (Init() may not
+    // have run yet on bot-driven deploys)
+    if (m_data.itemID == 0)
+        m_data.itemID = m_self->itemID();
+
     // this item is a module.  get towerID from bubble and save
     if (m_module)
         if (m_bubble->HasTower())
@@ -813,6 +818,7 @@ void StructureSE::BotDeployAndAnchor(const GPoint& pos)
         return;
 
     // Resolve the anchor point (moon) from our position and persist it.
+    m_data.itemID = m_self->itemID();   // Init() may not have run on bot deploys
     InitData();
     m_db.SaveBaseData(m_data);
 

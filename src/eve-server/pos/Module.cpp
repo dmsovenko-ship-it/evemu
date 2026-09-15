@@ -63,6 +63,7 @@ void ReactorSE::Init()
 }
 
 void ReactorSE::InitData() {
+    StructureSE::InitData();   // resolve moon/tower — the override used to skip this entirely
     pData->Init();
     m_db.SaveReactorData(pData, m_data);
 }

@@ -331,9 +331,11 @@ bool PosMgrDB::GetReactorData(ReactorData* pData, EVEPOS::StructureData& sData)
 
 void PosMgrDB::SaveReactorData(ReactorData* pData, EVEPOS::StructureData& sData)
 {
+    // Upsert: ReactorSE::InitData can run more than once per item (deploy retries)
     DBerror err;
     sDatabase.RunQuery(err,
-        "INSERT INTO posReactorData (itemID, active, reaction) VALUES (%u, %u, %u)",
+        "INSERT INTO posReactorData (itemID, active, reaction) VALUES (%u, %u, %u)"
+        " ON DUPLICATE KEY UPDATE active = VALUES(active), reaction = VALUES(reaction)",
         sData.itemID, pData->IsActive() ? 1 : 0, pData->GetReaction());
 }
 
