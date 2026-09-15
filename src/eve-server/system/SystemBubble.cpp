@@ -33,6 +33,7 @@
 #include "EntityList.h"
 #include "npc/Drone.h"
 #include "npc/NPC.h"
+#include "pos/Tower.h"
 #include "system/BubbleManager.h"
 #include "system/Container.h"
 #include "system/DestinyManager.h"
@@ -1320,4 +1321,23 @@ void SystemBubble::BubblecastSendNotification(const char* notifyType, const char
         PyIncRef(*payload);
         pClient->SendNotification( notifyType, idType, payload, seq );
     }
+}
+
+// True when `pos` sits inside the ONLINE tower's force field (its shield
+// radius). Ships inside the field are untouchable (EVE: the field protects
+// ships; towers/modules stay attackable). Geometry + tower state only.
+bool SystemBubble::IsInProtectedField(const GPoint& pos) const
+{
+    if (m_towerSE == nullptr)
+        return false;
+    if (m_towerSE->GetState() < EVEPOS::StructureState::Online)
+        return false;
+    double radius = 20000.0;
+    auto item = m_towerSE->GetSelf();
+    if (item.get() != nullptr && item->HasAttribute(AttrShieldRadius)) {
+        double r = item->GetAttribute(AttrShieldRadius).get_float();
+        if (r > 5000.0)
+            radius = r;
+    }
+    return (pos.distance(m_towerSE->GetPosition()) <= radius);
 }

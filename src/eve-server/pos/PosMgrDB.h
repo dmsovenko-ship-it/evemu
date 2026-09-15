@@ -41,6 +41,7 @@ public:
 
     bool GetTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sData);
     void SaveTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sData);
+    void UpdateTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sData);
 
     bool GetBridgeData(EVEPOS::JumpBridgeData& data);
     void SaveBridgeData(EVEPOS::JumpBridgeData& data);

@@ -111,6 +111,15 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         d.srcSE = this; // Damage originates from self (no attribution)
     }
 
+    // Ships inside an online tower's force field cannot take damage (EVE: the
+    // field protects ships; towers/modules stay attackable). Backstop for damage
+    // that never went through target-locking (AoE, direct AI calls).
+    if (IsShipSE() || GetNPCSE() != nullptr) {
+        SystemBubble* b = SysBubble();
+        if (b != nullptr && b->IsInProtectedField(GetPosition()))
+            return false;
+    }
+
     // PvP aggression — EVE rule: attacking another pilot (or their drones/fighters)
     // sets an aggression flag on the attacker (15 min, no dock/jump). Works for
     // player↔player, player↔charbot and drone owners (a drone hit transfers to its

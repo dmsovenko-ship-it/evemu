@@ -4155,6 +4155,168 @@ void BotMgr::ProcessPosGuards()
     }
 }
 
+// Moon-reaction POS production: closes the industrial chain at the tower.
+//  - Moon Harvesting Arrays (group 416) accumulate raw Moon Materials (group
+//    427) in the owner's station hangar (abstracted harvesting),
+//  - a Simple Reactor Array turns 2x100 distinct raw materials into 100
+//    Intermediate Materials (group 428),
+//  - a Complex Reactor Array turns 200 intermediates + 100 raw into 100
+//    Composites (group 429, the advanced T2 feedstock).
+// The Crucible DB dump carries no reaction formula rows (ramTypeRequirements is
+// empty for reaction BPs), so the recipes are simplified 2->1 conversions. The
+// output lands in the same hangar the courier/sale logistics already drain, so
+// the goods flow to the hub exactly like mined ore does.
+void BotMgr::ProcessMoonPOSProduction(uint32 sysID, uint32 stationID, const DockedBot& db)
+{
+    if (sysID == 0 || stationID == 0 || db.corpID == 0)
+        return;
+
+    // The corp's POS in this system (the deploy is idempotent — one tower).
+    uint32 towerID = 0;
+    {
+        DBQueryResult tres;
+        if (sDatabase.RunQuery(tres,
+            "SELECT e.itemID FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+            " WHERE e.locationID = %u AND e.ownerID = %u AND t.groupID = %u LIMIT 1",
+            sysID, db.corpID, EVEDB::invGroups::Control_Tower)) {
+            DBResultRow trow;
+            if (tres.GetRow(trow))
+                towerID = trow.GetUInt(0);
+        }
+    }
+    if (towerID == 0)
+        return;
+
+    // What production modules does this POS have?
+    uint32 harvesters = 0, reactors = 0;
+    {
+        DBQueryResult mres;
+        if (sDatabase.RunQuery(mres,
+            "SELECT t.groupID, COUNT(*) FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+            " WHERE e.locationID = %u AND e.ownerID = %u AND t.groupID IN (%u,%u) GROUP BY t.groupID",
+            sysID, db.corpID, EVEDB::invGroups::Moon_Mining, EVEDB::invGroups::Mobile_Reactor)) {
+            DBResultRow mrow;
+            while (mres.GetRow(mrow)) {
+                if (mrow.GetUInt(0) == EVEDB::invGroups::Moon_Mining)
+                    harvesters = mrow.GetUInt(1);
+                else if (mrow.GetUInt(0) == EVEDB::invGroups::Mobile_Reactor)
+                    reactors = mrow.GetUInt(1);
+            }
+        }
+    }
+    if (harvesters == 0 && reactors == 0)
+        return;   // no moon production at this POS
+
+    const uint32 flag = (uint32)flagHangar;
+
+    // 1) Harvest: raw Moon Materials accumulate in the owner's hangar.
+    if (harvesters > 0 && MakeRandomInt(0, 99) < 60) {
+        uint32 batches = (harvesters > 2 ? 2 : harvesters);
+        for (uint32 i = 0; i < batches; ++i) {
+            uint32 rawType = 0;
+            DBQueryResult rres;
+            if (sDatabase.RunQuery(rres,
+                "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1",
+                EVEDB::invGroups::Moon_Materials)) {
+                DBResultRow rrow;
+                if (rres.GetRow(rrow))
+                    rawType = rrow.GetUInt(0);
+            }
+            if (rawType == 0)
+                break;
+            uint32 qty = 120 + MakeRandomInt(0, 180);
+            BotInvMint(db.charID, stationID, flag, rawType, qty);
+            _log(BOT__MESSAGE, "BotMgr: POS harvesters produced %u x %s for %u.",
+                 qty, sDataMgr.GetTypeName(rawType), db.charID);
+        }
+    }
+
+    if (reactors == 0)
+        return;
+
+    // Hangar stock (for the reaction steps).
+    std::vector<std::pair<uint32, uint32>> stock;   // typeID, qty
+    {
+        DBQueryResult hres;
+        if (sDatabase.RunQuery(hres,
+            "SELECT typeID, SUM(quantity) FROM entity WHERE ownerID = %u AND locationID = %u"
+            " AND flag = %u AND quantity > 0 GROUP BY typeID",
+            db.charID, stationID, flag)) {
+            DBResultRow hrow;
+            while (hres.GetRow(hrow)) {
+                const ItemType* t = sItemFactory.GetType((uint16)hrow.GetUInt(0));
+                if (t == nullptr)
+                    continue;
+                stock.push_back({ hrow.GetUInt(0), hrow.GetUInt(1) });
+            }
+        }
+    }
+
+    // 2) Simple reaction: 2x100 distinct raws -> 100 intermediates.
+    if (MakeRandomInt(0, 99) < 60) {
+        std::vector<uint32> rawTypes;
+        for (auto& st : stock) {
+            const ItemType* t = sItemFactory.GetType((uint16)st.first);
+            if (t != nullptr && t->groupID() == EVEDB::invGroups::Moon_Materials && st.second >= 100)
+                rawTypes.push_back(st.first);
+        }
+        if (rawTypes.size() >= 2) {
+            uint32 a = MakeRandomInt(0, (int64)rawTypes.size() - 1);
+            uint32 b = MakeRandomInt(0, (int64)rawTypes.size() - 1);
+            if (b == a)
+                b = (b + 1) % rawTypes.size();
+            uint32 interType = 0;
+            DBQueryResult ires;
+            if (sDatabase.RunQuery(ires,
+                "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1",
+                EVEDB::invGroups::Intermediate_Materials)) {
+                DBResultRow irow;
+                if (ires.GetRow(irow))
+                    interType = irow.GetUInt(0);
+            }
+            if (interType != 0) {
+                BotInvConsume(db.charID, stationID, flag, rawTypes[a], 100);
+                BotInvConsume(db.charID, stationID, flag, rawTypes[b], 100);
+                BotInvMint(db.charID, stationID, flag, interType, 100);
+                _log(BOT__MESSAGE, "BotMgr: simple reactor produced 100 x %s for %u.",
+                     sDataMgr.GetTypeName(interType), db.charID);
+            }
+        }
+    }
+
+    // 3) Complex reaction: 200 intermediates + 100 raw -> 100 composites.
+    if (reactors >= 2 && MakeRandomInt(0, 99) < 40) {
+        uint32 interType = 0, rawType = 0;
+        for (auto& st : stock) {
+            const ItemType* t = sItemFactory.GetType((uint16)st.first);
+            if (t == nullptr)
+                continue;
+            if (t->groupID() == EVEDB::invGroups::Intermediate_Materials && st.second >= 200)
+                interType = st.first;
+            else if (t->groupID() == EVEDB::invGroups::Moon_Materials && st.second >= 100 && rawType == 0)
+                rawType = st.first;
+        }
+        if (interType != 0 && rawType != 0) {
+            uint32 compType = 0;
+            DBQueryResult cres;
+            if (sDatabase.RunQuery(cres,
+                "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1",
+                EVEDB::invGroups::Composite)) {
+                DBResultRow crow;
+                if (cres.GetRow(crow))
+                    compType = crow.GetUInt(0);
+            }
+            if (compType != 0) {
+                BotInvConsume(db.charID, stationID, flag, interType, 200);
+                BotInvConsume(db.charID, stationID, flag, rawType, 100);
+                BotInvMint(db.charID, stationID, flag, compType, 100);
+                _log(BOT__MESSAGE, "BotMgr: complex reactor produced 100 x %s for %u.",
+                     sDataMgr.GetTypeName(compType), db.charID);
+            }
+        }
+    }
+}
+
 void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, const DockedBot& db)
 {
     if (sysID == 0 || stationID == 0 || db.charID == 0)
@@ -4168,6 +4330,9 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
         // The deploy itself is idempotent (one tower per corp/system), so try on
         // every docked cycle until the corp has its POS.
         DeployBotPOS(sMgr, db.charID, db.corpID);
+        // Moon production at the corp POS: harvesters accumulate raw materials,
+        // reactors convert them to intermediates/composites (closed chain).
+        ProcessMoonPOSProduction(sysID, stationID, db);
     }
 
     // Pick a random T1 product we can actually build (module/charge/ship), cheap

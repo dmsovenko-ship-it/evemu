@@ -152,6 +152,10 @@ public:
     bool HasTower()                                     { return (m_towerSE != nullptr); }
     TowerSE* GetTowerSE()                               { return m_towerSE; }
     void SetTowerSE(TowerSE* pTower)                    { m_towerSE = pTower; }
+    // True when `pos` is inside the ONLINE tower's force field (its shield
+    // radius). Ships inside the field are untouchable (EVE: the field protects
+    // ships; structures are always attackable). Purely a geometry/state check.
+    bool IsInProtectedField(const GPoint& pos) const;
 
     /* for setting TCU in bubble */
     bool HasTCU()                                     { return (m_tcuSE != nullptr); }

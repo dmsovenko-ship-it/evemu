@@ -113,6 +113,8 @@ m_botFuelled(false)
 {
     m_hasShield = false;
     m_structs.clear();
+    for (int i = 0; i < 4; ++i)
+        m_hardenerApplied[i] = 0.0f;
 
     // create AI object for tower here....not written yet.
     //m_ai = new POS_AI(this);
@@ -178,6 +180,9 @@ void TowerSE::Init()
     // recalculate PG/CPU load from all existing modules
     RecalcResources();
 
+    // re-apply shield hardener bonuses from online hardening arrays (loaded POS)
+    ApplyHardeners();
+
     // if we were online/operating when server went down, calculate elapsed fuel
     if ((m_data.state >= EVEPOS::StructureState::Online) and (m_data.state <= EVEPOS::StructureState::Operating)) {
         // fuel will be consumed on next Process() tick
@@ -206,7 +211,12 @@ void TowerSE::OnBotAnchorComplete()
 
     m_harmonic = EVEPOS::Harmonic::Offline;
     m_tdata.harmonic = m_harmonic;
-    m_db.SaveTowerData(m_tdata, m_data);
+    // Bot towers need a password: the force field is only created when one is
+    // set (SetOnline/Init), so password-less bot towers never showed a field.
+    // UpdateTowerData, not SaveTowerData — the row already exists from Init().
+    if (m_tdata.password.empty())
+        m_tdata.password = std::to_string(MakeRandomInt(100000, 999999));
+    m_db.UpdateTowerData(m_tdata, m_data);
     InitFuelData();
     BotEnsureFuel(720);   // bots fuel the tower before launch so it never drops to reinforced
 }
@@ -220,6 +230,24 @@ void TowerSE::BotEnsureFuel(uint32 hours)
         hours = 720;
     if (m_fuelPerHour == 0)
         m_fuelPerHour = m_tsize * 10;
+
+    // Self-heal a bot tower that was persisted Unanchored: pre-fix deploys set
+    // the anchored/online state in memory but saved it with an INSERT that
+    // failed on the existing row, so every reload came up unanchored (no field,
+    // no defences) while the modules self-healed online around it. Anchor where
+    // it sits, link the moon and bubble, then continue to online below.
+    if (m_data.state <= EVEPOS::StructureState::Unanchored) {
+        InitData();   // resolves m_moonSE (the anchor point)
+        if (m_moonSE != nullptr)
+            m_moonSE->SetTower(this);
+        if (m_bubble != nullptr)
+            m_bubble->SetTowerSE(this);
+        m_self->SetFlag(flagStructureActive);
+        m_data.state = EVEPOS::StructureState::Anchored;
+        m_db.UpdateBaseData(m_data);
+        _log(POS__MESSAGE, "TowerSE::BotEnsureFuel() - %s(%u) was unanchored — re-anchored at moon %u.",
+             GetName(), m_self->itemID(), m_data.anchorpointID);
+    }
 
     Inventory* inv = m_self->GetMyInventory();
     if (inv == nullptr)
@@ -246,6 +274,12 @@ void TowerSE::BotEnsureFuel(uint32 hours)
         }
     }
 
+    // The force field needs a password (self-heal towers deployed before this).
+    if (m_tdata.password.empty()) {
+        m_tdata.password = std::to_string(MakeRandomInt(100000, 999999));
+        m_db.UpdateTowerData(m_tdata, m_data);
+    }
+
     // If the tower dropped offline/reinforced (e.g. it ran dry before the bot
     // started topping it up), bring it back online now that it has fuel.
     if (m_data.state > EVEPOS::StructureState::Unanchored
@@ -255,6 +289,11 @@ void TowerSE::BotEnsureFuel(uint32 hours)
              GetName(), m_self->itemID(), (unsigned)m_data.state);
         SetOnline();
     }
+
+    // Field fallback: covers towers already Online whose password was just set
+    // above (SetOnline creates the field only when a password is present).
+    if (m_data.state >= EVEPOS::StructureState::Online && !m_hasShield)
+        CreateForceField();
 
     // Tower is up — now anchor+online its modules (same sequence a real pilot
     // follows: tower first, then each module).
@@ -268,6 +307,8 @@ void TowerSE::BotOnlineModules()
 {
     if (m_system == nullptr)
         return;
+    if (m_data.state < EVEPOS::StructureState::Online)
+        return;   // no online tower — modules cannot run (and must not show online)
 
     double r = 20000.0;
     if (m_self->HasAttribute(AttrShieldRadius)) {
@@ -297,6 +338,9 @@ void TowerSE::BotOnlineModules()
              mod->GetName(), mod->GetID(), GetName(), m_self->itemID());
         mod->SetOnline();
     }
+
+    // newly-onlined hardening arrays change the shield resistances
+    ApplyHardeners();
 }
 
 void TowerSE::Scoop() {
@@ -568,6 +612,10 @@ void TowerSE::SetOnline()
     m_destiny->SendSpecialEffect(m_self->itemID(),m_self->itemID(),m_self->typeID(),0,0,"effects.StructureOnline",0,1,1,-1,0);
 
     m_db.UpdateBaseData(m_data);
+    // persist harmonic + password so a reload re-creates the force field in Init()
+    m_db.UpdateTowerData(m_tdata, m_data);
+    // online hardeners (re)shape the shield resistances
+    ApplyHardeners();
 
     /** @todo determine fuel supply and make calendar event for expiration
 
@@ -940,6 +988,77 @@ void TowerSE::CreateForceField()
     m_system->AddEntity(iSE);
     m_pShieldSE = iSE;
     m_hasShield = true;
+}
+
+// Recompute the tower's shield resonances from ONLINE Shield Hardening Arrays
+// (group 444) inside the field. Each online hardener adds its resistance bonus
+// (attrs 1489-1492), lowering the matching shield damage resonance (271-274) —
+// i.e. raising the tower's shield resistances. Idempotent: the previously
+// applied bonus is undone before the new one is applied, so this can run on
+// every module online/offline without drifting the base value.
+void TowerSE::ApplyHardeners()
+{
+    static const EveAttrEnum s_resonance[4] = {
+        AttrShieldEmDamageResonance, AttrShieldExplosiveDamageResonance,
+        AttrShieldKineticDamageResonance, AttrShieldThermalDamageResonance };
+    static const EveAttrEnum s_bonus[4] = {
+        AttrShieldEmDamageResistanceBonus, AttrShieldExplosiveDamageResistanceBonus,
+        AttrShieldKineticDamageResistanceBonus, AttrShieldThermalDamageResistanceBonus };
+
+    if (m_system == nullptr)
+        return;
+
+    double radius = 20000.0;
+    if (m_self->HasAttribute(AttrShieldRadius)) {
+        double v = m_self->GetAttribute(AttrShieldRadius).get_float();
+        if (v > 5000.0)
+            radius = v;
+    }
+    GPoint tp = GetPosition();
+
+    double add[4] = { 0.0, 0.0, 0.0, 0.0 };
+    for (auto& [id, se] : m_system->GetEntities()) {
+        if (se == nullptr || se == this)
+            continue;
+        StructureSE* mod = se->GetPOSSE();
+        if (mod == nullptr || mod == this)
+            continue;
+        if (mod->IsTowerSE())
+            continue;
+        if (mod->GetSelf().get() == nullptr)
+            continue;
+        if (mod->GetSelf()->ownerID() != m_self->ownerID())
+            continue;
+        if (mod->GetSelf()->groupID() != EVEDB::invGroups::Shield_Hardening_Array)
+            continue;
+        if (mod->GetState() < EVEPOS::StructureState::Online)
+            continue;   // offline hardeners do nothing
+        if (tp.distance(mod->GetPosition()) > radius)
+            continue;   // hardener must sit inside the field it protects
+
+        for (int i = 0; i < 4; ++i) {
+            if (!mod->GetSelf()->HasAttribute(s_bonus[i]))
+                continue;
+            double b = mod->GetSelf()->GetAttribute(s_bonus[i]).get_float();
+            if (b > 1.5)
+                b /= 100.0;   // some SDE rows store the bonus in percent
+            if (b <= 0.0 || b >= 1.0)
+                continue;
+            add[i] = 1.0 - (1.0 - add[i]) * (1.0 - b);   // multiplicative stacking
+        }
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        if (add[i] > 0.9)
+            add[i] = 0.9;   // resist cap
+        double cur = m_self->GetAttribute(s_resonance[i]).get_float();
+        double base = cur;
+        if (m_hardenerApplied[i] > 0.001f && m_hardenerApplied[i] < 0.999f)
+            base = cur / (1.0 - (double)m_hardenerApplied[i]);   // undo the previous pass
+        double next = base * (1.0 - add[i]);
+        m_self->SetAttribute(s_resonance[i], (float)next);
+        m_hardenerApplied[i] = (float)add[i];
+    }
 }
 
 PyDict* TowerSE::MakeSlimItem()

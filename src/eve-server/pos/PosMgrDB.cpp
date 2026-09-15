@@ -206,6 +206,19 @@ void PosMgrDB::SaveTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sD
         tData.anchor, tData.unanchor, tData.online, tData.offline);
 }
 
+void PosMgrDB::UpdateTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sData)
+{
+    // UPDATE (SaveTowerData is an INSERT and fails on the existing row), and it
+    // persists the password — the force field is only created when one is set.
+    std::string escPass;
+    sDatabase.DoEscapeString(escPass, tData.password);
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE posTowerData SET harmonic=%i, standing=%f, standingOwnerID=%i, status=%f, password='%s'"
+        " WHERE itemID = %i",
+        tData.harmonic, tData.standing, tData.standingOwnerID, tData.status, escPass.c_str(), sData.itemID);
+}
+
 bool PosMgrDB::GetBridgeData(EVEPOS::JumpBridgeData& data)
 {
     DBQueryResult res;

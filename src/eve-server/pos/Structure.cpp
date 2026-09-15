@@ -823,7 +823,11 @@ void StructureSE::BotDeployAndAnchor(const GPoint& pos)
     m_data.state = EVEPOS::StructureState::Online;
     m_self->SetFlag(flagStructureActive);
     m_self->SaveItem();
-    m_db.SaveBaseData(m_data);
+    // UPDATE, not INSERT: the structure-data row already exists (created above /
+    // by Init), so this SaveBaseData INSERT failed on the duplicate key and the
+    // anchored/online state was never persisted — every reload brought bot
+    // towers up Unanchored with no field while their modules self-healed online.
+    m_db.UpdateBaseData(m_data);
 
     OnBotAnchorComplete();   // TowerSE: force field, moon link, fuel data
 

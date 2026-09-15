@@ -163,6 +163,16 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
         // Allow targeting outposts (all outposts are conquerable)
     }
 
+    // Ships inside an online tower's force field are untouchable (EVE: the field
+    // protects ships; towers/modules stay attackable).
+    if (tSE->IsShipSE() || tSE->GetNPCSE() != nullptr) {
+        SystemBubble* tBubble = tSE->SysBubble();
+        if (tBubble != nullptr && tBubble->IsInProtectedField(tSE->GetPosition())) {
+            mySE->GetPilot()->SendNotifyMsg("You cannot target that - it is inside a force field.");
+            return false;
+        }
+    }
+
     // Cannot target objects that have no target manager — decor, clouds, accel
     // gates are scenery (CelestialSE) with m_targMgr == nullptr; the TargetedAdd
     // call below would dereference null and crash the server.
@@ -233,6 +243,16 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, float lockTime, uint8 maxL
         _log(TARGET__TRACE, "NPC %s(%u): refusing to target %s(%u) — no target manager.", \
             mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID());
         return false;
+    }
+
+    // Ships inside an online tower's force field are untouchable.
+    if (tSE->IsShipSE() || tSE->GetNPCSE() != nullptr) {
+        SystemBubble* tBubble = tSE->SysBubble();
+        if (tBubble != nullptr && tBubble->IsInProtectedField(tSE->GetPosition())) {
+            _log(TARGET__TRACE, "NPC %s(%u): refusing to target %s(%u) — inside a force field.", \
+                mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID());
+            return false;
+        }
     }
 
     TargetEntry *te = new TargetEntry();
