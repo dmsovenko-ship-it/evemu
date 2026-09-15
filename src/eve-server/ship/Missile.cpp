@@ -410,9 +410,14 @@ void Missile::Delete() {
     //  cleanup here
     if (m_alive)
         return;
+    // detach from the bubble FIRST: if m_bubble was already cleared,
+    // SystemManager::RemoveEntity below skips the bubble cleanup and the ball
+    // would stay in the bubble's entity map as a dangling pointer (NPC idle
+    // scan dereferenced it - SIGSEGV at NPCAI.cpp:633, core 21:49).
+    if (m_bubble != nullptr)
+        m_bubble->Remove(this);
     SystemEntity::Delete();
-    // SystemEntity contract: Delete() unregisters, the wrapper still needs
-    // freeing. Nothing ever freed missiles before — one SE leaked per launch.
-    // All callers return immediately after Delete()/Destroy(), so this is safe.
-    delete this;
+    // NOTE: the wrapper is intentionally NOT freed here. Freeing it left stale
+    // balls in bubble entity maps (see above); missiles need an owner registry
+    // (like EntityList::m_probes) before the wrapper can be safely released.
 }
