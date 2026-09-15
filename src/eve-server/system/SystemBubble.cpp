@@ -423,27 +423,15 @@ void SystemBubble::Untrack(SystemEntity *pSE) {
 
     uint32 pseId(pSE->GetID());
 
-    // assume that the entity is properly registered for its ID
+    // A null m_bubble here used to early-return WITHOUT erasing the entity from
+    // the maps below - any caller that nulled m_bubble before RemoveEntity left
+    // a dangling pointer in this bubble (NPC idle scan dereferenced it -> SIGSEGV).
+    // Erase by id regardless; a miss is a harmless no-op.
     if (pSE->m_bubble == nullptr) {
-        _log(DESTINY__BUBBLE_DEBUG, "SystemBubble::Remove() - Entity %u bubble pointer is null for bubble %u", pseId, m_bubbleID);
-
-        if (sConfig.debug.StackTrace) {
-            EvE::traceStack();
-        }
-
-        return;
+        _log(DESTINY__BUBBLE_DEBUG, "SystemBubble::Remove() - Entity %u bubble pointer is null for bubble %u (untracking stale entry)", pseId, m_bubbleID);
     }
 
-    _log(DESTINY__BUBBLE_TRACE, "SystemBubble::Remove() - Removing entity %u from bubble %u", pseId, m_bubbleID);
-
     m_entities.erase(pseId);
-
-    _log(
-        DESTINY__BUBBLE_TRACE,
-        "SystemBubble::Remove() - Removing entity %u from bubble %u - erasing from dynamic entities",
-        pseId,
-        m_bubbleID
-    );
 
     m_dynamicEntities.erase(pseId);
 

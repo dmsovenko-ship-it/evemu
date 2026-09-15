@@ -200,36 +200,31 @@ void BubbleManager::Remove(SystemEntity *ent) {
     // suns, planets and moons arent in bubbles
     // if (ent->IsStaticEntity())
     //    return;
-    if (ent->SysBubble() != nullptr) {
+    // Untrack from EVERY bubble regardless of ent->SysBubble(): when m_bubble
+    // was already cleared (warp, transit), the old check skipped cleanup and
+    // left a dangling pointer in the bubble's entity map.
+    {
         _log(
             DESTINY__BUBBLE_DEBUG,
-            "BubbleManager::Remove(): Entity %s(%u) being removed from Bubble %u",
+            "BubbleManager::Remove(): Entity %s(%u) being removed (bubble %u)",
             ent->GetName(),
             ent->GetID(),
-            ent->SysBubble()->GetID()
+            (ent->SysBubble() != nullptr ? ent->SysBubble()->GetID() : 0)
         );
 
-        // iterate through all other bubbles and determine if the entity is
-        // in them.
         std::list<SystemBubble *>::iterator itr = m_bubbles.begin();
         while (itr != m_bubbles.end()) {
             if (*itr == nullptr) {
+                ++itr;
                 continue;
             }
-
-            _log(
-                DESTINY__BUBBLE_DEBUG,
-                "BubbleManager::Remove(): Entity %s(%u) being untracked from Bubble %u",
-                ent->GetName(),
-                ent->GetID(),
-                ent->SysBubble()->GetID()
-            );
 
             (*itr)->Untrack(ent);
             ++itr;
         }
 
-        ent->SysBubble()->Remove(ent);
+        if (ent->SysBubble() != nullptr)
+            ent->SysBubble()->Remove(ent);
     }
 }
 
