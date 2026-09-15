@@ -355,7 +355,7 @@ void MissionDataMgr::Populate()
         offer.dungeonSolarSystemID = row.GetInt(33);
         offer.dateCompleted = 0;
         // will need to determine how to store/retrieve bookmarks as a list of dicts here
-        offer.bookmarks = new PyList();
+        offer.bookmarks = RefPtr<PyList>(new PyList());
         m_offers.emplace(row.GetInt(2), offer);
         m_aoffers.emplace(row.GetInt(1), offer);    // do we really want dupe data here?  yes.  need offer by char and by agent
     }
@@ -404,7 +404,7 @@ void MissionDataMgr::Populate()
         offer.destinationSystemID = 0;
         offer.dungeonLocationID = 0;
         offer.dungeonSolarSystemID = 0;
-        offer.bookmarks = new PyList(); //invalid offers will not have bms
+        offer.bookmarks = RefPtr<PyList>(new PyList()); //invalid offers will not have bms
         m_xoffers.emplace(row.GetInt(2), offer);
     }
     sLog.Cyan("   MissionDataMgr", "%lu Closed Mission Offers loaded in %.3fms.", m_xoffers.size(), (GetTimeMSeconds() - start));
@@ -512,7 +512,7 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
     data.destinationSystemID    = 0;
     data.dungeonLocationID      = 0;
     data.dungeonSolarSystemID   = 0;
-    data.bookmarks              = new PyList();
+    data.bookmarks              = RefPtr<PyList>(new PyList());
 
     /** @todo  this will need to be adjusted for raceID eventually */
     switch (typeID) {

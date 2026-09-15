@@ -201,6 +201,33 @@ void CachedObjectMgr::UpdateCache(const std::string &objectID, PyRep **in_cached
     PyDecRef(str);
 }
 
+// Recursively releases a rep tree: container dtors do NOT free their items, so
+// freeing only the root leaks every child. Only valid where we own the whole
+// tree (single owner, no shared refs).
+static void DeepClearRep(PyRep* rep)
+{
+    if (rep == nullptr)
+        return;
+    if (rep->IsTuple()) {
+        PyTuple* t = rep->AsTuple();
+        for (auto it : t->items)
+            DeepClearRep(it);
+        t->clear();
+    } else if (rep->IsList()) {
+        PyList* l = rep->AsList();
+        for (auto it : l->items)
+            DeepClearRep(it);
+        l->clear();
+    } else if (rep->IsDict()) {
+        PyDict* d = rep->AsDict();
+        for (auto& kv : d->items) {
+            DeepClearRep(kv.first);
+            DeepClearRep(kv.second);
+        }
+        d->clear();
+    }
+}
+
 void CachedObjectMgr::UpdateCache(const PyRep *objectID, PyRep **in_cached_data)
 {
     PyRep* cached_data(*in_cached_data);
@@ -215,8 +242,9 @@ void CachedObjectMgr::UpdateCache(const PyRep *objectID, PyRep **in_cached_data)
     bool res = MarshalDeflate( cached_data, *buf );
 
     // the rep was only borrowed for marshalling — release it (it came from a
-    // GiveCache() call that handed over sole ownership). PyRep base has no
-    // clear(); child items leak by the known accepted design.
+    // GiveCache() call that handed over sole ownership). DeepClear walks the
+    // tree: container dtors don't free their children.
+    DeepClearRep( cached_data );
     PySafeDecRef( cached_data );
 
     if ( res ) {

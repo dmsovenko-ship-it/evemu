@@ -8,6 +8,10 @@
 #ifndef EVE_MISSIONS_H
 #define EVE_MISSIONS_H
 
+#include "../eve-core/memory/RefPtr.h"
+
+class PyList;
+
 struct MissionData {
         bool important;
         uint8 level;
@@ -60,7 +64,10 @@ struct MissionOffer {
     double dateAccepted;
     double dateCompleted;
     std::string name;
-    PyList* bookmarks;
+    // RefPtr: offer structs are copied by value between the offer maps — a raw
+    // pointer here shared one PyList across all copies with no owner (leak), and
+    // any per-copy free would have been a double-free.
+    RefPtr<PyList> bookmarks;
 };
 
 struct CourierData {

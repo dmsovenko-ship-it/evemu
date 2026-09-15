@@ -219,7 +219,7 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     offer.acceptFee          = 0;
 
     // create and save bookmarks for this offer.... not sure how yet.
-    offer.bookmarks          = new PyList();
+        offer.bookmarks          = RefPtr<PyList>(new PyList());
 
     //offer.dateAccepted       = 0;     //not set here
     //offer.dateCompleted      = 0;     //not set here

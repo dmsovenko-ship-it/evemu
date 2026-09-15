@@ -192,8 +192,10 @@ void WormholeMgr::Collapse(uint32 whItemID) {
             SystemManager* pExitSys = sEntityList.FindOrBootSystem(exitIt->second);
             if (pExitSys != nullptr) {
                 SystemEntity* pSE = pExitSys->GetSE(exitID);
-                if (pSE != nullptr)
+                if (pSE != nullptr) {
                     pExitSys->RemoveEntity(pSE);
+                    SafeDelete(pSE);   // ~WormholeSE is trivial — no re-entry risk
+                }
             }
             m_whToSystem.erase(exitIt);
         }
@@ -211,9 +213,10 @@ void WormholeMgr::Collapse(uint32 whItemID) {
     if (it != m_whToSystem.end()) {
         SystemManager* pSys = sEntityList.FindOrBootSystem(it->second);
         if (pSys != nullptr) {
-            SystemEntity* pSE = pSys->GetSE(whItemID);
-            if (pSE != nullptr)
-                pSys->RemoveEntity(pSE);
+        SystemEntity* pSE = pSys->GetSE(whItemID);
+        if (pSE != nullptr) {
+            pSys->RemoveEntity(pSE);
+            SafeDelete(pSE);
         }
         m_whToSystem.erase(it);
     }
