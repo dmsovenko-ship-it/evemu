@@ -1234,6 +1234,29 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     useAllianceID = brow.GetUInt(2);
                     poolEveID = brow.GetUInt(3);
                     reuseExisting = true;
+                    // A pooled pilot was minted FROM a killmail legend — restore
+                    // ITS OWN legend (hull + fit) so every respawn flies the same
+                    // ship with the same modules. This was lost when reuse became
+                    // unconditional (legend rows were only read for freshly
+                    // minted pilots) and every respawned bot flew naked while its
+                    // cargo still spawned (MaterializeShipLoad is unconditional).
+                    {
+                        std::string eName;
+                        sDatabase.DoEscapeString(eName, useName);
+                        DBQueryResult lres;
+                        if (sDatabase.RunQuery(lres,
+                            "SELECT ship_type_id, fitted_item_ids FROM botKillmailLegends"
+                            " WHERE character_name = '%s' AND ship_type_id > 0 AND ship_type_id != 670"
+                            " ORDER BY killmail_id DESC LIMIT 1", eName.c_str()))
+                        {
+                            DBResultRow lrow;
+                            if (lres.GetRow(lrow)) {
+                                useShipType = lrow.GetUInt(0);
+                                const char* fit = lrow.GetText(1);
+                                if (fit != nullptr) useFit = fit;
+                            }
+                        }
+                    }
                     _log(BOT__TRACE, "BotMgr: reusing established bot '%s' (corp %u, ally %u).",
                          useName.c_str(), useCorpID, useAllianceID);
                 }
@@ -1356,6 +1379,24 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             poolEveID = rrow.GetUInt(3);
             useShipType = 0;
             useFit.clear();
+            // Restore this pilot's own legend hull + fit (see the reuse branch).
+            {
+                std::string eName;
+                sDatabase.DoEscapeString(eName, useName);
+                DBQueryResult lres;
+                if (sDatabase.RunQuery(lres,
+                    "SELECT ship_type_id, fitted_item_ids FROM botKillmailLegends"
+                    " WHERE character_name = '%s' AND ship_type_id > 0 AND ship_type_id != 670"
+                    " ORDER BY killmail_id DESC LIMIT 1", eName.c_str()))
+                {
+                    DBResultRow lrow;
+                    if (lres.GetRow(lrow)) {
+                        useShipType = lrow.GetUInt(0);
+                        const char* fit = lrow.GetText(1);
+                        if (fit != nullptr) useFit = fit;
+                    }
+                }
+            }
         } else {
             // Fresh top-up retry: never overshoot the cap (each retry would
             // otherwise mint another character).

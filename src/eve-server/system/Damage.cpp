@@ -570,9 +570,17 @@ void ShipSE::Killed(Damage &fatal_blow) {
             killerID = pClient->GetCharacterID();
         }
     } else {
-        killerID = killer->GetCorporationID();
-        if (killerID == 0)
-            killerID = killer->GetID();
+        // A chelobot killer (PlayerBot is an NPC SE): report the bot PILOT's
+        // charID, not its corporation — finalCharacterID must join chrCharacters
+        // or the killboard shows nobody as the killer.
+        PlayerBot* killerBot = dynamic_cast<PlayerBot*>(killer->GetNPCSE());
+        if (killerBot != nullptr) {
+            killerID = killerBot->GetBotCharID();
+        } else {
+            killerID = killer->GetCorporationID();
+            if (killerID == 0)
+                killerID = killer->GetID();
+        }
     }
 
     // AttrFwLpKill

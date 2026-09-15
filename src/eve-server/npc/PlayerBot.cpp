@@ -554,8 +554,17 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
         Client* owner = killer->GetDroneSE() != nullptr ? killer->GetDroneSE()->GetOwner() : nullptr;
         if (owner != nullptr) { pClient = owner; killerID = owner->GetCharacterID(); }
     } else {
-        killerID = killer->GetCorporationID();
-        if (killerID == 0) killerID = killer->GetID();
+        // Another chelobot (PlayerBot is an NPC SE — no pilot, no drone): report
+        // the bot PILOT's charID, not its corporation. The killboard joins
+        // chrCharacters on finalCharacterID, so a corp id here left every
+        // bot-vs-bot kill unattributed (0 rows with a bot as the killer).
+        PlayerBot* killerBot = dynamic_cast<PlayerBot*>(killer->GetNPCSE());
+        if (killerBot != nullptr) {
+            killerID = killerBot->GetBotCharID();
+        } else {
+            killerID = killer->GetCorporationID();
+            if (killerID == 0) killerID = killer->GetID();
+        }
     }
 
     KillData data = KillData();
