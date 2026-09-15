@@ -213,10 +213,11 @@ void WormholeMgr::Collapse(uint32 whItemID) {
     if (it != m_whToSystem.end()) {
         SystemManager* pSys = sEntityList.FindOrBootSystem(it->second);
         if (pSys != nullptr) {
-        SystemEntity* pSE = pSys->GetSE(whItemID);
-        if (pSE != nullptr) {
-            pSys->RemoveEntity(pSE);
-            SafeDelete(pSE);
+            SystemEntity* pSE = pSys->GetSE(whItemID);
+            if (pSE != nullptr) {
+                pSys->RemoveEntity(pSE);
+                SafeDelete(pSE);
+            }
         }
         m_whToSystem.erase(it);
     }
