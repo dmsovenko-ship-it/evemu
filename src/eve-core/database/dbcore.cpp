@@ -331,18 +331,20 @@ bool DBcore::DoQuery_locked(DBerror &err, const char *query, int querylen, bool 
 
     if (mysql_real_query(mysql, query, querylen)) {
         uint num = mysql_errno(mysql);
-        if (num > 0)
-            pStatus = Error;
 
-        // there are many correctable errors to check for
-        if ((num == CR_SERVER_LOST) or (num == CR_SERVER_GONE_ERROR)) {
+        // Only CONNECTION-level errors kill the handle. Plain SQL errors
+        // (1054 unknown column, 1062 duplicate key, 1064 syntax, ...) must NOT
+        // drop the connection: this used to set pStatus=Error for ANY failure,
+        // forcing a full reconnect on the next query after every SQL error.
+        if ((num == CR_SERVER_LOST) or (num == CR_SERVER_GONE_ERROR)
+            or (num == CR_CONN_HOST_ERROR) or (num == 2055)   /* CR_SERVER_LOST_EXTENDED */) {
+            pStatus = Error;
             _log(DATABASE__ERROR, "DBCore error - server lost or gone.");
             if (!Reconnect())
                 return false;
+            if (retry)
+                return DoQuery_locked(err, query, querylen, false);
         }
-
-        if ((pStatus == Connected) and retry)
-            return DoQuery_locked(err, query, querylen, retry);
 
         err.SetError(num, mysql_error(mysql));
         codelog(DATABASE__ERROR, "DBCore Query - #%u in '%s': %s", err.GetErrNo(), query, err.c_str());

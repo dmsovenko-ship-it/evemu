@@ -2453,7 +2453,8 @@ std::vector<uint32> BotMgr::FitUpgradePath(uint32 baseType, uint8 skillTier)
             "       COALESCE(aM.valueFloat, aM.valueInt, 0),"
             "       COALESCE(aT.valueFloat, aT.valueInt, 0)"
             " FROM invMetaTypes v"
-            " JOIN invTypes t ON t.typeID = v.typeID AND t.published = 1 AND t.categoryID = 7"
+            " JOIN invTypes t ON t.typeID = v.typeID AND t.published = 1"
+            " JOIN invGroups g ON g.groupID = t.groupID AND g.categoryID = 7"
             " LEFT JOIN dgmTypeAttributes aM ON aM.typeID = v.typeID AND aM.attributeID = 633"
             " LEFT JOIN dgmTypeAttributes aT ON aT.typeID = v.typeID AND aT.attributeID = 422"
             " WHERE v.parentTypeID = %u", root))
