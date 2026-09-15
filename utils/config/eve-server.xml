@@ -243,7 +243,7 @@ boolean can use either 0/1 OR true/false.
 
     <playerBots><!-- simulated players (AI pilots) that populate active systems like a live server -->
         <Enabled>true</Enabled><!-- bool - master switch. false = no simulated players at all -->
-        <MaxPerSystem>30</MaxPerSystem><!-- int - max simulated players in any one active system (with a player online) -->
+        <MaxPerSystem>60</MaxPerSystem><!-- int - max simulated players in any one active system (with a player online) -->
         <BaselinePerSystem>30</BaselinePerSystem><!-- int - bots that ALWAYS live in an always-on system (no player needed) -->
         <!-- Always-on systems: kept loaded + populated 24/7 so bot chains (trade/haul/mine/craft) never freeze.
              Spread symmetrically across the four empires + centre for transit/trade traffic in every direction.
