@@ -3606,11 +3606,28 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
 
     // --- POS layout ---------------------------------------------------------
     // Every module must sit INSIDE the tower's force field (an inscribed circle)
-    // or the client treats it as unanchored. Production (array + silo) is
-    // clustered within 2500 m of each other just off the tower; the batteries are
-    // spread out — top, bottom and on the ring — for all-round coverage.
+    // or the client treats it as unanchored. Layouts follow real Crucible POS
+    // doctrines (Deathstar, Super-Hardened, moon-reaction chain, industrial
+    // shipyard, wormhole utility — see AGENTS.md): each corp deterministically
+    // gets one scheme, so the universe has a believable mix of fits rather than
+    // a single uniform one.
     const double R = ffRadius;
+    const double PI = 3.14159265358979323846;
+    double installValue = 0.0;   // summed basePrice of everything anchored (billing)
 
+    // Random published type in a module group (0 if the group has none).
+    auto pickType = [&](uint32 groupID) -> uint32 {
+        DBQueryResult r;
+        if (sDatabase.RunQuery(r,
+            "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 ORDER BY RAND() LIMIT 1", groupID)) {
+            DBResultRow row;
+            if (r.GetRow(row)) return row.GetUInt(0);
+        }
+        return 0;
+    };
+
+    // Generic module spawner: chooses the SE class per group (mirrors
+    // DynamicEntityFactory so behaviour matches a normally-loaded POS module).
     auto spawnModule = [&](uint32 typeID, const char* name, const GPoint& off) {
         if (typeID == 0) return;
         GPoint p = pos; p.x += off.x; p.y += off.y; p.z += off.z;
@@ -3618,36 +3635,34 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
         if (sRef.get() == nullptr) return;
         sRef->SaveItem();
-        // Assembly arrays and silos get their proper SE classes.
+        installValue += sRef->type().basePrice();
         uint16 gid = sRef->groupID();
         StructureSE* se = nullptr;
-        if (gid == EVEDB::invGroups::Assembly_Array)
-            se = new ArraySE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
-        else
-            se = new ReactorSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
+        switch (gid) {
+            case EVEDB::invGroups::Assembly_Array:
+            case EVEDB::invGroups::Ship_Maintenance_Array:
+            case EVEDB::invGroups::Corporate_Hangar_Array:
+            case EVEDB::invGroups::Shield_Hardening_Array:
+                se = new ArraySE(sRef, sysMgr->GetServiceMgr(), sysMgr, data); break;
+            case EVEDB::invGroups::Silo:
+            case EVEDB::invGroups::Moon_Mining:
+            case EVEDB::invGroups::Mobile_Reactor:
+                se = new ReactorSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data); break;
+            case EVEDB::invGroups::Electronic_Warfare_Battery:
+            case EVEDB::invGroups::Sensor_Dampening_Battery:
+            case EVEDB::invGroups::Stasis_Webification_Battery:
+            case EVEDB::invGroups::Warp_Scrambling_Battery:
+            case EVEDB::invGroups::Energy_Neutralizing_Battery:
+                se = new BatterySE(sRef, sysMgr->GetServiceMgr(), sysMgr, data); break;
+            default:
+                se = new StructureSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data); break;
+        }
         sysMgr->AddEntity(se);
         se->BotDeployAndAnchor(p);
     };
 
-    // Production cluster ~2.2 km off the tower; array and silo 1.8 km apart
-    // (well within the 2500 m the user asked for).
-    spawnModule(arrayType, "Assembly Array", GPoint(2200.0, 0.0,  900.0));
-    spawnModule(siloType,  "Silo",           GPoint(2200.0, 0.0, -900.0));
-
-    // Standard POS defenses: WEAPON batteries (WeaponSE owns a POS_AI, which is
-    // implemented and now fires at valid hostiles). Anchored online so the tower
-    // is genuinely defended, not just decorated.
-    uint32 weaponType1 = 0, weaponType2 = 0;
-    {
-        DBQueryResult wres;
-        if (sDatabase.RunQuery(wres,
-            "SELECT typeID FROM invTypes WHERE groupID IN (430,426,417,449) AND published = 1"
-            " ORDER BY RAND() LIMIT 2")) {
-            DBResultRow wr;
-            if (wres.GetRow(wr)) weaponType1 = wr.GetUInt(0);
-            if (wres.GetRow(wr)) weaponType2 = wr.GetUInt(0);
-        }
-    }
+    // Weapon battery: WeaponSE runs a POS_AI and fires at valid hostiles. The gun
+    // is loaded with a stack of its chargeGroup1 ammo (consumed 1 per shot).
     auto spawnWeapon = [&](uint32 typeID, const GPoint& off) {
         if (typeID == 0) return;
         GPoint p = pos; p.x += off.x; p.y += off.y; p.z += off.z;
@@ -3655,8 +3670,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
         if (sRef.get() == nullptr) return;
         sRef->SaveItem();
-        // Load the gun: mint a stack of its chargeGroup1 ammunition into the
-        // module's own hold (consumed 1 per shot by POS_AI).
+        installValue += sRef->type().basePrice();
         if (sRef->HasAttribute(AttrChargeGroup1)) {
             uint32 cg = sRef->GetAttribute(AttrChargeGroup1).get_uint32();
             if (cg != 0) {
@@ -3680,36 +3694,90 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         se->BotDeployAndAnchor(p);
     };
 
-    // Defenses spread for all-round coverage: one gun high (+Y), one low (-Y),
-    // and the EWAR battery out on the ring (+X) — all inside the force field.
-    spawnWeapon(weaponType1, GPoint(0.0,  0.60 * R, 0.0));   // top
-    spawnWeapon(weaponType2, GPoint(0.0, -0.60 * R, 0.0));   // bottom
+    // Defensive modules are laid on a ring that alternates above and below the
+    // ecliptic for all-round coverage (a Deathstar has no blind spots). The ring
+    // radius is capped well inside the force field.
+    const double defR = (R > 9000.0) ? 9000.0 : 0.45 * R;
+    int defIdx = 0;
+    auto nextDefOff = [&]() -> GPoint {
+        double a = (2.0 * PI * (defIdx / 2)) / 6.0 + (defIdx % 2) * 0.35;
+        double y = (defIdx % 2) ? 0.55 * R : -0.55 * R;
+        defIdx++;
+        return GPoint(defR * std::cos(a), y, defR * std::sin(a));
+    };
+    // Industrial extras cluster near the tower (ring at ~3.2 km).
+    int prodIdx = 0;
+    auto nextProdOff = [&]() -> GPoint {
+        double a = (2.0 * PI * prodIdx) / 6.0;
+        prodIdx++;
+        return GPoint(3200.0 * std::cos(a), 0.0, 3200.0 * std::sin(a));
+    };
 
-    // EWAR defense: a stasis webification battery (BatterySE now runs POS_AI too).
-    {
-        GPoint p = pos; p.x += 0.70 * R;   // on the force-field ring
-        ItemData idata(17178, corpID, sysID, flagNone, "Stasis Webification Battery", p);
-        StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
-        if (sRef.get() != nullptr) {
-            sRef->SaveItem();
-            BatterySE* se = new BatterySE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
-            sysMgr->AddEntity(se);
-            se->BotDeployAndAnchor(p);
-        }
+    const uint32 sentryGroups[4] = { 417, 426, 430, 449 };   // missile/proj/laser/hybrid sentries
+    auto spawnSentry = [&]() { spawnWeapon(pickType(sentryGroups[MakeRandomInt(0, 3)]), nextDefOff()); };
+
+    // Production cluster (always present — the producer crafts here): the array
+    // and the silo sit ~1.8 km apart, ~2.2 km off the tower (inside 2500 m).
+    spawnModule(arrayType, "Assembly Array", GPoint(2200.0, 0.0,  900.0));
+    spawnModule(siloType,  "Silo",           GPoint(2200.0, 0.0, -900.0));
+
+    // Doctrine — stable per corp (corpID % 5), so the same corp always fits the
+    // same way but different corps differ.
+    switch (corpID % 5) {
+        case 0: {   // Deathstar — maximum firepower, all-round coverage
+            for (int i = 0; i < 6; ++i) spawnSentry();
+            spawnModule(pickType(EVEDB::invGroups::Stasis_Webification_Battery), "Stasis Webification Battery", nextDefOff());
+            spawnModule(pickType(EVEDB::invGroups::Warp_Scrambling_Battery),    "Warp Scrambling Battery",    nextDefOff());
+            spawnModule(pickType(EVEDB::invGroups::Energy_Neutralizing_Battery),"Energy Neutralizing Battery",nextDefOff());
+            spawnModule(pickType(EVEDB::invGroups::Electronic_Warfare_Battery), "ECM Battery",                nextDefOff());
+        } break;
+        case 1: {   // Super-Hardened — tank first, few guns
+            spawnModule(pickType(EVEDB::invGroups::Shield_Hardening_Array),   "Shield Hardening Array",   nextProdOff());
+            spawnModule(pickType(EVEDB::invGroups::Shield_Hardening_Array),   "Shield Hardening Array",   nextProdOff());
+            for (int i = 0; i < 5; ++i)
+                spawnModule(pickType(EVEDB::invGroups::Sensor_Dampening_Battery), "Sensor Dampening Battery", nextDefOff());
+            spawnSentry();
+            spawnSentry();
+            spawnModule(pickType(EVEDB::invGroups::Stasis_Webification_Battery), "Stasis Webification Battery", nextDefOff());
+        } break;
+        case 2: {   // Moon-reaction chain (harvest -> silo -> simple -> complex)
+            spawnModule(pickType(EVEDB::invGroups::Moon_Mining), "Moon Harvesting Array", GPoint(2400.0, 0.0, 1800.0));
+            spawnModule(pickType(EVEDB::invGroups::Moon_Mining), "Moon Harvesting Array", GPoint(2400.0, 0.0,-1800.0));
+            for (int i = 0; i < 3; ++i)
+                spawnModule(siloType, "Silo", nextProdOff());
+            spawnModule(pickType(EVEDB::invGroups::Mobile_Reactor), "Simple Reactor Array",  GPoint(3800.0, 0.0,  1200.0));
+            spawnModule(pickType(EVEDB::invGroups::Mobile_Reactor), "Complex Reactor Array", GPoint(3800.0, 0.0, -1200.0));
+            spawnSentry();
+            spawnSentry();
+        } break;
+        case 3: {   // Industrial shipyard — assemble ships/modules, labs, storage
+            spawnModule(arrayType, "Assembly Array", GPoint(3400.0, 0.0, 1200.0));
+            spawnModule(siloType,  "Silo",           GPoint(3400.0, 0.0,-1200.0));
+            spawnModule(pickType(EVEDB::invGroups::Mobile_Laboratory), "Mobile Laboratory", nextProdOff());
+            spawnModule(pickType(EVEDB::invGroups::Corporate_Hangar_Array), "Corporate Hangar Array", nextProdOff());
+            spawnSentry();
+            spawnSentry();
+            spawnModule(pickType(EVEDB::invGroups::Stasis_Webification_Battery), "Stasis Webification Battery", nextDefOff());
+        } break;
+        default: {  // Wormhole/utility — ship swap + corp hangar + light defence
+            spawnModule(pickType(EVEDB::invGroups::Ship_Maintenance_Array), "Ship Maintenance Array", nextProdOff());
+            spawnModule(pickType(EVEDB::invGroups::Corporate_Hangar_Array), "Corporate Hangar Array", nextProdOff());
+            spawnSentry();
+            spawnSentry();
+            spawnModule(pickType(EVEDB::invGroups::Stasis_Webification_Battery), "Stasis Webification Battery", nextDefOff());
+        } break;
     }
 
     // Cost of the installation (tower + modules + defenses + initial guards'
     // retainer), debited from the owner's wallet so a POS is an investment
-    // comparable to the value of what it produces.
-    double cost = 0.0;
+    // comparable to the value of what it produces. Module value is accumulated
+    // as each module is anchored; add the tower itself here.
+    double cost = installValue;
     {
         DBQueryResult cres;
-        if (sDatabase.RunQuery(cres,
-            "SELECT COALESCE(SUM(basePrice),0) FROM invTypes WHERE typeID IN (%u,%u,%u,%u,%u)",
-            towerType, arrayType ? arrayType : towerType, siloType ? siloType : towerType,
-            weaponType1 ? weaponType1 : towerType, weaponType2 ? weaponType2 : towerType)) {
+        if (sDatabase.RunQuery(cres, "SELECT basePrice FROM invTypes WHERE typeID = %u", towerType)) {
             DBResultRow cr;
-            if (cres.GetRow(cr)) cost = cr.GetDouble(0);
+            if (cres.GetRow(cr)) cost += cr.GetDouble(0);
         }
     }
     cost = cost * 1.5 + 5000000.0;   // + fit/defense/guards retainer
@@ -3896,7 +3964,8 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
     if (db.corpID != 0) {
         DBQueryResult pa;
         if (sDatabase.RunQuery(pa,
-            "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u AND groupID = %u LIMIT 1",
+            "SELECT e.itemID FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+            " WHERE e.ownerID = %u AND e.locationID = %u AND t.groupID = %u LIMIT 1",
             db.corpID, sysID, EVEDB::invGroups::Assembly_Array)) {
             DBResultRow par;
             if (pa.GetRow(par)) { craftLoc = par.GetUInt(0); craftAtPOS = true; }
