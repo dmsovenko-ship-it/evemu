@@ -119,6 +119,7 @@ PyRep *MarketDB::GetOrders( uint32 regionID, uint16 typeID )
         " WHERE regionID=%u AND typeID=%u AND bid=%u", regionID, typeID, Market::Type::Sell))
     {
         codelog( MARKET__DB_ERROR, "Error in query: %s", res.error.c_str() );
+        PyDecRef( tup );
         return nullptr;
     }
     _log(MARKET__DB_TRACE, "GetOrders() - Fetched %u sell orders for type %u", res.GetRowCount(), typeID);

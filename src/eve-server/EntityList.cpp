@@ -1012,7 +1012,7 @@ void EntityList::Broadcast(const char* notifyType, const char* idType, PyTuple**
     EVENotificationStream notify;
         notify.remoteObject = 1;
         notify.args = p;
-    payload = nullptr;    //consumed
+    *payload = nullptr;    //consumed
 
     //now sent it to the client
     PyAddress dest;
@@ -1044,7 +1044,7 @@ void EntityList::Multicast(const character_set &cset, const PyAddress &dest, EVE
 void EntityList::Multicast( const char* notifyType, const char* idType, PyTuple** in_payload, NotificationDestination target, uint32 targID, bool seq )
 {
     PyTuple* payload = *in_payload;
-    in_payload = nullptr;
+    *in_payload = nullptr;   // consumed
 
     std::vector<Client*> cVec;
     cVec.clear();
@@ -1090,7 +1090,7 @@ void EntityList::Multicast(const char* notifyType, const char* idType, PyTuple**
 {
     // consume payload
     PyTuple* payload = *in_payload;
-    in_payload = nullptr;
+    *in_payload = nullptr;   // consumed
 
     if (!mcset.characters.empty())
         for (auto cur : mcset.characters) {
@@ -1147,7 +1147,7 @@ void EntityList::Multicast(const character_set &cset, const char* notifyType, co
 {
     // consume payload
     PyTuple* payload = *in_payload;
-    in_payload = nullptr;
+    *in_payload = nullptr;   // consumed
 
     std::map<uint32, Client*>::const_iterator itr = m_players.begin();
     for (auto cur : cset) {

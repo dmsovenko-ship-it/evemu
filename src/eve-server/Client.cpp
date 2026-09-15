@@ -184,8 +184,11 @@ Client::~Client() {
                     this->services().Lookup <TradeService>("trademgr")->CancelTrade(this);
                 }
                 CharNoLongerInStation();
-                // remove char from station
-                sEntityList.GetStationByID(m_locationID)->RemoveItem(m_char);
+                // remove char from station (the station may be unloaded on a
+                // crash-logout — GetStationByID returns a null ref then)
+                StationItemRef st = sEntityList.GetStationByID(m_locationID);
+                if (st.get() != nullptr)
+                    st->RemoveItem(m_char);
             }
         }
         // remove fleet data, remove char from ItemFactory cache, save SP and set logout time
@@ -214,6 +217,10 @@ Client::~Client() {
     SafeDelete(m_scan);
     SafeDelete(pShipSE);
     SafeDelete(pSession);
+    // destiny updates queued before the first SetState never flushed — free them
+    for (auto u : m_pendingUpdates)
+        PySafeDecRef(u);
+    m_pendingUpdates.clear();
     PyDecRef(m_destinyEventQueue);
     PyDecRef(m_destinyUpdateQueue);
 }
@@ -3340,7 +3347,7 @@ void Client::_SendException(const PyAddress& source, int64 callID, MACHONETMSG_T
         e.MsgType = msgType;
         e.ErrorCode = errCode;
         e.payload = *payload;
-    payload = nullptr;
+    *payload = nullptr;   // transfer ownership (the caller's PyException still holds a ref)
 
     packet->payload = e.Encode();
     QueuePacket(packet);

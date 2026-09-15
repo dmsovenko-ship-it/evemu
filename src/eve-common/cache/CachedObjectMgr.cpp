@@ -214,6 +214,11 @@ void CachedObjectMgr::UpdateCache(const PyRep *objectID, PyRep **in_cached_data)
     Buffer* buf = new Buffer();
     bool res = MarshalDeflate( cached_data, *buf );
 
+    // the rep was only borrowed for marshalling — release it (it came from a
+    // GiveCache() call that handed over sole ownership)
+    cached_data->clear();
+    PySafeDecRef( cached_data );
+
     if ( res ) {
         PyBuffer* pbuf = new PyBuffer( &buf );
         _UpdateCache( objectID, &pbuf );

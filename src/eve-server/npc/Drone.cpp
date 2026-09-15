@@ -166,9 +166,14 @@ void DroneSE::RemoveDead() {
 
 void DroneSE::ScoopAndDelete() {
     // Drone is still alive but the owner (PlayerBot) wants it back / out of
-    // space. Remove the entity from the system and delete the item, then free
-    // the wrapper. The destructor would call RemoveEntity() again — on the
+    // space. Release all targeters first (they hold raw pointers to this
+    // wrapper), remove the entity from the system and delete the item, then
+    // free the wrapper. The destructor would call RemoveEntity() again — on the
     // just-deleted item that is a use-after-free, so detach first.
+    if (TargetMgr() != nullptr) {
+        TargetMgr()->Destroyed();
+        TargetMgr()->ClearFromTargets();
+    }
     if (m_system != nullptr && SysBubble() != nullptr)
         m_system->RemoveEntity(this);
     m_self->Delete();
@@ -207,7 +212,19 @@ void DroneSE::Process() {
         if (m_pClient == nullptr && m_pShipSE == nullptr)
             return;
         m_killed = true;
+        // Release all targeters (they hold raw pointers to this wrapper), then
+        // apply the same detach pattern as ScoopAndDelete() so the destructor
+        // does not re-enter RemoveEntity()/RemoveDroneFromFlight().
+        if (TargetMgr() != nullptr) {
+            TargetMgr()->Destroyed();
+            TargetMgr()->ClearFromTargets();
+        }
         m_system->RemoveEntity(this);
+        m_pShipSE = nullptr;
+        m_pClient = nullptr;
+        m_system = nullptr;
+        m_bubble = nullptr;
+        SafeDelete(m_AI);
         delete this;
         return;
     }

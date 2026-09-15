@@ -198,6 +198,8 @@ InventoryItemRef ItemFactory::GetItemContainerRef(uint32 itemID, bool load/*true
     if (itr != m_items.end()) {
         iRef = itr->second;
         itr = m_items.find(iRef->locationID());
+        if (itr == m_items.end())
+            return InventoryItemRef(nullptr);   // container not loaded — never hand out end()
         iRef = itr->second;
     } else if (load) {
         iRef = GetItemRef(itemID);
@@ -205,6 +207,8 @@ InventoryItemRef ItemFactory::GetItemContainerRef(uint32 itemID, bool load/*true
         if (itr != m_items.end()) {
             iRef = itr->second;
             itr = m_items.find(iRef->locationID());
+            if (itr == m_items.end())
+                return InventoryItemRef(nullptr);
             iRef = itr->second;
         }
     }
@@ -222,6 +226,8 @@ Inventory* ItemFactory::GetItemContainerInventory(uint32 itemID, bool load/*true
     if (itr != m_items.end()) {
         iRef = itr->second;
         itr = m_items.find(iRef->locationID());
+        if (itr == m_items.end())
+            return nullptr;   // container not loaded
         iRef = itr->second;
     } else if (load) {
         iRef = GetItemRef(itemID);
@@ -229,6 +235,8 @@ Inventory* ItemFactory::GetItemContainerInventory(uint32 itemID, bool load/*true
         if (itr != m_items.end()) {
             iRef = itr->second;
             itr = m_items.find(iRef->locationID());
+            if (itr == m_items.end())
+                return nullptr;
             iRef = itr->second;
         }
     }

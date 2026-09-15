@@ -71,6 +71,8 @@ protected:
     uint32 m_targetID;
     SystemEntity* m_targetSE;
     SystemEntity* m_fromSE;
+    uint32 m_fromID;    // launcher entity id — resolve via system GetSE(); the
+                        // raw m_fromSE can go stale if the shooter dies mid-flight
     InventoryItemRef m_modRef;
 
     void HitTarget();

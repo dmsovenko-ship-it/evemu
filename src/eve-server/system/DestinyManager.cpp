@@ -697,8 +697,7 @@ void DestinyManager::Stop() {
         CmdStop du;
             du.entityID = mySE->GetID();
         PyTuple *up = du.Encode();
-        SendSingleDestinyUpdate(&up);
-        PyDecRef(up);
+        SendSingleDestinyUpdate(&up);   // consumes the tuple
     }
 }
 
@@ -3982,21 +3981,35 @@ void DestinyManager::SendSetState() const {
 
 void DestinyManager::SendMovementPacket()
 {
-    SendSingleDestinyUpdate(&mvPacket);
-    PySafeDecRef(mvPacket);
+    SendSingleDestinyUpdate(&mvPacket);   // consumes the tuple
 }
 
 void DestinyManager::SendSingleDestinyEvent(PyTuple** ev, bool self_only/*false*/) const
 {
+    // Consumes the event tuple (same contract as SendSingleDestinyUpdate).
+    PyTuple* tup = *ev;
+    *ev = nullptr;
+    if (tup == nullptr)
+        return;
     std::vector<PyTuple*> updates;
-    std::vector<PyTuple*> events(1, *ev);   // create vector of size "1" and insert "*ev" into it
+    std::vector<PyTuple*> events(1, tup);   // create vector of size "1" and insert "tup" into it
     SendDestinyUpdate(updates, events, self_only);
+    PySafeDecRef(tup);
 }
 
 void DestinyManager::SendSingleDestinyUpdate(PyTuple **up, bool self_only/*false*/) const {
-    std::vector<PyTuple*> updates(1, *up);   // create vector of size "1" and insert "*up" into it
+    // This call CONSUMES the tuple (the "// consumed" at the call sites relies
+    // on it): null the caller's pointer and release the reference after the
+    // send, on every path — SendDestinyUpdate early-returns for an unloaded
+    // system / docked pilot and does not take ownership itself.
+    PyTuple* tup = *up;
+    *up = nullptr;
+    if (tup == nullptr)
+        return;
+    std::vector<PyTuple*> updates(1, tup);   // create vector of size "1" and insert "tup" into it
     std::vector<PyTuple*> events;
     SendDestinyUpdate(updates, events, self_only);
+    PySafeDecRef(tup);
 }
 
 void DestinyManager::SendDestinyUpdate(std::vector<PyTuple*> &updates, bool self_only/*false*/) const {

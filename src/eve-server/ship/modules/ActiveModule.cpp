@@ -1152,6 +1152,16 @@ void ActiveModule::ConsumeCharge() {
                 cur->GetLoadedChargeRef()->AlterQuantity(-1, cur->IsLoaded());
     } else {
         m_chargeRef->AlterQuantity(-1, false);  // only used in space.  dont send ixStacksize update
+        // A charge hitting 0 deletes itself (InventoryItem::SetQuantity) and
+        // leaves a zombie ref here: IsLoaded() stayed true, so every following
+        // cycle read a deleted item ("infinite ammo" + IncRef-on-deleted class
+        // crashes). Deactivate and clear it.
+        if ((m_chargeRef.get() != nullptr) && (m_chargeRef->quantity() < 1)) {
+            Deactivate();
+            m_chargeRef = InventoryItemRef(nullptr);
+            m_chargeLoaded = false;
+            m_ChargeState = Module::State::Unloaded;
+        }
     }
 }
 

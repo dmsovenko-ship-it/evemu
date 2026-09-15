@@ -2183,9 +2183,14 @@ void SystemManager::ClearDronesAssignedTo(ShipSE* pShip) {
     for (auto& [id, se] : m_entities) {
         if (se == nullptr || !se->IsDroneSE())
             continue;
-        DroneAIMgr* ai = se->GetDroneSE()->GetAI();
+        DroneSE* pDrone = se->GetDroneSE();
+        // Clear BOTH cached copies of the ship pointer: DroneAIMgr::m_assignedShip
+        // and DroneSE::m_pShipSE (the destructor dereferences the latter).
+        DroneAIMgr* ai = pDrone->GetAI();
         if (ai != nullptr && ai->GetAssignedShip() == pShip)
             ai->AssignShip(nullptr);
+        if (pDrone->GetHomeShip() == pShip)
+            pDrone->SetHomeShip(nullptr);
     }
 }
 

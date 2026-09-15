@@ -43,6 +43,7 @@ Missile::Missile( InventoryItemRef self, EVEServiceManager& services, SystemMana
   m_targetID(tSE ? tSE->GetID() : 0),
   m_targetSE(tSE),
   m_fromSE(pSE),
+  m_fromID(pSE ? pSE->GetID() : 0),
   m_hitTimer(0),
   m_lifeTimer(0),
   m_damageMod(1),
@@ -215,7 +216,7 @@ PyDict* Missile::MakeSlimItem() {
         slim->SetItemString("groupID",                  new PyInt(m_self->groupID()));
         slim->SetItemString("categoryID",               new PyInt(m_self->categoryID()));
         slim->SetItemString("name",                     new PyString(m_self->itemName()));
-        slim->SetItemString("sourceShipID",             new PyInt(m_fromSE->GetID()));
+        slim->SetItemString("sourceShipID",             new PyInt(m_fromID));
         slim->SetItemString("sourceModuleID",           new PyInt(m_modRef->itemID()));
         slim->SetItemString("corpID",                   IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",               IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
@@ -260,7 +261,11 @@ void Missile::HitTarget() {
         return;
     }
 
-    Damage d(m_fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
+    // Validate the source too: the launcher may have been destroyed while the
+    // missile was in flight. Null source = unattributed damage (ApplyDamage
+    // null-guards srcSE) instead of reading a freed SystemEntity.
+    SystemEntity* fromSE = (m_fromID != 0) ? m_system->GetSE(m_fromID) : nullptr;
+    Damage d(fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
 
     /*  this is damage formula for missiles
      * Damage = D * MIN(1, Sr/Er, (Ev/V * Sr/Er)^(ln(DRF) / ln(DRS)) )
@@ -340,7 +345,12 @@ void Missile::ExplodeBomb() {
             continue;
 
         if (baseDamage > 0) {
-            Damage d(m_fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
+            // Validate the source too: the launcher may have been destroyed while the
+            // missile was in flight (NPC depop, bot despawn). Damage with a null source
+            // is still applied (unattributed) instead of reading a freed SystemEntity.
+            SystemEntity* fromSE = (m_fromID != 0) ? m_system->GetSE(m_fromID) : nullptr;
+
+            Damage d(fromSE, m_modRef, m_self, EVEEffectID::missileLaunching);
             d *= baseDamage;
             pSE->ApplyDamage(d);
         }
@@ -400,6 +410,9 @@ void Missile::Delete() {
     //  cleanup here
     if (m_alive)
         return;
-    // do we need to do anything else here?
     SystemEntity::Delete();
+    // SystemEntity contract: Delete() unregisters, the wrapper still needs
+    // freeing. Nothing ever freed missiles before — one SE leaked per launch.
+    // All callers return immediately after Delete()/Destroy(), so this is safe.
+    delete this;
 }

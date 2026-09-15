@@ -125,6 +125,9 @@ public:
     void ClearTargetID()                                 { m_targetID = 0; }
 
     ShipSE* GetHomeShip()                               { return m_pShipSE; }
+    // Clear the cached home-ship pointer when that ship is about to be freed
+    // (ghost expiry) so no drone tick dereferences freed memory.
+    void SetHomeShip(ShipSE* pShip)                     { m_pShipSE = pShip; }
 
     // Fighter ammo management
     bool IsFighter()                                    { return (m_fighterMaxAmmo > 0); }

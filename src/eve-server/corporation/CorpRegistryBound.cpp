@@ -454,6 +454,7 @@ PyResult CorpRegistryBound::UpdateDivisionNames(PyCallArgs &call,
         MulticastTarget mct;
             mct.corporations.insert(notif.key);
         PyTuple * answer = notif.Encode();
+        PyIncRef(answer);   // Multicast consumes its ref; keep one for the caller's SendNotification
         sEntityList.Multicast("OnCorporationChanged", "corpid", &answer, mct);
         call.client->SendNotification("OnCorporationChanged", "clientID", &answer);
     }
@@ -636,10 +637,10 @@ PyResult CorpRegistryBound::AddCorporation(PyCallArgs &call,
         return nullptr;
     }
     PyTuple* a1 = cc.Encode();
+    PyIncRef(a1);   // keep a ref for the Multicast below (SendNotification consumes one)
     // send single to client
     pClient->SendNotification("OnCorporationChanged", "clientID", &a1);
     // send multi to station guests
-    PyIncRef(a1);
     sEntityList.Multicast("OnCorporationChanged", "stationid", &a1, NOTIF_DEST__LOCATION, pClient->GetLocationID());
 
     return m_db.GetCorporations(corpID);
@@ -755,6 +756,7 @@ PyResult CorpRegistryBound::UpdateCorporation(PyCallArgs &call, PyRep* descripti
         MulticastTarget mct;
         mct.corporations.insert(notif.key);
         PyTuple * answer = notif.Encode();
+        PyIncRef(answer);   // Multicast consumes its ref; keep one for the caller's SendNotification
         sEntityList.Multicast("OnCorporationChanged", "corpid", &answer, mct);
         call.client->SendNotification("OnCorporationChanged", "clientID", &answer);
     }
