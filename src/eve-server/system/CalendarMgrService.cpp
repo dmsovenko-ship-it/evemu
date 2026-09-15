@@ -35,7 +35,13 @@ CalendarMgrService::CalendarMgrService() :
 {
     this->Add("CreatePersonalEvent", &CalendarMgrService::CreatePersonalEvent);
     this->Add("CreateCorporationEvent", &CalendarMgrService::CreateCorporationEvent);
-    this->Add("CreateAllianceEvent", &CalendarMgrService::CreateAllianceEvent);
+    this->Add("CreateAllianceEvent", static_cast<
+        PyResult(CalendarMgrService::*)(PyCallArgs&, PyLong*, PyInt*, PyRep*, PyRep*, PyRep*)>(
+        &CalendarMgrService::CreateAllianceEvent));
+    // Crucible client sends (dateTime, None, title, description, important)
+    this->Add("CreateAllianceEvent", static_cast<
+        PyResult(CalendarMgrService::*)(PyCallArgs&, PyLong*, PyNone*, PyWString*, PyWString*, PyInt*)>(
+        &CalendarMgrService::CreateAllianceEvent));
     this->Add("UpdateEventParticipants", &CalendarMgrService::UpdateEventParticipants);
     this->Add("EditPersonalEvent", &CalendarMgrService::EditPersonalEvent);
     this->Add("EditCorporationEvent", &CalendarMgrService::EditCorporationEvent);
