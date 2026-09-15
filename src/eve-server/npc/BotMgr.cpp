@@ -1,4 +1,4 @@
-﻿#include "eve-server.h"
+#include "eve-server.h"
 #include "npc/BotMgr.h"
 #include "npc/BotMemory.h"
 #include "npc/PlayerBot.h"
@@ -86,7 +86,7 @@ void BotMgr::CleanupOrphanedSpaceItems()
     //    its active ship (chelobot hulls after a crash, transient NPC spawns).
     //    Their fitted modules and loaded charges (children, grandchildren) and
     //    all entity_attributes are removed with them. System range 3000xxxx
-    //    (k-space) .. 31xxxxxx (w-space) вЂ” stations/planets/moons are outside.
+    //    (k-space) .. 31xxxxxx (w-space) — stations/planets/moons are outside.
     if (!sDatabase.RunQuery(err, affected,
         "DELETE e, ea, ec, eac, eg, eag FROM entity e "
         "LEFT JOIN entity_attributes ea ON ea.itemID = e.itemID "
@@ -104,7 +104,7 @@ void BotMgr::CleanupOrphanedSpaceItems()
     else if (affected > 0)
         sLog.White("      BotMgr", "Space cleanup: removed %u leftover in-space ship rows (bot hulls/NPC spawns).", affected);
 
-    // 2) Orphan drones: owner is not a pilot actively flying in that system вЂ”
+    // 2) Orphan drones: owner is not a pilot actively flying in that system —
     //    docked or logged-off pilots never have legal drones in space, and
     //    NPC drones (owner = faction corp, no character row) are leftovers.
     if (!sDatabase.RunQuery(err, affected,
@@ -129,7 +129,7 @@ void BotMgr::CleanupOrphanedSpaceItems()
 // Boot-time pilot-pool trim: if a previous over-spawn (or repeated cleanup+
 // spawn cycles) pushed the persistent pool past MaxTotalPilots, delete the
 // NEWEST characters beyond the cap together with their memory/portrait maps,
-// private mail, killmails and owned items. The oldest ~N capped pilots stay вЂ”
+// private mail, killmails and owned items. The oldest ~N capped pilots stay —
 // the spawner reuses them with their saved professions instead of rolling
 // fresh legends, so the population is one stable capped set (user rule).
 void BotMgr::TrimPilotPool()
@@ -198,7 +198,7 @@ int BotMgr::Initialize()
 {
     m_initalized = true;
     // NOTE: the DB may not be connected yet when this runs (eve-server.cpp
-    // connects later), so the space cleanup is NOT done here вЂ” main() calls
+    // connects later), so the space cleanup is NOT done here — main() calls
     // CleanupOrphanedSpaceItems() right after sDatabase.Initialize().
     if (sConfig.playerBots.Enabled) {
         sLog.Green("      BotMgr", "Simulated players ENABLED (max %u per system, chat %u%%, skill %u-%u).",
@@ -231,7 +231,7 @@ void BotMgr::Process()
         bool hasPlayer = (pSystem->PlayerCount() >= 1);
         bool persistent = (m_alwaysOn.find(sysID) != m_alwaysOn.end());
         if (!hasPlayer && !persistent) {
-            // No real player and not an always-on system вЂ” reap the simulated
+            // No real player and not an always-on system — reap the simulated
             // population so bots follow the players (throttled).
             if (reapNow)
                 ReapBots(pSystem);
@@ -257,7 +257,7 @@ void BotMgr::Process()
     // Bots occasionally chatter among themselves in local (rare).
     ProcessBotSmalltalk();
 
-    // Drain queued bot chat replies (one per tic) вЂ” drives bot<-bot conversations
+    // Drain queued bot chat replies (one per tic) — drives bot<-bot conversations
     // without recursing the stack.
     ProcessBotReplies();
 
@@ -287,13 +287,13 @@ void BotMgr::Process()
         }
     }
 
-    // Periodic admin security audit (RMT flows / multiboxing IPs) в†’ admin TG.
+    // Periodic admin security audit (RMT flows / multiboxing IPs) → admin TG.
     SecurityAuditTick();
 
-    // Daily top-kills digest в†’ public (player) TG group.
+    // Daily top-kills digest → public (player) TG group.
     DailyKillDigestTick();
 
-    // Evening admin report (restarts / crashes / code changes) в†’ admin TG.
+    // Evening admin report (restarts / crashes / code changes) → admin TG.
     DailyAdminReportTick();
 
     // Player-like offline skill training for simulated pilots.
@@ -301,7 +301,7 @@ void BotMgr::Process()
 }
 
 // Periodic admin security audit. Scans the last 24h of market fills for
-// unusually large humanв†”human ISK flows (RMT) and the login history for several
+// unusually large human↔human ISK flows (RMT) and the login history for several
 // accounts sharing one IP (multiboxing), then notifies the closed admin Telegram
 // group. Runs at most every 10 minutes; per-finding notifications are
 // rate-limited to ~once per 6 hours so a persistent pattern doesn't spam.
@@ -329,7 +329,7 @@ static void SecurityAuditTick()
     std::string body;
     int found = 0;
 
-    // 1) Big humanв†”human ISK flows (mktTransactions, sell side only, 24h).
+    // 1) Big human↔human ISK flows (mktTransactions, sell side only, 24h).
     //    Human = a character whose account exists in `account` (chelobots have
     //    accountID 0 and never trip this).
     {
@@ -371,7 +371,7 @@ static void SecurityAuditTick()
         }
     }
 
-    // 2) Accounts sharing one IP (last 14 days) в†’ multiboxing hint.
+    // 2) Accounts sharing one IP (last 14 days) → multiboxing hint.
     {
         DBQueryResult res;
         if (sDatabase.RunQuery(res,
@@ -399,14 +399,14 @@ static void SecurityAuditTick()
     }
 
     if (found > 0)
-        TelegramBot::NotifyAdmin("рџ›Ў Security: " + std::to_string(found)
-            + " С„Р»Р°Рі(РѕРІ)" + body);
+        TelegramBot::NotifyAdmin("🛡 Security: " + std::to_string(found)
+            + " флаг(ов)" + body);
 }
 
-// Daily top-kills digest в†’ public (player) Telegram group. Fires at most once
+// Daily top-kills digest → public (player) Telegram group. Fires at most once
 // per day (24h from the previous run).  Rows are enriched: local time of the
 // kill, victim (corp + ship class), system + region, the final-blow ship class
-// and who landed it, and damage вЂ” so the message reads like a mini killboard.
+// and who landed it, and damage — so the message reads like a mini killboard.
 // Formatting helpers: killTime is a Windows FILETIME (100ns ticks since 1601),
 // converted to a local "dd.mm HH:MM" string in C++ (the SQL DATE_FORMAT path was
 // producing garbage on the live server).
@@ -437,7 +437,7 @@ std::string HumanizeIsk(double v) {
 
 // Builds the enriched top-kills block (shared by the daily digest and the
 // /topkills Telegram command).  `sinceSql` is a SQL boolean restricting the
-// window (e.g. the last 24h) вЂ” pass "1" for an overall leaderboard.
+// window (e.g. the last 24h) — pass "1" for an overall leaderboard.
 std::string BuildKillDigestText(int limit, const std::string& sinceSql)
 {
     char lim[16];
@@ -482,29 +482,29 @@ std::string BuildKillDigestText(int limit, const std::string& sinceSql)
         std::string ktime  = FormatKillTime(row.GetInt64(12));
 
         // Compact one-line-per-kill layout (less flood than the old 3-line
-        // cards): N) time В· victim <corp> вЂ” ship [class] В· system (region) В·
-        // вљ” killer (ship) В· dmg.
+        // cards): N) time · victim <corp> — ship [class] · system (region) ·
+        // ⚔ killer (ship) · dmg.
         std::string line = "\n" + std::to_string(count + 1) + ") ";
-        if (!ktime.empty()) line += ktime + " В· ";
+        if (!ktime.empty()) line += ktime + " · ";
         line += victim;
         if (vcorp) line += " <" + std::string(vcorp) + ">";
-        if (*ship) line += " вЂ” " + std::string(ship);
+        if (*ship) line += " — " + std::string(ship);
         if (grp)   line += " [" + std::string(grp) + "]";
-        if (*sys)  line += " В· " + std::string(sys);
+        if (*sys)  line += " · " + std::string(sys);
         if (region) line += " (" + std::string(region) + ")";
-        line += " В· вљ” ";
+        line += " · ⚔ ";
         if (killer) line += std::string(killer);
         else if (kship) line += std::string(kship);
         else line += "NPC";
         if (kship && killer) line += " (" + std::string(kship) + ")";
         if (kgrp) line += " [" + std::string(kgrp) + "]";
-        line += " В· " + HumanizeIsk(row.GetUInt(11));
+        line += " · " + HumanizeIsk(row.GetUInt(11));
         body += line;
         ++count;
     }
     if (count == 0)
         return "";
-    return "рџ“Љ РўРѕРї-" + std::to_string(count) + " РєРёР»Р»РѕРІ Р·Р° СЃСѓС‚РєРё" + body;
+    return "📊 Топ-" + std::to_string(count) + " киллов за сутки" + body;
 }
 
 static void DailyKillDigestTick()
@@ -513,7 +513,7 @@ static void DailyKillDigestTick()
         return;
 
     // Once per 24h. The marker lives in srvStatus so a restart (rebuild) does
-    // NOT re-fire the digest вЂ” the old in-memory marker reset to 0 every boot.
+    // NOT re-fire the digest — the old in-memory marker reset to 0 every boot.
     // sNextDigestCheck keeps the DB from being polled every tick.
     static time_t sNextDigestCheck = 0;
     time_t now = time(nullptr);
@@ -608,16 +608,16 @@ static void DailyAdminReportTick()
     char dateBuf[32];
     strftime(dateBuf, sizeof(dateBuf), "%d.%m", &tmv);
 
-    std::string msg = "рџ“‹ Р’РµС‡РµСЂРЅРёР№ РѕС‚С‡С‘С‚ В· " + std::string(dateBuf);
-    msg += "\n\nрџ”„ РџРµСЂРµР·Р°РіСЂСѓР·РѕРє: " + std::to_string(restarts);
-    msg += "\nрџ’Ґ РџР°РґРµРЅРёР№: " + std::to_string(crashDelta);
+    std::string msg = "📋 Вечерний отчёт · " + std::string(dateBuf);
+    msg += "\n\n🔄 Перезагрузок: " + std::to_string(restarts);
+    msg += "\n💥 Падений: " + std::to_string(crashDelta);
     if (commitCount > 0) {
         uint32 changes = (rcm > 0 && commitCount >= rcm) ? (commitCount - rcm) : commitCount;
-        msg += "\nрџ§© РљРѕРјРјРёС‚РѕРІ: " + std::to_string(changes);
-        msg += "\nрџ“¦ Р‘РёР»Рґ: " + (hash.empty() ? "?" : hash);
-        if (!built.empty()) msg += " В· " + built;
+        msg += "\n🧩 Коммитов: " + std::to_string(changes);
+        msg += "\n📦 Билд: " + (hash.empty() ? "?" : hash);
+        if (!built.empty()) msg += " · " + built;
     } else {
-        msg += "\nрџ§© РљРѕРјРјРёС‚РѕРІ: РЅРµС‚ РґР°РЅРЅС‹С… (build_info.txt)";
+        msg += "\n🧩 Коммитов: нет данных (build_info.txt)";
     }
 
     TelegramBot::NotifyAdmin(msg);
@@ -643,7 +643,7 @@ static void ProcessBotTrainingBatch()
 
     // ---- roster profession rebalance (user rule): a biologist/trainee keeps
     // its own job; ONLY when a profession runs short roster-wide do a few
-    // pilots switch to the missing one WITHOUT losing progress вЂ” all learned
+    // pilots switch to the missing one WITHOUT losing progress — all learned
     // skills stay on the character, only botMemory.profession (and, on the
     // next respawn, the hull/behaviour) changes. Runs at most once per 30 min.
     static time_t sLastProfBalance = 0;
@@ -670,7 +670,7 @@ static void ProcessBotTrainingBatch()
             }
             uint32 minPer = std::max<uint32>(3, total / 9 / 4);   // quarter of the even share
             if (least != 0xFF && least != most && cnt[least] < minPer) {
-                // A brand-new profession (e.g. Industrialist) starts empty вЂ” seed a
+                // A brand-new profession (e.g. Industrialist) starts empty — seed a
                 // real share of the roster in one pass so it is actually present.
                 uint32 toMove;
                 if (cnt[least] == 0)
@@ -723,7 +723,7 @@ static void ProcessBotTrainingBatch()
         uint8  prof   = (uint8)row.GetUInt(2);
 
         // --- attributes: race-based base x multiplier with per-pilot variation
-        // (deterministic вЂ” no dependence on bloodline tables that may be empty).
+        // (deterministic — no dependence on bloodline tables that may be empty).
         int16 baseA[5] = { 19, 19, 19, 19, 19 };
         switch (race) {
             case 1: baseA[0]=20;baseA[1]=20;baseA[2]=21;baseA[3]=21;baseA[4]=18; break; // Amarr
@@ -860,7 +860,7 @@ static void ProcessBotTrainingBatch()
             }
         }
         if (curType == 0 || curLevel >= 5) {
-            // nothing left to train (all V) вЂ” mark idle
+            // nothing left to train (all V) — mark idle
             DBerror e;
             sDatabase.RunQuery(e, "UPDATE botTraining SET skillTypeID = 0, nextLevel = 1,"
                                   " spProgress = 0, lastTrain = %lli WHERE charID = %u",
@@ -868,7 +868,7 @@ static void ProcessBotTrainingBatch()
             continue;
         }
         if (curLevel == 0) {
-            // kept stored skill вЂ” load its real level
+            // kept stored skill — load its real level
             DBQueryResult lr;
             if (sDatabase.RunQuery(lr, "SELECT valueInt FROM entity_attributes a"
                                        " JOIN entity e ON e.itemID = a.itemID"
@@ -1048,10 +1048,10 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
     // arrive through a gate, others leave. Decide per spawn.
     uint32 spawnMode = MakeRandomInt(0, 9);
     if (spawnMode < 3) {
-        // Already here вЂ” spawn directly at a gate / station in this system
+        // Already here — spawn directly at a gate / station in this system
         // (they "live" here), no inbound flight.
         SpawnBot(pSystem, 0, "", 0, 0);
-        // Some of these are just passing through вЂ” leave shortly.
+        // Some of these are just passing through — leave shortly.
         if (MakeRandomInt(0, 99) < 25) {
             for (auto& [id, se] : pSystem->GetEntities()) {
                 if (se == nullptr || se->GetNPCSE() == nullptr)
@@ -1163,7 +1163,7 @@ uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
     }
 
     if (corps.empty()) {
-        // No corps with members yet вЂ” fall back to any corp in the DB.
+        // No corps with members yet — fall back to any corp in the DB.
         if (sDatabase.RunQuery(res,
             "SELECT corporationID, allianceID FROM crpCorporation LIMIT 1")) {
             DBResultRow row;
@@ -1194,7 +1194,7 @@ uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
 void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate /*false*/)
 {
     // Pull a legend (name, corp, alliance, ship, fit) from real EVE killmail data.
-    // This is the "believable backstory" вЂ” a real pilot who actually flew this
+    // This is the "believable backstory" — a real pilot who actually flew this
     // hull with this fit in live EVE. Falls back to a random agent name if the
     // killmail table is empty (first run before import_killmail_legends.py).
     std::string useName = name;
@@ -1206,8 +1206,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
 
     // Random/unspecified spawn (charID==0): always REUSE an already-created pilot
     // from the persistent pool (chrCharacters accountID=0 + botMemory) when any
-    // exist. New legends are only rolled to TOP UP a fresh/empty pool вЂ” never past
-    // playerBots.MaxTotalPilots вЂ” so the population is a stable set of ~N pilots
+    // exist. New legends are only rolled to TOP UP a fresh/empty pool — never past
+    // playerBots.MaxTotalPilots — so the population is a stable set of ~N pilots
     // that respawn, not an ever-growing pile of new characters.
     bool reuseExisting = false;
     uint32 poolEveID = 0;   // ESI portrait source for pooled pilots (botPortraits)
@@ -1215,7 +1215,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         // 1) ALWAYS try to reuse an established pool pilot first. This used to be
         //    gated on a separate COUNT query (`if (poolCount > 0)`); if that count
         //    failed/returned 0 under DB load, reuse was skipped and the spawner
-        //    minted a brand-new character every time вЂ” the pool grew past the cap.
+        //    minted a brand-new character every time — the pool grew past the cap.
         {
             DBQueryResult bres;
             if (sDatabase.RunQuery(bres,
@@ -1234,7 +1234,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     useAllianceID = brow.GetUInt(2);
                     poolEveID = brow.GetUInt(3);
                     reuseExisting = true;
-                    // A pooled pilot was minted FROM a killmail legend вЂ” restore
+                    // A pooled pilot was minted FROM a killmail legend — restore
                     // ITS OWN legend (hull + fit) so every respawn flies the same
                     // ship with the same modules. This was lost when reuse became
                     // unconditional (legend rows were only read for freshly
@@ -1263,7 +1263,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             }
         }
 
-        // 2) Empty pool в†’ top up to the cap only. On a failed count assume the cap
+        // 2) Empty pool → top up to the cap only. On a failed count assume the cap
         //    is reached (never risk creating past MaxTotalPilots).
         if (!reuseExisting) {
             uint32 cap = sConfig.playerBots.MaxTotalPilots;
@@ -1276,7 +1276,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 if (cres.GetRow(crow)) { poolCount = crow.GetUInt(0); countOk = true; }
             }
             if (!countOk || (cap > 0 && poolCount >= cap)) {
-                _log(BOT__TRACE, "BotMgr: pilot pool at cap (%u/%u) вЂ” not creating another.",
+                _log(BOT__TRACE, "BotMgr: pilot pool at cap (%u/%u) — not creating another.",
                      poolCount, cap);
                 return;
             }
@@ -1291,7 +1291,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             {
                 DBResultRow row;
                 if (res.GetRow(row)) {
-                    useCharID = row.GetUInt(0);   // real EVE killmail charID вЂ” kept for the portrait link
+                    useCharID = row.GetUInt(0);   // real EVE killmail charID — kept for the portrait link
                     useName = row.GetText(1);
                     useCorpID = row.GetUInt(2);
                     useAllianceID = row.GetUInt(3);
@@ -1314,11 +1314,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     if (useName.empty())
         useName = "Pilot " + std::to_string(++m_botCounter);
 
-    // Corp comes from the bot's STARTING SCHOOL вЂ” exactly like a real newbie who
+    // Corp comes from the bot's STARTING SCHOOL — exactly like a real newbie who
     // picks a faction at character creation. CreateBotCharacter picks a bloodline
     // (race) then the school that race graduates from and returns the corp that
     // runs it (Imperial Academy, State War Academy, ...). A bot is thus a real
-    // member of its faction's starter corp вЂ” not "Rogue Drone" or "Serpentis".
+    // member of its faction's starter corp — not "Rogue Drone" or "Serpentis".
     // (Hunter PvP war corps still need an alliance to claim nullsec sovereignty;
     // that's handled later by MaybeFormAlliance once the bot proves itself.)
 
@@ -1353,8 +1353,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
         if (!botAlreadyHere)
             break;
-        // This pilot is already in the system вЂ” pick a fresh legend and retry.
-        _log(BOT__TRACE, "BotMgr: %s(%u) already in system %u вЂ” retrying with another legend.",
+        // This pilot is already in the system — pick a fresh legend and retry.
+        _log(BOT__TRACE, "BotMgr: %s(%u) already in system %u — retrying with another legend.",
              useName.c_str(), useCharID, pSystem->GetID());
         if (attempt == 7)
             break;   // give up after retries; caller will skip (no duplicate SE)
@@ -1432,18 +1432,18 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             const char* fit = lrow.GetText(5);
             if (fit != nullptr) useFit = fit;
         }
-        // NOTE: do NOT set useCharID from the legend here вЂ” CreateBotCharacter
+        // NOTE: do NOT set useCharID from the legend here — CreateBotCharacter
         // allocates the real charID on the next loop iteration.
     }
     if (botAlreadyHere) {
-        _log(BOT__TRACE, "BotMgr: all candidate legends already in system %u вЂ” skipping spawn.",
+        _log(BOT__TRACE, "BotMgr: all candidate legends already in system %u — skipping spawn.",
              pSystem->GetID());
         return;
     }
     // Pooled (reused) pilots keep growing their skillbook across respawns.
     if (reuseExisting)
         CharacterDB::EnsureExtendedBotSkills(useCharID, skillTier < 5 ? (uint8)(skillTier + 1) : 5);
-    // Remember the EVE portrait source so fetch_bot_portraits.py can grab it вЂ”
+    // Remember the EVE portrait source so fetch_bot_portraits.py can grab it —
     // AND download it now (async) so the client sees a face immediately.
     // Pooled pilots were minted from legends in earlier sessions, so their
     // portrait source comes from the botPortraits map (poolEveID); freshly
@@ -1458,15 +1458,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         FetchPortraitAsync(useCharID, killmailCharID);
     }
 
-    // Ship hull placeholder вЂ” final profession hull is chosen further down and
+    // Ship hull placeholder — final profession hull is chosen further down and
     // persisted to botMemory afterwards (used by the portal when the bot is offline).
     uint32 hullType = useShipType;
 
-    // Profession: keep the bot's saved job across respawns (a miner stays a miner вЂ”
+    // Profession: keep the bot's saved job across respawns (a miner stays a miner —
     // it's been learning it). Only brand-new pilots roll a fresh one. Skill tier
     // is loaded the same way: a persisted, levelled-up tier survives respawns.
     PlayerBot::BotProfession prof = PlayerBot::BotProfession::Miner;
-    uint8 savedSkill = 0xFF;   // 0xFF = unset в†’ roll fresh below
+    uint8 savedSkill = 0xFF;   // 0xFF = unset → roll fresh below
     {
         DBQueryResult pres;
         if (sDatabase.RunQuery(pres,
@@ -1480,7 +1480,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 if (savedSkill <= 5)
                     skillTier = savedSkill;   // veteran keeps its trained tier
                 else {
-                    // Legacy pilot with no stored tier вЂ” seed it now so it stays
+                    // Legacy pilot with no stored tier — seed it now so it stays
                     // stable across spawns (and can level up from here).
                     DBerror uerr;
                     sDatabase.RunQuery(uerr,
@@ -1488,7 +1488,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                         skillTier, useCharID);
                 }
             } else {
-                // New pilot вЂ” roll a profession and persist it for future respawns.
+                // New pilot — roll a profession and persist it for future respawns.
                 float p = MakeRandomFloat();
                 if (p < 0.10f)
                     prof = PlayerBot::BotProfession::Hunter;       // PvP pirates / war corps / guards
@@ -1520,7 +1520,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     }
 
     // A chelobot's corp and alliance are ALWAYS the real ones recorded on its
-    // character row (chrCharacters.corporationID -> crpCorporation.allianceID) вЂ”
+    // character row (chrCharacters.corporationID -> crpCorporation.allianceID) —
     // never the killmail legend's ids. The legend (zkillboard/sotzone) carries
     // live-EVE corp/alliance ids that don't exist in this server's
     // crpCorporation/alnAlliance, and the client hard-crashes/hangs rendering
@@ -1572,7 +1572,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             case PlayerBot::BotProfession::Miner:
                 pick = minerHulls; pickCount = sizeof(minerHulls)/sizeof(minerHulls[0]); forceProfessionHull = true;
                 // Professional mining fleet: a practised miner (high skill tier)
-                // sometimes brings the boss вЂ” an Orca (or Rorqual in null) that
+                // sometimes brings the boss — an Orca (or Rorqual in null) that
                 // boosts nearby barges of its corp. The rest stay on barges.
                 if (skillTier >= 3 && MakeRandomInt(0, 99) < 20) {
                     bool isNull = pSystem->GetSystemSecurityRating() < 0.0f;
@@ -1590,7 +1590,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 pick = scanHulls; pickCount = sizeof(scanHulls)/sizeof(scanHulls[0]); forceProfessionHull = true;
                 break;
             case PlayerBot::BotProfession::Missioner:
-                // Agent mission runner вЂ” a standard combat hull (cruiser/BC), the
+                // Agent mission runner — a standard combat hull (cruiser/BC), the
                 // kind of ship an agent contract pilot actually uses.
                 pick = combatHulls; pickCount = sizeof(combatHulls)/sizeof(combatHulls[0]); forceProfessionHull = true;
                 break;
@@ -1599,18 +1599,18 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 // between the POS/station and the market).
                 pick = haulerHulls; pickCount = sizeof(haulerHulls)/sizeof(haulerHulls[0]); forceProfessionHull = true;
                 break;
-            default:   // Hunter / RatHunter вЂ” combat
+            default:   // Hunter / RatHunter — combat
                 pick = combatHulls; pickCount = sizeof(combatHulls)/sizeof(combatHulls[0]);
                 break;
         }
 
         if (spawnFleetBoss) {
-            // Boss hull already chosen (Orca/Rorqual) вЂ” keep it, no re-pick.
+            // Boss hull already chosen (Orca/Rorqual) — keep it, no re-pick.
         } else if (forceProfessionHull) {
             hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
         } else {
             // Combat hull from the killmail legend (real EVE hull). Killmail hull
-            // types are from modern EVE вЂ” some don't exist in the server's
+            // types are from modern EVE — some don't exist in the server's
             // (Crucible-era) invTypes, or are pods/shuttles/deployables/#System,
             // or are NON-COMBAT ships (mining barges, freighters, haulers) that a
             // pirate/hunter would never fly. Validate it's a real combat hull and
@@ -1640,9 +1640,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     case EVEDB::invGroups::BlackOps:
                     case EVEDB::invGroups::Marauder:
                     case EVEDB::invGroups::EliteBattleship:
-                        break;  // combat hull вЂ” keep it
+                        break;  // combat hull — keep it
                     default:
-                        valid = false;   // barge/freighter/hauler/other вЂ” not a combat hull
+                        valid = false;   // barge/freighter/hauler/other — not a combat hull
                         break;
                 }
             }
@@ -1664,7 +1664,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     _log(BOT__MESSAGE, "BotMgr: spawning simulated player '%s' (char %u, corp %u, ship %u, fit %zu items) in system %u",
          useName.c_str(), useCharID, useCorpID, hullType, useFit.size(), pSystem->GetID());
 
-    // Spawn near a gate вЂ” the bot "arrived through the gate from the neighbouring
+    // Spawn near a gate — the bot "arrived through the gate from the neighbouring
     // system", matching a real pilot's travel story. Do NOT put it at the gate's
     // centre: gates have huge collision spheres (14-19km) and a ship inside one
     // gets snapped out every tick (visible micro-teleports / "repulsion"). Place
@@ -1672,7 +1672,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // it warped in beside the gate.
     GPoint pos;
     bool posSet = false;
-    uint32 arriveGateID = 0;   // the gate this bot "came through" вЂ” for the jump-in animation
+    uint32 arriveGateID = 0;   // the gate this bot "came through" — for the jump-in animation
     for (auto& [id, se] : pSystem->GetStaticEntities()) {
         if (se != nullptr && se->GetGateSE() != nullptr) {
             GPoint gatePos = se->GetPosition();
@@ -1697,7 +1697,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             }
         }
     }
-    // W-space systems have no stargates and usually no stations вЂ” land the bot
+    // W-space systems have no stargates and usually no stations — land the bot
     // on a random orbit around the first planet/moon instead of the system
     // centre (0,0,0 = the sun), which triggered a SetPosition traceStack dump.
     if (!posSet) {
@@ -1716,7 +1716,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
 
     // Real players almost always rename their ship to something arbitrary
     // (a word, a name, a code). Give the bot's hull a random ship name too,
-    // NOT the pilot's name вЂ” a pilot named after their ship is a tell.
+    // NOT the pilot's name — a pilot named after their ship is a tell.
     std::string shipName = MakeRandomShipName();
     ItemData idata(hullType, useCorpID, pSystem->GetID(), flagNone, shipName.c_str(), pos);
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
@@ -1727,13 +1727,13 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
 
     // Give the bot's hull a combat profile. Real player ships (Raven etc.) don't
     // carry the NPC attack attributes (AttrEmDamage/AttrKineticDamage/...) that
-    // NPC::constructor / NPCAI read вЂ” without them the bot locks targets but
+    // NPC::constructor / NPCAI read — without them the bot locks targets but
     // deals ZERO damage. Set a class-based profile scaled by skill tier.
     {
         float base = 6.0f + (float)skillTier * 4.0f;   // 6..26 base DPS-ish
         uint16 grp = iRef->groupID();
         // Non-combat hulls (mining barges/exhumers, industrials, freighters,
-        // transports, shuttles, capsules...) have no guns вЂ” a hauler/barge must
+        // transports, shuttles, capsules...) have no guns — a hauler/barge must
         // NOT deal combat damage. Peaceful pilots on real combat hulls still fight
         // back with their weapons. A real pilot in a freighter warps out, it does
         // not "shoot back" with a cargo bay.
@@ -1772,7 +1772,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         if (!iRef->HasAttribute(AttrOptimalSigRadius))  iRef->SetAttribute(AttrOptimalSigRadius, 40.0f, false);
         if (!iRef->HasAttribute(AttrSignatureRadius))   iRef->SetAttribute(AttrSignatureRadius,  iRef->GetAttribute(AttrRadius).get_float() * 5.0f, false);
 
-        // Weapon type per hull вЂ” the attack effect must match the ship. The client
+        // Weapon type per hull — the attack effect must match the ship. The client
         // (spaceObject/entityShip.py) builds the turret model from the hull's
         // gfxTurretID (attribute 245) = the TYPE ID of a real turret/launcher
         // module. So we set AttrGfxTurretID to a T1 weapon module typeID matching
@@ -1789,7 +1789,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 raceID = tdata.race;
         }
         // Miners carry a real Mining Laser I (483) so the client renders a mining
-        // beam on the hull (group 54 = Mining Laser is in turretModuleGroups) вЂ”
+        // beam on the hull (group 54 = Mining Laser is in turretModuleGroups) —
         // same as a player miner's fit. Everyone else gets their race weapon.
         if (prof == PlayerBot::BotProfession::Miner) {
             if (!iRef->HasAttribute(AttrGfxTurretID))
@@ -1817,7 +1817,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     iRef->SetAttribute(AttrGfxTurretID, launcherType, false);
             } else if (raceID != 0) {
                 // Turret boats: the right weapon module typeID per race. Note drone
-                // hulls (Vexor/Myrmidon/Dominix etc.) ALSO fit turrets вЂ” EVE ships
+                // hulls (Vexor/Myrmidon/Dominix etc.) ALSO fit turrets — EVE ships
                 // carry both weapon systems. Drones are handled separately via the
                 // hull's AttrDroneCapacity in PlayerBot::GetDroneCapacity/SpawnDrones.
                 uint32 turretType = 450;     // default: Amarr Gatling Pulse Laser I
@@ -1848,12 +1848,12 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         return;
     }
     // Real killmail fit: materialize the fitted modules (from the legend's
-    // fitted_item_ids) as actual items in the ship's slots вЂ” the client shows the
+    // fitted_item_ids) as actual items in the ship's slots — the client shows the
     // genuine fit and a wreck drops real module loot, like a player's lossmail.
     // Only when the bot is actually flying the legend hull (combat professions
     // keep the killmail ship). Professional hulls (miner barges, haulers, scan
     // frigates) are force-picked per profession above and would mismatch a combat
-    // legend's fit вЂ” those bots run a profession fit instead, not a lossmail one.
+    // legend's fit — those bots run a profession fit instead, not a lossmail one.
     if (hullType == useShipType && !useFit.empty()) {
         // After a loss the pilot must re-BUY the fit on the open market with its
         // own ISK (upgraded as far as its skill tier + wallet allow), exactly like
@@ -1884,9 +1884,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 sDatabase.RunQuery(uerr,
                     "UPDATE botMemory SET resuppliedDeaths = %u WHERE charID = %u", deaths, useCharID);
             } else {
-                // Can't afford even a bare hull вЂ” the pilot undocks stripped and
+                // Can't afford even a bare hull — the pilot undocks stripped and
                 // has to earn the ISK back before it can fight properly again.
-                _log(BOT__MESSAGE, "BotMgr: pilot %u cannot afford to re-fit after loss вЂ” undocking stripped.",
+                _log(BOT__MESSAGE, "BotMgr: pilot %u cannot afford to re-fit after loss — undocking stripped.",
                      useCharID);
             }
         } else {
@@ -1914,7 +1914,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     }
 
     // Arrival animation: the bot "jumped through" the gate it spawned beside, so
-    // play the gate flash to everyone in the bubble вЂ” otherwise a chelobot just
+    // play the gate flash to everyone in the bubble — otherwise a chelobot just
     // materialises out of nowhere (a tell that it's not a real pilot).
     if (arrivedViaGate && arriveGateID != 0 && bot->DestinyMgr() != nullptr) {
         bot->DestinyMgr()->SendGateActivity(arriveGateID);
@@ -1937,7 +1937,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         _log(BOT__TRACE, "BotMgr: %s(%u) role = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetRole());
     }
 
-    // EWAR fit per combat role вЂ” NPCAI reads these attributes and applies
+    // EWAR fit per combat role — NPCAI reads these attributes and applies
     // web/scram/ECM/paint automatically in AttackTarget. Support ships are the
     // electronic-warfare specialists (jam + paint + web + scram); every fighter
     // carries a light scram so the fleet can hold targets (tackle).
@@ -1962,7 +1962,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             if (!iRef->HasAttribute(AttrWarpScrambleRange))          iRef->SetAttribute(AttrWarpScrambleRange,         12000.0f, false);   // tackle scram
             if (!iRef->HasAttribute(AttrWarpScrambleStrength))       iRef->SetAttribute(AttrWarpScrambleStrength,      1.0f,     false);
             if (!iRef->HasAttribute(AttrEntityWarpScrambleChance))   iRef->SetAttribute(AttrEntityWarpScrambleChance,  0.75f,    false);   // ~25% chance
-            // Light target painter вЂ” bigger sig = the fleet's guns/missiles hit harder.
+            // Light target painter — bigger sig = the fleet's guns/missiles hit harder.
             if (!iRef->HasAttribute(AttrEntityTargetPaintMaxRange))      iRef->SetAttribute(AttrEntityTargetPaintMaxRange,     20000.0f, false);
             if (!iRef->HasAttribute(AttrEntityTargetPaintMultiplier))    iRef->SetAttribute(AttrEntityTargetPaintMultiplier,   0.15f,    false);
             if (!iRef->HasAttribute(AttrEntityTargetPaintDurationChance)) iRef->SetAttribute(AttrEntityTargetPaintDurationChance, 0.5f,   false);
@@ -2176,7 +2176,7 @@ bool BotMgr::GeneratePortraitPNG(const std::string& path, uint32 seed)
 // <imageDir>/Character/<serverCharID>_512.jpg (ImageServer::GetFilePath).
 // Chain: 1) ESI (image.evetech.net is blocked from RU); 2) the same URL via
 // the configured proxy; 3) procedural generation with this binary's
-// standalone "genportrait" mode вЂ” a bot is NEVER left without a face, its
+// standalone "genportrait" mode — a bot is NEVER left without a face, its
 // random portrait is generated onto the image server.
 void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
 {
@@ -2204,7 +2204,7 @@ void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
     std::string proxy = sConfig.telegram.Proxy;
 
     // Use --fail so a failed request writes nothing, and fetch into .tmp then
-    // move вЂ” the generated fallback is never destroyed by a failed download.
+    // move — the generated fallback is never destroyed by a failed download.
     std::string sh =
         "curl -sSL --fail --max-time 20 -o '" + tmp + "' '" + url + "'"
         " && [ -s '" + tmp + "' ] && mv '" + tmp + "' '" + path + "' && exit 0";
@@ -2227,13 +2227,13 @@ void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
         ::execl("/bin/sh", "sh", "-c", sh.c_str(), (char*)nullptr);
         _exit(127);
     }
-    // parent: don't wait вЂ” let it finish in the background
+    // parent: don't wait — let it finish in the background
     _log(BOT__TRACE, "BotMgr: fetching portrait for bot %u (eve %u) -> %s", serverCharID, eveCharID, path.c_str());
 }
 
 // Materialize a killmail fit (JSON array of module typeIDs) as REAL item children
 // of the bot's ship. Each module is spawned as an actual item in the ship with
-// the correct high/mid/low/rig slot flag вЂ” the same representation a player's
+// the correct high/mid/low/rig slot flag — the same representation a player's
 // fitted hull has in the entity table. Chelobot hulls are NPC ships that never
 // get a pilot (ShipItem::SetPlayer -> ModuleManager::Initialize never runs), so
 // we do NOT go through ShipItem::AddItemByFlag/ModuleManager (their .at()/pilot
@@ -2253,7 +2253,7 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
     if (ship.get() == nullptr)
         return;
 
-    // fitted_item_ids is "[typeID, typeID, ...]" вЂ” parse the integer list (no
+    // fitted_item_ids is "[typeID, typeID, ...]" — parse the integer list (no
     // JSON lib in-tree; the format is a plain array of module typeIDs).
     std::vector<uint32> typeIDs;
     {
@@ -2273,7 +2273,7 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
         return;
 
     // How many slots does this hull actually have? Only fit hulls that can carry
-    // anything (skip shuttles/pods/capsules вЂ” no fight fit). Slots mirror the
+    // anything (skip shuttles/pods/capsules — no fight fit). Slots mirror the
     // ship's dogma attributes (AttrLowSlots/AttrMedSlots/AttrHiSlots/AttrRigSlots).
     uint32 loMax = ship->GetAttribute(AttrLowSlots).get_uint32();
     uint32 midMax = ship->GetAttribute(AttrMedSlots).get_uint32();
@@ -2325,7 +2325,7 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
         const ItemType* t = sItemFactory.GetType((uint16)typeID);
         if (t == nullptr)
             continue;
-        // Only modules belong in slots (charges/ammo in a fit list are dropped вЂ”
+        // Only modules belong in slots (charges/ammo in a fit list are dropped —
         // they belong in cargo or loaded later). Rigs are classed as modules too.
         if (t->categoryID() != EVEDB::invCategories::Module)
             continue;
@@ -2338,25 +2338,25 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
         else if (t->HasEffect(EVEEffectID::rigSlot))  bank = &rig;
         else if (t->HasEffect(EVEEffectID::hiPower))  bank = &hi;
         else {
-            _log(BOT__TRACE, "BotMgr: MaterializeBotFit вЂ” type %u has no power-slot effect, skipping.", typeID);
+            _log(BOT__TRACE, "BotMgr: MaterializeBotFit — type %u has no power-slot effect, skipping.", typeID);
             continue;
         }
         EVEItemFlags slot = pickSlot(*bank);
         if (slot == flagIllegal)
-            continue;   // bank full вЂ” skip quietly, the rest of the fit still lands
+            continue;   // bank full — skip quietly, the rest of the fit still lands
 
         // Spawn in limbo owned by the pilot, then MOVE into the ship at the slot
         // flag. Move() registers the module in the ship's in-memory inventory
         // (so ShipItem::Delete -> DeleteContents() cleans it up later) AND writes
         // the new location/flag to the entity table, where the lossmail reader
-        // (RecordBotKillMail) picks it up вЂ” same representation as a player's
+        // (RecordBotKillMail) picks it up — same representation as a player's
         // fitted module. A direct SpawnItem into the ship would bypass the
         // inventory and orphan the module row on ship delete.
         InventoryItemRef iRef;
         if (buyStationID != 0) {
             // After a loss this module was bought on the open market (BotBuyStock
-            // minted it into the bot's hangar) вЂ” fit that real item instead of
-            // conjuring one. Nothing in the hangar (broke / no order) в†’ skip slot.
+            // minted it into the bot's hangar) — fit that real item instead of
+            // conjuring one. Nothing in the hangar (broke / no order) → skip slot.
             DBQueryResult hres;
             if (sDatabase.RunQuery(hres,
                 "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u"
@@ -2378,7 +2378,7 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
         iRef->ChangeSingleton(true, false);
         iRef->Move(ship->itemID(), slot, false);
         ++fitted;
-        _log(BOT__TRACE, "BotMgr: MaterializeBotFit вЂ” fitted %s(%u) to flag %u.",
+        _log(BOT__TRACE, "BotMgr: MaterializeBotFit — fitted %s(%u) to flag %u.",
              t->name().c_str(), typeID, (uint32)slot);
     }
 
@@ -2398,7 +2398,7 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
                     wRef->ChangeSingleton(true, false);
                     wRef->Move(ship->itemID(), slot, false);
                     ++fitted;
-                    _log(BOT__TRACE, "BotMgr: MaterializeBotFit вЂ” Crucible fallback weapon %s(%u) to flag %u.",
+                    _log(BOT__TRACE, "BotMgr: MaterializeBotFit — Crucible fallback weapon %s(%u) to flag %u.",
                          wt->name().c_str(), weapon, (uint32)slot);
                 }
             }
@@ -2410,15 +2410,15 @@ void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const st
              fitted, charID, ship->name());
 }
 
-// The T1в†’named-metaв†’T2 ladder for a module, best-first, gated by the pilot's
+// The T1→named-meta→T2 ladder for a module, best-first, gated by the pilot's
 // simulated skill tier (0..5). The ladder is read from the real SDE tables:
 // invMetaTypes links every module variant to its T1 parentTypeID, so a family
 // is "everything that hangs off the same root". dgmTypeAttributes carry the
 // tech level (422: 1=T1/meta, 2=T2) and meta level (633, 0..5). We let a pilot
 // fly:
-//   tier 0-1   в†’ T1 only (base or cheap meta 1-3)
-//   tier 2-3   в†’ + named meta (1-5)
-//   tier 4-5   в†’ + T2
+//   tier 0-1   → T1 only (base or cheap meta 1-3)
+//   tier 2-3   → + named meta (1-5)
+//   tier 4-5   → + T2
 // A vet with money buys T2 first, then the best named meta, then plain T1; a
 // broke rookie only ever reaches the bottom of the list.
 std::vector<uint32> BotMgr::FitUpgradePath(uint32 baseType, uint8 skillTier)
@@ -2491,10 +2491,10 @@ std::vector<uint32> BotMgr::FitUpgradePath(uint32 baseType, uint8 skillTier)
 }
 
 // Re-buy a killed bot's fit on the open market. Every module of the legend fit
-// is upgraded along its T1в†’metaв†’T2 ladder as far as the pilot's skill tier and
+// is upgraded along its T1→meta→T2 ladder as far as the pilot's skill tier and
 // wallet allow (BotBuyStock debits real ISK and mints the module into the bot's
 // hangar at `stationID`). Returns a re-serialised "[typeID, ...]" list of what
-// was actually bought вЂ” the caller fits those (MaterializeBotFit w/ buyStationID
+// was actually bought — the caller fits those (MaterializeBotFit w/ buyStationID
 // pulls the bought items out of the hangar). An empty result means the pilot is
 // too broke to replace anything and flies out stripped (no free modules).
 std::string BotMgr::ResupplyBotFit(uint32 charID, uint32 stationID, uint8 skillTier, const std::string& fitJson)
@@ -2524,7 +2524,7 @@ std::string BotMgr::ResupplyBotFit(uint32 charID, uint32 stationID, uint8 skillT
             continue;
         const ItemType* t = sItemFactory.GetType((uint16)typeID);
         if (t == nullptr || t->categoryID() != EVEDB::invCategories::Module)
-            continue;   // only modules go in slots вЂ” ammo/cargo aren't bought here
+            continue;   // only modules go in slots — ammo/cargo aren't bought here
         std::vector<uint32> path = FitUpgradePath(typeID, skillTier);
         for (uint32 cand : path) {
             double cost = sMktMgr.BotBuyStock(charID, stationID, cand, 1);
@@ -2552,7 +2552,7 @@ std::string BotMgr::ResupplyBotFit(uint32 charID, uint32 stationID, uint8 skillT
 // After a bot's fit is materialized: give its weapons real ammo/charges (T1 for
 // rookies, T2 once the pilot's skill tier is high enough) and put a believable,
 // profession-typical cargo in the hold. Real EVE pilots fly with ammo and cargo
-// that matches their job вЂ” a killed chelobot should drop those too.
+// that matches their job — a killed chelobot should drop those too.
 void BotMgr::MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 profession, uint8 skillTier)
 {
     if (shipRef.get() == nullptr || charID == 0)
@@ -2567,7 +2567,7 @@ void BotMgr::MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 
         if (iRef.get() == nullptr)
             return;
         iRef->Move(shipID, flagCargoHold, false);
-        _log(BOT__TRACE, "BotMgr: MaterializeShipLoad вЂ” cargo %u x type %u.", qty, typeID);
+        _log(BOT__TRACE, "BotMgr: MaterializeShipLoad — cargo %u x type %u.", qty, typeID);
     };
 
     // 1) Ammo for a missile boat (the exact missile the AI fires is in
@@ -2640,7 +2640,7 @@ void BotMgr::MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 
     }
 
     // 1c) If the pilot has Thermodynamics (overheat) trained, they may carry
-    //     Nanite Repair Paste ("С‚РµСЂРјРѕРїР°СЃС‚Р°") to repair burnt modules.
+    //     Nanite Repair Paste ("термопаста") to repair burnt modules.
     {
         DBQueryResult skRes;
         if (sDatabase.RunQuery(skRes,
@@ -2653,12 +2653,12 @@ void BotMgr::MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 
     }
 
     // 2) Profession-typical cargo. Miners/ratters already carry real ore/loot in
-    //    m_cargo during a run вЂ” this seeds a baseline so the hold isn't empty the
+    //    m_cargo during a run — this seeds a baseline so the hold isn't empty the
     //    moment they leave the station.
     using P = PlayerBot::BotProfession;
     switch ((P)profession) {
         case P::Hunter:
-        case P::RatHunter:   break;   // combat loadout only вЂ” no junk in the hold
+        case P::RatHunter:   break;   // combat loadout only — no junk in the hold
         case P::Miner: {
             // A handful of common minerals (Tritanium/Pyerite/Mexallon/Isogen).
             static const uint32 mins[] = { 34, 35, 36, 37 };
@@ -2751,7 +2751,7 @@ void BotMgr::ProcessTravel()
             if (pb == nullptr)
                 continue;
             if (pb->IsAggressed())
-                continue;   // aggression timer вЂ” can't jump a gate until it cools down
+                continue;   // aggression timer — can't jump a gate until it cools down
             if (pb->WantsToTravel())
                 readyToJump.push_back(pb);   // visible flight to the gate is done
             else if (MakeRandomInt(0, 299) == 0)   // ~0.33% per tic decides to leave
@@ -2772,7 +2772,7 @@ void BotMgr::ProcessTravel()
             if (haulIt != m_hauls.end() && haulIt->second.arrivedAt == 0) {
                 CourierHaul& haul = haulIt->second;
                 if (curSys == haul.endSys) {
-                    // Already on the destination system but somehow wants to leave вЂ”
+                    // Already on the destination system but somehow wants to leave —
                     // let it dock & deliver instead of roaming on.
                     haul.arrivedAt = time(nullptr);
                     destSystem = 0;
@@ -2805,7 +2805,7 @@ void BotMgr::ProcessTravel()
                     destSystem = GetRandomAdjacentSystem(pSystem->GetID());
             }
             if (destSystem == 0)
-                continue;   // dead-end system or no map data вЂ” stay put
+                continue;   // dead-end system or no map data — stay put
 
             _log(BOT__MESSAGE, "BotMgr: %s(%u) crossing gate to system %u (from %u).",
                  name.c_str(), charID, destSystem, pSystem->GetID());
@@ -2823,7 +2823,7 @@ void BotMgr::ProcessTravel()
             // Spawn in the destination system (arrives through its gate).
             SystemManager* dest = sEntityList.FindOrBootSystem(destSystem);
             if (dest != nullptr)
-                SpawnBot(dest, charID, name, corp, ally, true);   // arrived via gate в†’ jump-in animation
+                SpawnBot(dest, charID, name, corp, ally, true);   // arrived via gate → jump-in animation
 
             // Courier haul bookkeeping for this hop.
             if (haulIt != m_hauls.end()) {
@@ -2840,10 +2840,10 @@ void BotMgr::ProcessTravel()
                         }
                     }
                 } else if (haul.route.empty() && !haul.arrivedAt) {
-                    // Ran out of route without reaching the destination вЂ” drop the run.
+                    // Ran out of route without reaching the destination — drop the run.
                     haulIt = m_hauls.erase(haulIt);
                 } else if (!haul.route.empty()) {
-                    // Intermediate hop вЂ” keep the run moving: warp the courier to
+                    // Intermediate hop — keep the run moving: warp the courier to
                     // the next gate so ProcessTravel crosses it on the following tick.
                     PlayerBot* arrived = (dest != nullptr) ? BotMgr_FindInSystem(dest, charID) : nullptr;
                     if (arrived != nullptr && !arrived->WantsToTravel() && !arrived->IsTraveling()) {
@@ -3095,7 +3095,7 @@ void BotMgr::MaybeFoundCorp(PlayerBot* bot)
          bot->GetBotName().c_str(), charID, cName.c_str(), ticker.c_str(), corpID, oldCorp);
 
     // The founder recruits a few like-minded bots (same NPC corp they just left)
-    // into the new corporation вЂ” the corp grows from one pilot to a small group.
+    // into the new corporation — the corp grows from one pilot to a small group.
     uint32 recruited = 0;
     if (bot->SystemMgr() != nullptr) {
         for (auto& [rid, rse] : bot->SystemMgr()->GetEntities()) {
@@ -3236,7 +3236,7 @@ void BotMgr::GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) c
 
 void BotMgr::ProcessEconomy(PlayerBot* bot)
 {
-    // Market work happens DOCKED, not in space вЂ” a pilot can't place a sell order
+    // Market work happens DOCKED, not in space — a pilot can't place a sell order
     // while flying. Space bots just pay corp tax here; docked traders/producers
     // place orders in ProcessDockedEconomy (which knows their station).
     if (bot == nullptr || !sConfig.playerBots.Enabled)
@@ -3298,7 +3298,7 @@ void BotMgr::ProcessDockedEconomy()
                        || prof == (uint8)PlayerBot::BotProfession::Explorer) {
                 // Producers bid for the raw materials they consume (from the dock),
                 // and ship the real ore/loot they've banked in the hangar to the
-                // hub вЂ” or, docked at the hub, sell it for ISK directly.
+                // hub — or, docked at the hub, sell it for ISK directly.
                 if (MakeRandomInt(0, 99) < 20)
                     PlaceBotBuyOrderAt(sysID, db.charID, prof);
                 if (IsTradeHub(sysID))
@@ -3313,7 +3313,7 @@ void BotMgr::ProcessDockedEconomy()
 // Market self-learning for a docked trader. Every few minutes the bot reads the
 // order book at its own station and tries to make money on the spread:
 //   - if any OTHER order has crossed the book (best bid above best ask) it
-//     executes a real arbitrage fill (MarketMgr::BotArbitrageFill) вЂ” buying at
+//     executes a real arbitrage fill (MarketMgr::BotArbitrageFill) — buying at
 //     the ask and selling at the bid. Volume is consumed, mktTransactions are
 //     written and the profit lands in the bot's wallet.
 //   - if the book is clean it quotes tighter than the current best bid/ask
@@ -3343,16 +3343,16 @@ void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const Do
 
     // A trader works a couple of goods it knows (minerals/ammo/common modules).
     // Includes the datacores / decryptors / salvage that hacker & explorer bots
-    // pull from data/relic sites вЂ” so the hub has real buy orders for that loot
+    // pull from data/relic sites — so the hub has real buy orders for that loot
     // and the physical-goods ISK loop closes for hackers too (SellStockAtHub).
     static const uint32 tradeGoods[] = {
         34, 38, 39, 40, 1229, 1230, 1231, 1232, 2048, 3775, 2676, 2488,
-        // datacores (group 333) вЂ” hacker loot
+        // datacores (group 333) — hacker loot
         20171, 20172, 20410, 20411, 20412, 20413, 20414, 20417, 20419, 20420, 20421, 25887,
-        // decryptors вЂ” hacker loot
+        // decryptors — hacker loot
         23178, 23179, 23180, 23181, 23182, 21579, 21580, 21581, 21582, 21583,
         23183, 23184, 23185, 23186, 23187, 21573, 21574, 21575, 21576, 21577,
-        // salvage (group 754) вЂ” hacker/ratter loot
+        // salvage (group 754) — hacker/ratter loot
         25588, 25589, 25590, 25591, 25593, 25594, 25599, 25605
     };
     const uint32 nGoods = sizeof(tradeGoods)/sizeof(tradeGoods[0]);
@@ -3411,7 +3411,7 @@ void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const Do
                     _log(BOT__TRACE, "BotMgr: trader %u arbitraged %u x type %u at %u, +%.0f ISK (conf %.2f).",
                          db.charID, qty, typeID, stationID, profit, confidence);
                 }
-                didDeal = true;   // tried one crossing вЂ” that's this cycle's action
+                didDeal = true;   // tried one crossing — that's this cycle's action
             }
         }
     }
@@ -3476,7 +3476,7 @@ void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const Do
         if (bestBid > 0 && bestBid > placeBuy)
             placeBuy = bestBid * (1.0 + 0.004);      // 0.4% better than best bid
         if (placeSell <= placeBuy)
-            return;   // crossing ourselves вЂ” skip, book is too thin to quote
+            return;   // crossing ourselves — skip, book is too thin to quote
 
         // Check the bot can actually fund a buy quote (escrow = price*qty).
         double balance = 0;
@@ -3487,7 +3487,7 @@ void BotMgr::ProcessDockedTraderEconomy(uint32 sysID, uint32 stationID, const Do
                 balance = row.GetDouble(0);
         }
         if (balance < placeBuy * qty)
-            return;   // not enough ISK to back the quote вЂ” don't place air
+            return;   // not enough ISK to back the quote — don't place air
 
         // Remove any stale quotes we left earlier at this station/type so the
         // book doesn't fill with old prices (re-quote instead of stacking).
@@ -3753,7 +3753,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
 
     // Already a tower for this corp here? top up its fuel (and re-online it if it
     // ran dry) instead of deploying a duplicate. NOTE: entity has no groupID
-    // column вЂ” join invTypes (the old query used a non-existent column and the
+    // column — join invTypes (the old query used a non-existent column and the
     // check never matched, so a new tower was spawned on every docked cycle).
     {
         DBQueryResult chk;
@@ -3823,7 +3823,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         data.factionID = 0;
 
     // Spawn the tower first (modules need the tower in the bubble).
-    double ffRadius = 20000.0;   // tower force-field radius вЂ” module anchor limit
+    double ffRadius = 20000.0;   // tower force-field radius — module anchor limit
     {
         ItemData idata(towerType, corpID, sysID, flagNone, "Control Tower", pos);
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
@@ -3848,7 +3848,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
     // Every module must sit INSIDE the tower's force field (an inscribed circle)
     // or the client treats it as unanchored. Layouts follow real Crucible POS
     // doctrines (Deathstar, Super-Hardened, moon-reaction chain, industrial
-    // shipyard, wormhole utility вЂ” see AGENTS.md): each corp deterministically
+    // shipyard, wormhole utility — see AGENTS.md): each corp deterministically
     // gets one scheme, so the universe has a believable mix of fits rather than
     // a single uniform one.
     const double R = ffRadius;
@@ -3956,22 +3956,22 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
     const uint32 sentryGroups[4] = { 417, 426, 430, 449 };   // missile/proj/laser/hybrid sentries
     auto spawnSentry = [&]() { spawnWeapon(pickType(sentryGroups[MakeRandomInt(0, 3)]), nextDefOff()); };
 
-    // Production cluster (always present вЂ” the producer crafts here): the array
+    // Production cluster (always present — the producer crafts here): the array
     // and the silo sit ~1.8 km apart, ~2.2 km off the tower (inside 2500 m).
     spawnModule(arrayType, "Assembly Array", GPoint(2200.0, 0.0,  900.0));
     spawnModule(siloType,  "Silo",           GPoint(2200.0, 0.0, -900.0));
 
-    // Doctrine вЂ” stable per corp (corpID % 5), so the same corp always fits the
+    // Doctrine — stable per corp (corpID % 5), so the same corp always fits the
     // same way but different corps differ.
     switch (corpID % 5) {
-        case 0: {   // Deathstar вЂ” maximum firepower, all-round coverage
+        case 0: {   // Deathstar — maximum firepower, all-round coverage
             for (int i = 0; i < 6; ++i) spawnSentry();
             spawnModule(pickType(EVEDB::invGroups::Stasis_Webification_Battery), "Stasis Webification Battery", nextDefOff());
             spawnModule(pickType(EVEDB::invGroups::Warp_Scrambling_Battery),    "Warp Scrambling Battery",    nextDefOff());
             spawnModule(pickType(EVEDB::invGroups::Energy_Neutralizing_Battery),"Energy Neutralizing Battery",nextDefOff());
             spawnModule(pickType(EVEDB::invGroups::Electronic_Warfare_Battery), "ECM Battery",                nextDefOff());
         } break;
-        case 1: {   // Super-Hardened вЂ” tank first, few guns
+        case 1: {   // Super-Hardened — tank first, few guns
             spawnModule(pickType(EVEDB::invGroups::Shield_Hardening_Array),   "Shield Hardening Array",   nextProdOff());
             spawnModule(pickType(EVEDB::invGroups::Shield_Hardening_Array),   "Shield Hardening Array",   nextProdOff());
             for (int i = 0; i < 5; ++i)
@@ -3990,7 +3990,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
             spawnSentry();
             spawnSentry();
         } break;
-        case 3: {   // Industrial shipyard вЂ” assemble ships/modules, labs, storage
+        case 3: {   // Industrial shipyard — assemble ships/modules, labs, storage
             spawnModule(arrayType, "Assembly Array", GPoint(3400.0, 0.0, 1200.0));
             spawnModule(siloType,  "Silo",           GPoint(3400.0, 0.0,-1200.0));
             spawnModule(pickType(EVEDB::invGroups::Mobile_Laboratory), "Mobile Laboratory", nextProdOff());
@@ -3999,7 +3999,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
             spawnSentry();
             spawnModule(pickType(EVEDB::invGroups::Stasis_Webification_Battery), "Stasis Webification Battery", nextDefOff());
         } break;
-        default: {  // Wormhole/utility вЂ” ship swap + corp hangar + light defence
+        default: {  // Wormhole/utility — ship swap + corp hangar + light defence
             spawnModule(pickType(EVEDB::invGroups::Ship_Maintenance_Array), "Ship Maintenance Array", nextProdOff());
             spawnModule(pickType(EVEDB::invGroups::Corporate_Hangar_Array), "Corporate Hangar Array", nextProdOff());
             spawnSentry();
@@ -4140,7 +4140,7 @@ void BotMgr::ProcessPosGuards()
 
         uint32 manual = tower->GetTowerSE()->GetManualTarget();
         if (manual == 0)
-            continue;   // no operator target вЂ” guards rely on their own Hunter AI
+            continue;   // no operator target — guards rely on their own Hunter AI
 
         SystemEntity* targ = pSystem->GetSE(manual);
         if (targ == nullptr)
@@ -4175,7 +4175,7 @@ void BotMgr::ProcessMoonPOSProduction(uint32 sysID, uint32 stationID, const Dock
     if (sysID == 0 || stationID == 0 || db.corpID == 0)
         return;
 
-    // The corp's POS in this system (the deploy is idempotent вЂ” one tower).
+    // The corp's POS in this system (the deploy is idempotent — one tower).
     uint32 towerID = 0;
     {
         DBQueryResult tres;
@@ -4398,7 +4398,7 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
             }
         }
     } else {
-        _log(BOT__TRACE, "BotMgr: industrialist %s(%u) could not source materials for %s вЂ” skipping.",
+        _log(BOT__TRACE, "BotMgr: industrialist %s(%u) could not source materials for %s — skipping.",
              db.name.c_str(), db.charID, sDataMgr.GetTypeName(productID));
     }
 
@@ -4604,7 +4604,7 @@ void BotMgr::PayMissionReward(PlayerBot* bot)
     DBerror err;
     sDatabase.RunQuery(err, "UPDATE chrCharacters SET balance = balance + %f WHERE characterID = %u",
                        reward, charID);
-    _log(BOT__MESSAGE, "BotMgr: missioner %s(%u) reported in вЂ” %.0f ISK mission payout.",
+    _log(BOT__MESSAGE, "BotMgr: missioner %s(%u) reported in — %.0f ISK mission payout.",
          bot->GetBotName().c_str(), charID, reward);
 }
 
@@ -4724,7 +4724,7 @@ void BotMgr::PlaceBotCourierContract(PlayerBot* bot)
     if (bot == nullptr || bot->GetProfession() != PlayerBot::BotProfession::Trader)
         return;
     if (MakeRandomInt(0, 999) >= 20)
-        return;   // ~2% per economy tick вЂ” rare
+        return;   // ~2% per economy tick — rare
     uint32 sysID = bot->SystemMgr() ? bot->SystemMgr()->GetID() : 0;
     if (sysID == 0)
         return;
@@ -4736,10 +4736,10 @@ uint32 BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 cor
     if (sysID == 0 || charID == 0)
         return 0;
     if (MakeRandomInt(0, 999) >= 20)
-        return 0;   // ~2% per economy tick вЂ” rare
+        return 0;   // ~2% per economy tick — rare
 
     // Start station (where the trader is) and a random other station as the
-    // destination вЂ” the courier "hauls goods to the hub".
+    // destination — the courier "hauls goods to the hub".
     DBQueryResult res;
     uint32 startStation = 0, endStation = 0, endSys = 0;
     if (!sDatabase.RunQuery(res, "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", sysID))
@@ -4770,7 +4770,7 @@ uint32 BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 cor
     if (endStation == 0 || endStation == startStation)
         return 0;
 
-    // Modest cargo and reward вЂ” enough to be worth a courier's time but not a
+    // Modest cargo and reward — enough to be worth a courier's time but not a
     // jackpot a player would hoard. Larger = more visible on the market.
     double volume = 200.0 + MakeRandomFloat() * 4000.0;
     int64 reward = (int64)(50000 + volume * 40.0);
@@ -4805,7 +4805,7 @@ uint32 BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 cor
 // The real items are locked into the contract (owner -> contract), so a courier
 // bot (or player) can accept and haul them; on completion CompleteContract moves
 // them into the issuer's hangar at the hub. Goods physically travel between
-// stations вЂ” the "living economy" haul step. Returns the new contract id (0 if
+// stations — the "living economy" haul step. Returns the new contract id (0 if
 // there was nothing worth shipping).
 uint32 BotMgr::PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint32 charID, uint32 corpID)
 {
@@ -4960,7 +4960,7 @@ uint32 BotMgr::PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint3
     return contractId;
 }
 
-// Post a clickable contract link in the local chat of its system вЂ” but only if a
+// Post a clickable contract link in the local chat of its system — but only if a
 // real player is present (that's who can act on it), throttled per system.
 void BotMgr::AnnounceBotContract(uint32 sysID, uint32 contractId, const std::string& title,
                                  uint32 charID, const std::string& name, uint32 corpID)
@@ -4995,7 +4995,7 @@ void BotMgr::AnnounceBotContract(uint32 sysID, uint32 contractId, const std::str
 
     // Client link format (from the decompiled contracts service):
     //   <a href="contract:<startSolarSystemID>//<contractID>">Title</a>
-    std::string msg = "рџ“„ <a href=\"contract:" + std::to_string(sysID) + "//"
+    std::string msg = "📄 <a href=\"contract:" + std::to_string(sysID) + "//"
                     + std::to_string(contractId) + "\">" + title + "</a>";
     chan->SendBotMessage(charID, who, corpID, msg);
     RecordChannelPhrase((int32)sysID, charID, msg);
@@ -5131,7 +5131,7 @@ uint32 BotMgr::PlaceBotItemContractAt(uint32 sysID, uint32 stationID, uint32 cha
 }
 
 // A bot docked at the trade hub (Jita) sells the real stock in its hangar into
-// the best resting buy orders for each type вЂ” closing the ISK loop: ore/faction
+// the best resting buy orders for each type — closing the ISK loop: ore/faction
 // loot that miners/ratters hauled to the hub actually becomes ISK in the bot's
 // wallet (offline transfer), not just goods gathering dust in a hangar.
 double BotMgr::SellStockAtHub(uint32 sysID, uint32 stationID, uint32 charID)
@@ -5175,7 +5175,7 @@ double BotMgr::SellStockAtHub(uint32 sysID, uint32 stationID, uint32 charID)
                 bestOrder = brow.GetUInt(0);
         }
         if (bestOrder == 0)
-            continue;   // nobody is buying this here вЂ” leave it in the hangar
+            continue;   // nobody is buying this here — leave it in the hangar
 
         // Sell into it with the bot's real stack. Grab the stack item.
         DBQueryResult ires;
@@ -5241,7 +5241,7 @@ void BotMgr::ProcessHaulDeliveries()
             done = true;
         } else if (haul.arrivedAt != 0 && haul.route.empty()) {
             // arrived + no more hops: the dock path is expected; if the courier
-            // has already left the docked list it's on its way вЂ” leave pending.
+            // has already left the docked list it's on its way — leave pending.
         }
         if (done) it = m_hauls.erase(it);
         else ++it;
@@ -5271,8 +5271,8 @@ void BotMgr::ProcessDocking()
             // The bot just "undocked": place it beside the station (not at the
             // gate) so it's scannable right there. Then it behaves like a real
             // pilot: couriers/traders head out through a gate on business, while
-            // producers (miners/ratters/hackers/explorers) go work вЂ” mine, scan,
-            // rat вЂ” near the station or at an anomaly. No mid-space teleport.
+            // producers (miners/ratters/hackers/explorers) go work — mine, scan,
+            // rat — near the station or at an anomaly. No mid-space teleport.
             for (auto& [uid, use] : pSystem->GetEntities()) {
                 if (use == nullptr || use->GetNPCSE() == nullptr)
                     continue;
@@ -5287,7 +5287,7 @@ void BotMgr::ProcessDocking()
                     double sr = station->GetRadius() > 500.0 ? station->GetRadius() : 2000.0;
                     npb->DestinyMgr()->SetPosition(station->GetPosition() + GPoint(sr + 5000.0, 0, 0));
                 }
-                npb->ClearDockRequest();   // just undocked вЂ” don't immediately re-dock
+                npb->ClearDockRequest();   // just undocked — don't immediately re-dock
                 // Travellers (courier/trader) leave via the gate on business;
                 // producers stay and work near the station (their profession will
                 // warp them to a belt/anomaly/site).
@@ -5364,9 +5364,9 @@ void BotMgr::ProcessDocking()
             if (pb == nullptr || pb->WantsToTravel())
                 continue;
             if (pb->IsAggressed())
-                continue;   // aggression timer вЂ” can't dock mid-aggression
+                continue;   // aggression timer — can't dock mid-aggression
             if (pb->GetAIMgr()->IsFighting())
-                continue;   // in combat вЂ” never vanish mid-fight (no teleport)
+                continue;   // in combat — never vanish mid-fight (no teleport)
             if (!pb->WantsDock() && MakeRandomInt(0, 599) != 0)
                 continue;   // neither profession wants the station nor occasional roll
             // Fly to the station first so the dock is visible (no teleport).
@@ -5375,7 +5375,7 @@ void BotMgr::ProcessDocking()
                 if (sse != nullptr && sse->GetStationSE() != nullptr) { station = sse; break; }
             }
             if (station == nullptr)
-                continue;   // no station in this system вЂ” don't pop the bot out of space
+                continue;   // no station in this system — don't pop the bot out of space
             {
                 double stationR = station->GetRadius() > 500.0 ? station->GetRadius() : 2000.0;
                 double dist = pb->GetPosition().distance(station->GetPosition());
@@ -5383,14 +5383,14 @@ void BotMgr::ProcessDocking()
                 if (dist > approachDist) {
                     if (!pb->DestinyMgr()->IsWarping() && !pb->GetAIMgr()->IsFighting())
                         pb->DestinyMgr()->WarpTo(station->GetPosition(), (int32)(stationR + 5000.0));
-                    continue;   // not at the station yet вЂ” retry next tic
+                    continue;   // not at the station yet — retry next tic
                 }
             }
             toDock.push_back(pb);
         }
         for (PlayerBot* pb : toDock) {
             // Which station is this bot docking at? (first station SE in the
-            // system вЂ” the same one it approached above). Used later so a
+            // system — the same one it approached above). Used later so a
             // docked trader works the correct station's order book.
             uint32 dockStationID = 0;
             for (auto& [sid, sse] : pSystem->GetStaticEntities()) {
@@ -5412,19 +5412,19 @@ void BotMgr::ProcessDocking()
                  db.name.c_str(), db.charID, dockStationID, pSystem->GetID());
             pb->ClearDockRequest();
             pb->RecallDrones();   // scoop drones before docking
-            // Courier haul arrived at its destination and now docked в†’ deliver the
+            // Courier haul arrived at its destination and now docked → deliver the
             // contract (real physical "dock to complete") and end the run.
             auto haulIt = m_hauls.find(db.charID);
             if (haulIt != m_hauls.end() && haulIt->second.arrivedAt != 0
                 && haulIt->second.endSys == pSystem->GetID()) {
                 CompleteContract(db.charID, haulIt->second.endSys);
-                _log(BOT__MESSAGE, "BotMgr: courier %s(%u) docked at destination system %u вЂ” haul complete.",
+                _log(BOT__MESSAGE, "BotMgr: courier %s(%u) docked at destination system %u — haul complete.",
                      db.name.c_str(), db.charID, pSystem->GetID());
                 m_hauls.erase(haulIt);
                 // Let the courier sit for a bit before heading out again.
                 db.undockAt = now + MakeRandomInt(120, 600);
             }
-            // Missioner docked to report in a run (it carried salvage back) вЂ” pay
+            // Missioner docked to report in a run (it carried salvage back) — pay
             // the agent mission reward into its wallet (checked before the cargo
             // deposit below empties the hold).
             if (pb->GetProfession() == PlayerBot::BotProfession::Missioner && pb->HasCargo())
@@ -5448,7 +5448,7 @@ void BotMgr::ProcessDocking()
 void BotMgr::ProcessBotSmalltalk()
 {
     // Simulated players occasionally talk to each other in local. Real servers
-    // have constant low-level chatter; ours should too вЂ” but rarely enough that
+    // have constant low-level chatter; ours should too — but rarely enough that
     // it doesn't spam the channel or hit the DeepSeek API. Uses canned, natural
     // EVE-ish lines so it stays believable and free.
     if (!m_initalized || !sConfig.playerBots.Enabled)
@@ -5490,7 +5490,7 @@ void BotMgr::ProcessBotSmalltalk()
 
         // Build a line from THIS bot's real situation: its profession and what is
         // actually happening around it (fighting, gate, empty system). A miner
-        // talks about ore/belts, a hunter about ganks, a courier about hauls вЂ”
+        // talks about ore/belts, a hunter about ganks, a courier about hauls —
         // never a generic "want to PvP?" from a bot sitting in a belt.
         std::string msg = BuildBotSmalltalkLine(a, b, pSystem);
 
@@ -5578,7 +5578,7 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
         default:                                  break;
     }
 
-    // When the bot is under attack or mid-fight, override with a combat line вЂ”
+    // When the bot is under attack or mid-fight, override with a combat line —
     // that's the most salient thing happening to it right now.
     std::string msg;
     if (inFight || aggro) {
@@ -5643,8 +5643,8 @@ void BotMgr::ProcessPlayerContracts()
     // Courier bots take over player courier contracts that nobody accepted.
     // A contract that has been sitting unaccepted (issued > 5 min ago) is
     // picked up by a free courier bot, who then flies it to the destination.
-    // When contracts pile up вЂ” a big public backlog (>20) or one very stale
-    // (>1 day) вЂ” bots accept them even from other loaded systems so the market
+    // When contracts pile up — a big public backlog (>20) or one very stale
+    // (>1 day) — bots accept them even from other loaded systems so the market
     // keeps moving instead of leaving goods parked at a station forever.
     if (!m_initalized || !sConfig.playerBots.Enabled)
         return;
@@ -5687,7 +5687,7 @@ void BotMgr::ProcessPlayerContracts()
         double volume = row.GetDouble(6);
 
         // Age of the contract (FILETIME, 100ns ticks). Skip fresh ones at normal
-        // cadence so a real player can still grab a new job вЂ” but when the market
+        // cadence so a real player can still grab a new job — but when the market
         // is backed up (backlog > 20) or a job is very stale (>1 day), bots take
         // even fresh/any contracts to clear the queue.
         int64 age = (dateIssued > 0) ? (GetFileTimeNow() - dateIssued) : 0;
@@ -5702,7 +5702,7 @@ void BotMgr::ProcessPlayerContracts()
             courier = FindFreeCourier(0);
 
         if (courier == nullptr)
-            continue;   // no free courier right now вЂ” leave contract for later
+            continue;   // no free courier right now — leave contract for later
 
         // Accept the contract: mark acceptorID and status.
         DBerror err;
@@ -5715,14 +5715,14 @@ void BotMgr::ProcessPlayerContracts()
              (urgent ? " [urgent]" : ""));
 
         if (endSys != 0) {
-            // Big cargo (>10,000 m3) goes by JUMP FREIGHTER through a cyno вЂ”
+            // Big cargo (>10,000 m3) goes by JUMP FREIGHTER through a cyno —
             // lights a visible cyno, holds an interception window (players can
             // warp in and shoot it or its guards), then jumps. Guards protect it.
             if (volume > 10000) {
                 courier->StartJumpFreighter(endSys);
             } else {
                 // Small cargo: fly through gates normally, gate by gate (a real
-                // haul вЂ” visible warps/jumps through each system). Compute a BFS
+                // haul — visible warps/jumps through each system). Compute a BFS
                 // route from the courier's current system to the destination.
                 uint32 curSys = (courier->SystemMgr() != nullptr) ? courier->SystemMgr()->GetID() : startSys;
                 std::vector<uint32> route;
@@ -5740,7 +5740,7 @@ void BotMgr::ProcessPlayerContracts()
                          courier->GetBotName().c_str(), courier->GetBotCharID(), contractID,
                          route.size() - 1, endSys);
                 } else {
-                    // No path or already there вЂ” fall back to the direct hop.
+                    // No path or already there — fall back to the direct hop.
                     courier->SetTravelDestination(endSys);
                     courier->MarkForTravel(endSys);
                 }
@@ -5754,7 +5754,7 @@ void BotMgr::ProcessPlayerContracts()
 PlayerBot* BotMgr::FindFreeCourier(uint32 systemID)
 {
     if (systemID != 0) {
-        // only that system вЂ” and only if it is actually loaded
+        // only that system — and only if it is actually loaded
         if (!sEntityList.IsSystemLoaded(systemID))
             return nullptr;
         SystemManager* sm = sEntityList.FindOrBootSystem(systemID);
@@ -5817,7 +5817,7 @@ void BotMgr::CompleteContract(uint32 charID, uint32 destSystem)
         uint32 endStation   = row.GetUInt(1);
         int64  reward       = row.GetInt64(2);
 
-        // Who issued the contract вЂ” their hangar at the end station receives
+        // Who issued the contract — their hangar at the end station receives
         // the delivered goods (use the corp's office hangar for corp contracts).
         DBQueryResult ires;
         uint32 issuerID = 0;
@@ -5837,7 +5837,7 @@ void BotMgr::CompleteContract(uint32 charID, uint32 destSystem)
 
         // Deliver the cargo: any physical items locked in the contract move to
         // the issuer's hangar at the end station. (Bot courier contracts have no
-        // ctrItems вЂ” real volume only exists for player courier contracts.)
+        // ctrItems — real volume only exists for player courier contracts.)
         std::vector<uint32> cargo;
         DBQueryResult itres;
         if (sDatabase.RunQuery(itres, "SELECT itemID FROM ctrItems WHERE contractId = %u AND itemID != 0", contractID)) {
@@ -5898,7 +5898,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     // A real player ALWAYS has a Client object (charID >= minCharacter, same range
     // as bots). So the authoritative test is: no live Client => not a real player.
     // (The old `&& senderCharID >= 90000000` wrongly flagged real players whose
-    // charID falls in the character range вЂ” they'd be treated as bots in chat.)
+    // charID falls in the character range — they'd be treated as bots in chat.)
     bool senderIsBot = (sEntityList.FindClientByCharID(senderCharID) == nullptr);
 
     // Loop breaker: a bot-to-bot conversation must not echo forever. Track how
@@ -5915,7 +5915,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         ++chain;
     }
 
-    // Find a bot in that system (other than the sender вЂ” bots never message each
+    // Find a bot in that system (other than the sender — bots never message each
     // other's own ID here, but guard anyway). If the line ADDRESSES a specific
     // bot by name ("Name, ...", "@Name ...", "hey Name"), that bot replies; anyone
     // else may still jump in later. Otherwise the first other bot takes it.
@@ -5930,7 +5930,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         if (pb == nullptr || pb->GetBotCharID() == senderCharID)
             continue;
         if (responder == nullptr)
-            responder = pb;   // fallback вЂ” first other bot
+            responder = pb;   // fallback — first other bot
         // Addressed by name? (case-insensitive). Guards against the sender's own
         // name matching, and against single-letter names matching inside words.
         std::string botNameLower = pb->GetBotName();
@@ -5945,7 +5945,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
 
     // ---- 1) LEARNED phrases first (lively, no throttle) ----
     // Answer from phrases this bot learned (a line it said that drew a reply).
-    // Reuse is immediate and frequent вЂ” a remembered exchange is "live". Only
+    // Reuse is immediate and frequent — a remembered exchange is "live". Only
     // when nothing learned matches do we fall back to DeepSeek (rare, throttled).
     // Match by shared words so "anyone know a good belt" reuses a reply learned
     // for "good belt here?".
@@ -5958,7 +5958,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         {
             // Prefer a reply this bot hasn't used in 15-20 min (unique-ish lines);
             // fall back to the oldest match (a rare repeat) only if nothing fresh
-            // AND it wasn't just used (>= 60s ago) вЂ” otherwise the same single
+            // AND it wasn't just used (>= 60s ago) — otherwise the same single
             // matching phrase would be re-said instantly on every trigger.
             std::string fallback;
             DBResultRow lrow;
@@ -6086,45 +6086,45 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         || low.find("what") != std::string::npos || low.find("who") != std::string::npos
         || low.find("why") != std::string::npos || low.find("where") != std::string::npos
         || low.find("when") != std::string::npos || low.find("how") != std::string::npos
-        || low.find("РјРѕР¶РЅРѕ") != std::string::npos || low.find("РєР°Рє ") != std::string::npos
-        || low.find("С‡С‚Рѕ") != std::string::npos || low.find("РєС‚Рѕ") != std::string::npos
-        || low.find("РїРѕС‡РµРјСѓ") != std::string::npos || low.find("РіРґРµ") != std::string::npos
-        || low.find("РєРѕРіРґР°") != std::string::npos || low.find("РїРѕС‡РµРј") != std::string::npos;
+        || low.find("можно") != std::string::npos || low.find("как ") != std::string::npos
+        || low.find("что") != std::string::npos || low.find("кто") != std::string::npos
+        || low.find("почему") != std::string::npos || low.find("где") != std::string::npos
+        || low.find("когда") != std::string::npos || low.find("почем") != std::string::npos;
     bool isGreeting = low.find("hi") != std::string::npos || low.find("hello") != std::string::npos
         || low.find("hey") != std::string::npos || low.find("yo ") != std::string::npos
-        || low.find("РїСЂРёРІРµС‚") != std::string::npos || low.find("Р·РґСЂР°РІСЃС‚РІ") != std::string::npos
-        || low.find("СЃР°Р»СЋС‚") != std::string::npos;
-    bool isHelp = low.find("help") != std::string::npos || low.find("РїРѕРјРѕС‰") != std::string::npos
-        || low.find("РїРѕРґСЃРєР°Р¶") != std::string::npos;
-    bool isFleet = low.find("fleet") != std::string::npos || low.find("С„РёС‚") != std::string::npos
-        || low.find("РіСЂСѓРїРїР°") != std::string::npos || low.find("С„Р»РѕС‚") != std::string::npos;
+        || low.find("привет") != std::string::npos || low.find("здравств") != std::string::npos
+        || low.find("салют") != std::string::npos;
+    bool isHelp = low.find("help") != std::string::npos || low.find("помощ") != std::string::npos
+        || low.find("подскаж") != std::string::npos;
+    bool isFleet = low.find("fleet") != std::string::npos || low.find("фит") != std::string::npos
+        || low.find("группа") != std::string::npos || low.find("флот") != std::string::npos;
     bool isInsult = low.find("nub") != std::string::npos || low.find("noob") != std::string::npos
-        || low.find("nooob") != std::string::npos || low.find("РЅСѓР±") != std::string::npos
+        || low.find("nooob") != std::string::npos || low.find("нуб") != std::string::npos
         || low.find("fuck") != std::string::npos || low.find("idiot") != std::string::npos;
 
     // Append the intent so the model answers ON TOPIC, not with a generic line.
     if (isQuestion) {
-        prompt += " [This is a direct QUESTION вЂ” answer it properly and concretely,"
+        prompt += " [This is a direct QUESTION — answer it properly and concretely,"
                   " on topic, as yourself. Do not dodge it with an unrelated remark.]";
     } else if (isGreeting) {
-        prompt += " [This is a GREETING вЂ” greet them back naturally and briefly.]";
+        prompt += " [This is a GREETING — greet them back naturally and briefly.]";
     } else if (isHelp) {
-        prompt += " [They are asking for HELP/advice вЂ” give a short, useful, in-character answer.]";
+        prompt += " [They are asking for HELP/advice — give a short, useful, in-character answer.]";
     } else if (isFleet) {
-        prompt += " [They mention a fleet/gang/fit вЂ” react as a pilot to that subject.]";
+        prompt += " [They mention a fleet/gang/fit — react as a pilot to that subject.]";
     } else if (isInsult) {
-        prompt += " [They are INSULTING you вЂ” respond in character: dismissive, blunt or mocking,"
+        prompt += " [They are INSULTING you — respond in character: dismissive, blunt or mocking,"
                   " but stay within EVE chat rules.]";
     } else {
-        prompt += " [They made a casual statement вЂ” reply naturally to what was said,"
+        prompt += " [They made a casual statement — reply naturally to what was said,"
                   " on topic if possible; a short relevant remark is better than a random phrase.]";
     }
-    // Reply in the SAME language the player wrote in (Russian, English, etc.) вЂ”
+    // Reply in the SAME language the player wrote in (Russian, English, etc.) —
     // a real pilot from any country chats in their native tongue. The bot's
     // language/slang improves over time (chat self-learning: replies that drew
     // a response are "good").
     // Each bot has its OWN personality (profession + name), so replies aren't
-    // interchangeable вЂ” a miner talks about ore, a hunter about ganks. Vary
+    // interchangeable — a miner talks about ore, a hunter about ganks. Vary
     // wording; never repeat a stock phrase.
     std::string roleText = "an EVE pilot";
     switch (responder->GetProfession()) {
@@ -6139,19 +6139,19 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     }
     std::string systemHint =
         "You are " + responder->GetBotName() + ", " + roleText + ", chatting in local in the MMO Eve Online. "
-        "Reply as a natural, friendly, believable EVE player вЂ” with your OWN personality, mood and quirks. "
+        "Reply as a natural, friendly, believable EVE player — with your OWN personality, mood and quirks. "
         "Use casual EVE slang (isk, ratting, dock, gate, warp, fit, lowsec, nullsec, pod, gank). "
         "Vary your phrasing and tone: sometimes short, sometimes a bit chatty, occasionally sarcastic or dry. "
         "NEVER start replies the same way, NEVER use generic bot phrases like 'I am a helpful assistant', "
-        "and never sound like a customer-support bot. Match the language and tone of the other player вЂ” "
+        "and never sound like a customer-support bot. Match the language and tone of the other player — "
         "if they write in Russian, reply in Russian; if English, reply in English. Keep it to 1-2 short sentences. "
-        "Russian chat is absolutely allowed and natural here (EVE has a huge RU community: ratted 'РЅРµ РІ С‡Р°С‚Рµ', "
-        "'С†', 'РѕС„', 'РєСѓ', 'РѕС„', СЃР»РµРЅРі: fit/С„РёС‚, РіРµР№С‚, Р»РѕСѓ, РЅСѓР»Рё, СЂР°С‚С‚Р°). "
-        "You are a real living human player вЂ” write the way a real person types in a game chat: casual, "
+        "Russian chat is absolutely allowed and natural here (EVE has a huge RU community: ratted 'не в чате', "
+        "'ц', 'оф', 'ку', 'оф', сленг: fit/фит, гейт, лоу, нули, ратта). "
+        "You are a real living human player — write the way a real person types in a game chat: casual, "
         "imperfect, with typos and dropped words, mixed registers, your own habits. Don't chase perfect grammar "
         "or full sentences. Use varied speech patterns, idioms and local flavor. "
-        "You may be blunt, rude or dismissive if the situation calls for it вЂ” a grumpy veteran, a cocky PvP'er, "
-        "a sarcastic miner вЂ” but stay within EVE's rules: no real-life hate speech, threats, slurs or anything "
+        "You may be blunt, rude or dismissive if the situation calls for it — a grumpy veteran, a cocky PvP'er, "
+        "a sarcastic miner — but stay within EVE's rules: no real-life hate speech, threats, slurs or anything "
         "that would get a real account banned. Being human and rough is fine; being toxic is not.";
 
     // Situational context the bot IS aware of (it's in the same system/bubble):
@@ -6166,7 +6166,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             bub->GetPlayers(clients);
             playerNear = !clients.empty();
         }
-        // Where the bot actually is right now (user rule): system + security вЂ”
+        // Where the bot actually is right now (user rule): system + security —
         // cached (one lookup per system per session, game-thread only).
         {
             static std::map<int32, std::pair<std::string, float>> sSysCache;
@@ -6193,21 +6193,21 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
                 systemHint += " You are currently in the " + sysName + " system (security " + sb + ").";
                 // space-event awareness: keep the mind on TODAY's surroundings
                 if (sysSec < 0.5f)
-                    systemHint += " This is dangerous space вЂ” expected behaviour here: gates plates, cloak, d-scan.";
+                    systemHint += " This is dangerous space — expected behaviour here: gates plates, cloak, d-scan.";
             }
         }
         if (playerNear) {
-            systemHint += " A pilot is in the same grid as you and can see you вЂ” "
+            systemHint += " A pilot is in the same grid as you and can see you — "
                           "do NOT claim you are alone somewhere (no 'I'm all alone in an anomaly' "
                           "when someone is literally next to you). Reference the other pilot's "
                           "presence naturally if it fits.";
         }
         if (inCombat) {
-            systemHint += " You are currently in a fight вЂ” mention it if it fits "
+            systemHint += " You are currently in a fight — mention it if it fits "
                           "('bit busy', 'in a scrap', etc.) but don't make it the whole reply.";
         }
         // Line the bot is CURRENTLY busy with (its profession activity phrase
-        // is built by the same code as smalltalk) вЂ” grounding the reply in what
+        // is built by the same code as smalltalk) — grounding the reply in what
         // the bot is actually doing RIGHT NOW, per its job.
         std::string doing = BuildBotSmalltalkLine(responder, nullptr, pSystem);
         if (!doing.empty())
@@ -6215,10 +6215,10 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     }
 
     if (addressed) {
-        // The message was addressed to THIS bot by name вЂ” reply as the person
+        // The message was addressed to THIS bot by name — reply as the person
         // being spoken to (answer the question / acknowledge the call-out).
         systemHint += " The message is addressed to you personally (your name is mentioned). "
-                      "Answer as yourself вЂ” respond to what was asked, keep it natural and in character.";
+                      "Answer as yourself — respond to what was asked, keep it natural and in character.";
     }
 
     std::string reply = BotChat::QueryDeepSeek(prompt, systemHint);
@@ -6246,10 +6246,10 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
 
 void BotMgr::HandleLocalReply(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message)
 {
-    // Someone (player OR bot) replied in a channel where a bot recently spoke вЂ”
+    // Someone (player OR bot) replied in a channel where a bot recently spoke —
     // treat it as a reply to that bot. This is the self-learning loop: the bot
     // remembers (its line -> the reply it got) in botChatLearned, so later it can
-    // answer a similar line from memory instead of DeepSeek вЂ” a pseudo-intellect
+    // answer a similar line from memory instead of DeepSeek — a pseudo-intellect
     // that grows from real conversations. Also counts as positive chat
     // reinforcement (RecordChatReply).
     if (!m_initalized || !sConfig.playerBots.Enabled || !sConfig.playerBots.ChatEnabled)
