@@ -408,10 +408,10 @@ static void SecurityAuditTick()
 static std::string FormatKillTime(int64 filetime) {
     if (filetime <= 0)
         return "";
-    uint64 unix = (uint64)filetime / 10000000ULL;          // seconds since 1601
-    if (unix < 11644473600ULL)
+    int64 unix = filetime / 10000000LL;                    // seconds since 1601
+    if (unix < 11644473600LL)
         return "";
-    time_t t = (time_t)(unix - 11644473600ULL);            // -> unix epoch
+    time_t t = (time_t)(unix - 11644473600LL);             // -> unix epoch
     struct tm tmv;
     if (localtime_r(&t, &tmv) == nullptr)
         return "";
@@ -515,12 +515,12 @@ static void DailyKillDigestTick()
     if (sNextDigestCheck != 0 && now < sNextDigestCheck)
         return;
 
-    uint64 last = ServiceDB::GetLastDigest();
-    if (last != 0 && (uint64)now < last + 86400) {
+    int64 last = ServiceDB::GetLastDigest();
+    if (last != 0 && (int64)now < last + 86400) {
         sNextDigestCheck = (time_t)(last + 86400);   // sleep until it is due
         return;
     }
-    ServiceDB::SetLastDigest((uint64)now);
+    ServiceDB::SetLastDigest((int64)now);
     sNextDigestCheck = now + 86400;
 
     std::string digest = BuildKillDigestText(5,
@@ -579,7 +579,7 @@ static void DailyAdminReportTick()
     uint32 today = DayOf(now);
     if (sSentDay == today)
         return;
-    uint64 last = ServiceDB::GetLastAdminReport();
+    int64 last = ServiceDB::GetLastAdminReport();
     if (last != 0 && DayOf((time_t)last) == today)
         return;   // already sent today
     sSentDay = today;
@@ -616,7 +616,7 @@ static void DailyAdminReportTick()
     }
 
     TelegramBot::NotifyAdmin(msg);
-    ServiceDB::SetReportMarkers(boots, crashes, commitCount, (uint64)now);
+    ServiceDB::SetReportMarkers(boots, crashes, commitCount, (int64)now);
 }
 
 // Player-like skill training for simulated pilots. Runs every 5 minutes over a

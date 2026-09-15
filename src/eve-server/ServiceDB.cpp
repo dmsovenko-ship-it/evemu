@@ -191,7 +191,7 @@ void ServiceDB::SetServerOnlineStatus(bool online) {
 // Read/write the persistent Telegram cadence markers in srvStatus (AI = 1).
 // A missing column (migration not applied) degrades to 0 / a logged error
 // rather than breaking the caller.
-static uint64 ReadSrvStatusUInt(const char* sql) {
+static int64 ReadSrvStatusUInt(const char* sql) {
     DBQueryResult res;
     if (!sDatabase.RunQuery(res, sql)) {
         codelog(DATABASE__ERROR, "Error reading srvStatus (%s): %s", sql, res.error.c_str());
@@ -200,19 +200,19 @@ static uint64 ReadSrvStatusUInt(const char* sql) {
     DBResultRow row;
     if (!res.GetRow(row) || row.IsNull(0))
         return 0;
-    return (uint64)row.GetInt64(0);
+    return row.GetInt64(0);
 }
 
-static void WriteSrvStatusUInt(const char* sql, uint64 v) {
+static void WriteSrvStatusUInt(const char* sql, int64 v) {
     DBerror err;
     if (!sDatabase.RunQuery(err, sql, (unsigned long long)v))
         codelog(DATABASE__ERROR, "Error writing srvStatus (%s): %s", sql, err.c_str());
 }
 
-uint64 ServiceDB::GetLastOffline() { return ReadSrvStatusUInt("SELECT lastOffline FROM srvStatus WHERE AI = 1"); }
-void   ServiceDB::SetLastOffline(uint64 when) { WriteSrvStatusUInt("UPDATE srvStatus SET lastOffline = %llu WHERE AI = 1", when); }
-uint64 ServiceDB::GetLastDigest() { return ReadSrvStatusUInt("SELECT lastDigest FROM srvStatus WHERE AI = 1"); }
-void   ServiceDB::SetLastDigest(uint64 when) { WriteSrvStatusUInt("UPDATE srvStatus SET lastDigest = %llu WHERE AI = 1", when); }
+int64  ServiceDB::GetLastOffline() { return ReadSrvStatusUInt("SELECT lastOffline FROM srvStatus WHERE AI = 1"); }
+void   ServiceDB::SetLastOffline(int64 when) { WriteSrvStatusUInt("UPDATE srvStatus SET lastOffline = %llu WHERE AI = 1", when); }
+int64  ServiceDB::GetLastDigest() { return ReadSrvStatusUInt("SELECT lastDigest FROM srvStatus WHERE AI = 1"); }
+void   ServiceDB::SetLastDigest(int64 when) { WriteSrvStatusUInt("UPDATE srvStatus SET lastDigest = %llu WHERE AI = 1", when); }
 // Boot/crash telemetry. A boot that finds cleanShutdown == 0 means the previous
 // session died without a clean shutdown -> count it as a crash.
 void ServiceDB::RecordBoot() {
@@ -244,9 +244,9 @@ uint32 ServiceDB::GetCrashCount()       { return (uint32)ReadSrvStatusUInt("SELE
 uint32 ServiceDB::GetLastReportBoot()   { return (uint32)ReadSrvStatusUInt("SELECT lastReportBoot FROM srvStatus WHERE AI = 1"); }
 uint32 ServiceDB::GetLastReportCrash()  { return (uint32)ReadSrvStatusUInt("SELECT lastReportCrash FROM srvStatus WHERE AI = 1"); }
 uint32 ServiceDB::GetLastReportCommit() { return (uint32)ReadSrvStatusUInt("SELECT lastReportCommit FROM srvStatus WHERE AI = 1"); }
-uint64 ServiceDB::GetLastAdminReport()  { return ReadSrvStatusUInt("SELECT lastAdminReport FROM srvStatus WHERE AI = 1"); }
+int64  ServiceDB::GetLastAdminReport()  { return ReadSrvStatusUInt("SELECT lastAdminReport FROM srvStatus WHERE AI = 1"); }
 
-void ServiceDB::SetReportMarkers(uint32 boot, uint32 crash, uint32 commit, uint64 when) {
+void ServiceDB::SetReportMarkers(uint32 boot, uint32 crash, uint32 commit, int64 when) {
     DBerror err;
     if (!sDatabase.RunQuery(err,
         "UPDATE srvStatus SET lastReportBoot = %u, lastReportCrash = %u,"

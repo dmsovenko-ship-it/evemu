@@ -59,10 +59,10 @@ public:
     // Persistent Telegram cadence markers (srvStatus, unix seconds). Used so a
     // server restart does not re-fire the daily kill digest / online-offline
     // announcements. 0 means "unknown / never".
-    static uint64 GetLastOffline();
-    static void   SetLastOffline(uint64 when);
-    static uint64 GetLastDigest();
-    static void   SetLastDigest(uint64 when);
+    static int64  GetLastOffline();
+    static void   SetLastOffline(int64 when);
+    static int64  GetLastDigest();
+    static void   SetLastDigest(int64 when);
 
     // Boot/crash telemetry + evening admin report markers (srvStatus).
     // RecordBoot() bumps bootCount and, if the previous session ended dirty
@@ -74,8 +74,8 @@ public:
     static uint32 GetLastReportBoot();
     static uint32 GetLastReportCrash();
     static uint32 GetLastReportCommit();
-    static uint64 GetLastAdminReport();
-    static void   SetReportMarkers(uint32 boot, uint32 crash, uint32 commit, uint64 when);
+    static int64  GetLastAdminReport();
+    static void   SetReportMarkers(uint32 boot, uint32 crash, uint32 commit, int64 when);
 
     static uint32 SetClientSeed();
 

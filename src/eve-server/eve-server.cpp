@@ -958,9 +958,9 @@ int main( int argc, char* argv[] )
     // Announce "online" only after a real outage (downtime >= 10 min). A quick
     // rebuild stays silent so the Telegram channels are not spammed.
     {
-        uint64 lastOffline = ServiceDB::GetLastOffline();
+        int64 lastOffline = ServiceDB::GetLastOffline();
         bool realDowntime = (lastOffline == 0)
-                          || ((uint64)s_serverStartTime >= lastOffline + 600);
+                          || ((int64)s_serverStartTime >= lastOffline + 600);
         if (realDowntime) {
             std::string upMsg = "🚀 EVEmu online — " + std::string(currentDateTime().c_str());
             TelegramBot::NotifyPlayer(upMsg);
@@ -1124,7 +1124,7 @@ static void CatchSignal( int sig_num )
 static void AnnounceOfflineIfReal()
 {
     time_t now = time(nullptr);
-    ServiceDB::SetLastOffline((uint64)now);
+    ServiceDB::SetLastOffline((int64)now);
     ServiceDB::RecordCleanShutdown();
     if (s_serverStartTime != 0 && now - s_serverStartTime >= 600) {
         TelegramBot::NotifyPlayer("⛔ EVEmu offline — сервер остановлен.");
