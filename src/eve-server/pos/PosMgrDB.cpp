@@ -195,12 +195,22 @@ bool PosMgrDB::GetTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sDa
 
 void PosMgrDB::SaveTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sData)
 {
+    // Upsert: InitData()/the bot self-heal path can call this for a tower whose
+    // row already exists — a plain INSERT hit the duplicate key on every reload
+    // of an unanchored bot tower. Deliberately does NOT touch the password.
     DBerror err;
     sDatabase.RunQuery(err,
         "INSERT INTO posTowerData"
         " (itemID, harmonic, standing, standingOwnerID, status, statusDrop, corpWar, allyStandings, showInCalendar,"
         " sendFuelNotifications, allowCorp, allowAlliance, anchor, unanchor, online, offline)"
-        " VALUES ( %i, %i, %f, %i, %f, %u, %u, %u, %u, %u, %u, %u, %i, %i, %i,%i)",
+        " VALUES ( %i, %i, %f, %i, %f, %u, %u, %u, %u, %u, %u, %u, %i, %i, %i,%i)"
+        " ON DUPLICATE KEY UPDATE"
+        "  harmonic=VALUES(harmonic), standing=VALUES(standing), standingOwnerID=VALUES(standingOwnerID),"
+        "  status=VALUES(status), statusDrop=VALUES(statusDrop), corpWar=VALUES(corpWar),"
+        "  allyStandings=VALUES(allyStandings), showInCalendar=VALUES(showInCalendar),"
+        "  sendFuelNotifications=VALUES(sendFuelNotifications), allowCorp=VALUES(allowCorp),"
+        "  allowAlliance=VALUES(allowAlliance), anchor=VALUES(anchor), unanchor=VALUES(unanchor),"
+        "  online=VALUES(online), offline=VALUES(offline)",
         sData.itemID, tData.harmonic, tData.standing, tData.standingOwnerID, tData.status, tData.statusDrop, tData.corpWar, tData.allyStandings,
         tData.showInCalendar, tData.sendFuelNotifications, tData.allowCorp, tData.allowAlliance,
         tData.anchor, tData.unanchor, tData.online, tData.offline);
