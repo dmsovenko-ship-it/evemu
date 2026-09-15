@@ -215,8 +215,8 @@ void CachedObjectMgr::UpdateCache(const PyRep *objectID, PyRep **in_cached_data)
     bool res = MarshalDeflate( cached_data, *buf );
 
     // the rep was only borrowed for marshalling — release it (it came from a
-    // GiveCache() call that handed over sole ownership)
-    cached_data->clear();
+    // GiveCache() call that handed over sole ownership). PyRep base has no
+    // clear(); child items leak by the known accepted design.
     PySafeDecRef( cached_data );
 
     if ( res ) {
