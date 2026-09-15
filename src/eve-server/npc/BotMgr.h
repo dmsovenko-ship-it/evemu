@@ -6,6 +6,7 @@
 #include "utils/Singleton.h"
 #include <unordered_map>
 #include <map>
+#include <set>
 #include <deque>
 #include <atomic>
 #include <ctime>
@@ -69,6 +70,10 @@ public:
     void HandleLocalReply(int32 channelID, uint32 senderCharID, const std::string& senderName, const std::string& message);
     // Top up bots in a freshly-loaded system that has real players.
     void PopulateSystem(SystemManager* pSystem);
+    // Load the always-on system set (trade hubs from botTradeHubs + the
+    // AlwaysOnSystems config list), boot them and mark them persistent so they
+    // stay loaded and keep a baseline bot population with no player online.
+    void EnsureAlwaysOnSystems();
 
     // Docked bots at a station, for the station "pilots at station" (GetGuests).
     struct GuestInfo { uint32 charID, corpID, allianceID, warFactionID; };
@@ -249,6 +254,8 @@ private:
     std::vector<PendingBotReply> m_pendingBotReplies;
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots
     std::map<uint32, uint32> m_systemTarget;   // systemID -> fixed bot target (live-server feel)
+    std::set<uint32> m_alwaysOn;               // systems kept loaded + populated 24/7
+    bool m_alwaysOnLoaded = false;
     std::map<uint32, time_t> m_lastPopulate;   // systemID -> last bot spawn time (gradual fill)
     std::map<int32, time_t> m_lastSmalltalk;   // channelID -> last bot-to-bot chatter time
     std::map<uint32, time_t> m_lastTrade;      // charID -> last market order time (throttle)

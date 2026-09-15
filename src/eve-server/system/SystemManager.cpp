@@ -83,6 +83,7 @@ m_beltMgr(new BeltMgr(this, svc)),
 m_dungMgr(new DungeonMgr(this, svc)),
 m_spawnMgr(new SpawnMgr(this, svc)),
 m_loaded(false),
+m_persistent(false),
 m_entityChanged(false),
 m_docked(0),
 m_players(0),
@@ -289,6 +290,8 @@ bool SystemManager::ProcessTic() {
 }
 
 bool SystemManager::SystemActivity() {
+    if (m_persistent)
+        return true;   // always-on system: never unload for inactivity
     if (m_activityTime == 0)
         return true;
     if ((sEntityList.GetStamp() - m_activityTime) > 60)

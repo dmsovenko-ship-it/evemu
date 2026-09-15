@@ -242,6 +242,8 @@ EVEServerConfig::EVEServerConfig()
     // playerBots
     playerBots.Enabled = false;
     playerBots.MaxPerSystem = 30;
+    playerBots.BaselinePerSystem = 30;
+    playerBots.AlwaysOnSystems = "";
     playerBots.ChatChance = 5;
     playerBots.AggroFactor = 0;
     playerBots.MinSkillLevel = 3;
@@ -894,6 +896,8 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
 {
     AddValueParser( "Enabled",          playerBots.Enabled );
     AddValueParser( "MaxPerSystem",     playerBots.MaxPerSystem );
+    AddValueParser( "BaselinePerSystem", playerBots.BaselinePerSystem );
+    AddValueParser( "AlwaysOnSystems",  playerBots.AlwaysOnSystems );
     AddValueParser( "ChatChance",       playerBots.ChatChance );
     AddValueParser( "AggroFactor",      playerBots.AggroFactor );
     AddValueParser( "MinSkillLevel",    playerBots.MinSkillLevel );
@@ -909,6 +913,8 @@ bool EVEServerConfig::ProcessPlayerBots(const TiXmlElement* ele)
 
     RemoveParser( "Enabled" );
     RemoveParser( "MaxPerSystem" );
+    RemoveParser( "BaselinePerSystem" );
+    RemoveParser( "AlwaysOnSystems" );
     RemoveParser( "ChatChance" );
     RemoveParser( "AggroFactor" );
     RemoveParser( "MinSkillLevel" );

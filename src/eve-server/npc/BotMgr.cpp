@@ -215,19 +215,24 @@ void BotMgr::Process()
     if (!m_initalized || !sConfig.playerBots.Enabled)
         return;
 
-    // Walk every loaded system; top up any that has real players in it.
+    // Walk every loaded system; top up any that has real players in it, and the
+    // always-on systems (hubs + config) even with nobody online so their chains
+    // (trade/haul/mine/craft) never freeze.
     static time_t sLastReap = 0;
     time_t reapClock = time(nullptr);
     bool reapNow = (sLastReap == 0 || reapClock - sLastReap >= 30);
     if (reapNow) sLastReap = reapClock;
 
+    EnsureAlwaysOnSystems();
+
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
         if (pSystem == nullptr)
             continue;
-        if (pSystem->PlayerCount() < 1) {
-            // No real player here any more — reap the simulated population so
-            // bots follow the players (they were staying in the old system
-            // forever because ReapBots() was never called). Throttled.
+        bool hasPlayer = (pSystem->PlayerCount() >= 1);
+        bool persistent = (m_alwaysOn.find(sysID) != m_alwaysOn.end());
+        if (!hasPlayer && !persistent) {
+            // No real player and not an always-on system — reap the simulated
+            // population so bots follow the players (throttled).
             if (reapNow)
                 ReapBots(pSystem);
             continue;
@@ -408,10 +413,10 @@ static void SecurityAuditTick()
 static std::string FormatKillTime(int64 filetime) {
     if (filetime <= 0)
         return "";
-    int64 unix = filetime / 10000000LL;                    // seconds since 1601
-    if (unix < 11644473600LL)
+    int64 secs1601 = filetime / 10000000LL;                // seconds since 1601
+    if (secs1601 < 11644473600LL)
         return "";
-    time_t t = (time_t)(unix - 11644473600LL);             // -> unix epoch
+    time_t t = (time_t)(secs1601 - 11644473600LL);         // -> unix epoch
     struct tm tmv;
     if (localtime_r(&t, &tmv) == nullptr)
         return "";
@@ -982,8 +987,16 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
 {
     if (pSystem == nullptr || !sConfig.playerBots.Enabled)
         return;
-    if (sConfig.playerBots.MaxPerSystem == 0)
+
+    // Player online -> fill up to MaxPerSystem. No player (always-on system) ->
+    // keep the baseline population alive so its chains never freeze.
+    bool hasPlayer = (pSystem->PlayerCount() >= 1);
+    uint32 cap = hasPlayer ? sConfig.playerBots.MaxPerSystem
+                           : sConfig.playerBots.BaselinePerSystem;
+    if (cap == 0)
         return;
+
+    uint32 sysID = pSystem->GetID();
 
     // Count existing bots in this system (both in-space and docked).
     uint32 botCount = 0;
@@ -992,43 +1005,44 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
             && dynamic_cast<PlayerBot*>(se->GetNPCSE()) != nullptr)
             ++botCount;
     }
-    auto dockIt = m_docked.find(pSystem->GetID());
+    auto dockIt = m_docked.find(sysID);
     if (dockIt != m_docked.end())
         botCount += (uint32)dockIt->second.size();
 
     time_t now = time(nullptr);
 
     // Target per system, re-rolled every ~5 min so the local count drifts
-    // up/down (a live server's population breathes, not a fixed number).
-    auto tIt = m_systemTarget.find(pSystem->GetID());
-    if (tIt == m_systemTarget.end()) {
-        uint32 t0 = (uint32)(sConfig.playerBots.MaxPerSystem * (0.6f + MakeRandomFloat() * 0.4f));
-        m_systemTarget[pSystem->GetID()] = t0;
-    }
-    // Occasionally re-roll: previous ± random drift, clamped 40%..100% of cap.
+    // up/down (a live server's population breathes, not a fixed number). If the
+    // cap changed (a player just arrived/left) the stored target is out of range
+    // and is re-rolled immediately.
+    uint32 minT = (uint32)(cap * 0.6f);
+    if (minT == 0)
+        minT = 1;
+    auto tIt = m_systemTarget.find(sysID);
+    if (tIt == m_systemTarget.end() || tIt->second > cap || tIt->second < minT)
+        m_systemTarget[sysID] = minT + MakeRandomInt(0, (int)(cap - minT));
     {
         static std::map<uint32, time_t> s_lastTargetRoll;
-        auto lr = s_lastTargetRoll.find(pSystem->GetID());
+        auto lr = s_lastTargetRoll.find(sysID);
         if (lr == s_lastTargetRoll.end() || (now - lr->second) >= 300) {
-            s_lastTargetRoll[pSystem->GetID()] = now;
-            uint32 base = m_systemTarget[pSystem->GetID()];
+            s_lastTargetRoll[sysID] = now;
+            uint32 base = m_systemTarget[sysID];
             int nt = (int)base + (int)(base * (MakeRandomFloat() * 0.4f - 0.2f));
-            uint32 minT = (uint32)(sConfig.playerBots.MaxPerSystem * 0.4f);
             if (nt < (int)minT) nt = (int)minT;
-            if (nt > (int)sConfig.playerBots.MaxPerSystem) nt = (int)sConfig.playerBots.MaxPerSystem;
-            m_systemTarget[pSystem->GetID()] = (uint32)nt;
+            if (nt > (int)cap)  nt = (int)cap;
+            m_systemTarget[sysID] = (uint32)nt;
         }
     }
-    uint32 target = m_systemTarget[pSystem->GetID()];
+    uint32 target = m_systemTarget[sysID];
     if (botCount >= target)
         return;
 
     // Gradual fill: spawn AT MOST one bot per ~15s per system, so the population
     // trickles in over minutes (like a live server) instead of all at once.
-    auto last = m_lastPopulate.find(pSystem->GetID());
+    auto last = m_lastPopulate.find(sysID);
     if (last != m_lastPopulate.end() && (now - last->second) < 15)
         return;
-    m_lastPopulate[pSystem->GetID()] = now;
+    m_lastPopulate[sysID] = now;
 
     // Variety: some bots are already in the system (docked or in space), others
     // arrive through a gate, others leave. Decide per spawn.
@@ -1061,6 +1075,57 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
             return;
         SpawnBotArriving(originSys, pSystem->GetID());
     }
+}
+
+// Load the always-on system set once: all trade hubs (botTradeHubs) plus the
+// comma-separated systemIDs in <playerBots><AlwaysOnSystems>. These systems are
+// booted and marked persistent, so they stay loaded and keep a baseline bot
+// population (BaselinePerSystem) running even with no player online.
+void BotMgr::EnsureAlwaysOnSystems()
+{
+    if (m_alwaysOnLoaded)
+        return;
+    m_alwaysOnLoaded = true;
+
+    // Trade hubs.
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT systemID FROM botTradeHubs")) {
+            DBResultRow r;
+            while (res.GetRow(r))
+                m_alwaysOn.insert(r.GetUInt(0));
+        }
+    }
+
+    // Config list: "30000142,30002187,...".
+    {
+        const std::string& list = sConfig.playerBots.AlwaysOnSystems;
+        size_t start = 0;
+        while (start < list.size()) {
+            size_t comma = list.find(',', start);
+            std::string tok = list.substr(start,
+                comma == std::string::npos ? std::string::npos : comma - start);
+            size_t b = tok.find_first_not_of(" \t\r\n");
+            size_t e = tok.find_last_not_of(" \t\r\n");
+            if (b != std::string::npos) {
+                uint32 id = (uint32)strtoul(tok.substr(b, e - b + 1).c_str(), nullptr, 10);
+                if (id != 0)
+                    m_alwaysOn.insert(id);
+            }
+            if (comma == std::string::npos)
+                break;
+            start = comma + 1;
+        }
+    }
+
+    for (uint32 id : m_alwaysOn) {
+        SystemManager* sm = sEntityList.FindOrBootSystem(id);
+        if (sm != nullptr)
+            sm->SetPersistent(true);
+    }
+
+    _log(BOT__MESSAGE, "BotMgr: %lu always-on systems (hubs + config), baseline %u bots each.",
+         (unsigned long)m_alwaysOn.size(), sConfig.playerBots.BaselinePerSystem);
 }
 
 uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
@@ -4901,7 +4966,7 @@ void BotMgr::ProcessDocking()
     //    at the market) fly to the station first (visible approach), then dock
     //    when they get there; others dock occasionally.
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
-        if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+        if (pSystem == nullptr || (pSystem->PlayerCount() < 1 && !pSystem->IsPersistent()))
             continue;
         std::vector<PlayerBot*> toDock;
         for (auto& [id, se] : pSystem->GetEntities()) {

@@ -350,7 +350,9 @@ public:
     // From <playerBots>
     struct {
         bool Enabled;              // master switch for simulated players
-        uint8 MaxPerSystem;        // max simulated players per active system
+        uint8 MaxPerSystem;        // max simulated players per active system (player online)
+        uint8 BaselinePerSystem;   // bots that ALWAYS live in an always-on system (no player needed)
+        std::string AlwaysOnSystems;  // comma-separated systemIDs kept loaded+populated 24/7
         uint16 ChatChance;         // % chance per bot tick to say something in local
         uint16 AggroFactor;        // % confidence bonus/penalty when deciding to fight
         uint32 MinSkillLevel;      // min SP-simulated skill level for bots

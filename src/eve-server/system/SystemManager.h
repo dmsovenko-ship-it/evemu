@@ -69,6 +69,10 @@ public:
     void UpdateData();          // called from EntityList every 5m for active systems
 
     bool IsLoaded()                                     { return m_loaded; }
+    // Always-on systems (trade hubs + config list) are never unloaded for
+    // inactivity and keep a baseline bot population running 24/7.
+    void SetPersistent(bool p)                          { m_persistent = p; }
+    bool IsPersistent() const                           { return m_persistent; }
 
     SystemEntity* GetSE(uint32 entityID) const;
     NPC* GetNPCSE(uint32 entityID) const;
@@ -233,6 +237,7 @@ private:
 
     // for grid Unloading system  -allan  27June2015
     bool m_loaded;
+    bool m_persistent;          // keep loaded + populated even with no players (always-on hubs)
     bool SystemActivity();
     bool SafeToUnload();
     uint16 m_players;           // current total count
