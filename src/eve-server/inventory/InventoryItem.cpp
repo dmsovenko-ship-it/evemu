@@ -832,6 +832,15 @@ void InventoryItem::Relocate(uint32 locID, EVEItemFlags flag) {
     uint32 old_location = m_data.locationID;
     EVEItemFlags old_flag = m_data.flag;
 
+    // remove from the OLD container first: this only added to the new one,
+    // leaving a stale entry in the old container's flag map (the item was
+    // listed under the module slot AND the cargo hold at once).
+    if (IsValidLocationID(old_location)) {
+        InventoryItemRef oldCont = sItemFactory.GetItemRef(old_location);
+        if (oldCont.get() != nullptr)
+            oldCont->RemoveItem(InventoryItemRef(this));
+    }
+
     // update data
     m_data.flag = flag;
     m_data.locationID = locID;

@@ -200,8 +200,13 @@ PyResult ScanBound::DestroyProbe(PyCallArgs& call, PyInt* probeID) {
     call.Dump(SCAN__DUMP);
 
     SystemEntity* pSE(m_client->SystemMgr()->GetSE(probeID->value()));
-    if (pSE != nullptr)
+    if (pSE != nullptr) {
+        // Erase from the EntityList probe registry FIRST: it keeps ticking the
+        // raw pointer, and Delete() + SafeDelete here would leave it dangling.
+        if (pSE->IsProbeSE())
+            sEntityList.RemoveProbe(probeID->value());
         pSE->Delete();
+    }
     SafeDelete(pSE);
 
     return nullptr;

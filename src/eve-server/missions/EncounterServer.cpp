@@ -170,16 +170,21 @@ uint32 EncounterSpawnServer::SpawnEncounterForOffer(MissionOffer& offer, uint32 
 
 void EncounterSpawnServer::OnMissionTargetKilled(uint32 entityID)
 {
-    for (auto& pair : m_encounters) {
-        MissionEncounter& enc = pair.second;
-        auto it = std::find(enc.spawnedEntities.begin(), enc.spawnedEntities.end(), entityID);
-        if (it == enc.spawnedEntities.end())
+    for (auto it = m_encounters.begin(); it != m_encounters.end(); ++it) {
+        MissionEncounter& enc = it->second;
+        auto it2 = std::find(enc.spawnedEntities.begin(), enc.spawnedEntities.end(), entityID);
+        if (it2 == enc.spawnedEntities.end())
             continue;
-        enc.spawnedEntities.erase(it);
+        enc.spawnedEntities.erase(it2);
         _log(AGENT__MESSAGE, "EncounterSpawnServer: mission target %u destroyed (offer %u, %zu remain).",
              entityID, enc.offerID, enc.spawnedEntities.size());
-        if (enc.spawnedEntities.empty())
+        if (enc.spawnedEntities.empty()) {
             MarkOfferCleared(enc);
+            // the offer is finished — drop the tracking entry and its mining
+            // site position (both used to accumulate forever)
+            m_miningSites.erase(enc.offerID);
+            m_encounters.erase(it);
+        }
         return;
     }
 }

@@ -169,6 +169,9 @@ public:
     void AddProbe(uint32 probeID, ProbeSE* pSE)         { m_probes[probeID] = pSE; }
     // remove ProbeSE* from map
     void RemoveProbe(uint32 probeID)                    { m_probes.erase(probeID); }
+    // Delete every probe owned by charID (logout sweep): the probes tick on
+    // their own timers and would dereference the freed Client/Scan afterwards.
+    void RemoveClientProbes(uint32 charID);
 
 
 protected:

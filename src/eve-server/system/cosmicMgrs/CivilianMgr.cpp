@@ -263,8 +263,10 @@ void CivilianMgr::RemoveConvoy(ConvoyGroup* group) {
     if (group == nullptr) return;
     for (NPC* npc : group->members) {
         if (npc != nullptr && !npc->IsDead()) {
+            // RemoveNPC does the full removal (RemoveEntity + item delete);
+            // the old extra npc->Delete() double-deleted the item
             npc->SystemMgr()->RemoveNPC(npc);
-            npc->Delete();
+            SafeDelete(npc);
         }
     }
     SafeDelete(group);
@@ -276,7 +278,10 @@ void CivilianMgr::TransferCrossSystem(ConvoyGroup* group) {
     // Remove NPCs from current system
     for (NPC* npc : group->members) {
         if (npc != nullptr && !npc->IsDead()) {
-            npc->SystemMgr()->RemoveNPC(npc);
+            // unregister + remove from the system but KEEP the item alive —
+            // ResumeCrossSystem() re-adds the same NPC objects at the destination
+            npc->SystemMgr()->RemoveNPCFromList(npc);
+            npc->SystemMgr()->RemoveEntity(npc);
             // Mark as in-transit (still alive, just not in any system)
         }
     }

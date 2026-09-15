@@ -294,6 +294,17 @@ void ProcessAutoPay()
             }
             s_billNotifyTimes[billID] = now;
 
+            // the cooldown map only grew — sweep stale entries (cooldown itself
+            // is 1h; anything older than 24h is dead history)
+            if (s_billNotifyTimes.size() > 500) {
+                for (auto sit = s_billNotifyTimes.begin(); sit != s_billNotifyTimes.end(); ) {
+                    if ((now - sit->second) > 86400.0)
+                        sit = s_billNotifyTimes.erase(sit);
+                    else
+                        ++sit;
+                }
+            }
+
             _log(CORP__MESSAGE, "AutoPay: corp %u insufficient funds for bill %u (%.2f ISK)", debtorID, billID, amount);
 
             // Notify debtor corp about insufficient funds
@@ -518,6 +529,28 @@ void CheckVoteExpiry()
     }
 }
 
+
+// Logout sweep: delete every probe owned by this character. Probes keep ticking
+// on their own timers outliving the Client, and would dereference the freed
+// Client/Scan (m_client->SendNotification, ~ProbeSE -> m_scan->RemoveProbe).
+// Must run while the client's Scan object is still alive.
+void EntityList::RemoveClientProbes(uint32 charID) {
+    std::map<uint32, ProbeSE*>::iterator itr = m_probes.begin();
+    while (itr != m_probes.end()) {
+        ProbeSE* pProbe = itr->second;
+        if (pProbe == nullptr
+            || pProbe->GetSelf().get() == nullptr
+            || pProbe->GetSelf()->ownerID() != charID) {
+            ++itr;
+            continue;
+        }
+        itr = m_probes.erase(itr);
+        // a warp-disruption probe must release its bubble scramble flag
+        pProbe->ClearWarpBubbleFlag();
+        pProbe->Delete();     // remove from system + delete the probe item
+        SafeDelete(pProbe);   // ~ProbeSE detaches from the (still valid) Scan
+    }
+}
 
 void EntityList::Process() {
     Client* pClient(nullptr);

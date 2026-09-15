@@ -260,6 +260,7 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
             _log(SPAWN__DEPOP, "SpawnMgr::SpawnKilled - Belt Spawn has been destoyed.  Resetting spawn checks for bubble %u.", pBubble->GetID());
             // spawn destroyed.  delete from list and reset bubble checks.
             m_spawns.erase(pBubble->GetID()); // just in case....may/may not be in here.
+            m_capitalWaves.erase(pBubble->GetID());   // cap-escalation state dies with the bubble
             m_bubbles.erase(std::find(m_bubbles.begin(), m_bubbles.end(), pBubble));
             pBubble->ResetBubbleRatSpawn();
             m_system->RemoveSpawnBubble(pBubble);
@@ -429,8 +430,11 @@ void SpawnMgr::SpawnKilled(SystemBubble* pBubble, uint32 itemID)
                             lps.AddLP(charID, corpCONCORD, lpShare);
                         }
                     }
-                    sIncursionMgr.ClearDamageData(pBubble->GetID());
                 }
+                // Clear unconditionally: the reward query can return no rows
+                // (missing reward group) and the damage map used to leak its
+                // bubble entry forever.
+                sIncursionMgr.ClearDamageData(pBubble->GetID());
             }
 
             // Mothership loot: True Sansha modules + ship BPCs

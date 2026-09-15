@@ -214,6 +214,10 @@ Client::~Client() {
     m_system = nullptr; // DO NOT delete m_system here
 
     SafeDelete(m_TS);
+    // probes outlive the client and would touch freed Client/Scan — sweep them
+    // while the Scan object is still alive
+    if (m_char.get() != nullptr)
+        sEntityList.RemoveClientProbes(m_char->itemID());
     SafeDelete(m_scan);
     SafeDelete(pShipSE);
     SafeDelete(pSession);

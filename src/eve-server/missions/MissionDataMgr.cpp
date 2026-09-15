@@ -100,6 +100,27 @@ void MissionDataMgr::Process()
                 ++itr;
             }
         }
+
+        // Purge closed offers older than 30 days, hourly. They used to sit in
+        // m_xoffers forever AND in agtOffers (reloaded at every boot, growing
+        // the startup time without bound).
+        static time_t sLastXOfferPurge = 0;
+        time_t purgeNow = time(nullptr);
+        if (sLastXOfferPurge == 0 || (purgeNow - sLastXOfferPurge) >= 3600) {
+            sLastXOfferPurge = purgeNow;
+            int64 cutoff = GetFileTimeNow() - (int64)30 * EvE::Time::Day;
+            for (auto it = m_xoffers.begin(); it != m_xoffers.end(); ) {
+                if (it->second.expiryTime < cutoff)
+                    it = m_xoffers.erase(it);
+                else
+                    ++it;
+            }
+            DBerror perr;
+            // never touch active rows (dateCompleted = 0 AND stateID < 3)
+            sDatabase.RunQuery(perr,
+                "DELETE FROM agtOffers WHERE NOT (dateCompleted = 0 AND stateID < 3) AND expiryTime < %.1f",
+                (double)cutoff);
+        }
     }
 }
 

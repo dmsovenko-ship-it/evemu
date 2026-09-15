@@ -170,7 +170,7 @@ PyList* ContractUtils::GetContractEntries(std::vector<int> contractIDList) {
 
             auto pos = bidsMap.find(contractID);
             if (pos == bidsMap.end()) {
-                CRowSet* rowset = new CRowSet(&itemsHeader);
+                CRowSet* rowset = new CRowSet(&bidsHeader);   // was &itemsHeader — bids got the wrong column schema
                 PyPackedRow* into = rowset->NewRow();
                 FillBidData(&bidRow, into);
 

@@ -3164,15 +3164,16 @@ void ShipSE::UpdateDrones(std::map<int16, int8> &attribs) {
 }
 
 void ShipSE::AbandonDrones() {
-    SystemEntity* pSE(nullptr);
     EvilNumber load = m_shipRef->GetAttribute(AttrDroneBandwidthLoad);
-    for (auto cur : m_drones) {
-        pSE = m_system->GetSE(cur.first);
-        if (pSE != nullptr)
-            if (pSE->IsDroneSE()) {
-                pSE->GetDroneSE()->Abandon();
-                load -= pSE->GetSelf()->GetAttribute(AttrDroneBandwidthUsed);
-            }
+    for (auto it = m_drones.begin(); it != m_drones.end(); ) {
+        SystemEntity* pSE = m_system->GetSE(it->first);
+        if ((pSE != nullptr) && pSE->IsDroneSE()) {
+            pSE->GetDroneSE()->Abandon();
+            load -= pSE->GetSelf()->GetAttribute(AttrDroneBandwidthUsed);
+        }
+        // abandoned drones are no longer this ship's responsibility — the stale
+        // raw entries skewed bandwidth/tube counts and were never cleaned up
+        it = m_drones.erase(it);
     }
     m_shipRef->SetAttribute(AttrDroneBandwidthLoad, load, false); // client dont care
 }
