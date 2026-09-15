@@ -167,7 +167,7 @@ private:
     void PlaceBotCourierContract(PlayerBot* bot);
     void PlaceBotOrderAt(uint32 sysID, uint32 charID, uint32 corpID);
     void PlaceBotBuyOrderAt(uint32 sysID, uint32 charID, uint8 profession);
-    void PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpID);
+    uint32 PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpID);
     // Stage-2 living goods: a bot with REAL stock sitting in its station hangar
     // (ore/salvage/faction loot deposited by miners/ratters) packs that physical
     // cargo into a public courier contract to the trade hub. The goods are locked
@@ -175,6 +175,15 @@ private:
     // CompleteContract delivers them to the issuer's hangar at the hub — real
     // goods physically travel between stations. Returns the contract id, or 0.
     uint32 PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint32 charID, uint32 corpID);
+    // Trader lists real stock as a public item-exchange (auction=false) or
+    // auction (auction=true) contract at its station. Items are locked into the
+    // contract and a link is announced in local when a player is present.
+    // Returns the contract id, or 0.
+    uint32 PlaceBotItemContractAt(uint32 sysID, uint32 stationID, uint32 charID, uint32 corpID, bool auction);
+    // Post a clickable contract link in the local chat of its system, but only
+    // if a real player is there (throttled per system so it never spams).
+    void AnnounceBotContract(uint32 sysID, uint32 contractId, const std::string& title,
+                             uint32 charID, const std::string& name, uint32 corpID);
     // A bot docked at the trade hub SELLS its real stock into the best resting
     // buy order per type (closing the ISK loop: ore/faction loot hauled to Jita
     // actually becomes ISK). Returns total ISK received.
@@ -258,6 +267,7 @@ private:
     bool m_alwaysOnLoaded = false;
     std::map<uint32, time_t> m_lastPopulate;   // systemID -> last bot spawn time (gradual fill)
     std::map<int32, time_t> m_lastSmalltalk;   // channelID -> last bot-to-bot chatter time
+    std::map<uint32, time_t> m_lastContractLink;   // systemID -> last contract link posted in local
     std::map<uint32, time_t> m_lastTrade;      // charID -> last market order time (throttle)
 
     // Physical courier hauls: a courier accepted a courier contract and flies it

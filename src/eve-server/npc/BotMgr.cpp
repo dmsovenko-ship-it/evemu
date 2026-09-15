@@ -3233,6 +3233,10 @@ void BotMgr::ProcessDockedEconomy()
                     SellStockAtHub(sysID, db.stationID, db.charID);
                 else if (PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID) == 0)
                     PlaceBotCourierContractAt(sysID, db.charID, db.corpID);
+                // Occasionally list stock as a public item-exchange or auction
+                // contract (players can buy; linked in local when a player is near).
+                if (MakeRandomInt(0, 999) < 40)
+                    PlaceBotItemContractAt(sysID, db.stationID, db.charID, db.corpID, MakeRandomInt(0, 1) == 1);
             } else if (prof == (uint8)PlayerBot::BotProfession::Industrialist) {
                 // Producer/builder: run the manufacturing chain, then move the
                 // output to the hub (courier) or sell it if already at the hub.
@@ -4517,29 +4521,29 @@ void BotMgr::PlaceBotCourierContract(PlayerBot* bot)
     PlaceBotCourierContractAt(sysID, bot->GetBotCharID(), bot->GetBotCorpID());
 }
 
-void BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpID)
+uint32 BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpID)
 {
     if (sysID == 0 || charID == 0)
-        return;
+        return 0;
     if (MakeRandomInt(0, 999) >= 20)
-        return;   // ~2% per economy tick — rare
+        return 0;   // ~2% per economy tick — rare
 
     // Start station (where the trader is) and a random other station as the
     // destination — the courier "hauls goods to the hub".
     DBQueryResult res;
     uint32 startStation = 0, endStation = 0, endSys = 0;
     if (!sDatabase.RunQuery(res, "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", sysID))
-        return;
+        return 0;
     DBResultRow srow;
     if (!res.GetRow(srow))
-        return;
+        return 0;
     startStation = srow.GetUInt(0);
 
     // Destination: the primary trade hub, or any random station elsewhere.
     uint32 hub = GetTradeHubSystem();
     if (hub != 0 && hub != sysID && MakeRandomInt(0, 99) < 70) {
         if (!sDatabase.RunQuery(res, "SELECT stationID FROM staStations WHERE solarSystemID = %u LIMIT 1", hub))
-            return;
+            return 0;
         if (res.GetRow(srow)) {
             endStation = srow.GetUInt(0);
             endSys = hub;
@@ -4547,14 +4551,14 @@ void BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpI
     }
     if (endStation == 0) {
         if (!sDatabase.RunQuery(res, "SELECT stationID, solarSystemID FROM staStations ORDER BY RAND() LIMIT 1"))
-            return;
+            return 0;
         if (res.GetRow(srow)) {
             endStation = srow.GetUInt(0);
             endSys = srow.GetUInt(1);
         }
     }
     if (endStation == 0 || endStation == startStation)
-        return;
+        return 0;
 
     // Modest cargo and reward — enough to be worth a courier's time but not a
     // jackpot a player would hoard. Larger = more visible on the market.
@@ -4562,7 +4566,8 @@ void BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpI
     int64 reward = (int64)(50000 + volume * 40.0);
 
     DBerror err;
-    if (!sDatabase.RunQuery(err,
+    uint32 contractId = 0;
+    if (!sDatabase.RunQueryLID(err, contractId,
         "INSERT INTO ctrContracts"
         "  (contractType, issuerID, issuerCorpID, forCorp, isPrivate, assigneeID,"
         "   dateIssued, dateExpired, expireTimeInMinutes, duration, numDays, startStationID, startSolarSystemID,"
@@ -4579,7 +4584,9 @@ void BotMgr::PlaceBotCourierContractAt(uint32 sysID, uint32 charID, uint32 corpI
     {
         _log(BOT__MESSAGE, "BotMgr: trader %u issued courier contract (%.0f m3, reward %.0f ISK) %u -> %u.",
              charID, volume, (double)reward, sysID, endSys);
+        AnnounceBotContract(sysID, contractId, "Courier shipment", charID, "", corpID);
     }
+    return contractId;
 }
 
 // Stage-2 physical-goods haul: when a bot has real stock sitting in its station
@@ -4739,6 +4746,177 @@ uint32 BotMgr::PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint3
 
     _log(BOT__MESSAGE, "BotMgr: %u packed %u x types (%.0f m3, reward %.0f ISK) into courier contract %u -> station %u.",
          charID, (uint32)cargo.size(), totalVol, (double)reward, contractId, endStation);
+    AnnounceBotContract(sysID, contractId, "Courier shipment", charID, "", corpID);
+    return contractId;
+}
+
+// Post a clickable contract link in the local chat of its system — but only if a
+// real player is present (that's who can act on it), throttled per system.
+void BotMgr::AnnounceBotContract(uint32 sysID, uint32 contractId, const std::string& title,
+                                 uint32 charID, const std::string& name, uint32 corpID)
+{
+    if (sysID == 0 || contractId == 0 || charID == 0)
+        return;
+    SystemManager* pSystem = sEntityList.FindOrBootSystem(sysID);
+    if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+        return;
+
+    time_t now = time(nullptr);
+    auto it = m_lastContractLink.find(sysID);
+    if (it != m_lastContractLink.end() && (now - it->second) < 180)
+        return;   // at most one contract link per system per ~3 min
+    m_lastContractLink[sysID] = now;
+
+    std::string who = name;
+    if (who.empty()) {
+        DBQueryResult nr;
+        if (sDatabase.RunQuery(nr, "SELECT characterName FROM chrCharacters WHERE characterID = %u", charID)) {
+            DBResultRow nrow;
+            if (nr.GetRow(nrow)) who = nrow.GetText(0);
+        }
+    }
+
+    LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
+    if (lsc == nullptr)
+        return;
+    LSCChannel* chan = lsc->GetChannelByID((int32)sysID);
+    if (chan == nullptr)
+        return;
+
+    // Client link format (from the decompiled contracts service):
+    //   <a href="contract:<startSolarSystemID>//<contractID>">Title</a>
+    std::string msg = "📄 <a href=\"contract:" + std::to_string(sysID) + "//"
+                    + std::to_string(contractId) + "\">" + title + "</a>";
+    chan->SendBotMessage(charID, who, corpID, msg);
+    RecordChannelPhrase((int32)sysID, charID, msg);
+    _log(BOT__MESSAGE, "BotMgr: announced contract %u in system %u local.", contractId, sysID);
+}
+
+// Trader lists real stock as a public item-exchange (auction=false) or auction
+// (auction=true) contract at its station. Items are locked into the contract and
+// a link is announced in local when a player is present. Returns the id or 0.
+uint32 BotMgr::PlaceBotItemContractAt(uint32 sysID, uint32 stationID, uint32 charID, uint32 corpID, bool auction)
+{
+    if (sysID == 0 || stationID == 0 || charID == 0)
+        return 0;
+
+    // Real stock owned by this bot at this station (non-ship stacks).
+    struct StockType { uint16 typeID; uint32 qty; };
+    std::vector<StockType> stock;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT typeID, SUM(quantity) FROM entity"
+        " WHERE ownerID = %u AND locationID = %u AND flag = %u AND quantity > 0 AND singleton = 0"
+        " GROUP BY typeID", charID, stationID, (uint32)flagHangar))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            StockType st; st.typeID = (uint16)row.GetUInt(0); st.qty = row.GetUInt(1);
+            stock.push_back(st);
+        }
+    }
+    if (stock.empty())
+        return 0;
+
+    const StockType& st = stock[MakeRandomInt(0, (int)stock.size() - 1)];
+    const ItemType* t = sItemFactory.GetType(st.typeID);
+    if (t == nullptr)
+        return 0;
+    double unitVol = t->volume() > 0.01f ? (double)t->volume() : 1.0;
+    uint32 qty = st.qty;
+    if (qty > 5000)
+        qty = 500 + MakeRandomInt(0, 4500);   // keep listings modest
+    if (qty == 0)
+        qty = 1;
+    double totalVol = unitVol * qty;
+
+    // Price: trader markup on basePrice; auctions start lower to attract bids.
+    double base = t->basePrice();
+    if (base <= 0.0)
+        base = 1000.0;
+    double price = auction ? base * (0.5 + MakeRandomFloat() * 0.3)
+                           : base * (1.05 + MakeRandomFloat() * 0.5);
+    int64 priceI = (int64)(price * (double)qty);
+    if (priceI < 1)
+        priceI = 1;
+
+    int64 now = (int64)GetFileTimeNow();
+    uint32 days = auction ? 3 : 14;
+    int64 expire = now + (int64)days * EvE::Time::Day;
+
+    const char* typeName = sDataMgr.GetTypeName(st.typeID);
+    if (typeName == nullptr)
+        typeName = "Item";
+    std::string title = std::string(auction ? "Auction: " : "WTS: ") + typeName;
+    std::string eTitle;
+    sDatabase.DoEscapeString(eTitle, title);
+
+    DBerror err;
+    uint32 contractId = 0;
+    if (!sDatabase.RunQueryLID(err, contractId,
+        "INSERT INTO ctrContracts"
+        "  (contractType, issuerID, issuerCorpID, forCorp, isPrivate, assigneeID,"
+        "   dateIssued, dateExpired, expireTimeInMinutes, duration, numDays, startStationID, startSolarSystemID,"
+        "   startRegionID, endStationID, endSolarSystemID, endRegionID, price, reward, collateral,"
+        "   title, description, status, volume, startStationDivision)"
+        " VALUES"
+        "  (%u, %u, %u, 0, 0, 0, %lli, %lli, %u, %u, %u, %u, %u,"
+        "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u,"
+        "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %lli, 0, 0,"
+        "   '%s', '%s', 0, %f, 1000)",
+        (uint32)(auction ? 2 : 1), charID, corpID,
+        now, expire, days * 24 * 60, days, days,
+        stationID, sysID, sysID, stationID, sysID, sysID,
+        priceI, eTitle.c_str(), (auction ? "Public auction" : "Item exchange"), totalVol))
+    {
+        _log(BOT__ERROR, "PlaceBotItemContractAt: insert failed for %u.", charID);
+        return 0;
+    }
+
+    // Lock the items into the contract (owner -> 1) and record ctrItems rows.
+    {
+        DBQueryResult ires;
+        std::vector<uint32> itemIDs;
+        if (sDatabase.RunQuery(ires,
+            "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u AND flag = %u AND typeID = %u AND quantity > 0 AND singleton = 0 LIMIT 5",
+            charID, stationID, (uint32)flagHangar, st.typeID))
+        {
+            DBResultRow irow;
+            while (ires.GetRow(irow))
+                itemIDs.push_back(irow.GetUInt(0));
+        }
+        uint32 remaining = qty;
+        for (uint32 itemID : itemIDs) {
+            if (remaining == 0)
+                break;
+            InventoryItemRef itm = sItemFactory.GetItemRef(itemID);
+            if (itm.get() == nullptr)
+                continue;
+            uint32 take = itm->quantity();
+            if (take > remaining)
+                take = remaining;
+            InventoryItemRef part = itm;
+            if (itm->quantity() > take)
+                part = itm->Split(take);
+            if (part.get() == nullptr)
+                continue;
+            part->ChangeOwner(1, false);   // locked into the contract
+            part->SaveItem();
+            DBerror ierr;
+            sDatabase.RunQuery(ierr,
+                "INSERT INTO ctrItems (contractId, itemID, quantity, itemTypeID, inCrate, parentID,"
+                "  productivityLevel, materialLevel, isCopy, licensedProductionRunsRemaining, damage, flagID)"
+                " VALUES (%u, %u, %u, %u, 0, 0, 0, 0, 0, 0, 0, 0)",
+                contractId, part->itemID(), take, st.typeID);
+            remaining -= take;
+        }
+    }
+
+    _log(BOT__MESSAGE, "BotMgr: %u listed %u x %s (%s, %.0f ISK) as contract %u.",
+         charID, qty, typeName, auction ? "auction" : "item exchange",
+         (double)priceI, contractId);
+
+    AnnounceBotContract(sysID, contractId, title, charID, "", corpID);
     return contractId;
 }
 
