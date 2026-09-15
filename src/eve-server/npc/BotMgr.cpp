@@ -28,12 +28,15 @@
 #include "tables/invGroups.h"
 #include "inventory/AttributeEnum.h"
 #include "TelegramBot.h"
+#include "ServiceDB.h"
 #include "character/Character.h"
 #include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
+#include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <map>
@@ -43,6 +46,7 @@
 
 static void SecurityAuditTick();
 static void DailyKillDigestTick();
+static void DailyAdminReportTick();
 static void ProcessBotTrainingBatch();
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -284,6 +288,9 @@ void BotMgr::Process()
     // Daily top-kills digest → public (player) TG group.
     DailyKillDigestTick();
 
+    // Evening admin report (restarts / crashes / code changes) → admin TG.
+    DailyAdminReportTick();
+
     // Player-like offline skill training for simulated pilots.
     ProcessBotTrainingBatch();
 }
@@ -395,7 +402,24 @@ static void SecurityAuditTick()
 // per day (24h from the previous run).  Rows are enriched: local time of the
 // kill, victim (corp + ship class), system + region, the final-blow ship class
 // and who landed it, and damage — so the message reads like a mini killboard.
-static time_t sLastKillDigest = 0;
+// Formatting helpers: killTime is a Windows FILETIME (100ns ticks since 1601),
+// converted to a local "dd.mm HH:MM" string in C++ (the SQL DATE_FORMAT path was
+// producing garbage on the live server).
+static std::string FormatKillTime(int64 filetime) {
+    if (filetime <= 0)
+        return "";
+    uint64 unix = (uint64)filetime / 10000000ULL;          // seconds since 1601
+    if (unix < 11644473600ULL)
+        return "";
+    time_t t = (time_t)(unix - 11644473600ULL);            // -> unix epoch
+    struct tm tmv;
+    if (localtime_r(&t, &tmv) == nullptr)
+        return "";
+    char buf[32];
+    if (strftime(buf, sizeof(buf), "%d.%m %H:%M", &tmv) == 0)
+        return "";
+    return buf;
+}
 
 std::string HumanizeIsk(double v) {
     char buf[64];
@@ -420,7 +444,7 @@ std::string BuildKillDigestText(int limit, const std::string& sinceSql)
         "       k.solarSystemID, ss.solarSystemName, rg.regionName,"
         "       fc.characterName, if_.typeName, igf.groupName,"
         "       k.victimDamageTaken,"
-        "       DATE_FORMAT(FROM_UNIXTIME((k.killTime - 116444736000000000) / 10000000), '%d.%m %H:%i') AS kt"
+        "       k.killTime"
         " FROM chrKillTable k"
         " LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID"
         " LEFT JOIN crpCorporation vcc ON vcc.corporationID = k.victimCorporationID"
@@ -450,40 +474,54 @@ std::string BuildKillDigestText(int limit, const std::string& sinceSql)
         const char* killer = row.GetText(8);
         const char* kship  = row.GetText(9);
         const char* kgrp   = row.GetText(10);
-        const char* ktime  = row.GetText(12) ? row.GetText(12) : "";
+        std::string ktime  = FormatKillTime(row.GetInt64(12));
 
-        std::string line = "\n";
-        if (*ktime) { line += "🕐 " + std::string(ktime) + " · "; }
+        // Compact one-line-per-kill layout (less flood than the old 3-line
+        // cards): N) time · victim <corp> — ship [class] · system (region) ·
+        // ⚔ killer (ship) · dmg.
+        std::string line = "\n" + std::to_string(count + 1) + ") ";
+        if (!ktime.empty()) line += ktime + " · ";
         line += victim;
         if (vcorp) line += " <" + std::string(vcorp) + ">";
         if (*ship) line += " — " + std::string(ship);
         if (grp)   line += " [" + std::string(grp) + "]";
-        if (*sys)  line += "\n      📍 " + std::string(sys);
+        if (*sys)  line += " · " + std::string(sys);
         if (region) line += " (" + std::string(region) + ")";
-        // final blow: pilot name if a character did it, else the NPC ship name
-        line += "\n      ⚔ ";
+        line += " · ⚔ ";
         if (killer) line += std::string(killer);
         else if (kship) line += std::string(kship);
         else line += "NPC";
-        if (kship && killer) line += " на " + std::string(kship);
+        if (kship && killer) line += " (" + std::string(kship) + ")";
         if (kgrp) line += " [" + std::string(kgrp) + "]";
-        line += " · dmg " + HumanizeIsk(row.GetUInt(11));
+        line += " · " + HumanizeIsk(row.GetUInt(11));
         body += line;
         ++count;
     }
     if (count == 0)
         return "";
-    return "📊 Top-" + std::to_string(count) + " киллов за сутки:" + body;
+    return "📊 Топ-" + std::to_string(count) + " киллов за сутки" + body;
 }
 
 static void DailyKillDigestTick()
 {
-    if (!sConfig.telegram.PlayerEnabled)
+    if (!sConfig.telegram.PlayerEnabled && !sConfig.telegram.AdminEnabled)
         return;
+
+    // Once per 24h. The marker lives in srvStatus so a restart (rebuild) does
+    // NOT re-fire the digest — the old in-memory marker reset to 0 every boot.
+    // sNextDigestCheck keeps the DB from being polled every tick.
+    static time_t sNextDigestCheck = 0;
     time_t now = time(nullptr);
-    if (sLastKillDigest != 0 && now - sLastKillDigest < 86400)
+    if (sNextDigestCheck != 0 && now < sNextDigestCheck)
         return;
-    sLastKillDigest = now;
+
+    uint64 last = ServiceDB::GetLastDigest();
+    if (last != 0 && (uint64)now < last + 86400) {
+        sNextDigestCheck = (time_t)(last + 86400);   // sleep until it is due
+        return;
+    }
+    ServiceDB::SetLastDigest((uint64)now);
+    sNextDigestCheck = now + 86400;
 
     std::string digest = BuildKillDigestText(5,
         "(k.killTime - 116444736000000000) / 10000000 > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 1 DAY))");
@@ -491,6 +529,94 @@ static void DailyKillDigestTick()
         TelegramBot::NotifyPlayer(digest);
         TelegramBot::NotifyAdmin(digest);
     }
+}
+
+// ---- evening admin report --------------------------------------------------
+// Reads /app/etc/build_info.txt (written on the host by tools/write_build_info.sh
+// after `git pull`). Format: key=value lines (commit, count, built).
+static std::string ReadBuildInfoField(const char* key)
+{
+    std::ifstream in(std::string(EVEMU_ROOT) + "/etc/build_info.txt");
+    if (!in)
+        return "";
+    std::string line;
+    size_t klen = strlen(key);
+    while (std::getline(in, line)) {
+        if (line.size() > klen && line.compare(0, klen, key) == 0 && line[klen] == '=')
+            return line.substr(klen + 1);
+    }
+    return "";
+}
+
+static uint32 DayOf(time_t t)
+{
+    struct tm tmv;
+    if (localtime_r(&t, &tmv) == nullptr)
+        return 0;
+    return (uint32)((tmv.tm_year + 1900) * 10000 + (tmv.tm_mon + 1) * 100 + tmv.tm_mday);
+}
+
+// Evening admin digest (default from 21:00 server time, once per day): restarts,
+// crashes and code changes since the previous report. Admin channel only.
+static void DailyAdminReportTick()
+{
+    if (!sConfig.telegram.AdminEnabled)
+        return;
+
+    static time_t sNextCheck = 0;
+    static uint32 sSentDay = 0;   // in-session guard (in case the DB marker fails)
+    time_t now = time(nullptr);
+    if (sNextCheck != 0 && now < sNextCheck)
+        return;
+    sNextCheck = now + 600;   // re-check every 10 min
+
+    struct tm tmv;
+    if (localtime_r(&now, &tmv) == nullptr)
+        return;
+    if (tmv.tm_hour < 21)
+        return;   // evening only
+
+    uint32 today = DayOf(now);
+    if (sSentDay == today)
+        return;
+    uint64 last = ServiceDB::GetLastAdminReport();
+    if (last != 0 && DayOf((time_t)last) == today)
+        return;   // already sent today
+    sSentDay = today;
+
+    uint32 boots   = ServiceDB::GetBootCount();
+    uint32 crashes = ServiceDB::GetCrashCount();
+    uint32 rb  = ServiceDB::GetLastReportBoot();
+    uint32 rc  = ServiceDB::GetLastReportCrash();
+    uint32 rcm = ServiceDB::GetLastReportCommit();
+    uint32 restarts   = (boots   >= rb) ? (boots   - rb) : boots;
+    uint32 crashDelta = (crashes >= rc) ? (crashes - rc) : crashes;
+
+    std::string hash  = ReadBuildInfoField("commit");
+    std::string built = ReadBuildInfoField("built");
+    uint32 commitCount = 0;
+    {
+        std::string c = ReadBuildInfoField("count");
+        if (!c.empty()) commitCount = (uint32)strtoul(c.c_str(), nullptr, 10);
+    }
+
+    char dateBuf[32];
+    strftime(dateBuf, sizeof(dateBuf), "%d.%m", &tmv);
+
+    std::string msg = "📋 Вечерний отчёт · " + std::string(dateBuf);
+    msg += "\n\n🔄 Перезагрузок: " + std::to_string(restarts);
+    msg += "\n💥 Падений: " + std::to_string(crashDelta);
+    if (commitCount > 0) {
+        uint32 changes = (rcm > 0 && commitCount >= rcm) ? (commitCount - rcm) : commitCount;
+        msg += "\n🧩 Коммитов: " + std::to_string(changes);
+        msg += "\n📦 Билд: " + (hash.empty() ? "?" : hash);
+        if (!built.empty()) msg += " · " + built;
+    } else {
+        msg += "\n🧩 Коммитов: нет данных (build_info.txt)";
+    }
+
+    TelegramBot::NotifyAdmin(msg);
+    ServiceDB::SetReportMarkers(boots, crashes, commitCount, (uint64)now);
 }
 
 // Player-like skill training for simulated pilots. Runs every 5 minutes over a

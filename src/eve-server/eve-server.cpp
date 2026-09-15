@@ -201,8 +201,13 @@ static const char* const SRV_CONFIG_FILE = EVEMU_ROOT "/etc/eve-server.xml";
 
 static void SetupSignals();
 static void CatchSignal( int sig_num );
+static void AnnounceOfflineIfReal();
 
 static volatile bool m_run = true;
+
+// Session start (unix seconds), set when the server comes online. Used to keep
+// the "offline" Telegram notice off for very short sessions (dev rebuilds).
+static time_t s_serverStartTime = 0;
 
 CommandDispatcher* g_dispatcher = nullptr; // ---commandlist update
 
@@ -945,12 +950,23 @@ int main( int argc, char* argv[] )
     sLog.Error("       ServerInit", "Main Loop Starting.");
 
     ServiceDB::SetServerOnlineStatus(true);
+    ServiceDB::RecordBoot();   // bootCount++, and crashCount++ if the last session died dirty
     sLog.Green("       ServerInit", "EVEmu Server is Online.");
 
+    s_serverStartTime = time(nullptr);
     sLog.Cyan("           Server", "Started on %s", currentDateTime().c_str());
-    std::string upMsg = "🚀 EVEmu online — " + std::string(currentDateTime().c_str());
-    TelegramBot::NotifyPlayer(upMsg);
-    TelegramBot::NotifyAdmin(upMsg);
+    // Announce "online" only after a real outage (downtime >= 10 min). A quick
+    // rebuild stays silent so the Telegram channels are not spammed.
+    {
+        uint64 lastOffline = ServiceDB::GetLastOffline();
+        bool realDowntime = (lastOffline == 0)
+                          || ((uint64)s_serverStartTime >= lastOffline + 600);
+        if (realDowntime) {
+            std::string upMsg = "🚀 EVEmu online — " + std::string(currentDateTime().c_str());
+            TelegramBot::NotifyPlayer(upMsg);
+            TelegramBot::NotifyAdmin(upMsg);
+        }
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     //     !!!  DO NOT PUT ANY INITIALIZATION CODE OR CALLS BELOW THIS LINE   !!!
@@ -995,8 +1011,7 @@ int main( int argc, char* argv[] )
      * @note  these are order-dependent...
      */
     sLog.Warning("   ServerShutdown", "Main loop has stopped." );
-    TelegramBot::NotifyPlayer("⛔ EVEmu offline — сервер остановлен.");
-    TelegramBot::NotifyAdmin("⛔ EVEmu offline — сервер остановлен.");
+    AnnounceOfflineIfReal();
     sLog.Error("   ServerShutdown", "EVEmu Server is Offline." );
     if (!sConsole.IsDbError())
         ServiceDB::SetServerOnlineStatus(false);
@@ -1103,10 +1118,23 @@ static void CatchSignal( int sig_num )
     //CleanUp();
 }
 
+// Record the shutdown time and, only if this session was a real one (up for at
+// least 10 minutes), announce "offline". A quick rebuild is silent, and the
+// recorded lastOffline lets the next boot decide whether to announce "online".
+static void AnnounceOfflineIfReal()
+{
+    time_t now = time(nullptr);
+    ServiceDB::SetLastOffline((uint64)now);
+    ServiceDB::RecordCleanShutdown();
+    if (s_serverStartTime != 0 && now - s_serverStartTime >= 600) {
+        TelegramBot::NotifyPlayer("⛔ EVEmu offline — сервер остановлен.");
+        TelegramBot::NotifyAdmin("⛔ EVEmu offline — сервер остановлен.");
+    }
+}
+
 static void CleanUp() {
     sLog.Warning("   ServerShutdown", "Main loop has stopped." );
-    TelegramBot::NotifyPlayer("⛔ EVEmu offline — сервер остановлен.");
-    TelegramBot::NotifyAdmin("⛔ EVEmu offline — сервер остановлен.");
+    AnnounceOfflineIfReal();
     sLog.Error("   ServerShutdown", "EVEmu Server is Offline." );
     if (!sConsole.IsDbError())
         ServiceDB::SetServerOnlineStatus(false);

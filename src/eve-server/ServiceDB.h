@@ -56,6 +56,27 @@ public:
     static void SetAccountBanStatus(uint32 accountID, bool banned=false);
     static void SaveServerStats(double threads, float rss, float vm, float user, float kernel, uint32 items, uint32 bubbles);
 
+    // Persistent Telegram cadence markers (srvStatus, unix seconds). Used so a
+    // server restart does not re-fire the daily kill digest / online-offline
+    // announcements. 0 means "unknown / never".
+    static uint64 GetLastOffline();
+    static void   SetLastOffline(uint64 when);
+    static uint64 GetLastDigest();
+    static void   SetLastDigest(uint64 when);
+
+    // Boot/crash telemetry + evening admin report markers (srvStatus).
+    // RecordBoot() bumps bootCount and, if the previous session ended dirty
+    // (cleanShutdown == 0), crashCount; it then marks the server as running.
+    static void   RecordBoot();
+    static void   RecordCleanShutdown();
+    static uint32 GetBootCount();
+    static uint32 GetCrashCount();
+    static uint32 GetLastReportBoot();
+    static uint32 GetLastReportCrash();
+    static uint32 GetLastReportCommit();
+    static uint64 GetLastAdminReport();
+    static void   SetReportMarkers(uint32 boot, uint32 crash, uint32 commit, uint64 when);
+
     static uint32 SetClientSeed();
 
     static PyRep* LookupChars(const char *match, bool exact=false);
