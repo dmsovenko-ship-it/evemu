@@ -2009,6 +2009,22 @@ void PlayerBot::RatForTarget()
         // Skip other PlayerBots (they're NPCSE too) — we only shoot real rats.
         if (dynamic_cast<PlayerBot*>(se->GetNPCSE()) != nullptr)
             continue;
+        // Red-cross check (the rule NPC::MakeSlimItem uses for the hostile
+        // icon): only pirate factions + incursion Sansha are rats. Without this
+        // the ratter attacked ANY NPC in range — including empire customs
+        // officials orbiting gates, whose 30k alpha then vaporized the bot.
+        switch (se->GetWarFactionID()) {
+            case factionAngel: case factionBloodRaider: case factionGuristas:
+            case factionSanshas: case factionSerpentis: case factionRogueDrones:
+            case factionSleepers:
+                break;   // a rat — engage
+            default: {
+                uint16 gid = se->GetSelf()->groupID();
+                if (gid < 1051 || gid > 1056)
+                    continue;   // not hostile (customs, patrols, convoys) — leave it alone
+                break;
+            }
+        }
         double d = GetPosition().distance(se->GetPosition());
         if (d > 100000)
             continue;
@@ -2032,6 +2048,20 @@ void PlayerBot::RatForTarget()
                 continue;
             if (dynamic_cast<PlayerBot*>(se->GetNPCSE()) != nullptr)
                 continue;
+            // Same red-cross rule for the fly-to-rats fallback — never warp to
+            // (and then attack) customs officials or faction patrols.
+            switch (se->GetWarFactionID()) {
+                case factionAngel: case factionBloodRaider: case factionGuristas:
+                case factionSanshas: case factionSerpentis: case factionRogueDrones:
+                case factionSleepers:
+                    break;
+                default: {
+                    uint16 gid = se->GetSelf()->groupID();
+                    if (gid < 1051 || gid > 1056)
+                        continue;
+                    break;
+                }
+            }
             // Prefer an NPC cluster (an anomaly spawn) over a lone far one.
             double d = GetPosition().distance(se->GetPosition());
             if (d > 250000 && d > bestD) { bestD = d; ratSpot = se; }
