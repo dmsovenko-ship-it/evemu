@@ -135,6 +135,19 @@ PyResult CalendarMgrService::CreateAllianceEvent(PyCallArgs& call, PyLong* dateT
     return CalendarDB::SaveNewEvent(call.client->GetAllianceID(), call.client->GetCharacterID(), args);
 }
 
+// Crucible client sends (dateTime, None, title, description, important) for
+// alliance events — duration arrives as None, title/description as WStrings.
+PyResult CalendarMgrService::CreateAllianceEvent(PyCallArgs& call, PyLong* dateTime, PyNone* duration, PyWString* title, PyWString* description, PyInt* important)
+{
+    Call_CreateEvent args = Call_CreateEvent();
+    args.startDateTime = dateTime->value();
+    args.duration = 0;
+    args.title = GetStringContent(title);
+    args.description = GetStringContent(description);
+    args.important = important->value();
+    return CalendarDB::SaveNewEvent(call.client->GetAllianceID(), call.client->GetCharacterID(), args);
+}
+
 PyResult CalendarMgrService::EditPersonalEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important)
 {
     int32 imp = important->IsInt() ? important->AsInt()->value() : (important->IsBool() && important->AsBool()->value() ? 1 : 0);
