@@ -587,6 +587,8 @@ void FieldSE::EncodeDestiny( Buffer& into )
         head.entityID = m_self->itemID();
         head.mode = (m_harmonic > EVEPOS::Harmonic::Offline ? Ball::Mode::FIELD : Ball::Mode::STOP);
         head.radius = m_radius;
+        if (head.radius < 100.0 && m_self->HasAttribute(AttrRadius))
+            head.radius = m_self->GetAttribute(AttrRadius).get_float();   // field sphere = tower shield radius
         head.posX = x();
         head.posY = y();
         head.posZ = z();

@@ -43,7 +43,7 @@
 | **Corporation & Alliance** — corp/ally contacts with **role checks**, **OnContactLoggedOn/Off**, PyFloat* standing | **Корпорации и альянсы** — контакты с **проверкой ролей**, **OnContactLoggedOn/Off**, PyFloat* standing |
 | **Market** — buy/sell orders, corp market, **market spin-lock fix (1000→1)**, **full price list fix (order-limit fields uint8→uint32)** | **Маркет** — ордера, корп-маркет, **фикс spin-lock (1000→1)**, **фикс «нет в наличии» (лимиты uint8→uint32)** |
 | **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
-| **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, skill checks | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы |
+| **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, skill checks, **working force field** (ships inside untouchable), **shield hardener resists**, doctrine layouts, moon-reaction production | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы, **рабочее силовое поле** (корабли внутри неуязвимы), **резисты харденеров**, доктринальные схемы, лунно-реакторное производство |
 | **Overheating** — heat dmg per slot, OverloadRack, Thermodynamics, Nanite Paste | **Перегрев** — урон по слотам, OverloadRack, Thermodynamics, Nanite Paste |
 | **ECM** — player ships actively jam targets (break lock + send ElectronicAttributeModifyTarget) | **ECM** — корабли игроков активно джамят цели (сбивают лок + шлют ElectronicAttributeModifyTarget) |
 | **Notifications** — persistent DB + live push, bill/tower/agent/corp sources | **Нотификации** — БД + live push, счета/POS/агенты/корп |
@@ -109,7 +109,7 @@ Full history in `git log` / полная история — в `git log`.
 ## Progress / Прогресс
 
 **Our fork · game systems `███████████████████░` ~96%**
-**Our fork · infrastructure (memory mgmt) `█████░░░░░░░░░░░░░░░` 25%**
+**Our fork · infrastructure (memory mgmt) `███████░░░░░░░░░░░░░░░` 35%**
 **Upstream `████████████░░░░░░░░` ~60%**
 
 | System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |

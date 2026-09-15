@@ -43,6 +43,8 @@ protected:
     PyResult CreatePersonalEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important, PyList* invitees);
     PyResult CreateCorporationEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
     PyResult CreateAllianceEvent(PyCallArgs& call, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
+    // Crucible client variant: (dateTime, None, title, description, important)
+    PyResult CreateAllianceEvent(PyCallArgs& call, PyLong* dateTime, PyNone* duration, PyWString* title, PyWString* description, PyInt* important);
     PyResult UpdateEventParticipants(PyCallArgs& call, PyInt* eventID, PyList* charsToAdd, PyList* charsToRemove);
     PyResult EditPersonalEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);
     PyResult EditCorporationEvent(PyCallArgs& call, PyInt* eventID, PyLong* oldDateTime, PyLong* dateTime, PyInt* duration, PyRep* title, PyRep* description, PyRep* important);

@@ -976,13 +976,16 @@ void TowerSE::CreateForceField()
         return;  // we'll get over it
     ifRef->SetPosition(GetPosition());
     ifRef->SetAttribute(AttrRadius, m_self->GetAttribute(AttrShieldRadius), false);
-    ifRef->SetAttribute(AttrShieldCharge, m_self->GetAttribute(AttrShieldCapacity), false);
+    ifRef->SaveItem();
     FactionData data = FactionData();
         data.allianceID = m_allyID;
         data.corporationID = m_corpID;
         data.factionID = m_warID;
         data.ownerID = m_ownerID;
     FieldSE* iSE = new FieldSE(ifRef, m_services, m_system, data);
+    // the client draws the sphere from the ball radius — the ForceField type's
+    // own radius is ~0, so the field must carry the tower's shield radius
+    iSE->SetRadius(m_self->GetAttribute(AttrShieldRadius).get_float());
     // set shield harmonic to tower harmonic
     iSE->SetHarmonic(m_harmonic);
     m_system->AddEntity(iSE);
