@@ -376,8 +376,7 @@
 | **Missile registry** — wrapper self-frees (was ~200B per launch, forever) | ❌ | ✅ |
 | **malloc_trim every 5 min** — freed heap returned to the OS, RSS stays flat | ❌ | ✅ |
 | DB reconnect only on connection errors (no retry storm on query errors) | ❌ | ✅ |
-| Full systemic ownership rework (PyRep → shared_ptr, ~6000 sites) — long-term | ❌ | ❌ |
-| Field-level temps (+1 ref per fresh SetItem/SetField) — accepted baseline | ❌ | ❌ |
+| Field-level temps (+1 ref per fresh SetItem/SetField) — central fix in ~20 DB helpers (1–2 days, low risk) | ❌ | ❌ |
 
 ### 31. Performance & Optimization `██████████████████░░` 88%
 
@@ -390,8 +389,7 @@
 | **Hot-path indexes** — mktOrders(typeID), entity(ownerID,flag), entity(locationID,flag), botKillmailLegends(character_name), sovChangeLog | ❌ | ✅ |
 | **Time dilation (TiDi)** — /tidi off\|50\|25\|10: per-system slow-mo for planned battles, official SetBallSpeed client sync | ❌ | ✅ |
 | **Serpentis faction normalization** — no more wrong-faction dungeons from the random fallback | ❌ | ✅ |
-| Async system-boot prefetch (designed, deferred) | ❌ | ❌ |
-| Multithreaded world tick / region offload — rejected (race risk / architecture rewrite) | ❌ | ❌ |
+| Async system-boot prefetch — designed (worker+condvar+per-system vectors), 2–4 days, low-medium risk | ❌ | ❌ |
 
 ---
 
