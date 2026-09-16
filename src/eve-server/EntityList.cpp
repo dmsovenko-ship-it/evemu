@@ -45,6 +45,7 @@
 #include "market/MarketBotMgr.h"
 #include "npc/BotMgr.h"
 #include "faction/WarRegistryService.h"
+#include "ship/Missile.h"
 #include "missions/MissionDataMgr.h"
 #include "incursion/IncursionMgr.h"
 #include "expedition/ExpeditionMgr.h"
@@ -73,6 +74,7 @@ m_clientSeedID(0)
 {
     m_agents.clear();
     m_probes.clear();
+    m_missiles.clear();
     m_clients.clear();
     m_players.clear();
     m_systems.clear();
@@ -550,6 +552,11 @@ void EntityList::RemoveClientProbes(uint32 charID) {
         pProbe->Delete();     // remove from system + delete the probe item
         SafeDelete(pProbe);   // ~ProbeSE detaches from the (still valid) Scan
     }
+}
+
+Missile* EntityList::GetMissileSE(uint32 missileID) {
+    auto itr = m_missiles.find(missileID);
+    return (itr != m_missiles.end() ? itr->second : nullptr);
 }
 
 void EntityList::Process() {

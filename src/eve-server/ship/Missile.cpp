@@ -27,6 +27,7 @@
 
 #include "Client.h"
 #include "EVEServerConfig.h"
+#include "EntityList.h"
 #include "Profiler.h"
 #include "character/Character.h"
 #include "inventory/AttributeEnum.h"
@@ -143,6 +144,10 @@ Missile::Missile( InventoryItemRef self, EVEServiceManager& services, SystemMana
 
     m_lifeTimer.Start(flightTime);
 
+    // live-missile registry: the wrapper self-frees in Delete() once it is out
+    // of this map and all system/bubble structures
+    sEntityList.AddMissile(m_self->itemID(), this);
+
     //_log(DAMAGE__MESSAGE, "Created Missile object for %s (%u)", self.get()->name(), self.get()->itemID());
 }
 
@@ -237,11 +242,12 @@ void Missile::MakeDamageState(DoDestinyDamageState &into) {
 }
 
 void Missile::HitTarget() {
-    // Validate target using its ID to avoid use-after-free on dangling m_targetSE pointer
-    if (m_targetID == 0 || m_system->GetSE(m_targetID) == nullptr)
+    // Validate the target BOTH by id (a deleted target leaves the system maps,
+    // so GetSE returns null) and by identity (address reuse could otherwise
+    // hand back a different entity under the stale m_targetSE pointer).
+    if (m_targetID == 0 || m_targetSE == nullptr)
         return;
-    // Re-check raw pointer — may still be valid if target is in the same system
-    if (m_targetSE == nullptr || m_targetSE->GetSelf().get() == nullptr)
+    if (m_system->GetSE(m_targetID) != m_targetSE)
         return;
 
     // Bomb: AoE detonation over all entities within explosionRange.
@@ -410,6 +416,7 @@ void Missile::Delete() {
     //  cleanup here
     if (m_alive)
         return;
+    uint32 itemID = m_self->itemID();
     // detach from the bubble FIRST: if m_bubble was already cleared,
     // SystemManager::RemoveEntity below skips the bubble cleanup and the ball
     // would stay in the bubble's entity map as a dangling pointer (NPC idle
@@ -417,7 +424,10 @@ void Missile::Delete() {
     if (m_bubble != nullptr)
         m_bubble->Remove(this);
     SystemEntity::Delete();
-    // NOTE: the wrapper is intentionally NOT freed here. Freeing it left stale
-    // balls in bubble entity maps (see above); missiles need an owner registry
-    // (like EntityList::m_probes) before the wrapper can be safely released.
+    // out of the system maps, out of the bubble, out of the registry — the
+    // wrapper can finally be freed (the ~200B/launch leak is closed; nothing
+    // dereferences a Missile* after this point: defender missiles validate
+    // their target by ID+identity in HitTarget before touching m_targetSE)
+    sEntityList.RemoveMissile(itemID);
+    delete this;
 }

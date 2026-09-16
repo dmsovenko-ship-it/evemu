@@ -351,6 +351,10 @@ void SystemManager::UnloadSystem() {
             pSE->GetSelf()->Delete();
         } else if (pSE->IsProbeSE()) {
             sEntityList.RemoveProbe(itr->first);
+        } else if (pSE->IsMissileSE()) {
+            // missiles must leave the live-missile registry before the wrapper
+            // is deleted below (UnloadSystem bypasses Missile::Delete)
+            sEntityList.RemoveMissile(itr->first);
         }
 
         if (pSE->IsOperSE()) { //Remove operational statics from list

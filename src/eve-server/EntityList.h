@@ -43,6 +43,7 @@ class PyAddress;
 class EVENotificationStream;
 class SystemManager;
 class ProbeSE;
+class Missile;
 class PyTuple;
 class EVEServiceManager;
 class SystemEntity;
@@ -173,6 +174,12 @@ public:
     // their own timers and would dereference the freed Client/Scan afterwards.
     void RemoveClientProbes(uint32 charID);
 
+    // live missile registry — a Missile wrapper may only be freed when it is
+    // out of this map (the wrapper self-frees in Missile::Delete)
+    void AddMissile(uint32 missileID, Missile* pSE)     { m_missiles[missileID] = pSE; }
+    void RemoveMissile(uint32 missileID)                { m_missiles.erase(missileID); }
+    Missile* GetMissileSE(uint32 missileID);
+
 
 protected:
     EVEServiceManager* m_services;    //we do not own this, only used for booting systems.
@@ -200,6 +207,8 @@ private:
     std::unordered_map<SystemEntity*, TargetManager*> m_targMgrs;
     // also running scan probes at sub-hz tics
     std::map<uint32, ProbeSE*> m_probes;
+    // live missile wrappers (self-freeing via Missile::Delete)
+    std::map<uint32, Missile*> m_missiles;
 
     // make list for corp members and their roles for easy access of notifications etc.
     typedef std::map<Client*, int64> corpRole;
