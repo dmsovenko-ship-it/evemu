@@ -64,6 +64,7 @@
 | **Jump cloak** — 60s cloak works, enemies don't see you | **Клок прыжка** — 60с клок работает, враг не видит |
 | **Missile fix** — use-after-free guard on target | **Ракеты** — защита use-after-free цели |
 | **End-of-warp landing** — compensation for the client-side warp-loop shortfall, no teleport/short-landing at stations and gates | **Прилёт в конце варпа** — компенсация недолёта, без телепорта/недолёта у станций и гейтов |
+| **Time Dilation (TiDi)** — /tidi off\|50\|25\|10 GM command: per-system slow-mo for planned battles, speeds + module cycles + missile/NPC timers scale, client sync via SetBallSpeed; docks/skills/production unaffected | **Замедление времени (TiDi)** — GM-команда /tidi off\|50\|25\|10: слоумо в отдельной системе для планируемых боёв — скорости, циклы модулей, таймеры ракет/NPC; клиент синхронизируется через SetBallSpeed; доки/скиллы/продакшн не затронуты |
 | **POS defence** — weapon batteries with charge consumption, role-based web/scram/neut, standings + security-status + tower-war targeting, manual fire control, orbiting guards | **Оборона POS** — орудийные батареи с расходом зарядов, web/scram/нейтрализация по роли, наведение по стендингам/секьюрити/войне башни, ручное управление огнём, орбитальные охранники |
 | **Planetary Interaction** — colonies, extractor/processor chains (P1→P4), custom offices anchored to their planet, orbital launches | **Планетарка** — колонии, цепочки экстракторов/заводов (P1→P4), таможенные офисы у своей планеты, орбитальные запуски |
 | **Customs offices** — NPC offices seeded on high-sec planets, anchoring bound to the nearest planet, tax handling | **Таможенные офисы** — NPC-офисы на хайсек-планетах, анкор у ближайшей планеты, налоги |
@@ -109,7 +110,7 @@ Full history in `git log` / полная история — в `git log`.
 ## Progress / Прогресс
 
 **Our fork · game systems `███████████████████░` ~96%**
-**Our fork · infrastructure (memory mgmt) `███████░░░░░░░░░░░░░░░` 35%**
+**Our fork · memory management `████████████████░░░░` 80% · performance & optimization `██████████████████░░` 88%**
 **Upstream `████████████░░░░░░░░` ~60%**
 
 | System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
@@ -128,9 +129,10 @@ Full history in `git log` / полная история — в `git log`.
 | **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **92%** | +47% |
 | Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **96%** | +31% |
 | Planetary Interaction | 50% | **95%** | +45% | Deployables (MWD/Probes) | 40% | **99%** | +59% |
-| **Petitions & Support** | 0% | **95%** | +95% | Memory Management | 20% | 25% | +5% |
+| **Petitions & Support** | 0% | **95%** | +95% | Memory Management | 20% | **80%** | +60% |
+| **Performance & Optimization** | 50% | **88%** | +38% | | | | |
 
-> Totals are the mean of the player-facing game systems; infrastructure (memory management) is tracked separately.
+> Totals are the mean of the player-facing game systems; infrastructure (memory management, performance) is tracked separately.
 
 See [`PROGRESS.md`](PROGRESS.md) for the full breakdown.  
 Полная раскладка — в [`PROGRESS.md`](PROGRESS.md).

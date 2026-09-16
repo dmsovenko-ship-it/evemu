@@ -1,7 +1,8 @@
 # EVEmu Crucible — Progress / Прогресс
 
 > **Our fork · game systems: `███████████████████░` ~96%**
-> **Our fork · infrastructure (memory mgmt): `█████░░░░░░░░░░░░░░░` 25%**
+> **Our fork · memory management: `████████████████░░░░` 80%**
+> **Our fork · performance & optimization: `██████████████████░░` 88%**
 > **Upstream: `████████████░░░░░░░░` ~60%**
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
 
@@ -28,7 +29,8 @@
 | **Sovereignty** | 95% | `███████████████████░` | +35% | Science & Industry | 92% | `██████████████████░░` | +47% |
 | Bookmark System | 95% | `███████████████████░` | +25% | **Effects System** | 96% | `███████████████████░` | +31% |
 | **Planetary Interaction** | 95% | `███████████████████░` | +45% | Deployables (MWD/Probes) | 99% | `████████████████████` | +59% |
-| **Petitions & Support** | 95% | `███████████████████░` | +95% | Memory Management | 25% | `█████░░░░░░░░░░░░░░░` | +5% |
+| **Petitions & Support** | 95% | `███████████████████░` | +95% | Memory Management | 80% | `████████████████░░░░` | +60% |
+| **Performance & Optimization** | 50% | `██████████████████░░` | +38% | | | | |
 
 ---
 
@@ -362,18 +364,42 @@
 | **Ban UX** — persisted ban reason shown verbatim on banned login (unicode-safe); reserved/offensive account+character names refused with admin alert | ❌ | ✅ |
 | **Account tooling** — per-account admin comment, ban reason, accounts grouped by IP/e-mail, ban-all-by-IP | ❌ | ✅ |
 
-### 30. Memory Management `█████░░░░░░░░░░░░░░░` 25%
+### 30. Memory Management `████████████████░░░░` 80%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
 | Reference-count hardening — 32-bit refcount, separated diagnostics, opt-in hard-fail | ❌ | ✅ |
 | **Sanitizer audit** — XMLParser virtual dtor, hash signed-shift overflow, aligned assign, bound-service cast | ❌ | ✅ |
-| Ownership model for the reference objects (long-term, not started) | 🟡 | ❌ |
+| **PyRep ownership audit — outgoing path** — SendException double-release, Multicast/Broadcast consumption, CorpRegistryBound UAF, DroneSE scoop, probes outliving Client, MissionDataMgr/EncounterServer/AutoPay sweeps | ❌ | ✅ |
+| **PyRep ownership audit — Agent/Contract/Calendar/Map/Cache** — 12 fixes incl. epic-arc journal crash, UpdateCacheFromSS UAF, hot-path leaks, GiveCache null-guard | ❌ | ✅ |
+| **Cached CRowSet trees freed** — DeepClearRep PyObjectEx branch + per-row header refs (kills the per-login cache leak) | ❌ | ✅ |
+| **Missile registry** — wrapper self-frees (was ~200B per launch, forever) | ❌ | ✅ |
+| **malloc_trim every 5 min** — freed heap returned to the OS, RSS stays flat | ❌ | ✅ |
+| DB reconnect only on connection errors (no retry storm on query errors) | ❌ | ✅ |
+| Full systemic ownership rework (PyRep → shared_ptr, ~6000 sites) — long-term | ❌ | ❌ |
+| Field-level temps (+1 ref per fresh SetItem/SetField) — accepted baseline | ❌ | ❌ |
+
+### 31. Performance & Optimization `██████████████████░░` 88%
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| Load diagnosis playbook — docker stats, live processlist sampling, index audit | ❌ | ✅ |
+| **Spawn churn control** — global ≤1 spawn/6 s, 60/40 direct/inbound mix, leave-chance 0.33→0.11% | ❌ | ✅ |
+| **Per-spawn SQL diet** — pool pick by PK (no pool-wide ORDER BY RAND), PickCorp cached 5 min, skill top-up gated to 20% of respawns | ❌ | ✅ |
+| **malloc_trim every 5 min** — keeps RSS flat after frees | ❌ | ✅ |
+| **Hot-path indexes** — mktOrders(typeID), entity(ownerID,flag), entity(locationID,flag), botKillmailLegends(character_name), sovChangeLog | ❌ | ✅ |
+| **Time dilation (TiDi)** — /tidi off\|50\|25\|10: per-system slow-mo for planned battles, official SetBallSpeed client sync | ❌ | ✅ |
+| **Serpentis faction normalization** — no more wrong-faction dungeons from the random fallback | ❌ | ✅ |
+| Async system-boot prefetch (designed, deferred) | ❌ | ❌ |
+| Multithreaded world tick / region offload — rejected (race risk / architecture rewrite) | ❌ | ❌ |
 
 ---
 
 ## Key Enhancements vs Upstream / Ключевые улучшения
 
+- **Time Dilation (TiDi)** — official-style per-system slow-mo (/tidi off|50|25|10): speeds, module cycles, missile/NPC timers scale; client sync via SetBallSpeed; docks/skills/production unaffected
+- **Memory campaign** — full PyRep ownership audits of every service path (agents/contracts/calendar/map/cache/network), cached rowsets now freed (per-login leak killed), missile wrapper registry, malloc_trim, refcount hardening + sanitizer fixes
+- **Performance campaign** — spawn-churn control, per-spawn SQL diet, hot-path indexes, load diagnosis playbook
 - **Autopilot** — complete rewrite: auto-jump via `.tr` teleport, multi-hop via CmdStop → gate follow, 60s jump cloak, gate animation effects
 - **POS** — reinforced mode, CPU/PG, reactions, weapon AI, skills, fuel notifications, role-based defence grid, manual fire control
 - **Incursions** — full state machine, 5 simultaneous, named NPCs, gate camps, constellation penalties, penalty informer HUD, acceleration gates between pockets
@@ -404,4 +430,4 @@
 - **Ban UX** — ban reason persisted (`banReason`) and shown verbatim on the banned login (single line, unicode-safe); reserved/offensive account & character names refused with admin alert
 - **Account admin notes** — per-account free-form comment + ban reason exposed through the admin API; accounts grouped by IP/e-mail, ban-by-IP (all accounts from one address)
 - **EVE-mail** — inbox/sent listing, read/unread, notifications and unread counts with live delivery on send
-- **Memory hardening** — 32-bit refcount, split diagnostics, opt-in hard-fail, sanitizer-driven fixes (XMLParser virtual dtor, hash overflow, aligned assign, bound-service cast)
+- **Memory hardening** — 32-bit refcount, split diagnostics, opt-in hard-fail, sanitizer-driven fixes (XMLParser virtual dtor, hash overflow, aligned assign, bound-service cast); PyRep ownership audits closed every practical leak path (cache rowsets and missile wrappers now freed); malloc_trim keeps RSS flat
