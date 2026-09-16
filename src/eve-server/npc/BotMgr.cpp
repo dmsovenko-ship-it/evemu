@@ -3888,6 +3888,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
 
     // Spawn the tower first (modules need the tower in the bubble).
     double ffRadius = 20000.0;   // tower force-field radius — module anchor limit
+    uint32 botTowerItemID = 0;
     {
         ItemData idata(towerType, corpID, sysID, flagNone, "Control Tower", pos);
         StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
@@ -3906,6 +3907,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         TowerSE* tSE = new TowerSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
         sysMgr->AddEntity(tSE);
         tSE->BotDeployAndAnchor(pos);
+        botTowerItemID = sRef->itemID();
     }
 
     // --- POS layout ---------------------------------------------------------
@@ -3963,6 +3965,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         }
         sysMgr->AddEntity(se);
         se->BotDeployAndAnchor(p);
+        se->SetBotTower(botTowerItemID);   // persist the tower link (reload safety)
     };
 
     // Weapon battery: WeaponSE runs a POS_AI and fires at valid hostiles. The gun
@@ -3996,6 +3999,7 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         WeaponSE* se = new WeaponSE(sRef, sysMgr->GetServiceMgr(), sysMgr, data);
         sysMgr->AddEntity(se);
         se->BotDeployAndAnchor(p);
+        se->SetBotTower(botTowerItemID);   // persist the tower link (reload safety)
     };
 
     // Defensive modules are laid on a ring that alternates above and below the

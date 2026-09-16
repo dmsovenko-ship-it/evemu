@@ -171,6 +171,7 @@ public:
     // nearest moon, marks it anchored+online and persists it. Towers override
     // OnBotAnchorComplete() to register the force field / moon / fuel data.
     void                        BotDeployAndAnchor(const GPoint& pos);
+    void                        SetBotTower(uint32 towerID);   // bot deploy: persist the controlling tower link
     virtual void                OnBotAnchorComplete() { }
     void                        Activate(int32 effectID);
     void                        Deactivate(int32 effectID);

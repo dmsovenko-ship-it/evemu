@@ -444,7 +444,26 @@ void StructureSE::Init()
     }
     else if (m_module)
     {
-        SystemEntity *pSE = m_system->GetSE(m_data.towerID);
+        SystemEntity *pSE = (m_data.towerID != 0) ? m_system->GetSE(m_data.towerID) : nullptr;
+        if (pSE == nullptr or pSE->GetTowerSE() == nullptr) {
+            // Self-heal for bot POS modules saved with towerID=0 (deploy saved
+            // the module before the tower link existed): find the controlling
+            // tower by proximity — modules anchor inside its force field.
+            GPoint myPos = m_self->position();
+            for (auto& [tid, tse] : m_system->GetEntities()) {
+                if (tse == nullptr or !tse->IsTowerSE())
+                    continue;
+                if (myPos.distance(tse->GetPosition()) > 100000.0)
+                    continue;
+                m_data.towerID = tid;
+                DBerror err;
+                sDatabase.RunQuery(err, "UPDATE posStructureData SET towerID = %u WHERE itemID = %u", tid, m_data.itemID);
+                pSE = tse;
+                _log(POS__MESSAGE, "StructureSE::Init %s(%u) - tower link healed to %u (proximity).", \
+                        m_self->name(), m_data.itemID, tid);
+                break;
+            }
+        }
         if (pSE == nullptr)
         {
             _log(POS__ERROR, "StructureSE::Init %s(%u) is invalid.  why are we here?", m_self->name(), m_data.itemID);
@@ -841,6 +860,17 @@ void StructureSE::BotDeployAndAnchor(const GPoint& pos)
     if (m_destiny != nullptr)
         m_destiny->SendSpecialEffect(m_data.itemID, m_data.itemID, m_self->typeID(),
                                      0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
+}
+
+// Bot deploy: persist the controlling tower link (modules anchor inside the
+// tower's field). Without this the module row keeps towerID=0 and fails to
+// link to the tower on the next reload.
+void StructureSE::SetBotTower(uint32 towerID) {
+    if (towerID == 0 or m_data.towerID == towerID)
+        return;
+    m_data.towerID = towerID;
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE posStructureData SET towerID = %u WHERE itemID = %u", towerID, m_data.itemID);
 }
 
 void StructureSE::PullAnchor()
