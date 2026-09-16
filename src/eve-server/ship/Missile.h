@@ -58,7 +58,7 @@ public:
     SystemEntity* GetTargetSE()                         { return m_targetSE; }
     SystemEntity* GetFromSE()                           { return m_fromSE; }
 
-    void SetHitTimer(uint32 setTime)                    { m_hitTimer.Start(setTime * m_system->GetTimeScale()); }
+    void SetHitTimer(uint32 setTime);
     void SetSpeed(double speed)                         { m_speed = speed; }
 
     bool IsAlive()                                      { return m_alive; }

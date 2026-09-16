@@ -134,7 +134,6 @@ Missile::Missile( InventoryItemRef self, EVEServiceManager& services, SystemMana
     flightTime *= sConfig.rates.missileTime;
     // time dilation of the target system: missile flight slows with everything else
     flightTime *= pSystem->GetTimeScale();
-
     // if linked, update appropriate attributes
     if (pMod != nullptr)
         if (pMod->IsLinked()) {
@@ -151,6 +150,12 @@ Missile::Missile( InventoryItemRef self, EVEServiceManager& services, SystemMana
     sEntityList.AddMissile(m_self->itemID(), this);
 
     //_log(DAMAGE__MESSAGE, "Created Missile object for %s (%u)", self.get()->name(), self.get()->itemID());
+}
+
+// out-of-line: SystemManager is incomplete in Missile.h (headers that include
+// Missile.h only forward-declare it)
+void Missile::SetHitTimer(uint32 setTime) {
+    m_hitTimer.Start(setTime * m_system->GetTimeScale());
 }
 
 void Missile::Process() {
