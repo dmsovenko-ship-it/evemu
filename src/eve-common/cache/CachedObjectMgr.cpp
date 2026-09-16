@@ -208,13 +208,16 @@ void CachedObjectMgr::UpdateCache(const std::string &objectID, PyRep **in_cached
 
 // Recursively releases a rep tree: container dtors do NOT free their items, so
 // freeing only the root leaks every child. Only valid where we own the whole
-// tree (single owner, no shared refs).
+// tree (single owner, no shared refs, and never on a PyObjectEx Clone() —
+// clones raw-share mList/mDict without refs).
 //
-// WARNING: intentionally does NOT recurse into PyObjectEx / PyPackedRow /
-// PySubStream. PyPackedRow holds its DBRowDescriptor header WITHOUT a ref (its
-// dtor DecRefs it), and CRowSet rows share one header with the rowset's keyword
-// dict — clearing rows here would over-DecRef the shared header (UAF).
-// PyStatic singletons are safe (not containers → no-op here).
+// Handles PyObjectEx (dbutil.CRowset / CIndexedRowset / DBRowDescriptor):
+// requires the header-ref repair in CRowSet::NewRow / CIndexedRowSet::NewRow /
+// CFilterRowSet::NewRowset (each PackedRow holds its own DBRowDescriptor ref).
+// RELEASE ORDER MATTERS: rows first (their dtors drop their own header refs),
+// then the keyword dict (its clear drops the last ref and frees the
+// descriptor), then the header tuple. PackedRow fields (fresh SetItem temps)
+// still leak by the accepted baseline.
 static void DeepClearRep(PyRep* rep)
 {
     if (rep == nullptr)
@@ -236,6 +239,21 @@ static void DeepClearRep(PyRep* rep)
             DeepClearRep(kv.second);
         }
         d->clear();
+    } else if (rep->IsObjectEx()) {
+        PyObjectEx* e = rep->AsObjectEx();
+        // 1) rows first — each row's dtor releases its own header reference
+        PyList& rows = e->list();
+        rows.clear();   // items are PackedRows (leaf nodes for us): clear() frees them
+        // 2) internal dict (fresh/empty for rowsets, but be thorough)
+        PyDict& d = e->dict();
+        for (auto& kv : d.items) {
+            DeepClearRep(kv.first);
+            DeepClearRep(kv.second);
+        }
+        d.clear();
+        // 3) header tuple last — reaches the keywords dict that owns the
+        //    DBRowDescriptor (freed here when its last ref goes)
+        DeepClearRep(e->header());
     }
 }
 
