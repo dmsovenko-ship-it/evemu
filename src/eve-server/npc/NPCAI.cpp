@@ -144,6 +144,8 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     // (e.g. 30000 = 30s on Guristas Plunderer/Mortifier) making them seem dead.
     if (m_attackSpeed < 500 or m_attackSpeed > 15000)
         m_attackSpeed = MakeRandomInt(3000, 8000);
+    // time dilation: NPC combat cycles slow with the rest of the system
+    m_attackSpeed = (uint32)(m_attackSpeed * m_npc->SystemMgr()->GetTimeScale());
     m_sigRadius = m_self->GetAttribute(AttrSignatureRadius).get_uint32();
     m_launcherCycleTime = m_self->GetAttribute(AttrMissileLaunchDuration).get_uint32();
     if (m_launcherCycleTime > 100)

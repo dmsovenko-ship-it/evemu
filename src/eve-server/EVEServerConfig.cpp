@@ -69,6 +69,7 @@ EVEServerConfig::EVEServerConfig()
     world.globalChat = true;//N
     world.gridUnload = true;
     world.gridUnloadTime = 300 /*s*/; // 5 mins
+    world.TiDiEnabled = false;
     world.loginInfo = false;//N
     world.loginMsg = false;//N
     world.saveOnMove = false;
@@ -414,6 +415,7 @@ bool EVEServerConfig::ProcessWorld( const TiXmlElement* ele )
     AddValueParser( "globalChat",        world.globalChat );
     AddValueParser( "gridUnload",        world.gridUnload );
     AddValueParser( "gridUnloadTime",    world.gridUnloadTime );
+    AddValueParser( "TiDiEnabled",       world.TiDiEnabled );
     AddValueParser( "loginInfo",         world.loginInfo );
     AddValueParser( "loginMsg",          world.loginMsg );
     AddValueParser( "saveOnMove",        world.saveOnMove );
@@ -432,6 +434,7 @@ bool EVEServerConfig::ProcessWorld( const TiXmlElement* ele )
     RemoveParser( "globalChat" );
     RemoveParser( "gridUnload" );
     RemoveParser( "gridUnloadTime" );
+    RemoveParser( "TiDiEnabled" );
     RemoveParser( "loginInfo" );
     RemoveParser( "loginMsg" );
     RemoveParser( "saveOnMove" );

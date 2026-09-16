@@ -85,6 +85,7 @@ public:
         uint16 shipBoardDistance;
         uint16 gridUnloadTime;
         uint16 apWarptoDistance;
+        bool TiDiEnabled;       // enables /tidi GM command (per-system time dilation)
     } world;
 
     // From <rates>

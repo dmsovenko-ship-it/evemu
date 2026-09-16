@@ -126,6 +126,12 @@ public:
     AnomalyMgr* GetAnomMgr()                            { return m_anomMgr; }
     DungeonMgr* GetDungMgr()                            { return m_dungMgr; }
 
+    // Time dilation (official-style TiDi): 0 = off, 1 = 50%, 2 = 25%, 3 = 10%.
+    // Scales ship/missile speeds and combat cycle timers in THIS system only.
+    void SetTimeScale(uint8 level);
+    float GetTimeScale() const                          { return m_timeScale; }
+    uint8 GetDilationLevel() const                      { return m_dilationLevel; }
+
     // range is 0.1 for 1.0 system to 2.0 for -0.9 system
     float GetSecValue()                                 { return m_secValue; }
 
@@ -209,6 +215,8 @@ private:
     SystemData m_data;
 
     float m_secValue;  // range is 0.1 for 1.0 system to 2.0 for -0.9 system
+    float m_timeScale;      // time dilation factor: 1.0 / 0.5 / 0.25 / 0.1
+    uint8 m_dilationLevel;  // 0 = off .. 3 = 10%
 
     // for dynamic data system  -allan 10June2019
     SystemKillData m_killData;

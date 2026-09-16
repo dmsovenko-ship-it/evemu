@@ -74,6 +74,7 @@ m_alignTime(1.0f),
 m_timeToEnterWarp(10.0f),
 m_shipWarpSpeed(1.0f),
 m_maxShipSpeed(100.0f),
+m_dilation(1.0f),
 m_shipAgility(1.0),
 m_shipInertia(1.0),
 m_warpAccelTime(1),
@@ -3134,6 +3135,30 @@ void DestinyManager::SetRadius(double radius, bool update /*false*/) {
 }
 
 // settings for ship, npc and missile max speeds
+void DestinyManager::ApplyDilation(float newScale) {
+    if (newScale <= 0.0f || newScale == m_dilation)
+        return;
+    // ratio-rescale: whatever the current speed state is (base, MWD boost,
+    // webified...), it keeps its proportions but runs at the dilated rate
+    float ratio = newScale / m_dilation;
+    m_maxShipSpeed *= ratio;
+    m_maxSpeed *= ratio;
+    m_velocity *= ratio;
+    m_speedToLeaveWarp *= ratio;
+    m_dilation = newScale;
+
+    // SetBallSpeed is the official TiDi broadcast: it updates the client-side
+    // sim's max speed for ANY ball type (ships included), so client and server
+    // slow down together. Never use SetSpeedFraction here — it can kick a
+    // STOP-mode ship into GOTO.
+    std::vector<PyTuple*> updates;
+    SetBallSpeed ms;
+        ms.entityID = mySE->GetID();
+        ms.speed = m_maxSpeed;
+    updates.push_back(ms.Encode());
+    SendDestinyUpdate(updates);
+}
+
 void DestinyManager::SetMaxVelocity(float maxVelocity)
 {
     float maxSpeed = mySE->GetSelf()->GetAttribute(AttrMaxVelocity).get_float();
@@ -3150,6 +3175,11 @@ void DestinyManager::SetMaxVelocity(float maxVelocity)
             _log(DESTINY__TRACE, "Destiny::SetMaxVelocity() - Ship:%s(%u) Pilot:%s(%u) - AttrMaxDirectionalVelocity is %.1f, maxSpeed is %.1f, update is %.1f", \
                     mySE->GetName(), mySE->GetID(), mySE->GetPilot()->GetName(), mySE->GetPilot()->GetCharacterID(), \
                     mySE->GetSelf()->GetAttribute(AttrMaxDirectionalVelocity).get_float(), maxSpeed, maxVelocity);
+
+    // time dilation: the effective (and client-broadcast) speed is scaled, the
+    // raw attribute stays untouched
+    maxVelocity *= m_dilation;
+    maxSpeed *= m_dilation;
 
     if (maxVelocity > maxSpeed) {
         m_maxShipSpeed = maxSpeed;
@@ -3172,7 +3202,7 @@ void DestinyManager::SpeedBoost(bool deactivate/*false*/)
     m_alignTime = (-log(0.25) * m_shipAgility);
     m_shipMaxAccelTime = (-log(0.0001) * m_shipAgility);
     m_degPerTic = std::max(1.0f, static_cast<float>(60.0 / (m_shipAgility + 1.0)));
-    m_maxShipSpeed = mySE->GetSelf()->GetAttribute(AttrMaxVelocity).get_float();
+    m_maxShipSpeed = mySE->GetSelf()->GetAttribute(AttrMaxVelocity).get_float() * m_dilation;
     // reset ship max speed using updated m_maxShipSpeed
     m_maxSpeed = m_maxShipSpeed * m_userSpeedFraction;
     // set asf as fraction of current speed over new max speed.

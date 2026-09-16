@@ -132,6 +132,8 @@ Missile::Missile( InventoryItemRef self, EVEServiceManager& services, SystemMana
         m_damageMod *= (1 + self->GetAttribute(AttrOverloadDamageModifier).get_float());
 
     flightTime *= sConfig.rates.missileTime;
+    // time dilation of the target system: missile flight slows with everything else
+    flightTime *= pSystem->GetTimeScale();
 
     // if linked, update appropriate attributes
     if (pMod != nullptr)

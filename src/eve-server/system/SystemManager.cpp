@@ -93,7 +93,9 @@ m_activityTime(0),
 m_activeRatSpawns(0),
 m_activeGateSpawns(0),
 m_activeRoidSpawns(0),
-m_secValue(1.1f)
+m_secValue(1.1f),
+m_timeScale(1.0f),
+m_dilationLevel(0)
 {
     m_minutes = 0;
 
@@ -401,6 +403,38 @@ void SystemManager::UnloadSystem() {
     // remove solar system item from ItemFactory
     sItemFactory.RemoveItem(m_data.systemID);
     m_loaded = false;
+}
+
+// Time dilation (official-style TiDi). level: 0 = off, 1 = 50%, 2 = 25%, 3 = 10%.
+// Rescales every dynamic entity's speed in THIS system and notifies pilots.
+// Combat cycle timers pick the factor up as they (re)start.
+void SystemManager::SetTimeScale(uint8 level) {
+    static const float scales[4] = { 1.0f, 0.5f, 0.25f, 0.1f };
+    static const char* labels[4] = { "100%", "50%", "25%", "10%" };
+    if (level > 3)
+        level = 3;
+    float newScale = scales[level];
+    if (newScale == m_timeScale)
+        return;
+
+    for (auto& [id, se] : m_ticEntities) {
+        if (se == nullptr)
+            continue;
+        DestinyManager* dm = se->DestinyMgr();
+        if (dm != nullptr)
+            dm->ApplyDilation(newScale);
+    }
+    m_timeScale = newScale;
+    m_dilationLevel = level;
+
+    sLog.Magenta("    SystemManager", "Time dilation in %s(%u) set to %s.", m_data.name.c_str(), m_data.systemID, labels[level]);
+
+    // notify every piloted ship in the system
+    for (auto& [id, se] : m_ticEntities) {
+        if (se == nullptr || !se->IsShipSE() || se->GetPilot() == nullptr)
+            continue;
+        se->GetPilot()->SendNotifyMsg("Local time dilation: %s.", labels[level]);
+    }
 }
 
 bool SystemManager::LoadSystemStatics() {

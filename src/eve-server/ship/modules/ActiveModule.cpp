@@ -1001,6 +1001,9 @@ void ActiveModule::SetTimer(uint32 time) {
         m_Stop = true;
         return;
     }
+    // time dilation of the ship's system: combat cycles slow with the rest
+    if (m_shipRef != nullptr && m_shipRef->SystemMgr() != nullptr)
+        time = (uint32)(time * m_shipRef->SystemMgr()->GetTimeScale());
     // timer must be restarted for fleet boosts to activate
     if (m_timer.Enabled())
         return;

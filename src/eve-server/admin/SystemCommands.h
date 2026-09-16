@@ -40,3 +40,5 @@ COMMAND( pos, Acct::Role::PROGRAMMER,
          " - commands item to Immediately anchor")
 COMMAND( hop, Acct::Role::CONTENT,
          " - unknown at this time")
+COMMAND( tidi, Acct::Role::GMH,
+         " (off|50|25|10) - sets local time dilation for the current system (official-style TiDi). Requires <TiDiEnabled> in config.")

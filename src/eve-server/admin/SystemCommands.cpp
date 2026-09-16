@@ -1074,3 +1074,29 @@ PyResult Command_pos(Client* pClient, CommandDB* db, EVEServiceManager &services
      */
     return nullptr;
 }
+
+PyResult Command_tidi(Client* pClient, CommandDB* db, EVEServiceManager &services, const Seperator& args) {
+    if (!sConfig.world.TiDiEnabled)
+        throw CustomError ("Time dilation is disabled on this server (<TiDiEnabled> in config).");
+    if (!pClient->IsInSpace() || pClient->SystemMgr() == nullptr)
+        throw CustomError ("You're not in space.");
+    if (args.argCount() < 2)
+        throw CustomError ("Correct Usage: /tidi off|50|25|10");
+
+    SystemManager* pSys = pClient->SystemMgr();
+    std::string arg = args.arg(1);
+    uint8 level;
+    if (arg == "off" or arg == "0" or arg == "100")
+        level = 0;
+    else if (arg == "50" or arg == "1")
+        level = 1;
+    else if (arg == "25" or arg == "2")
+        level = 2;
+    else if (arg == "10" or arg == "3")
+        level = 3;
+    else
+        throw CustomError ("Correct Usage: /tidi off|50|25|10");
+
+    pSys->SetTimeScale(level);
+    return nullptr;
+}

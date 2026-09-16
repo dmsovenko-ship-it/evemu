@@ -128,6 +128,9 @@ public:
     void SetPosition(const GPoint& pt, bool update=false);
     void SetRadius(double radius, bool update = false);
     void SetMaxVelocity(float maxVelocity);
+    // time dilation: rescale current speeds by newScale/oldScale and rebroadcast
+    void ApplyDilation(float newScale);
+    float GetDilation() const                           { return m_dilation; }
     void UpdateShipVariables();
 
     /* Global Actions */
@@ -267,6 +270,7 @@ protected:
     float m_alignTime;                  //in s      - align and enter warp are same (for our purposes)
     float m_prevSpeed;                  //in m/s    - used to calculate speed during decel
     float m_maxShipSpeed;               //in m/s
+    float m_dilation;                   // time dilation factor of the system (1.0 = off)
     float m_shipWarpSpeed;              //in au/s
     float m_timeToEnterWarp;            //in s
     float m_speedToLeaveWarp;           //in m/s    - this is set to 75% of m_maxShipSpeed
