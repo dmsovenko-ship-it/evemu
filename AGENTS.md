@@ -1,5 +1,9 @@
 # EVEmu Session Context
 
+## 16 сент. (вечер, часть 3): malloc_trim + индексы горячего пути (`3494f04e`)
+- **`malloc_trim(0)` раз в 5 мин** (EntityList minute-tic, `<malloc.h>`): glibc не возвращает освобождённую память ОС сам — без этого фиксы кеш/ракетных утечек не видны в RSS. Дёшево, когда освобождать нечего.
+- **Миграция `20260916000001-bot_perf_indexes.sql`**: `entity(ownerID, flag)` (скилл-топап flag=7, склад flag=133 — каждый респавн) и `botKillmailLegends(character_name)` (восстановление легенды на респавне). **Применена на живую** (online DDL), индексы видны в SHOW INDEX. `malloc_trim` — в след. пересборке.
+
 ## 16 сент. (вечер, часть 2): реестр ракет — утечка Missile wrapper закрыта (`a7cbd195`)
 Последний пункт списка памяти. `EntityList::m_missiles` (по образцу `m_probes`): `AddMissile/RemoveMissile/GetMissileSE`. Missile в ctor регистрируется, `Delete()` (после выхода из системных карт и баббла) снимает с реестра и **освобождает wrapper** (`delete this` — тик-луп переживает delete-in-Process через паттерн `m_entityChanged`+`mLast`). Безопасность: ничто не держит `Missile*` дольше кадра (защитники строятся синхронно, DestinyManager::MakeMissile берёт target транзитом); `HitTarget` теперь валидирует цель **по ID и идентичности** (`GetSE(id) == m_targetSE` — защита от reuse адреса). `SystemManager::UnloadSystem` получил ветку `IsMissileSE()` → RemoveMissile (этот путь обходит Missile::Delete). НЕ запускать DeepClearRep/удаление на `PyObjectEx::Clone()` ракетных деревьев — клоны шарят mList/mDict без ссылок.
 
