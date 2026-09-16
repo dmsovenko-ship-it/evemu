@@ -4,9 +4,11 @@
 --  * skill top-up:      SELECT typeID FROM entity WHERE ownerID=? AND flag=7
 --  * hangar stock/cargo SELECT ... FROM entity WHERE ownerID=? AND flag=133
 --  * legend restore:    SELECT ... FROM botKillmailLegends WHERE character_name=?
-CREATE INDEX idx_entity_owner_flag ON entity (ownerID, flag);
-CREATE INDEX idx_bkl_charname ON botKillmailLegends (character_name);
+-- IF NOT EXISTS: these may already exist on DBs where the index was applied
+-- manually ahead of the migration runner (idempotent re-runs).
+CREATE INDEX IF NOT EXISTS idx_entity_owner_flag ON entity (ownerID, flag);
+CREATE INDEX IF NOT EXISTS idx_bkl_charname ON botKillmailLegends (character_name);
 
 -- +migrate Down
-DROP INDEX idx_entity_owner_flag ON entity;
-DROP INDEX idx_bkl_charname ON botKillmailLegends;
+DROP INDEX IF EXISTS idx_entity_owner_flag ON entity;
+DROP INDEX IF EXISTS idx_bkl_charname ON botKillmailLegends;
