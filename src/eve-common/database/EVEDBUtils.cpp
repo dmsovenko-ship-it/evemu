@@ -425,7 +425,7 @@ PyDict *DBResultToPackedRowDict(DBQueryResult &result, uint32 key_index)
  */
 PyObjectEx *DBResultToCRowset(DBQueryResult &result)
 {
-    /** @todo Mem leak.  `header` never freed */
+    /** @note header ownership transfers into the rowset keyword dict ("header" key); each CRowSet::NewRow() row holds its own header ref. Do NOT DecRef the header here. */
     DBRowDescriptor *header = new DBRowDescriptor(result);
     CRowSet *rowset = new CRowSet(&header);
 
@@ -458,7 +458,7 @@ PyObjectEx *DBResultToCIndexedRowset(DBQueryResult &result, const char *key)
 }
 
 PyObjectEx *DBResultToCIndexedRowset(DBQueryResult &result, uint32 key_index) {
-    /** @todo Mem leak.  `header` never freed */
+    /** @note header ownership transfers into the rowset keyword dict ("header" key); each CRowSet::NewRow() row holds its own header ref. Do NOT DecRef the header here. */
     DBRowDescriptor *header = new DBRowDescriptor(result);
     CIndexedRowSet *rowset = new CIndexedRowSet(&header);
 

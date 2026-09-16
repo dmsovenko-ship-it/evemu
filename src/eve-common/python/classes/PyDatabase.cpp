@@ -132,6 +132,10 @@ PyPackedRow* CRowSet::NewRow()
 {
     //DBRowDescriptor* rowDesc = _GetRowDesc();
     PyPackedRow* row = new PyPackedRow( _GetRowDesc() );
+    // PyPackedRow does NOT own its header at construction but DecRefs it in its
+    // dtor — every row must hold exactly one header reference of its own
+    // (same invariant as DBResultToPackedRowList's manual PyIncRef per row).
+    PyIncRef( _GetRowDesc() );
 
     list().AddItem( row );
     return row;

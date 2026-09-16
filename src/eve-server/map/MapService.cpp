@@ -180,7 +180,8 @@ PyResult MapService::GetCurrentSovData(PyCallArgs &call, PyRep* locationID)
             "LEFT JOIN mapSystemSovereigntyInfo sov ON s.solarSystemID = sov.solarSystemID");
         return DBResultToCRowset(res);
     }
-    uint32 id = locationID->AsInt()->value();
+    // client may pass None/int — AsInt() asserts on non-int, IntegerValueU32 is safe
+    uint32 id = PyRep::IntegerValueU32(locationID);
     return svDataMgr.GetCurrentSovData(id);
 }
 PyResult MapService::GetRecentSovActivity(PyCallArgs &call)

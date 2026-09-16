@@ -231,31 +231,55 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
 PyResult ContractProxy::CreateContract(PyCallArgs &call,
     PyInt* contractType, PyBool* isPrivate, std::optional <PyNone*> assigneeID, PyInt* expireTime, PyInt* duration, PyInt* startStationID, std::optional<PyNone*> endStationID,
     PyInt* price, PyInt* reward, PyInt* collateral, PyString* title, PyString* description) {
-    return CreateContract(call, contractType, new PyInt(isPrivate->value()), std::nullopt, expireTime, duration, startStationID, std::nullopt, price, reward, collateral, new PyWString(title->content()), new PyWString(description->content()));
+    // conversion temps are only read by the target overload — release them
+    PyInt* priv = new PyInt(isPrivate->value());
+    PyWString* wtitle = new PyWString(title->content());
+    PyWString* wdesc = new PyWString(description->content());
+    PyResult result = CreateContract(call, contractType, priv, std::nullopt, expireTime, duration, startStationID, std::nullopt, price, reward, collateral, wtitle, wdesc);
+    PySafeDecRef(priv); PySafeDecRef(wtitle); PySafeDecRef(wdesc);
+    return result;
 }
 
 PyResult ContractProxy::CreateContract(PyCallArgs &call,
     PyInt* contractType, PyBool* isPrivate, std::optional <PyInt*> assigneeID, PyInt* expireTime, PyInt* duration, PyInt* startStationID, std::optional<PyNone*> endStationID,
     PyInt* price, PyInt* reward, PyInt* collateral, PyString* title, PyString* description) {
-    return CreateContract(call, contractType, new PyInt(isPrivate->value()), assigneeID, expireTime, duration, startStationID, std::nullopt, price, reward, collateral, new PyWString(title->content()), new PyWString(description->content()));
+    PyInt* priv = new PyInt(isPrivate->value());
+    PyWString* wtitle = new PyWString(title->content());
+    PyWString* wdesc = new PyWString(description->content());
+    PyResult result = CreateContract(call, contractType, priv, assigneeID, expireTime, duration, startStationID, std::nullopt, price, reward, collateral, wtitle, wdesc);
+    PySafeDecRef(priv); PySafeDecRef(wtitle); PySafeDecRef(wdesc);
+    return result;
 }
 
 PyResult ContractProxy::CreateContract(PyCallArgs &call,
     PyInt* contractType, PyBool* isPrivate, std::optional <PyInt*> assigneeID, PyInt* expireTime, PyInt* duration, PyInt* startStationID, std::optional<PyNone*> endStationID,
     PyInt* price, PyInt* reward, PyInt* collateral, PyWString* title, PyString* description) {
-    return CreateContract(call, contractType, new PyInt(isPrivate->value()), assigneeID, expireTime, duration, startStationID, std::nullopt, price, reward, collateral, title, new PyWString(description->content()));
+    PyInt* priv = new PyInt(isPrivate->value());
+    PyWString* wdesc = new PyWString(description->content());
+    PyResult result = CreateContract(call, contractType, priv, assigneeID, expireTime, duration, startStationID, std::nullopt, price, reward, collateral, title, wdesc);
+    PySafeDecRef(priv); PySafeDecRef(wdesc);
+    return result;
 }
 
 PyResult ContractProxy::CreateContract(PyCallArgs &call,
     PyInt* contractType, PyBool* isPrivate, std::optional <PyNone*> assigneeID, PyInt* expireTime, PyInt* duration, PyInt* startStationID, std::optional<PyInt*> endStationID,
     PyInt* price, PyInt* reward, PyInt* collateral, PyString* title, PyString* description) {
-    return CreateContract(call, contractType, new PyInt(isPrivate->value()), std::nullopt, expireTime, duration, startStationID, endStationID, price, reward, collateral, new PyWString(title->content()), new PyWString(description->content()));
+    PyInt* priv = new PyInt(isPrivate->value());
+    PyWString* wtitle = new PyWString(title->content());
+    PyWString* wdesc = new PyWString(description->content());
+    PyResult result = CreateContract(call, contractType, priv, std::nullopt, expireTime, duration, startStationID, endStationID, price, reward, collateral, wtitle, wdesc);
+    PySafeDecRef(priv); PySafeDecRef(wtitle); PySafeDecRef(wdesc);
+    return result;
 }
 
 PyResult ContractProxy::CreateContract(PyCallArgs &call,
     PyInt* contractType, PyBool* isPrivate, std::optional <PyNone*> assigneeID, PyInt* expireTime, PyInt* duration, PyInt* startStationID, std::optional<PyNone*> endStationID,
     PyInt* price, PyInt* reward, PyInt* collateral, PyWString* title, PyString* description) {
-    return CreateContract(call, contractType, new PyInt(isPrivate->value()), std::nullopt, expireTime, duration, startStationID, std::nullopt, price, reward, collateral, title, new PyWString(description->content()));
+    PyInt* priv = new PyInt(isPrivate->value());
+    PyWString* wdesc = new PyWString(description->content());
+    PyResult result = CreateContract(call, contractType, priv, std::nullopt, expireTime, duration, startStationID, std::nullopt, price, reward, collateral, title, wdesc);
+    PySafeDecRef(priv); PySafeDecRef(wdesc);
+    return result;
 }
 
 
@@ -639,19 +663,23 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                 if (plasticWrap.get() != nullptr) {
                     plasticWrap->SetAttribute(AttrVolume, volume);
                     plasticWrap->SetAttribute(AttrCapacity, volume);
-                }
-                plasticWrap->SaveItem();
+                    plasticWrap->SaveItem();
 
-                std::vector<int> items;
-                ContractUtils::GetContractItemIDs(contractID->value(), &items);
-                for (auto item : items) {
-                    InventoryItemRef itm = sItemFactory.GetItemRef(item);
-                    if (itm.get() != nullptr) {
-                        itm->Move(plasticWrap->itemID(), flagNone, true);
-                        itm->ChangeOwner(acceptorID);
+                    std::vector<int> items;
+                    ContractUtils::GetContractItemIDs(contractID->value(), &items);
+                    for (auto item : items) {
+                        InventoryItemRef itm = sItemFactory.GetItemRef(item);
+                        if (itm.get() != nullptr) {
+                            itm->Move(plasticWrap->itemID(), flagNone, true);
+                            itm->ChangeOwner(acceptorID);
+                        }
                     }
+                    plasticWrap->Move(startStationID, flagHangar, true);
+                } else {
+                    // SpawnItem failure is not fatal here — the money has already
+                    // moved, so keep the accept flow alive instead of null-dereffing.
+                    codelog(SERVICE__ERROR, "%s: failed to spawn courier plastic wrap for contract %u.", GetName(), contractID->value());
                 }
-                plasticWrap->Move(startStationID, flagHangar, true);
 
                 DBerror err;
                 if (!sDatabase.RunQuery(err,
@@ -944,10 +972,18 @@ PyResult ContractProxy::CollectMyPageInfo(PyCallArgs &call) {
     if (!sDatabase.RunQuery(res, mainQuery.c_str()))
     {
         codelog(DATABASE__ERROR, "Error in mainQuery: %s", res.error.c_str());
+        // error path — release the outstanding-contracts list we already built
+        oustandingContractsList->clear();
+        PySafeDecRef(oustandingContractsList);
         return nullptr;
     }
     // Because of outstandingContracts list in this response, we can't return DBResultToCRowset directly - so, we'll have to compose the dict manually.
-    res.GetRow(row);
+    if (!res.GetRow(row)) {
+        codelog(DATABASE__ERROR, "Error in mainQuery: no summary row returned.");
+        oustandingContractsList->clear();
+        PySafeDecRef(oustandingContractsList);
+        return nullptr;
+    }
     PyDict* vals = new PyDict;
     vals->SetItemString("numOutstandingContracts", new PyInt(row.GetInt(0)));
     vals->SetItemString("numOutstandingContractsNonCorp", new PyInt(row.GetInt(1)));

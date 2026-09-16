@@ -204,6 +204,9 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                             sEpicArcMgr.StartArc(charID, arc->arcID, m_agent->GetID());
                     }
                     MissionOffer offer = MissionOffer();
+                    // the journal clones offer.bookmarks — a null RefPtr here
+                    // segfaulted the server on the first journal open
+                    offer.bookmarks = RefPtr<PyList>(new PyList());
                     m_agent->MakeOffer(charID, offer);
                     // Override with epic arc mission data
                     EpicArcMissionData* nextMission = sEpicArcMgr.GetNextMissionForChar(charID, arc->arcID);
@@ -532,13 +535,6 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     agentSays->SetItem(0, new PyString("I have no research fields available for you."));
                     agentSays->SetItem(1, PyStatic.NewNone());
                 } else {
-                    PyList* choices = new PyList();
-                    for (uint16 skillID : m_agent->GetResearchFields()) {
-                        PyTuple* choice = new PyTuple(2);
-                        choice->SetItem(0, new PyInt(skillID));
-                        choice->SetItem(1, new PyInt(skillID));
-                        choices->AddItem(choice);
-                    }
                     // Check if character already researching with this agent
                     uint32 charID = pchar->itemID();
                     bool alreadyResearching = false;
@@ -553,6 +549,14 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         agentSays->SetItem(1, PyStatic.NewNone());
                     } else {
                         // Return the list of research fields for the client to display
+                        // (built here so the "already researching" branch doesn't leak it)
+                        PyList* choices = new PyList();
+                        for (uint16 skillID : m_agent->GetResearchFields()) {
+                            PyTuple* choice = new PyTuple(2);
+                            choice->SetItem(0, new PyInt(skillID));
+                            choice->SetItem(1, new PyInt(skillID));
+                            choices->AddItem(choice);
+                        }
                         PyDict* researchData = new PyDict();
                         researchData->SetItemString("skillTypeID", choices);
                         agentSays->SetItem(0, new PyString("What field of research interests you?"));
@@ -1210,7 +1214,10 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         } break;
     }
 
-    // cleanup
+    // cleanup: clear() releases the dict's own refs to its items — when the dict
+    // was stored (Courier/Trade/Mining) the items survive via the tuple's refs;
+    // when it wasn't (Encounter/default) this actually frees them instead of leaking.
+    dropoffLocation->clear();
     PySafeDecRef(dropoffLocation);
 
     return objectives;
@@ -1331,7 +1338,8 @@ PyResult AgentBound::GetEntryPoint(PyCallArgs &call) {
     PyInt* sysID = sDataMgr.GetAgentSystemID(m_agent->GetID());
     if (sysID != nullptr) {
         PyDict* result = new PyDict();
-        result->SetItemString("solarSystemID", sysID->Clone());
+        // SetItemString steals our reference — no clone, no leak
+        result->SetItemString("solarSystemID", sysID);
         return result;
     }
     return PyStatic.NewNone();

@@ -20,6 +20,10 @@
 MissionDataMgr::MissionDataMgr()
 {
     m_procCount = 0;
+    // PyRep holders must start null — the dtor releases them unconditionally
+    CourierPNG = nullptr;
+    MiningPNG = nullptr;
+    KillPNG = nullptr;
     m_names.clear();
     m_offers.clear();
     m_mining.clear();
@@ -30,9 +34,9 @@ MissionDataMgr::MissionDataMgr()
 
 MissionDataMgr::~MissionDataMgr()
 {
-    PyDecRef(KillPNG);
-    PyDecRef(MiningPNG);
-    PyDecRef(CourierPNG);
+    PySafeDecRef(KillPNG);
+    PySafeDecRef(MiningPNG);
+    PySafeDecRef(CourierPNG);
 }
 
 void MissionDataMgr::Clear()

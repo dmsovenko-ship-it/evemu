@@ -159,7 +159,8 @@ bool CachedObjectMgr::HaveCached(const std::string &objectID) const
 
 bool CachedObjectMgr::HaveCached(const PyRep *objectID) const
 {
-    PyIncRef(objectID);
+    // objectID is borrowed and only read here — no refcount changes (a stray
+    // PyIncRef here leaked one objectID rep per cached-method call).
     const std::string str = OIDToString(objectID);
 
     return (m_cachedObjects.find(str) != m_cachedObjects.end());
@@ -167,7 +168,7 @@ bool CachedObjectMgr::HaveCached(const PyRep *objectID) const
 
 void CachedObjectMgr::InvalidateCache(const PyRep *objectID)
 {
-    PyIncRef(objectID);
+    // borrowed parameter — the stray PyIncRef here leaked one rep per call.
     const std::string str = OIDToString(objectID);
     CachedObjMapItr res = m_cachedObjects.find(str);
 
@@ -188,7 +189,11 @@ void CachedObjectMgr::UpdateCacheFromSS(const std::string &objectID, PySubStream
     }
 
     PyString* str = new PyString( objectID );
-    PyBuffer* buf = cache.cache->data();
+    PyBuffer* buf = cache.cache->data();    // borrowed from the decoder's substream
+    // The CacheRecord takes over this pointer — give it its own reference, or
+    // the decoder's dtor (end of this function) frees the buffer out from
+    // under the record (use-after-free on every later read).
+    PyIncRef( buf );
     _UpdateCache(str, &buf);
 
     PyDecRef( str );
@@ -204,6 +209,12 @@ void CachedObjectMgr::UpdateCache(const std::string &objectID, PyRep **in_cached
 // Recursively releases a rep tree: container dtors do NOT free their items, so
 // freeing only the root leaks every child. Only valid where we own the whole
 // tree (single owner, no shared refs).
+//
+// WARNING: intentionally does NOT recurse into PyObjectEx / PyPackedRow /
+// PySubStream. PyPackedRow holds its DBRowDescriptor header WITHOUT a ref (its
+// dtor DecRefs it), and CRowSet rows share one header with the rowset's keyword
+// dict — clearing rows here would over-DecRef the shared header (UAF).
+// PyStatic singletons are safe (not containers → no-op here).
 static void DeepClearRep(PyRep* rep)
 {
     if (rep == nullptr)
@@ -232,6 +243,13 @@ void CachedObjectMgr::UpdateCache(const PyRep *objectID, PyRep **in_cached_data)
 {
     PyRep* cached_data(*in_cached_data);
     *in_cached_data = nullptr;
+
+    if (cached_data == nullptr) {
+        // GiveCache() with a failed query used to crash the marshaller
+        // (MarshalStream::SaveStream has no null check). Just drop it.
+        sLog.Error( "Cached Obj Mgr", "UpdateCache: null rep for cache key — skipping." );
+        return;
+    }
 
     //if (is_log_enabled(CACHE__DUMP)) {
     //  PyLogsysDump dumper(CACHE__DUMP, CACHE__DUMP, false, true);
@@ -406,10 +424,13 @@ bool CachedObjectMgr::LoadCachedFromFile(const std::string &cacheDir, const PyRe
 
     CachedObjMapItr res = m_cachedObjects.find( str );
 
-    if ( res != m_cachedObjects.end() )
+    if ( res != m_cachedObjects.end() ) {
+        // erase before delete — never leave a dangling entry in the map
         SafeDelete( res->second );
+        m_cachedObjects.erase( res );
+    }
 
-    CacheRecord* cache = m_cachedObjects[ str ] = new CacheRecord;
+    CacheRecord* cache = new CacheRecord;
     cache->objectID = objectID->Clone();
     cache->cache = new PyBuffer( &buf );
     cache->timestamp = header.timestamp;

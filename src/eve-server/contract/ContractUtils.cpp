@@ -143,6 +143,15 @@ PyList* ContractUtils::GetContractEntries(std::vector<int> contractIDList) {
          * I think there might be a better way to do it, but that's a matter for further optimizations.
          */
         DBRowDescriptor* itemsHeader = new DBRowDescriptor(itemsRes);
+        // Every CRowSet created from one header must own its own header ref
+        // (the ctor's keyword dict steals one). The creator's original ref is
+        // released at the exits below, leaving exactly one ref per rowset —
+        // previously N rowsets shared the single ref (multi-owner UAF).
+        auto makeRowset = [](DBRowDescriptor* hdr) {
+            PyIncRef(hdr);
+            DBRowDescriptor* h = hdr;
+            return new CRowSet(&h);
+        };
         std::map<int, CRowSet*> itemsMap;
         DBResultRow itemRow;
         while (itemsRes.GetRow(itemRow)) {
@@ -150,7 +159,7 @@ PyList* ContractUtils::GetContractEntries(std::vector<int> contractIDList) {
 
             auto pos = itemsMap.find(contractID);
             if (pos == itemsMap.end()) {
-                CRowSet* rowset = new CRowSet(&itemsHeader);
+                CRowSet* rowset = makeRowset(itemsHeader);
                 PyPackedRow* into = rowset->NewRow();
                 FillItemData(&itemRow, into);
 
@@ -170,7 +179,7 @@ PyList* ContractUtils::GetContractEntries(std::vector<int> contractIDList) {
 
             auto pos = bidsMap.find(contractID);
             if (pos == bidsMap.end()) {
-                CRowSet* rowset = new CRowSet(&bidsHeader);   // was &itemsHeader — bids got the wrong column schema
+                CRowSet* rowset = makeRowset(bidsHeader);   // was &itemsHeader — bids got the wrong column schema
                 PyPackedRow* into = rowset->NewRow();
                 FillBidData(&bidRow, into);
 
@@ -188,12 +197,15 @@ PyList* ContractUtils::GetContractEntries(std::vector<int> contractIDList) {
 
             PyDict* contract = new PyDict;
             contract->SetItemString("contract", DBRowToPackedRow(contractRow));
-            contract->SetItemString("items", itemsMap.find(contractID) == itemsMap.end() ? new CRowSet(&itemsHeader) : itemsMap.find(contractID)->second);
-            contract->SetItemString("bids", bidsMap.find(contractID) == bidsMap.end() ? new CRowSet(&bidsHeader) : bidsMap.find(contractID)->second);
+            contract->SetItemString("items", itemsMap.find(contractID) == itemsMap.end() ? makeRowset(itemsHeader) : itemsMap.find(contractID)->second);
+            contract->SetItemString("bids", bidsMap.find(contractID) == bidsMap.end() ? makeRowset(bidsHeader) : bidsMap.find(contractID)->second);
 
             contractsList->AddItem(new PyObject("util.KeyVal", contract));
         }
 
+        // release the creator refs — the rowsets hold their own now
+        PySafeDecRef(itemsHeader);
+        PySafeDecRef(bidsHeader);
         return contractsList;
     } else {
         codelog(SERVICE__ERROR, "No contracts in range ('%s') was found. Aborting", contractIDs.c_str());
@@ -255,6 +267,10 @@ PyResult ContractUtils::GetContractListForOwner(PyInt* ownerID, PyInt* contractS
         if (!sDatabase.RunQuery(res, items_query.c_str()))
         {
             codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
+            // error path: release what we built before bailing (roots only —
+            // contents follow the accepted baseline)
+            PySafeDecRef(contracts);
+            PySafeDecRef(items);
             return nullptr;
         }
 

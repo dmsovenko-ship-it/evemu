@@ -50,7 +50,11 @@ PyResult StationSvc::GetStationItemBits(PyCallArgs &call) {
 }
 
 PyResult StationSvc::GetSolarSystem(PyCallArgs &call, PyInt* solarSystemID) {
-    ObjectCachedMethodID method_id(GetName().c_str(), "GetSolarSystem");
+    // key MUST include the systemID — one global key served the first queried
+    // system's data to every later caller
+    std::string method_name = "GetSolarSystem_";
+    method_name += std::to_string(solarSystemID->value());
+    ObjectCachedMethodID method_id(GetName().c_str(), method_name.c_str());
 
     if (!this->m_cache->IsCacheLoaded(method_id)) {
         PyPackedRow *t = SystemDB::GetSolarSystemPackedRow(solarSystemID->value());

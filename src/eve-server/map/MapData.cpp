@@ -55,7 +55,17 @@ void MapData::GetInfo()
 
 void MapData::Populate()
 {
+    // re-init safety: release any previous cache before overwriting
+    PySafeDecRef(m_pseudoSecurities);
+    PySafeDecRef(m_stationExtraInfo);
+
     m_pseudoSecurities = MapDB::GetPseudoSecurities();
+    if (m_pseudoSecurities == nullptr) {
+        // query failed — an empty rowset beats a nullptr that would crash the
+        // first client call (PyIncRef/marshal on null)
+        PyDict* args = new PyDict();
+        m_pseudoSecurities = new PyObject("util.Rowset", args);
+    }
 
     double start = GetTimeMSeconds();
 
