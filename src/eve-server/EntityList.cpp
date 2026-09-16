@@ -47,6 +47,8 @@
 #include "faction/WarRegistryService.h"
 #include "ship/Missile.h"
 #include "missions/MissionDataMgr.h"
+
+#include <malloc.h>
 #include "incursion/IncursionMgr.h"
 #include "expedition/ExpeditionMgr.h"
 #include "standing/StandingMgr.h"
@@ -640,6 +642,13 @@ void EntityList::Process() {
             ProcessWarBills();
             CheckExpiredAuctions();
             CheckVoteExpiry();
+
+            // Return freed heap to the OS every 5 minutes. glibc keeps released
+            // memory in its arenas, so without this the RSS never drops even
+            // after leaks are fixed (cache frees, missile wrapper frees, ...).
+            // Cheap when there is nothing to release.
+            if (m_minutes % 5 == 0)
+                malloc_trim(0);
 
             // spawn FW plexes in loaded FW systems (every 5 minutes to catch newly loaded systems)
             if (m_minutes % 5 == 0) {
