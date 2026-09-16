@@ -1039,15 +1039,27 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
 
     // Gradual fill: spawn AT MOST one bot per ~15s per system, so the population
     // trickles in over minutes (like a live server) instead of all at once.
+    // GLOBAL fleet throttle on top: a spawn is the most expensive thing we do
+    // (hundreds of sequential SQL round-trips ON the game thread — legend picks,
+    // character minting, skill top-ups), so no more than one bot joins the
+    // cluster every ~6 s no matter how many systems want one. Unthrottled
+    // per-system spawning pegged the main loop and hammered MariaDB.
+    static time_t s_lastGlobalSpawn = 0;
+    if (s_lastGlobalSpawn != 0 && (now - s_lastGlobalSpawn) < 6)
+        return;
+    s_lastGlobalSpawn = now;
+
     auto last = m_lastPopulate.find(sysID);
     if (last != m_lastPopulate.end() && (now - last->second) < 15)
         return;
     m_lastPopulate[sysID] = now;
 
     // Variety: some bots are already in the system (docked or in space), others
-    // arrive through a gate, others leave. Decide per spawn.
+    // arrive through a gate, others leave. Decide per spawn. Direct spawns are
+    // preferred — every inbound spawn boots a full neighbouring system just to
+    // have the bot warp out of it (system load/unload churn).
     uint32 spawnMode = MakeRandomInt(0, 9);
-    if (spawnMode < 3) {
+    if (spawnMode < 6) {
         // Already here — spawn directly at a gate / station in this system
         // (they "live" here), no inbound flight.
         SpawnBot(pSystem, 0, "", 0, 0);
@@ -1135,35 +1147,41 @@ uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
     // so a bot in such a corp breaks the info window (no HQ found). Weight by
     // existing member count so the biggest corp takes the largest share.
     // PvP war corps (requireAlliance) only get corps that are in an alliance.
-    DBQueryResult res;
-    std::vector<std::pair<uint32,uint32>> corps;   // corpID, allianceID
-    std::vector<uint32> weights;                    // members+1 per corp
-    std::string corpQuery = std::string(
-        "SELECT c.corporationID, c.allianceID, COUNT(ch.characterID) AS members"
-        " FROM crpCorporation c"
-        " LEFT JOIN chrCharacters ch ON ch.corporationID = c.corporationID"
-        " WHERE c.corporationID >= 1000000")      // skip 0/placeholder rows
-        + " AND NOT EXISTS ("                     // never join a corp a REAL player is in
-            " SELECT 1 FROM chrCharacters realc"
-            " WHERE realc.corporationID = c.corporationID AND realc.accountID != 0)"
-        + (requireAlliance ? " AND c.allianceID > 0" : "")
-        + std::string(" GROUP BY c.corporationID")
-        + std::string(" ORDER BY members DESC")
-        + " LIMIT 12";
-    if (sDatabase.RunQuery(res, corpQuery.c_str()))
-    {
-        DBResultRow row;
-        while (res.GetRow(row)) {
-            uint32 corpID = row.GetUInt(0);
-            uint32 allyID = row.GetUInt(1);
-            uint32 members = row.GetUInt(2);
-            corps.emplace_back(corpID, allyID);
-            weights.push_back(members + 1);
+    // The candidate list is cached for 5 min — this used to be a GROUP BY join
+    // over crpCorporation×chrCharacters run on EVERY spawn.
+    static std::vector<std::pair<uint32, uint32>> s_cache;   // corpID, allianceID
+    static std::vector<uint32> s_cacheW;                     // members+1
+    static time_t s_cacheAt = 0;
+    time_t now = time(nullptr);
+    if (s_cache.empty() || (now - s_cacheAt) >= 300) {
+        s_cache.clear();
+        s_cacheW.clear();
+        DBQueryResult res;
+        std::string corpQuery = std::string(
+            "SELECT c.corporationID, c.allianceID, COUNT(ch.characterID) AS members"
+            " FROM crpCorporation c"
+            " LEFT JOIN chrCharacters ch ON ch.corporationID = c.corporationID"
+            " WHERE c.corporationID >= 1000000")      // skip 0/placeholder rows
+            + " AND NOT EXISTS ("                     // never join a corp a REAL player is in
+                " SELECT 1 FROM chrCharacters realc"
+                " WHERE realc.corporationID = c.corporationID AND realc.accountID != 0)"
+            + std::string(" GROUP BY c.corporationID")
+            + std::string(" ORDER BY members DESC")
+            + " LIMIT 12";
+        if (sDatabase.RunQuery(res, corpQuery.c_str()))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                s_cache.emplace_back(row.GetUInt(0), row.GetUInt(1));
+                s_cacheW.push_back(row.GetUInt(2) + 1);
+            }
         }
+        s_cacheAt = now;
     }
 
-    if (corps.empty()) {
+    if (s_cache.empty()) {
         // No corps with members yet — fall back to any corp in the DB.
+        DBQueryResult res;
         if (sDatabase.RunQuery(res,
             "SELECT corporationID, allianceID FROM crpCorporation LIMIT 1")) {
             DBResultRow row;
@@ -1176,19 +1194,29 @@ uint32 BotMgr::PickCorp(uint32& allianceID, bool requireAlliance /*false*/)
         return 0;
     }
 
-    // Weighted random pick (weights = member counts).
+    // Weighted random pick over the (possibly alliance-filtered) cache view.
+    std::vector<size_t> idx;
     uint32 total = 0;
-    for (uint32 w : weights) total += w;
-    uint32 roll = MakeRandomInt(0, total - 1);
-    for (size_t i = 0; i < corps.size(); ++i) {
-        if (roll < weights[i]) {
-            allianceID = corps[i].second;
-            return corps[i].first;
-        }
-        roll -= weights[i];
+    for (size_t i = 0; i < s_cache.size(); ++i) {
+        if (requireAlliance && s_cache[i].second == 0)
+            continue;
+        idx.push_back(i);
+        total += s_cacheW[i];
     }
-    allianceID = corps[corps.size()-1].second;
-    return corps[corps.size()-1].first;
+    if (idx.empty()) {
+        allianceID = 0;
+        return 0;
+    }
+    uint32 roll = MakeRandomInt(0, total - 1);
+    for (size_t j = 0; j < idx.size(); ++j) {
+        if (roll < s_cacheW[idx[j]]) {
+            allianceID = s_cache[idx[j]].second;
+            return s_cache[idx[j]].first;
+        }
+        roll -= s_cacheW[idx[j]];
+    }
+    allianceID = s_cache[idx.back()].second;
+    return s_cache[idx.back()].first;
 }
 
 void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate /*false*/)
@@ -1217,48 +1245,71 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         //    failed/returned 0 under DB load, reuse was skipped and the spawner
         //    minted a brand-new character every time — the pool grew past the cap.
         {
-            DBQueryResult bres;
-            if (sDatabase.RunQuery(bres,
-                "SELECT c.characterName, c.corporationID, cc.allianceID, p.eveCharID"
-                " FROM chrCharacters c"
-                " JOIN botMemory b ON b.charID = c.characterID"
-                " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
-                " LEFT JOIN botPortraits p ON p.serverCharID = c.characterID"
-                " WHERE c.characterName != ''"
-                " ORDER BY RAND() LIMIT 1"))
+            // Random pool pick WITHOUT ORDER BY RAND() — that was a filesort
+            // over the whole pilot pool (+3 joins) on EVERY spawn. Refresh a
+            // lightweight id list every 5 min, then fetch the chosen pilot by
+            // primary key.
+            static std::vector<uint32> s_poolIDs;
+            static time_t s_poolIDsAt = 0;
             {
-                DBResultRow brow;
-                if (bres.GetRow(brow)) {
-                    useName = brow.GetText(0);
-                    useCorpID = brow.GetUInt(1);
-                    useAllianceID = brow.GetUInt(2);
-                    poolEveID = brow.GetUInt(3);
-                    reuseExisting = true;
-                    // A pooled pilot was minted FROM a killmail legend — restore
-                    // ITS OWN legend (hull + fit) so every respawn flies the same
-                    // ship with the same modules. This was lost when reuse became
-                    // unconditional (legend rows were only read for freshly
-                    // minted pilots) and every respawned bot flew naked while its
-                    // cargo still spawned (MaterializeShipLoad is unconditional).
-                    {
-                        std::string eName;
-                        sDatabase.DoEscapeString(eName, useName);
-                        DBQueryResult lres;
-                        if (sDatabase.RunQuery(lres,
-                            "SELECT ship_type_id, fitted_item_ids FROM botKillmailLegends"
-                            " WHERE character_name = '%s' AND ship_type_id > 0 AND ship_type_id != 670"
-                            " ORDER BY killmail_id DESC LIMIT 1", eName.c_str()))
+                time_t rn = time(nullptr);
+                if (s_poolIDs.empty() || (rn - s_poolIDsAt) >= 300) {
+                    s_poolIDs.clear();
+                    DBQueryResult idres;
+                    if (sDatabase.RunQuery(idres,
+                        "SELECT c.characterID FROM chrCharacters c"
+                        " JOIN botMemory b ON b.charID = c.characterID"
+                        " WHERE c.characterName != ''")) {
+                        DBResultRow idrow;
+                        while (idres.GetRow(idrow))
+                            s_poolIDs.push_back(idrow.GetUInt(0));
+                    }
+                    s_poolIDsAt = rn;
+                }
+            }
+            if (!s_poolIDs.empty()) {
+                uint32 pickID = s_poolIDs[MakeRandomInt(0, (int32)s_poolIDs.size() - 1)];
+                DBQueryResult bres;
+                if (sDatabase.RunQuery(bres,
+                    "SELECT c.characterName, c.corporationID, cc.allianceID, p.eveCharID"
+                    " FROM chrCharacters c"
+                    " LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID"
+                    " LEFT JOIN botPortraits p ON p.serverCharID = c.characterID"
+                    " WHERE c.characterID = %u", pickID))
+                {
+                    DBResultRow brow;
+                    if (bres.GetRow(brow)) {
+                        useName = brow.GetText(0);
+                        useCorpID = brow.GetUInt(1);
+                        useAllianceID = brow.GetUInt(2);
+                        poolEveID = brow.GetUInt(3);
+                        reuseExisting = true;
+                        // A pooled pilot was minted FROM a killmail legend — restore
+                        // ITS OWN legend (hull + fit) so every respawn flies the same
+                        // ship with the same modules. This was lost when reuse became
+                        // unconditional (legend rows were only read for freshly
+                        // minted pilots) and every respawned bot flew naked while its
+                        // cargo still spawned (MaterializeShipLoad is unconditional).
                         {
-                            DBResultRow lrow;
-                            if (lres.GetRow(lrow)) {
-                                useShipType = lrow.GetUInt(0);
-                                const char* fit = lrow.GetText(1);
-                                if (fit != nullptr) useFit = fit;
+                            std::string eName;
+                            sDatabase.DoEscapeString(eName, useName);
+                            DBQueryResult lres;
+                            if (sDatabase.RunQuery(lres,
+                                "SELECT ship_type_id, fitted_item_ids FROM botKillmailLegends"
+                                " WHERE character_name = '%s' AND ship_type_id > 0 AND ship_type_id != 670"
+                                " ORDER BY killmail_id DESC LIMIT 1", eName.c_str()))
+                            {
+                                DBResultRow lrow;
+                                if (lres.GetRow(lrow)) {
+                                    useShipType = lrow.GetUInt(0);
+                                    const char* fit = lrow.GetText(1);
+                                    if (fit != nullptr) useFit = fit;
+                                }
                             }
                         }
+                        _log(BOT__TRACE, "BotMgr: reusing established bot '%s' (corp %u, ally %u).",
+                             useName.c_str(), useCorpID, useAllianceID);
                     }
-                    _log(BOT__TRACE, "BotMgr: reusing established bot '%s' (corp %u, ally %u).",
-                         useName.c_str(), useCorpID, useAllianceID);
                 }
             }
         }
@@ -1441,7 +1492,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         return;
     }
     // Pooled (reused) pilots keep growing their skillbook across respawns.
-    if (reuseExisting)
+    // The top-up is ~100 sequential SQL round-trips per call, so only ~20% of
+    // respawns run it (every kept pilot still accumulates the set over a few
+    // respawns, just slower).
+    if (reuseExisting && MakeRandomInt(0, 4) == 0)
         CharacterDB::EnsureExtendedBotSkills(useCharID, skillTier < 5 ? (uint8)(skillTier + 1) : 5);
     // Remember the EVE portrait source so fetch_bot_portraits.py can grab it —
     // AND download it now (async) so the client sees a face immediately.
@@ -2754,7 +2808,7 @@ void BotMgr::ProcessTravel()
                 continue;   // aggression timer — can't jump a gate until it cools down
             if (pb->WantsToTravel())
                 readyToJump.push_back(pb);   // visible flight to the gate is done
-            else if (MakeRandomInt(0, 299) == 0)   // ~0.33% per tic decides to leave
+            else if (MakeRandomInt(0, 899) == 0)   // ~0.11% per tic decides to leave (was 0.33% — churn booted whole systems)
                 pb->MarkForTravel();               // starts the visible warp
         }
 
