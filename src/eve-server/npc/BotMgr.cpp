@@ -225,6 +225,15 @@ void BotMgr::Process()
 
     EnsureAlwaysOnSystems();
 
+    // Two passes: PLAYER systems fill first (they consume the global spawn
+    // slots), then always-on baseline systems share what is left. Single-pass
+    // map-order iteration let hub systems starve player systems.
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr)
+            continue;
+        if (pSystem->PlayerCount() >= 1)
+            PopulateSystem(pSystem);
+    }
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
         if (pSystem == nullptr)
             continue;
@@ -237,8 +246,8 @@ void BotMgr::Process()
                 ReapBots(pSystem);
             continue;
         }
-
-        PopulateSystem(pSystem);
+        if (!hasPlayer)
+            PopulateSystem(pSystem);
     }
 
     // Occasionally let a bot travel to a neighbouring system (through a gate),
@@ -1037,21 +1046,22 @@ void BotMgr::PopulateSystem(SystemManager* pSystem)
     if (botCount >= target)
         return;
 
-    // Gradual fill: spawn AT MOST one bot per ~15s per system, so the population
+    // Gradual fill: spawn AT MOST one bot per ~10 s per system, so the population
     // trickles in over minutes (like a live server) instead of all at once.
-    // GLOBAL fleet throttle on top: a spawn is the most expensive thing we do
-    // (hundreds of sequential SQL round-trips ON the game thread — legend picks,
-    // character minting, skill top-ups), so no more than one bot joins the
-    // cluster every ~6 s no matter how many systems want one. Unthrottled
-    // per-system spawning pegged the main loop and hammered MariaDB.
+    auto last = m_lastPopulate.find(sysID);
+    if (last != m_lastPopulate.end() && (now - last->second) < 10)
+        return;
+
+    // GLOBAL fleet throttle — checked AFTER the per-system gate: a system in its
+    // own cooldown returns above WITHOUT consuming the global slot. (Checking
+    // this first let the lowest-systemID system burn the slot every window while
+    // itself cooling down — every other system starved, locals went empty.)
+    // A spawn is still the most expensive thing we do (SQL round-trips on the
+    // game thread), so the fleet adds at most one bot per ~4 s.
     static time_t s_lastGlobalSpawn = 0;
-    if (s_lastGlobalSpawn != 0 && (now - s_lastGlobalSpawn) < 6)
+    if (s_lastGlobalSpawn != 0 && (now - s_lastGlobalSpawn) < 4)
         return;
     s_lastGlobalSpawn = now;
-
-    auto last = m_lastPopulate.find(sysID);
-    if (last != m_lastPopulate.end() && (now - last->second) < 15)
-        return;
     m_lastPopulate[sysID] = now;
 
     // Variety: some bots are already in the system (docked or in space), others
