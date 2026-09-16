@@ -575,7 +575,6 @@ void AnomalyMgr::CreateAnomaly(int8 typeID)
                 "Guristas Forsaken Hideaway","Guristas Forlorn Hideaway",
                 "Guristas Burrow","Guristas Refuge","Guristas Den",
                 "Guristas Hub","Guristas Forlorn Hub"}},
-                {500022, {"Drone Cluster"}},
                 {500019, {"Sansha Forsaken Den","Sansha Forlorn Den","Sansha Rally Point",
                           "Sansha Hidden Rally Point","Sansha Forsaken Rally Point",
                           "Sansha Forlorn Rally Point","Sansha Port",
@@ -585,7 +584,9 @@ void AnomalyMgr::CreateAnomaly(int8 typeID)
                 "Serpentis Forlorn Hideaway","Serpentis Burrow",
                 "Serpentis Refuge","Serpentis Forsaken Rally Point",
                 "Serpentis Forsaken Hub"}},
-                {500020, {"Drone Cluster","Drone Collection","Drone Assembly","Drone Horde"}}
+                {500022, {"Drone Cluster","Drone Collection","Drone Assembly","Drone Horde",
+                          "Drone Gathering","Drone Surveillance","Drone Menagerie",
+                          "Drone Herd","Drone Squad","Drone Patrol"}}
             };
             auto it = anomNames.find(sig.ownerID);
             if (it != anomNames.end() && !it->second.empty()) {

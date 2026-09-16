@@ -83,6 +83,12 @@ void DungeonDataMgr::UpdateDungeon(uint32 dungeonID)
 void DungeonDataMgr::GetRandomDungeon(Dungeon::Dungeon& dungeon, uint8 archetype, uint32 factionID /*=0*/, float security /*=1.0*/) {
     auto& archetypeIndex = m_dungeons.get<Dungeon::DungeonsByArchetype>();
     auto range = archetypeIndex.equal_range(archetype);
+    // Serpentis faction normalization: the SDE stores Serpentis dungeons under
+    // 500013, while anomaly/region rat factions report 500020 (factionSerpentis)
+    // — without this the faction filter finds nothing and the fallback hands
+    // out ANY archetype dungeon (e.g. Sleepers under a Serpentis site name).
+    if (factionID == factionSerpentis)
+        factionID = 500013;
     // Collect dungeons matching faction + security requirements
     std::vector<Dungeon::Dungeon> candidates;
     for (auto it = range.first; it != range.second; ++it) {
