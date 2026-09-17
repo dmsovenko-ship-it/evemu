@@ -37,7 +37,7 @@
 // properly (plain PyString made relog show mojibake).
 static PyRep* BookmarkTextToWStr(const char* text, uint32 len) {
     if (text == nullptr)
-        return new PyWString("");
+        return new PyWString(std::string());
     std::string utf8(text, len);
     std::u16string w = utf8to16(utf8);
     if (w.empty() and !utf8.empty())
