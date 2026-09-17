@@ -1,4 +1,4 @@
-/*
+﻿/*
     ------------------------------------------------------------------------------------
     LICENSE:
     ------------------------------------------------------------------------------------
@@ -30,6 +30,20 @@
 
 #include "system/BookmarkDB.h"
 #include "system/BookmarkService.h"
+#include "utils/utfUtils.h"
+
+// bookmark memo/note are user text that arrives as wstring (UTF-16LE bytes) and
+// is stored as UTF-8 — wrap reads in PyWString so the client decodes Cyrillic
+// properly (plain PyString made relog show mojibake).
+static PyRep* BookmarkTextToWStr(const char* text, uint32 len) {
+    if (text == nullptr)
+        return new PyWString("");
+    std::string utf8(text, len);
+    std::u16string w = utf8to16(utf8);
+    if (w.empty() and !utf8.empty())
+        return new PyString(utf8);   // not valid UTF-8 — pass bytes through
+    return new PyWString(std::string((const char*)w.data(), w.size() * sizeof(char16_t)));
+}
 
 PyRep* BookmarkDB::GetBookmarksInFolder(uint32 folderID)
 {
@@ -116,13 +130,13 @@ PyRep *BookmarkDB::GetBookmarks(uint32 ownerID) {
             dict->SetItemString("ownerID", new PyInt(row.GetInt(1)));
             dict->SetItemString("itemID", new PyInt(row.GetInt(2)));
             dict->SetItemString("typeID", new PyInt(row.GetInt(3)));
-            dict->SetItemString("memo", new PyString(row.GetText(4)));
+            dict->SetItemString("memo", BookmarkTextToWStr(row.GetText(4), row.ColumnLength(4)));
             dict->SetItemString("created", new PyLong(row.GetInt64(5)));
             dict->SetItemString("x", new PyFloat(row.GetFloat(6)));
             dict->SetItemString("y", new PyFloat(row.GetFloat(7)));
             dict->SetItemString("z", new PyFloat(row.GetFloat(8)));
             dict->SetItemString("locationID", new PyInt(row.GetInt(9)));
-            dict->SetItemString("note", new PyString(row.GetText(10)));
+            dict->SetItemString("note", BookmarkTextToWStr(row.GetText(10), row.ColumnLength(10)));
             dict->SetItemString("creatorID", new PyInt(row.GetInt(11)));
             if (row.IsNull(12) or (row.GetInt(12) == 0)) {
                 dict->SetItemString("folderID", PyStatic.NewNone());
@@ -141,13 +155,13 @@ PyRep *BookmarkDB::GetBookmarks(uint32 ownerID) {
         dict->SetItemString("ownerID", new PyInt(row.GetInt(1)));
         dict->SetItemString("itemID", new PyInt(row.GetInt(2)));
         dict->SetItemString("typeID", new PyInt(row.GetInt(3)));
-        dict->SetItemString("memo", new PyString(row.GetText(4)));
+        dict->SetItemString("memo", BookmarkTextToWStr(row.GetText(4), row.ColumnLength(4)));
         dict->SetItemString("created", new PyLong(row.GetInt64(5)));
         dict->SetItemString("x", new PyFloat(row.GetFloat(6)));
         dict->SetItemString("y", new PyFloat(row.GetFloat(7)));
         dict->SetItemString("z", new PyFloat(row.GetFloat(8)));
         dict->SetItemString("locationID", new PyInt(row.GetInt(9)));
-        dict->SetItemString("note", new PyString(row.GetText(10)));
+        dict->SetItemString("note", BookmarkTextToWStr(row.GetText(10), row.ColumnLength(10)));
         dict->SetItemString("creatorID", new PyInt(row.GetInt(11)));
         if (row.IsNull(12) or (row.GetInt(12) == 0)) {
             dict->SetItemString("folderID", PyStatic.NewNone());

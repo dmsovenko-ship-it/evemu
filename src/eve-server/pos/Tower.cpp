@@ -970,7 +970,10 @@ void TowerSE::CreateForceField()
     if (m_hasShield)
         return;
     // create and add force field to tower
-    ItemData idata(EVEDB::invTypes::ForceField, m_corpID, m_system->GetID(), flagNone, m_ownerID);
+    // NOTE: the 5th arg must be a NAME — passing m_ownerID here matched the
+    // quantity ctor, so the field item had an empty name and its bracket
+    // killed the client's right-click menu near the POS.
+    ItemData idata(EVEDB::invTypes::ForceField, m_corpID, m_system->GetID(), flagNone, "Force Field", GetPosition());
     InventoryItemRef ifRef = sItemFactory.SpawnItem(idata);
     if (ifRef.get() == nullptr)
         return;  // we'll get over it

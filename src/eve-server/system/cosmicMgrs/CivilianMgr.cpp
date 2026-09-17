@@ -241,7 +241,9 @@ void CivilianMgr::SpawnSystemCivilians(SystemManager* sysMgr) {
         npc->DestinyMgr()->SetPosition(pos);
         sysMgr->AddNPC(npc);
 
-        new ConvoyAI(npc, group, i);
+        // Attach the convoy AI — without this m_convoyAI stayed null and the
+        // convoy never moved (sat at the station forever).
+        npc->SetConvoyAI(new ConvoyAI(npc, group, i));
         group->members.push_back(npc);
     }
 

@@ -1,4 +1,4 @@
-/*
+﻿/*
     ------------------------------------------------------------------------------------
     LICENSE:
     ------------------------------------------------------------------------------------
@@ -31,6 +31,23 @@
 
 #include "packets/Bookmarks.h"
 #include "system/BookmarkService.h"
+
+#include "utils/utfUtils.h"
+
+// bookmark memo/comment arrive as wstring (UTF-16LE bytes in PyWString::content)
+// or plain string — normalize to UTF-8 before persisting, otherwise Cyrillic
+// relog shows mojibake.
+static std::string BookmarkRepToUtf8(PyRep* rep) {
+    if (rep == nullptr)
+        return "";
+    if (rep->IsWString()) {
+        std::string bytes = rep->AsWString()->content();
+        std::u16string w((const char16_t*)bytes.data(), bytes.size() / sizeof(char16_t));
+        return utf16to8(w);
+    }
+    return PyRep::StringContent(rep);
+}
+
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/ManagerDB.h"
 
@@ -124,8 +141,8 @@ PyResult BookmarkService::BookmarkLocation(PyCallArgs& call, PyInt* itemID, PyIn
     call.Dump(BOOKMARK__CALL_DUMP);
 
     BmData data = BmData();
-    data.memo = PyRep::StringContent(memo);
-    data.note = PyRep::StringContent(comment);
+    data.memo = BookmarkRepToUtf8(memo);
+    data.note = BookmarkRepToUtf8(comment);
     data.ownerID = ownerID->value();
     data.creatorID = data.ownerID;
     data.created = GetFileTimeNow();
@@ -190,8 +207,8 @@ PyResult BookmarkService::BookmarkScanResult(PyCallArgs &call, PyInt* locationID
     * 22:25:58 [SvcCallDump]         [ 4] Integer field: 140000000
     */
     BmData data = BmData();
-    data.memo = PyRep::StringContent(memo);
-    data.note = PyRep::StringContent(comment);
+    data.memo = BookmarkRepToUtf8(memo);
+    data.note = BookmarkRepToUtf8(comment);
     data.ownerID = ownerID->value();
     data.creatorID = data.ownerID;
     data.created = GetFileTimeNow();
