@@ -1,4 +1,8 @@
-﻿# EVEmu Session Context
+﻿## 17 сент. (день): почтовый UI мёртв — MailDB Mark*/Label* переписаны на новую схему (`f0aaa7a7`)
+Симптом: окно почты не грузится, за 46с до этого в логе `#1054 Unknown column 'statusMask' in 'SET'` от `MarkAllAsReadByLabel` (клиент зовёт его при открытии почты). Корень: после почтового ревоорка `statusMask/labelMask` живут в `mailStatus` (per-character), а ~12 функций Mark*/ByLabel/ByList/Trash*/RemoveLabels в `MailDB.cpp` остались на старом upstream SQL против `mailMessage` → #1054 → клиентское окно почты падает.
+- **Переписаны на mailStatus**: `MarkAllAsRead/Unread(charID)`, `MarkAllAsRead/UnreadByLabel(charID,labelID)`, `MarkAllAsRead/UnreadByList`, `MoveToTrashByLabel/ByList`, `MoveAllToTrash/FromTrash`, `MoveToTrash`, `EmptyTrash` (чистит только mailStatus строки персонажа, общая mailMessage остаётся для других получателей), `RemoveLabels` (mailStatus.labelMask).
+- ⚠️ Если ещё какие-то mail-функции в `MailDB.cpp` упадут с #1054 — тот же паттерн: искать `UPDATE mailMessage SET statusMask/labelMask`.
+- **Проверка**: открыть почту в игре (окно грузится, письма видны), «прочитать всё», trash/restore, отправка на корп/альянс из игры и портала.
 
 ## 17 сент. (день): 4 бага из теста — чат-повторы, уведомления, почта корп/альянс (`4fcd95fd`)
 - **Повтор фраз ботами в чате** («bit busy here, someone's on me» ×2): `BuildBotSmalltalkLine` в боевом режиме возвращает фразу из пула из 4, а проверка истории канала шла уже ПОСЛЕ выбора → два атакованных бота брали одну и ту же первую фразу. Фикс: до 4 попыток с проверкой по `m_channelPhrases` (2-мин окно), все заняты → молчание.
