@@ -1,4 +1,11 @@
-﻿## 17 сент. (день, часть 2): 🔴 PyWString хранит UTF-8 — урок по кодировкам (`5148bd8e`)
+﻿## 17 сент. (день, часть 3): 🔴 Схема: allianceID/warFactionID ТОЛЬКО на crpCorporation (`82708883`)
+СХЕМНЫЙ КОНТРАКТ: в `chrCharacters` НЕТ колонок `allianceID` и `warFactionID` (только corporationID), в `alnAlliance` НЕТ `warFactionID`. Членство в альянсе = `chrCharacters.corporationID → crpCorporation.allianceID`; per-character FW = таблица `facWarCharacters` (PK characterID, factionID); warFactionID корпорации = `crpCorporation.warFactionID`.
+- **Симптом**: после починки резолва получателя (клиент нашёл «Tort Corporation Alliance» в eveowners) сервер при отправке альянс-письма дал `#1054 Unknown column 'allianceID'` — `MailDB::SendMail` выбирал чаров `WHERE allianceID = 99000001` → доставка пустая.
+- **14 битых SQL по всему коду** (все молча фейлились годами, RunQuery без проверки): MailDB alliance-доставка, портал MailSend (APICharacterManager), MemberTracking.xml.aspx (APICorporationManager — выбирал allianceID прямо из chrCharacters → API ВСЕГДА отдавал error 999), 8 FW-апдейтов join/leave/withdraw (alnAlliance/chrCharacters SET warFactionID), 2 per-char FW записи.
+- **Фикс**: альянс-участники = `chrCharacters JOIN crpCorporation ... WHERE cc.allianceID = X AND cc.deleted = 0`; MemberTracking через LEFT JOIN; битые FW-статементы удалены (корпоративный warFactionID — источник истины).
+- ⚠️ Новые запросы по альянсу/фракции — всегда через crpCorporation; per-char — через facWarCharacters.
+
+## 17 сент. (день, часть 2): 🔴 PyWString хранит UTF-8 — урок по кодировкам (`5148bd8e`)
 КРИТИЧНЫЙ КОНТРАКТ КОДИРОВОК: **PyWString в EVEmu хранит UTF-8 байты**, НЕ UTF-16! `MarshalStream::VisitWString` (EVEMarshal.cpp:199) пишет его опкодом `Op_PyWStringUTF8`. Клиент декодирует wstring как UTF-8 → UTF-16.
 - **Каскадный баг**: фикс кириллицы закладок `f31ad6ea` сделал на ЧТЕНИИ `utf8to16` (UTF-16 байты в PyWString под UTF-8-опкодом) → клиентский декод `GetBookmarks` при логине падает МОЛЧА → каскад: вкладки чата без названий/не подключаются, гости станции без имён/иконок, нет аватарок, окно нового письма не грузится, боты не в онлайне. Симптом выглядел как «персонажи сломаны», а был один битый блоб в логин-данных.
 - **Фикс**: `BookmarkTextToWStr` = passthrough (PyWString(UTF-8)); путь СОХРАНЕНИЯ `BookmarkRepToUtf8` (utf16to8 от StringContent) — правильный, не трогать. БД проверена — все memo валидный UTF-8.
