@@ -28,6 +28,7 @@
 #include "Client.h"
 #include "StaticDataMgr.h"
 #include "character/Character.h"
+#include "character/CharacterDB.h"
 #include "corporation/CorporationDB.h"
 
 // this shall be removed when i remove MulticastTarget
@@ -595,6 +596,10 @@ bool CorporationDB::AddCorporation(Call_AddCorporation & corpInfo, Client* pClie
 
     // It has to go into the eveStaticOwners too
     sDatabase.RunQuery(err, " INSERT INTO eveStaticOwners (ownerID,ownerName,typeID) VALUES (%u, '%s', 2)", corpID, cName.c_str());
+
+    // and into cacheOwners, so clients can resolve the corp name (cfg.eveowners:
+    // mail recipients, owner lists). Without it 'NewCorp is not a valid recipient'.
+    CharacterDB::AddOwnerCache(corpID, corpInfo.corpName, 2);
 
     return true;
 }

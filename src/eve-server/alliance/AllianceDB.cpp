@@ -11,6 +11,7 @@
 #include "Client.h"
 #include "StaticDataMgr.h"
 #include "character/Character.h"
+#include "character/CharacterDB.h"
 #include "alliance/AllianceDB.h"
 
 void AllianceDB::AddBulletin(uint32 allyID, uint32 ownerID, uint32 cCharID, const std::string &title, const std::string &body)
@@ -484,6 +485,16 @@ void AllianceDB::SetTaxRate(uint32 allyID, double taxRate)
 
 bool AllianceDB::CreateAlliance(std::string name, std::string shortName, std::string description, std::string url, Client *pClient, uint32 &allyID, uint32 &corpID)
 {
+    // trim whitespace — the client form can submit trailing spaces and the
+    // client-side owner lookup is an exact match ('X ' != 'X')
+    auto _trim = [](std::string& s) {
+        size_t b = s.find_first_not_of(" \t\r\n");
+        size_t e = s.find_last_not_of(" \t\r\n");
+        s = (b == std::string::npos) ? std::string() : s.substr(b, e - b + 1);
+    };
+    _trim(name);
+    _trim(shortName);
+
     std::string aName, aShort, aDesc, aURL;
     sDatabase.DoEscapeString(aName, name);
     sDatabase.DoEscapeString(aShort, shortName);
@@ -509,6 +520,10 @@ bool AllianceDB::CreateAlliance(std::string name, std::string shortName, std::st
     }
     // It has to go into the eveStaticOwners too
     sDatabase.RunQuery(err, " INSERT INTO eveStaticOwners (ownerID,ownerName,typeID) VALUES (%u, '%s', 16159)", allyID, aName.c_str());
+
+    // and into cacheOwners — clients resolve alliance names (mail recipients,
+    // owner lists) from cfg.eveowners, which is generated from cacheOwners.
+    CharacterDB::AddOwnerCache(allyID, name, 16159);
 
     return true;
 }

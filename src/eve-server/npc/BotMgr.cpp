@@ -3151,6 +3151,7 @@ void BotMgr::MaybeFoundCorp(PlayerBot* bot)
                             " VALUES (%u, %u, 1000, %u)", corpID, corpID, corpID);
     sDatabase.RunQuery(err, "INSERT INTO eveStaticOwners (ownerID, ownerName, typeID) VALUES (%u, '%s', 2)",
                        corpID, cName.c_str());
+    CharacterDB::AddOwnerCache(corpID, cName, 2);
 
     // Transfer the founder to the new corp (employment history recorded).
     CharacterDB::AddEmployment(charID, corpID, oldCorp);
@@ -3258,6 +3259,7 @@ void BotMgr::MaybeFormAlliance(PlayerBot* bot)
         return;
     }
     sDatabase.RunQuery(err, "INSERT INTO eveStaticOwners (ownerID, ownerName, typeID) VALUES (%u, '%s', 16159)", allyID, aName.c_str());
+    CharacterDB::AddOwnerCache(allyID, aName, 16159);
 
     // Set the alliance on all member corps.
     for (uint32 cid : memberCorps) {

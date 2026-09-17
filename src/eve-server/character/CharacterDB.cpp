@@ -2446,7 +2446,8 @@ void CharacterDB::AddOwnerCache(uint32 ownerID, std::string ownerName, uint32 ty
     DBerror err;
     sDatabase.RunQuery(err,
         "INSERT INTO cacheOwners(ownerID, ownerName, typeID)"
-        " VALUES (%u, '%s', %u)",
+        " VALUES (%u, '%s', %u)"
+        " ON DUPLICATE KEY UPDATE ownerName = VALUES(ownerName), typeID = VALUES(typeID)",
         ownerID, ownerName.c_str(), typeID);
 }
 
