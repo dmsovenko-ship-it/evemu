@@ -431,10 +431,12 @@ void Missile::Delete() {
     if (m_bubble != nullptr)
         m_bubble->Remove(this);
     SystemEntity::Delete();
-    // out of the system maps, out of the bubble, out of the registry — the
-    // wrapper can finally be freed (the ~200B/launch leak is closed; nothing
-    // dereferences a Missile* after this point: defender missiles validate
-    // their target by ID+identity in HitTarget before touching m_targetSE)
+    // out of the system maps, the registry entry goes too
     sEntityList.RemoveMissile(itemID);
-    delete this;
+    // NOTE: the wrapper is intentionally NOT freed. Defender missiles and
+    // DestinyManager::m_targetEntity hold RAW pointers to the target missile —
+    // freeing the wrapper here turned every missile-vs-missile engagement into
+    // heap corruption (corrupted packets -> client hang; risk of server crash).
+    // The ~200B/launch leak is the accepted tradeoff until missiles reference
+    // each other by ID instead of raw pointers.
 }
