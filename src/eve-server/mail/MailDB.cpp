@@ -180,44 +180,41 @@ int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID,
         DBQueryResult memberRes;
         bool isAlliance = false;
 
-        if (roleMask > 0) {
+        // Resolve the target type properly: the old code flagged alliance only
+        // when the corp query FAILED (queries don't fail on 0 rows), so alliance
+        // mail was structurally dead.
+        {
+            DBQueryResult t;
+            if (sDatabase.RunQuery(t,
+                "SELECT allianceID FROM alnAlliance WHERE allianceID = %u", toCorpOrAllianceID)
+                && t.GetRowCount() > 0)
+                isAlliance = true;
+        }
+
+        if (roleMask > 0 && !isAlliance) {
             // Filter by role mask: only deliver to members with matching roles
             if (!sDatabase.RunQuery(memberRes,
                 "SELECT c.characterID FROM chrCharacters c "
                 "JOIN crpRoles r ON c.characterID = r.characterID "
-                "WHERE c.corporationID = %u AND (r.roleID & %u) = %u AND c.online = 1",
+                "WHERE c.corporationID = %u AND (r.roleID & %u) = %u",
                 toCorpOrAllianceID, roleMask, roleMask))
             {
-                // Fallback to all online corp members if crpRoles fails
-                sDatabase.RunQuery(memberRes,
-                    "SELECT characterID FROM chrCharacters "
-                    "WHERE corporationID = %u AND online = 1", toCorpOrAllianceID);
-            }
-        } else {
-            // Try corporation members first, then alliance
-            if (!sDatabase.RunQuery(memberRes,
-                "SELECT characterID FROM chrCharacters "
-                "WHERE corporationID = %u AND online = 1", toCorpOrAllianceID))
-            {
-                isAlliance = true;
-                sDatabase.RunQuery(memberRes,
-                    "SELECT characterID FROM chrCharacters "
-                    "WHERE allianceID = %u AND online = 1", toCorpOrAllianceID);
-            }
-        }
-
-        // If no online members, get all members
-        if (!memberRes.GetRowCount()) {
-            if (isAlliance) {
-                sDatabase.RunQuery(memberRes,
-                    "SELECT characterID FROM chrCharacters "
-                    "WHERE allianceID = %u", toCorpOrAllianceID);
-            } else {
                 sDatabase.RunQuery(memberRes,
                     "SELECT characterID FROM chrCharacters "
                     "WHERE corporationID = %u", toCorpOrAllianceID);
             }
+        } else if (isAlliance) {
+            sDatabase.RunQuery(memberRes,
+                "SELECT characterID FROM chrCharacters "
+                "WHERE allianceID = %u", toCorpOrAllianceID);
+        } else {
+            sDatabase.RunQuery(memberRes,
+                "SELECT characterID FROM chrCharacters "
+                "WHERE corporationID = %u", toCorpOrAllianceID);
         }
+
+        // official: corp/alliance mail sits in EVERY member's inbox (online or
+        // not) — not just currently-online ones
         uint32 label = isAlliance ? mailLabelAlliance : mailLabelCorporation;
         DBResultRow mRow;
         while (memberRes.GetRow(mRow)) {

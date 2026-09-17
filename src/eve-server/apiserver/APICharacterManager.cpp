@@ -943,6 +943,104 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         }
         DBResultRow rRow;
         if (rRes.GetRow(rRow)) recipientID = rRow.GetUInt(0);
+
+        // ---- corp / alliance recipients: deliver to every member's inbox ----
+        if (recipientID == 0) {
+            std::string esc;
+            sDatabase.DoEscapeString(esc, recipient);
+            uint32 orgID = 0;
+            bool isAlliance = false;
+            DBQueryResult oRes;
+            if (IsNumericStr(recipient)) {
+                uint32 rid = std::stoul(recipient);
+                if (sDatabase.RunQuery(oRes, "SELECT allianceID FROM alnAlliance WHERE allianceID = %u", rid) && oRes.GetRowCount() > 0) {
+                    orgID = rid; isAlliance = true;
+                } else if (sDatabase.RunQuery(oRes, "SELECT corporationID FROM crpCorporation WHERE corporationID = %u", rid) && oRes.GetRowCount() > 0) {
+                    orgID = rid;
+                }
+            } else {
+                if (sDatabase.RunQuery(oRes, "SELECT allianceID FROM alnAlliance WHERE allianceName = '%s'", esc.c_str()) && oRes.GetRowCount() > 0) {
+                    DBResultRow orow;
+                    if (oRes.GetRow(orow)) { orgID = orow.GetUInt(0); isAlliance = true; }
+                }
+                if (orgID == 0 && sDatabase.RunQuery(oRes, "SELECT corporationID FROM crpCorporation WHERE corporationName = '%s'", esc.c_str()) && oRes.GetRowCount() > 0) {
+                    DBResultRow orow;
+                    if (oRes.GetRow(orow)) orgID = orow.GetUInt(0);
+                }
+            }
+            if (orgID == 0)
+                return BuildErrorXML("1004", "Recipient not found.");
+
+            std::string bodyCompressedStr;
+            {
+                Buffer bodyCompressed;
+                Buffer bodyInput(body.begin(), body.end());
+                if (DeflateData(bodyInput, bodyCompressed))
+                    bodyCompressedStr.assign(bodyCompressed.begin<char>(), bodyCompressed.end<char>());
+            }
+            std::string titleEsc, bodyEsc;
+            sDatabase.DoEscapeString(titleEsc, title);
+            if (bodyCompressedStr.empty())
+                sDatabase.DoEscapeString(bodyEsc, body); // plain fallback
+            else
+                sDatabase.DoEscapeString(bodyEsc, bodyCompressedStr);
+
+            DBerror err;
+            uint32 messageID = 0;
+            if (!sDatabase.RunQueryLID(err, messageID,
+                "INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID,"
+                " title, body, sentDate)"
+                " VALUES (%u, '%s', %d, %d, '%s', '%s', %" PRIu64 ")",
+                std::stoul(sid), "", 0, orgID, titleEsc.c_str(), bodyEsc.c_str(), Win32TimeNow()))
+            {
+                return BuildErrorXML("999", "Insert failed.");
+            }
+
+            // deliver to every member's inbox (label 4 = corp, 8 = alliance)
+            uint32 label = isAlliance ? 8 : 4;
+            DBQueryResult mRes;
+            if (isAlliance)
+                sDatabase.RunQuery(mRes, "SELECT characterID FROM chrCharacters WHERE allianceID = %u", orgID);
+            else
+                sDatabase.RunQuery(mRes, "SELECT characterID FROM chrCharacters WHERE corporationID = %u", orgID);
+            DBResultRow mRow;
+            std::vector<uint32> onlineMembers;
+            while (mRes.GetRow(mRow)) {
+                uint32 memberID = mRow.GetUInt(0);
+                if (!sDatabase.RunQuery(err,
+                    "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask)"
+                    " VALUES (%u, %u, %u, %u)", messageID, memberID, 0, label))
+                    continue;
+                if (sEntityList.FindClientByCharID(memberID) != nullptr)
+                    onlineMembers.push_back(memberID);
+            }
+            // live push to members that are online right now
+            uint32 senderID = std::stoul(sid);
+            for (uint32 memberID : onlineMembers) {
+                Client* member = sEntityList.FindClientByCharID(memberID);
+                if (member == nullptr) continue;
+                PyTuple* payload = new PyTuple(9);
+                payload->SetItem(0, new PyInt(messageID));
+                payload->SetItem(1, new PyInt(senderID));
+                payload->SetItem(2, new PyLong(GetFileTimeNow()));
+                payload->SetItem(3, new PyString(std::to_string(senderID)));
+                payload->SetItem(4, PyStatic.NewNone());
+                payload->SetItem(5, new PyInt(orgID));
+                payload->SetItem(6, new PyString(title.c_str()));
+                payload->SetItem(7, new PyInt(0));
+                PyDict* extra = new PyDict();
+                extra->SetItemString("senderName", new PyString("EVE System"));
+                payload->SetItem(8, extra);
+                member->SendNotification("OnMailSent", "charid", payload, false);
+            }
+
+            std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+            xml += "  <result>\n    <messageid>" + std::to_string(messageID) + "</messageid>\n";
+            xml += "    <recipients>" + std::to_string(onlineMembers.size()) + "</recipients>\n";
+            xml += "  </result>\n</eveapi>\n";
+            return xml;
+        }
+
         if (recipientID == 0)
             return BuildErrorXML("1004", "Recipient not found.");
 

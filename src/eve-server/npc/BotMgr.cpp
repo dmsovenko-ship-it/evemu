@@ -5560,7 +5560,25 @@ void BotMgr::ProcessBotSmalltalk()
         // actually happening around it (fighting, gate, empty system). A miner
         // talks about ore/belts, a hunter about ganks, a courier about hauls —
         // never a generic "want to PvP?" from a bot sitting in a belt.
-        std::string msg = BuildBotSmalltalkLine(a, b, pSystem);
+        // No-repeat guard: two bots in the same fight both pick the same combat
+        // line (small pools), so retry a few times against the channel history
+        // and stay quiet if everything has been said recently.
+        std::string msg;
+        for (int attempt = 0; attempt < 4; ++attempt) {
+            msg = BuildBotSmalltalkLine(a, b, pSystem);
+            bool recent = false;
+            auto chIt = m_channelPhrases.find((int32)sysID);
+            if (chIt != m_channelPhrases.end()) {
+                for (const auto& bp : chIt->second) {
+                    if (bp.phrase == msg) { recent = true; break; }
+                }
+            }
+            if (!recent)
+                break;
+            msg.clear();
+        }
+        if (msg.empty())
+            continue;   // everything has been said recently — keep the channel quiet
 
         LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
         if (lsc == nullptr)
