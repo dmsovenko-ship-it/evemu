@@ -272,11 +272,12 @@ void MailDB::MarkAllAsUnread(uint32 characterID)
 {
     DBerror err;
 
+    // new schema: per-character status lives in mailStatus
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
+                            " UPDATE mailStatus "
                             " SET statusMask = statusMask & ~%u "
-                            " WHERE toCharacterIDs LIKE '%%%u%%'" , mailStatusMaskRead, characterID)) {
-        codelog(DATABASE__ERROR, " Failed to mark all as read" );
+                            " WHERE characterID = %u" , mailStatusMaskRead, characterID)) {
+        codelog(DATABASE__ERROR, " Failed to mark all as unread" );
         return;
     }
 }
@@ -286,10 +287,11 @@ void MailDB::MarkAllAsRead(uint32 characterID)
 {
     DBerror err;
 
+    // new schema: per-character status lives in mailStatus
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
+                            " UPDATE mailStatus "
                             " SET statusMask = statusMask | %u "
-                            " WHERE toCharacterIDs LIKE '%%%u%%'" , mailStatusMaskRead, characterID)) {
+                            " WHERE characterID = %u" , mailStatusMaskRead, characterID)) {
         codelog(DATABASE__ERROR, " Failed to mark all as read" );
         return;
     }
@@ -301,12 +303,12 @@ void MailDB::MarkAllAsUnreadByLabel(uint32 characterID, int labelID)
     DBerror err;
 
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage SET "
-                            " statusMask = statusMask & ~%u "
-                            " WHERE toCharacterIDs LIKE '%%%u%%' "
-                            " AND (labelMask & (1 << %u)) > 0" , characterID, bit))
+                            " UPDATE mailStatus "
+                            " SET statusMask = statusMask & ~%u "
+                            " WHERE characterID = %u "
+                            " AND (labelMask & (1 << %u)) > 0" , mailStatusMaskRead, characterID, bit))
     {
-        codelog(DATABASE__ERROR, " Failed to mark all as read by label" );
+        codelog(DATABASE__ERROR, " Failed to mark all as unread by label" );
         return;
     }
 }
@@ -318,10 +320,10 @@ void MailDB::MarkAllAsReadByLabel(uint32 characterID, int labelID)
     DBerror err;
 
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
+                            " UPDATE mailStatus "
                             " SET statusMask = statusMask | %u "
-                            " WHERE toCharacterIDs LIKE '%%%u%%' "
-                            " AND (labelMask & (1 << %u)) > 0" , characterID, bit))
+                            " WHERE characterID = %u "
+                            " AND (labelMask & (1 << %u)) > 0" , mailStatusMaskRead, characterID, bit))
     {
         codelog(DATABASE__ERROR, " Failed to mark all as read by label" );
         return;
@@ -338,7 +340,8 @@ void MailDB::RemoveLabels(std::vector<int32> messageIDs, int labelID)
 
     int bit = BitFromLabelID(labelID);
     std::ostringstream query;
-    query << " UPDATE mailMessage SET labelMask = labelMask & ~(1 << "  << bit << " ) " ;
+    // new schema: per-character label assignment lives in mailStatus
+    query << " UPDATE mailStatus SET labelMask = labelMask & ~(1 << "  << bit << " ) " ;
 
     query << " WHERE (labelMask & (1 << "  << bit << " )) > 0 AND (" ;
     query << " messageID = "  << messageIDs[0];
@@ -348,8 +351,6 @@ void MailDB::RemoveLabels(std::vector<int32> messageIDs, int labelID)
     }
 
     query << " )" ;
-    _log(DATABASE__ERROR, query.str().c_str());
-
 
     if (!sDatabase.RunQuery(err, query.str().c_str()))
     {
@@ -421,11 +422,12 @@ void MailDB::DeleteLabel(int characterID, int labelID) const
 {
     int bit = BitFromLabelID(labelID);
     DBerror err;
+    // new schema: per-character label assignment in mailStatus
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
-                            " SET labelMask = labelMask & ~(1 << ~%u) "
-                            " WHERE (labelMask & (1 << %u)) > 0 "
-                            " AND toCharacterIDs LIKE '%%%u%%';" , bit, bit, characterID))
+                            " UPDATE mailStatus "
+                            " SET labelMask = labelMask & ~(1 << %u) "
+                            " WHERE characterID = %u "
+                            " AND (labelMask & (1 << %u)) > 0;" , bit, characterID, bit))
     {
         codelog(DATABASE__ERROR, " Failed to delete label" );
         return;
@@ -467,9 +469,11 @@ void MailDB::DeleteMail(int32 messageID)
 void MailDB::EmptyTrash(uint32 characterID)
 {
     DBerror err;
+    // new schema: drop THIS character's inbox entries for trashed mails; the
+    // shared mailMessage row stays (other recipients may still see it)
     if (!sDatabase.RunQuery(err,
-                            " DELETE FROM mailMessage "
-                            " WHERE senderID = %u "
+                            " DELETE FROM mailStatus "
+                            " WHERE characterID = %u "
                             " AND (statusMask & %u) > 0;" , characterID, mailStatusMaskTrashed)) {
         codelog(DATABASE__ERROR, " Failed to deleted trash mails" );
     }
@@ -478,10 +482,11 @@ void MailDB::EmptyTrash(uint32 characterID)
 void MailDB::MoveAllFromTrash(uint32 characterID)
 {
     DBerror err;
+    // new schema: per-character status in mailStatus
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
+                            " UPDATE mailStatus "
                             " SET statusMask = statusMask & ~%u"
-                            " WHERE senderID = %u" , mailStatusMaskTrashed, characterID)) {
+                            " WHERE characterID = %u" , mailStatusMaskTrashed, characterID)) {
         codelog(DATABASE__ERROR, " Failed to move all from trash" );
     }
 }
@@ -489,10 +494,11 @@ void MailDB::MoveAllFromTrash(uint32 characterID)
 void MailDB::MoveAllToTrash(uint32 characterID)
 {
     DBerror err;
+    // new schema: per-character status in mailStatus
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
+                            " UPDATE mailStatus "
                             " SET statusMask = statusMask | %u"
-                            " WHERE toCharacterIDs LIKE '%%%u%%'" , mailStatusMaskTrashed, characterID)) {
+                            " WHERE characterID = %u" , mailStatusMaskTrashed, characterID)) {
         codelog(DATABASE__ERROR, " Failed to move message to trash" );
     }
 }
@@ -502,7 +508,7 @@ void MailDB::MoveToTrash(int32 messageID)
     DBerror err;
 
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
+                            " UPDATE mailStatus "
                             " SET statusMask = statusMask | %u"
                             " WHERE messageID = %u" , mailStatusMaskTrashed, messageID)) {
         codelog(DATABASE__ERROR, " Failed to move message to trash" );
@@ -515,11 +521,12 @@ void MailDB::MoveToTrashByLabel(int32 characterID, int32 labelID)
 
     DBerror err;
 
+    // new schema: per-character status in mailStatus
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
-                            " SET labelMask = -1 "
-                            " WHERE toCharacterIDs LIKE '%%%u%%' "
-                            " AND (labelMask & (1 << %u)) > 0" , characterID, bit))
+                            " UPDATE mailStatus "
+                            " SET statusMask = statusMask | %u "
+                            " WHERE characterID = %u "
+                            " AND (labelMask & (1 << %u)) > 0" , mailStatusMaskTrashed, characterID, bit))
     {
         codelog(DATABASE__ERROR, " Failed to move message to trash by label" );
     }
@@ -528,10 +535,12 @@ void MailDB::MoveToTrashByLabel(int32 characterID, int32 labelID)
 void MailDB::MoveToTrashByList(uint32 characterID, int32 listID)
 {
     DBerror err;
+    // new schema: per-character status in mailStatus, list on the message row
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
-                            " SET statusMask = statusMask | %u"
-                            " WHERE toListID = %u", mailStatusMaskTrashed, listID))
+                            " UPDATE mailStatus ms "
+                            " JOIN mailMessage mm ON mm.messageID = ms.messageID "
+                            " SET ms.statusMask = ms.statusMask | %u"
+                            " WHERE ms.characterID = %u AND mm.toListID = %u", mailStatusMaskTrashed, characterID, listID))
     {
         codelog(DATABASE__ERROR, " Failed to move message to trash by list" );
     }
@@ -540,10 +549,12 @@ void MailDB::MoveToTrashByList(uint32 characterID, int32 listID)
 void MailDB::MarkAllAsReadByList(uint32 characterID, int32 listID)
 {
     DBerror err;
+    // new schema: per-character status in mailStatus, list on the message row
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
-                            " SET statusMask = statusMask | %u"
-                            " WHERE toListID = %u", mailStatusMaskRead, listID))
+                            " UPDATE mailStatus ms "
+                            " JOIN mailMessage mm ON mm.messageID = ms.messageID "
+                            " SET ms.statusMask = ms.statusMask | %u"
+                            " WHERE ms.characterID = %u AND mm.toListID = %u", mailStatusMaskRead, characterID, listID))
     {
         codelog(DATABASE__ERROR, " Failed to mark all as read by list" );
     }
@@ -552,10 +563,12 @@ void MailDB::MarkAllAsReadByList(uint32 characterID, int32 listID)
 void MailDB::MarkAllAsUnreadByList(uint32 characterID, int32 listID)
 {
     DBerror err;
+    // new schema: per-character status in mailStatus, list on the message row
     if (!sDatabase.RunQuery(err,
-                            " UPDATE mailMessage "
-                            " SET statusMask = statusMask & ~%u"
-                            " WHERE toListID = %u", mailStatusMaskRead, listID))
+                            " UPDATE mailStatus ms "
+                            " JOIN mailMessage mm ON mm.messageID = ms.messageID "
+                            " SET ms.statusMask = ms.statusMask & ~%u"
+                            " WHERE ms.characterID = %u AND mm.toListID = %u", mailStatusMaskRead, characterID, listID))
     {
         codelog(DATABASE__ERROR, " Failed to mark all as unread by list" );
     }
