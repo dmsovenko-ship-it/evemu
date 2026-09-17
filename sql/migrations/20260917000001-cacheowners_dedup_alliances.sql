@@ -13,9 +13,11 @@ RENAME TABLE cacheOwners_dedup TO cacheOwners;
 ALTER TABLE cacheOwners ADD PRIMARY KEY (ownerID);
 
 -- trailing/leading whitespace in names breaks the client's exact-match owner
--- lookup ('Tort Corporation Alliance ' != 'Tort Corporation Alliance')
-UPDATE cacheOwners SET ownerName = TRIM(ownerName) WHERE ownerName <> TRIM(ownerName);
-UPDATE alnAlliance SET allianceName = TRIM(allianceName) WHERE allianceName <> TRIM(allianceName);
+-- lookup ('Tort Corporation Alliance ' != 'Tort Corporation Alliance').
+-- NOTE: PAD SPACE collations ignore trailing spaces in comparisons, so a
+-- `WHERE col <> TRIM(col)` guard matches 0 rows — update unconditionally.
+UPDATE cacheOwners SET ownerName = TRIM(ownerName);
+UPDATE alnAlliance SET allianceName = TRIM(allianceName);
 
 -- seed alliances: typeID 16159 = 'Alliance' (invTypes), same convention as
 -- faction 30 / corporation 2 in the 20260907000001 seed
