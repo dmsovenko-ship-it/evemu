@@ -314,9 +314,6 @@ PyResult FactionWarMgrService::JoinFactionAsCharacter(PyCallArgs &call, PyInt* f
         " VALUES (%u, %u, %lli, %lli, 1, 1)",
         charID, fID, now, now);
 
-    // update character's warFactionID
-    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = %u WHERE characterID = %u", fID, charID);
-
     // notification
     PyDict* data = new PyDict();
         data->SetItemString("factionID", new PyInt(fID));
@@ -388,15 +385,11 @@ PyResult FactionWarMgrService::JoinFactionAsAlliance(PyCallArgs &call, PyInt* fa
         throw UserError("AllianceRequiredForAction");
 
     DBerror err;
-    sDatabase.RunQuery(err,
-        "UPDATE alnAlliance SET warFactionID = %u WHERE allianceID = %u",
-        factionID->value(), allyID);
-    // update all member corps and characters
+    // warFactionID exists only on crpCorporation (per-character membership
+    // lives in facWarCharacters) — alnAlliance/chrCharacters have no such
+    // column and these updates were silent #1054 no-ops
     sDatabase.RunQuery(err,
         "UPDATE crpCorporation SET warFactionID = %u WHERE allianceID = %u",
-        factionID->value(), allyID);
-    sDatabase.RunQuery(err,
-        "UPDATE chrCharacters SET warFactionID = %u WHERE allianceID = %u",
         factionID->value(), allyID);
 
     call.client->SendNotifyMsg("Alliance has joined faction warfare.");
@@ -418,9 +411,6 @@ PyResult FactionWarMgrService::JoinFactionAsCorporation(PyCallArgs &call, PyInt*
     DBerror err;
     sDatabase.RunQuery(err,
         "UPDATE crpCorporation SET warFactionID = %u WHERE corporationID = %u", fID, corpID);
-    // update all corp members
-    sDatabase.RunQuery(err,
-        "UPDATE chrCharacters SET warFactionID = %u WHERE corporationID = %u", fID, corpID);
 
     call.client->SendNotifyMsg("Corporation has joined the %s militia.", m_db.GetFactionName(fID).c_str());
     PyDict* data = new PyDict();
@@ -437,7 +427,6 @@ PyResult FactionWarMgrService::LeaveFactionAsCorporation(PyCallArgs &call, PyInt
     uint32 corpID = call.client->GetCorporationID();
     DBerror err;
     sDatabase.RunQuery(err, "UPDATE crpCorporation SET warFactionID = 0 WHERE corporationID = %u", corpID);
-    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = 0 WHERE corporationID = %u", corpID);
 
     call.client->SendNotifyMsg("Corporation has left faction warfare.");
     PyDict* data = new PyDict();
@@ -453,9 +442,7 @@ PyResult FactionWarMgrService::LeaveFactionAsAlliance(PyCallArgs &call, PyInt* f
         throw UserError("AllianceRequiredForAction");
 
     DBerror err;
-    sDatabase.RunQuery(err, "UPDATE alnAlliance SET warFactionID = 0 WHERE allianceID = %u", allyID);
     sDatabase.RunQuery(err, "UPDATE crpCorporation SET warFactionID = 0 WHERE allianceID = %u", allyID);
-    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = 0 WHERE allianceID = %u", allyID);
 
     call.client->SendNotifyMsg("Alliance has left faction warfare.");
     return PyStatic.NewTrue();
@@ -466,9 +453,7 @@ PyResult FactionWarMgrService::WithdrawJoinFactionAsAlliance(PyCallArgs &call, P
     if (allyID == 0)
         throw UserError("AllianceRequiredForAction");
     DBerror err;
-    sDatabase.RunQuery(err, "UPDATE alnAlliance SET warFactionID = 0 WHERE allianceID = %u", allyID);
     sDatabase.RunQuery(err, "UPDATE crpCorporation SET warFactionID = 0 WHERE allianceID = %u", allyID);
-    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = 0 WHERE allianceID = %u", allyID);
     call.client->SendNotifyMsg("Alliance faction warfare join withdrawn.");
     return PyStatic.NewTrue();
 }
@@ -479,7 +464,6 @@ PyResult FactionWarMgrService::WithdrawJoinFactionAsCorporation(PyCallArgs &call
     uint32 corpID = call.client->GetCorporationID();
     DBerror err;
     sDatabase.RunQuery(err, "UPDATE crpCorporation SET warFactionID = 0 WHERE corporationID = %u", corpID);
-    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = 0 WHERE corporationID = %u", corpID);
     call.client->SendNotifyMsg("Corporation faction warfare join withdrawn.");
     return PyStatic.NewTrue();
 }
@@ -503,9 +487,7 @@ PyResult FactionWarMgrService::WithdrawLeaveFactionAsAlliance(PyCallArgs &call, 
         restoreFactionID = row.GetUInt(0);
 
     DBerror err;
-    sDatabase.RunQuery(err, "UPDATE alnAlliance SET warFactionID = %u WHERE allianceID = %u", restoreFactionID, allyID);
     sDatabase.RunQuery(err, "UPDATE crpCorporation SET warFactionID = %u WHERE allianceID = %u", restoreFactionID, allyID);
-    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = %u WHERE allianceID = %u", restoreFactionID, allyID);
 
     call.client->SendNotifyMsg("Faction warfare leave withdrawn, warFactionID restored.");
     return PyStatic.NewTrue();
@@ -530,7 +512,6 @@ PyResult FactionWarMgrService::WithdrawLeaveFactionAsCorporation(PyCallArgs &cal
 
     DBerror err;
     sDatabase.RunQuery(err, "UPDATE crpCorporation SET warFactionID = %u WHERE corporationID = %u", restoreFactionID, corpID);
-    sDatabase.RunQuery(err, "UPDATE chrCharacters SET warFactionID = %u WHERE corporationID = %u", restoreFactionID, corpID);
 
     call.client->SendNotifyMsg("Corporation faction warfare leave withdrawn, warFactionID restored.");
     return PyStatic.NewTrue();

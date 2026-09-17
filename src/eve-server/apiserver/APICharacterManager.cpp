@@ -1000,7 +1000,12 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             uint32 label = isAlliance ? 8 : 4;
             DBQueryResult mRes;
             if (isAlliance)
-                sDatabase.RunQuery(mRes, "SELECT characterID FROM chrCharacters WHERE allianceID = %u", orgID);
+                // alliance membership goes through the corp (chrCharacters has
+                // no allianceID column)
+                sDatabase.RunQuery(mRes,
+                    "SELECT c.characterID FROM chrCharacters c "
+                    "JOIN crpCorporation cc ON cc.corporationID = c.corporationID "
+                    "WHERE cc.allianceID = %u AND cc.deleted = 0", orgID);
             else
                 sDatabase.RunQuery(mRes, "SELECT characterID FROM chrCharacters WHERE corporationID = %u", orgID);
             DBResultRow mRow;

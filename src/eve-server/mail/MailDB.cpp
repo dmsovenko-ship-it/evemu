@@ -204,9 +204,12 @@ int MailDB::SendMail(int sender, std::vector<int>& toCharacterIDs, int toListID,
                     "WHERE corporationID = %u", toCorpOrAllianceID);
             }
         } else if (isAlliance) {
+            // chrCharacters has NO allianceID column — membership goes through
+            // the character's corporation (crpCorporation.allianceID)
             sDatabase.RunQuery(memberRes,
-                "SELECT characterID FROM chrCharacters "
-                "WHERE allianceID = %u", toCorpOrAllianceID);
+                "SELECT c.characterID FROM chrCharacters c "
+                "JOIN crpCorporation cc ON cc.corporationID = c.corporationID "
+                "WHERE cc.allianceID = %u AND cc.deleted = 0", toCorpOrAllianceID);
         } else {
             sDatabase.RunQuery(memberRes,
                 "SELECT characterID FROM chrCharacters "

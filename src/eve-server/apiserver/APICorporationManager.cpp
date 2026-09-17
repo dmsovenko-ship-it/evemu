@@ -134,11 +134,13 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
         if (cid.empty()) return BuildErrorXML("105", "Invalid corporationID.");
 
         DBQueryResult res;
+        // allianceID lives on crpCorporation, not chrCharacters
         if (!sDatabase.RunQuery(res,
-            "SELECT characterID, characterName, shipTypeID, solarSystemID, "
-            "logonDateTime, logoffDateTime, logonMinutes, skillPoints, "
-            "online, allianceID FROM chrCharacters "
-            "WHERE corporationID = %u ORDER BY characterName", std::stoul(cid)))
+            "SELECT c.characterID, c.characterName, c.shipTypeID, c.solarSystemID, "
+            "c.logonDateTime, c.logoffDateTime, c.logonMinutes, c.skillPoints, "
+            "c.online, COALESCE(cc.allianceID, 0) FROM chrCharacters c "
+            "LEFT JOIN crpCorporation cc ON cc.corporationID = c.corporationID "
+            "WHERE c.corporationID = %u ORDER BY c.characterName", std::stoul(cid)))
             return BuildErrorXML("999", "Query failed.");
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
