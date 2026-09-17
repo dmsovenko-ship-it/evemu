@@ -1,4 +1,10 @@
-﻿## 17 сент. (день): почтовый UI мёртв — MailDB Mark*/Label* переписаны на новую схему (`f0aaa7a7`)
+﻿## 17 сент. (день, часть 2): 🔴 PyWString хранит UTF-8 — урок по кодировкам (`5148bd8e`)
+КРИТИЧНЫЙ КОНТРАКТ КОДИРОВОК: **PyWString в EVEmu хранит UTF-8 байты**, НЕ UTF-16! `MarshalStream::VisitWString` (EVEMarshal.cpp:199) пишет его опкодом `Op_PyWStringUTF8`. Клиент декодирует wstring как UTF-8 → UTF-16.
+- **Каскадный баг**: фикс кириллицы закладок `f31ad6ea` сделал на ЧТЕНИИ `utf8to16` (UTF-16 байты в PyWString под UTF-8-опкодом) → клиентский декод `GetBookmarks` при логине падает МОЛЧА → каскад: вкладки чата без названий/не подключаются, гости станции без имён/иконок, нет аватарок, окно нового письма не грузится, боты не в онлайне. Симптом выглядел как «персонажи сломаны», а был один битый блоб в логин-данных.
+- **Фикс**: `BookmarkTextToWStr` = passthrough (PyWString(UTF-8)); путь СОХРАНЕНИЯ `BookmarkRepToUtf8` (utf16to8 от StringContent) — правильный, не трогать. БД проверена — все memo валидный UTF-8.
+- ⚠️ ЛОГИКА НА БУДУЩЕЕ: любой текст клиенту в PyWString → только UTF-8. Текст ОТ клиента в PyWString → StringContent это UTF-16LE → конвертировать utf16to8 перед хранением. Клиент шлёт PyString (ASCII) или PyWString (не-ASCII) — обрабатывать оба.
+
+## 17 сент. (день): почтовый UI мёртв — MailDB Mark*/Label* переписаны на новую схему (`f0aaa7a7`)
 Симптом: окно почты не грузится, за 46с до этого в логе `#1054 Unknown column 'statusMask' in 'SET'` от `MarkAllAsReadByLabel` (клиент зовёт его при открытии почты). Корень: после почтового ревоорка `statusMask/labelMask` живут в `mailStatus` (per-character), а ~12 функций Mark*/ByLabel/ByList/Trash*/RemoveLabels в `MailDB.cpp` остались на старом upstream SQL против `mailMessage` → #1054 → клиентское окно почты падает.
 - **Переписаны на mailStatus**: `MarkAllAsRead/Unread(charID)`, `MarkAllAsRead/UnreadByLabel(charID,labelID)`, `MarkAllAsRead/UnreadByList`, `MoveToTrashByLabel/ByList`, `MoveAllToTrash/FromTrash`, `MoveToTrash`, `EmptyTrash` (чистит только mailStatus строки персонажа, общая mailMessage остаётся для других получателей), `RemoveLabels` (mailStatus.labelMask).
 - ⚠️ Если ещё какие-то mail-функции в `MailDB.cpp` упадут с #1054 — тот же паттерн: искать `UPDATE mailMessage SET statusMask/labelMask`.
