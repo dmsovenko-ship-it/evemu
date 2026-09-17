@@ -30,19 +30,15 @@
 
 #include "system/BookmarkDB.h"
 #include "system/BookmarkService.h"
-#include "utils/utfUtils.h"
 
-// bookmark memo/note are user text that arrives as wstring (UTF-16LE bytes) and
-// is stored as UTF-8 — wrap reads in PyWString so the client decodes Cyrillic
-// properly (plain PyString made relog show mojibake).
+// bookmark memo/note are user text, stored as UTF-8. PyWString in EVEmu holds
+// UTF-8 bytes (marshal writes it with Op_PyWStringUTF8), so reads are a plain
+// passthrough — converting to UTF-16 here made the client's GetBookmarks
+// decode fail at login and cascaded into chat/guests/mail failing to load.
 static PyRep* BookmarkTextToWStr(const char* text, uint32 len) {
     if (text == nullptr)
         return new PyWString(std::string());
-    std::string utf8(text, len);
-    std::u16string w = utf8to16(utf8);
-    if (w.empty() and !utf8.empty())
-        return new PyString(utf8);   // not valid UTF-8 — pass bytes through
-    return new PyWString(std::string((const char*)w.data(), w.size() * sizeof(char16_t)));
+    return new PyWString(std::string(text, len));
 }
 
 PyRep* BookmarkDB::GetBookmarksInFolder(uint32 folderID)
