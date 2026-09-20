@@ -40,6 +40,10 @@ public:
     void                        BotEnsureFuel(uint32 hours = 720);   // bot POS: top the tower up with fuel (and re-online it if it ran dry)
     void                        BotOnlineModules();     // bot POS: anchor+online the tower's modules after the tower is online
     void                        CreateForceField();       // (re)create the tower force field
+    // Resolve the tower's force field radius (metres).  AttrShieldRadius is
+    // stored in valueInt by the SDE, so fall back to dgmTypeAttributes and
+    // finally to 20 km if nothing is set.
+    double                      GetShieldRadius();
     // Recompute the tower's shield resonances from ONLINE Shield Hardening
     // Arrays (group 444) within the field: each online hardener lowers the
     // tower's shield damage resonances (raises its resistances). Idempotent —

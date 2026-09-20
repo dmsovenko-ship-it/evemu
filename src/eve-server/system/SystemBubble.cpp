@@ -1320,12 +1320,6 @@ bool SystemBubble::IsInProtectedField(const GPoint& pos) const
         return false;
     if (m_towerSE->GetState() < EVEPOS::StructureState::Online)
         return false;
-    double radius = 20000.0;
-    auto item = m_towerSE->GetSelf();
-    if (item.get() != nullptr && item->HasAttribute(AttrShieldRadius)) {
-        double r = item->GetAttribute(AttrShieldRadius).get_float();
-        if (r > 5000.0)
-            radius = r;
-    }
-    return (pos.distance(m_towerSE->GetPosition()) <= radius);
+    // radius from the tower (item attr -> type attr -> 20 km default)
+    return (pos.distance(m_towerSE->GetPosition()) <= m_towerSE->GetShieldRadius());
 }

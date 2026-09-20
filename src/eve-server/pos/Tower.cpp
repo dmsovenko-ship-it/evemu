@@ -280,6 +280,18 @@ void TowerSE::BotEnsureFuel(uint32 hours)
         m_db.UpdateTowerData(m_tdata, m_data);
     }
 
+    // A bot tower's force field must be ONLINE: harmonic Offline(0)/Inactive(-1)
+    // means "field down", and FieldSE::EncodeDestiny then sends the ball in STOP
+    // mode so the client draws no sphere at all.  Older deploys persisted
+    // harmonic 0 while the tower was already Online (Init only re-creates the
+    // field for harmonic > Offline), so heal it here - before the field fallback
+    // below, so the freshly created ball goes out in FIELD mode.
+    if (m_tdata.harmonic <= EVEPOS::Harmonic::Offline) {
+        m_harmonic = EVEPOS::Harmonic::Online;
+        m_tdata.harmonic = m_harmonic;
+        m_db.UpdateTowerData(m_tdata, m_data);
+    }
+
     // If the tower dropped offline/reinforced (e.g. it ran dry before the bot
     // started topping it up), bring it back online now that it has fuel.
     if (m_data.state > EVEPOS::StructureState::Unanchored
@@ -310,12 +322,7 @@ void TowerSE::BotOnlineModules()
     if (m_data.state < EVEPOS::StructureState::Online)
         return;   // no online tower — modules cannot run (and must not show online)
 
-    double r = 20000.0;
-    if (m_self->HasAttribute(AttrShieldRadius)) {
-        double v = m_self->GetAttribute(AttrShieldRadius).get_float();
-        if (v > 5000.0)
-            r = v;
-    }
+    double r = GetShieldRadius();
     GPoint tp = GetPosition();
 
     for (auto& [id, se] : m_system->GetEntities()) {
@@ -965,6 +972,32 @@ PyRep* TowerSE::GetProcessInfo()
     return list;
 }
 
+// The tower's force field radius (metres).  shieldRadius (AttrShieldRadius) is
+// stored in dgmTypeAttributes.valueInt, and the per-item copy may be missing
+// (temp items skip the entity_attributes load), so resolve defensively:
+// item attribute -> type attribute -> 20 km default.
+double TowerSE::GetShieldRadius() {
+    double r = 0.0;
+    if (m_self.get() != nullptr && m_self->HasAttribute(AttrShieldRadius))
+        r = m_self->GetAttribute(AttrShieldRadius).get_float();
+
+    if (r <= 0.0 && m_self.get() != nullptr) {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+                "SELECT COALESCE(valueInt, valueFloat) FROM dgmTypeAttributes"
+                " WHERE typeID = %u AND attributeID = %u",
+                m_self->typeID(), (uint16)AttrShieldRadius)) {
+            DBResultRow row;
+            if (res.GetRow(row) && !row.IsNull(0))
+                r = row.GetDouble(0);
+        }
+    }
+
+    if (r <= 0.0)
+        r = 20000.0;    // sane fallback so the sphere is never zero-sized
+    return r;
+}
+
 void TowerSE::CreateForceField()
 {
     if (m_hasShield)
@@ -977,8 +1010,9 @@ void TowerSE::CreateForceField()
     InventoryItemRef ifRef = sItemFactory.SpawnItem(idata);
     if (ifRef.get() == nullptr)
         return;  // we'll get over it
+    double shieldRadius = GetShieldRadius();
     ifRef->SetPosition(GetPosition());
-    ifRef->SetAttribute(AttrRadius, m_self->GetAttribute(AttrShieldRadius), false);
+    ifRef->SetAttribute(AttrRadius, shieldRadius, false);
     ifRef->SaveItem();
     FactionData data = FactionData();
         data.allianceID = m_allyID;
@@ -988,12 +1022,15 @@ void TowerSE::CreateForceField()
     FieldSE* iSE = new FieldSE(ifRef, m_services, m_system, data);
     // the client draws the sphere from the ball radius — the ForceField type's
     // own radius is ~0, so the field must carry the tower's shield radius
-    iSE->SetRadius(m_self->GetAttribute(AttrShieldRadius).get_float());
+    iSE->SetRadius(shieldRadius);
     // set shield harmonic to tower harmonic
     iSE->SetHarmonic(m_harmonic);
     m_system->AddEntity(iSE);
     m_pShieldSE = iSE;
     m_hasShield = true;
+
+    _log(POS__MESSAGE, "TowerSE::CreateForceField() - %s(%u): field %u created, radius %.0f m, harmonic %i.",
+         GetName(), m_self->itemID(), ifRef->itemID(), shieldRadius, m_harmonic);
 }
 
 // Recompute the tower's shield resonances from ONLINE Shield Hardening Arrays
@@ -1014,12 +1051,7 @@ void TowerSE::ApplyHardeners()
     if (m_system == nullptr)
         return;
 
-    double radius = 20000.0;
-    if (m_self->HasAttribute(AttrShieldRadius)) {
-        double v = m_self->GetAttribute(AttrShieldRadius).get_float();
-        if (v > 5000.0)
-            radius = v;
-    }
+    double radius = GetShieldRadius();
     GPoint tp = GetPosition();
 
     double add[4] = { 0.0, 0.0, 0.0, 0.0 };
