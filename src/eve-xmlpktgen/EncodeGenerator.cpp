@@ -940,14 +940,14 @@ bool ClassEncodeGenerator::ProcessDictInline(const TiXmlElement* field)
             //taking the keyType into account
             if (keyTypeInt) {
                 fprintf(mOutputFile,
-                         "    %PySetItemRelease(s, new PyInt(%s), %s);\n"
+                         "    %s->SetItem(new PyInt(%s), %s);\n"
                          "    PyIncRef(%s);\n",
                          iname, key, vname,
                          vname
                );
             } else if (keyTypeLong) {
                     fprintf(mOutputFile,
-                             "    %PySetItemRelease(s, new PyLong(%s), %s);\n"
+                             "    %s->SetItem(new PyLong(%s), %s);\n"
                              "    PyIncRef(%s);\n",
                              iname, key, vname,
                              vname
@@ -1007,7 +1007,7 @@ bool ClassEncodeGenerator::ProcessDictRaw(const TiXmlElement* field)
     fprintf(mOutputFile,
         "    PyDict* %s = new PyDict();\n"
         "    for (auto cur : %s) \n"
-        "        %PySetItemRelease(s, new Py%s(cur.first), new Py%s(cur.second));\n"
+        "        %s->SetItem(new Py%s(cur.first), new Py%s(cur.second));\n"
         "    %s = %s;\n"
         "\n",
         rname,
@@ -1035,7 +1035,7 @@ bool ClassEncodeGenerator::ProcessDictInt(const TiXmlElement* field)
         "    PyDict* %s = new PyDict();\n"
         "    for (auto cur : %s) {\n"
         "        PyIncRef(cur.second);\n"
-        "        %PySetItemRelease(s, new PyInt(cur.first), cur.second);\n"
+        "        %s->SetItem(new PyInt(cur.first), cur.second);\n"
         "    }\n"
         "\n"
         "    %s = %s;\n",
