@@ -142,15 +142,15 @@ PyResult AgentMgrService::GetMyJournalDetails(PyCallArgs &call) {
     sMissionDataMgr.LoadMissionOffers(call.client->GetCharacterID(), data);
     for (auto cur : data) {
         PyTuple* mData = new PyTuple(9);
-        mData->SetItem(0, new PyInt(cur.stateID)); //missionState  .. these may be wrong also.
-        mData->SetItem(1, new PyInt(cur.important?1:0)); //importantMission  -- integer boolean
-        mData->SetItem(2, new PyString(sMissionDataMgr.GetTypeLabel(cur.typeID))); //missionTypeLabel
-        mData->SetItem(3, new PyString(cur.name)); //missionName
-        mData->SetItem(4, new PyInt(cur.agentID)); //agentID
-        mData->SetItem(5, new PyLong(cur.expiryTime)); //expirationTime
+        PySetItemRelease(mData, 0, new PyInt(cur.stateID)); //missionState  .. these may be wrong also.
+        PySetItemRelease(mData, 1, new PyInt(cur.important?1:0)); //importantMission  -- integer boolean
+        PySetItemRelease(mData, 2, new PyString(sMissionDataMgr.GetTypeLabel(cur.typeID))); //missionTypeLabel
+        PySetItemRelease(mData, 3, new PyString(cur.name)); //missionName
+        PySetItemRelease(mData, 4, new PyInt(cur.agentID)); //agentID
+        PySetItemRelease(mData, 5, new PyLong(cur.expiryTime)); //expirationTime
         mData->SetItem(6, cur.bookmarks->Clone()); //bookmarks -- if populated, this is PyList of PyDicts as defined below...
-        mData->SetItem(7, new PyBool(cur.remoteOfferable)); //remoteOfferable
-        mData->SetItem(8, new PyBool(cur.remoteCompletable)); //remoteCompletable
+        PySetItemRelease(mData, 7, new PyBool(cur.remoteOfferable)); //remoteOfferable
+        PySetItemRelease(mData, 8, new PyBool(cur.remoteCompletable)); //remoteCompletable
         missions->AddItem(mData);
     }
     tuple->SetItem(0, missions);
@@ -169,13 +169,13 @@ PyResult AgentMgrService::GetMyJournalDetails(PyCallArgs &call) {
             DBResultRow row;
             while (res.GetRow(row)) {
                 PyTuple* rData = new PyTuple(7);
-                rData->SetItem(0, new PyInt(row.GetUInt(0)));   // agentID
-                rData->SetItem(1, new PyInt(row.GetUInt(1)));   // skillTypeID
-                rData->SetItem(2, new PyFloat(row.GetFloat(2)));// ppd
-                rData->SetItem(3, new PyFloat(row.GetFloat(3)));// points
-                rData->SetItem(4, new PyInt(row.GetUInt(4)));   // level
-                rData->SetItem(5, new PyInt(row.GetInt(5)));    // quality
-                rData->SetItem(6, new PyInt(row.GetUInt(6)));   // stationID
+                PySetItemRelease(rData, 0, new PyInt(row.GetUInt(0)));   // agentID
+                PySetItemRelease(rData, 1, new PyInt(row.GetUInt(1)));   // skillTypeID
+                PySetItemRelease(rData, 2, new PyFloat(row.GetFloat(2)));// ppd
+                PySetItemRelease(rData, 3, new PyFloat(row.GetFloat(3)));// points
+                PySetItemRelease(rData, 4, new PyInt(row.GetUInt(4)));   // level
+                PySetItemRelease(rData, 5, new PyInt(row.GetInt(5)));    // quality
+                PySetItemRelease(rData, 6, new PyInt(row.GetUInt(6)));   // stationID
                 research->AddItem(rData);
             }
         }
@@ -323,7 +323,7 @@ PyResult AgentMgrService::GetMyEpicJournalDetails(PyCallArgs& call)
         PySetItemRelease(entry, new PyString("agentID"), new PyInt(arc->startingAgentID));
         PySetItemRelease(entry, new PyString("arcName"), new PyString(arc->arcName));
         PySetItemRelease(entry, new PyString("chapterNumber"), new PyInt(state.chapterNumber));
-        entry->SetItem(new PyString("completed"), state.completed ? PyStatic.NewTrue() : PyStatic.NewFalse());
+        PySetItemRelease(entry, new PyString("completed"), state.completed ? PyStatic.NewTrue() : PyStatic.NewFalse());
         PySetItemRelease(entry, new PyString("dateStarted"), new PyLong(state.dateStarted));
         PySetItemRelease(entry, new PyString("dateCompleted"), new PyLong(state.dateCompleted));
         result->AddItem(entry);

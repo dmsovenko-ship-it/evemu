@@ -3403,8 +3403,8 @@ void Client::_SendPingResponse(const PyAddress& source, int64 callID)
     PyTuple* pingTuple(nullptr);
 
     pingTuple = new PyTuple(3);
-    pingTuple->SetItem(0, new PyLong(Win32TimeNow() - 20));        // this should be the time the packet was received (we cheat here a bit)
-    pingTuple->SetItem(1, new PyLong(Win32TimeNow()));             // this is the time the packet is (handled/written) by the (proxy/server) so we're cheating a bit again.
+    PySetItemRelease(pingTuple, 0, new PyLong(Win32TimeNow() - 20));        // this should be the time the packet was received (we cheat here a bit)
+    PySetItemRelease(pingTuple, 1, new PyLong(Win32TimeNow()));             // this is the time the packet is (handled/written) by the (proxy/server) so we're cheating a bit again.
     PySetItemRelease(pingTuple, 2, new PyString("proxy::handle_message"));
     pingList->AddItem(pingTuple);
 

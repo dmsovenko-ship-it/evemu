@@ -232,7 +232,7 @@ void Scan::SystemScanStarted(uint16 duration)
         spd.pos = new PyObjectEx(false, oed_tuple);  // oed goes here
         PyIncRef(spd.pos);
         spd.destination = spd.pos;
-        probeDict->SetItem(new PyInt(cur.first), spd.Encode());
+        PySetItemRelease(probeDict, new PyInt(cur.first), spd.Encode());
     }
 
     OnSystemScanStarted ossst;
@@ -397,7 +397,7 @@ void Scan::ProbeScanResult()
         spd.scanRange = cur.second->GetScanRange();
         spd.scanStrength = cur.second->GetScanStrength();
         spd.typeID = cur.second->GetSelf()->typeID();
-        probeDict->SetItem(new PyInt(cur.first), spd.Encode());
+        PySetItemRelease(probeDict, new PyInt(cur.first), spd.Encode());
     }
 
     // this will be sigs that are no longer present in current scan range

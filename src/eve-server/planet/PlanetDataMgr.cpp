@@ -229,9 +229,9 @@ PyRep* PIDataMgr::GetProgramResultInfo(Colony* pColony, uint32 pinID, uint16 typ
                 cycleTime, iCycleTime, length, numCycles, qtyPerCycle, heads->size(), headRadius);
 
     PyTuple* res = new PyTuple(3);
-        res->SetItem(0, new PyInt(qtyPerCycle));    //qtyToDistribute  (2843)
-        res->SetItem(1, new PyLong(iCycleTime));    //cycleTime - in usec  (9000000000)
-        res->SetItem(2, new PyInt(numCycles));      //numCycles   (12)
+        PySetItemRelease(res, 0, new PyInt(qtyPerCycle));    //qtyToDistribute  (2843)
+        PySetItemRelease(res, 1, new PyLong(iCycleTime));    //cycleTime - in usec  (9000000000)
+        PySetItemRelease(res, 2, new PyInt(numCycles));      //numCycles   (12)
 
     if (is_log_enabled(PLANET__RES_DUMP))
         res->Dump(PLANET__RES_DUMP, "    ");

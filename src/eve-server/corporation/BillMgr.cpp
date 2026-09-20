@@ -239,7 +239,7 @@ PyResult BillMgr::GetAutomaticPaySettings(PyCallArgs &call) {
     }
 
     PyDict* dict = new PyDict();
-        dict->SetItem(new PyInt(call.client->GetCorporationID()), sets);
+        PySetItemRelease(dict, new PyInt(call.client->GetCorporationID()), sets);
 
     if (is_log_enabled(CORP__RSP_DUMP))
         dict->Dump(CORP__RSP_DUMP, "");

@@ -54,7 +54,7 @@
     // build the tuple based on above packet...may not need, as that is cached packet....
     PyTuple* first = new PyTuple(2);
         PySetItemRelease(first, 0, new PyLong(Win32TimeNow()));
-        first->SetItem(1, new PyInt(46587)); //unknown
+        PySetItemRelease(first, 1, new PyInt(46587)); //unknown
     PyTuple* second = new PyTuple(3);
         PySetItemRelease(second, 0, new PyString("Method Call"));
         PySetItemRelease(second, 1, new PyString("server"));
@@ -64,8 +64,8 @@
         second->SetItem(2, third);
     PyTuple* data = new PyTuple(7);
         data->SetItem(0, first);
-        data->SetItem(1, new PyNone()); //unknown
-        data->SetItem(2, new PyInt(704421)); //unknown - nodeID?
+        PySetItemRelease(data, 1, new PyNone()); //unknown
+        PySetItemRelease(data, 2, new PyInt(704421)); //unknown - nodeID?
         data->SetItem(3, PyStatic.NewOne()); //unknown
         PySetItemRelease(data, 4, new PySubStream(new PyString("https://evemu.dev/")));
         data->SetItem(5, PyStatic.NewInt(0)); //unknown

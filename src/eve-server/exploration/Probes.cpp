@@ -508,11 +508,11 @@ void ProbeSE::SendWarpStart(float travelTime/*0*/)
         to->SetItem(1, posTo.Encode());
     // OnProbeWarpStart(self, probeID, fromPos, toPos, startTime, duration)
     PyTuple* tuple = new PyTuple(5);
-        tuple->SetItem(0, new PyLong(m_self->itemID()));    //probeID
-        tuple->SetItem(1, new PyObjectEx(false, from));     //from
-        tuple->SetItem(2, new PyObjectEx(false, to));       //to
-        tuple->SetItem(3, new PyLong(GetFileTimeNow()));    //startTime
-        tuple->SetItem(4, new PyFloat(travelTime));         //duration in ms
+        PySetItemRelease(tuple, 0, new PyLong(m_self->itemID()));    //probeID
+        PySetItemRelease(tuple, 1, new PyObjectEx(false, from));     //from
+        PySetItemRelease(tuple, 2, new PyObjectEx(false, to));       //to
+        PySetItemRelease(tuple, 3, new PyLong(GetFileTimeNow()));    //startTime
+        PySetItemRelease(tuple, 4, new PyFloat(travelTime));         //duration in ms
     m_client->SendNotification("OnProbeWarpStart", "clientID", &tuple);  // this is sequenced
 
     // not sure if this will work right...slimItem is removed when probe warps out

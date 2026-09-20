@@ -1172,7 +1172,7 @@ PyPackedRow* InventoryItem::GetChargeStatusRow(uint32 shipID) const {
 }
 
 void InventoryItem::GetChargeStatusRow(uint32 shipID, PyPackedRow* into) const {
-    into->SetField("instanceID",     new PyLong(shipID));  // locationID
+    PySetFieldRelease(into, "instanceID",     new PyLong(shipID));  // locationID
     PySetFieldRelease(into, "flagID", new PyInt(m_data.flag));
     PySetFieldRelease(into, "typeID", new PyInt(m_type.id()));
 }

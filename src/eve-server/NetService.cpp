@@ -60,14 +60,14 @@ PyResult NetService::GetClusterSessionStatistics(PyCallArgs &call)
     DBResultRow row;
     while (res.GetRow(row)) {
         system = row.GetUInt(0) - 30000000;
-        sol->SetItem(new PyInt(system), new PyInt(row.GetUInt(1) + row.GetUInt(2)));    // inspace + docked = total
-        sta->SetItem(new PyInt(system), new PyInt(row.GetUInt(2)));                     // total - docked
+        PySetItemRelease(sol, new PyInt(system), new PyInt(row.GetUInt(1) + row.GetUInt(2)));    // inspace + docked = total
+        PySetItemRelease(sta, new PyInt(system), new PyInt(row.GetUInt(2)));                     // total - docked
     }
 
     PyTuple *result = new PyTuple(3);
     result->SetItem(0, sol);
     result->SetItem(1, sta);
-    result->SetItem(2, new PyFloat(1)); //statDivisor
+    PySetItemRelease(result, 2, new PyFloat(1)); //statDivisor
 
     return result;
 }

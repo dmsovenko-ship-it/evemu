@@ -1219,7 +1219,7 @@ void Client::SelfEveMail(const char* subject, const char* fmt, ...)
             payload->SetItem(4, PyStatic.NewNone());
             payload->SetItem(5, PyStatic.NewNone());
             PySetItemRelease(payload, 6, new PyString(subject));
-            payload->SetItem(7, new PyInt(0));  // statusMask
+            PySetItemRelease(payload, 7, new PyInt(0));  // statusMask
             PyDict* extra = new PyDict();
             extra->SetItemString("senderName", new PyString(GetName()));
             payload->SetItem(8, extra);

@@ -307,7 +307,7 @@ PyDict* DBResultToIntRowDict(DBQueryResult &result, uint32 key_index, const char
         k = row.GetInt(key_index);
         if (k == 0)
             continue;   //likely a non-integer key
-        res->SetItem(new PyInt(k), r);
+        PySetItemRelease(res, new PyInt(k), r);
     }
 
     return res;
@@ -325,7 +325,7 @@ PyDict* DBResultToIntIntDict(DBQueryResult &result) {
         if (k == 0)
             continue;   //likely a non-integer key
         if (row.IsNull(1))
-            res->SetItem(new PyInt(k), PyStatic.NewNone());
+            PySetItemRelease(res, new PyInt(k), PyStatic.NewNone());
         else
             PySetItemRelease(res, new PyInt(k), new PyInt(row.GetInt(1)));
     }

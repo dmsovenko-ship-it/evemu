@@ -263,7 +263,7 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
                 PyTuple* t = new PyTuple(2);
                 PySetItemRelease(t, 0, new PyWString(SafeStr(name)));
                 t->SetItem(1, langTok);
-                parentDict->SetItem(new PyInt(wireID), t);
+                PySetItemRelease(parentDict, new PyInt(wireID), t);
             } else {
                 PyDict* group = nullptr;
                 auto it = childGroups.find(wirePar);
@@ -272,12 +272,12 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
                 } else {
                     group = new PyDict();
                     childGroups[wirePar] = group;
-                    childDict->SetItem(new PyInt(wirePar), group);
+                    PySetItemRelease(childDict, new PyInt(wirePar), group);
                 }
                 PyTuple* t = new PyTuple(2);
                 PySetItemRelease(t, 0, new PyWString(SafeStr(name)));
                 t->SetItem(1, langTok);
-                group->SetItem(new PyInt(wireID), t);
+                PySetItemRelease(group, new PyInt(wireID), t);
                 PySetItemRelease(descDict, new PyInt(wireID), new PyWString(SafeStr(desc)));
             }
         }
@@ -287,7 +287,7 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
     result->SetItem(0, parentDict);
     result->SetItem(1, childDict);
     result->SetItem(2, descDict);
-    result->SetItem(3, new PyDict());   // billingCategories: none
+    PySetItemRelease(result, 3, new PyDict());   // billingCategories: none
     return result;
 }
 

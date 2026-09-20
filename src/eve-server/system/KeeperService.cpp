@@ -217,7 +217,7 @@ PyResult KeeperBound::EditDungeon(PyCallArgs &call, PyInt* dungeonID)
 
     PyTuple* payload = new PyTuple(3);
     payload->SetItem(0, dungeonID); //dungeonID
-    payload->SetItem(1, new PyInt(call.byname["roomID"]->AsInt()->value())); //roomID
+    PySetItemRelease(payload, 1, new PyInt(call.byname["roomID"]->AsInt()->value())); //roomID
     payload->SetItem(2, posList); //roomPos
 
     pClient->SendNotification("OnDungeonEdit", "charid", payload, false);

@@ -184,7 +184,7 @@ PyResult PosMgr::GetJumpArrays(PyCallArgs &call) {
                 PySetItemRelease(tuple, 0, new PyInt(row.GetInt(4)));
                 PySetItemRelease(tuple, 1, new PyInt(row.GetInt(2)));
                 PySetItemRelease(tuple, 2, new PyInt(row.GetInt(3)));
-            dict->SetItem(new PyInt(row.GetInt(0)), tuple);
+            PySetItemRelease(dict, new PyInt(row.GetInt(0)), tuple);
             rsp->SetItem(1, dict);
         } else {
             rsp->SetItem(1, PyStatic.NewNone());

@@ -411,7 +411,7 @@ PyDict* StargateSE::MakeSlimItem() {
     PyTuple* rotation = new PyTuple(3);
         PySetItemRelease(rotation, 0, new PyFloat(0));
         PySetItemRelease(rotation, 1, new PyFloat(0));
-        rotation->SetItem(2, new PyFloat(0));*/
+        PySetItemRelease(rotation, 2, new PyFloat(0));*/
     PyDict *slim = new PyDict();
         //slim->SetItemString("dunRotation", rotation);
         slim->SetItemString("typeID",       new PyInt(m_self->typeID()));

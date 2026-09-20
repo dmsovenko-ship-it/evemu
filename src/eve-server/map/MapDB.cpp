@@ -251,9 +251,9 @@ PyRep *MapDB::GetDynamicData(uint8 type, uint8 time) {
             PyDict* dict = new PyDict();
             while (res.GetRow(row)) {
                 PyTuple* inner = new PyTuple(2);
-                    inner->SetItem(0, new PyInt(row.GetInt(1)));    // cyno modules on ships (fields)
-                    inner->SetItem(1, new PyInt(row.GetInt(2)));    // cyno generators (POS structures)
-                dict->SetItem(new PyInt(row.GetInt(0)), inner);
+                    PySetItemRelease(inner, 0, new PyInt(row.GetInt(1)));    // cyno modules on ships (fields)
+                    PySetItemRelease(inner, 1, new PyInt(row.GetInt(2)));    // cyno generators (POS structures)
+                PySetItemRelease(dict, new PyInt(row.GetInt(0)), inner);
             }
             return dict;
         };

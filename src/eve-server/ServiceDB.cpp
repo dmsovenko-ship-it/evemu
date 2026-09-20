@@ -603,7 +603,7 @@ PyRep* ServiceDB::PrimeOwners(std::vector< int32 >& itemIDs)
                 list->AddItem(new PyInt(row.GetInt(0)));
                 list->AddItem(new PyString(row.GetText(1)));
                 list->AddItem(new PyInt(row.GetInt(2)));
-            dict->SetItem(new PyInt(row.GetInt(0)), list);
+            PySetItemRelease(dict, new PyInt(row.GetInt(0)), list);
         }
     }
 

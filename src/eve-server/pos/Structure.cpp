@@ -1328,7 +1328,7 @@ void StructureSE::GetEffectState(PyList &into)
     fxState->SetItemInt(2, m_self->typeID());      // moduleTypeID
     fxState->SetItem(3, PyStatic.NewNone());         // targetID
     fxState->SetItem(4, PyStatic.NewNone());         // chargeTypeID
-    fxState->SetItem(5, new PyList());         // area
+    PySetItemRelease(fxState, 5, new PyList());         // area
 
     // set guid here depending on tower state
     switch (m_data.state) {
@@ -1354,7 +1354,7 @@ void StructureSE::GetEffectState(PyList &into)
     fxState->SetItem(9, PyStatic.NewOne());      // active
     fxState->SetItem(10, PyStatic.NewNegOne());      // duration
     fxState->SetItem(11, PyStatic.NewZero());      // repeat
-    fxState->SetItem(12, new PyLong(m_data.timestamp));      // startTime
+    PySetItemRelease(fxState, 12, new PyLong(m_data.timestamp));      // startTime
     fxState->SetItem(13, PyStatic.NewNone());         // graphicInfo
 
     // add tuple directly to list.

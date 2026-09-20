@@ -327,7 +327,7 @@ bool FleetService::AddMember(Client* pClient, uint32 fleetID, int32 wingID, int3
     }
 
     PyTuple* count = new PyTuple(1);
-        count->SetItem(0, new PyInt((255 - m_fleetMembers.count(fleetID))));  // this is slots left from 255 (256 - leader)
+        PySetItemRelease(count, 0, new PyInt((255 - m_fleetMembers.count(fleetID))));  // this is slots left from 255 (256 - leader)
     pClient->SendNotification("OnFleetActive", "clientID", count, true);
 
     std::list<int32> wing, squad;
@@ -1361,10 +1361,10 @@ PyRep* FleetService::GetWings(uint32 fleetID)
             SquadRSP squad;
                 squad.name = sData.name;
                 squad.squadID = squadID;
-            dict2->SetItem(new PyInt(squadID), squad.Encode());
+            PySetItemRelease(dict2, new PyInt(squadID), squad.Encode());
         }
         wing.squads = dict2;
-        dict->SetItem(new PyInt(wingID), wing.Encode());
+        PySetItemRelease(dict, new PyInt(wingID), wing.Encode());
     }
 
     dict->Dump(FLEET__DEBUG, "    ");
@@ -1422,7 +1422,7 @@ PyRep* FleetService::GetAvailableFleets() {
             fleetRSP.warFactionID = pClient->GetWarFactionID();
             fleetRSP.securityStatus = pClient->GetSecurityRating();
             fleetRSP.allianceID = pClient->GetAllianceID();
-        fleetDict->SetItem(new PyLong(cur.first), fleetRSP.Encode() );
+        PySetItemRelease(fleetDict, new PyLong(cur.first), fleetRSP.Encode() );
     }
 
     fleetDict->Dump(FLEET__DEBUG, "    ");
@@ -1669,7 +1669,7 @@ std::vector<Client *> FleetService::GetFleetClients(uint32 fleetID) {
 void FleetService::SendActiveStatus(uint32 fleetID, int32 wingID, int32 squadID)
 {
     PyTuple* count = new PyTuple(1);
-    count->SetItem(0, new PyInt((255 - m_fleetMembers.count(fleetID))));  // this is slots left from 255 (256 - leader)
+    PySetItemRelease(count, 0, new PyInt((255 - m_fleetMembers.count(fleetID))));  // this is slots left from 255 (256 - leader)
     SendFleetUpdate(fleetID, "OnFleetActive", count);
 
     if (wingID > 0) {

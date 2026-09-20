@@ -118,13 +118,13 @@ static void AddDroneError(PyDict* errors, uint32 droneID, const char* msg) {
     PyTuple* val = new PyTuple(2);
     PySetItemRelease(val, 0, new PyString(msg));
     val->SetItem(1, PyStatic.NewNone());
-    errors->SetItem(new PyInt(droneID), val);
+    PySetItemRelease(errors, new PyInt(droneID), val);
 }
 static void AddDroneError(PyDict* errors, uint32 droneID, const char* msg, PyDict* dict) {
     PyTuple* val = new PyTuple(2);
     PySetItemRelease(val, 0, new PyString(msg));
     val->SetItem(1, dict);
-    errors->SetItem(new PyInt(droneID), val);
+    PySetItemRelease(errors, new PyInt(droneID), val);
 }
 
 PyResult EntityBound::CmdEngage(PyCallArgs &call, PyList* droneIDs, PyInt* targetID) {

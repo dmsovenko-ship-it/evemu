@@ -417,7 +417,7 @@ PyResult CorpRegistryBound::GetMembers(PyCallArgs &call)
     PyDict *dict = new PyDict();
         dict->SetItemString("realRowCount", new PyInt(rowCount));   // this is current member count
     PyTuple* boundObject = new PyTuple(3);
-        boundObject->SetItem(0, new PyString (this->GetIDString()));    // node info here
+        PySetItemRelease(boundObject, 0, new PyString (this->GetIDString()));    // node info here
         boundObject->SetItem(1, dict);
         PySetItemRelease(boundObject, 2, new PyLong(GetFileTimeNow()));
 

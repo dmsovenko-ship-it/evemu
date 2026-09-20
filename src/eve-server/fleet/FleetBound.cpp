@@ -192,11 +192,11 @@ PyResult FleetBound::GetInitState(PyCallArgs &call) {
             SquadRSP squad;
             squad.name = sData.name;
             squad.squadID = squadID;
-            dict->SetItem(new PyInt(squadID), squad.Encode());
+            PySetItemRelease(dict, new PyInt(squadID), squad.Encode());
         }
         PySafeDecRef(wing.squads);
         wing.squads = dict;
-        dict1->SetItem(new PyInt(wingID), wing.Encode());
+        PySetItemRelease(dict1, new PyInt(wingID), wing.Encode());
     }
     PySafeDecRef(rsp.wings);
     rsp.wings = dict1;
@@ -219,7 +219,7 @@ PyResult FleetBound::GetInitState(PyCallArgs &call) {
             member.solarSystemID = cur->GetSystemID();
             member.wingID = cur->GetChar()->wingID();
             member.timestamp = cur->GetChar()->fleetJoinTime();
-        dict2->SetItem(new PyInt(member.charID), member.Encode());
+        PySetItemRelease(dict2, new PyInt(member.charID), member.Encode());
     }
 
     rsp.members = dict2;

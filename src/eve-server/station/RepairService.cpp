@@ -356,7 +356,7 @@ PyResult RepairServiceBound::GetDamageReports(PyCallArgs &call, PyList* itemIDs)
             rlr.playerStanding = standing;
             rlr.lines = new PyList();
             RepairService::GetDamageReports(cur, pInv, rlr.lines);
-        dict->SetItem(new PyInt(cur), rlr.Encode());
+        PySetItemRelease(dict, new PyInt(cur), rlr.Encode());
     }
 
     return dict;

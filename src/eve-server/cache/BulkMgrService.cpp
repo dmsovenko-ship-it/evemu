@@ -251,14 +251,14 @@ PyResult BulkMgrService::GetFullFiles(PyCallArgs &call, std::optional<PyList*> t
 
     if (toGet.has_value () == false) {
         // toGet = null.  this means get all bulkdata files
-        toBeChanged->SetItem(new PyInt(800002), sBulkDB.GetBulkData(0));
+        PySetItemRelease(toBeChanged, new PyInt(800002), sBulkDB.GetBulkData(0));
         bulksEndingInChunk->AddItem(new PyInt(800002));
-        toBeChanged->SetItem(new PyInt(800004), sBulkDB.GetBulkData(1));
+        PySetItemRelease(toBeChanged, new PyInt(800004), sBulkDB.GetBulkData(1));
         bulksEndingInChunk->AddItem(new PyInt(800004));
-        toBeChanged->SetItem(new PyInt(800005), sBulkDB.GetBulkData(2));
+        PySetItemRelease(toBeChanged, new PyInt(800005), sBulkDB.GetBulkData(2));
         bulksEndingInChunk->AddItem(new PyInt(800005));
         // will have to determine what files are needed using hash, and then how to arrange and send this data correctly
-        response->SetItem(2, new PyInt(sBulkDB.GetNumChunks()));    //numberOfChunks
+        PySetItemRelease(response, 2, new PyInt(sBulkDB.GetNumChunks()));    //numberOfChunks
         response->SetItem(3, PyStatic.NewZero());                   //chunkSetID
     } else {
         PyList::const_iterator itr = toGet.value()->begin(), end = toGet.value()->end();
@@ -266,36 +266,36 @@ PyResult BulkMgrService::GetFullFiles(PyCallArgs &call, std::optional<PyList*> t
         while (itr != end) {
             switch (PyRep::IntegerValueU32(*itr)) {
                 case 800002: {
-                    toBeChanged->SetItem(new PyInt(800002), sBulkDB.GetBulkData(0));
+                    PySetItemRelease(toBeChanged, new PyInt(800002), sBulkDB.GetBulkData(0));
                     bulksEndingInChunk->AddItem(new PyInt(800002));
                 } break;
                 case 800004: {
-                    toBeChanged->SetItem(new PyInt(800004), sBulkDB.GetBulkData(1));
+                    PySetItemRelease(toBeChanged, new PyInt(800004), sBulkDB.GetBulkData(1));
                     bulksEndingInChunk->AddItem(new PyInt(800004));
                 } break;
                 case 800005: {
-                    toBeChanged->SetItem(new PyInt(800005), sBulkDB.GetBulkData(2));
+                    PySetItemRelease(toBeChanged, new PyInt(800005), sBulkDB.GetBulkData(2));
                     bulksEndingInChunk->AddItem(new PyInt(800005));
                 } break;
                 // these are hacked, but this whole system is...however, these *shouldnt* be called
                 case 800003: {
                     setID = 2;
-                    toBeChanged->SetItem(new PyInt(800003), sBulkDB.GetBulkDataChunks(0, 1));
+                    PySetItemRelease(toBeChanged, new PyInt(800003), sBulkDB.GetBulkDataChunks(0, 1));
                 } break;
                 case 800006: {
                     setID = 3;
-                    toBeChanged->SetItem(new PyInt(800006), sBulkDB.GetBulkDataChunks(0, 7));
+                    PySetItemRelease(toBeChanged, new PyInt(800006), sBulkDB.GetBulkDataChunks(0, 7));
                 } break;
                 case 800007: {
                     setID = 4;
-                    toBeChanged->SetItem(new PyInt(800007), sBulkDB.GetBulkDataChunks(0, 3));
+                    PySetItemRelease(toBeChanged, new PyInt(800007), sBulkDB.GetBulkDataChunks(0, 3));
                 } break;
             }
             ++itr;
         }
         // will have to determine what files are needed, and how to arrange this data correctly
-        response->SetItem(2, new PyInt(sBulkDB.GetNumChunks(setID)));   //numberOfChunks
-        response->SetItem(3, new PyInt(setID));    //chunkSetID
+        PySetItemRelease(response, 2, new PyInt(sBulkDB.GetNumChunks(setID)));   //numberOfChunks
+        PySetItemRelease(response, 3, new PyInt(setID));    //chunkSetID
     }
 
     response->SetItem(0, toBeChanged);
@@ -333,7 +333,7 @@ PyResult BulkMgrService::GetFullFilesChunk(PyCallArgs &call, PyInt* chunkSetID, 
     }
 
     _log(BULKDATA__INFO, "BulkMgrService::Handle_GetFullFilesChunk(): bulkFileID: %i, chunkSetID: %u, chunkNumber: %u", bulkFileID, chunkSetID->value(), chunkNumber->value());
-    toBeChanged->SetItem(new PyInt(bulkFileID), sBulkDB.GetBulkDataChunks(chunkSetID->value(), chunkNumber->value()));
+    PySetItemRelease(toBeChanged, new PyInt(bulkFileID), sBulkDB.GetBulkDataChunks(chunkSetID->value(), chunkNumber->value()));
 
     // 2, 4, 36
     if (chunkSetID->value() == 0) {

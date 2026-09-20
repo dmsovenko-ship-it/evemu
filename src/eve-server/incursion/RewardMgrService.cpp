@@ -87,7 +87,7 @@ PyResult RewardMgrService::GetRewardData(PyCallArgs& call, PyInt* rewardID)
             reward->SetItemString("entries", entries);
             rewardList->AddItem(new PyObject("util.KeyVal", reward));
         }
-        immediateRewards->SetItem(new PyInt(criteriaAll), rewardList);
+        PySetItemRelease(immediateRewards, new PyInt(criteriaAll), rewardList);
     }
 
     PyDict* result = new PyDict();

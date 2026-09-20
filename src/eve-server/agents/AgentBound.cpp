@@ -497,7 +497,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     offer.expiryTime += EvE::Time::Day;
                     m_agent->UpdateOffer(pchar->itemID(), offer);
                     m_agent->SendMissionUpdate(call.client, "prolong");
-                    agentSays->SetItem(0, new PyString("I can give you 24 hours to think about it."));    //msgInfo  -- if tuple[0].string then return msgInfo
+                    PySetItemRelease(agentSays, 0, new PyString("I can give you 24 hours to think about it."));    //msgInfo  -- if tuple[0].string then return msgInfo
                     agentSays->SetItem(1, PyStatic.NewNone());    // ContentID  -- PyNone used when msgInfo is string to return without processing
                 }
             } break;
@@ -667,7 +667,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
         }
     } else {
         PySetItemRelease(agentSays, 0, new PyInt(m_agent->GetStandingsRsp(pchar->itemID())));
-        agentSays->SetItem(1, PyStatic.NewNone() /*new PyInt(pchar->itemID())*/);
+        PySetItemRelease(agentSays, 1, PyStatic.NewNone() /*new PyInt(pchar->itemID())*/);
     }
 
     // extraInfo data....
@@ -853,15 +853,15 @@ PyResult AgentBound::GetMyJournalDetails(PyCallArgs &call) {
     if (m_agent->HasMission(call.client->GetCharacterID(), offer)) {
         if (offer.stateID < Mission::State::Completed) {
             PyTuple* mData = new PyTuple(9);
-                mData->SetItem(0, new PyInt(offer.stateID)); //missionState  .. these may be wrong also.
-                mData->SetItem(1, new PyInt(offer.important?1:0)); //importantMission  -- integer boolean
-                mData->SetItem(2, new PyString(sMissionDataMgr.GetTypeLabel(offer.typeID))); //missionTypeLabel
-                mData->SetItem(3, new PyString(offer.name)); //missionName
-                mData->SetItem(4, new PyInt(offer.agentID)); //agentID
-                mData->SetItem(5, new PyLong(offer.expiryTime)); //expirationTime
+                PySetItemRelease(mData, 0, new PyInt(offer.stateID)); //missionState  .. these may be wrong also.
+                PySetItemRelease(mData, 1, new PyInt(offer.important?1:0)); //importantMission  -- integer boolean
+                PySetItemRelease(mData, 2, new PyString(sMissionDataMgr.GetTypeLabel(offer.typeID))); //missionTypeLabel
+                PySetItemRelease(mData, 3, new PyString(offer.name)); //missionName
+                PySetItemRelease(mData, 4, new PyInt(offer.agentID)); //agentID
+                PySetItemRelease(mData, 5, new PyLong(offer.expiryTime)); //expirationTime
                 mData->SetItem(6, offer.bookmarks->Clone()); //bookmarks -- if populated, this is PyList of PyDicts as defined below...
-                mData->SetItem(7, new PyBool(offer.remoteOfferable)); //remoteOfferable
-                mData->SetItem(8, new PyBool(offer.remoteCompletable)); //remoteCompletable
+                PySetItemRelease(mData, 7, new PyBool(offer.remoteOfferable)); //remoteOfferable
+                PySetItemRelease(mData, 8, new PyBool(offer.remoteCompletable)); //remoteCompletable
             missions->AddItem(mData);
         }
     }
@@ -883,13 +883,13 @@ PyResult AgentBound::GetMyJournalDetails(PyCallArgs &call) {
             DBResultRow row;
             while (res.GetRow(row)) {
                 PyTuple* rData = new PyTuple(7);
-                rData->SetItem(0, new PyInt(row.GetUInt(0)));   // agentID
-                rData->SetItem(1, new PyInt(row.GetUInt(1)));   // skillTypeID
-                rData->SetItem(2, new PyFloat(row.GetFloat(2)));// ppd
-                rData->SetItem(3, new PyFloat(row.GetFloat(3)));// points
-                rData->SetItem(4, new PyInt(row.GetUInt(4)));   // level
-                rData->SetItem(5, new PyInt(row.GetInt(5)));    // quality
-                rData->SetItem(6, new PyInt(row.GetUInt(6)));   // stationID
+                PySetItemRelease(rData, 0, new PyInt(row.GetUInt(0)));   // agentID
+                PySetItemRelease(rData, 1, new PyInt(row.GetUInt(1)));   // skillTypeID
+                PySetItemRelease(rData, 2, new PyFloat(row.GetFloat(2)));// ppd
+                PySetItemRelease(rData, 3, new PyFloat(row.GetFloat(3)));// points
+                PySetItemRelease(rData, 4, new PyInt(row.GetUInt(4)));   // level
+                PySetItemRelease(rData, 5, new PyInt(row.GetInt(5)));    // quality
+                PySetItemRelease(rData, 6, new PyInt(row.GetUInt(6)));   // stationID
                 research->AddItem(rData);
             }
         }
@@ -956,8 +956,8 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
     if (offer.stateID == Mission::State::Accepted)
         if (offer.typeID == Mission::Type::Courier) {
             PyTuple* missionExtra = new PyTuple(2);  // this is tuple(2)  headerID, bodyID    -- std locale msgIDs
-                missionExtra->SetItem(0, new PyString("Reminder...."));   // this should be separate title from mission name
-                missionExtra->SetItem(1, new PyString("Remember to get the %s from your hangar before you leave.", call.client->GetCourierItemRef(m_agent->GetID())->name()));   // this is additional info about mission, etc.
+                PySetItemRelease(missionExtra, 0, new PyString("Reminder...."));   // this should be separate title from mission name
+                PySetItemRelease(missionExtra, 1, new PyString("Remember to get the %s from your hangar before you leave.", call.client->GetCourierItemRef(m_agent->GetID())->name()));   // this is additional info about mission, etc.
             objectiveData->SetItemString("missionExtra", missionExtra);
         } */
 
@@ -1021,11 +1021,11 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
             //extra->SetItemString("blueprintInfo", PyStatic.NewNone());
         PyTuple* bonusRewards = new PyTuple(4);
         if (offer.dateAccepted > 0) {
-            bonusRewards->SetItem(0, new PyLong(offer.bonusTime - (offer.dateAccepted - offer.dateIssued) * EvE::Time::Minute));  // bonus time - elapsed time * minutes
+            PySetItemRelease(bonusRewards, 0, new PyLong(offer.bonusTime - (offer.dateAccepted - offer.dateIssued) * EvE::Time::Minute));  // bonus time - elapsed time * minutes
         } else {
-            bonusRewards->SetItem(0, new PyLong(offer.bonusTime * EvE::Time::Minute));  // bonus time * minutes
+            PySetItemRelease(bonusRewards, 0, new PyLong(offer.bonusTime * EvE::Time::Minute));  // bonus time * minutes
         }
-            bonusRewards->SetItem(1, new PyInt(itemTypeCredits));   // bonus is *usually* isk.  for now, we'll keep it as isk (easier)
+            PySetItemRelease(bonusRewards, 1, new PyInt(itemTypeCredits));   // bonus is *usually* isk.  for now, we'll keep it as isk (easier)
             PySetItemRelease(bonusRewards, 2, new PyInt(offer.rewardISK *2));
             bonusRewards->SetItem(3, extra);
         bonusList->AddItem(bonusRewards);
@@ -1036,7 +1036,7 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
             //extra->SetItemString("specificItemID", PyStatic.NewNone());
             //extra->SetItemString("blueprintInfo", PyStatic.NewNone());
         PyTuple* bonusRewards2 = new PyTuple(4);
-            bonusRewards2->SetItem(0, new PyLong(12000000000)); //20m
+            PySetItemRelease(bonusRewards2, 0, new PyLong(12000000000)); //20m
             PySetItemRelease(bonusRewards2, 1, new PyInt(itemTypeTrit));
             PySetItemRelease(bonusRewards2, 2, new PyInt(offer.rewardISK));
             bonusRewards2->SetItem(3, extra);

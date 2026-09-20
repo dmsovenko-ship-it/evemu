@@ -841,13 +841,13 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
     // however, on non-throw error, data is tuple of errID, errDetailsType, errDetails (unknown where these are defined)
 
         if (dropped) {
-            dict->SetItem(new PyInt(iRef->itemID()), list);
+            PySetItemRelease(dict, new PyInt(iRef->itemID()), list);
         } else {
             PyTuple* err = new PyTuple(3);
             err->SetItem(0, PyStatic.NewInt(1));
             PySetItemRelease(err, 1, new PyString("unsure"));
             PySetItemRelease(err, 2, new PyString("misc error"));
-            dict->SetItem(new PyInt(iRef->itemID()), err);
+            PySetItemRelease(dict, new PyInt(iRef->itemID()), err);
         }
     }
 

@@ -248,7 +248,7 @@ PyResult EncounterSpawnServer::GetMyEncounters(PyCallArgs& call)
             PySetItemRelease(entry, new PyString("encounterID"), new PyInt(enc.encounterID));
             PySetItemRelease(entry, new PyString("encounterName"), new PyString(enc.encounterName));
             PySetItemRelease(entry, new PyString("agentID"), new PyInt(enc.agentID));
-            entry->SetItem(new PyString("active"), enc.active ? PyStatic.NewTrue() : PyStatic.NewFalse());
+            PySetItemRelease(entry, new PyString("active"), enc.active ? PyStatic.NewTrue() : PyStatic.NewFalse());
             result->AddItem(entry);
         }
     }
@@ -288,7 +288,7 @@ PyResult EncounterSpawnServer::RequestActivateEncounters(PyCallArgs& call, PyLis
 
     PyList* result = new PyList();
     PyDict* logResult = new PyDict();
-    logResult->SetItem(new PyString("log"), PyStatic.NewNone());
+    PySetItemRelease(logResult, new PyString("log"), PyStatic.NewNone());
 
     Client* pClient = call.client;
     SystemManager* pSystem = pClient->SystemMgr();
@@ -374,7 +374,7 @@ PyResult EncounterSpawnServer::RequestDeactivateEncounters(PyCallArgs& call, PyL
 
     PyList* result = new PyList();
     PyDict* logResult = new PyDict();
-    logResult->SetItem(new PyString("log"), PyStatic.NewNone());
+    PySetItemRelease(logResult, new PyString("log"), PyStatic.NewNone());
 
     for (size_t i = 0; i < encounterList->size(); ++i) {
         PyRep* item = encounterList->GetItem(i);

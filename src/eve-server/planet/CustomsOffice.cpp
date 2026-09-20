@@ -205,7 +205,7 @@ PyRep* CustomsSE::GetSettingsInfo()
     PyTuple* tuple = new PyTuple(5);
         PySetItemRelease(tuple, 0, new PyInt(m_cData.selectedHour));
         PySetItemRelease(tuple, 1, new PyObject("util.KeyVal", dict));
-        tuple->SetItem(2, new PyInt(m_cData.standingValue));    //const.contactHorribleStanding
+        PySetItemRelease(tuple, 2, new PyInt(m_cData.standingValue));    //const.contactHorribleStanding
         PySetItemRelease(tuple, 3, new PyBool(m_cData.allowAlliance));
         PySetItemRelease(tuple, 4, new PyBool(m_cData.allowStandings));
     return tuple;
@@ -426,7 +426,7 @@ PyDict *CustomsSE::MakeSlimItem() {
     PyTuple* tuple = new PyTuple(3);            // yaw, pitch, roll = getattr(slimItem, 'dunRotation', None)
         PySetItemRelease(tuple, 0, new PyFloat(m_oData.rotation.x));
         PySetItemRelease(tuple, 1, new PyFloat(m_oData.rotation.y));
-        tuple->SetItem(2,                       new PyFloat(m_oData.rotation.z)); //MakeRandomFloat(-180, 180)
+        PySetItemRelease(tuple, 2,                       new PyFloat(m_oData.rotation.z)); //MakeRandomFloat(-180, 180)
     slim->SetItemString("dunRotation", tuple);  // direction to planet
     //  dunno what these are...
     slim->SetItemString("orbitalHackerProgress",  m_oData.orbitalHackerProgress > 0 ? new PyFloat(m_oData.orbitalHackerProgress) : PyStatic.NewNone());  // packets show this as none if not value

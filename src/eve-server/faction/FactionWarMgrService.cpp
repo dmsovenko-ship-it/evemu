@@ -545,7 +545,7 @@ PyResult FactionWarMgrService::GetStats_FactionInfo(PyCallArgs &call) {
             info->SetItemString("losses", new PyInt(row.GetUInt(3)));
             info->SetItemString("victoryPoints", new PyFloat(row.GetDouble(4)));
             info->SetItemString("systemsControlled", new PyInt(row.GetUInt(5)));
-        result->SetItem(new PyInt(factionID), info);
+        PySetItemRelease(result, new PyInt(factionID), info);
     }
     return result;
 }
@@ -658,7 +658,7 @@ PyResult FactionWarMgrService::GetStats_Corp(PyCallArgs &call) {
             info->SetItemString("losses", new PyInt(row.GetUInt(2)));
             info->SetItemString("victoryPoints", new PyFloat(row.GetDouble(3)));
             info->SetItemString("pilots", new PyInt(row.GetUInt(4)));
-        result->SetItem(new PyInt(corpID), info);
+        PySetItemRelease(result, new PyInt(corpID), info);
     }
     return result;
 }
@@ -691,7 +691,7 @@ PyResult FactionWarMgrService::GetStats_Alliance(PyCallArgs &call) {
             info->SetItemString("losses", new PyInt(row.GetUInt(2)));
             info->SetItemString("victoryPoints", new PyFloat(row.GetDouble(3)));
             info->SetItemString("pilots", new PyInt(row.GetUInt(4)));
-        result->SetItem(new PyInt(allyID), info);
+        PySetItemRelease(result, new PyInt(allyID), info);
     }
     return result;
 }
@@ -724,7 +724,7 @@ PyResult FactionWarMgrService::GetStats_Militia(PyCallArgs &call) {
             info->SetItemString("victoryPoints", new PyFloat(row.GetDouble(3)));
             info->SetItemString("pilots", new PyInt(row.GetUInt(4)));
             info->SetItemString("systemsControlled", new PyInt(row.GetUInt(5)));
-        result->SetItem(new PyInt(factionID), info);
+        PySetItemRelease(result, new PyInt(factionID), info);
     }
     return result;
 }

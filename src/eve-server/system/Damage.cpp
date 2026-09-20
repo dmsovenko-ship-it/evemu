@@ -483,8 +483,8 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 dict->SetItemString("source", new PyInt(d.srcSE->GetID()));
                 dict->SetItemString("weapon", new PyInt((d.chargeRef.get() != nullptr ? d.chargeRef->typeID() : d.weaponRef->typeID())));
                 PyTuple* ownerTuple = new PyTuple(2);
-                    ownerTuple->SetItem(0, new PyInt(GetID()));                       // drone/fighter entity
-                    ownerTuple->SetItem(1, new PyInt(droneOwner->GetCharacterID()));  // owning pilot
+                    PySetItemRelease(ownerTuple, 0, new PyInt(GetID()));                       // drone/fighter entity
+                    PySetItemRelease(ownerTuple, 1, new PyInt(droneOwner->GetCharacterID()));  // owning pilot
                 dict->SetItemString("owner", ownerTuple);
                 dict->SetItemString("damage", new PyFloat(total_damage));
             PyTuple* tuple = new PyTuple(3);

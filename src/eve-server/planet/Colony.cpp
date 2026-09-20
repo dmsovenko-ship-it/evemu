@@ -1229,7 +1229,7 @@ PyTuple* Colony::GetPins()
         PySetItemRelease(dict, "ownerID", new PyInt(cur.second.ownerID));
         PySetItemRelease(dict, "latitude", new PyFloat(cur.second.latitude));
         PySetItemRelease(dict, "longitude", new PyFloat(cur.second.longitude));
-        dict->SetItem("lastRunTime", (cur.second.lastRunTime > 0 ? new PyLong(cur.second.lastRunTime) : PyStatic.NewNone()));
+        PySetItemRelease(dict, "lastRunTime", (cur.second.lastRunTime > 0 ? new PyLong(cur.second.lastRunTime) : PyStatic.NewNone()));
         PySetItemRelease(dict, "state", new PyInt(cur.second.state));
         PySetItemRelease(dict, "level", new PyInt(cur.second.level));
 
@@ -1241,7 +1241,7 @@ PyTuple* Colony::GetPins()
         dict->SetItem("contents", contents);
 
         if (cur.second.isLaunchable)
-            dict->SetItem("lastLaunchTime", (cur.second.lastLaunchTime > 0 ? new PyLong(cur.second.lastLaunchTime) : PyStatic.NewNone()));
+            PySetItemRelease(dict, "lastLaunchTime", (cur.second.lastLaunchTime > 0 ? new PyLong(cur.second.lastLaunchTime) : PyStatic.NewNone()));
 
         if (cur.second.isProcess)
             if (cur.second.schematicID) {
@@ -1294,11 +1294,11 @@ PyTuple* Colony::GetLinks()
     PyTuple* links = new PyTuple(ccPin->links.size());
     for (auto cur : ccPin->links) {
         PyDict* dict = new PyDict();
-            dict->SetItem("linkID", new PyInt(cur.first));                 // this is link itemID
+            PySetItemRelease(dict, "linkID", new PyInt(cur.first));                 // this is link itemID
             PySetItemRelease(dict, "endpoint1", new PyInt(cur.second.endpoint1));
             PySetItemRelease(dict, "endpoint2", new PyInt(cur.second.endpoint2));
             PySetItemRelease(dict, "level", new PyInt(cur.second.level));
-            dict->SetItem("typeID", new PyInt(cur.second.typeID));          // typeID 2280
+            PySetItemRelease(dict, "typeID", new PyInt(cur.second.typeID));          // typeID 2280
         PySetItemRelease(links, index++, new PyObject("util.KeyVal", dict));
     }
     return links;
@@ -1311,7 +1311,7 @@ PyTuple* Colony::GetRoutes()
 
     for (auto cur : ccPin->routes) {
         PyDict* dict = new PyDict();
-            dict->SetItem("routeID", new PyInt(cur.first));                 // this is routeID (low number - assigned by client)
+            PySetItemRelease(dict, "routeID", new PyInt(cur.first));                 // this is routeID (low number - assigned by client)
             PySetItemRelease(dict, "commodityTypeID", new PyInt(cur.second.commodityTypeID));
             PySetItemRelease(dict, "commodityQuantity", new PyInt(cur.second.commodityQuantity));
 

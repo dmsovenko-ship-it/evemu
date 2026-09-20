@@ -384,7 +384,7 @@ PyRep* MailDB::GetLabels(int characterID) const
         label.name = row.GetText(1);
         label.color = row.GetInt(2);
 
-        ret->SetItem(new PyInt(label.id), label.Encode());
+        PySetItemRelease(ret, new PyInt(label.id), label.Encode());
     }
 
     return ret;

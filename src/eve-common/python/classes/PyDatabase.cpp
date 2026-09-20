@@ -177,7 +177,7 @@ PyDict* CRowSet::_CreateKeywords(DBRowDescriptor* rowDesc)
     //uint32 cc = rowDesc->ColumnCount();
     //PyList* columns = new PyList( cc );
     //for( uint32 i(0); i < cc; ++i )
-    //    columns->SetItem( i,  new PyString( *rowDesc->GetColumnName( i ) ) );
+    //    PySetItemRelease(columns,  i,  new PyString( *rowDesc->GetColumnName( i ) ) );
     //keywords->SetItemString( "columns", columns );
 
     return keywords;

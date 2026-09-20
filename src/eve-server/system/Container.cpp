@@ -614,9 +614,9 @@ PyDict *WreckSE::MakeSlimItem() {
         if (m_abandoned or (m_fleetID)) { // this is ONLY for abandoned wrecks or wrecks from fleet ops
             PyTuple* loot = new PyTuple(4);
                 PySetItemRelease(loot, 0, new PyInt(m_ownerID));
-                loot->SetItem(1,                IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
-                loot->SetItem(2,                IsFleetID(m_fleetID) ? new PyInt(m_fleetID) : PyStatic.NewNone());
-                loot->SetItem(3,                new PyBool(false)); // what is this??
+                PySetItemRelease(loot, 1,                IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
+                PySetItemRelease(loot, 2,                IsFleetID(m_fleetID) ? new PyInt(m_fleetID) : PyStatic.NewNone());
+                PySetItemRelease(loot, 3,                new PyBool(false)); // what is this??
             slim->SetItemString("lootRights",   loot );
         }
         slim->SetItemString("corpID",           IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());

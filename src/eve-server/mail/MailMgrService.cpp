@@ -174,8 +174,8 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
                 PySetItemRelease(payload, 3, new PyString(std::to_string(sender)));
                 payload->SetItem(4, PyStatic.NewNone()); // toListID
                 payload->SetItem(5, PyStatic.NewNone()); // toCorpOrAllianceID
-                payload->SetItem(6, new PyString(title->content())); // title
-                payload->SetItem(7, new PyInt(0));       // statusMask
+                PySetItemRelease(payload, 6, new PyString(title->content())); // title
+                PySetItemRelease(payload, 7, new PyInt(0));       // statusMask
                 PyDict* extra = new PyDict();
                 extra->SetItemString("senderName", new PyString(call.client->GetName()));
                 payload->SetItem(8, extra);

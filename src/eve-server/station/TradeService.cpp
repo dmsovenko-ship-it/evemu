@@ -63,13 +63,13 @@ PyResult TradeBound::OfferMoney(PyCallArgs &call, PyFloat* amount) {
     if (call.client->GetCharacterID() == pTSes->m_tradeSession.myID) {
         // this is 'my'
         pTSes->m_tradeSession.myMoney = amount->value();
-        list->SetItem(0, new PyFloat(pTSes->m_tradeSession.myMoney));  //myMoney
-        list->SetItem(1, new PyFloat(pTSes->m_tradeSession.herMoney)); //herMoney
+        PySetItemRelease(list, 0, new PyFloat(pTSes->m_tradeSession.myMoney));  //myMoney
+        PySetItemRelease(list, 1, new PyFloat(pTSes->m_tradeSession.herMoney)); //herMoney
     } else if (call.client->GetCharacterID() == pTSes->m_tradeSession.herID) {
         // this is 'her'
         pTSes->m_tradeSession.herMoney = amount->value();
-        list->SetItem(0, new PyFloat(pTSes->m_tradeSession.myMoney));  //myMoney
-        list->SetItem(1, new PyFloat(pTSes->m_tradeSession.herMoney)); //herMoney
+        PySetItemRelease(list, 0, new PyFloat(pTSes->m_tradeSession.myMoney));  //myMoney
+        PySetItemRelease(list, 1, new PyFloat(pTSes->m_tradeSession.herMoney)); //herMoney
     } else {
         _log(CLIENT__ERROR, "TradeBound::Handle_OfferMoney() : %s(%u) - clients are neither mine nor hers.", \
                 call.client->GetName(), call.client->GetCharacterID());
@@ -125,7 +125,7 @@ void TradeBound::CancelTrade(Client* pClient, Client* pOther, TradeSession* pTSe
 {
     // trade canceled.  send items back to owner. (monies not taken at this point)
     //PyDict* dict = new PyDict();
-    //dict->SetItem(new PyInt(Inv::Update::Location), new PyInt(pTSes->m_tradeSession.containerID));
+    //PySetItemRelease(dict, new PyInt(Inv::Update::Location), new PyInt(pTSes->m_tradeSession.containerID));
 
     uint32 stationID = pTSes->m_tradeSession.stationID;
     for (auto cur : pTSes->m_tradelist) {
@@ -257,7 +257,7 @@ PyResult TradeBound::Add(PyCallArgs &call, PyInt* itemID, PyInt* containerID) {
     itemRef->Move(tradeContainerID, (EVEItemFlags)flag, true);
 
     PyDict* dict = new PyDict();
-        dict->SetItem(new PyInt(Inv::Update::Location), containerID);
+        PySetItemRelease(dict, new PyInt(Inv::Update::Location), containerID);
 
     PyPackedRow* row = new PyPackedRow( sDataMgr.CreateHeader() );
         PySetFieldRelease(row, "itemID", new PyLong(mTI.itemID));
@@ -308,7 +308,7 @@ PyResult TradeBound::MultiAdd(PyCallArgs &call, PyList* itemIDs, PyInt* containe
         flag = PyRep::IntegerValueU32(call.byname.find("flag")->second);
 
     PyDict* dict = new PyDict();
-        dict->SetItem(new PyInt(Inv::Update::Location), containerID);
+        PySetItemRelease(dict, new PyInt(Inv::Update::Location), containerID);
 
     TradeSession* pTSes = call.client->GetTradeSession();
     Client* pClient = sEntityList.FindClientByCharID(pTSes->m_tradeSession.myID);
@@ -385,7 +385,7 @@ PyResult TradeBound::GetItem(PyCallArgs &call) {
     TradeSession* pTSes = call.client->GetTradeSession();
     PyPackedRow* row = new PyPackedRow( sDataMgr.CreateHeader() );
         PySetFieldRelease(row, "itemID", new PyLong(pTSes->m_tradeSession.containerID));
-        row->SetField("typeID",        new PyInt(53));     // type Trade Window
+        PySetFieldRelease(row, "typeID",        new PyInt(53));     // type Trade Window
         row->SetField("ownerID",       PyStatic.NewOne());      // EvE_System
         PySetFieldRelease(row, "locationID", new PyInt(pTSes->m_tradeSession.stationID));
         row->SetField("flagID",        PyStatic.NewNone());
@@ -467,7 +467,7 @@ void TradeBound::ExchangeItems(Client* pClient, Client* pOther, TradeSession* pT
     AccountService::TransferFunds(pOther->GetCharacterID(), pClient->GetCharacterID(), pTSes->m_tradeSession.herMoney, reason, Journal::EntryType::PlayerTrading, pClient->GetStationID());
 
     //PyDict* dict = new PyDict();
-    //    dict->SetItem(new PyInt(Inv::Update::Location), new PyInt(pTSes->m_tradeSession.containerID));
+    //    PySetItemRelease(dict, new PyInt(Inv::Update::Location), new PyInt(pTSes->m_tradeSession.containerID));
 
     uint32 stationID = pTSes->m_tradeSession.stationID;
     for (auto cur : pTSes->m_tradelist) {

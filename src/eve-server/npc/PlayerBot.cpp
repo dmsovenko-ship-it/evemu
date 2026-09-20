@@ -1154,7 +1154,7 @@ void PlayerBot::BroadcastAggression(uint32 victimCharID)
     PyDict* timers = new PyDict();
         PySetItemRelease(timers, new PyInt(victimCharID), new PyLong(end));
     PyDict* aggressors = new PyDict();
-        aggressors->SetItem(new PyInt(m_botCharID), timers);
+        PySetItemRelease(aggressors, new PyInt(m_botCharID), timers);
     PyTuple* payload = new PyTuple(2);
         PySetItemRelease(payload, 0, new PyInt(SystemMgr()->GetID()));
         payload->SetItem(1, aggressors);

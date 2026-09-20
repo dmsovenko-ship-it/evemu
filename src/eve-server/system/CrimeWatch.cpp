@@ -509,7 +509,7 @@ void CrimeWatch::SendAggressionChange() {
     if (timers->empty())
         return;
     PyDict* aggressors = new PyDict();
-    aggressors->SetItem(new PyInt(m_client->GetCharacterID()), timers);
+    PySetItemRelease(aggressors, new PyInt(m_client->GetCharacterID()), timers);
     PyTuple* payload = new PyTuple(2);
         PySetItemRelease(payload, 0, new PyInt(m_client->GetSystemID()));
         payload->SetItem(1, aggressors);

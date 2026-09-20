@@ -302,7 +302,7 @@ PyResult ContractUtils::GetContractListForOwner(PyInt* ownerID, PyInt* contractS
         }
         if (!itemsByContractID.empty()) {
             for (auto entry : itemsByContractID) {
-                items->SetItem(new PyInt(entry.first), entry.second);
+                PySetItemRelease(items, new PyInt(entry.first), entry.second);
             }
         }
     }

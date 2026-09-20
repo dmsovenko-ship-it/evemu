@@ -1104,8 +1104,8 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                 PySetItemRelease(payload, 3, new PyString(std::to_string(senderID)));
                 payload->SetItem(4, PyStatic.NewNone()); // toListID
                 payload->SetItem(5, PyStatic.NewNone()); // toCorpOrAllianceID
-                payload->SetItem(6, new PyString(title.c_str())); // title (utf8)
-                payload->SetItem(7, new PyInt(0));       // statusMask
+                PySetItemRelease(payload, 6, new PyString(title.c_str())); // title (utf8)
+                PySetItemRelease(payload, 7, new PyInt(0));       // statusMask
                 PyDict* extra = new PyDict();
                 extra->SetItemString("senderName", new PyString(senderName.c_str()));
                 payload->SetItem(8, extra);

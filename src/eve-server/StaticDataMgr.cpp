@@ -1487,7 +1487,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
     PyDict* rsp = new PyDict();
     // activity '0' should stay empty
     //activityNone = 0
-    //rsp->SetItem(0, new PyDict());
+    //PySetItemRelease(rsp, 0, new PyDict());
 
     if (manuf) {        //activityManufacturing = 1
         PyDict* Manufacturing = new PyDict();

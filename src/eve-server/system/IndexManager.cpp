@@ -80,9 +80,9 @@ PyResult IndexManager::GetDevelopmentIndicesForSystem(PyCallArgs& call, PyInt* s
     PySetFieldRelease(row3, "increasing", new PyBool(indPoints < 10));
 
     PyDict* dict = new PyDict();
-    dict->SetItem(new PyInt(EveAttrEnum::AttrdevIndexSovereignty), row1);
-    dict->SetItem(new PyInt(EveAttrEnum::AttrdevIndexMilitary), row2);
-    dict->SetItem(new PyInt(EveAttrEnum::AttrdevIndexIndustrial), row3);
+    PySetItemRelease(dict, new PyInt(EveAttrEnum::AttrdevIndexSovereignty), row1);
+    PySetItemRelease(dict, new PyInt(EveAttrEnum::AttrdevIndexMilitary), row2);
+    PySetItemRelease(dict, new PyInt(EveAttrEnum::AttrdevIndexIndustrial), row3);
 
     return dict;
 }

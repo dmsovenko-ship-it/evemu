@@ -66,7 +66,7 @@ PyRep* FactionWarMgrDB::GetFacWarSystems()
         dict = new PyDict();
         dict->SetItemString("occupierID", new PyInt(row.GetInt(1)));
         dict->SetItemString("factionID", new PyInt(row.GetInt(2)));
-        result->SetItem(new PyInt(row.GetInt(0)), dict );
+        PySetItemRelease(result, new PyInt(row.GetInt(0)), dict );
     }
     return result;
 }

@@ -463,15 +463,15 @@ PyRep *MarketDB::GetMarketGroups() {
 
         PyPackedRow* pyrow = rowset->NewRow();
         pyrow->SetField((uint32)0, pid); //parentGroupID
-        pyrow->SetField(1, new PyInt(row.GetUInt(1))); //marketGroupID
-        pyrow->SetField(2, new PyString(row.GetText(2))); //marketGroupName
-        pyrow->SetField(3, new PyString(row.GetText(3))); //description
-        pyrow->SetField(4, row.IsNull(4) ? PyStatic.NewNone() : new PyInt(row.GetUInt(4))); //graphicID
-        pyrow->SetField(5, new PyBool(row.GetBool(5))); //hasTypes
-        pyrow->SetField(6, row.IsNull(6) ? PyStatic.NewNone() : new PyInt(row.GetUInt(6))); // iconID
-        pyrow->SetField(7, new PyInt(row.GetUInt(7))); //dataID
-        pyrow->SetField(8, new PyInt(row.GetUInt(8))); //marketGroupNameID
-        pyrow->SetField(9, new PyInt(row.GetUInt(9))); //descriptionID
+        PySetFieldRelease(pyrow, 1, new PyInt(row.GetUInt(1))); //marketGroupID
+        PySetFieldRelease(pyrow, 2, new PyString(row.GetText(2))); //marketGroupName
+        PySetFieldRelease(pyrow, 3, new PyString(row.GetText(3))); //description
+        PySetFieldRelease(pyrow, 4, row.IsNull(4) ? PyStatic.NewNone() : new PyInt(row.GetUInt(4))); //graphicID
+        PySetFieldRelease(pyrow, 5, new PyBool(row.GetBool(5))); //hasTypes
+        PySetFieldRelease(pyrow, 6, row.IsNull(6) ? PyStatic.NewNone() : new PyInt(row.GetUInt(6))); // iconID
+        PySetFieldRelease(pyrow, 7, new PyInt(row.GetUInt(7))); //dataID
+        PySetFieldRelease(pyrow, 8, new PyInt(row.GetUInt(8))); //marketGroupNameID
+        PySetFieldRelease(pyrow, 9, new PyInt(row.GetUInt(9))); //descriptionID
     }
 
     if (is_log_enabled(MARKET__DB_TRACE)) {

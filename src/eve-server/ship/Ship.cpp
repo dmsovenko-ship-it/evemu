@@ -1606,7 +1606,7 @@ uint32 ShipItem::UnlinkWeapon(uint32 moduleID)
     PyList* slaves = new PyList();
         slaves->AddItem(new PyInt(slaveID));
     PyDict* result = new PyDict();
-        result->SetItem(new PyInt(moduleID), slaves);
+        PySetItemRelease(result, new PyInt(moduleID), slaves);
     PyTuple* tuple = new PyTuple(3);
         PySetItemRelease(tuple, 0, new PyString("OnWeaponBanksChanged"));
         PySetItemRelease(tuple, 1, new PyInt(m_itemID));
@@ -1756,7 +1756,7 @@ PyRep* ShipItem::GetLinkedWeapons()
         PyList* slaves = new PyList();
         for (auto slave : cur.second)
             slaves->AddItem(new PyInt(slave->itemID()));
-        result->SetItem(new PyInt(cur.first->itemID()), slaves);
+        PySetItemRelease(result, new PyInt(cur.first->itemID()), slaves);
     }
 
     if (is_log_enabled(MODULE__MESSAGE)) {
@@ -2327,17 +2327,17 @@ PyDict* ShipItem::GetShipState() {
     // Create new dictionary for shipState:
     PyDict *result = new PyDict();
     // Create entry for ShipItem itself:
-    result->SetItem(new PyInt(itemID()), GetItemStatusRow());
+    PySetItemRelease(result, new PyInt(itemID()), GetItemStatusRow());
     // Check for and Create entry for pilot:
     InventoryItemRef iRefPilot(nullptr);
     if (pInventory->GetSingleItemByFlag(flagPilot, iRefPilot))
-        result->SetItem(new PyInt(iRefPilot->itemID()), iRefPilot->GetItemStatusRow());
+        PySetItemRelease(result, new PyInt(iRefPilot->itemID()), iRefPilot->GetItemStatusRow());
 
     // Create entries for ALL modules, rigs, and subsystems present on ship:
     std::vector<InventoryItemRef> moduleList;
     m_ModuleManager->GetModuleListOfRefsAsc(moduleList);
     for (auto cur : moduleList)
-        result->SetItem(new PyInt(cur->itemID()), cur->GetItemStatusRow());
+        PySetItemRelease(result, new PyInt(cur->itemID()), cur->GetItemStatusRow());
 
     return result;
 }
@@ -2360,7 +2360,7 @@ PyDict* ShipItem::GetChargeState() {
 
     // Create entries in "shipState" dictionary for loaded charges on ship:
     for (auto cur : charges)
-        result->SetItem(new PyInt((uint16)cur.first), cur.second->GetChargeStatusRow(itemID()));
+        PySetItemRelease(result, new PyInt((uint16)cur.first), cur.second->GetChargeStatusRow(itemID()));
 
     return result;
 }

@@ -336,7 +336,7 @@ PyResult MapService::GetVictoryPoints(PyCallArgs &call)
         entry->SetItemString("factionID", new PyInt(facID));
         entry->SetItemString("victoryPoints", new PyInt(0));
         entry->SetItemString("threshold", new PyInt(threshold));
-        result->SetItem(new PyInt(sysID), entry);
+        PySetItemRelease(result, new PyInt(sysID), entry);
     }
     return result;
 }
