@@ -33,6 +33,26 @@
 #include "python/PyRep.h"
 
 
+// PyTuple/PyList::SetItem INC references the stored value, and
+// PyPackedRow::SetField forwards to PyList::SetItem. The DB helpers below pass
+// freshly created temps (rc=1) and never released their own ref -> one leaked
+// ref per cell/row (the dominant per-login bulk-config leak). These helpers
+// store the value and drop the caller's reference.
+template<typename C>
+static inline void SetItemRelease(C* container, size_t index, PyRep* value)
+{
+    container->SetItem(index, value);   // INC refs (null -> fresh PyNone)
+    PySafeDecRef(value);                // release our fresh ref
+}
+
+// SetField DEC refs the value itself when the column verify FAILS (steal), and
+// INC refs it on success (via SetItem) -> release only on success.
+static inline void SetFieldRelease(PyPackedRow* row, uint32 index, PyRep* value)
+{
+    if (row->SetField(index, value))
+        PySafeDecRef(value);
+}
+
 PyRep* DBColumnToPyRep(const DBResultRow& row, uint32 index)
 {
     /* check for valid column */
@@ -91,7 +111,7 @@ PyObject *DBResultToRowset(DBQueryResult &result)
     //list off the column names:
     PyList *header = new PyList(cc);
     for(uint32 r(0); r < cc; ++r)
-        header->SetItemString(r, result.ColumnName(r));
+        SetItemRelease(header, r, new PyString(result.ColumnName(r)));
     args->SetItemString("header", header);
 
     //RowClass:
@@ -105,7 +125,7 @@ PyObject *DBResultToRowset(DBQueryResult &result)
     while(result.GetRow(row)) {
         PyList *linedata = new PyList(cc);
         for (r = 0; r < cc; ++r)
-            linedata->SetItem(r, DBColumnToPyRep(row, r));
+            SetItemRelease(linedata, r, DBColumnToPyRep(row, r));
         rowlist->AddItem(linedata);
     }
     args->SetItemString("lines", rowlist);
@@ -123,7 +143,7 @@ PyTuple *DBResultToTupleSet(DBQueryResult &result) {
     //list off the column names:
     PyList *cols = new PyList(cc);
     for(uint32 r(0); r < cc; ++r)
-        cols->SetItemString(r, result.ColumnName(r));
+        SetItemRelease(cols, r, new PyString(result.ColumnName(r)));
     res->items[0] = cols;
 
     //add a line entry for each result row:
@@ -133,7 +153,7 @@ PyTuple *DBResultToTupleSet(DBQueryResult &result) {
     while(result.GetRow(row)) {
         PyList *linedata = new PyList(cc);
         for(r = 0; r < cc; ++r)
-            linedata->SetItem(r, DBColumnToPyRep(row, r));
+            SetItemRelease(linedata, r, DBColumnToPyRep(row, r));
         reslist->items.push_back(linedata);
     }
     res->items[1] = reslist;
@@ -159,7 +179,7 @@ void populateResListWithValues(DBQueryResult &result, PyList *into) {
     while(result.GetRow(row)) {
         PyList *linedata = new PyList(cc);
         for(auto index = 0; index < cc; index++)
-            linedata->SetItem(index, DBColumnToPyRep(row, index));
+            SetItemRelease(linedata, index, DBColumnToPyRep(row, index));
         into->items.push_back(linedata);
     }
 }
@@ -193,7 +213,7 @@ PyObject *DBResultToIndexRowset(DBQueryResult &result, uint32 key_index) {
     PyList *header = new PyList(cc);
     args->SetItemString("header", header);
     for (uint32 i(0); i < cc; ++i)
-        header->SetItemString(i, result.ColumnName(i));
+        SetItemRelease(header, i, new PyString(result.ColumnName(i)));
 
     //RowClass:
     args->SetItemString("RowClass", new PyToken("util.Row"));
@@ -209,7 +229,7 @@ PyObject *DBResultToIndexRowset(DBQueryResult &result, uint32 key_index) {
         PyRep *key = DBColumnToPyRep(row, key_index);
         PyList *line = new PyList(cc);
         for (i = 0; i < cc; ++i)
-            line->SetItem(i, DBColumnToPyRep(row, i));
+            SetItemRelease(line, i, DBColumnToPyRep(row, i));
 
         items->SetItem(key, line);
     }
@@ -235,7 +255,7 @@ PyObject *DBRowToRow(DBResultRow &row, const char *type)
     uint32 cc(row.ColumnCount());
     PyList *header = new PyList(cc);
     for (uint32 r(0); r < cc; ++r)
-        header->SetItemString(r, row.ColumnName(r));
+        SetItemRelease(header, r, new PyString(row.ColumnName(r)));
 
     args->SetItemString("header", header);
 
@@ -243,7 +263,7 @@ PyObject *DBRowToRow(DBResultRow &row, const char *type)
     PyList *rowlist = new PyList(cc);
     //add a line entry for the row:
     for (uint32 r(0); r < cc; ++r)
-        rowlist->SetItem(r, DBColumnToPyRep(row, r));
+        SetItemRelease(rowlist, r, DBColumnToPyRep(row, r));
 
     args->SetItemString("line", rowlist);
 
@@ -258,10 +278,10 @@ PyTuple *DBResultToRowList(DBQueryResult &result, const char *type) {
     PyList *cols = new PyList(cc);
     //list off the column names:
     for(uint32 r(0); r < cc; ++r)
-        cols->SetItemString(r, result.ColumnName(r));
+        SetItemRelease(cols, r, new PyString(result.ColumnName(r)));
 
     PyTuple *res = new PyTuple(2);
-    res->SetItem(0, cols);
+    SetItemRelease(res, 0, cols);
 
     //add a line entry for each result row:
     DBResultRow row;
@@ -271,7 +291,7 @@ PyTuple *DBResultToRowList(DBQueryResult &result, const char *type) {
         PyObject *o = DBRowToRow(row, type);
         reslist->items.push_back(o);
     }
-    res->SetItem(1, reslist);
+    SetItemRelease(res, 1, reslist);
 
     return res;
 }
@@ -317,7 +337,7 @@ void FillPackedRow(const DBResultRow& row, PyPackedRow* into)
 {
     uint32 cc(row.ColumnCount());
     for (uint32 i(0); i < cc; ++i)
-        into->SetField(i, DBColumnToPyRep(row, i));
+        SetFieldRelease(into, i, DBColumnToPyRep(row, i));
 }
 
 PyPackedRow* CreatePackedRow(const DBResultRow& row, DBRowDescriptor* header)
@@ -335,7 +355,7 @@ PyList* DBResultToPackedRowList(DBQueryResult &result)
     uint32 i(0);
     DBResultRow row;
     while(result.GetRow(row)) {
-        list->SetItem(i++, CreatePackedRow(row, header));
+        SetItemRelease(list, i++, CreatePackedRow(row, header));
         PyIncRef(header);
     }
 
@@ -351,13 +371,13 @@ PyTuple* DBResultToPackedRowListTuple(DBQueryResult &result)
     DBResultRow row;
     uint32 i(0);
     while(result.GetRow(row)) {
-        list->SetItem(i++, CreatePackedRow(row, header));
+        SetItemRelease(list, i++, CreatePackedRow(row, header));
         PyIncRef(header);
     }
 
     PyTuple* res = new PyTuple(2);
-        res->SetItem(0, header);
-        res->SetItem(1, list);
+        SetItemRelease(res, 0, header);
+        SetItemRelease(res, 1, list);
     return res;
 }
 

@@ -28,6 +28,16 @@
 #include "python/classes/PyDatabase.h"
 #include "utils/EVEUtils.h"
 
+// PyTuple/PyList::SetItem INC references the value, so storing a freshly
+// created temp (rc=1) and never releasing our ref leaks it. Rowset/descriptor
+// creation is hot (every cached rowset), so release the caller's ref here.
+template<typename C>
+static inline void SetItemRelease(C* container, size_t index, PyRep* value)
+{
+    container->SetItem(index, value);
+    PySafeDecRef(value);
+}
+
 /************************************************************************/
 /* DBRowDescriptor                                                      */
 /************************************************************************/
@@ -96,8 +106,8 @@ bool DBRowDescriptor::VerifyValue( uint32 index, PyRep* value )
 void DBRowDescriptor::AddColumn( const char* name, DBTYPE type )
 {
     PyTuple* col = new PyTuple( 2 );
-        col->SetItem( 0, new PyString( name ) );
-        col->SetItem( 1, new PyInt( type ) );
+        SetItemRelease( col, 0, new PyString( name ) );
+        SetItemRelease( col, 1, new PyInt( type ) );
     _GetColumnList()->items.push_back( col );
 }
 
@@ -115,7 +125,7 @@ PyTuple* DBRowDescriptor::_CreateArgs()
 {
     PyTuple* columnList = new PyTuple( 0 );
     PyTuple* args = new PyTuple( 1 );
-        args->SetItem( 0, columnList );
+        SetItemRelease( args, 0, columnList );
 
     return args;
 }
@@ -152,7 +162,7 @@ DBRowDescriptor* CRowSet::_GetRowDesc() const
 PyTuple* CRowSet::_CreateArgs()
 {
     PyTuple* args = new PyTuple( 1 );
-        args->SetItem( 0, new PyToken( "dbutil.CRowset" ) );
+        SetItemRelease( args, 0, new PyToken( "dbutil.CRowset" ) );
     return args;
 }
 
@@ -203,7 +213,7 @@ DBRowDescriptor* CIndexedRowSet::_GetRowDesc() const
 PyTuple* CIndexedRowSet::_CreateArgs()
 {
     PyTuple* args = new PyTuple( 1 );
-        args->SetItem( 0, new PyToken( "dbutil.CIndexedRowset" ) );
+        SetItemRelease( args, 0, new PyToken( "dbutil.CIndexedRowset" ) );
     return args;
 }
 
@@ -213,7 +223,11 @@ PyDict* CIndexedRowSet::_CreateKeywords(DBRowDescriptor* rowDesc)
 
     PyDict* keywords = new PyDict();
     keywords->SetItemString( "header", rowDesc );
-    keywords->SetItemString( "columnName", rowDesc->GetColumnName(0) );
+    {   // columnName is BORROWED from the descriptor; SetItemString steals, so take a ref
+        PyString* cn = rowDesc->GetColumnName(0);
+        PyIncRef(cn);
+        keywords->SetItemString( "columnName", cn );
+    }
 
     return keywords;
 }
@@ -250,7 +264,7 @@ DBRowDescriptor* CFilterRowSet::_GetRowDesc() const
 PyTuple* CFilterRowSet::_CreateArgs()
 {
     PyTuple* args = new PyTuple( 1 );
-        args->SetItem( 0, new PyToken( "dbutil.CFilterRowset" ) );
+        SetItemRelease( args, 0, new PyToken( "dbutil.CFilterRowset" ) );
     return args;
 }
 
@@ -260,7 +274,11 @@ PyDict* CFilterRowSet::_CreateKeywords(DBRowDescriptor* rowDesc)
 
     PyDict* keywords = new PyDict();
     keywords->SetItemString( "header", rowDesc );
-    keywords->SetItemString( "columnName", rowDesc->GetColumnName(0) );
+    {   // columnName is BORROWED from the descriptor; SetItemString steals, so take a ref
+        PyString* cn = rowDesc->GetColumnName(0);
+        PyIncRef(cn);
+        keywords->SetItemString( "columnName", cn );
+    }
 
     return keywords;
 }
