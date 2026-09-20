@@ -266,8 +266,10 @@ void CivilianMgr::RemoveConvoy(ConvoyGroup* group) {
     for (NPC* npc : group->members) {
         if (npc != nullptr && !npc->IsDead()) {
             // RemoveNPC does the full removal (RemoveEntity + item delete);
-            // the old extra npc->Delete() double-deleted the item
-            npc->SystemMgr()->RemoveNPC(npc);
+            // the old extra npc->Delete() double-deleted the item.
+            // SystemMgr() can already be gone for a convoy caught in transit.
+            if (npc->SystemMgr() != nullptr)
+                npc->SystemMgr()->RemoveNPC(npc);
             SafeDelete(npc);
         }
     }
@@ -286,6 +288,18 @@ void CivilianMgr::TransferCrossSystem(ConvoyGroup* group) {
             npc->SystemMgr()->RemoveEntity(npc);
             // Mark as in-transit (still alive, just not in any system)
         }
+    }
+
+    // Single owner: the group moves to the transit list, so drop it from the
+    // system map it came from. ResumeCrossSystem() re-inserts it under the
+    // destination sysID — leaving the old entry behind put the SAME ConvoyGroup
+    // in two maps, and the two unload paths then SafeDelete'd it twice
+    // (~ConvoyGroup vector corruption -> free() SIGSEGV, core 17 Sep).
+    for (auto mit = m_systemCivs.begin(); mit != m_systemCivs.end(); ) {
+        if (mit->second == group)
+            mit = m_systemCivs.erase(mit);
+        else
+            ++mit;
     }
 
     // Add to transit list for delayed arrival
@@ -359,13 +373,21 @@ void CivilianMgr::ResumeCrossSystem(ConvoyGroup* group) {
             }
         }
     }
-    // Track in destination system's civilian list (before clearing destSystemID)
-    m_systemCivs[group->destSystemID] = group;
+    // Track in destination system's civilian list (before clearing destSystemID).
+    // If another convoy already owns that system, release it first so we never
+    // orphan it or leave two groups under one key.
+    {
+        auto destIt = m_systemCivs.find(group->destSystemID);
+        if (destIt != m_systemCivs.end() && destIt->second != group)
+            RemoveConvoy(destIt->second);
+        m_systemCivs[group->destSystemID] = group;
+    }
+
+    sLog.Warning("CivilianMgr", "Convoy arrived in system %u (%u ships)",
+                 group->destSystemID, group->members.size());
 
     // Clear cross-system flags — now it's a same-system convoy in the destination
     group->destSystemID = 0;
     group->sourceGateID = 0;
     group->destGateID = 0;
-    sLog.Warning("CivilianMgr", "Convoy arrived in system %u (%u ships)",
-                 group->destSystemID, group->members.size());
 }
