@@ -45,7 +45,8 @@
 - **Многопоточный тик мира / вынос региона на отдельное ядро**: десятки синглтонов без локов — переписывание архитектуры, не фича.
 
 ## 📋 Можно делать потом (реализуемо, объём оценён)
-- **Field-temps** (+1 ref на fresh SetItem/SetField, ~1520 мест): центральный фикс в ~20 DB-хелперах (EVEDBUtils/PyDatabase row-creator'ы) — **1-2 дня, риск низкий**. Покроет ~80% объёма (конфиг-булк на логин + сканы).
+- ✅ **Field-temps — центральный фикс СДЕЛАН (`76ace4e9`)**: `SetItemRelease`/`SetFieldRelease` в `EVEDBUtils.cpp` + `PyDatabase.cpp` — свежие репы, клавшиеся через `SetItem`/`SetField` (IncRef), больше не текут: все row-creator'ы (`DBResultToRowset/TupleSet/IndexRowset/RowList/PackedRowList(+Tuple)`, `populateResListWithValues`, `DBRowToRow`, `FillPackedRow`), `DBRowDescriptor::AddColumn/_CreateArgs`, `_CreateArgs` трёх rowset-классов. Плюс `columnName` в keyword-дикте — теперь с IncRef (был BORROWED через stealing `SetItemString`; раньше маскировался утечкой из `AddColumn`). Покрывает объёмный путь (конфиг-булк на логин + сканы).
+- **Остаток field-temps (per-call-site, низкий объём)**: ~500 мест вида `tuple->SetItem(i, new PyInt(...))` в сервисах (`AgentBound.cpp` ~113, `TradeService.cpp` ~58, `Colony.cpp` ~36, `FleetService.cpp` ~32, `SovereigntyDataMgr.cpp` ~31, …). Механически лечится тем же `SetItemRelease` (или `PySafeDecRef` после `SetItem`); не горит.
 - **Асинхронный префетч бута**: спроектирован (worker+condvar+map векторов на систему), консьюм в трёх Load*, флаг в конфиг — **2-4 дня, риск низкий-средний**. Уберёт хич прыжка флота в незагруженную систему; резонно до зарубы.
 
 ## 16 сент. (ночь): TiDi — официальный-style замедление тика по системе (`d7420612`)
