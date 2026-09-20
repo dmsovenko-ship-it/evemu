@@ -1,7 +1,7 @@
 # EVEmu Crucible — Progress / Прогресс
 
 > **Our fork · game systems: `███████████████████░` ~96%**
-> **Our fork · memory management: `████████████████░░░░` 80%**
+> **Our fork · memory management: `█████████████████░░░` 85%**
 > **Our fork · performance & optimization: `██████████████████░░` 88%**
 > **Upstream: `████████████░░░░░░░░` ~60%**
 > Fork of [EvEmu-Project/evemu_Crucible](https://github.com/EvEmu-Project/evemu_Crucible)
@@ -29,8 +29,8 @@
 | **Sovereignty** | 95% | `███████████████████░` | +35% | Science & Industry | 92% | `██████████████████░░` | +47% |
 | Bookmark System | 95% | `███████████████████░` | +25% | **Effects System** | 96% | `███████████████████░` | +31% |
 | **Planetary Interaction** | 95% | `███████████████████░` | +45% | Deployables (MWD/Probes) | 99% | `████████████████████` | +59% |
-| **Petitions & Support** | 95% | `███████████████████░` | +95% | Memory Management | 80% | `████████████████░░░░` | +60% |
-| **Performance & Optimization** | 50% | `██████████████████░░` | +38% | | | | |
+| **Petitions & Support** | 95% | `███████████████████░` | +95% | Memory Management | 85% | `█████████████████░░░` | +65% |
+| **Performance & Optimization** | 88% | `██████████████████░░` | +38% | | | | |
 
 ---
 
@@ -364,7 +364,7 @@
 | **Ban UX** — persisted ban reason shown verbatim on banned login (unicode-safe); reserved/offensive account+character names refused with admin alert | ❌ | ✅ |
 | **Account tooling** — per-account admin comment, ban reason, accounts grouped by IP/e-mail, ban-all-by-IP | ❌ | ✅ |
 
-### 30. Memory Management `████████████████░░░░` 80%
+### 30. Memory Management `█████████████████░░░` 85%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -376,7 +376,7 @@
 | **Missile registry** — wrapper self-frees (was ~200B per launch, forever) | ❌ | ✅ |
 | **malloc_trim every 5 min** — freed heap returned to the OS, RSS stays flat | ❌ | ✅ |
 | DB reconnect only on connection errors (no retry storm on query errors) | ❌ | ✅ |
-| Field-level temps (+1 ref per fresh SetItem/SetField) — central fix in ~20 DB helpers (1–2 days, low risk) | ❌ | ❌ |
+| **Field-level temps fixed** — central SetItem/SetField release helpers (~20 DB row-creators) + 964 call sites migrated (PyDict/packed-row overloads) | ❌ | ✅ |
 
 ### 31. Performance & Optimization `██████████████████░░` 88%
 
@@ -389,7 +389,7 @@
 | **Hot-path indexes** — mktOrders(typeID), entity(ownerID,flag), entity(locationID,flag), botKillmailLegends(character_name), sovChangeLog | ❌ | ✅ |
 | **Time dilation (TiDi)** — /tidi off\|50\|25\|10: per-system slow-mo for planned battles, official SetBallSpeed client sync | ❌ | ✅ |
 | **Serpentis faction normalization** — no more wrong-faction dungeons from the random fallback | ❌ | ✅ |
-| Async system-boot prefetch — designed (worker+condvar+per-system vectors), 2–4 days, low-medium risk | ❌ | ❌ |
+| **System-boot prefetch** — neighbours of player systems pre-booted and held loaded (idle-tick; no worker thread — ItemFactory/SystemManager are not thread-safe) | ❌ | ✅ |
 
 ---
 
@@ -397,7 +397,7 @@
 
 - **Time Dilation (TiDi)** — official-style per-system slow-mo (/tidi off|50|25|10): speeds, module cycles, missile/NPC timers scale; client sync via SetBallSpeed; docks/skills/production unaffected
 - **Memory campaign** — full PyRep ownership audits of every service path (agents/contracts/calendar/map/cache/network), cached rowsets now freed (per-login leak killed), missile wrapper registry, malloc_trim, refcount hardening + sanitizer fixes
-- **Performance campaign** — spawn-churn control, per-spawn SQL diet, hot-path indexes, load diagnosis playbook
+- **Performance campaign** — spawn-churn control, per-spawn SQL diet, hot-path indexes, idle-time neighbour system-boot prefetch, load diagnosis playbook
 - **Autopilot** — complete rewrite: auto-jump via `.tr` teleport, multi-hop via CmdStop → gate follow, 60s jump cloak, gate animation effects
 - **POS** — reinforced mode, CPU/PG, reactions, weapon AI, skills, fuel notifications, role-based defence grid, manual fire control
 - **Incursions** — full state machine, 5 simultaneous, named NPCs, gate camps, constellation penalties, penalty informer HUD, acceleration gates between pockets
@@ -428,4 +428,4 @@
 - **Ban UX** — ban reason persisted (`banReason`) and shown verbatim on the banned login (single line, unicode-safe); reserved/offensive account & character names refused with admin alert
 - **Account admin notes** — per-account free-form comment + ban reason exposed through the admin API; accounts grouped by IP/e-mail, ban-by-IP (all accounts from one address)
 - **EVE-mail** — inbox/sent listing, read/unread, notifications and unread counts with live delivery on send
-- **Memory hardening** — 32-bit refcount, split diagnostics, opt-in hard-fail, sanitizer-driven fixes (XMLParser virtual dtor, hash overflow, aligned assign, bound-service cast); PyRep ownership audits closed every practical leak path (cache rowsets and missile wrappers now freed); malloc_trim keeps RSS flat
+- **Memory hardening** — 32-bit refcount, split diagnostics, opt-in hard-fail, sanitizer-driven fixes (XMLParser virtual dtor, hash overflow, aligned assign, bound-service cast); PyRep ownership audits closed every practical leak path (cache rowsets and missile wrappers now freed); field-level temp leaks closed centrally (release helpers + 964 call sites); malloc_trim keeps RSS flat
