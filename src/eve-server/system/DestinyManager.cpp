@@ -355,6 +355,17 @@ void DestinyManager::ProcessState() {
                 // overlapping the object, not when merely near it.
                 double minDist = se->GetRadius();
                 if (dist < minDist && dist > 0.01) {
+                    // Docking must never be fought by the push-out: while docking the
+                    // client flies the ship INTO the station, and snapping it back to
+                    // the surface aborts the dock animation (visible "approach / jerk
+                    // back / approach" loop). Skip the pilot's current dock target
+                    // while docking is in progress or the ship is in docking range.
+                    if (mySE->HasPilot() && se->IsStationSE()) {
+                        Client* pc = mySE->GetPilot();
+                        if (pc != nullptr && pc->GetDockStationID() == se->GetID()
+                        && (pc->IsDock() || (dist - m_radius - se->GetRadius()) <= 2500.0))
+                            continue;
+                    }
                     // Only snap out if the ship is actually heading INTO the
                     // structure. A ship drifting/parked near a gate (or one that
                     // just warped in beside it) must not be re-snapped every tick
