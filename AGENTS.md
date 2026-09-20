@@ -1,4 +1,10 @@
-﻿## 17 сент. (день, часть 3): 🔴 Схема: allianceID/warFactionID ТОЛЬКО на crpCorporation (`82708883`)
+﻿## 20 сент.: краш по core-дампу — двойной владелец ConvoyGroup (`d9a85a8a`)
+- **Симптом**: сервер лёг (Exited 139), контейнер не поднялся. bt из `core.eve-server.*` (787МБ, 17 сент): `free()` ← `~ConvoyGroup` (вектор `NPC*`, `__n` = мусор) ← `SafeDelete<ConvoyGroup>` ← `CivilianMgr::RemoveConvoy` ← `RemoveSystemCivilians(Laic)` ← `CivilianMgr::Process`.
+- **Корень**: `TransferCrossSystem` (вызов из `ConvoyAI.cpp:203`) НЕ удалял группу из `m_systemCivs` исходной системы, а `ResumeCrossSystem` вставлял ту же группу в `m_systemCivs[dest]` → **одна ConvoyGroup в двух картах** → выгрузка старой, потом новой системы → `SafeDelete(group)` дважды → повреждение кучи (проявилось позже в `free()`).
+- **Фикс**: при трансфере группа стирается из `m_systemCivs` (поиск по значению); при вставке в dest прежний владелец ключа освобождается; null-guard `npc->SystemMgr()` для транзитных NPC; лог печатал 0 после сброса `destSystemID` — исправлено.
+- **Заметка**: `SafeDelete(npc)` в `RemoveConvoy` — из батча-2 памяти; сама корректна, но вскрыла двойное владение группой. Ядро удалено после разбора.
+
+## 17 сент. (день, часть 3): 🔴 Схема: allianceID/warFactionID ТОЛЬКО на crpCorporation (`82708883`)
 СХЕМНЫЙ КОНТРАКТ: в `chrCharacters` НЕТ колонок `allianceID` и `warFactionID` (только corporationID), в `alnAlliance` НЕТ `warFactionID`. Членство в альянсе = `chrCharacters.corporationID → crpCorporation.allianceID`; per-character FW = таблица `facWarCharacters` (PK characterID, factionID); warFactionID корпорации = `crpCorporation.warFactionID`.
 - **Симптом**: после починки резолва получателя (клиент нашёл «Tort Corporation Alliance» в eveowners) сервер при отправке альянс-письма дал `#1054 Unknown column 'allianceID'` — `MailDB::SendMail` выбирал чаров `WHERE allianceID = 99000001` → доставка пустая.
 - **14 битых SQL по всему коду** (все молча фейлились годами, RunQuery без проверки): MailDB alliance-доставка, портал MailSend (APICharacterManager), MemberTracking.xml.aspx (APICorporationManager — выбирал allianceID прямо из chrCharacters → API ВСЕГДА отдавал error 999), 8 FW-апдейтов join/leave/withdraw (alnAlliance/chrCharacters SET warFactionID), 2 per-char FW записи.
