@@ -1260,12 +1260,27 @@ inline void PySetItemRelease(PyDict* container, PyRep* key, PyRep* value)
     container->SetItem(key, value);     // dict steals — nothing to release
 }
 
+// string-key overload: PyDict::SetItem(const char*) builds the PyString key and
+// steals the value, so this is a no-op as well.
+inline void PySetItemRelease(PyDict* container, const char* key, PyRep* value)
+{
+    container->SetItem(key, value);     // dict steals — nothing to release
+}
+
 // PyPackedRow::SetField forwards to PyList::SetItem (INC on success) but DEC
 // refs the value itself when the column verify fails (steal) -> release only
 // on success.
 inline void PySetFieldRelease(PyPackedRow* row, uint32 index, PyRep* value)
 {
     if (row->SetField(index, value))
+        PySafeDecRef(value);
+}
+
+// column-name overload: PyPackedRow::SetField(const char*) forwards to the
+// index version, so the ownership contract is identical.
+inline void PySetFieldRelease(PyPackedRow* row, const char* colName, PyRep* value)
+{
+    if (row->SetField(colName, value))
         PySafeDecRef(value);
 }
 
