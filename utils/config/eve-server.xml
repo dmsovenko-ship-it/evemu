@@ -81,6 +81,9 @@ boolean can use either 0/1 OR true/false.
         <shipBoardDistance>500</shipBoardDistance><!-- int  - max distance to board ship in space (5c default) -->
         <highSecCyno>false</highSecCyno><!-- bool - allow Cynosural fields to be created in high security space -->
         <TiDiEnabled>false</TiDiEnabled><!-- bool - enables /tidi GM command: official-style per-system time dilation (off|50|25|10%) -->
+        <PrefetchSystems>true</PrefetchSystems><!-- bool - pre-boot the systems adjacent to players so a jump into them doesn't stall the tick -->
+        <PrefetchRadius>1</PrefetchRadius><!-- int - jumps radius for the prefetch (1 = direct neighbours) -->
+        <PrefetchMax>16</PrefetchMax><!-- int - max number of systems held loaded by the prefetcher -->
     </world>
 
     <rates>

@@ -86,6 +86,9 @@ public:
         uint16 gridUnloadTime;
         uint16 apWarptoDistance;
         bool TiDiEnabled;       // enables /tidi GM command (per-system time dilation)
+        bool PrefetchSystems;   // proactively boot systems adjacent to players (removes the jump-into-unloaded-system hitch)
+        uint8 PrefetchRadius;   // jumps radius for the prefetch (1 = direct neighbours)
+        uint8 PrefetchMax;      // max number of systems held loaded by the prefetcher
     } world;
 
     // From <rates>

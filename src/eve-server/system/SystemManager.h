@@ -73,6 +73,8 @@ public:
     // inactivity and keep a baseline bot population running 24/7.
     void SetPersistent(bool p)                          { m_persistent = p; }
     bool IsPersistent() const                           { return m_persistent; }
+    void SetPrefetchHold(bool h)                        { m_prefetchHold = h; }
+    bool IsPrefetchHold() const                         { return m_prefetchHold; }
 
     SystemEntity* GetSE(uint32 entityID) const;
     NPC* GetNPCSE(uint32 entityID) const;
@@ -246,6 +248,7 @@ private:
     // for grid Unloading system  -allan  27June2015
     bool m_loaded;
     bool m_persistent;          // keep loaded + populated even with no players (always-on hubs)
+    bool m_prefetchHold;        // held loaded by the neighbour prefetcher (player is 1 jump away)
     bool SystemActivity();
     bool SafeToUnload();
     uint16 m_players;           // current total count

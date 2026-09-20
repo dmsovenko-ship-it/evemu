@@ -104,6 +104,11 @@ public:
     // this will return nullptr and throw console msg on failure.
     SystemManager* FindOrBootSystem(uint32 systemID);
 
+    // Pre-boot (and hold loaded) the systems adjacent to players so a jump into
+    // them doesn't stall the game thread.  See EntityList.cpp for rationale.
+    void PrefetchAdjacentSystems();
+    std::vector<uint32> GetAdjacentSystems(uint32 systemID);
+
     bool IsOnline(uint32 charID);
     PyRep* PyIsOnline(uint32 charID);
 
@@ -190,6 +195,7 @@ private:
     Timer m_stampTimer;
     Timer m_minuteTimer;
     Timer m_targTimer;
+    Timer m_prefetchTimer;
 
     // connected clients (incomplete client class data)
     //  use this to delete Client*
@@ -200,6 +206,7 @@ private:
     std::set<int64> m_sessions;
     std::map<uint32, SystemManager*> m_systems;
     std::map<uint32, StationItemRef> m_stations;
+    std::set<uint32> m_prefetchHeld;   // systems held loaded by the neighbour prefetcher
     std::vector<std::string> m_anomIDs;
     std::map<uint32, Agent*> m_agents;
 

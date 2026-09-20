@@ -67,6 +67,7 @@ EntityList::EntityList()
 m_targTimer(0, true),
 m_stampTimer(0, true),
 m_minuteTimer(0, true),
+m_prefetchTimer(0, true),
 m_startTime(0),
 m_npcs(0),
 m_stamp(1000),   /* arbitrary.  start at 1k.  in seconds.  used for destiny and client counters */
@@ -98,6 +99,7 @@ void EntityList::Initialize() {
     m_targTimer.Start(250);     // testing targeting and scan probes at 4/sec
     m_stampTimer.Start(1000);   // 1hz tic timer
     m_minuteTimer.Start(60000); // does this need to be accurate?
+    m_prefetchTimer.Start(5000); // neighbour prefetch sweep (only when enabled)
 
     m_clientSeedID = ServiceDB::SetClientSeed();
     sLog.Green( "       ServerInit", "ClientSeed Initialized." );
@@ -625,6 +627,11 @@ void EntityList::Process() {
             ++itr;
         }
 
+        // pre-boot the neighbours of player systems so a jump into them doesn't
+        // stall the game thread (throttled; no-op unless world.PrefetchSystems)
+        if (m_prefetchTimer.Check())
+            PrefetchAdjacentSystems();
+
         // these need 1Hz tics
         sCivMgr.Process();
         sBubbleMgr.Process();
@@ -739,6 +746,104 @@ SystemManager* EntityList::FindOrBootSystem(uint32 systemID) {
     _log(SERVER__INIT, "BootSystem() - Booted system %u", systemID);
     m_systems[systemID] = pSM;
     return pSM;
+}
+
+// Booting a system (creating every station/gate/planet/belt SE) is expensive and
+// happens synchronously on the game thread, so a fleet jumping into an unloaded
+// system stalls the tick.  The boot cannot be moved to a worker thread (neither
+// ItemFactory nor SystemManager are thread-safe), so instead we boot the
+// neighbours of player systems ahead of time, during otherwise idle ticks, and
+// hold them loaded while a player is one jump away.  The cost is paid while
+// nobody is waiting instead of during the jump.
+std::vector<uint32> EntityList::GetAdjacentSystems(uint32 systemID) {
+    static std::map<uint32, std::vector<uint32>> cache;
+
+    if (systemID == 0)
+        return {};
+
+    auto it = cache.find(systemID);
+    if (it != cache.end())
+        return it->second;
+
+    std::vector<uint32> v;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT toSolarSystemID FROM mapSolarSystemJumps WHERE fromSolarSystemID = %u", systemID)) {
+        DBResultRow row;
+        while (res.GetRow(row))
+            v.push_back(row.GetUInt(0));
+    }
+
+    cache[systemID] = v;
+    return v;
+}
+
+void EntityList::PrefetchAdjacentSystems() {
+    if (!sConfig.world.PrefetchSystems)
+        return;
+
+    const uint32 radius = sConfig.world.PrefetchRadius ? sConfig.world.PrefetchRadius : 1;
+    const uint32 maxHold = sConfig.world.PrefetchMax ? sConfig.world.PrefetchMax : 16;
+
+    // Everything within `radius` jumps of a system that currently has players.
+    std::set<uint32> want;
+    for (auto& cur : m_systems) {
+        if (cur.second == nullptr or cur.second->PlayerCount() == 0)
+            continue;
+
+        std::set<uint32> visited;
+        std::vector<uint32> frontier, next;
+        visited.insert(cur.first);
+        frontier.push_back(cur.first);
+        for (uint32 depth = 0; depth < radius and !frontier.empty(); ++depth) {
+            next.clear();
+            for (uint32 sid : frontier) {
+                for (uint32 adj : GetAdjacentSystems(sid)) {
+                    if (visited.insert(adj).second) {
+                        next.push_back(adj);
+                        want.insert(adj);
+                    }
+                }
+            }
+            frontier.swap(next);
+        }
+    }
+
+    // bound the number of held systems
+    while (want.size() > maxHold)
+        want.erase(--want.end());
+
+    // boot the missing ones, a couple per pass, so a hub with many gates doesn't
+    // spike the tick
+    uint32 bootsThisPass = 0;
+    for (uint32 sid : want) {
+        if (m_systems.count(sid) != 0)
+            continue;
+        if (bootsThisPass >= 2)
+            break;
+        if (FindOrBootSystem(sid) != nullptr)
+            ++bootsThisPass;
+    }
+
+    // (re)apply the hold on everything we still want...
+    for (uint32 sid : want) {
+        auto it = m_systems.find(sid);
+        if (it != m_systems.end() and it->second != nullptr) {
+            it->second->SetPrefetchHold(true);
+            m_prefetchHeld.insert(sid);
+        }
+    }
+    // ...and release systems we no longer need
+    for (auto hit = m_prefetchHeld.begin(); hit != m_prefetchHeld.end(); ) {
+        if (want.count(*hit) == 0) {
+            auto it = m_systems.find(*hit);
+            if (it != m_systems.end() and it->second != nullptr)
+                it->second->SetPrefetchHold(false);
+            hit = m_prefetchHeld.erase(hit);
+        } else {
+            ++hit;
+        }
+    }
 }
 
 // cannot put add/remove station in header due to incomplete StationItemRef class

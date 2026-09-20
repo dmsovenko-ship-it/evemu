@@ -81,6 +81,9 @@ EVEServerConfig::EVEServerConfig()
     world.apWarptoDistance = 15000;
     world.shipBoardDistance = 300;
     world.highSecCyno = false;
+    world.PrefetchSystems = false;
+    world.PrefetchRadius = 1;
+    world.PrefetchMax = 16;
 
     // rates
     rates.npcBountyMultiply = 1.0;
@@ -427,6 +430,9 @@ bool EVEServerConfig::ProcessWorld( const TiXmlElement* ele )
     AddValueParser( "StationDockDelay",  world.StationDockDelay );
     AddValueParser( "apWarptoDistance",  world.apWarptoDistance );
     AddValueParser( "shipBoardDistance", world.shipBoardDistance );
+    AddValueParser( "PrefetchSystems",   world.PrefetchSystems );
+    AddValueParser( "PrefetchRadius",    world.PrefetchRadius );
+    AddValueParser( "PrefetchMax",       world.PrefetchMax );
 
     const bool result = ParseElementChildren( ele );
 
@@ -446,6 +452,9 @@ bool EVEServerConfig::ProcessWorld( const TiXmlElement* ele )
     RemoveParser( "StationDockDelay" );
     RemoveParser( "apWarptoDistance" );
     RemoveParser( "shipBoardDistance" );
+    RemoveParser( "PrefetchSystems" );
+    RemoveParser( "PrefetchRadius" );
+    RemoveParser( "PrefetchMax" );
 
     return result;
 }
