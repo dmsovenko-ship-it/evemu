@@ -278,14 +278,14 @@ PyResult TutorialService::GetTutorialAgents(PyCallArgs &call, PyList* agentIDs) 
     while (res.GetRow(row)) {
         PyPackedRow* packed = new PyPackedRow(header);
         PyIncRef(header); // extra ref — each PackedRow shares the header; dtor will DecRef
-        packed->SetField("agentID",       new PyInt(row.GetUInt(0)));
-        packed->SetField("agentTypeID",   new PyInt(row.GetUInt(1)));
-        packed->SetField("divisionID",    new PyInt(row.GetUInt(2)));
-        packed->SetField("level",         new PyInt(row.GetUInt(3)));
-        packed->SetField("stationID",     new PyInt(row.GetUInt(4)));
-        packed->SetField("bloodlineID",   new PyInt(row.GetUInt(5)));
-        packed->SetField("quality",       new PyInt(row.GetInt(6)));
-        packed->SetField("corporationID", new PyInt(row.GetUInt(7)));
+        PySetFieldRelease(packed, "agentID", new PyInt(row.GetUInt(0)));
+        PySetFieldRelease(packed, "agentTypeID", new PyInt(row.GetUInt(1)));
+        PySetFieldRelease(packed, "divisionID", new PyInt(row.GetUInt(2)));
+        PySetFieldRelease(packed, "level", new PyInt(row.GetUInt(3)));
+        PySetFieldRelease(packed, "stationID", new PyInt(row.GetUInt(4)));
+        PySetFieldRelease(packed, "bloodlineID", new PyInt(row.GetUInt(5)));
+        PySetFieldRelease(packed, "quality", new PyInt(row.GetInt(6)));
+        PySetFieldRelease(packed, "corporationID", new PyInt(row.GetUInt(7)));
         packed->SetField("gender",        (row.IsNull(8) ? false : row.GetUInt(8)) ? PyStatic.NewTrue() : PyStatic.NewFalse());
         result->AddItem(packed);
     }
@@ -321,10 +321,10 @@ PyResult TutorialService::GetCharacterTutorialState(PyCallArgs& call) {
         while (res.GetRow(row)) {
             PyPackedRow* packed = new PyPackedRow(header);
             PyIncRef(header);
-            packed->SetField("tutorialID",      new PyInt(row.GetUInt(0)));
-            packed->SetField("pageID",          new PyInt(row.GetUInt(1)));
+            PySetFieldRelease(packed, "tutorialID", new PyInt(row.GetUInt(0)));
+            PySetFieldRelease(packed, "pageID", new PyInt(row.GetUInt(1)));
             packed->SetField("completed",       row.GetUInt(2) ? PyStatic.NewTrue() : PyStatic.NewFalse());
-            packed->SetField("completedDateTime", new PyLong(row.GetInt64(3)));
+            PySetFieldRelease(packed, "completedDateTime", new PyLong(row.GetInt64(3)));
             result->AddItem(packed);
         }
         return result;
@@ -352,9 +352,9 @@ PyResult TutorialService::GetTutorialsAndConnections(PyCallArgs& call) {
         while (connRes.GetRow(row)) {
             PyPackedRow* packed = new PyPackedRow(header);
             PyIncRef(header);
-            packed->SetField("tutorialID",     new PyInt(row.GetUInt(0)));
-            packed->SetField("raceID",         new PyInt(row.GetUInt(1)));
-            packed->SetField("nextTutorialID", new PyInt(row.GetUInt(2)));
+            PySetFieldRelease(packed, "tutorialID", new PyInt(row.GetUInt(0)));
+            PySetFieldRelease(packed, "raceID", new PyInt(row.GetUInt(1)));
+            PySetFieldRelease(packed, "nextTutorialID", new PyInt(row.GetUInt(2)));
             static_cast<PyList*>(connections)->AddItem(packed);
         }
     }

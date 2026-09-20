@@ -260,13 +260,13 @@ PyResult LPService::GetAvailableOffersFromCorp(PyCallArgs& call, PyInt* corporat
       list->SetItem(j, tuple2);
       j++;
     }
-    dict->SetItem("typeID", new PyInt(row.GetInt(0)));
-    dict->SetItem("iskCost", new PyInt(row.GetInt(1)));
+    PySetItemRelease(dict, "typeID", new PyInt(row.GetInt(0)));
+    PySetItemRelease(dict, "iskCost", new PyInt(row.GetInt(1)));
     dict->SetItem("reqItems", list);
-    dict->SetItem("offerID", new PyInt(row.GetInt(2)));
-    dict->SetItem("qty", new PyInt(row.GetInt(3)));
-    dict->SetItem("lpCost", new PyInt(row.GetInt(4)));
-    res->SetItem(i, new PyObject("util.KeyVal", dict));
+    PySetItemRelease(dict, "offerID", new PyInt(row.GetInt(2)));
+    PySetItemRelease(dict, "qty", new PyInt(row.GetInt(3)));
+    PySetItemRelease(dict, "lpCost", new PyInt(row.GetInt(4)));
+    PySetItemRelease(res, i, new PyObject("util.KeyVal", dict));
     i++;
   }
   

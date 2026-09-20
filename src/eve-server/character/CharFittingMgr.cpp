@@ -30,7 +30,7 @@ PyResult CharFittingMgr::GetFittings(PyCallArgs &call, PyInt* ownerID) {
         entry->SetItemString("shipDNA", new PyString(row.GetText(2)));
         entry->SetItemString("name", new PyString(row.GetText(3)));
         entry->SetItemString("description", new PyString(row.GetText(4)));
-        fittings->SetItem(new PyInt(row.GetUInt(0)), new PyObject("util.KeyVal", entry));
+        PySetItemRelease(fittings, new PyInt(row.GetUInt(0)), new PyObject("util.KeyVal", entry));
     }
     return fittings;
 }

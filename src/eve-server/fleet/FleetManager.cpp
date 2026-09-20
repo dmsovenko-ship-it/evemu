@@ -88,13 +88,13 @@ PyResult FleetManager::GetActiveStatus(PyCallArgs &call) {
     for (auto wingID : wingIDs) {
         WingData wData = WingData();
         sFltSvc.GetWingData(wingID, wData);
-        wings->SetItem(new PyInt(wingID), new PyInt((sFltSvc.IsWingActive(wingID) ? 1 : 0)));
+        PySetItemRelease(wings, new PyInt(wingID), new PyInt((sFltSvc.IsWingActive(wingID) ? 1 : 0)));
 
         sFltSvc.GetSquadIDs(wingID, squadIDs);
         for (auto squadID : squadIDs) {
             SquadData sData = SquadData();
             sFltSvc.GetSquadData(squadID, sData);
-            squads->SetItem(new PyInt(squadID), new PyInt(sData.members.size() > 0 ? 1 : 0));
+            PySetItemRelease(squads, new PyInt(squadID), new PyInt(sData.members.size() > 0 ? 1 : 0));
         }
     }
 

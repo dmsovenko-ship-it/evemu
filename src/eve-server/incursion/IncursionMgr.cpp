@@ -247,7 +247,7 @@ void IncursionMgr::EndIncursion(uint32 incursionID)
     sEntityList.GetClients(allClients);
     for (auto client : allClients) {
         PyTuple* payload = new PyTuple(1);
-        payload->SetItem(0, new PyInt(incursionID));
+        PySetItemRelease(payload, 0, new PyInt(incursionID));
         client->SendNotification("OnTaleEnd", "clientID", payload, false);
     }
     NotifyClients(incursionID);
@@ -755,7 +755,7 @@ void IncursionMgr::NotifyClients(uint32 incursionID)
                 PyIncRef(taleData);
                 taleMap->SetItemString(std::to_string(taleID > 0 ? taleID : id).c_str(), taleData);
                 PyTuple* tdPayload = new PyTuple(2);
-                tdPayload->SetItem(0, new PyInt(client->GetSystemID()));
+                PySetItemRelease(tdPayload, 0, new PyInt(client->GetSystemID()));
                 tdPayload->SetItem(1, taleMap);
                 client->SendNotification("OnTaleData", "clientID", tdPayload, false);
             }
@@ -763,7 +763,7 @@ void IncursionMgr::NotifyClients(uint32 incursionID)
             // OnInfluenceUpdate: influence change
             PyIncRef(influenceData);
             PyTuple* inflPayload = new PyTuple(2);
-            inflPayload->SetItem(0, new PyInt(taleID > 0 ? taleID : id));
+            PySetItemRelease(inflPayload, 0, new PyInt(taleID > 0 ? taleID : id));
             inflPayload->SetItem(1, influenceData);
             client->SendNotification("OnInfluenceUpdate", "clientID", inflPayload, false);
 

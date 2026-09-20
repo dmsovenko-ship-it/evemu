@@ -115,8 +115,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
     // to set 'admin dialog options' (which i dont know wtf they are yet), i *think* you add a tuple of *something* that is NOT dict or int.
     if (false /*admin options*/) {
         PyTuple* adminButton = new PyTuple(2);
-        adminButton->SetItem(0, new PyInt(Admin));
-        adminButton->SetItem(1, new PyString("Admin Options"));
+        PySetItemRelease(adminButton, 0, new PyInt(Admin));
+        PySetItemRelease(adminButton, 1, new PyString("Admin Options"));
         dialog->AddItem(adminButton);
     }
 
@@ -127,17 +127,17 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 MissionOffer offer = MissionOffer();
                 if (m_agent->HasMission(pchar->itemID(), offer)) {
                     PyTuple* button1 = new PyTuple(2);
-                        button1->SetItem(0, new PyInt(ViewMission));
-                        button1->SetItem(1, new PyInt(ViewMission));
+                        PySetItemRelease(button1, 0, new PyInt(ViewMission));
+                        PySetItemRelease(button1, 1, new PyInt(ViewMission));
                     dialog->AddItem(button1);
                     if (call.client->IsMissionComplete(offer))  {
                         PyTuple* button2 = new PyTuple(2);
-                            button2->SetItem(0, new PyInt(Complete));
-                            button2->SetItem(1, new PyInt(Complete));
+                            PySetItemRelease(button2, 0, new PyInt(Complete));
+                            PySetItemRelease(button2, 1, new PyInt(Complete));
                         dialog->AddItem(button2);
                     }
-                    agentSays->SetItem(0, new PyInt(offer.briefingID));
-                    agentSays->SetItem(1, new PyInt(offer.characterID));
+                    PySetItemRelease(agentSays, 0, new PyInt(offer.briefingID));
+                    PySetItemRelease(agentSays, 1, new PyInt(offer.characterID));
                 } else {
                     // Check for epic arc
                     bool hasArc = false;
@@ -145,14 +145,14 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     if (arc != nullptr) {
                         if (sEpicArcMgr.IsOnArc(pchar->itemID(), arc->arcID)) {
                             PyTuple* arcButton = new PyTuple(2);
-                                arcButton->SetItem(0, new PyInt(Dialog::Button::EpicArcStart));
-                                arcButton->SetItem(1, new PyString("Continue Epic Arc"));
+                                PySetItemRelease(arcButton, 0, new PyInt(Dialog::Button::EpicArcStart));
+                                PySetItemRelease(arcButton, 1, new PyString("Continue Epic Arc"));
                             dialog->AddItem(arcButton);
                             hasArc = true;
                         } else if (sEpicArcMgr.CanStartArc(pchar->itemID(), arc->arcID)) {
                             PyTuple* arcButton = new PyTuple(2);
-                                arcButton->SetItem(0, new PyInt(Dialog::Button::EpicArcStart));
-                                arcButton->SetItem(1, new PyString("Epic Arc"));
+                                PySetItemRelease(arcButton, 0, new PyInt(Dialog::Button::EpicArcStart));
+                                PySetItemRelease(arcButton, 1, new PyString("Epic Arc"));
                             dialog->AddItem(arcButton);
                             hasArc = true;
                         }
@@ -168,30 +168,30 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         m_agent->GetTypeID() == Agents::Type::Tutorial or
                         m_agent->GetTypeID() == Agents::Type::Aura) {
                         PyTuple* button2 = new PyTuple(2);
-                            button2->SetItem(0, new PyInt(RequestMission));
-                            button2->SetItem(1, new PyInt(RequestMission));
+                            PySetItemRelease(button2, 0, new PyInt(RequestMission));
+                            PySetItemRelease(button2, 1, new PyInt(RequestMission));
                         dialog->AddItem(button2);
                     }
                     response = "Why the fuck am I looking at you again, ";
                     response += call.client->GetName();
                     response += "?";
-                    agentSays->SetItem(0, new PyString(response));
+                    PySetItemRelease(agentSays, 0, new PyString(response));
                     agentSays->SetItem(1, PyStatic.NewNone());
                 }
 
                 // if agent does location, add this one...
                 if (m_agent->IsLocator()) {
                     PyTuple* button3 = new PyTuple(2);
-                        button3->SetItem(0, new PyInt(LocateCharacter));
-                        button3->SetItem(1, new PyInt(LocateCharacter));
+                        PySetItemRelease(button3, 0, new PyInt(LocateCharacter));
+                        PySetItemRelease(button3, 1, new PyInt(LocateCharacter));
                     dialog->AddItem(button3);
                 }
 
                 // if agent does research, add this one...
                 if (m_agent->IsResearch()) {
                     PyTuple* button4 = new PyTuple(2);
-                        button4->SetItem(0, new PyInt(StartResearch));
-                        button4->SetItem(1, new PyInt(StartResearch));
+                        PySetItemRelease(button4, 0, new PyInt(StartResearch));
+                        PySetItemRelease(button4, 1, new PyInt(StartResearch));
                     dialog->AddItem(button4);
                 }
             } break;
@@ -232,15 +232,15 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                             notifData->SetItemString("agentID", new PyInt(m_agent->GetID()));
                             notifData->SetItemString("missionName", new PyString(offer.name));
                         sEntityList.CreateNotification(charID, Notify::Types::ResearchMissionAvailable, m_agent->GetID(), notifData);
-                        agentSays->SetItem(0, new PyInt(nextMission->missionID));
-                        agentSays->SetItem(1, new PyInt(charID));
+                        PySetItemRelease(agentSays, 0, new PyInt(nextMission->missionID));
+                        PySetItemRelease(agentSays, 1, new PyInt(charID));
                         PyTuple* button1 = new PyTuple(2);
-                            button1->SetItem(0, new PyInt(Accept));
-                            button1->SetItem(1, new PyInt(Accept));
+                            PySetItemRelease(button1, 0, new PyInt(Accept));
+                            PySetItemRelease(button1, 1, new PyInt(Accept));
                         dialog->AddItem(button1);
                         PyTuple* button2 = new PyTuple(2);
-                            button2->SetItem(0, new PyInt(Decline));
-                            button2->SetItem(1, new PyInt(Decline));
+                            PySetItemRelease(button2, 0, new PyInt(Decline));
+                            PySetItemRelease(button2, 1, new PyInt(Decline));
                         dialog->AddItem(button2);
                     }
                 }
@@ -248,11 +248,11 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
             case RequestMission: {  //2
                 // Aura starts tutorial chain, not a standard mission
                 if (m_agent->GetTypeID() == Agents::Type::Aura) {
-                    agentSays->SetItem(0, new PyString("Welcome to EVE Online. Your training begins now."));
+                    PySetItemRelease(agentSays, 0, new PyString("Welcome to EVE Online. Your training begins now."));
                     agentSays->SetItem(1, PyStatic.NewNone());
                     PyTuple* button1 = new PyTuple(2);
-                        button1->SetItem(0, new PyInt(Accept));
-                        button1->SetItem(1, new PyString("Begin Training"));
+                        PySetItemRelease(button1, 0, new PyInt(Accept));
+                        PySetItemRelease(button1, 1, new PyString("Begin Training"));
                     dialog->AddItem(button1);
                     // Notify client to open tutorial browser with first Aura tutorial
                     PyDict* args = new PyDict();
@@ -273,52 +273,52 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 *   contentID is used for specific char's mission keywords.  we're not using it like there here....
                 */
 
-                agentSays->SetItem(0, new PyInt(offer.briefingID));
-                agentSays->SetItem(1, new PyInt(offer.characterID));
+                PySetItemRelease(agentSays, 0, new PyInt(offer.briefingID));
+                PySetItemRelease(agentSays, 1, new PyInt(offer.characterID));
 
                 // dialog can also contain mission data.
                 //   set a dialog tuple[1] to dict and fill with MissionBriefingInfo
                 PyTuple* button1 = new PyTuple(2);
-                    button1->SetItem(0, new PyInt(Accept));
-                    button1->SetItem(1, new PyInt(Accept));
+                    PySetItemRelease(button1, 0, new PyInt(Accept));
+                    PySetItemRelease(button1, 1, new PyInt(Accept));
                 dialog->AddItem(button1);
                 PyTuple* button2 = new PyTuple(2);
-                    button2->SetItem(0, new PyInt(Decline));
-                    button2->SetItem(1, new PyInt(Decline));
+                    PySetItemRelease(button2, 0, new PyInt(Decline));
+                    PySetItemRelease(button2, 1, new PyInt(Decline));
                 dialog->AddItem(button2);
                 PyTuple* button3 = new PyTuple(2);
-                    button3->SetItem(0, new PyInt(Defer));
-                    button3->SetItem(1, new PyInt(Defer));
+                    PySetItemRelease(button3, 0, new PyInt(Defer));
+                    PySetItemRelease(button3, 1, new PyInt(Defer));
                 dialog->AddItem(button3);
                 }
             } break;
             case ViewMission: { //1
                 MissionOffer offer = MissionOffer();
                 m_agent->GetOffer(pchar->itemID(), offer);
-                agentSays->SetItem(0, new PyInt(offer.briefingID));
-                agentSays->SetItem(1, new PyInt(offer.characterID));
+                PySetItemRelease(agentSays, 0, new PyInt(offer.briefingID));
+                PySetItemRelease(agentSays, 1, new PyInt(offer.characterID));
                 if (offer.stateID < Mission::State::Accepted) {
                     PyTuple* button1 = new PyTuple(2);
-                        button1->SetItem(0, new PyInt(Accept));
-                        button1->SetItem(1, new PyInt(Accept));
+                        PySetItemRelease(button1, 0, new PyInt(Accept));
+                        PySetItemRelease(button1, 1, new PyInt(Accept));
                     dialog->AddItem(button1);
                     PyTuple* button2 = new PyTuple(2);
-                        button2->SetItem(0, new PyInt(Decline));
-                        button2->SetItem(1, new PyInt(Decline));
+                        PySetItemRelease(button2, 0, new PyInt(Decline));
+                        PySetItemRelease(button2, 1, new PyInt(Decline));
                     dialog->AddItem(button2);
                     PyTuple* button3 = new PyTuple(2);
-                        button3->SetItem(0, new PyInt(Defer));
-                        button3->SetItem(1, new PyInt(Defer));
+                        PySetItemRelease(button3, 0, new PyInt(Defer));
+                        PySetItemRelease(button3, 1, new PyInt(Defer));
                     dialog->AddItem(button3);
                 } else if (offer.stateID == Mission::State::Accepted) {
                     PyTuple* button1 = new PyTuple(2);
-                        button1->SetItem(0, new PyInt(Quit));
-                        button1->SetItem(1, new PyInt(Quit));
+                        PySetItemRelease(button1, 0, new PyInt(Quit));
+                        PySetItemRelease(button1, 1, new PyInt(Quit));
                     dialog->AddItem(button1);
                     if (call.client->IsMissionComplete(offer))  {
                         PyTuple* button2 = new PyTuple(2);
-                            button2->SetItem(0, new PyInt(Complete));
-                            button2->SetItem(1, new PyInt(Complete));
+                            PySetItemRelease(button2, 0, new PyInt(Complete));
+                            PySetItemRelease(button2, 1, new PyInt(Complete));
                         dialog->AddItem(button2);
                     }
                 }
@@ -327,7 +327,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
             case AcceptRemotely: {  //5
                 // Aura: tutorial already started via OnServerTutorialRequest from RequestMission
                 if (m_agent->GetTypeID() == Agents::Type::Aura) {
-                    agentSays->SetItem(0, new PyString("Good luck pilot. Follow the tutorial instructions."));
+                    PySetItemRelease(agentSays, 0, new PyString("Good luck pilot. Follow the tutorial instructions."));
                     agentSays->SetItem(1, PyStatic.NewNone());
                 } else {
                 MissionOffer offer = MissionOffer();
@@ -415,8 +415,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 }
                 m_agent->UpdateOffer(pchar->itemID(), offer);
                 m_agent->SendMissionUpdate(call.client, "offer_accepted");
-                agentSays->SetItem(0, new PyInt(m_agent->GetAcceptRsp(pchar->itemID())));
-                agentSays->SetItem(1, new PyInt(pchar->itemID()));
+                PySetItemRelease(agentSays, 0, new PyInt(m_agent->GetAcceptRsp(pchar->itemID())));
+                PySetItemRelease(agentSays, 1, new PyInt(pchar->itemID()));
                 }
             } break;
             case Complete:              //6
@@ -428,8 +428,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 offer.dateCompleted = GetFileTimeNow();
                 m_agent->UpdateOffer(pchar->itemID(), offer);
                 m_agent->SendMissionUpdate(call.client, "completed");
-                agentSays->SetItem(0, new PyInt(m_agent->GetCompleteRsp(pchar->itemID())));
-                agentSays->SetItem(1, new PyInt(pchar->itemID()));
+                PySetItemRelease(agentSays, 0, new PyInt(m_agent->GetCompleteRsp(pchar->itemID())));
+                PySetItemRelease(agentSays, 1, new PyInt(pchar->itemID()));
                 // Epic arc completion handling
                 if (offer.typeID == Mission::Type::EpicArc) {
                     EpicArcData* arc = sEpicArcMgr.GetArcByAgent(m_agent->GetID());
@@ -505,8 +505,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 missionDeclined = true;
                 m_agent->DeleteOffer(pchar->itemID());
                 m_agent->SendMissionUpdate(call.client, "offer_declined");
-                agentSays->SetItem(0, new PyInt(m_agent->GetDeclineRsp(pchar->itemID())));
-                agentSays->SetItem(1, new PyInt(pchar->itemID()));
+                PySetItemRelease(agentSays, 0, new PyInt(m_agent->GetDeclineRsp(pchar->itemID())));
+                PySetItemRelease(agentSays, 1, new PyInt(pchar->itemID()));
                 /** @todo  add lp, etc, etc  */
                 m_agent->UpdateStandings(call.client, Standings::MissionDeclined);
             } break;
@@ -521,8 +521,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 // remove mission offer and set standings accordingly
                 m_agent->DeleteOffer(pchar->itemID());
                 m_agent->SendMissionUpdate(call.client, "quit");
-                agentSays->SetItem(0, new PyInt(m_agent->GetDeclineRsp(pchar->itemID())));
-                agentSays->SetItem(1, new PyInt(pchar->itemID()));
+                PySetItemRelease(agentSays, 0, new PyInt(m_agent->GetDeclineRsp(pchar->itemID())));
+                PySetItemRelease(agentSays, 1, new PyInt(pchar->itemID()));
                 /** @todo  add lp, etc, etc  */
                 m_agent->UpdateStandings(call.client, Standings::MissionFailure, offer.important);
             } break;
@@ -532,7 +532,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
             case StartResearch: {   //12
                 // Show research field choices from agent's agtResearchAgents
                 if (m_agent->GetResearchFields().empty()) {
-                    agentSays->SetItem(0, new PyString("I have no research fields available for you."));
+                    PySetItemRelease(agentSays, 0, new PyString("I have no research fields available for you."));
                     agentSays->SetItem(1, PyStatic.NewNone());
                 } else {
                     // Check if character already researching with this agent
@@ -545,7 +545,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         alreadyResearching = true;
 
                     if (alreadyResearching) {
-                        agentSays->SetItem(0, new PyString("You are already conducting research with me."));
+                        PySetItemRelease(agentSays, 0, new PyString("You are already conducting research with me."));
                         agentSays->SetItem(1, PyStatic.NewNone());
                     } else {
                         // Return the list of research fields for the client to display
@@ -553,13 +553,13 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         PyList* choices = new PyList();
                         for (uint16 skillID : m_agent->GetResearchFields()) {
                             PyTuple* choice = new PyTuple(2);
-                            choice->SetItem(0, new PyInt(skillID));
-                            choice->SetItem(1, new PyInt(skillID));
+                            PySetItemRelease(choice, 0, new PyInt(skillID));
+                            PySetItemRelease(choice, 1, new PyInt(skillID));
                             choices->AddItem(choice);
                         }
                         PyDict* researchData = new PyDict();
                         researchData->SetItemString("skillTypeID", choices);
-                        agentSays->SetItem(0, new PyString("What field of research interests you?"));
+                        PySetItemRelease(agentSays, 0, new PyString("What field of research interests you?"));
                         agentSays->SetItem(1, researchData);
                     }
                 }
@@ -569,7 +569,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 DBerror err;
                 sDatabase.RunQuery(err, "DELETE FROM chrResearch WHERE characterID = %u AND agentID = %u",
                     charID, m_agent->GetID());
-                agentSays->SetItem(0, new PyString("Research connection terminated. Any unspent research points have been lost."));
+                PySetItemRelease(agentSays, 0, new PyString("Research connection terminated. Any unspent research points have been lost."));
                 agentSays->SetItem(1, PyStatic.NewNone());
               } break;
             case BuyDatacores: {    //14
@@ -590,7 +590,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         maxBuy = affordable;
 
                     if (maxBuy < 1) {
-                        agentSays->SetItem(0, new PyString("You don't have enough research points or ISK to buy datacores."));
+                        PySetItemRelease(agentSays, 0, new PyString("You don't have enough research points or ISK to buy datacores."));
                         agentSays->SetItem(1, PyStatic.NewNone());
                     } else {
                         // Buy one datacore for simplicity
@@ -605,12 +605,12 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                         sItemFactory.UnsetUsingClient();
                         if (iRef.get() != nullptr) {
-                            agentSays->SetItem(0, new PyString("Here is your datacore. Thank you for your contribution to science!"));
+                            PySetItemRelease(agentSays, 0, new PyString("Here is your datacore. Thank you for your contribution to science!"));
                             agentSays->SetItem(1, PyStatic.NewNone());
                         }
                     }
                 } else {
-                    agentSays->SetItem(0, new PyString("You are not currently researching with me."));
+                    PySetItemRelease(agentSays, 0, new PyString("You are not currently researching with me."));
                     agentSays->SetItem(1, PyStatic.NewNone());
                 }
               } break;
@@ -652,7 +652,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                             " ON DUPLICATE KEY UPDATE skillTypeID = %u, pointsPerDay = %.2f, lastUpdate = %lli",
                             charID, m_agent->GetID(), val, ppd, (int64)GetFileTimeNow(),
                             val, ppd, (int64)GetFileTimeNow());
-                        agentSays->SetItem(0, new PyString("Research has begun. I will inform you of our progress."));
+                        PySetItemRelease(agentSays, 0, new PyString("Research has begun. I will inform you of our progress."));
                         agentSays->SetItem(1, PyStatic.NewNone());
                         break;
                     }
@@ -666,7 +666,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
             }
         }
     } else {
-        agentSays->SetItem(0, new PyInt(m_agent->GetStandingsRsp(pchar->itemID())));
+        PySetItemRelease(agentSays, 0, new PyInt(m_agent->GetStandingsRsp(pchar->itemID())));
         agentSays->SetItem(1, PyStatic.NewNone() /*new PyInt(pchar->itemID())*/);
     }
 
@@ -985,8 +985,8 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
             //extra->SetItemString("specificItemID", PyStatic.NewNone());
             //extra->SetItemString("blueprintInfo", PyStatic.NewNone());
         PyTuple* normalRewards = new PyTuple(3);
-            normalRewards->SetItem(0, new PyInt(itemTypeCredits));
-            normalRewards->SetItem(1, new PyInt(offer.rewardISK));
+            PySetItemRelease(normalRewards, 0, new PyInt(itemTypeCredits));
+            PySetItemRelease(normalRewards, 1, new PyInt(offer.rewardISK));
             normalRewards->SetItem(2, extra);
         normList->AddItem(normalRewards);
     }
@@ -995,8 +995,8 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
             //extra->SetItemString("specificItemID", PyStatic.NewNone());
             //extra->SetItemString("blueprintInfo", PyStatic.NewNone());
         PyTuple* normalRewards = new PyTuple(3);
-            normalRewards->SetItem(0, new PyInt(offer.rewardItemID));
-            normalRewards->SetItem(1, new PyInt(offer.rewardItemQty));
+            PySetItemRelease(normalRewards, 0, new PyInt(offer.rewardItemID));
+            PySetItemRelease(normalRewards, 1, new PyInt(offer.rewardItemQty));
             normalRewards->SetItem(2, extra);
         normList->AddItem(normalRewards);
     }
@@ -1026,7 +1026,7 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
             bonusRewards->SetItem(0, new PyLong(offer.bonusTime * EvE::Time::Minute));  // bonus time * minutes
         }
             bonusRewards->SetItem(1, new PyInt(itemTypeCredits));   // bonus is *usually* isk.  for now, we'll keep it as isk (easier)
-            bonusRewards->SetItem(2, new PyInt(offer.rewardISK *2));
+            PySetItemRelease(bonusRewards, 2, new PyInt(offer.rewardISK *2));
             bonusRewards->SetItem(3, extra);
         bonusList->AddItem(bonusRewards);
     }
@@ -1037,8 +1037,8 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
             //extra->SetItemString("blueprintInfo", PyStatic.NewNone());
         PyTuple* bonusRewards2 = new PyTuple(4);
             bonusRewards2->SetItem(0, new PyLong(12000000000)); //20m
-            bonusRewards2->SetItem(1, new PyInt(itemTypeTrit));
-            bonusRewards2->SetItem(2, new PyInt(offer.rewardISK));
+            PySetItemRelease(bonusRewards2, 1, new PyInt(itemTypeTrit));
+            PySetItemRelease(bonusRewards2, 2, new PyInt(offer.rewardISK));
             bonusRewards2->SetItem(3, extra);
         bonusList->AddItem(bonusRewards2);
     }
@@ -1085,9 +1085,9 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
                     loc->SetItemString("referringAgentID", new PyInt(m_agent->GetID()));
                     loc->SetItemString("shipTypeID", new PyInt(m_agent->GetTypeID()));
                     PyTuple* coords = new PyTuple(3);
-                        coords->SetItem(0, new PyFloat(tgt.x));
-                        coords->SetItem(1, new PyFloat(tgt.y));
-                        coords->SetItem(2, new PyFloat(tgt.z));
+                        PySetItemRelease(coords, 0, new PyFloat(tgt.x));
+                        PySetItemRelease(coords, 1, new PyFloat(tgt.y));
+                        PySetItemRelease(coords, 2, new PyFloat(tgt.z));
                     loc->SetItemString("coords", coords);
                 dunData->SetItemString("location", loc);
                 dunList->AddItem(dunData);
@@ -1141,9 +1141,9 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         dropoffLocation->SetItemString("shipTypeID", new PyInt(offer.destinationTypeID) );
         dropoffLocation->SetItemString("agentID", new PyInt(offer.destinationOwnerID) );
         PyTuple* coords = new PyTuple(3);
-            coords->SetItem(0, new PyFloat(0));
-            coords->SetItem(1, new PyFloat(0));
-            coords->SetItem(2, new PyFloat(0));
+            PySetItemRelease(coords, 0, new PyFloat(0));
+            PySetItemRelease(coords, 1, new PyFloat(0));
+            PySetItemRelease(coords, 2, new PyFloat(0));
         dropoffLocation->SetItemString("coords", coords);
         dropoffLocation->SetItemString("referringAgentID", new PyInt(offer.agentID) );
     }
@@ -1163,13 +1163,13 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
                 cargo->SetItemString("quantity", new PyInt(offer.courierAmount));
                 cargo->SetItemString("volume", new PyFloat(offer.courierItemVolume * offer.courierAmount));
             PyTuple* objData = new PyTuple(5);
-                objData->SetItem(0, new PyInt(offer.originOwnerID));
+                PySetItemRelease(objData, 0, new PyInt(offer.originOwnerID));
                 objData->SetItem(1, pickupLocation);
-                objData->SetItem(2, new PyInt(offer.destinationOwnerID));
+                PySetItemRelease(objData, 2, new PyInt(offer.destinationOwnerID));
                 objData->SetItem(3, dropoffLocation);
                 objData->SetItem(4, cargo);
             PyTuple* objType = new PyTuple(2);
-                objType->SetItem(0, new PyString("transport"));
+                PySetItemRelease(objType, 0, new PyString("transport"));
                 objType->SetItem(1, objData);
             objectives->SetItem(0, objType);
         } break;
@@ -1178,8 +1178,8 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
             // entry with a warp link, filled in GetMissionObjectiveInfo). No
             // 'fetch' objective — that rendering is wrong for a kill/clear site.
             PyTuple* objType = new PyTuple(2);
-                objType->SetItem(0, new PyString("none"));
-                objType->SetItem(1, new PyDict());
+                PySetItemRelease(objType, 0, new PyString("none"));
+                PySetItemRelease(objType, 1, new PyDict());
             objectives->SetItem(0, objType);
         } break;
         case Mission::Type::Mining: {
@@ -1189,11 +1189,11 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
                 cargo->SetItemString("quantity", new PyInt(offer.courierAmount));
                 cargo->SetItemString("volume", new PyFloat(offer.courierItemVolume * offer.courierAmount));
             PyTuple* objData = new PyTuple(3);
-                objData->SetItem(0, new PyInt(offer.destinationOwnerID));
+                PySetItemRelease(objData, 0, new PyInt(offer.destinationOwnerID));
                 objData->SetItem(1, dropoffLocation);
                 objData->SetItem(2, cargo);
             PyTuple* objType = new PyTuple(2);
-                objType->SetItem(0, new PyString("fetch"));
+                PySetItemRelease(objType, 0, new PyString("fetch"));
                 objType->SetItem(1, objData);
             objectives->SetItem(0, objType);
         } break;
@@ -1208,8 +1208,8 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         default: {
             // safety net for unknown/invalid mission types
             PyTuple* objType = new PyTuple(2);
-                objType->SetItem(0, new PyString("none"));
-                objType->SetItem(1, new PyDict());
+                PySetItemRelease(objType, 0, new PyString("none"));
+                PySetItemRelease(objType, 1, new PyDict());
             objectives->SetItem(0, objType);
         } break;
     }

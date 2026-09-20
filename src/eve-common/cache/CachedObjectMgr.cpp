@@ -49,25 +49,25 @@
     PyTuple* tuple = new PyTuple(7);
     tuple->SetItem(0, itr_1);
     tuple->SetItem(1, GenerateLockdownCachedObject());
-    tuple->SetItem(2, new PyNone());
+    PySetItemRelease(tuple, 2, new PyNone());
 
     // build the tuple based on above packet...may not need, as that is cached packet....
     PyTuple* first = new PyTuple(2);
-        first->SetItem(0, new PyLong(Win32TimeNow()));
+        PySetItemRelease(first, 0, new PyLong(Win32TimeNow()));
         first->SetItem(1, new PyInt(46587)); //unknown
     PyTuple* second = new PyTuple(3);
-        second->SetItem(0, new PyString("Method Call"));
-        second->SetItem(1, new PyString("server"));
+        PySetItemRelease(second, 0, new PyString("Method Call"));
+        PySetItemRelease(second, 1, new PyString("server"));
     PyTuple* third = new PyTuple(2);
-        third->SetItem(0, new PyString("browserLockdownSvc"));
-        third->SetItem(1, new PyString("GetDefaultHomePage"));
+        PySetItemRelease(third, 0, new PyString("browserLockdownSvc"));
+        PySetItemRelease(third, 1, new PyString("GetDefaultHomePage"));
         second->SetItem(2, third);
     PyTuple* data = new PyTuple(7);
         data->SetItem(0, first);
         data->SetItem(1, new PyNone()); //unknown
         data->SetItem(2, new PyInt(704421)); //unknown - nodeID?
         data->SetItem(3, PyStatic.NewOne()); //unknown
-        data->SetItem(4, new PySubStream(new PyString("https://evemu.dev/")));
+        PySetItemRelease(data, 4, new PySubStream(new PyString("https://evemu.dev/")));
         data->SetItem(5, PyStatic.NewInt(0)); //unknown
         data->SetItem(6, second);
     return new PyObject( "objectCaching.CachedMethodCallResult", data );

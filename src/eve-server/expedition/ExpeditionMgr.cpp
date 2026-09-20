@@ -103,7 +103,7 @@ void ExpeditionMgr::MaybeTrigger(Client* pKiller, uint32 factionID, uint32 sourc
                            sDataMgr.GetSystemName(exp.targetSystemID));
     // Refresh the client's Journal "Expeditions" tab.
     PyTuple* noti = new PyTuple(1);
-        noti->SetItem(0, new PyLong(exp.sigItemID));
+        PySetItemRelease(noti, 0, new PyLong(exp.sigItemID));
     pKiller->SendNotification("OnEscalatingPathChange", "charid", &noti);
 }
 
@@ -147,7 +147,7 @@ void ExpeditionMgr::OnSiteCleared(uint32 charID, uint32 sigItemID)
                                ExpeditionName(exp.factionID, exp.stage).c_str(),
                                sDataMgr.GetSystemName(exp.targetSystemID));
         PyTuple* noti = new PyTuple(1);
-            noti->SetItem(0, new PyLong(exp.sigItemID));
+            PySetItemRelease(noti, 0, new PyLong(exp.sigItemID));
         pClient->SendNotification("OnEscalatingPathChange", "charid", &noti);
     }
 }

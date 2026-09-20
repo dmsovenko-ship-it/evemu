@@ -168,10 +168,10 @@ PyResult MailMgrService::SendMail(PyCallArgs &call, PyList* toCharacterIDs, std:
                 // 8-tuple without senderName is not parseable -> mail arrives in DB
                 // but never shows in the recipient's inbox.
                 PyTuple* payload = new PyTuple(9);
-                payload->SetItem(0, new PyInt(mailID));
-                payload->SetItem(1, new PyInt(sender));
-                payload->SetItem(2, new PyLong(GetFileTimeNow()));
-                payload->SetItem(3, new PyString(std::to_string(sender)));
+                PySetItemRelease(payload, 0, new PyInt(mailID));
+                PySetItemRelease(payload, 1, new PyInt(sender));
+                PySetItemRelease(payload, 2, new PyLong(GetFileTimeNow()));
+                PySetItemRelease(payload, 3, new PyString(std::to_string(sender)));
                 payload->SetItem(4, PyStatic.NewNone()); // toListID
                 payload->SetItem(5, PyStatic.NewNone()); // toCorpOrAllianceID
                 payload->SetItem(6, new PyString(title->content())); // title

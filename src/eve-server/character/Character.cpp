@@ -615,14 +615,14 @@ PyRep* Character::GetRAMSkills()
      */
 
     PyDict* skillLevels = new PyDict();
-        skillLevels->SetItem(new PyInt(EVEDB::invTypes::ScientificNetworking), new PyInt(GetSkillLevel(EvESkill::ScientificNetworking)));
-        skillLevels->SetItem(new PyInt(EVEDB::invTypes::SupplyChainManagement), new PyInt(GetSkillLevel(EvESkill::SupplyChainManagement)));
+        PySetItemRelease(skillLevels, new PyInt(EVEDB::invTypes::ScientificNetworking), new PyInt(GetSkillLevel(EvESkill::ScientificNetworking)));
+        PySetItemRelease(skillLevels, new PyInt(EVEDB::invTypes::SupplyChainManagement), new PyInt(GetSkillLevel(EvESkill::SupplyChainManagement)));
 
     uint8 mLab = 1 + GetSkillLevel(EvESkill::LaboratoryOperation) + GetSkillLevel(EvESkill::AdvancedLaboratoryOperation);
     uint8 mSlot = 1 + GetSkillLevel(EvESkill::MassProduction) + GetSkillLevel(EvESkill::AdvancedMassProduction);
     PyDict* attributeValues = new PyDict();
-        attributeValues->SetItem(new PyInt(AttrMaxLaborotorySlots), new PyInt(mLab));
-        attributeValues->SetItem(new PyInt(AttrManufactureSlotLimit), new PyInt(mSlot));
+        PySetItemRelease(attributeValues, new PyInt(AttrMaxLaborotorySlots), new PyInt(mLab));
+        PySetItemRelease(attributeValues, new PyInt(AttrManufactureSlotLimit), new PyInt(mSlot));
 
     PyTuple* tuple = new PyTuple(2);
         tuple->SetItem(0, skillLevels);
@@ -679,7 +679,7 @@ PyTuple *Character::SendSkillQueue() {
     // and encapsulate it in a tuple with the free points
     PyTuple *tuple = new PyTuple(2);
         tuple->SetItem(0, list);
-        tuple->SetItem(1, new PyInt(m_freePoints));
+        PySetItemRelease(tuple, 1, new PyInt(m_freePoints));
     return tuple;
 }
 
@@ -1204,7 +1204,7 @@ PyDict *Character::GetCharInfo() {
         return nullptr;
 
     PyDict *result = new PyDict();
-    result->SetItem(new PyInt(m_itemID), new PyObject("util.KeyVal", entry1.Encode()));
+    PySetItemRelease(result, new PyInt(m_itemID), new PyObject("util.KeyVal", entry1.Encode()));
 
     //now encode skills...
     std::vector<InventoryItemRef> skills;
@@ -1219,7 +1219,7 @@ PyDict *Character::GetCharInfo() {
     for (auto cur : skills) {
         Rsp_CommonGetInfo_Entry entry;
         if (cur->Populate(entry)) {
-            result->SetItem(new PyInt(cur->itemID()), new PyObject("util.KeyVal", entry.Encode()));
+            PySetItemRelease(result, new PyInt(cur->itemID()), new PyObject("util.KeyVal", entry.Encode()));
         } else {
             codelog(CHARACTER__ERROR, "%s (%u): Failed to load character item %u for GetCharInfo", name(), m_itemID, cur->itemID());
         }

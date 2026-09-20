@@ -70,7 +70,7 @@ void TCUSE::SetOnline()
     _log(SOV__INFO, "TCU %s(%u): Claim will finalize at %lli (vulnerable during claim).", GetName(), m_data.itemID, m_claimTime);
 
     PyTuple* data = new PyTuple(2);
-        data->SetItem(0, new PyInt(m_system->GetID()));
+        PySetItemRelease(data, 0, new PyInt(m_system->GetID()));
         data->SetItem(1, PyStatic.NewNone());
 
     // Notify all clients that sovereignty is pending
@@ -96,7 +96,7 @@ void TCUSE::SetOffline()
     svDataMgr.RemoveSovClaim(m_system->GetID());
 
     PyTuple* data = new PyTuple(2);
-        data->SetItem(0, new PyInt(m_system->GetID()));
+        PySetItemRelease(data, 0, new PyInt(m_system->GetID()));
         data->SetItem(1, PyStatic.NewNone());
 
     std::vector<Client*> list;
@@ -165,8 +165,8 @@ void TCUSE::FinalizeClaim()
     args->SetItemString("solarSystemID", new PyInt(sovData.solarSystemID));
 
     PyTuple* data = new PyTuple(2);
-        data->SetItem(0, new PyInt(sovData.solarSystemID));
-        data->SetItem(1, new PyObject("util.KeyVal", args));
+        PySetItemRelease(data, 0, new PyInt(sovData.solarSystemID));
+        PySetItemRelease(data, 1, new PyObject("util.KeyVal", args));
 
     std::vector<Client*> list;
     sEntityList.GetClients(list);

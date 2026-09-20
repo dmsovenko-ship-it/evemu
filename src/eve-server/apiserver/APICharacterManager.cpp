@@ -1025,14 +1025,14 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                 Client* member = sEntityList.FindClientByCharID(memberID);
                 if (member == nullptr) continue;
                 PyTuple* payload = new PyTuple(9);
-                payload->SetItem(0, new PyInt(messageID));
-                payload->SetItem(1, new PyInt(senderID));
-                payload->SetItem(2, new PyLong(GetFileTimeNow()));
-                payload->SetItem(3, new PyString(std::to_string(senderID)));
+                PySetItemRelease(payload, 0, new PyInt(messageID));
+                PySetItemRelease(payload, 1, new PyInt(senderID));
+                PySetItemRelease(payload, 2, new PyLong(GetFileTimeNow()));
+                PySetItemRelease(payload, 3, new PyString(std::to_string(senderID)));
                 payload->SetItem(4, PyStatic.NewNone());
-                payload->SetItem(5, new PyInt(orgID));
-                payload->SetItem(6, new PyString(title.c_str()));
-                payload->SetItem(7, new PyInt(0));
+                PySetItemRelease(payload, 5, new PyInt(orgID));
+                PySetItemRelease(payload, 6, new PyString(title.c_str()));
+                PySetItemRelease(payload, 7, new PyInt(0));
                 PyDict* extra = new PyDict();
                 extra->SetItemString("senderName", new PyString("EVE System"));
                 payload->SetItem(8, extra);
@@ -1098,10 +1098,10 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                 }
                 uint32 senderID = std::stoul(sid);
                 PyTuple* payload = new PyTuple(9);
-                payload->SetItem(0, new PyInt(messageID));
-                payload->SetItem(1, new PyInt(senderID));
-                payload->SetItem(2, new PyLong(GetFileTimeNow()));
-                payload->SetItem(3, new PyString(std::to_string(senderID)));
+                PySetItemRelease(payload, 0, new PyInt(messageID));
+                PySetItemRelease(payload, 1, new PyInt(senderID));
+                PySetItemRelease(payload, 2, new PyLong(GetFileTimeNow()));
+                PySetItemRelease(payload, 3, new PyString(std::to_string(senderID)));
                 payload->SetItem(4, PyStatic.NewNone()); // toListID
                 payload->SetItem(5, PyStatic.NewNone()); // toCorpOrAllianceID
                 payload->SetItem(6, new PyString(title.c_str())); // title (utf8)

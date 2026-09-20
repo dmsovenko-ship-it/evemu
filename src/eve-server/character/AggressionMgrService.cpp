@@ -64,11 +64,11 @@ PyResult AggressionMgrBound::GetCriminalTimeStamps(PyCallArgs &call, PyInt* char
     int64 now = GetFileTimeNow();
 
     if (pCW->HasWeaponTimer()) {
-        timers->SetItem(new PyInt(targetCharID), new PyLong(now));
+        PySetItemRelease(timers, new PyInt(targetCharID), new PyLong(now));
     }
 
     if (pCW->IsAggressed() && pCW->GetAggressionTargetID() > 0) {
-        timers->SetItem(new PyInt(pCW->GetAggressionTargetID()), new PyLong(now));
+        PySetItemRelease(timers, new PyInt(pCW->GetAggressionTargetID()), new PyLong(now));
     }
 
     return timers;

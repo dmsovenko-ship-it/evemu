@@ -121,8 +121,8 @@ PyResult MapService::GetLinkableJumpArrays(PyCallArgs &call)
     while (res.GetRow(row)) {
         // SELECT systemID, itemID
         PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(row.GetInt(0)));
-        tuple->SetItem(1, new PyInt(row.GetInt(1)));
+        PySetItemRelease(tuple, 0, new PyInt(row.GetInt(0)));
+        PySetItemRelease(tuple, 1, new PyInt(row.GetInt(1)));
         list->AddItem(tuple);
     }
 
@@ -146,8 +146,8 @@ PyResult MapService::GetAllianceJumpBridges(PyCallArgs &call)
     while (res.GetRow(row)) {
         // SELECT systemID, itemID
         PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(row.GetInt(0)));
-        tuple->SetItem(1, new PyInt(row.GetInt(1)));
+        PySetItemRelease(tuple, 0, new PyInt(row.GetInt(0)));
+        PySetItemRelease(tuple, 1, new PyInt(row.GetInt(1)));
         list->AddItem(tuple);
     }
 
@@ -239,8 +239,8 @@ PyResult MapService::GetSystemsInIncursions(PyCallArgs &call) {
         DBResultRow row;
         while (res.GetRow(row)) {
             PyTuple* tuple = new PyTuple(2);
-            tuple->SetItem(0, new PyInt(row.GetInt(0)));
-            tuple->SetItem(1, new PyInt(row.GetInt(1)));
+            PySetItemRelease(tuple, 0, new PyInt(row.GetInt(0)));
+            PySetItemRelease(tuple, 1, new PyInt(row.GetInt(1)));
             list->AddItem(tuple);
         }
     }
@@ -256,8 +256,8 @@ PyResult MapService::GetSystemsInIncursionsGM(PyCallArgs &call) {
         DBResultRow row;
         while (res.GetRow(row)) {
             PyTuple* tuple = new PyTuple(2);
-            tuple->SetItem(0, new PyInt(row.GetInt(0)));
-            tuple->SetItem(1, new PyInt(row.GetInt(1)));
+            PySetItemRelease(tuple, 0, new PyInt(row.GetInt(0)));
+            PySetItemRelease(tuple, 1, new PyInt(row.GetInt(1)));
             list->AddItem(tuple);
         }
     }

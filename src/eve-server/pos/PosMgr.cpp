@@ -177,13 +177,13 @@ PyResult PosMgr::GetJumpArrays(PyCallArgs &call) {
     while (res.GetRow(row)) {
         //SELECT itemID, systemID, toItemID, toTypeID, toSystemID
         PyTuple* rsp = new PyTuple(2);
-            rsp->SetItem(0, new PyInt(row.GetInt(1)));
+            PySetItemRelease(rsp, 0, new PyInt(row.GetInt(1)));
         if (row.GetInt(2) > 0) {
         PyDict* dict = new PyDict();
             PyTuple* tuple = new PyTuple(3);
-                tuple->SetItem(0, new PyInt(row.GetInt(4)));
-                tuple->SetItem(1, new PyInt(row.GetInt(2)));
-                tuple->SetItem(2, new PyInt(row.GetInt(3)));
+                PySetItemRelease(tuple, 0, new PyInt(row.GetInt(4)));
+                PySetItemRelease(tuple, 1, new PyInt(row.GetInt(2)));
+                PySetItemRelease(tuple, 2, new PyInt(row.GetInt(3)));
             dict->SetItem(new PyInt(row.GetInt(0)), tuple);
             rsp->SetItem(1, dict);
         } else {
@@ -306,8 +306,8 @@ PyResult PosMgrBound::GetTowerNotificationSettings(PyCallArgs &call, PyInt* item
         return new PyObject("util.Row", dict);
 
     PyList* line = new PyList(2);
-        line->SetItem(0, new PyBool(pTSE->SendFuelNotifications()));
-        line->SetItem(1, new PyBool(pTSE->ShowInCalendar()));
+        PySetItemRelease(line, 0, new PyBool(pTSE->SendFuelNotifications()));
+        PySetItemRelease(line, 1, new PyBool(pTSE->ShowInCalendar()));
     dict->SetItemString("line", line);
 
     return new PyObject("util.Row", dict);
@@ -354,11 +354,11 @@ PyResult PosMgrBound::GetTowerSentrySettings(PyCallArgs &call, PyInt* itemID) {
         return new PyObject("util.Row", data);
 
     PyList* line = new PyList(5);
-        line->SetItem(0, new PyFloat(pTSE->GetStanding()));
-        line->SetItem(1, new PyFloat(pTSE->GetStatus()));
-        line->SetItem(2, new PyBool(pTSE->GetStatusDrop()));
-        line->SetItem(3, new PyBool(pTSE->GetCorpWar()));
-        line->SetItem(4, new PyInt(pTSE->GetStandingOwnerID()));
+        PySetItemRelease(line, 0, new PyFloat(pTSE->GetStanding()));
+        PySetItemRelease(line, 1, new PyFloat(pTSE->GetStatus()));
+        PySetItemRelease(line, 2, new PyBool(pTSE->GetStatusDrop()));
+        PySetItemRelease(line, 3, new PyBool(pTSE->GetCorpWar()));
+        PySetItemRelease(line, 4, new PyInt(pTSE->GetStandingOwnerID()));
     data->SetItemString("line", line);
 
     return new PyObject("util.Row", data);
@@ -503,14 +503,14 @@ if self.moon[1] is not None:
     PyList* list = new PyList();
     while (itr != end) {
         PyTuple* resource = new PyTuple(2);
-            resource->SetItem(0, new PyInt(itr->first));
-            resource->SetItem(1, new PyInt(itr->second));
+            PySetItemRelease(resource, 0, new PyInt(itr->first));
+            PySetItemRelease(resource, 1, new PyInt(itr->second));
         list->AddItem(resource);
         ++itr;
     }
 
     PyTuple* item = new PyTuple(2);
-        item->SetItem(0, new PyInt(pMSE->GetID()));
+        PySetItemRelease(item, 0, new PyInt(pMSE->GetID()));
         item->SetItem(1, list);
     return item;
 }
@@ -717,7 +717,7 @@ PyResult PosMgrBound::AssumeStructureControl(PyCallArgs &call, PyInt* itemID) {
             PyDict* args = new PyDict();
             args->SetItemString("itemID", new PyInt(itemID->value()));
             PyTuple* payload = new PyTuple(1);
-            payload->SetItem(0, new PyObject("util.KeyVal", args));
+            PySetItemRelease(payload, 0, new PyObject("util.KeyVal", args));
             oldClient->SendNotification("OnRelinquishStructureControl", "clientID", payload, false);
         }
     }
@@ -730,7 +730,7 @@ PyResult PosMgrBound::AssumeStructureControl(PyCallArgs &call, PyInt* itemID) {
     PyDict* args = new PyDict();
     args->SetItemString("itemID", new PyInt(itemID->value()));
     PyTuple* payload = new PyTuple(1);
-    payload->SetItem(0, new PyObject("util.KeyVal", args));
+    PySetItemRelease(payload, 0, new PyObject("util.KeyVal", args));
     call.client->SendNotification("OnAssumeStructureControl", "clientID", payload, false);
 
     _log(POS__MESSAGE, "PosMgrBound::AssumeStructureControl() - %s assumed control of structure %u.",
@@ -766,7 +766,7 @@ PyResult PosMgrBound::RelinquishStructureControl(PyCallArgs &call, PyInt* itemID
     PyDict* args = new PyDict();
     args->SetItemString("itemID", new PyInt(itemID->value()));
     PyTuple* payload = new PyTuple(1);
-    payload->SetItem(0, new PyObject("util.KeyVal", args));
+    PySetItemRelease(payload, 0, new PyObject("util.KeyVal", args));
     call.client->SendNotification("OnRelinquishStructureControl", "clientID", payload, false);
 
     _log(POS__MESSAGE, "PosMgrBound::RelinquishStructureControl() - %s relinquished control of structure %u.",

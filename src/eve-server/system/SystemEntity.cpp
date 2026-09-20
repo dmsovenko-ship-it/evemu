@@ -409,8 +409,8 @@ PyDict* StargateSE::MakeSlimItem() {
     _log(SE__SLIMITEM, "MakeSlimItem for StargateSE %s(%u)", GetName(), m_self->itemID());
     /** @todo  finish gate rotation data
     PyTuple* rotation = new PyTuple(3);
-        rotation->SetItem(0, new PyFloat(0));
-        rotation->SetItem(1, new PyFloat(0));
+        PySetItemRelease(rotation, 0, new PyFloat(0));
+        PySetItemRelease(rotation, 1, new PyFloat(0));
         rotation->SetItem(2, new PyFloat(0));*/
     PyDict *slim = new PyDict();
         //slim->SetItemString("dunRotation", rotation);
@@ -502,9 +502,9 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
                 float yawDeg = EvE::Trig::Rad2Deg(atan2(dx, dz));
                 if (yawDeg > 180.0f) yawDeg -= 360.0f;
                 else if (yawDeg < -180.0f) yawDeg += 360.0f;
-                rotTuple->SetItem(0, new PyFloat(yawDeg));
-                rotTuple->SetItem(1, new PyFloat(0.0));
-                rotTuple->SetItem(2, new PyFloat(0.0));
+                PySetItemRelease(rotTuple, 0, new PyFloat(yawDeg));
+                PySetItemRelease(rotTuple, 1, new PyFloat(0.0));
+                PySetItemRelease(rotTuple, 2, new PyFloat(0.0));
             slim->SetItemString("dunRotation", rotTuple);
             slim->SetItemString("dunKeyLock", PyStatic.NewNone());   //?
             slim->SetItemString("dunWipeNPC", new PyBool(0));   //?
@@ -519,9 +519,9 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
     Large_Collidable_Ship
     Large_Collidable_Object
     PyTuple* rotation = new PyTuple(3);
-        rotation->SetItem(0, new PyFloat(0));
-        rotation->SetItem(1, new PyFloat(0));
-        rotation->SetItem(2, new PyFloat(0));
+        PySetItemRelease(rotation, 0, new PyFloat(0));
+        PySetItemRelease(rotation, 1, new PyFloat(0));
+        PySetItemRelease(rotation, 2, new PyFloat(0));
     slim->SetItemString("dunRotation", rotation);
     */
     return slim;
@@ -1115,10 +1115,10 @@ void DeployableSE::SendSlimUpdate()
     slim->SetItemString("posTimestamp", new PyLong(GetFileTimeNow()));
     slim->SetItemString("posDelayTime", new PyInt(m_anchorTime / 1000));
     PyTuple *shipData = new PyTuple(2);
-    shipData->SetItem(0, new PyLong(m_self->itemID()));
-    shipData->SetItem(1, new PyObject("foo.SlimItem", slim));
+    PySetItemRelease(shipData, 0, new PyLong(m_self->itemID()));
+    PySetItemRelease(shipData, 1, new PyObject("foo.SlimItem", slim));
     PyTuple *sItem = new PyTuple(2);
-    sItem->SetItem(0, new PyString("OnSlimItemChange"));
+    PySetItemRelease(sItem, 0, new PyString("OnSlimItemChange"));
     sItem->SetItem(1, shipData);
     m_destiny->SendSingleDestinyUpdate(&sItem);
 }

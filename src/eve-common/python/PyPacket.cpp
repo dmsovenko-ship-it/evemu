@@ -1010,7 +1010,7 @@ PyTuple *EVENotificationStream::Encode() {
         t3->SetItem(1, t4);
     PyTuple *t2 = new PyTuple(2);
         t2->SetItem(0, PyStatic.NewInt(0));
-        t2->SetItem(1, new PySubStream(t3));
+        PySetItemRelease(t2, 1, new PySubStream(t3));
     PyTuple *t1 = new PyTuple(1);
         t1->SetItem(0, t2);
     return t1;

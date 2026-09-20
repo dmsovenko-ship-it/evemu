@@ -909,7 +909,7 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
             }
             // this is the complete belt scanner rsp code here.
             PyTuple* result = new PyTuple(2);
-            result->SetItem(0, new PyString("OnSurveyScanComplete"));
+            PySetItemRelease(result, 0, new PyString("OnSurveyScanComplete"));
             PyList* list = new PyList();
             std::vector<AsteroidSE*> vList;
             m_sysMgr->GetBeltMgr()->GetList(sBubbleMgr.GetBeltID(m_bubble->GetID()), vList);
@@ -923,8 +923,8 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
                     distance -= m_shipRef->radius(); // do we need this one here?
                     if (distance < m_range) {
                         PyTuple* tuple2 = new PyTuple(3);
-                        tuple2->SetItem(0, new PyInt(pASE->GetID()));
-                        tuple2->SetItem(1, new PyInt(pASE->GetTypeID()));
+                        PySetItemRelease(tuple2, 0, new PyInt(pASE->GetID()));
+                        PySetItemRelease(tuple2, 1, new PyInt(pASE->GetTypeID()));
                         tuple2->SetItem(2, pASE->GetSelf()->GetAttribute(AttrQuantity).GetPyObject());
                         list->AddItem(tuple2);
                     }
@@ -933,8 +933,8 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
                 // allow ice scanning without a radius check....may change later.
                 for (auto pASE : vList) {
                     PyTuple* tuple2 = new PyTuple(3);
-                    tuple2->SetItem(0, new PyInt(pASE->GetID()));
-                    tuple2->SetItem(1, new PyInt(pASE->GetTypeID()));
+                    PySetItemRelease(tuple2, 0, new PyInt(pASE->GetID()));
+                    PySetItemRelease(tuple2, 1, new PyInt(pASE->GetTypeID()));
                     tuple2->SetItem(2, pASE->GetSelf()->GetAttribute(AttrQuantity).GetPyObject());
                     list->AddItem(tuple2);
                 }
@@ -1064,11 +1064,11 @@ void ActiveModule::LoadCharge(InventoryItemRef chargeRef)
              *          [PyFloat 10000]                 << reloadTime (ms)
              */
             PyTuple* module = new PyTuple(1);
-                module->SetItem(0, new PyInt(m_modRef->itemID()));
+                PySetItemRelease(module, 0, new PyInt(m_modRef->itemID()));
             PyTuple* tmp = new PyTuple(3);
                 tmp->SetItem(0, module);
-                tmp->SetItem(1, new PyInt(chargeRef->typeID()));
-                tmp->SetItem(2, new PyInt(m_reloadTime));
+                PySetItemRelease(tmp, 1, new PyInt(chargeRef->typeID()));
+                PySetItemRelease(tmp, 2, new PyInt(m_reloadTime));
             pClient->SendNotification("OnChargeBeingLoadedToModule", "shipid", &tmp);
             m_reloadTimer.Start(m_reloadTime);
         }
@@ -1657,11 +1657,11 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
             // Create Destiny Updates:
             PyTuple* type = new PyTuple(2);
                 type->SetItem(0, PyStatic.NewInt(4));
-                type->SetItem(1, new PyInt(m_targetSE->GetTypeID()));
+                PySetItemRelease(type, 1, new PyInt(m_targetSE->GetTypeID()));
             PyDict* dict = new PyDict;
                 dict->SetItemString("type", type);
             PyTuple* tuple = new PyTuple(2);
-                tuple->SetItem(0, new PyString("SalvagingSuccess"));
+                PySetItemRelease(tuple, 0, new PyString("SalvagingSuccess"));
                 tuple->SetItem(1, dict);
             shipEff.error = tuple;
         } else if (m_needsTarget and (m_targetSE == nullptr)) {
@@ -1671,14 +1671,14 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
                     dict->SetItemString("moduleID", new PyInt(m_modRef->itemID()));
                     dict->SetItemString("targetID", new PyInt(m_targetID));
                 PyTuple* tuple = new PyTuple(2);
-                    tuple->SetItem(0, new PyString("TargetNoLongerPresent"));
+                    PySetItemRelease(tuple, 0, new PyString("TargetNoLongerPresent"));
                     tuple->SetItem(1, dict);
                 shipEff.error = tuple;
             } else {
                 PyDict* dict = new PyDict();
                     dict->SetItemString("moduleID", new PyInt(m_modRef->itemID()));
                 PyTuple* tuple = new PyTuple(2);
-                    tuple->SetItem(0, new PyString("TargetNoLongerPresentGeneric"));
+                    PySetItemRelease(tuple, 0, new PyString("TargetNoLongerPresentGeneric"));
                     tuple->SetItem(1, dict);
                 shipEff.error = tuple;
             }
@@ -1686,7 +1686,7 @@ void ActiveModule::ShowEffect(bool active/*false*/, bool abort/*false*/)
             PyDict* dict = new PyDict();
                 dict->SetItemString("moduleID", new PyInt(m_modRef->itemID()));
             PyTuple* tuple = new PyTuple(2);
-                tuple->SetItem(0, new PyString("TargetNoLongerPresentGeneric"));
+                PySetItemRelease(tuple, 0, new PyString("TargetNoLongerPresentGeneric"));
                 tuple->SetItem(1, dict);
             shipEff.error = PyStatic.NewNone();
             m_shipRef->GetPilot()->SendNotification("TargetNoLongerPresentGeneric", "charid", &tuple);

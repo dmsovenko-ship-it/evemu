@@ -492,10 +492,10 @@ void WreckContainer::MakeSlimItemChange()
         return;
     PyDict* slimPod = mySE->MakeSlimItem();
     PyTuple* shipData = new PyTuple(2);
-        shipData->SetItem(0, new PyLong(itemID()));
-        shipData->SetItem(1, new PyObject( "foo.SlimItem", slimPod));
+        PySetItemRelease(shipData, 0, new PyLong(itemID()));
+        PySetItemRelease(shipData, 1, new PyObject( "foo.SlimItem", slimPod));
     PyTuple* updates = new PyTuple(2);
-        updates->SetItem(0, new PyString("OnSlimItemChange"));
+        PySetItemRelease(updates, 0, new PyString("OnSlimItemChange"));
         updates->SetItem(1, shipData);
     //consumes updates
     mySE->SysBubble()->BubblecastDestinyUpdate(&updates, "destiny" );
@@ -602,7 +602,7 @@ PyDict *WreckSE::MakeSlimItem() {
     _log(SE__SLIMITEM, "MakeSlimItem for WreckSE %s(%u)", m_self->name(), m_self->itemID());
     /* not used, unsure if needed
     PyTuple* nameID = new PyTuple(2);
-        nameID->SetItem(0,  new PyString("UI/Inflight/WreckNameShipName"));
+        PySetItemRelease(nameID, 0, new PyString("UI/Inflight/WreckNameShipName"));
     PyDict* shipName = new PyDict();
         shipName->SetItem("shipName", PyStatic.NewInt(0));    // does this need data here?
         nameID->SetItem(1, shipName);
@@ -613,7 +613,7 @@ PyDict *WreckSE::MakeSlimItem() {
         slim->SetItemString("name",             new PyString(m_self->itemName()));
         if (m_abandoned or (m_fleetID)) { // this is ONLY for abandoned wrecks or wrecks from fleet ops
             PyTuple* loot = new PyTuple(4);
-                loot->SetItem(0,                new PyInt(m_ownerID));
+                PySetItemRelease(loot, 0, new PyInt(m_ownerID));
                 loot->SetItem(1,                IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
                 loot->SetItem(2,                IsFleetID(m_fleetID) ? new PyInt(m_fleetID) : PyStatic.NewNone());
                 loot->SetItem(3,                new PyBool(false)); // what is this??
@@ -629,7 +629,7 @@ PyDict *WreckSE::MakeSlimItem() {
         PyDict* dict = new PyDict;
             dict->SetItemString("WreckTypeID",  new PyInt(m_self->typeID()));
         PyTuple* tuple2 = new PyTuple(2);
-            tuple2->SetItem(0, new PyString("UI/Inflight/WreckNameTypeID"));
+            PySetItemRelease(tuple2, 0, new PyString("UI/Inflight/WreckNameTypeID"));
             tuple2->SetItem(1, dict);
         slim->SetItemString("nameID",           tuple2);
 

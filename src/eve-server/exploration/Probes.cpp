@@ -442,7 +442,7 @@ void ProbeSE::SendNewProbe()
         newProbe->SetItemString("expiry",       new PyLong(m_expiry));
         newProbe->SetItemString("pos",          new PyObjectEx(false, oed_tuple));
     PyTuple* ev = new PyTuple(1);
-        ev->SetItem(0, new PyObject("util.KeyVal", newProbe));
+        PySetItemRelease(ev, 0, new PyObject("util.KeyVal", newProbe));
     m_client->SendNotification("OnNewProbe", "clientID", &ev);  // this is sequenced
 }
 
@@ -456,8 +456,8 @@ void ProbeSE::SendStateChange(uint8 state)
     if (m_client == nullptr)
         return;
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyLong(m_self->itemID()));
-        tuple->SetItem(1, new PyInt(state));
+        PySetItemRelease(tuple, 0, new PyLong(m_self->itemID()));
+        PySetItemRelease(tuple, 1, new PyInt(state));
     m_client->SendNotification("OnProbeStateChanged", "clientID", &tuple);  // this is sequenced
 }
 
@@ -482,7 +482,7 @@ void ProbeSE::RemoveProbe()
     if (m_client == nullptr)
         return;
     PyTuple* ev = new PyTuple(1);
-        ev->SetItem(0, new PyLong(m_self->itemID()));
+        PySetItemRelease(ev, 0, new PyLong(m_self->itemID()));
     m_client->SendNotification("OnRemoveProbe", "clientID", &ev);  // this is sequenced
 }
 
@@ -526,7 +526,7 @@ void ProbeSE::SendWarpEnd()
     if (m_client == nullptr)
         return;
     PyTuple* tuple = new PyTuple(1);
-        tuple->SetItem(0, new PyLong(m_self->itemID()));
+        PySetItemRelease(tuple, 0, new PyLong(m_self->itemID()));
     m_client->SendNotification("OnProbeWarpEnd", "clientID", &tuple);  // this is sequenced
 }
 
@@ -610,10 +610,10 @@ void ProbeSE::SendSlimChange()
         slim->SetItemString("securityStatus",           new PyFloat(m_secStatus));
         slim->SetItemString("warpingAway",              m_state == Probe::State::Returning ? PyStatic.NewFalse() : PyStatic.NewTrue());    // this is sent when probe warps
     PyTuple* probeData = new PyTuple(2);
-        probeData->SetItem(0, new PyLong(m_self->itemID()));
-        probeData->SetItem(1, new PyObject("foo.SlimItem", slim));
+        PySetItemRelease(probeData, 0, new PyLong(m_self->itemID()));
+        PySetItemRelease(probeData, 1, new PyObject("foo.SlimItem", slim));
     PyTuple* updates = new PyTuple(2);
-        updates->SetItem(0, new PyString("OnSlimItemChange"));
+        PySetItemRelease(updates, 0, new PyString("OnSlimItemChange"));
         updates->SetItem(1, probeData);
     m_destiny->SendSingleDestinyUpdate(&updates, true);
 }

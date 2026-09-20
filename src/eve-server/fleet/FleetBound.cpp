@@ -124,13 +124,13 @@ PyResult FleetBound::Init(PyCallArgs &call, std::optional <PyInt*> shipTypeID) {
     PyDict* dict = new PyDict();
         dict->SetItemString("targetTags", new PyDict());
     PyTuple* obj = new PyTuple(1);
-        obj->SetItem(0, new PyObject("util.KeyVal", dict));
+        PySetItemRelease(obj, 0, new PyObject("util.KeyVal", dict));
     _log(FLEET__UPDATE_DUMP, "OnFleetStateChange");
     obj->Dump(FLEET__UPDATE_DUMP, "   ");
     pClient->SendNotification("OnFleetStateChange", "clientid", obj, true);
 
     PyTuple* count = new PyTuple(1);
-        count->SetItem(0, new PyInt(254));
+        PySetItemRelease(count, 0, new PyInt(254));
     _log(FLEET__UPDATE_DUMP, "OnFleetActive");
     count->Dump(FLEET__UPDATE_DUMP, "   ");
     pClient->SendNotification("OnFleetActive", "clientid", count, true);
@@ -161,13 +161,13 @@ PyResult FleetBound::GetInitState(PyCallArgs &call) {
 
     PyDict* muteDict = new PyDict();
     for (auto cur : fData.isExcludedFromMuting)
-        muteDict->SetItem(new PyInt(cur.first), new PyInt(cur.second));
+        PySetItemRelease(muteDict, new PyInt(cur.first), new PyInt(cur.second));
     PySafeDecRef(rsp.isExcludedFromMuting);
     rsp.isExcludedFromMuting = muteDict;
 
     PyDict* lMuteDict = new PyDict();
     for (auto cur : fData.isMutedByLeader)
-        lMuteDict->SetItem(new PyInt(cur.first), new PyInt(cur.second));
+        PySetItemRelease(lMuteDict, new PyInt(cur.first), new PyInt(cur.second));
     PySafeDecRef(rsp.isMutedByLeader);
     rsp.isMutedByLeader = lMuteDict;
 
@@ -276,12 +276,12 @@ PyResult FleetBound::Invite(PyCallArgs &call, PyInt* characterID, std::optional<
     sFltSvc.RemoveJoinRequest(m_fleetID, pClient);
 
     PyTuple* tuple = new PyTuple(4);
-        tuple->SetItem(0, new PyInt(m_fleetID));
-        tuple->SetItem(1, new PyInt(data.inviteBy->GetCharacterID()));
-        tuple->SetItem(2, new PyString("AskJoinFleet"));
+        PySetItemRelease(tuple, 0, new PyInt(m_fleetID));
+        PySetItemRelease(tuple, 1, new PyInt(data.inviteBy->GetCharacterID()));
+        PySetItemRelease(tuple, 2, new PyString("AskJoinFleet"));
     PyTuple* tuple2 = new PyTuple(2);
-        tuple2->SetItem(0, new PyInt(call.client->GetChar()->fleetJob()));
-        tuple2->SetItem(1, new PyInt(data.inviteBy->GetCharacterID()));
+        PySetItemRelease(tuple2, 0, new PyInt(call.client->GetChar()->fleetJob()));
+        PySetItemRelease(tuple2, 1, new PyInt(data.inviteBy->GetCharacterID()));
     PyDict* dict = new PyDict();
         dict->SetItemString("name", tuple2);
         tuple->SetItem(3, dict);
@@ -422,7 +422,7 @@ PyResult FleetBound::GetJoinRequests(PyCallArgs &call) {
     for (auto cur : cVec) {
         PyDict* dict = new PyDict();
         dict->SetItemString("charID", new PyInt(cur->GetCharacterID()));
-        rsp->SetItem(new PyInt(cur->GetCharacterID()), new PyObject("util.KeyVal", dict));
+        PySetItemRelease(rsp, new PyInt(cur->GetCharacterID()), new PyObject("util.KeyVal", dict));
     }
 
     if (is_log_enabled(FLEET__DEBUG))
@@ -462,14 +462,14 @@ PyResult FleetBound::GetFleetComposition(PyCallArgs &call) {
         dict->SetItemString("solarSystemID", new PyInt(cur->GetSystemID()));
         if (pChar->HasSkill(EvESkill::Leadership) or pChar->HasSkill(EvESkill::FleetCommand) or pChar->HasSkill(EvESkill::WingCommand)) {
             PyTuple* skills = new PyTuple(3);
-                skills->SetItem(0, new PyInt(pChar->GetSkillLevel(EvESkill::Leadership)));
-                skills->SetItem(1, new PyInt(pChar->GetSkillLevel(EvESkill::FleetCommand)));
-                skills->SetItem(2, new PyInt(pChar->GetSkillLevel(EvESkill::WingCommand)));
+                PySetItemRelease(skills, 0, new PyInt(pChar->GetSkillLevel(EvESkill::Leadership)));
+                PySetItemRelease(skills, 1, new PyInt(pChar->GetSkillLevel(EvESkill::FleetCommand)));
+                PySetItemRelease(skills, 2, new PyInt(pChar->GetSkillLevel(EvESkill::WingCommand)));
             dict->SetItemString("skills", skills);
             PyTuple* skillIDs = new PyTuple(3);
-                skillIDs->SetItem(0, new PyInt(EvESkill::Leadership));
-                skillIDs->SetItem(1, new PyInt(EvESkill::FleetCommand));
-                skillIDs->SetItem(2, new PyInt(EvESkill::WingCommand));
+                PySetItemRelease(skillIDs, 0, new PyInt(EvESkill::Leadership));
+                PySetItemRelease(skillIDs, 1, new PyInt(EvESkill::FleetCommand));
+                PySetItemRelease(skillIDs, 2, new PyInt(EvESkill::WingCommand));
             dict->SetItemString("skillIDs", skillIDs);
         }
         list->AddItem(new PyObject("util.KeyVal", dict));
@@ -748,12 +748,12 @@ PyResult FleetBound::Reconnect(PyCallArgs &call) {
     PyDict* dict = new PyDict();
         dict->SetItemString("targetTags", new PyDict());
     PyTuple* obj = new PyTuple(1);
-        obj->SetItem(0, new PyObject("util.KeyVal", dict));
+        PySetItemRelease(obj, 0, new PyObject("util.KeyVal", dict));
     pClient->SendNotification("OnFleetStateChange", "clientid", obj, true);
 
     // Send OnFleetActive
     PyTuple* count = new PyTuple(1);
-        count->SetItem(0, new PyInt(254));
+        PySetItemRelease(count, 0, new PyInt(254));
     pClient->SendNotification("OnFleetActive", "clientid", count, true);
 
     return nullptr;

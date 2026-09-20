@@ -327,7 +327,7 @@ PyDict* DBResultToIntIntDict(DBQueryResult &result) {
         if (row.IsNull(1))
             res->SetItem(new PyInt(k), PyStatic.NewNone());
         else
-            res->SetItem(new PyInt(k), new PyInt(row.GetInt(1)));
+            PySetItemRelease(res, new PyInt(k), new PyInt(row.GetInt(1)));
     }
 
     return res;

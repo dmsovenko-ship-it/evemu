@@ -483,7 +483,7 @@ PyResult LSCService::Invite(PyCallArgs& call, PyInt* characterID, PyInt* channel
             dict->SetItemString("inviterName", new PyString(call.client->GetCharName()));
             dict->SetItemString("displayName", new PyString(call.client->GetCharName()));
         PyTuple* payload = new PyTuple(1);
-        payload->SetItem(0, new PyObject("util.KeyVal", dict));
+        PySetItemRelease(payload, 0, new PyObject("util.KeyVal", dict));
         Client* target = sEntityList.FindClientByCharID(inviteeID);
         if (target != nullptr)
             target->SendNotification("OnLSC", "clientID", payload, false);
@@ -1212,13 +1212,13 @@ void Client::SelfEveMail(const char* subject, const char* fmt, ...)
             // Send OnMailSent notification — client's mailSvc subscribes to this
             // and shows a popup with sender name + subject.
             PyTuple* payload = new PyTuple(9);
-            payload->SetItem(0, new PyInt(messageID));
-            payload->SetItem(1, new PyInt(GetCharacterID()));
-            payload->SetItem(2, new PyLong(Win32TimeNow()));
-            payload->SetItem(3, new PyString(std::to_string(GetCharacterID())));
+            PySetItemRelease(payload, 0, new PyInt(messageID));
+            PySetItemRelease(payload, 1, new PyInt(GetCharacterID()));
+            PySetItemRelease(payload, 2, new PyLong(Win32TimeNow()));
+            PySetItemRelease(payload, 3, new PyString(std::to_string(GetCharacterID())));
             payload->SetItem(4, PyStatic.NewNone());
             payload->SetItem(5, PyStatic.NewNone());
-            payload->SetItem(6, new PyString(subject));
+            PySetItemRelease(payload, 6, new PyString(subject));
             payload->SetItem(7, new PyInt(0));  // statusMask
             PyDict* extra = new PyDict();
             extra->SetItemString("senderName", new PyString(GetName()));

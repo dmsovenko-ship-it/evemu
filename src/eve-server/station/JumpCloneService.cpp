@@ -285,7 +285,7 @@ PyResult JumpCloneBound::OfferShipCloneInstallation(PyCallArgs &call, PyInt* cha
         args->SetItemString("locationID", new PyInt(call.client->GetLocationID()));
 
     PyTuple* payload = new PyTuple(1);
-        payload->SetItem(0, new PyObject("util.KeyVal", args));
+        PySetItemRelease(payload, 0, new PyObject("util.KeyVal", args));
 
     Client* targetClient = sEntityList.FindClientByCharID(targetCharID);
     if (targetClient != nullptr)

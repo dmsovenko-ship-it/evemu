@@ -133,10 +133,10 @@ void JumpBridgeSE::SendSlimUpdate()
         slim->SetItemString("remoteStructureID", new PyInt(m_bridgeData.toItemID));
         slim->SetItemString("remoteSystemID", new PyInt(m_bridgeData.toSystemID));
     PyTuple *shipData = new PyTuple(2);
-        shipData->SetItem(0, new PyLong(m_data.itemID));
-        shipData->SetItem(1, new PyObject("foo.SlimItem", slim));
+        PySetItemRelease(shipData, 0, new PyLong(m_data.itemID));
+        PySetItemRelease(shipData, 1, new PyObject("foo.SlimItem", slim));
     PyTuple *sItem = new PyTuple(2);
-        sItem->SetItem(0, new PyString("OnSlimItemChange"));
+        PySetItemRelease(sItem, 0, new PyString("OnSlimItemChange"));
         sItem->SetItem(1, shipData);
     m_destiny->SendSingleDestinyUpdate(&sItem);
 }

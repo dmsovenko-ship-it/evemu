@@ -86,8 +86,8 @@ PyResult DungeonService::IsObjectLocked(PyCallArgs& call, PyInt* objectID)
 
     PyTuple* result = new PyTuple(2);
 
-    result->SetItem(0, new PyBool(false));
-    result->SetItem(1, new PyList());
+    PySetItemRelease(result, 0, new PyBool(false));
+    PySetItemRelease(result, 1, new PyList());
 
     return result;
 }
@@ -145,8 +145,8 @@ PyResult DungeonService::AddObject(PyCallArgs& call, PyInt* roomID, PyInt* tupeI
 
     // Return objectID and revisionID
     PyTuple *result = new PyTuple(2);
-    result->SetItem(0, new PyInt(newObject.objectID));
-    result->SetItem(1, new PyInt(1/*dummy value*/));
+    PySetItemRelease(result, 0, new PyInt(newObject.objectID));
+    PySetItemRelease(result, 1, new PyInt(1/*dummy value*/));
 
     return result;
 }

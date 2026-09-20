@@ -113,21 +113,21 @@ PyResult CorpStationMgr::GetImprovementStaticData(PyCallArgs& call)
 
     while (res.GetRow(row)) {
         PyPackedRow* newRow = rowset->NewRow();
-        newRow->SetField("typeID", new PyInt(row.GetInt(0)));
-        newRow->SetField("raceID", new PyInt(row.GetInt(1)));
+        PySetFieldRelease(newRow, "typeID", new PyInt(row.GetInt(0)));
+        PySetFieldRelease(newRow, "raceID", new PyInt(row.GetInt(1)));
         uint32 asmLine = row.GetInt(2);
         if (asmLine == 0) {
-            newRow->SetField("requiredAssemblyLineTypeID", new PyNone());
+            PySetFieldRelease(newRow, "requiredAssemblyLineTypeID", new PyNone());
         }
         else {
-            newRow->SetField("requiredAssemblyLineTypeID", new PyInt(asmLine));
+            PySetFieldRelease(newRow, "requiredAssemblyLineTypeID", new PyInt(asmLine));
         }
         uint32 improvement = row.GetInt(3);
         if (improvement == 0) {
-            newRow->SetField("requiredImprovementTypeID", new PyNone());
+            PySetFieldRelease(newRow, "requiredImprovementTypeID", new PyNone());
         }
         else {
-            newRow->SetField("requiredImprovementTypeID", new PyInt(improvement));
+            PySetFieldRelease(newRow, "requiredImprovementTypeID", new PyInt(improvement));
         }
     }
 
@@ -608,18 +608,18 @@ PyResult CorpStationMgrIMBound::GetStationManagementServiceCostModifiers(PyCallA
             if((serviceMask & serviceID) == serviceID) 
             {
                 PyPackedRow *newRow = rowset->NewRow();
-                newRow->SetField("serviceID", new PyInt(serviceID));
-                newRow->SetField("discountPerGoodStandingPoint", new PyFloat(0));
-                newRow->SetField("surchargePerBadStandingPoint", new PyFloat(0));
+                PySetFieldRelease(newRow, "serviceID", new PyInt(serviceID));
+                PySetFieldRelease(newRow, "discountPerGoodStandingPoint", new PyFloat(0));
+                PySetFieldRelease(newRow, "surchargePerBadStandingPoint", new PyFloat(0));
             }
         }
     }
     else {
         while (res.GetRow(row)) {    
             PyPackedRow *newRow = rowset->NewRow();
-            newRow->SetField("serviceID", new PyInt(row.GetInt(0)));
-            newRow->SetField("discountPerGoodStandingPoint", new PyFloat(row.GetFloat(1)));
-            newRow->SetField("surchargePerBadStandingPoint", new PyFloat(row.GetFloat(2)));
+            PySetFieldRelease(newRow, "serviceID", new PyInt(row.GetInt(0)));
+            PySetFieldRelease(newRow, "discountPerGoodStandingPoint", new PyFloat(row.GetFloat(1)));
+            PySetFieldRelease(newRow, "surchargePerBadStandingPoint", new PyFloat(row.GetFloat(2)));
         }
     }
 

@@ -1152,11 +1152,11 @@ void PlayerBot::BroadcastAggression(uint32 victimCharID)
         return;
 
     PyDict* timers = new PyDict();
-        timers->SetItem(new PyInt(victimCharID), new PyLong(end));
+        PySetItemRelease(timers, new PyInt(victimCharID), new PyLong(end));
     PyDict* aggressors = new PyDict();
         aggressors->SetItem(new PyInt(m_botCharID), timers);
     PyTuple* payload = new PyTuple(2);
-        payload->SetItem(0, new PyInt(SystemMgr()->GetID()));
+        PySetItemRelease(payload, 0, new PyInt(SystemMgr()->GetID()));
         payload->SetItem(1, aggressors);
     SysBubble()->BubblecastSendNotification("OnAggressionChange", "solarsystemid", &payload, true);
 }

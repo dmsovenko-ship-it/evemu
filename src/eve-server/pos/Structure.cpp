@@ -1111,10 +1111,10 @@ void StructureSE::SendSlimUpdate()
     slim->SetItemString("incapacitated", PyStatic.NewInt(0));
     slim->SetItemString("posDelayTime", new PyInt(m_delayTime));
     PyTuple *shipData = new PyTuple(2);
-    shipData->SetItem(0, new PyLong(m_data.itemID));
-    shipData->SetItem(1, new PyObject("foo.SlimItem", slim));
+    PySetItemRelease(shipData, 0, new PyLong(m_data.itemID));
+    PySetItemRelease(shipData, 1, new PyObject("foo.SlimItem", slim));
     PyTuple *sItem = new PyTuple(2);
-    sItem->SetItem(0, new PyString("OnSlimItemChange"));
+    PySetItemRelease(sItem, 0, new PyString("OnSlimItemChange"));
     sItem->SetItem(1, shipData);
     m_destiny->SendSingleDestinyUpdate(&sItem); // consumed
 }
@@ -1272,9 +1272,9 @@ PyDict *StructureSE::MakeSlimItem()
     else if (m_miner)
     {
         PyTuple *tuple = new PyTuple(3);
-        tuple->SetItem(0, new PyFloat(m_rotation.x));
-        tuple->SetItem(1, new PyFloat(m_rotation.y));
-        tuple->SetItem(2, new PyFloat(m_rotation.z));
+        PySetItemRelease(tuple, 0, new PyFloat(m_rotation.x));
+        PySetItemRelease(tuple, 1, new PyFloat(m_rotation.y));
+        PySetItemRelease(tuple, 2, new PyFloat(m_rotation.z));
         slim->SetItemString("dunRotation", tuple); // direction to moon
         slim->SetItemString("controlTowerID", new PyLong(m_data.towerID));
     }

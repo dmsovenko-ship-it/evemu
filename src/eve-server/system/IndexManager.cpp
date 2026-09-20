@@ -63,21 +63,21 @@ PyResult IndexManager::GetDevelopmentIndicesForSystem(PyCallArgs& call, PyInt* s
     // Strategic (days since claim, capped at 30)
     double daysSinceClaim = (GetFileTimeNow() - sovData.claimTime) / Win32Time_Day;
     uint32 sovPoints = std::min<uint32>(uint32(daysSinceClaim), 30);
-    row1->SetField("attributeID", new PyInt(EveAttrEnum::AttrdevIndexSovereignty));
-    row1->SetField("points", new PyInt(sovPoints));
-    row1->SetField("increasing", new PyBool(sovPoints < 30));
+    PySetFieldRelease(row1, "attributeID", new PyInt(EveAttrEnum::AttrdevIndexSovereignty));
+    PySetFieldRelease(row1, "points", new PyInt(sovPoints));
+    PySetFieldRelease(row1, "increasing", new PyBool(sovPoints < 30));
 
     // Military (1 per day, capped at 10)
     uint32 milPoints = std::min<uint32>(uint32(daysSinceClaim), 10);
-    row2->SetField("attributeID", new PyInt(EveAttrEnum::AttrdevIndexMilitary));
-    row2->SetField("points", new PyInt(milPoints));
-    row2->SetField("increasing", new PyBool(milPoints < 10));
+    PySetFieldRelease(row2, "attributeID", new PyInt(EveAttrEnum::AttrdevIndexMilitary));
+    PySetFieldRelease(row2, "points", new PyInt(milPoints));
+    PySetFieldRelease(row2, "increasing", new PyBool(milPoints < 10));
 
     // Industrial (1 per day, capped at 10)
     uint32 indPoints = std::min<uint32>(uint32(daysSinceClaim), 10);
-    row3->SetField("attributeID", new PyInt(EveAttrEnum::AttrdevIndexIndustrial));
-    row3->SetField("points", new PyInt(indPoints));
-    row3->SetField("increasing", new PyBool(indPoints < 10));
+    PySetFieldRelease(row3, "attributeID", new PyInt(EveAttrEnum::AttrdevIndexIndustrial));
+    PySetFieldRelease(row3, "points", new PyInt(indPoints));
+    PySetFieldRelease(row3, "increasing", new PyBool(indPoints < 10));
 
     PyDict* dict = new PyDict();
     dict->SetItem(new PyInt(EveAttrEnum::AttrdevIndexSovereignty), row1);

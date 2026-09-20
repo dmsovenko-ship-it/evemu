@@ -1114,12 +1114,12 @@ void ModuleManager::LoadCharge(InventoryItemRef chargeRef, EVEItemFlags flag)
             Rsp_CommonGetInfo_Entry entry2;
             if (chargeRef->Populate(entry2)) {
                 PyTuple* tuple = new PyTuple(3);
-                    tuple->SetItem(0, new PyInt(chargeRef->locationID()));
-                    tuple->SetItem(1, new PyInt(chargeRef->flag()));
-                    tuple->SetItem(2, new PyInt(chargeRef->typeID()));
+                    PySetItemRelease(tuple, 0, new PyInt(chargeRef->locationID()));
+                    PySetItemRelease(tuple, 1, new PyInt(chargeRef->flag()));
+                    PySetItemRelease(tuple, 2, new PyInt(chargeRef->typeID()));
                 PyTuple* result = new PyTuple(2);
-                    result->SetItem(0, new PyInt(chargeRef->locationID()));
-                    result->SetItem(1, new PyObject("util.KeyVal", entry2.Encode()));
+                    PySetItemRelease(result, 0, new PyInt(chargeRef->locationID()));
+                    PySetItemRelease(result, 1, new PyObject("util.KeyVal", entry2.Encode()));
                 pShipItem->GetPilot()->SendNotification("OnGodmaPrimeItem", "clientID", result);     // this is sequenced
             } else {
                 sLog.Error("MM::LoadCharge","cannot Populate() %s", chargeRef->name());

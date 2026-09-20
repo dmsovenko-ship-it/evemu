@@ -261,7 +261,7 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
 
             if (par == 0) {
                 PyTuple* t = new PyTuple(2);
-                t->SetItem(0, new PyWString(SafeStr(name)));
+                PySetItemRelease(t, 0, new PyWString(SafeStr(name)));
                 t->SetItem(1, langTok);
                 parentDict->SetItem(new PyInt(wireID), t);
             } else {
@@ -275,10 +275,10 @@ PyResult PetitionerService::GetCategoryHierarchicalInfo(PyCallArgs& call)
                     childDict->SetItem(new PyInt(wirePar), group);
                 }
                 PyTuple* t = new PyTuple(2);
-                t->SetItem(0, new PyWString(SafeStr(name)));
+                PySetItemRelease(t, 0, new PyWString(SafeStr(name)));
                 t->SetItem(1, langTok);
                 group->SetItem(new PyInt(wireID), t);
-                descDict->SetItem(new PyInt(wireID), new PyWString(SafeStr(desc)));
+                PySetItemRelease(descDict, new PyInt(wireID), new PyWString(SafeStr(desc)));
             }
         }
     }

@@ -1224,20 +1224,20 @@ PyTuple* Colony::GetPins()
 
     for (auto cur : ccPin->pins) {
         PyDict* dict = new PyDict();
-        dict->SetItem("id", new PyInt(cur.first));
-        dict->SetItem("typeID", new PyInt(cur.second.typeID));
-        dict->SetItem("ownerID", new PyInt(cur.second.ownerID));
-        dict->SetItem("latitude", new PyFloat(cur.second.latitude));
-        dict->SetItem("longitude", new PyFloat(cur.second.longitude));
+        PySetItemRelease(dict, "id", new PyInt(cur.first));
+        PySetItemRelease(dict, "typeID", new PyInt(cur.second.typeID));
+        PySetItemRelease(dict, "ownerID", new PyInt(cur.second.ownerID));
+        PySetItemRelease(dict, "latitude", new PyFloat(cur.second.latitude));
+        PySetItemRelease(dict, "longitude", new PyFloat(cur.second.longitude));
         dict->SetItem("lastRunTime", (cur.second.lastRunTime > 0 ? new PyLong(cur.second.lastRunTime) : PyStatic.NewNone()));
-        dict->SetItem("state", new PyInt(cur.second.state));
-        dict->SetItem("level", new PyInt(cur.second.level));
+        PySetItemRelease(dict, "state", new PyInt(cur.second.state));
+        PySetItemRelease(dict, "level", new PyInt(cur.second.level));
 
         PyDict* contents = new PyDict();
         contents->clear();
         if (cur.second.isStorage)
             for (auto cur2 : cur.second.contents)
-                contents->SetItem(new PyInt(cur2.first), new PyInt(cur2.second));
+                PySetItemRelease(contents, new PyInt(cur2.first), new PyInt(cur2.second));
         dict->SetItem("contents", contents);
 
         if (cur.second.isLaunchable)
@@ -1245,12 +1245,12 @@ PyTuple* Colony::GetPins()
 
         if (cur.second.isProcess)
             if (cur.second.schematicID) {
-                dict->SetItem("schematicID", new PyInt(cur.second.schematicID));
+                PySetItemRelease(dict, "schematicID", new PyInt(cur.second.schematicID));
                 std::map<uint32, PI_Plant>::iterator plantPin = ccPin->plants.find(cur.first);
                 if (plantPin != ccPin->plants.end()) {
-                    dict->SetItem("cycleTime", new PyLong(plantPin->second.cycleTime));
-                    dict->SetItem("hasReceivedInputs", new PyBool(plantPin->second.hasReceivedInputs));
-                    dict->SetItem("receivedInputsLastCycle", new PyBool(plantPin->second.receivedInputsLastCycle));
+                    PySetItemRelease(dict, "cycleTime", new PyLong(plantPin->second.cycleTime));
+                    PySetItemRelease(dict, "hasReceivedInputs", new PyBool(plantPin->second.hasReceivedInputs));
+                    PySetItemRelease(dict, "receivedInputsLastCycle", new PyBool(plantPin->second.receivedInputsLastCycle));
                 } else {
                     dict->SetItem("cycleTime", PyStatic.NewZero());
                     dict->SetItem("hasReceivedInputs", PyStatic.NewFalse());
@@ -1264,26 +1264,26 @@ PyTuple* Colony::GetPins()
 
         if (cur.second.isECU) {
             if (cur.second.installTime > 0) {
-                dict->SetItem("cycleTime", new PyLong(cur.second.cycleTime));
-                dict->SetItem("expiryTime", new PyLong(cur.second.expiryTime));
-                dict->SetItem("headRadius", new PyFloat(cur.second.headRadius));
-                dict->SetItem("installTime", new PyLong(cur.second.installTime));
-                dict->SetItem("programType", new PyInt(cur.second.programType));
-                dict->SetItem("qtyPerCycle", new PyInt(cur.second.qtyPerCycle));
+                PySetItemRelease(dict, "cycleTime", new PyLong(cur.second.cycleTime));
+                PySetItemRelease(dict, "expiryTime", new PyLong(cur.second.expiryTime));
+                PySetItemRelease(dict, "headRadius", new PyFloat(cur.second.headRadius));
+                PySetItemRelease(dict, "installTime", new PyLong(cur.second.installTime));
+                PySetItemRelease(dict, "programType", new PyInt(cur.second.programType));
+                PySetItemRelease(dict, "qtyPerCycle", new PyInt(cur.second.qtyPerCycle));
             }
             PyList* list = new PyList();
             list->clear();
             for (auto head : cur.second.heads) {
                 PyTuple* tuple = new PyTuple(3);
-                    tuple->SetItem(0, new PyInt(head.first));
-                    tuple->SetItem(1, new PyFloat(head.second.latitude));
-                    tuple->SetItem(2, new PyFloat(head.second.longitude));
+                    PySetItemRelease(tuple, 0, new PyInt(head.first));
+                    PySetItemRelease(tuple, 1, new PyFloat(head.second.latitude));
+                    PySetItemRelease(tuple, 2, new PyFloat(head.second.longitude));
                 list->AddItem(tuple);
             }
             dict->SetItem("heads", list);
         }
 
-        pins->SetItem(index++, new PyObject("util.KeyVal", dict));
+        PySetItemRelease(pins, index++, new PyObject("util.KeyVal", dict));
     }
     return pins;
 }
@@ -1295,11 +1295,11 @@ PyTuple* Colony::GetLinks()
     for (auto cur : ccPin->links) {
         PyDict* dict = new PyDict();
             dict->SetItem("linkID", new PyInt(cur.first));                 // this is link itemID
-            dict->SetItem("endpoint1", new PyInt(cur.second.endpoint1));
-            dict->SetItem("endpoint2", new PyInt(cur.second.endpoint2));
-            dict->SetItem("level", new PyInt(cur.second.level));
+            PySetItemRelease(dict, "endpoint1", new PyInt(cur.second.endpoint1));
+            PySetItemRelease(dict, "endpoint2", new PyInt(cur.second.endpoint2));
+            PySetItemRelease(dict, "level", new PyInt(cur.second.level));
             dict->SetItem("typeID", new PyInt(cur.second.typeID));          // typeID 2280
-        links->SetItem(index++, new PyObject("util.KeyVal", dict));
+        PySetItemRelease(links, index++, new PyObject("util.KeyVal", dict));
     }
     return links;
 }
@@ -1312,14 +1312,14 @@ PyTuple* Colony::GetRoutes()
     for (auto cur : ccPin->routes) {
         PyDict* dict = new PyDict();
             dict->SetItem("routeID", new PyInt(cur.first));                 // this is routeID (low number - assigned by client)
-            dict->SetItem("commodityTypeID", new PyInt(cur.second.commodityTypeID));
-            dict->SetItem("commodityQuantity", new PyInt(cur.second.commodityQuantity));
+            PySetItemRelease(dict, "commodityTypeID", new PyInt(cur.second.commodityTypeID));
+            PySetItemRelease(dict, "commodityQuantity", new PyInt(cur.second.commodityQuantity));
 
         PyList* list = new PyList();
         for (auto cur2 : cur.second.path)                               // path of pinIDs this route will follow
             list->AddItem(new PyInt(cur2));
         dict->SetItem("path", list);                                    // list of paths on this route
-        routes->SetItem(index++, new PyObject("util.KeyVal", dict));
+        PySetItemRelease(routes, index++, new PyObject("util.KeyVal", dict));
     }
     return routes;
 }
@@ -1343,10 +1343,10 @@ PyRep* Colony::GetColony()
 
     PyDict* args = new PyDict();
         args->SetItem("pins", GetPins());
-        args->SetItem("level", new PyInt(ccPin->level));
+        PySetItemRelease(args, "level", new PyInt(ccPin->level));
         args->SetItem("links", GetLinks());
         args->SetItem("routes", GetRoutes());
-        args->SetItem("currentSimTime", new PyLong(m_procTime));
+        PySetItemRelease(args, "currentSimTime", new PyLong(m_procTime));
     PyObject* res = new PyObject("util.KeyVal", args);
 
     if (is_log_enabled(COLONY__GC_DUMP)) {

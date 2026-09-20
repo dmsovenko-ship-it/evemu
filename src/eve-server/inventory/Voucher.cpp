@@ -79,7 +79,7 @@ PyResult VoucherService::GetObject(PyCallArgs& call, PyInt* voucherID) {
 
     PyTuple* rsp = new PyTuple(2);
 
-    rsp->SetItem(0, new PySubStruct(new PySubStream(bound->GetOID())));
+    PySetItemRelease(rsp, 0, new PySubStruct(new PySubStream(bound->GetOID())));
     rsp->SetItem(1, PyStatic.NewNone());
 
     return rsp;

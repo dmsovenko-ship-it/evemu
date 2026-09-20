@@ -772,7 +772,7 @@ PyDict *MailDB::GetJoinedMailingLists(uint32 characterID)
         } break;
         }
 
-        ret->SetItem(new PyInt(row.GetInt(0)), new PyObject("util.KeyVal" , dict));
+        PySetItemRelease(ret, new PyInt(row.GetInt(0)), new PyObject("util.KeyVal" , dict));
     }
 
     return ret;
@@ -824,7 +824,7 @@ PyDict *MailDB::GetMailingListMembers(int32 listID)
 
     while (res.GetRow(row))
     {
-        dict->SetItem(new PyInt(row.GetInt(1)), new PyInt(row.GetInt(2)));
+        PySetItemRelease(dict, new PyInt(row.GetInt(1)), new PyInt(row.GetInt(2)));
     }
     return dict;
 }
@@ -872,7 +872,7 @@ PyObject *MailDB::MailingListGetSettings(int32 listID)
 
 
     while (res.GetRow(row)) {
-        dict->SetItem(new PyInt(row.GetInt(1)), new PyInt(row.GetInt(3)));
+        PySetItemRelease(dict, new PyInt(row.GetInt(1)), new PyInt(row.GetInt(3)));
     }
 
     return new PyObject("util.KeyVal" , ret);

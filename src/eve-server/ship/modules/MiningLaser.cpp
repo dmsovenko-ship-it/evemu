@@ -346,7 +346,7 @@ void MiningLaser::Depleted(std::multimap<float, MiningLaser*> &mMap) {
 
         // inform pilot of asteroid depleted  ...no clue if it actually works like this
         PyTuple* tuple = new PyTuple(2);
-            tuple->SetItem(0, new PyString("MiningItemDepleted"));
+            PySetItemRelease(tuple, 0, new PyString("MiningItemDepleted"));
         PyDict* dict = new PyDict();
             dict->SetItemString("modulename", new PyString(cur.second->GetSelf()->itemName()));
             tuple->SetItem(1, dict);

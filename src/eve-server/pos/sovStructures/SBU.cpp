@@ -128,8 +128,8 @@ void SBUSE::MarkContested(uint32 systemID, bool contested)
     args->SetItemString("solarSystemID", new PyInt(systemID));
 
     PyTuple *data = new PyTuple(2);
-    data->SetItem(0, new PyInt(systemID));
-    data->SetItem(1, new PyObject("util.KeyVal", args));
+    PySetItemRelease(data, 0, new PyInt(systemID));
+    PySetItemRelease(data, 1, new PyObject("util.KeyVal", args));
 
     std::vector<Client *> list;
     sEntityList.GetClients(list);

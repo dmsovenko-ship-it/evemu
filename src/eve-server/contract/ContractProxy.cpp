@@ -960,10 +960,10 @@ PyResult ContractProxy::CollectMyPageInfo(PyCallArgs &call) {
     PyList* oustandingContractsList = new PyList;
     while (res.GetRow(row)) {
         PyList* list = new PyList(4);
-        list->SetItem(0, new PyInt(row.GetInt(0)));
-        list->SetItem(1, new PyInt(row.GetInt(1)));
-        list->SetItem(2, new PyInt(row.GetInt(2)));
-        list->SetItem(3, new PyInt(row.GetInt(3)));
+        PySetItemRelease(list, 0, new PyInt(row.GetInt(0)));
+        PySetItemRelease(list, 1, new PyInt(row.GetInt(1)));
+        PySetItemRelease(list, 2, new PyInt(row.GetInt(2)));
+        PySetItemRelease(list, 3, new PyInt(row.GetInt(3)));
 
         oustandingContractsList->AddItem(list);
     }
@@ -1221,8 +1221,8 @@ PyResult ContractProxy::GetLoginInfo(PyCallArgs &call)
             DBResultRow row;
             while (res.GetRow(row)) {
                 PyPackedRow* pRow = needsAttention_rowset->NewRow();
-                pRow->SetField("contractID", new PyInt(row.GetUInt(0)));
-                pRow->SetField("",           new PyInt(row.GetUInt(1)));
+                PySetFieldRelease(pRow, "contractID", new PyInt(row.GetUInt(0)));
+                PySetFieldRelease(pRow, "", new PyInt(row.GetUInt(1)));
             }
         }
     }
@@ -1238,10 +1238,10 @@ PyResult ContractProxy::GetLoginInfo(PyCallArgs &call)
             DBResultRow row;
             while (res.GetRow(row)) {
                 PyPackedRow* pRow = inProgress_rowset->NewRow();
-                pRow->SetField("contractID",     new PyInt(row.GetUInt(0)));
-                pRow->SetField("startStationID", new PyInt(row.GetUInt(1)));
-                pRow->SetField("endStationID",   new PyInt(row.GetUInt(2)));
-                pRow->SetField("expires",        new PyLong(row.GetUInt(3)));
+                PySetFieldRelease(pRow, "contractID", new PyInt(row.GetUInt(0)));
+                PySetFieldRelease(pRow, "startStationID", new PyInt(row.GetUInt(1)));
+                PySetFieldRelease(pRow, "endStationID", new PyInt(row.GetUInt(2)));
+                PySetFieldRelease(pRow, "expires", new PyLong(row.GetUInt(3)));
             }
         }
     }
@@ -1257,8 +1257,8 @@ PyResult ContractProxy::GetLoginInfo(PyCallArgs &call)
             DBResultRow row;
             while (res.GetRow(row)) {
                 PyPackedRow* pRow = assignedToMe_rowset->NewRow();
-                pRow->SetField("contractID", new PyInt(row.GetUInt(0)));
-                pRow->SetField("issuerID",   new PyInt(row.GetUInt(1)));
+                PySetFieldRelease(pRow, "contractID", new PyInt(row.GetUInt(0)));
+                PySetFieldRelease(pRow, "issuerID", new PyInt(row.GetUInt(1)));
             }
         }
     }
@@ -1471,7 +1471,7 @@ PyResult ContractProxy::FinishAuction(PyCallArgs& call, PyInt* contractID) {
         Client* winner = sEntityList.FindClientByCharID(winnerID);
         if (winner != nullptr) {
             PyTuple* payload = new PyTuple(1);
-            payload->SetItem(0, new PyInt(cID));
+            PySetItemRelease(payload, 0, new PyInt(cID));
             winner->SendNotification("OnAuctionWon", "clientID", payload, false);
         }
 
@@ -1479,7 +1479,7 @@ PyResult ContractProxy::FinishAuction(PyCallArgs& call, PyInt* contractID) {
         Client* issuer = sEntityList.FindClientByCharID(issuerID);
         if (issuer != nullptr) {
             PyTuple* payload = new PyTuple(1);
-            payload->SetItem(0, new PyInt(cID));
+            PySetItemRelease(payload, 0, new PyInt(cID));
             issuer->SendNotification("OnAuctionCompleted", "clientID", payload, false);
         }
 

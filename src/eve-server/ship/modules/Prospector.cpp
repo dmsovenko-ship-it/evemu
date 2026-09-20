@@ -128,12 +128,12 @@ void Prospector::SendFailure()
     if (m_salvager) {
         PyTuple* type = new PyTuple(2);
             type->SetItem(0, PyStatic.NewInt(4));
-            type->SetItem(1, new PyInt(m_targetSE->GetTypeID()));
+            PySetItemRelease(type, 1, new PyInt(m_targetSE->GetTypeID()));
         PyDict* dict = new PyDict;
             dict->SetItemString("type", type);
         PyTuple* tup = new PyTuple(3);
-            tup->SetItem(0, new PyString("OnRemoteMessage"));
-            tup->SetItem(1, new PyString("SalvagingFailure"));
+            PySetItemRelease(tup, 0, new PyString("OnRemoteMessage"));
+            PySetItemRelease(tup, 1, new PyString("SalvagingFailure"));
             tup->SetItem(2, dict);
         m_shipRef->GetPilot()->QueueDestinyEvent(&tup);
     }

@@ -245,9 +245,9 @@ PyResult EncounterSpawnServer::GetMyEncounters(PyCallArgs& call)
         MissionEncounter& enc = pair.second;
         if (enc.charID == charID) {
             PyDict* entry = new PyDict();
-            entry->SetItem(new PyString("encounterID"), new PyInt(enc.encounterID));
-            entry->SetItem(new PyString("encounterName"), new PyString(enc.encounterName));
-            entry->SetItem(new PyString("agentID"), new PyInt(enc.agentID));
+            PySetItemRelease(entry, new PyString("encounterID"), new PyInt(enc.encounterID));
+            PySetItemRelease(entry, new PyString("encounterName"), new PyString(enc.encounterName));
+            PySetItemRelease(entry, new PyString("agentID"), new PyInt(enc.agentID));
             entry->SetItem(new PyString("active"), enc.active ? PyStatic.NewTrue() : PyStatic.NewFalse());
             result->AddItem(entry);
         }

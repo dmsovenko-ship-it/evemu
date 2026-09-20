@@ -419,7 +419,7 @@ PyResult CorpRegistryBound::GetMembers(PyCallArgs &call)
     PyTuple* boundObject = new PyTuple(3);
         boundObject->SetItem(0, new PyString (this->GetIDString()));    // node info here
         boundObject->SetItem(1, dict);
-        boundObject->SetItem(2, new PyLong(GetFileTimeNow()));
+        PySetItemRelease(boundObject, 2, new PyLong(GetFileTimeNow()));
 
     GetMembersSparseRowset ret;
         ret.boundObject = boundObject;
@@ -2684,7 +2684,7 @@ PyResult CorpRegistryBound::CanLeaveCurrentCorporation(PyCallArgs &call) {
                 // Has roles but not director — can't leave immediately
                 PyTuple* tuple = new PyTuple(3);
                 tuple->SetItem(0, PyStatic.NewFalse());
-                tuple->SetItem(1, new PyString("CrpCantQuitNotInStasis"));
+                PySetItemRelease(tuple, 1, new PyString("CrpCantQuitNotInStasis"));
                 tuple->SetItem(2, PyStatic.NewNone());
                 return tuple;
             }

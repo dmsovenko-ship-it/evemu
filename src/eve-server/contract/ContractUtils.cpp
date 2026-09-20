@@ -284,20 +284,20 @@ PyResult ContractUtils::GetContractListForOwner(PyInt* ownerID, PyInt* contractS
                 CRowSet *rowset = new CRowSet(&header);
 
                 PyPackedRow* packedRow = rowset->NewRow();
-                packedRow->SetField("contractId", new PyInt(row.GetInt(0)));
-                packedRow->SetField("itemTypeID", new PyInt(row.GetInt(1)));
-                packedRow->SetField("quantity", new PyInt(row.GetInt(2)));
-                packedRow->SetField("inCrate", new PyBool(row.GetBool(3)));
+                PySetFieldRelease(packedRow, "contractId", new PyInt(row.GetInt(0)));
+                PySetFieldRelease(packedRow, "itemTypeID", new PyInt(row.GetInt(1)));
+                PySetFieldRelease(packedRow, "quantity", new PyInt(row.GetInt(2)));
+                PySetFieldRelease(packedRow, "inCrate", new PyBool(row.GetBool(3)));
 
                 itemsByContractID[row.GetInt(0)] = rowset;
             } else {
                 CRowSet* rowset = pos->second;
 
                 PyPackedRow* packedRow = rowset->NewRow();
-                packedRow->SetField("contractId", new PyInt(row.GetInt(0)));
-                packedRow->SetField("itemTypeID", new PyInt(row.GetInt(1)));
-                packedRow->SetField("quantity", new PyInt(row.GetInt(2)));
-                packedRow->SetField("inCrate", new PyBool(row.GetBool(3)));
+                PySetFieldRelease(packedRow, "contractId", new PyInt(row.GetInt(0)));
+                PySetFieldRelease(packedRow, "itemTypeID", new PyInt(row.GetInt(1)));
+                PySetFieldRelease(packedRow, "quantity", new PyInt(row.GetInt(2)));
+                PySetFieldRelease(packedRow, "inCrate", new PyBool(row.GetBool(3)));
             }
         }
         if (!itemsByContractID.empty()) {
@@ -320,18 +320,18 @@ PyResult ContractUtils::GetContractListForOwner(PyInt* ownerID, PyInt* contractS
  * @param targetRow - target PyPackedRow
  */
 void ContractUtils::FillItemData(DBResultRow *itemRow, PyPackedRow *targetRow) {
-    targetRow->SetField("contractID", new PyInt(itemRow->GetInt(0)));
-    targetRow->SetField("itemID", new PyInt(itemRow->GetInt(1)));
-    targetRow->SetField("quantity", new PyInt(itemRow->GetInt(2)));
-    targetRow->SetField("itemTypeID", new PyInt(itemRow->GetInt(3)));
-    targetRow->SetField("inCrate", new PyBool(itemRow->GetBool(4)));
-    targetRow->SetField("parentID", new PyInt(itemRow->GetInt(5)));
-    targetRow->SetField("productivityLevel", new PyInt(itemRow->GetInt(6)));
-    targetRow->SetField("materialLevel", new PyInt(itemRow->GetInt(7)));
-    targetRow->SetField("copy", new PyBool(itemRow->GetBool(8)));
-    targetRow->SetField("licensedProductionRunsRemaining", new PyInt(itemRow->GetInt(9)));
-    targetRow->SetField("damage", new PyInt(itemRow->GetInt(10)));
-    targetRow->SetField("flagID", new PyInt(itemRow->GetInt(11)));
+    PySetFieldRelease(targetRow, "contractID", new PyInt(itemRow->GetInt(0)));
+    PySetFieldRelease(targetRow, "itemID", new PyInt(itemRow->GetInt(1)));
+    PySetFieldRelease(targetRow, "quantity", new PyInt(itemRow->GetInt(2)));
+    PySetFieldRelease(targetRow, "itemTypeID", new PyInt(itemRow->GetInt(3)));
+    PySetFieldRelease(targetRow, "inCrate", new PyBool(itemRow->GetBool(4)));
+    PySetFieldRelease(targetRow, "parentID", new PyInt(itemRow->GetInt(5)));
+    PySetFieldRelease(targetRow, "productivityLevel", new PyInt(itemRow->GetInt(6)));
+    PySetFieldRelease(targetRow, "materialLevel", new PyInt(itemRow->GetInt(7)));
+    PySetFieldRelease(targetRow, "copy", new PyBool(itemRow->GetBool(8)));
+    PySetFieldRelease(targetRow, "licensedProductionRunsRemaining", new PyInt(itemRow->GetInt(9)));
+    PySetFieldRelease(targetRow, "damage", new PyInt(itemRow->GetInt(10)));
+    PySetFieldRelease(targetRow, "flagID", new PyInt(itemRow->GetInt(11)));
 }
 
 /**
@@ -340,10 +340,10 @@ void ContractUtils::FillItemData(DBResultRow *itemRow, PyPackedRow *targetRow) {
  * @param targetRow - target PyPackedRow
  */
 void ContractUtils::FillBidData(DBResultRow *bidRow, PyPackedRow *targetRow) {
-    targetRow->SetField("contractId", new PyInt(bidRow->GetInt(0)));
-    targetRow->SetField("amount", new PyInt(bidRow->GetInt(1)));
-    targetRow->SetField("bidderID", new PyInt(bidRow->GetInt(2)));
-    targetRow->SetField("timeBid", new PyLong(bidRow->GetInt64(3)));
+    PySetFieldRelease(targetRow, "contractId", new PyInt(bidRow->GetInt(0)));
+    PySetFieldRelease(targetRow, "amount", new PyInt(bidRow->GetInt(1)));
+    PySetFieldRelease(targetRow, "bidderID", new PyInt(bidRow->GetInt(2)));
+    PySetFieldRelease(targetRow, "timeBid", new PyLong(bidRow->GetInt64(3)));
 }
 
 /**

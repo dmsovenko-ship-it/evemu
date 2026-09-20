@@ -1085,8 +1085,8 @@ PyRep* StaticDataMgr::GetStationCount()
     std::map<uint32, uint8>::iterator itr = m_stationCount.begin(), end = m_stationCount.end();
     while (itr != end) {
         PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(itr->first));
-        tuple->SetItem(1, new PyInt(itr->second));
+        PySetItemRelease(tuple, 0, new PyInt(itr->first));
+        PySetItemRelease(tuple, 1, new PyInt(itr->second));
         list->AddItem(tuple);
         ++itr;
     }
@@ -1390,9 +1390,9 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
         GetRamMaterials(prodID, ramMatls);
         for (auto cur : ramMatls) {
             PyPackedRow* row = new PyPackedRow(header);
-                row->SetField("quantity",        new PyInt(cur.quantity));
-                row->SetField("requiredTypeID",  new PyInt(cur.materialTypeID));
-                row->SetField("damagePerJob",    new PyFloat(1.0f));
+                PySetFieldRelease(row, "quantity", new PyInt(cur.quantity));
+                PySetFieldRelease(row, "requiredTypeID", new PyInt(cur.materialTypeID));
+                PySetFieldRelease(row, "damagePerJob", new PyFloat(1.0f));
             matlListManuf->AddItem(row);
         }
     }
@@ -1407,9 +1407,9 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
     //GetRamRequirements(prodID, ramReqs);
     for (auto cur : ramReqs) {
         PyPackedRow* row = new PyPackedRow(header);
-            row->SetField("quantity",        new PyInt(cur.quantity));
-            row->SetField("requiredTypeID",  new PyInt(cur.requiredTypeID));
-            row->SetField("damagePerJob",    new PyFloat(cur.damagePerJob));
+            PySetFieldRelease(row, "quantity", new PyInt(cur.quantity));
+            PySetFieldRelease(row, "requiredTypeID", new PyInt(cur.requiredTypeID));
+            PySetFieldRelease(row, "damagePerJob", new PyFloat(cur.damagePerJob));
 
         using namespace EvERam;
         switch(cur.activityID) {
@@ -1503,7 +1503,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
                 into->SetField((uint32)2, from->GetField(2));
             }
         Manufacturing->SetItemString("extras", rowset);     // have to build a crowset for this
-        rsp->SetItem(PyStatic.NewInt(1), new PyObject("util.KeyVal", Manufacturing));
+        PySetItemRelease(rsp, PyStatic.NewInt(1), new PyObject("util.KeyVal", Manufacturing));
     }
     if (tech) {        //activityResearchingTechnology = 2
         // not used.  not defined in client.  no data for this activity
@@ -1514,7 +1514,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             ResearchTime->SetItemString("rawMaterials", matlListTE);
             PyIncRef(mtCRowSet);
         ResearchTime->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(PyStatic.NewInt(3), new PyObject("util.KeyVal", ResearchTime));
+        PySetItemRelease(rsp, PyStatic.NewInt(3), new PyObject("util.KeyVal", ResearchTime));
     }
     if (me) {        //activityResearchingMaterialProductivity = 4
         PyDict* ResearchMaterial = new PyDict();
@@ -1522,7 +1522,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             ResearchMaterial->SetItemString("rawMaterials", matlListME);
             PyIncRef(mtCRowSet);
         ResearchMaterial->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(PyStatic.NewInt(4), new PyObject("util.KeyVal", ResearchMaterial));
+        PySetItemRelease(rsp, PyStatic.NewInt(4), new PyObject("util.KeyVal", ResearchMaterial));
     }
     if (copy) {        //activityCopying = 5
         PyDict* Copying = new PyDict();
@@ -1530,7 +1530,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             Copying->SetItemString("rawMaterials", matlListCopy);
             PyIncRef(mtCRowSet);
         Copying->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(PyStatic.NewInt(5), new PyObject("util.KeyVal", Copying));
+        PySetItemRelease(rsp, PyStatic.NewInt(5), new PyObject("util.KeyVal", Copying));
     }
     if (dup) {       //activityDuplicating = 6
         // no longer used...updated to "copying" after RMR
@@ -1547,7 +1547,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
                 into->SetField((uint32)2, from->GetField(2));
             }
         Duplicating->SetItemString("extras", rowset);    // have to build a crowset for this
-        rsp->SetItem(PyStatic.NewInt(6), new PyObject("util.KeyVal", Duplicating));
+        PySetItemRelease(rsp, PyStatic.NewInt(6), new PyObject("util.KeyVal", Duplicating));
     }
     if (re) {        //activityReverseEngineering = 7
         PyDict* ReverseEngineering = new PyDict();
@@ -1555,7 +1555,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             ReverseEngineering->SetItemString("rawMaterials", matlListRE);
             PyIncRef(mtCRowSet);
         ReverseEngineering->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(PyStatic.NewInt(7), new PyObject("util.KeyVal", ReverseEngineering));
+        PySetItemRelease(rsp, PyStatic.NewInt(7), new PyObject("util.KeyVal", ReverseEngineering));
     }
     if (invent) {     //activityInvention = 8
         PyDict* Invention = new PyDict();
@@ -1563,7 +1563,7 @@ PyDict* StaticDataMgr::SetBPMatlType(int8 catID, uint16 typeID, uint16 prodID)
             Invention->SetItemString("rawMaterials", matlListInvent);
             PyIncRef(mtCRowSet);
         Invention->SetItemString("extras", mtCRowSet);
-        rsp->SetItem(PyStatic.NewInt(8), new PyObject("util.KeyVal", Invention));
+        PySetItemRelease(rsp, PyStatic.NewInt(8), new PyObject("util.KeyVal", Invention));
     }
 
     /**

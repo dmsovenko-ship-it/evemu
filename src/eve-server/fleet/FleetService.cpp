@@ -183,7 +183,7 @@ PyRep* FleetService::CreateWing(uint32 fleetID)
     _log(FLEET__INFO, "FleetService::CreateWing() - fleetID: %u, wingID: %u", fleetID, m_wingID);
 
     PyTuple* tuple1 = new PyTuple(1);
-        tuple1->SetItem(0, new PyInt(m_wingID));
+        PySetItemRelease(tuple1, 0, new PyInt(m_wingID));
     SendFleetUpdate(fleetID, "OnFleetWingAdded", tuple1);
 
     if (sConfig.chat.EnableWingChat)
@@ -224,8 +224,8 @@ void FleetService::CreateSquad(uint32 fleetID, uint32 wingID)
     _log(FLEET__INFO, "FleetService::CreateSquad() - fleetID: %u, wingID: %u, squadID: %u", fleetID, wingID, m_squadID);
 
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(wingID));
-        tuple->SetItem(1, new PyInt(m_squadID));
+        PySetItemRelease(tuple, 0, new PyInt(wingID));
+        PySetItemRelease(tuple, 1, new PyInt(m_squadID));
     SendFleetUpdate(fleetID, "OnFleetSquadAdded", tuple);
 
     if (sConfig.chat.EnableSquadChat)
@@ -303,7 +303,7 @@ bool FleetService::AddMember(Client* pClient, uint32 fleetID, int32 wingID, int3
     PyDict* dict = new PyDict();
         dict->SetItemString("targetTags", new PyDict());
     PyTuple* obj = new PyTuple(1);
-        obj->SetItem(0, new PyObject("util.KeyVal", dict));
+        PySetItemRelease(obj, 0, new PyObject("util.KeyVal", dict));
     pClient->SendNotification("OnFleetStateChange", "charid", obj, true);
 
     bool fleet(false);
@@ -353,8 +353,8 @@ bool FleetService::AddMember(Client* pClient, uint32 fleetID, int32 wingID, int3
             }
         }
         PyTuple* count = new PyTuple(2);
-            count->SetItem(0, new PyInt(wingID));
-            count->SetItem(1, new PyInt(IsWingActive(wingID) ? 0 : 1));
+            PySetItemRelease(count, 0, new PyInt(wingID));
+            PySetItemRelease(count, 1, new PyInt(IsWingActive(wingID) ? 0 : 1));
         pClient->SendNotification("OnWingActive", "clientID", count, true);
 
         if (!IsSquadID(squadID))
@@ -381,7 +381,7 @@ bool FleetService::AddMember(Client* pClient, uint32 fleetID, int32 wingID, int3
         }
         itr->second.members.emplace(pChar->itemID(), pClient);
         PyTuple* count = new PyTuple(2);
-            count->SetItem(0, new PyInt(squadID));
+            PySetItemRelease(count, 0, new PyInt(squadID));
             count->SetItem(1, PyStatic.NewOne());
         pClient->SendNotification("OnSquadActive", "clientID", count, true);
 
@@ -915,8 +915,8 @@ void FleetService::UpdateOptions(uint32 fleetID, bool isFreeMove, bool isRegiste
         is->SetItemString("isRegistered",       new PyBool(isRegistered));
         is->SetItemString("isVoiceEnabled",     new PyBool(isVoiceEnabled));
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyObject("util.KeyVal", was));
-        tuple->SetItem(1, new PyObject("util.KeyVal", is));
+        PySetItemRelease(tuple, 0, new PyObject("util.KeyVal", was));
+        PySetItemRelease(tuple, 1, new PyObject("util.KeyVal", is));
     SendFleetUpdate(fleetID, "OnFleetOptionsChanged", tuple);
 
     _log(FLEET__TRACE, "FleetService::UpdateOptions() - fleetID: %u FreeMove: %s, Registered: %s, Voice: %s", \
@@ -931,7 +931,7 @@ PyRep* FleetService::GetMOTD(uint32 fleetID)
     PyTuple* tuple = new PyTuple(1);
     std::map<uint32, FleetData>::iterator itr = m_fleetDataMap.find(fleetID);
     if (itr != m_fleetDataMap.end()) {
-        tuple->SetItem(0, new PyString(itr->second.motd));
+        PySetItemRelease(tuple, 0, new PyString(itr->second.motd));
     } else {
         tuple->SetItem(0, PyStatic.NewNone());
     }
@@ -945,7 +945,7 @@ void FleetService::SetMOTD(uint32 fleetID, std::string motd)
         itr->second.motd = motd;
 
     PyTuple* tuple = new PyTuple(1);
-        tuple->SetItem(0, new PyString(motd));
+        PySetItemRelease(tuple, 0, new PyString(motd));
     SendFleetUpdate(fleetID, "OnFleetMotdChanged", tuple);
 
     /** @todo  update motd in fleet chat window (which is not coded yet in LSC system) */
@@ -960,8 +960,8 @@ void FleetService::RenameWing(uint32 wingID, std::string name)
     itr->second.name = name;
 
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(wingID));
-        tuple->SetItem(1, new PyString(name));
+        PySetItemRelease(tuple, 0, new PyInt(wingID));
+        PySetItemRelease(tuple, 1, new PyString(name));
     SendFleetUpdate(itr->second.fleetID, "OnFleetWingNameChanged", tuple);
 
     _log(FLEET__TRACE, "FleetService::RenameWing() %u to %s", wingID, name.c_str());
@@ -976,8 +976,8 @@ void FleetService::RenameSquad(uint32 squadID, std::string name)
     itr->second.name = name;
 
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(squadID));
-        tuple->SetItem(1, new PyString(name));
+        PySetItemRelease(tuple, 0, new PyInt(squadID));
+        PySetItemRelease(tuple, 1, new PyString(name));
     SendFleetUpdate(itr->second.fleetID, "OnFleetSquadNameChanged", tuple);
 
     _log(FLEET__TRACE, "FleetService::RenameSquad() %u to %s", squadID, name.c_str());
@@ -1139,7 +1139,7 @@ void FleetService::DeleteWing(uint32 wingID)
     }
 
     PyTuple* tuple = new PyTuple(1);
-        tuple->SetItem(0, new PyInt(wingID));
+        PySetItemRelease(tuple, 0, new PyInt(wingID));
     SendFleetUpdate(wItr->second.fleetID, "OnFleetWingDeleted", tuple);
 
     m_wingDataMap.erase(wItr);
@@ -1154,7 +1154,7 @@ void FleetService::DeleteSquad(uint32 squadID)
     DecFleetSquads(itr->second.fleetID, itr->second.wingID);
 
     PyTuple* tuple = new PyTuple(1);
-        tuple->SetItem(0, new PyInt(squadID));
+        PySetItemRelease(tuple, 0, new PyInt(squadID));
     SendFleetUpdate(itr->second.fleetID, "OnFleetSquadDeleted", tuple);
 
     m_squadDataMap.erase(itr);
@@ -1280,7 +1280,7 @@ void FleetService::LeaveFleet(Client* pClient)
         return;
 
     PyTuple* tuple = new PyTuple(1);
-    tuple->SetItem(0, new PyInt(pChar->itemID()));
+    PySetItemRelease(tuple, 0, new PyInt(pChar->itemID()));
     SendFleetUpdate(pChar->fleetID(), "OnFleetLeave", tuple);
 
     RemoveMember(pClient);
@@ -1552,11 +1552,11 @@ void FleetService::FleetBroadcast(Client* pFrom, uint32 itemID, int8 scope, int8
     //   ('HealCapacitor', 3, 95895066, 30003500, 1019274373727L, None)))
 
     PyTuple* payload = new PyTuple(6);
-        payload->SetItem(0, new PyString(msg));
-        payload->SetItem(1, new PyInt(group));
-        payload->SetItem(2, new PyInt(pFrom->GetCharacterID()));
-        payload->SetItem(3, new PyInt(pFrom->GetSystemID()));
-        payload->SetItem(4, new PyInt(itemID));
+        PySetItemRelease(payload, 0, new PyString(msg));
+        PySetItemRelease(payload, 1, new PyInt(group));
+        PySetItemRelease(payload, 2, new PyInt(pFrom->GetCharacterID()));
+        PySetItemRelease(payload, 3, new PyInt(pFrom->GetSystemID()));
+        PySetItemRelease(payload, 4, new PyInt(itemID));
         payload->SetItem(5, PyStatic.NewNone());
 
     uint8 count(0);
@@ -1676,8 +1676,8 @@ void FleetService::SendActiveStatus(uint32 fleetID, int32 wingID, int32 squadID)
         WingData wData = WingData();
         GetWingData(wingID, wData);
         PyTuple* count = new PyTuple(2);
-            count->SetItem(0, new PyInt(wingID));
-            count->SetItem(1, new PyInt(IsWingActive(wingID) ? 1 : 0));
+            PySetItemRelease(count, 0, new PyInt(wingID));
+            PySetItemRelease(count, 1, new PyInt(IsWingActive(wingID) ? 1 : 0));
         SendFleetUpdate(fleetID, "OnWingActive", count);
     }
 
@@ -1685,8 +1685,8 @@ void FleetService::SendActiveStatus(uint32 fleetID, int32 wingID, int32 squadID)
         SquadData sData = SquadData();
         GetSquadData(squadID, sData);
         PyTuple* count = new PyTuple(2);
-            count->SetItem(0, new PyInt(squadID));
-            count->SetItem(1, new PyInt(sData.members.size()? 1 : 0));
+            PySetItemRelease(count, 0, new PyInt(squadID));
+            PySetItemRelease(count, 1, new PyInt(sData.members.size()? 1 : 0));
         SendFleetUpdate(fleetID, "OnSquadActive", count);
     }
 }

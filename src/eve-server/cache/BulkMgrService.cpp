@@ -372,8 +372,8 @@ PyResult BulkMgrService::GetVersion(PyCallArgs &call)
     call.Dump(BULKDATA__DUMP);
 */
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(bulkDataChangeID));
-        tuple->SetItem(1, new PyInt(bulkDataBranch));
+        PySetItemRelease(tuple, 0, new PyInt(bulkDataChangeID));
+        PySetItemRelease(tuple, 1, new PyInt(bulkDataBranch));
     return tuple;
 }
 

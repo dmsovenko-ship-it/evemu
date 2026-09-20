@@ -71,7 +71,7 @@ PyTuple* GPSTransportClosed::_CreateArgs( const char* reason )
     PyTuple* args = new PyTuple( 1 );
     // Unicode (PyWString): reasons may contain non-ASCII (e.g. a Cyrillic ban
     // reason). PyString would mangle them client-side.
-    args->SetItem( 0, new PyWString( std::string( reason ) ) );
+    PySetItemRelease(args, 0, new PyWString( std::string( reason ) ));
 
     return args;
 }

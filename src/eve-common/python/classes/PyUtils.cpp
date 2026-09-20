@@ -40,7 +40,7 @@ PyWString* PasswordString::GetPassword() const
 PyTuple* PasswordString::_CreateArgs( PyWString* password )
 {
     PyTuple* head = new PyTuple( 2 );
-    head->SetItem( 0, new PyToken( "util.PasswordString" ) );
+    PySetItemRelease(head, 0, new PyToken( "util.PasswordString" ));
     head->SetItem( 1, password );
 
     return head;
@@ -60,7 +60,7 @@ PyList* Bookmark::GetList() const
 PyTuple* Bookmark::_CreateArgs( PyList* list )
 {
     PyTuple* head = new PyTuple( 2 );
-    head->SetItem( 0, new PyToken( "util.BookmarkList" ) );
+    PySetItemRelease(head, 0, new PyToken( "util.BookmarkList" ));
     head->SetItem( 1, list );
 
     return head;

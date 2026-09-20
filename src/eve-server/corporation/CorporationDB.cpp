@@ -1057,14 +1057,14 @@ PyRep* CorporationDB::GetCorpRoleGroups()
         DBResultRow row;
         while (res.GetRow(row)) {
             PyPackedRow* pRow = rowset->NewRow();
-            pRow->SetField("roleGroupID", new PyInt(row.GetInt(0)));
-            pRow->SetField("roleGroupName", new PyString(row.GetText(1)));
-            pRow->SetField("roleGroupNameID", new PyInt(row.GetInt(2)));
-            pRow->SetField("roleMask", new PyLong(row.GetInt64(3)));
-            pRow->SetField("appliesTo", new PyString(row.GetText(4)));
-            pRow->SetField("appliesToGrantable", new PyString(row.GetText(5)));
-            pRow->SetField("isLocational", new PyBool(row.GetInt(6) != 0));
-            pRow->SetField("isDivisional", new PyBool(row.GetInt(7) != 0));
+            PySetFieldRelease(pRow, "roleGroupID", new PyInt(row.GetInt(0)));
+            PySetFieldRelease(pRow, "roleGroupName", new PyString(row.GetText(1)));
+            PySetFieldRelease(pRow, "roleGroupNameID", new PyInt(row.GetInt(2)));
+            PySetFieldRelease(pRow, "roleMask", new PyLong(row.GetInt64(3)));
+            PySetFieldRelease(pRow, "appliesTo", new PyString(row.GetText(4)));
+            PySetFieldRelease(pRow, "appliesToGrantable", new PyString(row.GetText(5)));
+            PySetFieldRelease(pRow, "isLocational", new PyBool(row.GetInt(6) != 0));
+            PySetFieldRelease(pRow, "isDivisional", new PyBool(row.GetInt(7) != 0));
             // 'columns' must be a Python list — the client iterates over it
             if (row.GetInt(7) != 0) {
                 PyList* cols = new PyList();
@@ -1072,7 +1072,7 @@ PyRep* CorporationDB::GetCorpRoleGroups()
                     cols->AddItemInt(d);
                 pRow->SetField("columns", cols);
             } else {
-                pRow->SetField("columns", new PyList());
+                PySetFieldRelease(pRow, "columns", new PyList());
             }
         }
     }
@@ -1172,7 +1172,7 @@ PyRep* CorporationDB::GetTitles(uint32 corpID)
             dict1->SetItemString("grantableRolesAtBase", new PyLong(row.GetInt64(8)));
             dict1->SetItemString("rolesAtOther", new PyLong(row.GetInt64(9)));
             dict1->SetItemString("grantableRolesAtOther", new PyLong(row.GetInt64(10)));
-        dict->SetItem(new PyInt(row.GetInt(1)), new PyObject("util.KeyVal", dict1));
+        PySetItemRelease(dict, new PyInt(row.GetInt(1)), new PyObject("util.KeyVal", dict1));
     }
 
     return dict;
@@ -1407,7 +1407,7 @@ PyRep* CorporationDB::GetRecruiters(int32 corpID, uint16 adID)
     int8 i = 0;
     DBResultRow row;
     while (res.GetRow(row))
-        tuple->SetItem(i++, new PyInt(row.GetInt(0)));
+        PySetItemRelease(tuple, i++, new PyInt(row.GetInt(0)));
 
     return tuple;
 }

@@ -595,61 +595,61 @@ PyRep* UnmarshalStream::LoadPackedRow()
             case DBTYPE_FILETIME:
             {
                 Buffer::const_iterator<int64> v = unpackedItr.As<int64>();
-                row->SetField( index, new PyLong( *v++ ) );
+                PySetFieldRelease(row, index, new PyLong( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
 
             case DBTYPE_I4:
             {
                 Buffer::const_iterator<int32> v = unpackedItr.As<int32>();
-                row->SetField( index, new PyInt( *v++ ) );
+                PySetFieldRelease(row, index, new PyInt( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
             case DBTYPE_UI4:
             {
                 Buffer::const_iterator<uint32> v = unpackedItr.As<uint32>();
-                row->SetField( index, new PyInt( *v++ ) );
+                PySetFieldRelease(row, index, new PyInt( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
 
             case DBTYPE_I2:
             {
                 Buffer::const_iterator<int16> v = unpackedItr.As<int16>();
-                row->SetField( index, new PyInt( *v++ ) );
+                PySetFieldRelease(row, index, new PyInt( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
             case DBTYPE_UI2:
             {
                 Buffer::const_iterator<uint16> v = unpackedItr.As<uint16>();
-                row->SetField( index, new PyInt( *v++ ) );
+                PySetFieldRelease(row, index, new PyInt( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
 
             case DBTYPE_I1:
             {
                 Buffer::const_iterator<int8> v = unpackedItr.As<int8>();
-                row->SetField( index, new PyInt( *v++ ) );
+                PySetFieldRelease(row, index, new PyInt( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
 
             case DBTYPE_UI1:
             {
                 Buffer::const_iterator<uint8> v = unpackedItr.As<uint8>();
-                row->SetField( index, new PyInt( *v++ ) );
+                PySetFieldRelease(row, index, new PyInt( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
 
             case DBTYPE_R8:
             {
                 Buffer::const_iterator<double> v = unpackedItr.As<double>();
-                row->SetField( index, new PyFloat( *v++ ) );
+                PySetFieldRelease(row, index, new PyFloat( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
 
             case DBTYPE_R4:
             {
                 Buffer::const_iterator<float> v = unpackedItr.As<float>();
-                row->SetField( index, new PyFloat( *v++ ) );
+                PySetFieldRelease(row, index, new PyFloat( *v++ ));
                 unpackedItr = v.As<uint8>();
             } break;
 

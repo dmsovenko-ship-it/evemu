@@ -412,10 +412,10 @@ PyObject* Agent::GetInfoServiceDetails()
     PyDict* research = new PyDict();
     if (m_agentData.research) {
         PyTuple* skill1 = new PyTuple(2);
-            skill1->SetItem(0, new PyInt(11452));
+            PySetItemRelease(skill1, 0, new PyInt(11452));
             skill1->SetItem(1, PyStatic.NewInt(4));
         PyTuple* skill2 = new PyTuple(2);
-            skill2->SetItem(0, new PyInt(11453));
+            PySetItemRelease(skill2, 0, new PyInt(11453));
             skill2->SetItem(1, PyStatic.NewInt(3));
         PyList* skillList = new PyList();
             skillList->AddItem(skill1);
@@ -428,7 +428,7 @@ PyObject* Agent::GetInfoServiceDetails()
         PyList* patentList = new PyList();
             for (uint16 fieldID : m_researchFields) {
                 PyTuple* patent = new PyTuple(2);
-                patent->SetItem(0, new PyInt(fieldID));
+                PySetItemRelease(patent, 0, new PyInt(fieldID));
                 PyList* bps = new PyList();
                 DBQueryResult bpRes;
                 sDatabase.RunQuery(bpRes,
@@ -481,19 +481,19 @@ PyObject* Agent::GetInfoServiceDetails()
         PyTuple* sameSystem = new PyTuple(3);
             sameSystem->SetItem(0, PyStatic.NewInt(0));
             sameSystem->SetItem(1, PyStatic.NewInt(10));
-            sameSystem->SetItem(2, new PyInt(20000));
+            PySetItemRelease(sameSystem, 2, new PyInt(20000));
         PyTuple* sameConst = new PyTuple(3);
             sameConst->SetItem(0, PyStatic.NewOne());
-            sameConst->SetItem(1, new PyInt(30));
-            sameConst->SetItem(2, new PyInt(200000));
+            PySetItemRelease(sameConst, 1, new PyInt(30));
+            PySetItemRelease(sameConst, 2, new PyInt(200000));
         PyTuple* sameRegion = new PyTuple(3);
             sameRegion->SetItem(0, PyStatic.NewInt(2));
-            sameRegion->SetItem(1, new PyInt(60));
-            sameRegion->SetItem(2, new PyInt(2000000));
+            PySetItemRelease(sameRegion, 1, new PyInt(60));
+            PySetItemRelease(sameRegion, 2, new PyInt(2000000));
         PyTuple* otherRegion = new PyTuple(3);
             otherRegion->SetItem(0, PyStatic.NewInt(3));
-            otherRegion->SetItem(1, new PyInt(120));
-            otherRegion->SetItem(2, new PyInt(20000000));
+            PySetItemRelease(otherRegion, 1, new PyInt(120));
+            PySetItemRelease(otherRegion, 2, new PyInt(20000000));
         PyTuple* delays = new PyTuple(4);
             delays->SetItem(0, sameSystem);
             delays->SetItem(1, sameConst);
@@ -516,9 +516,9 @@ PyObject* Agent::GetInfoServiceDetails()
         mission->SetItemString("available", new PyBool(true));
 
     PyTuple* services = new PyTuple(3);
-        services->SetItem(0, new PyObject("util.KeyVal", research));
-        services->SetItem(1, new PyObject("util.KeyVal", locate));
-        services->SetItem(2, new PyObject("util.KeyVal", mission));
+        PySetItemRelease(services, 0, new PyObject("util.KeyVal", research));
+        PySetItemRelease(services, 1, new PyObject("util.KeyVal", locate));
+        PySetItemRelease(services, 2, new PyObject("util.KeyVal", mission));
     res->SetItemString("services", services);
 
     // standings info for this agent.
@@ -535,7 +535,7 @@ PyObject* Agent::GetInfoServiceDetails()
         dict->SetItemString("minStandings", new PyFloat(GetMinReqStanding(m_agentData.level)));
        // dict->SetItemString("mainEffective", new PyFloat(GetMinReqStanding(m_agentData.level +10)));
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyInt(235465));
+        PySetItemRelease(tuple, 0, new PyInt(235465));
         tuple->SetItem(1, dict);
     res->SetItemString("incompatible", tuple);
     */
@@ -739,9 +739,9 @@ void Agent::UpdateStandings(Client* pClient, uint8 eventID, bool important/*fals
         for (auto cur : clientVec) {
             sStandingMgr.UpdateStandings(m_agentID, cur->GetCharacterID(), eventID, fleetStanding, msg);
             PyTuple* agent = new PyTuple(5);
-                agent->SetItem(0, new PyInt(m_agentID));
-                agent->SetItem(1, new PyInt(cur->GetCharacterID()));
-                agent->SetItem(2, new PyFloat(fleetStanding));
+                PySetItemRelease(agent, 0, new PyInt(m_agentID));
+                PySetItemRelease(agent, 1, new PyInt(cur->GetCharacterID()));
+                PySetItemRelease(agent, 2, new PyFloat(fleetStanding));
                 agent->SetItem(3, PyStatic.NewInt(-1));
                 agent->SetItem(4, PyStatic.NewOne());
             PyList* list = new PyList();
@@ -764,21 +764,21 @@ void Agent::UpdateStandings(Client* pClient, uint8 eventID, bool important/*fals
     }
 
     PyTuple* agent = new PyTuple(5);
-        agent->SetItem(0, new PyInt(m_agentID));
-        agent->SetItem(1, new PyInt(charID));
-        agent->SetItem(2, new PyFloat(newStanding));
+        PySetItemRelease(agent, 0, new PyInt(m_agentID));
+        PySetItemRelease(agent, 1, new PyInt(charID));
+        PySetItemRelease(agent, 2, new PyFloat(newStanding));
         agent->SetItem(3, PyStatic.NewInt(-1));
         agent->SetItem(4, PyStatic.NewOne());
     PyTuple* corp = new PyTuple(5);
-        corp->SetItem(0, new PyInt(m_agentData.corporationID));
-        corp->SetItem(1, new PyInt(charID));
-        corp->SetItem(2, new PyFloat(newStanding /4));
+        PySetItemRelease(corp, 0, new PyInt(m_agentData.corporationID));
+        PySetItemRelease(corp, 1, new PyInt(charID));
+        PySetItemRelease(corp, 2, new PyFloat(newStanding /4));
         corp->SetItem(3, PyStatic.NewInt(-1));
         corp->SetItem(4, PyStatic.NewOne());
     PyTuple* faction = new PyTuple(5);
-        faction->SetItem(0, new PyInt(m_agentData.factionID));
-        faction->SetItem(1, new PyInt(charID));
-        faction->SetItem(2, new PyFloat(newStanding /8));
+        PySetItemRelease(faction, 0, new PyInt(m_agentData.factionID));
+        PySetItemRelease(faction, 1, new PyInt(charID));
+        PySetItemRelease(faction, 2, new PyFloat(newStanding /8));
         faction->SetItem(3, PyStatic.NewInt(-1));
         faction->SetItem(4, PyStatic.NewOne());
     PyList* list = new PyList();
@@ -821,8 +821,8 @@ void Agent::SendMissionUpdate(Client* pClient, std::string action)
     */
 
     PyTuple* payload = new PyTuple(3);
-        payload->SetItem(0, new PyString(action));
-        payload->SetItem(1, new PyInt(m_agentID));
+        PySetItemRelease(payload, 0, new PyString(action));
+        PySetItemRelease(payload, 1, new PyInt(m_agentID));
         payload->SetItem(2, PyStatic.NewNone());    // NOTE if we ever get tutorials working, this will need to be fixed.
     pClient->SendNotification("OnAgentMissionChange", "charid", payload, false);    // i *think* this is unsequenced
 }

@@ -1239,4 +1239,34 @@ private:
 #define PyStatic \
     ( pyStatic::get() )
 
+/************************************************************************/
+/* field-temp helpers                                                   */
+/************************************************************************/
+// PyTuple/PyList::SetItem INC references the stored value, so storing a fresh
+// temp (rc=1) leaks that reference unless the caller drops its own. Use these
+// helpers at call sites that pass a freshly created Py* value:
+//   tuple->SetItem(i, new PyInt(x));   ->   PySetItemRelease(tuple, i, new PyInt(x));
+// PyDict::SetItem STEALS already, so the dict overload is a deliberate no-op —
+// this keeps a mechanical migration safe for any container type.
+template<typename C>
+inline void PySetItemRelease(C* container, size_t index, PyRep* value)
+{
+    container->SetItem(index, value);   // INC refs (null -> fresh PyNone)
+    PySafeDecRef(value);                // drop the caller's fresh ref
+}
+
+inline void PySetItemRelease(PyDict* container, PyRep* key, PyRep* value)
+{
+    container->SetItem(key, value);     // dict steals — nothing to release
+}
+
+// PyPackedRow::SetField forwards to PyList::SetItem (INC on success) but DEC
+// refs the value itself when the column verify fails (steal) -> release only
+// on success.
+inline void PySetFieldRelease(PyPackedRow* row, uint32 index, PyRep* value)
+{
+    if (row->SetField(index, value))
+        PySafeDecRef(value);
+}
+
 #endif//EVE_PY_REP_H

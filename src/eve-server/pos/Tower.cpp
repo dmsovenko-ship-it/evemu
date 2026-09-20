@@ -779,10 +779,10 @@ PyRep* TowerSE::GetDeployFlags()
         header->SetItemString(2, "online");
         header->SetItemString(3, "offline");
     PyList* line = new PyList(4);           // these are structure permissions for this tower
-        line->SetItem(0, new PyInt(m_tdata.anchor));
-        line->SetItem(1, new PyInt(m_tdata.unanchor));
-        line->SetItem(2, new PyInt(m_tdata.online));
-        line->SetItem(3, new PyInt(m_tdata.offline));
+        PySetItemRelease(line, 0, new PyInt(m_tdata.anchor));
+        PySetItemRelease(line, 1, new PyInt(m_tdata.unanchor));
+        PySetItemRelease(line, 2, new PyInt(m_tdata.online));
+        PySetItemRelease(line, 3, new PyInt(m_tdata.offline));
 
     PyDict* dict = new PyDict();
     dict->SetItemString("header", header);
@@ -830,10 +830,10 @@ PyRep* TowerSE::GetUsageFlagList()
     PyList* lines = new PyList();
     for (auto cur : m_structs) {
         PyList* line = new PyList(4);
-            line->SetItem(0, new PyInt(cur.first));
-            line->SetItem(1, new PyInt(cur.second->CanView()));
-            line->SetItem(2, new PyInt(cur.second->CanTake()));
-            line->SetItem(3, new PyInt(cur.second->CanUse()));
+            PySetItemRelease(line, 0, new PyInt(cur.first));
+            PySetItemRelease(line, 1, new PyInt(cur.second->CanView()));
+            PySetItemRelease(line, 2, new PyInt(cur.second->CanTake()));
+            PySetItemRelease(line, 3, new PyInt(cur.second->CanUse()));
         lines->AddItem(line);
     }
 
@@ -895,7 +895,7 @@ PyRep* TowerSE::GetProcessInfo()
             continue;
 
         PyTuple* tuple = new PyTuple(6);
-        tuple->SetItem(0, new PyInt(cur.first));
+        PySetItemRelease(tuple, 0, new PyInt(cur.first));
 
         // Active state
         bool active = false;
@@ -903,13 +903,13 @@ PyRep* TowerSE::GetProcessInfo()
             ReactorSE* rSE = sSE->GetReactorSE();
             active = rSE->IsActive();
         }
-        tuple->SetItem(1, new PyBool(active));
+        PySetItemRelease(tuple, 1, new PyBool(active));
 
         // Reaction type
         if (sSE->IsReactorSE()) {
             int32 reactionType = sSE->GetReactorSE()->GetReactorData()->GetReaction();
             if (reactionType > 0)
-                tuple->SetItem(2, new PyInt(reactionType));
+                PySetItemRelease(tuple, 2, new PyInt(reactionType));
             else
                 tuple->SetItem(2, PyStatic.NewNone());
         } else {
@@ -924,8 +924,8 @@ PyRep* TowerSE::GetProcessInfo()
             PyList* connList = new PyList();
             for (auto& [connItemID, conn] : rData->GetConnections()) {
                 PyTuple* connTuple = new PyTuple(2);
-                connTuple->SetItem(0, new PyInt(conn.sourceID));
-                connTuple->SetItem(1, new PyInt(conn.toID));
+                PySetItemRelease(connTuple, 0, new PyInt(conn.sourceID));
+                PySetItemRelease(connTuple, 1, new PyInt(conn.toID));
                 connList->AddItem(connTuple);
             }
             tuple->SetItem(3, connList);
@@ -934,8 +934,8 @@ PyRep* TowerSE::GetProcessInfo()
             PyList* demList = new PyList();
             for (auto& [resID, res] : rData->GetDemands()) {
                 PyTuple* demTuple = new PyTuple(2);
-                demTuple->SetItem(0, new PyInt(res.typeID));
-                demTuple->SetItem(1, new PyInt(res.quantity));
+                PySetItemRelease(demTuple, 0, new PyInt(res.typeID));
+                PySetItemRelease(demTuple, 1, new PyInt(res.quantity));
                 demList->AddItem(demTuple);
             }
             tuple->SetItem(4, demList);
@@ -945,16 +945,16 @@ PyRep* TowerSE::GetProcessInfo()
             for (auto& [resID, res] : rData->GetSupplies()) {
                 if (res.quantity > 0) {
                     PyTuple* supTuple = new PyTuple(2);
-                    supTuple->SetItem(0, new PyInt(res.typeID));
-                    supTuple->SetItem(1, new PyInt(res.quantity));
+                    PySetItemRelease(supTuple, 0, new PyInt(res.typeID));
+                    PySetItemRelease(supTuple, 1, new PyInt(res.quantity));
                     supList->AddItem(supTuple);
                 }
             }
             tuple->SetItem(5, supList);
         } else {
-            tuple->SetItem(3, new PyList());
-            tuple->SetItem(4, new PyList());
-            tuple->SetItem(5, new PyList());
+            PySetItemRelease(tuple, 3, new PyList());
+            PySetItemRelease(tuple, 4, new PyList());
+            PySetItemRelease(tuple, 5, new PyList());
         }
 
         list->AddItem(tuple);

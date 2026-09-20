@@ -319,13 +319,13 @@ PyResult AgentMgrService::GetMyEpicJournalDetails(PyCallArgs& call)
             continue;
 
         PyDict* entry = new PyDict();
-        entry->SetItem(new PyString("arcID"), new PyInt(arc->arcID));
-        entry->SetItem(new PyString("agentID"), new PyInt(arc->startingAgentID));
-        entry->SetItem(new PyString("arcName"), new PyString(arc->arcName));
-        entry->SetItem(new PyString("chapterNumber"), new PyInt(state.chapterNumber));
+        PySetItemRelease(entry, new PyString("arcID"), new PyInt(arc->arcID));
+        PySetItemRelease(entry, new PyString("agentID"), new PyInt(arc->startingAgentID));
+        PySetItemRelease(entry, new PyString("arcName"), new PyString(arc->arcName));
+        PySetItemRelease(entry, new PyString("chapterNumber"), new PyInt(state.chapterNumber));
         entry->SetItem(new PyString("completed"), state.completed ? PyStatic.NewTrue() : PyStatic.NewFalse());
-        entry->SetItem(new PyString("dateStarted"), new PyLong(state.dateStarted));
-        entry->SetItem(new PyString("dateCompleted"), new PyLong(state.dateCompleted));
+        PySetItemRelease(entry, new PyString("dateStarted"), new PyLong(state.dateStarted));
+        PySetItemRelease(entry, new PyString("dateCompleted"), new PyLong(state.dateCompleted));
         result->AddItem(entry);
     }
 

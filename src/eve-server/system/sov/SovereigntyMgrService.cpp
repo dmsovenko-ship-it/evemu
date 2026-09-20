@@ -82,24 +82,24 @@ PyResult SovereigntyMgrService::GetSovOverview(PyCallArgs& call) {
     int64 now = GetFileTimeNow();
     while (res.GetRow(row)) {
         PyPackedRow* pRow = rowset->NewRow();
-        pRow->SetField("solarSystemID", new PyInt(row.GetUInt(0)));
-        pRow->SetField("constellationID", new PyInt(row.GetUInt(1)));
-        pRow->SetField("regionID", new PyInt(row.GetUInt(2)));
-        pRow->SetField("corporationID", new PyInt(row.GetUInt(3)));
-        pRow->SetField("allianceID", new PyInt(row.GetUInt(4)));
-        pRow->SetField("factionID", new PyInt(row.GetUInt(5)));
+        PySetFieldRelease(pRow, "solarSystemID", new PyInt(row.GetUInt(0)));
+        PySetFieldRelease(pRow, "constellationID", new PyInt(row.GetUInt(1)));
+        PySetFieldRelease(pRow, "regionID", new PyInt(row.GetUInt(2)));
+        PySetFieldRelease(pRow, "corporationID", new PyInt(row.GetUInt(3)));
+        PySetFieldRelease(pRow, "allianceID", new PyInt(row.GetUInt(4)));
+        PySetFieldRelease(pRow, "factionID", new PyInt(row.GetUInt(5)));
         double claimTime = row.GetDouble(6);
-        pRow->SetField("claimTime", new PyFloat(claimTime));
-        pRow->SetField("claimStructureID", new PyInt(row.GetUInt(7)));
-        pRow->SetField("hubID", new PyInt(row.GetUInt(8)));
-        pRow->SetField("contested", new PyInt(row.GetUInt(9)));
-        pRow->SetField("stationCount", new PyInt(row.GetUInt(10)));
+        PySetFieldRelease(pRow, "claimTime", new PyFloat(claimTime));
+        PySetFieldRelease(pRow, "claimStructureID", new PyInt(row.GetUInt(7)));
+        PySetFieldRelease(pRow, "hubID", new PyInt(row.GetUInt(8)));
+        PySetFieldRelease(pRow, "contested", new PyInt(row.GetUInt(9)));
+        PySetFieldRelease(pRow, "stationCount", new PyInt(row.GetUInt(10)));
         uint8 sovLevel = 0;
         if (claimTime > 0) {
             double daysSinceClaim = (now - (int64)claimTime) / (double)Win32Time_Day;
             sovLevel = std::min<uint8>(uint8(daysSinceClaim / 7), 5);
         }
-        pRow->SetField("sovereigntyLevel", new PyInt(sovLevel));
+        PySetFieldRelease(pRow, "sovereigntyLevel", new PyInt(sovLevel));
     }
     return rowset;
 }

@@ -74,11 +74,11 @@ PyResult LPStore::GetAvailableOffers(PyCallArgs& call) {
         }
 
         PyDict* dict = new PyDict();
-        dict->SetItem("offerID", new PyInt(row.GetInt(2)));
-        dict->SetItem("typeID", new PyInt(row.GetInt(0)));
-        dict->SetItem("iskCost", new PyInt(row.GetInt(1)));
-        dict->SetItem("lpCost", new PyInt(row.GetInt(4)));
-        dict->SetItem("qty", new PyInt(row.GetInt(3)));
+        PySetItemRelease(dict, "offerID", new PyInt(row.GetInt(2)));
+        PySetItemRelease(dict, "typeID", new PyInt(row.GetInt(0)));
+        PySetItemRelease(dict, "iskCost", new PyInt(row.GetInt(1)));
+        PySetItemRelease(dict, "lpCost", new PyInt(row.GetInt(4)));
+        PySetItemRelease(dict, "qty", new PyInt(row.GetInt(3)));
         dict->SetItem("reqItems", reqList);
         result->AddItem(new PyObject("util.KeyVal", dict));
     }

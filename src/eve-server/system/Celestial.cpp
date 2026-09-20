@@ -258,10 +258,10 @@ void WormholeSE::SendSlimUpdate() {
     if (SysBubble() == nullptr)
         return;
     PyTuple* slimData = new PyTuple(2);
-        slimData->SetItem(0, new PyLong(GetID()));
-        slimData->SetItem(1, new PyObject("foo.SlimItem", MakeSlimItem()));
+        PySetItemRelease(slimData, 0, new PyLong(GetID()));
+        PySetItemRelease(slimData, 1, new PyObject("foo.SlimItem", MakeSlimItem()));
     PyTuple* itemData = new PyTuple(2);
-        itemData->SetItem(0, new PyString("OnSlimItemChange"));
+        PySetItemRelease(itemData, 0, new PyString("OnSlimItemChange"));
         itemData->SetItem(1, slimData);
     SysBubble()->BubblecastDestinyUpdate(&itemData, "OnSlimItemChange");
 }

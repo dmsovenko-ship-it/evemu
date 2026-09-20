@@ -204,7 +204,7 @@ PyRep *StandingDB::GetStandingCompositions(uint32 fromID, uint32 toID)
         float dir = GetStanding(fromID, toID);
         PyTuple* t = new PyTuple(2);
         t->SetItem(0, PyStatic.NewInt(fromID));
-        t->SetItem(1, new PyFloat(dir));
+        PySetItemRelease(t, 1, new PyFloat(dir));
         result->SetItem(idx++, t);
     }
 
@@ -220,7 +220,7 @@ PyRep *StandingDB::GetStandingCompositions(uint32 fromID, uint32 toID)
             if (corpStand != 0.0f) {
                 PyTuple* t = new PyTuple(2);
                 t->SetItem(0, PyStatic.NewInt(corpID));
-                t->SetItem(1, new PyFloat(corpStand));
+                PySetItemRelease(t, 1, new PyFloat(corpStand));
                 result->SetItem(idx++, t);
             }
         }
@@ -239,7 +239,7 @@ PyRep *StandingDB::GetStandingCompositions(uint32 fromID, uint32 toID)
                 if (facStand != 0.0f) {
                     PyTuple* t = new PyTuple(2);
                     t->SetItem(0, PyStatic.NewInt(facID));
-                    t->SetItem(1, new PyFloat(facStand));
+                    PySetItemRelease(t, 1, new PyFloat(facStand));
                     result->SetItem(idx++, t);
                 }
             }

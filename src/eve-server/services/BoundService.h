@@ -124,7 +124,7 @@ public:
 
         byName->SetItem("OID+", bound->GetOID());
 
-        rsp->SetItem(0, new PySubStruct(new PySubStream(bound->GetOID())));
+        PySetItemRelease(rsp, 0, new PySubStruct(new PySubStream(bound->GetOID())));
 
         if (call.has_value() == false) {
             rsp->SetItem(1, PyStatic.NewNone());

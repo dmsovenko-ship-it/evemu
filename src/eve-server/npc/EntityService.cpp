@@ -116,13 +116,13 @@ EntityBound::EntityBound(EVEServiceManager &mgr, EntityService& parent, SystemMa
 // Helper: add UserError tuple {droneID: (errorMsg, errorDict)} to errors dict
 static void AddDroneError(PyDict* errors, uint32 droneID, const char* msg) {
     PyTuple* val = new PyTuple(2);
-    val->SetItem(0, new PyString(msg));
+    PySetItemRelease(val, 0, new PyString(msg));
     val->SetItem(1, PyStatic.NewNone());
     errors->SetItem(new PyInt(droneID), val);
 }
 static void AddDroneError(PyDict* errors, uint32 droneID, const char* msg, PyDict* dict) {
     PyTuple* val = new PyTuple(2);
-    val->SetItem(0, new PyString(msg));
+    PySetItemRelease(val, 0, new PyString(msg));
     val->SetItem(1, dict);
     errors->SetItem(new PyInt(droneID), val);
 }
@@ -249,7 +249,7 @@ PyResult EntityBound::CmdAssist(PyCallArgs &call, PyInt* assistID, PyList* drone
     if (pAssistSE == nullptr) {
         for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
             uint32 droneID = PyRep::IntegerValueU32(*itr);
-            errors->SetItem(new PyInt(droneID), new PyString("Assist target not found in system."));
+            PySetItemRelease(errors, new PyInt(droneID), new PyString("Assist target not found in system."));
         }
         return errors;
     }
@@ -291,7 +291,7 @@ PyResult EntityBound::CmdGuard(PyCallArgs &call, PyInt* guardID, PyList* droneID
     if (pGuardSE == nullptr) {
         for (PyList::const_iterator itr = droneIDs->begin(); itr != droneIDs->end(); ++itr) {
             uint32 droneID = PyRep::IntegerValueU32(*itr);
-            errors->SetItem(new PyInt(droneID), new PyString("Guard target not found in system."));
+            PySetItemRelease(errors, new PyInt(droneID), new PyString("Guard target not found in system."));
         }
         return errors;
     }

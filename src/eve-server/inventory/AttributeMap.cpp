@@ -363,9 +363,9 @@ bool AttributeMap::Change(uint16 attrID, EvilNumber& old_val, EvilNumber& new_va
     if (IsFittingSlot(mItem.flag()) and (mItem.categoryID() == EVEDB::invCategories::Charge)) {
         // locationID, flag, typeID = itemKey
         PyTuple* itemKey = new PyTuple(3);
-            itemKey->SetItem(0, new PyInt(mItem.locationID()));
-            itemKey->SetItem(1, new PyInt(mItem.flag()));
-            itemKey->SetItem(2, new PyInt(mItem.typeID()));
+            PySetItemRelease(itemKey, 0, new PyInt(mItem.locationID()));
+            PySetItemRelease(itemKey, 1, new PyInt(mItem.flag()));
+            PySetItemRelease(itemKey, 2, new PyInt(mItem.typeID()));
         modChange.itemKey = itemKey;
     } else {
         modChange.itemKey = new PyInt(mItem.itemID());
@@ -398,9 +398,9 @@ bool AttributeMap::Add(uint16 attrID, EvilNumber& num) {
     if (IsFittingSlot(mItem.flag()) and (mItem.categoryID() == EVEDB::invCategories::Charge)) {
         // locationID, flag, typeID = itemKey
         PyTuple* itemKey = new PyTuple(3);
-            itemKey->SetItem(0, new PyInt(mItem.locationID()));
-            itemKey->SetItem(1, new PyInt(mItem.flag()));
-            itemKey->SetItem(2, new PyInt(mItem.typeID()));
+            PySetItemRelease(itemKey, 0, new PyInt(mItem.locationID()));
+            PySetItemRelease(itemKey, 1, new PyInt(mItem.flag()));
+            PySetItemRelease(itemKey, 2, new PyInt(mItem.typeID()));
         modChange.itemKey = itemKey;
     } else {
         modChange.itemKey = new PyInt(mItem.itemID());

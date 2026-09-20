@@ -82,8 +82,8 @@ PyResult TradeBound::OfferMoney(PyCallArgs &call, PyFloat* amount) {
     pTSes->m_tradeSession.herState = false;
     // send changes
     PyTuple* tuple = new PyTuple(3);
-        tuple->SetItem(0, new PyString("MoneyOffer"));
-        tuple->SetItem(1, new PyInt(pTSes->m_tradeSession.containerID));
+        PySetItemRelease(tuple, 0, new PyString("MoneyOffer"));
+        PySetItemRelease(tuple, 1, new PyInt(pTSes->m_tradeSession.containerID));
         tuple->SetItem(2, list);
     PyIncRef(tuple);
     // now send it, bypassing the extra shit and wrong dest name added in Client::SendNotification
@@ -106,8 +106,8 @@ PyResult TradeBound::Abort(PyCallArgs &call) {
     CancelTrade(pClient, pOther, pTSes);
 
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyString("Cancel"));
-        tuple->SetItem(1, new PyInt(pTSes->m_tradeSession.containerID));
+        PySetItemRelease(tuple, 0, new PyString("Cancel"));
+        PySetItemRelease(tuple, 1, new PyInt(pTSes->m_tradeSession.containerID));
     PyIncRef(tuple);
     // now send it, bypassing the extra shit and wrong dest name added in Client::SendNotification
     pClient->SendNotification("OnTrade", "charid", &tuple);
@@ -180,9 +180,9 @@ PyResult TradeBound::ToggleAccept(PyCallArgs &call, PyBool* newAccept) {
                 (myAccept ? "true" : "false"), (herAccept ? "true" : "false"), (forceTrade ? "true" : "false"));
 
     PyTuple* tuple = new PyTuple(3);
-        tuple->SetItem(0, new PyString("StateToggle"));
-        tuple->SetItem(1, new PyBool(myAccept));
-        tuple->SetItem(2, new PyBool(herAccept));
+        PySetItemRelease(tuple, 0, new PyString("StateToggle"));
+        PySetItemRelease(tuple, 1, new PyBool(myAccept));
+        PySetItemRelease(tuple, 2, new PyBool(herAccept));
     PyIncRef(tuple);
     // now send it, bypassing the extra shit and wrong dest name added in Client::SendNotification
     pClient->SendNotification("OnTrade", "charid", &tuple);
@@ -260,15 +260,15 @@ PyResult TradeBound::Add(PyCallArgs &call, PyInt* itemID, PyInt* containerID) {
         dict->SetItem(new PyInt(Inv::Update::Location), containerID);
 
     PyPackedRow* row = new PyPackedRow( sDataMgr.CreateHeader() );
-        row->SetField("itemID",        new PyLong(mTI.itemID));
-        row->SetField("typeID",        new PyInt(mTI.typeID));
-        row->SetField("ownerID",       new PyInt(mTI.ownerID));
-        row->SetField("locationID",    new PyInt(mTI.locationID));
-        row->SetField("flagID",        new PyInt(mTI.flagID));
-        row->SetField("groupID",       new PyInt(mTI.groupID));
-        row->SetField("categoryID",    new PyInt(mTI.categoryID));
-        row->SetField("quantity",      new PyInt(mTI.singleton?-1:mTI.quantity));
-        row->SetField("customInfo",    new PyString(mTI.customInfo));
+        PySetFieldRelease(row, "itemID", new PyLong(mTI.itemID));
+        PySetFieldRelease(row, "typeID", new PyInt(mTI.typeID));
+        PySetFieldRelease(row, "ownerID", new PyInt(mTI.ownerID));
+        PySetFieldRelease(row, "locationID", new PyInt(mTI.locationID));
+        PySetFieldRelease(row, "flagID", new PyInt(mTI.flagID));
+        PySetFieldRelease(row, "groupID", new PyInt(mTI.groupID));
+        PySetFieldRelease(row, "categoryID", new PyInt(mTI.categoryID));
+        PySetFieldRelease(row, "quantity", new PyInt(mTI.singleton?-1:mTI.quantity));
+        PySetFieldRelease(row, "customInfo", new PyString(mTI.customInfo));
 
     PyTuple* tuple = new PyTuple(2);
         tuple->SetItem(0, row);
@@ -350,15 +350,15 @@ PyResult TradeBound::MultiAdd(PyCallArgs &call, PyList* itemIDs, PyInt* containe
         itemRef->Move(tradeContID, (EVEItemFlags)flag, true);
 
         PyPackedRow* row = new PyPackedRow(header);
-            row->SetField("itemID",        new PyLong(mTI.itemID));
-            row->SetField("typeID",        new PyInt(mTI.typeID));
-            row->SetField("ownerID",       new PyInt(mTI.ownerID));
-            row->SetField("locationID",    new PyInt(mTI.locationID));
-            row->SetField("flagID",        new PyInt(mTI.flagID));
-            row->SetField("groupID",       new PyInt(mTI.groupID));
-            row->SetField("categoryID",    new PyInt(mTI.categoryID));
-            row->SetField("quantity",      new PyInt(mTI.singleton?-1:mTI.quantity));
-            row->SetField("customInfo",    new PyString(mTI.customInfo));
+            PySetFieldRelease(row, "itemID", new PyLong(mTI.itemID));
+            PySetFieldRelease(row, "typeID", new PyInt(mTI.typeID));
+            PySetFieldRelease(row, "ownerID", new PyInt(mTI.ownerID));
+            PySetFieldRelease(row, "locationID", new PyInt(mTI.locationID));
+            PySetFieldRelease(row, "flagID", new PyInt(mTI.flagID));
+            PySetFieldRelease(row, "groupID", new PyInt(mTI.groupID));
+            PySetFieldRelease(row, "categoryID", new PyInt(mTI.categoryID));
+            PySetFieldRelease(row, "quantity", new PyInt(mTI.singleton?-1:mTI.quantity));
+            PySetFieldRelease(row, "customInfo", new PyString(mTI.customInfo));
         PyTuple* tuple = new PyTuple(2);
             tuple->SetItem(0, row);
             tuple->SetItem(1, dict);
@@ -384,14 +384,14 @@ PyResult TradeBound::GetItem(PyCallArgs &call) {
     // TODO: this might need parameters but I'm not sure
     TradeSession* pTSes = call.client->GetTradeSession();
     PyPackedRow* row = new PyPackedRow( sDataMgr.CreateHeader() );
-        row->SetField("itemID",        new PyLong(pTSes->m_tradeSession.containerID));
+        PySetFieldRelease(row, "itemID", new PyLong(pTSes->m_tradeSession.containerID));
         row->SetField("typeID",        new PyInt(53));     // type Trade Window
         row->SetField("ownerID",       PyStatic.NewOne());      // EvE_System
-        row->SetField("locationID",    new PyInt(pTSes->m_tradeSession.stationID));
+        PySetFieldRelease(row, "locationID", new PyInt(pTSes->m_tradeSession.stationID));
         row->SetField("flagID",        PyStatic.NewNone());
         row->SetField("quantity",      PyStatic.NewInt(-1));     // singleton
-        row->SetField("groupID",       new PyInt(EVEDB::invGroups::Trade_Session ) );
-        row->SetField("categoryID",    new PyInt(EVEDB::invCategories::Trading));
+        PySetFieldRelease(row, "groupID", new PyInt(EVEDB::invGroups::Trade_Session ));
+        PySetFieldRelease(row, "categoryID", new PyInt(EVEDB::invCategories::Trading));
         row->SetField("customInfo",    PyStatic.NewNone());
     return row;
 }
@@ -411,15 +411,15 @@ PyResult TradeBound::List(PyCallArgs &call) {
     DBRowDescriptor* header = sDataMgr.CreateHeader();
     for (auto cur : pTSes->m_tradelist) {
         PyPackedRow* row = new PyPackedRow( header );
-            row->SetField("itemID",        new PyLong(cur.itemID));
-            row->SetField("typeID",        new PyInt(cur.typeID));
-            row->SetField("ownerID",       new PyInt(cur.ownerID));
-            row->SetField("locationID",    new PyInt(cur.locationID));
-            row->SetField("flagID",        new PyInt(cur.flagID));
-            row->SetField("groupID",       new PyInt(cur.groupID));
-            row->SetField("quantity",      new PyInt(cur.singleton?-1:cur.quantity));
-            row->SetField("categoryID",    new PyInt(cur.categoryID));
-            row->SetField("customInfo",    new PyString(cur.customInfo));
+            PySetFieldRelease(row, "itemID", new PyLong(cur.itemID));
+            PySetFieldRelease(row, "typeID", new PyInt(cur.typeID));
+            PySetFieldRelease(row, "ownerID", new PyInt(cur.ownerID));
+            PySetFieldRelease(row, "locationID", new PyInt(cur.locationID));
+            PySetFieldRelease(row, "flagID", new PyInt(cur.flagID));
+            PySetFieldRelease(row, "groupID", new PyInt(cur.groupID));
+            PySetFieldRelease(row, "quantity", new PyInt(cur.singleton?-1:cur.quantity));
+            PySetFieldRelease(row, "categoryID", new PyInt(cur.categoryID));
+            PySetFieldRelease(row, "customInfo", new PyString(cur.customInfo));
         list->AddItem(row);
     }
 
@@ -439,11 +439,11 @@ PyResult TradeBound::List(PyCallArgs &call) {
         tld.herState         = pTSes->m_tradeSession.herState;
         tld.list             = new PyObjectEx(false, tuple);
     PyList* itemNames = new PyList(5);
-        itemNames->SetItem(0, new PyString("tradeContainerID"));
-        itemNames->SetItem(1, new PyString("traders"));
-        itemNames->SetItem(2, new PyString("state"));
-        itemNames->SetItem(3, new PyString("money"));
-        itemNames->SetItem(4, new PyString("items"));
+        PySetItemRelease(itemNames, 0, new PyString("tradeContainerID"));
+        PySetItemRelease(itemNames, 1, new PyString("traders"));
+        PySetItemRelease(itemNames, 2, new PyString("state"));
+        PySetItemRelease(itemNames, 3, new PyString("money"));
+        PySetItemRelease(itemNames, 4, new PyString("items"));
     TradeListRsp tlr;
         tlr.header  = itemNames;
         tlr.line    = tld.Encode();
@@ -490,8 +490,8 @@ void TradeBound::ExchangeItems(Client* pClient, Client* pOther, TradeSession* pT
     }
 
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyString("TradeComplete"));
-        tuple->SetItem(1, new PyInt(pTSes->m_tradeSession.containerID));
+        PySetItemRelease(tuple, 0, new PyString("TradeComplete"));
+        PySetItemRelease(tuple, 1, new PyInt(pTSes->m_tradeSession.containerID));
     PyIncRef(tuple);
     // now send it, bypassing the extra shit and wrong dest name added in Client::SendNotification
     pClient->SendNotification("OnTrade", "charid", &tuple);
@@ -611,8 +611,8 @@ PyResult TradeService::InitiateTrade(PyCallArgs &call, PyInt* characterID) {
 
     PyObject* resp = rsp_nc.Encode();
     PyTuple* tuple = new PyTuple(3);
-    tuple->SetItem(0, new PyString("Initiate"));
-    tuple->SetItem(1, new PyInt(call.client->GetCharacterID()));
+    PySetItemRelease(tuple, 0, new PyString("Initiate"));
+    PySetItemRelease(tuple, 1, new PyInt(call.client->GetCharacterID()));
     tuple->SetItem(2, resp->Clone());
     // now send it, bypassing the extra shit and wrong dest name added in Client::SendNotification
     call.client->SendNotification("OnTrade", "charid", &tuple);
@@ -632,8 +632,8 @@ void TradeService::CancelTrade(Client* pClient) {
     delete pTB;
 
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyString("Cancel"));
-        tuple->SetItem(1, new PyInt(pTSes->m_tradeSession.containerID));
+        PySetItemRelease(tuple, 0, new PyString("Cancel"));
+        PySetItemRelease(tuple, 1, new PyInt(pTSes->m_tradeSession.containerID));
     PyIncRef(tuple);
     // now send it, bypassing the extra shit and wrong dest name added in Client::SendNotification
     pClient->SendNotification("OnTrade", "charid", &tuple);

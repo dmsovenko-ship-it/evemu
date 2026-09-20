@@ -405,7 +405,7 @@ void Client::NotifyContactStatus(bool online)
 
     // Client handler expects just the charID
     PyTuple* payload = new PyTuple(1);
-        payload->SetItem(0, new PyInt(GetCharacterID()));
+        PySetItemRelease(payload, 0, new PyInt(GetCharacterID()));
 
     const char* notifyName = online ? "OnContactLoggedOn" : "OnContactLoggedOff";
 
@@ -3315,7 +3315,7 @@ void Client::_SendCallReturn(const PyAddress& source, int64 callID, PyResult &rs
     packet->userid = GetUserID();
 
     packet->payload = new PyTuple(1);
-    packet->payload->SetItem(0, new PySubStream(rsp.ssResult));
+    PySetItemRelease(packet->payload, 0, new PySubStream(rsp.ssResult));
     // rsp owns ssResult/ssNamedResult and releases them when Handle_CallReq's
     // PyResult destructor runs. The packet is deleted at the end of QueuePacket,
     // which PyDecRef's named_payload — take a counted ref so that doesn't
@@ -3405,37 +3405,37 @@ void Client::_SendPingResponse(const PyAddress& source, int64 callID)
     pingTuple = new PyTuple(3);
     pingTuple->SetItem(0, new PyLong(Win32TimeNow() - 20));        // this should be the time the packet was received (we cheat here a bit)
     pingTuple->SetItem(1, new PyLong(Win32TimeNow()));             // this is the time the packet is (handled/written) by the (proxy/server) so we're cheating a bit again.
-    pingTuple->SetItem(2, new PyString("proxy::handle_message"));
+    PySetItemRelease(pingTuple, 2, new PyString("proxy::handle_message"));
     pingList->AddItem(pingTuple);
 
     pingTuple = new PyTuple(3);
-    pingTuple->SetItem(0, new PyLong(Win32TimeNow() - 20));
-    pingTuple->SetItem(1, new PyLong(Win32TimeNow()));
-    pingTuple->SetItem(2, new PyString("proxy::writing"));
+    PySetItemRelease(pingTuple, 0, new PyLong(Win32TimeNow() - 20));
+    PySetItemRelease(pingTuple, 1, new PyLong(Win32TimeNow()));
+    PySetItemRelease(pingTuple, 2, new PyString("proxy::writing"));
     pingList->AddItem(pingTuple);
 
     pingTuple = new PyTuple(3);
-    pingTuple->SetItem(0, new PyLong(Win32TimeNow() - 20));
-    pingTuple->SetItem(1, new PyLong(Win32TimeNow()));
-    pingTuple->SetItem(2, new PyString("server::handle_message"));
+    PySetItemRelease(pingTuple, 0, new PyLong(Win32TimeNow() - 20));
+    PySetItemRelease(pingTuple, 1, new PyLong(Win32TimeNow()));
+    PySetItemRelease(pingTuple, 2, new PyString("server::handle_message"));
     pingList->AddItem(pingTuple);
 
     pingTuple = new PyTuple(3);
-    pingTuple->SetItem(0, new PyLong(Win32TimeNow() - 20));
-    pingTuple->SetItem(1, new PyLong(Win32TimeNow()));
-    pingTuple->SetItem(2, new PyString("server::turnaround"));
+    PySetItemRelease(pingTuple, 0, new PyLong(Win32TimeNow() - 20));
+    PySetItemRelease(pingTuple, 1, new PyLong(Win32TimeNow()));
+    PySetItemRelease(pingTuple, 2, new PyString("server::turnaround"));
     pingList->AddItem(pingTuple);
 
     pingTuple = new PyTuple(3);
-    pingTuple->SetItem(0, new PyLong(Win32TimeNow() - 20));
-    pingTuple->SetItem(1, new PyLong(Win32TimeNow()));
-    pingTuple->SetItem(2, new PyString("proxy::handle_message"));
+    PySetItemRelease(pingTuple, 0, new PyLong(Win32TimeNow() - 20));
+    PySetItemRelease(pingTuple, 1, new PyLong(Win32TimeNow()));
+    PySetItemRelease(pingTuple, 2, new PyString("proxy::handle_message"));
     pingList->AddItem(pingTuple);
 
     pingTuple = new PyTuple(3);
-    pingTuple->SetItem(0, new PyLong(Win32TimeNow() - 20));
-    pingTuple->SetItem(1, new PyLong(Win32TimeNow()));
-    pingTuple->SetItem(2, new PyString("proxy::writing"));
+    PySetItemRelease(pingTuple, 0, new PyLong(Win32TimeNow() - 20));
+    PySetItemRelease(pingTuple, 1, new PyLong(Win32TimeNow()));
+    PySetItemRelease(pingTuple, 2, new PyString("proxy::writing"));
     pingList->AddItem(pingTuple);
 
     // Set payload

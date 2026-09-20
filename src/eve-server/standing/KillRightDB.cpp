@@ -25,9 +25,9 @@ PyRep* KillRightDB::GetKillRights(uint32 ownerID, uint32 targetID)
         int64 timestamp = row.GetInt64(5);
 
         if (rightOwner == ownerID) {
-            killRights->SetItem(new PyInt(rightTarget), new PyLong(timestamp));
+            PySetItemRelease(killRights, new PyInt(rightTarget), new PyLong(timestamp));
         } else if (rightTarget == ownerID) {
-            killedRights->SetItem(new PyInt(rightOwner), new PyLong(timestamp));
+            PySetItemRelease(killedRights, new PyInt(rightOwner), new PyLong(timestamp));
         }
     }
 

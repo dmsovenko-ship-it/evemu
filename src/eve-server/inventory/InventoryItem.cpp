@@ -636,7 +636,7 @@ void InventoryItem::Rename(std::string name)
         list->AddItem(new PyFloat(0));
         list->AddItem(new PyFloat(0));
     PyTuple* tuple = new PyTuple(2);
-        tuple->SetItem(0, new PyString("evelocations"));
+        PySetItemRelease(tuple, 0, new PyString("evelocations"));
         tuple->SetItem(1, list);
 
     // get owner
@@ -1149,14 +1149,14 @@ PyPackedRow* InventoryItem::GetItemStatusRow() const {
 }
 
 void InventoryItem::GetItemStatusRow(PyPackedRow* into ) const {
-    into->SetField("instanceID",    new PyLong(m_itemID ));
-    into->SetField("online",        new PyBool((HasAttribute(AttrOnline) ? GetAttribute(AttrOnline).get_bool() : false) ));
-    into->SetField("damage",        new PyFloat((HasAttribute(AttrDamage) ? GetAttribute(AttrDamage).get_float() : 0) ));
-    into->SetField("charge",        new PyFloat((HasAttribute(AttrCapacitorCharge) ? GetAttribute(AttrCapacitorCharge).get_float() : 0) ));
-    into->SetField("skillPoints",   new PyInt((HasAttribute(AttrSkillPoints) ? GetAttribute(AttrSkillPoints).get_uint32() : 0) ));
-    into->SetField("armorDamage",   new PyFloat((HasAttribute(AttrArmorDamageAmount) ? GetAttribute(AttrArmorDamageAmount).get_float() : 0.0) ));
-    into->SetField("shieldCharge",  new PyFloat((HasAttribute(AttrShieldCharge) ? GetAttribute(AttrShieldCharge).get_float() : 0.0) ));
-    into->SetField("incapacitated", new PyBool((HasAttribute(AttrIsIncapacitated) ? GetAttribute(AttrIsIncapacitated).get_bool() : false) ));
+    PySetFieldRelease(into, "instanceID", new PyLong(m_itemID ));
+    PySetFieldRelease(into, "online", new PyBool((HasAttribute(AttrOnline) ? GetAttribute(AttrOnline).get_bool() : false) ));
+    PySetFieldRelease(into, "damage", new PyFloat((HasAttribute(AttrDamage) ? GetAttribute(AttrDamage).get_float() : 0) ));
+    PySetFieldRelease(into, "charge", new PyFloat((HasAttribute(AttrCapacitorCharge) ? GetAttribute(AttrCapacitorCharge).get_float() : 0) ));
+    PySetFieldRelease(into, "skillPoints", new PyInt((HasAttribute(AttrSkillPoints) ? GetAttribute(AttrSkillPoints).get_uint32() : 0) ));
+    PySetFieldRelease(into, "armorDamage", new PyFloat((HasAttribute(AttrArmorDamageAmount) ? GetAttribute(AttrArmorDamageAmount).get_float() : 0.0) ));
+    PySetFieldRelease(into, "shieldCharge", new PyFloat((HasAttribute(AttrShieldCharge) ? GetAttribute(AttrShieldCharge).get_float() : 0.0) ));
+    PySetFieldRelease(into, "incapacitated", new PyBool((HasAttribute(AttrIsIncapacitated) ? GetAttribute(AttrIsIncapacitated).get_bool() : false) ));
 }
 
 /*  charge info for specific module  */
@@ -1173,8 +1173,8 @@ PyPackedRow* InventoryItem::GetChargeStatusRow(uint32 shipID) const {
 
 void InventoryItem::GetChargeStatusRow(uint32 shipID, PyPackedRow* into) const {
     into->SetField("instanceID",     new PyLong(shipID));  // locationID
-    into->SetField("flagID",         new PyInt(m_data.flag));
-    into->SetField("typeID",         new PyInt(m_type.id()));
+    PySetFieldRelease(into, "flagID", new PyInt(m_data.flag));
+    PySetFieldRelease(into, "typeID", new PyInt(m_type.id()));
 }
 
 PyPackedRow* InventoryItem::GetItemRow() const
@@ -1191,31 +1191,31 @@ void InventoryItem::GetItemRow(PyPackedRow* into) const
         if (sItemFactory.GetBlueprintRef(m_itemID)->copy())
             qty = -2;
 
-    into->SetField("itemID",       new PyLong(m_itemID));
-    into->SetField("typeID",       new PyInt(m_type.id()));
-    into->SetField("ownerID",      new PyInt(m_data.ownerID));
-    into->SetField("locationID",   new PyInt(m_data.locationID));
-    into->SetField("flagID",       new PyInt(m_data.flag));
-    into->SetField("groupID",      new PyInt(type().groupID()));
-    into->SetField("categoryID",   new PyInt(type().categoryID()));
-    into->SetField("quantity",     new PyInt(qty));
+    PySetFieldRelease(into, "itemID", new PyLong(m_itemID));
+    PySetFieldRelease(into, "typeID", new PyInt(m_type.id()));
+    PySetFieldRelease(into, "ownerID", new PyInt(m_data.ownerID));
+    PySetFieldRelease(into, "locationID", new PyInt(m_data.locationID));
+    PySetFieldRelease(into, "flagID", new PyInt(m_data.flag));
+    PySetFieldRelease(into, "groupID", new PyInt(type().groupID()));
+    PySetFieldRelease(into, "categoryID", new PyInt(type().categoryID()));
+    PySetFieldRelease(into, "quantity", new PyInt(qty));
     /*
     if (m_type.categoryID() == EVEDB::invCategories::Blueprint) {
         if (sItemFactory.GetBlueprintRef(m_itemID)->copy()) {
             into->SetField("stacksize",    PyStatic.NewInt(1));
             into->SetField("singleton",    PyStatic.NewInt(2));
         } else {
-            into->SetField("stacksize",    new PyInt(m_data.singleton? -1 : m_data.quantity));
-            into->SetField("singleton",    new PyInt(m_data.singleton?1:0));
+            PySetFieldRelease(into, "stacksize", new PyInt(m_data.singleton? -1 : m_data.quantity));
+            PySetFieldRelease(into, "singleton", new PyInt(m_data.singleton?1:0));
         }
     } else {
-        into->SetField("stacksize",    new PyInt(m_data.singleton? -1 : m_data.quantity));
-        into->SetField("singleton",    new PyInt(m_data.singleton?1:0));
+        PySetFieldRelease(into, "stacksize", new PyInt(m_data.singleton? -1 : m_data.quantity));
+        PySetFieldRelease(into, "singleton", new PyInt(m_data.singleton?1:0));
     }
     */
     // customInfo is actually used in client (but i dont think it's a string)
     //if const.ixLocationID in change and item.customInfo == logConst.eventUndock:
-    into->SetField("customInfo",   new PyString(m_data.customInfo));
+    PySetFieldRelease(into, "customInfo", new PyString(m_data.customInfo));
 }
 
 bool InventoryItem::Populate(Rsp_CommonGetInfo_Entry& result )
@@ -1234,9 +1234,9 @@ bool InventoryItem::Populate(Rsp_CommonGetInfo_Entry& result )
     if ((m_type.categoryID() == EVEDB::invCategories::Charge)
     and IsFittingSlot(m_data.flag)) {
         PyTuple* tuple = new PyTuple(3);
-            tuple->SetItem(0, new PyInt(m_data.locationID));
-            tuple->SetItem(1, new PyInt(m_data.flag));
-            tuple->SetItem(2, new PyInt(m_type.id()));
+            PySetItemRelease(tuple, 0, new PyInt(m_data.locationID));
+            PySetItemRelease(tuple, 1, new PyInt(m_data.flag));
+            PySetItemRelease(tuple, 2, new PyInt(m_type.id()));
         result.itemID = tuple;
         result.invItem = PyStatic.NewNone();
         for (AttrMapItr itr = pAttributeMap->begin(), end = pAttributeMap->end(); itr != end; ++itr)

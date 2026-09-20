@@ -105,11 +105,11 @@ PyRep* SovereigntyDataMgr::GetAllDevelopmentIndices()
     for (auto &sData : m_sovData.get<SovDataBySolarSystem>())
     {
         PyPackedRow *row = rowset->NewRow();
-        row->SetField("solarSystemID", new PyInt(sData.solarSystemID));
-        row->SetField("militaryPoints", new PyInt(sData.militaryPoints));
-        row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
+        PySetFieldRelease(row, "solarSystemID", new PyInt(sData.solarSystemID));
+        PySetFieldRelease(row, "militaryPoints", new PyInt(sData.militaryPoints));
+        PySetFieldRelease(row, "industrialPoints", new PyInt(sData.industrialPoints));
         double daysSinceClaim = (now - sData.claimTime) / Win32Time_Day;
-        row->SetField("claimedFor", new PyInt(int32(daysSinceClaim)));
+        PySetFieldRelease(row, "claimedFor", new PyInt(int32(daysSinceClaim)));
         uint8 pts = std::min<uint8>(uint8(daysSinceClaim), 10);
         // Update stored values so GetDevelopmentIndicesForSystem sees them
         // (We modify the container directly for simplicity — in production
@@ -304,9 +304,9 @@ PyRep *SovereigntyDataMgr::GetAllianceBeacons(uint32 allianceID) //Get all beaco
         _log(SOV__DEBUG, "==========");
 
         PyTuple* tuple = new PyTuple(3);
-        tuple->SetItem(0, new PyInt(sData.solarSystemID));
-        tuple->SetItem(1, new PyInt(sData.beaconID));
-        tuple->SetItem(2, new PyInt(EVEDB::invTypes::CynosuralGeneratorArray));
+        PySetItemRelease(tuple, 0, new PyInt(sData.solarSystemID));
+        PySetItemRelease(tuple, 1, new PyInt(sData.beaconID));
+        PySetItemRelease(tuple, 2, new PyInt(EVEDB::invTypes::CynosuralGeneratorArray));
         list->AddItem(tuple);
     }
     return list;
@@ -331,12 +331,12 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                  m_sovData.get<SovDataByConstellation>().equal_range(locationID)))
         {
             PyPackedRow *row = rowset->NewRow();
-            row->SetField("locationID", new PyInt(sData.solarSystemID));
-            row->SetField("allianceID", new PyInt(sData.allianceID));
-            row->SetField("stationCount", new PyInt(sData.stationCount));
-            row->SetField("militaryPoints", new PyInt(sData.militaryPoints));
-            row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
-            row->SetField("claimedFor", new PyInt(sData.allianceID));
+            PySetFieldRelease(row, "locationID", new PyInt(sData.solarSystemID));
+            PySetFieldRelease(row, "allianceID", new PyInt(sData.allianceID));
+            PySetFieldRelease(row, "stationCount", new PyInt(sData.stationCount));
+            PySetFieldRelease(row, "militaryPoints", new PyInt(sData.militaryPoints));
+            PySetFieldRelease(row, "industrialPoints", new PyInt(sData.industrialPoints));
+            PySetFieldRelease(row, "claimedFor", new PyInt(sData.allianceID));
             seenLocationIDs.insert(sData.solarSystemID);
         }
         // Add faction systems in this constellation not covered by sov data
@@ -353,9 +353,9 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                 if (seenLocationIDs.find(sysID) == seenLocationIDs.end()) {
                     uint8 stCount = sDataMgr.GetStationCount(sysID);
                     PyPackedRow *row = rowset->NewRow();
-                    row->SetField("locationID", new PyInt(sysID));
+                    PySetFieldRelease(row, "locationID", new PyInt(sysID));
                     row->SetField("allianceID", PyStatic.NewInt(0));
-                    row->SetField("stationCount", new PyInt(stCount));
+                    PySetFieldRelease(row, "stationCount", new PyInt(stCount));
                     row->SetField("militaryPoints", PyStatic.NewInt(0));
                     row->SetField("industrialPoints", PyStatic.NewInt(0));
                     row->SetField("claimedFor", PyStatic.NewInt(0));
@@ -382,9 +382,9 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                 uint32 sysID = rRow.GetUInt(0);
                 uint8 stCount = sDataMgr.GetStationCount(sysID);
                 PyPackedRow *row = rowset->NewRow();
-                row->SetField("locationID", new PyInt(sysID));
+                PySetFieldRelease(row, "locationID", new PyInt(sysID));
                 row->SetField("allianceID", PyStatic.NewInt(0));
-                row->SetField("stationCount", new PyInt(stCount));
+                PySetFieldRelease(row, "stationCount", new PyInt(stCount));
                 row->SetField("militaryPoints", PyStatic.NewInt(0));
                 row->SetField("industrialPoints", PyStatic.NewInt(0));
                 row->SetField("claimedFor", PyStatic.NewInt(0));
@@ -401,12 +401,12 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
             if (!(std::find(cv.begin(), cv.end(), sData.constellationID) != cv.end()))
             {
                 PyPackedRow *row = rowset->NewRow();
-                row->SetField("locationID", new PyInt(sData.constellationID));
-                row->SetField("allianceID", new PyInt(sData.allianceID));
-                row->SetField("stationCount", new PyInt(sData.stationCount));
-                row->SetField("militaryPoints", new PyInt(sData.militaryPoints));
-                row->SetField("industrialPoints", new PyInt(sData.industrialPoints));
-                row->SetField("claimedFor", new PyInt(sData.allianceID));
+                PySetFieldRelease(row, "locationID", new PyInt(sData.constellationID));
+                PySetFieldRelease(row, "allianceID", new PyInt(sData.allianceID));
+                PySetFieldRelease(row, "stationCount", new PyInt(sData.stationCount));
+                PySetFieldRelease(row, "militaryPoints", new PyInt(sData.militaryPoints));
+                PySetFieldRelease(row, "industrialPoints", new PyInt(sData.industrialPoints));
+                PySetFieldRelease(row, "claimedFor", new PyInt(sData.allianceID));
                 cv.push_back(sData.constellationID);
                 seenLocationIDs.insert(sData.constellationID);
             }
@@ -424,7 +424,7 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
                 uint32 constID = fRow.GetUInt(0);
                 if (seenLocationIDs.find(constID) == seenLocationIDs.end()) {
                     PyPackedRow *row = rowset->NewRow();
-                    row->SetField("locationID", new PyInt(constID));
+                    PySetFieldRelease(row, "locationID", new PyInt(constID));
                     row->SetField("allianceID", PyStatic.NewInt(0));
                     row->SetField("stationCount", PyStatic.NewInt(0));
                     row->SetField("militaryPoints", PyStatic.NewInt(0));
@@ -455,7 +455,7 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
             while (rRes.GetRow(rRow)) {
                 uint32 constID = rRow.GetUInt(0);
                 PyPackedRow *row = rowset->NewRow();
-                row->SetField("locationID", new PyInt(constID));
+                PySetFieldRelease(row, "locationID", new PyInt(constID));
                 row->SetField("allianceID", PyStatic.NewInt(0));
                 row->SetField("stationCount", PyStatic.NewInt(0));
                 row->SetField("militaryPoints", PyStatic.NewInt(0));
@@ -480,12 +480,12 @@ PyRep *SovereigntyDataMgr::GetCurrentSovData(uint32 locationID)
             seenLocationIDs.insert(sData.solarSystemID);
         }
         PyPackedRow *row = rowset->NewRow();
-        row->SetField("locationID", new PyInt(locationID));
-        row->SetField("allianceID", new PyInt(sovAllianceID));
-        row->SetField("stationCount", new PyInt(stationCount));
-        row->SetField("militaryPoints", new PyInt(militaryPts));
-        row->SetField("industrialPoints", new PyInt(industrialPts));
-        row->SetField("claimedFor", new PyInt(sovAllianceID));
+        PySetFieldRelease(row, "locationID", new PyInt(locationID));
+        PySetFieldRelease(row, "allianceID", new PyInt(sovAllianceID));
+        PySetFieldRelease(row, "stationCount", new PyInt(stationCount));
+        PySetFieldRelease(row, "militaryPoints", new PyInt(militaryPts));
+        PySetFieldRelease(row, "industrialPoints", new PyInt(industrialPts));
+        PySetFieldRelease(row, "claimedFor", new PyInt(sovAllianceID));
     }
 
     return rowset;

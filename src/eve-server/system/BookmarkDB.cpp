@@ -139,7 +139,7 @@ PyRep *BookmarkDB::GetBookmarks(uint32 ownerID) {
             } else {
                 dict->SetItemString("folderID", new PyInt(row.GetInt(12)));
             }
-            corpBookmarks->SetItem(new PyInt(row.GetInt(0)), new PyObject("util.KeyVal", dict));
+            PySetItemRelease(corpBookmarks, new PyInt(row.GetInt(0)), new PyObject("util.KeyVal", dict));
         }
         return corpBookmarks;
     }
@@ -227,8 +227,8 @@ PyTuple* BookmarkDB::GetBookmarkDescription(uint32 bookmarkID)
     PyTuple* tuple = new PyTuple(2);
     DBResultRow row;
     if (res.GetRow(row)) {
-        tuple->SetItem(0, new PyString(row.GetText(0)));
-        tuple->SetItem(1, new PyString(row.GetText(1)));
+        PySetItemRelease(tuple, 0, new PyString(row.GetText(0)));
+        PySetItemRelease(tuple, 1, new PyString(row.GetText(1)));
     } else {
         // this should be empty string, not none
         tuple->SetItem(0, PyStatic.NewNone());

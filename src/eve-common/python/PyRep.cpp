@@ -1278,15 +1278,15 @@ bool PyChecksumedStream::visit( PyVisitor& v ) const
 PyTuple* new_tuple(int64 arg1)
 {
     PyTuple* res = new PyTuple(1);
-        res->SetItem(0, new PyLong(arg1));
+        PySetItemRelease(res, 0, new PyLong(arg1));
     return res;
 }
 
 PyTuple* new_tuple(int64 arg1, int64 arg2)
 {
     PyTuple* res = new PyTuple(2);
-        res->SetItem(0, new PyLong(arg1));
-        res->SetItem(1, new PyLong(arg2));
+        PySetItemRelease(res, 0, new PyLong(arg1));
+        PySetItemRelease(res, 1, new PyLong(arg2));
     return res;
 }
 
@@ -1296,24 +1296,24 @@ PyTuple* new_tuple(int64 arg1, int64 arg2)
 PyTuple* new_tuple(const char* arg1)
 {
     PyTuple* res = new PyTuple(1);
-        res->SetItem(0, new PyString(arg1));
+        PySetItemRelease(res, 0, new PyString(arg1));
     return res;
 }
 
 PyTuple* new_tuple(const char* arg1, const char* arg2)
 {
     PyTuple* res = new PyTuple(2);
-        res->SetItem(0, new PyString(arg1));
-        res->SetItem(1, new PyString(arg2));
+        PySetItemRelease(res, 0, new PyString(arg1));
+        PySetItemRelease(res, 1, new PyString(arg2));
     return res;
 }
 
 PyTuple* new_tuple(const char* arg1, const char* arg2, const char* arg3)
 {
     PyTuple* res = new PyTuple(3);
-        res->SetItem(0, new PyString(arg1));
-        res->SetItem(1, new PyString(arg2));
-        res->SetItem(2, new PyString(arg3));
+        PySetItemRelease(res, 0, new PyString(arg1));
+        PySetItemRelease(res, 1, new PyString(arg2));
+        PySetItemRelease(res, 2, new PyString(arg3));
     return res;
 }
 
@@ -1323,8 +1323,8 @@ PyTuple* new_tuple(const char* arg1, const char* arg2, const char* arg3)
 PyTuple* new_tuple(const char* arg1, const char* arg2, PyTuple* arg3)
 {
     PyTuple* res = new PyTuple(3);
-        res->SetItem(0, new PyString(arg1));
-        res->SetItem(1, new PyString(arg2));
+        PySetItemRelease(res, 0, new PyString(arg1));
+        PySetItemRelease(res, 1, new PyString(arg2));
         res->SetItem(2, arg3);
     return res;
 }
@@ -1332,7 +1332,7 @@ PyTuple* new_tuple(const char* arg1, const char* arg2, PyTuple* arg3)
 PyTuple* new_tuple(const char* arg1, PyRep* arg2, PyRep* arg3)
 {
     PyTuple* res = new PyTuple(3);
-        res->SetItem(0, new PyString(arg1));
+        PySetItemRelease(res, 0, new PyString(arg1));
         res->SetItem(1, arg2);
         res->SetItem(2, arg3);
     return res;

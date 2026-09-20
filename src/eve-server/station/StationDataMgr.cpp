@@ -244,15 +244,15 @@ PyRep* StationDataMgr::GetStationItemBits(uint32 stationID)
     if (itr != m_stationData.end()) {
         std::map<int8, int32>::iterator itr2;
         PyTuple * result = new PyTuple(5);
-            result->SetItem(0, new PyInt(itr->second.hangarGraphicID));
-            result->SetItem(1, new PyInt(itr->second.corporationID));
-            result->SetItem(2, new PyInt(stationID));
+            PySetItemRelease(result, 0, new PyInt(itr->second.hangarGraphicID));
+            PySetItemRelease(result, 1, new PyInt(itr->second.corporationID));
+            PySetItemRelease(result, 2, new PyInt(stationID));
             if ((itr2 = m_serviceMask.find(itr->second.operationID)) != m_serviceMask.end()) {
-                result->SetItem(3, new PyInt(itr2->second));
+                PySetItemRelease(result, 3, new PyInt(itr2->second));
             } else {
                 result->SetItem(3, PyStatic.NewInt(0));
             }
-            result->SetItem(4, new PyInt(itr->second.typeID));
+            PySetItemRelease(result, 4, new PyInt(itr->second.typeID));
         return result;
     }
     return nullptr;

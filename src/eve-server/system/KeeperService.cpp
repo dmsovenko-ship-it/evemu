@@ -242,8 +242,8 @@ PyResult KeeperBound::GetRoomObjects(PyCallArgs &call)
 
     for (auto cur : m_roomObjects) {
         PyPackedRow *newRow = rowset->NewRow();
-        newRow->SetField("objectID", new PyInt(cur->GetID()));
-        newRow->SetField("groupID", new PyInt(cur->GetData().groupID));
+        PySetFieldRelease(newRow, "objectID", new PyInt(cur->GetID()));
+        PySetFieldRelease(newRow, "groupID", new PyInt(cur->GetData().groupID));
     }
 
     return rowset;

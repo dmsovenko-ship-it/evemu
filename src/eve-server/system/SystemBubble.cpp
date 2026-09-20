@@ -1053,13 +1053,13 @@ PyObject* SystemBubble::GetDroneState() const
     PyList* lines = new PyList();
     for (auto cur : m_drones) {
         PyList* line = new PyList(7);
-            line->SetItem(0, new PyInt(cur.first));
-            line->SetItem(1, new PyInt(cur.second->GetOwnerID()));
-            line->SetItem(2, new PyInt(cur.second->GetControllerID()));
-            line->SetItem(3, new PyInt(cur.second->GetState()));
-            line->SetItem(4, new PyInt(cur.second->GetSelf()->typeID()));
-            line->SetItem(5, new PyInt(cur.second->GetControllerOwnerID()));
-            line->SetItem(6, new PyInt(cur.second->GetTargetID()));
+            PySetItemRelease(line, 0, new PyInt(cur.first));
+            PySetItemRelease(line, 1, new PyInt(cur.second->GetOwnerID()));
+            PySetItemRelease(line, 2, new PyInt(cur.second->GetControllerID()));
+            PySetItemRelease(line, 3, new PyInt(cur.second->GetState()));
+            PySetItemRelease(line, 4, new PyInt(cur.second->GetSelf()->typeID()));
+            PySetItemRelease(line, 5, new PyInt(cur.second->GetControllerOwnerID()));
+            PySetItemRelease(line, 6, new PyInt(cur.second->GetTargetID()));
         lines->AddItem(line);
     }
 

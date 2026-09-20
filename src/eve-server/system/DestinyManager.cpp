@@ -3455,10 +3455,10 @@ void DestinyManager::UpdateNewShip(const ShipItemRef newShipRef) {
 
     std::vector<PyTuple*> updates;
     PyTuple* shipData = new PyTuple(2);
-        shipData->SetItem(0, new PyLong(newShipRef->itemID()));
-        shipData->SetItem(1, new PyObject( "foo.SlimItem", slim));
+        PySetItemRelease(shipData, 0, new PyLong(newShipRef->itemID()));
+        PySetItemRelease(shipData, 1, new PyObject( "foo.SlimItem", slim));
     PyTuple* shipItem = new PyTuple(2);
-        shipItem->SetItem(0, new PyString("OnSlimItemChange"));
+        PySetItemRelease(shipItem, 0, new PyString("OnSlimItemChange"));
         shipItem->SetItem(1, shipData);
     updates.push_back(shipItem);
     SendDestinyUpdate(updates);
@@ -3483,10 +3483,10 @@ void DestinyManager::UpdateOldShip(ShipSE* pShipSE)
         slimPod->SetItemString("bounty",                PyStatic.NewNone());
         slimPod->SetItemString("securityStatus",        PyStatic.NewNone());
     PyTuple* shipData = new PyTuple(2);
-        shipData->SetItem(0, new PyLong(pShipSE->GetID()));
-        shipData->SetItem(1, new PyObject( "foo.SlimItem", slimPod));
+        PySetItemRelease(shipData, 0, new PyLong(pShipSE->GetID()));
+        PySetItemRelease(shipData, 1, new PyObject( "foo.SlimItem", slimPod));
     PyTuple* shipItem = new PyTuple(2);
-        shipItem->SetItem(0, new PyString("OnSlimItemChange"));
+        PySetItemRelease(shipItem, 0, new PyString("OnSlimItemChange"));
         shipItem->SetItem(1, shipData);
     SendSingleDestinyUpdate(&shipItem);   // consumed
 

@@ -181,7 +181,7 @@ PyResult SkillMgrBound::InjectSkillIntoBrain(PyCallArgs &call, PyList* skillItem
     }
 
     PyTuple* tmp = new PyTuple(1);
-    tmp->SetItem(0, new PyString("OnSkillInjected"));
+    PySetItemRelease(tmp, 0, new PyString("OnSkillInjected"));
     call.client->QueueDestinyEvent(&tmp);
     return nullptr;
 }
@@ -203,7 +203,7 @@ PyResult SkillMgrBound::SaveSkillQueue(PyCallArgs &call, PyList* skillQueue) {
 
     cRef->UpdateSkillQueueEndTime();
     PyTuple* tmp = new PyTuple(1);
-        tmp->SetItem(0, new PyString("OnSkillTrainingSaved"));
+        PySetItemRelease(tmp, 0, new PyString("OnSkillTrainingSaved"));
     call.client->QueueDestinyEvent(&tmp);
     return nullptr;
 }
@@ -275,10 +275,10 @@ PyResult SkillMgrBound::GetCharacterAttributeModifiers(PyCallArgs &call, PyInt* 
                 // For the requested attribute, check if the implant directly modifies it
                 if (implant->HasAttribute((uint16)attr->value())) {
                     PyTuple* tuple = new PyTuple(4);
-                        tuple->SetItem(0, new PyInt(implant->itemID()));
-                        tuple->SetItem(1, new PyInt(implant->typeID()));
+                        PySetItemRelease(tuple, 0, new PyInt(implant->itemID()));
+                        PySetItemRelease(tuple, 1, new PyInt(implant->typeID()));
                         tuple->SetItem(2, PyStatic.NewInt(1));    // operation = PreAssign (add)
-                        tuple->SetItem(3, new PyFloat(implant->GetAttribute((uint16)attr->value()).get_double()));
+                        PySetItemRelease(tuple, 3, new PyFloat(implant->GetAttribute((uint16)attr->value()).get_double()));
                     list->AddItem(tuple);
                 }
             }

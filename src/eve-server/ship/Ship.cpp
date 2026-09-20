@@ -1608,8 +1608,8 @@ uint32 ShipItem::UnlinkWeapon(uint32 moduleID)
     PyDict* result = new PyDict();
         result->SetItem(new PyInt(moduleID), slaves);
     PyTuple* tuple = new PyTuple(3);
-        tuple->SetItem(0, new PyString("OnWeaponBanksChanged"));
-        tuple->SetItem(1, new PyInt(m_itemID));
+        PySetItemRelease(tuple, 0, new PyString("OnWeaponBanksChanged"));
+        PySetItemRelease(tuple, 1, new PyInt(m_itemID));
         tuple->SetItem(2, result);      //GetLinkedWeapons()
     // send 'new' group data to client
     m_pilot->QueueDestinyEvent(&tuple);
@@ -1682,9 +1682,9 @@ void ShipItem::UnlinkGroup(uint32 memberID, bool update/*false*/)
                 SaveWeaponGroups();
                 if (update) {
                     PyTuple* tuple = new PyTuple(3);
-                        tuple->SetItem(0, new PyString("OnWeaponGroupDestroyed"));
-                        tuple->SetItem(1, new PyInt(m_itemID));
-                        tuple->SetItem(2, new PyInt(memberID));
+                        PySetItemRelease(tuple, 0, new PyString("OnWeaponGroupDestroyed"));
+                        PySetItemRelease(tuple, 1, new PyInt(m_itemID));
+                        PySetItemRelease(tuple, 2, new PyInt(memberID));
                     m_pilot->QueueDestinyEvent(&tuple);
                 }
                 return;
@@ -2284,7 +2284,7 @@ PyDict* ShipItem::GetShipInfo()
         return nullptr;
 
     PyDict* result = new PyDict();
-    result->SetItem(new PyInt( itemID()), new PyObject("util.KeyVal", entry.Encode()));
+    PySetItemRelease(result, new PyInt( itemID()), new PyObject("util.KeyVal", entry.Encode()));
 
     //get modules and charges
     std::vector<InventoryItemRef> equipped;
@@ -2297,12 +2297,12 @@ PyDict* ShipItem::GetShipInfo()
         if (cur->Populate(entry2)) {
             if (cur->categoryID() == EVEDB::invCategories::Charge) {
                 PyTuple* tuple = new PyTuple(3);
-                    tuple->SetItem(0, new PyInt(cur->locationID()));
-                    tuple->SetItem(1, new PyInt(cur->flag()));
-                    tuple->SetItem(2, new PyInt(cur->typeID()));
-                result->SetItem(tuple, new PyObject("util.KeyVal", entry2.Encode()));
+                    PySetItemRelease(tuple, 0, new PyInt(cur->locationID()));
+                    PySetItemRelease(tuple, 1, new PyInt(cur->flag()));
+                    PySetItemRelease(tuple, 2, new PyInt(cur->typeID()));
+                PySetItemRelease(result, tuple, new PyObject("util.KeyVal", entry2.Encode()));
             } else {
-                result->SetItem(new PyInt(cur->itemID()), new PyObject("util.KeyVal", entry2.Encode()));
+                PySetItemRelease(result, new PyInt(cur->itemID()), new PyObject("util.KeyVal", entry2.Encode()));
             }
         } else {
             _log( SHIP__ERROR, "%s(%u): Failed to Populate() %s(%u) for ShipGetInfo", \
@@ -2377,8 +2377,8 @@ PyList* ShipItem::ShipGetModuleList() {
     m_ModuleManager->GetModuleListOfRefsAsc(moduleList);
     for (auto cur : moduleList) {
         PyTuple* module = new PyTuple(2);
-        module->SetItem(0, new PyInt(cur->typeID()));
-        module->SetItem(1, new PyInt(cur->itemID()));
+        PySetItemRelease(module, 0, new PyInt(cur->typeID()));
+        PySetItemRelease(module, 1, new PyInt(cur->itemID()));
         result->AddItem(module);
     }
 

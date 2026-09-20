@@ -503,15 +503,15 @@ void CrimeWatch::SendAggressionChange() {
     // inner dict maps victimID to lastAggression timestamp.
     PyDict* timers = new PyDict();
     if (weaponTime > 0)
-        timers->SetItem(new PyInt(m_client->GetCharacterID()), new PyLong(weaponTime));
+        PySetItemRelease(timers, new PyInt(m_client->GetCharacterID()), new PyLong(weaponTime));
     if (aggressionTime > 0)
-        timers->SetItem(new PyInt(m_aggressionTargetID), new PyLong(aggressionTime));
+        PySetItemRelease(timers, new PyInt(m_aggressionTargetID), new PyLong(aggressionTime));
     if (timers->empty())
         return;
     PyDict* aggressors = new PyDict();
     aggressors->SetItem(new PyInt(m_client->GetCharacterID()), timers);
     PyTuple* payload = new PyTuple(2);
-        payload->SetItem(0, new PyInt(m_client->GetSystemID()));
+        PySetItemRelease(payload, 0, new PyInt(m_client->GetSystemID()));
         payload->SetItem(1, aggressors);
     pSE->SysBubble()->BubblecastSendNotification("OnAggressionChange", "solarsystemid", &payload, true);
 }

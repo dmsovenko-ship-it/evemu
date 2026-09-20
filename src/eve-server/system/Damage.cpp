@@ -470,8 +470,8 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 dict->SetItemString("target", new PyInt(GetID()));
                 dict->SetItemString("damage", new PyFloat(total_damage));
             PyTuple* tuple = new PyTuple(3);
-                tuple->SetItem(0, new PyString("OnDamageMessage"));
-                tuple->SetItem(1, new PyString(Dmg::Msg::Taken[damageID]));
+                PySetItemRelease(tuple, 0, new PyString("OnDamageMessage"));
+                PySetItemRelease(tuple, 1, new PyString(Dmg::Msg::Taken[damageID]));
                 tuple->SetItem(2, dict);
             GetPilot()->QueueDestinyEvent(&tuple);
         } else if (IsDroneSE() && GetDroneSE()->GetOwner() != nullptr) {
@@ -488,8 +488,8 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 dict->SetItemString("owner", ownerTuple);
                 dict->SetItemString("damage", new PyFloat(total_damage));
             PyTuple* tuple = new PyTuple(3);
-                tuple->SetItem(0, new PyString("OnDamageMessage"));
-                tuple->SetItem(1, new PyString(Dmg::Msg::Taken[damageID]));
+                PySetItemRelease(tuple, 0, new PyString("OnDamageMessage"));
+                PySetItemRelease(tuple, 1, new PyString(Dmg::Msg::Taken[damageID]));
                 tuple->SetItem(2, dict);
             droneOwner->QueueDestinyEvent(&tuple);
         }
@@ -503,7 +503,7 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                 dict->SetItemString("damage", new PyFloat(total_damage));
             PyTuple* tuple = new PyTuple(3);
             bool banked = false;
-            tuple->SetItem(0, new PyString("OnDamageMessage"));
+            PySetItemRelease(tuple, 0, new PyString("OnDamageMessage"));
             if (d.weaponRef->IsModuleItem()) {
                 GenericModule* pMod = d.srcSE->GetShipSE()->GetShipItemRef()->GetModule(d.weaponRef->flag());
                 if (pMod != nullptr)
@@ -511,9 +511,9 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                         banked = true;
             }
             if (banked) {
-                tuple->SetItem(1, new PyString(Dmg::Msg::Banked[damageID]));
+                PySetItemRelease(tuple, 1, new PyString(Dmg::Msg::Banked[damageID]));
             } else {
-                tuple->SetItem(1, new PyString(Dmg::Msg::Given[damageID]));
+                PySetItemRelease(tuple, 1, new PyString(Dmg::Msg::Given[damageID]));
             }
             tuple->SetItem(2, dict);
             d.srcSE->GetPilot()->QueueDestinyEvent(&tuple);
@@ -527,8 +527,8 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                     dict->SetItemString("target", new PyInt(GetID()));
                     dict->SetItemString("damage", new PyFloat(total_damage));
                 PyTuple* tuple = new PyTuple(3);
-                    tuple->SetItem(0, new PyString("OnDamageMessage"));
-                    tuple->SetItem(1, new PyString(Dmg::Msg::Given[damageID]));
+                    PySetItemRelease(tuple, 0, new PyString("OnDamageMessage"));
+                    PySetItemRelease(tuple, 1, new PyString(Dmg::Msg::Given[damageID]));
                     tuple->SetItem(2, dict);
                 d.srcSE->GetDroneSE()->GetOwner()->QueueDestinyEvent(&tuple);
             } else {

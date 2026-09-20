@@ -203,11 +203,11 @@ PyRep* CustomsSE::GetSettingsInfo()
         dict->SetItemString("standingGood", new PyFloat(m_cData.taxRateValues[EVEPOS::TaxValues::StandingGood]));
         dict->SetItemString("standingHigh", new PyFloat(m_cData.taxRateValues[EVEPOS::TaxValues::StandingHigh]));
     PyTuple* tuple = new PyTuple(5);
-        tuple->SetItem(0, new PyInt(m_cData.selectedHour));
-        tuple->SetItem(1, new PyObject("util.KeyVal", dict));
+        PySetItemRelease(tuple, 0, new PyInt(m_cData.selectedHour));
+        PySetItemRelease(tuple, 1, new PyObject("util.KeyVal", dict));
         tuple->SetItem(2, new PyInt(m_cData.standingValue));    //const.contactHorribleStanding
-        tuple->SetItem(3, new PyBool(m_cData.allowAlliance));
-        tuple->SetItem(4, new PyBool(m_cData.allowStandings));
+        PySetItemRelease(tuple, 3, new PyBool(m_cData.allowAlliance));
+        PySetItemRelease(tuple, 4, new PyBool(m_cData.allowStandings));
     return tuple;
 }
 
@@ -294,10 +294,10 @@ void CustomsSE::SendSlimUpdate()
         slim->SetItemString("incapacitated",            PyStatic.NewZero());
         slim->SetItemString("posDelayTime",             PyStatic.NewZero()); // fix this
     PyTuple* shipData = new PyTuple(2);
-        shipData->SetItem(0,                            new PyLong(m_cData.itemID));
-        shipData->SetItem(1,                            new PyObject("foo.SlimItem", slim));
+        PySetItemRelease(shipData, 0, new PyLong(m_cData.itemID));
+        PySetItemRelease(shipData, 1, new PyObject("foo.SlimItem", slim));
     PyTuple* sItem = new PyTuple(2);
-        sItem->SetItem(0,                               new PyString("OnSlimItemChange"));
+        PySetItemRelease(sItem, 0, new PyString("OnSlimItemChange"));
         sItem->SetItem(1,                               shipData);
     m_destiny->SendSingleDestinyUpdate(&sItem);   // consumed
 }
@@ -424,8 +424,8 @@ PyDict *CustomsSE::MakeSlimItem() {
     slim->SetItemString("planetID",             new PyInt(m_oData.planetID));  // planetID for this orbital
     slim->SetItemString("orbitalState",         new PyInt(m_cData.state));   // this needs to be ORBITAL state...not structure state
     PyTuple* tuple = new PyTuple(3);            // yaw, pitch, roll = getattr(slimItem, 'dunRotation', None)
-        tuple->SetItem(0,                       new PyFloat(m_oData.rotation.x));
-        tuple->SetItem(1,                       new PyFloat(m_oData.rotation.y));
+        PySetItemRelease(tuple, 0, new PyFloat(m_oData.rotation.x));
+        PySetItemRelease(tuple, 1, new PyFloat(m_oData.rotation.y));
         tuple->SetItem(2,                       new PyFloat(m_oData.rotation.z)); //MakeRandomFloat(-180, 180)
     slim->SetItemString("dunRotation", tuple);  // direction to planet
     //  dunno what these are...

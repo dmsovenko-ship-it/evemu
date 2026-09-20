@@ -39,12 +39,12 @@ int marshal_EVEMarshalTest( int argc, char* argv[] )
     CRowSet* rs = new CRowSet( &header );
 
     PyPackedRow* row = rs->NewRow();
-    row->SetField( "historyDate", new PyLong( Win32TimeNow() ) );
-    row->SetField( "lowPrice", new PyLong( 18000 ) );
-    row->SetField( "highPrice", new PyLong( 19000 ) );
-    row->SetField( "avgPrice", new PyLong( 18400 ) );
-    row->SetField( "volume", new PyLong( 5463586 ) );
-    row->SetField( "orders", new PyInt( 254 ) );
+    PySetFieldRelease(row, "historyDate", new PyLong( Win32TimeNow() ));
+    PySetFieldRelease(row, "lowPrice", new PyLong( 18000 ));
+    PySetFieldRelease(row, "highPrice", new PyLong( 19000 ));
+    PySetFieldRelease(row, "avgPrice", new PyLong( 18400 ));
+    PySetFieldRelease(row, "volume", new PyLong( 5463586 ));
+    PySetFieldRelease(row, "orders", new PyInt( 254 ));
 
     ::puts( "Marshaling..." );
 

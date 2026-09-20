@@ -197,11 +197,11 @@ PyRep* PlanetSE::GetResourceData(Call_ResourceDataDict& dict)
 PyRep* PlanetSE::GetPlanetResourceInfo()
 {
     PyDict* res = new PyDict();
-        res->SetItem(new PyInt(m_data.type_1), new PyFloat(m_data.dist_1));
-        res->SetItem(new PyInt(m_data.type_2), new PyFloat(m_data.dist_2));
-        res->SetItem(new PyInt(m_data.type_3), new PyFloat(m_data.dist_3));
-        res->SetItem(new PyInt(m_data.type_4), new PyFloat(m_data.dist_4));
-        res->SetItem(new PyInt(m_data.type_5), new PyFloat(m_data.dist_5));
+        PySetItemRelease(res, new PyInt(m_data.type_1), new PyFloat(m_data.dist_1));
+        PySetItemRelease(res, new PyInt(m_data.type_2), new PyFloat(m_data.dist_2));
+        PySetItemRelease(res, new PyInt(m_data.type_3), new PyFloat(m_data.dist_3));
+        PySetItemRelease(res, new PyInt(m_data.type_4), new PyFloat(m_data.dist_4));
+        PySetItemRelease(res, new PyInt(m_data.type_5), new PyFloat(m_data.dist_5));
     if (is_log_enabled(PLANET__RES_DUMP))
         res->Dump(PLANET__RES_DUMP, "   ");
     return res;
@@ -209,17 +209,17 @@ PyRep* PlanetSE::GetPlanetResourceInfo()
 
 PyRep* PlanetSE::GetPlanetInfo(Colony* pColony) {
     PyDict *args = new PyDict();
-    args->SetItem("planetTypeID", new PyInt(m_self->typeID()));
-    args->SetItem("solarSystemID", new PyInt(m_system->GetID()));
-    args->SetItem("radius", new PyInt(GetRadius()));
-    args->SetItem("planetID", new PyInt(m_self->itemID()));
+    PySetItemRelease(args, "planetTypeID", new PyInt(m_self->typeID()));
+    PySetItemRelease(args, "solarSystemID", new PyInt(m_system->GetID()));
+    PySetItemRelease(args, "radius", new PyInt(GetRadius()));
+    PySetItemRelease(args, "planetID", new PyInt(m_self->itemID()));
     if (pColony->HasColony()) {
         //pColony->Update();
-        args->SetItem("level", new PyInt(pColony->GetLevel()));
+        PySetItemRelease(args, "level", new PyInt(pColony->GetLevel()));
         args->SetItem("pins", pColony->GetPins());
         args->SetItem("links", pColony->GetLinks());
         args->SetItem("routes", pColony->GetRoutes());
-        args->SetItem("currentSimTime", new PyLong(pColony->GetSimTime()));
+        PySetItemRelease(args, "currentSimTime", new PyLong(pColony->GetSimTime()));
     }
     //PyIncRef(args);
     PyObject *rtn = new PyObject("util.KeyVal", args);
@@ -240,11 +240,11 @@ PyRep* PlanetSE::GetExtractorsForPlanet(int32 planetID) {
     DBResultRow row;
     while (res.GetRow(row)) {
         PyDict* dict(new PyDict());
-            dict->SetItem("pinID", new PyInt(row.GetInt(0)));
-            dict->SetItem("typeID", new PyInt(row.GetInt(1)));
-            dict->SetItem("ownerID", new PyInt(row.GetInt(2)));
-            dict->SetItem("latitude", new PyFloat(row.GetFloat(3)));
-            dict->SetItem("longitude", new PyFloat(row.GetFloat(4)));
+            PySetItemRelease(dict, "pinID", new PyInt(row.GetInt(0)));
+            PySetItemRelease(dict, "typeID", new PyInt(row.GetInt(1)));
+            PySetItemRelease(dict, "ownerID", new PyInt(row.GetInt(2)));
+            PySetItemRelease(dict, "latitude", new PyFloat(row.GetFloat(3)));
+            PySetItemRelease(dict, "longitude", new PyFloat(row.GetFloat(4)));
         list->AddItem(new PyObject("util.KeyVal", dict));
     }
 

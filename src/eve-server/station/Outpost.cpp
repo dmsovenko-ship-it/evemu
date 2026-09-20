@@ -131,7 +131,7 @@ void OutpostSE::Capture(Damage& damage)
 
     // Notify
     PyTuple* data = new PyTuple(2);
-        data->SetItem(0, new PyInt(m_system->GetID()));
+        PySetItemRelease(data, 0, new PyInt(m_system->GetID()));
         data->SetItem(1, PyStatic.NewNone());
 
     std::vector<Client*> clients;

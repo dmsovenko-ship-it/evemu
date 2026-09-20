@@ -277,7 +277,7 @@ void Scan::ShipScanResult() {
             ssr_oed.y = anoms.position.y;
             ssr_oed.z = anoms.position.z;
         PyTuple* oed_tuple = new PyTuple(2);
-            oed_tuple->SetItem(0, new PyToken("foo.Vector3"));
+            PySetItemRelease(oed_tuple, 0, new PyToken("foo.Vector3"));
             oed_tuple->SetItem(1, ssr_oed.Encode());
         ssr.data = new PyObjectEx(false, oed_tuple);  // oed goes here
         resultList->AddItem(ssr.Encode());
@@ -515,7 +515,7 @@ struct CosmicSignature {
         PyList* ring = new PyList();
         PyTuple* tuple = new PyTuple(probeVec.size());
         for (auto cur : probeVec) {
-            tuple->SetItem(count++, new PyInt(cur->GetID()));
+            PySetItemRelease(tuple, count++, new PyInt(cur->GetID()));
             pos = cur->GetPosition();
             ScanResultPos ssr_oed;
                 ssr_oed.x = pos.x;

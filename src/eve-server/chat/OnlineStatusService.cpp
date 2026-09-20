@@ -54,7 +54,7 @@ PyResult OnlineStatusService::GetInitialState(PyCallArgs &call) {
     while (res.GetRow(row)) {
         uint32 contactID = row.GetUInt(0);
         PyPackedRow* pRow = rowset->NewRow();
-        pRow->SetField("contactID", new PyInt(contactID));
+        PySetFieldRelease(pRow, "contactID", new PyInt(contactID));
         pRow->SetField("online", sEntityList.PyIsOnline(contactID));
     }
     return rowset;

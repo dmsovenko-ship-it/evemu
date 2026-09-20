@@ -229,13 +229,13 @@ PyResult BillMgr::GetAutomaticPaySettings(PyCallArgs &call) {
     DBResultRow row;
     PyDict* sets = new PyDict();
     if (res.GetRow(row)) {
-        sets->SetItem(new PyInt(Corp::BillType::MarketFine), new PyBool(row.GetBool(0)));
-        sets->SetItem(new PyInt(Corp::BillType::RentalBill), new PyBool(row.GetBool(1)));
-        sets->SetItem(new PyInt(Corp::BillType::BrokerBill), new PyBool(row.GetBool(2)));
-        sets->SetItem(new PyInt(Corp::BillType::WarBill), new PyBool(row.GetBool(3)));
+        PySetItemRelease(sets, new PyInt(Corp::BillType::MarketFine), new PyBool(row.GetBool(0)));
+        PySetItemRelease(sets, new PyInt(Corp::BillType::RentalBill), new PyBool(row.GetBool(1)));
+        PySetItemRelease(sets, new PyInt(Corp::BillType::BrokerBill), new PyBool(row.GetBool(2)));
+        PySetItemRelease(sets, new PyInt(Corp::BillType::WarBill), new PyBool(row.GetBool(3)));
         if (call.client->GetAllianceID())
-            sets->SetItem(new PyInt(Corp::BillType::AllianceMaintainanceBill), new PyBool(row.GetBool(4)));
-        sets->SetItem(new PyInt(Corp::BillType::SovereigntyMarker), new PyBool(row.GetBool(5)));
+            PySetItemRelease(sets, new PyInt(Corp::BillType::AllianceMaintainanceBill), new PyBool(row.GetBool(4)));
+        PySetItemRelease(sets, new PyInt(Corp::BillType::SovereigntyMarker), new PyBool(row.GetBool(5)));
     }
 
     PyDict* dict = new PyDict();

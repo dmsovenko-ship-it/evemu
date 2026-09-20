@@ -96,8 +96,8 @@ PyResult Standing::GetMyKillRights(PyCallArgs &call) {
     PyRep* result = m_kdb.GetKillRights(call.client->GetCharacterID(), call.client->GetCharacterID());
     if (result == nullptr) {
         PyTuple* empty = new PyTuple(2);
-        empty->SetItem(0, new PyDict());
-        empty->SetItem(1, new PyDict());
+        PySetItemRelease(empty, 0, new PyDict());
+        PySetItemRelease(empty, 1, new PyDict());
         return empty;
     }
     return result;
@@ -296,7 +296,7 @@ PyResult Standing::SetStanding(PyCallArgs &call, PyInt* toID, PyFloat* standing)
     args->SetItemString("toID", new PyInt(targetID));
     args->SetItemString("standing", new PyFloat(newStanding));
     PyTuple* payload = new PyTuple(1);
-    payload->SetItem(0, new PyObject("util.KeyVal", args));
+    PySetItemRelease(payload, 0, new PyObject("util.KeyVal", args));
     call.client->SendNotification("OnStandingSet", "clientID", payload, false);
 
     // also send OnStandingsModified to both
@@ -307,7 +307,7 @@ PyResult Standing::SetStanding(PyCallArgs &call, PyInt* toID, PyFloat* standing)
     modArgs->SetItemString("change", new PyFloat(delta));
     modArgs->SetItemString("eventType", new PyInt(Standings::PlayerSet));
     PyTuple* modPayload = new PyTuple(1);
-    modPayload->SetItem(0, new PyObject("util.KeyVal", modArgs));
+    PySetItemRelease(modPayload, 0, new PyObject("util.KeyVal", modArgs));
     call.client->SendNotification("OnStandingsModified", "clientID", modPayload, false);
 
     Client* targetClient = sEntityList.FindClientByCharID(targetID);
@@ -345,8 +345,8 @@ PyResult Standing::GetStandingEventTypes(PyCallArgs &call) {
 
     for (auto& e : events) {
         PyTuple* entry = new PyTuple(2);
-        entry->SetItem(0, new PyString(e.label));
-        entry->SetItem(1, new PyInt(e.id));
+        PySetItemRelease(entry, 0, new PyString(e.label));
+        PySetItemRelease(entry, 1, new PyInt(e.id));
         result->AddItem(entry);
     }
     return result;
