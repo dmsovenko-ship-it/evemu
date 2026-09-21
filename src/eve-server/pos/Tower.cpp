@@ -111,7 +111,8 @@ TowerSE::TowerSE(StructureItemRef structure, EVEServiceManager& services, System
 m_pShieldSE(nullptr),
 m_manualTargetID(0),
 m_botFuelled(false),
-m_lastPlayerCount(0)
+m_lastPlayerCount(0),
+m_lastFieldAnnounce(0)
 {
     m_hasShield = false;
     m_structs.clear();
@@ -162,6 +163,18 @@ void TowerSE::Init()
 
     // if password is already set and tower online, then we can online (create) the forcefield
     m_harmonic = m_tdata.harmonic;
+
+    // The shield IS the force field. Control Towers carry AttrShieldCapacity but
+    // NOT a persisted AttrShieldCharge, so a fresh load reads 0 — which the
+    // damage-driven reinforcement check would mistake for "below 25%" and put
+    // every tower straight into reinforced mode. Treat a missing/zero charge as
+    // a full shield.
+    {
+        double cap = m_self->GetAttribute(AttrShieldCapacity).get_float();
+        if (cap > 0.0 && m_self->GetAttribute(AttrShieldCharge).get_float() <= 0.0)
+            m_self->SetAttribute(AttrShieldCharge, cap, false);
+    }
+
     if ((m_harmonic > EVEPOS::Harmonic::Offline)
     and (!m_tdata.password.empty())
     and (m_data.state > EVEPOS::StructureState::Anchored))
@@ -386,22 +399,25 @@ void TowerSE::Process()
     StructureSE::Process();
 
     // Force-field ball delivery: the field is a static entity that gets a bubble
-    // at system boot, but a player arriving later may never receive its ball
-    // (no FSE::EncodeDestiny — the sphere stays invisible while the field still
-    // blocks targeting/damage). Re-register it in a bubble and (re)announce it to
-    // the grid whenever the system's player count changes.
+    // at system boot, but a client already in the grid (e.g. logging in) may miss
+    // the ball, so the sphere stays invisible while the field still blocks
+    // targeting/damage. Re-register it and (re)announce it to the grid on player
+    // join AND periodically (in case the first ball was dropped during login).
     if (m_hasShield && m_pShieldSE != nullptr && m_system != nullptr) {
         uint32 players = m_system->PlayerCount();
-        if (players != m_lastPlayerCount) {
+        uint32 stamp = sEntityList.GetStamp();
+        bool onJoin = (players != m_lastPlayerCount);
+        bool periodic = (players > 0 && stamp >= m_lastFieldAnnounce && stamp - m_lastFieldAnnounce >= 30);
+        if (onJoin)
             m_lastPlayerCount = players;
-            if (players > 0) {
-                if (m_pShieldSE->SysBubble() == nullptr)
-                    sBubbleMgr.Add(m_pShieldSE);
-                if (m_pShieldSE->SysBubble() != nullptr) {
-                    _log(POS__MESSAGE, "TowerSE::Process() - %s(%u): announcing force field %u (bubble %u, players %u).",
-                         GetName(), m_self->itemID(), m_pShieldSE->GetID(), m_pShieldSE->SysBubble()->GetID(), players);
-                    m_pShieldSE->SysBubble()->AddBallExclusive(m_pShieldSE);
-                }
+        if (players > 0 && (onJoin || periodic)) {
+            m_lastFieldAnnounce = stamp;
+            if (m_pShieldSE->SysBubble() == nullptr)
+                sBubbleMgr.Add(m_pShieldSE);
+            if (m_pShieldSE->SysBubble() != nullptr) {
+                _log(POS__MESSAGE, "TowerSE::Process() - %s(%u): announcing force field %u (bubble %u, players %u).",
+                     GetName(), m_self->itemID(), m_pShieldSE->GetID(), m_pShieldSE->SysBubble()->GetID(), players);
+                m_pShieldSE->SysBubble()->AddBallExclusive(m_pShieldSE);
             }
         }
     }

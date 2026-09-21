@@ -178,6 +178,7 @@ private:
     float m_hardenerApplied[4];
     bool   m_botFuelled;        // bot POS: fuel/re-online one-shot done on first Process tick
     uint32 m_lastPlayerCount;   // force-field ball (re)announce on player count change
+    uint32 m_lastFieldAnnounce; // last stamp the field ball was announced (periodic retry)
     int64  m_lastFuelCheck;     // FileTime of last fuel consumption check
     float  m_lastFuelPct;       // last fuel percentage (for notification thresholds)
 
