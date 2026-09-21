@@ -3987,8 +3987,14 @@ void BotMgr::FitBotPOSModules(SystemManager* sysMgr, uint32 corpID, uint32 tower
     // Tower budgets (powerOutput / cpuOutput) minus what is already fitted.
     double pgLeft  = tRef->GetAttribute(AttrPowerOutput).get_float();
     double cpuLeft = tRef->GetAttribute(AttrCpuOutput).get_float();
+    // Count existing modules too, so a re-run TOPS THE POS UP instead of adding
+    // duplicate doctrine modules on every 30s sweep.
+    std::map<uint32,int> have;
+    int haveWeapons = 0;
     for (auto& [id, se] : sysMgr->GetEntities()) {
         if (se == nullptr || se->GetID() == towerItemID)
+            continue;
+        if (!se->IsPOSSE())
             continue;
         InventoryItemRef ref = se->GetSelf();
         if (ref.get() == nullptr || ref->ownerID() != corpID)
@@ -3999,6 +4005,10 @@ void BotMgr::FitBotPOSModules(SystemManager* sysMgr, uint32 corpID, uint32 tower
         cpuLeft -= ref->GetAttribute(AttrCpu).get_float();     // attr 50: CPU requirement
         if (pgLeft < 0.0) pgLeft = 0.0;
         if (cpuLeft < 0.0) cpuLeft = 0.0;
+        uint16 g = ref->groupID();
+        have[g]++;
+        if (g == 417 || g == 426 || g == 430 || g == 449)
+            haveWeapons++;
     }
 
     FactionData data = FactionData();
@@ -4088,6 +4098,7 @@ void BotMgr::FitBotPOSModules(SystemManager* sysMgr, uint32 corpID, uint32 tower
         se->BotDeployAndAnchor(p);
         se->SetBotTower(towerItemID);
         pgLeft -= pg; cpuLeft -= cpu;
+        have[(uint32)sRef->groupID()]++;
         return true;
     };
 
@@ -4123,6 +4134,7 @@ void BotMgr::FitBotPOSModules(SystemManager* sysMgr, uint32 corpID, uint32 tower
         se->BotDeployAndAnchor(p);
         se->SetBotTower(towerItemID);
         pgLeft -= pg; cpuLeft -= cpu;
+        ++haveWeapons;
         return true;
     };
 
@@ -4133,84 +4145,91 @@ void BotMgr::FitBotPOSModules(SystemManager* sysMgr, uint32 corpID, uint32 tower
     auto smallW = [&]() { return kSmallW[MakeRandomInt(0, 6)]; };
     auto medW   = [&]() { return kMedW[MakeRandomInt(0, 6)]; };
 
-    auto addHardeners = [&](int n) {
-        static const uint32 hard[4] = { 17184, 17185, 17186, 17187 };  // EM/Expl/Kin/Therm
-        for (int i = 0; i < n; ++i)
-            if (!tryModule(hard[i % 4], "Shield Hardening Array", nextDefOff()))
+    // Doctrine targets are TOTALS for the POS (not "add N each run") so a re-run
+    // only tops the POS up — the sweep must not duplicate modules every 30s.
+    auto haveGroup = [&](uint32 g) -> int { auto it = have.find(g); return (it == have.end()) ? 0 : it->second; };
+    static const uint32 kHard[4] = { 17184, 17185, 17186, 17187 };  // EM/Expl/Kin/Therm
+    auto addHardenersUpTo = [&](int target) {
+        for (int i = haveGroup(EVEDB::invGroups::Shield_Hardening_Array); i < target; ++i)
+            if (!tryModule(kHard[i % 4], "Shield Hardening Array", nextDefOff()))
                 break;
     };
-    auto addGuns = [&](int n) {
-        for (int i = 0; i < n; ++i) {
+    auto addGunsUpTo = [&](int target) {
+        while (haveWeapons < target) {
             uint32 t = (MakeRandomInt(0, 2) == 0) ? medW() : smallW();
             if (!tryWeapon(t, nextDefOff()) && !tryWeapon(smallW(), nextDefOff()))
                 break;
         }
     };
-    auto addTackle = [&]() {
-        tryModule(pickInGroup(EVEDB::invGroups::Stasis_Webification_Battery), "Stasis Webification Battery", nextDefOff());
-        tryModule(pickInGroup(EVEDB::invGroups::Warp_Scrambling_Battery),    "Warp Scrambling Battery",    nextDefOff());
-        tryModule(pickInGroup(EVEDB::invGroups::Energy_Neutralizing_Battery),"Energy Neutralizing Battery",nextDefOff());
+    auto addOnce = [&](uint32 group, const char* name, const GPoint& off) {
+        if (haveGroup(group) > 0) return;
+        tryModule(pickInGroup(group), name, off);
+    };
+    auto addTackleOnce = [&]() {
+        addOnce(EVEDB::invGroups::Stasis_Webification_Battery, "Stasis Webification Battery", nextDefOff());
+        addOnce(EVEDB::invGroups::Warp_Scrambling_Battery,     "Warp Scrambling Battery",    nextDefOff());
+        addOnce(EVEDB::invGroups::Energy_Neutralizing_Battery, "Energy Neutralizing Battery",nextDefOff());
     };
 
     const int scheme = (int)(corpID % 5);
     switch (scheme) {
         case 0: {   // Deathstar — maximum firepower, no blind spots
-            tryModule(pickInGroup(EVEDB::invGroups::Assembly_Array), "Assembly Array", GPoint(2200.0, 0.0,  900.0));
-            tryModule(pickInGroup(EVEDB::invGroups::Silo),           "Silo",           GPoint(2200.0, 0.0, -900.0));
-            addHardeners(4);
-            addTackle();
-            addGuns(8);
-            tryModule(pickInGroup(EVEDB::invGroups::Electronic_Warfare_Battery), "ECM Battery", nextDefOff());
+            addOnce(EVEDB::invGroups::Assembly_Array, "Assembly Array", GPoint(2200.0, 0.0,  900.0));
+            addOnce(EVEDB::invGroups::Silo,           "Silo",           GPoint(2200.0, 0.0, -900.0));
+            addHardenersUpTo(4);
+            addTackleOnce();
+            addGunsUpTo(10);
+            addOnce(EVEDB::invGroups::Electronic_Warfare_Battery, "ECM Battery", nextDefOff());
         } break;
-        case 1: {   // Super-Hardened — tank first; dampeners to fill the CPU
-            tryModule(pickInGroup(EVEDB::invGroups::Assembly_Array), "Assembly Array", GPoint(2200.0, 0.0,  900.0));
-            tryModule(pickInGroup(EVEDB::invGroups::Silo),           "Silo",           GPoint(2200.0, 0.0, -900.0));
-            addHardeners(4);
-            addTackle();
-            addGuns(3);
-            for (int i = 0; i < 12; ++i)
+        case 1: {   // Super-Hardened — tank first; dampeners fill the CPU
+            addOnce(EVEDB::invGroups::Assembly_Array, "Assembly Array", GPoint(2200.0, 0.0,  900.0));
+            addOnce(EVEDB::invGroups::Silo,           "Silo",           GPoint(2200.0, 0.0, -900.0));
+            addHardenersUpTo(4);
+            addTackleOnce();
+            addGunsUpTo(4);
+            while (haveGroup(EVEDB::invGroups::Sensor_Dampening_Battery) < 10)
                 if (!tryModule(pickInGroup(EVEDB::invGroups::Sensor_Dampening_Battery), "Sensor Dampening Battery", nextDefOff()))
                     break;
         } break;
         case 2: {   // Moon-reaction chain: harvest -> silo -> simple -> complex
-            tryModule(16221, "Moon Harvesting Array",  GPoint(2400.0, 0.0,  1800.0));   // Moon Mining
-            tryModule(16221, "Moon Harvesting Array",  GPoint(2400.0, 0.0, -1800.0));
-            for (int i = 0; i < 4; ++i)
+            if (haveGroup(EVEDB::invGroups::Moon_Mining) < 2)
+                tryModule(16221, "Moon Harvesting Array",
+                          (haveGroup(EVEDB::invGroups::Moon_Mining) == 0) ? GPoint(2400.0, 0.0, 1800.0) : GPoint(2400.0, 0.0, -1800.0));
+            while (haveGroup(EVEDB::invGroups::Silo) < 4)
                 if (!tryModule(pickInGroup(EVEDB::invGroups::Silo), "Silo", nextProdOff()))
                     break;
-            tryModule(20175, "Simple Reactor Array",  GPoint(3800.0, 0.0,  1200.0));    // Mobile Reactor
-            tryModule(16869, "Complex Reactor Array", GPoint(3800.0, 0.0, -1200.0));
-            addHardeners(2);
-            addTackle();
-            addGuns(4);
+            if (haveGroup(EVEDB::invGroups::Mobile_Reactor) < 1)
+                tryModule(20175, "Simple Reactor Array",  GPoint(3800.0, 0.0,  1200.0));
+            if (haveGroup(EVEDB::invGroups::Mobile_Reactor) < 2)
+                tryModule(16869, "Complex Reactor Array", GPoint(3800.0, 0.0, -1200.0));
+            addHardenersUpTo(2);
+            addTackleOnce();
+            addGunsUpTo(5);
         } break;
         case 3: {   // Industrial shipyard — build ships/modules, lab, storage
-            tryModule(24654, "Medium Ship Assembly Array", GPoint(2200.0, 0.0,  900.0));
-            tryModule(pickInGroup(EVEDB::invGroups::Silo), "Silo", GPoint(2200.0, 0.0, -900.0));
-            tryModule(pickInGroup(EVEDB::invGroups::Mobile_Laboratory), "Mobile Laboratory", nextProdOff());
-            tryModule(pickInGroup(EVEDB::invGroups::Corporate_Hangar_Array), "Corporate Hangar Array", nextProdOff());
-            addHardeners(3);
-            addTackle();
-            addGuns(5);
+            addOnce(EVEDB::invGroups::Assembly_Array, "Ship Assembly Array", GPoint(2200.0, 0.0, 900.0));
+            addOnce(EVEDB::invGroups::Silo, "Silo", GPoint(2200.0, 0.0, -900.0));
+            addOnce(EVEDB::invGroups::Mobile_Laboratory, "Mobile Laboratory", nextProdOff());
+            addOnce(EVEDB::invGroups::Corporate_Hangar_Array, "Corporate Hangar Array", nextProdOff());
+            addHardenersUpTo(3);
+            addTackleOnce();
+            addGunsUpTo(6);
         } break;
         default: {  // Wormhole/utility — ship swap + corp hangar + light defence
-            tryModule(pickInGroup(EVEDB::invGroups::Ship_Maintenance_Array), "Ship Maintenance Array", nextProdOff());
-            tryModule(pickInGroup(EVEDB::invGroups::Corporate_Hangar_Array), "Corporate Hangar Array", nextProdOff());
-            tryModule(pickInGroup(EVEDB::invGroups::Mobile_Laboratory), "Mobile Laboratory", nextProdOff());
-            addHardeners(3);
-            addTackle();
-            addGuns(5);
+            addOnce(EVEDB::invGroups::Ship_Maintenance_Array, "Ship Maintenance Array", nextProdOff());
+            addOnce(EVEDB::invGroups::Corporate_Hangar_Array, "Corporate Hangar Array", nextProdOff());
+            addOnce(EVEDB::invGroups::Mobile_Laboratory, "Mobile Laboratory", nextProdOff());
+            addHardenersUpTo(3);
+            addTackleOnce();
+            addGunsUpTo(6);
         } break;
     }
 
-    // Spend what's left: CPU → shield resists (hardeners), grid → more small guns
-    // (better tracking vs frigates). Capped so a single POS stays sane.
-    for (int i = 4; i < 8; ++i)
-        if (!tryModule(pickInGroup(EVEDB::invGroups::Shield_Hardening_Array), "Shield Hardening Array", nextDefOff()))
-            break;
-    for (int i = 0; i < 8; ++i)
-        if (!tryWeapon(smallW(), nextDefOff()) && !tryWeapon(medW(), nextDefOff()))
-            break;
+    // Spend what's left: CPU → more shield resists (hardeners, total <= 8), grid →
+    // more small guns (total <= 14). Small/medium guns track frigates far better
+    // than one large battery.
+    addHardenersUpTo(8);
+    addGunsUpTo(14);
 
     _log(BOT__MESSAGE, "BotMgr: POS %u fitted (scheme %d) — %u PG / %u CPU free after fitting.",
          towerItemID, scheme, (uint32)pgLeft, (uint32)cpuLeft);
