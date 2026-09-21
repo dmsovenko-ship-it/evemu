@@ -297,6 +297,8 @@ bool SystemManager::SystemActivity() {
         return true;   // always-on system: never unload for inactivity
     if (m_prefetchHold)
         return true;   // prefetcher holds this system: a player is one jump away
+    if (!m_clients.empty())
+        return true;   // players present (docked or in space) — never unload under them
     if (m_activityTime == 0)
         return true;
     if ((sEntityList.GetStamp() - m_activityTime) > 60)
@@ -1901,6 +1903,11 @@ void SystemManager::UpdateData()
 }
 
 // checks for if it is safe to mark the system for unloading
+// NOTE: the "players present" guard lives in SystemActivity() (the runtime
+// unload decision). Do NOT add it here — UnloadSystem() is also invoked on
+// shutdown/destruction, where it must still run to save belts/anomalies and
+// tear entities down. Unloading a system a player is in deletes their ship
+// entity and hangs the client (AppHang).
 bool SystemManager::SafeToUnload()
 {
     for (auto cur: GetEntities() ) {
