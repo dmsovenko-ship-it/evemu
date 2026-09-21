@@ -218,6 +218,16 @@ private:
     // Deploy a POS (Control Tower + Assembly Array + Silo) at a moon in the
     // system for this producer corp. No-op if the corp already has one there.
     void DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID);
+    // Fill a bot POS to its doctrine within the tower's CPU/Powergrid budget:
+    // production first, then shield hardeners (resists), tackle and small/medium
+    // weapon batteries. Modules already anchored (same corp, inside the field)
+    // count against the budget, so re-running only tops the POS up. `installValue`
+    // (optional) accumulates the base price of newly anchored modules (billing).
+    void FitBotPOSModules(SystemManager* sysMgr, uint32 corpID, uint32 towerItemID,
+                          const GPoint& pos, double R, double* installValue = nullptr);
+    // Periodic sweep: top every loaded bot POS up to its doctrine (fills free
+    // CPU/grid with resists and small guns; also re-fits POSs built by older code).
+    void EnsureBotPOSFittings();
     // Spawn same-corp guard pilots at a POS. Two arrival models: "login at a
     // station then warp in" or "login at the POS" (warp-in out of nowhere).
     // Null-sec mostly the latter, high-sec 50/50.
