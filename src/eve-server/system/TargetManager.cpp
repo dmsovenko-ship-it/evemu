@@ -150,10 +150,8 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
             return false;
         }
     } else if (tSE->IsTowerSE()) {
-        if ((tSE->GetTowerSE()->GetState() == EVEPOS::StructureState::Reinforced) || (tSE->GetTowerSE()->GetState() == EVEPOS::StructureState::ArmorReinforced) || (tSE->GetTowerSE()->GetState() == EVEPOS::StructureState::SheildReinforced)) {
-            mySE->GetPilot()->SendNotifyMsg("You cannot target an invulnerable structure.");
-            return false;
-        }
+        // A Control Tower can be locked at any status — while its force field is
+        // up, incoming damage is absorbed by the field (EVE).
     } else if (tSE->IsIHubSE()) {
         if (tSE->GetIHubSE()->GetState() == EVEPOS::StructureState::Online) {
             mySE->GetPilot()->SendNotifyMsg("You cannot target an invulnerable structure.");
@@ -163,9 +161,10 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
         // Allow targeting outposts (all outposts are conquerable)
     }
 
-    // Ships inside an online tower's force field are untouchable (EVE: the field
-    // protects ships; towers/modules stay attackable).
-    if (tSE->IsShipSE() || tSE->GetNPCSE() != nullptr) {
+    // Force field: everything inside an online tower's field is untouchable from
+    // outside — ships, drones, NPCs and POS modules alike. The Control Tower is
+    // the only exception: it can be locked (the field absorbs the damage).
+    if (!tSE->IsTowerSE()) {
         SystemBubble* tBubble = tSE->SysBubble();
         if (tBubble != nullptr && tBubble->IsInProtectedField(tSE->GetPosition())) {
             mySE->GetPilot()->SendNotifyMsg("You cannot target that - it is inside a force field.");
@@ -245,8 +244,9 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, float lockTime, uint8 maxL
         return false;
     }
 
-    // Ships inside an online tower's force field are untouchable.
-    if (tSE->IsShipSE() || tSE->GetNPCSE() != nullptr) {
+    // Force field: NPCs also cannot target anything inside an online tower's
+    // field, except the Control Tower itself.
+    if (!tSE->IsTowerSE()) {
         SystemBubble* tBubble = tSE->SysBubble();
         if (tBubble != nullptr && tBubble->IsInProtectedField(tSE->GetPosition())) {
             _log(TARGET__TRACE, "NPC %s(%u): refusing to target %s(%u) — inside a force field.", \
