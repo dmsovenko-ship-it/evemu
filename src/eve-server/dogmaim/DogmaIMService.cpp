@@ -345,9 +345,19 @@ PyResult DogmaIMBound::AddTarget(PyCallArgs& call, PyInt* targetID) {
     }
     if (mySE->SysBubble()->HasTower()) {
         TowerSE* ptSE = mySE->SysBubble()->GetTowerSE();
-        if (ptSE->HasForceField() && mySE->GetPosition().distance(ptSE->GetPosition()) < ptSE->GetSOI())
-                throw UserError ("DeniedTargetingInsideField")
-                        .AddFormatValue ("target", new PyInt (targetID->value()));
+        // A pilot may not target while sitting INSIDE a force field they are not
+        // allowed to enter. Use the FIELD radius (the sphere the client renders),
+        // NOT the tower SOI (45km control range) — otherwise a ship pushed to the
+        // 30km field surface was still treated as "inside".
+        double fieldR = ptSE->GetShieldRadius();
+        if (ptSE->HasForceField()
+            && mySE->GetPosition().distance(ptSE->GetPosition()) < fieldR
+            && !ptSE->CanEnterField(mySE)) {
+            _log(TARGET__WARNING, "AddTarget: caller %s(%u) is inside force field %s(%u) — DeniedTargetingInsideField.",
+                 mySE->GetName(), mySE->GetID(), ptSE->GetName(), ptSE->GetID());
+            throw UserError ("DeniedTargetingInsideField")
+                    .AddFormatValue ("target", new PyInt (targetID->value()));
+        }
     }
 
     // caller destiny tests
@@ -438,13 +448,13 @@ PyResult DogmaIMBound::AddTarget(PyCallArgs& call, PyInt* targetID) {
         // (the field absorbs the incoming damage).
         if (!tSE->IsTowerSE()
             && ptSE->HasForceField()
-            && tSE->GetPosition().distance(ptSE->GetPosition()) < ptSE->GetSOI()) {
-                _log(TARGET__WARNING, "AddTarget: %s(%u) inside force field (IsTowerSE=%d HasFF=%d dist=%.0f SOI=%u) — denied.",
+            && tSE->GetPosition().distance(ptSE->GetPosition()) < ptSE->GetShieldRadius()) {
+                _log(TARGET__WARNING, "AddTarget: %s(%u) inside force field (IsTowerSE=%d HasFF=%d dist=%.0f R=%.0f) — denied.",
                      tSE->GetName(), tSE->GetID(), (int)tSE->IsTowerSE(), (int)ptSE->HasForceField(),
-                     tSE->GetPosition().distance(ptSE->GetPosition()), (unsigned)ptSE->GetSOI());
+                     tSE->GetPosition().distance(ptSE->GetPosition()), ptSE->GetShieldRadius());
                 throw UserError ("DeniedTargetForceField")
                         .AddFormatValue ("target", new PyInt (targetID->value()))
-                        .AddFormatValue ("range", new PyInt (ptSE->GetSOI ()))
+                        .AddFormatValue ("range", new PyInt ((int)ptSE->GetShieldRadius()))
                         .AddFormatValue ("item", new PyInt (ptSE->GetID ()));
         }
     }
