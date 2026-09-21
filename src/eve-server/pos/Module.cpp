@@ -56,8 +56,11 @@ void ReactorSE::Init()
     // Start cycle timer (default 60 min cycle, read from AttrOperationalDuration)
     uint32 cycleSecs = 3600;
     EvilNumber duration = m_self->GetAttribute(AttrOperationalDuration);
-    if (!duration.isInt())
-        cycleSecs = duration.get_int();
+    if (duration.isInt()) {                 // was inverted: called get_int() when NOT int
+        int64 v = duration.get_int();
+        if (v >= 60 && v <= 86400)          // never Timer(0) / absurd cycle
+            cycleSecs = (uint32)v;
+    }
     m_cycleTimer = new Timer(cycleSecs * 1000);
     m_cycleTimer->Start(cycleSecs * 1000);
 }
@@ -81,7 +84,7 @@ void ReactorSE::Process()
     StructureSE::Process();
 
     // Process reaction cycle when timer fires and reactor is active
-    if (m_cycleTimer != nullptr && m_cycleTimer->Check() && pData->IsActive())
+    if (m_cycleTimer != nullptr && pData != nullptr && m_cycleTimer->Check() && pData->IsActive())
         ProcessReactionCycle();
 }
 
@@ -157,12 +160,15 @@ void ReactorSE::ProduceOutputs(int32 reactionTypeID, int32 qty)
             }
         }
         if (!placed) {
+            if (outputQty < 1)
+                continue;
             // Spawn item in space near the reactor
             ItemData idata(outputTypeID, m_self->ownerID(), m_system->GetID(),
                            flagNone, "Reaction Output", m_self->position());
             InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
             if (iRef.get() != nullptr) {
-                iRef->AlterQuantity(outputQty - 1);
+                if (outputQty > 1)
+                    iRef->AlterQuantity(outputQty - 1);   // never AlterQuantity(-1)
                 iRef->SaveItem();
             }
         }
