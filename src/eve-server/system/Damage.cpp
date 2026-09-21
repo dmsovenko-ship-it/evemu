@@ -113,13 +113,12 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         d.srcSE = this; // Damage originates from self (no attribution)
     }
 
-    // Force field backstop: while an online tower's field is up, nothing inside
-    // it takes damage — ships, drones, NPCs, POS modules and the Control Tower
-    // itself (the field absorbs the hit; EVEmu does not model field HP, so the
-    // tower stays invulnerable while the field is up). Covers damage that never
-    // went through target-locking (AoE, direct AI calls). With the field down
-    // (tower not online) everything is damageable.
-    {
+    // Force field: the Control Tower's shield IS the force field, so damage to
+    // the tower goes into that shield while the field is up — shield resonances
+    // and active Shield Hardening Arrays apply (EVE). Everything else inside the
+    // field (ships, drones, NPCs, POS modules) stays fully protected. With the
+    // field down (tower not online) everything is damageable.
+    if (!IsTowerSE()) {
         SystemBubble* b = SysBubble();
         if (b != nullptr && b->IsInProtectedField(GetPosition()))
             return false;
