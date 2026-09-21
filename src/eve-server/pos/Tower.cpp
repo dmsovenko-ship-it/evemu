@@ -611,6 +611,14 @@ void TowerSE::SetOnline()
     m_tdata.harmonic = m_harmonic;
     SetTimer(m_self->GetAttribute(AttrOnliningDelay).get_int());
 
+    // A control tower's force field only exists once it has a password (both
+    // Init and SetOnline gate CreateForceField on it), so a tower anchored
+    // without one came online shieldless — the player could fly right up to it.
+    // Assign one at anchoring/online time so the field is always generated; the
+    // owner can change it in-game later.
+    if (m_tdata.password.empty())
+        m_tdata.password = std::to_string(MakeRandomInt(100000, 999999));
+
     if ((m_harmonic > EVEPOS::Harmonic::Offline)
     and (!m_tdata.password.empty()))
         CreateForceField();
