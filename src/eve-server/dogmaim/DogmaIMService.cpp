@@ -378,9 +378,12 @@ PyResult DogmaIMBound::AddTarget(PyCallArgs& call, PyInt* targetID) {
     }
     if ((tSE->IsStaticEntity())
     or (tSE->IsLogin())/** @todo SE->IsLogin() incomplete */
-    or (tSE->GetSelf()->HasAttribute(AttrUntargetable)))
+    or (tSE->GetSelf()->HasAttribute(AttrUntargetable))) {
+        _log(TARGET__WARNING, "AddTarget: %s(%u) static/login/untargetable (static=%d) — DeniedTargetEvadesSensors.",
+             tSE->GetName(), tSE->GetID(), (int)tSE->IsStaticEntity());
         throw UserError ("DeniedTargetEvadesSensors")
                 .AddFormatValue ("targetName", new PyString (tSE->GetName ()));
+    }
     /** @todo SE->IsInvul() incomplete */
     if (tSE->IsInvul())
         throw CustomError ("Cannot Engage %s as they are invulnerable.", tSE->GetName());
@@ -423,9 +426,11 @@ PyResult DogmaIMBound::AddTarget(PyCallArgs& call, PyInt* targetID) {
                 .AddFormatValue ("target", new PyInt (targetID->value()));
     }
     if (tSE->IsPOSSE())
-        if (tSE->GetPOSSE()->IsReinforced())
+        if (tSE->GetPOSSE()->IsReinforced()) {
+            _log(TARGET__WARNING, "AddTarget: %s(%u) is a REINFORCED structure — denied.", tSE->GetName(), tSE->GetID());
             throw UserError ("DeniedTargetReinforcedStructure")
                     .AddFormatValue ("target", new PyInt (targetID->value()));
+        }
     if (tSE->SysBubble()->HasTower()) {
         TowerSE* ptSE = tSE->SysBubble()->GetTowerSE();
         // The force field protects everything inside it from being locked —
@@ -433,15 +438,20 @@ PyResult DogmaIMBound::AddTarget(PyCallArgs& call, PyInt* targetID) {
         // (the field absorbs the incoming damage).
         if (!tSE->IsTowerSE()
             && ptSE->HasForceField()
-            && tSE->GetPosition().distance(ptSE->GetPosition()) < ptSE->GetSOI())
+            && tSE->GetPosition().distance(ptSE->GetPosition()) < ptSE->GetSOI()) {
+                _log(TARGET__WARNING, "AddTarget: %s(%u) inside force field (IsTowerSE=%d HasFF=%d dist=%.0f SOI=%u) — denied.",
+                     tSE->GetName(), tSE->GetID(), (int)tSE->IsTowerSE(), (int)ptSE->HasForceField(),
+                     tSE->GetPosition().distance(ptSE->GetPosition()), (unsigned)ptSE->GetSOI());
                 throw UserError ("DeniedTargetForceField")
                         .AddFormatValue ("target", new PyInt (targetID->value()))
                         .AddFormatValue ("range", new PyInt (ptSE->GetSOI ()))
                         .AddFormatValue ("item", new PyInt (ptSE->GetID ()));
+        }
     }
 
     if (!mySE->TargetMgr()->StartTargeting( tSE, pClient->GetShip())) {
-        _log(TARGET__WARNING, "AddTarget() - TargMgr.StartTargeting() failed.");
+        _log(TARGET__WARNING, "AddTarget: StartTargeting FAILED for %s(%u) — see prior TargMgr line.",
+             tSE->GetName(), tSE->GetID());
         throw UserError ("DeniedTargetingAttemptFailed")
                 .AddFormatValue ("target", new PyInt (targetID->value()));
     }

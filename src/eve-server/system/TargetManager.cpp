@@ -119,8 +119,8 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
 
     //first make sure they are not already in the list
     if (m_targets.find(tSE) != m_targets.end()) {
-        _log(TARGET__DEBUG, " %s(%u): Told to target %s(%u), but we are already targeting them. Ignoring request.", \
-        mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID());
+        _log(TARGET__WARNING, "AddTarget: %s(%u) already targeting %s(%u) — StartTargeting denied.",
+             mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID());
         return false;
     }
     // get lower of ship and char target skills, with minimum of 1
@@ -138,8 +138,8 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
 
     if (m_targets.size() >= maxLockedTargets) {
         mySE->GetPilot()->SendNotifyMsg("Your ship and skills combination can only handle %u targets at a time.", maxLockedTargets);
-        _log(TARGET__DEBUG, " %s(%u): Told to target %s(%u), but we already have max targets of %u.  Ignoring request.", \
-                mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID(), maxLockedTargets);
+        _log(TARGET__WARNING, "AddTarget: %s(%u) at max targets (%u) — cannot target %s(%u).",
+                mySE->GetName(), mySE->GetID(), maxLockedTargets, tSE->GetName(), tSE->GetID());
         return false;
     }
 
@@ -168,6 +168,8 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
         SystemBubble* tBubble = tSE->SysBubble();
         if (tBubble != nullptr && tBubble->IsInProtectedField(tSE->GetPosition())) {
             mySE->GetPilot()->SendNotifyMsg("You cannot target that - it is inside a force field.");
+            _log(TARGET__WARNING, "AddTarget: %s(%u) inside force field — %s(%u) denied (IsTowerSE=%d).",
+                 tSE->GetName(), tSE->GetID(), mySE->GetName(), mySE->GetID(), (int)tSE->IsTowerSE());
             return false;
         }
     }
@@ -177,6 +179,7 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
     // call below would dereference null and crash the server.
     if (tSE->TargetMgr() == nullptr) {
         mySE->GetPilot()->SendNotifyMsg("You cannot target that.");
+        _log(TARGET__WARNING, "AddTarget: %s(%u) has no TargetMgr — denied.", tSE->GetName(), tSE->GetID());
         return false;
     }
 
@@ -190,8 +193,8 @@ bool TargetManager::StartTargeting(SystemEntity *tSE, ShipItemRef sRef)
     if (targetDistance > maxTargetRange) {
         mySE->GetPilot()->SendNotifyMsg("Your ship and skills combination can only target to %.0f meters.  %s is %.0f meters away.", \
         maxTargetRange, tSE->GetName(), targetDistance);
-        _log(TARGET__DEBUG, " %s(%u): Told to target %s(%u), but they are too far away.  Ignoring request.", \
-                mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID());
+        _log(TARGET__WARNING, "AddTarget: %s(%u) out of range (%.0f > %.0f) — %s(%u) denied.",
+                tSE->GetName(), tSE->GetID(), targetDistance, maxTargetRange, mySE->GetName(), mySE->GetID());
         return false;
     }
 
