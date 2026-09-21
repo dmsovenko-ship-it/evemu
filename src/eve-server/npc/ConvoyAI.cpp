@@ -52,7 +52,6 @@ void ConvoyGroup::WakeUpAll(SystemEntity* attacker)
 ConvoyAI::ConvoyAI(NPC* who, ConvoyGroup* group, uint32 idx)
 : m_npc(who), m_group(group), m_index(idx), m_startTimer(nullptr), m_transferRequested(false)
 {
-    m_group->refCount++;
     uint32 interval = 15000 + MakeRandomInt(0, 30000);
     m_startTimer = new Timer(interval * (idx + 1));
     m_startTimer->Start(interval * (idx + 1));
@@ -61,10 +60,22 @@ ConvoyAI::ConvoyAI(NPC* who, ConvoyGroup* group, uint32 idx)
 ConvoyAI::~ConvoyAI()
 {
     SafeDelete(m_startTimer);
+    // The ConvoyGroup is owned by CivilianMgr::RemoveConvoy — it must NOT be
+    // freed here. Deleting the member NPCs (system unload, RemoveConvoy) used to
+    // drive refCount to 0 and free the group, while CivilianMgr still held the
+    // pointer (m_systemCivs) and SafeDelete'd it again -> double free ->
+    // free() SIGSEGV in ~ConvoyGroup.
+    // Drop this NPC from the group instead, so members never holds a dangling
+    // pointer when an NPC is destroyed outside RemoveConvoy.
     if (m_group != nullptr) {
-        m_group->refCount--;
-        if (m_group->refCount == 0)
-            SafeDelete(m_group);
+        std::vector<NPC*>& mem = m_group->members;
+        for (auto it = mem.begin(); it != mem.end(); ) {
+            if (*it == m_npc)
+                it = mem.erase(it);
+            else
+                ++it;
+        }
+        m_group = nullptr;
     }
 }
 

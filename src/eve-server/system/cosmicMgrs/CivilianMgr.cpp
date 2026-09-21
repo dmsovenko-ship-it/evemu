@@ -83,6 +83,20 @@ void CivilianMgr::Process() {
 
     // Spawn/despawn civilians in loaded systems
     const auto& systems = sEntityList.GetSystems();
+
+    // Drop groups whose system is no longer loaded: UnloadSystem deletes the
+    // convoy NPCs directly (their ~ConvoyAI removes them from group->members),
+    // leaving the group in m_systemCivs. Without this it would linger, and a
+    // later respawn of that system's civilians would be skipped forever.
+    for (auto it = m_systemCivs.begin(); it != m_systemCivs.end(); ) {
+        if (systems.find(it->first) == systems.end()) {
+            RemoveConvoy(it->second);
+            it = m_systemCivs.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     for (auto& [sysID, sysMgr] : systems) {
         if (sysMgr == nullptr) continue;
         if (sysMgr->PlayerCount() == 0) {
@@ -263,7 +277,10 @@ void CivilianMgr::RemoveSystemCivilians(uint32 sysID) {
 
 void CivilianMgr::RemoveConvoy(ConvoyGroup* group) {
     if (group == nullptr) return;
-    for (NPC* npc : group->members) {
+    // iterate a copy: deleting an NPC runs ~ConvoyAI, which erases that NPC from
+    // group->members — iterating the live vector would be invalidated
+    std::vector<NPC*> members = group->members;
+    for (NPC* npc : members) {
         if (npc != nullptr && !npc->IsDead()) {
             // RemoveNPC does the full removal (RemoveEntity + item delete);
             // the old extra npc->Delete() double-deleted the item.
@@ -273,6 +290,7 @@ void CivilianMgr::RemoveConvoy(ConvoyGroup* group) {
             SafeDelete(npc);
         }
     }
+    group->members.clear();
     SafeDelete(group);
 }
 
