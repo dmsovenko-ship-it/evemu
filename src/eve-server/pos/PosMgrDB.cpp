@@ -185,6 +185,11 @@ bool PosMgrDB::GetTowerData(EVEPOS::TowerData& tData, EVEPOS::StructureData& sDa
     tData.allowCorp = row.GetInt(8);
     tData.allowAlliance = row.GetInt(9);
     tData.password = row.GetText(10);
+    // legacy rows stored the literal two-character string "''" (double-quoted
+    // empty password) instead of ''. Treat it as unset so the force field is
+    // created / a real password is assigned.
+    if (tData.password == "''")
+        tData.password.clear();
     tData.anchor = row.GetInt(11);
     tData.unanchor = row.GetInt(12);
     tData.online = row.GetInt(13);
