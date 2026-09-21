@@ -43,6 +43,7 @@
 #include "npc/NPC.h"
 #include "npc/NPCAI.h"
 #include "packets/Missile.h"
+#include "pos/Tower.h"
 #include "ship/Missile.h"
 #include "ship/Ship.h"
 #include "station/Station.h"
@@ -378,6 +379,25 @@ void DestinyManager::ProcessState() {
                     m_position = se->GetPosition() + (delta * (minDist + 1.0));
                     m_velocity = GVector(0, 0, 0);
                     SetPosition(m_position, true);
+                }
+            }
+
+            // Force field barrier: an online tower's shield is solid — ships
+            // without access (owner corp/alliance, or the tower password) cannot
+            // fly inside. Push them back to the shield surface.
+            SystemBubble* fBubble = mySE->SysBubble();
+            if ((mySE->IsShipSE() || mySE->GetNPCSE() != nullptr) && fBubble != nullptr && fBubble->HasTower()) {
+                TowerSE* tower = fBubble->GetTowerSE();
+                if (tower != nullptr && tower->GetState() >= EVEPOS::StructureState::Online) {
+                    GPoint tDelta = m_position - tower->GetPosition();
+                    double tDist = tDelta.length();
+                    double tRadius = tower->GetShieldRadius();
+                    if (tDist < tRadius && tDist > 0.01 && !tower->CanEnterField(mySE)) {
+                        tDelta.normalize();
+                        m_position = tower->GetPosition() + (tDelta * (tRadius + 1.0));
+                        m_velocity = GVector(0, 0, 0);
+                        SetPosition(m_position, true);
+                    }
                 }
             }
         }

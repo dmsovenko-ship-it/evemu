@@ -93,6 +93,9 @@ public:
     uint32 GetManualTarget()                            { return m_manualTargetID; }
 
     bool HasForceField()                                { return (m_hasShield? true : false); }
+    // Force field barrier: can this ship cross into the shield? Owner corp /
+    // alliance (flag-dependent) or a matching ship force-field password.
+    bool CanEnterField(SystemEntity* se);
     bool GetStatusDrop()                                { return m_tdata.statusDrop; }
     bool GetCorpWar()                                   { return m_tdata.corpWar; }
     float GetStanding()                                 { return m_tdata.standing; }

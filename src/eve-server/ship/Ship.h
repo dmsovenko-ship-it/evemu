@@ -338,6 +338,7 @@ public:
     void Warp();
     void RemoveTarget(SystemEntity* pSE);
     void SetPassword(std::string pass)                  { m_towerPass = pass; }
+    std::string GetTowerPassword()                      { return m_towerPass; }
     // fleet
     enum LinkType : uint8 {
         LINK_ARMORED    = 0,

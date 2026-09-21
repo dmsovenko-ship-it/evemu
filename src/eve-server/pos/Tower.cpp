@@ -1049,6 +1049,37 @@ void TowerSE::CreateForceField()
          GetName(), m_self->itemID(), ifRef->itemID(), shieldRadius, m_harmonic);
 }
 
+// Force field access (EVE): the owning corp's ships, the owning alliance's ships
+// (when allowAlliance is set) and any ship that supplied the tower password may
+// cross into the shield; everyone else is stopped at the barrier by
+// DestinyManager::ProcessState().
+bool TowerSE::CanEnterField(SystemEntity* se)
+{
+    if (se == nullptr)
+        return false;
+
+    // pilots carry the authoritative char/corp/alliance ids
+    Client* pc = se->HasPilot() ? se->GetPilot() : nullptr;
+    uint32 ownerID = (pc != nullptr) ? pc->GetCharacterID() : se->GetOwnerID();
+    uint32 corpID  = (pc != nullptr) ? pc->GetCorporationID() : se->GetCorporationID();
+    int32  allyID  = (pc != nullptr) ? pc->GetAllianceID() : se->GetAllianceID();
+
+    if (ownerID != 0 && ownerID == m_ownerID)
+        return true;
+    if (corpID != 0 && corpID == m_corpID)
+        return true;    // the tower's corp — its owners
+    if (m_tdata.allowAlliance && allyID != 0 && allyID == m_allyID)
+        return true;
+
+    // password supplied through the ship's force-field password field
+    if (!m_tdata.password.empty() && se->IsShipSE()) {
+        std::string pass = se->GetShipSE()->GetTowerPassword();
+        if (!pass.empty() && pass == m_tdata.password)
+            return true;
+    }
+    return false;
+}
+
 // Recompute the tower's shield resonances from ONLINE Shield Hardening Arrays
 // (group 444) inside the field. Each online hardener adds its resistance bonus
 // (attrs 1489-1492), lowering the matching shield damage resonance (271-274) —
