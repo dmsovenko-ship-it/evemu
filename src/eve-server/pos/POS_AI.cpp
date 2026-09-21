@@ -166,6 +166,11 @@ static bool IsValidTargetInternal(SystemEntity* pEntity, TowerSE* pTower, Struct
         }
     }
 
+    // A pilot who is shooting this POS is a valid target even in high-sec: the
+    // starbase defends itself against its attacker.
+    if (pTower != nullptr && pTower->IsAggressor(pClient->GetCharacterID()))
+        return true;
+
     // High-sec: POS guns may only engage hostiles (criminals / aggressors /
     // outlaws / standings-or-war hostiles). Low/null: any non-corp pilot.
     float sec = pWeapon->SystemMgr() != nullptr ? pWeapon->SystemMgr()->GetSystemSecurityRating() : 0.0f;

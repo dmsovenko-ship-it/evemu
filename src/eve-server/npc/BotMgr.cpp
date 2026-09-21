@@ -4374,15 +4374,24 @@ void BotMgr::ProcessPosGuards()
         if (tower == nullptr)
             continue;
 
+        // Operator target takes priority; otherwise defend against whoever is
+        // shooting the POS (aggressor registered on damage).
+        SystemEntity* targ = nullptr;
         uint32 manual = tower->GetTowerSE()->GetManualTarget();
-        if (manual == 0)
-            continue;   // no operator target — guards rely on their own Hunter AI
-
-        SystemEntity* targ = pSystem->GetSE(manual);
+        if (manual != 0)
+            targ = pSystem->GetSE(manual);
+        if (targ == nullptr) {
+            uint32 aggr = tower->GetTowerSE()->GetRecentAggressor();
+            if (aggr != 0) {
+                Client* ac = sEntityList.FindClientByCharID(aggr);
+                if (ac != nullptr)
+                    targ = ac->GetShipSE();
+            }
+        }
         if (targ == nullptr)
             continue;
 
-        // Guards focus the operator's target too (helps kill it fast).
+        // Guards focus the target too (helps kill it fast).
         for (auto& [id, se] : pSystem->GetEntities()) {
             if (se == nullptr || se->GetNPCSE() == nullptr)
                 continue;

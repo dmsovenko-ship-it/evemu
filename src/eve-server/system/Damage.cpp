@@ -164,6 +164,21 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         }
     }
 
+    // POS aggression: a player who damages a POS structure (tower or module)
+    // becomes a valid target for the tower's guns and guards — even in high-sec,
+    // where the starbase defends itself against its attacker.
+    if (IsPOSSE() && SysBubble() != nullptr && SysBubble()->HasTower()) {
+        Client* atk = nullptr;
+        if (d.srcSE != nullptr) {
+            if (d.srcSE->HasPilot())
+                atk = d.srcSE->GetPilot();
+            else if (d.srcSE->IsDroneSE() && d.srcSE->GetDroneSE()->GetOwner() != nullptr)
+                atk = d.srcSE->GetDroneSE()->GetOwner();
+        }
+        if (atk != nullptr)
+            SysBubble()->GetTowerSE()->RegisterAggressor(atk->GetCharacterID());
+    }
+
     // PvP aggression — EVE rule: attacking another pilot (or their drones/fighters)
     // sets an aggression flag on the attacker (15 min, no dock/jump). Works for
     // player↔player, player↔charbot and drone owners (a drone hit transfers to its

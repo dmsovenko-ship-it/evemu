@@ -1144,14 +1144,57 @@ bool TowerSE::CanEnterField(SystemEntity* se)
 // i.e. raising the tower's shield resistances. Idempotent: the previously
 // applied bonus is undone before the new one is applied, so this can run on
 // every module online/offline without drifting the base value.
+void TowerSE::RegisterAggressor(uint32 charID)
+{
+    if (charID == 0)
+        return;
+    m_aggressors[charID] = GetFileTimeNow() + (int64)EvE::Time::Minute * 15;
+}
+
+bool TowerSE::IsAggressor(uint32 charID)
+{
+    auto it = m_aggressors.find(charID);
+    if (it == m_aggressors.end())
+        return false;
+    if (it->second < GetFileTimeNow()) {
+        m_aggressors.erase(it);
+        return false;
+    }
+    return true;
+}
+
+uint32 TowerSE::GetRecentAggressor()
+{
+    int64 now = GetFileTimeNow();
+    uint32 best = 0;
+    int64 bestExp = 0;
+    for (auto it = m_aggressors.begin(); it != m_aggressors.end(); ) {
+        if (it->second < now) {
+            it = m_aggressors.erase(it);
+            continue;
+        }
+        if (it->second > bestExp) {
+            bestExp = it->second;
+            best = it->first;
+        }
+        ++it;
+    }
+    return best;
+}
+
 void TowerSE::ApplyHardeners()
 {
+    // Crucible hardeners store their resist as a damage-resonance MULTIPLIER on
+    // the module (em=133, explosive=132, kinetic=131, thermal=130) — e.g. a
+    // Ballistic Deflection Array has kineticDamageResonanceMultiplier = 0.75
+    // (25% kinetic resist). The old code read the 1489-1492 "resistance bonus"
+    // attributes, which Crucible rows do not carry — so hardeners did nothing.
     static const EveAttrEnum s_resonance[4] = {
         AttrShieldEmDamageResonance, AttrShieldExplosiveDamageResonance,
         AttrShieldKineticDamageResonance, AttrShieldThermalDamageResonance };
-    static const EveAttrEnum s_bonus[4] = {
-        AttrShieldEmDamageResistanceBonus, AttrShieldExplosiveDamageResistanceBonus,
-        AttrShieldKineticDamageResistanceBonus, AttrShieldThermalDamageResistanceBonus };
+    static const EveAttrEnum s_mult[4] = {
+        AttrEmDamageResonanceMultiplier, AttrExplosiveDamageResonanceMultiplier,
+        AttrKineticDamageResonanceMultiplier, AttrThermalDamageResonanceMultiplier };
 
     if (m_system == nullptr)
         return;
@@ -1159,7 +1202,8 @@ void TowerSE::ApplyHardeners()
     double radius = GetShieldRadius();
     GPoint tp = GetPosition();
 
-    double add[4] = { 0.0, 0.0, 0.0, 0.0 };
+    double mult[4] = { 1.0, 1.0, 1.0, 1.0 };
+    bool have[4] = { false, false, false, false };
     for (auto& [id, se] : m_system->GetEntities()) {
         if (se == nullptr || se == this)
             continue;
@@ -1180,27 +1224,26 @@ void TowerSE::ApplyHardeners()
             continue;   // hardener must sit inside the field it protects
 
         for (int i = 0; i < 4; ++i) {
-            if (!mod->GetSelf()->HasAttribute(s_bonus[i]))
+            if (!mod->GetSelf()->HasAttribute(s_mult[i]))
                 continue;
-            double b = mod->GetSelf()->GetAttribute(s_bonus[i]).get_float();
-            if (b > 1.5)
-                b /= 100.0;   // some SDE rows store the bonus in percent
-            if (b <= 0.0 || b >= 1.0)
-                continue;
-            add[i] = 1.0 - (1.0 - add[i]) * (1.0 - b);   // multiplicative stacking
+            double m = mod->GetSelf()->GetAttribute(s_mult[i]).get_float();
+            if (m <= 0.0 || m >= 1.0)
+                continue;   // 1.0 = no effect (and >1 would be a weakness)
+            mult[i] *= m;   // multiplicative stacking
+            have[i] = true;
         }
     }
 
     for (int i = 0; i < 4; ++i) {
-        if (add[i] > 0.9)
-            add[i] = 0.9;   // resist cap
+        if (!have[i])
+            mult[i] = 1.0;
+        if (mult[i] < 0.1)
+            mult[i] = 0.1;   // 90% resist cap
         double cur = m_self->GetAttribute(s_resonance[i]).get_float();
-        double base = cur;
-        if (m_hardenerApplied[i] > 0.001f && m_hardenerApplied[i] < 0.999f)
-            base = cur / (1.0 - (double)m_hardenerApplied[i]);   // undo the previous pass
-        double next = base * (1.0 - add[i]);
-        m_self->SetAttribute(s_resonance[i], (float)next);
-        m_hardenerApplied[i] = (float)add[i];
+        double prev = (m_hardenerApplied[i] > 0.0001f) ? (double)m_hardenerApplied[i] : 1.0;
+        double base = cur / prev;            // undo the previous pass
+        m_self->SetAttribute(s_resonance[i], (float)(base * mult[i]));
+        m_hardenerApplied[i] = (float)mult[i];
     }
 }
 

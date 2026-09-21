@@ -13,6 +13,7 @@
 
 
 #include "pos/Structure.h"
+#include <map>
 
 class Misile;
 
@@ -91,6 +92,12 @@ public:
     void SetManualTarget(uint32 id)                     { m_manualTargetID = id; }
     void ClearManualTarget()                            { m_manualTargetID = 0; }
     uint32 GetManualTarget()                            { return m_manualTargetID; }
+
+    // A pilot who damages this POS becomes a valid target for its guns/guards
+    // (even in high-sec) for AggressorTimeout.
+    void RegisterAggressor(uint32 charID);
+    bool IsAggressor(uint32 charID);
+    uint32 GetRecentAggressor();   // 0 if none is active
 
     bool HasForceField()                                { return (m_hasShield? true : false); }
     // Force field barrier: can this ship cross into the shield? Owner corp /
@@ -179,6 +186,7 @@ private:
     bool   m_botFuelled;        // bot POS: fuel/re-online one-shot done on first Process tick
     uint32 m_lastPlayerCount;   // force-field ball (re)announce on player count change
     uint32 m_lastFieldAnnounce; // last stamp the field ball was announced (periodic retry)
+    std::map<uint32,int64> m_aggressors;   // charID -> aggression expiry (filetime)
     int64  m_lastFuelCheck;     // FileTime of last fuel consumption check
     float  m_lastFuelPct;       // last fuel percentage (for notification thresholds)
 
