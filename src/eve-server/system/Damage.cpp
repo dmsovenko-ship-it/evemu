@@ -37,6 +37,7 @@
 #include "map/MapDB.h"
 #include "npc/NPC.h"
 #include "npc/PlayerBot.h"
+#include "pos/Tower.h"
 #include "pos/sovStructures/IHub.h"
 #include "station/Outpost.h"
 #include "npc/NPCAI.h"
@@ -115,10 +116,17 @@ bool SystemEntity::ApplyDamage(Damage &d) {
 
     // Force field: the Control Tower's shield IS the force field, so damage to
     // the tower goes into that shield while the field is up — shield resonances
-    // and active Shield Hardening Arrays apply (EVE). Everything else inside the
-    // field (ships, drones, NPCs, POS modules) stays fully protected. With the
-    // field down (tower not online) everything is damageable.
-    if (!IsTowerSE()) {
+    // and active Shield Hardening Arrays apply (EVE). A reinforced tower is
+    // invulnerable until its reinforcement timer expires. Everything else inside
+    // the field (ships, drones, NPCs, POS modules) stays fully protected.
+    if (IsTowerSE()) {
+        int8 st = GetTowerSE()->GetState();
+        if (st == EVEPOS::StructureState::Reinforced
+            || st == EVEPOS::StructureState::SheildReinforced
+            || st == EVEPOS::StructureState::ArmorReinforced
+            || st == EVEPOS::StructureState::Invulnerable)
+            return false;
+    } else {
         SystemBubble* b = SysBubble();
         if (b != nullptr && b->IsInProtectedField(GetPosition()))
             return false;

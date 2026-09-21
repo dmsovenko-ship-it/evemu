@@ -294,11 +294,16 @@ void TowerSE::BotEnsureFuel(uint32 hours)
         m_db.UpdateTowerData(m_tdata, m_data);
     }
 
-    // If the tower dropped offline/reinforced (e.g. it ran dry before the bot
-    // started topping it up), bring it back online now that it has fuel.
+    // If the tower dropped offline (e.g. it ran dry before the bot started
+    // topping it up), bring it back online now that it has fuel. A DAMAGE
+    // reinforcement is NOT auto-cleared — the tower stays reinforced until its
+    // timer expires (otherwise the self-heal would fight the 25% rule).
     if (m_data.state > EVEPOS::StructureState::Unanchored
         && m_data.state != EVEPOS::StructureState::Online
-        && m_data.state != EVEPOS::StructureState::Operating) {
+        && m_data.state != EVEPOS::StructureState::Operating
+        && m_data.state != EVEPOS::StructureState::Reinforced
+        && m_data.state != EVEPOS::StructureState::SheildReinforced
+        && m_data.state != EVEPOS::StructureState::ArmorReinforced) {
         _log(POS__MESSAGE, "TowerSE::BotEnsureFuel() - %s(%u) re-onlining (state was %u).",
              GetName(), m_self->itemID(), (unsigned)m_data.state);
         SetOnline();
@@ -399,6 +404,18 @@ void TowerSE::Process()
                 }
             }
         }
+    }
+
+    // Damage-driven reinforcement (EVE): the tower's shield IS its force field.
+    // When the shield is reduced to 25% the tower enters reinforced mode — the
+    // field collapses and the tower is invulnerable until the timer expires
+    // (ReinforceTower consumes strontium to size the window).
+    if (m_data.state == EVEPOS::StructureState::Online
+        || m_data.state == EVEPOS::StructureState::Operating) {
+        double cap = m_self->GetAttribute(AttrShieldCapacity).get_float();
+        double cur = m_self->GetAttribute(AttrShieldCharge).get_float();
+        if (cap > 0.0 && cur <= cap * 0.25)
+            ReinforceTower();
     }
 
     // consume fuel while online or operating

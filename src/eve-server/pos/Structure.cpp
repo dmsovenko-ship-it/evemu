@@ -586,14 +586,16 @@ void StructureSE::Process()
                 break;
             }
 
-            // tower reinforced timer expired → transition back to Online
+            // tower reinforced timer expired → transition back to Online. Restore
+            // the shield (repaired during the reinforcement window) so the tower
+            // does not immediately re-enter reinforced mode, and re-create the
+            // force field via SetOnline().
             _log(POS__MESSAGE, "StructureSE::Process() - Tower %s(%u) reinforced timer expired, returning to Online.",
                     GetName(), m_data.itemID);
 
             m_self->SetFlag(flagStructureActive);
-            m_data.state = StructureState::Online;
-            m_procState = ProcState::Online;
-            SetTimer(m_duration);
+            m_self->SetAttribute(AttrShieldCharge, m_self->GetAttribute(AttrShieldCapacity), false);
+            SetOnline();    // TowerSE::SetOnline: state Online + force field + persist
 
             SendSlimUpdate();
             m_db.UpdateBaseData(m_data);
