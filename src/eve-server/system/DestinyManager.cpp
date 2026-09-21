@@ -381,23 +381,27 @@ void DestinyManager::ProcessState() {
                     SetPosition(m_position, true);
                 }
             }
+        }
+    }
 
-            // Force field barrier: an online tower's shield is solid — ships
-            // without access (owner corp/alliance, or the tower password) cannot
-            // fly inside. Push them back to the shield surface.
-            SystemBubble* fBubble = mySE->SysBubble();
-            if ((mySE->IsShipSE() || mySE->GetNPCSE() != nullptr) && fBubble != nullptr && fBubble->HasTower()) {
-                TowerSE* tower = fBubble->GetTowerSE();
-                if (tower != nullptr && tower->GetState() >= EVEPOS::StructureState::Online) {
-                    GPoint tDelta = m_position - tower->GetPosition();
-                    double tDist = tDelta.length();
-                    double tRadius = tower->GetShieldRadius();
-                    if (tDist < tRadius && tDist > 0.01 && !tower->CanEnterField(mySE)) {
-                        tDelta.normalize();
-                        m_position = tower->GetPosition() + (tDelta * (tRadius + 1.0));
-                        m_velocity = GVector(0, 0, 0);
-                        SetPosition(m_position, true);
-                    }
+    // Force field barrier (independent of IsMoving): a ship that may not enter
+    // must not sit inside the sphere — after a warp it is shoved back to the
+    // surface. Skipped WHILE warping (the warp sim owns the position; arrival is
+    // caught on the first non-warp tick).
+    if (mySE->SystemMgr() != nullptr && m_ballMode != Ball::Mode::WARP
+        && (mySE->IsShipSE() || mySE->GetNPCSE() != nullptr)) {
+        SystemBubble* fBubble = mySE->SysBubble();
+        if (fBubble != nullptr && fBubble->HasTower()) {
+            TowerSE* tower = fBubble->GetTowerSE();
+            if (tower != nullptr && tower->GetState() >= EVEPOS::StructureState::Online) {
+                GPoint tDelta = m_position - tower->GetPosition();
+                double tDist = tDelta.length();
+                double tRadius = tower->GetShieldRadius();
+                if (tDist < tRadius && tDist > 0.01 && !tower->CanEnterField(mySE)) {
+                    tDelta.normalize();
+                    m_position = tower->GetPosition() + (tDelta * (tRadius + 1.0));
+                    m_velocity = GVector(0, 0, 0);
+                    SetPosition(m_position, true);
                 }
             }
         }
