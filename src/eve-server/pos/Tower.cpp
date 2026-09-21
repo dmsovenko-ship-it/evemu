@@ -29,6 +29,7 @@
 #include "pos/Tower.h"
 #include "system/Container.h"
 #include "system/Damage.h"
+#include "system/BubbleManager.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
 
@@ -109,7 +110,8 @@ TowerSE::TowerSE(StructureItemRef structure, EVEServiceManager& services, System
 : StructureSE(structure, services, system, fData),
 m_pShieldSE(nullptr),
 m_manualTargetID(0),
-m_botFuelled(false)
+m_botFuelled(false),
+m_lastPlayerCount(0)
 {
     m_hasShield = false;
     m_structs.clear();
@@ -377,6 +379,27 @@ void TowerSE::Process()
 
     /*  Enable base call to Process Anchoring, Targeting and Movement  */
     StructureSE::Process();
+
+    // Force-field ball delivery: the field is a static entity that gets a bubble
+    // at system boot, but a player arriving later may never receive its ball
+    // (no FSE::EncodeDestiny — the sphere stays invisible while the field still
+    // blocks targeting/damage). Re-register it in a bubble and (re)announce it to
+    // the grid whenever the system's player count changes.
+    if (m_hasShield && m_pShieldSE != nullptr && m_system != nullptr) {
+        uint32 players = m_system->PlayerCount();
+        if (players != m_lastPlayerCount) {
+            m_lastPlayerCount = players;
+            if (players > 0) {
+                if (m_pShieldSE->SysBubble() == nullptr)
+                    sBubbleMgr.Add(m_pShieldSE);
+                if (m_pShieldSE->SysBubble() != nullptr) {
+                    _log(POS__MESSAGE, "TowerSE::Process() - %s(%u): announcing force field %u (bubble %u, players %u).",
+                         GetName(), m_self->itemID(), m_pShieldSE->GetID(), m_pShieldSE->SysBubble()->GetID(), players);
+                    m_pShieldSE->SysBubble()->AddBallExclusive(m_pShieldSE);
+                }
+            }
+        }
+    }
 
     // consume fuel while online or operating
     if ((m_data.state >= EVEPOS::StructureState::Online)
@@ -1045,8 +1068,10 @@ void TowerSE::CreateForceField()
     if (iSE->SysBubble() != nullptr)
         iSE->SysBubble()->AddBallExclusive(iSE);
 
-    _log(POS__MESSAGE, "TowerSE::CreateForceField() - %s(%u): field %u created, radius %.0f m, harmonic %i.",
-         GetName(), m_self->itemID(), ifRef->itemID(), shieldRadius, m_harmonic);
+    _log(POS__MESSAGE, "TowerSE::CreateForceField() - %s(%u): field %u created, radius %.0f m, harmonic %i, pos(%.0f,%.0f,%.0f), bubble %u.",
+         GetName(), m_self->itemID(), ifRef->itemID(), shieldRadius, m_harmonic,
+         iSE->GetPosition().x, iSE->GetPosition().y, iSE->GetPosition().z,
+         (iSE->SysBubble() != nullptr ? iSE->SysBubble()->GetID() : 0));
 }
 
 // Force field access (EVE): the owning corp's ships, the owning alliance's ships

@@ -428,7 +428,12 @@ PyResult DogmaIMBound::AddTarget(PyCallArgs& call, PyInt* targetID) {
                     .AddFormatValue ("target", new PyInt (targetID->value()));
     if (tSE->SysBubble()->HasTower()) {
         TowerSE* ptSE = tSE->SysBubble()->GetTowerSE();
-        if (ptSE->HasForceField() && tSE->GetPosition().distance(ptSE->GetPosition()) < ptSE->GetSOI())
+        // The force field protects everything inside it from being locked —
+        // except the Control Tower itself, which can be locked at any status
+        // (the field absorbs the incoming damage).
+        if (!tSE->IsTowerSE()
+            && ptSE->HasForceField()
+            && tSE->GetPosition().distance(ptSE->GetPosition()) < ptSE->GetSOI())
                 throw UserError ("DeniedTargetForceField")
                         .AddFormatValue ("target", new PyInt (targetID->value()))
                         .AddFormatValue ("range", new PyInt (ptSE->GetSOI ()))
