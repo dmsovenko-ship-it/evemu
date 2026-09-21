@@ -38,7 +38,7 @@
 - **Но `FSE::EncodeDestiny` не вызывается вообще** — шар не доставляется клиенту (башня/модули кодируются: `StructureSE::EncodeDestiny`), т.е. поле не попадает в бабл игрока при его прибытии после бутa системы.
 - `[no messageID: 259661]` (DeniedTargetForceField) приходит из **`DogmaIMBound::Handle_AddTarget`** — это отдельный гейт лочки (реальный клиентский путь), который резал **любую** цель в SOI башни, не доходя до правил `TargetManager`.
 - **Фиксы**: (1) Dogma-гейт exempt'ит Control Tower (`!tSE->IsTowerSE()`), остальное внутри поля — нельзя; (2) `TowerSE::Process` перерегистрирует поле в бабле и делает `AddBallExclusive` при изменении числа игроков в системе; (3) `CreateForceField` теперь логирует позицию и bubble id поля — если шар всё ещё не виден, лог покажет причину.
-- ⚠️ Живой `log.ini` остался с `POS__MESSAGE=1`/`SE__DESTINY=1` (следствие рестарта без согласия) — вернуть ERROR-only при следующем согласованном рестарте.
+- ⚠️ Живой `log.ini` вернули в **ERROR-only** (21 сент., после проверки поля/лочки): `POS__MESSAGE`/`SE__DESTINY`/`TARGET__WARNING`/`DESTINY__BALL_DECODE` = 0.
 
 ## 21 сент.: челобот убил игрока в хайсеке, CONCORD молчал (`dddb5726`)
 - **Симптом**: бот Anna Tan (корп 1000168 Federal Navy Academy, владелец башни в Laic) убил Mr Tort в Laic (0.8); ни сентри, ни CONCORD не стреляли. Игрок не стрелял первым, sec status −0.0036, войны/стендингов нет.
