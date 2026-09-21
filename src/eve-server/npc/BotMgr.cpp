@@ -3858,10 +3858,11 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
 
     // Pick a moon in this system (groupID 8 = Moon in mapDenormalize).
     GPoint moonPos;
+    double moonRadius = 0.0;
     {
         DBQueryResult mres;
         if (!sDatabase.RunQuery(mres,
-            "SELECT x, y, z FROM mapDenormalize WHERE solarSystemID = %u AND groupID = 8 ORDER BY RAND() LIMIT 1",
+            "SELECT x, y, z, radius FROM mapDenormalize WHERE solarSystemID = %u AND groupID = 8 ORDER BY RAND() LIMIT 1",
             sysID))
             return;
         DBResultRow mrow;
@@ -3870,10 +3871,22 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         moonPos.x = mrow.GetDouble(0);
         moonPos.y = mrow.GetDouble(1);
         moonPos.z = mrow.GetDouble(2);
+        moonRadius = mrow.GetDouble(3);
     }
-    // Anchor ~80-120 km off the moon (EVE moonAnchorDistance).
-    GPoint pos = moonPos;
-    pos.x += 80000.0 + MakeRandomInt(0, 40000);
+    // Anchor OUTSIDE the moon's sphere. Moon radii in this SDE run 370-3650 km,
+    // so the old fixed +80-120 km offset placed every POS deep INSIDE its moon
+    // (tower at ~95 km from the centre of a 1210 km moon). Anchor on a random
+    // direction at moonRadius + 50-90 km (just above the surface).
+    GPoint pos;
+    {
+        const double PI = 3.14159265358979323846;
+        double theta = MakeRandomInt(0, 359) * (PI / 180.0);
+        double phi   = MakeRandomInt(10, 170) * (PI / 180.0);
+        double dist  = moonRadius + 50000.0 + MakeRandomInt(0, 40000);
+        pos.x = moonPos.x + dist * std::sin(phi) * std::cos(theta);
+        pos.y = moonPos.y + dist * std::cos(phi);
+        pos.z = moonPos.z + dist * std::sin(phi) * std::sin(theta);
+    }
 
     uint32 towerType = 0, arrayType = 0, siloType = 0;
     {
