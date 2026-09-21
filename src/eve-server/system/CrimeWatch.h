@@ -5,6 +5,7 @@
 
 class Client;
 class NPC;
+class SystemEntity;
 
 class CrimeWatch
 {
@@ -28,6 +29,9 @@ public:
 
     void OnWeaponFired();
     void OnAggression(Client* pTarget, float systemSecRating);
+    // CONCORD response to a non-Client criminal (a PlayerBot that attacked this
+    // player in high-sec): spawn CONCORD and destroy the aggressor's ship.
+    void RespondToBotCriminal(SystemEntity* botSE);
     // Aggression against a charbot (PlayerBot) — the charbot isn't a Client, so
     // this sets the player's aggression/criminal timer with the charbot as victim.
     void OnBotAggression(uint32 botCharID, float systemSecRating);
@@ -58,6 +62,9 @@ protected:
     void SpawnConcordShips();
     void RespawnConcordShip(uint32 typeID);
     void ClearConcordShips();
+    // The entity CONCORD is enforcing against: the bot criminal when set,
+    // otherwise this client (the normal player-criminal path).
+    SystemEntity* ConcordCriminal();
 
 private:
     Client* m_client;
@@ -74,6 +81,7 @@ private:
     Timer m_attackedByTimer;
     std::vector<float> m_concordDmgMult;
     std::vector<NPC*> m_concordShips;
+    SystemEntity* m_concordCriminalSE {nullptr};   // non-null when enforcing against a bot
 };
 
 #endif

@@ -336,12 +336,51 @@ void CrimeWatch::RegisterAttackBy(uint32 attackerID)
     m_attackedByTimer.Start(sConfig.crime.AggFlagTime * 1000);
 }
 
+// CONCORD response to a PlayerBot committing a criminal act against this player
+// in high-sec. A bot is not a Client (no CrimeWatch / client ship to punish), so
+// enforcement targets its SystemEntity: CONCORD spawns at its position and the
+// aggressor's ship is destroyed. Called from SystemEntity::ApplyDamage.
+void CrimeWatch::RespondToBotCriminal(SystemEntity* botSE)
+{
+    if (botSE == nullptr || botSE->SystemMgr() == nullptr) return;
+    if (botSE->SystemMgr()->GetSystemSecurityRating() < 0.5f) return;
+
+    m_concordCriminalSE = botSE;
+    SpawnConcordShips();        // CONCORD warps in and targets the aggressor
+
+    // CONCORD enforcement — the criminal vessel is destroyed.
+    InventoryItemRef ship = botSE->GetSelf();
+    if (ship.get() != nullptr) {
+        double totalHP = ship->GetAttribute(AttrShieldCapacity).get_float()
+                       + ship->GetAttribute(AttrArmorHP).get_float()
+                       + ship->GetAttribute(AttrHP).get_float();
+        if (totalHP < 1.0)
+            totalHP = 1000.0;
+        double dmg = totalHP * 25.0;
+        Damage d(botSE, ship, dmg, dmg, dmg, dmg, 1.0f, 0);
+        botSE->ApplyDamage(d);
+        if (m_client != nullptr)
+            m_client->SendNotifyMsg("CONCORD has destroyed the criminal aggressor.");
+    }
+    m_concordCriminalSE = nullptr;
+    m_concordDespawnTimer.Start(MakeRandomInt(15000, 25000));
+}
+
+SystemEntity* CrimeWatch::ConcordCriminal()
+{
+    if (m_concordCriminalSE != nullptr)
+        return m_concordCriminalSE;
+    if (m_client != nullptr)
+        return m_client->GetShipSE();
+    return nullptr;
+}
+
 void CrimeWatch::RespawnConcordShip(uint32 typeID)
 {
-    if (!m_client->IsInSpace() || m_client->GetShipSE() == nullptr) return;
-    SystemManager* sysMgr = m_client->SystemMgr();
-    if (sysMgr == nullptr) return;
-    GPoint criminalPos = m_client->GetShipSE()->GetPosition();
+    SystemEntity* criminalSE = ConcordCriminal();
+    if (criminalSE == nullptr || criminalSE->SystemMgr() == nullptr) return;
+    SystemManager* sysMgr = criminalSE->SystemMgr();
+    GPoint criminalPos = criminalSE->GetPosition();
     FactionData faction;
     faction.allianceID = 0; faction.factionID = 500021;
     faction.ownerID = 1000125; faction.corporationID = 1000125;
@@ -369,7 +408,6 @@ void CrimeWatch::RespawnConcordShip(uint32 typeID)
         s->SetAttribute(AttrHP, oldHP * mult, false);
     }
 
-    SystemEntity* criminalSE = m_client->GetShipSE();
     if (criminalSE != nullptr) {
         pNPC->GetAIMgr()->Target(criminalSE);
         pNPC->GetAIMgr()->StartAttackCycle(500);
@@ -379,13 +417,11 @@ void CrimeWatch::RespawnConcordShip(uint32 typeID)
 
 void CrimeWatch::SpawnConcordShips()
 {
-    if (!m_client->IsInSpace()) return;
-    if (m_client->GetShipSE() == nullptr) return;
+    SystemEntity* criminalSE = ConcordCriminal();
+    if (criminalSE == nullptr || criminalSE->SystemMgr() == nullptr) return;
 
-    SystemManager* sysMgr = m_client->SystemMgr();
-    if (sysMgr == nullptr) return;
-
-    GPoint criminalPos = m_client->GetShipSE()->GetPosition();
+    SystemManager* sysMgr = criminalSE->SystemMgr();
+    GPoint criminalPos = criminalSE->GetPosition();
     uint32 criminalSysID = sysMgr->GetID();
 
     FactionData faction;
@@ -418,7 +454,6 @@ void CrimeWatch::SpawnConcordShips()
         pNPC->DestinyMgr()->SetPosition(pos);
         sysMgr->AddNPC(pNPC);
         // Make CONCORD target the criminal immediately
-        SystemEntity* criminalSE = m_client->GetShipSE();
         if (criminalSE != nullptr) {
             pNPC->GetAIMgr()->Target(criminalSE);
             pNPC->GetAIMgr()->StartAttackCycle(500);

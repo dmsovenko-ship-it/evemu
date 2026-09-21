@@ -44,9 +44,11 @@
 #include "ship/Ship.h"
 #include "ship/modules/GenericModule.h"
 #include "system/Container.h"
+#include "system/CrimeWatch.h"
 #include "system/SystemBubble.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "standing/StandingMgr.h"
+#include "standing/StandingDB.h"
 #include "standing/KillRightDB.h"
 #include "StaticDataMgr.h"
 
@@ -121,6 +123,38 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         SystemBubble* b = SysBubble();
         if (b != nullptr && b->IsInProtectedField(GetPosition()))
             return false;
+    }
+
+    // High-sec protection against charbot aggressors: a PlayerBot (or its ship)
+    // firing on a real player in high security is a criminal act — CONCORD
+    // responds and the hit is voided. Every bot attack path funnels through
+    // ApplyDamage, so this covers the paths whose AI gates are missing (player
+    // drones, fleet support, POS guards). The player is a legal target only if
+    // they are a criminal, an outlaw, or a known war/grudge enemy of the bot corp.
+    if (sConfig.crime.Enabled && m_system != nullptr
+        && m_system->GetSystemSecurityRating() >= 0.5f
+        && HasPilot() && !IsNPCSE()) {
+        PlayerBot* atkBot = nullptr;
+        if (d.srcSE != nullptr && d.srcSE->IsNPCSE() && d.srcSE->GetNPCSE() != nullptr
+            && d.srcSE->GetNPCSE()->IsPlayerBot())
+            atkBot = dynamic_cast<PlayerBot*>(d.srcSE->GetNPCSE());
+        if (atkBot != nullptr) {
+            Client* victim = GetPilot();
+            bool legal = false;
+            if (victim != nullptr) {
+                if (victim->GetCrimeWatch() != nullptr && victim->GetCrimeWatch()->IsCriminal())
+                    legal = true;
+                if (victim->GetSecurityRating() <= -5.0f)
+                    legal = true;
+                if (StandingDB::GetStanding(atkBot->GetBotCorpID(), victim->GetCorporationID()) <= -1.0f)
+                    legal = true;
+            }
+            if (!legal) {
+                if (victim != nullptr && victim->GetCrimeWatch() != nullptr)
+                    victim->GetCrimeWatch()->RespondToBotCriminal(d.srcSE);
+                return false;   // CONCORD protects the victim — the hit is voided
+            }
+        }
     }
 
     // PvP aggression — EVE rule: attacking another pilot (or their drones/fighters)

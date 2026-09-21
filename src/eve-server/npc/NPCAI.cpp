@@ -657,6 +657,22 @@ void NPCAIMgr::Process() {
                         Client* owner = sEntityList.FindClientByCharID(pEnt->GetSelf()->ownerID());
                         SystemEntity* ownerSE = (owner != nullptr) ? owner->GetShipSE() : nullptr;
                         if (ownerSE != nullptr && ownerSE != m_npc) {
+                            // Highsec: a player's drones are as protected as the
+                            // player — only engage when the owner is a legal target
+                            // (criminal / outlaw). Same rule as the ship scan above.
+                            if (m_npc->SystemMgr()->GetSystemSecurityRating() >= 0.5f) {
+                                bool ownerLegal = false;
+                                if (owner != nullptr) {
+                                    if (owner->GetCrimeWatch() != nullptr && owner->GetCrimeWatch()->IsCriminal())
+                                        ownerLegal = true;
+                                    if (owner->GetSecurityRating() <= -5.0f)
+                                        ownerLegal = true;
+                                }
+                                if (!ownerLegal) {
+                                    m_beginFindTarget.Start(MakeRandomInt(20000, 40000));
+                                    return;
+                                }
+                            }
                             if (pbot != nullptr && !pbot->HunterWouldEngage(ownerSE)) {
                                 // Not worth picking a fight with that pilot's drones.
                                 m_beginFindTarget.Start(MakeRandomInt(15000, 30000));
