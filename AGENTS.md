@@ -3,7 +3,8 @@
 - Поле онлайн-башни защищает **всё внутри** от внешнего лока: корабли, дроны, NPC **и модули/структуры POS**. Старый гейт `if (tSE->IsShipSE() || GetNPCSE()!=nullptr)` пропускал структуры → модули можно было лочить. Теперь `if (!tSE->IsTowerSE())` — внутри поля не лочится ничего, кроме башни (оба варианта `StartTargeting`: игрок и NPC).
 - **Башню (Control Tower) можно лочить при любом статусе** (убран блок на Reinforced/SheildReinforced/ArmorReinforced). Пока поле поднято — урон по башне поглощается полем: бэкстоп в `SystemEntity::ApplyDamage` стал типо-агностик (`IsInProtectedField(GetPosition())` для любой сущности, не только кораблей). EVEmu не моделирует HP поля → башня фактически неуязвима, пока онлайн.
 - Со снятым полем (башня не онлайн / `IsInProtectedField` = false) — всё лочится и убивается.
-- Файлы: `TargetManager.cpp` (оба `StartTargeting`), `Damage.cpp`.
+- **Поле непроницаемо для чужих** (`7ff742be`): под онлайн-полем влететь может только владелец/его корп/альянс (при `allowAlliance`) или корабль с **паролем поля** (`ShipSE::m_towerPass`, ставится `PosMgrBound::SetShipPassword`). Барьер — в `DestinyManager::ProcessState` (collision-блок): корабль внутри радиуса без доступа выталкивается на поверхность сферы; `TowerSE::CanEnterField()` решает доступ.
+- Файлы: `TargetManager.cpp` (оба `StartTargeting`), `Damage.cpp`, `DestinyManager.cpp`, `pos/Tower.{h,cpp}`, `ship/Ship.h`.
 
 ## 21 сент.: поле POS не появлялось — пароль теперь ставится при анчоринге (`f6a4e9db`, `7044b4d0`)
 Симптом юзера: «на посе поля нет, подлететь я могу». Причина: `CreateForceField` вызывается только когда у башни **непустой пароль** (`Init` и `SetOnline` оба гейтят на `!password.empty()`), а бот-башни в Laic имели пустой/битый пароль → поля нет вообще.
