@@ -399,7 +399,10 @@ void DestinyManager::ProcessState() {
                 double tRadius = tower->GetShieldRadius();
                 if (tDist < tRadius && tDist > 0.01 && !tower->CanEnterField(mySE)) {
                     tDelta.normalize();
-                    m_position = tower->GetPosition() + (tDelta * (tRadius + 1.0));
+                    // Push to the surface PLUS the ship's own radius + margin, so
+                    // an abrupt stop (shuttle) cannot end up under the field edge.
+                    double pad = tRadius + mySE->GetRadius() + 250.0;
+                    m_position = tower->GetPosition() + (tDelta * pad);
                     m_velocity = GVector(0, 0, 0);
                     SetPosition(m_position, true);
                 }

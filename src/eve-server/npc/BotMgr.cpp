@@ -3873,16 +3873,21 @@ void BotMgr::DeployBotPOS(SystemManager* sysMgr, uint32 charID, uint32 corpID)
         moonPos.z = mrow.GetDouble(2);
         moonRadius = mrow.GetDouble(3);
     }
-    // Anchor OUTSIDE the moon's sphere. Moon radii in this SDE run 370-3650 km,
-    // so the old fixed +80-120 km offset placed every POS deep INSIDE its moon
-    // (tower at ~95 km from the centre of a 1210 km moon). Anchor on a random
-    // direction at moonRadius + 50-90 km (just above the surface).
+    // Anchor at the same distance from the moon CENTRE that a normal "warp to
+    // moon" uses (BeyonceService::CmdWarpToStuff, the EVE moon formula):
+    //   d = r + 1000000 + r*dd, dd = clamp(0,10, ((20 - 5*log10(r/1e6) - 0.5)/20)^20 * 20) + 0.5
+    // The old flat +50-90 km left the tower a few km above the moon's rendered
+    // surface.
     GPoint pos;
     {
         const double PI = 3.14159265358979323846;
         double theta = MakeRandomInt(0, 359) * (PI / 180.0);
         double phi   = MakeRandomInt(10, 170) * (PI / 180.0);
-        double dist  = moonRadius + 50000.0 + MakeRandomInt(0, 40000);
+        double rr = (moonRadius > 1.0) ? moonRadius : 1.0;
+        double dd = std::pow((20.0 - 5.0 * std::log10(rr / 1000000.0) - 0.5) / 20.0, 20.0) * 20.0;
+        if (dd < 0.0) dd = 0.0; else if (dd > 10.0) dd = 10.0;
+        dd += 0.5;
+        double dist = rr + 1000000.0 + rr * dd;
         pos.x = moonPos.x + dist * std::sin(phi) * std::cos(theta);
         pos.y = moonPos.y + dist * std::cos(phi);
         pos.z = moonPos.z + dist * std::sin(phi) * std::sin(theta);
