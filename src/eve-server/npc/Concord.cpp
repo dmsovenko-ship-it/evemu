@@ -25,6 +25,7 @@
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
 #include "system/SystemBubble.h"
+#include "effects/EffectsDataMgr.h"
 #include "system/SystemManager.h"
 
 
@@ -648,7 +649,7 @@ void ConcordAI::Attack(SystemEntity* pSE)
 //modifyTargetSpeedRange, modifyTargetSpeedChance
 //entityWarpScrambleChance
 void ConcordAI::AttackTarget(SystemEntity* pTarget) {
-    std::string guid = "effects.StandardWeapon";
+    std::string guid = TurretEffectGuidByGroup(0);   // registered guid, not the class name
     m_npc->DestinyMgr()->SendSpecialEffect(m_npc->GetSelf()->itemID(),
                                            m_npc->GetSelf()->itemID(),
                                            m_npc->GetSelf()->typeID(), //m_npc->GetSelf()->GetAttribute(AttrGfxTurretID).get_int(),

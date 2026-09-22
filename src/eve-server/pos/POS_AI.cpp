@@ -13,6 +13,7 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "StaticDataMgr.h"
+#include "effects/EffectsDataMgr.h"
 #include "system/CrimeWatch.h"
 #include "standing/StandingDB.h"
 #include "tables/invGroups.h"
@@ -371,7 +372,7 @@ void POS_AI::FireWeapon(uint32 targetID)
             weaponRef->typeID(),         // moduleTypeID
             pTarget->GetID(),            // targetID
             chargeTypeID,                // otherTypeID (ammo colour)
-            "effects.StandardWeapon",
+            TurretEffectGuidByGroup(grp),
             1, 1, 1,                     // isOffensive, start, active
             (int32)attackDelay, 0,       // duration(ms), repeat
             gfxTurretID);

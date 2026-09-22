@@ -47,8 +47,9 @@
 #include "ship/Missile.h"
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
-#include "system/SystemBubble.h"
-#include "standing/StandingDB.h"
+#include "system/SystemBubble.h"    
+#include "standing/StandingDB.h"    
+#include "effects/EffectsDataMgr.h"
 
 NPCAIMgr::NPCAIMgr(NPC* who)
 : m_state(NPCAI::State::Idle),
@@ -1283,8 +1284,9 @@ void NPCAIMgr::FitModules()
     m_modules.clear();
     uint8 slotIdx = 0;
 
-    // Determine weapon GUID from missile type
-    std::string guid = "effects.StandardWeapon";
+    // Determine weapon GUID from missile type. NOTE: 'effects.StandardWeapon' is
+    // the client CLASS name, not a registered guid (see TurretEffectGuidByGroup).
+    std::string guid = TurretEffectGuidByGroup(0);
     if (m_missileTypeID > 0)
         guid = "effects.MissileDeployment";
 
@@ -1642,10 +1644,10 @@ void NPCAIMgr::AttackTarget(SystemEntity* pSE) {
     if (m_ewarOnly)
         return;
 
-    // Select effect GUID based on NPC weapon type (from SDE attributes).
-    // Client's StandardWeapon handles all turret GUIDs identically (animates locators).
-    // Missile-using NPCs get MissileDeployment effect instead of turret.
-    std::string guid = "effects.StandardWeapon";
+    // Select effect GUID. 'effects.StandardWeapon' is the client CLASS name, not
+    // a registered guid — use a registered one (see TurretEffectGuidByGroup).
+    // Missile-using NPCs get MissileDeployment instead of a turret.
+    std::string guid = TurretEffectGuidByGroup(0);
     if (m_missileTypeID > 0) {
         guid = "effects.MissileDeployment";
     }

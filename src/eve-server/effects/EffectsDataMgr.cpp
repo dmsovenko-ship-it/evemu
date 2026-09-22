@@ -12,6 +12,29 @@
 #include "effects/EffectsDataMgr.h"
 #include "effects/EffectsProcessor.h"
 #include "EVE_Effects.h"
+#include "tables/invGroups.h"
+
+
+// Map a weapon/charge group to a client-registered turret effect guid. See the
+// declaration note: 'effects.StandardWeapon' is the class name, not a guid.
+const char* TurretEffectGuidByGroup(uint16 groupID)
+{
+    switch (groupID) {
+        case EVEDB::invGroups::Energy_Weapon:
+        case EVEDB::invGroups::Mobile_Laser_Sentry:
+            return "effects.Laser";
+        case EVEDB::invGroups::Hybrid_Weapon:
+        case EVEDB::invGroups::Mobile_Hybrid_Sentry:
+            return "effects.HybridFired";
+        case EVEDB::invGroups::Projectile_Weapon:
+        case EVEDB::invGroups::Mobile_Projectile_Sentry:
+            return "effects.ProjectileFired";
+        case EVEDB::invGroups::Mining_Laser:
+            return "effects.Mining";
+        default:
+            return "effects.Laser";   // valid generic turret guid
+    }
+}
 
 
 FxDataMgr::FxDataMgr()
@@ -215,15 +238,12 @@ uint16 FxDataMgr::GetEffectID(std::string effectName)
 
 std::string FxDataMgr::GetEffectGuid(uint16 eID)
 {
-    // ALWAYS override turret effect GUIDs — the SDE dgmEffects stores
-    // 'effects.Laser' / 'effects.ProjectileFired' but the client only
-    // registers 'effects.StandardWeapon' (StandardWeapon class in turrets.py).
-    // Without this override the client never sees turret fire animations.
+    // NOTE: do NOT override turret effects to 'effects.StandardWeapon'. That is
+    // the client's CLASS name, not a guid: effects.GetClassification() returns
+    // None for it and FxSequencer throws on the None effect (no visual). The SDE
+    // dgmEffects guid ('effects.Laser' / 'effects.ProjectileFired' / ...) IS a
+    // registered guid and is used directly below.
     switch (eID) {
-        case EVEEffectID::targetAttack:        // 10, laser/hybrid energy weapons
-        case EVEEffectID::projectileFired:     // 34, projectile weapons
-        case EVEEffectID::projectileFiredForEntities:   // 1086, NPC turrets
-            return "effects.StandardWeapon";
         case 4877:  // siegeModeEffect6 — client expects effects.SiegeMode
             return "effects.SiegeMode";
         default:

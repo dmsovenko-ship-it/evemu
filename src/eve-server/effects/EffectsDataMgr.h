@@ -14,6 +14,14 @@
 
 #include "effects/EffectsData.h"
 
+// Client-registered turret-fire effect guids. The client's effect Repository
+// registers effects.Laser / effects.ProjectileFired / effects.HybridFired /
+// effects.Mining (all backed by the StandardWeapon CLASS). 'effects.StandardWeapon'
+// is the class name, NOT a registered guid: sending it makes the client's
+// effects.GetClassification() return None and FxSequencer then throws on the
+// None effect ('NoneType' has no attribute 'GetBalls') -> no visual at all.
+const char* TurretEffectGuidByGroup(uint16 groupID);
+
 class FxDataMgr
 : public Singleton< FxDataMgr >
 {

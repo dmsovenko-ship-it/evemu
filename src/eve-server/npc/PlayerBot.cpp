@@ -4,6 +4,7 @@
 #include "npc/BotMgr.h"
 #include "npc/NPCAI.h"
 #include "npc/Drone.h"
+#include "effects/EffectsDataMgr.h"
 #include "system/Damage.h"
 #include "ship/Ship.h"
 #include "Client.h"
@@ -1046,7 +1047,7 @@ void PlayerBot::DroneEngageTarget(DroneSE* drone, SystemEntity* target)
     if (drone->SysBubble() != nullptr)
         drone->DestinyMgr()->SendSpecialEffect(drone->GetSelf()->itemID(), drone->GetSelf()->itemID(),
                                                drone->GetSelf()->typeID(), target->GetID(), 0,
-                                               "effects.StandardWeapon", 1, 1, 1, 2000, 0, 0);
+                                               TurretEffectGuidByGroup(0), 1, 1, 1, 2000, 0, 0);
 }
 
 void PlayerBot::ManageDrones()
