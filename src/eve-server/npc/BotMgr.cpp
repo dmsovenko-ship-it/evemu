@@ -271,7 +271,8 @@ void BotMgr::Process()
             s_posFitTimer.Start(30000);
         if (s_posFitTimer.Check()) {
             s_posFitTimer.Start(30000);
-            EnsureBotPOSFittings();
+            TrimBotPOSModules();     // drop module surplus (leftovers)
+            EnsureBotPOSFittings();  // then top up to the doctrine
         }
     }
 
@@ -4267,6 +4268,96 @@ void BotMgr::EnsureBotPOSFittings()
             double R = se->GetTowerSE()->GetShieldRadius();
             if (R <= 0.0) R = 20000.0;
             FitBotPOSModules(pSystem, ref->ownerID(), id, se->GetPosition(), R, nullptr);
+        }
+    }
+}
+
+// Doctrine cap for a single POS module group (-1 = uncapped). Weapons are
+// capped as a TOTAL across their four groups in TrimBotPOSModules.
+static int POSModuleCap(uint32 group)
+{
+    switch (group) {
+        case 444: return 8;    // Shield Hardening Arrays (resists)
+        case 440: return 10;   // Sensor Dampening Batteries
+        case 441: return 2;    // Stasis Webification
+        case 443: return 2;    // Warp Scrambling / Disruption
+        case 837: return 2;    // Energy Neutralizing
+        case 439: return 2;    // ECM
+        case 397: return 2;    // Assembly Arrays
+        case 404: return 4;    // Silos / storage
+        case 413: return 2;    // Mobile Laboratories
+        case 471: return 2;    // Corporate Hangar Arrays
+        case 363: return 1;    // Ship Maintenance Array
+        case 438: return 3;    // Reactors
+        case 416: return 2;    // Moon Harvesting Arrays
+        default:  return -1;
+    }
+}
+
+// Remove module surplus from bot POSes (leftovers from the window where the
+// fitter was not yet idempotent and added modules every sweep). Runs on the game
+// thread; only removes, never adds, and re-applies hardener resonances after.
+void BotMgr::TrimBotPOSModules()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr)
+            continue;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetTowerSE() == nullptr)
+                continue;
+            InventoryItemRef tref = se->GetSelf();
+            if (tref.get() == nullptr || tref->customInfo() != "botpos")
+                continue;
+            TowerSE* tower = se->GetTowerSE();
+            double R = tower->GetShieldRadius();
+            if (R <= 0.0) R = 20000.0;
+            GPoint tp = se->GetPosition();
+            uint32 owner = tref->ownerID();
+
+            // Collect first (removing mutates the system map / bubble).
+            std::map<uint32, std::vector<SystemEntity*>> byGroup;
+            std::vector<SystemEntity*> weapons;
+            for (auto& [mid, mse] : pSystem->GetEntities()) {
+                if (mse == nullptr || mse == se)
+                    continue;
+                if (mse->GetPOSSE() == nullptr || mse->GetPOSSE() == tower)
+                    continue;
+                InventoryItemRef mr = mse->GetSelf();
+                if (mr.get() == nullptr || mr->ownerID() != owner)
+                    continue;
+                if (tp.distance(mse->GetPosition()) > R)
+                    continue;
+                uint32 g = mr->groupID();
+                if (g == 417 || g == 426 || g == 430 || g == 449)
+                    weapons.push_back(mse);
+                else
+                    byGroup[g].push_back(mse);
+            }
+
+            auto remove = [&](SystemEntity* mse) {
+                StructureSE* mod = mse->GetPOSSE();
+                if (tower != nullptr && mod != nullptr)
+                    tower->RemoveModule(mod);
+                mse->Delete();
+            };
+            auto byId = [](SystemEntity* a, SystemEntity* b) { return a->GetID() < b->GetID(); };
+
+            for (auto& [g, vec] : byGroup) {
+                int cap = POSModuleCap(g);
+                if (cap < 0 || (int)vec.size() <= cap)
+                    continue;
+                std::sort(vec.begin(), vec.end(), byId);
+                for (size_t i = cap; i < vec.size(); ++i)
+                    remove(vec[i]);
+            }
+            if (weapons.size() > 14) {
+                std::sort(weapons.begin(), weapons.end(), byId);
+                for (size_t i = 14; i < weapons.size(); ++i)
+                    remove(weapons[i]);
+            }
+            tower->ApplyHardeners();   // resists changed — recompute
         }
     }
 }

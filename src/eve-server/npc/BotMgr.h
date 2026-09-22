@@ -228,6 +228,9 @@ private:
     // Periodic sweep: top every loaded bot POS up to its doctrine (fills free
     // CPU/grid with resists and small guns; also re-fits POSs built by older code).
     void EnsureBotPOSFittings();
+    // Remove module surplus from bot POSes (leftovers from the pre-idempotent
+    // sweep: dozens of hardeners/dampeners). Keeps the doctrine caps.
+    void TrimBotPOSModules();
     // Spawn same-corp guard pilots at a POS. Two arrival models: "login at a
     // station then warp in" or "login at the POS" (warp-in out of nowhere).
     // Null-sec mostly the latter, high-sec 50/50.
