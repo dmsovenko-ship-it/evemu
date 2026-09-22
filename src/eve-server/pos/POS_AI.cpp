@@ -271,6 +271,7 @@ void POS_AI::FireWeapon(uint32 targetID)
     }
 
     // --- weapon batteries need a loaded charge (chargeGroup1) ----------------
+    InventoryItemRef loadedCharge;
     if (weaponRef->HasAttribute(AttrChargeGroup1)) {
         uint32 chargeGroup = weaponRef->GetAttribute(AttrChargeGroup1).get_uint32();
         if (chargeGroup != 0) {
@@ -290,6 +291,7 @@ void POS_AI::FireWeapon(uint32 targetID)
             }
             InventoryItemRef cRef = sItemFactory.GetItemRef(chargeItemID);
             if (cRef.get() != nullptr) {
+                loadedCharge = cRef;
                 if (chargeQty <= 1) cRef->Delete();
                 else cRef->SetQuantity((int32)(chargeQty - 1), false);
             }
@@ -311,8 +313,18 @@ void POS_AI::FireWeapon(uint32 targetID)
     if (hitChance < 0.01f)
         return;
 
-    Damage d(m_pWeapon, weaponRef, hitChance, 0);
-    d *= dmgMult;
+    // POS gun damage comes from the loaded CHARGE (the battery type carries no
+    // turret *Damage attributes — only a damageMultiplier), so read the charge's
+    // damage and scale by the multiplier. Fall back to the weapon's own damage
+    // when there is no charge.
+    InventoryItemRef dmgSrc = (loadedCharge.get() != nullptr) ? loadedCharge : weaponRef;
+    float mod = hitChance * dmgMult;
+    Damage d(m_pWeapon, weaponRef,
+             dmgSrc->GetAttribute(AttrKineticDamage).get_float(),
+             dmgSrc->GetAttribute(AttrThermalDamage).get_float(),
+             dmgSrc->GetAttribute(AttrEmDamage).get_float(),
+             dmgSrc->GetAttribute(AttrExplosiveDamage).get_float(),
+             mod, 0);
 
     bool killed = pTarget->ApplyDamage(d);
     _log(POS__MESSAGE, "POS_AI::FireWeapon() - %s(%u) fired at %s(%u)",
