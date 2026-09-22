@@ -4432,6 +4432,7 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
     if (sysMgr == nullptr || corpID == 0)
         return;
     uint32 sysID = sysMgr->GetID();
+    float sec = sysMgr->GetSystemSecurityRating();
 
     // Find same-corp pool pilots to man the tower.
     std::vector<std::pair<uint32,std::string>> candidates;
@@ -4485,11 +4486,15 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
 
         guard->SetProfession(PlayerBot::BotProfession::Hunter);
         guard->SetPosGuard(true);
+        // A small response fleet: fighter + EWAR support + logistics.
+        switch (spawned) {
+            case 0:  guard->SetRole(PlayerBot::BotRole::Fighter);   break;
+            case 1:  guard->SetRole(PlayerBot::BotRole::Support);   break;
+            default: guard->SetRole(PlayerBot::BotRole::Logistics); break;
+        }
 
-        // Find the tower to orbit — the one NEAREST the requested position. A
-        // system can host several towers (bot POSes sit at different moons); the
-        // guards must hold the tower that is actually under attack, not just the
-        // first one in the entity map.
+        // Find the tower to hold — the one NEAREST the requested position. A
+        // system can host several towers (bot POSes sit at different moons).
         SystemEntity* tower = nullptr;
         double bestDist = 0.0;
         for (auto& [eid, se] : sysMgr->GetEntities()) {
@@ -4499,26 +4504,72 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
             if (tower == nullptr || d < bestDist) { tower = se; bestDist = d; }
         }
 
-        // The defender "logs in at the POS": its ship appears beside the tower and
-        // then holds station. Do NOT WarpTo() and then immediately Orbit(): Orbit()
-        // rewrites the WARP ball mode and aborts the warp, so the guard stayed at
-        // its spawn gate forever — ProcessPosGuards then re-summoned it every 30s
-        // and it never showed up at the tower.
-        if (guard->DestinyMgr() != nullptr) {
-            GPoint p = pos;
-            p.x += MakeRandomInt(-4000, 4000);
-            p.y += MakeRandomInt(-4000, 4000);
-            guard->DestinyMgr()->SetPosition(p);
+        // Arrival like a real pilot: half "login-warp" (the ship appears at the
+        // POS), half log in at a station (or gate) and WARP IN. Only the start
+        // position is set here — the approach and hold are driven by
+        // ProcessPosGuards, because calling Orbit() right after WarpTo() rewrites
+        // the WARP ball mode and aborts the warp (the old bug where the guard
+        // never left its spawn point).
+        bool loginAtPos = (sec < 0.5f) ? true : (MakeRandomInt(0, 1) == 1);
+        GPoint start = pos;
+        const char* arrival = "login-at-POS";
+        if (loginAtPos) {
+            start.x += MakeRandomInt(-4000, 4000);
+            start.y += MakeRandomInt(-4000, 4000);
+        } else {
+            SystemEntity* origin = nullptr;
+            for (auto& [eid, se] : sysMgr->GetEntities()) {
+                if (se != nullptr && se->GetStationSE() != nullptr) { origin = se; break; }
+            }
+            if (origin == nullptr) {
+                for (auto& [eid, se] : sysMgr->GetEntities()) {
+                    if (se != nullptr && se->GetGateSE() != nullptr) { origin = se; break; }
+                }
+            }
+            if (origin != nullptr) {
+                start = origin->GetPosition();
+                start.x += MakeRandomInt(-8000, 8000);
+                start.y += MakeRandomInt(-8000, 8000);
+                arrival = "warp-in-from-station/gate";
+            } else {
+                start.x += MakeRandomInt(-4000, 4000);
+            }
         }
-        if (tower != nullptr && guard->DestinyMgr() != nullptr)
-            guard->DestinyMgr()->Orbit(tower, 5000 + MakeRandomInt(0, 3000));
+        if (guard->DestinyMgr() != nullptr)
+            guard->DestinyMgr()->SetPosition(start);
         if (tower != nullptr)
             guard->SetGuardTowerID(tower->GetID());
 
-        _log(BOT__MESSAGE, "BotMgr: POS guard %s(%u) assigned to tower in system %u (login-at-POS).",
-             cand.second.c_str(), charID, sysID);
-        codelog(BOT__ERROR, "BotMgr: POS guard %s(%u) assigned to tower in system %u (login-at-POS).",
-             cand.second.c_str(), charID, sysID);
+        // Responding pilots call it out in local, like real players ("our POS is
+        // under attack, moving in"). One line per call, throttled per system.
+        if (spawned == 0) {
+            static std::map<uint32,int64> s_lastPosCallChat;
+            int64 nowC = GetFileTimeNow();
+            auto itc = s_lastPosCallChat.find(sysID);
+            if (itc == s_lastPosCallChat.end() || (nowC - itc->second) > (int64)EvE::Time::Second * 90) {
+                s_lastPosCallChat[sysID] = nowC;
+                LSCService* lsc = sysMgr->GetServiceMgr().Lookup<LSCService>("LSC");
+                LSCChannel* chan = (lsc != nullptr) ? lsc->GetChannelByID((int32)sysID) : nullptr;
+                if (chan != nullptr) {
+                    static const char* lines[] = {
+                        "Наш ПОС бьют, подтягиваемся!",
+                        "ПОС под огнём — выдвигаюсь на защиту.",
+                        "Хостiles на башне, иду к ПОСy!",
+                        "Кидайте флот, наш ПОС атакуют!",
+                        "На башне враги, всем на вызов!",
+                    };
+                    std::string line = lines[MakeRandomInt(0, 4)];
+                    chan->SendBotMessage(guard->GetBotCharID(), guard->GetBotName(), guard->GetBotCorpID(), line);
+                    RecordChannelPhrase((int32)sysID, guard->GetBotCharID(), line);
+                    _log(BOT__MESSAGE, "BotMgr: POS guard %s called it out in system %u local.", guard->GetBotName().c_str(), sysID);
+                }
+            }
+        }
+
+        _log(BOT__MESSAGE, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s).",
+             cand.second.c_str(), charID, sysID, arrival);
+        codelog(BOT__ERROR, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s).",
+             cand.second.c_str(), charID, sysID, arrival);
         ++spawned;
     }
 }
@@ -4585,6 +4636,28 @@ void BotMgr::ProcessPosGuards()
             codelog(BOT__ERROR, "BotMgr: POS tower %u (corp %u) under attack, no guard nearby -> calling guards (system has %d).",
                     towerID, a.corp, systemGuards);
             SpawnPosGuards(pSystem, a.corp, a.pos);
+        }
+
+        // Drive every assigned guard to its tower: guards that logged in at a
+        // station/gate warp in; the rest hold an orbit. This is what makes the
+        // "real warp" defenders actually reach the POS (we must not Orbit() while
+        // the warp is running — that aborts it).
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb == nullptr || !pb->IsPosGuard() || pb->DestinyMgr() == nullptr)
+                continue;
+            SystemEntity* tw = pSystem->GetSE(pb->GetGuardTowerID());
+            if (tw == nullptr)
+                continue;
+            if (pb->DestinyMgr()->IsWarping())
+                continue;   // in flight — let it arrive first
+            double d = pb->GetPosition().distance(tw->GetPosition());
+            if (d > 200000.0)
+                pb->DestinyMgr()->WarpTo(tw->GetPosition(), 0);
+            else
+                pb->DestinyMgr()->Orbit(tw, 6000);   // fixed distance so re-issuing is a no-op
         }
 
         // Guards focus the attacker(s). The operator's manual target takes priority.
