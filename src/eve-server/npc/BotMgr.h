@@ -240,6 +240,13 @@ private:
     // A courier reached the destination system — complete its accepted contract
     // (reward ISK + cargo placed at the destination station).
     void CompleteContract(uint32 charID, uint32 destSystem);
+    // Recover courier contracts whose BOT acceptor stalled (it was reaped while
+    // transiting an empty system, so it never "arrived"): complete them so the
+    // contract market keeps flowing instead of clogging at status=1 forever.
+    void ReapStaleContracts();
+    // Docked traders buy up open item-exchange contracts at their station (without
+    // a buyer, WTS contracts pile up and the contract market looks dead).
+    void ProcessContractBuyers();
     // Deterministic real-EVE-style corp logo from a seed id: slot 0 = graphicID,
     // 1-3 = colors (0xRRGGBB), 4-6 = shapes. Same seed → same logo.
     static int64 MakeCorpLogo(uint32 seed, uint8 slot);

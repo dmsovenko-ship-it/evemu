@@ -289,6 +289,29 @@ void BotMgr::Process()
     // Complete courier hauls that reached their destination but could not dock.
     ProcessHaulDeliveries();
 
+    // Periodically settle courier contracts whose bot acceptor stalled (reaped
+    // mid-route) so the contract market keeps flowing.
+    {
+        static Timer s_staleContractTimer(0);
+        if (!s_staleContractTimer.Enabled())
+            s_staleContractTimer.Start(300000);
+        if (s_staleContractTimer.Check()) {
+            s_staleContractTimer.Start(300000);
+            ReapStaleContracts();
+        }
+    }
+
+    // Traders buy open item-exchange contracts (keeps the contract market moving).
+    {
+        static Timer s_contractBuyTimer(0);
+        if (!s_contractBuyTimer.Enabled())
+            s_contractBuyTimer.Start(60000);
+        if (s_contractBuyTimer.Check()) {
+            s_contractBuyTimer.Start(60000);
+            ProcessContractBuyers();
+        }
+    }
+
     // Refresh the portal's "online" figure (active + docked chelobots) on the
     // game thread so the API thread can read it race-free.
     RefreshOnlineCount();
@@ -6420,6 +6443,117 @@ void BotMgr::CompleteContract(uint32 charID, uint32 destSystem)
 
         _log(BOT__MESSAGE, "BotMgr: courier %u delivered contract %u (%zu items) to station %u, +%.0f ISK reward.",
              charID, contractID, cargo.size(), endStation, (double)reward);
+    }
+}
+
+// Courier contracts accepted by a BOT that never completed — the bot was reaped
+// while crossing an empty system, so it never "arrived" — stay at status=1
+// forever. That clogs the courier market: nothing is left open for a player, and
+// the acceptance logic is permanently forced into "urgent" (grabs everything).
+// Settle any bot-accepted contract older than 2h so the flow recovers. Bot courier
+// contracts carry no real items, so completing just closes it and pays the reward.
+void BotMgr::ReapStaleContracts()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    int64 cutoff = GetFileTimeNow() - (int64)EvE::Time::Hour * 2;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT c.acceptorID, c.endSolarSystemID"
+        " FROM ctrContracts c JOIN chrCharacters ch ON ch.characterID = c.acceptorID"
+        " WHERE c.contractType = 3 AND c.status = 1 AND c.dateCompleted = 0"
+        "   AND c.dateAccepted > 0 AND c.dateAccepted < %lli"
+        "   AND ch.accountID = 0"
+        " LIMIT 50", cutoff))
+        return;
+
+    std::vector<std::pair<uint32,uint32>> stale;
+    DBResultRow row;
+    while (res.GetRow(row))
+        stale.push_back({ row.GetUInt(0), row.GetUInt(1) });
+
+    uint32 settled = 0;
+    for (auto& s : stale) {
+        if (s.second == 0)
+            continue;
+        // Completing may not match (end system 0) — that's fine, it just stays.
+        CompleteContract(s.first, s.second);
+        ++settled;
+    }
+    if (settled > 0)
+        _log(BOT__MESSAGE, "BotMgr: ReapStaleContracts settled %u stalled courier contract(s).", settled);
+}
+
+// Traders also BUY open item-exchange contracts at their station. Without a buyer,
+// WTS contracts pile up forever and the contract market looks dead. The docked
+// trader picks the cheapest open contract at its station, pays the issuer from its
+// own wallet and takes the locked items into its hangar (it can then resell them).
+void BotMgr::ProcessContractBuyers()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    if (m_docked.empty())
+        return;
+    for (auto& [sysID, bots] : m_docked) {
+        for (auto& db : bots) {
+            if (db.profession != (uint8)PlayerBot::BotProfession::Trader)
+                continue;
+            if (db.stationID == 0)
+                continue;
+            if (MakeRandomInt(0, 99) >= 20)   // don't sweep the whole book every pass
+                continue;
+
+            DBQueryResult res;
+            if (!sDatabase.RunQuery(res,
+                "SELECT contractId, issuerID, price FROM ctrContracts"
+                " WHERE contractType = 1 AND status = 0 AND isPrivate = 0"
+                "   AND startStationID = %u AND issuerID <> %u AND price > 0"
+                " ORDER BY price ASC LIMIT 1", db.stationID, db.charID))
+                continue;
+            DBResultRow row;
+            if (!res.GetRow(row))
+                continue;
+            uint32 contractID = row.GetUInt(0);
+            uint32 issuerID   = row.GetUInt(1);
+            int64  price      = row.GetInt64(2);
+            if (issuerID == 0 || price <= 0)
+                continue;
+
+            // Can the trader afford it? (balance check; leave a small buffer)
+            double bal = 0;
+            DBQueryResult bres;
+            if (sDatabase.RunQuery(bres, "SELECT balance FROM chrCharacters WHERE characterID = %u", db.charID)) {
+                DBResultRow br;
+                if (bres.GetRow(br))
+                    bal = br.GetDouble(0);
+            }
+            if (bal < (double)price * 1.05)
+                continue;
+
+            // Pay the seller, take the items, close the contract.
+            AccountService::TransferFunds(db.charID, issuerID, (double)price,
+                "Item exchange contract", Journal::EntryType::ContractAuctionSold, contractID,
+                Account::KeyType::Cash, Account::KeyType::Cash);
+
+            DBQueryResult ires;
+            if (sDatabase.RunQuery(ires, "SELECT itemID FROM ctrItems WHERE contractId = %u AND itemID != 0", contractID)) {
+                DBResultRow ir;
+                while (ires.GetRow(ir)) {
+                    InventoryItemRef itm = sItemFactory.GetItemRef(ir.GetUInt(0));
+                    if (itm.get() == nullptr)
+                        continue;
+                    itm->ChangeOwner(db.charID, true);
+                    itm->Move(db.stationID, flagHangar, true);
+                }
+            }
+
+            DBerror err;
+            sDatabase.RunQuery(err,
+                "UPDATE ctrContracts SET acceptorID = %u, status = 4, dateCompleted = %lli WHERE contractId = %u",
+                db.charID, (int64)GetFileTimeNow(), contractID);
+            _log(BOT__MESSAGE, "BotMgr: trader %s(%u) bought item contract %u for %.0f ISK.",
+                 db.name.c_str(), db.charID, contractID, (double)price);
+        }
     }
 }
 
