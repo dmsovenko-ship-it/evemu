@@ -275,6 +275,7 @@ EVEServerConfig::EVEServerConfig()
     security.MinAccountsSameIP = 2;
     security.AuditIntervalSec = 600;
     security.AlertCooldownSec = 21600;
+    security.ExcludeAccounts = "";
 
     // database
     database.host = "localhost";
@@ -949,6 +950,7 @@ bool EVEServerConfig::ProcessSecurity(const TiXmlElement* ele)
     AddValueParser( "MinAccountsSameIP", security.MinAccountsSameIP );
     AddValueParser( "AuditIntervalSec",  security.AuditIntervalSec );
     AddValueParser( "AlertCooldownSec",  security.AlertCooldownSec );
+    AddValueParser( "ExcludeAccounts",   security.ExcludeAccounts );
 
     const bool result = ParseElementChildren( ele );
 
@@ -958,8 +960,30 @@ bool EVEServerConfig::ProcessSecurity(const TiXmlElement* ele)
     RemoveParser( "MinAccountsSameIP" );
     RemoveParser( "AuditIntervalSec" );
     RemoveParser( "AlertCooldownSec" );
+    RemoveParser( "ExcludeAccounts" );
 
     return result;
+}
+
+// Builds " AND h.accountID NOT IN (1,2,3)" from security.ExcludeAccounts.
+// Only digits and commas are accepted; anything else is dropped, so a malformed
+// config value degrades to "no exclusion" instead of breaking the audit query.
+std::string EVEServerConfig::SecurityAccountExcludeSql() const
+{
+    std::string ids;
+    for (char c : security.ExcludeAccounts) {
+        if (c >= '0' && c <= '9')      ids.push_back(c);
+        else if (c == ',')             ids.push_back(c);
+    }
+    // trim leading/trailing commas
+    size_t b = ids.find_first_not_of(',');
+    size_t e = ids.find_last_not_of(',');
+    if (b == std::string::npos)
+        return "";
+    ids = ids.substr(b, e - b + 1);
+    if (ids.empty())
+        return "";
+    return " AND h.accountID NOT IN (" + ids + ")";
 }
 
 bool EVEServerConfig::ProcessTelegram(const TiXmlElement* ele)

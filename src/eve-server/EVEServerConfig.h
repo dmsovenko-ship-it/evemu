@@ -397,7 +397,13 @@ public:
         uint32 MinAccountsSameIP;  // >=N accounts on one IP → multiboxing hint
         uint32 AuditIntervalSec;   // periodic audit cadence (BotMgr tick)
         uint32 AlertCooldownSec;   // min seconds between alerts for the same finding
+        std::string ExcludeAccounts; // comma-separated accountIDs to ignore (admin's own alts)
     } security;
+
+    // SQL fragment " AND h.accountID NOT IN (1,2,3)" built from security.ExcludeAccounts
+    // (empty when unset/no valid ids) so the RMT/multiboxing audit ignores the admin's
+    // own accounts. Also filters out non-routable login IPs in callers.
+    std::string SecurityAccountExcludeSql() const;
 
 protected:
     bool ProcessEveServer( const TiXmlElement* ele );

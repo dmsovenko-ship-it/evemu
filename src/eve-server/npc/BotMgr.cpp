@@ -339,6 +339,15 @@ static void SecurityAuditTick()
         return;
     sLastSecurityScan = now;
 
+    // Drop dedupe keys older than 2x the cooldown so the map does not grow
+    // forever and a finding that stops recurring is forgotten.
+    for (auto it = sSecuritySent.begin(); it != sSecuritySent.end(); ) {
+        if (now - it->second > (time_t)(sConfig.security.AlertCooldownSec * 2))
+            it = sSecuritySent.erase(it);
+        else
+            ++it;
+    }
+
     auto dedupe = [&](const std::string& key) -> bool {
         auto it = sSecuritySent.find(key);
         if (it != sSecuritySent.end()
@@ -396,16 +405,20 @@ static void SecurityAuditTick()
     // 2) Accounts sharing one IP (last 14 days) → multiboxing hint.
     {
         DBQueryResult res;
-        if (sDatabase.RunQuery(res,
+        // Ignore non-routable/placeholder login IPs (legacy rows written before
+        // the real-IP fix) and the admin's own whitelisted accounts.
+        std::string q =
             "SELECT h.ip, COUNT(DISTINCT h.accountID) AS cnt,"
             "       GROUP_CONCAT(DISTINCT a.accountName SEPARATOR ', ') AS names"
             " FROM accountLoginHistory h"
             " JOIN account a ON a.accountID = h.accountID"
-            " WHERE h.loginTime >= NOW() - INTERVAL %u DAY"
-            " GROUP BY h.ip"
-            " HAVING cnt >= %u"
-            " ORDER BY cnt DESC LIMIT 8",
-            sConfig.security.IPWindowDays, sConfig.security.MinAccountsSameIP))
+            " WHERE h.loginTime >= NOW() - INTERVAL " + std::to_string(sConfig.security.IPWindowDays) + " DAY"
+            "   AND h.ip IS NOT NULL AND h.ip <> '' AND h.ip <> '0.0.0.0' AND h.ip <> '127.0.0.1'"
+            + sConfig.SecurityAccountExcludeSql()
+            + " GROUP BY h.ip"
+            " HAVING cnt >= " + std::to_string(sConfig.security.MinAccountsSameIP) +
+            " ORDER BY cnt DESC LIMIT 8";
+        if (sDatabase.RunQuery(res, q.c_str()))
         {
             DBResultRow row;
             while (res.GetRow(row)) {

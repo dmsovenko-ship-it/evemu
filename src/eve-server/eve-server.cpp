@@ -992,8 +992,15 @@ int main( int argc, char* argv[] )
         sStandingMgr.ProcessDecay();
         sStandingMgr.ProcessResearch();
 
-        /*  process console commands, if any, and check for 'exit' command */
-        m_run = sConsole.Process();
+        /*  process console commands, if any, and check for 'exit' command.
+         *  Only ever clear m_run here — never set it back to true — otherwise
+         *  a signal handler (SIGTERM from `docker stop`/restart) that sets
+         *  m_run=false gets clobbered on the same tick and the process never
+         *  shuts down cleanly: docker then SIGKILLs it, so cleanShutdown and
+         *  lastOffline are never persisted (every reboot looks like a crash
+         *  and "online" is re-announced). */
+        if (!sConsole.Process())
+            m_run = false;
 
         /* do the stuff for thread sleeping */
         start = GetTickCount() - start;

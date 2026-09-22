@@ -68,15 +68,17 @@ static std::string BuildSecurityFlagsXML()
         }
     }
 
-    if (sDatabase.RunQuery(res,
+    std::string ipQ =
         "SELECT h.ip, COUNT(DISTINCT h.accountID) AS cnt,"
         "       GROUP_CONCAT(DISTINCT a.accountName SEPARATOR ', ') AS names"
         " FROM accountLoginHistory h"
         " JOIN account a ON a.accountID = h.accountID"
-        " WHERE h.loginTime >= NOW() - INTERVAL %u DAY"
-        " GROUP BY h.ip HAVING cnt >= %u"
-        " ORDER BY cnt DESC LIMIT 10",
-        sConfig.security.IPWindowDays, sConfig.security.MinAccountsSameIP))
+        " WHERE h.loginTime >= NOW() - INTERVAL " + std::to_string(sConfig.security.IPWindowDays) + " DAY"
+        "   AND h.ip IS NOT NULL AND h.ip <> '' AND h.ip <> '0.0.0.0' AND h.ip <> '127.0.0.1'"
+        + sConfig.SecurityAccountExcludeSql()
+        + " GROUP BY h.ip HAVING cnt >= " + std::to_string(sConfig.security.MinAccountsSameIP) +
+        " ORDER BY cnt DESC LIMIT 10";
+    if (sDatabase.RunQuery(res, ipQ.c_str()))
     {
         DBResultRow row;
         while (res.GetRow(row)) {
