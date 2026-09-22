@@ -2122,15 +2122,11 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     // still moves its ball; a mid-holder snap is the visible end-of-warp teleport.
     if (m_targetDistance <= 1.0) {
         if (!m_warpStopDelay.Enabled()) {
-            // Per client destiny.dll OnDeactivatingWarp: the client's decel runs
-            // LONGER than ours, so hold ~8s base (+1s per AU of decel duration
-            // on capital-long warps) before finalizing. The final position
-            // broadcast below is then a sub-metre, invisible correction.
-            double decelTime = (m_warpState->decelDist / m_warpState->warpSpeed);
-            double holdMs = 8000.0 + (1000.0 * std::ceil(decelTime));
-            if (holdMs < 8000.0) holdMs = 8000.0;
-            if (holdMs > 20000.0) holdMs = 20000.0;
-            m_warpStopDelay.Start((uint32)holdMs);
+            // The server's two-phase decel already tracks the client's, so only a
+            // small settle is needed before WarpStop. The old 8-20 s hold made the
+            // grid/balls appear several seconds AFTER the client visually arrived
+            // (the reported 3-5 s POS/module pop-in at the end of a warp).
+            m_warpStopDelay.Start(1500);
         }
         return;
     }
