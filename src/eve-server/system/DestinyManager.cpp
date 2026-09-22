@@ -397,12 +397,16 @@ void DestinyManager::ProcessState() {
                 GPoint tDelta = m_position - tower->GetPosition();
                 double tDist = tDelta.length();
                 double tRadius = tower->GetShieldRadius();
-                if (tDist < tRadius && tDist > 0.01 && !tower->CanEnterField(mySE)) {
-                    tDelta.normalize();
+                if (tDist < tRadius && !tower->CanEnterField(mySE)) {
+                    // A ship that warped EXACTLY onto the tower has tDist ~ 0 —
+                    // the old `tDist > 0.01` guard skipped it (no eject). Use a
+                    // default direction when the delta is degenerate.
+                    GPoint dir = (tDist > 0.01) ? tDelta : GPoint(1.0, 0.0, 0.0);
+                    dir.normalize();
                     // Push to the surface PLUS the ship's own radius + margin, so
                     // an abrupt stop (shuttle) cannot end up under the field edge.
                     double pad = tRadius + mySE->GetRadius() + 250.0;
-                    m_position = tower->GetPosition() + (tDelta * pad);
+                    m_position = tower->GetPosition() + (dir * pad);
                     m_velocity = GVector(0, 0, 0);
                     SetPosition(m_position, true);
                 }
