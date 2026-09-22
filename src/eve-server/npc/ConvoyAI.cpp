@@ -52,6 +52,15 @@ void ConvoyGroup::WakeUpAll(SystemEntity* attacker)
 ConvoyAI::ConvoyAI(NPC* who, ConvoyGroup* group, uint32 idx)
 : m_npc(who), m_group(group), m_index(idx), m_startTimer(nullptr), m_transferRequested(false)
 {
+    // The DestinyManager defaults to 100 m/s and only NPCAIMgr ever calls
+    // SetMaxVelocity — so a ConvoyAI-driven NPC crawled at 100 m/s and took
+    // ~25 min to reach the 150 km form-up point ("convoy hangs at the station").
+    if (m_npc != nullptr && m_npc->DestinyMgr() != nullptr) {
+        float mv = m_npc->GetAttribute(AttrMaxVelocity).get_float();
+        if (mv <= 0.0f)
+            mv = 150.0f;
+        m_npc->DestinyMgr()->SetMaxVelocity(mv);
+    }
     uint32 interval = 15000 + MakeRandomInt(0, 30000);
     m_startTimer = new Timer(interval * (idx + 1));
     m_startTimer->Start(interval * (idx + 1));
@@ -138,14 +147,14 @@ void ConvoyAI::Process()
     if (phase == 0) {
         if (m_startTimer->Enabled() && !m_startTimer->Check(false))
             return;
-        if (m_index == 0) {
-            dest->GotoPoint(depPoint);
-        } else {
-            NPC* lead = m_group->members[m_index - 1];
-            if (lead != nullptr && !lead->IsDead())
-                dest->Follow(lead, 2500);
-        }
-        if (m_index > 0 && !m_startTimer->Enabled())
+        // Depart the station to the form-up point by WARP — the old GotoPoint
+        // crawl (100 m/s to a point 150 km away, ~25 min) is why convoys looked
+        // stuck at the station.
+        if (m_npc->GetPosition().distance(depPoint) > 5000.0)
+            dest->WarpTo(depPoint);
+        // Only the LAST (longest-staggered) member advances the group, so nobody
+        // starts before its stagger.
+        if ((m_index + 1) >= m_group->members.size() && !m_startTimer->Enabled())
             m_group->phase = 1;
         return;
     }
