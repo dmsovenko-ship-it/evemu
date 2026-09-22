@@ -4434,10 +4434,17 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
         // Arrival model: null-sec mostly "login at the POS"; high-sec 50/50.
         bool loginAtPos = (sec < 0.5f) ? true : (MakeRandomInt(0, 1) == 1);
 
-        // Find the tower to orbit.
+        // Find the tower to orbit — the one NEAREST the requested position. A
+        // system can host several towers (bot POSes sit at different moons); the
+        // guards must hold the tower that is actually under attack, not just the
+        // first one in the entity map.
         SystemEntity* tower = nullptr;
+        double bestDist = 0.0;
         for (auto& [eid, se] : sysMgr->GetEntities()) {
-            if (se != nullptr && se->GetTowerSE() != nullptr) { tower = se; break; }
+            if (se == nullptr || se->GetTowerSE() == nullptr)
+                continue;
+            double d = se->GetPosition().distance(pos);
+            if (tower == nullptr || d < bestDist) { tower = se; bestDist = d; }
         }
 
         if (loginAtPos) {
@@ -4470,55 +4477,60 @@ void BotMgr::ProcessPosGuards()
         if (pSystem == nullptr)
             continue;
 
-        // Find the tower (if any) in this system.
-        SystemEntity* tower = nullptr;
+        // A system can host SEVERAL towers (bot POSes sit at different moons). The
+        // old code only ever looked at the first tower in the entity map, so an
+        // attack on any other tower produced neither defenders nor guard fire.
+        // Collect every attacked tower first (SpawnPosGuards mutates the entity
+        // map, so we must not call it while iterating it).
+        struct PosAttack { SystemEntity* tower; uint32 corp; GPoint pos; uint32 aggr; };
+        std::vector<PosAttack> attacks;
         for (auto& [id, se] : pSystem->GetEntities()) {
-            if (se != nullptr && se->GetTowerSE() != nullptr) { tower = se; break; }
+            if (se == nullptr || se->GetTowerSE() == nullptr)
+                continue;
+            uint32 aggr = se->GetTowerSE()->GetRecentAggressor();
+            if (aggr != 0)
+                attacks.push_back({ se, se->GetTowerSE()->GetCorporationID(), se->GetPosition(), aggr });
         }
-        if (tower == nullptr)
+        if (attacks.empty())
             continue;
 
-        // If the POS is under attack but has no defenders (guards are reaped when
-        // the system empties, or they have left), call the guards in — they arrive
-        // like normal pilots (login at the POS, or login at a station then warp in).
-        if (tower->GetTowerSE()->GetRecentAggressor() != 0) {
+        // Call the guards in for any attacked tower that has no defender holding it
+        // (guards are reaped when the system empties, or they may have left).
+        for (auto& a : attacks) {
             bool haveGuard = false;
             for (auto& [id, se] : pSystem->GetEntities()) {
                 if (se == nullptr || se->GetNPCSE() == nullptr)
                     continue;
                 PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
-                if (pb != nullptr && pb->IsPosGuard()) { haveGuard = true; break; }
+                if (pb != nullptr && pb->IsPosGuard()
+                    && se->GetPosition().distance(a.pos) < 150000.0) { haveGuard = true; break; }
             }
             if (!haveGuard)
-                SpawnPosGuards(pSystem, tower->GetCorporationID(), tower->GetPosition());
+                SpawnPosGuards(pSystem, a.corp, a.pos);
         }
 
-        // Operator target takes priority; otherwise defend against whoever is
-        // shooting the POS (aggressor registered on damage).
-        SystemEntity* targ = nullptr;
-        uint32 manual = tower->GetTowerSE()->GetManualTarget();
-        if (manual != 0)
-            targ = pSystem->GetSE(manual);
-        if (targ == nullptr) {
-            uint32 aggr = tower->GetTowerSE()->GetRecentAggressor();
-            if (aggr != 0) {
-                Client* ac = sEntityList.FindClientByCharID(aggr);
+        // Guards focus the attacker(s). The operator's manual target takes priority.
+        for (auto& a : attacks) {
+            SystemEntity* targ = nullptr;
+            uint32 manual = a.tower->GetTowerSE()->GetManualTarget();
+            if (manual != 0)
+                targ = pSystem->GetSE(manual);
+            if (targ == nullptr) {
+                Client* ac = sEntityList.FindClientByCharID(a.aggr);
                 if (ac != nullptr)
                     targ = ac->GetShipSE();
             }
-        }
-        if (targ == nullptr)
-            continue;
-
-        // Guards focus the target too (helps kill it fast).
-        for (auto& [id, se] : pSystem->GetEntities()) {
-            if (se == nullptr || se->GetNPCSE() == nullptr)
+            if (targ == nullptr)
                 continue;
-            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
-            if (pb == nullptr || !pb->IsPosGuard())
-                continue;
-            if (pb->GetAIMgr() != nullptr && !pb->GetAIMgr()->IsFighting())
-                pb->GetAIMgr()->Target(targ);
+            for (auto& [id, se] : pSystem->GetEntities()) {
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                if (pb == nullptr || !pb->IsPosGuard())
+                    continue;
+                if (pb->GetAIMgr() != nullptr && !pb->GetAIMgr()->IsFighting())
+                    pb->GetAIMgr()->Target(targ);
+            }
         }
     }
 }

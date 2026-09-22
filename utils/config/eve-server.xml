@@ -307,4 +307,15 @@ boolean can use either 0/1 OR true/false.
         <imageServerPort>26001</imageServerPort>
     </net>
 
+    <!-- Admin RMT / multiboxing audit (periodic Telegram alert + SecurityFlags page). -->
+    <security>
+        <FlowThresholdISK>150000000</FlowThresholdISK><!-- min ISK moved human<->human in the window to flag a market flow -->
+        <FlowWindowHours>24</FlowWindowHours>
+        <IPWindowDays>14</IPWindowDays><!-- look-back window for shared-IP logins -->
+        <MinAccountsSameIP>2</MinAccountsSameIP><!-- >=N accounts on one IP -> multiboxing hint -->
+        <AuditIntervalSec>600</AuditIntervalSec>
+        <AlertCooldownSec>21600</AlertCooldownSec><!-- min seconds between alerts for the same finding -->
+        <ExcludeAccounts></ExcludeAccounts><!-- comma-separated accountIDs to ignore (your own alts), e.g. 1,2,3 -->
+    </security>
+
 </eve-server>

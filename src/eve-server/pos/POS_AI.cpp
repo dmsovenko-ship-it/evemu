@@ -331,9 +331,31 @@ void POS_AI::FireWeapon(uint32 targetID)
             m_pWeapon->GetName(), m_pWeapon->GetID(),
             pTarget->GetName(), pTarget->GetID());
 
-    m_pWeapon->DestinyMgr()->SendSpecialEffect10(
-            m_pWeapon->GetID(), pTarget->GetID(),
-            "effects.StandardWeapon", 1, 1, 1);
+    // Turret firing animation. The client's POS gun (spaceObject/structureSentryGun.py)
+    // fits a turret on the battery and keys it as modules[<battery itemID>]
+    // (self.modules[self.id] = newTurretSet), and effects.StandardWeapon looks it up
+    // via shipBall.modules.get(trigger.moduleID) in spaceObject/model/turretSet.py.
+    // SendSpecialEffect10 does NOT fill moduleID, so the lookup fails ("Turret not
+    // fitted") and nothing renders. Send the full OnSpecialFX14 instead, with
+    // moduleID == the battery's own itemID and otherTypeID == the loaded charge
+    // (drives the muzzle/ammo colour). graphicInfo = the type's gfxTurretID.
+    uint32 attackDelay = weaponRef->GetAttribute(AttrSpeed).get_uint32();
+    if (attackDelay < 1000)
+        attackDelay = 15000;
+    uint32 chargeTypeID = (loadedCharge.get() != nullptr) ? loadedCharge->typeID() : 0;
+    int32 gfxTurretID = weaponRef->HasAttribute(AttrGfxTurretID)
+                      ? weaponRef->GetAttribute(AttrGfxTurretID).get_int() : 0;
+
+    m_pWeapon->DestinyMgr()->SendSpecialEffect(
+            m_pWeapon->GetID(),          // shipID  (ball that carries the fitted turret)
+            m_pWeapon->GetID(),          // moduleID (turret key)
+            weaponRef->typeID(),         // moduleTypeID
+            pTarget->GetID(),            // targetID
+            chargeTypeID,                // otherTypeID (ammo colour)
+            "effects.StandardWeapon",
+            1, 1, 1,                     // isOffensive, start, active
+            (int32)attackDelay, 0,       // duration(ms), repeat
+            gfxTurretID);
 
     if (killed) {
         m_targetID = 0;
