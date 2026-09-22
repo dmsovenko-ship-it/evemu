@@ -4552,11 +4552,11 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
                 LSCChannel* chan = (lsc != nullptr) ? lsc->GetChannelByID((int32)sysID) : nullptr;
                 if (chan != nullptr) {
                     static const char* lines[] = {
-                        "Наш ПОС бьют, подтягиваемся!",
-                        "ПОС под огнём — выдвигаюсь на защиту.",
-                        "Хосты на башне, иду к ПОСу!",
-                        "Кидайте флот, наш ПОС атакуют!",
-                        "На башне враги, всем на вызов!",
+                        "Our POS is under attack - moving to defend!",
+                        "POS taking fire, we're on our way.",
+                        "Hostiles on our tower, heading in!",
+                        "Throw the fleet - our POS is under attack!",
+                        "Enemies on the tower, all units respond!",
                     };
                     std::string line = lines[MakeRandomInt(0, 4)];
                     chan->SendBotMessage(guard->GetBotCharID(), guard->GetBotName(), guard->GetBotCorpID(), line);
