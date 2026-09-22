@@ -19,6 +19,9 @@
 #include "pos/POS_AI.h"
 #include "pos/Tower.h"
 #include "ship/Ship.h"
+#include "ship/Missile.h"
+#include "inventory/ItemFactory.h"
+#include "inventory/ItemDB.h"
 #include "pos/Structure.h"
 #include "system/Damage.h"
 #include "system/SystemBubble.h"
@@ -298,6 +301,22 @@ void POS_AI::FireWeapon(uint32 targetID)
         }
     }
 
+    // --- missile batteries: launch a real missile SE (visible flight) ---------
+    // The client has no turret for a POS missile sentry (its gfxTurretID is NULL,
+    // so spaceObject/structureSentryGun.py cannot fit a launcher and
+    // effects.StandardWeapon renders nothing). Towers/NPCs fire missiles by
+    // spawning an actual Missile ball, which is what the client animates, so do
+    // the same here. The missile applies its own damage on impact, so return
+    // before the direct-damage path below.
+    if (grp == EVEDB::invGroups::Mobile_Missile_Sentry) {
+        uint32 missileTypeID = (loadedCharge.get() != nullptr) ? loadedCharge->typeID() : 0;
+        if (missileTypeID == 0 && weaponRef->HasAttribute(AttrEntityMissileTypeID))
+            missileTypeID = weaponRef->GetAttribute(AttrEntityMissileTypeID).get_uint32();
+        if (missileTypeID != 0)
+            LaunchMissile(missileTypeID, pTarget);
+        return;
+    }
+
     float dmgMult = weaponRef->GetAttribute(AttrDamageMultiplier).get_float();
     if (dmgMult < 0.01f)
         dmgMult = 1.0f;
@@ -361,6 +380,44 @@ void POS_AI::FireWeapon(uint32 targetID)
         m_targetID = 0;
         m_lastTargetScan = 0;
     }
+}
+
+// Spawn a real missile SE and send it at the target — mirrors
+// NPCAIMgr::LaunchMissile so the client draws the launch + flight + impact.
+void POS_AI::LaunchMissile(uint32 typeID, SystemEntity* pTarget)
+{
+    if (typeID == 0 || pTarget == nullptr)
+        return;
+
+    SystemManager* pSystem = m_pWeapon->SystemMgr();
+    if (pSystem == nullptr)
+        return;
+
+    InventoryItemRef weaponRef = m_pWeapon->GetSelf();
+    ItemData idata(typeID, m_pWeapon->GetID(), m_pWeapon->GetLocationID(),
+                   flagMissile, "POS Missile", m_pWeapon->GetPosition());
+    InventoryItemRef missileRef = sItemFactory.SpawnItem(idata);
+    if (missileRef.get() == nullptr)
+        return;
+
+    Missile* pMissile = new Missile(missileRef, pSystem->GetServiceMgr(), pSystem,
+                                    weaponRef, pTarget, m_pWeapon);
+    double distance = pMissile->GetPosition().distance(pTarget->GetPosition());
+    double missileSpeed = missileRef->GetAttribute(AttrMaxVelocity).get_float();
+    if (missileSpeed < 1.0)
+        missileSpeed = 1000.0;
+    double travelTime = distance / missileSpeed;
+    if (travelTime < 1.0)
+        travelTime = 1.0;
+    pMissile->SetSpeed(missileSpeed);
+    pMissile->SetHitTimer((uint32)(travelTime * 1000.0));
+    pMissile->DestinyMgr()->MakeMissile(pMissile);
+
+    // Let the target's defenders react (defender missiles), as NPCAI does.
+    pTarget->MissileLaunched(pMissile);
+
+    _log(POS__MESSAGE, "POS_AI: %s launched missile %u at %s (%u).",
+         m_pWeapon->GetName(), typeID, pTarget->GetName(), pTarget->GetID());
 }
 
 void POS_AI::TargetLost(uint32 entityID)

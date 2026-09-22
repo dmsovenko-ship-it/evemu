@@ -14,6 +14,7 @@
 
 class TowerSE;
 class StructureSE;
+class SystemEntity;
 
 class POS_AI
 {
@@ -28,6 +29,7 @@ public:
 protected:
     void FindTarget();
     void FireWeapon(uint32 targetID);
+    void LaunchMissile(uint32 typeID, SystemEntity* pTarget);
 
 private:
     StructureSE* m_pWeapon;
