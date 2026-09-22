@@ -4465,6 +4465,21 @@ void BotMgr::ProcessPosGuards()
         if (tower == nullptr)
             continue;
 
+        // If the POS is under attack but has no defenders (guards are reaped when
+        // the system empties, or they have left), call the guards in — they arrive
+        // like normal pilots (login at the POS, or login at a station then warp in).
+        if (tower->GetTowerSE()->GetRecentAggressor() != 0) {
+            bool haveGuard = false;
+            for (auto& [id, se] : pSystem->GetEntities()) {
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                if (pb != nullptr && pb->IsPosGuard()) { haveGuard = true; break; }
+            }
+            if (!haveGuard)
+                SpawnPosGuards(pSystem, tower->GetCorporationID(), tower->GetPosition());
+        }
+
         // Operator target takes priority; otherwise defend against whoever is
         // shooting the POS (aggressor registered on damage).
         SystemEntity* targ = nullptr;
