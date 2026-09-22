@@ -4396,8 +4396,10 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
                 candidates.push_back({ r.GetUInt(0), r.GetText(1) });
         }
     }
-    if (candidates.empty())
+    if (candidates.empty()) {
+        codelog(BOT__ERROR, "BotMgr: POS guards — no accountID=0 pilots in corp %u to man the tower in system %u.", corpID, sysID);
         return;
+    }
 
     int want = 2 + MakeRandomInt(0, 1);   // 2-3 guards
     int spawned = 0;
@@ -4425,8 +4427,10 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
             PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
             if (pb != nullptr && pb->GetBotCharID() == charID) { guard = pb; break; }
         }
-        if (guard == nullptr)
+        if (guard == nullptr) {
+            codelog(BOT__ERROR, "BotMgr: POS guard %s(%u) spawned but SE not found in %u — skipped.", cand.second.c_str(), charID, sysID);
             continue;
+        }
 
         guard->SetProfession(PlayerBot::BotProfession::Hunter);
         guard->SetPosGuard(true);
@@ -4464,6 +4468,8 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
 
         _log(BOT__MESSAGE, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s arrival).",
              cand.second.c_str(), charID, sysID, loginAtPos ? "login-at-POS" : "station-warp");
+        codelog(BOT__ERROR, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s arrival).",
+             cand.second.c_str(), charID, sysID, loginAtPos ? "login-at-POS" : "station-warp");
         ++spawned;
     }
 }
@@ -4496,7 +4502,21 @@ void BotMgr::ProcessPosGuards()
 
         // Call the guards in for any attacked tower that has no defender holding it
         // (guards are reaped when the system empties, or they may have left).
+        // Throttled per tower (30 s) and capped per system so a guard that isn't
+        // detected (e.g. it roamed) cannot turn this into a per-tick spawn loop.
+        int systemGuards = 0;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb != nullptr && pb->IsPosGuard())
+                ++systemGuards;
+        }
+        static std::map<uint32, int64> s_lastGuardAttempt;   // tower itemID -> filetime
+        int64 nowT = GetFileTimeNow();
         for (auto& a : attacks) {
+            if (systemGuards >= 6)
+                break;
             bool haveGuard = false;
             for (auto& [id, se] : pSystem->GetEntities()) {
                 if (se == nullptr || se->GetNPCSE() == nullptr)
@@ -4505,8 +4525,16 @@ void BotMgr::ProcessPosGuards()
                 if (pb != nullptr && pb->IsPosGuard()
                     && se->GetPosition().distance(a.pos) < 150000.0) { haveGuard = true; break; }
             }
-            if (!haveGuard)
-                SpawnPosGuards(pSystem, a.corp, a.pos);
+            if (haveGuard)
+                continue;
+            uint32 towerID = a.tower->GetID();
+            auto it = s_lastGuardAttempt.find(towerID);
+            if (it != s_lastGuardAttempt.end() && (nowT - it->second) < (int64)EvE::Time::Second * 30)
+                continue;
+            s_lastGuardAttempt[towerID] = nowT;
+            codelog(BOT__ERROR, "BotMgr: POS tower %u (corp %u) under attack, no guard nearby -> calling guards (system has %d).",
+                    towerID, a.corp, systemGuards);
+            SpawnPosGuards(pSystem, a.corp, a.pos);
         }
 
         // Guards focus the attacker(s). The operator's manual target takes priority.

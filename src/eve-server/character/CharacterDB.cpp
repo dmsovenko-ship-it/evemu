@@ -1132,9 +1132,11 @@ void CharacterDB::AddEmployment(uint32 charID, uint32 corpID, uint32 oldCorpID/*
     if (!sDatabase.RunQuery(err, "UPDATE chrCharacters SET startDateTime = %f, corporationID = %u WHERE characterID = %u", GetFileTimeNow(), corpID, charID))
         codelog(DATABASE__ERROR, "Error in character insert query: %s", err.c_str());
 
-    // Decrease previous corp's member count
+    // Decrease previous corp's member count (guard against unsigned underflow:
+    // bot corps are not seeded with a memberCount, so decrementing at 0 raises
+    // "#1690 BIGINT UNSIGNED value is out of range" and floods the log).
     if (IsCorp(oldCorpID))
-        if (!sDatabase.RunQuery(err, "UPDATE crpCorporation SET memberCount = memberCount-1 WHERE corporationID = %u", oldCorpID))
+        if (!sDatabase.RunQuery(err, "UPDATE crpCorporation SET memberCount = IF(memberCount > 0, memberCount-1, 0) WHERE corporationID = %u", oldCorpID))
             codelog(CORP__DB_ERROR, "Error in prev corp member decrease query: %s", err.c_str());
 
     // Increase new corp's member number...
