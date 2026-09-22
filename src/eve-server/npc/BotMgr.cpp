@@ -4517,6 +4517,8 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
         // Hold station on the tower (guards don't wander off).
         if (tower != nullptr && guard->DestinyMgr() != nullptr)
             guard->DestinyMgr()->Orbit(tower, 5000 + MakeRandomInt(0, 3000));
+        if (tower != nullptr)
+            guard->SetGuardTowerID(tower->GetID());
 
         _log(BOT__MESSAGE, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s arrival).",
              cand.second.c_str(), charID, sysID, loginAtPos ? "login-at-POS" : "station-warp");
@@ -4575,7 +4577,8 @@ void BotMgr::ProcessPosGuards()
                     continue;
                 PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
                 if (pb != nullptr && pb->IsPosGuard()
-                    && se->GetPosition().distance(a.pos) < 150000.0) { haveGuard = true; break; }
+                    && (pb->GetGuardTowerID() == a.tower->GetID()
+                        || se->GetPosition().distance(a.pos) < 150000.0)) { haveGuard = true; break; }
             }
             if (haveGuard)
                 continue;

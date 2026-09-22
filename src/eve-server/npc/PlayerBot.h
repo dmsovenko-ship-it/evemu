@@ -135,6 +135,10 @@ public:
     bool IsAggressive() const           { return m_profession == BotProfession::Hunter; }
     bool IsPosGuard() const             { return m_posGuard; }
     void SetPosGuard(bool v)            { m_posGuard = v; }
+    // Which tower this guard was called to defend (0 = none). Used so ProcessPosGuards
+    // doesn't re-summon guards that are already inbound/assigned to that tower.
+    uint32 GetGuardTowerID() const      { return m_guardTowerID; }
+    void SetGuardTowerID(uint32 id)     { m_guardTowerID = id; }
     void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
     void HuntForTarget();               // PvP hunter: find a legal PvP target and engage
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
@@ -244,6 +248,7 @@ protected:
     CombatStyle m_combatStyle;          // kite / brawler / balanced (assigned at spawn)
     BotProfession m_profession;         // livelihood (hunter/miner/trader/courier/hacker)
     bool m_posGuard = false;            // POS tower guard: assists the operator's target
+    uint32 m_guardTowerID = 0;          // tower this guard was assigned to (see SetGuardTowerID)
     uint32 m_nextMissionReport = 0;     // missioner: dock & report when ratKills reaches this
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     std::vector<InventoryItemRef> m_droppedItems; // modules/cargo rolled as "dropped" (moved to wreck on death)
