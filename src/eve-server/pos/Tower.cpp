@@ -417,7 +417,7 @@ void TowerSE::Process()
             if (m_pShieldSE->SysBubble() != nullptr) {
                 _log(POS__MESSAGE, "TowerSE::Process() - %s(%u): announcing force field %u (bubble %u, players %u).",
                      GetName(), m_self->itemID(), m_pShieldSE->GetID(), m_pShieldSE->SysBubble()->GetID(), players);
-                m_pShieldSE->SysBubble()->AddBallExclusive(m_pShieldSE);
+                m_pShieldSE->SysBubble()->AddBallExclusive(m_pShieldSE, false);
             }
         }
     }

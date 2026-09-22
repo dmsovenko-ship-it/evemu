@@ -114,7 +114,7 @@ public:
     void SendAddBalls(SystemEntity* to_who, uint32 skipItemID = 0);
     void SendAddBalls2(SystemEntity* to_who);
     void RemoveExclusive(SystemEntity* pSE);
-    void AddBallExclusive(SystemEntity* about_who);
+    void AddBallExclusive(SystemEntity* about_who, bool fullState = true);
 
     //send a set of destiny events and updates to every client in the bubble.
     void BubblecastDestiny(std::vector<PyTuple*> &updates, std::vector<PyTuple*> &events, const char* desc) const;

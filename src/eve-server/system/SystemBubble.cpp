@@ -898,7 +898,7 @@ void SystemBubble::SendAddBalls2( SystemEntity* to_who ) {
     pClient->QueueDestinyUpdate(&t);    //consumed — AddBalls2 now starts with string, no PackagedAction needed
 }
 
-void SystemBubble::AddBallExclusive( SystemEntity* pSE ) {
+void SystemBubble::AddBallExclusive( SystemEntity* pSE, bool fullState ) {
     if (!m_system->IsLoaded())
         return;
     if (pSE->DestinyMgr() != nullptr)
@@ -909,9 +909,10 @@ void SystemBubble::AddBallExclusive( SystemEntity* pSE ) {
 
     Buffer* destinyBuffer = new Buffer();
 
-    //create AddBalls header — use type 0 (full state) to force client re-init with crosshairs
+    //create AddBalls header — full state (0) forces client re-init with crosshairs;
+    //type 1 only adds balls to the existing park (safe for re-announce, no grid reset).
     Destiny::AddBall_header head = Destiny::AddBall_header();
-        head.packet_type = 0;   // 0 = full state   1 = balls
+        head.packet_type = fullState ? 0 : 1;   // 0 = full state   1 = balls
         head.stamp = sEntityList.GetStamp();
     destinyBuffer->Append( head );
 
