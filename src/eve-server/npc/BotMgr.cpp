@@ -4432,7 +4432,6 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
     if (sysMgr == nullptr || corpID == 0)
         return;
     uint32 sysID = sysMgr->GetID();
-    float sec = sysMgr->GetSystemSecurityRating();
 
     // Find same-corp pool pilots to man the tower.
     std::vector<std::pair<uint32,std::string>> candidates;
@@ -4487,9 +4486,6 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
         guard->SetProfession(PlayerBot::BotProfession::Hunter);
         guard->SetPosGuard(true);
 
-        // Arrival model: null-sec mostly "login at the POS"; high-sec 50/50.
-        bool loginAtPos = (sec < 0.5f) ? true : (MakeRandomInt(0, 1) == 1);
-
         // Find the tower to orbit — the one NEAREST the requested position. A
         // system can host several towers (bot POSes sit at different moons); the
         // guards must hold the tower that is actually under attack, not just the
@@ -4503,27 +4499,26 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
             if (tower == nullptr || d < bestDist) { tower = se; bestDist = d; }
         }
 
-        if (loginAtPos) {
-            // "Login warp": the pilot appears at the POS (out of nowhere).
+        // The defender "logs in at the POS": its ship appears beside the tower and
+        // then holds station. Do NOT WarpTo() and then immediately Orbit(): Orbit()
+        // rewrites the WARP ball mode and aborts the warp, so the guard stayed at
+        // its spawn gate forever — ProcessPosGuards then re-summoned it every 30s
+        // and it never showed up at the tower.
+        if (guard->DestinyMgr() != nullptr) {
             GPoint p = pos;
             p.x += MakeRandomInt(-4000, 4000);
             p.y += MakeRandomInt(-4000, 4000);
             guard->DestinyMgr()->SetPosition(p);
-        } else if (tower != nullptr) {
-            // "Login at station, then warp in": visible warp to the tower.
-            guard->DestinyMgr()->WarpTo(pos, 0);
         }
-
-        // Hold station on the tower (guards don't wander off).
         if (tower != nullptr && guard->DestinyMgr() != nullptr)
             guard->DestinyMgr()->Orbit(tower, 5000 + MakeRandomInt(0, 3000));
         if (tower != nullptr)
             guard->SetGuardTowerID(tower->GetID());
 
-        _log(BOT__MESSAGE, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s arrival).",
-             cand.second.c_str(), charID, sysID, loginAtPos ? "login-at-POS" : "station-warp");
-        codelog(BOT__ERROR, "BotMgr: POS guard %s(%u) assigned to tower in system %u (%s arrival).",
-             cand.second.c_str(), charID, sysID, loginAtPos ? "login-at-POS" : "station-warp");
+        _log(BOT__MESSAGE, "BotMgr: POS guard %s(%u) assigned to tower in system %u (login-at-POS).",
+             cand.second.c_str(), charID, sysID);
+        codelog(BOT__ERROR, "BotMgr: POS guard %s(%u) assigned to tower in system %u (login-at-POS).",
+             cand.second.c_str(), charID, sysID);
         ++spawned;
     }
 }
