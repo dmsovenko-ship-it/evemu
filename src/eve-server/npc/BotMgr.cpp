@@ -3139,12 +3139,38 @@ void BotMgr::MaybeFoundCorp(PlayerBot* bot)
         return;   // only leader-type pilots found corps
     if (bot->GetBotSkillLevel() < 5)
         return;
+    uint32 charID = bot->GetBotCharID();
+    uint32 oldCorp = bot->GetBotCorpID();
+
+    // Throttle: at most one attempt per bot per 5 minutes. This runs for EVERY
+    // bot on EVERY tick; the random roll below must not be rolled per tick.
+    static std::map<uint32,int64> s_lastCorpTry;
+    int64 nowFt = GetFileTimeNow();
+    auto itTry = s_lastCorpTry.find(charID);
+    if (itTry != s_lastCorpTry.end() && (nowFt - itTry->second) < (int64)EvE::Time::Minute * 5)
+        return;
+    s_lastCorpTry[charID] = nowFt;
+
+    // A bot that already leads a corp — or already belongs to a player-founded
+    // corp (corporationType = 2) — must never found another. The old code had no
+    // such check and m_botCorpID was never updated, so every tick minted a new
+    // corporation (memberCount flood + runaway DB growth).
+    {
+        DBQueryResult chk;
+        if (sDatabase.RunQuery(chk,
+            "SELECT 1 FROM crpCorporation c JOIN chrCharacters ch ON ch.corporationID = c.corporationID"
+            " WHERE ch.characterID = %u AND (c.ceoID = %u OR c.corporationType = 2) LIMIT 1",
+            charID, charID))
+        {
+            DBResultRow r;
+            if (chk.GetRow(r))
+                return;
+        }
+    }
+
     float practice = bot->GetMemory() ? bot->GetMemory()->GetActivitySkill() : 0.0f;
     if (MakeRandomInt(0, 999) >= (int)(20 + practice * 80))
         return;   // rare, and more likely with practice
-
-    uint32 charID = bot->GetBotCharID();
-    uint32 oldCorp = bot->GetBotCorpID();
 
     // Build a new corp owned by this bot (CEO = founder). Logo derived from the
     // new corp id (deterministic): a real-EVE-style logo = graphicID (1447-1627)
@@ -3181,6 +3207,7 @@ void BotMgr::MaybeFoundCorp(PlayerBot* bot)
 
     // Transfer the founder to the new corp (employment history recorded).
     CharacterDB::AddEmployment(charID, corpID, oldCorp);
+    bot->SetBotCorpID(corpID);   // keep the in-memory identity in sync (else: re-found next tick)
 
     _log(BOT__MESSAGE, "BotMgr: %s(%u) founded corp %s [%s] (%u), left corp %u.",
          bot->GetBotName().c_str(), charID, cName.c_str(), ticker.c_str(), corpID, oldCorp);
@@ -3200,6 +3227,7 @@ void BotMgr::MaybeFoundCorp(PlayerBot* bot)
             if (rbot->GetBotCorpID() != oldCorp)
                 continue;   // only pull from the corp the founder left
             CharacterDB::AddEmployment(rbot->GetBotCharID(), corpID, oldCorp);
+            rbot->SetBotCorpID(corpID);
             _log(BOT__TRACE, "BotMgr: %s(%u) recruited into %s.", rbot->GetBotName().c_str(), rbot->GetBotCharID(), cName.c_str());
             ++recruited;
         }
@@ -3230,11 +3258,34 @@ void BotMgr::MaybeFormAlliance(PlayerBot* bot)
         return;
     if (bot->GetBotSkillLevel() < 5)
         return;
+
+    uint32 charID = bot->GetBotCharID();
+    uint32 myCorp = bot->GetBotCorpID();
+
+    // Throttle (this runs every tick for every bot) and require an actual
+    // bot-founded corp that is not yet in an alliance. Without this the alliance
+    // roll re-fires each tick and mints a new alliance every time.
+    static std::map<uint32,int64> s_lastAllyTry;
+    int64 nowFt = GetFileTimeNow();
+    auto itTry = s_lastAllyTry.find(charID);
+    if (itTry != s_lastAllyTry.end() && (nowFt - itTry->second) < (int64)EvE::Time::Minute * 5)
+        return;
+    s_lastAllyTry[charID] = nowFt;
+    {
+        DBQueryResult chk;
+        if (!sDatabase.RunQuery(chk,
+            "SELECT allianceID FROM crpCorporation WHERE corporationID = %u AND ceoID = %u", myCorp, charID))
+            return;
+        DBResultRow r;
+        if (!chk.GetRow(r))
+            return;                 // bot does not lead its own (bot-founded) corp
+        if (r.GetUInt(0) != 0)
+            return;                 // its corp is already in an alliance
+    }
+
     float practice = bot->GetMemory() ? bot->GetMemory()->GetActivitySkill() : 0.0f;
     if (MakeRandomInt(0, 999) >= (int)(10 + practice * 60))
         return;
-
-    uint32 myCorp = bot->GetBotCorpID();
 
     // Find bot-founded corps (CEO is a bot character, not an NPC corp owner).
     // Group by location/profession: other bot corps not yet in an alliance.
@@ -3295,6 +3346,7 @@ void BotMgr::MaybeFormAlliance(PlayerBot* bot)
 
     _log(BOT__MESSAGE, "BotMgr: %s(%u) formed alliance %s [%s] (%u) from %u corps.",
          bot->GetBotName().c_str(), bot->GetBotCharID(), aName.c_str(), aShort.c_str(), allyID, (uint32)memberCorps.size());
+    bot->SetBotAllianceID(allyID);   // keep the in-memory identity in sync
 }
 
 void BotMgr::GetDockedAtStation(uint32 stationID, std::vector<GuestInfo>& out) const

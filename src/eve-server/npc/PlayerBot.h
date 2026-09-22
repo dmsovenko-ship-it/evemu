@@ -40,6 +40,12 @@ public:
     const std::string& GetBotName() const { return m_botName; }
     uint32 GetBotCorpID() const         { return m_botCorpID; }
     uint32 GetBotAllianceID() const     { return m_botAllianceID; }
+    // Update the bot's identity corp/alliance in memory after it founds a corp /
+    // joins an alliance (keeps m_corpID/m_allyID — used by everywhere in the AI —
+    // in sync with the DB, otherwise the bot keeps "being in" its old NPC corp
+    // and would found a new corp on every tick).
+    void SetBotCorpID(uint32 id)        { m_botCorpID = id; m_corpID = id; }
+    void SetBotAllianceID(uint32 id)    { m_botAllianceID = id; m_allyID = id; }
     uint8 GetBotSkillLevel() const      { return m_botSkill; }
     void SetBotSkillLevel(uint8 lvl)    { if (lvl > 5) lvl = 5; m_botSkill = lvl; }
     // Skill progression: after enough practice (profession runs / PvP outcomes,
