@@ -55,8 +55,8 @@ ConvoyAI::ConvoyAI(NPC* who, ConvoyGroup* group, uint32 idx)
     // The DestinyManager defaults to 100 m/s and only NPCAIMgr ever calls
     // SetMaxVelocity — so a ConvoyAI-driven NPC crawled at 100 m/s and took
     // ~25 min to reach the 150 km form-up point ("convoy hangs at the station").
-    if (m_npc != nullptr && m_npc->DestinyMgr() != nullptr) {
-        float mv = m_npc->GetAttribute(AttrMaxVelocity).get_float();
+    if (m_npc != nullptr && m_npc->DestinyMgr() != nullptr && m_npc->GetSelf().get() != nullptr) {
+        float mv = m_npc->GetSelf()->GetAttribute(AttrMaxVelocity).get_float();
         if (mv <= 0.0f)
             mv = 150.0f;
         m_npc->DestinyMgr()->SetMaxVelocity(mv);
