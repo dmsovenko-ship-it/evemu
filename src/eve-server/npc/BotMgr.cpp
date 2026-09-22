@@ -4554,7 +4554,7 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
                     static const char* lines[] = {
                         "Наш ПОС бьют, подтягиваемся!",
                         "ПОС под огнём — выдвигаюсь на защиту.",
-                        "Хостiles на башне, иду к ПОСy!",
+                        "Хосты на башне, иду к ПОСу!",
                         "Кидайте флот, наш ПОС атакуют!",
                         "На башне враги, всем на вызов!",
                     };
