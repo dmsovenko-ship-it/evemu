@@ -83,6 +83,7 @@ void POS_AI::Process()
     if (m_targetID != 0) {
         SystemEntity* pTarget = m_pWeapon->SystemMgr()->GetSE(m_targetID);
         if (pTarget == nullptr) {
+            ReleaseWeb();
             m_targetID = 0;
             return;
         }
@@ -96,10 +97,12 @@ void POS_AI::Process()
         // Manual gunnery ignores the automatic sight range (an operator can use
         // the gun's full range); only the weapon's own reach still applies.
         if (range > (maxRange + falloff) and !isManual and range > sightRange) {
+            ReleaseWeb();
             m_targetID = 0;
             return;
         }
         if (isManual && range > (maxRange + falloff)) {
+            ReleaseWeb();
             m_targetID = 0;
             return;
         }
@@ -242,9 +245,20 @@ void POS_AI::FireWeapon(uint32 targetID)
     // --- EWAR batteries: apply the matching effect instead of damage ---------
     switch (grp) {
         case EVEDB::invGroups::Stasis_Webification_Battery: {
-            if (pTarget->DestinyMgr() != nullptr)
+            // A stasis web is a FIXED modifier while the module cycles — it must
+            // NOT be re-applied every cycle: DestinyManager::WebbedMe multiplies
+            // m_maxShipSpeed by (1+SpeedFactor/100), so re-applying stacks it down
+            // to the speed floor (the "1 m/s despite MWD" bug). Apply once, keep a
+            // symmetric undo, and only (re)apply when the target changes.
+            uint32 tgt = pTarget->GetID();
+            if (m_webApplied && m_webTargetID != tgt)
+                ReleaseWeb();
+            if (!m_webApplied && pTarget->DestinyMgr() != nullptr) {
                 pTarget->DestinyMgr()->WebbedMe(weaponRef, true);
-            m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), pTarget->GetID(),
+                m_webApplied = true;
+                m_webTargetID = tgt;
+            }
+            m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), tgt,
                                                          "effects.ModifyTargetSpeed", 1, 1, 1);
             _log(POS__MESSAGE, "POS_AI: %s webbed %s.", m_pWeapon->GetName(), pTarget->GetName());
             return;
@@ -423,6 +437,25 @@ void POS_AI::LaunchMissile(uint32 typeID, SystemEntity* pTarget)
 
 void POS_AI::TargetLost(uint32 entityID)
 {
+    if (m_webApplied && m_webTargetID == entityID)
+        ReleaseWeb();
     if (entityID == m_targetID)
         m_targetID = 0;
+}
+
+// Undo a stasis web (WebbedMe(false) divides m_maxShipSpeed back). Called when the
+// webbed target changes, is lost, or the tower/weapon stops firing at it.
+void POS_AI::ReleaseWeb()
+{
+    if (!m_webApplied)
+        return;
+    m_webApplied = false;
+    uint32 old = m_webTargetID;
+    m_webTargetID = 0;
+    SystemManager* pSystem = m_pWeapon->SystemMgr();
+    if (pSystem == nullptr)
+        return;
+    SystemEntity* oldSE = pSystem->GetSE(old);
+    if (oldSE != nullptr && oldSE->DestinyMgr() != nullptr)
+        oldSE->DestinyMgr()->WebbedMe(m_pWeapon->GetSelf(), false);
 }

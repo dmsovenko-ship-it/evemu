@@ -30,6 +30,7 @@ protected:
     void FindTarget();
     void FireWeapon(uint32 targetID);
     void LaunchMissile(uint32 typeID, SystemEntity* pTarget);
+    void ReleaseWeb();   // remove the stasis web from m_webTargetID (symmetric WebbedMe(false))
 
 private:
     StructureSE* m_pWeapon;
@@ -38,6 +39,9 @@ private:
     uint32 m_targetID;
     int64  m_lastTargetScan;
     int64  m_lastAttackTime;
+
+    bool   m_webApplied = false;   // stasis web currently applied to m_webTargetID
+    uint32 m_webTargetID = 0;
 
     bool m_active;
 };
