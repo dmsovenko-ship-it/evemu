@@ -390,6 +390,7 @@ void Scan::ProbeScanResult()
             oed_tuple->SetItem(0, token);
             oed_tuple->SetItem(1, ssr_oed.Encode());
         spd.pos = new PyObjectEx(false, oed_tuple);  // oed goes here
+        PyIncRef(spd.pos);   // pos and destination are the same object - both dict slots decref
         spd.destination = spd.pos;
         spd.probeID = cur.first;
         spd.state = cur.second->GetState();
@@ -528,6 +529,11 @@ struct CosmicSignature {
             list->AddItem(new PyObjectEx(false, oed_tuple));
             if (cur->IsRing()) {
                 isRing = true;
+                // The ObjectEx ctor STEALS the header tuple (dtor decrefs it), so a
+                // second ObjectEx over the SAME tuple needs its own reference - the
+                // old code left both objects owning one ref, and freeing either
+                // dangled the other's mHeader (crash in PyObjectEx::Clone).
+                PyIncRef(oed_tuple);
                 ring->AddItem(new PyObjectEx(false, oed_tuple));
             }
         }

@@ -861,6 +861,10 @@ PyObject::PyObject(const PyObject& oth)
 : PyRep(PyRep::PyTypeObject), mType(oth.mType), mArguments(oth.arguments())
 {
     //sLog.Cyan("PyObject()", "Copy C'tor.");
+    // The dtor decrefs mType/mArguments - a clone must own its references
+    // (raw borrowing underflowed the source's refs when the clone died).
+    PyIncRef(oth.mType);
+    PyIncRef(oth.mArguments);
 }
 
 PyObject::~PyObject()
@@ -889,6 +893,12 @@ PyObjectEx::PyObjectEx( const PyObjectEx& oth ) : PyRep( PyRep::PyTypeObjectEx )
 mHeader(oth.header()->Clone()), mIsType2(oth.isType2()), mList(oth.mList), mDict(oth.mDict)
 {
     //sLog.Cyan("PyObjectEx()", "Copy C'tor.");
+    // The dtor unconditionally decrefs mList/mDict, so a clone must OWN them.
+    // The old code borrowed them raw: destroying any clone underflowed the
+    // source's list reference and freed it while the source was still alive
+    // (heap corruption that later surfaced as mHeader UAF in Clone()).
+    PyIncRef(oth.mList);
+    PyIncRef(oth.mDict);
 }
 
 PyObjectEx::~PyObjectEx()
@@ -1117,6 +1127,10 @@ PyPackedRow::PyPackedRow(const PyPackedRow& oth )
 : PyRep(PyRep::PyTypePackedRow), mHeader(oth.header()), mFields(oth.mFields)
 {
     //sLog.Cyan("PyPackedRow()", "Copy C'tor.");
+    // The dtor decrefs mHeader/mFields - a clone must own its references
+    // (raw borrowing underflowed the source's refs when the clone died).
+    PyIncRef(oth.header());
+    PyIncRef(oth.mFields);
 }
 
 PyPackedRow::~PyPackedRow()
