@@ -263,6 +263,9 @@ void BotMgr::Process()
     // POS guards assist the tower operator's target (manual gunnery focus fire).
     ProcessPosGuards();
 
+    // Industrialists fly fuel / ammo / materials to their corp's POS and unload.
+    ProcessPosSupplyRuns();
+
     // Keep every loaded bot POS topped up to its doctrine (fills free CPU/grid
     // with shield resists and small guns). Throttled — it walks loaded systems.
     {
@@ -4914,6 +4917,10 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
         // Moon production at the corp POS: harvesters accumulate raw materials,
         // reactors convert them to intermediates/composites (closed chain).
         ProcessMoonPOSProduction(sysID, stationID, db);
+        // Make POS upkeep visible: occasionally an industrialist physically flies
+        // fuel / ammo / materials (and a market-bought BPC) out to the tower.
+        if (MakeRandomInt(0, 99) < 20)
+            StartPosSupplyRun(db, sysID, stationID);
     }
 
     // Pick a random T1 product we can actually build (module/charge/ship), cheap
@@ -6821,6 +6828,265 @@ void BotMgr::ProcessContractBuyers()
             _log(BOT__MESSAGE, "BotMgr: trader %s(%u) bought item contract %u for %.0f ISK.",
                  db.name.c_str(), db.charID, contractID, (double)price);
         }
+    }
+}
+
+// --- POS supply run ---------------------------------------------------------
+// A docked industrialist physically flies to its corp's tower carrying fuel,
+// ammo, reaction materials and a market-bought BPC, unloads into the tower's
+// cargo and heads back to the station.  BotMgr owns the movement
+// (PlayerBot::IsSupplyRun gates normal profession activity); the whole trip is
+// visible in space.
+void BotMgr::StartPosSupplyRun(const DockedBot& db, uint32 sysID, uint32 stationID)
+{
+    if (sysID == 0 || stationID == 0 || db.charID == 0 || db.corpID == 0)
+        return;
+
+    int64 now = GetFileTimeNow();
+    auto itl = m_lastPosSupply.find(db.charID);
+    if (itl != m_lastPosSupply.end() && (now - itl->second) < (int64)EvE::Time::Minute * 15)
+        return;   // throttle: one run per bot per ~15 min
+
+    // Does this corp actually own a control tower in the system?
+    uint32 towerID = 0;
+    DBQueryResult tres;
+    if (sDatabase.RunQuery(tres,
+        "SELECT e.itemID FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+        " WHERE e.locationID = %u AND e.ownerID = %u AND t.groupID = %u LIMIT 1",
+        sysID, db.corpID, (uint32)EVEDB::invGroups::Control_Tower)) {
+        DBResultRow r;
+        if (tres.GetRow(r))
+            towerID = r.GetUInt(0);
+    }
+    if (towerID == 0)
+        return;
+
+    m_lastPosSupply[db.charID] = now;
+    PosSupplyRun run;
+    run.towerID    = towerID;
+    run.stationID  = stationID;
+    run.sysID      = sysID;
+    run.corpID     = db.corpID;
+    run.allianceID = db.allianceID;
+    run.name       = db.name;
+    run.phase      = 0;
+    run.phaseAt    = now;
+    m_posSupply[db.charID] = run;
+    _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) starts a supply run to its POS tower %u.",
+         db.name.c_str(), db.charID, towerID);
+}
+
+void BotMgr::ProcessPosSupplyRuns()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled || m_posSupply.empty())
+        return;
+
+    int64 now = GetFileTimeNow();
+    for (auto itr = m_posSupply.begin(); itr != m_posSupply.end(); ) {
+        uint32 charID = itr->first;
+        PosSupplyRun& run = itr->second;
+
+        SystemManager* pSys = sEntityList.FindOrBootSystem(run.sysID);
+        if (pSys == nullptr) {
+            _log(BOT__MESSAGE, "BotMgr: supply run %s(%u) aborted - system %u didn't load.",
+                 run.name.c_str(), charID, run.sysID);
+            itr = m_posSupply.erase(itr);
+            continue;
+        }
+        PlayerBot* pb = BotMgr_FindInSystem(pSys, charID);
+
+        // phase 0: get the bot into space and load its hold
+        if (run.phase == 0) {
+            if (pb == nullptr) {
+                if ((now - run.phaseAt) > (int64)EvE::Time::Minute * 2) {
+                    itr = m_posSupply.erase(itr);   // couldn't spawn (cap/hull) - give up
+                    continue;
+                }
+                SpawnBot(pSys, charID, run.name, run.corpID, run.allianceID);
+                ++itr;   // spawned this tick; load on the next
+                continue;
+            }
+            InventoryItemRef ship = pb->GetSelf();
+            if (ship.get() == nullptr) { itr = m_posSupply.erase(itr); continue; }
+            uint32 shipID = ship->itemID();
+
+            uint32 loaded = 0;
+            auto load = [&](uint32 typeID, uint32 qty) {
+                if (typeID == 0 || qty == 0) return;
+                ItemData idata((uint16)typeID, charID, locTemp, flagNone, qty);
+                InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+                if (iRef.get() == nullptr) return;
+                iRef->Move(shipID, flagCargoHold, false);
+                ++loaded;
+            };
+
+            // fuel for the tower (type comes from invControlTowerResources)
+            SystemEntity* tSE = pSys->GetSE(run.towerID);
+            if (tSE != nullptr && tSE->GetTowerSE() != nullptr)
+                load(tSE->GetTowerSE()->GetFuelTypeID(), 300);
+
+            // ammo: one charge stack per POS weapon sentry group
+            static const uint32 wepGroups[] = {
+                (uint32)EVEDB::invGroups::Mobile_Missile_Sentry,
+                (uint32)EVEDB::invGroups::Mobile_Projectile_Sentry,
+                (uint32)EVEDB::invGroups::Mobile_Laser_Sentry,
+                (uint32)EVEDB::invGroups::Mobile_Hybrid_Sentry };
+            for (uint32 wg : wepGroups) {
+                uint32 chargeGroup = 0;
+                DBQueryResult wres;
+                if (sDatabase.RunQuery(wres,
+                    "SELECT COALESCE(a.valueInt, a.valueFloat) FROM entity e"
+                    " JOIN invTypes t ON t.typeID = e.typeID"
+                    " JOIN dgmTypeAttributes a ON a.typeID = e.typeID AND a.attributeID = %u"
+                    " WHERE e.locationID = %u AND t.groupID = %u LIMIT 1",
+                    (uint32)AttrChargeGroup1, run.sysID, wg)) {
+                    DBResultRow wr;
+                    if (wres.GetRow(wr) && !wr.IsNull(0))
+                        chargeGroup = (uint32)wr.GetDouble(0);
+                }
+                if (chargeGroup != 0) {
+                    DBQueryResult cres;
+                    if (sDatabase.RunQuery(cres,
+                        "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1"
+                        " ORDER BY RAND() LIMIT 1", chargeGroup)) {
+                        DBResultRow cr;
+                        if (cres.GetRow(cr))
+                            load(cr.GetUInt(0), 200);
+                    }
+                }
+            }
+
+            // reaction raw materials (moon materials) for the reactor arrays
+            DBQueryResult rres;
+            if (sDatabase.RunQuery(rres,
+                "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1"
+                " ORDER BY RAND() LIMIT 1", (uint32)EVEDB::invGroups::Moon_Materials)) {
+                DBResultRow rr;
+                if (rres.GetRow(rr))
+                    load(rr.GetUInt(0), 400);
+            }
+
+            // a T1 blueprint from the market (falls back to the NPC price)
+            DBQueryResult bres;
+            if (sDatabase.RunQuery(bres,
+                "SELECT bp.blueprintTypeID FROM invBlueprintTypes bp"
+                " JOIN invTypes t ON t.typeID = bp.productTypeID"
+                " WHERE bp.techLevel = 1 AND t.published = 1 ORDER BY RAND() LIMIT 1")) {
+                DBResultRow br;
+                if (bres.GetRow(br)) {
+                    uint32 bpType = br.GetUInt(0);
+                    double cost = sMktMgr.BotBuyStock(charID, run.stationID, bpType, 1);
+                    if (cost > 0.0) {
+                        _log(BOT__MESSAGE, "BotMgr: supply run %s(%u) bought blueprint %u for %.0f ISK.",
+                             run.name.c_str(), charID, bpType, cost);
+                        DBQueryResult bpres;
+                        if (sDatabase.RunQuery(bpres,
+                            "SELECT itemID FROM entity WHERE ownerID = %u AND locationID = %u"
+                            " AND typeID = %u ORDER BY itemID DESC LIMIT 1",
+                            charID, run.stationID, bpType)) {
+                            DBResultRow bpr;
+                            if (bpres.GetRow(bpr)) {
+                                InventoryItemRef bpItem = sItemFactory.GetItemRef(bpr.GetUInt(0));
+                                if (bpItem.get() != nullptr)
+                                    bpItem->Move(shipID, flagCargoHold, true);
+                            }
+                        }
+                    }
+                }
+            }
+
+            pb->SetSupplyRun(true);
+            run.phase   = 1;
+            run.phaseAt = now;
+            _log(BOT__MESSAGE, "BotMgr: supply run %s(%u) undocked and loaded %u stacks for POS %u.",
+                 run.name.c_str(), charID, loaded, run.towerID);
+            ++itr;
+            continue;
+        }
+
+        if (pb == nullptr) { ++itr; continue; }
+        SystemEntity* tower = pSys->GetSE(run.towerID);
+        if (tower == nullptr) {
+            _log(BOT__MESSAGE, "BotMgr: supply run %s(%u) aborted - POS %u gone.",
+                 run.name.c_str(), charID, run.towerID);
+            pb->SetSupplyRun(false);
+            itr = m_posSupply.erase(itr);
+            continue;
+        }
+
+        // phase 1: warp to the tower
+        if (run.phase == 1) {
+            if (pb->DestinyMgr() != nullptr && pb->DestinyMgr()->IsWarping()) { ++itr; continue; }
+            double d = pb->GetPosition().distance(tower->GetPosition());
+            if (d < 15000.0) { run.phase = 2; run.phaseAt = now; ++itr; continue; }
+            if ((now - run.warpAt) > (int64)EvE::Time::Second * 20) {
+                run.warpAt = now;
+                pb->DestinyMgr()->WarpTo(tower->GetPosition(), 0);
+                _log(BOT__MESSAGE, "BotMgr: supply run %s(%u) warping to POS %u (%.0f km).",
+                     run.name.c_str(), charID, run.towerID, d / 1000.0);
+            }
+            ++itr;
+            continue;
+        }
+
+        // phase 2: unload the hold into the tower's cargo
+        if (run.phase == 2) {
+            InventoryItemRef ship = pb->GetSelf();
+            uint32 moved = 0;
+            if (ship.get() != nullptr) {
+                DBQueryResult ires;
+                if (sDatabase.RunQuery(ires,
+                    "SELECT itemID FROM entity WHERE locationID = %u AND flag = %u",
+                    ship->itemID(), (uint32)flagCargoHold)) {
+                    DBResultRow ir;
+                    while (ires.GetRow(ir)) {
+                        InventoryItemRef itm = sItemFactory.GetItemRef(ir.GetUInt(0));
+                        if (itm.get() == nullptr)
+                            continue;
+                        itm->Move(run.towerID, flagCargoHold, true);
+                        ++moved;
+                    }
+                }
+            }
+            _log(BOT__MESSAGE, "BotMgr: supply run %s(%u) unloaded %u stacks into POS %u.",
+                 run.name.c_str(), charID, moved, run.towerID);
+
+            // head home: warp back to the station
+            for (auto& [sid, se] : pSys->GetStaticEntities()) {
+                if (se == nullptr || !se->IsStationSE())
+                    continue;
+                pb->DestinyMgr()->WarpTo(se->GetPosition(), 0);
+                break;
+            }
+            run.phase   = 3;
+            run.phaseAt = now;
+            ++itr;
+            continue;
+        }
+
+        // phase 3: dock back at the station (or give up after a while)
+        if (run.phase == 3) {
+            if (pb->DestinyMgr() != nullptr && pb->DestinyMgr()->IsWarping()) { ++itr; continue; }
+            bool docked = false;
+            for (auto& [sid, se] : pSys->GetStaticEntities()) {
+                if (se == nullptr || !se->IsStationSE())
+                    continue;
+                if (pb->GetPosition().distance(se->GetPosition()) < (se->GetRadius() + 10000.0)) {
+                    BotMgr_RequestCourierDock(pb);
+                    docked = true;
+                    break;
+                }
+            }
+            if (docked || (now - run.phaseAt) > (int64)EvE::Time::Minute * 3) {
+                pb->SetSupplyRun(false);
+                itr = m_posSupply.erase(itr);
+                continue;
+            }
+            ++itr;
+            continue;
+        }
+
+        itr = m_posSupply.erase(itr);
     }
 }
 

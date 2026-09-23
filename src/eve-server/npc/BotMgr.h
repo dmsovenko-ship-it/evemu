@@ -317,6 +317,26 @@ private:
     };
     std::map<uint32, CourierHaul> m_hauls;   // courier charID -> active haul
 
+    // POS supply run: a docked industrialist physically flies to its corp's tower
+    // carrying fuel / ammo / reaction materials (and a market-bought BPC) and
+    // unloads into the tower's cargo, then heads back to the station.  Makes POS
+    // upkeep visible logistics instead of abstract minting.
+    struct PosSupplyRun {
+        uint32 towerID    = 0;
+        uint32 stationID  = 0;
+        uint32 sysID      = 0;
+        uint32 corpID     = 0;
+        uint32 allianceID = 0;
+        std::string name;
+        uint8  phase      = 0;   // 0 undock+load, 1 warp to POS, 2 unload, 3 return
+        int64  phaseAt    = 0;
+        int64  warpAt     = 0;
+    };
+    void StartPosSupplyRun(const DockedBot& db, uint32 sysID, uint32 stationID);
+    void ProcessPosSupplyRuns();
+    std::map<uint32, PosSupplyRun> m_posSupply;   // charID -> run
+    std::map<uint32, int64> m_lastPosSupply;      // charID -> last run start (throttle)
+
     // System adjacency cache (lazy, loaded from mapSolarSystemJumps).
     static std::vector<uint32> GetAdjacentSystems(uint32 systemID);
     // BFS shortest path from..to over the jump graph; true if a route exists.

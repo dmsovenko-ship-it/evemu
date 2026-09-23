@@ -139,6 +139,10 @@ public:
     // doesn't re-summon guards that are already inbound/assigned to that tower.
     uint32 GetGuardTowerID() const      { return m_guardTowerID; }
     void SetGuardTowerID(uint32 id)     { m_guardTowerID = id; }
+    // POS supply run: this industrialist is flying fuel/ammo/materials to its
+    // tower. Movement is owned by BotMgr::ProcessPosSupplyRuns.
+    bool IsSupplyRun() const            { return m_supplyRun; }
+    void SetSupplyRun(bool v)           { m_supplyRun = v; }
     void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
     void HuntForTarget();               // PvP hunter: find a legal PvP target and engage
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
@@ -249,6 +253,7 @@ protected:
     BotProfession m_profession;         // livelihood (hunter/miner/trader/courier/hacker)
     bool m_posGuard = false;            // POS tower guard: assists the operator's target
     uint32 m_guardTowerID = 0;          // tower this guard was assigned to (see SetGuardTowerID)
+    bool m_supplyRun = false;           // POS supply run in progress (movement owned by BotMgr)
     uint32 m_nextMissionReport = 0;     // missioner: dock & report when ratKills reaches this
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     std::vector<InventoryItemRef> m_droppedItems; // modules/cargo rolled as "dropped" (moved to wreck on death)

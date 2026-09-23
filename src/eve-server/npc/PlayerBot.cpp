@@ -1404,6 +1404,11 @@ void PlayerBot::DoProfessionActivity()
     if (IsPosGuard() && GetGuardTowerID() != 0)
         return;
 
+    // Supply run: BotMgr::ProcessPosSupplyRuns owns movement (undock -> POS ->
+    // unload -> return).  Skip normal profession activity so the two don't fight.
+    if (IsSupplyRun())
+        return;
+
     // Self-learning: practiced bots act more often / more efficiently.
     float practice = m_memory ? m_memory->GetActivitySkill() : 0.0f;
     float chanceBoost = 30.0f + practice * 40.0f;   // 30%..70% action chance
