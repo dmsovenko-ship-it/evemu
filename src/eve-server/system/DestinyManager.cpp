@@ -2279,14 +2279,13 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         mySE->GetNPCSE()->GetAIMgr()->WarpOutComplete();
     }
 
-    // Send bubble entities to this ship вЂ” the earlier Bubble::Add() skipped
-    // SendAddBalls/AddBallExclusive because the ship was in WARP mode.
-    // Now mode is STOP so the ship's EncodeDestiny is correct.
+    // Bubble contents were already delivered to this pilot when the ship ENTERED
+    // the destination bubble (Bubble::Add now sends SendAddBalls to warping
+    // pilots), so do NOT re-send them here: re-adding the same ball ids makes the
+    // client destroy and recreate the whole grid - a visible flicker right at
+    // warp exit.  Only the pilot's OWN ball is added now (mode is STOP, so its
+    // EncodeDestiny is finally correct), plus balls from overlapping bubbles.
     if (mySE->HasPilot() && mySE->SysBubble() != nullptr) {
-        // Pilot's own ball is NOT re-delivered (skip my ship's ID) — the client
-        // keeps its OWN ball at its own convergence point; snapping it here is
-        // the visible end-of-warp teleport. The rest of the grid loads.
-        mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
         if (mySE->SysBubble()->HasPlayers())
             mySE->SysBubble()->AddBallExclusive(mySE);
 

@@ -330,11 +330,16 @@ void SystemBubble::Add(SystemEntity* pSE) {
 
         Client* pClient(pSE->GetPilot());
 
-        // Skip SendAddBalls for warping ships — the client's WarpLoop cannot
-        // safely process incoming ball packets and will crash with
-        // "ValueError: Unknown packet type". Ball data is deferred to WarpStop.
-        // Other players still receive AddBallExclusive so they see the ship.
+        // Deliver the destination bubble's contents to a warping pilot NOW, on
+        // bubble entry, instead of deferring everything to WarpStop.  Otherwise
+        // the client lands (its own warp animation is done) and sits in an empty
+        // park for the WarpStop hold - structures/POPS pop in "a few seconds
+        // later", unlike global statics (gates/stations) which were delivered at
+        // system entry.  The old "WarpLoop crashes on incoming balls" concern was
+        // caused by the malformed double-wrapped AddBalls format, which has since
+        // been fixed.  The pilot's OWN ball is still added at WarpStop.
         if (pSE->DestinyMgr() != nullptr && pSE->DestinyMgr()->IsWarping()) {
+            SendAddBalls( pSE, pSE->GetID() );   // bubble contents, skipping the pilot's own ball
             if (!m_players.empty())
                 AddBallExclusive(pSE);
         } else {
