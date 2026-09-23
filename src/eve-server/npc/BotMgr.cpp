@@ -6090,48 +6090,134 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
     // Near a gate? (hunter bait / gate camp / waiting to jump)
     bool nearGate = a->IsNearGate(150000.0);
 
-    // Profession-flavoured line pools.
+    // Profession-flavoured line pools.  The channel has a no-repeat guard, but
+    // with only 4 lines per profession every bot kept saying the same things -
+    // keep the pools wide.
     static const char* miner[] = {
-        "belt's been treating me ok, %s.",
-        "my strip miners are chewing through %s ore like mad.",
-        "anyone got a spare Mining Laser V book? haul keeps getting full.",
-        "think I'll refine this load and call it a day.",
+        "belts in %s are quiet today, almost have the hold full.",
+        "strip miners humming, ore's piling up nicely.",
+        "anyone know the refine rate at the station here?",
+        "this ore holds better than the last rock I mined.",
+        "haul full again, time for a station run.",
+        "a Mining Laser II would be nice, still on the T1 setup.",
+        "watch the %s belts, rats popped me early last time.",
+        "an ice belt would be nice, but ore pays the bills.",
+        "venture tried to bump me off the rock, cute.",
+        "half a hold of veldspar, nothing fancy today.",
+        "mining in a 0.5 is basically a spa day, come join %s.",
+        "ore bay says no more, docking up.",
+        "anyone buying minerals? got a fresh load.",
+        "rookie numbers on my ore hold but it adds up.",
+        "surveyor says this rock has a few more cycles in it.",
+        "the belt respawn in %s just got me a full spawn of rocks.",
     };
     static const char* ratHunter[] = {
         "anoms are quiet in %s today.",
         "just popped a nice rat spawn, wallet's happy.",
         "this system's rats hit harder than the last one.",
         "anyone seen a good haven around %s?",
+        "plex paid out decent, faction spawn even.",
+        "rats dropped a nameplate module, score.",
+        "clearing anoms, don't mind me.",
+        "haven in %s is up, farm it before it despawns.",
+        "bounties add up, that's the grind.",
+        "escalation from the last site, fingers crossed.",
+        "nothing beats a clean ratting rotation.",
+        "sentry guns ate my drones, rude.",
+        "angled for the haven, anomalies first though.",
+        "back-to-back sites, isk printer mode.",
+        "those rat battleships tank forever without neuts on them.",
+        "checking %s for reds before I start the site.",
     };
     static const char* hacker[] = {
         "datacore prices better hold, I've got a hold full.",
         "relic site in %s was worth the scan.",
         "these data sites are getting camped lately.",
         "found a nice relic, decryptors are mine now.",
+        "can opener time, cans are fragile this patch.",
+        "ghost site gave nothing, typical.",
+        "datacores round out the wallet nicely.",
+        "someone's probes are sweeping %s, wrapping up.",
+        "relic cans were fake, just alloys. meh.",
+        " covert ops frigate life: scan, pop, vanish.",
+        "the local has reds, saving the cans for later.",
+        "exploration pays better than my old mining op.",
+        "hacked the can, got a skillbook I already know...",
+        "analyzers at II, no more fail cycles.",
+        "checking %s for sigs before I head out.",
+        "sites keep despawning on me, unlucky.",
     };
     static const char* explorer[] = {
         "found a sig in %s, scanning it down.",
         "wormhole in here earlier, anyone peeked?",
         "probes out, system's got a few signatures.",
         "that null static is tempting.",
+        "combat sigs first, data later.",
+        "scan deviations killing me today, need better skills.",
+        "found a wormhole, decided to skip it this time.",
+        "sig density in %s is actually decent.",
+        "probing with bookmarks is a lost art.",
+        "caught a gas site, not my thing though.",
+        "one more sig, then I'm heading home.",
+        "mapped %s, mostly quiet.",
+        "relays are cheap, scan results are not.",
+        "the carrion of dead probes litters the system, lol.",
+        "uncovering sigs one ping at a time.",
+        "found a candidate, warping to check.",
     };
     static const char* trader[] = {
         "buy orders up in %s, spread's nice.",
         "market's moving, good day to be a trader.",
         "someone undercut me again, classic.",
         "haul of goods just went out, profit's in.",
+        "0.01 ISK wars are real in %s.",
+        "updated my orders, margins look fine.",
+        "regional prices are all over the place.",
+        "escrow's heavy, thinking about a big buy.",
+        "the hub crowd keeps me honest on prices.",
+        "bought low, stacked it in the hangar.",
+        "station traders never sleep, huh.",
+        "skip the margins, volume is the play.",
+        "somebody bulk-bought the whole mineral stock, nice.",
+        "skill queue says Accounting, wallet says patience.",
+        "relisting orders in %s, taxes hurt though.",
+        "day trading in a station beats getting shot at.",
     };
     static const char* courier[] = {
         "courier job open to the hub if anyone's hauling.",
         "just moved a load through %s, easy isk.",
         "anyone need something moved to Jita?",
         "cargo's in, contract's up, rates are fair.",
+        "hauling day, slow but steady.",
+        "collateral's steep but the reward covers it.",
+        "two more runs and I'm done for the day.",
+        "gate camps kept it spicy on the way in.",
+        "indy hulls are slow but they never die, mostly.",
+        "package delivered, signing the next one.",
+        "if you see a hauler in %s, be nice, it's me.",
+        "the client wanted express delivery, done.",
+        "freight volume is up, good sign for trade.",
+        "one more load to move before downtime.",
+        "sticky cargo hatch almost cost me a package.",
+        "route through %s is quiet today.",
     };
     static const char* hunter[] = {
         "anyone in %s worth engaging?",
         "scan shows a target, thinking about it.",
         "this gate's quiet, might camp a bit.",
         "gf if anyone's up for a scrap.",
+        "d-scan shows something, holding here.",
+        "neuts and scram ready, just need a volunteer.",
+        "local's getting spicy, staying aligned.",
+        "pods are worth more than the ships, fyi.",
+        "who flies a mackinaw through %s solo...",
+        "sitting on the gate, counting blinks.",
+        "my killboard needs some love.",
+        "solo pvp or nothing, that's the rule.",
+        "combat probes converge fast enough, patience.",
+        "if you're flashing and slow, that's on you.",
+        "checking the undefended nodes in %s.",
+        "catch of the day almost slipped the bubble.",
     };
 
     const char** pool = miner; int n = sizeof(miner)/sizeof(miner[0]);
@@ -6155,8 +6241,16 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
             "ffs, getting shot at in %s.",
             "who's engaging me??",
             "tackled, need backup maybe.",
+            "warp scramble on me, hitting hard.",
+            "my tank won't hold forever, help.",
+            "armor's dropping, might have to bug out.",
+            "entry damage was rough, still here though.",
+            "drones out, taking fire in %s.",
+            "neut pressure is real, cap's dying.",
+            "they brought friends, this is uneven.",
+            "almost through it, tank's holding. barely.",
         };
-        msg = fight[MakeRandomInt(0, 3)];
+        msg = fight[MakeRandomInt(0, sizeof(fight)/sizeof(fight[0]) - 1)];
         std::string s = msg;
         size_t pos = s.find("%s");
         if (pos != std::string::npos)
