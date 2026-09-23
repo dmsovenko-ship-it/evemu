@@ -4689,10 +4689,13 @@ void BotMgr::ProcessPosGuards()
             if (pb->DestinyMgr()->IsWarping())
                 continue;   // in flight — let it arrive first
             double d = pb->GetPosition().distance(tw->GetPosition());
-            if (d > 200000.0)
+            if (d > 200000.0) {
+                codelog(POS__MESSAGE, "BotMgr: POS guard %s(%u) is %.0f km from tower %u - warping in.",
+                        pb->GetBotName().c_str(), pb->GetBotCharID(), d / 1000.0, tw->GetID());
                 pb->DestinyMgr()->WarpTo(tw->GetPosition(), 0);
-            else
+            } else {
                 pb->DestinyMgr()->Orbit(tw, 6000);   // fixed distance so re-issuing is a no-op
+            }
         }
 
         // Guards focus the attacker(s). The operator's manual target takes priority.
