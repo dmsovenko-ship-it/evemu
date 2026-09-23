@@ -1396,6 +1396,14 @@ void PlayerBot::DoProfessionActivity()
     if (m_destiny == nullptr || SystemMgr() == nullptr)
         return;
 
+    // POS guards stand down from profession behaviour: their movement is owned
+    // by BotMgr::ProcessPosGuards (warp to the defended tower, hold an orbit,
+    // engage its aggressor).  The Hunter idle logic below would otherwise fight
+    // those commands every tick (patrol/hub-travel), so the guard never actually
+    // reached the tower.
+    if (IsPosGuard() && GetGuardTowerID() != 0)
+        return;
+
     // Self-learning: practiced bots act more often / more efficiently.
     float practice = m_memory ? m_memory->GetActivitySkill() : 0.0f;
     float chanceBoost = 30.0f + practice * 40.0f;   // 30%..70% action chance

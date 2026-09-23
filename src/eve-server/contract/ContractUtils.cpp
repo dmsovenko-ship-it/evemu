@@ -105,8 +105,9 @@ PyList* ContractUtils::GetContractEntries(std::vector<int> contractIDList) {
         }
         contractIDs.pop_back(); // we do pop-back to remove trailing comma.
     } else {
-        codelog(SERVICE__ERROR, "ContractUtils: contractIDList was empty. Aborting");
-        return nullptr;
+        // Empty input is legitimate (courier contracts have no item entries the
+        // client would query) - return an empty list instead of erroring out.
+        return new PyList();
     }
 
     DBQueryResult contractRes;
