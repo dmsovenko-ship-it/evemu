@@ -4,7 +4,7 @@
 -- least-used ones) and BotMgr::ExpandSmalltalkPool asks DeepSeek for new lines
 -- every 30 min.  profession = PlayerBot::BotProfession (0 hunter .. 8
 -- industrialist); 255 = the separate "under attack" combat pool.
-CREATE TABLE botSmalltalk (
+CREATE TABLE IF NOT EXISTS botSmalltalk (
     id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
     profession TINYINT UNSIGNED NOT NULL DEFAULT 255,
     line      VARCHAR(255) NOT NULL,
