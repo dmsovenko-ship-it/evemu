@@ -194,7 +194,10 @@ public:
 
     // for orbital infrastructure
     void                     SetPlanet(uint32 planetID) { m_anchorPointID = planetID; }
-    uint32                      GetPlanetID()           { return m_anchorPointID; }
+    uint32                      GetPlanetID()       { return m_anchorPointID; }
+    // Real anchor celestial (moon/planet) the structure was anchored at - used by
+    // the Init self-heal to repair modules persisted with anchorpointID 0.
+    uint32                      GetAnchorpointID() const { return m_data.anchorpointID; }
 
     // structure update methods....may not use like this
     void                        UpdateTimeStamp()       { m_db.UpdateTimeStamp(m_data.itemID, m_data); }

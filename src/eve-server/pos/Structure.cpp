@@ -362,6 +362,31 @@ void StructureSE::Init()
         return;
     }
 
+    // Self-heal: bot-deployed production modules (Silo / Moon Harvesting Array /
+    // Reactor) were persisted with anchorpointID 0 and towerID 0, so the load
+    // below failed ("anchorpointID is invalid"). Take the anchor + owning tower
+    // from the nearest Control Tower within 100 km (towers load fine) and persist
+    // the repair so the module comes up normally from now on.
+    if (!IsStaticMapItem(m_data.anchorpointID) || m_system->GetSE(m_data.anchorpointID) == nullptr) {
+        SystemEntity* nearTower = nullptr;
+        double best = 0.0;
+        for (auto& [eid, se] : m_system->GetEntities()) {
+            if (se == nullptr || se->GetTowerSE() == nullptr)
+                continue;
+            double d = se->GetPosition().distance(m_self->position());
+            if (d < 100000.0 && (nearTower == nullptr || d < best)) { nearTower = se; best = d; }
+        }
+        TowerSE* tw = (nearTower != nullptr) ? nearTower->GetTowerSE() : nullptr;
+        if (tw != nullptr && IsStaticMapItem(tw->GetAnchorpointID())) {
+            m_data.anchorpointID = tw->GetAnchorpointID();
+            if (m_data.towerID == 0)
+                m_data.towerID = tw->GetID();
+            _log(POS__MESSAGE, "StructureSE::Init %s(%u) - healed anchor to celestial %u (tower %u).",
+                 m_self->name(), m_data.itemID, m_data.anchorpointID, m_data.towerID);
+            m_db.UpdateBaseData(m_data);
+        }
+    }
+
     if (!IsStaticMapItem(m_data.anchorpointID)) {
         // make error here.  this should never hit.
         _log(POS__MESSAGE, "StructureSE::Init %s(%u) - anchorpointID is invalid.  Load Failure.", m_self->name(), m_data.itemID);
