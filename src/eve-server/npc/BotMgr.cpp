@@ -4677,6 +4677,8 @@ void BotMgr::ProcessPosGuards()
         // station/gate warp in; the rest hold an orbit. This is what makes the
         // "real warp" defenders actually reach the POS (we must not Orbit() while
         // the warp is running — that aborts it).
+        static std::map<uint32,int64> s_guardWarpAt;   // guard charID -> last WarpTo request
+        int64 nowG = GetFileTimeNow();
         for (auto& [id, se] : pSystem->GetEntities()) {
             if (se == nullptr || se->GetNPCSE() == nullptr)
                 continue;
@@ -4690,10 +4692,20 @@ void BotMgr::ProcessPosGuards()
                 continue;   // in flight — let it arrive first
             double d = pb->GetPosition().distance(tw->GetPosition());
             if (d > 200000.0) {
+                // Do NOT re-issue WarpTo every tick: during the align phase
+                // (before the ball actually enters WARP mode) IsWarping() is false,
+                // so a per-tick WarpTo reset the alignment forever and the guard
+                // never left its spawn gate (log: "is N km from tower - warping in"
+                // every second). One request per ~20 s is enough.
+                auto wit = s_guardWarpAt.find(pb->GetBotCharID());
+                if (wit != s_guardWarpAt.end() && (nowG - wit->second) < (int64)EvE::Time::Second * 20)
+                    continue;
+                s_guardWarpAt[pb->GetBotCharID()] = nowG;
                 codelog(POS__MESSAGE, "BotMgr: POS guard %s(%u) is %.0f km from tower %u - warping in.",
                         pb->GetBotName().c_str(), pb->GetBotCharID(), d / 1000.0, tw->GetID());
                 pb->DestinyMgr()->WarpTo(tw->GetPosition(), 0);
             } else {
+                s_guardWarpAt.erase(pb->GetBotCharID());
                 pb->DestinyMgr()->Orbit(tw, 6000);   // fixed distance so re-issuing is a no-op
             }
         }
