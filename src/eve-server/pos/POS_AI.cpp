@@ -49,6 +49,7 @@ void POS_AI::Process()
         return;
 
     if (m_pWeapon->GetState() < EVEPOS::StructureState::Online) {
+        ReleaseWeb();   // battery went offline/anchored-out: don't leave the web on the target
         m_active = false;
         return;
     }
@@ -266,7 +267,10 @@ void POS_AI::FireWeapon(uint32 targetID)
         case EVEDB::invGroups::Warp_Scrambling_Battery: {
             EvilNumber strength = weaponRef->HasAttribute(AttrWarpScrambleStrength)
                                 ? weaponRef->GetAttribute(AttrWarpScrambleStrength) : EvilOne;
-            pTarget->GetSelf()->SetAttribute(AttrWarpScrambleStatus, strength, true);
+            // Runtime-only (persist=false): a scram status baked into the DB
+            // survives logout/restart, and an undocked-then-redocked ship comes
+            // back with "warp drive disrupted" already on it (jitter at undock).
+            pTarget->GetSelf()->SetAttribute(AttrWarpScrambleStatus, strength, false);
             m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), pTarget->GetID(),
                                                          "effects.WarpScramble", 1, 1, 1);
             _log(POS__MESSAGE, "POS_AI: %s scrambled %s.", m_pWeapon->GetName(), pTarget->GetName());

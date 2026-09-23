@@ -1177,6 +1177,12 @@ void Client::CreateShipSE() {
         data.factionID = GetWarFactionID();
         data.ownerID = GetCharacterID();
     pShipSE = new ShipSE(m_ship, m_system->GetServiceMgr(), m_system, data);
+    // Defensive cleanup: a POS scram battery writes AttrWarpScrambleStatus to the
+    // ship item with persist=true; if the battery went offline/was destroyed
+    // before removing it, the ship would undock with "warp disrupted" already on
+    // it.  A freshly created ship SE cannot legitimately be scrambled yet.
+    if (m_ship->HasAttribute(AttrWarpScrambleStatus))
+        m_ship->SetAttribute(AttrWarpScrambleStatus, 0, true);
     _log(PLAYER__MESSAGE, "CreateShipSE() - pShipSE %p created for %s(%u)", pShipSE, m_char->name(), m_char->itemID());
 }
 
