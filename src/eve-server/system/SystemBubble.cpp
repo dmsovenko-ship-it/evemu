@@ -783,48 +783,56 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who, uint32 skipItemID /*0*/) {
     AddBalls addballs;
     addballs.slims = new PyList();
 
-    // Send ALL entities - both dynamic (ships, MWD) and static (gates, stations)
-    // Validate each entity's encoding size to prevent "Unknown packet type" crash.
-    for (auto cur : m_dynamicEntities) {
-        // The arriving pilot's own ship ball is NOT re-delivered: the client
-        // already tracks its own ball locally (at its own convergence point);
-        // re-sending it at the snapped arrival position is the visible
-        // end-of-warp teleport.
-        if (skipItemID != 0 && cur.first == skipItemID)
-            continue;
-        if (cur.second->DestinyMgr() != nullptr)
-            if (cur.second->DestinyMgr()->IsCloaked())
+    // Deliver the most relevant balls FIRST within the packet: the client creates
+    // balls in stream order, so the POS tower + its force field (and then statics /
+    // nearest ships) show up immediately and the rest of the grid (a POS can have
+    // ~200 modules) streams in behind them instead of a single long freeze.
+    // Priority: 0 tower, 1 force field, 2 statics (gates/stations/planets),
+    // 3 everything else by distance.
+    {
+        GPoint pos = to_who->GetPosition();
+        std::vector<std::pair<double, SystemEntity*>> ordered;
+        ordered.reserve(m_dynamicEntities.size() + m_entities.size());
+        auto stageAdd = [&](SystemEntity* se) {
+            if (se == nullptr)
+                return;
+            // The arriving pilot's own ship ball is NOT re-delivered: the client
+            // already tracks its own ball locally (at its own convergence point);
+            // re-sending it at the snapped arrival position is a visible teleport.
+            if (skipItemID != 0 && se->GetID() == skipItemID)
+                return;
+            if (se->DestinyMgr() != nullptr && se->DestinyMgr()->IsCloaked())
+                return;
+            double pri;
+            if (se->GetTowerSE() != nullptr)      pri = 0.0;
+            else if (se->IsFieldSE())             pri = 1.0;
+            else if (se->IsStaticEntity())        pri = 2.0;
+            else                                  pri = 3.0;
+            ordered.emplace_back(pri * 1e15 + se->GetPosition().distance(pos), se);
+        };
+        for (auto& c : m_dynamicEntities)
+            stageAdd(c.second);
+        for (auto& c : m_entities)
+            stageAdd(c.second);
+        std::sort(ordered.begin(), ordered.end(),
+                  [](const std::pair<double, SystemEntity*>& a,
+                     const std::pair<double, SystemEntity*>& b) { return a.first < b.first; });
+
+        for (auto& kv : ordered) {
+            SystemEntity* se = kv.second;
+            size_t bufBefore = destinyBuffer->size();
+            se->EncodeDestiny(*destinyBuffer);
+            size_t encodedSize = destinyBuffer->size() - bufBefore;
+            if (encodedSize == 0 || encodedSize > 500) {
+                _log(DESTINY__ERROR, "SendAddBalls: Entity %s(%u) encoded %zu bytes — skipping (invalid size).",
+                     se->GetName(), se->GetID(), encodedSize);
+                destinyBuffer->Resize<uint8>(bufBefore);
                 continue;
-        size_t bufBefore = destinyBuffer->size();
-        cur.second->EncodeDestiny( *destinyBuffer );
-        size_t encodedSize = destinyBuffer->size() - bufBefore;
-        if (encodedSize == 0 || encodedSize > 500) {
-            _log(DESTINY__ERROR, "SendAddBalls: Entity %s(%u) encoded %zu bytes — skipping (invalid size).",
-                 cur.second->GetName(), cur.first, encodedSize);
-            destinyBuffer->Resize<uint8>(bufBefore);
-            continue;
+            }
+            if (!se->IsMissileSE() or !se->IsFieldSE())
+                addballs.damageDict[se->GetID()] = se->MakeDamageState();
+            addballs.slims->AddItem(new PyObject("foo.SlimItem", se->MakeSlimItem()));
         }
-        if (!cur.second->IsMissileSE() or !cur.second->IsFieldSE())
-            addballs.damageDict[cur.first] = cur.second->MakeDamageState();
-        addballs.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem() ) );
-    }
-    // Also include static entities (gates, stations) — they're in m_entities but NOT in m_dynamicEntities
-    for (auto cur : m_entities) {
-        if (cur.second->DestinyMgr() != nullptr)
-            if (cur.second->DestinyMgr()->IsCloaked())
-                continue;
-        size_t bufBefore = destinyBuffer->size();
-        cur.second->EncodeDestiny( *destinyBuffer );
-        size_t encodedSize = destinyBuffer->size() - bufBefore;
-        if (encodedSize == 0 || encodedSize > 500) {
-            _log(DESTINY__ERROR, "SendAddBalls: Entity %s(%u) encoded %zu bytes — skipping (invalid size).",
-                 cur.second->GetName(), cur.first, encodedSize);
-            destinyBuffer->Resize<uint8>(bufBefore);
-            continue;
-        }
-        if (!cur.second->IsMissileSE() or !cur.second->IsFieldSE())
-            addballs.damageDict[cur.first] = cur.second->MakeDamageState();
-        addballs.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem() ) );
     }
 
     if (addballs.slims->empty()) {
