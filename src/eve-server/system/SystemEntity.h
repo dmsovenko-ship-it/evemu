@@ -502,6 +502,12 @@ public:
 
     /* class type pointer querys. */
     virtual FieldSE*            GetFieldSE()            { return this; }
+
+    /* Delivery routing: the field must be a plain bubble ball, exactly like POS
+     * modules (they render without problems).  Its item carries the SDE IsGlobal
+     * attribute, which routed the ball through the static-ball path - that path
+     * is what desynced the client's destiny stream and killed the whole grid. */
+    virtual bool                isGlobal()              { return false; }
     /* class type tests. */
     virtual bool                IsSystemEntity()        { return false; }
     virtual bool                IsFieldSE()             { return true; }

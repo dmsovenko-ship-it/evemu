@@ -1080,13 +1080,10 @@ void TowerSE::CreateForceField()
     m_pShieldSE = iSE;
     m_hasShield = true;
 
-    // SystemBubble::Add() does not send a ball for a newly spawned dynamic
-    // entity, so a player already in the grid would never see the field
-    // (gates/decor send AddBallExclusive for the same reason).  The field is
-    // created on the tower's first Process tick, i.e. usually while the player
-    // is sitting at the POS.
-    if (iSE->SysBubble() != nullptr)
-        iSE->SysBubble()->AddBallExclusive(iSE);
+    // Delivery is now identical to POS modules: plain RIGID bubble ball via the
+    // normal SendAddBalls path on bubble entry (no AddBallExclusive - both the
+    // one-shot full-state and the periodic re-announce variants of it broke the
+    // client's destiny stream and took the whole grid down).
 
     _log(POS__MESSAGE, "TowerSE::CreateForceField() - %s(%u): field %u created, radius %.0f m, harmonic %i, pos(%.0f,%.0f,%.0f), bubble %u.",
          GetName(), m_self->itemID(), ifRef->itemID(), shieldRadius, m_harmonic,

@@ -583,33 +583,28 @@ FieldSE::FieldSE(const FieldSE* oth)
 void FieldSE::EncodeDestiny( Buffer& into )
 {
     using namespace Destiny;
+    // Encode the field ball EXACTLY like an anchored POS module (StructureSE):
+    // mode RIGID, no flags, no MassSector. The previous encoding (mode FIELD=10
+    // with IsGlobal + MassSector + FIELD_Struct) was only renderable through the
+    // special full-state announce, and every attempt to re-send it broke the
+    // client's destiny stream ("Unknown ball mode in dump" -> whole grid dead,
+    // overview never loads).  Modules render without any of that, so use the
+    // same plain shape here - the ForceField type model itself is the sphere,
+    // and the ball radius carries the tower's shield radius.
     BallHeader head = BallHeader();
         head.entityID = m_self->itemID();
-        head.mode = (m_harmonic > EVEPOS::Harmonic::Offline ? Ball::Mode::FIELD : Ball::Mode::STOP);
+        head.mode = Ball::Mode::RIGID;
         head.radius = m_radius;
         if (head.radius < 100.0 && m_self->HasAttribute(AttrRadius))
             head.radius = m_self->GetAttribute(AttrRadius).get_float();   // field sphere = tower shield radius
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = Ball::Flag::IsGlobal;
+        head.flags = 0;
     into.Append( head );
-    MassSector mass = MassSector();
-        mass.mass = 10000000000;    // as seen in packets
-        mass.cloak = 0;
-        mass.harmonic = m_harmonic;
-        mass.corporationID = m_corpID;
-        mass.allianceID = (IsAlliance(m_allyID) ? m_allyID : -1);
-    into.Append( mass );
-    if (head.mode == Ball::Mode::FIELD) {
-        FIELD_Struct main;
+    RIGID_Struct main;
         main.formationID = 0xFF;
-        into.Append( main );
-    } else if (head.mode == Ball::Mode::STOP) {
-        STOP_Struct main;
-        main.formationID = 0xFF;
-        into.Append( main );
-    }
+    into.Append( main );
 
     _log(SE__DESTINY, "FSE::EncodeDestiny(): %s - id:%lli, mode:%u, flags:0x%X", GetName(), head.entityID, head.mode, head.flags);
 }
