@@ -275,6 +275,16 @@ private:
     // advance without recursing the call stack.
     void ProcessBotReplies();
 
+    // Smalltalk lines live in the botSmalltalk table (seeded by migration,
+    // topped up by DeepSeek).  Pools are cached per profession (255 = the
+    // "under attack" combat pool) with a short TTL; picking weights the
+    // least-used lines, so the base actually rotates.
+    void LoadSmalltalkPool(uint8 pool);
+    // Ask DeepSeek for fresh smalltalk lines for one pool (rotating), insert the
+    // new ones.  Runs every 30 min when ChatEnabled + DeepSeekKey are set.
+    void ExpandSmalltalkPool();
+    std::map<uint8, std::pair<time_t, std::vector<std::string>>> m_smalltalk;
+
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
     std::atomic<uint32> m_activeBotCount{ 0 };   // refreshed each tic (game thread)

@@ -312,6 +312,18 @@ void BotMgr::Process()
         }
     }
 
+    // Self-growing chat base: ask DeepSeek for fresh smalltalk lines (one pool
+    // per run, rotating) so the bots stop repeating the same phrases.
+    {
+        static Timer s_smalltalkGrowTimer(0);
+        if (!s_smalltalkGrowTimer.Enabled())
+            s_smalltalkGrowTimer.Start(1800000);
+        if (s_smalltalkGrowTimer.Check()) {
+            s_smalltalkGrowTimer.Start(1800000);
+            ExpandSmalltalkPool();
+        }
+    }
+
     // Refresh the portal's "online" figure (active + docked chelobots) on the
     // game thread so the API thread can read it race-free.
     RefreshOnlineCount();
@@ -6090,10 +6102,28 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
     // Near a gate? (hunter bait / gate camp / waiting to jump)
     bool nearGate = a->IsNearGate(150000.0);
 
-    // Profession-flavoured line pools.  The channel has a no-repeat guard, but
-    // with only 4 lines per profession every bot kept saying the same things -
-    // keep the pools wide.
-    static const char* miner[] = {
+    // Lines live in the botSmalltalk table (seeded by migration, topped up by
+    // DeepSeek).  The pick prefers least-used lines, so the base rotates instead
+    // of repeating the same phrases.  255 = the "under attack" combat pool.
+    uint8 poolKey = (inFight || aggro) ? (uint8)255 : (uint8)a->GetProfession();
+    LoadSmalltalkPool(poolKey);
+
+    std::string msg;
+    auto cit = m_smalltalk.find(poolKey);
+    if (cit != m_smalltalk.end() && !cit->second.second.empty()) {
+        const auto& lines = cit->second.second;
+        msg = lines[MakeRandomInt(0, (int32)lines.size() - 1)];
+        // best-effort usage bump: the pool pick weights least-used lines first
+        std::string esc;
+        sDatabase.DoEscapeString(esc, msg);
+        DBerror uerr;
+        sDatabase.RunQuery(uerr,
+            "UPDATE botSmalltalk SET uses = uses + 1, lastUse = NOW()"
+            " WHERE profession = %u AND line = '%s'", poolKey, esc.c_str());
+    } else {
+        // Fallback: the original hardcoded pools (migration not applied yet or
+        // the table is empty for this pool).
+        static const char* miner[] = {
         "belts in %s are quiet today, almost have the hold full.",
         "strip miners humming, ore's piling up nicely.",
         "anyone know the refine rate at the station here?",
@@ -6258,8 +6288,11 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
         return s;
     }
 
-    // Otherwise a profession line, substituting the system name if present.
+    // Otherwise a profession line from the fallback pool.
     msg = pool[MakeRandomInt(0, n - 1)];
+    }   // fallback branch
+
+    // Substitute the system name if present (both DB and fallback lines).
     {
         std::string s = msg;
         size_t pos = s.find("%s");
@@ -6272,6 +6305,131 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
     if (b != nullptr && MakeRandomInt(0, 99) < 35)
         msg = std::string(b->GetBotName()) + ", " + msg;
     return msg;
+}
+
+// Load (refresh) the cached smalltalk lines for one pool from botSmalltalk.
+// The pick weights least-used lines first, so the base rotates instead of
+// repeating the same handful of phrases.
+void BotMgr::LoadSmalltalkPool(uint8 pool)
+{
+    auto it = m_smalltalk.find(pool);
+    if (it != m_smalltalk.end()
+        && (GetFileTimeNow() - it->second.first) < (int64)EvE::Time::Minute * 5)
+        return;
+
+    std::vector<std::string> lines;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT line FROM botSmalltalk WHERE profession = %u"
+        " ORDER BY uses ASC, RAND() LIMIT 400", pool))
+    {
+        DBResultRow row;
+        while (res.GetRow(row))
+            lines.push_back(row.GetText(0));
+    }
+    m_smalltalk[pool] = { GetFileTimeNow(), std::move(lines) };
+}
+
+// Self-growing chat base: every run asks DeepSeek for fresh smalltalk lines for
+// ONE pool (rotating: 9 professions, then the combat pool) and inserts the new
+// ones.  Runs every 30 min from Process(); requires ChatEnabled + DeepSeekKey.
+void BotMgr::ExpandSmalltalkPool()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    if (!sConfig.playerBots.ChatEnabled || sConfig.playerBots.DeepSeekKey.empty())
+        return;   // no API key - the seeded pools serve as-is
+
+    // rotate: 0..8 professions, then 255 = combat pool
+    static int rotation = 0;
+    uint8 pool = (uint8)(rotation % 10);
+    ++rotation;
+    if (pool == 9)
+        pool = 255;
+
+    LoadSmalltalkPool(pool);
+    auto it = m_smalltalk.find(pool);
+    size_t have = (it != m_smalltalk.end()) ? it->second.second.size() : 0;
+    if (have >= 80)
+        return;   // plenty already
+
+    static const char* profNames[9] = {
+        "a PvP hunter looking for targets",
+        "an NPC rat hunter clearing anomalies",
+        "an ore miner at the belts",
+        "a market trader at a trade hub",
+        "a cargo courier hauling between systems",
+        "a hacker running data and relic sites",
+        "an explorer scanning down signatures",
+        "a mission runner working agent missions",
+        "an industrialist manufacturing at a POS"
+    };
+    const char* who = (pool == 255)
+        ? "a pilot currently under attack (complaining about the fight, calling for help)"
+        : profNames[pool % 9];
+
+    std::string existing;
+    if (it != m_smalltalk.end()) {
+        size_t n = 0;
+        for (auto& l : it->second.second) {
+            if (n++ >= 30) break;
+            existing += "- " + l + "\n";
+        }
+    }
+
+    std::string prompt =
+        "Write 10 new short idle local-chat lines for an EVE Online player who is "
+        + std::string(who) + ". "
+        "Casual lowercase tone, 15-90 characters. The token <system> may appear where the system name goes. "
+        "One line per response line, no numbering, no quotes. "
+        "Do not repeat these existing lines:\n" + existing;
+
+    std::string rsp = BotChat::QueryDeepSeek(prompt, "You write short EVE Online local chat messages.");
+    if (rsp.empty())
+        return;
+
+    uint32 countBefore = 0;
+    DBQueryResult cres;
+    if (sDatabase.RunQuery(cres, "SELECT COUNT(*) FROM botSmalltalk WHERE profession = %u", pool)) {
+        DBResultRow crow;
+        if (cres.GetRow(crow)) countBefore = crow.GetUInt(0);
+    }
+
+    uint32 added = 0;
+    size_t pos = 0;
+    while (pos < rsp.size()) {
+        size_t eol = rsp.find('\n', pos);
+        std::string line = rsp.substr(pos, (eol == std::string::npos ? rsp.size() : eol) - pos);
+        pos = (eol == std::string::npos ? rsp.size() : eol + 1);
+
+        // trim whitespace / CR
+        size_t b = line.find_first_not_of(" \t\r");
+        if (b == std::string::npos) continue;
+        size_t e = line.find_last_not_of(" \t\r");
+        line = line.substr(b, e - b + 1);
+        // strip common list prefixes: "- ", "* ", "1. "
+        if (line.compare(0, 2, "- ") == 0) line.erase(0, 2);
+        else if (line.compare(0, 2, "* ") == 0) line.erase(0, 2);
+        else if (line.size() > 2 && line[0] >= '0' && line[0] <= '9' && line[1] == '.' ) {
+            size_t s2 = line.find_first_not_of(" \t", 2);
+            if (s2 != std::string::npos && line.compare(s2, 1, " ") == 0)
+                line.erase(0, s2 + 1);
+        }
+        if (line.size() < 8 || line.size() > 200) continue;
+        if (line.find('"') != std::string::npos || line.find('\\') != std::string::npos) continue;
+        if (line.find('%') != std::string::npos) continue;   // would break the %s substitution
+        std::string esc;
+        sDatabase.DoEscapeString(esc, line);
+        DBerror err;
+        if (sDatabase.RunQuery(err,
+            "INSERT IGNORE INTO botSmalltalk (profession, line) VALUES (%u, '%s')", pool, esc.c_str()))
+            ++added;
+    }
+
+    if (added > 0) {
+        m_smalltalk.erase(pool);   // force a reload with the new lines
+        _log(BOT__MESSAGE, "BotMgr: DeepSeek expanded smalltalk pool %u by %u lines.", pool, added);
+    }
 }
 
 void BotMgr::RecordChannelPhrase(int32 channelID, uint32 charID, const std::string& phrase)
