@@ -421,10 +421,6 @@ void DestinyManager::ProcessState() {
         }
     }
 }
-            }
-        }
-    }
-}
 /* acceleration forumula
  * V(t) = Vmax*(1-e^-(t/a))
  * V(t) = velocity at time t
