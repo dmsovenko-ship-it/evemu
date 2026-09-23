@@ -398,29 +398,16 @@ void TowerSE::Process()
     /*  Enable base call to Process Anchoring, Targeting and Movement  */
     StructureSE::Process();
 
-    // Force-field ball delivery: the field is a static entity that gets a bubble
-    // at system boot, but a client already in the grid (e.g. logging in) may miss
-    // the ball, so the sphere stays invisible while the field still blocks
-    // targeting/damage. Re-register it and (re)announce it to the grid on player
-    // join AND periodically (in case the first ball was dropped during login).
-    if (m_hasShield && m_pShieldSE != nullptr && m_system != nullptr) {
-        uint32 players = m_system->PlayerCount();
-        uint32 stamp = sEntityList.GetStamp();
-        bool onJoin = (players != m_lastPlayerCount);
-        bool periodic = (players > 0 && stamp >= m_lastFieldAnnounce && stamp - m_lastFieldAnnounce >= 30);
-        if (onJoin)
-            m_lastPlayerCount = players;
-        if (players > 0 && (onJoin || periodic)) {
-            m_lastFieldAnnounce = stamp;
-            if (m_pShieldSE->SysBubble() == nullptr)
-                sBubbleMgr.Add(m_pShieldSE);
-            if (m_pShieldSE->SysBubble() != nullptr) {
-                _log(POS__MESSAGE, "TowerSE::Process() - %s(%u): announcing force field %u (bubble %u, players %u).",
-                     GetName(), m_self->itemID(), m_pShieldSE->GetID(), m_pShieldSE->SysBubble()->GetID(), players);
-                m_pShieldSE->SysBubble()->AddBallExclusive(m_pShieldSE, false);
-            }
-        }
-    }
+    // Force-field ball delivery — DISABLED. Both periodic re-announce variants
+    // broke the client's destiny parse and took down the whole grid (overview
+    // never loads, space "jitters", client logs 100s of "Unknown ball mode in
+    // dump" + "BallNotInPark" for every static slim):
+    //   - packet_type=0 (full state)  -> client re-inits its park every 30s ("flicker" loop)
+    //   - packet_type=1 (balls only)  -> stream desync ("Unknown ball mode")
+    // The field ball is IsGlobal and is delivered by the normal static/bubble
+    // paths on grid entry; do not re-send it here.
+    m_lastPlayerCount = 0;
+    m_lastFieldAnnounce = 0;
 
     // Damage-driven reinforcement (EVE): the tower's shield IS its force field.
     // When the shield is reduced to 25% the tower enters reinforced mode — the
