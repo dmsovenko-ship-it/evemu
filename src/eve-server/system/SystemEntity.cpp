@@ -600,7 +600,10 @@ void FieldSE::EncodeDestiny( Buffer& into )
         head.posX = x();
         head.posY = y();
         head.posZ = z();
-        head.flags = 0;
+        // Same wire shape as the celestial decor (LCO/CSE): RIGID + IsGlobal, so
+        // the client creates a static object for it and renders the sphere model
+        // of the ForceField type (radius = tower shield radius).
+        head.flags = Ball::Flag::IsGlobal;
     into.Append( head );
     RIGID_Struct main;
         main.formationID = 0xFF;

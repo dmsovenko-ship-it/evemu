@@ -384,32 +384,43 @@ void DestinyManager::ProcessState() {
         }
     }
 
-    // Force field barrier (independent of IsMoving): a ship that may not enter
-    // must not sit inside the sphere — after a warp it is shoved back to the
-    // surface. Skipped WHILE warping (the warp sim owns the position; arrival is
+    // Force field barrier (independent of IsMoving AND of the bubble the ship
+    // sits in - attackers usually engage from a neighbouring bubble, where the
+    // old bubble-scoped check found no tower and never pushed).  A ship that may
+    // not enter a POS field must not sit inside its sphere; it is shoved to the
+    // surface.  Skipped WHILE warping (the warp sim owns the position; arrival is
     // caught on the first non-warp tick).
     if (mySE->SystemMgr() != nullptr && m_ballMode != Ball::Mode::WARP
         && (mySE->IsShipSE() || mySE->GetNPCSE() != nullptr)) {
-        SystemBubble* fBubble = mySE->SysBubble();
-        if (fBubble != nullptr && fBubble->HasTower()) {
-            TowerSE* tower = fBubble->GetTowerSE();
-            if (tower != nullptr && tower->GetState() >= EVEPOS::StructureState::Online) {
-                GPoint tDelta = m_position - tower->GetPosition();
-                double tDist = tDelta.length();
-                double tRadius = tower->GetShieldRadius();
-                if (tDist < tRadius && !tower->CanEnterField(mySE)) {
-                    // A ship that warped EXACTLY onto the tower has tDist ~ 0 —
-                    // the old `tDist > 0.01` guard skipped it (no eject). Use a
-                    // default direction when the delta is degenerate.
-                    GPoint dir = (tDist > 0.01) ? tDelta : GPoint(1.0, 0.0, 0.0);
-                    dir.normalize();
-                    // Push to the surface PLUS the ship's own radius + margin, so
-                    // an abrupt stop (shuttle) cannot end up under the field edge.
-                    double pad = tRadius + mySE->GetRadius() + 250.0;
-                    m_position = tower->GetPosition() + (dir * pad);
-                    m_velocity = GVector(0, 0, 0);
-                    SetPosition(m_position, true);
-                }
+        for (auto& [id, se] : mySE->SystemMgr()->GetEntities()) {
+            if (se == nullptr || se->GetTowerSE() == nullptr)
+                continue;
+            TowerSE* tower = se->GetTowerSE();
+            if (tower->GetState() < EVEPOS::StructureState::Online)
+                continue;
+            double tRadius = tower->GetShieldRadius();
+            if (tRadius <= 0.0)
+                continue;
+            GPoint tDelta = m_position - tower->GetPosition();
+            double tDist = tDelta.length();
+            if (tDist >= tRadius)
+                continue;                       // outside the sphere
+            if (tower->CanEnterField(mySE))
+                continue;                       // owner / corp / ally / password
+            // A ship that warped EXACTLY onto the tower has tDist ~ 0 - the old
+            // `tDist > 0.01` guard skipped it (no eject). Use a default direction
+            // when the delta is degenerate.
+            GPoint dir = (tDist > 0.01) ? tDelta : GPoint(1.0, 0.0, 0.0);
+            dir.normalize();
+            // Push to the surface PLUS the ship's own radius + margin.
+            double pad = tRadius + mySE->GetRadius() + 250.0;
+            m_position = tower->GetPosition() + (dir * pad);
+            m_velocity = GVector(0, 0, 0);
+            SetPosition(m_position, true);
+            break;
+        }
+    }
+}
             }
         }
     }

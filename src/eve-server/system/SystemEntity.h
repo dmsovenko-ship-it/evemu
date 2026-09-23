@@ -503,11 +503,12 @@ public:
     /* class type pointer querys. */
     virtual FieldSE*            GetFieldSE()            { return this; }
 
-    /* Delivery routing: the field must be a plain bubble ball, exactly like POS
-     * modules (they render without problems).  Its item carries the SDE IsGlobal
-     * attribute, which routed the ball through the static-ball path - that path
-     * is what desynced the client's destiny stream and killed the whole grid. */
-    virtual bool                isGlobal()              { return false; }
+    /* Delivery: exactly like celestial decor (CSE / LCO): a RIGID ball with the
+     * IsGlobal flag, delivered ONCE through the static-ball path at system
+     * entry.  The decor renders fine and appears instantly; the old periodic
+     * re-announce (AddBallExclusive, full-state/type-1, repeated) was what broke
+     * the client's destiny stream. */
+    virtual bool                isGlobal()              { return true; }
     /* class type tests. */
     virtual bool                IsSystemEntity()        { return false; }
     virtual bool                IsFieldSE()             { return true; }
