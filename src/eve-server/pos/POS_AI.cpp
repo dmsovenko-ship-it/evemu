@@ -50,6 +50,7 @@ void POS_AI::Process()
 
     if (m_pWeapon->GetState() < EVEPOS::StructureState::Online) {
         ReleaseWeb();   // battery went offline/anchored-out: don't leave the web on the target
+        ReleaseDamp();  // ... nor the sensor damp
         m_active = false;
         return;
     }
@@ -85,6 +86,7 @@ void POS_AI::Process()
         SystemEntity* pTarget = m_pWeapon->SystemMgr()->GetSE(m_targetID);
         if (pTarget == nullptr) {
             ReleaseWeb();
+            ReleaseDamp();
             m_targetID = 0;
             return;
         }
@@ -105,11 +107,13 @@ void POS_AI::Process()
         // the gun's full range); only the weapon's own reach still applies.
         if (range > (maxRange + falloff) and !isManual and range > sightRange) {
             ReleaseWeb();
+            ReleaseDamp();
             m_targetID = 0;
             return;
         }
         if (isManual && range > (maxRange + falloff)) {
             ReleaseWeb();
+            ReleaseDamp();
             m_targetID = 0;
             return;
         }
@@ -305,6 +309,40 @@ void POS_AI::FireWeapon(uint32 targetID)
             _log(POS__MESSAGE, "POS_AI: %s neutralized %.0f GJ from %s.", m_pWeapon->GetName(), amount, pTarget->GetName());
             return;
         }
+        case EVEDB::invGroups::Sensor_Dampening_Battery: {
+            // Sensor damp: multiply the target's lock range and scan resolution by
+            // the battery's multipliers (0.5 = halve). Applied ONCE and undone on
+            // target change / offline — re-applying it every cycle would stack the
+            // penalty toward zero (same trap as the stasis web).
+            uint32 tgt = pTarget->GetID();
+            if (m_dampApplied && m_dampTargetID != tgt)
+                ReleaseDamp();
+            if (!m_dampApplied) {
+                InventoryItemRef ti = pTarget->GetSelf();
+                if (ti.get() != nullptr) {
+                    float rangeMul = weaponRef->HasAttribute(AttrMaxTargetRangeMultiplier)
+                                   ? weaponRef->GetAttribute(AttrMaxTargetRangeMultiplier).get_float() : 0.0f;
+                    float scanMul = weaponRef->HasAttribute(AttrScanResolutionMultiplier)
+                                   ? weaponRef->GetAttribute(AttrScanResolutionMultiplier).get_float() : 0.0f;
+                    if (rangeMul > 0.0f) {
+                        m_dampSavedRange = ti->GetAttribute(AttrMaxTargetRange).get_float();
+                        if (m_dampSavedRange > 0.0f)
+                            ti->SetAttribute(AttrMaxTargetRange, m_dampSavedRange * rangeMul, false);
+                    }
+                    if (scanMul > 0.0f) {
+                        m_dampSavedScanRes = ti->GetAttribute(AttrScanResolution).get_float();
+                        if (m_dampSavedScanRes > 0.0f)
+                            ti->SetAttribute(AttrScanResolution, m_dampSavedScanRes * scanMul, false);
+                    }
+                    m_dampApplied = true;
+                    m_dampTargetID = tgt;
+                }
+            }
+            m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), tgt,
+                                                         "effects.ElectronicAttributeModifyTarget", 1, 1, 1);
+            _log(POS__MESSAGE, "POS_AI: %s sensor-damped %s.", m_pWeapon->GetName(), pTarget->GetName());
+            return;
+        }
         default:
             break;   // weapon batteries -> damage below
     }
@@ -460,6 +498,8 @@ void POS_AI::TargetLost(uint32 entityID)
 {
     if (m_webApplied && m_webTargetID == entityID)
         ReleaseWeb();
+    if (m_dampApplied && m_dampTargetID == entityID)
+        ReleaseDamp();
     if (entityID == m_targetID)
         m_targetID = 0;
 }
@@ -479,4 +519,26 @@ void POS_AI::ReleaseWeb()
     SystemEntity* oldSE = pSystem->GetSE(old);
     if (oldSE != nullptr && oldSE->DestinyMgr() != nullptr)
         oldSE->DestinyMgr()->WebbedMe(m_pWeapon->GetSelf(), false);
+}
+
+// Undo a sensor damp: restore the target's base lock range and scan resolution.
+// Symmetric, so the multiplier is never applied twice (which would stack the
+// penalty toward zero on every cycle).
+void POS_AI::ReleaseDamp()
+{
+    if (!m_dampApplied)
+        return;
+    m_dampApplied = false;
+    uint32 old = m_dampTargetID;
+    m_dampTargetID = 0;
+    SystemManager* pSystem = m_pWeapon->SystemMgr();
+    if (pSystem == nullptr)
+        return;
+    SystemEntity* oldSE = pSystem->GetSE(old);
+    if (oldSE != nullptr && oldSE->GetSelf().get() != nullptr) {
+        if (m_dampSavedRange > 0.0f)
+            oldSE->GetSelf()->SetAttribute(AttrMaxTargetRange, m_dampSavedRange, false);
+        if (m_dampSavedScanRes > 0.0f)
+            oldSE->GetSelf()->SetAttribute(AttrScanResolution, m_dampSavedScanRes, false);
+    }
 }

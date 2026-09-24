@@ -41,7 +41,11 @@ m_Stop(true),
 m_siegeApplied(false),
 m_savedMaxVelocity(0.0f),
 m_savedDmgMultiplier(1.0f),
-m_savedMass(0.0f)
+m_savedMass(0.0f),
+m_dampApplied(false),
+m_dampTargetID(0),
+m_dampSavedRange(0.0f),
+m_dampSavedScanRes(0.0f)
 {
     m_repeat = 1000;    //based on client data
 
@@ -249,6 +253,7 @@ void ActiveModule::Update()
 void ActiveModule::Clear()
 {
     _log(MODULE__TRACE, "%s(%u) calling Clear()", m_modRef->name(), m_modRef->itemID());
+    ReleaseDamp();   // restore the target's lock range / scan resolution before we drop it
     if (m_targetSE != nullptr)
         if (m_targetSE->TargetMgr() != nullptr)
             m_targetSE->TargetMgr()->RemoveTargetModule(this);
@@ -271,6 +276,24 @@ void ActiveModule::Clear()
     m_shipRef->ClearTargetRef();
 
     SetModuleState(Module::State::Online);
+}
+
+void ActiveModule::ReleaseDamp()
+{
+    if (!m_dampApplied)
+        return;
+    m_dampApplied = false;
+    uint32 old = m_dampTargetID;
+    m_dampTargetID = 0;
+    if (m_sysMgr == nullptr)
+        return;
+    SystemEntity* oldSE = m_sysMgr->GetSE(old);
+    if (oldSE != nullptr && oldSE->GetSelf().get() != nullptr) {
+        if (m_dampSavedRange > 0.0f)
+            oldSE->GetSelf()->SetAttribute(AttrMaxTargetRange, m_dampSavedRange, false);
+        if (m_dampSavedScanRes > 0.0f)
+            oldSE->GetSelf()->SetAttribute(AttrScanResolution, m_dampSavedScanRes, false);
+    }
 }
 
 void ActiveModule::Process()
@@ -660,11 +683,55 @@ uint32 ActiveModule::DoCycle() {
             m_repeat = 1;
         } break;
         // i *think* these first 2 go here....need testing
-        case EVEDB::invGroups::Energy_Vampire:
-        case EVEDB::invGroups::Energy_Destabilizer:
+        case EVEDB::invGroups::Energy_Destabilizer: {
+            // Ship Energy Neutralizer: DRAIN the target's capacitor by
+            // energyDestabilizationAmount (attr 97). The old code shared the
+            // transfer path below and read powerTransferAmount — which this group
+            // does NOT have — so it drained nothing AND UpdateCharge() ADDED cap to
+            // the target.
+            if (m_targetSE != nullptr && m_targetSE->GetSelf().get() != nullptr) {
+                InventoryItemRef tRef = m_targetSE->GetSelf();
+                float amount = m_modRef->HasAttribute(AttrEnergyDestabilizationAmount)
+                             ? m_modRef->GetAttribute(AttrEnergyDestabilizationAmount).get_float() : 0.0f;
+                float cap = tRef->GetAttribute(AttrCapacitorCharge).get_float() - amount;
+                if (cap < 0.0f) cap = 0.0f;
+                tRef->SetAttribute(AttrCapacitorCharge, cap, false);
+            }
+        } break;
+        case EVEDB::invGroups::Energy_Vampire: {
+            // Nosferatu: drain up to powerTransferAmount from the target and add
+            // what was taken to my own capacitor (capped by my capacity).
+            if (m_targetSE != nullptr && m_targetSE->GetSelf().get() != nullptr) {
+                InventoryItemRef tRef = m_targetSE->GetSelf();
+                float amount = m_modRef->HasAttribute(AttrPowerTransferAmount)
+                             ? m_modRef->GetAttribute(AttrPowerTransferAmount).get_float() : 0.0f;
+                float theirCap = tRef->GetAttribute(AttrCapacitorCharge).get_float();
+                float taken = (theirCap < amount) ? theirCap : amount;
+                if (taken < 0.0f) taken = 0.0f;
+                tRef->SetAttribute(AttrCapacitorCharge, theirCap - taken, false);
+                float myMax = m_shipRef->GetAttribute(AttrCapacitorCapacity).get_float();
+                float myCap = m_shipRef->GetAttribute(AttrCapacitorCharge).get_float() + taken;
+                if (myCap > myMax) myCap = myMax;
+                m_shipRef->SetShipCapacitorLevel(myMax > 0.0f ? myCap / myMax : 1.0f);
+            }
+        } break;
         case EVEDB::invGroups::Energy_Transfer_Array: {
-            if (m_targetSE != nullptr)
-                UpdateCharge(AttrCapacitorCharge, AttrCapacitorCapacity, AttrPowerTransferAmount, m_targetSE->GetSelf());
+            // Remote capacitor transfer: move powerTransferAmount from MY capacitor
+            // to the target's (capped by both capacities).
+            if (m_targetSE != nullptr && m_targetSE->GetSelf().get() != nullptr) {
+                InventoryItemRef tRef = m_targetSE->GetSelf();
+                float amount = m_modRef->HasAttribute(AttrPowerTransferAmount)
+                             ? m_modRef->GetAttribute(AttrPowerTransferAmount).get_float() : 0.0f;
+                float myMax = m_shipRef->GetAttribute(AttrCapacitorCapacity).get_float();
+                float myCap = m_shipRef->GetAttribute(AttrCapacitorCharge).get_float();
+                float give = (myCap < amount) ? myCap : amount;
+                if (give < 0.0f) give = 0.0f;
+                m_shipRef->SetShipCapacitorLevel(myMax > 0.0f ? (myCap - give) / myMax : 0.0f);
+                float tMax = tRef->GetAttribute(AttrCapacitorCapacity).get_float();
+                float tCap = tRef->GetAttribute(AttrCapacitorCharge).get_float() + give;
+                if (tCap > tMax) tCap = tMax;
+                tRef->SetAttribute(AttrCapacitorCharge, tCap, false);
+            }
         } break;
         case EVEDB::invGroups::Shield_Transporter: {
             if (m_targetSE != nullptr)
@@ -700,11 +767,39 @@ uint32 ActiveModule::DoCycle() {
         case EVEDB::invGroups::Sensor_Booster:  //working
         case EVEDB::invGroups::Tracking_Computer:   //working
         case EVEDB::invGroups::Tracking_Disruptor:    //working
-        case EVEDB::invGroups::Remote_Sensor_Damper:
         case EVEDB::invGroups::Tracking_Link:
         case EVEDB::invGroups::Tracking_Enhancer:
         case EVEDB::invGroups::Projected_ECCM:
         case EVEDB::invGroups::Remote_Sensor_Booster: {
+        } break;
+        case EVEDB::invGroups::Remote_Sensor_Damper: {
+            // Remote Sensor Damper: reduce the target's lock range and scan
+            // resolution by the module's percentage bonuses (attrs 309/566, e.g.
+            // -15.2%). Symmetric: restore the base before re-applying so a cycling
+            // module never stacks the penalty toward zero; ReleaseDamp() undoes it.
+            if (m_targetSE != nullptr && m_targetSE->GetSelf().get() != nullptr) {
+                uint32 tgt = m_targetSE->GetID();
+                InventoryItemRef ti = m_targetSE->GetSelf();
+                if (m_dampApplied && m_dampTargetID != tgt)
+                    ReleaseDamp();
+                if (!m_dampApplied) {
+                    m_dampSavedRange = ti->GetAttribute(AttrMaxTargetRange).get_float();
+                    m_dampSavedScanRes = ti->GetAttribute(AttrScanResolution).get_float();
+                    m_dampTargetID = tgt;
+                    m_dampApplied = true;
+                } else {
+                    ti->SetAttribute(AttrMaxTargetRange, m_dampSavedRange, false);
+                    ti->SetAttribute(AttrScanResolution, m_dampSavedScanRes, false);
+                }
+                float rBonus = m_modRef->HasAttribute(AttrMaxTargetRangeBonus)
+                             ? m_modRef->GetAttribute(AttrMaxTargetRangeBonus).get_float() : 0.0f;
+                float sBonus = m_modRef->HasAttribute(AttrScanResolutionBonus)
+                             ? m_modRef->GetAttribute(AttrScanResolutionBonus).get_float() : 0.0f;
+                if (rBonus != 0.0f && m_dampSavedRange > 0.0f)
+                    ti->SetAttribute(AttrMaxTargetRange, m_dampSavedRange * (1.0f + rBonus / 100.0f), false);
+                if (sBonus != 0.0f && m_dampSavedScanRes > 0.0f)
+                    ti->SetAttribute(AttrScanResolution, m_dampSavedScanRes * (1.0f + sBonus / 100.0f), false);
+            }
         } break;
         case EVEDB::invGroups::Artifacts_and_Prototypes: {
         } break;

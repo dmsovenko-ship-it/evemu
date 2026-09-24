@@ -84,6 +84,9 @@ protected:
     TargetManager*      m_targMgr;
 
     void                Clear();
+    // Undo a remote sensor damp applied to m_targetSE (restore base lock range /
+    // scan resolution). Called when the target changes, the module stops, or Clear.
+    void                ReleaseDamp();
     void                ProcessActiveCycle();           // checks and sets cap use
     void                UpdateCharge(uint16 attrID, uint16 testAttrID, uint16 srcAttrID, InventoryItemRef iRef);
     void                UpdateDamage(uint16 attrID, uint16 srcAttrID, InventoryItemRef iRef);
@@ -106,6 +109,12 @@ public:
     uint16              m_reloadTime;
     uint16              m_effectID;                     //passed to us by activate
     uint32              m_targetID;                     //passed to us by activate
+
+    // Remote Sensor Damper state (debuff applied to the target ship).
+    bool                m_dampApplied;
+    uint32              m_dampTargetID;
+    float               m_dampSavedRange;
+    float               m_dampSavedScanRes;
 
     // Siege mode state
     bool                m_siegeApplied :1;
