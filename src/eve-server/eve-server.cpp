@@ -955,18 +955,9 @@ int main( int argc, char* argv[] )
 
     s_serverStartTime = time(nullptr);
     sLog.Cyan("           Server", "Started on %s", currentDateTime().c_str());
-    // Announce "online" only after a real outage (downtime >= 10 min). A quick
-    // rebuild stays silent so the Telegram channels are not spammed.
-    {
-        int64 lastOffline = ServiceDB::GetLastOffline();
-        bool realDowntime = (lastOffline == 0)
-                          || ((int64)s_serverStartTime >= lastOffline + 600);
-        if (realDowntime) {
-            std::string upMsg = "🚀 EVEmu online — " + std::string(currentDateTime().c_str());
-            TelegramBot::NotifyPlayer(upMsg);
-            TelegramBot::NotifyAdmin(upMsg);
-        }
-    }
+    // The periodic "EVEmu online" Telegram ping is intentionally NOT sent: it
+    // spammed the player and admin chats on every rebuild/restart. Startup is
+    // still logged locally; admins get the live picture on demand via /status.
 
     /////////////////////////////////////////////////////////////////////////////////////
     //     !!!  DO NOT PUT ANY INITIALIZATION CODE OR CALLS BELOW THIS LINE   !!!

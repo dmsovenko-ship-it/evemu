@@ -480,9 +480,9 @@ std::string CmdOnline()
                  + sBotMgr.CountActiveBots()
                  + sBotMgr.GetDockedBotCount();
     out += "👥 Онлайн игроков: " + std::to_string(total) + "\n";
-    if (sDatabase.RunQuery(res,
-        "SELECT COUNT(*) FROM account"))
-    { DBResultRow r; if (res.GetRow(r)) out += "Аккаунтов всего: " + std::to_string(r.GetUInt(0)) + "\n"; }
+    // Deliberately omit the real account count — chelobots masquerade as players,
+    // so "87 online / 4 accounts" would expose the simulation. Admins still see
+    // accounts/chars in /status.
     if (sDatabase.RunQuery(res,
         "SELECT COUNT(*) FROM chrKillTable"))
     { DBResultRow r; if (res.GetRow(r)) out += "Киллов всего: " + std::to_string(r.GetUInt(0)) + "\n"; }
