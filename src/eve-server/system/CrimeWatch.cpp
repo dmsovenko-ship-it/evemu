@@ -330,6 +330,56 @@ void CrimeWatch::OnBotAggression(uint32 botCharID, float systemSecRating)
     }
 }
 
+// A player attacking a POS/structure (owned property, not a ship). Per official
+// mechanics the structure is CONCORD-protected in highsec — attacking it provokes
+// a CONCORD response against the attacker (unless the owner is war-decced, in
+// which case the structure is a legal target and CONCORD stays out). The tower's
+// defenders are repelling a flagged criminal, so they are never flagged.
+void CrimeWatch::OnStructureAggression(uint32 structureCorpID, float systemSecRating)
+{
+    if (!sConfig.crime.Enabled)
+        return;
+
+    // War target: the structure is a legal target — no flags, no CONCORD.
+    if (structureCorpID != 0) {
+        DBQueryResult warRes;
+        if (sDatabase.RunQuery(warRes,
+            "SELECT warID FROM warRegistry WHERE retracted = 0 AND timeFinished = 0"
+            " AND ((declaredByID = %u AND againstID = %u) OR (declaredByID = %u AND againstID = %u))",
+            m_client->GetCorporationID(), structureCorpID, structureCorpID, m_client->GetCorporationID())) {
+            DBResultRow warRow;
+            if (warRes.GetRow(warRow))
+                return;
+        }
+    }
+
+    m_aggressionTimer.Start(sConfig.crime.AggFlagTime * 1000);
+    if (m_client->GetChar()) {
+        int64 endTime = static_cast<int64>(GetFileTimeNow()) + sConfig.crime.AggFlagTime * EvE::Time::Second;
+        m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(endTime), true);
+    }
+    UpdateSessionChangeTimer();
+    SendAggressionChange();
+
+    if (systemSecRating >= 0.5f) {
+        if (!m_criminalTimer.Enabled()) {
+            m_criminalTimer.Start(sConfig.crime.CrimFlagTime * 1000);
+            m_client->SendNotifyMsg("CONCORD response initiated. You have been flagged as a criminal.");
+        }
+        m_client->GetChar()->secStatusChange(-0.025f * systemSecRating);
+        // CONCORD reaction, security-scaled — start it ONCE (a running strike must
+        // not be reset by each damage tick, or CONCORD would never arrive).
+        if (!m_concordTimer.Enabled()) {
+            uint32 delay = 19000;
+            if (systemSecRating >= 0.9f) delay = 6000;
+            else if (systemSecRating >= 0.8f) delay = 7000;
+            else if (systemSecRating >= 0.7f) delay = 10000;
+            else if (systemSecRating >= 0.6f) delay = 14000;
+            m_concordTimer.Start(delay);
+        }
+    }
+}
+
 void CrimeWatch::RegisterAttackBy(uint32 attackerID)
 {
     m_attackedByID = attackerID;

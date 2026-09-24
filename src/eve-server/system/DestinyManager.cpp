@@ -2601,6 +2601,35 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
         distance = 0;
     }
 
+    // Never warp INSIDE a hostile POS force field: clamp the destination to the
+    // shield surface (EVE drops you out of warp ON the barrier). Without this a
+    // warp-to-0 on the tower lands the ship on top of it, and the one-shot
+    // barrier push (a single position packet) is often lost in the client's own
+    // warp-decel, so the pilot stays at range 0 under the field forever.
+    GPoint dest = where;
+    if (mySE->SystemMgr() != nullptr) {
+        for (auto& [sid, se] : mySE->SystemMgr()->GetEntities()) {
+            if (se == nullptr || se->GetTowerSE() == nullptr)
+                continue;
+            TowerSE* tower = se->GetTowerSE();
+            if (tower->GetState() < EVEPOS::StructureState::Online)
+                continue;
+            double r = tower->GetShieldRadius();
+            if (r <= 0.0)
+                continue;
+            GVector d(tower->GetPosition(), dest);
+            double dist = d.length();
+            if (dist >= r)
+                continue;                        // destination is outside the shield
+            if (tower->CanEnterField(mySE))
+                continue;                        // owner / corp / ally / password may enter
+            d.normalize();
+            double pad = r + mySE->GetRadius() + 250.0;
+            dest = tower->GetPosition() + (d * pad);
+            break;
+        }
+    }
+
     // Bump the ship away from any structure it may be inside (gate/station).
     // Official EVE does this to prevent the ship from being stuck inside
     // a structure's collision sphere when trying to warp.
@@ -2615,7 +2644,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
             if (distToStructure < strRadius) {
                 // Ship is inside (or nearly inside) a structure вЂ” bump out.
                 // Push the ship away from the structure toward the warp target.
-                GVector bumpDir(m_position, where);
+                GVector bumpDir(m_position, dest);
                 double bumpLen = bumpDir.normalize();
                 if (bumpLen < 1.0) {
                     // If target is same position, just pick a random direction away from structure
@@ -2634,7 +2663,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     m_targetEntity.second = nullptr;
 
     // For autopilot, save the target for CmdStop вЂ” don't send CmdFollowBall here
-    m_targetPoint = where;
+    m_targetPoint = dest;
     if (autoPilot) {
         m_targetEntity = std::pair<uint32, SystemEntity*>(pSE->GetID(), pSE);
     } else {
@@ -2644,7 +2673,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
 
     m_stopDistance = distance;
     // get warp target point
-    GVector warp_distance(m_position, where);
+    GVector warp_distance(m_position, dest);
     m_targetDistance = warp_distance.length();
     m_targetDistance -= static_cast<double>(m_stopDistance);
     // change to heading
@@ -2662,7 +2691,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     // decel curve lands ON the station/gate.
     GPoint clientDest = m_targetPoint;
     {
-        GVector dirUnit(m_position, where);
+        GVector dirUnit(m_position, dest);
         dirUnit.normalize();
         clientDest += (dirUnit * 4500.0);
     }
@@ -2753,7 +2782,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
             float maxAu = (currentShipCap / m_warpCapacitorNeed) / m_massMKg;
             if (maxAu > 1.0f) {
                 m_targetDistance = static_cast<double>(maxAu) * static_cast<double>(ONE_AU_IN_METERS);
-                GVector warp_direction(m_position, where);
+                GVector warp_direction(m_position, dest);
                 GPoint newTarget(m_position + (warp_direction * m_targetDistance));
 
                 m_targBubble = sBubbleMgr.GetBubble(mySE->SystemMgr(), newTarget);

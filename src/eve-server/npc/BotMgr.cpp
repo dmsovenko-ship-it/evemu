@@ -4592,6 +4592,7 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
 
         guard->SetProfession(PlayerBot::BotProfession::Hunter);
         guard->SetPosGuard(true);
+        guard->SetOutlaw(false);   // a tower guard defends its POS — never a ganker
         // A small response fleet: fighter + EWAR support + logistics.
         switch (spawned) {
             case 0:  guard->SetRole(PlayerBot::BotRole::Fighter);   break;

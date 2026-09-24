@@ -33,6 +33,11 @@ public:
 
     void OnWeaponFired();
     void OnAggression(Client* pTarget, float systemSecRating);
+    // A player attacking a POS/structure (owned property), NOT a ship. In highsec
+    // the structure is CONCORD-protected (unless its owner is war-decced): flags
+    // the attacker criminal and summons CONCORD — same as aggression vs a player.
+    // The defenders (tower guns / guards) are NOT flagged: they repel a criminal.
+    void OnStructureAggression(uint32 structureCorpID, float systemSecRating);
     // CONCORD response to a non-Client criminal (a PlayerBot that attacked this
     // player in high-sec): spawn CONCORD and destroy the aggressor's ship.
     void RespondToBotCriminal(SystemEntity* botSE);

@@ -155,6 +155,22 @@ bool SystemEntity::ApplyDamage(Damage &d) {
                     legal = true;
                 if (StandingDB::GetStanding(atkBot->GetBotCorpID(), victim->GetCorporationID()) <= -1.0f)
                     legal = true;
+                // POS DEFENCE is not a crime: a tower guard — or any bot of the
+                // tower's corp — returning fire at a pilot who attacked the POS is
+                // defending its own structure, exactly like a real player would.
+                // Without this, CONCORD kept answering the guards' return fire,
+                // destroying them (and looping: re-summon -> CONCORD -> destroyed).
+                if (!legal && atkBot->IsPosGuard())
+                    legal = true;
+                if (!legal && m_system != nullptr) {
+                    for (auto& [tid, tse] : m_system->GetEntities()) {
+                        if (tse == nullptr || tse->GetTowerSE() == nullptr)
+                            continue;
+                        TowerSE* tw = tse->GetTowerSE();
+                        if (tw->GetCorporationID() == atkBot->GetBotCorpID()
+                            && tw->IsAggressor(victim->GetCharacterID())) { legal = true; break; }
+                    }
+                }
             }
             if (!legal) {
                 if (victim != nullptr && victim->GetCrimeWatch() != nullptr)
@@ -175,8 +191,16 @@ bool SystemEntity::ApplyDamage(Damage &d) {
             else if (d.srcSE->IsDroneSE() && d.srcSE->GetDroneSE()->GetOwner() != nullptr)
                 atk = d.srcSE->GetDroneSE()->GetOwner();
         }
-        if (atk != nullptr)
-            SysBubble()->GetTowerSE()->RegisterAggressor(atk->GetCharacterID());
+        if (atk != nullptr) {
+            TowerSE* tw = SysBubble()->GetTowerSE();
+            tw->RegisterAggressor(atk->GetCharacterID());
+            // The structure is CONCORD-protected (official): attacking it in highsec
+            // flags the attacker and CONCORD answers (war targets exempt). Its
+            // defenders repel a flagged criminal, so they are never flagged.
+            float sysSec = (m_system != nullptr) ? m_system->GetSystemSecurityRating() : 0.0f;
+            if (sysSec > 0.0f && atk->GetCrimeWatch() != nullptr)
+                atk->GetCrimeWatch()->OnStructureAggression(tw->GetCorporationID(), sysSec);
+        }
     }
 
     // PvP aggression — EVE rule: attacking another pilot (or their drones/fighters)
