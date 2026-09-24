@@ -542,6 +542,17 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
             if (m_destinyMgr != nullptr)
                 m_destinyMgr->Cloak();
         } break;
+        case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
+            // Heavy Interdictor focused warp disruption: raise the warp-disruption
+            // bubble on the ship's current bubble while the module is active.
+            if (m_shipRef->GetPilot() != nullptr) {
+                ShipSE* se = m_shipRef->GetPilot()->GetShipSE();
+                if (se != nullptr && se->SysBubble() != nullptr)
+                    se->SysBubble()->SetWarpBubble(true);
+            }
+            if (m_destinyMgr != nullptr)
+                m_destinyMgr->SendSpecialEffect10(m_modRef->itemID(), 0, "effects.WarpDisruptFieldGenerating", 1, 1, 1);
+        } break;
     }
     /*def OnSpecialFX
      *     if start and guid == 'effects.WarpScramble*':
@@ -1041,6 +1052,16 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
         case EVEDB::invGroups::Afterburner:
         case EVEDB::invGroups::Microwarpdrive: {
             m_destinyMgr->SpeedBoost(true);
+        } break;
+        case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
+            // Drop the warp-disruption bubble when the module stops.
+            if (m_shipRef->GetPilot() != nullptr) {
+                ShipSE* se = m_shipRef->GetPilot()->GetShipSE();
+                if (se != nullptr && se->SysBubble() != nullptr)
+                    se->SysBubble()->SetWarpBubble(false);
+            }
+            if (m_destinyMgr != nullptr)
+                m_destinyMgr->SendSpecialEffect10(m_modRef->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0);
         } break;
         case EVEDB::invGroups::Stasis_Web: {
             if (m_targetSE != nullptr)
