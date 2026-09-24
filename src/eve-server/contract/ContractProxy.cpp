@@ -79,8 +79,27 @@ ContractProxy::ContractProxy () :
 
 PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
     // We will not proceed, if contractType is not specified
-    if (!call.byname.find("contractType")->second->IsNone()) {
-        int contractType = call.byname.find("contractType")->second->AsInt()->value();
+    // Every search parameter is a keyword argument the client may or may not send.
+    // The old code dereferenced call.byname.find() unconditionally, so one missing
+    // (or differently typed) keyword aborted the whole server. itemTypes in
+    // particular arrives EITHER as a plain list/tuple OR as an objectEx-wrapped
+    // tuple(list) depending on the client's search path — blindly calling
+    // AsObjectEx() on a plain list hit the PyRep assertion and crashed.
+    auto argRep = [&](const char* k) -> PyRep* {
+        auto it = call.byname.find(k);
+        return (it != call.byname.end()) ? it->second : nullptr;
+    };
+    auto argInt = [&](const char* k, int32& out) -> bool {
+        PyRep* r = argRep(k);
+        if (r == nullptr || r->IsNone() || !r->IsInt())
+            return false;
+        out = r->AsInt()->value();
+        return true;
+    };
+
+    PyRep* ctRep = argRep("contractType");
+    if (ctRep != nullptr && ctRep->IsInt()) {
+        int contractType = ctRep->AsInt()->value();
 
         /**
          * We're using sort of query constructor here - if request have certain value specified, we add it as another AND block.
@@ -103,29 +122,51 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
                             "WHERE cC.contractType IN " + std::string(contractType == 10 ? "(1,2,3)" : "(" + std::to_string(contractType) + ")");
                                                           // Type 10 is "All" and "Exclude WTB", for some reason. We'll assume it's "All", lol
 
-        if (!call.byname.find("itemTypes")->second->IsNone()) {
-            PyList* itemTypes = call.byname.find("itemTypes")->second->AsObjectEx()->header()->AsTuple()->GetItem(1)->AsTuple()->GetItem(0)->AsList();
-            std::string types;
-            for (auto index = 0; index < itemTypes->size(); index++) {
-                types.append(std::to_string(itemTypes->GetItem(index)->AsInt()->value()));
-                if (index != itemTypes->size() - 1) {
-                    types.append(",");
+        {
+            // itemTypes: plain list, or objectEx -> header tuple -> (name, tuple) -> list.
+            PyRep* r = argRep("itemTypes");
+            PyList* itemTypes = nullptr;
+            if (r != nullptr && !r->IsNone()) {
+                if (r->IsList())
+                    itemTypes = r->AsList();
+                else if (r->IsObjectEx()) {
+                    PyRep* h = r->AsObjectEx()->header();
+                    if (h != nullptr && h->IsTuple()) {
+                        PyTuple* hdr = h->AsTuple();
+                        if (hdr->GetItem(1) != nullptr && hdr->GetItem(1)->IsTuple()) {
+                            PyTuple* inner = hdr->GetItem(1)->AsTuple();
+                            if (inner->GetItem(0) != nullptr && inner->GetItem(0)->IsList())
+                                itemTypes = inner->GetItem(0)->AsList();
+                        }
+                    }
                 }
             }
-
-            if (!types.empty()) {
-                needItemJoin = true;
-                query.append(" AND e.typeID IN (" + types + ")");
+            if (itemTypes != nullptr && !itemTypes->empty()) {
+                std::string types;
+                for (uint32 index = 0; index < itemTypes->size(); index++) {
+                    PyRep* e = itemTypes->GetItem(index);
+                    if (e == nullptr || !e->IsInt())
+                        continue;
+                    if (!types.empty())
+                        types += ",";
+                    types += std::to_string(e->AsInt()->value());
+                }
+                if (!types.empty()) {
+                    needItemJoin = true;
+                    query.append(" AND e.typeID IN (" + types + ")");
+                }
             }
         }
 
-        if (!call.byname.find("itemGroupID")->second->IsNone()) {
+        int32 itemGroupID = 0;
+        if (argInt("itemGroupID", itemGroupID)) {
             needItemJoin = true;
-            query.append(" AND iG.groupID = " + std::to_string(call.byname.find("itemGroupID")->second->AsInt()->value()));
+            query.append(" AND iG.groupID = " + std::to_string(itemGroupID));
         }
-        if (!call.byname.find("itemCategoryID")->second->IsNone()) {
+        int32 itemCategoryID = 0;
+        if (argInt("itemCategoryID", itemCategoryID)) {
             needItemJoin = true;
-            query.append(" AND iC.categoryID = " + std::to_string(call.byname.find("itemCategoryID")->second->AsInt()->value()));
+            query.append(" AND iC.categoryID = " + std::to_string(itemCategoryID));
         }
         // Item joins are only needed when the search actually filters by item
         // contents. If they were unconditional, courier contracts without
@@ -134,20 +175,13 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
         if (needItemJoin) {
             query.insert(query.find("WHERE"), itemJoins);
         }
-        if (!call.byname.find("minPrice")->second->IsNone()) {
-            query.append(" AND cC.price >= " + std::to_string(call.byname.find("minPrice")->second->AsInt()->value()));
-        }
-        if (!call.byname.find("maxPrice")->second->IsNone()) {
-            query.append(" AND cC.price <= " + std::to_string(call.byname.find("maxPrice")->second->AsInt()->value()));
-        }
-        if (!call.byname.find("minReward")->second->IsNone()) {
-            query.append(" AND cC.reward >= " + std::to_string(call.byname.find("minReward")->second->AsInt()->value()));
-        }
-        if (!call.byname.find("maxReward")->second->IsNone()) {
-            query.append(" AND cC.reward <= " + std::to_string(call.byname.find("maxReward")->second->AsInt()->value()));
-        }
-        if (!call.byname.find("availability")->second->IsNone()) {
-            int availability = call.byname.find("availability")->second->AsInt()->value();
+        int32 np = 0;
+        if (argInt("minPrice", np))  query.append(" AND cC.price >= " + std::to_string(np));
+        if (argInt("maxPrice", np))  query.append(" AND cC.price <= " + std::to_string(np));
+        if (argInt("minReward", np)) query.append(" AND cC.reward >= " + std::to_string(np));
+        if (argInt("maxReward", np)) query.append(" AND cC.reward <= " + std::to_string(np));
+        int32 availability = 0;
+        if (argInt("availability", availability)) {
             if (availability == 0) {
                 // Public contracts
                 query.append(" AND cC.isPrivate = 0");
@@ -160,8 +194,8 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
             }
         }
         // According to what i had during testing, locationID can only be system, constellation or region. Given that we only store system and region ID, we use OR clause for these
-        if (!call.byname.find("locationID")->second->IsNone()) {
-            int locationId = call.byname.find("locationID")->second->AsInt()->value();
+        int32 locationId = 0;
+        if (argInt("locationID", locationId)) {
             if (IsSolarSystemID(locationId)) {
                 // Solar system range
                 query.append(" AND cC.startSolarSystemID = " + std::to_string(locationId));
@@ -171,19 +205,19 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
             }
         }
         // Same applies to endLocationID - it uses the same search::QuickQuery() call to get it
-        if (!call.byname.find("endLocationID")->second->IsNone()) {
-            int locationId = call.byname.find("endLocationID")->second->AsInt()->value();
-            if (IsSolarSystemID(locationId)) {
+        int32 endLocId = 0;
+        if (argInt("endLocationID", endLocId)) {
+            if (IsSolarSystemID(endLocId)) {
                 // Solar system range
-                query.append(" AND cC.endSolarSystemID = " + std::to_string(locationId));
-            } else if (IsRegionID(locationId)) {
+                query.append(" AND cC.endSolarSystemID = " + std::to_string(endLocId));
+            } else if (IsRegionID(endLocId)) {
                 // Region range
-                query.append(" AND cC.endRegionID = " + std::to_string(locationId));
+                query.append(" AND cC.endRegionID = " + std::to_string(endLocId));
             }
         }
         // Once again, issuer can be either a character or a corporation. We use separate filters depending on value
-        if (!call.byname.find("issuerID")->second->IsNone()) {
-            int issuerId = call.byname.find("issuerID")->second->AsInt()->value();
+        int32 issuerId = 0;
+        if (argInt("issuerID", issuerId)) {
             if (IsCorp(issuerId)) {
                 // Corporation case
                 query.append(" AND cC.issuerCorpID = " + std::to_string(issuerId) + " AND cC.forCorp = true");
