@@ -15,6 +15,7 @@
 #include "ship/Missile.h"
 #include "ship/modules/ActiveModule.h"
 #include "ship/Ship.h"
+#include "system/Damage.h"
 #include "fleet/FleetService.h"
 #include "ship/modules/ModuleItem.h"
 #include "ship/modules/Prospector.h"
@@ -938,11 +939,27 @@ uint32 ActiveModule::DoCycle() {
         } break;
         case EVEDB::invGroups::ECCM:
         case EVEDB::invGroups::Cloaking_Device:
-        case EVEDB::invGroups::Super_Weapon:
         case EVEDB::invGroups::Interdiction_Sphere_Launcher:    // launch a sphere (like missile and probe)
         case EVEDB::invGroups::Jump_Portal_Generator:
-        case EVEDB::invGroups::Warp_Disrupt_Field_Generator:
         case EVEDB::invGroups::Smart_Bomb: {
+        } break;
+        case EVEDB::invGroups::Super_Weapon: {
+            // Titan doomsday (minimal stand-in — the dedicated SuperWeapon class is
+            // not compiled): one massive hit on the locked target (no AoE).
+            if (m_targetSE != nullptr && m_targetSE->GetSelf().get() != nullptr
+                && m_shipRef->GetPilot() != nullptr) {
+                ShipSE* mySE = m_shipRef->GetPilot()->GetShipSE();
+                InventoryItemRef tgt = m_targetSE->GetSelf();
+                if (mySE != nullptr) {
+                    double hp = tgt->GetAttribute(AttrShieldCapacity).get_float()
+                              + tgt->GetAttribute(AttrArmorHP).get_float()
+                              + tgt->GetAttribute(AttrHP).get_float();
+                    if (hp < 1.0) hp = 1000.0;
+                    double dmg = hp * 1.5;
+                    Damage d(mySE, tgt, dmg, dmg, dmg, dmg, 1.0f, 0);
+                    m_targetSE->ApplyDamage(d);
+                }
+            }
         } break;
         case EVEDB::invGroups::ECM_Burst: {
             // AoE jam centred on my own ship.
