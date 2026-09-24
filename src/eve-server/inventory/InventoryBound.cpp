@@ -403,6 +403,12 @@ PyRep* InventoryBound::MoveItems(Client* pClient, std::vector< int32 >& items, E
             // T3 subsystem flags are allowed in space
             if (!canFit && toFlag >= flagSubSystem0 && toFlag <= flagSubSystem4)
                 canFit = true;
+            // POS Ship Maintenance Array grants a refitting service to nearby pilots
+            // — the client only offers it in space at an SMA, so allow the move when
+            // the acting container is one.
+            if (!canFit && m_self.get() != nullptr
+                && m_self->groupID() == EVEDB::invGroups::Ship_Maintenance_Array)
+                canFit = true;
         }
         if (!canFit)
             throw CustomError ("You cannot fit modules in space. Return to a station, capital ship, or POS maintenance array.");

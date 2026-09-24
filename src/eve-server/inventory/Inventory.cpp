@@ -713,6 +713,12 @@ float Inventory::GetCapacity(EVEItemFlags flag) const {
                 return maxHangarCapy;
             if (m_self->HasAttribute(AttrHasCorporateHangars))
                 return m_self->GetAttribute(AttrCorporateHangarCapacity).get_float();
+            // POS arrays (Corporate Hangar 471, Assembly 397, Mobile Lab 413...) carry
+            // corporateHangarCapacity but NOT the hasCorporateHangars flag — without
+            // this they fell back to the tiny module AttrCapacity.
+            if (m_self->categoryID() == EVEDB::invCategories::Structure
+                && m_self->HasAttribute(AttrCorporateHangarCapacity))
+                return m_self->GetAttribute(AttrCorporateHangarCapacity).get_float();
             //for cargo container, this is 27k5m3.
             return m_self->GetAttribute(AttrCapacity).get_float();
         } break;

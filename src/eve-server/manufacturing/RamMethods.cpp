@@ -298,7 +298,7 @@ void RamMethods::ItemLocationCheck(Client*const pClient, const Call_InstallJob& 
             "SELECT groupID FROM entity"
             " WHERE itemID = %u"
             "  AND groupID IN (397, 413, 438, 661, 662)"
-            "  AND flag = 11",  // flagAnchored
+            "  AND flag IN (144, 145)",  // flagStructureActive/Inactive (was 11 = flagLowSlot0)
             args.lineContainerID))
         {
             throw CustomError ("R.A.M. at POS/Outpost not supported yet");

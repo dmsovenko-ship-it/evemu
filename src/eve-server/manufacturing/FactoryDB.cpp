@@ -371,7 +371,7 @@ PyRep *FactoryDB::AssemblyLinesSelectCorporation(const uint32 corpID) {
         " LEFT JOIN ramAssemblyLineTypeDetailPerGroup AS rd ON rd.groupID = invTypes.groupID"
         " WHERE entity.ownerID = %u"
         "  AND invTypes.groupID IN (397, 413, 438, 661, 662)"
-        "  AND entity.flag = 11",  // flagAnchored
+        "  AND entity.flag IN (144, 145)",  // flagStructureActive/Inactive (was 11 = flagLowSlot0)
         corpID))
     {
         // If POS query fails, return station results only
@@ -457,7 +457,7 @@ PyRep *FactoryDB::AssemblyLinesSelectAlliance(const int32 allianceID) {
         " LEFT JOIN ramAssemblyLineTypeDetailPerGroup AS rd ON rd.groupID = invTypes.groupID"
         " WHERE crp.allianceID = %u"
         "  AND invTypes.groupID IN (397, 413, 438, 661, 662)"
-        "  AND entity.flag = 11",
+        "  AND entity.flag IN (144, 145)",  // flagStructureActive/Inactive (was 11 = flagLowSlot0)
         allianceID))
     {
         // Merge POS results into station results
