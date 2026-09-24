@@ -60,9 +60,6 @@ public:
 
 private:
     void                        ProcessReactionCycle();
-    int32                       LookupReactionType();
-    bool                        ConsumeInputs(int32 reactionTypeID);
-    void                        ProduceOutputs(int32 reactionTypeID, int32 qty);
 
     ReactorData*                pData;
     Timer*                      m_cycleTimer;       // reaction cycle timer

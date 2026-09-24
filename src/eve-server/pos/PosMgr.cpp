@@ -24,6 +24,7 @@
 #include "character/Character.h"
 #include "character/CharacterDB.h"
 #include "ship/Ship.h"
+#include "inventory/ItemFactory.h"
 #include "planet/CustomsOffice.h"
 #include "pos/Module.h"
 
@@ -274,8 +275,12 @@ PyResult PosMgrBound::GetSiloCapacityByItemID(PyCallArgs &call, PyInt* itemID) {
     _log(POS__TRACE,  "PosMgrBound::Handle_GetSiloCapacityByItemID()");
     call.Dump(POS__DUMP);
 
+    // Resolve the actual silo type (the old code always passed typeID 0, so every
+    // silo reported the same generic capacity).
     uint16 typeID = 0;
-    /** @todo  put this in static data */
+    InventoryItemRef iRef = sItemFactory.GetItemRef(itemID->value());
+    if (iRef.get() != nullptr)
+        typeID = iRef->typeID();
 
     return m_db.GetSiloCapacityForType(typeID);
 }
