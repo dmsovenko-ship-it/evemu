@@ -94,6 +94,12 @@ void POS_AI::Process()
         float maxRange = m_pWeapon->GetSelf()->GetAttribute(AttrMaxRange).get_float();
         float falloff = m_pWeapon->GetSelf()->GetAttribute(AttrFalloff).get_float();
         float sightRange = m_pWeapon->GetSelf()->GetAttribute(AttrProximityRange).get_float();
+        // A neut/EWAR battery has no maxRange attribute — its reach is
+        // energyDestabilizationRange (250 km for a standard Energy Neutralizing
+        // Battery). Without this, range was 0: a manually-targeted neut could
+        // never fire and automatic targeting only worked inside proximity range.
+        if (maxRange <= 0.0f && m_pWeapon->GetSelf()->HasAttribute(AttrEnergyDestabilizationRange))
+            maxRange = m_pWeapon->GetSelf()->GetAttribute(AttrEnergyDestabilizationRange).get_float();
 
         // Manual gunnery ignores the automatic sight range (an operator can use
         // the gun's full range); only the weapon's own reach still applies.
@@ -277,12 +283,23 @@ void POS_AI::FireWeapon(uint32 targetID)
             return;
         }
         case EVEDB::invGroups::Energy_Neutralizing_Battery: {
-            float amount = weaponRef->HasAttribute(AttrEntityCapacitorDrainAmount)
-                         ? weaponRef->GetAttribute(AttrEntityCapacitorDrainAmount).get_float() : 100.0f;
+            // POS neut batteries carry the drain in energyDestabilizationAmount
+            // (attr 97, 1000 GJ for the standard battery). entityCapacitorDrainAmount
+            // (946) is ABSENT on them, so the old code drained a fixed 100 GJ — too
+            // small to notice next to capacitor regen (and the pilot saw no drop).
+            float amount = 0.0f;
+            if (weaponRef->HasAttribute(AttrEnergyDestabilizationAmount))
+                amount = weaponRef->GetAttribute(AttrEnergyDestabilizationAmount).get_float();
+            else if (weaponRef->HasAttribute(AttrEntityCapacitorDrainAmount))
+                amount = weaponRef->GetAttribute(AttrEntityCapacitorDrainAmount).get_float();
+            if (amount <= 0.0f)
+                amount = 1000.0f;
             EvilNumber cap = pTarget->GetSelf()->GetAttribute(AttrCapacitorCharge);
             cap -= amount;
             if (cap < EvilZero) cap = EvilZero;
-            pTarget->GetSelf()->SetAttribute(AttrCapacitorCharge, cap, true);
+            // persist=false: capacitor is transient; AttributeMap::Change still sends
+            // OnModuleAttributeChange to the pilot so the cap gauge drops.
+            pTarget->GetSelf()->SetAttribute(AttrCapacitorCharge, cap, false);
             m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), pTarget->GetID(),
                                                          "effects.EnergyDestabilization", 1, 1, 1);
             _log(POS__MESSAGE, "POS_AI: %s neutralized %.0f GJ from %s.", m_pWeapon->GetName(), amount, pTarget->GetName());
