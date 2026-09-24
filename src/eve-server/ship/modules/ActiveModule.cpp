@@ -1111,7 +1111,37 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
                 m_targetSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, 0.0f);
         } break;
         case EVEDB::invGroups::Ship_Scanner:{
-            // not implemented (needs the client's hardwareList format)
+            if (abort) {
+                Clear();
+                return;
+            }
+            if (m_targetSE == nullptr || m_shipRef->GetPilot() == nullptr
+                || m_targetSE->GetSelf().get() == nullptr)
+                break;
+            // Client's shipui expects (eventName, shipID, capCharge, capCapacity,
+            // moduleList) where moduleList is a list of (typeID, quantity) —
+            // see form.ShipScan.LoadResult().
+            PyList* mods = new PyList();
+            ShipItemRef tShip = ShipItemRef::StaticCast(m_targetSE->GetSelf());
+            if (tShip.get() != nullptr && tShip->GetModuleManager() != nullptr) {
+                std::vector<InventoryItemRef> moduleList;
+                tShip->GetModuleManager()->GetModuleListOfRefsAsc(moduleList);
+                for (auto& mod : moduleList) {
+                    if (mod.get() == nullptr)
+                        continue;
+                    PyTuple* row = new PyTuple(2);
+                    PySetItemRelease(row, 0, new PyInt(mod->typeID()));
+                    PySetItemRelease(row, 1, new PyInt(1));
+                    mods->AddItem(row);
+                }
+            }
+            PyTuple* result = new PyTuple(5);
+            PySetItemRelease(result, 0, new PyString("OnShipScanCompleted"));
+            PySetItemRelease(result, 1, new PyInt(m_targetSE->GetID()));
+            result->SetItem(2, new PyFloat(m_targetSE->GetSelf()->GetAttribute(AttrCapacitorCharge).get_float()));
+            result->SetItem(3, new PyFloat(m_targetSE->GetSelf()->GetAttribute(AttrCapacitorCapacity).get_float()));
+            result->SetItem(4, mods);
+            m_shipRef->GetPilot()->QueueDestinyEvent(&result);
         } break;
         case EVEDB::invGroups::Cargo_Scanner:{
             if (abort) {
