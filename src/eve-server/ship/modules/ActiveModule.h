@@ -70,6 +70,9 @@ public:
     // is driven by Ship::MissileLaunched (not by DoCycle), so nothing else would
     // decrement the charge.
     void                ConsumeOneCharge()      { ConsumeCharge(); }
+    // AoE ECM burst: roll the module's jam strength against every ship near the
+    // given centre and break the locks of those it jams (ECM Burst / Remote ECM Burst).
+    void                ApplyEcmBurst(SystemEntity* center);
 
     void                LaunchProbe();
     void                LaunchMissile();

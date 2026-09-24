@@ -296,6 +296,45 @@ void ActiveModule::ReleaseDamp()
     }
 }
 
+void ActiveModule::ApplyEcmBurst(SystemEntity* center)
+{
+    if (center == nullptr || center->SysBubble() == nullptr)
+        return;
+    float strength = m_modRef->HasAttribute(AttrScanStrengthBonus)
+                   ? m_modRef->GetAttribute(AttrScanStrengthBonus).get_float() : 1.0f;
+    float range = m_modRef->HasAttribute(AttrMaxRange)
+                ? m_modRef->GetAttribute(AttrMaxRange).get_float() : 10000.0f;
+
+    std::map<uint32, SystemEntity*> entities;
+    center->SysBubble()->GetAllEntities(entities);
+    for (auto& [id, se] : entities) {
+        if (se == nullptr || se == center || !se->IsShipSE() || !se->HasPilot())
+            continue;
+        if (center->GetPosition().distance(se->GetPosition()) > range)
+            continue;
+        InventoryItemRef tRef = se->GetSelf();
+        if (tRef.get() == nullptr)
+            continue;
+        float sensor = 0.0f;
+        if (tRef->HasAttribute(AttrScanGravimetricStrength))
+            sensor = std::max(sensor, tRef->GetAttribute(AttrScanGravimetricStrength).get_float());
+        if (tRef->HasAttribute(AttrScanLadarStrength))
+            sensor = std::max(sensor, tRef->GetAttribute(AttrScanLadarStrength).get_float());
+        if (tRef->HasAttribute(AttrScanRadarStrength))
+            sensor = std::max(sensor, tRef->GetAttribute(AttrScanRadarStrength).get_float());
+        if (tRef->HasAttribute(AttrScanMagnetometricStrength))
+            sensor = std::max(sensor, tRef->GetAttribute(AttrScanMagnetometricStrength).get_float());
+        float chance = (sensor > 0.0f) ? std::min(strength / sensor, 0.95f) : 0.5f;
+        if (MakeRandomFloat() < chance && se->TargetMgr() != nullptr)
+            se->TargetMgr()->ClearAllTargets();
+    }
+    if (m_destinyMgr != nullptr) {
+        m_destinyMgr->SendSpecialEffect(m_shipRef->itemID(), m_modRef->itemID(), m_modRef->typeID(),
+                                        center->GetID(), 0, "effects.ElectronicAttributeModifyTarget",
+                                        1, 1, 1, 5000, 0, 0);
+    }
+}
+
 void ActiveModule::Process()
 {
     // the order of Reload/Unload is significant.
@@ -891,10 +930,16 @@ uint32 ActiveModule::DoCycle() {
         case EVEDB::invGroups::Super_Weapon:
         case EVEDB::invGroups::Interdiction_Sphere_Launcher:    // launch a sphere (like missile and probe)
         case EVEDB::invGroups::Jump_Portal_Generator:
-        case EVEDB::invGroups::Remote_ECM_Burst:
         case EVEDB::invGroups::Warp_Disrupt_Field_Generator:
-        case EVEDB::invGroups::Smart_Bomb:
+        case EVEDB::invGroups::Smart_Bomb: {
+        } break;
         case EVEDB::invGroups::ECM_Burst: {
+            // AoE jam centred on my own ship.
+            ApplyEcmBurst(m_shipRef->GetPilot() != nullptr ? m_shipRef->GetPilot()->GetShipSE() : nullptr);
+        } break;
+        case EVEDB::invGroups::Remote_ECM_Burst: {
+            // AoE jam centred on the target.
+            ApplyEcmBurst(m_targetSE);
         } break;
     }
 
