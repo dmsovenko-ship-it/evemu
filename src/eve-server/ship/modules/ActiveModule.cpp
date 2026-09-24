@@ -1237,9 +1237,13 @@ void ActiveModule::UnloadCharge()
                 m_modRef->ResetAttribute(AttrSpeedFactorBonus, true);
                 m_modRef->ResetAttribute(AttrSpeedBoostFactorBonus, true);
             } break;
-            //case 910:   //    Sensor Booster Script
+            case 910:   //    Sensor Booster Script
             case 911: { //    Sensor Dampener Script
-                m_modRef->ResetAttribute(AttrFalloffBonus, true);
+                // These scripts re-aim the module's range/scan-resolution bonuses;
+                // reset BOTH on unload. 911 previously reset falloff — an attribute a
+                // sensor dampener never touches — so the script's effect stuck.
+                m_modRef->ResetAttribute(AttrMaxTargetRangeBonus, true);
+                m_modRef->ResetAttribute(AttrScanResolutionBonus, true);
             } break;
         }
 }

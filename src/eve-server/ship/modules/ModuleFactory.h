@@ -199,8 +199,10 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Propulsion_Systems:                      return (new SubSystemModule(mRef, sRef));
             case EVEDB::invGroups::Engineering_Systems:                     return (new SubSystemModule(mRef, sRef));
 
-            // may need specific code for these gm modules
-            //case EVEDB::invGroups::GM_Modules:
+            // GM / misc module groups. Behaviour is not modelled, but they MUST be
+            // fittable — otherwise ModuleFactory logs "Module Group not found" and the
+            // item cannot be loaded at all.
+            case EVEDB::invGroups::GM_Modules:                          return (new ActiveModule(mRef, sRef));
             case EVEDB::invGroups::Cheat_Module_Group:                      return (new ActiveModule(mRef, sRef));
 
             // Drone Damage Modules (Drone Damage Amplifier etc.)
@@ -208,16 +210,17 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Drone_Damage_Modules: {
                 return (new PassiveModule(mRef, sRef));
             }
-            // Uncategorized and Unknown Modules Groups (some of these groups contain NO REAL typeIDs in the 'invTypes' table):
-            /**  @note  let these make an error to show they are used
+            // Uncategorized / test / faction modules (were unmapped -> unfittable).
+            // Active ones (EW test gear, anti-cloak pulse, stealth systems, plain
+            // missile launcher) get the dogma-effect path; the rest are stat-only.
+            case EVEDB::invGroups::New_EW_Testing:
+            case EVEDB::invGroups::Anti_Cloaking_Pulse:
+            case EVEDB::invGroups::Signature_Scrambling:
+            case EVEDB::invGroups::Missile_Launcher:                    return (new ActiveModule(mRef, sRef));
             case EVEDB::invGroups::Computer_Interface_Node:
             case EVEDB::invGroups::Cruise_Control:
             case EVEDB::invGroups::Smartbomb_Supercharger:
             case EVEDB::invGroups::Anti_Ballistic_Defense_System:
-            case EVEDB::invGroups::New_EW_Testing:
-            case EVEDB::invGroups::Missile_Launcher:
-            case EVEDB::invGroups::Anti_Cloaking_Pulse:
-            case EVEDB::invGroups::Signature_Scrambling:
             case EVEDB::invGroups::Energy_Vampire_Slayer:
             case EVEDB::invGroups::Autopilot:
             case EVEDB::invGroups::DroneBayExpander:
@@ -225,8 +228,7 @@ static GenericModule* ModuleFactory(ModuleItemRef mRef, ShipItemRef sRef)
             case EVEDB::invGroups::Super_Gang_Enhancer:
             case EVEDB::invGroups::ECM_Enhancer:
             case EVEDB::invGroups::Cloak_Enhancements:
-            case EVEDB::invGroups::Mining_Enhancer:
-            */
+            case EVEDB::invGroups::Mining_Enhancer:                     return (new PassiveModule(mRef, sRef));
         }
     }
 

@@ -1165,7 +1165,7 @@ PyPackedRow* InventoryItem::GetChargeStatusRow(uint32 shipID) const {
         header->AddColumn("instanceID", DBTYPE_I8);
         header->AddColumn("flagID",     DBTYPE_I2);
         header->AddColumn("typeID",     DBTYPE_I4);
-        //header->AddColumn("quantity",   DBTYPE_I4);
+        header->AddColumn("quantity",   DBTYPE_I4);
     PyPackedRow* row = new PyPackedRow(header);
     GetChargeStatusRow(shipID, row);
     return row;
@@ -1175,6 +1175,8 @@ void InventoryItem::GetChargeStatusRow(uint32 shipID, PyPackedRow* into) const {
     PySetFieldRelease(into, "instanceID",     new PyLong(shipID));  // locationID
     PySetFieldRelease(into, "flagID", new PyInt(m_data.flag));
     PySetFieldRelease(into, "typeID", new PyInt(m_type.id()));
+    // The client reads .quantity from this cache row (baseDogmaLocation._LoadItem).
+    PySetFieldRelease(into, "quantity", new PyInt((int32)(m_data.singleton ? 1 : m_data.quantity)));
 }
 
 PyPackedRow* InventoryItem::GetItemRow() const

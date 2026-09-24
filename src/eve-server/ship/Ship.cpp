@@ -2358,9 +2358,14 @@ PyDict* ShipItem::GetChargeState() {
     if (charges.empty())
         return result;
 
-    // Create entries in "shipState" dictionary for loaded charges on ship:
+    // The client reads this as instanceFlagQuantityCache[locationID][flagID] with a
+    // .quantity field (baseDogmaLocation._LoadItem / clientDogmaLocation). A flat
+    // dict keyed by flag was never read, so charges loaded before a login-in-space
+    // were not restored. Nest by shipID (the charge's locationID).
+    PyDict* byFlag = new PyDict();
     for (auto cur : charges)
-        PySetItemRelease(result, new PyInt((uint16)cur.first), cur.second->GetChargeStatusRow(itemID()));
+        PySetItemRelease(byFlag, new PyInt((uint16)cur.first), cur.second->GetChargeStatusRow(itemID()));
+    PySetItemRelease(result, new PyInt(itemID()), byFlag);
 
     return result;
 }
