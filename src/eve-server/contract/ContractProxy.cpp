@@ -292,14 +292,16 @@ PyResult ContractProxy::CreateContract(PyCallArgs &call,
     /**
      * Since named args (byname) aren't included in packet, we process them separately.
      */
-    if (call.byname.find("flag")->second->IsInt()) {
-        startStationDivision = call.byname.find("flag")->second->AsInt()->value();
+    auto flagIt = call.byname.find("flag");
+    if (flagIt != call.byname.end() && flagIt->second->IsInt()) {
+        startStationDivision = flagIt->second->AsInt()->value();
     } else {
         codelog(SERVICE__ERROR, "startStationDivision value is of invalid type");
         return nullptr;
     }
-    if (call.byname.find("forCorp")->second->IsBool()) {
-        forCorp = call.byname.find("forCorp")->second->AsBool()->value();
+    auto corpIt = call.byname.find("forCorp");
+    if (corpIt != call.byname.end() && corpIt->second->IsBool()) {
+        forCorp = corpIt->second->AsBool()->value();
     } else {
         codelog(SERVICE__ERROR, "forCorp value is of invalid type");
         return nullptr;
@@ -365,10 +367,18 @@ PyResult ContractProxy::CreateContract(PyCallArgs &call,
      * First off, we gather the list of attributes for these items, using select query.
      * To save resources and reduce amount of DB hits, we compose the query by adding ID's first, then we execute it separately.
      */
+    // Any failure below must remove the contract row we just inserted: the client
+    // keeps the create window open when the call returns None and re-sends on every
+    // confirm click, which otherwise piles up empty duplicate contracts.
+    auto rollbackContract = [&]() {
+        DBerror derr;
+        sDatabase.RunQuery(derr, "DELETE FROM ctrContracts WHERE contractId = %u", contractId);
+    };
     std::string itemsToInsert;
     float totalVolume = 0.00;
-    if (call.byname.find("itemList")->second->IsList()) {
-        PyList *tradedItems = call.byname.find("itemList")->second->AsList();
+    auto itemListIt = call.byname.find("itemList");
+    if (itemListIt != call.byname.end() && itemListIt->second->IsList()) {
+        PyList *tradedItems = itemListIt->second->AsList();
         if (!tradedItems->empty()) {
             //TODO: We need to account for items that can be packed in a container/ship/container inside the ship
             std::string query = "SELECT entity.itemID, entity.ownerID, entity.typeID, entity.quantity, entity.locationID, iB.pLevel, "
@@ -397,6 +407,7 @@ PyResult ContractProxy::CreateContract(PyCallArgs &call,
             if (!sDatabase.RunQuery(res,query.c_str(), queryIds.c_str()))
             {
                 codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
+                rollbackContract();
                 return nullptr;
             }
 
@@ -419,7 +430,17 @@ PyResult ContractProxy::CreateContract(PyCallArgs &call,
                  int damage = row.IsNull(9) ? 0 : row.GetInt(9);
                  int flag = row.IsNull(10) ? 0 : row.GetInt(10);
 
-                 if (ownerID == expectedOwnerID && quantity == expectedQuantities.find(itemID)->second) {
+                 auto expIt = expectedQuantities.find(itemID);
+                 if (expIt == expectedQuantities.end())
+                     continue;
+                 int expected = expIt->second;
+                 // The client sends a NEGATIVE quantity (-1) for SINGLETON items
+                 // (modules, ships, blueprints) — item.stacksize is -1 in EVE for
+                 // non-stackables. The old check required an exact match against the
+                 // DB quantity (1), so no singleton ever qualified: the contract was
+                 // inserted empty, and on the empty-list failure the client kept its
+                 // window open and every extra "confirm" click added another contract.
+                 if (ownerID == expectedOwnerID && (expected < 0 || quantity == expected)) {
                      itemsToInsert.append("(" + std::to_string(contractId) + ", " +
                         std::to_string(itemID) + ", " +
                         std::to_string(quantity) + ", " +
@@ -445,8 +466,9 @@ PyResult ContractProxy::CreateContract(PyCallArgs &call,
     }
 
 
-    if (call.byname.find("requestItemTypeList")->second->IsList()) {
-        PyList *requestedItems = call.byname.find("requestItemTypeList")->second->AsList();
+    auto reqListIt = call.byname.find("requestItemTypeList");
+    if (reqListIt != call.byname.end() && reqListIt->second->IsList()) {
+        PyList *requestedItems = reqListIt->second->AsList();
         if (!requestedItems->empty()) {
             for (int index = 0; index < requestedItems->size(); index++) {
                 PyList *requestedItem = requestedItems->GetItem(index)->AsList();
@@ -468,6 +490,7 @@ PyResult ContractProxy::CreateContract(PyCallArgs &call,
         if (!sDatabase.RunQueryLID(err, last_insert, query.c_str()))
         {
             codelog(DATABASE__ERROR, "Failed to insert new entity: %s", err.c_str());
+            rollbackContract();
             return nullptr;
         }
 
@@ -483,6 +506,7 @@ PyResult ContractProxy::CreateContract(PyCallArgs &call,
 
     } else {
         codelog(SERVICE__ERROR, "No traded or requested items was specified. Aborting");
+        rollbackContract();
         return nullptr;
     }
 
