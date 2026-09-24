@@ -660,21 +660,24 @@ uint32 ActiveModule::DoCycle() {
             LaunchMissile();
         } break;
         case EVEDB::invGroups::Capacitor_Booster:{
+            // Read the boost BEFORE consuming: ConsumeCharge() clears m_chargeRef
+            // when the stack hits 0, so the FINAL charge would be eaten without
+            // granting any capacitor (off-by-one). Cap Boosters give capacitor from
+            // the LOADED CHARGE's capacitorBonus (attr 67, "Cap Booster 25" = 25 GJ).
+            float boostGJ = 0.0f;
+            if (m_chargeRef.get() != nullptr and m_chargeRef->HasAttribute(AttrCapacitorBonus))
+                boostGJ = m_chargeRef->GetAttribute(AttrCapacitorBonus).get_float();
             ConsumeCharge();
-            // Cap Boosters give capacitor from the LOADED CHARGE's capacitorBonus (attr 67,
-            // e.g. "Cap Booster 25" = 25 GJ), not from the module. The module has no such
-            // attribute and powerTransferAmount (90) belongs to nos/energy transfer — reading
-            // it here returned 0, so the booster drained charges but added no capacitor.
-            if (m_chargeRef.get() != nullptr and m_chargeRef->HasAttribute(AttrCapacitorBonus)) {
-                EvilNumber boost = m_chargeRef->GetAttribute(AttrCapacitorBonus);
-                EvilNumber newCap = m_shipRef->GetAttribute(AttrCapacitorCharge) + boost;
+            if (boostGJ > 0.0f) {
+                EvilNumber newCap = m_shipRef->GetAttribute(AttrCapacitorCharge) + boostGJ;
                 if (newCap > m_shipRef->GetAttribute(AttrCapacitorCapacity)) {
                     newCap = m_shipRef->GetAttribute(AttrCapacitorCapacity);
                     if (m_shipRef->GetPilot()->AutoStop())
                         Deactivate();
                 }
                 float shipTotalCapacitor = m_shipRef->GetAttribute(AttrCapacitorCapacity).get_float();
-                m_shipRef->SetShipCapacitorLevel(newCap.get_float() / shipTotalCapacitor);
+                if (shipTotalCapacitor > 0.0f)
+                    m_shipRef->SetShipCapacitorLevel(newCap.get_float() / shipTotalCapacitor);
             } else {
                 // no charge loaded — nothing to boost
                 AbortCycle();
@@ -682,6 +685,7 @@ uint32 ActiveModule::DoCycle() {
             }
             m_repeat = 1;
         } break;
+
         // i *think* these first 2 go here....need testing
         case EVEDB::invGroups::Energy_Destabilizer: {
             // Ship Energy Neutralizer: DRAIN the target's capacitor by
@@ -1242,25 +1246,47 @@ void ActiveModule::UnloadCharge()
 
 void ActiveModule::ConsumeCharge() {
     if (m_linkMaster) {
-        // remove charges from linked modules as applicable
+        // Linked weapons fire together: pull one unit from every linked module's
+        // loaded charge and clear any that run dry. The non-linked branch below had
+        // this fix; the linked branch was missing it, so a depleted linked weapon
+        // kept IsLoaded()==true and fired forever while reading a DELETED charge
+        // item ("infinite ammo" + IncRef-on-deleted crashes).
         std::vector<GenericModule*> modules;
         m_shipRef->GetLinkedWeaponMods(m_modRef->flag(), modules);
-        for (auto cur : modules)
-            if (cur->isOnline() and cur->IsLoaded())
-                cur->GetLoadedChargeRef()->AlterQuantity(-1, cur->IsLoaded());
+        for (auto cur : modules) {
+            if (!cur->isOnline() || !cur->IsLoaded())
+                continue;
+            InventoryItemRef ref = cur->GetLoadedChargeRef();
+            if (ref.get() == nullptr)
+                continue;
+            ref->AlterQuantity(-1, cur->IsLoaded());
+            if (ref->quantity() < 1) {
+                ActiveModule* am = dynamic_cast<ActiveModule*>(cur);
+                if (am != nullptr)
+                    am->ClearDepletedCharge();
+            }
+        }
     } else {
         m_chargeRef->AlterQuantity(-1, false);  // only used in space.  dont send ixStacksize update
-        // A charge hitting 0 deletes itself (InventoryItem::SetQuantity) and
-        // leaves a zombie ref here: IsLoaded() stayed true, so every following
-        // cycle read a deleted item ("infinite ammo" + IncRef-on-deleted class
-        // crashes). Deactivate and clear it.
-        if ((m_chargeRef.get() != nullptr) && (m_chargeRef->quantity() < 1)) {
-            Deactivate();
-            m_chargeRef = InventoryItemRef(nullptr);
-            m_chargeLoaded = false;
-            m_ChargeState = Module::State::Unloaded;
-        }
+        // A charge hitting 0 deletes itself (InventoryItem::SetQuantity) and leaves
+        // a zombie ref here: IsLoaded() stayed true, so every following cycle read a
+        // deleted item ("infinite ammo" + IncRef-on-deleted class crashes).
+        if ((m_chargeRef.get() != nullptr) && (m_chargeRef->quantity() < 1))
+            ClearDepletedCharge();
     }
+}
+
+void ActiveModule::ClearDepletedCharge()
+{
+    // The charge item deleted itself on hitting 0. Also erase the ModuleManager's
+    // m_charges entry: GetChargeState()/ShipDNA()/SaveModules() iterate it and would
+    // otherwise keep a reference to a freed item.
+    if (m_shipRef.get() != nullptr && m_shipRef->HasModuleManager())
+        m_shipRef->GetModuleManager()->RemoveLoadedCharge(m_modRef->flag());
+    Deactivate();
+    m_chargeRef = InventoryItemRef(nullptr);
+    m_chargeLoaded = false;
+    m_ChargeState = Module::State::Unloaded;
 }
 
 void ActiveModule::ApplyEffect(int8 state, bool active/*false*/)

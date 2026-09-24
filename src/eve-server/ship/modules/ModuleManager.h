@@ -82,6 +82,9 @@ public:
     // this will remove charge item from module and update client
     // must NOT throw
     void UnloadCharge(GenericModule* pMod);
+    // Erase the m_charges entry for a module whose charge burned out (item already
+    // deleted) — keeps GetChargeState/DNA/SaveModules from reading a freed item.
+    void RemoveLoadedCharge(uint32 flag)                { m_charges.erase((EVEItemFlags)flag); }
     // unload charge from module by itemID
     void UnloadModule(uint32 itemID);
     // unload charge from module by flag

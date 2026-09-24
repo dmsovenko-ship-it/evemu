@@ -66,6 +66,11 @@ public:
     virtual uint32      GetTargetID()           { return m_targetID; }
     SystemEntity*       GetTargetSE()           { return m_targetSE; }
 
+    // Consume one loaded charge. Used by defender/countermeasure auto-fire, which
+    // is driven by Ship::MissileLaunched (not by DoCycle), so nothing else would
+    // decrement the charge.
+    void                ConsumeOneCharge()      { ConsumeCharge(); }
+
     void                LaunchProbe();
     void                LaunchMissile();
     void                LaunchSnowBall();
@@ -96,6 +101,9 @@ protected:
 
     /* for modules that use charges */
     void                ConsumeCharge();                // common code to reduce ammo by one unit.
+    // A loaded charge just hit 0 (item self-deleted): drop this module's zombie
+    // ref AND the ModuleManager's m_charges entry so nothing reads a freed item.
+    void                ClearDepletedCharge();
 
     uint32              GetRemainingCycleTimeMS()       { return m_timer.GetRemainingTime(); }
 

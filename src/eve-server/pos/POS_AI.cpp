@@ -9,6 +9,7 @@
 
 
 #include <cmath>
+#include <algorithm>
 
 #include "Client.h"
 #include "EntityList.h"
@@ -26,6 +27,7 @@
 #include "pos/Structure.h"
 #include "system/Damage.h"
 #include "system/SystemBubble.h"
+#include "system/TargetManager.h"
 #include "system/SystemEntity.h"
 #include "system/SystemManager.h"
 #include "inventory/AttributeEnum.h"
@@ -341,6 +343,44 @@ void POS_AI::FireWeapon(uint32 targetID)
             m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), tgt,
                                                          "effects.ElectronicAttributeModifyTarget", 1, 1, 1);
             _log(POS__MESSAGE, "POS_AI: %s sensor-damped %s.", m_pWeapon->GetName(), pTarget->GetName());
+            return;
+        }
+        case EVEDB::invGroups::Electronic_Warfare_Battery: {
+            // ECM battery: its jam strength is its scan<Race>Strength (attrs 208-211,
+            // e.g. 200 for the standard batteries). Compare against the target's
+            // strongest sensor; on success the target is jammed — its locks drop.
+            float jam = 0.0f;
+            if (weaponRef->HasAttribute(AttrScanRadarStrength))
+                jam = std::max(jam, weaponRef->GetAttribute(AttrScanRadarStrength).get_float());
+            if (weaponRef->HasAttribute(AttrScanLadarStrength))
+                jam = std::max(jam, weaponRef->GetAttribute(AttrScanLadarStrength).get_float());
+            if (weaponRef->HasAttribute(AttrScanGravimetricStrength))
+                jam = std::max(jam, weaponRef->GetAttribute(AttrScanGravimetricStrength).get_float());
+            if (weaponRef->HasAttribute(AttrScanMagnetometricStrength))
+                jam = std::max(jam, weaponRef->GetAttribute(AttrScanMagnetometricStrength).get_float());
+            if (jam <= 0.0f)
+                jam = 1.0f;
+            InventoryItemRef tRef = pTarget->GetSelf();
+            float sensor = 0.0f;
+            if (tRef.get() != nullptr) {
+                if (tRef->HasAttribute(AttrScanGravimetricStrength))
+                    sensor = std::max(sensor, tRef->GetAttribute(AttrScanGravimetricStrength).get_float());
+                if (tRef->HasAttribute(AttrScanLadarStrength))
+                    sensor = std::max(sensor, tRef->GetAttribute(AttrScanLadarStrength).get_float());
+                if (tRef->HasAttribute(AttrScanRadarStrength))
+                    sensor = std::max(sensor, tRef->GetAttribute(AttrScanRadarStrength).get_float());
+                if (tRef->HasAttribute(AttrScanMagnetometricStrength))
+                    sensor = std::max(sensor, tRef->GetAttribute(AttrScanMagnetometricStrength).get_float());
+            }
+            float chance = (sensor > 0.0f) ? std::min(jam / sensor, 0.95f) : 0.5f;
+            if (MakeRandomFloat() < chance) {
+                if (pTarget->TargetMgr() != nullptr)
+                    pTarget->TargetMgr()->ClearAllTargets();   // jam broke every lock
+                m_pWeapon->DestinyMgr()->SendSpecialEffect10(m_pWeapon->GetID(), pTarget->GetID(),
+                                                             "effects.ElectronicAttributeModifyTarget", 1, 1, 1);
+                _log(POS__MESSAGE, "POS_AI: %s jammed %s (str %.0f vs sensor %.0f).",
+                     m_pWeapon->GetName(), pTarget->GetName(), jam, sensor);
+            }
             return;
         }
         default:

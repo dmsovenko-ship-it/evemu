@@ -1032,6 +1032,10 @@ void StructureSE::SetOnline()
     if (m_jammer) {
         svDataMgr.UpdateSystemJammerID(m_self->locationID(),m_self->itemID());
     }
+    // A player onlining a Shield Hardening Array must recompute the tower's shield
+    // resonances immediately (previously only a bot sweep/restart picked it up).
+    if (m_module && m_towerSE != nullptr && m_self->groupID() == EVEDB::invGroups::Shield_Hardening_Array)
+        m_towerSE->ApplyHardeners();
 }
 
 void StructureSE::SetOnlining()
@@ -1056,6 +1060,9 @@ void StructureSE::SetOffline()
     if (m_jammer) {
         svDataMgr.UpdateSystemJammerID(m_self->locationID(),0);
     }
+    // Recompute shield resonances now that a hardener went offline.
+    if (m_module && m_towerSE != nullptr && m_self->groupID() == EVEDB::invGroups::Shield_Hardening_Array)
+        m_towerSE->ApplyHardeners();
 }
 
 void StructureSE::SetInvulnerable()

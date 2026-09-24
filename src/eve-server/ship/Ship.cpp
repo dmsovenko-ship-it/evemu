@@ -3285,6 +3285,12 @@ void ShipSE::MissileLaunched(Missile* pMissile) {
         pDefender->SetSpeed(speed);
         pDefender->SetHitTimer(travelTime * 1000);
         pDefender->DestinyMgr()->MakeMissile(pDefender);
+
+        // Consume the defender charge. Auto-fire bypasses DoCycle, so nothing else
+        // decremented it — defender/countermeasure launchers had infinite ammo.
+        ActiveModule* am = pMod->GetActiveModule();
+        if (am != nullptr)
+            am->ConsumeOneCharge();
     }
 }
 //AttrDroneControlDistance
