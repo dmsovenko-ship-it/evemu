@@ -1342,7 +1342,15 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 }
             }
             if (!s_poolIDs.empty()) {
-                uint32 pickID = s_poolIDs[MakeRandomInt(0, (int32)s_poolIDs.size() - 1)];
+                // Don't recycle a pilot that is currently manning a POS tower — it
+                // must not have a second copy spawned elsewhere (the "same pilot in
+                // two systems" duplication that dragged guards off their tower).
+                uint32 pickID = 0;
+                for (int t = 0; t < 12; ++t) {
+                    pickID = s_poolIDs[MakeRandomInt(0, (int32)s_poolIDs.size() - 1)];
+                    if (m_guardPilots.find(pickID) == m_guardPilots.end())
+                        break;
+                }
                 DBQueryResult bres;
                 if (sDatabase.RunQuery(bres,
                     "SELECT c.characterName, c.corporationID, cc.allianceID, p.eveCharID"
@@ -2843,6 +2851,8 @@ void BotMgr::ReapBots(SystemManager* pSystem)
     for (PlayerBot* bot : toRemove) {
         _log(BOT__MESSAGE, "BotMgr: reaping simulated player '%s' from system %u",
              bot->GetBotName().c_str(), pSystem->GetID());
+        if (bot->IsPosGuard())
+            m_guardPilots.erase(bot->GetBotCharID());   // release the pilot for normal reuse
         DBerror perr;
         sDatabase.RunQuery(perr,
             "UPDATE chrCharacters SET shipID = 0, solarSystemID = 0, stationID = 0, online = 0 WHERE characterID = %u",
@@ -2878,6 +2888,8 @@ void BotMgr::ProcessTravel()
             PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
             if (pb == nullptr)
                 continue;
+            if (pb->IsPosGuard() && pb->GetGuardTowerID() != 0)
+                continue;   // tower guard holds its POS - never wanders off
             if (pb->IsAggressed())
                 continue;   // aggression timer — can't jump a gate until it cools down
             if (pb->WantsToTravel())
@@ -4497,13 +4509,23 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
         if (spawned >= want)
             break;
         uint32 charID = cand.first;
+        if (m_guardPilots.find(charID) != m_guardPilots.end())
+            continue;   // already manning a tower somewhere
 
-        // Skip if this pilot is already flying in the system.
+        // Skip if this pilot is already flying in ANY loaded system: a second copy
+        // would duplicate the pilot (same charID in two systems) and the normal
+        // travel logic of that other copy fights this guard over its movement.
         bool present = false;
-        for (auto& [eid, se] : sysMgr->GetEntities()) {
-            if (se == nullptr || se->GetNPCSE() == nullptr) continue;
-            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
-            if (pb != nullptr && pb->GetBotCharID() == charID) { present = true; break; }
+        for (auto& [sid, sys2] : sEntityList.GetSystems()) {
+            if (sys2 == nullptr)
+                continue;
+            for (auto& [eid, se] : sys2->GetEntities()) {
+                if (se == nullptr || se->GetNPCSE() == nullptr) continue;
+                PlayerBot* pb2 = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                if (pb2 != nullptr && pb2->GetBotCharID() == charID) { present = true; break; }
+            }
+            if (present)
+                break;
         }
         if (present)
             continue;
@@ -4566,8 +4588,13 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
             }
             if (origin != nullptr) {
                 start = origin->GetPosition();
-                start.x += MakeRandomInt(-8000, 8000);
-                start.y += MakeRandomInt(-8000, 8000);
+                // Sit OUTSIDE the structure's collision sphere (radius + 20 km at a
+                // random bearing). A spawn inside the sphere gets pushed/handled
+                // oddly and, with velocity 0, can stall the warp alignment.
+                double off = origin->GetRadius() + 20000.0;
+                double ang = MakeRandomInt(0, 359) * 0.0174532925;
+                start.x += std::cos(ang) * off;
+                start.y += std::sin(ang) * off;
                 arrival = "warp-in-from-station/gate";
             } else {
                 start.x += MakeRandomInt(-4000, 4000);
@@ -4577,6 +4604,7 @@ void BotMgr::SpawnPosGuards(SystemManager* sysMgr, uint32 corpID, const GPoint& 
             guard->DestinyMgr()->SetPosition(start);
         if (tower != nullptr)
             guard->SetGuardTowerID(tower->GetID());
+        m_guardPilots.insert(charID);   // reserve: normal population must not duplicate it
 
         // Responding pilots call it out in local, like real players ("our POS is
         // under attack, moving in"). One line per call, throttled per system.
@@ -4681,6 +4709,7 @@ void BotMgr::ProcessPosGuards()
         // "real warp" defenders actually reach the POS (we must not Orbit() while
         // the warp is running — that aborts it).
         static std::map<uint32,int64> s_guardWarpAt;   // guard charID -> last WarpTo request
+        static std::map<uint32,int64> s_guardDeadline; // guard charID -> must-arrive-by filetime
         int64 nowG = GetFileTimeNow();
         for (auto& [id, se] : pSystem->GetEntities()) {
             if (se == nullptr || se->GetNPCSE() == nullptr)
@@ -4695,21 +4724,64 @@ void BotMgr::ProcessPosGuards()
                 continue;   // in flight — let it arrive first
             double d = pb->GetPosition().distance(tw->GetPosition());
             if (d > 200000.0) {
+                uint32 gcid = pb->GetBotCharID();
+                // Hard arrival deadline: a warp-in guard that hasn't closed the gap
+                // within ~90 s (align never completed, the pilot got duplicated and
+                // yanked, or the warp target is unreachable) is repositioned AT the
+                // tower so the POS always gets its defenders. Fires once per miss.
+                auto dit = s_guardDeadline.find(gcid);
+                if (dit == s_guardDeadline.end())
+                    dit = s_guardDeadline.emplace(gcid, nowG + (int64)EvE::Time::Second * 90).first;
+                if (nowG > dit->second) {
+                    GPoint near = tw->GetPosition();
+                    near.x += MakeRandomInt(-5000, 5000);
+                    near.y += MakeRandomInt(-5000, 5000);
+                    pb->DestinyMgr()->Stop();
+                    pb->DestinyMgr()->SetPosition(near);
+                    s_guardDeadline.erase(gcid);
+                    s_guardWarpAt.erase(gcid);
+                    codelog(POS__MESSAGE, "BotMgr: POS guard %s(%u) warp did not land - repositioned at tower %u.",
+                            pb->GetBotName().c_str(), gcid, tw->GetID());
+                    continue;
+                }
                 // Do NOT re-issue WarpTo every tick: during the align phase
                 // (before the ball actually enters WARP mode) IsWarping() is false,
                 // so a per-tick WarpTo reset the alignment forever and the guard
                 // never left its spawn gate (log: "is N km from tower - warping in"
                 // every second). One request per ~20 s is enough.
-                auto wit = s_guardWarpAt.find(pb->GetBotCharID());
+                auto wit = s_guardWarpAt.find(gcid);
                 if (wit != s_guardWarpAt.end() && (nowG - wit->second) < (int64)EvE::Time::Second * 20)
                     continue;
-                s_guardWarpAt[pb->GetBotCharID()] = nowG;
+                s_guardWarpAt[gcid] = nowG;
                 codelog(POS__MESSAGE, "BotMgr: POS guard %s(%u) is %.0f km from tower %u - warping in.",
-                        pb->GetBotName().c_str(), pb->GetBotCharID(), d / 1000.0, tw->GetID());
+                        pb->GetBotName().c_str(), gcid, d / 1000.0, tw->GetID());
                 pb->DestinyMgr()->WarpTo(tw->GetPosition(), 0);
             } else {
+                s_guardDeadline.erase(pb->GetBotCharID());
                 s_guardWarpAt.erase(pb->GetBotCharID());
                 pb->DestinyMgr()->Orbit(tw, 6000);   // fixed distance so re-issuing is a no-op
+            }
+        }
+
+        // Occasionally release guard reservations whose pilot no longer mans any
+        // tower (killed in the fight, or reaped) so the pool reuses them normally.
+        {
+            static int64 s_lastGuardPrune = 0;
+            if (!m_guardPilots.empty() && (nowG - s_lastGuardPrune) > (int64)EvE::Time::Minute * 5) {
+                s_lastGuardPrune = nowG;
+                for (auto git = m_guardPilots.begin(); git != m_guardPilots.end(); ) {
+                    bool still = false;
+                    for (auto& [sid, se2sys] : sEntityList.GetSystems()) {
+                        if (se2sys == nullptr) continue;
+                        for (auto& [eid, se2] : se2sys->GetEntities()) {
+                            if (se2 == nullptr || se2->GetNPCSE() == nullptr) continue;
+                            PlayerBot* pb2 = dynamic_cast<PlayerBot*>(se2->GetNPCSE());
+                            if (pb2 != nullptr && pb2->GetBotCharID() == *git && pb2->IsPosGuard()) { still = true; break; }
+                        }
+                        if (still) break;
+                    }
+                    if (still) ++git; else git = m_guardPilots.erase(git);
+                }
             }
         }
 

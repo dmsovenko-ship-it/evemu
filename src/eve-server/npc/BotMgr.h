@@ -337,6 +337,12 @@ private:
     std::map<uint32, PosSupplyRun> m_posSupply;   // charID -> run
     std::map<uint32, int64> m_lastPosSupply;      // charID -> last run start (throttle)
 
+    // POS guard pilots are EXCLUSIVE: the normal population/travel logic must not
+    // spawn a second copy of a guard, nor warp it away from its tower. Populated
+    // when SpawnPosGuards assigns a pilot; pruned in ProcessPosGuards when the
+    // guard SE is gone.
+    std::set<uint32> m_guardPilots;   // charID -> reserved as a tower guard
+
     // System adjacency cache (lazy, loaded from mapSolarSystemJumps).
     static std::vector<uint32> GetAdjacentSystems(uint32 systemID);
     // BFS shortest path from..to over the jump graph; true if a route exists.
