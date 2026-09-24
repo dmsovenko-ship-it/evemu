@@ -130,6 +130,13 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
                 targetCriminal = atk->GetCrimeWatch()->IsCriminal();
             targetLowSec = atk->GetSecurityRating() < -5.0f;
         }
+        // An outlaw BOT attacker (highsec ganker) is a legal target everywhere —
+        // same rule as an outlaw player. Self-defence against a ganker is legal.
+        if (attacker->GetNPCSE() != nullptr) {
+            PlayerBot* atkBot = dynamic_cast<PlayerBot*>(attacker->GetNPCSE());
+            if (atkBot != nullptr && atkBot->IsOutlaw())
+                targetLowSec = true;
+        }
         mayAttack = targetCriminal || targetLowSec;
     }
 
@@ -1840,7 +1847,8 @@ void PlayerBot::HuntForTarget()
     float sysSec = SystemMgr()->GetSystemSecurityRating();
 
     // Only hunt where PvP is viable (lowsec/nullsec mostly; highsec rarely).
-    if (sysSec >= 0.5f && MakeRandomInt(0, 99) >= 5)
+    // An OUTLAW (highsec ganker) ignores this — it hunts the hubs like a pirate.
+    if (sysSec >= 0.5f && !m_outlaw && MakeRandomInt(0, 99) >= 5)
         return;
 
     // Hunt cooldown: a hunter doesn't camp the same spot forever — it sweeps,
@@ -1898,8 +1906,10 @@ void PlayerBot::HuntForTarget()
         } else if (grudge) {
             // known enemy (from standings) — hunt it anywhere
         } else if (sysSec >= 0.5f) {
-            if (!enemy->IsAggressive())
-                continue;   // highsec: only hunt aggressive targets (both flagged)
+            // Highsec: a normal hunter only engages aggressive targets (both
+            // flagged). An OUTLAW ganker ignores CONCORD and preys on anyone.
+            if (!m_outlaw && !enemy->IsAggressive())
+                continue;
         } else if (!enemy->IsAggressive() && !m_memory) {
             continue;   // low/null: peaceful bots are still fair game for hunters,
                         // but a novice hunter passes on them until it learns to fight
@@ -1981,6 +1991,10 @@ void PlayerBot::HuntForTarget()
             GetAIMgr()->StartAttackCycle(2000);
             GetAIMgr()->Target(prey);
             CallFleetSupport(prey);
+            // A highsec gank is a criminal act: CONCORD answers with a delay, so a
+            // real ganker gets a few seconds to score the kill before he is destroyed.
+            if (m_outlaw && sysSec >= 0.5f)
+                sBotMgr.ScheduleConcordGank(m_botCharID, SystemMgr()->GetID());
         } else {
             _log(BOT__TRACE, "PlayerBot %s(%u): hunter passed on %s(%u) — %d vs %d.",
                  m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(),

@@ -13,6 +13,7 @@
 
 class SystemManager;
 class PlayerBot;
+class SystemEntity;
 
 /**
  * @brief Manages simulated players (AI pilots) that populate active systems
@@ -342,6 +343,16 @@ private:
     // when SpawnPosGuards assigns a pilot; pruned in ProcessPosGuards when the
     // guard SE is gone.
     std::set<uint32> m_guardPilots;   // charID -> reserved as a tower guard
+
+    // Highsec outlaw gankers: CONCORD answers a few seconds after the gank, the
+    // window scaled by system security (Crucible: ~6s at 1.0, ~19s at 0.5). The
+    // ganker is destroyed by a spawned CONCORD ship (proper killmail attribution);
+    // the temp CONCORD ships are despawned after a while.
+    void ScheduleConcordGank(uint32 charID, uint32 sysID);
+    void ProcessOutlawConcord();
+    std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
+    struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
+    std::vector<ConcordTemp> m_concordTemp;      // store IDs (system may unload)
 
     // System adjacency cache (lazy, loaded from mapSolarSystemJumps).
     static std::vector<uint32> GetAdjacentSystems(uint32 systemID);

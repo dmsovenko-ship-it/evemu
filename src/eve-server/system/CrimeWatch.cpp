@@ -556,3 +556,50 @@ void CrimeWatch::SetLimitedEngagement()
     m_limitedEngagementTimer.Start(900000); // 15 minutes
     m_client->SendNotifyMsg("Limited Engagement active for 15 minutes. You are a legal target.");
 }
+
+// ---------------------------------------------------------------------------
+// Global CONCORD strike for a non-Client criminal (a PlayerBot outlaw ganker).
+// Spawns CONCORD ships at the criminal and returns the flagship, which the caller
+// uses as the DAMAGE SOURCE so the killmail is attributed to CONCORD. CONCORD
+// answers exactly as for a player-criminal; the caller owns the ships' despawn.
+SystemEntity* SpawnConcordAgainst(SystemEntity* criminalSE)
+{
+    if (criminalSE == nullptr || criminalSE->SystemMgr() == nullptr)
+        return nullptr;
+    SystemManager* sysMgr = criminalSE->SystemMgr();
+    GPoint pos = criminalSE->GetPosition();
+
+    FactionData faction;
+    faction.allianceID = 0;
+    faction.factionID = 500021;
+    faction.ownerID = 1000125;
+    faction.corporationID = 1000125;
+
+    SystemEntity* primary = nullptr;
+    for (uint32 i = 0; i < 2; ++i) {
+        uint32 typeID = CONCORD_TYPEIDS[MakeRandomInt(0, 2)];
+        char name[64];
+        snprintf(name, sizeof(name), "CONCORD #%u", i + 1);
+
+        ItemData itemData(typeID, faction.ownerID, sysMgr->GetID(), flagNone, name, pos);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        if (iRef.get() == nullptr)
+            continue;
+
+        NPC* pNPC = new NPC(iRef, sysMgr->GetServiceMgr(), sysMgr, faction);
+        if (pNPC == nullptr || !pNPC->Load()) {
+            if (pNPC) delete pNPC;
+            continue;
+        }
+        GPoint p = pos;
+        p.x += (float)(MakeRandomInt(-2000, 2000));
+        p.z += (float)(MakeRandomInt(-2000, 2000));
+        pNPC->DestinyMgr()->SetPosition(p);
+        sysMgr->AddNPC(pNPC);
+        pNPC->GetAIMgr()->Target(criminalSE);
+        pNPC->GetAIMgr()->StartAttackCycle(500);
+        if (i == 0)
+            primary = pNPC;
+    }
+    return primary;
+}

@@ -143,6 +143,10 @@ public:
     // tower. Movement is owned by BotMgr::ProcessPosSupplyRuns.
     bool IsSupplyRun() const            { return m_supplyRun; }
     void SetSupplyRun(bool v)           { m_supplyRun = v; }
+    // Outlaw (negative security status): a pirate/ganker that ignores the highsec
+    // PvP gate and preys on other pilots there. CONCORD answers with a delay.
+    bool IsOutlaw() const               { return m_outlaw; }
+    void SetOutlaw(bool v)              { m_outlaw = v; }
     void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
     void HuntForTarget();               // PvP hunter: find a legal PvP target and engage
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
@@ -254,6 +258,7 @@ protected:
     bool m_posGuard = false;            // POS tower guard: assists the operator's target
     uint32 m_guardTowerID = 0;          // tower this guard was assigned to (see SetGuardTowerID)
     bool m_supplyRun = false;           // POS supply run in progress (movement owned by BotMgr)
+    bool m_outlaw = false;              // pirate/ganker: ignores highsec PvP gate (CONCORD answers)
     uint32 m_nextMissionReport = 0;     // missioner: dock & report when ratKills reaches this
     std::unique_ptr<BotMemory> m_memory;   // persistent learning (win/loss/chat)
     std::vector<InventoryItemRef> m_droppedItems; // modules/cargo rolled as "dropped" (moved to wreck on death)

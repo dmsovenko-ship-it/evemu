@@ -8,6 +8,8 @@
 #include "EntityList.h"
 #include "system/SystemManager.h"
 #include "system/SystemBubble.h"
+#include "system/CrimeWatch.h"
+#include "system/Damage.h"
 #include "corporation/CorporationDB.h"
 #include "character/CharacterDB.h"
 #include "chat/LSCService.h"
@@ -265,6 +267,9 @@ void BotMgr::Process()
 
     // Industrialists fly fuel / ammo / materials to their corp's POS and unload.
     ProcessPosSupplyRuns();
+
+    // Highsec outlaw gankers: CONCORD answers after its security-scaled delay.
+    ProcessOutlawConcord();
 
     // Keep every loaded bot POS topped up to its doctrine (fills free CPU/grid
     // with shield resists and small guns). Throttled — it walks loaded systems.
@@ -1204,6 +1209,26 @@ void BotMgr::EnsureAlwaysOnSystems()
         }
     }
 
+    // Hunting grounds: a few lowsec/null systems kept populated 24/7. In highsec
+    // CONCORD gates PvP, so bot-vs-bot fights can only happen where security is
+    // low — yet the normal population lives in the highsec hubs, leaving hunters
+    // with no prey. These persistent low/null systems give the hunter profession
+    // (and outlaw pirates) somewhere to hunt, so kills actually reach the board.
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT solarSystemID FROM (SELECT solarSystemID FROM mapSolarSystems"
+            "   WHERE security > 0.05 AND security < 0.45 ORDER BY RAND() LIMIT 2) a"
+            " UNION ALL"
+            " SELECT solarSystemID FROM (SELECT solarSystemID FROM mapSolarSystems"
+            "   WHERE security <= 0.05 ORDER BY RAND() LIMIT 1) b"))
+        {
+            DBResultRow r;
+            while (res.GetRow(r))
+                m_alwaysOn.insert(r.GetUInt(0));
+        }
+    }
+
     for (uint32 id : m_alwaysOn) {
         SystemManager* sm = sEntityList.FindOrBootSystem(id);
         if (sm != nullptr)
@@ -1655,6 +1680,12 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
+    // Ganker subclass (ordinary-player rule): a slice of hunters are highsec
+    // OUTLAWS flying cheap high-DPS gank destroyers (Catalyst/Thrasher/Coercer),
+    // hunting the hubs like Crucible suicide-gankers. Decided here so the hull
+    // pick below matches the role (and CONCORD later answers).
+    bool isGanker = (prof == PlayerBot::BotProfession::Hunter) && (MakeRandomInt(0, 99) < 25);
+
     // A chelobot's corp and alliance are ALWAYS the real ones recorded on its
     // character row (chrCharacters.corporationID -> crpCorporation.allianceID) —
     // never the killmail legend's ids. The legend (zkillboard/sotzone) carries
@@ -1740,7 +1771,14 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 break;
         }
 
-        if (spawnFleetBoss) {
+        if (isGanker) {
+            // Crucible suicide-ganker hull: a cheap destroyer built for alpha
+            // damage (Catalyst/Thrasher/Coercer/Cormorant). No boss, no re-pick.
+            static const uint32 gankerHulls[] = { 16240, 16242, 16236, 16238 };
+            hullType = gankerHulls[MakeRandomInt(0, 3)];
+            spawnFleetBoss = false;
+            forceProfessionHull = false;
+        } else if (spawnFleetBoss) {
             // Boss hull already chosen (Orca/Rorqual) — keep it, no re-pick.
         } else if (forceProfessionHull) {
             hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
@@ -2122,6 +2160,14 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // Assign the profession decided earlier (before corp selection).
     bot->SetProfession(prof);
     _log(BOT__TRACE, "BotMgr: %s(%u) profession = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)prof);
+
+    // Chelobots are ordinary players: a minority of hunters are OUTLAWS — pilots
+    // with negative security status (highsec gankers / lowsec pirates). They
+    // ignore the highsec PvP gate and prey on other pilots there; CONCORD answers
+    // with a short delay, exactly as it would for a player. This is what produces
+    // real bot-vs-bot violence (and killboard entries) in the busy hubs.
+    if (isGanker)
+        bot->SetOutlaw(true);
 
     // A minority of hunters are "faction warriors": FW-style militia that treats
     // bots of OTHER factions as their fixed enemies (subclass stub for future
@@ -7159,6 +7205,104 @@ void BotMgr::ProcessPosSupplyRuns()
         }
 
         itr = m_posSupply.erase(itr);
+    }
+}
+
+// --- Highsec outlaw gankers / CONCORD --------------------------------------
+void BotMgr::ScheduleConcordGank(uint32 charID, uint32 sysID)
+{
+    if (charID == 0)
+        return;
+    int64 now = GetFileTimeNow();
+
+    // Crucible CONCORD reaction time scales with system security:
+    //   1.0 ~6s, 0.9 ~6s, 0.8 ~7s, 0.7 ~10s, 0.6 ~14s, 0.5 ~19s.
+    // Interpolated linearly (0.5 -> 19s .. 1.0 -> 6s). The ganker's window to kill
+    // the target is exactly this delay, so a weak (low-EHP) victim dies in time.
+    float sec = 1.0f;
+    SystemManager* sm = sEntityList.FindOrBootSystem(sysID);
+    if (sm != nullptr)
+        sec = sm->GetSystemSecurityRating();
+    if (sec < 0.5f) sec = 0.5f;
+    if (sec > 1.0f) sec = 1.0f;
+    double delay = 19.0 - (double)(sec - 0.5f) * 26.0;
+    if (delay < 5.0) delay = 5.0;
+
+    int64 at = now + (int64)(delay * (double)EvE::Time::Second);
+    auto it = m_concordGankAt.find(charID);
+    if (it == m_concordGankAt.end() || at > it->second)
+        m_concordGankAt[charID] = at;   // a fresh gank extends the window
+}
+
+void BotMgr::ProcessOutlawConcord()
+{
+    if (m_concordGankAt.empty() && m_concordTemp.empty())
+        return;
+    int64 now = GetFileTimeNow();
+
+    for (auto it = m_concordGankAt.begin(); it != m_concordGankAt.end(); ) {
+        if (now < it->second) { ++it; continue; }
+        uint32 charID = it->first;
+
+        // Locate the outlaw's ship in any loaded system.
+        SystemEntity* gangSE = nullptr;
+        for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+            if (sm == nullptr)
+                continue;
+            for (auto& [id, se] : sm->GetEntities()) {
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                if (pb != nullptr && pb->GetBotCharID() == charID && pb->IsOutlaw()) { gangSE = se; break; }
+            }
+            if (gangSE != nullptr)
+                break;
+        }
+
+        if (gangSE != nullptr) {
+            // Capture everything before dealing damage: ApplyDamage -> Killed may
+            // free the ganker SE, so gangSE must not be touched afterwards.
+            uint32 sysID = (gangSE->SystemMgr() != nullptr) ? gangSE->SystemMgr()->GetID() : 0;
+            PlayerBot* gb = (gangSE->GetNPCSE() != nullptr) ? dynamic_cast<PlayerBot*>(gangSE->GetNPCSE()) : nullptr;
+            std::string gname = (gb != nullptr) ? gb->GetBotName() : std::string("?");
+            // CONCORD warps in and destroys the ganker. Attribution via the CONCORD
+            // ship as the damage source (proper "CONCORD killed X" killmail).
+            SystemEntity* concordSE = SpawnConcordAgainst(gangSE);
+            uint32 concordID = (concordSE != nullptr) ? concordSE->GetID() : 0;
+            InventoryItemRef ship = gangSE->GetSelf();
+            if (ship.get() != nullptr) {
+                double hp = ship->GetAttribute(AttrShieldCapacity).get_float()
+                          + ship->GetAttribute(AttrArmorHP).get_float()
+                          + ship->GetAttribute(AttrHP).get_float();
+                if (hp < 1.0) hp = 1000.0;
+                double dmg = hp * 25.0;
+                SystemEntity* src = (concordSE != nullptr) ? concordSE : gangSE;
+                Damage d(src, ship, dmg, dmg, dmg, dmg, 1.0f, 0);
+                gangSE->ApplyDamage(d);
+            }
+            _log(BOT__MESSAGE, "BotMgr: CONCORD destroyed outlaw %s(%u) in system %u.",
+                 gname.c_str(), charID, sysID);
+            if (concordID != 0 && sysID != 0)
+                m_concordTemp.push_back({ sysID, concordID, now + (int64)EvE::Time::Second * 20 });
+        }
+        it = m_concordGankAt.erase(it);
+    }
+
+    // Despawn CONCORD ships a while after the strike (they leave the scene).
+    // Stored as IDs: the system may have unloaded in the meantime.
+    for (auto it = m_concordTemp.begin(); it != m_concordTemp.end(); ) {
+        if (now < it->at) { ++it; continue; }
+        SystemManager* sm = nullptr;
+        for (auto& [sid, psm] : sEntityList.GetSystems())
+            if (sid == it->sysID) { sm = psm; break; }
+        if (sm != nullptr) {
+            SystemEntity* se = sm->GetSE(it->seID);
+            if (se != nullptr) {
+                se->Delete();
+                SafeDelete(se);
+            }
+        }
+        it = m_concordTemp.erase(it);
     }
 }
 

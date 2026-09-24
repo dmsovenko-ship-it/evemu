@@ -7,6 +7,10 @@ class Client;
 class NPC;
 class SystemEntity;
 
+// Global CONCORD strike for a non-Client criminal (a PlayerBot outlaw ganker).
+// Returns the CONCORD flagship used as the kill's damage source (may be null).
+SystemEntity* SpawnConcordAgainst(SystemEntity* criminalSE);
+
 class CrimeWatch
 {
 public:
