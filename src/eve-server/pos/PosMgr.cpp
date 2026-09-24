@@ -910,9 +910,25 @@ PyResult PosMgrBound::ChangeStructureProvisionType(PyCallArgs &call, PyInt* towe
     _log(POS__TRACE,  "PosMgrBound::Handle_ChangeStructureProvisionType()");
     call.Dump(POS__DUMP);
 
-    /** @todo  finish this.. */
+    SystemManager* pSystem = call.client->SystemMgr();
+    if (pSystem == nullptr)
+        return PyStatic.NewFalse();
+    SystemEntity* pSE = pSystem->GetSE(itemID->value());
+    if (pSE == nullptr || pSE->GetReactorSE() == nullptr || pSE->GetReactorSE()->GetReactorData() == nullptr)
+        return PyStatic.NewFalse();
 
-    return PyStatic.NewNone();
+    // The "provision" is the single material a silo is configured to hold (or a
+    // harvester's mining product). Stored for reference/UI; the actual routing is
+    // driven by the resource links (ReactorSE::ProcessReactionCycle).
+    EVEPOS::POS_Resource res;
+        res.typeID = (uint32)typeID->value();
+        res.quantity = 0;
+    pSE->GetReactorSE()->GetReactorData()->GetSupplies()[itemID->value()] = res;
+
+    _log(POS__MESSAGE, "PosMgrBound::ChangeStructureProvisionType() - %s set provision type %u on item %u.",
+         call.client->GetName(), typeID->value(), itemID->value());
+
+    return PyStatic.NewTrue();
 }
 
 PyResult PosMgrBound::LinkResourceForTower(PyCallArgs &call, PyInt* itemID, PyList* connections) {

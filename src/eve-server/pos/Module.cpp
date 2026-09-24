@@ -108,52 +108,32 @@ void ReactorSE::Process()
 //   Complex Reactor Array (16869) -> 200 Intermediate + 100 raw  -> 100 Composite (429)
 // The Crucible data dump has no reaction formulas (invTypeReactions is empty), so
 // the ratios mirror the simplified model the chelobot economy uses.
-static uint32 FindTowerStockType(Inventory* inv, uint32 groupID, uint32 minQty)
+static Inventory* ModuleInv(SystemManager* sys, uint32 itemID)
+{
+    if (sys == nullptr)
+        return nullptr;
+    SystemEntity* se = sys->GetSE(itemID);
+    if (se == nullptr || se->GetSelf().get() == nullptr)
+        return nullptr;
+    return se->GetSelf()->GetMyInventory();
+}
+
+static void AggregateStock(Inventory* inv, std::map<uint32, uint32>& stock)
 {
     if (inv == nullptr)
-        return 0;
+        return;
     std::vector<InventoryItemRef> items;
-    inv->GetItemsByFlag(flagCargoHold, items);
-    for (auto& it : items) {
-        if (it.get() == nullptr)
-            continue;
-        const ItemType* t = sItemFactory.GetType(it->typeID());
-        if (t != nullptr && t->groupID() == groupID && (uint32)it->quantity() >= minQty)
-            return it->typeID();
-    }
-    return 0;
-}
-
-static bool ConsumeTowerType(Inventory* inv, uint32 typeID, uint32 qty)
-{
-    if (inv == nullptr || typeID == 0 || qty == 0)
-        return false;
-    std::vector<InventoryItemRef> items;
-    inv->GetItemsByFlag(flagCargoHold, items);
-    uint32 have = 0;
+    inv->GetItemsByFlag(flagHangar, items);
     for (auto& it : items)
-        if (it.get() != nullptr && it->typeID() == typeID)
-            have += (uint32)it->quantity();
-    if (have < qty)
-        return false;
-    uint32 left = qty;
-    for (auto& it : items) {
-        if (left == 0)
-            break;
-        if (it.get() == nullptr || it->typeID() != typeID || it->quantity() <= 0)
-            continue;
-        uint32 take = std::min<uint32>((uint32)it->quantity(), left);
-        it->AlterQuantity(-(int32)take, true);   // 0 -> item self-deletes
-        left -= take;
-    }
-    return true;
+        if (it.get() != nullptr)
+            stock[it->typeID()] += (uint32)it->quantity();
 }
 
-static void MintIntoTower(Inventory* inv, uint32 ownerID, uint32 towerID, uint32 typeID, uint32 qty)
+static void DepositToInv(Inventory* inv, uint32 ownerID, uint32 itemID, uint32 typeID, uint32 qty)
 {
     if (inv == nullptr || typeID == 0 || qty == 0)
         return;
-    ItemData idata((uint16)typeID, ownerID, towerID, flagCargoHold, qty);
+    ItemData idata((uint16)typeID, ownerID, itemID, flagHangar, qty);
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
     if (iRef.get() == nullptr)
         return;
@@ -175,74 +155,125 @@ static uint32 PickPublishedType(uint32 groupID)
 
 void ReactorSE::ProcessReactionCycle()
 {
-    if (m_towerSE == nullptr)
+    if (m_system == nullptr || m_towerSE == nullptr)
         return;
-    InventoryItemRef tower = m_towerSE->GetSelf();
-    if (tower.get() == nullptr)
-        return;
-    Inventory* inv = tower->GetMyInventory();
-    if (inv == nullptr)
-        return;
+    const uint32 myID = m_self->itemID();
+
+    // PROVIDERS: modules whose resource links target ME (their output feeds me),
+    // plus my own storage. SINK: the module(s) I link TO (where my output goes);
+    // falls back to my own storage. Links are set up in the POS window
+    // (LinkResourceForTower) as harvester -> silo -> reactor -> silo.
+    std::vector<uint32> providers;
+    providers.push_back(myID);
+    for (auto& [id, se] : m_system->GetEntities()) {
+        if (se == nullptr || se->GetReactorSE() == nullptr)
+            continue;
+        ReactorSE* r = se->GetReactorSE();
+        if (r == this || r->GetReactorData() == nullptr)
+            continue;
+        for (auto& [cid, c] : r->GetReactorData()->GetConnections())
+            if (c.toID == myID) { providers.push_back(se->GetID()); break; }
+    }
+    std::vector<uint32> sinks;
+    if (pData != nullptr)
+        for (auto& [cid, c] : pData->GetConnections())
+            if (c.toID != 0 && c.toID != myID)
+                sinks.push_back(c.toID);
+    if (sinks.empty())
+        sinks.push_back(myID);
+
+    auto deposit = [&](uint32 typeID, uint32 qty) {
+        for (uint32 sid : sinks) {
+            Inventory* inv = ModuleInv(m_system, sid);
+            if (inv != nullptr) { DepositToInv(inv, m_self->ownerID(), sid, typeID, qty); return; }
+        }
+    };
+    auto consume = [&](uint32 typeID, uint32 qty) -> bool {
+        uint32 left = qty;
+        for (uint32 pid : providers) {
+            if (left == 0)
+                break;
+            Inventory* inv = ModuleInv(m_system, pid);
+            if (inv == nullptr)
+                continue;
+            std::vector<InventoryItemRef> items;
+            inv->GetItemsByFlag(flagHangar, items);
+            for (auto& it : items) {
+                if (left == 0)
+                    break;
+                if (it.get() == nullptr || it->typeID() != typeID || it->quantity() <= 0)
+                    continue;
+                uint32 take = std::min<uint32>((uint32)it->quantity(), left);
+                it->AlterQuantity(-(int32)take, true);   // 0 -> item self-deletes
+                left -= take;
+            }
+        }
+        return left == 0;
+    };
 
     const uint16 grp = m_self->groupID();
 
-    // 1) Moon Harvesting Array: mine a raw Moon Material into the tower.
+    // 1) Moon Harvesting Array: mine a raw Moon Material into the linked silo.
     if (grp == EVEDB::invGroups::Moon_Mining) {
-        // Stay single-material: reuse whatever raw material is already stored, else
-        // pick one. (EVE ties this to the moon's composition; we don't model that.)
-        uint32 rawType = FindTowerStockType(inv, EVEDB::invGroups::Moon_Materials, 1);
+        uint32 rawType = 0;
+        std::map<uint32, uint32> stock;
+        for (uint32 pid : providers)
+            AggregateStock(ModuleInv(m_system, pid), stock);
+        for (auto& [tid, q] : stock) {
+            const ItemType* t = sItemFactory.GetType((uint16)tid);
+            if (t != nullptr && t->groupID() == EVEDB::invGroups::Moon_Materials) { rawType = tid; break; }
+        }
         if (rawType == 0)
             rawType = PickPublishedType(EVEDB::invGroups::Moon_Materials);
         if (rawType != 0) {
-            MintIntoTower(inv, m_self->ownerID(), tower->itemID(), rawType, 100);
-            _log(SE__MESSAGE, "ReactorSE %s(%u): harvested 100 x %u.",
-                 m_self->name(), m_self->itemID(), rawType);
+            deposit(rawType, 100);
+            _log(SE__MESSAGE, "ReactorSE %s(%u): harvested 100 x %u.", m_self->name(), myID, rawType);
         }
         return;
     }
 
-    // 2) Reactor Arrays: simple (typeID 20175) and complex (16869).
+    // 2) Reactor Arrays: pull inputs from linked providers (harvesters/silos).
     if (grp == EVEDB::invGroups::Mobile_Reactor) {
-        bool complexReactor = (m_self->typeID() == 16869);
-        if (complexReactor) {
-            uint32 interType = FindTowerStockType(inv, EVEDB::invGroups::Intermediate_Materials, 200);
-            uint32 rawType   = FindTowerStockType(inv, EVEDB::invGroups::Moon_Materials, 100);
-            if (interType != 0 && rawType != 0) {
+        std::map<uint32, uint32> stock;
+        for (uint32 pid : providers)
+            AggregateStock(ModuleInv(m_system, pid), stock);
+
+        std::vector<uint32> raws, inters;
+        for (auto& [tid, q] : stock) {
+            const ItemType* t = sItemFactory.GetType((uint16)tid);
+            if (t == nullptr)
+                continue;
+            if (t->groupID() == EVEDB::invGroups::Moon_Materials && q >= 100)
+                raws.push_back(tid);
+            else if (t->groupID() == EVEDB::invGroups::Intermediate_Materials && q >= 200)
+                inters.push_back(tid);
+        }
+        std::sort(raws.begin(), raws.end());
+        std::sort(inters.begin(), inters.end());
+
+        if (m_self->typeID() == 16869) {
+            // complex: 200 intermediates + 100 raw -> 100 composites
+            if (!inters.empty() && !raws.empty()) {
                 uint32 compType = PickPublishedType(EVEDB::invGroups::Composite);
-                if (compType != 0 && ConsumeTowerType(inv, interType, 200) && ConsumeTowerType(inv, rawType, 100)) {
-                    MintIntoTower(inv, m_self->ownerID(), tower->itemID(), compType, 100);
-                    _log(SE__MESSAGE, "ReactorSE %s(%u): complex reaction -> 100 x %u.",
-                         m_self->name(), m_self->itemID(), compType);
+                if (compType != 0 && consume(inters[0], 200) && consume(raws[0], 100)) {
+                    deposit(compType, 100);
+                    _log(SE__MESSAGE, "ReactorSE %s(%u): complex reaction -> 100 x %u.", m_self->name(), myID, compType);
                 }
             }
         } else {
-            std::vector<uint32> raws;
-            {
-                std::vector<InventoryItemRef> items;
-                inv->GetItemsByFlag(flagCargoHold, items);
-                for (auto& it : items) {
-                    if (it.get() == nullptr || it->quantity() < 100)
-                        continue;
-                    const ItemType* t = sItemFactory.GetType(it->typeID());
-                    if (t != nullptr && t->groupID() == EVEDB::invGroups::Moon_Materials)
-                        raws.push_back(it->typeID());
-                }
-            }
-            std::sort(raws.begin(), raws.end());
-            raws.erase(std::unique(raws.begin(), raws.end()), raws.end());
+            // simple: 2 x 100 distinct raws -> 100 intermediates
             if (raws.size() >= 2) {
                 uint32 interType = PickPublishedType(EVEDB::invGroups::Intermediate_Materials);
-                if (interType != 0 && ConsumeTowerType(inv, raws[0], 100) && ConsumeTowerType(inv, raws[1], 100)) {
-                    MintIntoTower(inv, m_self->ownerID(), tower->itemID(), interType, 100);
-                    _log(SE__MESSAGE, "ReactorSE %s(%u): simple reaction -> 100 x %u.",
-                         m_self->name(), m_self->itemID(), interType);
+                if (interType != 0 && consume(raws[0], 100) && consume(raws[1], 100)) {
+                    deposit(interType, 100);
+                    _log(SE__MESSAGE, "ReactorSE %s(%u): simple reaction -> 100 x %u.", m_self->name(), myID, interType);
                 }
             }
         }
         return;
     }
 
-    // Silos (404) and anything else: passive storage — no cycle work.
+    // Silos (404) and anything else: passive storage - no cycle work.
 }
 
 /** @note  basic notes on player owned structures
