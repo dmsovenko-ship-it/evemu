@@ -1110,10 +1110,40 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
             if (m_targetSE != nullptr)
                 m_targetSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, 0.0f);
         } break;
-        case EVEDB::invGroups::Ship_Scanner:
+        case EVEDB::invGroups::Ship_Scanner:{
+            // not implemented (needs the client's hardwareList format)
+        } break;
         case EVEDB::invGroups::Cargo_Scanner:{
-            if (m_targetSE != nullptr)
-                ;  // not sure if we need this here.....do these work like belt scanner?
+            if (abort) {
+                Clear();
+                return;
+            }
+            if (m_targetSE == nullptr || m_shipRef->GetPilot() == nullptr
+                || m_targetSE->GetSelf().get() == nullptr)
+                break;
+            // Client's shipui expects (eventName, shipID, cargoList) where cargoList
+            // is a list of (typeID, quantity) — see form.CargoScan.LoadResult().
+            PyList* cargo = new PyList();
+            Inventory* inv = m_targetSE->GetSelf()->GetMyInventory();
+            if (inv != nullptr) {
+                std::vector<InventoryItemRef> items;
+                inv->GetItemsByFlag(flagCargoHold, items);
+                std::map<uint32, int32> byType;
+                for (auto& it : items)
+                    if (it.get() != nullptr)
+                        byType[it->typeID()] += it->quantity();
+                for (auto& [tid, qty] : byType) {
+                    PyTuple* row = new PyTuple(2);
+                    PySetItemRelease(row, 0, new PyInt(tid));
+                    PySetItemRelease(row, 1, new PyInt(qty));
+                    cargo->AddItem(row);
+                }
+            }
+            PyTuple* result = new PyTuple(3);
+            PySetItemRelease(result, 0, new PyString("OnCargoScanComplete"));
+            PySetItemRelease(result, 1, new PyInt(m_targetSE->GetID()));
+            result->SetItem(2, cargo);
+            m_shipRef->GetPilot()->QueueDestinyEvent(&result);
         } break;
         // not sure just how this works yet
         // case EVEDB::invGroups::System_Scanner:
