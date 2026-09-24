@@ -107,6 +107,10 @@ public:
     uint32 GetTradeHubSystem() const;
     bool IsTradeHub(uint32 systemID) const;
 
+    // An outlaw highsec ganker committed a crime: CONCORD answers after its
+    // security-scaled delay. Called from PlayerBot::HuntForTarget.
+    void ScheduleConcordGank(uint32 charID, uint32 sysID);
+
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
     // Materialize a killmail fit (JSON array of module typeIDs) into a bot's ship:
@@ -348,7 +352,6 @@ private:
     // window scaled by system security (Crucible: ~6s at 1.0, ~19s at 0.5). The
     // ganker is destroyed by a spawned CONCORD ship (proper killmail attribution);
     // the temp CONCORD ships are despawned after a while.
-    void ScheduleConcordGank(uint32 charID, uint32 sysID);
     void ProcessOutlawConcord();
     std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
     struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
