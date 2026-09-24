@@ -28,6 +28,10 @@
 
 
 #include "EVEServerConfig.h"
+#include "Client.h"
+#include "inventory/ItemFactory.h"
+#include "tables/invGroups.h"
+#include "ship/Ship.h"
 #include "npc/Drone.h"
 #include "planet/CustomsOffice.h"
 #include "planet/Moon.h"
@@ -1389,13 +1393,47 @@ PyResult ShipBound::LaunchFromContainer(PyCallArgs &call, PyInt* structureID, Py
      *        for invItem in invItems:
      *            structureID = invItem.locationID
      *            ids += [invItem.itemID] * invItem.stacksize
-     *
      *  LaunchFromContainer(structureID, ids)
      */
-
     _log(SERVICE__CALL_DUMP, "ShipBound::Handle_LaunchFromContainer()");
     call.Dump(SERVICE__CALL_DUMP);
 
+    Client* pClient = call.client;
+    SystemManager* pSystem = (pClient != nullptr) ? pClient->SystemMgr() : nullptr;
+    if (pSystem == nullptr || ids == nullptr)
+        return nullptr;
+
+    SystemEntity* smaSE = pSystem->GetSE(structureID->value());
+    if (smaSE == nullptr)
+        throw CustomError ("The maintenance array is not in this system.");
+    GPoint base = smaSE->GetPosition();
+
+    for (uint32 i = 0; i < ids->size(); ++i) {
+        PyRep* e = ids->GetItem(i);
+        if (e == nullptr || !e->IsInt())
+            continue;
+        ShipItemRef ship = sItemFactory.GetShipRef(e->AsInt()->value());
+        if (ship.get() == nullptr)
+            continue;
+        if (ship->locationID() != structureID->value())
+            continue;   // not stored in this SMA
+
+        GPoint pos = base;
+        pos.MakeRandomPointOnSphere(smaSE->GetRadius() + ship->radius() + (double)MakeRandomInt(200, 2000));
+        ship->SetPosition(pos);
+        ship->Move(pSystem->GetID(), flagNone, true);
+
+        FactionData data = FactionData();
+            data.ownerID = ship->ownerID();
+            data.corporationID = pClient->GetCorporationID();
+            data.allianceID = pClient->GetAllianceID();
+            data.factionID = pClient->GetWarFactionID();
+        ShipSE* newSE = new ShipSE(ship, pSystem->GetServiceMgr(), pSystem, data);
+        if (newSE != nullptr)
+            pSystem->AddEntity(newSE);
+        else
+            _log(SHIP__ERROR, "LaunchFromContainer() - failed to create SE for ship %u.", ship->itemID());
+    }
     return nullptr;
 }
 
@@ -1403,31 +1441,132 @@ PyResult ShipBound::LaunchFromContainer(PyCallArgs &call, PyInt* structureID, Py
 // ShipMaintenanceArray
 PyResult ShipBound::ScoopToSMA(PyCallArgs &call, PyInt* objectID) {
     // no packet data
-
     _log(SERVICE__CALL_DUMP, "ShipBound::Handle_ScoopToSMA()");
     call.Dump(SERVICE__CALL_DUMP);
 
+    Client* pClient = call.client;
+    SystemManager* pSystem = (pClient != nullptr) ? pClient->SystemMgr() : nullptr;
+    if (pSystem == nullptr)
+        return nullptr;
+
+    SystemEntity* se = pSystem->GetSE(objectID->value());
+    if (se == nullptr || !se->IsShipSE() || se->HasPilot())
+        throw CustomError ("You can only scoop an unpiloted ship into a maintenance array.");
+    ShipSE* shipSE = se->GetShipSE();
+    if (shipSE->GetTypeID() == itemTypeCapsule)
+        throw CustomError ("You cannot store a capsule.");
+
+    // Nearest Ship Maintenance Array owned by the caller's corp (or the caller).
+    uint32 smaID = 0;
+    double bestDist = 1e30;
+    for (auto& [id, e] : pSystem->GetEntities()) {
+        if (e == nullptr || e->GetPOSSE() == nullptr || e->GetPOSSE()->GetSelf().get() == nullptr)
+            continue;
+        if (e->GetPOSSE()->GetSelf()->groupID() != EVEDB::invGroups::Ship_Maintenance_Array)
+            continue;
+        uint32 owner = e->GetPOSSE()->GetSelf()->ownerID();
+        if (owner != pClient->GetCorporationID() && owner != pClient->GetCharacterID())
+            continue;
+        double d = se->GetPosition().distance(e->GetPosition());
+        if (d < bestDist) { bestDist = d; smaID = id; }
+    }
+    if (smaID == 0)
+        throw CustomError ("There is no Ship Maintenance Array nearby.");
+    if (bestDist > 2500.0f)
+        throw CustomError ("You are too far from the maintenance array to scoop the ship.");
+
+    ShipItemRef shipRef = shipSE->GetShipItemRef();
+    uint32 seID = shipSE->GetID();
+    if (shipRef.get() != nullptr)
+        shipRef->Move(smaID, flagShipHangar, true);
+    SystemEntity* oldSE = pSystem->GetSE(seID);
+    if (oldSE != nullptr) {
+        pSystem->RemoveEntity(oldSE);
+        SafeDelete(oldSE);
+    }
     return nullptr;
 }
 
 
 PyResult ShipBound::BoardStoredShip(PyCallArgs &call, PyInt* structureID, PyInt* shipID) {
     // no packet data
-
-    //sm.StartService('sessionMgr').PerformSessionChange('board', ship.BoardStoredShip, structureID, shipID)
     _log(SERVICE__CALL_DUMP, "ShipBound::Handle_BoardStoredShip()");
     call.Dump(SERVICE__CALL_DUMP);
 
+    Client* pClient = call.client;
+    SystemManager* pSystem = (pClient != nullptr) ? pClient->SystemMgr() : nullptr;
+    if (pSystem == nullptr)
+        return nullptr;
+
+    ShipItemRef ship = sItemFactory.GetShipRef(shipID->value());
+    if (ship.get() == nullptr)
+        throw CustomError ("That ship could not be found.");
+    if (ship->locationID() != structureID->value())
+        throw CustomError ("That ship is not stored in this maintenance array.");
+    if (ship->isSingleton() == false)
+        throw CustomError ("That ship must be assembled before it can be boarded.");
+
+    SystemEntity* smaSE = pSystem->GetSE(structureID->value());
+    if (smaSE == nullptr)
+        throw CustomError ("The maintenance array is not in this system.");
+
+    GPoint pos = smaSE->GetPosition();
+    pos.MakeRandomPointOnSphere(smaSE->GetRadius() + ship->radius() + (double)MakeRandomInt(150, 1500));
+    ship->SetPosition(pos);
+    ship->Move(pSystem->GetID(), flagNone, true);
+
+    FactionData data = FactionData();
+        data.ownerID = pClient->GetCharacterID();
+        data.corporationID = pClient->GetCorporationID();
+        data.allianceID = pClient->GetAllianceID();
+        data.factionID = pClient->GetWarFactionID();
+    ShipSE* newSE = new ShipSE(ship, pSystem->GetServiceMgr(), pSystem, data);
+    if (newSE == nullptr)
+        throw CustomError ("There was a problem launching that ship. Ref: ServerError 25107.");
+    pSystem->AddEntity(newSE);
+    pClient->Board(newSE);
     return nullptr;
 }
 
 PyResult ShipBound::StoreVessel(PyCallArgs &call, PyInt* destID) {
     // no packet data
-
-    //sm.StartService('sessionMgr').PerformSessionChange('storeVessel', ship.StoreVessel, destID)
     _log(SERVICE__CALL_DUMP, "ShipBound::Handle_StoreVessel()");
     call.Dump(SERVICE__CALL_DUMP);
 
+    Client* pClient = call.client;
+    SystemManager* pSystem = (pClient != nullptr) ? pClient->SystemMgr() : nullptr;
+    if (pSystem == nullptr || !pClient->IsInSpace())
+        return nullptr;
+
+    InventoryItemRef sma = sItemFactory.GetItemRef(destID->value());
+    if (sma.get() == nullptr || sma->groupID() != EVEDB::invGroups::Ship_Maintenance_Array)
+        throw CustomError ("You can only store a ship in a Ship Maintenance Array.");
+
+    ShipSE* curSE = pClient->GetShipSE();
+    if (curSE == nullptr)
+        return nullptr;
+    if (curSE->GetTypeID() == itemTypeCapsule)
+        throw CustomError ("You cannot store a capsule.");
+
+    SystemEntity* smaSE = pSystem->GetSE(destID->value());
+    if (smaSE == nullptr)
+        throw CustomError ("The maintenance array is not in this system.");
+    if (curSE->GetPosition().distance(smaSE->GetPosition()) > 3000.0f)
+        throw CustomError ("You are too far from the maintenance array to store your ship.");
+
+    // Remember the ship, eject to a pod (Client::Eject creates the pod SE), then move
+    // the now-offline ship item into the SMA and remove its abandoned space entity.
+    ShipItemRef oldShip = curSE->GetShipItemRef();
+    uint32 oldShipID = curSE->GetID();
+    pClient->Eject();
+
+    if (oldShip.get() != nullptr)
+        oldShip->Move(destID->value(), flagShipHangar, true);
+    SystemEntity* oldSE = pSystem->GetSE(oldShipID);
+    if (oldSE != nullptr) {
+        pSystem->RemoveEntity(oldSE);
+        SafeDelete(oldSE);
+    }
     return nullptr;
 }
 
