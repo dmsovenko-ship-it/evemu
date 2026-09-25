@@ -115,7 +115,7 @@
 | **Remote sensor damper** — was a stub; now applies maxTargetRange/scanResolution bonuses to the target, symmetric undo | ❌ | ✅ |
 | **ECM Burst / Remote ECM Burst** — AoE jam in range (were empty stubs) | ❌ | ✅ |
 | **Warp Disrupt Field Generator** — focused radius field (per-ship scramble within range while active) | ❌ | ✅ |
-| **Titan Super Weapon** — Crucible doomsday: single-target capital-only strike (sub-caps immune), 2,000,000 racial damage × Doomsday Operation, 50,000 isotope cost, banned in low-sec / POS field, 10-minute mobility cooldown | ❌ | ✅ |
+| **Titan Super Weapon** — Crucible doomsday: single-target capital-only strike (sub-caps and structures immune), 2,000,000 racial damage × Doomsday Operation, capacitor + 75,000 racial isotopes, 10-minute recharge, banned in low-sec / POS field, mobility + aggression cooldown after firing | ❌ | ✅ |
 | **Cargo / Ship Scanner** — send OnCargoScanComplete / OnShipScanCompleted (cargo list, cap + fitted modules) | ❌ | ✅ |
 | **Misc module groups mapped** — GM/test/faction groups that previously couldn't be fitted at all now load | ❌ | ✅ |
 | **Charge handling** — linked weapons clear a depleted charge (no infinite ammo / zombie ref); stale charge entries removed from the manager on burnout; cap booster grants the last charge's capacitor; defender/countermeasure auto-fire consumes its charge; pre-loaded charges restored via the charge-state cache; sensor scripts reset the correct attributes | ❌ | ✅ |

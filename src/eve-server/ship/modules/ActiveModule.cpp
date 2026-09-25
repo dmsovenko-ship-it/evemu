@@ -999,16 +999,33 @@ uint32 ActiveModule::DoCycle() {
                     break;
             }
 
-            // Target must be a CAPITAL ship (sub-caps are immune).
+            // Target must be a CAPITAL ship (sub-caps AND structures are immune).
             uint16 tGroup = m_targetSE->GetSelf()->groupID();
             if (!(tGroup == EVEDB::invGroups::Titan || tGroup == EVEDB::invGroups::Dreadnought
-                  || tGroup == EVEDB::invGroups::Carrier || tGroup == EVEDB::invGroups::Supercarrier))
+                  || tGroup == EVEDB::invGroups::Carrier || tGroup == EVEDB::invGroups::Supercarrier
+                  || tGroup == EVEDB::invGroups::Freighter || tGroup == EVEDB::invGroups::JumpFreighter
+                  || tGroup == EVEDB::invGroups::CapitalIndustrialShip))
                 break;
 
-            // Fuel: 50,000 racial isotopes (the same type the jump drive uses).
+            // Capacitor: the doomsday's capacitorNeed (e.g. 22,500 GJ for Oblivion).
+            float capNeed = m_modRef->HasAttribute(AttrCapacitorNeed)
+                          ? m_modRef->GetAttribute(AttrCapacitorNeed).get_float() : 0.0f;
+            if (capNeed > 0.0f) {
+                float cap = m_shipRef->GetAttribute(AttrCapacitorCharge).get_float();
+                if (cap < capNeed)
+                    break;   // not enough capacitor
+                float total = m_shipRef->GetAttribute(AttrCapacitorCapacity).get_float();
+                m_shipRef->SetShipCapacitorLevel(total > 0.0f ? (cap - capNeed) / total : 0.0f);
+            }
+
+            // Fuel: 75,000 racial isotopes — the doomsday's own fuel type per race.
             uint32 fuelType = 0;
-            if (m_shipRef->HasAttribute(AttrJumpDriveConsumptionType))
-                fuelType = m_shipRef->GetAttribute(AttrJumpDriveConsumptionType).get_uint32();
+            switch (m_modRef->typeID()) {
+                case 24550: fuelType = 17889; break;   // Judgement (Amarr)       -> Hydrogen
+                case 24552: fuelType = 17888; break;   // Oblivion (Caldari)      -> Nitrogen
+                case 24554: fuelType = 17887; break;   // Aurora Ominae (Gallente)-> Oxygen
+                case 23674: fuelType = 16274; break;   // Gjallarhorn (Minmatar)  -> Helium
+            }
             if (fuelType == 0)
                 break;
             {
@@ -1021,9 +1038,9 @@ uint32 ActiveModule::DoCycle() {
                 for (auto& it : items)
                     if (it.get() != nullptr && it->typeID() == fuelType)
                         have += (uint32)it->quantity();
-                if (have < 50000)
+                if (have < 75000)
                     break;   // not enough isotopes -> no shot
-                uint32 left = 50000;
+                uint32 left = 75000;
                 for (auto& it : items) {
                     if (left == 0)
                         break;
@@ -1056,8 +1073,10 @@ uint32 ActiveModule::DoCycle() {
             m_targetSE->ApplyDamage(d);
             _log(MODULE__TRACE, "%s(%u): doomsday %s(%u) for %.0f.", m_shipRef->name(), m_shipRef->itemID(),
                  m_targetSE->GetName(), m_targetSE->GetID(), dmg);
+            if (mySE->DestinyMgr() != nullptr)
+                mySE->DestinyMgr()->Stop();   // ~30 s immobilisation after the shot
             if (pc->GetCrimeWatch() != nullptr)
-                pc->GetCrimeWatch()->OnDoomsdayFired();   // 10-minute mobility cooldown
+                pc->GetCrimeWatch()->OnDoomsdayFired();   // 10-min mobility + 25-min aggro cooldown
         } break;
         case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
             ApplyWarpDisruptField();   // refresh the focused field each cycle
@@ -1077,6 +1096,8 @@ uint32 ActiveModule::DoCycle() {
         m_shipRef->HeatDamageCheck(this);
 
     EvilNumber cycleTime = 300000;   // default to 5min
+    if (m_modRef->groupID() == EVEDB::invGroups::Super_Weapon)
+        return 600000;   // doomsday recharges in 10 minutes
     if (m_modRef->HasAttribute(AttrSpeed, cycleTime)) {
         return cycleTime.get_int();
     } else if (m_modRef->HasAttribute(AttrDuration, cycleTime)) {

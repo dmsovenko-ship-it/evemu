@@ -143,11 +143,16 @@ void CrimeWatch::OnWeaponFired()
 
 void CrimeWatch::OnDoomsdayFired()
 {
-    // 10-minute mobility cooldown: no jump drive / gate / jump portal.
+    // 10-minute mobility cooldown: no jump drive / gate / jump portal / dock.
     m_weaponTimer.Start(600000);
-    int64 endTime = static_cast<int64>(GetFileTimeNow()) + 600LL * EvE::Time::Second;
-    if (m_client->GetChar())
-        m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(endTime), true);
+    // 25-minute aggression cooldown: no logoff.
+    m_aggressionTimer.Start(1500000);
+    m_aggressionTargetID = m_client->GetCharacterID();
+    int64 now = static_cast<int64>(GetFileTimeNow());
+    if (m_client->GetChar()) {
+        m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(now + 600LL * EvE::Time::Second), true);
+        m_client->GetChar()->SetAttribute(ATTR_AGGRESSION_TIMER, int64(now + 1500LL * EvE::Time::Second), true);
+    }
     UpdateSessionChangeTimer();
     SendAggressionChange();
 }
