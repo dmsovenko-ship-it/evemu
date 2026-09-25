@@ -147,6 +147,10 @@ public:
     // PvP gate and preys on other pilots there. CONCORD answers with a delay.
     bool IsOutlaw() const               { return m_outlaw; }
     void SetOutlaw(bool v)              { m_outlaw = v; }
+    // Top-skill nullsec hunter flying a capital (dread/carrier/super). Leads a
+    // capital fleet and cyno-drops on contested systems.
+    bool IsCapitalPilot() const         { return m_capitalPilot; }
+    void SetCapitalPilot(bool v)        { m_capitalPilot = v; }
     void DoProfessionActivity();        // mine/trade/courier/hack while not fighting
     void HuntForTarget();               // PvP hunter: find a legal PvP target and engage
     void RatForTarget();                // PvE rat hunter: find an NPC red cross and engage
@@ -180,6 +184,10 @@ public:
     void StartJumpFreighter(uint32 destSystem);
     bool IsJumpFreighter() const        { return m_isJumpFreighter; }
     bool CynoActive() const             { return m_cynoActive; }
+    // Capital fleet cyno drop: light a cyno, hold a short interception window,
+    // then jump the whole capital group to the destination system. leadFleet
+    // makes corpmate capitals in this system drop together (avoids recursion).
+    void StartCapitalDrop(uint32 destSystem, bool leadFleet = true);
 
     /* real physical loot/production (stage-2 "living goods") */
     // While a miner/ratter/hacker works, it accumulates a real cargo hold (in
@@ -236,7 +244,13 @@ public:
     // fleet, then engage. Called from NPCAI's Idle scan (player targets) and
     // HuntForTarget (bot prey).
     bool TryAmbush(SystemEntity* target);
-
+    // Proactive gate camp (low/null): hold a stargate with a squad — bubbles in
+    // nullsec (no warp-out), scram/web tackle in lowsec. Returns true while the
+    // bot is committed to the camp (the caller should not roam that cycle).
+    bool TryGateCamp();
+    // A capital pilot periodically leads a cyno drop on a contested nullsec
+    // system (capital fleet + escorts). Returns true if a drop was started.
+    bool TryCapitalDrop();
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
     void CallFleetSupport(SystemEntity* attacker);   // same corp/alliance bots join the fight
@@ -272,6 +286,11 @@ protected:
     Timer m_activityTimer;              // profession run counter (self-learning)
     Timer m_huntCooldown;               // PvP hunter: pause between engages (no gate camping)
     Timer m_scoutTimer;                 // fresh arrival: scout the system before committing
+    Timer m_campTimer;                  // gate camp: how long we hold the stargate
+    bool  m_gateCamping = false;        // low/null: holding a stargate camp
+    uint32 m_campGateID = 0;            // stargate being camped
+    bool  m_capitalPilot = false;       // top-skill nullsec capital pilot
+    Timer m_capitalDropTimer;           // cooldown between capital cyno drops
     Timer m_aggressionTimer;            // aggression flag: can't dock/jump while active
     bool m_inFight;                     // true while fighting (to record outcomes)
     bool m_wantsDock;                   // true when the bot wants to dock (profession)

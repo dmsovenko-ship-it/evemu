@@ -1627,17 +1627,19 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // it's been learning it). Only brand-new pilots roll a fresh one. Skill tier
     // is loaded the same way: a persisted, levelled-up tier survives respawns.
     PlayerBot::BotProfession prof = PlayerBot::BotProfession::Miner;
+    uint16 savedShipType = 0;   // persisted "typical" hull — keeps a capital a capital
     uint8 savedSkill = 0xFF;   // 0xFF = unset → roll fresh below
     {
         DBQueryResult pres;
         if (sDatabase.RunQuery(pres,
-            "SELECT profession, skillLevel FROM botMemory WHERE charID = %u AND profession != 255",
+            "SELECT profession, skillLevel, shipTypeID FROM botMemory WHERE charID = %u AND profession != 255",
             useCharID))
         {
             DBResultRow prow;
             if (pres.GetRow(prow)) {
                 prof = (PlayerBot::BotProfession)prow.GetUInt(0);
                 savedSkill = (uint8)prow.GetUInt(1);
+                savedShipType = (uint16)prow.GetUInt(2);
                 if (savedSkill <= 5)
                     skillTier = savedSkill;   // veteran keeps its trained tier
                 else {
@@ -1726,6 +1728,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // Hunters/RatHunters fly a real killmail legend hull (or a combat cruiser/BC
     // if the legend ship doesn't exist in Crucible-era data).
     bool spawnFleetBoss = false;   // experienced miner flying an Orca/Rorqual
+    bool isCapitalPilot = false;   // top-skill nullsec hunter flying a capital
     {
         static const uint32 minerHulls[]  = { 17476, 17478, 17480, 582, 592, 599 };   // Covetor/Retriever/Procurer + mining frigates
         static const uint32 haulerHulls[] = { 648, 650, 651, 653, 1944 };             // Badger/Iteron/Hoarder/Wreathe/Bestower
@@ -1823,6 +1826,38 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             if (!valid)
                 hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
         }
+    }
+
+    // Capital pilot: a top-skill hunter in nullsec flies a capital and leads a
+    // capital fleet (cyno drops, system contests). Overrides the hull pick above.
+    // Stickiness: if the persisted hull was a capital, stay in it across respawns.
+    bool savedCapital = false;
+    if (savedShipType != 0) {
+        Inv::TypeData td = Inv::TypeData();
+        sDataMgr.GetType(savedShipType, td);
+        savedCapital = (td.id == savedShipType)
+            && (td.groupID == EVEDB::invGroups::Dreadnought
+             || td.groupID == EVEDB::invGroups::Carrier
+             || td.groupID == EVEDB::invGroups::Supercarrier);
+    }
+    if (prof == PlayerBot::BotProfession::Hunter && pSystem->GetSystemSecurityRating() < 0.0f
+        && skillTier >= 4 && (savedCapital || MakeRandomInt(0, 99) < 25))
+    {
+        static const uint32 dreadHulls[]   = { 19720, 19722, 19724, 19726 };  // Revelation/Naglfar/Moros/Phoenix
+        static const uint32 carrierHulls[] = { 23757, 23911, 23915, 24483 };  // Archon/Thanatos/Chimera/Nidhoggur
+        static const uint32 superHulls[]   = { 23913, 23917, 23919, 22852 };  // Nyx/Wyvern/Aeon/Hel
+        if (savedCapital) {
+            hullType = savedShipType;   // same capital as last time
+        } else if (skillTier >= 5 && MakeRandomInt(0, 99) < 20) {
+            hullType = superHulls[MakeRandomInt(0, 3)];
+        } else if (MakeRandomInt(0, 99) < 50) {
+            hullType = dreadHulls[MakeRandomInt(0, 3)];
+        } else {
+            hullType = carrierHulls[MakeRandomInt(0, 3)];
+        }
+        isCapitalPilot = true;
+        _log(BOT__MESSAGE, "BotMgr: %s(%u) is a CAPITAL PILOT (tier %u) - hull %u%s.",
+             useName.c_str(), useCharID, skillTier, hullType, (savedCapital ? " [kept]" : ""));
     }
 
     // Keep the bot's persistent "typical" hull in sync every spawn (used by the
@@ -2073,6 +2108,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // (levelled up by practice), not the ctor default of 3.
     bot->SetBotSkillLevel(skillTier);
     bot->SetFleetBoss(spawnFleetBoss);
+    if (isCapitalPilot) {
+        bot->SetCapitalPilot(true);
+        bot->SetFleetBoss(true);   // a capital pilot leads its fleet
+    }
     bot->GetAIMgr()->SetAmbush(false);   // bots are not ambushing rats
     bot->DestinyMgr()->SetPosition(pos);
     pSystem->AddNPC(bot);

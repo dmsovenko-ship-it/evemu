@@ -59,7 +59,9 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
   m_factionWarrior(false),
   m_jumpDest(0),
   m_cynoTimer(0),
-  m_fleetBoss(false)
+  m_fleetBoss(false),
+  m_capitalPilot(false),
+  m_capitalDropTimer(0)
 {    // A player-like legend: give this NPC a neutral alliance so it doesn't show
     // red crosshairs and isn't auto-aggroed by faction standing checks. The
     // owner is the PILOT (charID), not the corp — so clients can lock the ship
@@ -484,8 +486,9 @@ void PlayerBot::Process()
     // destination (JumpDrive effects), complete the haul.
     if (m_cynoActive && m_cynoTimer.Check(false)) {
         m_cynoActive = false;
-        _log(BOT__MESSAGE, "PlayerBot %s(%u): jump freighter jumping to system %u.",
-             m_botName.c_str(), m_botCharID, m_jumpDest);
+        _log(BOT__MESSAGE, "PlayerBot %s(%u): %s jumping to system %u.",
+             m_botName.c_str(), m_botCharID,
+             (m_capitalPilot ? "capital fleet" : "jump freighter"), m_jumpDest);
         if (m_destiny != nullptr)
             m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
                                          m_self->itemID(), 0, "effects.JumpDriveOut",
@@ -1489,7 +1492,15 @@ void PlayerBot::DoProfessionActivity()
                     return;
                 }
             }
-            // Otherwise hunt for legal PvP targets in lowsec/nullsec.
+            // Capital pilot (top-skill, nullsec): lead a capital fleet on a cyno
+            // drop into a contested system instead of solo-hunting.
+            if (m_capitalPilot && TryCapitalDrop())
+                return;
+            // Gate camp (low/null): set up and hold a stargate — with the squad,
+            // or as a lone tackler in lowsec — instead of roaming ("развод на гейтах").
+            TryGateCamp();
+            // A camper still hunts prey that comes to the gate (canCampGate is
+            // forced true while camping, so near-gate targets are fair game).
             HuntForTarget();
             // PvP war corps claim unowned nullsec (skirmish).
             if (SystemMgr()->GetSystemSecurityRating() < 0.0f)
@@ -1879,7 +1890,7 @@ void PlayerBot::HuntForTarget()
     // will consider a target sitting at a gate — and even then only rarely and
     // when the victim has no friends of their own. Everyone else avoids the gate.
     int myAllies = CountAlliesNearby();
-    bool canCampGate = (myAllies >= 1) && (MakeRandomInt(0, 99) < 20);
+    bool canCampGate = m_gateCamping || ((myAllies >= 1) && (MakeRandomInt(0, 99) < 20));
 
     // Find a target: enemy PlayerBots in this system. Score by distance but also
     // by "value" (a ratting miner or hauler is a prize; a big hostile fleet is a
@@ -2217,6 +2228,95 @@ void PlayerBot::StartJumpFreighter(uint32 destSystem)
          m_botName.c_str(), m_botCharID, destSystem, m_cynoTimer.GetRemainingTime() / 1000.0);
 }
 
+// Capital fleet cyno drop: the whole capital group lights a cyno and jumps to a
+// contested nullsec system. Reuses the jump-freighter cyno window (the actual
+// move is done in ProcessTic when the timer expires). leadFleet makes corpmate
+// capital pilots in this system drop together - the "capital fleet".
+void PlayerBot::StartCapitalDrop(uint32 destSystem, bool leadFleet)
+{
+    if (destSystem == 0 || m_destiny == nullptr || m_cynoActive)
+        return;
+    m_cynoActive = true;
+    m_jumpDest = destSystem;
+    m_cynoTimer.Start(MakeRandomInt(30000, 60000));   // 30-60s interception window
+
+    // Visible cyno beacon so players can warp in and contest the drop.
+    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
+                                 m_self->itemID(), 0, "effects.CynosuralGeneration",
+                                 1, 1, 1, 45000, 0, 0);
+    RequestFleetProtection();   // escorts cover the capitals
+
+    int fleetMates = 0;
+    if (leadFleet && SystemMgr() != nullptr) {
+        for (auto& [id, se] : SystemMgr()->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (other == nullptr || other == this)
+                continue;
+            if (other->GetBotCorpID() != m_botCorpID && other->GetBotAllianceID() != m_botAllianceID)
+                continue;
+            if (other->IsCapitalPilot() && !other->CynoActive()) {
+                other->StartCapitalDrop(destSystem, false);   // no recursion
+                ++fleetMates;
+            }
+        }
+    }
+
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): CAPITAL DROP - cyno lit, jumping to system %u (%.0fs, %d capital mates).",
+         m_botName.c_str(), m_botCharID, destSystem, m_cynoTimer.GetRemainingTime() / 1000.0, fleetMates);
+}
+
+bool PlayerBot::TryCapitalDrop()
+{
+    if (!m_capitalPilot || m_destiny == nullptr || SystemMgr() == nullptr)
+        return false;
+    if (m_cynoActive || m_destiny->IsWarping())
+        return false;
+    if (m_capitalDropTimer.Enabled() && !m_capitalDropTimer.Check())
+        return false;   // cooling down between drops
+    m_capitalDropTimer.Start(MakeRandomInt(240000, 600000));   // 4-10 min between drops
+
+    // Pick a nullsec system to contest (prefer one owned by someone else).
+    std::vector<uint32> adj;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+                "SELECT toSolarSystemID FROM mapSolarSystemJumps WHERE fromSolarSystemID = %u",
+                SystemMgr()->GetID())) {
+            DBResultRow row;
+            while (res.GetRow(row))
+                adj.push_back(row.GetUInt(0));
+        }
+    }
+    if (adj.empty())
+        return false;
+    uint32 dest = 0;
+    uint32 fallback = 0;
+    for (uint32 s : adj) {
+        if (fallback == 0) fallback = s;
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+                "SELECT security FROM mapSolarSystems WHERE solarSystemID = %u", s))
+            continue;
+        DBResultRow row;
+        if (!res.GetRow(row))
+            continue;
+        if (row.GetFloat(0) >= 0.0f)
+            continue;                       // only nullsec drops
+        SovereigntyData sov = svDataMgr.GetSovereigntyData(s);
+        bool enemy = (sov.allianceID != 0 && sov.allianceID != m_botAllianceID)
+                  || (sov.corporationID != 0 && sov.corporationID != m_botCorpID);
+        if (enemy) { dest = s; break; }     // a real contest
+        if (dest == 0) dest = s;            // unowned null — claim it
+    }
+    if (dest == 0)
+        dest = fallback;
+
+    StartCapitalDrop(dest, true);
+    return true;
+}
+
 void PlayerBot::UseCombatAbilities()
 {
     // Use the bot's full arsenal while fighting: logistics repair allies,
@@ -2430,7 +2530,7 @@ bool PlayerBot::TryAmbush(SystemEntity* target)
         return false;
     if (target->GetPosition().distance(GetPosition()) > 60000)
         return false;                   // don't chase across the system to drop a bubble
-    if (MakeRandomInt(0, 99) >= 20)     // sometimes it just attacks, no bubble
+    if (MakeRandomInt(0, 99) >= 35)     // ~1/3 of engages are a proper bubble ambush
         return false;
 
     // If the target is already inside a warp bubble, no need for another.
@@ -2442,5 +2542,68 @@ bool PlayerBot::TryAmbush(SystemEntity* target)
     StartAggressionTimer();
     _log(BOT__MESSAGE, "PlayerBot %s(%u): warp-bubble AMBUSH on %s(%u) (%d allies).",
          m_botName.c_str(), m_botCharID, target->GetName(), target->GetID(), CountAlliesNearby());
+    return true;
+}
+
+// Proactive stargate camp ("развод на гейтах"). Low/null only — in highsec CONCORD
+// makes it pointless. A camp needs a squad (allies nearby) or, in lowsec, a lone
+// quick tackler. Nullsec camps are anchored by a warp bubble at the gate (the prey
+// cannot warp out); lowsec camps rely on scram/web tackle. The bot warps in, takes
+// an 8 km decloak/tackle ring around the gate and waits for prey, then resumes
+// roaming when the camp timer expires.
+bool PlayerBot::TryGateCamp()
+{
+    if (m_destiny == nullptr || SystemMgr() == nullptr)
+        return false;
+
+    float sysSec = SystemMgr()->GetSystemSecurityRating();
+    if (sysSec >= 0.5f)
+        return false;   // highsec: CONCORD ends gate camps; not a highsec tactic
+
+    if (m_gateCamping) {
+        if (m_campTimer.Check()) {
+            m_gateCamping = false;      // camp over — back to roaming
+            return false;
+        }
+        SystemEntity* gate = SystemMgr()->GetSE(m_campGateID);
+        if (gate == nullptr) {
+            m_gateCamping = false;
+            return false;
+        }
+        if (!m_destiny->IsWarping()) {
+            double d = GetPosition().distance(gate->GetPosition());
+            if (d > 60000.0)
+                m_destiny->WarpTo(gate->GetPosition(), 10000);
+            else if (!m_destiny->IsOrbiting())
+                m_destiny->Orbit(gate, 8000);   // decloak + tackle ring
+        }
+        return true;    // hold station this cycle
+    }
+
+    int allies = CountAlliesNearby();
+    bool canSolo = (sysSec < 0.5f) && (sysSec >= 0.0f);   // lone tackler: lowsec only
+    if (allies < 1 && !canSolo)
+        return false;
+    if (MakeRandomInt(0, 99) >= 30)
+        return false;   // usually still roam — only sometimes set up a camp
+
+    auto gates = SystemMgr()->GetGates();
+    SystemEntity* gate = nullptr;
+    for (auto& [id, se] : gates) {
+        if (se != nullptr) { gate = se; break; }
+    }
+    if (gate == nullptr)
+        return false;
+
+    m_campGateID = gate->GetID();
+    m_gateCamping = true;
+    m_campTimer.Start(MakeRandomInt(90000, 240000));   // hold 1.5–4 min
+
+    m_destiny->WarpTo(gate->GetPosition(), 10000);
+    if (sysSec < 0.0f)
+        DeployWarpBubble(gate->GetPosition());          // nullsec: bubble the gate
+
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): gate camp at gate %u (sec %.1f, %d allies%s).",
+         m_botName.c_str(), m_botCharID, m_campGateID, sysSec, allies, (sysSec < 0.0f ? ", bubble" : ""));
     return true;
 }
