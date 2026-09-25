@@ -16,7 +16,7 @@
 <h1 align="center">EVEmu Crucible</h1>
 
 <p align="center">
-  <b>EVE Online (Crucible era) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork — game systems ~96%
+  <b>EVE Online (Crucible era) server emulator</b> · <a href="https://github.com/EvEmu-Project/evemu_Crucible">upstream</a> fork — game systems ~97%
 </p>
 
 <br>
@@ -39,13 +39,15 @@
 | **Warp Disruption Probes** — Interdiction Sphere Launcher, bubble 20km, smartbomb destruction, **scramble cleanup on range exit** | **Пробки варп-дисрапта** — лаунчер, баббл 20км, уничтожение смартбомбами, **очистка скрембла при выходе из радиуса** |
 | **Mobile Warp Disruptor** — anchor/online via DogmaIM, SDE timers per type, **WarpDisruptFieldGenerating** visual, StructureOnlined effect, **transient (deleted on restart)**, **warp scramble prevents jumps** (MWD bubble after anchoring scrambles the ship — no dock/jump until aggression timer cools) | **MWD** — anchor/online через DogmaIM, таймеры из SDE по типу, **WarpDisruptFieldGenerating** визуал, StructureOnlined эффект, **транзиент (удаляется при ребуте)**, **варп-скрамбл блокирует прыжки** (баббл MWD после анчора скрамблит корабль — нет дока/прыжка пока таймер агрессии не остыл) |
 | **Clones & Implants** — jump clones, per-clone implants, ship clone bay, SP loss on T3 pod | **Клоны и импланты** — джамп-клоны, импланты на клон, шип-клон-бей, SP loss |
-| **Contracts** — item exchange, courier, auctions with bidding + ISK transfer | **Контракты** — обмен, курьер, аукционы со ставками и переводом ISK |
+| **Contracts** — item exchange (offered items escrowed), courier, auctions with bidding + ISK transfer | **Контракты** — обмен (предметы в эскроу), курьер, аукционы со ставками и переводом ISK |
 | **Corporation & Alliance** — corp/ally contacts with **role checks**, **OnContactLoggedOn/Off**, PyFloat* standing | **Корпорации и альянсы** — контакты с **проверкой ролей**, **OnContactLoggedOn/Off**, PyFloat* standing |
 | **Market** — buy/sell orders, corp market, **market spin-lock fix (1000→1)**, **full price list fix (order-limit fields uint8→uint32)** | **Маркет** — ордера, корп-маркет, **фикс spin-lock (1000→1)**, **фикс «нет в наличии» (лимиты uint8→uint32)** |
 | **Science & Industry** — manufacturing, copying, invention, reverse engineering | **Наука и промышленность** — производство, копирование, инвеншен, РЕ |
-| **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, skill checks, **working force field** (ships inside untouchable), **shield hardener resists**, doctrine layouts, moon-reaction production | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы, **рабочее силовое поле** (корабли внутри неуязвимы), **резисты харденеров**, доктринальные схемы, лунно-реакторное производство |
+| **POS** — towers, fuel/reinforced, CPU/PG, weapon AI, orbitals, reactors, skill checks, **working force field** (ships inside untouchable), **shield hardener resists**, doctrine layouts, **moon harvester→silo→reactor chain on real reaction formulas** (resource links, per-module storage, moon composition fixed once) | **POS** — тауэры, топливо/reinforced, CPU/PG, оружие AI, орбиталки, реакторы, контроль, скиллы, **рабочее силовое поле** (корабли внутри неуязвимы), **резисты харденеров**, доктринальные схемы, **лунная цепочка harvester→silo→reactor по реальным формулам реакций** (связи, хранилище модулей, состав луны фиксируется один раз) |
+| **POS defence & industry** — EWAR batteries (energy neutralizer / sensor damper / ECM), guaranteed warp-in guards, force-field barrier, Ship Maintenance Array (store/board/scoop/refit), Assembly Array manufacturing, hardener recalculation | **Оборона и индустрия POS** — EWAR-батареи (нейтрализатор / дампер / ECM), гарантированный прилёт гвардов, барьер поля, SMA (склад/перефит кораблей), производство на Assembly, пересчёт харденеров |
 | **Overheating** — heat dmg per slot, OverloadRack, Thermodynamics, Nanite Paste | **Перегрев** — урон по слотам, OverloadRack, Thermodynamics, Nanite Paste |
 | **ECM** — player ships actively jam targets (break lock + send ElectronicAttributeModifyTarget) | **ECM** — корабли игроков активно джамят цели (сбивают лок + шлют ElectronicAttributeModifyTarget) |
+| **Module EWAR & charges** — energy neutralizer / nosferatu / capacitor transfer corrected, remote sensor damper, ECM Burst + Remote ECM Burst, Warp Disrupt Field Generator, Titan doomsday, cargo/ship scanners; charge handling (linked depletion, cap-booster, defender, pre-loaded restore) | **EWAR и заряды модулей** — нейтрализатор / носферату / трансфер капы исправлены, remote sensor damper, ECM Burst + Remote, WDFG, думсдей титана, cargo/ship-сканеры; заряды (расход линков, cap-booster, defender, восстановление предзаряда) |
 | **Notifications** — persistent DB + live push, bill/tower/agent/corp sources | **Нотификации** — БД + live push, счета/POS/агенты/корп |
 | **LSC Chat** — private conversations, channels, mailing lists, contact online notifications | **LSC Чат** — разговоры, каналы, списки рассылки, нотификации онлайна контактов |
 | **Faction Warfare** — join/leave, plex spawn, militia stats, corp/alliance | **ФВ** — вступление/выход, плексы, статистика, корп/альянс |
@@ -109,27 +111,27 @@ Full history in `git log` / полная история — в `git log`.
 
 ## Progress / Прогресс
 
-**Our fork · game systems `███████████████████░` ~96%**
-**Our fork · memory management `████████████████░░░░` 80% · performance & optimization `██████████████████░░` 88%**
+**Our fork · game systems `███████████████████░` ~97%**
+**Our fork · memory management `█████████████████░░░` 85% · performance & optimization `██████████████████░░` 88%**
 **Upstream `████████████░░░░░░░░` ~60%**
 
 | System | Upstream | Our Fork | Δ | System | Upstream | Our Fork | Δ |
 |--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
 | Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
 | Ship Navigation | 70% | **99%** | +29% | Combat & Crimewatch | 90% | 99% | +9% |
-| Modules & Overheating | 85% | 96% | +11% | Drones | 75% | **96%** | +21% |
+| Modules & Overheating | 85% | 97% | +12% | Drones | 75% | **96%** | +21% |
 | NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 97% | +27% |
-| **POS** | 70% | **98%** | +28% | Market | 60% | 95% | +35% |
+| **POS** | 70% | **99%** | +29% | Market | 60% | 95% | +35% |
 | **Incursions** | 0% | **96%** | +96% | Fleet | 75% | **100%** | +25% |
 | **Wormholes** | 60% | **92%** | +32% | Scanning | 80% | 99% | +19% |
 | **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 95% | +35% |
 | **Faction Warfare** | 50% | **99%** | +49% | Calendar | 60% | 93% | +33% |
-| Mail & LSC | 60% | **95%** | +35% | Contracts | 60% | 95% | +35% |
+| Mail & LSC | 60% | **95%** | +35% | Contracts | 60% | 96% | +36% |
 | Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |
-| **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **92%** | +47% |
-| Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **96%** | +31% |
+| **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **93%** | +48% |
+| Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **97%** | +32% |
 | Planetary Interaction | 50% | **95%** | +45% | Deployables (MWD/Probes) | 40% | **99%** | +59% |
-| **Petitions & Support** | 0% | **95%** | +95% | Memory Management | 20% | **80%** | +60% |
+| **Petitions & Support** | 0% | **95%** | +95% | Memory Management | 20% | **85%** | +65% |
 | **Performance & Optimization** | 50% | **88%** | +38% | | | | |
 
 > Totals are the mean of the player-facing game systems; infrastructure (memory management, performance) is tracked separately.

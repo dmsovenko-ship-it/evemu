@@ -1,6 +1,6 @@
 # EVEmu Crucible — Progress / Прогресс
 
-> **Our fork · game systems: `███████████████████░` ~96%**
+> **Our fork · game systems: `███████████████████░` ~97%**
 > **Our fork · memory management: `█████████████████░░░` 85%**
 > **Our fork · performance & optimization: `██████████████████░░` 88%**
 > **Upstream: `████████████░░░░░░░░` ~60%**
@@ -17,17 +17,17 @@
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `███████████████████░` | +2% | Skills & Certificates | 99% | `████████████████████` | +9% |
 | Ship Navigation | 99% | `████████████████████` | +29% | Combat & Crimewatch | 99% | `████████████████████` | +9% |
-| Modules & Overheating | 96% | `███████████████████░` | +11% | Drones | 96% | `███████████████████░` | +21% |
+| Modules & Overheating | 97% | `███████████████████░` | +12% | Drones | 96% | `███████████████████░` | +21% |
 | NPC AI & Spawning | 97% | `███████████████████░` | +37% | Agents & Missions | 97% | `███████████████████░` | +27% |
-| **POS** | 98% | `███████████████████░` | +28% | Market | 95% | `███████████████████░` | +35% |
+| **POS** | 99% | `████████████████████` | +29% | Market | 95% | `███████████████████░` | +35% |
 | **Incursions** | 96% | `███████████████████░` | +96% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 92% | `██████████████████░░` | +32% | Scanning | 99% | `████████████████████` | +19% |
 | **Notifications** | 97% | `███████████████████░` | +37% | **Standings** | 95% | `███████████████████░` | +35% |
 | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████░` | +33% |
-| Mail & LSC | 95% | `███████████████████░` | +35% | Contracts | 95% | `███████████████████░` | +35% |
+| Mail & LSC | 95% | `███████████████████░` | +35% | Contracts | 96% | `███████████████████░` | +36% |
 | Corporation | 93% | `███████████████████░` | +28% | **Alliance** | 92% | `██████████████████░░` | +37% |
-| **Sovereignty** | 95% | `███████████████████░` | +35% | Science & Industry | 92% | `██████████████████░░` | +47% |
-| Bookmark System | 95% | `███████████████████░` | +25% | **Effects System** | 96% | `███████████████████░` | +31% |
+| **Sovereignty** | 95% | `███████████████████░` | +35% | Science & Industry | 93% | `███████████████████░` | +48% |
+| Bookmark System | 95% | `███████████████████░` | +25% | **Effects System** | 97% | `███████████████████░` | +32% |
 | **Planetary Interaction** | 95% | `███████████████████░` | +45% | Deployables (MWD/Probes) | 99% | `████████████████████` | +59% |
 | **Petitions & Support** | 95% | `███████████████████░` | +95% | Memory Management | 85% | `█████████████████░░░` | +65% |
 | **Performance & Optimization** | 88% | `██████████████████░░` | +38% | | | | |
@@ -102,6 +102,7 @@
 | Sentry guns vs NPC, kill rights | 🟡 | ✅ |
 | Combat logoff, outlaw docking | 🟡 | ✅ |
 | **Self-defence** — only the first attacker is flagged for aggression; the victim's return fire is legal (PvP and NPC-pilot initiated fights alike) | ❌ | ✅ |
+| **Structure aggression** — attacking a player structure in high-sec flags the attacker and CONCORD answers (war-decced owners exempt); defending a structure is never criminal | ❌ | ✅ |
 
 ### 5. Modules / Overheating `███████████████████░` 96%
 
@@ -110,6 +111,15 @@
 | Module groups, cyno, cloak, titan jump bridge | ✅ | ✅ |
 | **Overload** — Thermo check, heat damage, Nanite Paste, OverloadRack | ❌ | ✅ |
 | **ECM player jam** — ActiveModule ECM compares jam strength to target's strongest sensor; on success breaks the target's lock (ClearTarget) + sends ElectronicAttributeModifyTarget | ❌ | ✅ |
+| **Energy warfare** — ship neutralizer drains the target (energyDestabilizationAmount), nosferatu drains target→self, remote capacitor transfer; were reading the wrong attribute (drained 0 / added capacitor) | ❌ | ✅ |
+| **Remote sensor damper** — was a stub; now applies maxTargetRange/scanResolution bonuses to the target, symmetric undo | ❌ | ✅ |
+| **ECM Burst / Remote ECM Burst** — AoE jam in range (were empty stubs) | ❌ | ✅ |
+| **Warp Disrupt Field Generator** — focused warp-disruption bubble while active | ❌ | ✅ |
+| **Titan Super Weapon** — doomsday hit on the locked target (was a stub) | ❌ | ✅ |
+| **Cargo / Ship Scanner** — send OnCargoScanComplete / OnShipScanCompleted (cargo list, cap + fitted modules) | ❌ | ✅ |
+| **Misc module groups mapped** — GM/test/faction groups that previously couldn't be fitted at all now load | ❌ | ✅ |
+| **Charge handling** — linked weapons clear a depleted charge (no infinite ammo / zombie ref); stale charge entries removed from the manager on burnout; cap booster grants the last charge's capacitor; defender/countermeasure auto-fire consumes its charge; pre-loaded charges restored via the charge-state cache; sensor scripts reset the correct attributes | ❌ | ✅ |
+| **Weapon effect GUIDs** — turret/drone/POS-weapon effects use client-valid GUIDs (firing visuals show, not only on NPCs) | ❌ | ✅ |
 
 ### 6. Drones `███████████████████░` 96%
 
@@ -167,6 +177,7 @@
 | Item exchange, courier, auctions with bidding | 🟡 | ✅ |
 | Auction item transfer, refund, notifications, auto-finish | ❌ | ✅ |
 | **Courier complete** — accepted contract marks status/acceptor, crate delivered to destination, wrap cleaned up | ❌ | ✅ |
+| **Item exchange** — creation escrows the offered items (singletons included), rejects an empty contract (no duplicate rows on repeated confirm); search hardened against missing/mistyped arguments | ❌ | ✅ |
 
 ### 11. Corporation / Alliance `███████████████████░` 93% / `██████████████████░░` 92%
 
@@ -201,6 +212,12 @@
 | **Defence grid** — weapon batteries consume charges (chargeGroup1), role-based web/scram/energy-neutralizer, targeting honours standings / security status / tower war + high-sec gate | ❌ | ✅ |
 | **Manual fire control** — AssumeStructureControl (Starbase Defense Management + 15 km + immobilise), AddTargetOBO/RemoveTargetOBO, POS AI prioritises the manual target | ❌ | ✅ |
 | **Guards** — orbiting defence ships that assist the manual target | ❌ | ✅ |
+| **Moon harvesting & reactions** — harvester → silo → reactor chain driven by the real reaction formulas (`invTypeReactions`), moved along resource links with per-module storage; the process is started from the tower window; a moon's composition is determined once and then fixed | ❌ | ✅ |
+| **EWAR batteries** — energy neutralizer (1000 GJ), sensor dampening (lock range + scan resolution), ECM (jam → breaks every lock) | ❌ | ✅ |
+| **Ship Maintenance Array** — store/board/scoop/launch assembled ships; refitting from the SMA in space | ❌ | ✅ |
+| **Assembly Array manufacturing** — POS array recognised as an industry facility (corp/alliance lines); corporate-hangar capacity for arrays | ❌ | ✅ |
+| **Shield hardener recalculation** — tower shield resonances recomputed immediately when a player onlines/offlines a Shield Hardening Array | ❌ | ✅ |
+| **Force-field barrier & guard arrival** — warping into a hostile field lands on the shield surface (no inside-the-tower landing); warp-in guards have a guaranteed arrival fallback | ❌ | ✅ |
 
 ### 14. Wormholes `██████████████████░░` 92%
 
@@ -400,6 +417,9 @@
 - **Performance campaign** — spawn-churn control, per-spawn SQL diet, hot-path indexes, idle-time neighbour system-boot prefetch, load diagnosis playbook
 - **Autopilot** — complete rewrite: auto-jump via `.tr` teleport, multi-hop via CmdStop → gate follow, 60s jump cloak, gate animation effects
 - **POS** — reinforced mode, CPU/PG, reactions, weapon AI, skills, fuel notifications, role-based defence grid, manual fire control
+- **POS industry & defence** — moon harvester→silo→reactor chain on the live reaction formulas (resource links, per-module storage, moon composition fixed once); working force-field barrier (warp lands on the shield); guaranteed warp-in guards; EWAR batteries (energy neutralizer / sensor damper / ECM); Ship Maintenance Array (store/board/scoop/refit); Assembly Array manufacturing; shield-hardener recalculation
+- **Module EWAR & charges** — energy neutralizer / nosferatu / capacitor transfer corrected; remote sensor damper; ECM Burst & Remote ECM Burst; Warp Disrupt Field Generator; Titan doomsday; Cargo/Ship scanners; linked-weapon and charge-manager cleanup; pre-loaded charges restored
+- **Item-exchange contracts** — offered items escrowed (singletons included), empty duplicates rejected, search hardened
 - **Incursions** — full state machine, 5 simultaneous, named NPCs, gate camps, constellation penalties, penalty informer HUD, acceleration gates between pockets
 - **Faction Warfare** — plex spawn, 3 LP channels, militia stats, patrols, system flip
 - **Sovereignty** — TCU 8h claim + IHub 2-cycle reinforce + levels + upgrades + outpost capture + change journal
