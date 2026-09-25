@@ -216,23 +216,34 @@ Moon materials have different rarity classes, starting with R4 being the most co
     if (pct(85)) { uint16 t = pick(R8, 4); m_resources[t] = 3 + (rng() % 3); }
     if (pct(55)) { uint16 t = pick(R16, 4); m_resources[t] = 2 + (rng() % 3); }
 
-    // Region affinity: rare materials "live" in particular regions; elsewhere a
-    // small random chance remains (the "rare exception"). Technetium -> Guristas.
-    auto sameRegion = [&](const uint32* regions, int n) {
-        for (int i = 0; i < n; ++i) if (regions[i] == regionID) return true;
-        return false;
+    // Region affinity for the rare tiers (old-system lore: rarest materials live in
+    // null sec, and specific rares favour specific regions). Each has a "home" set;
+    // in a home region it is common, elsewhere only a rare random exception remains.
+    auto inSet = [&](const uint32* a, int n) { for (int i = 0; i < n; ++i) if (a[i] == regionID) return true; return false; };
+    static const uint32 guristasR[] = { 10000015,10000051,10000058,10000057,10000003,10000023,10000035,10000045,10000055 };
+    static const uint32 delveR[]    = { 10000060,10000050,10000063,10000059 };
+    static const uint32 southR[]    = { 10000014,10000031,10000039,10000056 };
+    static const uint32 droneR[]    = { 10000005,10000025,10000061,10000062 };
+    static const uint32 northR[]    = { 10000010,10000055,10000045,10000003,10000035 };
+    bool nullsec = (security < 0.05f);
+
+    // R32 (rare): Technetium favours Guristas space; else a rare random pick.
+    if (inSet(guristasR, 9)) { m_resources[16649] = 1 + (rng() % 2); }   // Technetium
+    if (pct(15 + rareBonus)) { uint16 t = pick(R32, 4); m_resources[t] = 1 + (rng() % 2); }
+    else if (nullsec && pct(6)) { uint16 t = pick(R32, 4); m_resources[t] = 1; }
+
+    // R64 (rarest): each favours a set of null regions; otherwise very rare.
+    struct Home { uint16 mat; const uint32* regions; int n; };
+    static const Home homes[] = {
+        { 16650, droneR, 4 },   // Dysprosium
+        { 16651, southR, 4 },   // Neodymium
+        { 16652, delveR, 4 },   // Promethium
+        { 16653, northR, 5 }    // Thulium
     };
-    static const uint32 guristasRegions[] = { 10000015, 10000051, 10000058, 10000057,
-                                              10000003, 10000023, 10000035, 10000045, 10000055 };
-
-    // R32 (rare): usually one material, boosted in low/null.
-    if (pct(20 + rareBonus)) { uint16 t = pick(R32, 4); m_resources[t] = 1 + (rng() % 2); }
-    if (sameRegion(guristasRegions, 9)) { m_resources[16649] = 1 + (rng() % 2); }   // Technetium
-    else if (pct(4)) { uint16 t = pick(R32, 4); m_resources[t] = 1; }               // rare exception
-
-    // R64 (rarest): only in low/null normally; elsewhere very rare.
-    if (pct(6 + rareBonus)) { uint16 t = pick(R64, 4); m_resources[t] = 1 + (rng() % 2); }
-    else if (pct(2)) { uint16 t = pick(R64, 4); m_resources[t] = 1; }
+    for (auto& h : homes) {
+        if (inSet(h.regions, h.n) && pct(55)) { m_resources[h.mat] = 1 + (rng() % 2); continue; }
+        if (nullsec ? pct(4 + rareBonus) : pct(1)) { m_resources[h.mat] = 1; }   // rare exception
+    }
 
     return true;
 }
