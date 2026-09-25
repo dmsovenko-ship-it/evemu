@@ -13,6 +13,7 @@
 #include "StaticDataMgr.h"
 #include "system/Celestial.h"
 #include "system/SystemManager.h"
+#include <random>
 
 /** @note  general design notes
  * moonse will have a Moon class to hold data and call other functions/methods as needed
@@ -169,27 +170,69 @@ Moon materials have different rarity classes, starting with R4 being the most co
     Titanium Chromide
     Vanadium Hafnite
      */
-    std::map<uint16, uint8> data;
-    sDataMgr.GetMoonResouces(data);
+    // Live-style moon composition, generated per moon (deterministic by moonID):
+    // common R4/R8 almost everywhere, R16 uncommon, R32 rare, R64 rarest — and the
+    // rare tiers are far more common in low/null sec ("rarer == farther"). Rare
+    // materials are region-tied with random exceptions (e.g. Technetium mostly in
+    // Guristas space).
+    uint32 moonID = m_self->itemID();
+    uint32 sysID = m_self->locationID();
 
-    for (auto cur : data)
-        switch (cur.second) {
-            case 1: {
-                m_resources.insert(std::pair<uint16, uint8>(cur.first, 6));
-            } break;
-            case 4: {
-                m_resources.insert(std::pair<uint16, uint8>(cur.first, 4));
-            } break;
-            case 6:{
-                m_resources.insert(std::pair<uint16, uint8>(cur.first, 3));
-            } break;
-            case 8:{
-                m_resources.insert(std::pair<uint16, uint8>(cur.first, 2));
-            } break;
-            case 10:{
-                m_resources.insert(std::pair<uint16, uint8>(cur.first, 1));
-            } break;
+    uint32 regionID = 0;
+    float security = 0.0f;
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT r.regionID, s.security FROM mapSolarSystems s"
+            " JOIN mapConstellations c ON c.constellationID = s.constellationID"
+            " JOIN mapRegions r ON r.regionID = c.regionID"
+            " WHERE s.solarSystemID = %u", sysID)) {
+            DBResultRow row;
+            if (res.GetRow(row)) { regionID = row.GetUInt(0); security = row.GetFloat(1); }
         }
+    }
+
+    static const uint16 R4[]  = { 16633, 16634, 16635, 16636 };
+    static const uint16 R8[]  = { 16637, 16638, 16639, 16640 };
+    static const uint16 R16[] = { 16641, 16642, 16643, 16644 };
+    static const uint16 R32[] = { 16646, 16647, 16648, 16649 };
+    static const uint16 R64[] = { 16650, 16651, 16652, 16653 };
+
+    std::mt19937 rng(moonID ? moonID : 1);
+    auto pct  = [&](int p) { return (int)(rng() % 100) < p; };
+    auto pick = [&](const uint16* arr, int n) { return arr[rng() % n]; };
+
+    int rareBonus = 0;
+    if (security < 0.45f) rareBonus += 10;   // lowsec
+    if (security < 0.05f) rareBonus += 15;   // nullsec
+    if (security < -0.5f) rareBonus += 10;
+
+    // R4 always (1-3), R8 usually, R16 sometimes.
+    int n4 = 1 + (int)(rng() % 3);
+    for (int i = 0; i < n4; ++i) {
+        uint16 t = pick(R4, 4);
+        if (!m_resources.count(t)) m_resources[t] = 4 + (rng() % 3);
+    }
+    if (pct(85)) { uint16 t = pick(R8, 4); m_resources[t] = 3 + (rng() % 3); }
+    if (pct(55)) { uint16 t = pick(R16, 4); m_resources[t] = 2 + (rng() % 3); }
+
+    // Region affinity: rare materials "live" in particular regions; elsewhere a
+    // small random chance remains (the "rare exception"). Technetium -> Guristas.
+    auto sameRegion = [&](const uint32* regions, int n) {
+        for (int i = 0; i < n; ++i) if (regions[i] == regionID) return true;
+        return false;
+    };
+    static const uint32 guristasRegions[] = { 10000015, 10000051, 10000058, 10000057,
+                                              10000003, 10000023, 10000035, 10000045, 10000055 };
+
+    // R32 (rare): usually one material, boosted in low/null.
+    if (pct(20 + rareBonus)) { uint16 t = pick(R32, 4); m_resources[t] = 1 + (rng() % 2); }
+    if (sameRegion(guristasRegions, 9)) { m_resources[16649] = 1 + (rng() % 2); }   // Technetium
+    else if (pct(4)) { uint16 t = pick(R32, 4); m_resources[t] = 1; }               // rare exception
+
+    // R64 (rarest): only in low/null normally; elsewhere very rare.
+    if (pct(6 + rareBonus)) { uint16 t = pick(R64, 4); m_resources[t] = 1 + (rng() % 2); }
+    else if (pct(2)) { uint16 t = pick(R64, 4); m_resources[t] = 1; }
 
     return true;
 }

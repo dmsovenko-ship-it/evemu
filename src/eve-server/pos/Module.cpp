@@ -11,6 +11,7 @@
 #include "pos/Module.h"
 #include "pos/PosMgrDB.h"
 #include "pos/Tower.h"
+#include "planet/Moon.h"
 #include "system/SystemManager.h"
 #include "inventory/InventoryItem.h"
 #include "inventory/Inventory.h"
@@ -95,6 +96,10 @@ void ReactorSE::Process()
     if (m_cycleTimer == nullptr || !m_cycleTimer->Check())
         return;
     if (m_data.state < EVEPOS::StructureState::Online)
+        return;
+    // Offy: the process must be STARTED (POS window -> RunMoonProcessCycle), which
+    // flips IsActive on every harvester/reactor on the tower.
+    if (pData == nullptr || !pData->IsActive())
         return;
     ProcessReactionCycle();
 }
@@ -213,16 +218,26 @@ void ReactorSE::ProcessReactionCycle()
 
     const uint16 grp = m_self->groupID();
 
-    // 1) Moon Harvesting Array: mine a raw Moon Material into the linked silo.
+    // 1) Moon Harvesting Array: mine a material this moon actually contains (the
+    // composition is generated per moon), into the linked silo. The "mining
+    // product" provision (if set) overrides which material is extracted.
     if (grp == EVEDB::invGroups::Moon_Mining) {
-        uint32 rawType = 0;
-        std::map<uint32, uint32> stock;
-        for (uint32 pid : providers)
-            AggregateStock(ModuleInv(m_system, pid), stock);
-        for (auto& [tid, q] : stock) {
-            const ItemType* t = sItemFactory.GetType((uint16)tid);
-            if (t != nullptr && t->groupID() == EVEDB::invGroups::Moon_Materials) { rawType = tid; break; }
+        MoonSE* moon = (m_towerSE != nullptr) ? m_towerSE->GetMoonSE() : nullptr;
+        uint32 prov = 0;
+        if (pData != nullptr) {
+            auto it = pData->GetSupplies().find(myID);
+            if (it != pData->GetSupplies().end())
+                prov = it->second.typeID;
         }
+        uint32 rawType = 0;
+        if (moon != nullptr) {
+            for (auto it = moon->GooBegin(); it != moon->GooEnd(); ++it) {
+                if (prov != 0 && it->first == (uint16)prov) { rawType = prov; break; }
+                if (rawType == 0) rawType = it->first;
+            }
+        }
+        if (rawType == 0 && prov != 0)
+            rawType = prov;
         if (rawType == 0)
             rawType = PickPublishedType(EVEDB::invGroups::Moon_Materials);
         if (rawType != 0) {
@@ -232,44 +247,53 @@ void ReactorSE::ProcessReactionCycle()
         return;
     }
 
-    // 2) Reactor Arrays: pull inputs from linked providers (harvesters/silos).
+    // 2) Reactor Arrays: run the SELECTED formula from invTypeReactions (the
+    // reactionTypeID is set in the POS window via ChangeStructureProvisionType).
     if (grp == EVEDB::invGroups::Mobile_Reactor) {
+        int32 reactionTypeID = (pData != nullptr) ? pData->GetReaction() : 0;
+        if (reactionTypeID <= 0)
+            return;   // no formula selected yet
+
+        struct Reagent { uint32 typeID; uint32 qty; };
+        std::vector<Reagent> inputs, outputs;
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res,
+            "SELECT input, typeID, quantity FROM invTypeReactions WHERE reactionTypeID = %u", reactionTypeID))
+            return;
+        DBResultRow row;
+        uint32 minInputQty = 0;
+        while (res.GetRow(row)) {
+            Reagent x = { row.GetUInt(1), row.GetUInt(2) };
+            if (row.GetUInt(0) == 1) {
+                inputs.push_back(x);
+                if (minInputQty == 0 || x.qty < minInputQty)
+                    minInputQty = x.qty;
+            } else {
+                outputs.push_back(x);
+            }
+        }
+        if (inputs.empty() || outputs.empty())
+            return;
+
+        // EVE runs moon reactions in 100-unit batches; the SDE stores the per-unit
+        // ratio for most formulas (e.g. 1+1 -> 2) and already-scaled amounts for a
+        // few. Apply the x100 batch only when the formula is in ratio form.
+        uint32 batch = (minInputQty <= 1) ? 100 : 1;
+
         std::map<uint32, uint32> stock;
         for (uint32 pid : providers)
             AggregateStock(ModuleInv(m_system, pid), stock);
+        for (auto& in : inputs)
+            if (stock[in.typeID] < in.qty * batch)
+                return;   // not enough reagents yet
 
-        std::vector<uint32> raws, inters;
-        for (auto& [tid, q] : stock) {
-            const ItemType* t = sItemFactory.GetType((uint16)tid);
-            if (t == nullptr)
-                continue;
-            if (t->groupID() == EVEDB::invGroups::Moon_Materials && q >= 100)
-                raws.push_back(tid);
-            else if (t->groupID() == EVEDB::invGroups::Intermediate_Materials && q >= 200)
-                inters.push_back(tid);
-        }
-        std::sort(raws.begin(), raws.end());
-        std::sort(inters.begin(), inters.end());
+        for (auto& in : inputs)
+            consume(in.typeID, in.qty * batch);
+        for (auto& out : outputs)
+            deposit(out.typeID, out.qty * batch);
 
-        if (m_self->typeID() == 16869) {
-            // complex: 200 intermediates + 100 raw -> 100 composites
-            if (!inters.empty() && !raws.empty()) {
-                uint32 compType = PickPublishedType(EVEDB::invGroups::Composite);
-                if (compType != 0 && consume(inters[0], 200) && consume(raws[0], 100)) {
-                    deposit(compType, 100);
-                    _log(SE__MESSAGE, "ReactorSE %s(%u): complex reaction -> 100 x %u.", m_self->name(), myID, compType);
-                }
-            }
-        } else {
-            // simple: 2 x 100 distinct raws -> 100 intermediates
-            if (raws.size() >= 2) {
-                uint32 interType = PickPublishedType(EVEDB::invGroups::Intermediate_Materials);
-                if (interType != 0 && consume(raws[0], 100) && consume(raws[1], 100)) {
-                    deposit(interType, 100);
-                    _log(SE__MESSAGE, "ReactorSE %s(%u): simple reaction -> 100 x %u.", m_self->name(), myID, interType);
-                }
-            }
-        }
+        _log(SE__MESSAGE, "ReactorSE %s(%u): ran reaction %u (batch %u).",
+             m_self->name(), myID, reactionTypeID, batch);
         return;
     }
 

@@ -916,17 +916,24 @@ PyResult PosMgrBound::ChangeStructureProvisionType(PyCallArgs &call, PyInt* towe
     SystemEntity* pSE = pSystem->GetSE(itemID->value());
     if (pSE == nullptr || pSE->GetReactorSE() == nullptr || pSE->GetReactorSE()->GetReactorData() == nullptr)
         return PyStatic.NewFalse();
+    ReactorSE* r = pSE->GetReactorSE();
+    uint16 grp = (r->GetSelf().get() != nullptr) ? r->GetSelf()->groupID() : 0;
 
-    // The "provision" is the single material a silo is configured to hold (or a
-    // harvester's mining product). Stored for reference/UI; the actual routing is
-    // driven by the resource links (ReactorSE::ProcessReactionCycle).
-    EVEPOS::POS_Resource res;
-        res.typeID = (uint32)typeID->value();
-        res.quantity = 0;
-    pSE->GetReactorSE()->GetReactorData()->GetSupplies()[itemID->value()] = res;
-
-    _log(POS__MESSAGE, "PosMgrBound::ChangeStructureProvisionType() - %s set provision type %u on item %u.",
-         call.client->GetName(), typeID->value(), itemID->value());
+    if (grp == EVEDB::invGroups::Mobile_Reactor) {
+        // A reactor's "provision" is the reaction FORMULA to run (a reactionTypeID
+        // from invTypeReactions). The actual routing is by the resource links.
+        r->GetReactorData()->SetReaction(typeID->value());
+        _log(POS__MESSAGE, "PosMgrBound::ChangeStructureProvisionType() - %s set reaction %u on reactor %u.",
+             call.client->GetName(), typeID->value(), itemID->value());
+    } else {
+        // A silo/harvester's provision is the single material it holds / mines.
+        EVEPOS::POS_Resource res;
+            res.typeID = (uint32)typeID->value();
+            res.quantity = 0;
+        r->GetReactorData()->GetSupplies()[itemID->value()] = res;
+        _log(POS__MESSAGE, "PosMgrBound::ChangeStructureProvisionType() - %s set provision type %u on item %u.",
+             call.client->GetName(), typeID->value(), itemID->value());
+    }
 
     return PyStatic.NewTrue();
 }

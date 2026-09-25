@@ -330,7 +330,7 @@ bool PosMgrDB::GetReactorData(ReactorData* pData, EVEPOS::StructureData& sData)
     DBResultRow row;
     if (!res.GetRow(row)) return false;
     pData->SetActive(row.GetInt(0) != 0);
-    pData->SetReaction((int16)row.GetInt(1));
+    pData->SetReaction((int32)row.GetInt(1));
     return true;
 }
 
