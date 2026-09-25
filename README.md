@@ -72,6 +72,7 @@
 | **Customs offices** — NPC offices seeded on high-sec planets, anchoring bound to the nearest planet, tax handling | **Таможенные офисы** — NPC-офисы на хайсек-планетах, анкор у ближайшей планеты, налоги |
 | **Incursion gates & HUD** — acceleration gates between pockets, penalty informer HUD (state re-sent on session change) | **Ворота и HUD инкурсий** — ускорительные ворота между карманами, информер штрафов (состояние переотправляется при смене системы) |
 | **EVE-mail** — folders (inbox/sent), read/unread, notifications, live delivery | **EVE-почта** — папки (входящие/отправленные), прочтение, уведомления, живая доставка |
+| **Bot PvP & sov warfare** — highsec suicide-gankers + CONCORD, gate camps, bubble ambushes, kite/brawler, capital fleets with killable **cyno-ship** drops (range-gated, jammer-blockable), player-way SBU sov capture (real anchoring timers); **NPC-school bots never take sovereignty** — they must form a bot corp → alliance | **PvP и войны челоботов** — хайсек-ганкеры + CONCORD, гейт-кемпы, бабл-засады, kite/brawler, кап-флоты с убиваемым **цино-шипом** (гейт по дальности, блок джаммером), захват систем по-игровому (SBU + таймеры анчора); **NPC-корпы суверенитет не берут** — только через объединение в корп → альянс |
 | **Petitions (F12) & admin** — category tree, threads, GM queue; login-IP history, human↔human flow audit, shared-IP detection, account notes, ban reasons | **Петиции (F12) и админ** — дерево категорий, треды, очередь GM; история IP, аудит потоков, детект shared-IP, заметки аккаунта, причины бана |
 
 ---
