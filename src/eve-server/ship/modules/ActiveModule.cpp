@@ -32,6 +32,8 @@ m_reloadTimer(0),
 m_doomsdayTimer(0, true),
 m_doomsdayTargetID(0),
 m_doomsdayFired(false),
+m_immobilizeTimer(0, true),
+m_immobilizeApplied(false),
 m_bubble(nullptr),
 m_sysMgr(nullptr),
 m_targMgr(nullptr),
@@ -392,6 +394,16 @@ void ActiveModule::Process()
         }
     }
 
+    // release the post-doomsday immobilisation after 30 s (always, even if we stop)
+    if (m_immobilizeTimer.Enabled() && m_immobilizeTimer.Check(false)) {
+        m_immobilizeTimer.Disable();
+        if (m_immobilizeApplied && m_shipRef->GetPilot() != nullptr
+            && m_shipRef->GetPilot()->GetShipSE() != nullptr
+            && m_shipRef->GetPilot()->GetShipSE()->DestinyMgr() != nullptr)
+            m_shipRef->GetPilot()->GetShipSE()->DestinyMgr()->SetFrozen(false);
+        m_immobilizeApplied = false;
+    }
+
     if (m_ModuleState < Module::State::Deactivating)
         return;
 
@@ -507,7 +519,7 @@ void ActiveModule::ExecuteDoomsday(uint32 targetID)
     }
 
     // Damage 2,000,000 in the titan's racial type, boosted by the skill.
-    int skill = pc->GetChar() != nullptr ? pc->GetChar()->GetSkillLevel(EvESkill::DoomsdayOperation, true) : 0;
+    int skill = (pc->GetChar().get() != nullptr) ? pc->GetChar()->GetSkillLevel(EvESkill::DoomsdayOperation, true) : 0;
     if (skill < 0) skill = 0;
     double dmg = 2000000.0 * (1.0 + 0.1 * skill);
     float em = m_modRef->HasAttribute(AttrEmDamage) ? m_modRef->GetAttribute(AttrEmDamage).get_float() : 0.0f;
@@ -527,8 +539,12 @@ void ActiveModule::ExecuteDoomsday(uint32 targetID)
     tSE->ApplyDamage(d);
     _log(MODULE__TRACE, "%s(%u): doomsday %s(%u) for %.0f.", m_shipRef->name(), m_shipRef->itemID(),
          tSE->GetName(), tSE->GetID(), dmg);
-    if (mySE->DestinyMgr() != nullptr)
-        mySE->DestinyMgr()->Stop();   // ~30 s immobilisation after the shot
+    if (mySE->DestinyMgr() != nullptr) {
+        mySE->DestinyMgr()->Stop();              // halt immediately
+        mySE->DestinyMgr()->SetFrozen(true);     // ~30 s immobilisation (Halt each tic)
+        m_immobilizeApplied = true;
+        m_immobilizeTimer.Start(30000);
+    }
     if (pc->GetCrimeWatch() != nullptr)
         pc->GetCrimeWatch()->OnDoomsdayFired();   // 10-min mobility + 25-min aggro cooldown
     m_doomsdayFired = true;

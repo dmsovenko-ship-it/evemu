@@ -156,6 +156,8 @@ private:
     Timer               m_doomsdayTimer;      // 12s doomsday charge-up
     uint32              m_doomsdayTargetID;   // locked doomsday target
     bool                m_doomsdayFired;      // fired since this activation?
+    Timer               m_immobilizeTimer;    // 30s post-doomsday immobilisation
+    bool                m_immobilizeApplied;  // ship frozen by the doomsday?
 
 };
 
