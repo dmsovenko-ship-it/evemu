@@ -19,6 +19,7 @@
 #include "ServiceDB.h"
 #include "StaticDataMgr.h"
 #include <iterator>
+#include <algorithm>
 #include <cmath>
 #include <sstream>
 
@@ -2313,7 +2314,34 @@ bool PlayerBot::TryCapitalDrop()
     if (dest == 0)
         dest = fallback;
 
+    // Assemble the capital fleet: corpmate capital pilots in adjacent *loaded*
+    // systems join the drop (each lights its own cyno and jumps to the same
+    // destination, so the fleet arrives together).
+    int joining = 0;
+    for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+        if (sm == nullptr || sysID == SystemMgr()->GetID())
+            continue;
+        if (std::find(adj.begin(), adj.end(), sysID) == adj.end())
+            continue;                       // not adjacent to us — don't drag it
+        for (auto& [id, se] : sm->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* mate = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (mate == nullptr)
+                continue;
+            if (mate->GetBotCorpID() != m_botCorpID && mate->GetBotAllianceID() != m_botAllianceID)
+                continue;
+            if (!mate->IsCapitalPilot() || mate->CynoActive())
+                continue;
+            mate->StartCapitalDrop(dest, false);
+            ++joining;
+        }
+    }
+
     StartCapitalDrop(dest, true);
+    if (joining > 0)
+        _log(BOT__MESSAGE, "PlayerBot %s(%u): capital fleet - %d capitals joining from adjacent systems.",
+             m_botName.c_str(), m_botCharID, joining);
     return true;
 }
 
