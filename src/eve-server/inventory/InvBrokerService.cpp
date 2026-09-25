@@ -193,7 +193,16 @@ PyResult InvBrokerBound::GetInventoryFromId(PyCallArgs &call, PyInt* inventoryID
                 default: {
                     flag = flagHangar;
                 } break;
-            } break;
+            }
+            // A POS structure in space is corp property: only the owner (character or
+            // its corporation) may open its storage. The old code let ANY client bind
+            // and list any structure's contents (no access check at all).
+            if (sDataMgr.IsSolarSystem(iRef->locationID()) && ownerID != 0) {
+                uint32 myChar = call.client->GetCharacterID();
+                uint32 myCorp = call.client->GetCorporationID();
+                if (myChar != ownerID && (myCorp == 0 || myCorp != ownerID))
+                    throw UserError("CrpAccessDenied");
+            }
         } break;
         case EVEDB::invCategories::Orbitals: {
             switch(iRef->groupID()) {
