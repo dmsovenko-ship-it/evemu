@@ -16,6 +16,7 @@
 #include "ship/modules/ActiveModule.h"
 #include "ship/Ship.h"
 #include "system/Damage.h"
+#include "pos/Tower.h"
 #include "fleet/FleetService.h"
 #include "ship/modules/ModuleItem.h"
 #include "ship/modules/Prospector.h"
@@ -976,34 +977,85 @@ uint32 ActiveModule::DoCycle() {
         case EVEDB::invGroups::Smart_Bomb: {
         } break;
         case EVEDB::invGroups::Super_Weapon: {
-            // Titan doomsday: an AoE nuke centred on the locked target. Hits every
-            // piloted ship in range (friendly fire included, as on the live server).
-            if (m_targetSE == nullptr || m_shipRef->GetPilot() == nullptr || m_targetSE->SysBubble() == nullptr)
+            // Crucible Doomsday: a SINGLE-target strike that only damages CAPITAL
+            // ships (sub-caps are immune). Costs 50,000 racial isotopes, is banned in
+            // low-sec and inside a POS force field, and leaves a mobility cooldown.
+            // Damage 2,000,000 (racial) × (1 + 0.1 × Doomsday Operation).
+            if (m_targetSE == nullptr || m_shipRef->GetPilot() == nullptr || m_targetSE->GetSelf().get() == nullptr)
                 break;
-            ShipSE* mySE = m_shipRef->GetPilot()->GetShipSE();
+            Client* pc = m_shipRef->GetPilot();
+            ShipSE* mySE = pc->GetShipSE();
             if (mySE == nullptr)
                 break;
-            float range = m_modRef->HasAttribute(AttrMaxRange)
-                        ? m_modRef->GetAttribute(AttrMaxRange).get_float() : 25000.0f;
-            GPoint centre = m_targetSE->GetPosition();
-            std::map<uint32, SystemEntity*> entities;
-            m_targetSE->SysBubble()->GetAllEntities(entities);
-            for (auto& [id, se] : entities) {
-                if (se == nullptr || se == mySE || !se->IsShipSE() || !se->HasPilot())
-                    continue;
-                if (centre.distance(se->GetPosition()) > range)
-                    continue;
-                InventoryItemRef tgt = se->GetSelf();
-                if (tgt.get() == nullptr)
-                    continue;
-                double hp = tgt->GetAttribute(AttrShieldCapacity).get_float()
-                          + tgt->GetAttribute(AttrArmorHP).get_float()
-                          + tgt->GetAttribute(AttrHP).get_float();
-                if (hp < 1.0) hp = 1000.0;
-                double dmg = hp * 1.5;
-                Damage d(mySE, tgt, dmg, dmg, dmg, dmg, 1.0f, 0);
-                se->ApplyDamage(d);
+
+            // Restrictions: not in low-sec (0.1 .. 0.45), not inside a POS field.
+            float sec = (m_sysMgr != nullptr) ? m_sysMgr->GetSystemSecurityRating() : 0.0f;
+            if (sec > 0.0f && sec < 0.45f)
+                break;
+            if (mySE->SysBubble() != nullptr && mySE->SysBubble()->HasTower()) {
+                TowerSE* tw = mySE->SysBubble()->GetTowerSE();
+                if (tw != nullptr && tw->HasForceField()
+                    && mySE->GetPosition().distance(tw->GetPosition()) < tw->GetShieldRadius())
+                    break;
             }
+
+            // Target must be a CAPITAL ship (sub-caps are immune).
+            uint16 tGroup = m_targetSE->GetSelf()->groupID();
+            if (!(tGroup == EVEDB::invGroups::Titan || tGroup == EVEDB::invGroups::Dreadnought
+                  || tGroup == EVEDB::invGroups::Carrier || tGroup == EVEDB::invGroups::Supercarrier))
+                break;
+
+            // Fuel: 50,000 racial isotopes (the same type the jump drive uses).
+            uint32 fuelType = 0;
+            if (m_shipRef->HasAttribute(AttrJumpDriveConsumptionType))
+                fuelType = m_shipRef->GetAttribute(AttrJumpDriveConsumptionType).get_uint32();
+            if (fuelType == 0)
+                break;
+            {
+                Inventory* inv = m_shipRef->GetMyInventory();
+                if (inv == nullptr)
+                    break;
+                std::vector<InventoryItemRef> items;
+                inv->GetItemsByFlag(flagCargoHold, items);
+                uint32 have = 0;
+                for (auto& it : items)
+                    if (it.get() != nullptr && it->typeID() == fuelType)
+                        have += (uint32)it->quantity();
+                if (have < 50000)
+                    break;   // not enough isotopes -> no shot
+                uint32 left = 50000;
+                for (auto& it : items) {
+                    if (left == 0)
+                        break;
+                    if (it.get() == nullptr || it->typeID() != fuelType || it->quantity() <= 0)
+                        continue;
+                    uint32 take = std::min<uint32>((uint32)it->quantity(), left);
+                    it->AlterQuantity(-(int32)take, true);
+                    left -= take;
+                }
+            }
+
+            // Damage 2,000,000 in the titan's racial type, boosted by the skill.
+            int skill = pc->GetChar() != nullptr ? pc->GetChar()->GetSkillLevel(EvESkill::DoomsdayOperation, true) : 0;
+            if (skill < 0) skill = 0;
+            double dmg = 2000000.0 * (1.0 + 0.1 * skill);
+            float em = m_modRef->HasAttribute(AttrEmDamage) ? m_modRef->GetAttribute(AttrEmDamage).get_float() : 0.0f;
+            float th = m_modRef->HasAttribute(AttrThermalDamage) ? m_modRef->GetAttribute(AttrThermalDamage).get_float() : 0.0f;
+            float ki = m_modRef->HasAttribute(AttrKineticDamage) ? m_modRef->GetAttribute(AttrKineticDamage).get_float() : 0.0f;
+            float ex = m_modRef->HasAttribute(AttrExplosiveDamage) ? m_modRef->GetAttribute(AttrExplosiveDamage).get_float() : 0.0f;
+            double dEm = 0, dTh = 0, dKi = 0, dEx = 0;
+            if (em + th + ki + ex <= 0.0f) {
+                dEm = dTh = dKi = dEx = dmg / 4.0;   // unknown type -> even split
+            } else if (em >= th && em >= ki && em >= ex) dEm = dmg;
+            else if (th >= ki && th >= ex) dTh = dmg;
+            else if (ki >= ex) dKi = dmg;
+            else dEx = dmg;
+
+            InventoryItemRef tgt = m_targetSE->GetSelf();
+            Damage d(mySE, tgt, (float)dKi, (float)dTh, (float)dEm, (float)dEx, 1.0f, 0);
+            m_targetSE->ApplyDamage(d);
+            _log(MODULE__TRACE, "%s(%u): doomsday %s(%u) for %.0f.", m_shipRef->name(), m_shipRef->itemID(),
+                 m_targetSE->GetName(), m_targetSE->GetID(), dmg);
         } break;
         case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
             ApplyWarpDisruptField();   // refresh the focused field each cycle
