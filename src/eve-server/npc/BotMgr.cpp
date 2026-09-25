@@ -7318,6 +7318,8 @@ void BotMgr::ContestSystemWithSBUs(SystemManager* sys, uint32 corpID, uint32 all
             data.ownerID = ownerCharID;
         SBUSE* sbu = new SBUSE(sRef, sys->GetServiceMgr(), sys, data);
         sys->AddEntity(sbu);
+        sbu->SetBotAnchorPoint(gateID);   // pre-set the stargate so Init() resolves m_gateSE
+        sbu->Init();                      // player-like load (sets m_sbu + gate link)
         sbu->BotAnchorStart(p);
         m_pendingSBUOnline[sRef->itemID()] = GetFileTimeNow()
             + (int64)sbu->BotAnchorDelayMs() * (int64)(EvE::Time::Second / 1000);   // ms -> 100ns units

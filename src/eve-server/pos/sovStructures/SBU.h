@@ -31,6 +31,10 @@ public:
     virtual void                Process();
     virtual void                SetOnline();
     virtual void                SetOffline();
+    // Destroying an SBU re-evaluates the contest: if the surviving online SBUs no
+    // longer exceed 50% of the system's stargates, the TCU becomes invulnerable
+    // again and the system stops being contested.
+    virtual void                Killed(Damage& damage);
 
     /* virtual functions default to base class and overridden as needed */
     virtual void                Init();

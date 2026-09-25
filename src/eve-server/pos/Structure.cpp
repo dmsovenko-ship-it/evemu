@@ -890,6 +890,17 @@ void StructureSE::BotDeployAndAnchor(const GPoint& pos)
                                      0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
 }
 
+// Bot pre-set the anchor celestial (e.g. the stargate an SBU is anchored near)
+// so StructureSE::Init() can resolve m_gateSE / the tower link on load.
+void StructureSE::SetBotAnchorPoint(uint32 itemID)
+{
+    if (itemID == 0)
+        return;
+    m_data.itemID = m_self->itemID();
+    m_data.anchorpointID = itemID;
+    m_db.SaveBaseData(m_data);
+}
+
 // Player-like bot anchoring: run the real AttrAnchoringDelay countdown (with the
 // AnchorDrop animation) instead of jumping straight to Online, then BotOnlineNow()
 // finishes it. Used by bots to contest systems with SBUs the way a pilot would.

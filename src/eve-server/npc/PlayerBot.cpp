@@ -2363,6 +2363,18 @@ bool PlayerBot::TryCapitalDrop()
             continue;
         if (row.GetFloat(0) >= 0.0f)
             continue;                       // only nullsec drops
+        // Counter-play: an online Cynosural System Jammer in the destination
+        // blocks the drop (defenders install one to keep capitals out). The id is
+        // cleared when the jammer structure goes offline/destroyed.
+        {
+            DBQueryResult jr;
+            if (sDatabase.RunQuery(jr,
+                    "SELECT jammerID FROM mapSystemSovInfo WHERE solarSystemID = %u", s)) {
+                DBResultRow jrow;
+                if (jr.GetRow(jrow) && !jrow.IsNull(0) && jrow.GetUInt(0) != 0)
+                    continue;               // jammed - no cyno drop here
+            }
+        }
         SovereigntyData sov = svDataMgr.GetSovereigntyData(s);
         bool enemy = (sov.allianceID != 0 && sov.allianceID != m_botAllianceID)
                   || (sov.corporationID != 0 && sov.corporationID != m_botCorpID);

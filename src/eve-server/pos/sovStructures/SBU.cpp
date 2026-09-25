@@ -107,6 +107,32 @@ void SBUSE::Process()
     StructureSE::Process();
 }
 
+// An SBU was destroyed: the base handles cleanup + the killmail, then we
+// re-check the contest. If the remaining ONLINE SBUs no longer exceed 50% of the
+// gates, the TCU is no longer vulnerable (back Online) and the system is freed.
+void SBUSE::Killed(Damage& damage)
+{
+    StructureSE::Killed(damage);
+
+    int online = 0;
+    for (auto cur : m_system->GetOperationalStatics()) {
+        if (cur.second == nullptr || cur.second == this || cur.second->GetSBUSE() == nullptr)
+            continue;
+        if (cur.second->GetSBUSE()->GetState() == EVEPOS::StructureState::Online)
+            ++online;
+    }
+    float gates = GetGates();
+    if (gates > 0.0f && ((float)online / gates) <= 0.5f) {
+        for (auto cur : m_system->GetOperationalStatics()) {
+            if (cur.second != nullptr && cur.second->IsTCUSE())
+                cur.second->GetTCUSE()->SetOnline();
+        }
+        MarkContested(m_system->GetID(), false);
+        _log(SOV__DEBUG, "SBUSE %s(%u) destroyed - system %u no longer contested (%d/%u SBUs online).",
+             m_self->name(), m_self->itemID(), m_system->GetID(), online, (unsigned)gates);
+    }
+}
+
 void SBUSE::MarkContested(uint32 systemID, bool contested)
 {
     //Send ProcessSovStatusChanged Notification

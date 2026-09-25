@@ -172,6 +172,7 @@ public:
     // Bot (no Client) anchoring: places the structure at `pos`, links it to the
     // nearest moon, marks it anchored+online and persists it. Towers override
     // OnBotAnchorComplete() to register the force field / moon / fuel data.
+    void                        SetBotAnchorPoint(uint32 itemID);   // bot: pre-set the anchor celestial before Init()
     void                        BotDeployAndAnchor(const GPoint& pos);
     // Player-like bot anchoring: start the real AttrAnchoringDelay countdown
     // (AnchorDrop animation), then BotOnlineNow() completes it to Online.
