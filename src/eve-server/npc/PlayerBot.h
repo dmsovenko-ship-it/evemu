@@ -252,6 +252,9 @@ public:
     // A capital pilot periodically leads a cyno drop on a contested nullsec
     // system (capital fleet + escorts). Returns true if a drop was started.
     bool TryCapitalDrop();
+    // Nullsec: target and assault an enemy sovereignty structure (TCU/IHub/SBU)
+    // present in this system. Returns true if one was engaged.
+    bool AttackEnemySov();
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
     void CallFleetSupport(SystemEntity* attacker);   // same corp/alliance bots join the fight

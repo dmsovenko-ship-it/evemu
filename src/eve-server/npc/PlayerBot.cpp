@@ -10,6 +10,7 @@
 #include "Client.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
+#include "system/SystemDB.h"
 #include "system/cosmicMgrs/BeltMgr.h"
 #include "system/Asteroid.h"
 #include "system/Container.h"
@@ -1534,9 +1535,12 @@ void PlayerBot::DoProfessionActivity()
             // A camper still hunts prey that comes to the gate (canCampGate is
             // forced true while camping, so near-gate targets are fair game).
             HuntForTarget();
-            // PvP war corps claim unowned nullsec (skirmish).
-            if (SystemMgr()->GetSystemSecurityRating() < 0.0f)
+            // Nullsec skirmish: assault an enemy sov structure, then claim the
+            // system if it is unowned.
+            if (SystemMgr()->GetSystemSecurityRating() < 0.0f) {
+                AttackEnemySov();
                 ClaimSystem();
+            }
         } break;
 
         case BotProfession::RatHunter: {
@@ -2326,9 +2330,21 @@ bool PlayerBot::TryCapitalDrop()
     }
     if (adj.empty())
         return false;
+    // Capital jump range gate (~5 LY): a capital does not jump further than its
+    // drive allows. System coords are ~1e16 m, so use double precision.
+    double sx, sy, sz;
+    if (!SystemDB::GetSolarSystemPositionDouble(SystemMgr()->GetID(), sx, sy, sz))
+        return false;
     uint32 dest = 0;
     uint32 fallback = 0;
     for (uint32 s : adj) {
+        double ex, ey, ez;
+        if (!SystemDB::GetSolarSystemPositionDouble(s, ex, ey, ez))
+            continue;
+        double jdx = ex - sx, jdy = ey - sy, jdz = ez - sz;
+        double ly = EvEMath::Units::MetersToLightYears(std::sqrt(jdx*jdx + jdy*jdy + jdz*jdz));
+        if (ly > 5.0)
+            continue;                       // beyond capital jump range
         if (fallback == 0) fallback = s;
         DBQueryResult res;
         if (!sDatabase.RunQuery(res,
@@ -2377,6 +2393,37 @@ bool PlayerBot::TryCapitalDrop()
         _log(BOT__MESSAGE, "PlayerBot %s(%u): capital fleet - %d capitals joining from adjacent systems.",
              m_botName.c_str(), m_botCharID, joining);
     return true;
+}
+
+// Nullsec: assault an enemy sovereignty structure (TCU/IHub/SBU) in this system.
+// Online structures are invulnerable by design (they must be put into
+// reinforcement first), so this matters when the structure is vulnerable; the
+// NPC targeting path is used because the player path denies Online structures.
+bool PlayerBot::AttackEnemySov()
+{
+    if (SystemMgr() == nullptr || m_destiny == nullptr)
+        return false;
+    if (SystemMgr()->GetSystemSecurityRating() >= 0.0f)
+        return false;                       // sov structures live in nullsec
+    if (GetAIMgr()->IsFighting())
+        return false;                       // don't drop a live fight
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se == this)
+            continue;
+        if (!se->IsTCUSE() && !se->IsIHubSE() && !se->IsSBUSE())
+            continue;
+        if (se->GetCorporationID() == m_botCorpID)
+            continue;                       // ours
+        if (m_botAllianceID != 0 && se->GetAllianceID() == m_botAllianceID)
+            continue;                       // our alliance's
+        GetAIMgr()->WakeUp();
+        GetAIMgr()->StartAttackCycle(2000);
+        GetAIMgr()->Target(se);
+        _log(BOT__MESSAGE, "PlayerBot %s(%u): assaulting enemy sov structure %s(%u) in system %u.",
+             m_botName.c_str(), m_botCharID, se->GetName(), se->GetID(), SystemMgr()->GetID());
+        return true;
+    }
+    return false;
 }
 
 void PlayerBot::UseCombatAbilities()
