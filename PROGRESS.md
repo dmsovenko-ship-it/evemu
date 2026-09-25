@@ -114,8 +114,8 @@
 | **Energy warfare** — ship neutralizer drains the target (energyDestabilizationAmount), nosferatu drains target→self, remote capacitor transfer; were reading the wrong attribute (drained 0 / added capacitor) | ❌ | ✅ |
 | **Remote sensor damper** — was a stub; now applies maxTargetRange/scanResolution bonuses to the target, symmetric undo | ❌ | ✅ |
 | **ECM Burst / Remote ECM Burst** — AoE jam in range (were empty stubs) | ❌ | ✅ |
-| **Warp Disrupt Field Generator** — focused warp-disruption bubble while active | ❌ | ✅ |
-| **Titan Super Weapon** — doomsday hit on the locked target (was a stub) | ❌ | ✅ |
+| **Warp Disrupt Field Generator** — focused radius field (per-ship scramble within range while active) | ❌ | ✅ |
+| **Titan Super Weapon** — AoE doomsday around the locked target (was a stub) | ❌ | ✅ |
 | **Cargo / Ship Scanner** — send OnCargoScanComplete / OnShipScanCompleted (cargo list, cap + fitted modules) | ❌ | ✅ |
 | **Misc module groups mapped** — GM/test/faction groups that previously couldn't be fitted at all now load | ❌ | ✅ |
 | **Charge handling** — linked weapons clear a depleted charge (no infinite ammo / zombie ref); stale charge entries removed from the manager on burnout; cap booster grants the last charge's capacitor; defender/countermeasure auto-fire consumes its charge; pre-loaded charges restored via the charge-state cache; sensor scripts reset the correct attributes | ❌ | ✅ |
@@ -218,6 +218,7 @@
 | **Assembly Array manufacturing** — POS array recognised as an industry facility (corp/alliance lines); corporate-hangar capacity for arrays | ❌ | ✅ |
 | **Shield hardener recalculation** — tower shield resonances recomputed immediately when a player onlines/offlines a Shield Hardening Array | ❌ | ✅ |
 | **Force-field barrier & guard arrival** — warping into a hostile field lands on the shield surface (no inside-the-tower landing); warp-in guards have a guaranteed arrival fallback | ❌ | ✅ |
+| **Structure storage access** — POS structure inventories are corp-only (owner / owner-corp); previously any client could open any structure | ❌ | ✅ |
 
 ### 14. Wormholes `██████████████████░░` 92%
 
