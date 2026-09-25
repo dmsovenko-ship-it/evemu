@@ -666,6 +666,9 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
 
     ServiceDB::SaveKillOrLoss(data);
 
+    _log(BOT__MESSAGE, "PlayerBot killmail: victim %s(%u) ship %u in system %u, killer %u (ship %u).",
+         GetBotName().c_str(), GetBotCharID(), GetTypeID(), m_system->GetID(), killerID, finalShipTypeID);
+
     // notify a real player killer
     if (pClient != nullptr) {
         std::string secStr = std::to_string(m_system->GetSystemSecurityRating());
@@ -1972,10 +1975,23 @@ void PlayerBot::HuntForTarget()
             || (enemyBot->IsShipSE() && enemyBot->GetShipSE()->GetActiveFighterCount() > 0))
             theirPower += 3;
 
-        if (ShouldEngage(myPower, theirPower, false)) {
-            _log(BOT__TRACE, "PlayerBot %s(%u): hunter engaging %s(%u) — %d vs %d.",
-                 m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(),
-                 enemyBot->GetBotCharID(), myPower, theirPower);
+        bool engage = ShouldEngage(myPower, theirPower, false);
+        // A highsec suicide-ganker is on a one-way trip (CONCORD answers): it
+        // commits to a soft target (miner/hauler/trader/industrialist) even
+        // without a power edge — the point is the kill, not survival. Without
+        // this a destroyer-hulled ganker never out-powers anyone, never attacks,
+        // and no bot-vs-bot killmail is ever produced in the hubs.
+        if (!engage && m_outlaw) {
+            auto preyProf = enemyBot->GetProfession();
+            if (preyProf == BotProfession::Miner || preyProf == BotProfession::Courier
+                || preyProf == BotProfession::Trader || preyProf == BotProfession::Hacker
+                || preyProf == BotProfession::Industrialist)
+                engage = true;
+        }
+        if (engage) {
+            _log(BOT__MESSAGE, "PlayerBot %s(%u): %s engaging %s(%u) — %d vs %d.",
+                 m_botName.c_str(), m_botCharID, (m_outlaw ? "ganker" : "hunter"),
+                 enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID(), myPower, theirPower);
             // Pre-emptively record the grudge — the hunter declares its enemy.
             UpdateBotStandings(enemyBot, false);
             StartAggressionTimer();   // attacking = flagged, can't leave for a bit

@@ -7233,6 +7233,9 @@ void BotMgr::ScheduleConcordGank(uint32 charID, uint32 sysID)
     auto it = m_concordGankAt.find(charID);
     if (it == m_concordGankAt.end() || at > it->second)
         m_concordGankAt[charID] = at;   // a fresh gank extends the window
+
+    _log(BOT__MESSAGE, "BotMgr::ScheduleConcordGank() - outlaw %u in system %u: CONCORD in %.0f s.",
+         charID, sysID, delay);
 }
 
 void BotMgr::ProcessOutlawConcord()
