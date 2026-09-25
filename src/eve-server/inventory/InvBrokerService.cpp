@@ -28,6 +28,7 @@
 /** @todo  many unfinished calls in this file.... */
 
 #include "eve-server.h"
+#include "pos/Structure.h"
 
 #include "EntityList.h"
 
@@ -194,14 +195,25 @@ PyResult InvBrokerBound::GetInventoryFromId(PyCallArgs &call, PyInt* inventoryID
                     flag = flagHangar;
                 } break;
             }
-            // A POS structure in space is corp property: only the owner (character or
-            // its corporation) may open its storage. The old code let ANY client bind
-            // and list any structure's contents (no access check at all).
+            // POS storage access is corp property. A module's per-structure "view/put"
+            // setting decides who may open it; the Control Tower keeps the corp-only
+            // gate (it holds the fuel bay).
             if (sDataMgr.IsSolarSystem(iRef->locationID()) && ownerID != 0) {
-                uint32 myChar = call.client->GetCharacterID();
-                uint32 myCorp = call.client->GetCorporationID();
-                if (myChar != ownerID && (myCorp == 0 || myCorp != ownerID))
-                    throw UserError("CrpAccessDenied");
+                StructureSE* posSE = nullptr;
+                if (call.client->SystemMgr() != nullptr) {
+                    SystemEntity* pSE = call.client->SystemMgr()->GetSE(iRef->itemID());
+                    if (pSE != nullptr)
+                        posSE = pSE->GetPOSSE();
+                }
+                if (posSE != nullptr && iRef->groupID() != EVEDB::invGroups::Control_Tower) {
+                    if (!posSE->CanAccess(posSE->CanView(), call.client))
+                        throw UserError("CrpAccessDenied");
+                } else {
+                    uint32 myChar = call.client->GetCharacterID();
+                    uint32 myCorp = call.client->GetCorporationID();
+                    if (myChar != ownerID && (myCorp == 0 || myCorp != ownerID))
+                        throw UserError("CrpAccessDenied");
+                }
             }
         } break;
         case EVEDB::invCategories::Orbitals: {

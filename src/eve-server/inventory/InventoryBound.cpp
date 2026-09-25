@@ -426,6 +426,24 @@ PyRep* InventoryBound::MoveItems(Client* pClient, std::vector< int32 >& items, E
         case EVEDB::invCategories::Structure: {
             // this is all POS groups.  use corp donating checks
             donating = true;
+            // POS access: taking items OUT of a structure needs its "take" setting,
+            // putting them IN needs "view/put". An item is "inside" this structure when
+            // its locationID is the structure's itemID.
+            if (pClient->SystemMgr() != nullptr) {
+                SystemEntity* pSSE = pClient->SystemMgr()->GetSE(m_self->itemID());
+                StructureSE* posSE = (pSSE != nullptr) ? pSSE->GetPOSSE() : nullptr;
+                if (posSE != nullptr) {
+                    for (auto it = items.begin(); it != items.end(); ++it) {
+                        InventoryItemRef iRef = sItemFactory.GetItemRef(*it);
+                        if (iRef.get() == nullptr)
+                            continue;
+                        bool takingOut = (iRef->locationID() == (uint32)m_self->itemID());
+                        int8 need = takingOut ? posSE->CanTake() : posSE->CanView();
+                        if (!posSE->CanAccess(need, pClient))
+                            throw UserError("CrpAccessDenied");
+                    }
+                }
+            }
             // may have to reset flags based on type
             switch (m_self->groupID()) {
                 case EVEDB::invGroups::Control_Tower: {

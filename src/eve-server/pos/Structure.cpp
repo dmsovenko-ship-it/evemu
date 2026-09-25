@@ -22,6 +22,7 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "EVE_Mail.h"
+#include "EVE_Roles.h"
 #include "EVEServerConfig.h"
 #include "StaticDataMgr.h"
 #include "manufacturing/Blueprint.h"
@@ -1128,6 +1129,33 @@ void StructureSE::SetUsageFlags(int8 view /*0*/, int8 take /*0*/, int8 use /*0*/
     m_data.view = view;
     m_data.take = take;
     m_db.UpdateBaseData(m_data);
+}
+
+bool StructureSE::CanAccess(int8 setting, Client* pClient)
+{
+    if (pClient == nullptr)
+        return false;
+    uint32 ownerCorp = GetOwnerID();
+    if (ownerCorp == 0)
+        return true;   // no owner data -> never lock anybody out
+    uint32 myCorp = pClient->GetCorporationID();
+    int64 role = pClient->GetCorpRole();
+    // The client exposes no distinct "fuel technician" bit; both role levels accept any
+    // starbase-management role so a legitimate role holder can never be locked out.
+    const int64 starbaseRoles = Corp::Role::StarbaseConfig | Corp::Role::EquipmentConfig
+                              | Corp::Role::StarbaseCaretaker | Corp::Role::InfrastructureTacticalOfficer;
+    switch (setting) {
+        case 0:  // Starbase Config role
+        case 3:  // Starbase Fuel Technician role
+            return (myCorp == ownerCorp) && ((role & starbaseRoles) != 0);
+        case 1:  // Corporation
+            return myCorp == ownerCorp;
+        case 2:  // Alliance
+            if (myCorp == ownerCorp)
+                return true;
+            return (pClient->GetAllianceID() != 0) && (pClient->GetAllianceID() == GetAllianceID());
+    }
+    return false;
 }
 
 void StructureSE::SendSlimUpdate()

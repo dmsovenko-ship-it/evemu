@@ -21,6 +21,8 @@
 #include "system/SystemBubble.h"
 #include "system/SystemEntity.h"
 
+class Client;
+
 // TODO: We may need to create StructureTypeData and StructureType classes just as Ship.h/Ship.cpp
 // has in order to load up type data specific to structures.  For now, the generic ItemType class is used.
 
@@ -191,6 +193,10 @@ public:
     inline int8                 CanUse()                { return m_data.use; }
     inline int8                 CanView()               { return m_data.view; }
     inline int8                 CanTake()               { return m_data.take; }
+    // POS per-structure access check. setting: 0 = starbase config role,
+    // 1 = corporation, 2 = alliance, 3 = starbase fuel/equipment role.
+    // Returns true when pClient satisfies the requested setting.
+    bool                        CanAccess(int8 setting, Client* pClient);
 
     // for orbital infrastructure
     void                     SetPlanet(uint32 planetID) { m_anchorPointID = planetID; }

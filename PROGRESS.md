@@ -218,7 +218,7 @@
 | **Assembly Array manufacturing** — POS array recognised as an industry facility (corp/alliance lines); corporate-hangar capacity for arrays | ❌ | ✅ |
 | **Shield hardener recalculation** — tower shield resonances recomputed immediately when a player onlines/offlines a Shield Hardening Array | ❌ | ✅ |
 | **Force-field barrier & guard arrival** — warping into a hostile field lands on the shield surface (no inside-the-tower landing); warp-in guards have a guaranteed arrival fallback | ❌ | ✅ |
-| **Structure storage access** — POS structure inventories are corp-only (owner / owner-corp); previously any client could open any structure | ❌ | ✅ |
+| **Structure storage access** — POS structure inventories honour the per-structure `view/put` / `take` / `use` settings (starbase-config / corporation / alliance / fuel role); the tower fuel bay stays corp-only; the `canView`/`canTake`/`canUse` columns were widened from bit(1) so the alliance / role levels persist | ❌ | ✅ |
 
 ### 14. Wormholes `██████████████████░░` 92%
 

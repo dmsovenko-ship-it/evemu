@@ -1406,6 +1406,9 @@ PyResult ShipBound::LaunchFromContainer(PyCallArgs &call, PyInt* structureID, Py
     SystemEntity* smaSE = pSystem->GetSE(structureID->value());
     if (smaSE == nullptr)
         throw CustomError ("The maintenance array is not in this system.");
+    if (smaSE->GetPOSSE() != nullptr
+        && !smaSE->GetPOSSE()->CanAccess(smaSE->GetPOSSE()->CanUse(), pClient))
+        throw UserError("CrpAccessDenied");
     GPoint base = smaSE->GetPosition();
 
     for (uint32 i = 0; i < ids->size(); ++i) {
@@ -1474,6 +1477,10 @@ PyResult ShipBound::ScoopToSMA(PyCallArgs &call, PyInt* objectID) {
         throw CustomError ("There is no Ship Maintenance Array nearby.");
     if (bestDist > 2500.0f)
         throw CustomError ("You are too far from the maintenance array to scoop the ship.");
+    SystemEntity* smaSE = pSystem->GetSE(smaID);
+    if (smaSE != nullptr && smaSE->GetPOSSE() != nullptr
+        && !smaSE->GetPOSSE()->CanAccess(smaSE->GetPOSSE()->CanUse(), pClient))
+        throw UserError("CrpAccessDenied");
 
     ShipItemRef shipRef = shipSE->GetShipItemRef();
     uint32 seID = shipSE->GetID();
@@ -1509,6 +1516,9 @@ PyResult ShipBound::BoardStoredShip(PyCallArgs &call, PyInt* structureID, PyInt*
     SystemEntity* smaSE = pSystem->GetSE(structureID->value());
     if (smaSE == nullptr)
         throw CustomError ("The maintenance array is not in this system.");
+    if (smaSE->GetPOSSE() != nullptr
+        && !smaSE->GetPOSSE()->CanAccess(smaSE->GetPOSSE()->CanUse(), pClient))
+        throw UserError("CrpAccessDenied");
 
     GPoint pos = smaSE->GetPosition();
     pos.MakeRandomPointOnSphere(smaSE->GetRadius() + ship->radius() + (double)MakeRandomInt(150, 1500));
@@ -1551,6 +1561,9 @@ PyResult ShipBound::StoreVessel(PyCallArgs &call, PyInt* destID) {
     SystemEntity* smaSE = pSystem->GetSE(destID->value());
     if (smaSE == nullptr)
         throw CustomError ("The maintenance array is not in this system.");
+    if (smaSE->GetPOSSE() != nullptr
+        && !smaSE->GetPOSSE()->CanAccess(smaSE->GetPOSSE()->CanUse(), pClient))
+        throw UserError("CrpAccessDenied");
     if (curSE->GetPosition().distance(smaSE->GetPosition()) > 3000.0f)
         throw CustomError ("You are too far from the maintenance array to store your ship.");
 
