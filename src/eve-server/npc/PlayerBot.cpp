@@ -1535,9 +1535,10 @@ void PlayerBot::DoProfessionActivity()
             // A camper still hunts prey that comes to the gate (canCampGate is
             // forced true while camping, so near-gate targets are fair game).
             HuntForTarget();
-            // Nullsec skirmish: assault an enemy sov structure, then claim the
-            // system if it is unowned.
+            // Nullsec skirmish: contest the system the player way (anchor SBUs
+            // with their real timer -> vulnerable TCU), then assault/claim it.
             if (SystemMgr()->GetSystemSecurityRating() < 0.0f) {
+                sBotMgr.ContestSystemWithSBUs(SystemMgr(), m_botCorpID, m_botAllianceID, m_botCharID);
                 AttackEnemySov();
                 ClaimSystem();
             }
@@ -2186,6 +2187,13 @@ void PlayerBot::ClaimSystem()
              m_botName.c_str(), m_botCharID);
         return;
     }
+    // NPC-school chelobots never take sovereignty: only a real (player-range)
+    // chelobot corporation that has formed/joined a chelobot alliance may claim.
+    if (!IsPlayerCorp(m_botCorpID)) {
+        _log(BOT__TRACE, "PlayerBot %s(%u): NPC starter corp %u — no sovereignty.",
+             m_botName.c_str(), m_botCharID, m_botCorpID);
+        return;
+    }
     uint32 sysID = SystemMgr()->GetID();
 
     // Only claim if the system isn't already owned.
@@ -2405,6 +2413,10 @@ bool PlayerBot::AttackEnemySov()
         return false;
     if (SystemMgr()->GetSystemSecurityRating() >= 0.0f)
         return false;                       // sov structures live in nullsec
+    // Only organised chelobots (bot corp inside a bot alliance) wage sov war;
+    // NPC-school pilots never touch sovereignty structures.
+    if (!IsPlayerCorp(m_botCorpID) || m_botAllianceID == 0)
+        return false;
     if (GetAIMgr()->IsFighting())
         return false;                       // don't drop a live fight
     for (auto& [id, se] : SystemMgr()->GetEntities()) {

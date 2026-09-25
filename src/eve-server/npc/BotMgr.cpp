@@ -26,6 +26,8 @@
 #include "pos/Structure.h"
 #include "pos/Battery.h"
 #include "pos/Weapon.h"
+#include "pos/sovStructures/SBU.h"
+#include "system/sov/SovereigntyDataMgr.h"
 #include "planet/CustomsOffice.h"
 #include "tables/invGroups.h"
 #include "inventory/AttributeEnum.h"
@@ -270,6 +272,9 @@ void BotMgr::Process()
 
     // Highsec outlaw gankers: CONCORD answers after its security-scaled delay.
     ProcessOutlawConcord();
+
+    // Bot-anchored SBUs finish anchoring after their real delay -> online them.
+    ProcessPendingSBUs();
 
     // Keep every loaded bot POS topped up to its doctrine (fills free CPU/grid
     // with shield resists and small guns). Throttled — it walks loaded systems.
@@ -7249,6 +7254,103 @@ void BotMgr::ProcessPosSupplyRuns()
 }
 
 // --- Highsec outlaw gankers / CONCORD --------------------------------------
+// Nullsec sov contest the player way: anchor SBUs at (more than) 50% of the
+// system's stargates, then online them after the real anchoring delay — which
+// makes the owning TCU vulnerable (SBUSE::SetOnline) and marks the system
+// contested. The bots then crack the vulnerable structure (AttackEnemySov).
+void BotMgr::ContestSystemWithSBUs(SystemManager* sys, uint32 corpID, uint32 allyID, uint32 ownerCharID)
+{
+    if (sys == nullptr || corpID == 0)
+        return;
+    if (sys->GetSystemSecurityRating() >= 0.0f)
+        return;                                   // sov is a nullsec thing
+    // Sovereignty is for organised chelobots only: a real (player-range) chelobot
+    // corporation inside a chelobot alliance. NPC starter corps never take sov —
+    // they must first unite into a bot corp, and that corp into a bot alliance.
+    if (!IsPlayerCorp(corpID) || allyID == 0)
+        return;
+    SovereigntyData sov = svDataMgr.GetSovereigntyData(sys->GetID());
+    if (sov.corporationID == 0 && sov.allianceID == 0)
+        return;                                   // unowned: ClaimSystem() handles it
+    if (sov.corporationID == corpID)
+        return;                                   // already ours
+    if (allyID != 0 && sov.allianceID == allyID)
+        return;                                   // our alliance already holds it
+
+    auto gates = sys->GetGates();
+    if (gates.empty())
+        return;
+    size_t need = (gates.size() / 2) + 1;         // SBUSE::SetOnline checks > 0.5
+
+    size_t have = 0;
+    for (auto& [id, se] : sys->GetOperationalStatics())
+        if (se != nullptr && se->IsSBUSE())
+            ++have;
+    if (have >= need)
+        return;                                   // enough already anchored
+
+    int placed = 0;
+    for (auto& [gateID, gate] : gates) {
+        if (gate == nullptr)
+            continue;
+        if (have + (size_t)placed >= need)
+            break;
+        bool near = false;
+        for (auto& [id, se] : sys->GetOperationalStatics()) {
+            if (se != nullptr && se->IsSBUSE()
+                && se->GetPosition().distance(gate->GetPosition()) < 30000.0) {
+                near = true; break;
+            }
+        }
+        if (near)
+            continue;                             // already an SBU on this gate
+
+        const uint32 sbuType = 32250;             // Sovereignty Blockade Unit (Crucible)
+        GPoint p = gate->GetPosition();
+        ItemData idata(sbuType, corpID, sys->GetID(), flagNone, "Sovereignty Blockade Unit", p);
+        StructureItemRef sRef = sItemFactory.SpawnStructure(idata);
+        if (sRef.get() == nullptr)
+            continue;
+        sRef->SaveItem();
+        FactionData data = FactionData();
+            data.corporationID = corpID;
+            data.allianceID = allyID;
+            data.ownerID = ownerCharID;
+        SBUSE* sbu = new SBUSE(sRef, sys->GetServiceMgr(), sys, data);
+        sys->AddEntity(sbu);
+        sbu->BotAnchorStart(p);
+        m_pendingSBUOnline[sRef->itemID()] = GetFileTimeNow()
+            + (int64)sbu->BotAnchorDelayMs() * (int64)(EvE::Time::Second / 1000);   // ms -> 100ns units
+        ++placed;
+    }
+    if (placed > 0)
+        _log(BOT__MESSAGE, "BotMgr: contesting system %u - anchored %d SBU(s) (need %zu of %zu gates).",
+             sys->GetID(), placed, need, gates.size());
+}
+
+// Online bot-anchored SBUs once their anchoring delay has elapsed (player would
+// click Online at this point). The SBU's SetOnline then flips the TCU vulnerable.
+void BotMgr::ProcessPendingSBUs()
+{
+    if (m_pendingSBUOnline.empty())
+        return;
+    int64 now = GetFileTimeNow();
+    for (auto it = m_pendingSBUOnline.begin(); it != m_pendingSBUOnline.end(); ) {
+        if (now < it->second) { ++it; continue; }
+        uint32 itemID = it->first;
+        for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+            if (sm == nullptr)
+                continue;
+            SystemEntity* se = sm->GetSE(itemID);
+            if (se == nullptr || !se->IsSBUSE())
+                continue;
+            se->GetSBUSE()->BotOnlineNow();
+            break;
+        }
+        it = m_pendingSBUOnline.erase(it);
+    }
+}
+
 void BotMgr::ScheduleConcordGank(uint32 charID, uint32 sysID)
 {
     if (charID == 0)

@@ -890,9 +890,62 @@ void StructureSE::BotDeployAndAnchor(const GPoint& pos)
                                      0, 0, "effects.AnchorDrop", 0, 0, 0, -1, 0);
 }
 
-// Bot deploy: persist the controlling tower link (modules anchor inside the
-// tower's field). Without this the module row keeps towerID=0 and fails to
-// link to the tower on the next reload.
+// Player-like bot anchoring: run the real AttrAnchoringDelay countdown (with the
+// AnchorDrop animation) instead of jumping straight to Online, then BotOnlineNow()
+// finishes it. Used by bots to contest systems with SBUs the way a pilot would.
+void StructureSE::BotAnchorStart(const GPoint& pos)
+{
+    if (m_data.state > EVEPOS::StructureState::Unanchored)
+        return;
+    m_data.itemID = m_self->itemID();
+    InitData();
+    m_db.SaveBaseData(m_data);
+
+    m_self->SetPosition(pos);
+    if (m_destiny != nullptr)
+        m_destiny->SetPosition(pos);
+
+    uint32 delay = BotAnchorDelayMs();
+    m_anchorTimer.Start(delay);
+    m_anchoring = true;
+    m_data.state = EVEPOS::StructureState::Anchoring;
+    m_self->SetFlag(flagStructureActive);
+    m_db.UpdateBaseData(m_data);
+    SendSlimUpdate();
+    if (m_destiny != nullptr)
+        m_destiny->SendSpecialEffect(m_data.itemID, m_data.itemID, m_self->typeID(),
+                                     0, 0, "effects.AnchorDrop", 0, 1, 1, delay, 0);
+    _log(POS__MESSAGE, "%s(%u): anchoring (bot) will complete in %ums.",
+         m_self->name(), m_self->itemID(), delay);
+}
+
+uint32 StructureSE::BotAnchorDelayMs()
+{
+    if (m_self->HasAttribute(AttrAnchoringDelay)) {
+        uint32 d = m_self->GetAttribute(AttrAnchoringDelay).get_uint32();
+        if (d > 0)
+            return d;
+    }
+    return 30000;   // sane default so the timer path is still exercised
+}
+
+// Complete a bot anchoring -> online, like a pilot clicking Online after the
+// anchor timer. Fires the structure's SetOnline (e.g. an SBU's vulnerability
+// check + system contested notification).
+void StructureSE::BotOnlineNow()
+{
+    if (m_data.state == EVEPOS::StructureState::Online)
+        return;
+    m_anchoring = false;
+    m_anchorTimer.Disable();
+    m_data.state = EVEPOS::StructureState::Online;
+    m_self->SetFlag(flagStructureActive);
+    SetOnline();
+    SendSlimUpdate();
+    m_db.UpdateBaseData(m_data);
+    _log(POS__MESSAGE, "%s(%u): onlined (bot, after anchoring).", m_self->name(), m_self->itemID());
+}
+
 void StructureSE::SetBotTower(uint32 towerID) {
     if (towerID == 0 or m_data.towerID == towerID)
         return;

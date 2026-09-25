@@ -111,6 +111,10 @@ public:
     // security-scaled delay. Called from PlayerBot::HuntForTarget.
     void ScheduleConcordGank(uint32 charID, uint32 sysID);
 
+    // Nullsec sov contest the player way: anchor SBUs at the system's stargates
+    // (real anchoring delay) then online them -> TCU vulnerable + system contested.
+    void ContestSystemWithSBUs(SystemManager* sys, uint32 corpID, uint32 allyID, uint32 ownerCharID);
+
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
     // Materialize a killmail fit (JSON array of module typeIDs) into a bot's ship:
@@ -353,6 +357,8 @@ private:
     // ganker is destroyed by a spawned CONCORD ship (proper killmail attribution);
     // the temp CONCORD ships are despawned after a while.
     void ProcessOutlawConcord();
+    void ProcessPendingSBUs();
+    std::map<uint32, int64> m_pendingSBUOnline;   // SBU itemID -> online time
     std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
     struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
     std::vector<ConcordTemp> m_concordTemp;      // store IDs (system may unload)
