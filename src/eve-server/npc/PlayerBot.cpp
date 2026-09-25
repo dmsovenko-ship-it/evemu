@@ -793,6 +793,13 @@ bool PlayerBot::ShouldEngage(int myPower, int theirPower, bool defending)
     // needs a clear edge. AggroFactor shifts the margin: -40% config → ~2 extra
     // power needed to attack (the "half the aggression" the operator asked for).
     int margin = defending ? 0 : 2;
+    // Lowsec/nullsec is open PvP: a hunter commits at parity — it does not need a
+    // guaranteed edge to attack (that caution is a highsec/CONCORD thing). Without
+    // this, lowsec hunters only ever engage clearly weaker targets and bot-vs-bot
+    // fights almost never resolve into a kill.
+    float sysSec = (SystemMgr() != nullptr) ? SystemMgr()->GetSystemSecurityRating() : 1.0f;
+    if (!defending && sysSec < 0.5f)
+        margin = 0;
     margin += (int)std::lround(aggro * 4.0f);
     margin -= (int)std::lround(learned * 2.0f);   // winners need less margin
 
@@ -1923,6 +1930,8 @@ void PlayerBot::HuntForTarget()
             // group camp: still only if the victim looks alone and weaker
             if (CountEnemiesNearby(enemy) > 0)
                 continue;   // victim has friends — the camp would turn into a brawl
+            _log(BOT__MESSAGE, "PlayerBot %s(%u): gate camp on %s(%u) at a stargate.",
+                 m_botName.c_str(), m_botCharID, enemy->GetBotName().c_str(), enemy->GetBotCharID());
         }
         // Combat-probe scan: a hunter with probes "finds" targets across the
         // whole system (battlefield/asteroid/anomaly), not just its own bubble.
@@ -2431,7 +2440,7 @@ bool PlayerBot::TryAmbush(SystemEntity* target)
     DeployWarpBubble(target->GetPosition());
     CallFleetSupport(target);           // the ambush fleet warps in
     StartAggressionTimer();
-    _log(BOT__TRACE, "PlayerBot %s(%u): warp-bubble ambush on %s(%u).",
-         m_botName.c_str(), m_botCharID, target->GetName(), target->GetID());
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): warp-bubble AMBUSH on %s(%u) (%d allies).",
+         m_botName.c_str(), m_botCharID, target->GetName(), target->GetID(), CountAlliesNearby());
     return true;
 }
