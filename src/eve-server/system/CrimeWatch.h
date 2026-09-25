@@ -32,6 +32,9 @@ public:
     bool IsConcordActive()  const { return m_concordTimer.Enabled() || m_concordDamageTimer.Enabled(); }
 
     void OnWeaponFired();
+    // Doomsday Device leaves a 10-minute mobility cooldown: no jump drive, gate or
+    // jump portal (modelled as a 10-min weapon timer — blocks dock/jump/gate).
+    void OnDoomsdayFired();
     void OnAggression(Client* pTarget, float systemSecRating);
     // A player attacking a POS/structure (owned property), NOT a ship. In highsec
     // the structure is CONCORD-protected (unless its owner is war-decced): flags

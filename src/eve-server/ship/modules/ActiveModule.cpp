@@ -1056,6 +1056,8 @@ uint32 ActiveModule::DoCycle() {
             m_targetSE->ApplyDamage(d);
             _log(MODULE__TRACE, "%s(%u): doomsday %s(%u) for %.0f.", m_shipRef->name(), m_shipRef->itemID(),
                  m_targetSE->GetName(), m_targetSE->GetID(), dmg);
+            if (pc->GetCrimeWatch() != nullptr)
+                pc->GetCrimeWatch()->OnDoomsdayFired();   // 10-minute mobility cooldown
         } break;
         case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
             ApplyWarpDisruptField();   // refresh the focused field each cycle

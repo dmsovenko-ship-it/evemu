@@ -141,6 +141,17 @@ void CrimeWatch::OnWeaponFired()
     SendAggressionChange();
 }
 
+void CrimeWatch::OnDoomsdayFired()
+{
+    // 10-minute mobility cooldown: no jump drive / gate / jump portal.
+    m_weaponTimer.Start(600000);
+    int64 endTime = static_cast<int64>(GetFileTimeNow()) + 600LL * EvE::Time::Second;
+    if (m_client->GetChar())
+        m_client->GetChar()->SetAttribute(ATTR_WEAPON_TIMER, int64(endTime), true);
+    UpdateSessionChangeTimer();
+    SendAggressionChange();
+}
+
 void CrimeWatch::OnProbeLaunch()
 {
     // Crucible: launching a warp disruption probe sets aggression timer (15 min)
