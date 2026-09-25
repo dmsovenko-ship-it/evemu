@@ -185,9 +185,10 @@ public:
     bool IsJumpFreighter() const        { return m_isJumpFreighter; }
     bool CynoActive() const             { return m_cynoActive; }
     // Capital fleet cyno drop: light a cyno, hold a short interception window,
-    // then jump the whole capital group to the destination system. leadFleet
-    // makes corpmate capitals in this system drop together (avoids recursion).
-    void StartCapitalDrop(uint32 destSystem, bool leadFleet = true);
+    // then jump the whole capital group to the destination system. leaderCharID
+    // == 0 means this bot leads (anchors the cyno); otherwise this bot follows
+    // that leader and its jump is cancelled if the anchor is destroyed.
+    void StartCapitalDrop(uint32 destSystem, uint32 leaderCharID = 0);
 
     /* real physical loot/production (stage-2 "living goods") */
     // While a miner/ratter/hacker works, it accumulates a real cargo hold (in
@@ -291,6 +292,7 @@ protected:
     uint32 m_campGateID = 0;            // stargate being camped
     bool  m_capitalPilot = false;       // top-skill nullsec capital pilot
     Timer m_capitalDropTimer;           // cooldown between capital cyno drops
+    uint32 m_dropLeaderCharID = 0;      // cyno anchor of the current capital drop (0 = none)
     Timer m_aggressionTimer;            // aggression flag: can't dock/jump while active
     bool m_inFight;                     // true while fighting (to record outcomes)
     bool m_wantsDock;                   // true when the bot wants to dock (profession)
