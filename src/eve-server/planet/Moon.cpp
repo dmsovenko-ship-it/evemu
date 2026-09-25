@@ -130,6 +130,23 @@ bool MoonSE::LoadExtras() {
     if (!StaticSystemEntity::LoadExtras())
         return false;
 
+    // Moon composition is fixed at FIRST access: read it back if we already have it,
+    // otherwise generate once and persist. A moon scanned now and visited a year
+    // later therefore has the SAME composition (survives restarts and any later
+    // change to the generator).
+    uint32 moonID = m_self->itemID();
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT typeID, quantity FROM moonComposition WHERE moonID = %u", moonID)) {
+            DBResultRow row;
+            while (res.GetRow(row))
+                m_resources[(uint16)row.GetUInt(0)] = (uint8)row.GetUInt(1);
+        }
+        if (!m_resources.empty())
+            return true;
+    }
+
     /** @todo use this to initialize moongoo data, create planet manager for moon, or whatever else
      * i decide is needed for moon management
      *  this is called after SE is created.
@@ -175,7 +192,6 @@ Moon materials have different rarity classes, starting with R4 being the most co
     // rare tiers are far more common in low/null sec ("rarer == farther"). Rare
     // materials are region-tied with random exceptions (e.g. Technetium mostly in
     // Guristas space).
-    uint32 moonID = m_self->itemID();
     uint32 sysID = m_self->locationID();
 
     uint32 regionID = 0;
@@ -243,6 +259,16 @@ Moon materials have different rarity classes, starting with R4 being the most co
     for (auto& h : homes) {
         if (inSet(h.regions, h.n) && pct(55)) { m_resources[h.mat] = 1 + (rng() % 2); continue; }
         if (nullsec ? pct(4 + rareBonus) : pct(1)) { m_resources[h.mat] = 1; }   // rare exception
+    }
+
+    // Persist, so the composition is fixed from now on.
+    if (!m_resources.empty()) {
+        std::string q = "INSERT INTO moonComposition (moonID, typeID, quantity) VALUES ";
+        for (auto& kv : m_resources)
+            q += "(" + std::to_string(moonID) + "," + std::to_string(kv.first) + "," + std::to_string(kv.second) + "),";
+        q.pop_back();
+        DBerror err;
+        sDatabase.RunQuery(err, q.c_str());
     }
 
     return true;
