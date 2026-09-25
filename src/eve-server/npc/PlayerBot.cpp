@@ -1239,6 +1239,10 @@ void PlayerBot::ApplyCombatStyle()
 
 void PlayerBot::DecideNextAction()
 {
+    // A cyno ship holds station for its window — it is the killable drop beacon,
+    // it must not wander off.
+    if (m_cynoShip)
+        return;
     // Hook for BotMgr. Placeholder for the state machine that will be wired
     // to actual travel/combat/mining behaviour.
     _log(BOT__TRACE, "PlayerBot %s(%u): activity = %u, system = %u",
@@ -2276,24 +2280,19 @@ void PlayerBot::StartJumpFreighter(uint32 destSystem)
 // contested nullsec system. Reuses the jump-freighter cyno window (the actual
 // move is done in ProcessTic when the timer expires). leadFleet makes corpmate
 // capital pilots in this system drop together - the "capital fleet".
-void PlayerBot::StartCapitalDrop(uint32 destSystem, uint32 leaderCharID)
+void PlayerBot::StartCapitalDrop(uint32 destSystem, uint32 anchorCharID, bool assemble)
 {
-    if (destSystem == 0 || m_destiny == nullptr || m_cynoActive)
+    if (destSystem == 0 || m_destiny == nullptr || m_cynoActive || anchorCharID == 0)
         return;
-    bool isLeader = (leaderCharID == 0);
-    m_dropLeaderCharID = isLeader ? m_botCharID : leaderCharID;
+    m_dropLeaderCharID = anchorCharID;     // the killable cyno ship (in the destination)
     m_cynoActive = true;
     m_jumpDest = destSystem;
     m_cynoTimer.Start(MakeRandomInt(30000, 60000));   // 30-60s interception window
 
-    // Visible cyno beacon so players can warp in and contest the drop.
-    m_destiny->SendSpecialEffect(m_self->itemID(), m_self->itemID(), m_self->typeID(),
-                                 m_self->itemID(), 0, "effects.CynosuralGeneration",
-                                 1, 1, 1, 45000, 0, 0);
     RequestFleetProtection();   // escorts cover the capitals
 
     int fleetMates = 0;
-    if (isLeader && SystemMgr() != nullptr) {
+    if (assemble && SystemMgr() != nullptr) {
         for (auto& [id, se] : SystemMgr()->GetEntities()) {
             if (se == nullptr || se->GetNPCSE() == nullptr)
                 continue;
@@ -2303,15 +2302,15 @@ void PlayerBot::StartCapitalDrop(uint32 destSystem, uint32 leaderCharID)
             if (other->GetBotCorpID() != m_botCorpID && other->GetBotAllianceID() != m_botAllianceID)
                 continue;
             if (other->IsCapitalPilot() && !other->CynoActive()) {
-                other->StartCapitalDrop(destSystem, m_botCharID);   // follow this anchor
+                other->StartCapitalDrop(destSystem, anchorCharID, false);
                 ++fleetMates;
             }
         }
     }
 
-    _log(BOT__MESSAGE, "PlayerBot %s(%u): CAPITAL DROP - cyno lit, jumping to system %u (%.0fs, %d capital mates%s).",
-         m_botName.c_str(), m_botCharID, destSystem, m_cynoTimer.GetRemainingTime() / 1000.0, fleetMates,
-         (isLeader ? "" : ", following"));
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): CAPITAL DROP - jumping to system %u via cyno ship %u (%.0fs, %d mates%s).",
+         m_botName.c_str(), m_botCharID, destSystem, anchorCharID,
+         m_cynoTimer.GetRemainingTime() / 1000.0, fleetMates, (assemble ? "" : ", following"));
 }
 
 bool PlayerBot::TryCapitalDrop()
@@ -2384,9 +2383,19 @@ bool PlayerBot::TryCapitalDrop()
     if (dest == 0)
         dest = fallback;
 
+    // Spawn the killable cyno ship (a corpmate chelobot) in the destination. The
+    // fleet jumps to it; killing it aborts the drop (counter-play).
+    SystemManager* destMgr = sEntityList.FindOrBootSystem(dest);
+    uint32 anchor = (destMgr != nullptr)
+        ? sBotMgr.SpawnCynoShip(destMgr, m_botCorpID, m_botAllianceID) : 0;
+    if (anchor == 0) {
+        _log(BOT__MESSAGE, "PlayerBot %s(%u): capital drop to %u aborted - no cyno ship.",
+             m_botName.c_str(), m_botCharID, dest);
+        return false;
+    }
+
     // Assemble the capital fleet: corpmate capital pilots in adjacent *loaded*
-    // systems join the drop (each lights its own cyno and jumps to the same
-    // destination, so the fleet arrives together).
+    // systems join the drop (jump to the same cyno anchor, arriving together).
     int joining = 0;
     for (auto& [sysID, sm] : sEntityList.GetSystems()) {
         if (sm == nullptr || sysID == SystemMgr()->GetID())
@@ -2403,12 +2412,12 @@ bool PlayerBot::TryCapitalDrop()
                 continue;
             if (!mate->IsCapitalPilot() || mate->CynoActive())
                 continue;
-            mate->StartCapitalDrop(dest, m_botCharID);
+            mate->StartCapitalDrop(dest, anchor, false);
             ++joining;
         }
     }
 
-    StartCapitalDrop(dest);   // this bot anchors the cyno
+    StartCapitalDrop(dest, anchor, true);
     if (joining > 0)
         _log(BOT__MESSAGE, "PlayerBot %s(%u): capital fleet - %d capitals joining from adjacent systems.",
              m_botName.c_str(), m_botCharID, joining);

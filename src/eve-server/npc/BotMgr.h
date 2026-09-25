@@ -114,6 +114,9 @@ public:
     // Nullsec sov contest the player way: anchor SBUs at the system's stargates
     // (real anchoring delay) then online them -> TCU vulnerable + system contested.
     void ContestSystemWithSBUs(SystemManager* sys, uint32 corpID, uint32 allyID, uint32 ownerCharID);
+    // Spawn a corpmate "cyno ship" (a real chelobot) in a capital drop destination
+    // so the fleet jumps to a killable beacon. Returns its charID (0 on failure).
+    uint32 SpawnCynoShip(SystemManager* dest, uint32 corpID, uint32 allyID);
 
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
@@ -359,6 +362,8 @@ private:
     void ProcessOutlawConcord();
     void ProcessPendingSBUs();
     std::map<uint32, int64> m_pendingSBUOnline;   // SBU itemID -> online time
+    void ProcessCynoShips();
+    std::map<uint32, int64> m_cynoShips;          // cyno ship charID -> despawn time
     std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
     struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
     std::vector<ConcordTemp> m_concordTemp;      // store IDs (system may unload)

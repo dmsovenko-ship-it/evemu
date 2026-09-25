@@ -276,6 +276,9 @@ void BotMgr::Process()
     // Bot-anchored SBUs finish anchoring after their real delay -> online them.
     ProcessPendingSBUs();
 
+    // Temporary cyno ships despawn after their window.
+    ProcessCynoShips();
+
     // Keep every loaded bot POS topped up to its doctrine (fills free CPU/grid
     // with shield resists and small guns). Throttled — it walks loaded systems.
     {
@@ -7350,6 +7353,62 @@ void BotMgr::ProcessPendingSBUs()
             break;
         }
         it = m_pendingSBUOnline.erase(it);
+    }
+}
+
+// Spawn a temporary corpmate "cyno ship" in a capital drop destination. It is a
+// real chelobot (client-valid, lockable, killable) that lights the cyno the
+// capitals jump to — killing it aborts the drop. Despawned by ProcessCynoShips.
+uint32 BotMgr::SpawnCynoShip(SystemManager* dest, uint32 corpID, uint32 allyID)
+{
+    if (dest == nullptr || corpID == 0)
+        return 0;
+    if (m_cynoShips.size() >= 6)
+        return 0;   // cap live cyno ships so a drop storm can't flood a system
+    std::string name = "Cyno Beacon " + std::to_string(MakeRandomInt(1000, 9999));
+    SpawnBot(dest, 0, name, corpID, allyID, true);
+    for (auto& [id, se] : dest->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (pb == nullptr || pb->GetBotName() != name)
+            continue;
+        pb->SetCynoShip(true);
+        if (pb->DestinyMgr() != nullptr)
+            pb->DestinyMgr()->SendSpecialEffect(pb->GetID(), pb->GetID(), pb->GetTypeID(),
+                                                pb->GetID(), 0, "effects.CynosuralGeneration",
+                                                1, 1, 1, 45000, 0, 0);
+        m_cynoShips[pb->GetBotCharID()] = GetFileTimeNow() + 180 * (EvE::Time::Second);
+        _log(BOT__MESSAGE, "BotMgr: cyno ship %s(%u) lit in system %u.",
+             name.c_str(), pb->GetBotCharID(), dest->GetID());
+        return pb->GetBotCharID();
+    }
+    return 0;
+}
+
+void BotMgr::ProcessCynoShips()
+{
+    if (m_cynoShips.empty())
+        return;
+    int64 now = GetFileTimeNow();
+    for (auto it = m_cynoShips.begin(); it != m_cynoShips.end(); ) {
+        if (now < it->second) { ++it; continue; }
+        uint32 charID = it->first;
+        for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+            if (sm == nullptr)
+                continue;
+            PlayerBot* pb = nullptr;
+            for (auto& [id, se] : sm->GetEntities()) {
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                PlayerBot* cand = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                if (cand != nullptr && cand->GetBotCharID() == charID && cand->IsCynoShip()) {
+                    pb = cand; break;
+                }
+            }
+            if (pb != nullptr) { pb->Delete(); SafeDelete(pb); break; }
+        }
+        it = m_cynoShips.erase(it);
     }
 }
 
