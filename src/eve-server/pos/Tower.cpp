@@ -963,13 +963,18 @@ PyRep* TowerSE::GetProcessInfo()
         }
         PySetItemRelease(tuple, 1, new PyBool(active));
 
-        // Reaction type
+        // Reaction: the client reads reaction[1] as the reactionTypeID (looked up in
+        // cfg.invtypereactions), so send a 2-tuple, or None when unset.
         if (sSE->IsReactorSE()) {
             int32 reactionType = sSE->GetReactorSE()->GetReactorData()->GetReaction();
-            if (reactionType > 0)
-                PySetItemRelease(tuple, 2, new PyInt(reactionType));
-            else
+            if (reactionType > 0) {
+                PyTuple* rt = new PyTuple(2);
+                PySetItemRelease(rt, 0, new PyInt(reactionType));
+                PySetItemRelease(rt, 1, new PyInt(reactionType));
+                tuple->SetItem(2, rt);
+            } else {
                 tuple->SetItem(2, PyStatic.NewNone());
+            }
         } else {
             tuple->SetItem(2, PyStatic.NewNone());
         }
