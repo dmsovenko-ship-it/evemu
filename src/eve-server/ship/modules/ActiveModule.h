@@ -14,6 +14,7 @@
 #include "ship/modules/GenericModule.h"
 #include "system/SystemBubble.h"
 #include "system/SystemManager.h"
+#include <set>
 
 class MiningLaser;
 
@@ -73,6 +74,10 @@ public:
     // AoE ECM burst: roll the module's jam strength against every ship near the
     // given centre and break the locks of those it jams (ECM Burst / Remote ECM Burst).
     void                ApplyEcmBurst(SystemEntity* center);
+    // Warp Disrupt Field Generator: scramble every piloted ship within range while
+    // active (a focused field, not the whole bubble).
+    void                ApplyWarpDisruptField();
+    void                ClearWarpDisruptField();
 
     void                LaunchProbe();
     void                LaunchMissile();
@@ -126,6 +131,9 @@ public:
     uint32              m_dampTargetID;
     float               m_dampSavedRange;
     float               m_dampSavedScanRes;
+
+    // Warp Disrupt Field Generator: ships this module has scrambled (for cleanup).
+    std::set<uint32>    m_wdfgScrambled;
 
     // Siege mode state
     bool                m_siegeApplied :1;

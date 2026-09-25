@@ -336,6 +336,42 @@ void ActiveModule::ApplyEcmBurst(SystemEntity* center)
     }
 }
 
+void ActiveModule::ApplyWarpDisruptField()
+{
+    if (m_shipRef->GetPilot() == nullptr)
+        return;
+    ShipSE* mySE = m_shipRef->GetPilot()->GetShipSE();
+    if (mySE == nullptr || mySE->SysBubble() == nullptr)
+        return;
+    float range = m_modRef->HasAttribute(AttrWarpScrambleRange)
+                ? m_modRef->GetAttribute(AttrWarpScrambleRange).get_float() : 50000.0f;
+    if (range <= 0.0f)
+        range = 50000.0f;
+
+    std::map<uint32, SystemEntity*> entities;
+    mySE->SysBubble()->GetAllEntities(entities);
+    for (auto& [id, se] : entities) {
+        if (se == nullptr || !se->IsShipSE() || !se->HasPilot())
+            continue;
+        if (mySE->GetPosition().distance(se->GetPosition()) > range)
+            continue;
+        se->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(100), false);
+        m_wdfgScrambled.insert(se->GetID());
+    }
+}
+
+void ActiveModule::ClearWarpDisruptField()
+{
+    if (m_sysMgr != nullptr) {
+        for (uint32 id : m_wdfgScrambled) {
+            SystemEntity* se = m_sysMgr->GetSE(id);
+            if (se != nullptr && se->GetSelf().get() != nullptr)
+                se->GetSelf()->SetAttribute(AttrWarpScrambleStatus, int64(0), false);
+        }
+    }
+    m_wdfgScrambled.clear();
+}
+
 void ActiveModule::Process()
 {
     // the order of Reload/Unload is significant.
@@ -544,13 +580,9 @@ void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/
                 m_destinyMgr->Cloak();
         } break;
         case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
-            // Heavy Interdictor focused warp disruption: raise the warp-disruption
-            // bubble on the ship's current bubble while the module is active.
-            if (m_shipRef->GetPilot() != nullptr) {
-                ShipSE* se = m_shipRef->GetPilot()->GetShipSE();
-                if (se != nullptr && se->SysBubble() != nullptr)
-                    se->SysBubble()->SetWarpBubble(true);
-            }
+            // Heavy Interdictor focused warp disruption: scramble every ship within
+            // range while active (refreshed each cycle in DoCycle).
+            ApplyWarpDisruptField();
             if (m_destinyMgr != nullptr)
                 m_destinyMgr->SendSpecialEffect10(m_modRef->itemID(), 0, "effects.WarpDisruptFieldGenerating", 1, 1, 1);
         } break;
@@ -944,22 +976,37 @@ uint32 ActiveModule::DoCycle() {
         case EVEDB::invGroups::Smart_Bomb: {
         } break;
         case EVEDB::invGroups::Super_Weapon: {
-            // Titan doomsday (minimal stand-in — the dedicated SuperWeapon class is
-            // not compiled): one massive hit on the locked target (no AoE).
-            if (m_targetSE != nullptr && m_targetSE->GetSelf().get() != nullptr
-                && m_shipRef->GetPilot() != nullptr) {
-                ShipSE* mySE = m_shipRef->GetPilot()->GetShipSE();
-                InventoryItemRef tgt = m_targetSE->GetSelf();
-                if (mySE != nullptr) {
-                    double hp = tgt->GetAttribute(AttrShieldCapacity).get_float()
-                              + tgt->GetAttribute(AttrArmorHP).get_float()
-                              + tgt->GetAttribute(AttrHP).get_float();
-                    if (hp < 1.0) hp = 1000.0;
-                    double dmg = hp * 1.5;
-                    Damage d(mySE, tgt, dmg, dmg, dmg, dmg, 1.0f, 0);
-                    m_targetSE->ApplyDamage(d);
-                }
+            // Titan doomsday: an AoE nuke centred on the locked target. Hits every
+            // piloted ship in range (friendly fire included, as on the live server).
+            if (m_targetSE == nullptr || m_shipRef->GetPilot() == nullptr || m_targetSE->SysBubble() == nullptr)
+                break;
+            ShipSE* mySE = m_shipRef->GetPilot()->GetShipSE();
+            if (mySE == nullptr)
+                break;
+            float range = m_modRef->HasAttribute(AttrMaxRange)
+                        ? m_modRef->GetAttribute(AttrMaxRange).get_float() : 25000.0f;
+            GPoint centre = m_targetSE->GetPosition();
+            std::map<uint32, SystemEntity*> entities;
+            m_targetSE->SysBubble()->GetAllEntities(entities);
+            for (auto& [id, se] : entities) {
+                if (se == nullptr || se == mySE || !se->IsShipSE() || !se->HasPilot())
+                    continue;
+                if (centre.distance(se->GetPosition()) > range)
+                    continue;
+                InventoryItemRef tgt = se->GetSelf();
+                if (tgt.get() == nullptr)
+                    continue;
+                double hp = tgt->GetAttribute(AttrShieldCapacity).get_float()
+                          + tgt->GetAttribute(AttrArmorHP).get_float()
+                          + tgt->GetAttribute(AttrHP).get_float();
+                if (hp < 1.0) hp = 1000.0;
+                double dmg = hp * 1.5;
+                Damage d(mySE, tgt, dmg, dmg, dmg, dmg, 1.0f, 0);
+                se->ApplyDamage(d);
             }
+        } break;
+        case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
+            ApplyWarpDisruptField();   // refresh the focused field each cycle
         } break;
         case EVEDB::invGroups::ECM_Burst: {
             // AoE jam centred on my own ship.
@@ -1071,12 +1118,7 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
             m_destinyMgr->SpeedBoost(true);
         } break;
         case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
-            // Drop the warp-disruption bubble when the module stops.
-            if (m_shipRef->GetPilot() != nullptr) {
-                ShipSE* se = m_shipRef->GetPilot()->GetShipSE();
-                if (se != nullptr && se->SysBubble() != nullptr)
-                    se->SysBubble()->SetWarpBubble(false);
-            }
+            ClearWarpDisruptField();
             if (m_destinyMgr != nullptr)
                 m_destinyMgr->SendSpecialEffect10(m_modRef->itemID(), 0, "effects.WarpDisruptFieldGenerating", 0, 0, 0);
         } break;
