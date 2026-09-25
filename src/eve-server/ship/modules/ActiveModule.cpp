@@ -29,6 +29,9 @@ ActiveModule::ActiveModule(ModuleItemRef mRef, ShipItemRef sRef)
 : GenericModule(mRef, sRef),
 m_timer(0, true),
 m_reloadTimer(0),
+m_doomsdayTimer(0, true),
+m_doomsdayTargetID(0),
+m_doomsdayFired(false),
 m_bubble(nullptr),
 m_sysMgr(nullptr),
 m_targMgr(nullptr),
@@ -392,6 +395,12 @@ void ActiveModule::Process()
     if (m_ModuleState < Module::State::Deactivating)
         return;
 
+    // doomsday strike resolves after the charge-up delay
+    if (m_doomsdayTimer.Enabled() && m_doomsdayTimer.Check(false)) {
+        m_doomsdayTimer.Disable();
+        ExecuteDoomsday(m_doomsdayTargetID);
+    }
+
     // if chargestate is loading or reloading, deny further processing and let m_reloadTimer handle it.
     if (m_ChargeState > Module::State::Loaded) {
         _log(MODULE__TRACE, "ActiveModule::Process - %s on %s is loading.", m_modRef->name(), m_shipRef->name());
@@ -421,6 +430,110 @@ void ActiveModule::Process()
     }
 }
 
+void ActiveModule::ExecuteDoomsday(uint32 targetID)
+{
+    if (m_shipRef->GetPilot() == nullptr)
+        return;
+    Client* pc = m_shipRef->GetPilot();
+    ShipSE* mySE = pc->GetShipSE();
+    if (mySE == nullptr || mySE->SysBubble() == nullptr)
+        return;
+    SystemEntity* tSE = mySE->SystemMgr()->GetSE(targetID);
+    if (tSE == nullptr || tSE->GetSelf().get() == nullptr)
+        return;
+
+    // Restrictions: not in low-sec (0.1 .. 0.45), not inside a POS force field.
+    float sec = (m_sysMgr != nullptr) ? m_sysMgr->GetSystemSecurityRating() : 0.0f;
+    if (sec > 0.0f && sec < 0.45f)
+        return;
+    if (mySE->SysBubble()->HasTower()) {
+        TowerSE* tw = mySE->SysBubble()->GetTowerSE();
+        if (tw != nullptr && tw->HasForceField()
+            && mySE->GetPosition().distance(tw->GetPosition()) < tw->GetShieldRadius())
+            return;
+    }
+
+    // Target must be a CAPITAL ship (sub-caps AND structures are immune).
+    uint16 tGroup = tSE->GetSelf()->groupID();
+    if (!(tGroup == EVEDB::invGroups::Titan || tGroup == EVEDB::invGroups::Dreadnought
+          || tGroup == EVEDB::invGroups::Carrier || tGroup == EVEDB::invGroups::Supercarrier
+          || tGroup == EVEDB::invGroups::Freighter || tGroup == EVEDB::invGroups::JumpFreighter
+          || tGroup == EVEDB::invGroups::CapitalIndustrialShip))
+        return;
+
+    // Capacitor: the doomsday's capacitorNeed (e.g. 22,500 GJ for Oblivion).
+    float capNeed = m_modRef->HasAttribute(AttrCapacitorNeed)
+                  ? m_modRef->GetAttribute(AttrCapacitorNeed).get_float() : 0.0f;
+    if (capNeed > 0.0f) {
+        float cap = m_shipRef->GetAttribute(AttrCapacitorCharge).get_float();
+        if (cap < capNeed)
+            return;   // not enough capacitor
+        float total = m_shipRef->GetAttribute(AttrCapacitorCapacity).get_float();
+        m_shipRef->SetShipCapacitorLevel(total > 0.0f ? (cap - capNeed) / total : 0.0f);
+    }
+
+    // Fuel: 75,000 racial isotopes - the doomsday's own fuel type per race.
+    uint32 fuelType = 0;
+    switch (m_modRef->typeID()) {
+        case 24550: fuelType = 17889; break;   // Judgement (Amarr)        -> Hydrogen
+        case 24552: fuelType = 17888; break;   // Oblivion (Caldari)       -> Nitrogen
+        case 24554: fuelType = 17887; break;   // Aurora Ominae (Gallente) -> Oxygen
+        case 23674: fuelType = 16274; break;   // Gjallarhorn (Minmatar)   -> Helium
+    }
+    if (fuelType == 0)
+        return;
+    {
+        Inventory* inv = m_shipRef->GetMyInventory();
+        if (inv == nullptr)
+            return;
+        std::vector<InventoryItemRef> items;
+        inv->GetItemsByFlag(flagCargoHold, items);
+        uint32 have = 0;
+        for (auto& it : items)
+            if (it.get() != nullptr && it->typeID() == fuelType)
+                have += (uint32)it->quantity();
+        if (have < 75000)
+            return;   // not enough isotopes -> no shot
+        uint32 left = 75000;
+        for (auto& it : items) {
+            if (left == 0)
+                break;
+            if (it.get() == nullptr || it->typeID() != fuelType || it->quantity() <= 0)
+                continue;
+            uint32 take = std::min<uint32>((uint32)it->quantity(), left);
+            it->AlterQuantity(-(int32)take, true);
+            left -= take;
+        }
+    }
+
+    // Damage 2,000,000 in the titan's racial type, boosted by the skill.
+    int skill = pc->GetChar() != nullptr ? pc->GetChar()->GetSkillLevel(EvESkill::DoomsdayOperation, true) : 0;
+    if (skill < 0) skill = 0;
+    double dmg = 2000000.0 * (1.0 + 0.1 * skill);
+    float em = m_modRef->HasAttribute(AttrEmDamage) ? m_modRef->GetAttribute(AttrEmDamage).get_float() : 0.0f;
+    float th = m_modRef->HasAttribute(AttrThermalDamage) ? m_modRef->GetAttribute(AttrThermalDamage).get_float() : 0.0f;
+    float ki = m_modRef->HasAttribute(AttrKineticDamage) ? m_modRef->GetAttribute(AttrKineticDamage).get_float() : 0.0f;
+    float ex = m_modRef->HasAttribute(AttrExplosiveDamage) ? m_modRef->GetAttribute(AttrExplosiveDamage).get_float() : 0.0f;
+    double dEm = 0, dTh = 0, dKi = 0, dEx = 0;
+    if (em + th + ki + ex <= 0.0f) {
+        dEm = dTh = dKi = dEx = dmg / 4.0;   // unknown type -> even split
+    } else if (em >= th && em >= ki && em >= ex) dEm = dmg;
+    else if (th >= ki && th >= ex) dTh = dmg;
+    else if (ki >= ex) dKi = dmg;
+    else dEx = dmg;
+
+    InventoryItemRef tgt = tSE->GetSelf();
+    Damage d(mySE, tgt, (float)dKi, (float)dTh, (float)dEm, (float)dEx, 1.0f, 0);
+    tSE->ApplyDamage(d);
+    _log(MODULE__TRACE, "%s(%u): doomsday %s(%u) for %.0f.", m_shipRef->name(), m_shipRef->itemID(),
+         tSE->GetName(), tSE->GetID(), dmg);
+    if (mySE->DestinyMgr() != nullptr)
+        mySE->DestinyMgr()->Stop();   // ~30 s immobilisation after the shot
+    if (pc->GetCrimeWatch() != nullptr)
+        pc->GetCrimeWatch()->OnDoomsdayFired();   // 10-min mobility + 25-min aggro cooldown
+    m_doomsdayFired = true;
+}
+
 void ActiveModule::RemoveTarget(SystemEntity* pSE) {
     if (m_targetSE == pSE) {
         _log(MODULE__TRACE, "ActiveModule::RemoveTarget called on %s on %s to remove %s", m_modRef->name(), m_shipRef->name(), pSE->GetName());
@@ -430,6 +543,8 @@ void ActiveModule::RemoveTarget(SystemEntity* pSE) {
 
 void ActiveModule::Activate(uint16 effectID, uint32 targetID/*0*/, int16 repeat/*0*/)
 {
+    if (m_modRef->groupID() == EVEDB::invGroups::Super_Weapon)
+        m_doomsdayFired = false;
     if (effectID == 16) {
         // catchall for elusive online/offline error, but should be caught in Ship::Activate(), backup in MM::Activate()
         sLog.Error("AM::Activate()", "effectID 16 got here.");
@@ -977,106 +1092,20 @@ uint32 ActiveModule::DoCycle() {
         case EVEDB::invGroups::Smart_Bomb: {
         } break;
         case EVEDB::invGroups::Super_Weapon: {
-            // Crucible Doomsday: a SINGLE-target strike that only damages CAPITAL
-            // ships (sub-caps are immune). Costs 50,000 racial isotopes, is banned in
-            // low-sec and inside a POS force field, and leaves a mobility cooldown.
-            // Damage 2,000,000 (racial) × (1 + 0.1 × Doomsday Operation).
-            if (m_targetSE == nullptr || m_shipRef->GetPilot() == nullptr || m_targetSE->GetSelf().get() == nullptr)
+            // Crucible Doomsday: charge up ~12 s (the target is warned first), then
+            // ExecuteDoomsday() resolves the single-target capital strike.
+            if (m_doomsdayFired) {
+                m_Stop = true;   // already fired this activation -> let it go offline
                 break;
-            Client* pc = m_shipRef->GetPilot();
-            ShipSE* mySE = pc->GetShipSE();
-            if (mySE == nullptr)
-                break;
-
-            // Restrictions: not in low-sec (0.1 .. 0.45), not inside a POS field.
-            float sec = (m_sysMgr != nullptr) ? m_sysMgr->GetSystemSecurityRating() : 0.0f;
-            if (sec > 0.0f && sec < 0.45f)
-                break;
-            if (mySE->SysBubble() != nullptr && mySE->SysBubble()->HasTower()) {
-                TowerSE* tw = mySE->SysBubble()->GetTowerSE();
-                if (tw != nullptr && tw->HasForceField()
-                    && mySE->GetPosition().distance(tw->GetPosition()) < tw->GetShieldRadius())
-                    break;
             }
-
-            // Target must be a CAPITAL ship (sub-caps AND structures are immune).
-            uint16 tGroup = m_targetSE->GetSelf()->groupID();
-            if (!(tGroup == EVEDB::invGroups::Titan || tGroup == EVEDB::invGroups::Dreadnought
-                  || tGroup == EVEDB::invGroups::Carrier || tGroup == EVEDB::invGroups::Supercarrier
-                  || tGroup == EVEDB::invGroups::Freighter || tGroup == EVEDB::invGroups::JumpFreighter
-                  || tGroup == EVEDB::invGroups::CapitalIndustrialShip))
+            if (m_targetSE == nullptr || m_shipRef->GetPilot() == nullptr)
                 break;
 
-            // Capacitor: the doomsday's capacitorNeed (e.g. 22,500 GJ for Oblivion).
-            float capNeed = m_modRef->HasAttribute(AttrCapacitorNeed)
-                          ? m_modRef->GetAttribute(AttrCapacitorNeed).get_float() : 0.0f;
-            if (capNeed > 0.0f) {
-                float cap = m_shipRef->GetAttribute(AttrCapacitorCharge).get_float();
-                if (cap < capNeed)
-                    break;   // not enough capacitor
-                float total = m_shipRef->GetAttribute(AttrCapacitorCapacity).get_float();
-                m_shipRef->SetShipCapacitorLevel(total > 0.0f ? (cap - capNeed) / total : 0.0f);
-            }
-
-            // Fuel: 75,000 racial isotopes — the doomsday's own fuel type per race.
-            uint32 fuelType = 0;
-            switch (m_modRef->typeID()) {
-                case 24550: fuelType = 17889; break;   // Judgement (Amarr)       -> Hydrogen
-                case 24552: fuelType = 17888; break;   // Oblivion (Caldari)      -> Nitrogen
-                case 24554: fuelType = 17887; break;   // Aurora Ominae (Gallente)-> Oxygen
-                case 23674: fuelType = 16274; break;   // Gjallarhorn (Minmatar)  -> Helium
-            }
-            if (fuelType == 0)
-                break;
-            {
-                Inventory* inv = m_shipRef->GetMyInventory();
-                if (inv == nullptr)
-                    break;
-                std::vector<InventoryItemRef> items;
-                inv->GetItemsByFlag(flagCargoHold, items);
-                uint32 have = 0;
-                for (auto& it : items)
-                    if (it.get() != nullptr && it->typeID() == fuelType)
-                        have += (uint32)it->quantity();
-                if (have < 75000)
-                    break;   // not enough isotopes -> no shot
-                uint32 left = 75000;
-                for (auto& it : items) {
-                    if (left == 0)
-                        break;
-                    if (it.get() == nullptr || it->typeID() != fuelType || it->quantity() <= 0)
-                        continue;
-                    uint32 take = std::min<uint32>((uint32)it->quantity(), left);
-                    it->AlterQuantity(-(int32)take, true);
-                    left -= take;
-                }
-            }
-
-            // Damage 2,000,000 in the titan's racial type, boosted by the skill.
-            int skill = pc->GetChar() != nullptr ? pc->GetChar()->GetSkillLevel(EvESkill::DoomsdayOperation, true) : 0;
-            if (skill < 0) skill = 0;
-            double dmg = 2000000.0 * (1.0 + 0.1 * skill);
-            float em = m_modRef->HasAttribute(AttrEmDamage) ? m_modRef->GetAttribute(AttrEmDamage).get_float() : 0.0f;
-            float th = m_modRef->HasAttribute(AttrThermalDamage) ? m_modRef->GetAttribute(AttrThermalDamage).get_float() : 0.0f;
-            float ki = m_modRef->HasAttribute(AttrKineticDamage) ? m_modRef->GetAttribute(AttrKineticDamage).get_float() : 0.0f;
-            float ex = m_modRef->HasAttribute(AttrExplosiveDamage) ? m_modRef->GetAttribute(AttrExplosiveDamage).get_float() : 0.0f;
-            double dEm = 0, dTh = 0, dKi = 0, dEx = 0;
-            if (em + th + ki + ex <= 0.0f) {
-                dEm = dTh = dKi = dEx = dmg / 4.0;   // unknown type -> even split
-            } else if (em >= th && em >= ki && em >= ex) dEm = dmg;
-            else if (th >= ki && th >= ex) dTh = dmg;
-            else if (ki >= ex) dKi = dmg;
-            else dEx = dmg;
-
-            InventoryItemRef tgt = m_targetSE->GetSelf();
-            Damage d(mySE, tgt, (float)dKi, (float)dTh, (float)dEm, (float)dEx, 1.0f, 0);
-            m_targetSE->ApplyDamage(d);
-            _log(MODULE__TRACE, "%s(%u): doomsday %s(%u) for %.0f.", m_shipRef->name(), m_shipRef->itemID(),
-                 m_targetSE->GetName(), m_targetSE->GetID(), dmg);
-            if (mySE->DestinyMgr() != nullptr)
-                mySE->DestinyMgr()->Stop();   // ~30 s immobilisation after the shot
-            if (pc->GetCrimeWatch() != nullptr)
-                pc->GetCrimeWatch()->OnDoomsdayFired();   // 10-min mobility + 25-min aggro cooldown
+            if (m_targetSE->HasPilot())
+                m_targetSE->GetPilot()->SendNotifyMsg("A doomsday weapon is locking onto your ship!");
+            m_doomsdayTargetID = m_targetID;
+            m_doomsdayTimer.Start(12000);
+            m_Stop = false;   // keep the module active until the strike resolves
         } break;
         case EVEDB::invGroups::Warp_Disrupt_Field_Generator: {
             ApplyWarpDisruptField();   // refresh the focused field each cycle

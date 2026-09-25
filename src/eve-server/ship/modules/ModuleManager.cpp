@@ -529,6 +529,16 @@ bool ModuleManager::AddModule(ModuleItemRef mRef, EVEItemFlags flag)
         return false;
     }
 
+    // Crucible: a capital ship can fit only one super weapon.
+    if (mRef->groupID() == EVEDB::invGroups::Super_Weapon) {
+        auto sw = m_modByGroup.find(EVEDB::invGroups::Super_Weapon);
+        if (sw != m_modByGroup.end() && sw->second > 0) {
+            if (pShipItem->HasPilot())
+                pShipItem->GetPilot()->SendErrorMsg("Only one super weapon may be fitted to a capital ship.");
+            return false;
+        }
+    }
+
     // create new module object
     GenericModule* pMod = ModuleFactory(mRef, ShipItemRef(pShipItem));
     if (pMod == nullptr)

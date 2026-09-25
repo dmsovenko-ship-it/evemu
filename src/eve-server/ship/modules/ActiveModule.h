@@ -78,6 +78,9 @@ public:
     // active (a focused field, not the whole bubble).
     void                ApplyWarpDisruptField();
     void                ClearWarpDisruptField();
+    // Crucible doomsday: the strike resolves ~12 s after activation (the target is
+    // warned first), then consumes capacitor + isotopes and applies the damage.
+    void                ExecuteDoomsday(uint32 targetID);
 
     void                LaunchProbe();
     void                LaunchMissile();
@@ -150,6 +153,9 @@ public:
 private:
     Timer               m_timer;
     Timer               m_reloadTimer;
+    Timer               m_doomsdayTimer;      // 12s doomsday charge-up
+    uint32              m_doomsdayTargetID;   // locked doomsday target
+    bool                m_doomsdayFired;      // fired since this activation?
 
 };
 
