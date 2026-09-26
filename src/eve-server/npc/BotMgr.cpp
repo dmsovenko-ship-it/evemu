@@ -1924,6 +1924,13 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                         hullType = dst[MakeRandomInt(0, 3)];
                         pAdd(1335, 2);   // Reinforced Bulkheads II
                         pAdd(3841, 1);   // Large Shield Extender II
+                    } else if (r < 65) { // Jump Freighter: null-sec logistics (3 low slots only)
+                        static const uint32 jf[] = { 28850, 28844, 28848, 28846 }; // Ark/Rhea/Anshar/Nomad
+                        hullType = jf[MakeRandomInt(0, 3)];
+                        int f = MakeRandomInt(0, 99);
+                        if (f < 40)       { pAdd(1319, 3); }                 // cargo fit
+                        else if (f < 80)  { pAdd(1335, 3); }                 // tank fit (bulkheads)
+                        else              { pAdd(1335, 1); pAdd(1319, 2); }  // hybrid
                     } else {             // T1 hauler: cargo + a little shield
                         pAdd(1319, 1);   // Expanded Cargohold II
                         pAdd(3831, 1);   // Medium Shield Extender II

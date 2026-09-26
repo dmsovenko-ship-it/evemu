@@ -2458,6 +2458,24 @@ void PlayerBot::StartJumpFreighter(uint32 destSystem)
     // Big-cargo courier: light a cyno, hold an interception window, then jump.
     if (destSystem == 0)
         return;
+    // Live jump-drive rules: never into highsec, and only within range
+    // (5 LY base, up to ~10 LY with Jump Drive Calibration).
+    {
+        DBQueryResult r;
+        if (sDatabase.RunQuery(r, "SELECT security FROM mapSolarSystems WHERE solarSystemID = %u", destSystem)) {
+            DBResultRow row;
+            if (r.GetRow(row) && row.GetFloat(0) >= 0.5f)
+                return;   // cannot jump into high security space
+        }
+        double sx, sy, sz, ex, ey, ez;
+        if (SystemDB::GetSolarSystemPositionDouble(SystemMgr()->GetID(), sx, sy, sz)
+            && SystemDB::GetSolarSystemPositionDouble(destSystem, ex, ey, ez)) {
+            double dx = ex - sx, dy = ey - sy, dz = ez - sz;
+            double ly = EvEMath::Units::MetersToLightYears(std::sqrt(dx*dx + dy*dy + dz*dz));
+            if (ly > 10.0)
+                return;   // beyond jump drive range
+        }
+    }
     m_isJumpFreighter = true;
     m_cynoActive = true;
     m_jumpDest = destSystem;
