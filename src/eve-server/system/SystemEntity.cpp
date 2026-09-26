@@ -1314,6 +1314,37 @@ void DynamicSystemEntity::UpdateDamage()
     PySafeDecRef(up);
 }
 
+void DynamicSystemEntity::AwardBountyTo(uint32 charID)
+{
+    // Bot-killer variant of AwardBounty: chelobots have no Client, but
+    // TransferFunds/AddBounty work on charIDs, so credit the pilot directly.
+    if (charID == 0)
+        return;
+    double bounty = m_self->GetAttribute(AttrEntityKillBounty).get_double();
+    bounty *= sConfig.rates.npcBountyMultiply;
+    if (bounty < 1)
+        return;
+    if (sIncursionMgr.IsIncursionSystem(m_system->GetID()))
+        bounty *= 0.75;
+    sStatMgr.Add(Stat::npcBounties, bounty);
+    std::string reason = "Bounty for killing a pirate in ";
+    reason += m_system->GetName();
+    if (sConfig.server.BountyPayoutDelayed) {
+        BountyData data = BountyData();
+        data.fromID = m_self->itemID();
+        data.toID = charID;
+        data.refTypeID = Journal::EntryType::BountyPrize;
+        data.fromKey = Account::KeyType::Cash;
+        data.toKey = Account::KeyType::Cash;
+        data.reason = reason;
+        data.amount = bounty;
+        m_system->AddBounty(charID, data);
+    } else {
+        AccountService::TransferFunds(corpCONCORD, charID, bounty, reason.c_str(),
+                                      Journal::EntryType::BountyPrize, -GetTypeID());
+    }
+}
+
 void DynamicSystemEntity::AwardBounty(Client* pClient)
 {
     // this will use a map{charID/BountyData} in system manager for using a bounty timer.

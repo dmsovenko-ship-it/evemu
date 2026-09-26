@@ -667,6 +667,8 @@ public:
 
     /* specific functions handled here. */
     void                        AwardBounty(Client* pClient);
+    // Bot variant: credit a chelobot pilot's wallet directly (it has no Client).
+    void                        AwardBountyTo(uint32 charID);
     void                    SetInvul(bool invul=false)  { m_invul = invul; }
     void                   SetFrozen(bool frozen=false) { m_frozen = frozen; }
 

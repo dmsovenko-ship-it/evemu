@@ -34,6 +34,7 @@
 #include "npc/ConvoyAI.h"
 #include "npc/NPCAI.h"
 #include "npc/SleeperAI.h"
+#include "npc/PlayerBot.h"
 #include "npc/Sentry.h"
 #include "npc/SentryAI.h"
 #include "system/Container.h"
@@ -648,6 +649,14 @@ void NPC::Killed(Damage &damage) {
     //  log faction kill in dynamic data   -allan
     MapDB::AddKill(locationID);
     MapDB::AddFactionKill(locationID);
+
+    // Chelobot killer: PlayerBots have no Client, so AwardBounty(pClient=null) is
+    // skipped -> credit the bot pilot's wallet directly (ratting bounty income).
+    if (pClient == nullptr && killer != nullptr && killer->GetNPCSE() != nullptr) {
+        PlayerBot* killerBot = dynamic_cast<PlayerBot*>(killer->GetNPCSE());
+        if (killerBot != nullptr)
+            AwardBountyTo(killerBot->GetBotCharID());
+    }
 
     if (pClient != nullptr) {
         //award kill bounty.
