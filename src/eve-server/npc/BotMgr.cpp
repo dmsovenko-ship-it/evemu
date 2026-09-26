@@ -1737,6 +1737,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // if the legend ship doesn't exist in Crucible-era data).
     bool spawnFleetBoss = false;   // experienced miner flying an Orca/Rorqual
     bool isCapitalPilot = false;   // top-skill nullsec hunter flying a capital
+    bool smartbombBS = false;      // ganker specialisation: AoE smartbomb battleship
     {
         static const uint32 minerHulls[]  = { 17476, 17478, 17480, 582, 592, 599 };   // Covetor/Retriever/Procurer + mining frigates
         static const uint32 haulerHulls[] = { 648, 650, 651, 653, 1944 };             // Badger/Iteron/Hoarder/Wreathe/Bestower
@@ -1806,6 +1807,29 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             std::string fitJson = "[";
             auto add = [&](uint32 id, int n) { for (int i = 0; i < n; ++i) fitJson += std::to_string(id) + ","; };
             const char* tname = "Catalyst";
+            // Two specialised, rare ganker roles for top pilots:
+            //   spec 1 = Stealth Bomber (torpedo ALPHA vs battleships, cloak approach)
+            //   spec 2 = Smartbomb battleship (AoE clear of clustered belt ships)
+            int spec = 0;
+            if (skillTier >= 5 && balance >= 200000000.0 && MakeRandomInt(0, 99) < 15)     spec = 2;
+            else if (skillTier >= 4 && balance >= 40000000.0 && MakeRandomInt(0, 99) < 20) spec = 1;
+            if (spec == 1) {
+                static const uint32 sbHulls[] = { 12032, 11377, 12034, 12038 }; // Manticore/Nemesis/Hound/Purifier
+                hullType = sbHulls[MakeRandomInt(0, 3)];
+                tname = "Stealth Bomber";
+                add(2420, 3);   // Torpedo Launcher II
+                add(11578, 1);  // Covert Ops Cloaking Device II
+                add(27914, 1);  // Bomb Launcher I
+                add(22291, 1);  // Ballistic Control System II
+            } else if (spec == 2) {
+                hullType = (MakeRandomInt(0, 1) ? 645 : 642);   // Dominix / Apocalypse
+                tname = "Smartbomb BS";
+                smartbombBS = true;
+                add(3993, 8);   // Large EMP Smartbomb I x8
+                add(3576, 1);   // Heavy Capacitor Booster I
+                add(11269, 3);  // Energized Adaptive Nano Membrane II (tank)
+                add(2048, 1);   // Damage Control II
+            } else
             switch (tier) {
                 case 5: {   // Tornado - artillery ALPHA sniper (one-volley high-EHP)
                     hullType = 4310; tname = "Tornado";
@@ -2161,6 +2185,10 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     }
     // Ammo/charges (T1/T2 by skill tier) + small profession-typical cargo.
     MaterializeShipLoad(iRef, useCharID, (uint8)prof, skillTier);
+    // Smartbomb battleship: give the hull an EMP field range so NPCAI fires its
+    // AoE smartbomb burst at everything nearby (a clustered belt).
+    if (smartbombBS && iRef.get() != nullptr)
+        iRef->SetAttribute(AttrEmpFieldRange, 6000, false);
     // The bot's combat/profession tier comes from its persisted skillLevel
     // (levelled up by practice), not the ctor default of 3.
     bot->SetBotSkillLevel(skillTier);

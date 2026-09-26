@@ -2007,6 +2007,12 @@ void PlayerBot::HuntForTarget()
     if (!m_scoutTimer.Enabled())
         m_scoutTimer.Start(MakeRandomInt(15000, 30000));
 
+    // Stealth Bomber: stalk under the cloak, drop it only to fire.
+    uint16 myGroup = m_self->groupID();
+    bool bomber = (myGroup == 834);   // Stealth Bomber hull group
+    if (bomber && m_destiny != nullptr && !m_destiny->IsCloaked() && !GetAIMgr()->IsFighting())
+        m_destiny->Cloak();
+
     // Gate camping is a GROUP tactic, not a solo one: a lone pilot at a gate is
     // just bait (or a corpse). Only hunters who have allies nearby (a camp fleet)
     // will consider a target sitting at a gate — and even then only rarely and
@@ -2127,14 +2133,17 @@ void PlayerBot::HuntForTarget()
             if (delay < 5.0) delay = 5.0;
             uint32 hull = m_self->typeID();
             bool tornado = (hull == 4310);             // advanced alpha ganker
-            // Per-hull strike: a Tornado lands one artillery ALPHA volley; the
-            // blaster hulls apply their DPS over the whole CONCORD window (scaled
-            // by skill). Talos > Brutix > Vexor > Catalyst.
+            // Per-hull strike: a Tornado (artillery) and a Stealth Bomber
+            // (torpedoes) land one ALPHA volley; the blaster hulls apply DPS over
+            // the whole CONCORD window (scaled by skill). Talos > Brutix > Vexor > Catalyst.
             double hullDps = 500.0;                    // Catalyst
             if      (hull == 4308)  hullDps = 1600.0;  // Talos
             else if (hull == 16229) hullDps = 1100.0;  // Brutix
             else if (hull == 626)   hullDps = 550.0;   // Vexor
-            double dmg = tornado ? 13300.0 : hullDps * (0.7 + 0.06 * m_botSkill) * delay;
+            double dmg;
+            if      (bomber)  dmg = 8000.0;                                  // torpedo ALPHA
+            else if (tornado) dmg = 13300.0;                                 // artillery ALPHA
+            else              dmg = hullDps * (0.7 + 0.06 * m_botSkill) * delay;
             double ehp = enemyBot->EstimateEHP();
             // The ganker ALWAYS loses its ship to CONCORD, so the loot must cover
             // the ship + fit. Loot ≈ 50% of the target's hold (the rest is
@@ -2171,8 +2180,14 @@ void PlayerBot::HuntForTarget()
                          m_botName.c_str(), m_botCharID);
                 }
             }
+            // Torpedoes are for BIG prey: a bomber skips small/fast targets (the
+            // torpedoes mostly miss them).
+            if (bomber && GetShipClass(enemyBot->GetSelf()->groupID()) < 3)
+                commit = false;
             if (commit) {
                 engage = true;
+                if (bomber && m_destiny != nullptr)
+                    m_destiny->UnCloak();     // decloak to fire
                 if (!solo) {
                     CallFleetSupport(prey);   // "call friends"
                     _log(BOT__MESSAGE, "PlayerBot %s(%u): GROUP GANK - %d ships on %s(%u) (dmg %.0f vs ehp %.0f, loot %.0f vs cost %.0f).",
