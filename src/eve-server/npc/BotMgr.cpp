@@ -29,6 +29,7 @@
 #include "pos/sovStructures/SBU.h"
 #include "system/sov/SovereigntyDataMgr.h"
 #include "planet/CustomsOffice.h"
+#include "planet/PlanetDataMgr.h"
 #include "tables/invGroups.h"
 #include "inventory/AttributeEnum.h"
 #include "TelegramBot.h"
@@ -5685,6 +5686,21 @@ void BotMgr::ProcessIndustrialistPI(uint32 sysID, uint32 stationID, const Docked
         sDatabase.RunQuery(err, "UPDATE botColonies SET lastRun = %lli WHERE charID = %u", now, db.charID);
         _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) ran its PI colony (%u cycles): %u x %s.",
              db.name.c_str(), db.charID, cycles, cycles * outQty, sDataMgr.GetTypeName(outType));
+        // Customs tax: exporting PI off-world passes through the corp's customs
+        // office, which charges the standard PI export tax. The pilot pays and the
+        // office owner (the corp) collects - a real ISK flow, not minted money.
+        int plevel = sPIDataMgr.GetProductLevel(outType);
+        static const double expTax[5] = { 0.10, 0.76, 9.00, 600.00, 50000.00 };
+        if (plevel >= 0 && plevel <= 4 && db.corpID != 0) {
+            double tax = expTax[plevel] * (double)(cycles * outQty);
+            if (tax > 0.0) {
+                AccountService::TransferFunds(db.charID, db.corpID, tax,
+                    "DESC:  PI export tax", Journal::EntryType::PlanetaryExportTax,
+                    stationID, Account::KeyType::Cash);
+                _log(BOT__MESSAGE, "BotMgr: industrialist %s(%u) paid %.0f ISK customs tax to corp %u.",
+                     db.name.c_str(), db.charID, tax, db.corpID);
+            }
+        }
     }
 }
 
