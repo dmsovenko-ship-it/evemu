@@ -1474,7 +1474,24 @@ void SpawnMgr::ReSpawn(SystemBubble* pBubble, SpawnEntry& spawnEntry)
     /* ItemData( uint32 _typeID, uint32 _ownerID, uint32 _locationID, EVEItemFlags _flag, const char *_name = "",
      *           const GPoint &_position = NULL_ORIGIN, const char *_customInfo = "", bool _contraband = false);
      */
-    ItemData idata(spawnEntry.typeID, spawnEntry.corpID, m_system->GetID(), flagNone, "", startPos, "BeltRat");
+    uint32 spawnType = spawnEntry.typeID;
+    // Rare belt OFFICER (<1%): the faction officers (groups 553-574) are
+    // UNPUBLISHED types the normal picker skips, so they never spawn and their
+    // modules never reach the market. Occasionally promote a normal belt rat to
+    // one - a real prize for players/hunters (officer loot via DropLoot).
+    if (spawnEntry.spawnClass <= Spawn::Class::Insane && MakeRandomInt(0, 999) < 8) {
+        static const uint32 officers[] = {
+            13536,               // Mizuro Cybon (Angel Cartel)
+            13561, 13564, 13573, // Blood Raiders
+            13603,               // Estamel Tharchon (Guristas)
+            13635,               // Chelm Soran (Sansha's Nation)
+            13661,               // Brynn Jerdola (Serpentis)
+        };
+        spawnType = officers[MakeRandomInt(0, 6)];
+        _log(SPAWN__TRACE, "SpawnMgr::ReSpawn - spawning belt OFFICER type %u in %s(%u).",
+             spawnType, m_system->GetName(), m_system->GetID());
+    }
+    ItemData idata(spawnType, spawnEntry.corpID, m_system->GetID(), flagNone, "", startPos, "BeltRat");
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);      // will have to work on this to NOT save npc to db.
     if (iRef.get() == nullptr) {
         _log(SPAWN__ERROR, "Failed to spawn item type %u.", spawnEntry.typeID);
