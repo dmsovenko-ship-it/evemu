@@ -594,6 +594,11 @@ void PlayerBot::Killed(Damage& damage)
             + " chelobot was just killed by a " + threat
             + " threat in EVE Online (Crucible). Advise what to change.";
         m_brainAdvice = sBotMgr.AskBrainCached((uint8)m_profession, threat, ctx);
+        // A combat directive from the brain also trains one combat level.
+        if (m_brainAdvice.find("FIGHT") != std::string::npos
+            || m_brainAdvice.find("FLEET") != std::string::npos
+            || m_brainAdvice.find("REFIT") != std::string::npos)
+            sBotMgr.TrainBotCombatSkill(m_botCharID);
     }
     // The killer (if a bot) has proven itself an enemy — deep grudge, both ways.
     if (damage.srcSE != nullptr && damage.srcSE->GetNPCSE() != nullptr) {
@@ -2702,8 +2707,45 @@ void PlayerBot::ManageOfficerHunt()
         return;   // the fleet is big enough - fight it
     // Regroup: rally corpmates and hold fire until the fleet is assembled.
     CallFleetSupport(tgt);
-    _log(BOT__MESSAGE, "PlayerBot %s(%u): officer hunt - have %d/%d ships vs %s(%u), regrouping.",
-         m_botName.c_str(), m_botCharID, have, needed, tgt->GetName(), tgt->GetID());
+    // Pull corpmate combat ships (logistics included - a strong officer needs
+    // reps) from adjacent LOADED systems. They travel over gate by gate and join
+    // when they arrive (ProcessTravel).
+    std::vector<uint32> adj;
+    {
+        DBQueryResult nr;
+        if (sDatabase.RunQuery(nr,
+                "SELECT toSolarSystemID FROM mapSolarSystemJumps WHERE fromSolarSystemID = %u",
+                SystemMgr()->GetID())) {
+            DBResultRow nrow;
+            while (nr.GetRow(nrow)) adj.push_back(nrow.GetUInt(0));
+        }
+    }
+    uint32 wantSys = SystemMgr()->GetID();
+    int summoned = 0;
+    for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+        if (sm == nullptr || sysID == wantSys)
+            continue;
+        if (std::find(adj.begin(), adj.end(), sysID) == adj.end())
+            continue;
+        for (auto& [id, se] : sm->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* mate = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (mate == nullptr || mate == this)
+                continue;
+            if (mate->GetBotCorpID() != m_botCorpID && mate->GetBotAllianceID() != m_botAllianceID)
+                continue;
+            if (!IsCombatHull(mate->GetSelf()->groupID()))
+                continue;
+            if (mate->IsTraveling() || mate->WantsToTravel())
+                continue;
+            mate->SetTravelDestination(wantSys);
+            mate->MarkForTravel(wantSys);
+            ++summoned;
+        }
+    }
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): officer hunt - have %d/%d ships vs %s(%u), summoned %d from adjacent, regrouping.",
+         m_botName.c_str(), m_botCharID, have, needed, tgt->GetName(), tgt->GetID(), summoned);
     GetAIMgr()->StartAttackCycle(0);   // do not suicide into the officer
 }
 

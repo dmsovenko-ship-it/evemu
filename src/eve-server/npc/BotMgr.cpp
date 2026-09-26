@@ -7589,18 +7589,57 @@ std::string BotMgr::AskBrainCached(uint8 profession, const std::string& threat, 
     return advice;
 }
 
+void BotMgr::TrainBotCombatSkill(uint32 charID)
+{
+    if (charID == 0)
+        return;
+    uint8 cur = 0;
+    DBQueryResult r;
+    if (sDatabase.RunQuery(r, "SELECT skillLevel FROM botMemory WHERE charID = %u", charID)) {
+        DBResultRow row;
+        if (r.GetRow(row))
+            cur = (uint8)row.GetUInt(0);
+    }
+    if (cur >= 5)
+        return;   // already top-tier
+    uint8 next = cur + 1;
+    CharacterDB::EnsureExtendedBotSkills(charID, next);   // train real skill items
+    DBerror e;
+    sDatabase.RunQuery(e, "UPDATE botMemory SET skillLevel = %u WHERE charID = %u", next, charID);
+    _log(BOT__MESSAGE, "BotMgr: bot %u trained a combat level (%u -> %u) after a loss.", charID, cur, next);
+}
+
 int BotMgr::OfficerFleetSize(uint32 corpID)
 {
     auto it = m_officerFleetSize.find(corpID);
-    return (it != m_officerFleetSize.end()) ? it->second : 1;
+    if (it != m_officerFleetSize.end())
+        return it->second;
+    // load the persisted lesson (survives restarts), default 1
+    int size = 1;
+    DBQueryResult r;
+    if (sDatabase.RunQuery(r, "SELECT fleetSize FROM corpOfficerFleet WHERE corpID = %u", corpID)) {
+        DBResultRow row;
+        if (r.GetRow(row)) {
+            size = (int)row.GetUInt(0);
+            if (size < 1) size = 1;
+            if (size > 25) size = 25;
+        }
+    }
+    m_officerFleetSize[corpID] = size;
+    return size;
 }
 
 void BotMgr::NoteOfficerLoss(uint32 corpID, uint32 officerTypeID, const std::string& officerName)
 {
-    int& n = m_officerFleetSize[corpID];
+    int n = OfficerFleetSize(corpID);
     n = (n < 1) ? 2 : n + 1;
     if (n > 25) n = 25;
-    _log(BOT__MESSAGE, "BotMgr: corp %u lost to officer %s(%u) - next hunt brings %d ships.",
+    m_officerFleetSize[corpID] = n;
+    DBerror e;
+    sDatabase.RunQuery(e,
+        "INSERT INTO corpOfficerFleet (corpID, fleetSize) VALUES (%u, %u) "
+        "ON DUPLICATE KEY UPDATE fleetSize = VALUES(fleetSize), updated = NOW()", corpID, (unsigned)n);
+    _log(BOT__MESSAGE, "BotMgr: corp %u lost to officer %s(%u) - next hunt brings %d ships (persisted).",
          corpID, officerName.c_str(), officerTypeID, n);
     std::string plan = AskBrain("My fleet just lost attacking the officer " + officerName
         + " (typeID " + std::to_string(officerTypeID) + "). I will bring " + std::to_string(n)
@@ -7611,10 +7650,12 @@ void BotMgr::NoteOfficerLoss(uint32 corpID, uint32 officerTypeID, const std::str
 
 void BotMgr::NoteOfficerKilled(uint32 corpID)
 {
-    auto it = m_officerFleetSize.find(corpID);
-    if (it != m_officerFleetSize.end())
-        it->second = 1;   // success -> reset the escalation
-    _log(BOT__MESSAGE, "BotMgr: corp %u killed an officer - officer-hunt fleet reset.", corpID);
+    m_officerFleetSize[corpID] = 1;
+    DBerror e;
+    sDatabase.RunQuery(e,
+        "INSERT INTO corpOfficerFleet (corpID, fleetSize) VALUES (%u, 1) "
+        "ON DUPLICATE KEY UPDATE fleetSize = 1, updated = NOW()", corpID);
+    _log(BOT__MESSAGE, "BotMgr: corp %u killed an officer - officer-hunt fleet reset (persisted).", corpID);
 }
 
 void BotMgr::ScheduleConcordGank(uint32 charID, uint32 sysID)

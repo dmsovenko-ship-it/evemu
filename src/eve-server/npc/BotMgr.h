@@ -127,6 +127,9 @@ public:
     // ONCE (allowed directive tokens: GUARDS,DRONES,FLEE,FLEET,AVOID,REFIT), stores
     // it and reuses it. Returns "" when the brain is disabled or throttled.
     std::string AskBrainCached(uint8 profession, const std::string& threat, const std::string& context);
+    // Train ONE combat skill level (persisted in botMemory) — the brain orders it
+    // after a combat loss so the chelobot hits harder next time.
+    void TrainBotCombatSkill(uint32 charID);
 
     // Officer-hunt escalation: a strong NPC (officer) the corp failed to kill
     // raises the fleet size it brings next time. The brain adds a post-mortem.
