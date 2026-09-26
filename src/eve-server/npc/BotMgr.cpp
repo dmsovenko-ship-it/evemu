@@ -2880,20 +2880,22 @@ void BotMgr::MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 
         }
     }
 
-    // 1b) Charges for TURRETS (lasers use frequency crystals, hybrids/projectiles
-    //     use ammo). Read the fitted high-slot weapons' chargeGroup1 (attr 604)
-    //     and carry a real charge of that group in the hold.
+    // 1b) TURRET/LAUNCHER charges: LOAD a real charge into each fitted weapon's
+    //     slot (flag 27-34, same flag as the module - that is how a loaded weapon
+    //     is stored, so the client shows a loaded, firing gun) AND carry spares in
+    //     the hold for reloads. Lasers use frequency crystals, hybrids/projectiles
+    //     use ammo, launchers use missiles - all via the weapon's chargeGroup1.
     {
-        DBQueryResult cgRes;
-        if (sDatabase.RunQuery(cgRes,
-            "SELECT DISTINCT a.valueInt FROM entity e "
+        DBQueryResult wRes;
+        if (sDatabase.RunQuery(wRes,
+            "SELECT e.flag, a.valueInt FROM entity e "
             " JOIN dgmTypeAttributes a ON a.typeID = e.typeID AND a.attributeID = 604 "
             " WHERE e.locationID = %u AND e.flag BETWEEN 27 AND 34 AND a.valueInt > 0", shipID)) {
-            DBResultRow cgRow;
+            DBResultRow wRow;
             std::set<uint32> groups;
-            while (cgRes.GetRow(cgRow))
-                groups.insert(cgRow.GetUInt(0));
-            for (uint32 g : groups) {
+            while (wRes.GetRow(wRow)) {
+                uint32 flag = wRow.GetUInt(0);
+                uint32 g = wRow.GetUInt(1);
                 uint32 chargeID = 0;
                 DBQueryResult cRes;
                 // prefer a T2 charge for veterans, else a plain T1 one
@@ -2908,6 +2910,25 @@ void BotMgr::MaterializeShipLoad(InventoryItemRef shipRef, uint32 charID, uint8 
                     sDatabase.RunQuery(cRes,
                         "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 "
                         " ORDER BY RAND() LIMIT 1", g)) {
+                    DBResultRow cRow;
+                    if (cRes.GetRow(cRow)) chargeID = cRow.GetUInt(0);
+                }
+                if (chargeID == 0)
+                    continue;
+                // load a charge into the weapon slot
+                ItemData ldata((uint16)chargeID, charID, locTemp, flagNone, MakeRandomInt(30, 80));
+                InventoryItemRef lRef = sItemFactory.SpawnItem(ldata);
+                if (lRef.get() != nullptr)
+                    lRef->Move(shipID, (EVEItemFlags)flag, false);
+                groups.insert(g);
+            }
+            // spares in the hold (one stack per distinct charge group)
+            for (uint32 g : groups) {
+                uint32 chargeID = 0;
+                DBQueryResult cRes;
+                if (sDatabase.RunQuery(cRes,
+                    "SELECT typeID FROM invTypes WHERE groupID = %u AND published = 1 "
+                    " ORDER BY RAND() LIMIT 1", g)) {
                     DBResultRow cRow;
                     if (cRes.GetRow(cRow)) chargeID = cRow.GetUInt(0);
                 }
