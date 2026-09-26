@@ -1909,7 +1909,32 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     pAdd(2603, 1);    // Nanofiber Internal Structure I
                     pAdd(31213, 2);   // Small Gravity Capacitor Upgrade I
                 } break;
-                default: break;       // courier/trader/industrialist keep their hull
+                case PlayerBot::BotProfession::Courier: {
+                    // "Cargo or survival": a fast Blockade Runner (cloak, sneak past
+                    // gankers), a tanky Deep Space Transport, or a plain T1 hauler.
+                    int r = MakeRandomInt(0, 99);
+                    if (r < 25) {        // Blockade Runner: covert cloak + MWD + nanofiber
+                        static const uint32 br[] = { 12729, 12743, 12735, 12733 }; // Crane/Viator/Prowler/Prorator
+                        hullType = br[MakeRandomInt(0, 3)];
+                        pAdd(11578, 1);  // Covert Ops Cloaking Device II
+                        pAdd(434, 1);    // 1MN MWD (cloak-warp)
+                        pAdd(2605, 1);   // Nanofiber Internal Structure II (align)
+                    } else if (r < 50) { // Deep Space Transport: tank
+                        static const uint32 dst[] = { 12731, 12745, 12747, 12753 }; // Bustard/Occator/Mastodon/Impel
+                        hullType = dst[MakeRandomInt(0, 3)];
+                        pAdd(1335, 2);   // Reinforced Bulkheads II
+                        pAdd(3841, 1);   // Large Shield Extender II
+                    } else {             // T1 hauler: cargo + a little shield
+                        pAdd(1319, 1);   // Expanded Cargohold II
+                        pAdd(3831, 1);   // Medium Shield Extender II
+                    }
+                } break;
+                case PlayerBot::BotProfession::Trader: {
+                    // Traders haul goods: expanded cargohold + a little shield.
+                    pAdd(1319, 1);       // Expanded Cargohold II
+                    pAdd(3831, 1);       // Medium Shield Extender II
+                } break;
+                default: break;       // industrialist keeps its hull
             }
             if (!pfit.empty()) {
                 pfit.pop_back();      // drop the trailing comma
