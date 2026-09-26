@@ -2125,10 +2125,16 @@ void PlayerBot::HuntForTarget()
         if (!engage && m_outlaw && IsArmed()) {
             double delay = 19.0 - ((double)sysSec - 0.5) * 26.0;   // 0.5->19s .. 1.0->6s
             if (delay < 5.0) delay = 5.0;
-            bool tornado = (m_self->typeID() == 4310);             // advanced alpha ganker
-            // Catalyst: sustained DPS over the CONCORD window. Tornado: one
-            // artillery ALPHA volley that must delete the target outright.
-            double dmg = tornado ? 13300.0 : (200.0 + m_botSkill * 80.0) * delay;
+            uint32 hull = m_self->typeID();
+            bool tornado = (hull == 4310);             // advanced alpha ganker
+            // Per-hull strike: a Tornado lands one artillery ALPHA volley; the
+            // blaster hulls apply their DPS over the whole CONCORD window (scaled
+            // by skill). Talos > Brutix > Vexor > Catalyst.
+            double hullDps = 500.0;                    // Catalyst
+            if      (hull == 4308)  hullDps = 1600.0;  // Talos
+            else if (hull == 16229) hullDps = 1100.0;  // Brutix
+            else if (hull == 626)   hullDps = 550.0;   // Vexor
+            double dmg = tornado ? 13300.0 : hullDps * (0.7 + 0.06 * m_botSkill) * delay;
             double ehp = enemyBot->EstimateEHP();
             // The ganker ALWAYS loses its ship to CONCORD, so the loot must cover
             // the ship + fit. Loot ≈ 50% of the target's hold (the rest is

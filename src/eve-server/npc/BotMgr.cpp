@@ -1783,11 +1783,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
 
         if (isGanker) {
-            // Tiered Crucible suicide-ganker. A rookie/poor pilot flies a cheap
-            // Catalyst (blaster DPS); once the pilot is top-skill AND can afford
-            // the ~115M fit, it upgrades to a Tornado (artillery ALPHA) that
-            // one-volleys high-value targets a Catalyst could never chew through.
-            // The fit is mandatory - a naked ganker kills nothing.
+            // Tiered Crucible suicide-ganker armory: fly the best hull the pilot
+            // can fly AND afford (it loses the ship 100% to CONCORD). Cost guide:
+            // Catalyst ~10M, Vexor ~20M, Brutix ~50M, Talos ~100M, Tornado ~115M.
             double balance = 0.0;
             {
                 DBQueryResult bres;
@@ -1798,51 +1796,48 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                         balance = brow.GetDouble(0);
                 }
             }
-            bool advanced = (skillTier >= 5 && balance >= 150000000.0);
+            int tier;
+            if      (balance >= 150000000.0 && skillTier >= 5) tier = (MakeRandomInt(0, 1) ? 5 : 4); // Tornado / Talos
+            else if (balance >=  70000000.0 && skillTier >= 4) tier = (MakeRandomInt(0, 1) ? 4 : 3); // Talos / Brutix
+            else if (balance >=  30000000.0 && skillTier >= 4) tier = (MakeRandomInt(0, 1) ? 3 : 2); // Brutix / Vexor
+            else if (balance >=  20000000.0)                   tier = 2;                            // Vexor
+            else                                               tier = 1;                            // Catalyst
+            bool t2 = (skillTier >= 4);
             std::string fitJson = "[";
-            if (advanced) {
-                hullType = 4310;   // Tornado (Minmatar T3 battlecruiser: 8/5/4 + 3 rig)
-                const uint32 arty  = 2961;    // 1400mm Howitzer Artillery II
-                const uint32 mwd   = 12076;   // 10MN MicroWarpdrive II
-                const uint32 point = 3244;    // Warp Disruptor II
-                const uint32 sebo  = 1952;    // Sensor Booster II
-                const uint32 tc    = 1978;    // Tracking Computer II
-                const uint32 paint = 12709;   // Target Painter I
-                const uint32 gyro  = 519;     // Gyrostabilizer II
-                const uint32 dcu   = 2048;    // Damage Control II
-                const uint32 rAer  = 31670;   // Medium Projectile Burst Aerator I
-                const uint32 rAmb  = 31658;   // Medium Projectile Ambit Extension I
-                for (int i = 0; i < 8; ++i) fitJson += std::to_string(arty) + ",";
-                fitJson += std::to_string(mwd) + "," + std::to_string(point) + ","
-                         + std::to_string(sebo) + "," + std::to_string(tc) + ","
-                         + std::to_string(paint) + ",";
-                for (int i = 0; i < 3; ++i) fitJson += std::to_string(gyro) + ",";
-                fitJson += std::to_string(dcu) + ",";
-                fitJson += std::to_string(rAer) + "," + std::to_string(rAer) + ","
-                         + std::to_string(rAmb) + "]";
-                _log(BOT__MESSAGE, "BotMgr: %s(%u) is an ADVANCED GANKER - Tornado alpha fit (balance %.0f).",
-                     useName.c_str(), useCharID, balance);
-            } else {
-                hullType = 16240;   // Catalyst (Gallente T1 destroyer: 8/2/3 + 3 rig)
-                bool t2 = (skillTier >= 4);
-                const uint32 blaster = t2 ? 3178  : 564;
-                const uint32 mwd     = t2 ? 440   : 434;
-                const uint32 scram   = 447;
-                const uint32 magstab = t2 ? 10190 : 9944;
-                const uint32 rigColl = t2 ? 31544 : 31538;
-                const uint32 rigAer  = t2 ? 31532 : 31526;
-                for (int i = 0; i < 8; ++i) fitJson += std::to_string(blaster) + ",";
-                fitJson += std::to_string(mwd) + "," + std::to_string(scram) + ",";
-                for (int i = 0; i < 3; ++i) fitJson += std::to_string(magstab) + ",";
-                fitJson += std::to_string(rigColl) + "," + std::to_string(rigColl) + ","
-                         + std::to_string(rigAer) + "]";
-                _log(BOT__MESSAGE, "BotMgr: %s(%u) is a GANKER - Catalyst fit (%s).",
-                     useName.c_str(), useCharID, (t2 ? "T2" : "T1"));
+            auto add = [&](uint32 id, int n) { for (int i = 0; i < n; ++i) fitJson += std::to_string(id) + ","; };
+            const char* tname = "Catalyst";
+            switch (tier) {
+                case 5: {   // Tornado - artillery ALPHA sniper (one-volley high-EHP)
+                    hullType = 4310; tname = "Tornado";
+                    add(2961, 8);  add(12076, 1); add(3244, 1); add(1952, 1); add(1978, 1);
+                    add(12709, 1); add(519, 3);   add(2048, 1); add(31670, 2); add(31658, 1);
+                } break;
+                case 4: {   // Talos - heavy blaster DPS (>1600), chews tanky targets
+                    hullType = 4308; tname = "Talos";
+                    add(3186, 8);  add(448, 1); add(526, 1); add(1978, 1); add(10190, 3); add(2048, 1);
+                } break;
+                case 3: {   // Brutix - budget Talos (~1100 DPS)
+                    hullType = 16229; tname = "Brutix";
+                    add(3146, 7);  add(440, 1); add(448, 1); add(526, 1);
+                    add(10190, 3); add(11269, 2); add(2048, 1);
+                } break;
+                case 2: {   // Vexor - budget universal (~550 DPS + drones)
+                    hullType = 626; tname = "Vexor";
+                    add(3178, 4);  add(440, 1); add(448, 1); add(526, 1); add(10190, 2); add(2048, 1);
+                } break;
+                default: {  // Catalyst - cheapest blaster DPS
+                    hullType = 16240; tname = "Catalyst";
+                    add(t2 ? 3178 : 564, 8); add(t2 ? 440 : 434, 1); add(447, 1);
+                    add(t2 ? 10190 : 9944, 3); add(t2 ? 31544 : 31538, 2); add(t2 ? 31532 : 31526, 1);
+                } break;
             }
+            fitJson += "]";
             useFit = fitJson;
             useShipType = hullType;   // so a loss routes through the market re-buy path
             spawnFleetBoss = false;
             forceProfessionHull = false;
+            _log(BOT__MESSAGE, "BotMgr: %s(%u) is a GANKER - %s fit (tier %d, balance %.0f).",
+                 useName.c_str(), useCharID, tname, tier, balance);
         } else if (spawnFleetBoss) {
             // Boss hull already chosen (Orca/Rorqual) — keep it, no re-pick.
         } else if (forceProfessionHull) {
