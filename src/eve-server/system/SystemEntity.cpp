@@ -225,7 +225,49 @@ void SystemEntity::DropLoot(WreckContainerRef wreckRef, uint32 groupID, uint32 o
     std::vector<LootList> lootList;
     sDataMgr.GetLoot(groupID, lootList);
     if (lootList.empty()) {
-        _log(LOOT__INFO, "lootList empty for %s(%u)", m_self->name(), m_self->itemID());
+        // Fallback module loot: many NPC groups (common belt pirates, officers)
+        // have no lootGroup rows, so their wrecks would be empty and belt-rats/
+        // officer kills would never yield modules to loot and haul to market.
+        // Drop a real MODULE instead: officers (high security-status kill bonus)
+        // drop a high-meta "officer" module, everyone else a plain T1/T2 one.
+        // Candidate lists are built once and cached (no per-kill ORDER BY RAND()).
+        static std::vector<uint32> s_stdMods;
+        static std::vector<uint32> s_offMods;
+        if (s_stdMods.empty() && s_offMods.empty()) {
+            DBQueryResult r;
+            if (sDatabase.RunQuery(r,
+                "SELECT t.typeID FROM invTypes t JOIN invGroups g ON g.groupID = t.groupID "
+                " JOIN dgmTypeAttributes a ON a.typeID = t.typeID AND a.attributeID = 633 "
+                " WHERE g.categoryID = 7 AND t.published = 1 AND a.valueInt BETWEEN 1 AND 4 "
+                " ORDER BY RAND() LIMIT 400")) {
+                DBResultRow row;
+                while (r.GetRow(row)) s_stdMods.push_back(row.GetUInt(0));
+            }
+            DBQueryResult r2;
+            if (sDatabase.RunQuery(r2,
+                "SELECT t.typeID FROM invTypes t JOIN invGroups g ON g.groupID = t.groupID "
+                " JOIN dgmTypeAttributes a ON a.typeID = t.typeID AND a.attributeID = 633 "
+                " WHERE g.categoryID = 7 AND t.published = 1 AND a.valueInt >= 6 "
+                " ORDER BY RAND() LIMIT 200")) {
+                DBResultRow row;
+                while (r2.GetRow(row)) s_offMods.push_back(row.GetUInt(0));
+            }
+        }
+        float killBonus = 0.0f;
+        if (m_self->HasAttribute(AttrEntitySecurityStatusKillBonus))
+            killBonus = m_self->GetAttribute(AttrEntitySecurityStatusKillBonus).get_float();
+        bool officer = (killBonus >= 0.12f);
+        const std::vector<uint32>& pool = (officer && !s_offMods.empty()) ? s_offMods : s_stdMods;
+        if (pool.empty())
+            return;
+        uint32 n = officer ? MakeRandomInt(2, 4) : (MakeRandomInt(0, 99) < 35 ? 1 : 0);
+        for (uint32 i = 0; i < n; ++i) {
+            uint32 modType = pool[MakeRandomInt(0, (int)pool.size() - 1)];
+            ItemData iLoot(modType, owner, wreckRef->itemID(), flagNone, 1);
+            wreckRef->AddItem(sItemFactory.SpawnItem(iLoot));
+        }
+        _log(LOOT__INFO, "DropLoot: fallback %u module(s) for %s(%u), officer=%d.",
+             n, m_self->name(), m_self->itemID(), (int)officer);
         return;
     }
 
