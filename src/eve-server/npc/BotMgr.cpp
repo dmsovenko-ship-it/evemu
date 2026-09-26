@@ -262,6 +262,9 @@ void BotMgr::Process()
     // Manage docked bots: undock some each tick, dock others.
     ProcessDocking();
 
+    // Broke docked pilots work (brain-chosen job) until they can afford a hull.
+    ProcessBrokePilots();
+
     // Docked traders work the market from their station.
     ProcessDockedEconomy();
 
@@ -2093,14 +2096,17 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // Real players almost always rename their ship to something arbitrary
     // (a word, a name, a code). Give the bot's hull a random ship name too,
     // NOT the pilot's name — a pilot named after their ship is a tell.
-    // A chelobot is NOT given its ship for free: charge the hull's value from its
-    // wallet (an economy sink, so bots must EARN to replace a lost ship). A pooled
-    // pilot that has been drained to nothing gets a small corp starter grant, so
-    // the hull charge below is a REAL transaction (not 0) and the pilot can fly.
+    // A chelobot BUYS its hull - never handed a ship for free. It pays ONLY when
+    // the hull is NEW to it (fresh pilot, upgrade, capital re-roll): the boot-time
+    // space cleanup wipes in-space bot ships (a server artifact, not the pilot's
+    // death), so re-spawning the SAME hull the pilot already owned is not billed
+    // again. A pilot that cannot afford a NEW hull does NOT fly: it stays docked
+    // and works to earn (ProcessBrokePilots), then undocks.
     {
         const ItemType* ht = sItemFactory.GetType((uint16)hullType);
         double cost = (ht != nullptr) ? ht->basePrice() : 0.0;
-        if (cost > 0.0) {
+        bool alreadyOwns = (savedShipType != 0 && (uint32)savedShipType == hullType);
+        if (cost > 0.0 && !alreadyOwns) {
             double bal = 0.0;
             DBQueryResult br;
             if (sDatabase.RunQuery(br, "SELECT balance FROM chrCharacters WHERE characterID = %u", useCharID)) {
@@ -2108,27 +2114,30 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 if (br.GetRow(brow))
                     bal = brow.GetDouble(0);
             }
+            if (bal < cost) {
+                DockedBot db;
+                db.charID = useCharID;
+                db.name = useName;
+                db.corpID = useCorpID;
+                db.allianceID = useAllianceID;
+                db.profession = (uint8)prof;
+                db.stationID = 0;
+                for (auto& [sid, sse] : pSystem->GetStaticEntities()) {
+                    if (sse != nullptr && sse->GetStationSE() != nullptr) { db.stationID = sid; break; }
+                }
+                db.undockAt = 0;
+                db.wantHull = (uint32)cost;
+                m_docked[pSystem->GetID()].push_back(db);
+                _log(BOT__MESSAGE, "BotMgr: %s(%u) has %.0f ISK < hull %u (%.0f) - stays docked to earn.",
+                     useName.c_str(), useCharID, bal, hullType, cost);
+                return;
+            }
             DBerror e;
-            // Working capital: the pilot needs its hull price plus a buffer for
-            // ammo/fuel/fees. Broke pooled pilots are topped up by the corp.
-            double need = cost + 2000000.0 + MakeRandomFloat() * 8000000.0;
-            if (bal < need) {
-                double grant = need - bal;
-                sDatabase.RunQuery(e,
-                    "UPDATE chrCharacters SET balance = balance + %.2f WHERE characterID = %u",
-                    grant, useCharID);
-                _log(BOT__MESSAGE, "BotMgr: bot %u starter wallet grant %.0f ISK (had %.0f).",
-                     useCharID, grant, bal);
-                bal = need;
-            }
-            double spend = (cost < bal) ? cost : bal;
-            if (spend > 0.0) {
-                sDatabase.RunQuery(e,
-                    "UPDATE chrCharacters SET balance = balance - %.2f WHERE characterID = %u",
-                    spend, useCharID);
-                _log(BOT__MESSAGE, "BotMgr: bot %u paid %.0f ISK for hull %u (balance %.0f).",
-                     useCharID, spend, hullType, bal);
-            }
+            sDatabase.RunQuery(e,
+                "UPDATE chrCharacters SET balance = balance - %.2f WHERE characterID = %u",
+                cost, useCharID);
+            _log(BOT__MESSAGE, "BotMgr: bot %u bought hull %u for %.0f ISK (balance %.0f).",
+                 useCharID, hullType, cost, bal - cost);
         }
     }
 
@@ -3917,6 +3926,75 @@ void BotMgr::ProcessRansoms()
             it = m_ransomPaid.erase(it);
         else
             ++it;
+    }
+}
+
+// Pick the fastest-earning job for a broke, docked pilot: ask the DeepSeek brain
+// once (throttled); fall back to the profession's natural work when it is off.
+uint8 BotMgr::PickEarningJob(const DockedBot& db)
+{
+    std::string ans = AskBrain(
+        "A simulated pilot (profession " + std::to_string((int)db.profession)
+        + ") is broke and must earn ISK fast. Best single job: RAT, MINE, TRADE, HAUL or MISSION? One word.");
+    auto has = [&](const char* k) { return ans.find(k) != std::string::npos; };
+    if (has("TRADE") || has("trade"))    return 3;
+    if (has("HAUL")  || has("haul"))     return 4;
+    if (has("MISSION") || has("mission")) return 5;
+    if (has("MINE")  || has("mine"))     return 2;
+    if (has("RAT")   || has("rat"))      return 1;
+    switch (db.profession) {
+        case (uint8)PlayerBot::BotProfession::Miner:     return 2;
+        case (uint8)PlayerBot::BotProfession::Trader:    return 3;
+        case (uint8)PlayerBot::BotProfession::Courier:   return 4;
+        case (uint8)PlayerBot::BotProfession::Missioner: return 5;
+        default:                                         return 1;
+    }
+}
+
+// Broke docked pilots work (the brain picks the job) until they can afford the
+// hull they need, then they rejoin the normal undock cycle and fly it.
+void BotMgr::ProcessBrokePilots()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    int64 now = (int64)GetFileTimeNow();
+    for (auto& [sysID, vec] : m_docked) {
+        for (auto& db : vec) {
+            if (db.wantHull == 0)
+                continue;   // not a broke pilot
+            double bal = 0.0;
+            DBQueryResult r;
+            if (sDatabase.RunQuery(r, "SELECT balance FROM chrCharacters WHERE characterID = %u", db.charID)) {
+                DBResultRow row;
+                if (r.GetRow(row))
+                    bal = row.GetDouble(0);
+            }
+            if (bal >= (double)db.wantHull) {
+                db.wantHull = 0;
+                db.undockAt = time(nullptr) + MakeRandomInt(20, 120);
+                _log(BOT__MESSAGE, "BotMgr: %s(%u) earned %.0f ISK - can buy its hull and fly.",
+                     db.name.c_str(), db.charID, bal);
+                continue;
+            }
+            if (db.earnEvery == 0) {
+                db.job = PickEarningJob(db);
+                db.earnEvery = MakeRandomInt(120, 240);
+            }
+            if (db.lastEarn != 0 && (now - db.lastEarn) < (int64)db.earnEvery * EvE::Time::Second)
+                continue;
+            // Wage sized so the hull is funded in ~10-25 jobs. Trading/hauling pay
+            // the most (jobMul), ratting is the baseline, mining/missions less.
+            double base = (double)db.wantHull / (double)MakeRandomInt(10, 25);
+            static const double jobMul[6] = { 0.0, 1.0, 0.8, 1.3, 1.5, 0.9 }; // - RAT MINE TRADE HAUL MISSION
+            uint8 j = (db.job >= 1 && db.job <= 5) ? db.job : 1;
+            double wage = base * jobMul[j] * (0.7 + MakeRandomFloat() * 0.6);
+            DBerror e;
+            sDatabase.RunQuery(e,
+                "UPDATE chrCharacters SET balance = balance + %.2f WHERE characterID = %u", wage, db.charID);
+            db.lastEarn = now;
+            _log(BOT__MESSAGE, "BotMgr: broke pilot %s(%u) ran a job (type %u) - earned %.0f ISK.",
+                 db.name.c_str(), db.charID, j, wage);
+        }
     }
 }
 
@@ -6446,6 +6524,7 @@ void BotMgr::ProcessDocking()
         if (pSystem == nullptr) { ++it; continue; }
 
         for (auto db = it->second.begin(); db != it->second.end(); ) {
+            if (db->wantHull > 0) { ++db; continue; }   // broke pilot: earning, do not undock
             if (db->undockAt > 0 && db->undockAt > now) { ++db; continue; }
             _log(BOT__MESSAGE, "BotMgr: %s(%u) undocking from station in system %u.",
                  db->name.c_str(), db->charID, it->first);

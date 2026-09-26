@@ -309,8 +309,19 @@ private:
         uint8  profession;   // PlayerBot::BotProfession while docked
         uint32 stationID;    // station the bot is docked at (0 = any/unknown)
         time_t undockAt;   // when to undock (0 = already waiting)
+        // Broke pilot: can't afford its hull, so it stays docked and works to
+        // earn (see ProcessBrokePilots). wantHull = the price it must reach (0 =
+        // not a broke pilot, normal dock/undock cycle applies).
+        uint32 wantHull  = 0;
+        uint8  job       = 0;     // earning job: 1=RAT 2=MINE 3=TRADE 4=HAUL 5=MISSION
+        int64  lastEarn  = 0;     // filetime of the last wage
+        uint32 earnEvery = 0;     // seconds between wages
     };
     void ProcessDocking();   // manage dock/undock cycle each tick
+    // Broke docked pilots work (the brain picks the fastest job) until they can
+    // afford the hull they need, then rejoin the normal undock cycle.
+    void ProcessBrokePilots();
+    uint8 PickEarningJob(const DockedBot& db);
     // Docked traders work the market FROM THE STATION (that's where a market
     // order lives). Run each tick: docked traders place sell/buy orders and the
     // occasional courier contract at their station; docked producers bid for raw
