@@ -5719,22 +5719,46 @@ void BotMgr::PayCorpTax(PlayerBot* bot)
          bot->GetBotName().c_str(), charID, tax, corpID);
 }
 
-void BotMgr::PayMissionReward(PlayerBot* bot)
+void BotMgr::PayMissionReward(PlayerBot* bot, uint32 stationID)
 {
-    // Agent mission payout: a missioner is credited ISK when it docks and reports
-    // in after a run (like turning a mission in to an agent). Scaled a little by
-    // how much practice the pilot has, so veterans earn more.
+    // Agent missions L1-L4: a missioner is credited ISK when it docks and reports
+    // in after a run. It runs the highest-level AGENT at its station that its
+    // skill allows (the same level gate EVE uses), and the payout follows the
+    // agent's level bracket (L1 ~15-40k ... L4 ~1.5-3.5M). With no agent at the
+    // station it falls back to a base courier-style job. Practice adds a bonus.
     uint32 charID = bot->GetBotCharID();
     if (charID == 0)
         return;
-    double reward = 30000.0 + MakeRandomInt(0, 80000);   // 30k-110k per report
+    int cap = 1 + (int)bot->GetBotSkillLevel();   // skill 0->L1, 1->L2, 2->L3, 3+->L4
+    if (cap > 4) cap = 4;
+    int level = 0;
+    if (stationID != 0) {
+        DBQueryResult r;
+        if (sDatabase.RunQuery(r,
+            "SELECT level FROM agtAgents WHERE locationID = %u AND level <= %d AND level BETWEEN 1 AND 4"
+            " ORDER BY level DESC LIMIT 1", stationID, cap)) {
+            DBResultRow row;
+            if (r.GetRow(row))
+                level = (int)row.GetUInt(0);
+        }
+    }
+    // EVE-like payout brackets per agent level (min..max, ISK).
+    static const double lo[5] = { 0.0,   15000.0,  70000.0,  300000.0, 1500000.0 };
+    static const double hi[5] = { 0.0,   40000.0, 160000.0,  750000.0, 3500000.0 };
+    double reward;
+    if (level >= 1)
+        reward = lo[level] + MakeRandomFloat() * (hi[level] - lo[level]);
+    else
+        reward = 30000.0 + MakeRandomInt(0, 80000);   // no agent: base job
     if (bot->GetMemory() != nullptr)
         reward *= 1.0 + 0.25 * bot->GetMemory()->GetActivitySkill();   // up to +25%
+
     DBerror err;
     sDatabase.RunQuery(err, "UPDATE chrCharacters SET balance = balance + %f WHERE characterID = %u",
                        reward, charID);
-    _log(BOT__MESSAGE, "BotMgr: missioner %s(%u) reported in — %.0f ISK mission payout.",
-         bot->GetBotName().c_str(), charID, reward);
+    std::string lvl = (level >= 1) ? ("L" + std::to_string(level)) : std::string("base");
+    _log(BOT__MESSAGE, "BotMgr: missioner %s(%u) reported %s mission - %.0f ISK payout.",
+         bot->GetBotName().c_str(), charID, lvl.c_str(), reward);
 }
 
 void BotMgr::PlaceBotOrder(PlayerBot* bot)
@@ -6557,7 +6581,7 @@ void BotMgr::ProcessDocking()
             // the agent mission reward into its wallet (checked before the cargo
             // deposit below empties the hold).
             if (pb->GetProfession() == PlayerBot::BotProfession::Missioner && pb->HasCargo())
-                PayMissionReward(pb);
+                PayMissionReward(pb, dockStationID);
             // Stage-2 physical goods: a miner/ratter/hacker deposits its real
             // cargo hold into the station hangar when it docks, so the station
             // accumulates physical minerals/loot a trader can later pack into a
