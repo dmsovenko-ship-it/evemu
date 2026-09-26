@@ -2089,6 +2089,32 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // Real players almost always rename their ship to something arbitrary
     // (a word, a name, a code). Give the bot's hull a random ship name too,
     // NOT the pilot's name — a pilot named after their ship is a tell.
+    // A chelobot is NOT given its ship for free: charge the hull's value from its
+    // wallet (an economy sink, so bots must EARN to replace a lost ship). Clamped
+    // at the wallet so the balance never goes negative.
+    {
+        const ItemType* ht = sItemFactory.GetType((uint16)hullType);
+        double cost = (ht != nullptr) ? ht->basePrice() : 0.0;
+        if (cost > 0.0) {
+            double bal = 0.0;
+            DBQueryResult br;
+            if (sDatabase.RunQuery(br, "SELECT balance FROM chrCharacters WHERE characterID = %u", useCharID)) {
+                DBResultRow brow;
+                if (br.GetRow(brow))
+                    bal = brow.GetDouble(0);
+            }
+            double spend = (cost < bal) ? cost : bal;
+            if (spend > 0.0) {
+                DBerror e;
+                sDatabase.RunQuery(e,
+                    "UPDATE chrCharacters SET balance = balance - %.2f WHERE characterID = %u",
+                    spend, useCharID);
+                _log(BOT__MESSAGE, "BotMgr: bot %u paid %.0f ISK for hull %u (balance %.0f).",
+                     useCharID, spend, hullType, bal);
+            }
+        }
+    }
+
     std::string shipName = MakeRandomShipName();
     ItemData idata(hullType, useCorpID, pSystem->GetID(), flagNone, shipName.c_str(), pos);
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
