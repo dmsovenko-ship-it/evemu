@@ -35,6 +35,28 @@
 #include "npc/NPCAI.h"
 #include "npc/SleeperAI.h"
 #include "npc/PlayerBot.h"
+
+// Resolve the chelobot that owns a drone (drones have no Client): match the
+// drone's ownerID against bot charIDs or bot ship itemIDs in any loaded system.
+static uint32 BotCharIDByDroneOwner(uint32 owner)
+{
+    if (owner == 0)
+        return 0;
+    for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+        if (sm == nullptr)
+            continue;
+        for (auto& [id, se] : sm->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb == nullptr)
+                continue;
+            if (pb->GetBotCharID() == owner || pb->GetID() == owner)
+                return pb->GetBotCharID();
+        }
+    }
+    return 0;
+}
 #include "npc/Sentry.h"
 #include "npc/SentryAI.h"
 #include "system/Container.h"
@@ -628,6 +650,7 @@ void NPC::Killed(Damage &damage) {
     }
 
     uint32 killerID = 0;
+    uint32 botBountyCharID = 0;   // chelobot killer to credit (it has no Client)
     Client* pClient(nullptr);
     SystemEntity *killer(damage.srcSE);
 
@@ -635,14 +658,20 @@ void NPC::Killed(Damage &damage) {
         pClient = killer->GetPilot();
         killerID = pClient->GetCharacterID();
     } else if (killer->IsDroneSE()) {
-        pClient = sEntityList.FindClientByCharID( killer->GetSelf()->ownerID() );
-        if (pClient == nullptr) {
-            sLog.Error("NPC::Killed()", "killer == IsDrone and pPlayer == nullptr");
-        } else {
+        uint32 owner = killer->GetSelf()->ownerID();
+        pClient = sEntityList.FindClientByCharID(owner);
+        if (pClient != nullptr) {
             killerID = pClient->GetCharacterID();
+        } else {
+            botBountyCharID = BotCharIDByDroneOwner(owner);   // bot's drone
         }
     } else {
         killerID = killer->GetID();
+        if (killer->GetNPCSE() != nullptr) {
+            PlayerBot* killerBot = dynamic_cast<PlayerBot*>(killer->GetNPCSE());
+            if (killerBot != nullptr)
+                botBountyCharID = killerBot->GetBotCharID();  // bot ship killed it
+        }
     }
 
     uint32 locationID = GetLocationID();
@@ -650,13 +679,10 @@ void NPC::Killed(Damage &damage) {
     MapDB::AddKill(locationID);
     MapDB::AddFactionKill(locationID);
 
-    // Chelobot killer: PlayerBots have no Client, so AwardBounty(pClient=null) is
-    // skipped -> credit the bot pilot's wallet directly (ratting bounty income).
-    if (pClient == nullptr && killer != nullptr && killer->GetNPCSE() != nullptr) {
-        PlayerBot* killerBot = dynamic_cast<PlayerBot*>(killer->GetNPCSE());
-        if (killerBot != nullptr)
-            AwardBountyTo(killerBot->GetBotCharID());
-    }
+    // Chelobot killer (its ship or its drone): credit the bot pilot's wallet
+    // directly (PlayerBots have no Client, so AwardBounty(pClient=null) is skipped).
+    if (botBountyCharID != 0)
+        AwardBountyTo(botBountyCharID);
 
     if (pClient != nullptr) {
         //award kill bounty.
