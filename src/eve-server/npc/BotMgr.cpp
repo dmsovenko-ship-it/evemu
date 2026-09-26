@@ -3738,6 +3738,81 @@ void BotMgr::ProcessEconomy(PlayerBot* bot)
         PayCorpTax(bot);
 }
 
+// Reprocessing for profit: the bot BUYS a cheap module on the station market
+// (real purchase - the wallet is charged and the order consumed) and melts it
+// into minerals worth more (mineral base prices x 60% station refine efficiency).
+void BotMgr::ReprocessProfit(uint32 charID, uint32 stationID)
+{
+    if (charID == 0 || stationID == 0)
+        return;
+    DBQueryResult r;
+    if (!sDatabase.RunQuery(r,
+        "SELECT o.typeID, MIN(o.price) FROM mktOrders o "
+        " JOIN invTypes t ON t.typeID = o.typeID "
+        " JOIN invGroups g ON g.groupID = t.groupID "
+        " WHERE o.stationID = %u AND o.bid = 0 AND g.categoryID = 7 "
+        " GROUP BY o.typeID ORDER BY RAND() LIMIT 8", stationID))
+        return;
+    DBResultRow row;
+    while (r.GetRow(row)) {
+        uint32 typeID = row.GetUInt(0);
+        double ask = row.GetDouble(1);
+        if (typeID == 0 || ask <= 0.0)
+            continue;
+        double yieldValue = 0.0;
+        DBQueryResult m;
+        if (!sDatabase.RunQuery(m, "SELECT materialTypeID, quantity FROM invTypeMaterials WHERE typeID = %u", typeID))
+            continue;
+        DBResultRow mrow;
+        while (m.GetRow(mrow)) {
+            const ItemType* mt = sItemFactory.GetType((uint16)mrow.GetUInt(0));
+            if (mt != nullptr)
+                yieldValue += mt->basePrice() * mrow.GetUInt(1);
+        }
+        yieldValue *= 0.6;                       // station refine efficiency
+        if (yieldValue <= ask * 1.05)
+            continue;                            // not profitable after the buy
+
+        double spent = sMktMgr.BotBuyStock(charID, stationID, typeID, 1);
+        if (spent <= 0.0)
+            continue;                            // no order / cannot afford
+
+        // Melt the bought unit: shrink the hangar stack, spawn the minerals.
+        DBQueryResult hres;
+        if (sDatabase.RunQuery(hres,
+            "SELECT itemID, quantity FROM entity WHERE ownerID = %u AND typeID = %u AND flag = %u AND singleton = 0 LIMIT 1",
+            charID, typeID, (uint32)flagHangar)) {
+            DBResultRow hrow;
+            if (hres.GetRow(hrow)) {
+                InventoryItemRef iref = sItemFactory.GetItemRef(hrow.GetUInt(0));
+                uint32 qty = hrow.GetUInt(1);
+                if (iref.get() != nullptr) {
+                    if (qty > 1)
+                        iref->AlterQuantity(qty - 1, true);
+                    else
+                        iref->Delete();
+                }
+            }
+        }
+        DBQueryResult m2;
+        if (sDatabase.RunQuery(m2, "SELECT materialTypeID, quantity FROM invTypeMaterials WHERE typeID = %u", typeID)) {
+            DBResultRow mrow2;
+            while (m2.GetRow(mrow2)) {
+                uint32 matQty = (uint32)(mrow2.GetUInt(1) * 0.6);
+                if (matQty == 0)
+                    continue;
+                ItemData idata((uint16)mrow2.GetUInt(0), charID, stationID, flagHangar, matQty);
+                InventoryItemRef min = sItemFactory.SpawnItem(idata);
+                if (min.get() != nullptr)
+                    min->SaveItem();
+            }
+        }
+        _log(BOT__MESSAGE, "BotMgr: bot %u reprocessed type %u (paid %.0f -> minerals %.0f).",
+             charID, typeID, spent, yieldValue);
+        break;                                   // one per tick
+    }
+}
+
 void BotMgr::ProcessDockedEconomy()
 {
     // Docked traders/producers work the market FROM THEIR STATION: sell orders,
@@ -3775,6 +3850,9 @@ void BotMgr::ProcessDockedEconomy()
                 // contract (players can buy; linked in local when a player is near).
                 if (MakeRandomInt(0, 999) < 40)
                     PlaceBotItemContractAt(sysID, db.stationID, db.charID, db.corpID, MakeRandomInt(0, 1) == 1);
+                // Buy cheap modules and melt them into minerals when profitable.
+                if (MakeRandomInt(0, 99) < 15)
+                    ReprocessProfit(db.charID, db.stationID);
             } else if (prof == (uint8)PlayerBot::BotProfession::Industrialist) {
                 // Producer/builder: run the manufacturing chain, then move the
                 // output to the hub (courier) or sell it if already at the hub.
@@ -3785,6 +3863,8 @@ void BotMgr::ProcessDockedEconomy()
                     SellStockAtHub(sysID, db.stationID, db.charID);
                 else
                     PlaceStockCourierContractAt(sysID, db.stationID, db.charID, db.corpID);
+                if (MakeRandomInt(0, 99) < 15)
+                    ReprocessProfit(db.charID, db.stationID);
             } else if (prof == (uint8)PlayerBot::BotProfession::Miner
                        || prof == (uint8)PlayerBot::BotProfession::RatHunter
                        || prof == (uint8)PlayerBot::BotProfession::Hacker

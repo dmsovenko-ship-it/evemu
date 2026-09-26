@@ -219,6 +219,9 @@ private:
     // buy order per type (closing the ISK loop: ore/faction loot hauled to Jita
     // actually becomes ISK). Returns total ISK received.
     double SellStockAtHub(uint32 sysID, uint32 stationID, uint32 charID);
+    // Reprocessing for profit: BUY a cheap module on the station market and melt
+    // it into minerals worth more (a real purchase - the bot pays the ask).
+    void ReprocessProfit(uint32 charID, uint32 stationID);
     // Courier bots pick up player courier contracts that have been sitting
     // unaccepted; they haul the cargo to the destination station.
     void ProcessPlayerContracts();
