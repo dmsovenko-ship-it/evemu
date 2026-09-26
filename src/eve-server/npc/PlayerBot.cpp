@@ -600,6 +600,22 @@ void PlayerBot::Killed(Damage& damage)
             || m_brainAdvice.find("REFIT") != std::string::npos)
             sBotMgr.TrainBotCombatSkill(m_botCharID);
     }
+
+    // Insurance: a chelobot recovers part of the lost hull's value (like a
+    // Platinum policy payout), so a loss is not a total ISK write-off.
+    {
+        const ItemType* t = sItemFactory.GetType(m_self->typeID());
+        double hullValue = (t != nullptr) ? t->basePrice() : 0.0;
+        double payout = hullValue * 0.4;
+        if (payout > 0.0) {
+            DBerror e;
+            sDatabase.RunQuery(e,
+                "UPDATE chrCharacters SET balance = balance + %.2f WHERE characterID = %u",
+                payout, m_botCharID);
+            _log(BOT__MESSAGE, "PlayerBot %s(%u): insurance payout %.0f ISK for the lost hull.",
+                 m_botName.c_str(), m_botCharID, payout);
+        }
+    }
     // The killer (if a bot) has proven itself an enemy — deep grudge, both ways.
     if (damage.srcSE != nullptr && damage.srcSE->GetNPCSE() != nullptr) {
         PlayerBot* killer = dynamic_cast<PlayerBot*>(damage.srcSE->GetNPCSE());
