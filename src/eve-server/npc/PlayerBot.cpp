@@ -1264,6 +1264,44 @@ bool PlayerBot::HasCargo() const
     return false;
 }
 
+// Rough effective HP (shield + armour + structure) — the target's EHP in the
+// suicide-ganker damage-vs-EHP math.
+double PlayerBot::EstimateEHP()
+{
+    InventoryItemRef s = GetSelf();
+    if (s.get() == nullptr)
+        return 1000.0;
+    double ehp = s->GetAttribute(AttrShieldCapacity).get_float()
+               + s->GetAttribute(AttrArmorHP).get_float() * 1.2
+               + s->GetAttribute(AttrHP).get_float() * 1.5;
+    return (ehp > 0.0) ? ehp : 1000.0;
+}
+
+// "Cargo scan": a suicide-ganker only kills a LOADED target (the whole point is
+// the loot). A meaningful load in the hold makes the kill worth a Catalyst.
+bool PlayerBot::HasValuableCargo()
+{
+    if (m_cargo.empty())
+        return false;
+    uint32 qty = 0;
+    for (auto& [type, n] : m_cargo)
+        qty += n;
+    return qty >= 50;   // a real load, not a token
+}
+
+// A ship is "armed" when it has at least one fitted hi-slot module (weapon).
+// An unfitted/broke chelobot must not gank - it has to earn and re-fit first.
+bool PlayerBot::IsArmed()
+{
+    Inventory* inv = m_self->GetMyInventory();
+    if (inv == nullptr)
+        return false;
+    std::vector<InventoryItemRef> items;
+    for (int f = flagHiSlot0; f < flagHiSlot0 + 8; ++f)
+        inv->GetItemsByFlag((EVEItemFlags)f, items);
+    return !items.empty();
+}
+
 float PlayerBot::GetCargoVolume() const
 {
     float vol = 0.0f;
@@ -1500,6 +1538,14 @@ void PlayerBot::DoProfessionActivity()
 
     switch (m_profession) {
         case BotProfession::Hunter: {
+            // A broke/unfitted ganker earns ISK first (ratting NPC bounties), then
+            // re-fits on the market and goes back to ganking. No naked destroyers.
+            if (m_outlaw && !IsArmed()) {
+                RatForTarget();
+                if (MakeRandomInt(0, 99) < 10)
+                    HeadTowardHub(sBotMgr.GetTradeHubSystem());
+                return;
+            }
             // PvP pirates hunt; guards (fighter/support role) stick with their
             // corp's industrials instead of roaming.
             bool isGuard = (m_role == BotRole::Fighter || m_role == BotRole::Support);
@@ -2037,17 +2083,23 @@ void PlayerBot::HuntForTarget()
             theirPower += 3;
 
         bool engage = ShouldEngage(myPower, theirPower, false);
-        // A highsec suicide-ganker is on a one-way trip (CONCORD answers): it
-        // commits to a soft target (miner/hauler/trader/industrialist) even
-        // without a power edge — the point is the kill, not survival. Without
-        // this a destroyer-hulled ganker never out-powers anyone, never attacks,
-        // and no bot-vs-bot killmail is ever produced in the hubs.
-        if (!engage && m_outlaw) {
-            auto preyProf = enemyBot->GetProfession();
-            if (preyProf == BotProfession::Miner || preyProf == BotProfession::Courier
-                || preyProf == BotProfession::Trader || preyProf == BotProfession::Hacker
-                || preyProf == BotProfession::Industrialist)
+        // Highsec suicide-ganker: CONCORD will kill it, so it only commits when the
+        // MATH works — its damage inside CONCORD's response window must exceed the
+        // target's EHP, and the target must actually be carrying cargo worth the
+        // ship (scan the hold first). No naked destroyers killing empty ships.
+        if (!engage && m_outlaw && IsArmed()) {
+            double delay = 19.0 - ((double)sysSec - 0.5) * 26.0;   // 0.5->19s .. 1.0->6s
+            if (delay < 5.0) delay = 5.0;
+            double dps = 200.0 + m_botSkill * 80.0;                // fitted Catalyst ~280-600 DPS
+            double dmg = dps * delay;
+            double ehp = enemyBot->EstimateEHP();
+            bool loaded = enemyBot->HasValuableCargo();
+            if (loaded && dmg >= ehp)
                 engage = true;
+            else
+                _log(BOT__MESSAGE, "PlayerBot %s(%u): ganker passed on %s(%u) - dmg %.0f vs ehp %.0f, cargo=%d.",
+                     m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID(),
+                     dmg, ehp, (int)loaded);
         }
         if (engage) {
             _log(BOT__MESSAGE, "PlayerBot %s(%u): %s engaging %s(%u) — %d vs %d.",

@@ -1783,12 +1783,31 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
 
         if (isGanker) {
-            // Crucible suicide-ganker hull: a cheap destroyer built for alpha
-            // damage (Catalyst/Thrasher/Coercer/Cormorant). No boss, no re-pick.
-            static const uint32 gankerHulls[] = { 16240, 16242, 16236, 16238 };
-            hullType = gankerHulls[MakeRandomInt(0, 3)];
+            // Crucible suicide-ganker: a Catalyst in the classic max-DPS blaster
+            // fit (8 Light Neutron Blasters, MWD, scram, 3x Magnetic Field
+            // Stabilizer, 2x Hybrid Collision + 1x Burst Aerator rig). T2 when the
+            // pilot has the skills, else T1. A ganker without a fit kills nothing,
+            // so the fit is mandatory (no more naked destroyers).
+            hullType = 16240;   // Catalyst (Gallente T1 destroyer: 8/2/3 + 3 rig)
+            bool t2 = (skillTier >= 4);
+            const uint32 blaster = t2 ? 3178  : 564;    // Light Neutron Blaster I/II
+            const uint32 mwd     = t2 ? 440   : 434;    // 1MN MicroWarpdrive I/II
+            const uint32 scram   = 447;                 // Warp Scrambler I
+            const uint32 magstab = t2 ? 10190 : 9944;   // Magnetic Field Stabilizer I/II
+            const uint32 rigColl = t2 ? 31544 : 31538;  // Small Hybrid Collision Accelerator I/II
+            const uint32 rigAer  = t2 ? 31532 : 31526;  // Small Hybrid Burst Aerator I/II
+            std::string fitJson = "[";
+            for (int i = 0; i < 8; ++i) fitJson += std::to_string(blaster) + ",";
+            fitJson += std::to_string(mwd) + "," + std::to_string(scram) + ",";
+            for (int i = 0; i < 3; ++i) fitJson += std::to_string(magstab) + ",";
+            fitJson += std::to_string(rigColl) + "," + std::to_string(rigColl) + ","
+                     + std::to_string(rigAer) + "]";
+            useFit = fitJson;
+            useShipType = hullType;   // so a loss routes through the market re-buy path
             spawnFleetBoss = false;
             forceProfessionHull = false;
+            _log(BOT__MESSAGE, "BotMgr: %s(%u) is a GANKER - Catalyst fit (%s).",
+                 useName.c_str(), useCharID, (t2 ? "T2" : "T1"));
         } else if (spawnFleetBoss) {
             // Boss hull already chosen (Orca/Rorqual) — keep it, no re-pick.
         } else if (forceProfessionHull) {

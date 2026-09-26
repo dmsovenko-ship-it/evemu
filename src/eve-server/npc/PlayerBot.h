@@ -202,6 +202,9 @@ public:
     // later pack into a courier contract.
     void AddCargo(uint16 typeID, uint32 qty);
     bool HasCargo() const;
+    double EstimateEHP();               // rough shield+armour+structure (ganker math)
+    bool   HasValuableCargo();          // "scanned" hold: a load worth ganking
+    bool   IsArmed();                   // has at least one fitted hi-slot module
     // Approximate total volume (m3) currently in the hold, from static type
     // volume (used to decide when a miner's hold is full).
     float GetCargoVolume() const;
