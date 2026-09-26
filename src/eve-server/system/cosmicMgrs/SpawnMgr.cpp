@@ -1475,21 +1475,48 @@ void SpawnMgr::ReSpawn(SystemBubble* pBubble, SpawnEntry& spawnEntry)
      *           const GPoint &_position = NULL_ORIGIN, const char *_customInfo = "", bool _contraband = false);
      */
     uint32 spawnType = spawnEntry.typeID;
-    // Rare belt OFFICER (<1%): the faction officers (groups 553-574) are
-    // UNPUBLISHED types the normal picker skips, so they never spawn and their
-    // modules never reach the market. Occasionally promote a normal belt rat to
-    // one - a real prize for players/hunters (officer loot via DropLoot).
-    if (spawnEntry.spawnClass <= Spawn::Class::Insane && MakeRandomInt(0, 999) < 8) {
-        static const uint32 officers[] = {
-            13536,               // Mizuro Cybon (Angel Cartel)
-            13561, 13564, 13573, // Blood Raiders
-            13603,               // Estamel Tharchon (Guristas)
-            13635,               // Chelm Soran (Sansha's Nation)
-            13661,               // Brynn Jerdola (Serpentis)
-        };
-        spawnType = officers[MakeRandomInt(0, 6)];
-        _log(SPAWN__TRACE, "SpawnMgr::ReSpawn - spawning belt OFFICER type %u in %s(%u).",
-             spawnType, m_system->GetName(), m_system->GetID());
+    // Rare belt OFFICER: only in NULLSEC (true security < 0), and of the system's
+    // own faction (home regions: Venal/Fountain/Delve/Stain/Curse...). Officers
+    // are the ONLY source of officer modules (Meta 10-14) and are extremely rare.
+    if (spawnEntry.spawnClass <= Spawn::Class::Insane
+        && m_system->GetSystemSecurityRating() < 0.0f
+        && MakeRandomInt(0, 4999) < 8)   // ~0.16%
+    {
+        static const uint32 guristas[]  = { 13580, 13584, 13589, 13603 };
+        static const uint32 angel[]     = { 13536, 13538, 13541, 13544 };
+        static const uint32 blood[]     = { 13557, 13561, 13564, 13573 };
+        static const uint32 sansha[]    = { 13609, 13615, 13622, 13635 };
+        static const uint32 serpentis[] = { 13654, 13659, 13661, 13667 };
+        static std::map<uint32, uint32> s_sysFaction;   // systemID -> factionID
+        uint32 sysID = m_system->GetID();
+        uint32 faction = 0;
+        auto fit = s_sysFaction.find(sysID);
+        if (fit != s_sysFaction.end()) {
+            faction = fit->second;
+        } else {
+            DBQueryResult r;
+            if (sDatabase.RunQuery(r,
+                    "SELECT factionID FROM mapSolarSystems WHERE solarSystemID = %u", sysID)) {
+                DBResultRow row;
+                if (r.GetRow(row) && !row.IsNull(0))
+                    faction = row.GetUInt(0);
+            }
+            s_sysFaction[sysID] = faction;
+        }
+        const uint32* list = nullptr;
+        switch (faction) {
+            case 500010: list = guristas;  break;   // Guristas (Venal...)
+            case 500011: list = angel;     break;   // Angel Cartel (Curse...)
+            case 500012: list = blood;     break;   // Blood Raiders (Delve...)
+            case 500019: list = sansha;    break;   // Sansha (Stain...)
+            case 500020: list = serpentis; break;   // Serpentis (Fountain...)
+            default: break;
+        }
+        if (list != nullptr) {
+            spawnType = list[MakeRandomInt(0, 3)];
+            _log(SPAWN__TRACE, "SpawnMgr::ReSpawn - belt OFFICER type %u (faction %u) in %s(%u).",
+                 spawnType, faction, m_system->GetName(), sysID);
+        }
     }
     ItemData idata(spawnType, spawnEntry.corpID, m_system->GetID(), flagNone, "", startPos, "BeltRat");
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);      // will have to work on this to NOT save npc to db.

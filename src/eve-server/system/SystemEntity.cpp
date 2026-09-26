@@ -260,7 +260,7 @@ void SystemEntity::DropLoot(WreckContainerRef wreckRef, uint32 groupID, uint32 o
         const std::vector<uint32>& pool = (officer && !s_offMods.empty()) ? s_offMods : s_stdMods;
         if (pool.empty())
             return;
-        uint32 n = officer ? MakeRandomInt(2, 4) : (MakeRandomInt(0, 99) < 35 ? 1 : 0);
+        uint32 n = officer ? MakeRandomInt(2, 3) : (MakeRandomInt(0, 99) < 35 ? 1 : 0);
         for (uint32 i = 0; i < n; ++i) {
             uint32 modType = pool[MakeRandomInt(0, (int)pool.size() - 1)];
             ItemData iLoot(modType, owner, wreckRef->itemID(), flagNone, 1);
