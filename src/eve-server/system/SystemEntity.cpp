@@ -266,6 +266,38 @@ void SystemEntity::DropLoot(WreckContainerRef wreckRef, uint32 groupID, uint32 o
             ItemData iLoot(modType, owner, wreckRef->itemID(), flagNone, 1);
             wreckRef->AddItem(sItemFactory.SpawnItem(iLoot));
         }
+        if (officer) {
+            // Faction dog tag (highest "Crystal" tier) for the officer's faction.
+            uint32 tag = 0;
+            switch (groupID) {
+                case 553: tag = 12531; break;   // Angel Crystal Tag
+                case 559: tag = 12536; break;   // Blood Crystal Tag
+                case 564: tag = 12546; break;   // Guristas Crystal Tag
+                case 569: tag = 12551; break;   // Sansha Crystal Tag
+                case 574: tag = 12541; break;   // Serpentis Crystal Tag
+                default: break;
+            }
+            if (tag != 0) {
+                ItemData tData(tag, owner, wreckRef->itemID(), flagNone, 1);
+                wreckRef->AddItem(sItemFactory.SpawnItem(tData));
+            }
+            // ~30% chance of a cyber-implant (cached candidate list).
+            static std::vector<uint32> s_implants;
+            if (s_implants.empty()) {
+                DBQueryResult ir;
+                if (sDatabase.RunQuery(ir,
+                    "SELECT t.typeID FROM invTypes t JOIN invGroups g ON g.groupID = t.groupID "
+                    " WHERE g.categoryID = 20 AND t.published = 1 ORDER BY RAND() LIMIT 120")) {
+                    DBResultRow irow;
+                    while (ir.GetRow(irow)) s_implants.push_back(irow.GetUInt(0));
+                }
+            }
+            if (!s_implants.empty() && MakeRandomInt(0, 99) < 30) {
+                uint32 imp = s_implants[MakeRandomInt(0, (int)s_implants.size() - 1)];
+                ItemData iData(imp, owner, wreckRef->itemID(), flagNone, 1);
+                wreckRef->AddItem(sItemFactory.SpawnItem(iData));
+            }
+        }
         _log(LOOT__INFO, "DropLoot: fallback %u module(s) for %s(%u), officer=%d.",
              n, m_self->name(), m_self->itemID(), (int)officer);
         return;

@@ -53,6 +53,17 @@ static bool BotAliveByChar(uint32 charID)
     return false;
 }
 
+// A strong NPC officer: officers are far stronger than normal rats and drop the
+// only officer modules (high security-status kill bonus).
+static bool Bot_IsOfficerSE(SystemEntity* se)
+{
+    if (se == nullptr || se->GetSelf().get() == nullptr)
+        return false;
+    if (!se->GetSelf()->HasAttribute(AttrEntitySecurityStatusKillBonus))
+        return false;
+    return se->GetSelf()->GetAttribute(AttrEntitySecurityStatusKillBonus).get_float() >= 0.12f;
+}
+
 PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, uint32 charID, std::string charName, uint32 corpID, uint32 allianceID)
 : NPC(self, services, system, data, nullptr),
   m_botCharID(charID),
@@ -564,6 +575,10 @@ void PlayerBot::Killed(Damage& damage)
     // Record the loss for learning, then let the base NPC clean up.
     if (m_memory) { m_memory->RecordLoss(); m_memory->RecordDeath(); m_memory->Save(); }
     RecallDrones();   // drones are lost/recalled with the ship
+    // Officer-hunt learning: a strong NPC officer killed us -> escalate the corp
+    // hunter fleet and ask the brain for a post-mortem (refit/regroup/grow).
+    if (Bot_IsOfficerSE(damage.srcSE))
+        sBotMgr.NoteOfficerLoss(m_botCorpID, damage.srcSE->GetTypeID(), damage.srcSE->GetName());
     // The killer (if a bot) has proven itself an enemy — deep grudge, both ways.
     if (damage.srcSE != nullptr && damage.srcSE->GetNPCSE() != nullptr) {
         PlayerBot* killer = dynamic_cast<PlayerBot*>(damage.srcSE->GetNPCSE());
@@ -1631,6 +1646,7 @@ void PlayerBot::DoProfessionActivity()
 
         case BotProfession::RatHunter: {
             // Peaceful PvE: only engage NPC red crosses (ratting), never players.
+            ManageOfficerHunt();   // a strong officer: rally the fleet, don't solo it
             RatForTarget();
             // When the loot hold fills up, head to the station to deposit it
             // (real salvage + faction loot from the wrecks the bot made).
@@ -2633,6 +2649,35 @@ int PlayerBot::CountGankerAllies()
         ++n;
     }
     return n;
+}
+
+// Officer hunt: officers vastly outmatch a lone pilot. If the corp's officer-hunt
+// fleet is not yet assembled, rally corpmates and break off (no solo-suicide);
+// once enough ships are present, fight. A kill resets the escalation.
+void PlayerBot::ManageOfficerHunt()
+{
+    if (SystemMgr() == nullptr || GetAIMgr() == nullptr)
+        return;
+    SystemEntity* tgt = (m_targMgr != nullptr) ? m_targMgr->GetFirstTarget() : nullptr;
+    if (tgt == nullptr) {
+        if (m_officerTargetID != 0) {   // it died and we lived -> we got it
+            sBotMgr.NoteOfficerKilled(m_botCorpID);
+            m_officerTargetID = 0;
+        }
+        return;
+    }
+    if (!Bot_IsOfficerSE(tgt))
+        return;
+    m_officerTargetID = tgt->GetID();
+    int needed = sBotMgr.OfficerFleetSize(m_botCorpID);
+    int have = 1 + CountGankerAllies();
+    if (have >= needed)
+        return;   // the fleet is big enough - fight it
+    // Regroup: rally corpmates and hold fire until the fleet is assembled.
+    CallFleetSupport(tgt);
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): officer hunt - have %d/%d ships vs %s(%u), regrouping.",
+         m_botName.c_str(), m_botCharID, have, needed, tgt->GetName(), tgt->GetID());
+    GetAIMgr()->StartAttackCycle(0);   // do not suicide into the officer
 }
 
 void PlayerBot::UseCombatAbilities()

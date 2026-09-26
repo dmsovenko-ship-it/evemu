@@ -7529,6 +7529,36 @@ std::string BotMgr::AskBrain(const std::string& prompt)
     return ans;
 }
 
+// Officer-hunt escalation: a corp that lost to an officer brings a bigger fleet
+// next time. The DeepSeek brain adds a one-line post-mortem recommendation.
+int BotMgr::OfficerFleetSize(uint32 corpID)
+{
+    auto it = m_officerFleetSize.find(corpID);
+    return (it != m_officerFleetSize.end()) ? it->second : 1;
+}
+
+void BotMgr::NoteOfficerLoss(uint32 corpID, uint32 officerTypeID, const std::string& officerName)
+{
+    int& n = m_officerFleetSize[corpID];
+    n = (n < 1) ? 2 : n + 1;
+    if (n > 25) n = 25;
+    _log(BOT__MESSAGE, "BotMgr: corp %u lost to officer %s(%u) - next hunt brings %d ships.",
+         corpID, officerName.c_str(), officerTypeID, n);
+    std::string plan = AskBrain("My fleet just lost attacking the officer " + officerName
+        + " (typeID " + std::to_string(officerTypeID) + "). I will bring " + std::to_string(n)
+        + " ships next time. In ONE short sentence, what should I add: more DPS, logistics, or capitals?");
+    if (!plan.empty())
+        _log(BOT__MESSAGE, "BotMgr: officer-hunt post-mortem: %s", plan.c_str());
+}
+
+void BotMgr::NoteOfficerKilled(uint32 corpID)
+{
+    auto it = m_officerFleetSize.find(corpID);
+    if (it != m_officerFleetSize.end())
+        it->second = 1;   // success -> reset the escalation
+    _log(BOT__MESSAGE, "BotMgr: corp %u killed an officer - officer-hunt fleet reset.", corpID);
+}
+
 void BotMgr::ScheduleConcordGank(uint32 charID, uint32 sysID)
 {
     if (charID == 0)

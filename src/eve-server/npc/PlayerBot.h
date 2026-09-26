@@ -208,6 +208,9 @@ public:
     double ShipFitValue();              // hull + fitted modules value (ship cost)
     bool   IsArmed();                   // has at least one fitted hi-slot module
     int    CountGankerAllies();         // corpmate combat ships that can join a gank
+    // Officer hunt: if our officer target outmatches the corp's current fleet,
+    // call corpmates and regroup (do NOT solo-suicide); on a kill, reset.
+    void   ManageOfficerHunt();
     // Approximate total volume (m3) currently in the hold, from static type
     // volume (used to decide when a miner's hold is full).
     float GetCargoVolume() const;
@@ -305,6 +308,7 @@ protected:
     uint32 m_campGateID = 0;            // stargate being camped
     bool  m_capitalPilot = false;       // top-skill nullsec capital pilot
     bool  m_cynoShip = false;           // temporary corpmate cyno ship (drop beacon)
+    uint32 m_officerTargetID = 0;       // officer NPC we are hunting (for kill/reset)
     Timer m_capitalDropTimer;           // cooldown between capital cyno drops
     uint32 m_dropLeaderCharID = 0;      // cyno anchor of the current capital drop (0 = none)
     Timer m_aggressionTimer;            // aggression flag: can't dock/jump while active

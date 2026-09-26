@@ -123,6 +123,12 @@ public:
     // fall back to their own math. Never blocks for longer than one API call.
     std::string AskBrain(const std::string& prompt);
 
+    // Officer-hunt escalation: a strong NPC (officer) the corp failed to kill
+    // raises the fleet size it brings next time. The brain adds a post-mortem.
+    int  OfficerFleetSize(uint32 corpID);   // ships the corp brings (min 1)
+    void NoteOfficerLoss(uint32 corpID, uint32 officerTypeID, const std::string& officerName);
+    void NoteOfficerKilled(uint32 corpID);  // success -> reset the escalation
+
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
     // Materialize a killmail fit (JSON array of module typeIDs) into a bot's ship:
@@ -367,6 +373,7 @@ private:
     void ProcessOutlawConcord();
     void ProcessPendingSBUs();
     std::map<uint32, int64> m_pendingSBUOnline;   // SBU itemID -> online time
+    std::map<uint32, int> m_officerFleetSize;     // corpID -> ships to bring vs officers
     void ProcessCynoShips();
     std::map<uint32, int64> m_cynoShips;          // cyno ship charID -> despawn time
     int64 m_lastBrainCall = 0;                    // throttle for AskBrain (DeepSeek)
