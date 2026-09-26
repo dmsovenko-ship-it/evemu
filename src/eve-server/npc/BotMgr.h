@@ -137,6 +137,20 @@ public:
     void NoteOfficerLoss(uint32 corpID, uint32 officerTypeID, const std::string& officerName);
     void NoteOfficerKilled(uint32 corpID);  // success -> reset the escalation
 
+    // Pirate ransom (real players): a pirate demands ISK instead of a kill and
+    // holds fire for a short window. Payment is detected as a wallet donation
+    // (jnlCharacters, PlayerDonation) from the victim to the pirate. RansomState
+    // for the pirate's own id: 0 = none, 1 = pending (hold fire), 2 = paid
+    // (release the mark and leave).
+    bool DemandRansom(uint32 pirateCharID, uint32 victimCharID, const std::string& victimName,
+                      double amount, uint32 systemID);
+    int  RansomState(uint32 pirateCharID);
+    void ClearRansom(uint32 pirateCharID);
+    // Make a bot say a line in the local channel of a system (used for ransom
+    // demands and other in-character callouts).
+    void BotSayLocal(uint32 sysID, uint32 charID, const std::string& name, uint32 corpID,
+                     const std::string& msg);
+
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
     // Materialize a killmail fit (JSON array of module typeIDs) into a bot's ship:
@@ -337,6 +351,18 @@ private:
     std::map<int32, time_t> m_lastSmalltalk;   // channelID -> last bot-to-bot chatter time
     std::map<uint32, time_t> m_lastContractLink;   // systemID -> last contract link posted in local
     std::map<uint32, time_t> m_lastTrade;      // charID -> last market order time (throttle)
+
+    // Pirate ransom (real players): pirateCharID -> active demand.
+    struct RansomDemand {
+        uint32 victimCharID = 0;
+        std::string victimName;
+        double amount = 0.0;
+        int64  deadline = 0;      // filetime
+        uint32 systemID = 0;
+    };
+    std::map<uint32, RansomDemand> m_ransoms;
+    std::map<uint32, int64> m_ransomPaid;   // pirateCharID -> paid marker expiry (filetime)
+    void ProcessRansoms();
 
     // Physical courier hauls: a courier accepted a courier contract and flies it
     // gate-to-gate to the destination system (bot is deleted/re-spawned at each

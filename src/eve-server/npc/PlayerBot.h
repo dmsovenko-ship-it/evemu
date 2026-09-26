@@ -262,6 +262,15 @@ public:
     // nullsec (no warp-out), scram/web tackle in lowsec. Returns true while the
     // bot is committed to the camp (the caller should not roam that cycle).
     bool TryGateCamp();
+    // Pirate racketeering: instead of killing a real player outright, demand ISK
+    // (50% of the ship's insurance value) and hold fire for a window. Returns
+    // true when a demand was issued (the caller must NOT attack this scan).
+    bool TryDemandRansom(Client* player);
+    // The bot's own ransom demand state (see BotMgr::RansomState): 0 none,
+    // 1 pending (hold fire), 2 paid (release the mark and leave).
+    int  RansomStateSelf();
+    // Payment received: drop targets and leave the system.
+    void LeaveAfterRansom();
     // A capital pilot periodically leads a cyno drop on a contested nullsec
     // system (capital fleet + escorts). Returns true if a drop was started.
     bool TryCapitalDrop();
@@ -313,6 +322,8 @@ protected:
     Timer m_brainApplyTimer;            // throttle for applying the strategy
     Timer m_capitalDropTimer;           // cooldown between capital cyno drops
     uint32 m_dropLeaderCharID = 0;      // cyno anchor of the current capital drop (0 = none)
+    int64  m_lastRansom = 0;            // filetime of the last ransom demand (per-victim throttle)
+    uint32 m_ransomVictim = 0;          // last mark we demanded a ransom from
     Timer m_aggressionTimer;            // aggression flag: can't dock/jump while active
     bool m_inFight;                     // true while fighting (to record outcomes)
     bool m_wantsDock;                   // true when the bot wants to dock (profession)

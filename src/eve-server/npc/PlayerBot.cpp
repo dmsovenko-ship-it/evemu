@@ -3017,6 +3017,66 @@ bool PlayerBot::TryAmbush(SystemEntity* target)
 // cannot warp out); lowsec camps rely on scram/web tackle. The bot warps in, takes
 // an 8 km decloak/tackle ring around the gate and waits for prey, then resumes
 // roaming when the camp timer expires.
+bool PlayerBot::TryDemandRansom(Client* player)
+{
+    if (player == nullptr || m_killed || m_destiny == nullptr || SystemMgr() == nullptr)
+        return false;
+    // Pirates racketeer where the law is weak: lowsec/null only. In highsec
+    // CONCORD would answer, so a pirate doesn't bother with a demand.
+    if (SystemMgr()->GetSystemSecurityRating() >= 0.5f)
+        return false;
+    // One demand per mark per few minutes (otherwise it would spam local).
+    uint32 vid = player->GetCharacterID();
+    if (m_ransomVictim == vid
+        && (EvE::Time::GetFileTimeNow() - m_lastRansom) < 5LL * 60 * EvE::Time::Second)
+        return false;
+    if (MakeRandomInt(0, 99) >= 40)
+        return false;   // usually the pirate simply attacks; racketeering is a gamble
+
+    SystemEntity* ship = player->GetShipSE();
+    if (ship == nullptr || ship->GetSelf().get() == nullptr)
+        return false;
+    const ItemType* ht = sItemFactory.GetType((uint16)ship->GetSelf()->typeID());
+    double hull = (ht != nullptr) ? ht->basePrice() : 0.0;
+    if (hull <= 0.0)
+        hull = 1000000.0;
+    // 50% of the insurance payout (insurance pays 40% of the hull) -> 0.2 * hull.
+    double amount = floor(hull * 0.2);
+    if (amount < 1000000.0)
+        amount = 1000000.0;
+
+    m_lastRansom   = EvE::Time::GetFileTimeNow();
+    m_ransomVictim = vid;
+    if (!sBotMgr.DemandRansom(m_botCharID, vid, player->GetName(), amount, SystemMgr()->GetID()))
+        return false;
+
+    std::string line = "Send me " + HumanizeIsk(amount) + " ISK and I'll let you fly, "
+                       + player->GetName() + ". You have 60 seconds.";
+    sBotMgr.BotSayLocal(SystemMgr()->GetID(), m_botCharID, m_botName, m_botCorpID, line);
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): demanded %.0f ISK ransom from %s(%u).",
+         m_botName.c_str(), m_botCharID, amount, player->GetName(), vid);
+    return true;
+}
+
+int PlayerBot::RansomStateSelf()
+{
+    return sBotMgr.RansomState(m_botCharID);
+}
+
+void PlayerBot::LeaveAfterRansom()
+{
+    if (m_targMgr != nullptr) {
+        m_targMgr->Destroyed();
+        m_targMgr->ClearFromTargets();
+    }
+    if (GetAIMgr() != nullptr)
+        GetAIMgr()->StartAttackCycle(0);
+    sBotMgr.ClearRansom(m_botCharID);
+    _log(BOT__MESSAGE, "PlayerBot %s(%u): ransom paid - breaking off and leaving.",
+         m_botName.c_str(), m_botCharID);
+    MarkForTravel();
+}
+
 bool PlayerBot::TryGateCamp()
 {
     if (m_destiny == nullptr || SystemMgr() == nullptr)

@@ -273,6 +273,9 @@ void BotMgr::Process()
     // Highsec outlaw gankers: CONCORD answers after its security-scaled delay.
     ProcessOutlawConcord();
 
+    // Pirate ransom demands: watch for payment, expire the window.
+    ProcessRansoms();
+
     // Bot-anchored SBUs finish anchoring after their real delay -> online them.
     ProcessPendingSBUs();
 
@@ -3810,6 +3813,96 @@ void BotMgr::ReprocessProfit(uint32 charID, uint32 stationID)
         _log(BOT__MESSAGE, "BotMgr: bot %u reprocessed type %u (paid %.0f -> minerals %.0f).",
              charID, typeID, spent, yieldValue);
         break;                                   // one per tick
+    }
+}
+
+void BotMgr::BotSayLocal(uint32 sysID, uint32 charID, const std::string& name, uint32 corpID,
+                         const std::string& msg)
+{
+    SystemManager* sysMgr = sEntityList.FindOrBootSystem(sysID);
+    if (sysMgr == nullptr)
+        return;
+    LSCService* lsc = sysMgr->GetServiceMgr().Lookup<LSCService>("LSC");
+    LSCChannel* chan = (lsc != nullptr) ? lsc->GetChannelByID((int32)sysID) : nullptr;
+    if (chan == nullptr)
+        return;
+    chan->SendBotMessage(charID, name, corpID, msg);
+    RecordChannelPhrase((int32)sysID, charID, msg);
+}
+
+bool BotMgr::DemandRansom(uint32 pirateCharID, uint32 victimCharID, const std::string& victimName,
+                          double amount, uint32 systemID)
+{
+    if (pirateCharID == 0 || victimCharID == 0 || amount <= 0.0)
+        return false;
+    if (m_ransoms.find(pirateCharID) != m_ransoms.end())
+        return true;      // one demand at a time
+    RansomDemand d;
+    d.victimCharID = victimCharID;
+    d.victimName   = victimName;
+    d.amount       = amount;
+    d.deadline     = EvE::Time::GetFileTimeNow() + 60LL * EvE::Time::Second;   // 60s window
+    d.systemID     = systemID;
+    m_ransoms[pirateCharID] = d;
+    return true;
+}
+
+void BotMgr::ClearRansom(uint32 pirateCharID)
+{
+    m_ransoms.erase(pirateCharID);
+    m_ransomPaid.erase(pirateCharID);
+}
+
+int BotMgr::RansomState(uint32 pirateCharID)
+{
+    if (m_ransoms.find(pirateCharID) != m_ransoms.end())
+        return 1;         // pending - hold fire
+    auto it = m_ransomPaid.find(pirateCharID);
+    if (it != m_ransomPaid.end()) {
+        if (EvE::Time::GetFileTimeNow() < it->second)
+            return 2;     // paid - release and leave
+        m_ransomPaid.erase(it);
+    }
+    return 0;
+}
+
+void BotMgr::ProcessRansoms()
+{
+    if (m_ransoms.empty() && m_ransomPaid.empty())
+        return;
+    int64 now = EvE::Time::GetFileTimeNow();
+    for (auto it = m_ransoms.begin(); it != m_ransoms.end(); ) {
+        uint32 pirate = it->first;
+        RansomDemand& d = it->second;
+        if (now > d.deadline) {
+            _log(BOT__MESSAGE, "BotMgr: ransom demand to %s(%u) expired - pirate %u resumes the kill.",
+                 d.victimName.c_str(), d.victimCharID, pirate);
+            it = m_ransoms.erase(it);
+            continue;
+        }
+        // Has the mark paid? A "give money" transfer writes a PlayerDonation (10)
+        // row with ownerID = recipient (the pirate) and ownerID1 = sender (victim).
+        DBQueryResult r;
+        if (sDatabase.RunQuery(r,
+            "SELECT COALESCE(SUM(amount),0) FROM jnlCharacters "
+            " WHERE ownerID = %u AND ownerID1 = %u AND entryTypeID = 10 AND amount >= %.2f",
+            pirate, d.victimCharID, d.amount)) {
+            DBResultRow row;
+            if (r.GetRow(row) && row.GetDouble(0) >= d.amount) {
+                _log(BOT__MESSAGE, "BotMgr: ransom PAID by %s(%u) to pirate %u (%.0f ISK).",
+                     d.victimName.c_str(), d.victimCharID, pirate, row.GetDouble(0));
+                m_ransomPaid[pirate] = now + 15LL * EvE::Time::Second;
+                it = m_ransoms.erase(it);
+                continue;
+            }
+        }
+        ++it;
+    }
+    for (auto it = m_ransomPaid.begin(); it != m_ransomPaid.end(); ) {
+        if (now > it->second)
+            it = m_ransomPaid.erase(it);
+        else
+            ++it;
     }
 }
 

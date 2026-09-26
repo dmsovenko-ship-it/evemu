@@ -593,7 +593,21 @@ void NPCAIMgr::Process() {
                         if (pbot != nullptr)
                             prof = (uint8)pbot->GetProfession();
                         if (prof != (uint8)PlayerBot::BotProfession::Hunter) {
-                            continue;   // peaceful bot — leave the player alone
+                            continue;   // peaceful bot - leave the player alone
+                        }
+                        // Pirate ransom in progress: hold fire while the demand is
+                        // pending, break off and leave once the mark has paid.
+                        {
+                            int rst = pbot->RansomStateSelf();
+                            if (rst == 1) {
+                                m_beginFindTarget.Start(MakeRandomInt(8000, 15000));
+                                return;
+                            }
+                            if (rst == 2) {
+                                pbot->LeaveAfterRansom();
+                                m_beginFindTarget.Start(MakeRandomInt(20000, 40000));
+                                return;
+                            }
                         }
                         float botSec = m_npc->SystemMgr()->GetSystemSecurityRating();
                         bool playerCriminal = false;
@@ -618,6 +632,13 @@ void NPCAIMgr::Process() {
                         if (!pbot->HunterWouldEngage(cur->GetShipSE())) {
                             m_beginFindTarget.Start(MakeRandomInt(20000, 40000));
                             continue;
+                        }
+                        // Pirate racket: instead of the kill, demand ISK (50% of
+                        // the ship's insurance value) and hold fire. If the pilot
+                        // pays, the pirate leaves; if not, the kill resumes.
+                        if (pbot->TryDemandRansom(cur)) {
+                            m_beginFindTarget.Start(MakeRandomInt(20000, 40000));
+                            return;
                         }
                         pbot->StartAggressionTimer();
                         pbot->BroadcastAggression(cur->GetCharacterID());
@@ -655,6 +676,10 @@ void NPCAIMgr::Process() {
                             prof = (uint8)pbot->GetProfession();
                         if (prof != (uint8)PlayerBot::BotProfession::Hunter)
                             continue;   // peaceful bot — drones are not its business
+                        // A ransom in progress also keeps the pirate off the
+                        // mark's drones until the demand is settled.
+                        if (pbot->RansomStateSelf() != 0)
+                            continue;
                         Client* owner = sEntityList.FindClientByCharID(pEnt->GetSelf()->ownerID());
                         SystemEntity* ownerSE = (owner != nullptr) ? owner->GetShipSE() : nullptr;
                         if (ownerSE != nullptr && ownerSE != m_npc) {
