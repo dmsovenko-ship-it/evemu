@@ -207,6 +207,7 @@ public:
     double CargoValue();                // ISK value of the hold (ganker loot estimate)
     double ShipFitValue();              // hull + fitted modules value (ship cost)
     bool   IsArmed();                   // has at least one fitted hi-slot module
+    int    CountGankerAllies();         // corpmate combat ships that can join a gank
     // Approximate total volume (m3) currently in the hold, from static type
     // volume (used to decide when a miner's hold is full).
     float GetCargoVolume() const;

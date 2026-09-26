@@ -2143,13 +2143,42 @@ void PlayerBot::HuntForTarget()
             // The strike must GUARANTEE the kill (one volley / the whole window),
             // so require a safety margin over the target's EHP - a marginal gank
             // loses the ship for nothing.
-            if (loot >= cost && dmg >= ehp * 1.25)
+            bool solo = (loot >= cost && dmg >= ehp * 1.25);
+            // GROUP GANK: a freighter (or another fat target) needs friends. Each
+            // extra ship adds its damage AND its own lost hull to the bill.
+            int ships = 1 + CountGankerAllies();
+            bool group = (loot >= cost * ships && dmg * ships >= ehp * 1.25);
+            bool commit = solo || group;
+            // COMPLEX situation (a big group gank): let the DeepSeek brain confirm
+            // it. Throttled; empty answer (chat off) -> trust the math.
+            if (commit && !solo && group) {
+                std::string ans = sBotMgr.AskBrain(
+                    "Target ship typeID " + std::to_string(enemyBot->GetTypeID())
+                    + ", EHP ~" + std::to_string((int)ehp)
+                    + ", loot ~" + std::to_string((int)loot)
+                    + " ISK, my loss ~" + std::to_string((int)(cost * ships))
+                    + " ISK, I have " + std::to_string(ships - 1)
+                    + " friends. Worth a suicide group gank? YES or NO.");
+                if (!ans.empty() && ans.find("NO") != std::string::npos) {
+                    commit = false;
+                    _log(BOT__MESSAGE, "PlayerBot %s(%u): DeepSeek vetoed the group gank.",
+                         m_botName.c_str(), m_botCharID);
+                }
+            }
+            if (commit) {
                 engage = true;
-            else
-                _log(BOT__MESSAGE, "PlayerBot %s(%u): %s passed on %s(%u) - dmg %.0f/ehp %.0f, loot %.0f/cost %.0f.",
+                if (!solo) {
+                    CallFleetSupport(prey);   // "call friends"
+                    _log(BOT__MESSAGE, "PlayerBot %s(%u): GROUP GANK - %d ships on %s(%u) (dmg %.0f vs ehp %.0f, loot %.0f vs cost %.0f).",
+                         m_botName.c_str(), m_botCharID, ships, enemyBot->GetBotName().c_str(),
+                         enemyBot->GetBotCharID(), dmg * ships, ehp * 1.25, loot, cost * ships);
+                }
+            } else {
+                _log(BOT__MESSAGE, "PlayerBot %s(%u): %s passed on %s(%u) - dmg %.0f/ehp %.0f, loot %.0f/cost %.0f, friends %d.",
                      m_botName.c_str(), m_botCharID, (tornado ? "Tornado" : "ganker"),
                      enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID(),
-                     dmg, ehp, loot, cost);
+                     dmg, ehp, loot, cost, ships - 1);
+            }
         }
         if (engage) {
             _log(BOT__MESSAGE, "PlayerBot %s(%u): %s engaging %s(%u) — %d vs %d.",
@@ -2559,6 +2588,30 @@ bool PlayerBot::AttackEnemySov()
         return true;
     }
     return false;
+}
+
+// Corpmate/alliance combat ships in this system that can join a gank (the
+// "friends" tally for a group strike on a freighter or another fat target).
+int PlayerBot::CountGankerAllies()
+{
+    if (SystemMgr() == nullptr)
+        return 0;
+    int n = 0;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || se == this || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* ally = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (ally == nullptr)
+            continue;
+        if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
+            continue;
+        if (!IsCombatHull(ally->GetSelf()->groupID()))
+            continue;
+        if (ally->GetAIMgr()->IsFighting())
+            continue;   // already busy
+        ++n;
+    }
+    return n;
 }
 
 void PlayerBot::UseCombatAbilities()

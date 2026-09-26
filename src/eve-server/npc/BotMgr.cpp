@@ -7466,6 +7466,25 @@ void BotMgr::ProcessCynoShips()
     }
 }
 
+// Ask the DeepSeek brain for a tactical decision. Used ONLY in complex situations
+// (e.g. a big group gank), throttled, because QueryDeepSeek is a synchronous HTTPS
+// call - we never put it on the hot path. Returns "" when chat/DeepSeek is
+// disabled or the throttle is active; the caller then trusts its own math.
+std::string BotMgr::AskBrain(const std::string& prompt)
+{
+    if (!sConfig.playerBots.ChatEnabled || sConfig.playerBots.DeepSeekKey.empty())
+        return "";
+    int64 now = GetFileTimeNow();
+    if (m_lastBrainCall != 0 && now - m_lastBrainCall < 60 * EvE::Time::Second)
+        return "";   // at most one brain call per minute
+    m_lastBrainCall = now;
+    std::string ans = BotChat::QueryDeepSeek(prompt,
+        "You are the tactical brain of a chelobot gank fleet in EVE Online (Crucible). "
+        "Decide ruthlessly and concisely. Reply ONLY 'YES' or 'NO'.");
+    _log(BOT__MESSAGE, "BotMgr::AskBrain() -> '%s'", ans.c_str());
+    return ans;
+}
+
 void BotMgr::ScheduleConcordGank(uint32 charID, uint32 sysID)
 {
     if (charID == 0)

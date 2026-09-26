@@ -117,6 +117,11 @@ public:
     // Spawn a corpmate "cyno ship" (a real chelobot) in a capital drop destination
     // so the fleet jumps to a killable beacon. Returns its charID (0 on failure).
     uint32 SpawnCynoShip(SystemManager* dest, uint32 corpID, uint32 allyID);
+    // Ask the DeepSeek brain for a tactical decision (used in COMPLEX situations
+    // only, e.g. whether a big group gank is worth it). Throttled and returns ""
+    // when chat/DeepSeek is disabled or the answer comes too soon — callers then
+    // fall back to their own math. Never blocks for longer than one API call.
+    std::string AskBrain(const std::string& prompt);
 
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
@@ -364,6 +369,7 @@ private:
     std::map<uint32, int64> m_pendingSBUOnline;   // SBU itemID -> online time
     void ProcessCynoShips();
     std::map<uint32, int64> m_cynoShips;          // cyno ship charID -> despawn time
+    int64 m_lastBrainCall = 0;                    // throttle for AskBrain (DeepSeek)
     std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
     struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
     std::vector<ConcordTemp> m_concordTemp;      // store IDs (system may unload)
