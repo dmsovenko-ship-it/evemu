@@ -122,6 +122,11 @@ public:
     // when chat/DeepSeek is disabled or the answer comes too soon — callers then
     // fall back to their own math. Never blocks for longer than one API call.
     std::string AskBrain(const std::string& prompt);
+    // Cached tactical brain for ALL professions: looks up the learned strategy for
+    // (profession, threat) in the botStrategy table; if unknown, asks DeepSeek
+    // ONCE (allowed directive tokens: GUARDS,DRONES,FLEE,FLEET,AVOID,REFIT), stores
+    // it and reuses it. Returns "" when the brain is disabled or throttled.
+    std::string AskBrainCached(uint8 profession, const std::string& threat, const std::string& context);
 
     // Officer-hunt escalation: a strong NPC (officer) the corp failed to kill
     // raises the fleet size it brings next time. The brain adds a post-mortem.
@@ -377,6 +382,7 @@ private:
     void ProcessCynoShips();
     std::map<uint32, int64> m_cynoShips;          // cyno ship charID -> despawn time
     int64 m_lastBrainCall = 0;                    // throttle for AskBrain (DeepSeek)
+    std::map<std::string, std::string> m_brainCache;   // strategyKey -> advice
     std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
     struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
     std::vector<ConcordTemp> m_concordTemp;      // store IDs (system may unload)

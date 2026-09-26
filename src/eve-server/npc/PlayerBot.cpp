@@ -579,6 +579,22 @@ void PlayerBot::Killed(Damage& damage)
     // hunter fleet and ask the brain for a post-mortem (refit/regroup/grow).
     if (Bot_IsOfficerSE(damage.srcSE))
         sBotMgr.NoteOfficerLoss(m_botCorpID, damage.srcSE->GetTypeID(), damage.srcSE->GetName());
+    // Complex-situation brain for ALL professions: learn from this loss ONCE per
+    // (profession, threat kind), cached in the botStrategy table so the LLM is not
+    // asked every time. The advice is applied in DecideNextAction().
+    {
+        std::string threat = "npc";
+        if (damage.srcSE != nullptr) {
+            if (damage.srcSE->GetNPCSE() != nullptr)
+                threat = (dynamic_cast<PlayerBot*>(damage.srcSE->GetNPCSE()) != nullptr) ? "chelo" : "npc";
+            else if (damage.srcSE->HasPilot())
+                threat = "human";
+        }
+        std::string ctx = "My profession-" + std::to_string((int)m_profession)
+            + " chelobot was just killed by a " + threat
+            + " threat in EVE Online (Crucible). Advise what to change.";
+        m_brainAdvice = sBotMgr.AskBrainCached((uint8)m_profession, threat, ctx);
+    }
     // The killer (if a bot) has proven itself an enemy — deep grudge, both ways.
     if (damage.srcSE != nullptr && damage.srcSE->GetNPCSE() != nullptr) {
         PlayerBot* killer = dynamic_cast<PlayerBot*>(damage.srcSE->GetNPCSE());
@@ -1258,6 +1274,17 @@ void PlayerBot::DecideNextAction()
     // it must not wander off.
     if (m_cynoShip)
         return;
+    // Apply the learned brain strategy (botStrategy table) — throttled so it does
+    // not spam. GUARDS -> ask corpmates for cover; DRONES -> launch drones to fend
+    // off small NPCs that keep killing this profession.
+    if (!m_brainAdvice.empty() && (!m_brainApplyTimer.Enabled() || m_brainApplyTimer.Check())) {
+        m_brainApplyTimer.Start(60000);
+        if (m_brainAdvice.find("GUARDS") != std::string::npos)
+            RequestFleetProtection();
+        if (m_brainAdvice.find("DRONES") != std::string::npos
+            && GetDroneCapacity() > 0 && m_drones.empty())
+            SpawnDrones(0);
+    }
     // Hook for BotMgr. Placeholder for the state machine that will be wired
     // to actual travel/combat/mining behaviour.
     _log(BOT__TRACE, "PlayerBot %s(%u): activity = %u, system = %u",

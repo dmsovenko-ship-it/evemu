@@ -309,6 +309,8 @@ protected:
     bool  m_capitalPilot = false;       // top-skill nullsec capital pilot
     bool  m_cynoShip = false;           // temporary corpmate cyno ship (drop beacon)
     uint32 m_officerTargetID = 0;       // officer NPC we are hunting (for kill/reset)
+    std::string m_brainAdvice;          // learned strategy from the botStrategy table
+    Timer m_brainApplyTimer;            // throttle for applying the strategy
     Timer m_capitalDropTimer;           // cooldown between capital cyno drops
     uint32 m_dropLeaderCharID = 0;      // cyno anchor of the current capital drop (0 = none)
     Timer m_aggressionTimer;            // aggression flag: can't dock/jump while active

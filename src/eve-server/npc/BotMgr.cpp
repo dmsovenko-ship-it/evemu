@@ -7531,6 +7531,64 @@ std::string BotMgr::AskBrain(const std::string& prompt)
 
 // Officer-hunt escalation: a corp that lost to an officer brings a bigger fleet
 // next time. The DeepSeek brain adds a one-line post-mortem recommendation.
+// Cached tactical brain for ALL professions. Complex situations (a chelobot died
+// to NPCs / chelobots / humans) are analysed ONCE; the resulting directive is
+// stored in botStrategy and reused, so the LLM is not asked every time.
+std::string BotMgr::AskBrainCached(uint8 profession, const std::string& threat, const std::string& context)
+{
+    std::string key = std::to_string((int)profession) + ":" + threat;
+    auto it = m_brainCache.find(key);
+    if (it != m_brainCache.end())
+        return it->second;
+
+    // 1) learned strategy from the DB (no LLM needed)
+    DBQueryResult r;
+    if (sDatabase.RunQuery(r, "SELECT advice FROM botStrategy WHERE strategyKey = '%s'", key.c_str())) {
+        DBResultRow row;
+        if (r.GetRow(row)) {
+            std::string adv = row.GetText(0);
+            m_brainCache[key] = adv;
+            DBerror e;
+            sDatabase.RunQuery(e,
+                "UPDATE botStrategy SET uses = uses + 1, lastUse = NOW() WHERE strategyKey = '%s'",
+                key.c_str());
+            return adv;
+        }
+    }
+
+    // 2) ask DeepSeek ONCE (throttled), then store
+    if (!sConfig.playerBots.ChatEnabled || sConfig.playerBots.DeepSeekKey.empty())
+        return "";
+    int64 now = GetFileTimeNow();
+    if (m_lastBrainCall != 0 && now - m_lastBrainCall < 60 * EvE::Time::Second)
+        return "";   // at most one brain call per minute
+    m_lastBrainCall = now;
+    std::string ans = BotChat::QueryDeepSeek(context,
+        "You are a chelobot's tactical brain in EVE Online (Crucible). Answer ONLY with a "
+        "comma-separated subset of these tokens: GUARDS,DRONES,FLEE,FLEET,AVOID,REFIT. No other words.");
+
+    // sanitize to the allowed token set (never cache junk)
+    std::string advice;
+    for (const char* tok : { "GUARDS", "DRONES", "FLEE", "FLEET", "AVOID", "REFIT" }) {
+        if (ans.find(tok) != std::string::npos) {
+            if (!advice.empty()) advice += ",";
+            advice += tok;
+        }
+    }
+    if (advice.empty())
+        return "";
+
+    m_brainCache[key] = advice;
+    DBerror e;
+    sDatabase.RunQuery(e,
+        "INSERT INTO botStrategy (strategyKey, profession, threat, advice, uses, lastUse) "
+        "VALUES ('%s', %u, '%s', '%s', 1, NOW()) "
+        "ON DUPLICATE KEY UPDATE advice = VALUES(advice), uses = uses + 1, lastUse = NOW()",
+        key.c_str(), (unsigned)profession, threat.c_str(), advice.c_str());
+    _log(BOT__MESSAGE, "BotMgr: brain learned [%s] = %s", key.c_str(), advice.c_str());
+    return advice;
+}
+
 int BotMgr::OfficerFleetSize(uint32 corpID)
 {
     auto it = m_officerFleetSize.find(corpID);
