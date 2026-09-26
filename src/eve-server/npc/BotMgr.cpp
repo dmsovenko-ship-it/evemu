@@ -2094,8 +2094,9 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // (a word, a name, a code). Give the bot's hull a random ship name too,
     // NOT the pilot's name — a pilot named after their ship is a tell.
     // A chelobot is NOT given its ship for free: charge the hull's value from its
-    // wallet (an economy sink, so bots must EARN to replace a lost ship). Clamped
-    // at the wallet so the balance never goes negative.
+    // wallet (an economy sink, so bots must EARN to replace a lost ship). A pooled
+    // pilot that has been drained to nothing gets a small corp starter grant, so
+    // the hull charge below is a REAL transaction (not 0) and the pilot can fly.
     {
         const ItemType* ht = sItemFactory.GetType((uint16)hullType);
         double cost = (ht != nullptr) ? ht->basePrice() : 0.0;
@@ -2107,9 +2108,21 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                 if (br.GetRow(brow))
                     bal = brow.GetDouble(0);
             }
+            DBerror e;
+            // Working capital: the pilot needs its hull price plus a buffer for
+            // ammo/fuel/fees. Broke pooled pilots are topped up by the corp.
+            double need = cost + 2000000.0 + MakeRandomFloat() * 8000000.0;
+            if (bal < need) {
+                double grant = need - bal;
+                sDatabase.RunQuery(e,
+                    "UPDATE chrCharacters SET balance = balance + %.2f WHERE characterID = %u",
+                    grant, useCharID);
+                _log(BOT__MESSAGE, "BotMgr: bot %u starter wallet grant %.0f ISK (had %.0f).",
+                     useCharID, grant, bal);
+                bal = need;
+            }
             double spend = (cost < bal) ? cost : bal;
             if (spend > 0.0) {
-                DBerror e;
                 sDatabase.RunQuery(e,
                     "UPDATE chrCharacters SET balance = balance - %.2f WHERE characterID = %u",
                     spend, useCharID);
