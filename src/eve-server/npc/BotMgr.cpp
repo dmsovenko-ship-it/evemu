@@ -1866,6 +1866,39 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             // Boss hull already chosen (Orca/Rorqual) — keep it, no re-pick.
         } else if (forceProfessionHull) {
             hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
+            // Profession fits (so miners really mine and scanners really scan, like
+            // real Crucible pilots). Only the modules that exist in this DB.
+            std::string pfit;
+            auto pAdd = [&](uint32 id, int n) { for (int i = 0; i < n; ++i) pfit += std::to_string(id) + ","; };
+            switch (prof) {
+                case PlayerBot::BotProfession::Miner: {
+                    // Barge: Strip Miners + Survey Scanner + Mining Laser Upgrades +
+                    // a shield-rig (a little survival vs a gank).
+                    pAdd(17482, 2);   // Strip Miner I
+                    pAdd(444, 1);     // Survey Scanner I
+                    pAdd(22542, 2);   // Mining Laser Upgrade I
+                    pAdd(31788, 1);   // Small Core Defense Field Extender I
+                } break;
+                case PlayerBot::BotProfession::Explorer:
+                case PlayerBot::BotProfession::Hacker: {
+                    // Covert Ops frigate: covert cloak + probe launcher + analyzer +
+                    // MWD + nanofiber + two gravity-capacitor rigs (scan strength).
+                    static const uint32 covops[] = { 11192, 11188, 11172, 11182 }; // Buzzard/Anathema/Helios/Cheetah
+                    hullType = covops[MakeRandomInt(0, 3)];
+                    pAdd(17938, 1);   // Core Probe Launcher I
+                    pAdd(11578, 1);   // Covert Ops Cloaking Device II
+                    pAdd(22177, 1);   // Analyzer I (data/relic stand-in for this DB)
+                    pAdd(434, 1);     // 1MN Microwarpdrive I
+                    pAdd(2603, 1);    // Nanofiber Internal Structure I
+                    pAdd(31213, 2);   // Small Gravity Capacitor Upgrade I
+                } break;
+                default: break;       // courier/trader/industrialist keep their hull
+            }
+            if (!pfit.empty()) {
+                pfit.pop_back();      // drop the trailing comma
+                useFit = "[" + pfit + "]";
+                useShipType = hullType;
+            }
         } else {
             // Combat hull from the killmail legend (real EVE hull). Killmail hull
             // types are from modern EVE — some don't exist in the server's
