@@ -204,6 +204,8 @@ public:
     bool HasCargo() const;
     double EstimateEHP();               // rough shield+armour+structure (ganker math)
     bool   HasValuableCargo();          // "scanned" hold: a load worth ganking
+    double CargoValue();                // ISK value of the hold (ganker loot estimate)
+    double ShipFitValue();              // hull + fitted modules value (ship cost)
     bool   IsArmed();                   // has at least one fitted hi-slot module
     // Approximate total volume (m3) currently in the hold, from static type
     // volume (used to decide when a miner's hold is full).

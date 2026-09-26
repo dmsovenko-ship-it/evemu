@@ -1302,6 +1302,41 @@ bool PlayerBot::IsArmed()
     return !items.empty();
 }
 
+// ISK value of the hold, from base prices (the ganker's loot estimate).
+double PlayerBot::CargoValue()
+{
+    double total = 0.0;
+    for (auto& [type, n] : m_cargo) {
+        const ItemType* t = sItemFactory.GetType(type);
+        if (t != nullptr)
+            total += t->basePrice() * (double)n;
+    }
+    return total;
+}
+
+// Value of the loss: hull + every fitted module. A suicide-ganker loses 100% of
+// this to CONCORD, so the loot must at least cover it.
+double PlayerBot::ShipFitValue()
+{
+    double total = 0.0;
+    const ItemType* hull = sItemFactory.GetType(m_self->typeID());
+    if (hull != nullptr)
+        total += hull->basePrice();
+    Inventory* inv = m_self->GetMyInventory();
+    if (inv != nullptr) {
+        std::map<uint32, InventoryItemRef> items;
+        inv->GetInventoryMap(items);
+        for (auto& [id, it] : items) {
+            if (it.get() == nullptr)
+                continue;
+            const ItemType* t = sItemFactory.GetType(it->typeID());
+            if (t != nullptr)
+                total += t->basePrice();
+        }
+    }
+    return total;
+}
+
 float PlayerBot::GetCargoVolume() const
 {
     float vol = 0.0f;
@@ -2090,16 +2125,31 @@ void PlayerBot::HuntForTarget()
         if (!engage && m_outlaw && IsArmed()) {
             double delay = 19.0 - ((double)sysSec - 0.5) * 26.0;   // 0.5->19s .. 1.0->6s
             if (delay < 5.0) delay = 5.0;
-            double dps = 200.0 + m_botSkill * 80.0;                // fitted Catalyst ~280-600 DPS
-            double dmg = dps * delay;
+            bool tornado = (m_self->typeID() == 4310);             // advanced alpha ganker
+            // Catalyst: sustained DPS over the CONCORD window. Tornado: one
+            // artillery ALPHA volley that must delete the target outright.
+            double dmg = tornado ? 13300.0 : (200.0 + m_botSkill * 80.0) * delay;
             double ehp = enemyBot->EstimateEHP();
-            bool loaded = enemyBot->HasValuableCargo();
-            if (loaded && dmg >= ehp)
+            // The ganker ALWAYS loses its ship to CONCORD, so the loot must cover
+            // the ship + fit. Loot ≈ 50% of the target's hold (the rest is
+            // destroyed); a Tornado also counts the target HULL value (it snipes).
+            double cost = ShipFitValue();
+            double loot = enemyBot->CargoValue() * 0.5;
+            if (tornado) {
+                const ItemType* t = sItemFactory.GetType(enemyBot->GetTypeID());
+                if (t != nullptr)
+                    loot += t->basePrice() * 0.5;
+            }
+            // The strike must GUARANTEE the kill (one volley / the whole window),
+            // so require a safety margin over the target's EHP - a marginal gank
+            // loses the ship for nothing.
+            if (loot >= cost && dmg >= ehp * 1.25)
                 engage = true;
             else
-                _log(BOT__MESSAGE, "PlayerBot %s(%u): ganker passed on %s(%u) - dmg %.0f vs ehp %.0f, cargo=%d.",
-                     m_botName.c_str(), m_botCharID, enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID(),
-                     dmg, ehp, (int)loaded);
+                _log(BOT__MESSAGE, "PlayerBot %s(%u): %s passed on %s(%u) - dmg %.0f/ehp %.0f, loot %.0f/cost %.0f.",
+                     m_botName.c_str(), m_botCharID, (tornado ? "Tornado" : "ganker"),
+                     enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID(),
+                     dmg, ehp, loot, cost);
         }
         if (engage) {
             _log(BOT__MESSAGE, "PlayerBot %s(%u): %s engaging %s(%u) — %d vs %d.",
