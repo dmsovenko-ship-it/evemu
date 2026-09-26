@@ -35,6 +35,7 @@
 #include "npc/NPCAI.h"
 #include "npc/SleeperAI.h"
 #include "npc/PlayerBot.h"
+#include "system/SystemManager.h"
 
 // Resolve the chelobot that owns a drone (drones have no Client): match the
 // drone's ownerID against bot charIDs or bot ship itemIDs in any loaded system.

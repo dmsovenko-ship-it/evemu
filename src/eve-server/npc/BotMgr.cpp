@@ -3842,7 +3842,7 @@ bool BotMgr::DemandRansom(uint32 pirateCharID, uint32 victimCharID, const std::s
     d.victimCharID = victimCharID;
     d.victimName   = victimName;
     d.amount       = amount;
-    d.deadline     = EvE::Time::GetFileTimeNow() + 60LL * EvE::Time::Second;   // 60s window
+    d.deadline     = (int64)GetFileTimeNow() + 60LL * EvE::Time::Second;   // 60s window
     d.systemID     = systemID;
     m_ransoms[pirateCharID] = d;
     return true;
@@ -3860,7 +3860,7 @@ int BotMgr::RansomState(uint32 pirateCharID)
         return 1;         // pending - hold fire
     auto it = m_ransomPaid.find(pirateCharID);
     if (it != m_ransomPaid.end()) {
-        if (EvE::Time::GetFileTimeNow() < it->second)
+        if ((int64)GetFileTimeNow() < it->second)
             return 2;     // paid - release and leave
         m_ransomPaid.erase(it);
     }
@@ -3871,7 +3871,7 @@ void BotMgr::ProcessRansoms()
 {
     if (m_ransoms.empty() && m_ransomPaid.empty())
         return;
-    int64 now = EvE::Time::GetFileTimeNow();
+    int64 now = (int64)GetFileTimeNow();
     for (auto it = m_ransoms.begin(); it != m_ransoms.end(); ) {
         uint32 pirate = it->first;
         RansomDemand& d = it->second;

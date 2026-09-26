@@ -3028,7 +3028,7 @@ bool PlayerBot::TryDemandRansom(Client* player)
     // One demand per mark per few minutes (otherwise it would spam local).
     uint32 vid = player->GetCharacterID();
     if (m_ransomVictim == vid
-        && (EvE::Time::GetFileTimeNow() - m_lastRansom) < 5LL * 60 * EvE::Time::Second)
+        && ((int64)GetFileTimeNow() - m_lastRansom) < 5LL * 60 * EvE::Time::Second)
         return false;
     if (MakeRandomInt(0, 99) >= 40)
         return false;   // usually the pirate simply attacks; racketeering is a gamble
@@ -3045,7 +3045,7 @@ bool PlayerBot::TryDemandRansom(Client* player)
     if (amount < 1000000.0)
         amount = 1000000.0;
 
-    m_lastRansom   = EvE::Time::GetFileTimeNow();
+    m_lastRansom   = (int64)GetFileTimeNow();
     m_ransomVictim = vid;
     if (!sBotMgr.DemandRansom(m_botCharID, vid, player->GetName(), amount, SystemMgr()->GetID()))
         return false;
