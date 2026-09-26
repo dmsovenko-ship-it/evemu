@@ -74,14 +74,19 @@ BotMgr::BotMgr()
 
 void BotMgr::CleanupOrphanedSpaceItems()
 {
+    // Chelobot ships/drones are their PROPERTY and must survive restarts - bots
+    // have to accumulate wealth to grow into corporations, nullsec and capitals.
+    // Purge leftovers ONLY when bots are DISABLED in the config; never with them
+    // enabled (the boot wipes were draining every pilot's assets each restart).
+    if (sConfig.playerBots.Enabled)
+        return;
+
     DBerror err;
     uint32 affected = 0;
 
-    // 0) Reset stale chelobot session rows first: a docked/reaped bot keeps
-    //    online=1 plus a shipID pointing at a ship that was deleted together
-    //    with it, which would make the sweeps below keep its crash leftovers.
-    //    Bots spawn on demand and rewrite these fields, so a blank slate is
-    //    correct (portal shows the offline hull from botMemory.shipTypeID).
+    // 0) Reset stale chelobot session rows: a docked/reaped bot keeps online=1
+    //    plus a shipID pointing at a ship deleted with it, which would keep the
+    //    sweeps below from removing crash leftovers. Bots rewrite these on spawn.
     if (!sDatabase.RunQuery(err,
         "UPDATE chrCharacters c JOIN botMemory bm ON bm.charID = c.characterID "
         "SET c.online = 0, c.stationID = 0, c.shipID = 0, c.solarSystemID = 0"))
@@ -2096,13 +2101,45 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // Real players almost always rename their ship to something arbitrary
     // (a word, a name, a code). Give the bot's hull a random ship name too,
     // NOT the pilot's name — a pilot named after their ship is a tell.
-    // A chelobot BUYS its hull - never handed a ship for free. It pays ONLY when
-    // the hull is NEW to it (fresh pilot, upgrade, capital re-roll): the boot-time
-    // space cleanup wipes in-space bot ships (a server artifact, not the pilot's
-    // death), so re-spawning the SAME hull the pilot already owned is not billed
-    // again. A pilot that cannot afford a NEW hull does NOT fly: it stays docked
-    // and works to earn (ProcessBrokePilots), then undocks.
+    // Full persistence: a chelobot keeps its property across restarts, dock and
+    // undock. If the pilot still has its saved in-space hull, RE-BOARD it WITH its
+    // fitted modules and cargo instead of minting a new ship (the boot cleanup and
+    // the dock/reap despawn no longer destroy bot hulls).
+    InventoryItemRef iRef;
+    bool reusedHull = false;
     {
+        uint32 savedShipItem = 0;
+        DBQueryResult sr;
+        if (sDatabase.RunQuery(sr,
+            "SELECT shipID FROM chrCharacters WHERE characterID = %u AND shipID > 0", useCharID)) {
+            DBResultRow row;
+            if (sr.GetRow(row))
+                savedShipItem = row.GetUInt(0);
+        }
+        if (savedShipItem != 0) {
+            InventoryItemRef saved = sItemFactory.GetItemRef(savedShipItem);
+            if (saved.get() != nullptr && saved->categoryID() == EVEDB::invCategories::Ship) {
+                iRef = saved;
+                reusedHull = true;
+                hullType = saved->typeID();
+                saved->ChangeOwner(useCorpID, false);
+                saved->Move(pSystem->GetID(), flagNone, true);
+                saved->SetPosition(pos);
+                saved->SaveItem();
+                _log(BOT__MESSAGE, "BotMgr: %s(%u) re-boarded its saved hull %u (fit+cargo kept).",
+                     useName.c_str(), useCharID, hullType);
+            } else {
+                DBerror e;
+                sDatabase.RunQuery(e, "UPDATE chrCharacters SET shipID = 0 WHERE characterID = %u", useCharID);
+            }
+        }
+    }
+
+    // A chelobot BUYS its hull - never handed a ship for free. It pays ONLY when
+    // the hull is NEW to it (fresh pilot or an upgrade): a re-boarded hull is not
+    // billed. A pilot that cannot afford a NEW hull does NOT fly: it stays docked
+    // and works to earn (ProcessBrokePilots), then undocks.
+    if (!reusedHull) {
         const ItemType* ht = sItemFactory.GetType((uint16)hullType);
         double cost = (ht != nullptr) ? ht->basePrice() : 0.0;
         bool alreadyOwns = (savedShipType != 0 && (uint32)savedShipType == hullType);
@@ -2141,12 +2178,14 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
 
-    std::string shipName = MakeRandomShipName();
-    ItemData idata(hullType, useCorpID, pSystem->GetID(), flagNone, shipName.c_str(), pos);
-    InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
-    if (iRef.get() == nullptr) {
-        _log(BOT__ERROR, "BotMgr: failed to spawn ship hull %u for bot.", hullType);
-        return;
+    if (!reusedHull) {
+        std::string shipName = MakeRandomShipName();
+        ItemData idata(hullType, useCorpID, pSystem->GetID(), flagNone, shipName.c_str(), pos);
+        iRef = sItemFactory.SpawnItem(idata);
+        if (iRef.get() == nullptr) {
+            _log(BOT__ERROR, "BotMgr: failed to spawn ship hull %u for bot.", hullType);
+            return;
+        }
     }
 
     // Give the bot's hull a combat profile. Real player ships (Raven etc.) don't
@@ -2278,7 +2317,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // keep the killmail ship). Professional hulls (miner barges, haulers, scan
     // frigates) are force-picked per profession above and would mismatch a combat
     // legend's fit — those bots run a profession fit instead, not a lossmail one.
-    if (hullType == useShipType && !useFit.empty()) {
+    if (!reusedHull && hullType == useShipType && !useFit.empty()) {
         // After a loss the pilot must re-BUY the fit on the open market with its
         // own ISK (upgraded as far as its skill tier + wallet allow), exactly like
         // a real player who lost a ship. New/undocked spawns that were never
@@ -2318,7 +2357,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
     }
     // Ammo/charges (T1/T2 by skill tier) + small profession-typical cargo.
-    MaterializeShipLoad(iRef, useCharID, (uint8)prof, skillTier);
+    if (!reusedHull)
+        MaterializeShipLoad(iRef, useCharID, (uint8)prof, skillTier);
     // Smartbomb battleship: give the hull an EMP field range so NPCAI fires its
     // AoE smartbomb burst at everything nearby (a clustered belt).
     if (smartbombBS && iRef.get() != nullptr)
@@ -3179,10 +3219,15 @@ void BotMgr::ReapBots(SystemManager* pSystem)
         if (bot->IsPosGuard())
             m_guardPilots.erase(bot->GetBotCharID());   // release the pilot for normal reuse
         DBerror perr;
+        // Keep shipID: a reaped pilot keeps its hull as property and re-boards it
+        // on its next spawn. Only the session fields are cleared.
         sDatabase.RunQuery(perr,
-            "UPDATE chrCharacters SET shipID = 0, solarSystemID = 0, stationID = 0, online = 0 WHERE characterID = %u",
+            "UPDATE chrCharacters SET solarSystemID = 0, stationID = 0, online = 0 WHERE characterID = %u",
             bot->GetBotCharID());
-        bot->Delete();
+        if (bot->TargetMgr() != nullptr)
+            bot->TargetMgr()->ClearFromTargets();
+        pSystem->RemoveNPCFromList(bot);   // m_npcs + sEntityList
+        pSystem->RemoveEntity(bot);        // bubble + maps + inventory (ship item kept)
         SafeDelete(bot);
     }
     // Also drop the docked list for this (now empty) system.
@@ -3282,7 +3327,12 @@ void BotMgr::ProcessTravel()
                 if (chan != nullptr)
                     chan->RemoveBotChar(charID);
             }
-            pb->Delete();   // removes SE + item
+            // Keep the ship (property): the traveller re-boards the SAME hull in the
+            // destination system (SpawnBot reuse). Detach without deleting the item.
+            if (pb->TargetMgr() != nullptr)
+                pb->TargetMgr()->ClearFromTargets();
+            pSystem->RemoveNPCFromList(pb);   // m_npcs + sEntityList
+            pSystem->RemoveEntity(pb);        // bubble + maps + inventory
             SafeDelete(pb);
 
             // Spawn in the destination system (arrives through its gate).
@@ -6700,7 +6750,14 @@ void BotMgr::ProcessDocking()
                     _log(BOT__MESSAGE, "BotMgr: %s(%u) deposited %.0f units of cargo at station %u.",
                          db.name.c_str(), db.charID, dep, dockStationID);
             }
-            pb->Delete();   // remove from space; stays in local channel as docked
+            // A docked chelobot KEEPS its ship (property accumulates): remove it from
+            // the world exactly like a normal despawn, but do NOT delete the hull row
+            // (on undock SpawnBot re-boards this same hull with its fit; cargo was
+            // deposited above).
+            if (pb->TargetMgr() != nullptr)
+                pb->TargetMgr()->ClearFromTargets();
+            pSystem->RemoveNPCFromList(pb);   // m_npcs + sEntityList
+            pSystem->RemoveEntity(pb);        // bubble + maps + inventory
             SafeDelete(pb);
         }
     }
