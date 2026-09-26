@@ -316,6 +316,7 @@ private:
         uint8  job       = 0;     // earning job: 1=RAT 2=MINE 3=TRADE 4=HAUL 5=MISSION
         int64  lastEarn  = 0;     // filetime of the last wage
         uint32 earnEvery = 0;     // seconds between wages
+        uint32 sysID     = 0;     // system the broke pilot is docked in
     };
     void ProcessDocking();   // manage dock/undock cycle each tick
     // Broke docked pilots work (the brain picks the fastest job) until they can
@@ -355,6 +356,10 @@ private:
     std::map<int32, uint32> m_botChainDepth;   // channelID -> consecutive bot-bot replies (loop breaker)
     std::vector<PendingBotReply> m_pendingBotReplies;
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots
+    // Broke pilots that can't afford a hull: kept in a SEPARATE map (NOT m_docked)
+    // so SpawnBot never push_backs into a vector that ProcessDocking/
+    // ProcessDockedEconomy are iterating (that reallocation dangled `db` -> crash).
+    std::map<uint32, DockedBot> m_brokePilots;   // charID -> broke pilot earning a hull
     std::map<uint32, uint32> m_systemTarget;   // systemID -> fixed bot target (live-server feel)
     std::set<uint32> m_alwaysOn;               // systems kept loaded + populated 24/7
     bool m_alwaysOnLoaded = false;
