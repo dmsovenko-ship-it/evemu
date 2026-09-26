@@ -1872,12 +1872,29 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             auto pAdd = [&](uint32 id, int n) { for (int i = 0; i < n; ++i) pfit += std::to_string(id) + ","; };
             switch (prof) {
                 case PlayerBot::BotProfession::Miner: {
-                    // Barge: Strip Miners + Survey Scanner + Mining Laser Upgrades +
-                    // a shield-rig (a little survival vs a gank).
-                    pAdd(17482, 2);   // Strip Miner I
-                    pAdd(444, 1);     // Survey Scanner I
-                    pAdd(22542, 2);   // Mining Laser Upgrade I
-                    pAdd(31788, 1);   // Small Core Defense Field Extender I
+                    bool nullsec = (pSystem != nullptr && pSystem->GetSystemSecurityRating() < 0.0f);
+                    if (nullsec && MakeRandomInt(0, 99) < 50) {
+                        // Null-sec AFK Dominix: 6 miners + a full armour tank.
+                        hullType = 645;    // Dominix
+                        pAdd(482, 6);      // Miner II
+                        pAdd(2032, 5);     // Cap Recharger II
+                        pAdd(1447, 2);     // Capacitor Power Relay II
+                        pAdd(3540, 2);     // Large Armor Repairer II
+                        pAdd(11277, 1); pAdd(11303, 1); pAdd(11305, 1);  // armour hardeners (th/exp/kin)
+                    } else if (nullsec) {
+                        // Null-sec tanky Hulk: T2 strips + shield booster + shield amps + MLU II.
+                        hullType = 22544;  // Hulk
+                        pAdd(17912, 3);    // Modulated Strip Miner II
+                        pAdd(400, 1);      // Small Shield Booster II
+                        pAdd(2545, 1); pAdd(2537, 1);   // kinetic + thermic deflection amplifiers
+                        pAdd(28576, 2);    // Mining Laser Upgrade II
+                    } else {
+                        // High-sec barge: Strip Miners + Survey Scanner + MLU + shield rig.
+                        pAdd(17482, 2);    // Strip Miner I
+                        pAdd(444, 1);      // Survey Scanner I
+                        pAdd(22542, 2);    // Mining Laser Upgrade I
+                        pAdd(31788, 1);    // Small Core Defense Field Extender I
+                    }
                 } break;
                 case PlayerBot::BotProfession::Explorer:
                 case PlayerBot::BotProfession::Hacker: {
