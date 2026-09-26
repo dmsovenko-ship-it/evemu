@@ -22,6 +22,7 @@ HEAD `e7e40190`, всё в origin/master. Цель: чтобы боты **зар
 - **Customs tax** (`7e175d5c`): PI-экспорт платит налог (P1 0.10 … P4 50000/ед.) **владельцу таможни** (корп через `TransferFunds`).
 - **🔴 Имущество персистентно** (`ea7c230c`): корабль+фит+груз **переживают рестарт И док/ундок/гейт**. `CleanupOrphanedSpaceItems` — **только при `playerBots.Enabled=false`**; деспавн — `RemoveNPCFromList`+`RemoveEntity`+`SafeDelete` (не `Delete()`); `SpawnBot` **пересаживает** корпус по `chrCharacters.shipID` (грузит item, `Move`, **пропускает** минт/списание/фит). Битый `shipID` само-лечится. Смерть корпус всё ещё уничтожает.
 - **Сборка**: фиксы `af4688e4` (`GetFileTimeNow` — глобальная, не `EvE::Time::`; `SystemManager.h` в NPC.cpp до функции). НЕ пересобрано.
+- **🔴 Краш PI/гвардов** (`b83ca8bf`): broke-пилоты вынесены в **отдельный `m_brokePilots`** (charID→DockedBot, `std::map`), а НЕ в `m_docked`. Иначе `SpawnBot` (POS-гвард из `ProcessDockedEconomy` или андок из `ProcessDocking`) делал `m_docked[sysID].push_back` во **время итерации** того же вектора → реаллокация → висячая `DockedBot& db` → SIGSEGV в `%s` (`db.name.c_str()`) в `ProcessIndustrialistPI`. Проверено по core (`ProcessDockedEconomy`→`ProcessIndustrialistPI`→`vsnprintf`).
 - **Проверить на живом**: логи `bought hull`/`re-boarded its saved hull`/`ransom PAID`/`customs tax`/`reported Lx mission`; имущество не пропадает после рестарта/дока.
 
 ## 📌 СОСТОЯНИЕ СЕССИИ (25 сент., вечер): PvP-война челоботов и суверенитет
