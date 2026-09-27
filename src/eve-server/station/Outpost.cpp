@@ -295,3 +295,141 @@ void OutpostSE::CompleteReadyOutposts()
     if (done > 0)
         sLog.White("      Outpost", "Downtime: completed %u outpost(s) from ready construction platforms.", done);
 }
+
+void OutpostSE::CompleteReadyUpgrades()
+{
+    // Downtime step for upgrade / improvement platforms that their owner filled
+    // (InventoryBound::Build marked them "outpostupgrade:<type>" / "outpostimprove:
+    // <type>"): apply them to the system's outpost now.
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT e.itemID, e.ownerID, e.locationID, e.customInfo, e.typeID"
+        " FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+        " WHERE (e.customInfo LIKE 'outpostupgrade:%' OR e.customInfo LIKE 'outpostimprove:%')"
+        " AND t.groupID IN (%u, %u)",
+        EVEDB::invGroups::Station_Upgrade_Platform, EVEDB::invGroups::Station_Improvement_Platform))
+        return;
+
+    // Foundation=1, Pedestal=2, Monument=3.
+    auto upgradeLevelFor = [](uint32 typeID) -> int {
+        if (typeID == 27656) return 1;
+        if (typeID == 27658) return 2;
+        if (typeID == 27660) return 3;
+        return 0;
+    };
+    static const char* slotCol[6] = {
+        "improvementTier1aTypeID", "improvementTier1bTypeID", "improvementTier1cTypeID",
+        "improvementTier2aTypeID", "improvementTier2bTypeID", "improvementTier3aTypeID" };
+
+    DBResultRow row;
+    uint32 done = 0;
+    while (res.GetRow(row)) {
+        uint32 platformID  = row.GetUInt(0);
+        uint32 ownerID     = row.GetUInt(1);
+        uint32 sysID       = row.GetUInt(2);
+        std::string ci     = row.GetText(3);
+        uint32 platformType = row.GetUInt(4);
+
+        // Resolve the owner corp (platform owner may be a char or a corp).
+        uint32 corpID = ownerID;
+        {
+            DBQueryResult cr; DBResultRow r; bool isCorp = false;
+            if (sDatabase.RunQuery(cr, "SELECT 1 FROM crpCorporation WHERE corporationID = %u", ownerID) && cr.GetRow(r))
+                isCorp = true;
+            if (!isCorp) {
+                corpID = 0;
+                DBQueryResult chr;
+                if (sDatabase.RunQuery(chr, "SELECT corporationID FROM chrCharacters WHERE characterID = %u", ownerID)) {
+                    DBResultRow r2;
+                    if (chr.GetRow(r2)) corpID = r2.GetUInt(0);
+                }
+            }
+        }
+        if (corpID == 0) continue;
+
+        // The outpost this platform affects: a station in the same system owned by
+        // the same corp (the first/only one).
+        uint32 stationID = 0, curLevel = 0;
+        {
+            DBQueryResult sr; DBResultRow r;
+            if (sDatabase.RunQuery(sr,
+                "SELECT stationID, IFNULL(upgradeLevel,0) FROM staStations"
+                " WHERE solarSystemID = %u AND corporationID = %u LIMIT 1", sysID, corpID) && sr.GetRow(r)) {
+                stationID = r.GetUInt(0); curLevel = r.GetUInt(1);
+            }
+        }
+        if (stationID == 0)
+            continue;   // no matching outpost yet -> try again next downtime
+
+        DBerror err;
+        if (ci.compare(0, 14, "outpostupgrade") == 0) {
+            int lvl = upgradeLevelFor(platformType);
+            if (lvl == 0)
+                continue;
+            if ((int)curLevel >= lvl) {
+                // already at (or above) this level - just consume the platform
+            } else if ((int)curLevel != lvl - 1) {
+                continue;   // levels must be built in order (Foundation first)
+            } else {
+                sDatabase.RunQuery(err, "UPDATE staStations SET upgradeLevel = %d WHERE stationID = %u", lvl, stationID);
+                _log(POS__MESSAGE, "Downtime: outpost %u upgraded to level %d (platform %u).", stationID, lvl, platformID);
+            }
+        } else {
+            // Improvement: map the platform item to its installed improvement by
+            // name ("X Platform" -> "X") and install it into a free tier slot.
+            std::string pname = sDataMgr.GetTypeName(platformType);
+            const std::string suffix = " Platform";
+            std::string iname = (pname.size() > suffix.size()
+                                 && pname.compare(pname.size() - suffix.size(), suffix.size(), suffix) == 0)
+                                ? pname.substr(0, pname.size() - suffix.size()) : pname;
+            uint32 impType = 0, impTier = 0;
+            std::string inameEsc; sDatabase.DoEscapeString(inameEsc, iname);
+            {
+                DBQueryResult ir; DBResultRow r;
+                if (sDatabase.RunQuery(ir,
+                    "SELECT i.typeID, i.requiredUpgradeLevel FROM staImprovements i"
+                    " JOIN invTypes t ON t.typeID = i.typeID WHERE t.typeName = '%s' LIMIT 1",
+                    inameEsc.c_str()) && ir.GetRow(r)) {
+                    impType = r.GetUInt(0); impTier = r.GetUInt(1);
+                }
+            }
+            if (impType == 0) {
+                _log(POS__WARNING, "Downtime: no improvement data for platform %s (%u).", pname.c_str(), platformType);
+                continue;
+            }
+            if (curLevel < impTier)
+                continue;   // needs a higher outpost upgrade level first
+
+            sDatabase.RunQuery(err, "INSERT IGNORE INTO staImprovementsInstalled (stationID) VALUES (%u)", stationID);
+            int lo = (impTier == 1) ? 0 : (impTier == 2) ? 3 : 5;
+            int hi = (impTier == 1) ? 2 : (impTier == 2) ? 4 : 5;
+            bool ok = false;
+            DBQueryResult cr; DBResultRow r2;
+            if (sDatabase.RunQuery(cr,
+                "SELECT improvementTier1aTypeID, improvementTier1bTypeID, improvementTier1cTypeID,"
+                " improvementTier2aTypeID, improvementTier2bTypeID, improvementTier3aTypeID"
+                " FROM staImprovementsInstalled WHERE stationID = %u", stationID) && cr.GetRow(r2)) {
+                uint32 vals[6] = { r2.GetUInt(0), r2.GetUInt(1), r2.GetUInt(2), r2.GetUInt(3), r2.GetUInt(4), r2.GetUInt(5) };
+                for (int i = lo; i <= hi && i < 6; ++i) {
+                    if (vals[i] == impType) { ok = true; break; }   // already installed
+                    if (vals[i] == 0) {
+                        sDatabase.RunQuery(err, "UPDATE staImprovementsInstalled SET %s = %u WHERE stationID = %u",
+                                           slotCol[i], impType, stationID);
+                        ok = true; break;
+                    }
+                }
+            }
+            if (!ok)
+                continue;   // no free slot for this tier -> retry next downtime
+            _log(POS__MESSAGE, "Downtime: outpost %u installed improvement %u (%s) tier %u.",
+                 stationID, impType, iname.c_str(), impTier);
+        }
+
+        sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID = %u", platformID);
+        sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID = %u", platformID);
+        ++done;
+    }
+
+    if (done > 0)
+        sLog.White("      Outpost", "Downtime: applied %u outpost upgrade/improvement platform(s).", done);
+}

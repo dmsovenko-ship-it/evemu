@@ -669,9 +669,9 @@ PyResult CorpStationMgrIMBound::GetStationImprovements(PyCallArgs &call)
         while (res.GetRow(row))
             for (int i = 0; i < 6; i++)
                 if (row.GetInt(i) == 0)
-                    imp[i] == new PyNone();
+                    imp[i] = new PyNone();
                 else 
-                    imp[i] == new PyInt(row.GetInt(i));
+                    imp[i] = new PyInt(row.GetInt(i));
 
     dict->SetItemString("improvementTier2aTypeID", imp[0]);
     dict->SetItemString("improvementTier3aTypeID", imp[1]);

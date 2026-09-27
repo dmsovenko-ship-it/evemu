@@ -874,6 +874,7 @@ int main( int argc, char* argv[] )
     // Downtime: construction platforms filled by their builders ("outpostready:*")
     // become finished outposts now (Crucible converts them during daily downtime).
     OutpostSE::CompleteReadyOutposts();
+    OutpostSE::CompleteReadyUpgrades();
     std::printf("\n");     // spacer
     sMissionDataMgr.Initialize();
     std::printf("\n");     // spacer

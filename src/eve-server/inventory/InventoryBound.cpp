@@ -954,11 +954,17 @@ PyResult InventoryBound::Build(PyCallArgs &call) {
         return nullptr;
     }
 
-    // Get required materials to construct the outpost
+    // Required materials: the outpost egg has a material composition; upgrade /
+    // improvement platforms have none (they are built from the bought item).
+    uint16 grp = m_self->groupID();
+    bool isEgg = (grp == EVEDB::invGroups::Construction_Platform);
     DBQueryResult res;
     DBResultRow row;
-    uint32 stationType = m_self->GetAttribute(AttrStationTypeID).get_uint32();
-    FactoryDB::GetOutpostMaterialCompositionOfItemType(stationType, res);
+    uint32 stationType = 0;
+    if (isEgg) {
+        stationType = m_self->GetAttribute(AttrStationTypeID).get_uint32();
+        FactoryDB::GetOutpostMaterialCompositionOfItemType(stationType, res);
+    }
     std::vector<InventoryItemRef> platformItems;
 
     Inventory* pInv = m_self->GetMyInventory();
@@ -1004,11 +1010,17 @@ PyResult InventoryBound::Build(PyCallArgs &call) {
         }
     }
 
-    std::string ci = "outpostready:" + std::to_string(stationType);
+    std::string ci;
+    if (isEgg)
+        ci = "outpostready:" + std::to_string(stationType);
+    else if (grp == EVEDB::invGroups::Station_Upgrade_Platform)
+        ci = "outpostupgrade:" + std::to_string(m_self->typeID());
+    else
+        ci = "outpostimprove:" + std::to_string(m_self->typeID());
     m_self->SetCustomInfo(ci.c_str());
     m_self->SaveItem();
 
-    call.client->SendNotifyMsg("Construction materials accepted. The outpost will be completed at the next downtime.");
+    call.client->SendNotifyMsg("Construction materials accepted. It will be completed at the next downtime.");
     _log(POS__MESSAGE, "Outpost platform %s(%u) filled (type %u) - completes at next downtime.",
          m_self->name(), m_itemID, stationType);
 

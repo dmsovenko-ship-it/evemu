@@ -845,9 +845,7 @@ SystemEntity* DynamicEntityFactory::BuildEntity(SystemManager& sysMgr, const DBS
                 case EVEDB::invGroups::Comet:
                 case EVEDB::invGroups::Destructable_Station_Services:
                 /* test these to see if they are POS types */
-                case EVEDB::invGroups::Station_Improvement_Platform:
                 case EVEDB::invGroups::Global_Warp_Disruptor:
-                case EVEDB::invGroups::Station_Upgrade_Platform:
                 case EVEDB::invGroups::Force_Field:  // <<<  this one is POS type but it IS a plain CSE
                 /* these will get their own class eventually */
                 case EVEDB::invGroups::Effect_Beacon:
@@ -863,7 +861,9 @@ SystemEntity* DynamicEntityFactory::BuildEntity(SystemManager& sysMgr, const DBS
                     _log(ITEM__TRACE, "DynamicEntityFactory::BuildEntity() making CelestialSE for %s (%u)", entity.itemName.c_str(), entity.itemID);
                     return cSE;
                 } break;
-                case EVEDB::invGroups::Construction_Platform: {
+                case EVEDB::invGroups::Construction_Platform:
+                case EVEDB::invGroups::Station_Upgrade_Platform:
+                case EVEDB::invGroups::Station_Improvement_Platform: {
                     StructureItemRef structure = sItemFactory.GetStructureRef( entity.itemID );
                     if (structure.get() == nullptr)
                         return nullptr;

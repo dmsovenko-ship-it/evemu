@@ -741,15 +741,28 @@ PyResult ShipBound::Drop(PyCallArgs &call, PyList* PyToDropList, std::optional <
                 list->AddItem(new PyInt(entity.itemID));
             } break;
             case EVEDB::invCategories::Celestial: { //Outpost construction platforms
-                if (iRef->groupID() == EVEDB::invGroups::Construction_Platform) {
+                if (iRef->groupID() == EVEDB::invGroups::Construction_Platform
+                    || iRef->groupID() == EVEDB::invGroups::Station_Upgrade_Platform
+                    || iRef->groupID() == EVEDB::invGroups::Station_Improvement_Platform) {
                     // Get current planet to anchor platform on
                     uint32 planetID = pSystem->GetClosestPlanetID(pClient->GetShipSE()->GetPosition());
 
-                    // Checks to see if we can deploy the platform
-                    // Our alliance must have sovereignty in the system to deploy an outpost
-                    if (svDataMgr.GetSystemAllianceID(pClient->GetSystemID()) != pClient->GetAllianceID() ) {
-                        pClient->SendErrorMsg("You cannot launch Construction Platforms in a system which your alliance does not control. ");
-                        return nullptr;
+                    if (iRef->groupID() == EVEDB::invGroups::Construction_Platform) {
+                        // Outpost egg: the alliance must hold sovereignty here.
+                        if (svDataMgr.GetSystemAllianceID(pClient->GetSystemID()) != pClient->GetAllianceID() ) {
+                            pClient->SendErrorMsg("You cannot launch Construction Platforms in a system which your alliance does not control. ");
+                            return nullptr;
+                        }
+                    } else {
+                        // Upgrade/Improvement platforms hang off an existing outpost,
+                        // so a station must be present in the system.
+                        bool haveStation = false;
+                        for (auto& [sid, sse] : pSystem->GetStaticEntities())
+                            if (sse != nullptr && sse->GetStationSE() != nullptr) { haveStation = true; break; }
+                        if (!haveStation) {
+                            pClient->SendErrorMsg("You need a station in this system to deploy an outpost upgrade platform.");
+                            return nullptr;
+                        }
                     }
 
                     // Platforms must be deployed on a planet

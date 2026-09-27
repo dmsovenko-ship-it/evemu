@@ -46,6 +46,10 @@ public:
     // ("outpostready:<stationType>") becomes a finished outpost + its station
     // service entities. Called once from main() after the data managers load.
     static void CompleteReadyOutposts();
+    // Downtime step for outpost UPGRADE / IMPROVEMENT platforms (Foundation ->
+    // Pedestal -> Monument, and improvement modules): they were filled by their
+    // owner and are applied to the system's outpost now.
+    static void CompleteReadyUpgrades();
 
     // Capture mechanics
     bool IsConquerable()                                { return m_conquerable; }

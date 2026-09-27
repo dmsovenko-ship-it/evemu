@@ -335,7 +335,9 @@ void StructureSE::Init()
         case EVEDB::invGroups::Infrastructure_Hubs: {
             m_ihub = true;
         } break;
-        case EVEDB::invGroups::Construction_Platform: {
+        case EVEDB::invGroups::Construction_Platform:
+        case EVEDB::invGroups::Station_Upgrade_Platform:
+        case EVEDB::invGroups::Station_Improvement_Platform: {
             m_platform = true;
         } break;
         case EVEDB::invGroups::Secure_Cargo_Container:
@@ -801,11 +803,15 @@ void StructureSE::SetAnchor(Client *pClient, GPoint &pos)
             return;
         }
         // Check sovereignty — system must be claimed by player's alliance
-        SovereigntyData sovData = svDataMgr.GetSovereigntyData(pClient->GetLocationID());
-        uint32 allyID = pClient->GetAllianceID();
-        if (allyID == 0 or sovData.allianceID != allyID) {
-            pClient->SendErrorMsg("You can only anchor an outpost in a system claimed by your alliance.");
-            return;
+        // Outpost egg: system must be claimed by the player's alliance. Upgrade /
+        // improvement platforms merely hang off an existing outpost (no sov check).
+        if (m_self->groupID() == EVEDB::invGroups::Construction_Platform) {
+            SovereigntyData sovData = svDataMgr.GetSovereigntyData(pClient->GetLocationID());
+            uint32 allyID = pClient->GetAllianceID();
+            if (allyID == 0 or sovData.allianceID != allyID) {
+                pClient->SendErrorMsg("You can only anchor an outpost in a system claimed by your alliance.");
+                return;
+            }
         }
         // Verify anchor distance from planet
         uint32 distance(m_planetSE->GetPosition().distance(m_self->position()));
