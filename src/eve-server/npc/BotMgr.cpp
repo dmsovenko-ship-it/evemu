@@ -134,21 +134,33 @@ void BotMgr::CleanupOrphanedSpaceItems()
     else if (affected > 0)
         sLog.White("      BotMgr", "Space cleanup: removed %u orphaned drones (pilot docked/offline).", affected);
 
-    // 2b) Excess wormhole entities: the per-system cap only used the in-memory
-    //     list (reset on every (re)boot) so stale wormhole balls accumulated and
-    //     flooded grids (142 in one system). Keep the newest `cap` per system.
+    // 2b) Wormhole entities: FORCE-clean EXPIRED ones at startup (their lifetime is
+    //     stored in customInfo 'expiry:<filetime>') and cap the rest per system
+    //     (k-space 1 / w-space 2). The in-memory cap resets on every boot, so
+    //     leftovers piled up and flooded grids (142 in one system).
     {
+        int64 nowFt = (int64)GetFileTimeNow();
         DBQueryResult wres;
         if (sDatabase.RunQuery(wres,
-            "SELECT e.locationID, e.itemID FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+            "SELECT e.itemID, e.locationID, e.customInfo FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
             " WHERE t.groupID = 988 ORDER BY e.locationID, e.itemID DESC")) {
             DBResultRow wrow;
-            uint32 lastSys = 0, seen = 0;
+            uint32 lastSys = 0, seen = 0, expiredCount = 0;
             std::vector<uint32> del;
             while (wres.GetRow(wrow)) {
-                uint32 sys = wrow.GetUInt(0), id = wrow.GetUInt(1);
+                uint32 id = wrow.GetUInt(0), sys = wrow.GetUInt(1);
+                const char* cip = wrow.GetText(2);
+                std::string ci = (cip != nullptr) ? cip : "";
                 if (sys != lastSys) { lastSys = sys; seen = 0; }
                 uint32 cap = (sys >= 31000000) ? 2 : 1;
+                bool expired = false;
+                size_t p = ci.find("expiry:");
+                if (p != std::string::npos) {
+                    int64 exp = strtoll(ci.c_str() + p + 7, nullptr, 10);
+                    if (exp > 0 && exp < nowFt)
+                        expired = true;
+                }
+                if (expired) { del.push_back(id); ++expiredCount; continue; }
                 if (seen >= cap)
                     del.push_back(id);
                 ++seen;
@@ -159,7 +171,8 @@ void BotMgr::CleanupOrphanedSpaceItems()
                 sDatabase.RunQuery(werr, "DELETE FROM entity WHERE itemID = %u", id);
             }
             if (!del.empty())
-                sLog.White("     Wormholes", "Space cleanup: removed %u excess wormhole entities.", (uint32)del.size());
+                sLog.White("     Wormholes", "Space cleanup: removed %u wormhole entities (%u expired).",
+                           (uint32)del.size(), expiredCount);
         }
     }
 
