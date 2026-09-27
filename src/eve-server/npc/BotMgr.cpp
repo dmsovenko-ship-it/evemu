@@ -2473,8 +2473,16 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     } else if (needsFit && combatProf) {
         // No usable legend/profession fit for this pilot/hull: a combat bot still
         // flies FITTED - a wreck/killmail with only cargo and no modules is a dead
-        // giveaway that it is not a real player.
-        std::string fb = BuildCombatFallbackFit(hullType);
+        // giveaway that it is not a real player. Module quality scales with the
+        // pilot's skill + wallet (T1 -> meta -> T2/navy/pirate/officer).
+        double wealth = 0.0;
+        DBQueryResult wres;
+        if (sDatabase.RunQuery(wres, "SELECT balance FROM chrCharacters WHERE characterID = %u", useCharID)) {
+            DBResultRow wrow;
+            if (wres.GetRow(wrow))
+                wealth = wrow.GetDouble(0);
+        }
+        std::string fb = BuildCombatFallbackFit(hullType, skillTier, wealth);
         if (!fb.empty())
             MaterializeBotFit(iRef, useCharID, fb);
     }
@@ -2847,7 +2855,7 @@ void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
 //   - RecordBotKillMail (PlayerBot.cpp) lists real items in the lossmail, so the
 //     kill page shows the genuine fit instead of a synthesized one.
 //   - A wreck of this ship can drop the real module loot like a player's wreck.
-std::string BotMgr::BuildCombatFallbackFit(uint32 hullType)
+std::string BotMgr::BuildCombatFallbackFit(uint32 hullType, uint8 skillTier, double wealth)
 {
     // A combat bot with no usable legend/profession fit must still fly a FITTED
     // hull - a wreck/killmail that shows only cargo and no modules is a dead
@@ -2919,25 +2927,70 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType)
             "[3520,3520,3520,526,3530,3530,2048,11269,11648,2364]",         // active rep
         } },
     };
+    std::string t1;
     auto vit = variants.find(hullType);
-    if (vit != variants.end() && !vit->second.empty())
-        return vit->second[MakeRandomInt(0, (int)vit->second.size() - 1)];
+    if (vit != variants.end() && !vit->second.empty()) {
+        t1 = vit->second[MakeRandomInt(0, (int)vit->second.size() - 1)];
+    } else {
+        // Generic race fallback for any other combat hull.
+        uint16 race = 0;
+        Inv::TypeData td = Inv::TypeData();
+        sDataMgr.GetType((uint16)hullType, td);
+        if (td.id == (uint16)hullType)
+            race = td.race;
+        uint32 weapon = 484;   // Minmatar 125mm Gatling AutoCannon I (default)
+        if (race == 1)      weapon = 499;   // Caldari Light Missile Launcher I
+        else if (race == 4) weapon = 450;   // Amarr Gatling Pulse Laser I
+        else if (race == 8) weapon = 561;   // Gallente 75mm Gatling Rail I
+        t1 = "[";
+        for (int i = 0; i < 3; ++i)
+            t1 += std::to_string(weapon) + ",";
+        t1 += "434,380,11269,2048]";
+    }
+    return UpgradeFitMeta(t1, skillTier, wealth);
+}
 
-    // Generic race fallback for any other combat hull.
-    uint16 race = 0;
-    Inv::TypeData td = Inv::TypeData();
-    sDataMgr.GetType((uint16)hullType, td);
-    if (td.id == (uint16)hullType)
-        race = td.race;
-    uint32 weapon = 484;   // Minmatar 125mm Gatling AutoCannon I (default)
-    if (race == 1)      weapon = 499;   // Caldari Light Missile Launcher I
-    else if (race == 4) weapon = 450;   // Amarr Gatling Pulse Laser I
-    else if (race == 8) weapon = 561;   // Gallente 75mm Gatling Rail I
-    std::string fit = "[";
-    for (int i = 0; i < 3; ++i)
-        fit += std::to_string(weapon) + ",";
-    fit += "434,380,11269,2048]";
-    return fit;
+std::string BotMgr::UpgradeFitMeta(const std::string& fitJson, uint8 skillTier, double wealth)
+{
+    // Parse the flat typeID list.
+    std::vector<uint32> ids;
+    {
+        std::string cur;
+        for (char c : fitJson) {
+            if (isdigit((unsigned char)c))
+                cur.push_back(c);
+            else if (!cur.empty()) { ids.push_back((uint32)strtoul(cur.c_str(), nullptr, 10)); cur.clear(); }
+        }
+        if (!cur.empty())
+            ids.push_back((uint32)strtoul(cur.c_str(), nullptr, 10));
+    }
+    if (ids.empty())
+        return fitJson;
+
+    // quality 0..1: skill + wallet -> how good the modules are (T1 for the poor,
+    // faction/officer bling for rich veterans - "like real people had").
+    double q = (double)skillTier / 5.0;
+    if (wealth > 0.0)
+        q += std::min(1.0, wealth / 2.0e9);
+    q = std::min(1.0, q / 2.0);
+
+    std::string out = "[";
+    for (size_t i = 0; i < ids.size(); ++i) {
+        uint32 base = ids[i];
+        uint32 pick = base;
+        std::vector<uint32> ladder = FitUpgradePath(base, skillTier);   // best-first (incl base)
+        if (!ladder.empty() && MakeRandomFloat() < q) {
+            int n = (int)ladder.size();
+            int idx = (int)(MakeRandomFloat() * (1.0 - q) * (double)n);   // bias to best when q high
+            if (idx < 0) idx = 0;
+            if (idx >= n) idx = n - 1;
+            pick = ladder[idx];
+        }
+        out += std::to_string(pick);
+        if (i + 1 < ids.size()) out += ",";
+    }
+    out += "]";
+    return out;
 }
 
 void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson, uint32 buyStationID)

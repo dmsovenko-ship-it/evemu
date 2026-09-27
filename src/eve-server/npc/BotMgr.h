@@ -160,7 +160,11 @@ private:
     void MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson, uint32 buyStationID = 0);
     // Race-appropriate T1 combat fit (JSON typeIDs) used when a combat bot has no
     // usable legend/profession fit, so it never flies a bare hull.
-    std::string BuildCombatFallbackFit(uint32 hullType);
+    std::string BuildCombatFallbackFit(uint32 hullType, uint8 skillTier, double wealth);
+    // Upgrade every module of a T1 fit along its meta ladder (T1 -> named meta ->
+    // T2/navy/pirate/officer) by the pilot's skill tier + wallet. Poor rookies keep
+    // T1; veterans/rich pilots fly blinged fits "like real people had".
+    std::string UpgradeFitMeta(const std::string& fitJson, uint8 skillTier, double wealth);
     // Re-buy a killed bot's fit on the open market (see BotBuyStock) with real
     // ISK, upgrading each module as far as the pilot's skill tier allows. Returns
     // a re-serialised fit JSON of what was actually bought (empty if nothing).
