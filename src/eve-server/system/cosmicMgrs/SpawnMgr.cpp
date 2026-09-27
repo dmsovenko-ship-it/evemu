@@ -1183,6 +1183,15 @@ bool SpawnMgr::PrepSpawn(SystemBubble* pBubble, uint8 sClass/*Spawn::Class::None
         // do we need anything else here?
     }
 
+    // Defensive: a spawn class with no rows in the DB yields an EMPTY spawnEntry,
+    // so MakeRandomInt(0,0) returns 0 and spawnEntry.at(0) throws std::out_of_range
+    // (this aborted the server on a belt/gate/anomaly spawn). Cancel the spawn.
+    if (spawnEntry.empty()) {
+        _log(SPAWN__ERROR, "SpawnMgr::PrepSpawn() - empty spawnEntry for class %s(%u).  Cancelling spawn.",
+             GetSpawnClassName(sClass).c_str(), sClass);
+        return false;
+    }
+
     // get ship class data from spawnEntry.at(subtype)
     // and put this spawn's group information in class designators
     uint8 f = spawnEntry.at(level).f;
