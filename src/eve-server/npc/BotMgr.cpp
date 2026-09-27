@@ -1919,7 +1919,18 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             _log(BOT__MESSAGE, "BotMgr: %s(%u) is a GANKER - %s fit (tier %d, balance %.0f).",
                  useName.c_str(), useCharID, tname, tier, balance);
         } else if (spawnFleetBoss) {
-            // Boss hull already chosen (Orca/Rorqual) — keep it, no re-pick.
+            // Boss hull already chosen (Orca/Rorqual): FIT it - a bare industrial
+            // command ship is a giveaway. Strip miners + shield/bulkhead tank.
+            {
+                std::string pfit;
+                auto add = [&](uint32 id, int n) { for (int i = 0; i < n; ++i) pfit += std::to_string(id) + ","; };
+                add(17482, 2);   // Strip Miner I
+                add(3839, 2);    // Large Shield Extender I
+                add(3831, 1);    // Medium Shield Extender II
+                add(2048, 1);    // Damage Control II
+                add(1335, 2);    // Reinforced Bulkheads II
+                if (!pfit.empty()) { pfit.pop_back(); useFit = "[" + pfit + "]"; useShipType = hullType; }
+            }
         } else if (forceProfessionHull) {
             hullType = pick[MakeRandomInt(0, (int32)pickCount - 1)];
             // Profession fits (so miners really mine and scanners really scan, like
@@ -1997,7 +2008,13 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     pAdd(1319, 1);       // Expanded Cargohold II
                     pAdd(3831, 1);       // Medium Shield Extender II
                 } break;
-                default: break;       // industrialist keeps its hull
+                default: {
+                    // Industrialist (producer): cargohold + a little tank - never
+                    // leave the hull bare.
+                    pAdd(1319, 2);   // Expanded Cargohold II
+                    pAdd(3831, 1);   // Medium Shield Extender II
+                    pAdd(1335, 1);   // Reinforced Bulkheads II
+                } break;
             }
             if (!pfit.empty()) {
                 pfit.pop_back();      // drop the trailing comma
