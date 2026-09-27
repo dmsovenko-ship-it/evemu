@@ -67,11 +67,14 @@ bool PlanetSE::LoadExtras() {
      */
     std::vector<uint16> typeIDs;
     sPlanetDataMgr.GetPlanetData(m_self->typeID(), typeIDs);
-    m_data.type_1 = typeIDs.at(0);
-    m_data.type_2 = typeIDs.at(1);
-    m_data.type_3 = typeIDs.at(2);
-    m_data.type_4 = typeIDs.at(3);
-    m_data.type_5 = typeIDs.at(4);
+    // Some planet types have NO resource rows in the DB, so typeIDs comes back
+    // EMPTY and typeIDs.at(n) threw std::out_of_range -> abort while booting a
+    // system (e.g. a trade hub). Fill missing slots with 0 instead of crashing.
+    m_data.type_1 = typeIDs.size() > 0 ? typeIDs[0] : 0;
+    m_data.type_2 = typeIDs.size() > 1 ? typeIDs[1] : 0;
+    m_data.type_3 = typeIDs.size() > 2 ? typeIDs[2] : 0;
+    m_data.type_4 = typeIDs.size() > 3 ? typeIDs[3] : 0;
+    m_data.type_5 = typeIDs.size() > 4 ? typeIDs[4] : 0;
 
     /** @todo save planet data after creation.  change data every x hours?days? */
 
