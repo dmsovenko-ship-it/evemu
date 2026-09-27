@@ -785,10 +785,17 @@ void EntityList::PrefetchAdjacentSystems() {
     const uint32 radius = sConfig.world.PrefetchRadius ? sConfig.world.PrefetchRadius : 1;
     const uint32 maxHold = sConfig.world.PrefetchMax ? sConfig.world.PrefetchMax : 16;
 
-    // Everything within `radius` jumps of a system that currently has players.
-    std::set<uint32> want;
+    // Everything within `radius` jumps of a system that has PLAYERS - and of an
+    // always-on HUB (persistent): hub bot traffic otherwise boots/unloads their
+    // neighbours every minute (877 unloads / 5k log lines of churn). Hub
+    // neighbours are always held; player neighbours are capped at maxHold.
+    std::set<uint32> want, hubWant;
     for (auto& cur : m_systems) {
-        if (cur.second == nullptr or cur.second->PlayerCount() == 0)
+        if (cur.second == nullptr)
+            continue;
+        bool isPlayer = (cur.second->PlayerCount() > 0);
+        bool isHub = cur.second->IsPersistent();
+        if (!isPlayer && !isHub)
             continue;
 
         std::set<uint32> visited;
@@ -802,6 +809,8 @@ void EntityList::PrefetchAdjacentSystems() {
                     if (visited.insert(adj).second) {
                         next.push_back(adj);
                         want.insert(adj);
+                        if (isHub)
+                            hubWant.insert(adj);
                     }
                 }
             }
@@ -809,9 +818,15 @@ void EntityList::PrefetchAdjacentSystems() {
         }
     }
 
-    // bound the number of held systems
-    while (want.size() > maxHold)
-        want.erase(--want.end());
+    // bound the PLAYER-neighbour set (hub neighbours are never dropped)
+    while (want.size() > maxHold) {
+        auto it = want.begin();
+        while (it != want.end() && hubWant.count(*it))
+            ++it;
+        if (it == want.end())
+            break;   // only hub neighbours left
+        want.erase(it);
+    }
 
     // boot the missing ones, a couple per pass, so a hub with many gates doesn't
     // spike the tick
