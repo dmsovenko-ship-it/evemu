@@ -2118,7 +2118,20 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         }
         if (savedShipItem != 0) {
             InventoryItemRef saved = sItemFactory.GetItemRef(savedShipItem);
-            if (saved.get() != nullptr && saved->categoryID() == EVEDB::invCategories::Ship) {
+            bool isShip = (saved.get() != nullptr && saved->categoryID() == EVEDB::invCategories::Ship);
+            // The pilot's profession can change (roster rebalance) while its hull is
+            // PRESERVED - a combat pilot must not keep flying a hauler (fighting and
+            // tackling) nor a peaceful pilot a warship. Release a wrong-role hull.
+            bool profCombat = (prof == PlayerBot::BotProfession::Hunter
+                               || prof == PlayerBot::BotProfession::RatHunter
+                               || prof == PlayerBot::BotProfession::Missioner);
+            if (isShip && (PlayerBot::IsCombatHull(saved->groupID()) != profCombat)) {
+                _log(BOT__MESSAGE, "BotMgr: %s(%u) profession changed - releasing old hull %u.",
+                     useName.c_str(), useCharID, saved->typeID());
+                saved->Delete();            // wrong-role hull (with its fitted modules)
+                isShip = false;
+            }
+            if (isShip) {
                 iRef = saved;
                 reusedHull = true;
                 hullType = saved->typeID();

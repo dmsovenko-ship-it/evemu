@@ -277,11 +277,13 @@ public:
     // Nullsec: target and assault an enemy sovereignty structure (TCU/IHub/SBU)
     // present in this system. Returns true if one was engaged.
     bool AttackEnemySov();
+    // Hull that can actually fight (exposed so BotMgr can verify a preserved hull
+    // still matches the pilot's profession after a roster rebalance).
+    static bool IsCombatHull(uint16 groupID);
 protected:
     void DecideNextAction();            // BotMgr hook — pick a new activity
     void CallFleetSupport(SystemEntity* attacker);   // same corp/alliance bots join the fight
     static int GetShipClass(uint16 groupID);         // combat-power tier by ship group
-    static bool IsCombatHull(uint16 groupID);       // hull that can actually fight
     void AnalyzeCombatSituation();                  // re-target priority + disengage check (runs during fights)
     void DeployWarpBubble(const GPoint& pos);       // drop a Mobile Warp Disruptor bubble at pos
     void RecordPvpOutcome(bool won);    // win/loss + PvP judgement learning
