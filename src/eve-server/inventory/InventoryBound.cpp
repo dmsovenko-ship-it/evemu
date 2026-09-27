@@ -983,122 +983,34 @@ PyResult InventoryBound::Build(PyCallArgs &call) {
         }
     }
 
-    // Step 2
-    _log(POS__MESSAGE, "Removing entity %s(%u) from space safely.", m_self->name(), m_itemID);
-
-    // Save the anchor position and planet radius since we'll need it when setting up the new station
-    GPoint anchorPosition = egg->GetPosition();
-
-    // Clear egg's data and remove it from space
-    call.client->SystemMgr()->RemoveEntity(egg);
-    m_self->ChangeOwner(0, true);
-    SafeDelete(egg);
-
-    // Step 3
-    _log(POS__MESSAGE, "Creating new OutpostSE entity...");
-
-    // Create the item data which we use to create the StationItemRef
-    StationData stData = StationData();
-
-    // Calculate stationID
-    stData.stationID = StationDB::GetNewOutpostID();
-
-    // Get base station data
-    StationDB::GetStationBaseData(res, stationType);
-    std::string stationBaseName;
-    while (res.GetRow(row)) {
-        stData.dockOrientation = GVector(row.GetDouble(0),row.GetDouble(1),row.GetDouble(2));
-        stData.conquerable = row.GetBool(3);
-        stData.hangarGraphicID = row.GetUInt(4);
-        stData.description = row.GetText(5);
-        stData.descriptionID = row.GetInt(6);
-        stData.graphicID = row.GetInt(7);
-        stData.dockEntry = GPoint(row.GetDouble(8),row.GetDouble(9),row.GetDouble(10));
-        stData.operationID = row.GetUInt(11);
-        stData.dockPosition = GPoint (row.GetDouble(8) + anchorPosition.x,
-                                      row.GetDouble(9) + anchorPosition.y,
-                                      row.GetDouble(10) + anchorPosition.z);
-        stationBaseName = row.GetText(12);
+    // Step 2: consume the materials and FLAG the platform ready. The outpost is
+    // completed at the NEXT DOWNTIME (server start), NOT instantly - exactly like
+    // Crucible, where the egg sits in space until downtime. OutpostSE::
+    // CompleteReadyOutposts() (called at startup) turns it into a station.
+    DBQueryResult comp;
+    FactoryDB::GetOutpostMaterialCompositionOfItemType(stationType, comp);
+    DBResultRow crow;
+    while (comp.GetRow(crow)) {
+        uint32 reqType = crow.GetUInt(0);
+        uint32 need = crow.GetUInt(1);
+        for (auto cur : platformItems) {
+            if (need == 0)
+                break;
+            if (cur->type().id() != reqType)
+                continue;
+            uint32 have = cur->quantity();
+            if (have <= need) { cur->Delete(); need -= have; }
+            else              { cur->AlterQuantity(have - need, true); need = 0; }
+        }
     }
 
-    // Get radius from StationType object
-    StationType* stType = StationType::Load(stationType);
-    stData.radius = stType->radius();
+    std::string ci = "outpostready:" + std::to_string(stationType);
+    m_self->SetCustomInfo(ci.c_str());
+    m_self->SaveItem();
 
-    // Location data
-    stData.systemID = call.client->GetSystemID();
-    stData.constellationID = call.client->GetConstellationID();
-    stData.regionID = call.client->GetRegionID();
-    stData.position = anchorPosition;
-    stData.security = call.client->SystemMgr()->GetSecValue();
-
-    // Other station data
-    stData.typeID = stationType;
-    stData.reprocessingHangarFlag = flagHangar;
-    stData.corporationID = call.client->GetCorporationID();
-
-    // Build station name
-    stData.name = call.client->SystemMgr()->GetClosestPlanetSE(anchorPosition)->GetName()
-        + std::string(" - ") + stationBaseName;
-
-    // Set default configurable values
-    stData.officeRentalFee = 10000;
-    stData.maxShipVolumeDockable = 50000000;
-    stData.dockingCostPerVolume = 0;
-
-    // Set default service values
-    stData.officeSlots = 8;
-    stData.reprocessingEfficiency = 0.5;
-    stData.reprocessingStationsTake = 0.05;
-
-    // Set space values
-    stData.orbitID = call.client->SystemMgr()->GetClosestPlanetID(anchorPosition);
-
-    // Calculate service mask (temporarily, allow everything)
-    stData.serviceMask = Station::ReprocessingPlant                        
-                       | Station::Refinery
-                       | Station::Market
-                       | Station::BlackMarket
-                       | Station::StockExchange
-                       | Station::Cloning
-                       | Station::Surgery
-                       | Station::DNATherapy
-                       | Station::RepairFacilities
-                       | Station::Factory
-                       | Station::Laboratory
-                       | Station::Gambling
-                       | Station::Fitting
-                       | Station::Paintshop
-                       | Station::News
-                       | Station::Storage
-                       | Station::Insurance
-                       | Station::Docking
-                       | Station::OfficeRental
-                       | Station::JumpCloneFacility
-                       | Station::LoyaltyPointStore
-                       | Station::NavyOffices;
-
-    // Add the new outpost to the stationDataMgr and the DB
-    stDataMgr.AddOutpost(stData);
-
-    // Update staticDataMgr
-    sDataMgr.AddOutpost(stData);
-
-    // Create the StationItem and spawn the OutpostSE entity
-    StationItemRef itemRef = sItemFactory.GetStationRef(stData.stationID);
-    OutpostSE* oSE = new OutpostSE(itemRef, call.client->services(), call.client->SystemMgr());
-    sEntityList.AddStation(stData.stationID, itemRef);
-    call.client->SystemMgr()->AddEntity(oSE);
-
-    // Create and spawn all of the station service entities
-    _log(POS__MESSAGE, "Creating new station service entities...");
-
-    oSE->SpawnStationService(call.client, stData, EVEDB::invTypes::FittingService);
-    oSE->SpawnStationService(call.client, stData, EVEDB::invTypes::ReprocessingService);
-    oSE->SpawnStationService(call.client, stData, EVEDB::invTypes::FactoryService);
-    oSE->SpawnStationService(call.client, stData, EVEDB::invTypes::CloningService);
-    oSE->SpawnStationService(call.client, stData, EVEDB::invTypes::RepairService);
-    oSE->SpawnStationService(call.client, stData, EVEDB::invTypes::LaboratoryService);
+    call.client->SendNotifyMsg("Construction materials accepted. The outpost will be completed at the next downtime.");
+    _log(POS__MESSAGE, "Outpost platform %s(%u) filled (type %u) - completes at next downtime.",
+         m_self->name(), m_itemID, stationType);
 
     return nullptr;
 }

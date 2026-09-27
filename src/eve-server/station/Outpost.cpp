@@ -12,7 +12,10 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "EVE_Mail.h"
+#include "StaticDataMgr.h"
 #include "station/Outpost.h"
+#include "station/StationDB.h"
+#include "station/StationDataMgr.h"
 #include "system/Damage.h"
 #include "system/SystemManager.h"
 #include "system/sov/SovereigntyDataMgr.h"
@@ -142,4 +145,153 @@ void OutpostSE::Capture(Damage& damage)
     }
 
     _log(POS__MESSAGE, "Outpost %s(%u): Captured by corp %u (ally %u).", GetName(), m_self->itemID(), newCorpID, newAllianceID);
+}
+
+// Insert one station service ITEM (group 874) at the station's EXACT coordinates
+// with flagStructureActive, so CorpStationMgr::GetStationServiceStates finds it
+// (it joins staStations s and entity e on s.x=e.x AND s.y=e.y AND s.z=e.z).
+static void InsertServiceEntity(uint32 corpID, uint32 sysID, const GPoint& pos, uint32 serviceType)
+{
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO entity (itemName, typeID, ownerID, locationID, flag, singleton, quantity, x, y, z, customInfo, isActive)"
+        " VALUES ('%s', %u, %u, %u, %u, 1, 1, %f, %f, %f, 'stationService', 1)",
+        sDataMgr.GetTypeName(serviceType), serviceType, corpID, sysID,
+        (uint32)flagStructureActive, pos.x, pos.y, pos.z);
+}
+
+void OutpostSE::CompleteReadyOutposts()
+{
+    // Downtime step: construction platforms that were FILLED (InventoryBound::Build
+    // marked them "outpostready:<stationType>") become finished outposts now.
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT e.itemID, e.ownerID, e.locationID, e.x, e.y, e.z, e.customInfo"
+        " FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+        " WHERE e.customInfo LIKE 'outpostready:%' AND t.groupID = %u",
+        EVEDB::invGroups::Construction_Platform))
+        return;
+
+    static const uint32 svc[] = {
+        EVEDB::invTypes::FittingService, EVEDB::invTypes::ReprocessingService,
+        EVEDB::invTypes::FactoryService, EVEDB::invTypes::CloningService,
+        EVEDB::invTypes::RepairService,  EVEDB::invTypes::LaboratoryService
+    };
+
+    DBResultRow row;
+    uint32 done = 0;
+    while (res.GetRow(row)) {
+        uint32 platformID = row.GetUInt(0);
+        uint32 ownerID    = row.GetUInt(1);
+        uint32 sysID      = row.GetUInt(2);
+        GPoint pos(row.GetDouble(3), row.GetDouble(4), row.GetDouble(5));
+        std::string ci = row.GetText(6);
+        uint32 stationType = (uint32)strtoul(ci.c_str() + strlen("outpostready:"), nullptr, 10);
+        if (stationType == 0)
+            continue;
+
+        // Owner: the platform may be owned by a char or a corp.
+        uint32 corpID = ownerID;
+        {
+            DBQueryResult cr; DBResultRow r;
+            bool isCorp = false;
+            if (sDatabase.RunQuery(cr, "SELECT 1 FROM crpCorporation WHERE corporationID = %u", ownerID) && cr.GetRow(r))
+                isCorp = true;
+            if (!isCorp) {
+                corpID = 0;
+                DBQueryResult chr;
+                if (sDatabase.RunQuery(chr, "SELECT corporationID FROM chrCharacters WHERE characterID = %u", ownerID)) {
+                    DBResultRow r2;
+                    if (chr.GetRow(r2)) corpID = r2.GetUInt(0);
+                }
+            }
+        }
+        if (corpID == 0)
+            corpID = 1;
+
+        // System constellation/region/security + closest planet (name + orbit).
+        uint32 constID = 0, regionID = 0; double sec = 0.0;
+        {
+            DBQueryResult sr; DBResultRow r;
+            if (sDatabase.RunQuery(sr, "SELECT constellationID, regionID, security FROM mapSolarSystems WHERE solarSystemID = %u", sysID) && sr.GetRow(r)) {
+                constID = r.GetUInt(0); regionID = r.GetUInt(1); sec = r.GetDouble(2);
+            }
+        }
+        std::string planetName = "Unknown";
+        uint32 orbitID = 0;
+        {
+            DBQueryResult pr; DBResultRow r;
+            if (sDatabase.RunQuery(pr,
+                "SELECT itemID, itemName FROM mapDenormalize WHERE solarSystemID = %u AND groupID = 6"
+                " ORDER BY SQRT(POW(x-%f,2)+POW(y-%f,2)+POW(z-%f,2)) LIMIT 1",
+                sysID, pos.x, pos.y, pos.z) && pr.GetRow(r)) {
+                orbitID = r.GetUInt(0); planetName = r.GetText(1);
+            }
+        }
+
+        // Same station build as InventoryBound::Build, but from the DB.
+        StationData stData = StationData();
+        stData.stationID = StationDB::GetNewOutpostID();
+        std::string baseName = "Outpost";
+        {
+            DBQueryResult bres; DBResultRow brow;
+            StationDB::GetStationBaseData(bres, stationType);
+            while (bres.GetRow(brow)) {
+                stData.dockOrientation = GVector(brow.GetDouble(0), brow.GetDouble(1), brow.GetDouble(2));
+                stData.conquerable = brow.GetBool(3);
+                stData.hangarGraphicID = brow.GetUInt(4);
+                stData.description = brow.GetText(5);
+                stData.descriptionID = brow.GetInt(6);
+                stData.graphicID = brow.GetInt(7);
+                stData.dockEntry = GPoint(brow.GetDouble(8), brow.GetDouble(9), brow.GetDouble(10));
+                stData.operationID = brow.GetUInt(11);
+                stData.dockPosition = GPoint(brow.GetDouble(8) + pos.x, brow.GetDouble(9) + pos.y, brow.GetDouble(10) + pos.z);
+                baseName = brow.GetText(12);
+            }
+        }
+        StationType* stType = StationType::Load(stationType);
+        if (stType == nullptr)
+            continue;
+
+        stData.radius = stType->radius();
+        stData.systemID = sysID;
+        stData.constellationID = constID;
+        stData.regionID = regionID;
+        stData.position = pos;
+        stData.security = sec;
+        stData.typeID = stationType;
+        stData.reprocessingHangarFlag = flagHangar;
+        stData.corporationID = corpID;
+        stData.orbitID = orbitID;
+        stData.name = planetName + " - " + baseName;
+        stData.officeRentalFee = 10000;
+        stData.maxShipVolumeDockable = 50000000;
+        stData.dockingCostPerVolume = 0;
+        stData.officeSlots = 8;
+        stData.reprocessingEfficiency = 0.5;
+        stData.reprocessingStationsTake = 0.05;
+        stData.serviceMask = Station::ReprocessingPlant | Station::Refinery | Station::Market
+            | Station::BlackMarket | Station::StockExchange | Station::Cloning | Station::Surgery
+            | Station::DNATherapy | Station::RepairFacilities | Station::Factory | Station::Laboratory
+            | Station::Gambling | Station::Fitting | Station::Paintshop | Station::News | Station::Storage
+            | Station::Insurance | Station::Docking | Station::OfficeRental | Station::JumpCloneFacility
+            | Station::LoyaltyPointStore | Station::NavyOffices;
+
+        stDataMgr.AddOutpost(stData);   // writes the station to the DB + data manager
+        sDataMgr.AddOutpost(stData);    // static data (client cache)
+
+        for (uint32 st : svc)
+            InsertServiceEntity(corpID, sysID, pos, st);
+
+        DBerror err;
+        sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID = %u", platformID);
+        sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID = %u", platformID);
+        ++done;
+
+        _log(POS__MESSAGE, "Downtime: construction platform %u completed -> outpost %s (%u).",
+             platformID, stData.name.c_str(), stData.stationID);
+    }
+
+    if (done > 0)
+        sLog.White("      Outpost", "Downtime: completed %u outpost(s) from ready construction platforms.", done);
 }

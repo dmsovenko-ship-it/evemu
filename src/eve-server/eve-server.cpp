@@ -176,6 +176,7 @@
 #include "station/StationDataMgr.h"
 #include "station/StationService.h"
 #include "station/StationSvc.h"
+#include "station/Outpost.h"
 #include "station/TradeService.h"
 // system services
 #include "system/BookmarkService.h"
@@ -870,6 +871,9 @@ int main( int argc, char* argv[] )
 
     sLog.Green("       ServerInit", "Loading Data Sets");
     sDataMgr.Initialize();
+    // Downtime: construction platforms filled by their builders ("outpostready:*")
+    // become finished outposts now (Crucible converts them during daily downtime).
+    OutpostSE::CompleteReadyOutposts();
     std::printf("\n");     // spacer
     sMissionDataMgr.Initialize();
     std::printf("\n");     // spacer

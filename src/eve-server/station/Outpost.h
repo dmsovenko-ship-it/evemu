@@ -42,6 +42,11 @@ public:
 
     void SpawnStationService(Client* pClient, StationData stData, uint32 serviceType);
 
+    // At startup (= the daily downtime): every construction platform flagged ready
+    // ("outpostready:<stationType>") becomes a finished outpost + its station
+    // service entities. Called once from main() after the data managers load.
+    static void CompleteReadyOutposts();
+
     // Capture mechanics
     bool IsConquerable()                                { return m_conquerable; }
     bool CheckReinforce();
