@@ -10,6 +10,7 @@
 #include "eve-server.h"
 
 #include <algorithm>
+#include <vector>
 #include "Client.h"
 #include "inventory/AttributeEnum.h"
 #include "system/DestinyManager.h"
@@ -895,8 +896,10 @@ void DroneAIMgr::Attack(SystemEntity* pSE)
             ClearTarget(pSE);
             return;
         }
-        // Check to see if the target is not cloaked:
-        if (pDestiny->IsCloaked()) {
+        // Check to see if the target is not cloaked. A TARGETED weapon (guns, normal
+        // drones) drops a cloaked target - but a fighter-bomber's munition is an
+        // AREA BOMB: it still detonates (the cloak hides the lock, not the blast).
+        if (pDestiny->IsCloaked() && m_subType != DroneAI::SubType_FighterBomber) {
             _log(DRONE__AI_TRACE, "Drone %s(%u): Target %s(%u) is cloaked.  Clear target and move on",
                  m_pDrone->GetName(), m_pDrone->GetID(), pSE->GetName(), pSE->GetID());
             ClearTarget(pSE);
@@ -1253,22 +1256,60 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
         }
     }
 
-    // Apply damage to target
-    _log(DRONE__AI_TRACE, "Bomber %s(%u): FighterBomberAttack -> %s(%u) total=%.2f ammo=%u/%u",
-         m_pDrone->GetName(), m_pDrone->GetID(),
-         pTarget->GetName(), pTarget->GetID(),
-         d.GetTotal(), m_pDrone->GetFighterAmmo(), m_pDrone->GetFighterMaxAmmo());
+    // REAL AoE: the munition detonates at the target - EVERY ship inside the blast
+    // (bomb cloud / proximity range) takes the damage, CLOAKED ships included (a
+    // bomb does not care about a cloak; only a targeting lock does). We never blow
+    // up our own carrier / same-owner assets.
+    double blast = 0.0;
+    if (m_pDrone->GetSelf()->HasAttribute(AttrAoeCloudSize))
+        blast = m_pDrone->GetSelf()->GetAttribute(AttrAoeCloudSize).get_float();
+    if (blast <= 0.0 && m_pDrone->GetSelf()->HasAttribute(AttrEntityAttackRange))
+        blast = m_pDrone->GetSelf()->GetAttribute(AttrEntityAttackRange).get_float();
+    if (blast <= 0.0)
+        blast = 15000.0;
+
     Client* owner = m_pDrone->GetOwner();
-    if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
-        owner->GetCrimeWatch()->OnWeaponFired();
-        if (pTarget->HasPilot() and pTarget->GetPilot() != owner) {
-            float sec = owner->SystemMgr()->GetSystemSecurityRating();
-            owner->GetCrimeWatch()->OnAggression(pTarget->GetPilot(), sec);
+    uint32 ownOwner = 0;
+    if (m_assignedShip != nullptr && m_assignedShip->GetSelf().get() != nullptr)
+        ownOwner = m_assignedShip->GetSelf()->ownerID();
+    if (ownOwner == 0 && owner != nullptr)
+        ownOwner = owner->GetCorporationID();
+
+    std::map<uint32, SystemEntity*> ents;
+    if (m_pDrone->SysBubble() != nullptr)
+        m_pDrone->SysBubble()->GetAllEntities(ents);
+
+    int hits = 0;
+    std::vector<SystemEntity*> victims;   // collect first: a death mutates the bubble
+    for (auto& [id, se] : ents) {
+        if (se == nullptr || se == m_pDrone)
+            continue;
+        if (!se->IsShipSE() && !se->IsDroneSE())
+            continue;                       // ships and drones/fighters only
+        if (se->DestinyMgr() == nullptr)
+            continue;
+        if (se->GetPosition().distance(pTarget->GetPosition()) > blast)
+            continue;
+        uint32 seOwner = (se->GetSelf().get() != nullptr) ? se->GetSelf()->ownerID() : 0;
+        if (se == m_assignedShip || (ownOwner != 0 && seOwner == ownOwner))
+            continue;                       // never bomb our own side
+        victims.push_back(se);
+    }
+    for (SystemEntity* se : victims) {
+        if (se == nullptr)
+            continue;
+        if (owner != nullptr and owner->GetCrimeWatch() != nullptr) {
+            owner->GetCrimeWatch()->OnWeaponFired();
+            if (se->HasPilot() and se->GetPilot() != owner) {
+                float sec = owner->SystemMgr()->GetSystemSecurityRating();
+                owner->GetCrimeWatch()->OnAggression(se->GetPilot(), sec);
+            }
         }
+        se->ApplyDamage(d);
+        ++hits;
     }
-    if (pTarget->ApplyDamage(d)) {
-        return;
-    }
+    _log(DRONE__AI_TRACE, "Bomber %s(%u): AoE detonation -> %d ship(s) in %.0fm (base total=%.2f).",
+         m_pDrone->GetName(), m_pDrone->GetID(), hits, blast, d.GetTotal());
 }
 
 void DroneAIMgr::WebAttack(SystemEntity* pTarget) {
