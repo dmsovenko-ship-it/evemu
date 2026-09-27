@@ -638,9 +638,17 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                     }
                 }
                 if (!requestedItems.empty()) {
-                    for (const auto& entry : requestedItems) {
-                        if (sItemFactory.GetStationRef(startStationID)->GetMyInventory()->ContainsTypeStackQtyByFlag(entry.first, EVEItemFlags::flagHangar, entry.second) == 0) {
-                            requestedItemsRequirementsMet = false;
+                    StationItemRef startSt = sItemFactory.GetStationRef(startStationID);
+                    Inventory* startInv = (startSt.get() != nullptr) ? startSt->GetMyInventory() : nullptr;
+                    if (startInv == nullptr) {
+                        // The contract's station is not loaded (null inventory): we
+                        // cannot verify/move the requested items -> refuse, no crash.
+                        requestedItemsRequirementsMet = false;
+                    } else {
+                        for (const auto& entry : requestedItems) {
+                            if (startInv->ContainsTypeStackQtyByFlag(entry.first, EVEItemFlags::flagHangar, entry.second) == 0) {
+                                requestedItemsRequirementsMet = false;
+                            }
                         }
                     }
                 }
@@ -655,12 +663,20 @@ PyResult ContractProxy::AcceptContract(PyCallArgs &call, PyInt* contractID, std:
                     }
 
                     if (!requestedItems.empty()) {
-                        for (auto entry : requestedItems) {
-                            int entityID = sItemFactory.GetStationRef(startStationID)->GetMyInventory()->ContainsTypeStackQtyByFlag(entry.first, flagHangar, entry.second);
-                            if (sItemFactory.GetStationRef(startStationID)->GetMyInventory()->GetByID(entityID)->quantity() > entry.second) {
-                                sItemFactory.GetStationRef(startStationID)->GetMyInventory()->GetByID(entityID)->Split(entry.second)->ChangeOwner(issuerID, true);
-                            } else {
-                                sItemFactory.GetItemRef(entityID)->ChangeOwner(issuerID, true);
+                        StationItemRef startSt = sItemFactory.GetStationRef(startStationID);
+                        Inventory* startInv = (startSt.get() != nullptr) ? startSt->GetMyInventory() : nullptr;
+                        if (startInv != nullptr) {
+                            for (auto entry : requestedItems) {
+                                int entityID = startInv->ContainsTypeStackQtyByFlag(entry.first, flagHangar, entry.second);
+                                if (entityID == 0)
+                                    continue;
+                                InventoryItemRef src = startInv->GetByID(entityID);
+                                if (src.get() == nullptr)
+                                    continue;
+                                if (src->quantity() > entry.second)
+                                    src->Split(entry.second)->ChangeOwner(issuerID, true);
+                                else
+                                    src->ChangeOwner(issuerID, true);
                             }
                         }
                     }
