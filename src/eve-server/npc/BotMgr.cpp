@@ -2957,6 +2957,16 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType, uint8 skillTier, dou
         { 11989,{ // Oneiros - solo/medium armor logi: 4x Large Remote Armor Repair Sys II,
                   // MWD + Sensor Booster, 3x Cap Power Relay + DCU + 800mm plate, cap rigs
             "[26914,26914,26914,26914,12076,1952,1447,1447,1447,2048,11317,31372,31372]" } }, // Oneiros
+        // --- Shield logistics (modules are named "Shield Transporter" in Crucible) ---
+        { 11978,{ // Scimitar - fast cap-independent shield logi: 1x Large + 3x Medium
+                  // Shield Transporter II, MWD + 2x LSE II + Invuln II + Sensor Booster,
+                  // 3x Cap Power Relay II + DCU, extender rigs
+            "[3608,3598,3598,3598,12076,3841,3841,2281,1952,1447,1447,1447,2048,31790,31790]" } }, // Scimitar
+        { 11985,{ // Basilisk - cap-chain shield logi: 4x Large Shield Transporter II +
+                  // Large 'Regard' Power Projector (cap chain), MWD + 2x LSE II +
+                  // Invuln II + Sensor Booster, 3x Cap Power Relay II + DCU, extender rigs
+            "[3608,3608,3608,3608,16487,12076,3841,3841,2281,1952,1447,1447,1447,2048,31790,31790]" } }, // Basilisk
+        { 620,  { "[3596,3596,3596,12056,2032,2032,3841,2048]", "[499,499,499,499,12056,3839,3839,2048]" } }, // Osprey (T1 shield logi / missile)
         // --- Strategic Cruisers (T3) - Crucible community fits (modules only; the
         //     Emu does not model T3 subsystems) ---
         { 29986,{ // Legion - laser PvE: 6x Heavy Beam Laser II, AB, 2x Cap Recharger,
