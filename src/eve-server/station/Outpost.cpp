@@ -169,7 +169,7 @@ void OutpostSE::CompleteReadyOutposts()
     if (!sDatabase.RunQuery(res,
         "SELECT e.itemID, e.ownerID, e.locationID, e.x, e.y, e.z, e.customInfo"
         " FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
-        " WHERE e.customInfo LIKE 'outpostready:%' AND t.groupID = %u",
+        " WHERE e.customInfo LIKE 'outpostready:%%' AND t.groupID = %u",
         EVEDB::invGroups::Construction_Platform))
         return;
 
@@ -306,7 +306,7 @@ void OutpostSE::CompleteReadyUpgrades()
     if (!sDatabase.RunQuery(res,
         "SELECT e.itemID, e.ownerID, e.locationID, e.customInfo, e.typeID"
         " FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
-        " WHERE (e.customInfo LIKE 'outpostupgrade:%' OR e.customInfo LIKE 'outpostimprove:%')"
+        " WHERE (e.customInfo LIKE 'outpostupgrade:%%' OR e.customInfo LIKE 'outpostimprove:%%')"
         " AND t.groupID IN (%u, %u)",
         EVEDB::invGroups::Station_Upgrade_Platform, EVEDB::invGroups::Station_Improvement_Platform))
         return;
