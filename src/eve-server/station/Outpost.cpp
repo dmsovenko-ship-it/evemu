@@ -12,6 +12,7 @@
 #include "Client.h"
 #include "EntityList.h"
 #include "EVE_Mail.h"
+#include "EVE_Station.h"
 #include "StaticDataMgr.h"
 #include "station/Outpost.h"
 #include "station/StationDB.h"
