@@ -398,6 +398,7 @@ bool PlayerBot::IsCombatHull(uint16 groupID)
     switch (groupID) {
         case Frigate: case AssaultShip: case Interceptor:
         case CovertOps: case Interdictor: case StealthBomber:
+        case HeavyInterdictors:
         case Destroyer:
         case Cruiser: case HeavyAssaultShip: case CombatRecon:
         case Logistics:

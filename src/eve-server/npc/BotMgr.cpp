@@ -1986,6 +1986,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                     case EVEDB::invGroups::HeavyAssaultShip:
                     case EVEDB::invGroups::Interceptor:
                     case EVEDB::invGroups::Interdictor:
+                    case EVEDB::invGroups::HeavyInterdictors:
                     case EVEDB::invGroups::CombatRecon:
                     case EVEDB::invGroups::Logistics:
                     case EVEDB::invGroups::CovertOps:
@@ -2760,6 +2761,13 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType)
     // giveaway. Build a small race-appropriate T1 fit (all typeIDs exist in this
     // DB and are used elsewhere in BotMgr): 3 weapons, MWD, shield extender,
     // adaptive plating and a damage control.
+    // Devoter (Amarr Heavy Interdictor, 12017): the documented solo survival fit -
+    // 3x Heavy Pulse Laser II + Core Probe Launcher/salvager, 10MN MWD + web, and a
+    // deep 7-slot armour tank (dual Medium Armour Repairer + DCU + EANM + thermic
+    // hardener + heat sink + cap power relay) with a cap-control rig.
+    if (hullType == 12017)
+        return "[3520,3520,3520,17938,30836,12076,526,3530,3530,2048,11269,11648,2364,1447,31372]";
+
     uint16 race = 0;
     Inv::TypeData td = Inv::TypeData();
     sDataMgr.GetType((uint16)hullType, td);
