@@ -683,6 +683,23 @@ PyResult CorpStationMgrIMBound::GetStationImprovements(PyCallArgs &call)
     return new PyObject("util.KeyVal", dict);
 }
 
+// Read a named float field from a station-service rule: the client sends back the
+// util.KeyVal object (pyObject whose argument is a dict) it received from
+// GetStationServiceAccessRule. Also accept a plain dict.
+static double KeyValFloat(PyRep* obj, const char* key)
+{
+    if (obj == nullptr)
+        return 0.0;
+    if (obj->IsObject()) {
+        PyRep* args = obj->AsObject()->arguments();
+        if (args != nullptr && args->IsDict())
+            return PyRep::FloatValue(args->AsDict()->GetItemString(key));
+    }
+    if (obj->IsDict())
+        return PyRep::FloatValue(obj->AsDict()->GetItemString(key));
+    return 0.0;
+}
+
 PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call,
     PyRep* modifiedServiceAccessRulesByServiceID, PyRep* modifiedServiceCostModifiers,
     PyRep* modifiedRentableItems, PyRep* stationName, PyRep* description,
@@ -771,42 +788,50 @@ PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call
         sDatabase.RunQuery(err, "UPDATE staStations SET standingOwnerID = %u WHERE stationID = %u",
                            owner, stationID);
     }
-
-    // Service access rules
+    // Service ACCESS RULES: the client sends a dict { serviceID -> util.KeyVal }
+    // where the KeyVal holds the five standing/security thresholds (the object it
+    // got from GetStationServiceAccessRule). Persist into staOutpostServiceConfig,
+    // the very table that read uses, so the values round-trip.
     if (modifiedServiceAccessRulesByServiceID != nullptr && modifiedServiceAccessRulesByServiceID->IsDict()) {
         PyDict* rules = modifiedServiceAccessRulesByServiceID->AsDict();
         PyDict::const_iterator it = rules->begin();
         while (it != rules->end()) {
-            uint32 serviceID = it->first->AsInt()->value();
-            PyRep* val = it->second;
-            if (val->IsDict()) {
-                PyDict* accessRules = val->AsDict();
-                PyDict::const_iterator ait = accessRules->begin();
-                while (ait != accessRules->end()) {
-                    int32 accessGroup = ait->first->AsInt()->value();
-                    int32 newValue = ait->second->AsInt()->value();
-                    sDatabase.RunQuery(err,
-                        "REPLACE INTO staStationServiceAccessRules "
-                        "(stationID, serviceID, accessGroup, newValue) "
-                        "VALUES (%u, %u, %i, %i)",
-                        stationID, serviceID, accessGroup, newValue);
-                    ++ait;
-                }
-            }
+            uint32 serviceID = (uint32)PyRep::IntegerValue(it->first);
+            PyRep* rule = it->second;
+            sDatabase.RunQuery(err,
+                "INSERT IGNORE INTO staOutpostServiceConfig (stationID, serviceID) VALUES (%u, %u)",
+                stationID, serviceID);
+            sDatabase.RunQuery(err,
+                "UPDATE staOutpostServiceConfig SET minimumStanding = %.4f, minimumCharSecurity = %.4f,"
+                " maximumCharSecurity = %.4f, minimumCorpSecurity = %.4f, maximumCorpSecurity = %.4f"
+                " WHERE stationID = %u AND serviceID = %u",
+                KeyValFloat(rule, "minimumStanding"), KeyValFloat(rule, "minimumCharSecurity"),
+                KeyValFloat(rule, "maximumCharSecurity"), KeyValFloat(rule, "minimumCorpSecurity"),
+                KeyValFloat(rule, "maximumCorpSecurity"), stationID, serviceID);
             ++it;
         }
     }
 
-    // Service cost modifiers
-    if (modifiedServiceCostModifiers != nullptr && modifiedServiceCostModifiers->IsDict()) {
-        PyDict* costs = modifiedServiceCostModifiers->AsDict();
-        PyDict::const_iterator it = costs->begin();
-        while (it != costs->end()) {
-            int32 serviceID = it->first->AsInt()->value();
-            int32 costMod = it->second->AsInt()->value();
-            sDatabase.RunQuery(err,
-                "REPLACE INTO staStationServiceCostModifiers (stationID, serviceID, costModifier) "
-                "VALUES (%u, %i, %i)", stationID, serviceID, costMod);
+    // Service COST MODIFIERS: the client sends a LIST of PackedRows
+    // { serviceID, discountPerGoodStandingPoint, surchargePerBadStandingPoint }.
+    if (modifiedServiceCostModifiers != nullptr && modifiedServiceCostModifiers->IsList()) {
+        PyList* list = modifiedServiceCostModifiers->AsList();
+        PyList::const_iterator it = list->begin();
+        while (it != list->end()) {
+            PyRep* r = *it;
+            if (r != nullptr && r->IsPackedRow()) {
+                PyPackedRow* prow = r->AsPackedRow();
+                uint32 serviceID = (uint32)PyRep::IntegerValue(prow->GetField(0));
+                double disc = PyRep::FloatValue(prow->GetField(1));
+                double sur  = PyRep::FloatValue(prow->GetField(2));
+                sDatabase.RunQuery(err,
+                    "INSERT IGNORE INTO staOutpostServiceConfig (stationID, serviceID) VALUES (%u, %u)",
+                    stationID, serviceID);
+                sDatabase.RunQuery(err,
+                    "UPDATE staOutpostServiceConfig SET discountPerGoodStandingPoint = %.4f,"
+                    " surchargePerBadStandingPoint = %.4f WHERE stationID = %u AND serviceID = %u",
+                    disc, sur, stationID, serviceID);
+            }
             ++it;
         }
     }
