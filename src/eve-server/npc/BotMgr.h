@@ -228,6 +228,10 @@ private:
     // contract and a link is announced in local when a player is present.
     // Returns the contract id, or 0.
     uint32 PlaceBotItemContractAt(uint32 sysID, uint32 stationID, uint32 charID, uint32 corpID, bool auction);
+    // A pilot changing hull SELLS the old one instead of dropping it: park the ship
+    // in the station hangar and list it as a public item-exchange contract (a real,
+    // buyable listing). With no station in the system, credit the salvage value.
+    void SellOldHullAtStation(uint32 charID, uint32 corpID, uint32 sysID, uint32 stationID, uint32 hullItemID);
     // Post a clickable contract link in the local chat of its system, but only
     // if a real player is there (throttled per system so it never spams).
     void AnnounceBotContract(uint32 sysID, uint32 contractId, const std::string& title,

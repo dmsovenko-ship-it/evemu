@@ -2110,8 +2110,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // the dock/reap despawn no longer destroy bot hulls).
     InventoryItemRef iRef;
     bool reusedHull = false;
+    uint32 savedShipItem = 0;   // the hull the pilot last owned (0 = none)
     {
-        uint32 savedShipItem = 0;
         DBQueryResult sr;
         if (sDatabase.RunQuery(sr,
             "SELECT shipID FROM chrCharacters WHERE characterID = %u AND shipID > 0", useCharID)) {
@@ -2129,10 +2129,14 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
                                || prof == PlayerBot::BotProfession::RatHunter
                                || prof == PlayerBot::BotProfession::Missioner);
             if (isShip && (PlayerBot::IsCombatHull(saved->groupID()) != profCombat)) {
-                _log(BOT__MESSAGE, "BotMgr: %s(%u) profession changed - releasing old hull %u.",
+                uint32 stnID = 0;
+                for (auto& [sid, sse] : pSystem->GetStaticEntities())
+                    if (sse != nullptr && sse->GetStationSE() != nullptr) { stnID = sid; break; }
+                _log(BOT__MESSAGE, "BotMgr: %s(%u) profession changed - selling old hull %u.",
                      useName.c_str(), useCharID, saved->typeID());
-                saved->Delete();            // wrong-role hull (with its fitted modules)
+                SellOldHullAtStation(useCharID, useCorpID, pSystem->GetID(), stnID, savedShipItem);
                 isShip = false;
+                savedShipItem = 0;   // handled (sold, not deleted)
             }
             if (isShip) {
                 iRef = saved;
@@ -2199,6 +2203,17 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     }
 
     if (!reusedHull) {
+        // The pilot is CHANGING hull: SELL the old one (with its fit) instead of
+        // orphaning it - bots need the ISK to undock (strict hull purchase).
+        if (savedShipItem != 0) {
+            uint32 stnID = 0;
+            for (auto& [sid, sse] : pSystem->GetStaticEntities())
+                if (sse != nullptr && sse->GetStationSE() != nullptr) { stnID = sid; break; }
+            SellOldHullAtStation(useCharID, useCorpID, pSystem->GetID(), stnID, savedShipItem);
+            DBerror e;
+            sDatabase.RunQuery(e, "UPDATE chrCharacters SET shipID = 0 WHERE characterID = %u", useCharID);
+            savedShipItem = 0;
+        }
         std::string shipName = MakeRandomShipName();
         ItemData idata(hullType, useCorpID, pSystem->GetID(), flagNone, shipName.c_str(), pos);
         iRef = sItemFactory.SpawnItem(idata);
@@ -6514,6 +6529,94 @@ uint32 BotMgr::PlaceBotItemContractAt(uint32 sysID, uint32 stationID, uint32 cha
 
     AnnounceBotContract(sysID, contractId, title, charID, "", corpID);
     return contractId;
+}
+
+void BotMgr::SellOldHullAtStation(uint32 charID, uint32 corpID, uint32 sysID, uint32 stationID, uint32 hullItemID)
+{
+    // A pilot that changes hull SELLS the old one instead of leaving a silent
+    // orphan. With a station: park the ship in the hangar + list it as a public
+    // item-exchange contract. In space: credit the salvage value and drop it.
+    if (charID == 0 || hullItemID == 0)
+        return;
+    InventoryItemRef hull = sItemFactory.GetItemRef(hullItemID);
+    if (hull.get() == nullptr || hull->categoryID() != EVEDB::invCategories::Ship)
+        return;
+    const ItemType* t = sItemFactory.GetType(hull->typeID());
+    double base = (t != nullptr) ? t->basePrice() : 0.0;
+    if (base <= 0.0)
+        base = 1000000.0;
+
+    DBerror err;
+    if (stationID != 0) {
+        // Park the assembled ship in the station hangar (its fitted modules stay
+        // attached as children) and lock it into a public listing.
+        hull->Move(stationID, flagHangar, true);
+        hull->ChangeOwner(charID, false);
+        hull->SaveItem();
+
+        int64 price = (int64)(base * 1.10);
+        if (price < 1)
+            price = 1;
+        int64 now = (int64)GetFileTimeNow();
+        int64 expire = now + (int64)14 * EvE::Time::Day;
+        std::string title = "WTS: " + std::string(sDataMgr.GetTypeName(hull->typeID()));
+        std::string eTitle;
+        sDatabase.DoEscapeString(eTitle, title);
+        uint32 contractId = 0;
+        if (!sDatabase.RunQueryLID(err, contractId,
+            "INSERT INTO ctrContracts"
+            "  (contractType, issuerID, issuerCorpID, forCorp, isPrivate, assigneeID,"
+            "   dateIssued, dateExpired, expireTimeInMinutes, duration, numDays, startStationID, startSolarSystemID,"
+            "   startRegionID, endStationID, endSolarSystemID, endRegionID, price, reward, collateral,"
+            "   title, description, status, volume, startStationDivision)"
+            " VALUES (1, %u, %u, 0, 0, 0, %lli, %lli, %u, %u, %u, %u, %u,"
+            "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u,"
+            "   (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %lli, 0, 0,"
+            "   '%s', 'Item exchange', 0, %f, 1000)",
+            charID, corpID, now, expire, 14 * 24 * 60, 14, 14,
+            stationID, sysID, sysID, stationID, sysID, sysID,
+            price, eTitle.c_str(), (double)((t != nullptr) ? t->volume() : 1.0))) {
+            _log(BOT__ERROR, "SellOldHullAtStation: contract insert failed for %u.", charID);
+            return;
+        }
+        hull->ChangeOwner(1, false);   // locked into the contract
+        hull->SaveItem();
+        sDatabase.RunQuery(err,
+            "INSERT INTO ctrItems (contractId, itemID, quantity, itemTypeID, inCrate, parentID,"
+            "  productivityLevel, materialLevel, isCopy, licensedProductionRunsRemaining, damage, flagID)"
+            " VALUES (%u, %u, 1, %u, 0, 0, 0, 0, 0, 0, 0, 0)",
+            contractId, hull->itemID(), hull->typeID());
+        // Include the fitted modules (the ship's direct children) so the old FIT is
+        // sold too, not abandoned, and lock them into the contract.
+        {
+            DBQueryResult cres;
+            if (sDatabase.RunQuery(cres, "SELECT itemID FROM entity WHERE locationID = %u", hullItemID)) {
+                DBResultRow crow;
+                while (cres.GetRow(crow)) {
+                    InventoryItemRef mod = sItemFactory.GetItemRef(crow.GetUInt(0));
+                    if (mod.get() == nullptr)
+                        continue;
+                    mod->ChangeOwner(1, false);
+                    mod->SaveItem();
+                    sDatabase.RunQuery(err,
+                        "INSERT INTO ctrItems (contractId, itemID, quantity, itemTypeID, inCrate, parentID,"
+                        "  productivityLevel, materialLevel, isCopy, licensedProductionRunsRemaining, damage, flagID)"
+                        " VALUES (%u, %u, %u, %u, 0, 0, 0, 0, 0, 0, 0, 0)",
+                        contractId, mod->itemID(), mod->quantity(), mod->typeID());
+                }
+            }
+        }
+        _log(BOT__MESSAGE, "BotMgr: bot %u listed its old hull %u (with fit) as contract %u (%.0f ISK).",
+             charID, hull->typeID(), contractId, (double)price);
+        AnnounceBotContract(sysID, contractId, title, charID, "", corpID);
+    } else {
+        // No station to sell at: salvage value straight to the wallet, drop the ship.
+        sDatabase.RunQuery(err, "UPDATE chrCharacters SET balance = balance + %.2f WHERE characterID = %u",
+                           base * 0.9, charID);
+        hull->Delete();
+        _log(BOT__MESSAGE, "BotMgr: bot %u sold its old hull %u for %.0f ISK (no station).",
+             charID, hull->typeID(), base * 0.9);
+    }
 }
 
 // A bot docked at the trade hub (Jita) sells the real stock in its hangar into
