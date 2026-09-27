@@ -73,6 +73,10 @@
 | **Incursion gates & HUD** — acceleration gates between pockets, penalty informer HUD (state re-sent on session change) | **Ворота и HUD инкурсий** — ускорительные ворота между карманами, информер штрафов (состояние переотправляется при смене системы) |
 | **EVE-mail** — folders (inbox/sent), read/unread, notifications, live delivery | **EVE-почта** — папки (входящие/отправленные), прочтение, уведомления, живая доставка |
 | **Bot PvP & sov warfare** — highsec suicide-gankers + CONCORD, gate camps, bubble ambushes, kite/brawler, capital fleets with killable **cyno-ship** drops (range-gated, jammer-blockable), player-way SBU sov capture (real anchoring timers); **NPC-school bots never take sovereignty** — they must form a bot corp → alliance | **PvP и войны челоботов** — хайсек-ганкеры + CONCORD, гейт-кемпы, бабл-засады, kite/brawler, кап-флоты с убиваемым **цино-шипом** (гейт по дальности, блок джаммером), захват систем по-игровому (SBU + таймеры анчора); **NPC-корпы суверенитет не берут** — только через объединение в корп → альянс |
+| **Outpost construction & upgrades** — launch the platform egg (alliance sovereignty + Anchoring / Outpost Construction), fill it with materials, it completes at the **next downtime**; upgrade platforms (Foundation→Pedestal→Monument, sequential) + improvement modules deployed beside the outpost and applied at downtime | **Стройка и апгрейд аутпостов** — запуск яйца-платформы (суверенитет альянса + Anchoring/Outpost Construction), заполнение материалами, достройка на **следующем даунтайме**; платформы улучшений (Foundation→Pedestal→Monument, последовательно) + модули улучшений ставятся рядом с аутпостом и применяются на даунтайме |
+| **Station management** — server-side rights (owner corp + Director/Station Manager), rename (escaped, UTF-8/Cyrillic, propagated to map + caches), service access rules & cost modifiers round-trip to the station config | **Управление станцией** — серверные права (корп-владелец + Director/Station Manager), переименование (экранирование, UTF-8/кириллица, попадает на карту и в кэши), настройки доступа и стоимости сервисов кругооборотят |
+| **Fighter-bomber real AoE** — the munition detonates on every ship/drone inside the blast radius (cloaked included), not just the locked target | **Реальный AoE файтеров-бомберов** — бомба бьёт все корабли/дроны в радиусе взрыва (включая клоаку), а не только залоченную цель |
+| **Chelobot economy** — bots earn and accumulate: bounties (hull + drone kills), insurance on loss, market-priced hulls, reprocess-for-profit, pirate ransoms, agent missions L1–L4, customs tax; **property (ship + fit + cargo) persists** across restart and dock/undock | **Экономика челоботов** — боты зарабатывают и копят: баунти (за корпус и дронов), страховка при потере, платные корпуса, переработка на прибыль, выкуп пиратами, миссии L1–L4, таможенный налог; **имущество (корабль+фит+груз) переживает** рестарт и док/ундок |
 | **Petitions (F12) & admin** — category tree, threads, GM queue; login-IP history, human↔human flow audit, shared-IP detection, account notes, ban reasons | **Петиции (F12) и админ** — дерево категорий, треды, очередь GM; история IP, аудит потоков, детект shared-IP, заметки аккаунта, причины бана |
 
 ---
@@ -120,7 +124,7 @@ Full history in `git log` / полная история — в `git log`.
 |--------|:--------:|:--------:|:-:|--------|:--------:|:--------:|:-:|
 | Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
 | Ship Navigation | 70% | **99%** | +29% | Combat & Crimewatch | 90% | 99% | +9% |
-| Modules & Overheating | 85% | 97% | +12% | Drones | 75% | **96%** | +21% |
+| Modules & Overheating | 85% | 97% | +12% | Drones | 75% | **97%** | +21% |
 | NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 97% | +27% |
 | **POS** | 70% | **99%** | +29% | Market | 60% | 95% | +35% |
 | **Incursions** | 0% | **96%** | +96% | Fleet | 75% | **100%** | +25% |
@@ -128,8 +132,8 @@ Full history in `git log` / полная история — в `git log`.
 | **Notifications** | 60% | **97%** | +37% | **Standings** | 60% | 95% | +35% |
 | **Faction Warfare** | 50% | **99%** | +49% | Calendar | 60% | 93% | +33% |
 | Mail & LSC | 60% | **95%** | +35% | Contracts | 60% | 96% | +36% |
-| Corporation | 65% | 93% | +28% | **Alliance** | 55% | **92%** | +37% |
-| **Sovereignty** | 60% | **95%** | +35% | Science & Industry | 45% | **93%** | +48% |
+| Corporation | 65% | 94% | +28% | **Alliance** | 55% | **92%** | +37% |
+| **Sovereignty** | 60% | **96%** | +35% | Science & Industry | 45% | **93%** | +48% |
 | Bookmark System | 70% | 95% | +25% | **Effects System** | 65% | **97%** | +32% |
 | Planetary Interaction | 50% | **95%** | +45% | Deployables (MWD/Probes) | 40% | **99%** | +59% |
 | **Petitions & Support** | 0% | **95%** | +95% | Memory Management | 20% | **85%** | +65% |

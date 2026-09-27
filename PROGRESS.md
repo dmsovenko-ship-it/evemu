@@ -17,7 +17,7 @@
 |--------|---|-----|------|--------|---|-----|------|
 | Account & Character | 97% | `███████████████████░` | +2% | Skills & Certificates | 99% | `████████████████████` | +9% |
 | Ship Navigation | 99% | `████████████████████` | +29% | Combat & Crimewatch | 99% | `████████████████████` | +9% |
-| Modules & Overheating | 97% | `███████████████████░` | +12% | Drones | 96% | `███████████████████░` | +21% |
+| Modules & Overheating | 97% | `███████████████████░` | +12% | Drones | 97% | `███████████████████░` | +21% |
 | NPC AI & Spawning | 97% | `███████████████████░` | +37% | Agents & Missions | 97% | `███████████████████░` | +27% |
 | **POS** | 99% | `████████████████████` | +29% | Market | 95% | `███████████████████░` | +35% |
 | **Incursions** | 96% | `███████████████████░` | +96% | Fleet | 100% | `████████████████████` | +25% |
@@ -25,8 +25,8 @@
 | **Notifications** | 97% | `███████████████████░` | +37% | **Standings** | 95% | `███████████████████░` | +35% |
 | **Faction Warfare** | 99% | `████████████████████` | +49% | Calendar | 93% | `███████████████████░` | +33% |
 | Mail & LSC | 95% | `███████████████████░` | +35% | Contracts | 96% | `███████████████████░` | +36% |
-| Corporation | 93% | `███████████████████░` | +28% | **Alliance** | 92% | `██████████████████░░` | +37% |
-| **Sovereignty** | 95% | `███████████████████░` | +35% | Science & Industry | 93% | `███████████████████░` | +48% |
+| Corporation | 94% | `███████████████████░` | +28% | **Alliance** | 92% | `██████████████████░░` | +37% |
+| **Sovereignty** | 96% | `███████████████████░` | +35% | Science & Industry | 93% | `███████████████████░` | +48% |
 | Bookmark System | 95% | `███████████████████░` | +25% | **Effects System** | 97% | `███████████████████░` | +32% |
 | **Planetary Interaction** | 95% | `███████████████████░` | +45% | Deployables (MWD/Probes) | 99% | `████████████████████` | +59% |
 | **Petitions & Support** | 95% | `███████████████████░` | +95% | Memory Management | 85% | `█████████████████░░░` | +65% |
@@ -129,6 +129,7 @@
 | Skills, control range, bandwidth, damage bonuses | ✅ | ✅ |
 | **EWAR cleanup** — web/paint/scramble released on target loss + drone death | ❌ | ✅ |
 | **Fighter-bomber always hits** — AoE munitions (no tracking/falloff attrs) toHit=1.0, no false "too far away" misses | ❌ | ✅ |
+| **Fighter-bomber real AoE** — the bomb detonates on every ship/drone inside the blast radius (cloaked included), not just the locked target; never bombs the carrier | ❌ | ✅ |
 
 ### 7. NPC AI & Spawning `███████████████████░` 97%
 
@@ -148,6 +149,7 @@
 | **Analytic threat assessment** — combat power judged by hull class potential (capitals may cyno a fleet, battleships assumed fitted, fighter screen in space), not a precise fit check | ❌ | ✅ |
 | **Self-preservation** — non-combat hulls (industrial/barge/freighter/hauler) never fight back, they warp out; a novice misjudge only causes a panic-flee from a winnable fight, never an attack on a fight judged as lost | ❌ | ✅ |
 | **EWAR stickiness fix** — warp scramble / web / paint released when the target leaves the manager, no lingering "Warp drive is disrupted" | ❌ | ✅ |
+| **Empty spawn-class guard** — a spawn class with no rows in the DB cancels the spawn instead of `at(0)` out_of_range abort | ❌ | ✅ |
 
 ### 8. Agents & Missions `███████████████████░` 97%
 
@@ -188,6 +190,7 @@
 | Corp mail role filtering, war bills recurring | ❌ | ✅ |
 | Medals — CreateMedal/GiveMedalToCharacters with cost confirmation | ❌ | ✅ |
 | War declarations — RetractWar/ChangeMutualWarFlag on CorpRegistry | ❌ | ✅ |
+| **Station management** — server-side rights (owner corp + Director / Station Manager), rename (escaped, UTF-8/Cyrillic, propagates to map + caches), service access rules & cost modifiers persisted (parsed from the real client payloads) | ❌ | ✅ |
 
 ### 12. Science & Industry `██████████████████░░` 92%
 
@@ -279,6 +282,7 @@
 | Outpost capture framework | ❌ | ✅ |
 | **Alliance conflict zones** — SBU contested flag, ProcessSovStatusChanged, map display | ❌ | ✅ |
 | **Change journal** — `sovChangeLog` records every owner flip (faction/alliance) with old/new owner | ❌ | ✅ |
+| **Outpost construction & upgrades** — launch the platform egg (alliance sovereignty + Anchoring + Outpost Construction), fill it with materials, and it completes at the **next downtime**; upgrade platforms (Foundation→Pedestal→Monument, sequential) + improvement modules deployed beside the outpost and applied at downtime; station service entities spawned at the station | ❌ | ✅ |
 
 ### 20. Planetary Interaction `███████████████████░` 95%
 
@@ -289,6 +293,7 @@
 | **Customs offices** — anchored to the nearest planet, launch pad tied to `customInfo=planetID`, taxes | ❌ | ✅ |
 | **NPC customs offices** — InterBus offices seeded on all high-sec planets | ❌ | ✅ |
 | Orbital launch from colony to office | ❌ | ✅ |
+| **Planet (Shattered) guard** — a planet type with no resource rows no longer aborts the server on system boot | ❌ | ✅ |
 
 ### 21. Deployables (Mobile Warp Disruptor + Probes) `████████████████████` 99%
 
@@ -452,3 +457,9 @@
 - **Bot PvP warfare** — chelobot violence: highsec suicide-gankers (CONCORD answers on a security-scaled delay), proactive stargate camps (bubble in null, scram/web in low), warp-bubble ambushes with a fleet, kite/brawler styles, role-based tackle; lowsec hunters commit at parity
 - **Chelobot capital fleets & sov** — top-skill nullsec pilots fly capitals (dread/carrier/super, sticky hull); capital fleets assemble from adjacent systems and cyno-drop via a real killable **cyno ship** (a chelobot alt that lights the beacon — kill it to abort the drop), range-gated to ~5 LY and blocked by a cyno jammer; systems are contested the player way (anchor SBUs at >50% of gates with the real anchoring timer → TCU vulnerable → storm it → claim) — **NPC-school corps can never take sovereignty: bots must first form a bot corporation and that a bot alliance**
 - **Memory hardening** — 32-bit refcount, split diagnostics, opt-in hard-fail, sanitizer-driven fixes (XMLParser virtual dtor, hash overflow, aligned assign, bound-service cast); PyRep ownership audits closed every practical leak path (cache rowsets and missile wrappers now freed); field-level temp leaks closed centrally (release helpers + 964 call sites); malloc_trim keeps RSS flat
+- **Outpost construction & upgrades** — launch the construction platform (alliance sovereignty + Anchoring/Outpost Construction), fill it, it completes at the **next downtime**; upgrade platforms (Foundation→Pedestal→Monument, sequential) and improvement modules are deployed beside the outpost and applied at downtime; station service entities spawn at the finished station
+- **Station management** — server-side rights (owner corp + Director/Station Manager); rename with escaping and UTF-8 (Cyrillic) propagated to map + caches; service access rules / cost modifiers round-trip into `staOutpostServiceConfig`
+- **Fighter-bomber real AoE** — the munition detonates on every ship/drone inside the blast radius (cloaked included) instead of only the locked target
+- **Chelobot economy realism** — bots earn and accumulate: bounties credited to the pilot (hull and drone kills), insurance payout on loss, market-priced hulls (not free), reprocess-for-profit (buy a cheap module, melt it), pirate **ransom** demands (paid via a real wallet donation → the pirate leaves), agent missions L1–L4 (payout by agent level), customs export tax paid to the office owner; **property persists** — ship + fit + cargo survive restart and dock/undock (the boot cleanup only runs when bots are disabled)
+- **Crash guards** — planet types with no PI resources (e.g. *Planet (Shattered)*) and empty spawn classes no longer abort the server on system boot
+- **SQL/DB hygiene** — literal `%` in `LIKE` escaped as `%%` for the printf-formatted `RunQuery`; deleted migrations cleared from the `migrations` table so EVEDBTool plans cleanly
