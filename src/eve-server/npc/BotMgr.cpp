@@ -6391,7 +6391,7 @@ uint32 BotMgr::PlaceStockCourierContractAt(uint32 sysID, uint32 stationID, uint3
             sDatabase.RunQuery(ierr,
                 "INSERT INTO ctrItems (contractId, itemID, quantity, itemTypeID, inCrate, parentID,"
                 "  productivityLevel, materialLevel, isCopy, licensedProductionRunsRemaining, damage, flagID)"
-                " VALUES (%u, %u, %u, %u, 0, 0, 0, 0, 0, 0, 0, 0)",
+                " VALUES (%u, %u, %u, %u, 1, 0, 0, 0, 0, 0, 0, 0)",
                 contractId, part->itemID(), take, ct.typeID);
             remaining -= take;
         }
@@ -6559,7 +6559,7 @@ uint32 BotMgr::PlaceBotItemContractAt(uint32 sysID, uint32 stationID, uint32 cha
             sDatabase.RunQuery(ierr,
                 "INSERT INTO ctrItems (contractId, itemID, quantity, itemTypeID, inCrate, parentID,"
                 "  productivityLevel, materialLevel, isCopy, licensedProductionRunsRemaining, damage, flagID)"
-                " VALUES (%u, %u, %u, %u, 0, 0, 0, 0, 0, 0, 0, 0)",
+                " VALUES (%u, %u, %u, %u, 1, 0, 0, 0, 0, 0, 0, 0)",
                 contractId, part->itemID(), take, st.typeID);
             remaining -= take;
         }
@@ -6626,7 +6626,7 @@ void BotMgr::SellOldHullAtStation(uint32 charID, uint32 corpID, uint32 sysID, ui
         sDatabase.RunQuery(err,
             "INSERT INTO ctrItems (contractId, itemID, quantity, itemTypeID, inCrate, parentID,"
             "  productivityLevel, materialLevel, isCopy, licensedProductionRunsRemaining, damage, flagID)"
-            " VALUES (%u, %u, 1, %u, 0, 0, 0, 0, 0, 0, 0, 0)",
+                " VALUES (%u, %u, 1, %u, 1, 0, 0, 0, 0, 0, 0, 0)",
             contractId, hull->itemID(), hull->typeID());
         // Include the fitted modules (the ship's direct children) so the old FIT is
         // sold too, not abandoned, and lock them into the contract.
@@ -6643,7 +6643,7 @@ void BotMgr::SellOldHullAtStation(uint32 charID, uint32 corpID, uint32 sysID, ui
                     sDatabase.RunQuery(err,
                         "INSERT INTO ctrItems (contractId, itemID, quantity, itemTypeID, inCrate, parentID,"
                         "  productivityLevel, materialLevel, isCopy, licensedProductionRunsRemaining, damage, flagID)"
-                        " VALUES (%u, %u, %u, %u, 0, 0, 0, 0, 0, 0, 0, 0)",
+                        " VALUES (%u, %u, %u, %u, 1, 0, 0, 0, 0, 0, 0, 0)",
                         contractId, mod->itemID(), mod->quantity(), mod->typeID());
                 }
             }
