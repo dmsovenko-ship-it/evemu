@@ -2394,11 +2394,28 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // keep the killmail ship). Professional hulls (miner barges, haulers, scan
     // frigates) are force-picked per profession above and would mismatch a combat
     // legend's fit — those bots run a profession fit instead, not a lossmail one.
+    // A re-boarded hull normally keeps its fit - but if it has NO fitted modules
+    // (created before the fit existed, or stripped) materialize one so a BARE hull
+    // never flies: a combat bot with an empty fit is a dead giveaway.
+    bool shipHasModules = false;
+    if (reusedHull && iRef.get() != nullptr) {
+        DBQueryResult mchk;
+        if (sDatabase.RunQuery(mchk,
+            "SELECT 1 FROM entity WHERE locationID = %u"
+            " AND ((flag BETWEEN 11 AND 18) OR (flag BETWEEN 19 AND 26)"
+            " OR (flag BETWEEN 27 AND 34) OR (flag BETWEEN 92 AND 99)) LIMIT 1",
+            iRef->itemID())) {
+            DBResultRow mrow;
+            shipHasModules = mchk.GetRow(mrow);
+        }
+    }
+    bool needsFit = (!reusedHull || !shipHasModules);
+
     bool combatProf = (prof == PlayerBot::BotProfession::Hunter
                        || prof == PlayerBot::BotProfession::RatHunter
                        || prof == PlayerBot::BotProfession::Missioner);
     bool fitUsable = (useFit.size() > 2);   // more than the empty "[]"
-    if (!reusedHull && fitUsable && hullType == useShipType && !useFit.empty()) {
+    if (needsFit && fitUsable && hullType == useShipType && !useFit.empty()) {
         // After a loss the pilot must re-BUY the fit on the open market with its
         // own ISK (upgraded as far as its skill tier + wallet allow), exactly like
         // a real player who lost a ship. New/undocked spawns that were never
@@ -2436,7 +2453,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         } else {
             MaterializeBotFit(iRef, useCharID, useFit);
         }
-    } else if (!reusedHull && combatProf) {
+    } else if (needsFit && combatProf) {
         // No usable legend/profession fit for this pilot/hull: a combat bot still
         // flies FITTED - a wreck/killmail with only cargo and no modules is a dead
         // giveaway that it is not a real player.
@@ -2445,7 +2462,7 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             MaterializeBotFit(iRef, useCharID, fb);
     }
     // Ammo/charges (T1/T2 by skill tier) + small profession-typical cargo.
-    if (!reusedHull)
+    if (needsFit)
         MaterializeShipLoad(iRef, useCharID, (uint8)prof, skillTier);
     // Smartbomb battleship: give the hull an EMP field range so NPCAI fires its
     // AoE smartbomb burst at everything nearby (a clustered belt).
@@ -2826,6 +2843,11 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType)
     // hardener + heat sink + cap power relay) with a cap-control rig.
     if (hullType == 12017)
         return "[3520,3520,3520,17938,30836,12076,526,3530,3530,2048,11269,11648,2364,1447,31372]";
+    // Celestis (633): the documented passive-shield + drone PvE fit - 2x 150mm
+    // Railgun I + 2x Heavy Assault Missile Launcher II, 10MN Afterburner, 3x Large
+    // Shield Extender, Overdrive/MFS/PDS, Core Defense Field Extender rig.
+    if (hullType == 633)
+        return "[565,565,25715,25715,12056,3839,3839,3839,1244,9944,1539,31790]";
 
     uint16 race = 0;
     Inv::TypeData td = Inv::TypeData();
