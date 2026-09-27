@@ -2854,18 +2854,76 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType)
     // giveaway. Build a small race-appropriate T1 fit (all typeIDs exist in this
     // DB and are used elsewhere in BotMgr): 3 weapons, MWD, shield extender,
     // adaptive plating and a damage control.
-    // Devoter (Amarr Heavy Interdictor, 12017): the documented solo survival fit -
-    // 3x Heavy Pulse Laser II + Core Probe Launcher/salvager, 10MN MWD + web, and a
-    // deep 7-slot armour tank (dual Medium Armour Repairer + DCU + EANM + thermic
-    // hardener + heat sink + cap power relay) with a cap-control rig.
-    if (hullType == 12017)
-        return "[3520,3520,3520,17938,30836,12076,526,3530,3530,2048,11269,11648,2364,1447,31372]";
-    // Celestis (633): the documented passive-shield + drone PvE fit - 2x 150mm
-    // Railgun I + 2x Heavy Assault Missile Launcher II, 10MN Afterburner, 3x Large
-    // Shield Extender, Overdrive/MFS/PDS, Core Defense Field Extender rig.
-    if (hullType == 633)
-        return "[565,565,25715,25715,12056,3839,3839,3839,1244,9944,1539,31790]";
+    // Crucible-era fits, 4-5 VARIANTS per common hull, picked at random so the
+    // population looks varied (brawler / tank / sniper / shield / tackle / EW).
+    // All typeIDs verified in this DB. Unknown hulls get a generic race fit below.
+    static const std::map<uint32, std::vector<std::string>> variants = {
+        { 609, {  // Maulus - Gallente EW frigate
+            "[561,561,1968,1968,1968,439,11349,11267,2048]",   // sensor dampeners
+            "[561,561,439,526,3839,11349,2048]",               // light tackle
+            "[561,561,1968,1968,439,11267,11349,2048]",        // damp + tank
+            "[561,561,439,3839,3839,11349,11267,2048]",        // shield buffer
+        } },
+        { 597, {  // Punisher - Amarr frigate
+            "[451,451,451,439,11349,11267,2048,2363]",         // pulse + buffer
+            "[451,451,451,439,3528,11267,2048]",               // active armour rep
+            "[451,451,451,526,11349,11267,2048]",              // web + buffer
+            "[451,451,451,439,11349,11349,11267,2048]",        // dual plate
+        } },
+        { 613, {  // Devourer - Blood Raider frigate (same armour laser fits)
+            "[451,451,451,439,11349,11267,2048,2363]",
+            "[451,451,451,439,3528,11267,2048]",
+            "[451,451,451,526,11349,11267,2048]",
+            "[451,451,451,439,11349,11349,11267,2048]",
+        } },
+        { 603, {  // Merlin - Caldari frigate
+            "[561,561,10629,439,3839,12274,2048]",             // rail + rocket
+            "[499,499,499,439,3839,12274,2048]",               // light missiles
+            "[561,561,439,3839,3839,2048]",                    // shield buffer
+            "[561,561,10629,439,526,12274,2048]",              // tackle
+        } },
+        { 587, {  // Rifter - Minmatar frigate
+            "[486,486,486,439,526,11349,520,2048]",            // autocannon tackle
+            "[486,486,486,439,3839,520,2048]",                 // shield
+            "[486,486,486,526,11349,520,2048]",                // web + buffer
+            "[486,486,486,439,11349,11267,2048]",              // plate
+        } },
+        { 626, {  // Vexor - Gallente drone cruiser
+            "[569,569,569,569,12056,3528,11267,11349,2048]",   // blaster armour
+            "[569,569,569,569,12056,3839,3839,12274,2048]",    // shield blaster
+            "[565,565,565,565,12056,3528,11267,11349,2048]",   // rail armour
+            "[569,569,569,569,12056,3528,3528,11267,2048]",    // dual rep
+            "[569,569,569,569,12056,527,3528,11267,2048]",     // web + tackle
+        } },
+        { 627, {  // Thorax - Gallente blaster cruiser
+            "[569,569,569,569,569,12056,527,3528,11267,11349,2048]",
+            "[569,569,569,569,569,12056,526,3528,3528,11267,2048]",
+            "[569,569,569,569,569,12056,3839,3839,12274,2048]",
+            "[565,565,565,565,565,12056,527,3528,11267,11349,2048]",
+        } },
+        { 621, {  // Caracal - Caldari missile cruiser
+            "[501,501,501,501,501,12056,3839,3839,12274,12274,2048]",          // HML
+            "[25715,25715,25715,25715,25715,12056,3839,3839,12274,12274,2048]",// HAM brawler
+            "[499,499,499,499,499,12056,3839,3839,12274,2048]",                // light missiles
+            "[501,501,501,501,501,12056,3839,12274,2048]",                     // sniper
+        } },
+        { 633, {  // Celestis - Gallente EW cruiser
+            "[565,565,25715,25715,12056,3839,3839,3839,1244,9944,1539,31790]",// passive shield + drones
+            "[565,565,565,526,12056,3839,3839,12274,2048]",                   // rails + tackle
+            "[12265,12265,12265,12265,12056,3839,3839,3839,11267,2048]",      // NOS cap drain
+            "[565,565,25715,25715,12056,3839,3839,11267,11349,2048]",         // buffer brawler
+        } },
+        { 12017, {  // Devoter - Amarr Heavy Interdictor
+            "[3520,3520,3520,17938,30836,12076,526,3530,3530,2048,11269,11648,2364,1447,31372]", // tank & analyse
+            "[3520,3520,3520,12076,526,11269,11269,11269,2048,2364]",       // buffer + drones
+            "[3520,3520,3520,526,3530,3530,2048,11269,11648,2364]",         // active rep
+        } },
+    };
+    auto vit = variants.find(hullType);
+    if (vit != variants.end() && !vit->second.empty())
+        return vit->second[MakeRandomInt(0, (int)vit->second.size() - 1)];
 
+    // Generic race fallback for any other combat hull.
     uint16 race = 0;
     Inv::TypeData td = Inv::TypeData();
     sDataMgr.GetType((uint16)hullType, td);
@@ -2878,11 +2936,7 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType)
     std::string fit = "[";
     for (int i = 0; i < 3; ++i)
         fit += std::to_string(weapon) + ",";
-    fit += "434,";      // 1MN Microwarpdrive I
-    fit += "380,";      // Small Shield Extender II
-    fit += "11269,";    // Energized Adaptive Nano Membrane II
-    fit += "2048";      // Damage Control II
-    fit += "]";
+    fit += "434,380,11269,2048]";
     return fit;
 }
 
