@@ -1284,8 +1284,8 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
     for (auto& [id, se] : ents) {
         if (se == nullptr || se == m_pDrone)
             continue;
-        if (!se->IsShipSE() && !se->IsDroneSE())
-            continue;                       // ships and drones/fighters only
+        if (!se->IsShipSE() && !se->IsDroneSE() && !se->IsNPCSE())
+            continue;                       // ships, drones/fighters and NPCs/bots
         if (se->DestinyMgr() == nullptr)
             continue;
         if (se->GetPosition().distance(pTarget->GetPosition()) > blast)
