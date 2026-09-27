@@ -74,23 +74,25 @@ BotMgr::BotMgr()
 
 void BotMgr::CleanupOrphanedSpaceItems()
 {
-    // Chelobot ships/drones are their PROPERTY and must survive restarts - bots
-    // have to accumulate wealth to grow into corporations, nullsec and capitals.
-    // Purge leftovers ONLY when bots are DISABLED in the config; never with them
-    // enabled (the boot wipes were draining every pilot's assets each restart).
-    if (sConfig.playerBots.Enabled)
-        return;
-
+    // A pilot's hull is its PROPERTY and survives restarts (re-boarded on spawn),
+    // so the sweeps below SPARE anything a character still lists as its shipID.
+    // Everything with no owner is a leftover (crashes / dead bots) and is removed -
+    // this MUST run with bots enabled too, or orphans pile up every restart.
     DBerror err;
     uint32 affected = 0;
 
-    // 0) Reset stale chelobot session rows: a docked/reaped bot keeps online=1
-    //    plus a shipID pointing at a ship deleted with it, which would keep the
-    //    sweeps below from removing crash leftovers. Bots rewrite these on spawn.
+    // 0) Reset stale session rows (a docked/reaped bot keeps online=1). We KEEP
+    //    shipID so the sweeps spare the pilot's property.
     if (!sDatabase.RunQuery(err,
         "UPDATE chrCharacters c JOIN botMemory bm ON bm.charID = c.characterID "
-        "SET c.online = 0, c.stationID = 0, c.shipID = 0, c.solarSystemID = 0"))
+        "SET c.online = 0, c.stationID = 0, c.solarSystemID = 0"))
         _log(BOT__ERROR, "BotMgr: bot session reset failed: %s", err.GetError());
+    // Heal a shipID whose ship row is gone (destroyed) so it is not mistaken for
+    // property (and does not hide a real orphan by reference).
+    if (!sDatabase.RunQuery(err,
+        "UPDATE chrCharacters c JOIN botMemory bm ON bm.charID = c.characterID "
+        "SET c.shipID = 0 WHERE c.shipID > 0 AND c.shipID NOT IN (SELECT itemID FROM entity)"))
+        _log(BOT__ERROR, "BotMgr: bot stale-ship heal failed: %s", err.GetError());
 
     // 1) Orphan ships: corp-owned hulls in space that no character lists as
     //    its active ship (chelobot hulls after a crash, transient NPC spawns).
