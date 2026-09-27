@@ -349,6 +349,17 @@ void StationDataMgr::AddOutpost(StationData &data) {
     LoadStationPyData();
 }
 
+void StationDataMgr::RenameStation(uint32 stationID, const std::string& name)
+{
+    // Update the in-memory station data and drop the client-facing PyData caches
+    // so the new name is what everyone reads next (no relog needed).
+    auto it = m_stationData.find(stationID);
+    if (it != m_stationData.end())
+        it->second.name = name;
+    m_stationPyData.clear();
+    LoadStationPyData();
+}
+
 /** errata
  *  office folderIDs are stationID + 6m  (for the 66m range)
  *

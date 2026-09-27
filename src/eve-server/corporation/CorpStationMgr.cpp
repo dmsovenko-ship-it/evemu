@@ -693,11 +693,37 @@ PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call
     call.Dump(CORP__CALL_DUMP);
     uint32 stationID = call.client->GetLocationID();
 
+    // Server-side rights: only the station's OWNING corp may manage it, and only a
+    // Director or a member with the Station Manager role. The client hides the UI,
+    // but a hand-crafted call must not bypass the check.
+    {
+        StationItemRef st = sEntityList.GetStationByID(stationID);
+        uint32 ownerCorp = (st.get() != nullptr) ? st->ownerID() : 0;
+        int64 roles = call.client->GetCorpRole() | call.client->GetRolesAtAll();
+        bool allowed = (ownerCorp != 0 && call.client->GetCorporationID() == ownerCorp
+                        && (roles & (Corp::Role::Director | Corp::Role::StationManager)));
+        if (!allowed) {
+            call.client->SendErrorMsg("You do not have permission to manage this station.");
+            _log(CORP__WARNING, "%s tried to manage station %u without rights (corp %u, roles %lli).",
+                 call.client->GetName(), stationID, call.client->GetCorporationID(), roles);
+            return PyStatic.NewNone();
+        }
+    }
+
     DBerror err;
+    // Escape free-text fields. The name is stored as UTF-8 (PyWString keeps UTF-8,
+    // so Cyrillic is fine) and may contain quotes/backslashes.
     std::string name = PyRep::StringContent(stationName);
     if (!name.empty()) {
+        std::string nameEsc;
+        sDatabase.DoEscapeString(nameEsc, name);
         sDatabase.RunQuery(err, "UPDATE staStations SET stationName = '%s' WHERE stationID = %u",
-                           name.c_str(), stationID);
+                           nameEsc.c_str(), stationID);
+        // Keep the map/overview name and the in-memory + client caches in sync so
+        // the new name shows immediately (no relog).
+        sDatabase.RunQuery(err, "UPDATE mapDenormalize SET itemName = '%s' WHERE itemID = %u",
+                           nameEsc.c_str(), stationID);
+        stDataMgr.RenameStation(stationID, name);
     }
 
     double dCost = PyRep::FloatValue(dockingCostPerVolume);
@@ -727,8 +753,10 @@ PyResult CorpStationMgrIMBound::UpdateStationManagementSettings(PyCallArgs &call
     if (description != nullptr && !description->IsNone()) {
         std::string desc = PyRep::StringContent(description);
         if (!desc.empty()) {
+            std::string descEsc;
+            sDatabase.DoEscapeString(descEsc, desc);
             sDatabase.RunQuery(err, "UPDATE staStations SET description = '%s' WHERE stationID = %u",
-                               desc.c_str(), stationID);
+                               descEsc.c_str(), stationID);
         }
     }
 

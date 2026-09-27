@@ -43,6 +43,9 @@ public:
 
     uint32              GetOwnerID(uint32 stationID);
     std::string         GetStationName(uint32 stationID);
+    // Rename a station in the cache (after a corp renamed it) and refresh the
+    // client-facing PyData so the new name shows without a relog.
+    void                RenameStation(uint32 stationID, const std::string& name);
     uint32              GetStationSystemID(uint32 stationID);
 
     double              GetDockPosY(uint32 stationID);
