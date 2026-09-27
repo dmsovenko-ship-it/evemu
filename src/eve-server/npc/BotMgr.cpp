@@ -2981,15 +2981,30 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType, uint8 skillTier, dou
         { 24688,{ "[565,565,565,565,565,565,565,565,12056,3839,3839,12274,2048]" } }, // Rokh
         { 644,  { "[13320,13320,13320,13320,13320,13320,12056,3528,11267,11325,2048]" } }, // Typhoon
         // --- Faction / pirate hulls (rich bots) ---
-        { 17720,{ "[486,486,486,486,12056,3839,3839,12274,2048]" } },   // Cynabal
-        { 17722,{ "[569,569,569,569,569,12056,527,3528,11267,11325,2048]" } }, // Vigilant
+        { 17720,{ // Cynabal - belt-ratting autocannon shield buffer
+            "[2913,2913,2913,2913,4258,3841,394,12058,519,2605,2048,31682,31802]",
+                  // L3 artillery + MWD kite
+            "[2865,2865,2865,2865,3841,12076,2024,519,1999,2048,31802]" } }, // Cynabal
+        { 17722,{ // Vigilant - blaster brawler (Burner): 5x Heavy Neutron Blaster II,
+                  // MWD + scram + cap booster, MAR + EANM + DCU + MFS
+            "[3146,3146,3146,3146,3146,12076,448,2024,3530,2048,11269,10190,31047]" } }, // Vigilant
         { 17718,{ "[3520,3520,3520,3520,3520,3839,3839,11267,2048]" } }, // Phantasm
-        { 17738,{ "[486,486,486,486,486,486,12056,3839,3839,12274,2048]" } }, // Machariel
+        { 17738,{ // Machariel - artillery sniper (L4): 1200mm AC II + salvager,
+                  // dual Gyro/Tracking Enh, DCU, op-solidifier + burst aerator rigs
+            "[2865,2865,2865,2865,2865,2865,2865,25861,519,519,1999,2048,26086,26046]",
+                  // Vanguard autocannon armour (Incursions): 7x 425mm AC II,
+                  // sensor booster, 1600mm plate + EANM + dual Gyro
+            "[2913,2913,2913,2913,2913,2913,2913,1952,11325,11269,519,519,2048]" } }, // Machariel
         { 17736,{ "[3520,3520,3520,3520,3520,3520,12056,3839,3839,12274,2048]" } }, // Nightmare
-        { 17740,{ "[569,569,569,569,569,569,569,12056,3528,3530,11269,11325,2048]" } }, // Vindicator
+        { 17740,{ // Vindicator - blaster brawler PvE: 8x Neutron Blaster Cannon II,
+                  // target painter, 3x MFS II + Tracking Enh + DCU + EANM
+            "[3186,3186,3186,3186,3186,3186,3186,3186,19806,10190,10190,10190,1999,2048,11269,25948]" } }, // Vindicator
         { 17920,{ "[12265,12265,12265,12265,12265,12056,3528,11267,11325,2048]" } }, // Bhaalgorn (neuts)
         { 17918,{ "[13320,13320,13320,13320,13320,13320,12056,3839,3839,3839,12274,2048]" } }, // Rattlesnake
-        { 17715,{ "[501,501,501,501,12056,3839,3839,12274,2048]" } },   // Gila
+        { 17715,{ // Gila - passive shield + RLML (hisite/Abyssal): 4x Rapid Light
+                  // Missile Launcher II, 3x Large Shield Extender II, AB, DCU,
+                  // 3x Med Core Defense Field Purger rig (drones = main damage)
+            "[1877,1877,1877,1877,3841,3841,3841,12058,2048,31802,31802,31802]" } }, // Gila
         { 17930,{ "[10629,10629,10629,439,3839,12274,2048]" } },        // Worm
         { 17924,{ "[451,451,451,451,439,3839,2048]" } },                // Succubus
         { 17932,{ "[486,486,486,439,3839,520,2048]" } },                // Dramiel
