@@ -134,6 +134,35 @@ void BotMgr::CleanupOrphanedSpaceItems()
     else if (affected > 0)
         sLog.White("      BotMgr", "Space cleanup: removed %u orphaned drones (pilot docked/offline).", affected);
 
+    // 2b) Excess wormhole entities: the per-system cap only used the in-memory
+    //     list (reset on every (re)boot) so stale wormhole balls accumulated and
+    //     flooded grids (142 in one system). Keep the newest `cap` per system.
+    {
+        DBQueryResult wres;
+        if (sDatabase.RunQuery(wres,
+            "SELECT e.locationID, e.itemID FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+            " WHERE t.groupID = 988 ORDER BY e.locationID, e.itemID DESC")) {
+            DBResultRow wrow;
+            uint32 lastSys = 0, seen = 0;
+            std::vector<uint32> del;
+            while (wres.GetRow(wrow)) {
+                uint32 sys = wrow.GetUInt(0), id = wrow.GetUInt(1);
+                if (sys != lastSys) { lastSys = sys; seen = 0; }
+                uint32 cap = (sys >= 31000000) ? 2 : 1;
+                if (seen >= cap)
+                    del.push_back(id);
+                ++seen;
+            }
+            DBerror werr;
+            for (uint32 id : del) {
+                sDatabase.RunQuery(werr, "DELETE FROM entity_attributes WHERE itemID = %u", id);
+                sDatabase.RunQuery(werr, "DELETE FROM entity WHERE itemID = %u", id);
+            }
+            if (!del.empty())
+                sLog.White("     Wormholes", "Space cleanup: removed %u excess wormhole entities.", (uint32)del.size());
+        }
+    }
+
     // 3) the stable-pilot-pool trim (see TrimPilotPool below for details).
     TrimPilotPool();
 }

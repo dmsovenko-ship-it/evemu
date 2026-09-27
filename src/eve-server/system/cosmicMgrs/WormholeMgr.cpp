@@ -251,6 +251,20 @@ void WormholeMgr::Create(CosmicSignature& sig, uint32 exitSystemID/*=0*/, uint32
                 ++whCount;
         }
         uint32 whCap = (sig.systemID >= 31000000) ? 2 : 1;
+        // Count PERSISTENT wormhole entities too: the in-memory list resets on
+        // every system (re)boot, so the cap was bypassed each boot and wormholes
+        // piled up (142 entities flooded one system's grid). Persist-aware cap.
+        DBQueryResult wres;
+        if (sDatabase.RunQuery(wres,
+            "SELECT COUNT(*) FROM entity e JOIN invTypes t ON t.typeID = e.typeID"
+            " WHERE e.locationID = %u AND t.groupID = 988", sig.systemID)) {
+            DBResultRow wrow;
+            if (wres.GetRow(wrow) && wrow.GetUInt(0) >= whCap) {
+                _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Create() - system %u already has %u persistent wormholes (cap %u), skipping spawn.",
+                     sig.systemID, wrow.GetUInt(0), whCap);
+                return;
+            }
+        }
         if (whCount >= whCap) {
             _log(WORMHOLE_MGR__DEBUG, "WormholeMgr::Create() - system %u already has %u wormholes (cap %u), skipping spawn.", sig.systemID, whCount, whCap);
             return;
