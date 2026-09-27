@@ -3013,21 +3013,30 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType, uint8 skillTier, dou
                   // Vanguard autocannon armour (Incursions): 7x 425mm AC II,
                   // sensor booster, 1600mm plate + EANM + dual Gyro
             "[2913,2913,2913,2913,2913,2913,2913,1952,11325,11269,519,519,2048]" } }, // Machariel
-        { 17736,{ "[3520,3520,3520,3520,3520,3520,12056,3839,3839,12274,2048]" } }, // Nightmare
+        { 17736,{ // Nightmare (Blood Raider BS) - laser dmg + shield resist: 6x Heavy
+                  // Beam Laser II + Gist X-Type LSB + 2x Invuln II + boost amp,
+                  // 3x Heat Sink II + DCU + PDS  (2nd = pulse, close range)
+            "[3025,3025,3025,3025,3025,3025,19200,2281,2281,24443,2364,2364,2364,2048,1541]",
+            "[3520,3520,3520,3520,3520,3520,19200,2281,24443,2364,2364,2364,2048,1541]" } }, // Nightmare
         { 17740,{ // Vindicator - blaster brawler PvE: 8x Neutron Blaster Cannon II,
                   // target painter, 3x MFS II + Tracking Enh + DCU + EANM
             "[3186,3186,3186,3186,3186,3186,3186,3186,19806,10190,10190,10190,1999,2048,11269,25948]" } }, // Vindicator
-        { 17920,{ "[12265,12265,12265,12265,12265,12056,3528,11267,11325,2048]" } }, // Bhaalgorn (neuts)
-        { 17918,{ "[13320,13320,13320,13320,13320,13320,12056,3839,3839,3839,12274,2048]" } }, // Rattlesnake
+        { 17920,{ // Bhaalgorn (Blood Raider BS) - lasers + HEAVY neuts: 4x Heavy Pulse
+                  // Laser II + 4x Medium Energy Neutralizer I, AB + cap rechargers,
+                  // dual MAR + EANM + plate + DCU
+            "[3520,3520,3520,3520,12265,12265,12265,12265,12056,2032,2032,3528,3528,11269,11325,2048]" } }, // Bhaalgorn
+        { 17918,{ // Rattlesnake (Guristas BS) - drones + kinetic missiles + shield:
+                  // 6x Cruise Missile Launcher I + 2x LSE II + Invuln II, 2x BCS II + DCU
+            "[13320,13320,13320,13320,13320,13320,12056,3841,3841,2281,22291,22291,2048]" } }, // Rattlesnake
         { 17715,{ // Gila - passive shield + RLML (hisite/Abyssal): 4x Rapid Light
                   // Missile Launcher II, 3x Large Shield Extender II, AB, DCU,
                   // 3x Med Core Defense Field Purger rig (drones = main damage)
             "[1877,1877,1877,1877,3841,3841,3841,12058,2048,31802,31802,31802]" } }, // Gila
-        { 17930,{ "[10629,10629,10629,439,3839,12274,2048]" } },        // Worm
-        { 17924,{ "[451,451,451,451,439,3839,2048]" } },                // Succubus
-        { 17932,{ "[486,486,486,439,3839,520,2048]" } },                // Dramiel
-        { 17922,{ "[12265,12265,12265,451,12056,3528,11267,2048]" } },  // Ashimmu
-        { 17928,{ "[569,569,569,439,3528,2048]" } },                    // Daredevil
+        { 17930,{ "[499,499,10629,439,3839,3839,22291,2048]" } },        // Worm (kinetic missiles + drones + shield)
+        { 17924,{ "[451,451,451,439,3839,3839,2363,2363,2048]" } },      // Succubus (pulse lasers + fast AB + shield)
+        { 17932,{ "[2889,2889,2889,439,526,3839,519,2048]" } },          // Dramiel (autocannons + speed + web + shield)
+        { 17922,{ "[12265,12265,12265,3520,12056,526,3528,11267,11325,2048]" } }, // Ashimmu (web + neuts + lasers + armour)
+        { 17928,{ "[3146,3146,439,526,3528,2048]" } },                   // Daredevil (blasters + web)
         // --- Stealth Bombers (covert: torpedo launcher + bomb launcher + cloak) ---
         { 12032,{ "[2420,2420,2420,11578,27914,380,3244,3568,11563,22291,2605,2605]" } }, // Manticore
         { 11377,{ "[2420,2420,2420,11578,27914,380,3244,3568,11563,22291,2605,2605]" } }, // Nemesis
