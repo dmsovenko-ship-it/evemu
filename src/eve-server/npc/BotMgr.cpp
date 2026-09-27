@@ -2936,7 +2936,7 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType, uint8 skillTier, dou
         // --- More cruisers ---
         { 2006, { "[451,451,451,451,12056,3528,11267,11349,2048]", "[451,451,451,451,12056,3528,3528,11267,2048]" } }, // Omen
         { 624,  { "[451,451,451,451,451,12056,3528,11267,11325,2048]", "[451,451,451,451,451,12056,3530,11269,11269,11325,2048]" } }, // Maller
-        { 625,  { "[451,451,451,12056,3528,11267,11349,2048]", "[451,451,451,12056,3528,3528,11267,2048]" } }, // Augoror
+        { 625,  { "[451,451,451,12056,3528,11267,11349,2048]", "[26913,26913,26913,12056,2032,2032,11269,2048,31372]" } }, // Augoror (2nd = armor logi)
         { 629,  { "[486,486,486,486,12056,526,3528,11267,11349,2048]", "[486,486,486,486,12056,3839,3839,12274,2048]" } }, // Rupture
         { 632,  { "[561,561,561,12056,3839,3839,12274,2048]", "[501,501,501,501,12056,3839,3839,2048]" } }, // Blackbird
         { 634,  { "[561,561,561,12056,3528,11267,2048]", "[451,451,451,12056,3528,11267,11349,2048]" } },   // Exequror
@@ -2949,6 +2949,14 @@ std::string BotMgr::BuildCombatFallbackFit(uint32 hullType, uint8 skillTier, dou
         { 12015,{ "[486,486,486,486,12056,3839,3839,12274,2048]", "[486,486,486,486,12056,526,3528,2048]" } },   // Muninn
         { 12011,{ "[565,565,565,565,565,12056,3839,3839,12274,2048]", "[565,565,565,565,565,12056,3528,11267,2048]" } }, // Eagle
         { 12023,{ "[569,569,569,569,569,12056,527,3530,11269,11325,2048]", "[569,569,569,569,569,12056,526,3528,3528,2048]" } }, // Deimos
+        // --- Logistics (armor; Crucible has no remote-SHIELD booster modules) ---
+        { 11987,{ // Guardian - armor fleet logi: 4x Large Remote Armor Repair System II
+                  // + 2x Large 'Regard' Power Projector (cap chain), AB + ECCM,
+                  // 1600mm plate + DCU + 2x EANM + armor hardeners, Trimark rigs
+            "[26914,26914,26914,26914,16487,16487,12058,2262,11325,2048,11269,11269,11648,11644,31055,31055]" } }, // Guardian
+        { 11989,{ // Oneiros - solo/medium armor logi: 4x Large Remote Armor Repair Sys II,
+                  // MWD + Sensor Booster, 3x Cap Power Relay + DCU + 800mm plate, cap rigs
+            "[26914,26914,26914,26914,12076,1952,1447,1447,1447,2048,11317,31372,31372]" } }, // Oneiros
         // --- Strategic Cruisers (T3) - Crucible community fits (modules only; the
         //     Emu does not model T3 subsystems) ---
         { 29986,{ // Legion - laser PvE: 6x Heavy Beam Laser II, AB, 2x Cap Recharger,
