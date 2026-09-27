@@ -299,6 +299,15 @@ bool SystemManager::SystemActivity() {
         return true;   // prefetcher holds this system: a player is one jump away
     if (!m_clients.empty())
         return true;   // players present (docked or in space) — never unload under them
+    // A DOCKED player still belongs to this system (their station is here): never
+    // unload the system under them (it would drop their station/hangar SE).
+    {
+        std::vector<Client*> clients;
+        sEntityList.GetClients(clients);
+        for (Client* c : clients)
+            if (c != nullptr && c->GetSystemID() == m_data.systemID)
+                return true;
+    }
     if (m_activityTime == 0)
         return true;
     if ((sEntityList.GetStamp() - m_activityTime) > 60)

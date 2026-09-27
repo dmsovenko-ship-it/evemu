@@ -358,7 +358,10 @@ PyDict *StationSE::MakeSlimItem() {
 
 void StationSE::UnloadStation()
 {
-    m_self->GetMyInventory()->Unload();
+    // A station item whose inventory failed to load has GetMyInventory()==null;
+    // guard it so unloading the system does not segfault.
+    if (m_self.get() != nullptr && m_self->GetMyInventory() != nullptr)
+        m_self->GetMyInventory()->Unload();
 }
 
 /*
