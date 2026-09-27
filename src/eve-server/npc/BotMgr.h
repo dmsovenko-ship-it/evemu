@@ -158,6 +158,9 @@ private:
     // dogma power effect), so the client shows the real fit and the wreck drops
     // actual module loot. Skipped when the ship has no slots or fit is empty.
     void MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson, uint32 buyStationID = 0);
+    // Race-appropriate T1 combat fit (JSON typeIDs) used when a combat bot has no
+    // usable legend/profession fit, so it never flies a bare hull.
+    std::string BuildCombatFallbackFit(uint32 hullType);
     // Re-buy a killed bot's fit on the open market (see BotBuyStock) with real
     // ISK, upgrading each module as far as the pilot's skill tier allows. Returns
     // a re-serialised fit JSON of what was actually bought (empty if nothing).

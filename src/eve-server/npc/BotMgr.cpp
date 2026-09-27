@@ -2321,7 +2321,11 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // keep the killmail ship). Professional hulls (miner barges, haulers, scan
     // frigates) are force-picked per profession above and would mismatch a combat
     // legend's fit — those bots run a profession fit instead, not a lossmail one.
-    if (!reusedHull && hullType == useShipType && !useFit.empty()) {
+    bool combatProf = (prof == PlayerBot::BotProfession::Hunter
+                       || prof == PlayerBot::BotProfession::RatHunter
+                       || prof == PlayerBot::BotProfession::Missioner);
+    bool fitUsable = (useFit.size() > 2);   // more than the empty "[]"
+    if (!reusedHull && fitUsable && hullType == useShipType && !useFit.empty()) {
         // After a loss the pilot must re-BUY the fit on the open market with its
         // own ISK (upgraded as far as its skill tier + wallet allow), exactly like
         // a real player who lost a ship. New/undocked spawns that were never
@@ -2359,6 +2363,13 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
         } else {
             MaterializeBotFit(iRef, useCharID, useFit);
         }
+    } else if (!reusedHull && combatProf) {
+        // No usable legend/profession fit for this pilot/hull: a combat bot still
+        // flies FITTED - a wreck/killmail with only cargo and no modules is a dead
+        // giveaway that it is not a real player.
+        std::string fb = BuildCombatFallbackFit(hullType);
+        if (!fb.empty())
+            MaterializeBotFit(iRef, useCharID, fb);
     }
     // Ammo/charges (T1/T2 by skill tier) + small profession-typical cargo.
     if (!reusedHull)
@@ -2729,6 +2740,33 @@ void BotMgr::FetchPortraitAsync(uint32 serverCharID, uint32 eveCharID)
 //   - RecordBotKillMail (PlayerBot.cpp) lists real items in the lossmail, so the
 //     kill page shows the genuine fit instead of a synthesized one.
 //   - A wreck of this ship can drop the real module loot like a player's wreck.
+std::string BotMgr::BuildCombatFallbackFit(uint32 hullType)
+{
+    // A combat bot with no usable legend/profession fit must still fly a FITTED
+    // hull - a wreck/killmail that shows only cargo and no modules is a dead
+    // giveaway. Build a small race-appropriate T1 fit (all typeIDs exist in this
+    // DB and are used elsewhere in BotMgr): 3 weapons, MWD, shield extender,
+    // adaptive plating and a damage control.
+    uint16 race = 0;
+    Inv::TypeData td = Inv::TypeData();
+    sDataMgr.GetType((uint16)hullType, td);
+    if (td.id == (uint16)hullType)
+        race = td.race;
+    uint32 weapon = 484;   // Minmatar 125mm Gatling AutoCannon I (default)
+    if (race == 1)      weapon = 499;   // Caldari Light Missile Launcher I
+    else if (race == 4) weapon = 450;   // Amarr Gatling Pulse Laser I
+    else if (race == 8) weapon = 561;   // Gallente 75mm Gatling Rail I
+    std::string fit = "[";
+    for (int i = 0; i < 3; ++i)
+        fit += std::to_string(weapon) + ",";
+    fit += "434,";      // 1MN Microwarpdrive I
+    fit += "380,";      // Small Shield Extender II
+    fit += "11269,";    // Energized Adaptive Nano Membrane II
+    fit += "2048";      // Damage Control II
+    fit += "]";
+    return fit;
+}
+
 void BotMgr::MaterializeBotFit(InventoryItemRef shipRef, uint32 charID, const std::string& fitJson, uint32 buyStationID)
 {
     if (shipRef.get() == nullptr || charID == 0 || fitJson.empty())
