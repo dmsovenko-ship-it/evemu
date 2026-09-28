@@ -6907,6 +6907,76 @@ void BotMgr::SellOldHullAtStation(uint32 charID, uint32 corpID, uint32 sysID, ui
         base = 1000000.0;
 
     DBerror err;
+
+    // The contract route saturates (bot item-exchange listings piled up into the
+    // thousands). When there are too many open bot listings, liquidate on the
+    // MARKET instead: list the hull AND its fit as real sell orders so players buy
+    // them straight off the market. Orders are typeID-based, so the physical items
+    // are consumed (deleted) - the market mints/delivers on sale.
+    if (stationID != 0) {
+        uint32 openListings = 0;
+        DBQueryResult lr;
+        if (sDatabase.RunQuery(lr,
+            "SELECT COUNT(*) FROM ctrContracts c JOIN chrCharacters ch ON ch.characterID = c.issuerID"
+            " WHERE c.contractType = 1 AND c.status = 0 AND ch.accountID = 0")) {
+            DBResultRow lrow;
+            if (lr.GetRow(lrow))
+                openListings = lrow.GetUInt(0);
+        }
+        uint32 openBotOrders = 0;
+        DBQueryResult orq;
+        if (sDatabase.RunQuery(orq,
+            "SELECT COUNT(*) FROM mktOrders WHERE bid = 0 AND ownerID BETWEEN 90000000 AND 99999999")) {
+            DBResultRow orow;
+            if (orq.GetRow(orow))
+                openBotOrders = orow.GetUInt(0);
+        }
+
+        // Disposal cascade: item-exchange contract -> market sell orders -> melt
+        // into minerals (the docked economy then hauls them to the trade hub).
+        if (openListings >= 1000 && openBotOrders >= 20000) {
+            MeltHullToMinerals(charID, stationID, hullItemID);
+            return;
+        }
+        if (openListings >= 1000) {
+            double price = base * 1.10;
+            if (price < 1.0)
+                price = 1.0;
+            sDatabase.RunQuery(err,
+                "INSERT INTO mktOrders (typeID, ownerID, regionID, stationID, solarSystemID, orderRange, bid, price,"
+                " escrow, minVolume, volEntered, volRemaining, issued, duration, isCorp, accountKey, memberID)"
+                " VALUES (%u, %u, (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u, 32767, 0, %f,"
+                " 0, 1, 1, 1, %f, 30, 0, 1000, %u)",
+                hull->typeID(), charID, sysID, stationID, sysID, price, GetFileTimeNow(), charID);
+            DBQueryResult cres;
+            if (sDatabase.RunQuery(cres, "SELECT itemID FROM entity WHERE locationID = %u", hullItemID)) {
+                DBResultRow crow;
+                while (cres.GetRow(crow)) {
+                    InventoryItemRef mod = sItemFactory.GetItemRef(crow.GetUInt(0));
+                    if (mod.get() == nullptr)
+                        continue;
+                    const ItemType* mt = sItemFactory.GetType(mod->typeID());
+                    double mp = ((mt != nullptr) ? mt->basePrice() : 0.0) * 1.10;
+                    if (mp < 1.0)
+                        mp = 1.0;
+                    uint32 q = (uint32)mod->quantity();
+                    if (q == 0)
+                        q = 1;
+                    sDatabase.RunQuery(err,
+                        "INSERT INTO mktOrders (typeID, ownerID, regionID, stationID, solarSystemID, orderRange, bid, price,"
+                        " escrow, minVolume, volEntered, volRemaining, issued, duration, isCorp, accountKey, memberID)"
+                        " VALUES (%u, %u, (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u, 32767, 0, %f,"
+                        " 0, 1, %u, %u, %f, 30, 0, 1000, %u)",
+                        mod->typeID(), charID, sysID, stationID, sysID, mp, q, q, GetFileTimeNow(), charID);
+                }
+            }
+            hull->Delete();
+            _log(BOT__MESSAGE, "BotMgr: bot %u liquidated hull %u + fit on the MARKET (%u open bot listings).",
+                 charID, hull->typeID(), openListings);
+            return;
+        }
+    }
+
     if (stationID != 0) {
         // Park the assembled ship in the station hangar (its fitted modules stay
         // attached as children) and lock it into a public listing.
@@ -6977,6 +7047,50 @@ void BotMgr::SellOldHullAtStation(uint32 charID, uint32 corpID, uint32 sysID, ui
         _log(BOT__MESSAGE, "BotMgr: bot %u sold its old hull %u for %.0f ISK (no station).",
              charID, hull->typeID(), base * 0.9);
     }
+}
+
+// Last resort for a surplus hull: melt it (and its fitted modules) into minerals
+// at 60% station refine efficiency, deposit the minerals in the station hangar.
+// The normal docked-economy loop then hauls/sells that stock at the trade hub, so
+// nothing is silently lost and the item eventually reaches the market as minerals.
+void BotMgr::MeltHullToMinerals(uint32 charID, uint32 stationID, uint32 hullItemID)
+{
+    if (charID == 0 || stationID == 0 || hullItemID == 0)
+        return;
+    InventoryItemRef hull = sItemFactory.GetItemRef(hullItemID);
+    if (hull.get() == nullptr)
+        return;
+
+    // Everything to melt: the hull itself plus its fitted modules (children rows).
+    std::vector<uint32> typeIDs;
+    typeIDs.push_back(hull->typeID());
+    DBQueryResult cres;
+    if (sDatabase.RunQuery(cres, "SELECT typeID FROM entity WHERE locationID = %u", hullItemID)) {
+        DBResultRow crow;
+        while (cres.GetRow(crow))
+            typeIDs.push_back(crow.GetUInt(0));
+    }
+
+    for (uint32 typeID : typeIDs) {
+        if (typeID == 0)
+            continue;
+        DBQueryResult m;
+        if (!sDatabase.RunQuery(m, "SELECT materialTypeID, quantity FROM invTypeMaterials WHERE typeID = %u", typeID))
+            continue;
+        DBResultRow mrow;
+        while (m.GetRow(mrow)) {
+            uint32 matQty = (uint32)(mrow.GetUInt(1) * 0.6);
+            if (matQty == 0)
+                continue;
+            ItemData idata((uint16)mrow.GetUInt(0), charID, stationID, flagHangar, matQty);
+            InventoryItemRef min = sItemFactory.SpawnItem(idata);
+            if (min.get() != nullptr)
+                min->SaveItem();
+        }
+    }
+    hull->Delete();
+    _log(BOT__MESSAGE, "BotMgr: bot %u melted hull %u + fit into minerals at %u (both routes saturated).",
+         charID, hull->typeID(), stationID);
 }
 
 // A bot docked at the trade hub (Jita) sells the real stock in its hangar into

@@ -236,6 +236,9 @@ private:
     // in the station hangar and list it as a public item-exchange contract (a real,
     // buyable listing). With no station in the system, credit the salvage value.
     void SellOldHullAtStation(uint32 charID, uint32 corpID, uint32 sysID, uint32 stationID, uint32 hullItemID);
+    // Last-resort disposal: melt a surplus hull + its fit into minerals (60% refine)
+    // in the station hangar (the docked economy then hauls them to the trade hub).
+    void MeltHullToMinerals(uint32 charID, uint32 stationID, uint32 hullItemID);
     // Post a clickable contract link in the local chat of its system, but only
     // if a real player is there (throttled per system so it never spams).
     void AnnounceBotContract(uint32 sysID, uint32 contractId, const std::string& title,
