@@ -6905,6 +6905,14 @@ void BotMgr::SellOldHullAtStation(uint32 charID, uint32 corpID, uint32 sysID, ui
     InventoryItemRef hull = sItemFactory.GetItemRef(hullItemID);
     if (hull.get() == nullptr || hull->categoryID() != EVEDB::invCategories::Ship)
         return;
+    // A rookie/corvette hull (Ibis/Velator/Reaper/Impairor) is worthless - nobody
+    // buys it and refining it is pointless. Destroy it outright, never list it.
+    if (hull->groupID() == EVEDB::invGroups::Rookieship) {
+        _log(BOT__MESSAGE, "BotMgr: bot %u discarded its rookie ship %u (not listed).",
+             charID, hull->typeID());
+        hull->Delete();
+        return;
+    }
     const ItemType* t = sItemFactory.GetType(hull->typeID());
     double base = (t != nullptr) ? t->basePrice() : 0.0;
     if (base <= 0.0)
