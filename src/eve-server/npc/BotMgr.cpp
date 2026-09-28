@@ -8720,11 +8720,17 @@ std::string BotMgr::AskBrain(const std::string& prompt)
     if (m_lastBrainCall != 0 && now - m_lastBrainCall < 60 * EvE::Time::Second)
         return "";   // at most one brain call per minute
     m_lastBrainCall = now;
-    std::string ans = BotChat::QueryDeepSeek(prompt,
-        "You are the tactical brain of a chelobot gank fleet in EVE Online (Crucible). "
-        "Decide ruthlessly and concisely. Reply ONLY 'YES' or 'NO'.");
-    _log(BOT__MESSAGE, "BotMgr::AskBrain() -> '%s'", ans.c_str());
-    return ans;
+    // Fire-and-forget: QueryDeepSeek is a SYNCHRONOUS HTTPS call (curl waits up
+    // to 20 s) and this runs on the GAME thread - blocking it froze the whole
+    // server. The caller trusts its own math when we return "".
+    std::string p = prompt;
+    std::thread([p]() {
+        std::string ans = BotChat::QueryDeepSeek(p,
+            "You are the tactical brain of a chelobot gank fleet in EVE Online (Crucible). "
+            "Decide ruthlessly and concisely. Reply ONLY 'YES' or 'NO'.");
+        _log(BOT__MESSAGE, "BotMgr::AskBrain() -> '%s' (async)", ans.c_str());
+    }).detach();
+    return "";
 }
 
 // Officer-hunt escalation: a corp that lost to an officer brings a bigger fleet
@@ -8735,9 +8741,12 @@ std::string BotMgr::AskBrain(const std::string& prompt)
 std::string BotMgr::AskBrainCached(uint8 profession, const std::string& threat, const std::string& context)
 {
     std::string key = std::to_string((int)profession) + ":" + threat;
-    auto it = m_brainCache.find(key);
-    if (it != m_brainCache.end())
-        return it->second;
+    {
+        std::lock_guard<std::mutex> lk(m_brainMutex);
+        auto it = m_brainCache.find(key);
+        if (it != m_brainCache.end())
+            return it->second;
+    }
 
     // 1) learned strategy from the DB (no LLM needed)
     DBQueryResult r;
@@ -8745,7 +8754,10 @@ std::string BotMgr::AskBrainCached(uint8 profession, const std::string& threat, 
         DBResultRow row;
         if (r.GetRow(row)) {
             std::string adv = row.GetText(0);
-            m_brainCache[key] = adv;
+            {
+                std::lock_guard<std::mutex> lk(m_brainMutex);
+                m_brainCache[key] = adv;
+            }
             DBerror e;
             sDatabase.RunQuery(e,
                 "UPDATE botStrategy SET uses = uses + 1, lastUse = NOW() WHERE strategyKey = '%s'",
@@ -8754,37 +8766,53 @@ std::string BotMgr::AskBrainCached(uint8 profession, const std::string& threat, 
         }
     }
 
-    // 2) ask DeepSeek ONCE (throttled), then store
+    // 2) no learned strategy yet: ask DeepSeek ONCE, on a BACKGROUND thread.
+    //    NEVER block the game thread here - this is called from PlayerBot::Killed
+    //    and QueryDeepSeek is a synchronous HTTPS call (curl waits up to 20 s).
+    //    Blocking on it froze the whole server, which the player saw as the
+    //    combat log hanging on a kill. The advice is stored for the NEXT one.
     if (!sConfig.playerBots.ChatEnabled || sConfig.playerBots.DeepSeekKey.empty())
         return "";
     int64 now = GetFileTimeNow();
     if (m_lastBrainCall != 0 && now - m_lastBrainCall < 60 * EvE::Time::Second)
         return "";   // at most one brain call per minute
-    m_lastBrainCall = now;
-    std::string ans = BotChat::QueryDeepSeek(context,
-        "You are a chelobot's tactical brain in EVE Online (Crucible). Answer ONLY with a "
-        "comma-separated subset of these tokens: GUARDS,DRONES,FLEE,FLEET,AVOID,REFIT. No other words.");
-
-    // sanitize to the allowed token set (never cache junk)
-    std::string advice;
-    for (const char* tok : { "GUARDS", "DRONES", "FLEE", "FLEET", "AVOID", "REFIT" }) {
-        if (ans.find(tok) != std::string::npos) {
-            if (!advice.empty()) advice += ",";
-            advice += tok;
-        }
+    {
+        std::lock_guard<std::mutex> lk(m_brainMutex);
+        if (m_brainInFlight.count(key))
+            return "";   // a call for this key is already running
+        m_brainInFlight.insert(key);
     }
-    if (advice.empty())
-        return "";
+    m_lastBrainCall = now;
 
-    m_brainCache[key] = advice;
-    DBerror e;
-    sDatabase.RunQuery(e,
-        "INSERT INTO botStrategy (strategyKey, profession, threat, advice, uses, lastUse) "
-        "VALUES ('%s', %u, '%s', '%s', 1, NOW()) "
-        "ON DUPLICATE KEY UPDATE advice = VALUES(advice), uses = uses + 1, lastUse = NOW()",
-        key.c_str(), (unsigned)profession, threat.c_str(), advice.c_str());
-    _log(BOT__MESSAGE, "BotMgr: brain learned [%s] = %s", key.c_str(), advice.c_str());
-    return advice;
+    std::thread([this, key, profession, threat, context]() {
+        std::string ans = BotChat::QueryDeepSeek(context,
+            "You are a chelobot's tactical brain in EVE Online (Crucible). Answer ONLY with a "
+            "comma-separated subset of these tokens: GUARDS,DRONES,FLEE,FLEET,AVOID,REFIT. No other words.");
+        std::string advice;
+        for (const char* tok : { "GUARDS", "DRONES", "FLEE", "FLEET", "AVOID", "REFIT" }) {
+            if (ans.find(tok) != std::string::npos) {
+                if (!advice.empty()) advice += ",";
+                advice += tok;
+            }
+        }
+        if (!advice.empty()) {
+            {
+                std::lock_guard<std::mutex> lk(m_brainMutex);
+                m_brainCache[key] = advice;
+            }
+            DBerror e;
+            sDatabase.RunQuery(e,
+                "INSERT INTO botStrategy (strategyKey, profession, threat, advice, uses, lastUse) "
+                "VALUES ('%s', %u, '%s', '%s', 1, NOW()) "
+                "ON DUPLICATE KEY UPDATE advice = VALUES(advice), uses = uses + 1, lastUse = NOW()",
+                key.c_str(), (unsigned)profession, threat.c_str(), advice.c_str());
+            _log(BOT__MESSAGE, "BotMgr: brain learned [%s] = %s (async)", key.c_str(), advice.c_str());
+        }
+        std::lock_guard<std::mutex> lk(m_brainMutex);
+        m_brainInFlight.erase(key);
+    }).detach();
+
+    return "";
 }
 
 void BotMgr::TrainBotCombatSkill(uint32 charID)

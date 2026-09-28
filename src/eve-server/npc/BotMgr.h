@@ -9,6 +9,8 @@
 #include <set>
 #include <deque>
 #include <atomic>
+#include <thread>
+#include <mutex>
 #include <ctime>
 
 class SystemManager;
@@ -447,6 +449,8 @@ private:
     std::map<uint32, int64> m_cynoShips;          // cyno ship charID -> despawn time
     int64 m_lastBrainCall = 0;                    // throttle for AskBrain (DeepSeek)
     std::map<std::string, std::string> m_brainCache;   // strategyKey -> advice
+    std::mutex m_brainMutex;                      // guards m_brainCache / m_brainInFlight
+    std::set<std::string> m_brainInFlight;        // strategy keys with a background LLM call running
     std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
     struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
     std::vector<ConcordTemp> m_concordTemp;      // store IDs (system may unload)
