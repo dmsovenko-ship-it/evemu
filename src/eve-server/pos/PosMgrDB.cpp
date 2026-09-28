@@ -140,10 +140,16 @@ bool PosMgrDB::GetBaseData(EVEPOS::StructureData& data)
 void PosMgrDB::SaveBaseData(EVEPOS::StructureData& data)
 {
     DBerror err;
+    // Upsert: anchoring / onlining / re-anchoring a module can save its row more
+    // than once (Init + Anchor + SetOnline), so a plain INSERT hit the duplicate
+    // PRIMARY key (#1062). Update every field on conflict instead.
     sDatabase.RunQuery(err,
         "INSERT INTO posStructureData "
         "(itemID, towerID, anchorpointID, state, status, timestamp, claimTime, canUse, canView, canTake)"
-        " VALUES ( %i, %i, %i, %i, %i, %lli, %lli, %i, %i, %i)",
+        " VALUES ( %i, %i, %i, %i, %i, %lli, %lli, %i, %i, %i)"
+        " ON DUPLICATE KEY UPDATE towerID=VALUES(towerID), anchorpointID=VALUES(anchorpointID),"
+        " state=VALUES(state), status=VALUES(status), timestamp=VALUES(timestamp),"
+        " claimTime=VALUES(claimTime), canUse=VALUES(canUse), canView=VALUES(canView), canTake=VALUES(canTake)",
         data.itemID, data.towerID, data.anchorpointID, data.state, data.status, data.timestamp, data.claimTime, data.use, data.view, data.take);
 }
 
