@@ -700,6 +700,10 @@ void DestinyManager::Stop() {
 
     if (m_userSpeedFraction == 0.0f) {
         m_stop = true;
+        // A warp cannot stay active at speed 0 - drop the ball mode so the
+        // ProcessState WARP case does not treat this as a live warp.
+        if (m_ballMode == Destiny::Ball::Mode::WARP)
+            m_ballMode = Destiny::Ball::Mode::STOP;
     } else if ((m_ballMode == Destiny::Ball::Mode::WARP) and (IsWarping())) {
         // Active warp aborted вЂ” coast to destination at drop speed instead of snap STOP.
         // Client's WarpLoop has exited; keep the ship moving so the client sees deceleration.
@@ -726,6 +730,11 @@ void DestinyManager::Stop() {
         //stop called while moving
         m_ballMode = Destiny::Ball::Mode::STOP;
     }
+
+    // Never leave a stale warp state behind: the m_userSpeedFraction==0 branch
+    // above skips the warp-abort cleanup, which left IsWarping() true forever -
+    // the ship stood still but was flagged "warping" and could not be targeted.
+    SafeDelete(m_warpState);
 
     m_accel = false;
     m_decel = false;
