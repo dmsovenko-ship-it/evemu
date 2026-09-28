@@ -335,6 +335,9 @@ void BotMgr::Process()
     // Temporary cyno ships despawn after their window.
     ProcessCynoShips();
 
+    // Post bot chat replies whose text was generated on a background thread.
+    PostPendingChatReplies();
+
     // Keep every loaded bot POS topped up to its doctrine (fills free CPU/grid
     // with shield resists and small guns). Throttled — it walks loaded systems.
     {
@@ -9327,26 +9330,58 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
                       "Answer as yourself — respond to what was asked, keep it natural and in character.";
     }
 
-    std::string reply = BotChat::QueryDeepSeek(prompt, systemHint);
-    if (reply.empty())
-        return;
-
-    // Post the reply to the system's local channel as this bot.
-    LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
-    if (lsc == nullptr) return;
-    LSCChannel* chan = lsc->GetChannelByID(channelID);
-    if (chan != nullptr) {
-        chan->SendBotMessage(responder->GetBotCharID(), responder->GetBotName(),
-                             responder->GetBotCorpID(), reply);
-        RecordChannelPhrase(channelID, responder->GetBotCharID(), reply);
-        // Remember this line so a reply to it can be LEARNED (botChatLearned).
-        m_lastBotPhrase[channelID] = { responder->GetBotCharID(), reply, time(nullptr) };
+    // Generate the reply OFF the game thread: QueryDeepSeek is a synchronous
+    // HTTPS call (curl waits up to 20 s), and blocking the game thread froze the
+    // whole server whenever a bot was addressed in local. The answer is queued
+    // and posted from the tick (PostPendingChatReplies), where entities are safe.
+    {
+        std::lock_guard<std::mutex> lk(m_chatMutex);
+        if (m_chatInFlight >= 6)
+            return;                        // already too many pending replies
+        ++m_chatInFlight;
     }
+    uint32 sysID = pSystem->GetID();
+    uint32 botChar = responder->GetBotCharID();
+    std::string botName = responder->GetBotName();
+    uint32 botCorp = responder->GetBotCorpID();
+    std::thread([this, sysID, channelID, botChar, botName, botCorp, prompt, systemHint]() {
+        std::string reply = BotChat::QueryDeepSeek(prompt, systemHint);
+        std::lock_guard<std::mutex> lk(m_chatMutex);
+        --m_chatInFlight;
+        if (!reply.empty())
+            m_pendingChatReplies.push_back({ sysID, channelID, botChar, botName, botCorp, reply });
+    }).detach();
+}
 
-    // Self-learning: this bot sent a chat line. Record it (persisted).
-    if (responder->GetMemory() != nullptr) {
-        responder->GetMemory()->RecordChatLine();
-        responder->GetMemory()->Save();
+// Called from the game tick: send queued bot chat replies (their text was fetched
+// off-thread) on the local channels.
+void BotMgr::PostPendingChatReplies()
+{
+    std::deque<PendingChatReply> ready;
+    {
+        std::lock_guard<std::mutex> lk(m_chatMutex);
+        ready.swap(m_pendingChatReplies);
+    }
+    for (auto& r : ready) {
+        SystemManager* pSystem = sEntityList.FindOrBootSystem(r.sysID);
+        if (pSystem == nullptr)
+            continue;
+        LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
+        if (lsc == nullptr)
+            continue;
+        LSCChannel* chan = lsc->GetChannelByID(r.channelID);
+        if (chan == nullptr)
+            continue;
+        chan->SendBotMessage(r.botChar, r.botName, r.botCorp, r.reply);
+        RecordChannelPhrase(r.channelID, r.botChar, r.reply);
+        // Remember this line so a reply to it can be LEARNED (botChatLearned).
+        m_lastBotPhrase[r.channelID] = { r.botChar, r.reply, time(nullptr) };
+        // Self-learning: this bot sent a chat line. Record it (persisted).
+        PlayerBot* pb = BotMgr_FindInSystem(pSystem, r.botChar);
+        if (pb != nullptr && pb->GetMemory() != nullptr) {
+            pb->GetMemory()->RecordChatLine();
+            pb->GetMemory()->Save();
+        }
     }
 }
 

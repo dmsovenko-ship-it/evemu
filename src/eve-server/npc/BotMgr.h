@@ -451,6 +451,13 @@ private:
     std::map<std::string, std::string> m_brainCache;   // strategyKey -> advice
     std::mutex m_brainMutex;                      // guards m_brainCache / m_brainInFlight
     std::set<std::string> m_brainInFlight;        // strategy keys with a background LLM call running
+    // Chat replies are generated off the game thread (a synchronous DeepSeek call
+    // froze the server); the reply is posted back here and sent from the game tick.
+    struct PendingChatReply { uint32 sysID; int32 channelID; uint32 botChar; std::string botName; uint32 botCorp; std::string reply; };
+    std::mutex m_chatMutex;
+    unsigned m_chatInFlight = 0;
+    std::deque<PendingChatReply> m_pendingChatReplies;
+    void PostPendingChatReplies();
     std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
     struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
     std::vector<ConcordTemp> m_concordTemp;      // store IDs (system may unload)
