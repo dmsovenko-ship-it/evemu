@@ -509,6 +509,13 @@ int8 DroneAIMgr::GetState() {
 
 void DroneAIMgr::Return() {
     m_assignedShip = m_pDrone->GetHomeShip();
+    if (m_assignedShip == nullptr) {
+        // The home ship is gone (destroyed / unloaded). There is nothing to fly
+        // back to - bail out instead of Follow(nullptr), which dereferenced the
+        // null ship in GetPosition() and crashed the server (SIGSEGV).
+        m_returnToBay = false;
+        return;
+    }
     m_pDrone->DestinyMgr()->SetMaxVelocity(m_chaseSpeed);
     m_pDrone->DestinyMgr()->Follow(m_assignedShip, 0);  // fly directly to ship; Departing handler checks < m_entityOrbitRange
     m_state = DroneAI::State::Departing;

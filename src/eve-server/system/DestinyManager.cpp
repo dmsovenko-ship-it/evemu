@@ -2493,6 +2493,8 @@ void DestinyManager::BeginMovement() {
 void DestinyManager::Follow(SystemEntity* pSE, uint32 distance) {
     //called from client as 'CmdFollowBall'
     //  also used by 'Approach'
+    if (pSE == nullptr)
+        return;   // nothing to follow (e.g. the drone's home ship is gone) - avoid a null deref
     if (mySE->HasPilot())
         _log(AUTOPILOT__MESSAGE, "Follow(%s): dist=%u isGate=%d isStation=%d AP=%d hasPilot=%d",
              pSE->GetName(), distance, pSE->IsGateSE(), pSE->IsStationSE(),
