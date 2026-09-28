@@ -239,6 +239,8 @@ private:
     // Last-resort disposal: melt a surplus hull + its fit into minerals (60% refine)
     // in the station hangar (the docked economy then hauls them to the trade hub).
     void MeltHullToMinerals(uint32 charID, uint32 stationID, uint32 hullItemID);
+    // Buy cheap (below-base) minerals from the region and feed them to production.
+    void BuyCheapMinerals(uint32 charID, uint32 stationID);
     // Post a clickable contract link in the local chat of its system, but only
     // if a real player is there (throttled per system so it never spams).
     void AnnounceBotContract(uint32 sysID, uint32 contractId, const std::string& title,

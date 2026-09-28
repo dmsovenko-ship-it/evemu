@@ -6061,6 +6061,10 @@ void BotMgr::ProcessDockedIndustrialEconomy(uint32 sysID, uint32 stationID, cons
             StartPosSupplyRun(db, sysID, stationID);
     }
 
+    // Absorb the cheap mineral supply into production (the hull-melt cascade feeds it).
+    if (MakeRandomInt(0, 99) < 30)
+        BuyCheapMinerals(db.charID, stationID);
+
     // Pick a random T1 product we can actually build (module/charge/ship), cheap
     // enough for a bot wallet. T2 lines are reachable through recursion once the
     // T1/components are available on the local market.
@@ -7091,6 +7095,70 @@ void BotMgr::MeltHullToMinerals(uint32 charID, uint32 stationID, uint32 hullItem
     hull->Delete();
     _log(BOT__MESSAGE, "BotMgr: bot %u melted hull %u + fit into minerals at %u (both routes saturated).",
          charID, hull->typeID(), stationID);
+}
+
+// Close the loop: a producer soaks up the mineral surplus. When a mineral is
+// trading below its base value (cheap, i.e. supply > demand - fed by the hull-melt
+// cascade), buy a batch and hand it to the crafting chain. Bounded to a fraction
+// of the wallet so a producer cannot bankrupt itself on speculation.
+void BotMgr::BuyCheapMinerals(uint32 charID, uint32 stationID)
+{
+    if (charID == 0 || stationID == 0)
+        return;
+    uint32 regionID = sDataMgr.GetStationRegion(stationID);
+    if (regionID == 0)
+        return;
+
+    double balance = 0.0;
+    {
+        DBQueryResult br;
+        if (sDatabase.RunQuery(br, "SELECT balance FROM chrCharacters WHERE characterID = %u", charID)) {
+            DBResultRow brow;
+            if (br.GetRow(brow)) balance = brow.GetDouble(0);
+        }
+    }
+    double budget = balance * 0.15;             // spend at most 15% of the wallet
+    if (budget < 10000.0)
+        return;
+
+    static const uint32 minerals[] = { 34, 35, 36, 37, 38, 39, 40 };   // Trit .. Megacyte
+    for (uint32 typeID : minerals) {
+        if (budget <= 0.0)
+            break;
+        const ItemType* mt = sItemFactory.GetType(typeID);
+        if (mt == nullptr || mt->basePrice() <= 0.0)
+            continue;
+        // cheapest sell order in the region
+        double ask = 0.0;
+        {
+            DBQueryResult ar;
+            if (sDatabase.RunQuery(ar,
+                "SELECT MIN(price) FROM mktOrders WHERE typeID = %u AND bid = 0 AND price > 0"
+                "  AND regionID = %u AND ownerID <> %u",
+                typeID, regionID, charID)) {
+                DBResultRow arow;
+                if (ar.GetRow(arow)) ask = arow.GetDouble(0);
+            }
+        }
+        if (ask <= 0.0 || ask >= mt->basePrice() * 0.95)
+            continue;                            // not offered, or not cheap enough
+
+        uint32 qty = (uint32)(budget / ask);
+        if (qty > 20000)
+            qty = 20000;
+        if (qty < 100)
+            continue;
+        // Import from the region (reaches the hub surplus); fall back to the local
+        // best sell order (which also allows a partial fill).
+        double spent = sMktMgr.BotBuyStockRemote(charID, stationID, typeID, qty);
+        if (spent <= 0.0)
+            spent = sMktMgr.BotBuyStock(charID, stationID, typeID, qty);
+        if (spent > 0.0) {
+            budget -= spent;
+            _log(BOT__MESSAGE, "BotMgr: bot %u bought cheap %s (base %.2f, ask %.2f) for production.",
+                 charID, sDataMgr.GetTypeName(typeID), mt->basePrice(), ask);
+        }
+    }
 }
 
 // A bot docked at the trade hub (Jita) sells the real stock in its hangar into
