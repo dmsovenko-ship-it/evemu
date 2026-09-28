@@ -98,101 +98,84 @@ PyResult ContractUtils::GetContractEntry(int contractId)
  * @return PyList with Contract KeyVal objects.
  */
 PyList* ContractUtils::GetContractEntries(std::vector<int> contractIDList) {
-    std::string contractIDs;
-    if (!contractIDList.empty()) {
-        for (auto contractID : contractIDList) {
-            contractIDs.append(std::to_string(contractID) + ",");
-        }
-        contractIDs.pop_back(); // we do pop-back to remove trailing comma.
-    } else {
+    if (contractIDList.empty()) {
         // Empty input is legitimate (courier contracts have no item entries the
         // client would query) - return an empty list instead of erroring out.
         return new PyList();
     }
 
-    DBQueryResult contractRes;
-    if (!sDatabase.RunQuery(contractRes, (getContractQueryBase + "WHERE contractId IN (%s)").c_str(), contractIDs.c_str()))
-    {
-        codelog(DATABASE__ERROR, "Error in query: %s", contractRes.error.c_str());
-        return nullptr;
-    }
-    if (contractRes.GetRowCount() > 0) {
-        // We only run queries for items and bids if we had something returned in contracts query - we don't need to waste time and resources on non-existent contracts.
+    // A search can hand us thousands of ids; a single "IN (a,b,c,...)" that large
+    // can exceed the DB limits and drop the connection (#2006). Query in bounded
+    // batches and merge the results.
+    const size_t BATCH = 500;
+
+    std::map<int, CRowSet*> itemsMap;
+    std::map<int, CRowSet*> bidsMap;
+    DBRowDescriptor* itemsHeader = nullptr;
+    DBRowDescriptor* bidsHeader = nullptr;
+    PyList* contractsList = new PyList;
+    bool anyContracts = false;
+
+    for (size_t start = 0; start < contractIDList.size(); start += BATCH) {
+        size_t end = std::min(start + BATCH, contractIDList.size());
+        std::string contractIDs;
+        for (size_t i = start; i < end; ++i)
+            contractIDs.append(std::to_string(contractIDList[i]) + ",");
+        contractIDs.pop_back();
+
+        DBQueryResult contractRes;
+        if (!sDatabase.RunQuery(contractRes, (getContractQueryBase + "WHERE contractId IN (%s)").c_str(), contractIDs.c_str())) {
+            codelog(DATABASE__ERROR, "Error in query: %s", contractRes.error.c_str());
+            continue;
+        }
+        if (contractRes.GetRowCount() == 0)
+            continue;
+
         DBQueryResult itemsRes;
         DBQueryResult bidsRes;
-        if (!sDatabase.RunQuery(itemsRes, getContractItemsQueryBase.c_str(), contractIDs.c_str()))
-        {
+        if (!sDatabase.RunQuery(itemsRes, getContractItemsQueryBase.c_str(), contractIDs.c_str())) {
             codelog(DATABASE__ERROR, "Error in query: %s", itemsRes.error.c_str());
-            return nullptr;
+            continue;
         }
-        if (!sDatabase.RunQuery(bidsRes, getContractBidsQueryBase.c_str(), contractIDs.c_str()))
-        {
+        if (!sDatabase.RunQuery(bidsRes, getContractBidsQueryBase.c_str(), contractIDs.c_str())) {
             codelog(DATABASE__ERROR, "Error in query: %s", bidsRes.error.c_str());
-            return nullptr;
+            continue;
         }
+        anyContracts = true;
 
-        DBResultRow contractRow;
-        /**
-         * We use map as temp storage - we want to do a single iteration over each DBQueryResult.
-         * Given that we'd like to initialize sub-contents of resulting PyList when we're done (we can't really
-         * append rows to CRowSet inside PyDict - there's no CRowSet return), we:
-         * - iterate over Items DBResultQuery and store values in temporary map (int <-> CRowSet)
-         * - iterate over Bids DBResultQuery and store values in temporary map (int <-> CRowSet)
-         * - We iterate over Contracts DBResultQuery, initialize PyDict for each, pull items and bids from previously
-         *   saved maps and fill in the data.
-         *
-         * I think there might be a better way to do it, but that's a matter for further optimizations.
-         */
-        DBRowDescriptor* itemsHeader = new DBRowDescriptor(itemsRes);
+        // The schema is identical for every batch, so one descriptor is enough.
+        if (itemsHeader == nullptr)
+            itemsHeader = new DBRowDescriptor(itemsRes);
+        if (bidsHeader == nullptr)
+            bidsHeader = new DBRowDescriptor(bidsRes);
+
         // Every CRowSet created from one header must own its own header ref
-        // (the ctor's keyword dict steals one). The creator's original ref is
-        // released at the exits below, leaving exactly one ref per rowset —
-        // previously N rowsets shared the single ref (multi-owner UAF).
+        // (the ctor's keyword dict steals one); the creator ref is released below.
         auto makeRowset = [](DBRowDescriptor* hdr) {
             PyIncRef(hdr);
             DBRowDescriptor* h = hdr;
             return new CRowSet(&h);
         };
-        std::map<int, CRowSet*> itemsMap;
+
         DBResultRow itemRow;
         while (itemsRes.GetRow(itemRow)) {
             int contractID = itemRow.GetInt(0);
-
             auto pos = itemsMap.find(contractID);
-            if (pos == itemsMap.end()) {
-                CRowSet* rowset = makeRowset(itemsHeader);
-                PyPackedRow* into = rowset->NewRow();
-                FillItemData(&itemRow, into);
-
-                itemsMap[contractID] = rowset;
-            } else {
-                CRowSet* rowset = pos->second;
-                PyPackedRow* into = rowset->NewRow();
-                FillItemData(&itemRow, into);
-            }
+            CRowSet* rowset = (pos == itemsMap.end()) ? (itemsMap[contractID] = makeRowset(itemsHeader)) : pos->second;
+            PyPackedRow* into = rowset->NewRow();
+            FillItemData(&itemRow, into);
         }
 
-        DBRowDescriptor* bidsHeader = new DBRowDescriptor(bidsRes);
-        std::map<int, CRowSet*> bidsMap;
         DBResultRow bidRow;
         while (bidsRes.GetRow(bidRow)) {
             int contractID = bidRow.GetInt(0);
-
             auto pos = bidsMap.find(contractID);
-            if (pos == bidsMap.end()) {
-                CRowSet* rowset = makeRowset(bidsHeader);   // was &itemsHeader — bids got the wrong column schema
-                PyPackedRow* into = rowset->NewRow();
-                FillBidData(&bidRow, into);
-
-                bidsMap[contractID] = rowset;
-            } else {
-                CRowSet* rowset = pos->second;
-                PyPackedRow* into = rowset->NewRow();
-                FillBidData(&bidRow, into);
-            }
+            CRowSet* rowset = (pos == bidsMap.end()) ? (bidsMap[contractID] = makeRowset(bidsHeader)) : pos->second;
+            PyPackedRow* into = rowset->NewRow();
+            FillBidData(&bidRow, into);
         }
 
-        PyList* contractsList = new PyList;
+        DBResultRow contractRow;
         while (contractRes.GetRow(contractRow)) {
             int contractID = contractRow.GetInt(0);
 
@@ -203,15 +186,20 @@ PyList* ContractUtils::GetContractEntries(std::vector<int> contractIDList) {
 
             contractsList->AddItem(new PyObject("util.KeyVal", contract));
         }
+    }
 
-        // release the creator refs — the rowsets hold their own now
+    // release the creator refs - the rowsets hold their own now
+    if (itemsHeader != nullptr)
         PySafeDecRef(itemsHeader);
+    if (bidsHeader != nullptr)
         PySafeDecRef(bidsHeader);
-        return contractsList;
-    } else {
-        codelog(SERVICE__ERROR, "No contracts in range ('%s') was found. Aborting", contractIDs.c_str());
+
+    if (!anyContracts) {
+        codelog(SERVICE__ERROR, "No contracts in range were found. Aborting");
+        PySafeDecRef(contractsList);
         return nullptr;
     }
+    return contractsList;
 }
 
 /**
@@ -260,51 +248,49 @@ PyResult ContractUtils::GetContractListForOwner(PyInt* ownerID, PyInt* contractS
 
     PyDict* items = new PyDict;
     if (!contractIDs.empty()) {
-        for (auto contractID : contractIDs) {
-            items_query.append(std::to_string(contractID) + ",");
-        }
-        items_query.pop_back(); items_query.append(")");
-
-        if (!sDatabase.RunQuery(res, items_query.c_str()))
-        {
-            codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
-            // error path: release what we built before bailing (roots only —
-            // contents follow the accepted baseline)
-            PySafeDecRef(contracts);
-            PySafeDecRef(items);
-            return nullptr;
-        }
-
-        // Given that we have items queried for every contract in the list, we sort them by contractID's first, then we put those in the dict.
+        // Batch the "IN (...)" so a huge contract list cannot kill the DB link (#2006).
+        const size_t BATCH = 500;
         std::map<int, CRowSet*> itemsByContractID;
         DBResultRow row;
-        while (res.GetRow(row)) {
-            auto pos = itemsByContractID.find(row.GetInt(0));
-            if(pos == itemsByContractID.end()) {
-                DBRowDescriptor *header = new DBRowDescriptor(res);
-                CRowSet *rowset = new CRowSet(&header);
+        for (size_t start = 0; start < contractIDs.size(); start += BATCH) {
+            size_t end = std::min(start + BATCH, contractIDs.size());
+            std::string batch_query = items_query;
+            for (size_t i = start; i < end; ++i)
+                batch_query.append(std::to_string(contractIDs[i]) + ",");
+            batch_query.pop_back(); batch_query.append(")");
 
-                PyPackedRow* packedRow = rowset->NewRow();
-                PySetFieldRelease(packedRow, "contractId", new PyInt(row.GetInt(0)));
-                PySetFieldRelease(packedRow, "itemTypeID", new PyInt(row.GetInt(1)));
-                PySetFieldRelease(packedRow, "quantity", new PyInt(row.GetInt(2)));
-                PySetFieldRelease(packedRow, "inCrate", new PyBool(row.GetBool(3)));
+            if (!sDatabase.RunQuery(res, batch_query.c_str()))
+            {
+                codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
+                continue;
+            }
 
-                itemsByContractID[row.GetInt(0)] = rowset;
-            } else {
-                CRowSet* rowset = pos->second;
+            while (res.GetRow(row)) {
+                auto pos = itemsByContractID.find(row.GetInt(0));
+                if (pos == itemsByContractID.end()) {
+                    DBRowDescriptor *header = new DBRowDescriptor(res);
+                    CRowSet *rowset = new CRowSet(&header);
 
-                PyPackedRow* packedRow = rowset->NewRow();
-                PySetFieldRelease(packedRow, "contractId", new PyInt(row.GetInt(0)));
-                PySetFieldRelease(packedRow, "itemTypeID", new PyInt(row.GetInt(1)));
-                PySetFieldRelease(packedRow, "quantity", new PyInt(row.GetInt(2)));
-                PySetFieldRelease(packedRow, "inCrate", new PyBool(row.GetBool(3)));
+                    PyPackedRow* packedRow = rowset->NewRow();
+                    PySetFieldRelease(packedRow, "contractId", new PyInt(row.GetInt(0)));
+                    PySetFieldRelease(packedRow, "itemTypeID", new PyInt(row.GetInt(1)));
+                    PySetFieldRelease(packedRow, "quantity", new PyInt(row.GetInt(2)));
+                    PySetFieldRelease(packedRow, "inCrate", new PyBool(row.GetBool(3)));
+
+                    itemsByContractID[row.GetInt(0)] = rowset;
+                } else {
+                    CRowSet* rowset = pos->second;
+
+                    PyPackedRow* packedRow = rowset->NewRow();
+                    PySetFieldRelease(packedRow, "contractId", new PyInt(row.GetInt(0)));
+                    PySetFieldRelease(packedRow, "itemTypeID", new PyInt(row.GetInt(1)));
+                    PySetFieldRelease(packedRow, "quantity", new PyInt(row.GetInt(2)));
+                    PySetFieldRelease(packedRow, "inCrate", new PyBool(row.GetBool(3)));
+                }
             }
         }
-        if (!itemsByContractID.empty()) {
-            for (auto entry : itemsByContractID) {
-                PySetItemRelease(items, new PyInt(entry.first), entry.second);
-            }
+        for (auto entry : itemsByContractID) {
+            PySetItemRelease(items, new PyInt(entry.first), entry.second);
         }
     }
 

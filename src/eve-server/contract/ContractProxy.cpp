@@ -231,6 +231,8 @@ PyResult ContractProxy::SearchContracts(PyCallArgs &call) {
          * collect it to std::vector, and then we pass it to GetContractEntries function
          */
 
+        query.append(" LIMIT 1000");   // cap the result set (client asks for maxResults=1000)
+
         DBQueryResult contractRes;
         if (!sDatabase.RunQuery(contractRes, query.c_str()))
         {
