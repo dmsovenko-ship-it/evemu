@@ -783,13 +783,11 @@ void EntityList::PrefetchAdjacentSystems() {
         return;
 
     const uint32 radius = sConfig.world.PrefetchRadius ? sConfig.world.PrefetchRadius : 1;
-    const uint32 maxHold = sConfig.world.PrefetchMax ? sConfig.world.PrefetchMax : 16;
 
     // Everything within `radius` jumps of a system that has PLAYERS - and of an
     // always-on HUB (persistent): hub bot traffic otherwise boots/unloads their
-    // neighbours every minute (877 unloads / 5k log lines of churn). Hub
-    // neighbours are always held; player neighbours are capped at maxHold.
-    std::set<uint32> want, hubWant;
+    // neighbours every minute (877 unloads / 5k log lines of churn).
+    std::set<uint32> playerWant, hubWant;
     for (auto& cur : m_systems) {
         if (cur.second == nullptr)
             continue;
@@ -808,8 +806,9 @@ void EntityList::PrefetchAdjacentSystems() {
                 for (uint32 adj : GetAdjacentSystems(sid)) {
                     if (visited.insert(adj).second) {
                         next.push_back(adj);
-                        want.insert(adj);
-                        if (isHub)
+                        if (isPlayer)
+                            playerWant.insert(adj);
+                        else
                             hubWant.insert(adj);
                     }
                 }
@@ -818,15 +817,13 @@ void EntityList::PrefetchAdjacentSystems() {
         }
     }
 
-    // bound the PLAYER-neighbour set (hub neighbours are never dropped)
-    while (want.size() > maxHold) {
-        auto it = want.begin();
-        while (it != want.end() && hubWant.count(*it))
-            ++it;
-        if (it == want.end())
-            break;   // only hub neighbours left
-        want.erase(it);
-    }
+    // Hold the neighbours of players AND of hubs. Both matter: the player's
+    // neighbours are the visible grid (their boot/unload is the jitter), and hub
+    // neighbours otherwise boot/unload continuously from hub bot traffic. The old
+    // cap dropped non-hub entries first, so with a dozen hubs the player's
+    // (small-ID) neighbours were never held - the cause of the recurring churn.
+    std::set<uint32> want = playerWant;
+    want.insert(hubWant.begin(), hubWant.end());
 
     // boot the missing ones, a couple per pass, so a hub with many gates doesn't
     // spike the tick
