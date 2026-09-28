@@ -1142,6 +1142,12 @@ void NPCAIMgr::CheckDistance(SystemEntity* pSE)
 void NPCAIMgr::Target(SystemEntity* pSE) {
     if (pSE == nullptr)
         return;
+    // Do not lock/fire on a ship that is warping (or still turning to warp): the
+    // server-side warp starts before the client finishes aligning, so belt/anomaly
+    // rats otherwise opened fire on a ship the player still saw turning. A warping
+    // ship cannot be locked in EVE anyway.
+    if (pSE->IsShipSE() && pSE->DestinyMgr() != nullptr && pSE->DestinyMgr()->IsWarping())
+        return;
     float targetTime = GetTargetTime();
     bool chase = false;
 

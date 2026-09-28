@@ -338,11 +338,11 @@ void SystemBubble::Add(SystemEntity* pSE) {
         // system entry.  The old "WarpLoop crashes on incoming balls" concern was
         // caused by the malformed double-wrapped AddBalls format, which has since
         // been fixed.  The pilot's OWN ball is still added at WarpStop.
-        if (pSE->DestinyMgr() != nullptr && pSE->DestinyMgr()->IsWarping()) {
-            SendAddBalls( pSE, pSE->GetID() );   // bubble contents, skipping the pilot's own ball
-            if (!m_players.empty())
-                AddBallExclusive(pSE);
-        } else {
+        // A WARPING pilot must NOT receive the bubble contents yet: the server-side
+        // warp starts before the client finishes aligning/turning, so delivering on
+        // bubble entry made the destination grid (its rats, structures) pop in while
+        // the ship was still turning to warp. Deliver at WarpStop instead.
+        if (pSE->DestinyMgr() == nullptr || !pSE->DestinyMgr()->IsWarping()) {
             SendAddBalls( pSE );
             if (!m_players.empty())
                 AddBallExclusive(pSE);
