@@ -150,6 +150,13 @@ void DestinyManager::Process() {
         return;
     }
 
+    // Safety net: a warp state must only exist while the ball is in WARP mode. A
+    // command that switched the mode (orbit / follow / goto / dock / teleport /
+    // force-exit by a warp bubble) without clearing it left IsWarping() true - the
+    // ship then stood still but was untargetable ("target warping"). Drop it here.
+    if (m_warpState != nullptr && m_ballMode != Destiny::Ball::Mode::WARP)
+        SafeDelete(m_warpState);
+
     //check for and process Destiny::Ball::State changes.
     if (m_ticAlign) {
         m_ticAlign = false;
