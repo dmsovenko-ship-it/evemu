@@ -241,16 +241,19 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         if (atkClient != nullptr && vicClient != nullptr && atkClient != vicClient) {
             float sysSec = m_system ? m_system->GetSystemSecurityRating() : 0.0f;
             // Victim returning fire at whoever hit them first — no new aggression.
-            if (vicClient->GetCrimeWatch() != nullptr
+            // NOTE: only the FLAG is skipped - the damage still applies (the old
+            // `return false` also voided a self-defender's shots).
+            bool selfDefence = (vicClient->GetCrimeWatch() != nullptr
                 && atkClient->GetCrimeWatch() != nullptr
-                && atkClient->GetCrimeWatch()->WasAttackedBy(vicClient->GetCharacterID()))
-                return false;
-            // Mark the victim as having been attacked by this attacker first
-            // (so THEIR counter-fire is self-defence).
-            if (vicClient->GetCrimeWatch() != nullptr && atkID != 0)
-                vicClient->GetCrimeWatch()->RegisterAttackBy(atkID);
-            if (atkClient->GetCrimeWatch() != nullptr)
-                atkClient->GetCrimeWatch()->OnAggression(vicClient, sysSec);
+                && atkClient->GetCrimeWatch()->WasAttackedBy(vicClient->GetCharacterID()));
+            if (!selfDefence) {
+                // Mark the victim as having been attacked by this attacker first
+                // (so THEIR counter-fire is self-defence).
+                if (vicClient->GetCrimeWatch() != nullptr && atkID != 0)
+                    vicClient->GetCrimeWatch()->RegisterAttackBy(atkID);
+                if (atkClient->GetCrimeWatch() != nullptr)
+                    atkClient->GetCrimeWatch()->OnAggression(vicClient, sysSec);
+            }
         }
         // Player attacking a charbot still gets flagged — but only if the charbot
         // didn't start the fight. The charbot flags itself in its own OnAttacked.
@@ -259,10 +262,10 @@ bool SystemEntity::ApplyDamage(Damage &d) {
             float sysSec = m_system ? m_system->GetSystemSecurityRating() : 0.0f;
             PlayerBot* pbot = dynamic_cast<PlayerBot*>(GetNPCSE());
             if (pbot != nullptr && atkClient->GetCrimeWatch() != nullptr) {
-                // Self-defence: if the charbot started the fight, no flags.
-                if (atkClient->GetCrimeWatch()->WasAttackedBy(pbot->GetBotCharID()))
-                    return false;
-                atkClient->GetCrimeWatch()->OnBotAggression(pbot->GetBotCharID(), sysSec);
+                // Self-defence: if the charbot started the fight, no flags - but the
+                // player's return fire must still HIT (do not void the damage).
+                if (!atkClient->GetCrimeWatch()->WasAttackedBy(pbot->GetBotCharID()))
+                    atkClient->GetCrimeWatch()->OnBotAggression(pbot->GetBotCharID(), sysSec);
             }
         }
         // A charbot attacking a REAL player: mark the player as the charbot's
