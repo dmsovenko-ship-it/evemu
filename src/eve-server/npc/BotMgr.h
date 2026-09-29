@@ -458,6 +458,16 @@ private:
     unsigned m_chatInFlight = 0;
     std::deque<PendingChatReply> m_pendingChatReplies;
     void PostPendingChatReplies();
+    // The chat-base self-growth (ExpandSmalltalkPool) also calls DeepSeek
+    // SYNCHRONOUSLY; it ran from the game tick and froze the server every 30 min
+    // (grid/locks/drones stopped being delivered). Run the LLM call off-thread and
+    // post the result back for the tick to insert.
+    struct PendingSmalltalkGrow { uint8 pool; std::string rsp; };
+    std::mutex m_smalltalkGrowMutex;
+    bool m_smalltalkGrowInFlight = false;
+    std::deque<PendingSmalltalkGrow> m_pendingSmalltalk;
+    void PostPendingSmalltalk();
+    void FinalizeSmalltalkGrow(uint8 pool, const std::string& rsp);
     std::map<uint32, int64> m_concordGankAt;     // outlaw charID -> CONCORD strike time
     struct ConcordTemp { uint32 sysID; uint32 seID; int64 at; };   // spawned CONCORD ships
     std::vector<ConcordTemp> m_concordTemp;      // store IDs (system may unload)

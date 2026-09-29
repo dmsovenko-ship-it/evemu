@@ -338,6 +338,9 @@ void BotMgr::Process()
     // Post bot chat replies whose text was generated on a background thread.
     PostPendingChatReplies();
 
+    // Insert smalltalk lines whose text was generated on a background thread.
+    PostPendingSmalltalk();
+
     // Keep every loaded bot POS topped up to its doctrine (fills free CPU/grid
     // with shield resists and small guns). Throttled — it walks loaded systems.
     {
@@ -7871,7 +7874,41 @@ void BotMgr::ExpandSmalltalkPool()
         "One line per response line, no numbering, no quotes. "
         "Do not repeat these existing lines:\n" + existing;
 
-    std::string rsp = BotChat::QueryDeepSeek(prompt, "You write short EVE Online local chat messages.");
+    // Off the game thread: QueryDeepSeek is a SYNCHRONOUS HTTPS call (curl waits
+    // up to 20 s). Running it from the tick froze the whole server every 30 min —
+    // the grid/locks/drones stopped being delivered (invisible sentries, lost
+    // drones, endless targeting lock). Spawn the call in the background and insert
+    // its lines from the tick (PostPendingSmalltalk).
+    {
+        std::lock_guard<std::mutex> lk(m_smalltalkGrowMutex);
+        if (m_smalltalkGrowInFlight)
+            return;                          // one LLM call in flight at a time
+        m_smalltalkGrowInFlight = true;
+    }
+    std::thread([this, pool, prompt]() {
+        std::string rsp = BotChat::QueryDeepSeek(prompt, "You write short EVE Online local chat messages.");
+        std::lock_guard<std::mutex> lk(m_smalltalkGrowMutex);
+        m_smalltalkGrowInFlight = false;
+        if (!rsp.empty())
+            m_pendingSmalltalk.push_back({ pool, rsp });
+    }).detach();
+}
+
+// Called from the game tick: insert smalltalk lines produced off-thread.
+void BotMgr::PostPendingSmalltalk()
+{
+    std::deque<PendingSmalltalkGrow> ready;
+    {
+        std::lock_guard<std::mutex> lk(m_smalltalkGrowMutex);
+        ready.swap(m_pendingSmalltalk);
+    }
+    for (auto& r : ready)
+        FinalizeSmalltalkGrow(r.pool, r.rsp);
+}
+
+// Parse a DeepSeek smalltalk response and store the good lines (game thread).
+void BotMgr::FinalizeSmalltalkGrow(uint8 pool, const std::string& rsp)
+{
     if (rsp.empty())
         return;
 

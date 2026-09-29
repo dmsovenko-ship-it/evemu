@@ -670,11 +670,18 @@ float TargetManager::TimeToLock ( ShipItemRef sRef, SystemEntity* tSE ) const {
 
     //  fixed lock time  -allan 24Dec14  -updated 26May15   -revisited after new effects system implementation 25Mar17
     uint32 scanRes = sRef->GetAttribute(AttrScanResolution).get_uint32();
+    if (scanRes == 0)
+        scanRes = 200;   // avoid divide-by-zero on ships missing the attribute (-> infinite lock)
     uint32 sigRad = 25; // set base as capsule with 25m signature radius
 
     if ( tSE->GetSelf().get() != nullptr )
         if ( tSE->GetSelf()->HasAttribute(AttrSignatureRadius) )
             sigRad = tSE->GetSelf()->GetAttribute(AttrSignatureRadius).get_uint32();
+    // asinh(0) == 0, so a target with signatureRadius 0 makes the lock-time
+    // formula divide by zero -> +inf -> the client sits on an INFINITE lock
+    // ("челоботов не могу залочить, идёт бесконечный лок"). Floor to a minimum.
+    if (sigRad == 0)
+        sigRad = 25;
 
         //https://wiki.eveonline.com/en/wiki/Targeting_speed
         //locktime = 40000/(scanres * asinh(sigrad)^2)
