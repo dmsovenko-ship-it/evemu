@@ -1181,6 +1181,13 @@ void NPCAIMgr::Targeted(SystemEntity* pSE) {
     _log(NPC__AI_TRACE, "%s(%u): Targeted by %s(%u) while %s.", \
             m_npc->GetName(), m_npc->GetID(), pSE->GetName(), pSE->GetID(), GetStateName(m_state).c_str());
 
+    // A TARGET LOCK is not a hostile act: a chelobot is a real pilot and does not
+    // auto-attack whoever locks it (that made the bot the aggressor for nothing,
+    // and flagged the player it "defended" against). It reacts to actual damage
+    // via PlayerBot::OnAttacked / ApplyDamage instead.
+    if (m_npc->IsPlayerBot())
+        return;
+
     // Ambush NPC shot first — spring out of cover immediately
     m_isAmbush = false;
 

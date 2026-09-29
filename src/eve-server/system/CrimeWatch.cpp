@@ -344,6 +344,22 @@ void CrimeWatch::OnBotAggression(uint32 botCharID, float systemSecRating)
         }
         m_client->GetChar()->secStatusChange(-0.025f * systemSecRating);
     }
+
+    // Attacking a chelobot first is a hostile act against its corporation: drop
+    // the player's standing with that corp (like attacking a real pilot's corp).
+    // Only when the player is the aggressor (self-defence is filtered out by the
+    // caller's WasAttackedBy check).
+    {
+        DBQueryResult cr;
+        if (sDatabase.RunQuery(cr, "SELECT corporationID FROM chrCharacters WHERE characterID = %u", botCharID)) {
+            DBResultRow crow;
+            if (cr.GetRow(crow)) {
+                uint32 botCorp = crow.GetUInt(0);
+                if (botCorp != 0 && botCorp != (uint32)m_client->GetCorporationID())
+                    StandingDB::UpdateStanding(m_client->GetCharacterID(), botCorp, -0.2f);
+            }
+        }
+    }
 }
 
 // A player attacking a POS/structure (owned property, not a ship). Per official
