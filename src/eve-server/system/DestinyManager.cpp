@@ -2706,6 +2706,15 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     GVector warp_distance(m_position, dest);
     m_targetDistance = warp_distance.length();
     m_targetDistance -= static_cast<double>(m_stopDistance);
+    // A zero/negative net warp distance (warp requested to a point already at or
+    // inside the stop distance) degenerates the warp math - the client ended up
+    // stuck "warping" to itself (log: m_targetDistance: -0.00). Treat as arrived.
+    if (m_targetDistance <= 1.0) {
+        _log(DESTINY__WARP_TRACE, "Destiny::WarpTo() - %s(%u): net warp distance %.2f <= 1 - already at target, not warping.",
+             mySE->GetName(), mySE->GetID(), m_targetDistance);
+        Stop();
+        return;
+    }
     // change to heading
     warp_distance.normalize();
     // adjust for stop distance from our travel direction
