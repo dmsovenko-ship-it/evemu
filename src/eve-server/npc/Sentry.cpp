@@ -117,6 +117,23 @@ void Sentry::EncodeDestiny( Buffer& into )
     _log(SE__DESTINY, "Sentry::EncodeDestiny: %s - id:%lli, mode:%u, flags:0x%X", GetName(), head.entityID, head.mode, head.flags);
 }
 
+PyDict* Sentry::MakeSlimItem()
+{
+    PyDict* slim = DynamicSystemEntity::MakeSlimItem();
+    if (slim != nullptr) {
+        // The sentry's real type (3740 "Caldari Sentry Gun I", group 99 Sentry Gun)
+        // is UNPUBLISHED, so the Crucible client has no type/group class for it and
+        // renders NOTHING - the turrets were on-grid and shooting but invisible
+        // ("я у гейта, сентри не прогрузились"). Advertise a PUBLISHED sentry
+        // turret type the client knows (group 449 Mobile Hybrid Sentry) so the ball
+        // renders. Server-side stats/damage are unchanged.
+        slim->SetItemString("typeID",  new PyInt(16690));   // Small Railgun Battery
+        slim->SetItemString("groupID", new PyInt(449));     // Mobile Hybrid Sentry
+        slim->SetItemString("name",    new PyString(GetName()));
+    }
+    return slim;
+}
+
 void Sentry::SaveSentry()
 {
     m_self->SaveItem();
