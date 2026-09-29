@@ -83,6 +83,7 @@ m_warpDecelTime(1),
 m_warpPending(false),
 m_warpState(nullptr),
 m_warpStallTicks(0),
+m_warpOriginBubbleID(0),
 m_targBubble(nullptr),
 m_warpCapacitorNeed(0.00001),
 m_frozen(false),
@@ -2352,6 +2353,14 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
             delivered.emplace(id, se);
         sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
 
+        // If the warp crossed into a DIFFERENT bubble (e.g. anomaly dungeon -> gate)
+        // the client's incremental grid can drop balls that were delivered during the
+        // long warp - the turrets/NPCs were sent (seen in the ball decoder) yet were
+        // not rendered after the anomaly warp, while a short station warp was fine.
+        // Force a full grid rebuild via SetState so EVERYTHING on grid arrives.
+        if (mySE->SysBubble()->GetID() != m_warpOriginBubbleID)
+            SendSetState();
+
         // GateActivity is sent only during actual gate jumps (in JumpGate/Follow), not here.
     } else if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->HasPlayers()) {
         // Same for NPCs: while warping, Bubble::Add sent AddBallExclusive with a
@@ -2645,6 +2654,7 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     // From now (alignment) until WarpStop the pilot must not receive destination
     // bubble contents - see SystemBubble::Add / IsWarpPending().
     m_warpPending = true;
+    m_warpOriginBubbleID = (mySE->SysBubble() != nullptr) ? mySE->SysBubble()->GetID() : 0;
 
     // Landing offset for warp-to-0 вЂ” reduced to 0 for precise landing
     if (distance == 0) {

@@ -433,6 +433,7 @@ private:
     WarpState* m_warpState;		    //we own this.
     GPoint m_lastWarpPos;               // watchdog: last position checked during WARP
     uint32 m_warpStallTicks;            // watchdog: consecutive ticks with no warp progress
+    uint32 m_warpOriginBubbleID;        // bubble the ship was in when the warp started
 };
 
 #endif
