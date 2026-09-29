@@ -481,6 +481,14 @@ void Client::ProcessClient() {
                 m_clientState = Player::State::Idle;
                 _log(AUTOPILOT__TRACE, "ProcessClient()::IsDocked() - m_clientState set to Idle");
             }
+        // Run the crimewatch even while docked: the aggression / weapon / criminal
+        // cooldown timers must keep counting down. This branch returns before the
+        // in-space m_crimeWatch->Process() call below, so a player who docked while
+        // flagged kept a FROZEN 15-min aggression timer - it then reappeared as a
+        // "14-minute session-change timer" on the next undock (after 30 min docked).
+        if (m_crimeWatch != nullptr)
+            m_crimeWatch->Process();
+
         if (sConfig.debug.UseProfiling)
             sProfiler.AddTime(Profile::client, GetTimeUSeconds() - profileStartTime);
         return;
