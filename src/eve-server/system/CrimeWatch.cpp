@@ -598,8 +598,21 @@ void CrimeWatch::SendAggressionChange() {
     // times: GetAggressionState does `SimTime - lastAggression < aggressionTime*MIN`
     // and GetCriminalFlagCountDown does `timestamp + aggressionTime*MIN > SimTime`.
     // Sending an end time (now + remaining) makes the state never expire.
-    int64 weaponTime = m_weaponTimer.Enabled() ? now : 0;
-    int64 aggressionTime = (m_aggressionTimer.Enabled() && m_aggressionTargetID > 0) ? now : 0;
+    // Send the FILETIME when the timer actually STARTED (not "now"): the client
+    // computes SimTime - lastAggression < duration, so sending "now" made the
+    // aggression/weapon countdown restart on every notification (it looked like
+    // the timer reset itself, e.g. right after undocking).
+    int64 weaponTime = 0, aggressionTime = 0;
+    if (m_weaponTimer.Enabled()) {
+        int64 el = (int64)m_weaponTimer.GetCurrentTime() - (int64)m_weaponTimer.GetStartTime();
+        if (el < 0) el = 0;
+        weaponTime = now - el * 10000LL;
+    }
+    if (m_aggressionTimer.Enabled() && m_aggressionTargetID > 0) {
+        int64 el = (int64)m_aggressionTimer.GetCurrentTime() - (int64)m_aggressionTimer.GetStartTime();
+        if (el < 0) el = 0;
+        aggressionTime = now - el * 10000LL;
+    }
     // Only use real charID keys (no sentinels). Outer dict = attackerID,
     // inner dict maps victimID to lastAggression timestamp.
     PyDict* timers = new PyDict();

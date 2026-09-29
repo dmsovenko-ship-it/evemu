@@ -1246,6 +1246,12 @@ void ActiveModule::DeactivateCycle(bool abort/*false*/)
             if (m_targetSE != nullptr)
                 m_targetSE->DestinyMgr()->WebbedMe(m_modRef, false);
         } break;
+        case EVEDB::invGroups::Remote_Sensor_Damper: {
+            // Restore the target's lock range / scan resolution when the damper
+            // actually stops - otherwise the debuff lingered until a target-loss
+            // Clear() (plain deactivation had no case here).
+            ReleaseDamp();
+        } break;
         case EVEDB::invGroups::Survey_Scanner: {
             if (abort) {
                 Clear();
