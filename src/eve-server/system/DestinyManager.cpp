@@ -2277,8 +2277,15 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
         // are then untracked all at once on arrival. The ship needs no bubble
         // until it reaches the target.
         SystemBubble* midWarpSystemBubble(sBubbleMgr.FindBubble(mySE->SystemMgr()->GetID(), m_position));
-        if (midWarpSystemBubble != nullptr)
+        if (midWarpSystemBubble != nullptr) {
+            // Official EVE delivers the destination grid as soon as the ship is within
+            // bubble range (~300 km) of the target, NOT at WarpStop. Stop suppressing
+            // the delivery now (but only for a bubble that is NOT the warp origin, so
+            // we don't re-send the origin) - SystemBubble::Add will send the grid.
+            if (midWarpSystemBubble->GetID() != m_warpOriginBubbleID)
+                m_warpPending = false;
             midWarpSystemBubble->Add(mySE);
+        }
     }
 }
 
