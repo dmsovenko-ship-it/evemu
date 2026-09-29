@@ -431,6 +431,8 @@ private:
         GVector warp_vector;        //target direction based on ship's initial position
     };
     WarpState* m_warpState;		    //we own this.
+    GPoint m_lastWarpPos;               // watchdog: last position checked during WARP
+    uint32 m_warpStallTicks;            // watchdog: consecutive ticks with no warp progress
 };
 
 #endif

@@ -82,6 +82,7 @@ m_warpAccelTime(1),
 m_warpDecelTime(1),
 m_warpPending(false),
 m_warpState(nullptr),
+m_warpStallTicks(0),
 m_targBubble(nullptr),
 m_warpCapacitorNeed(0.00001),
 m_frozen(false),
@@ -157,6 +158,25 @@ void DestinyManager::Process() {
     // ship then stood still but was untargetable ("target warping"). Drop it here.
     if (m_warpState != nullptr && m_ballMode != Destiny::Ball::Mode::WARP)
         SafeDelete(m_warpState);
+
+    // Watchdog: in WARP mode but the ship stopped making progress (a degenerate warp
+    // - e.g. a zero-distance warp or a failed decel) kept IsWarping()==true forever:
+    // the client said "You are already warping" while the ship just hovered. Force
+    // WarpStop after ~5 ticks with no movement so a warp can never hang permanently.
+    if (m_warpState != nullptr && m_ballMode == Destiny::Ball::Mode::WARP) {
+        double moved = GVector(m_lastWarpPos, m_position).length();
+        if (moved < 1.0) {
+            if (++m_warpStallTicks > 5) {
+                _log(DESTINY__WARP_TRACE, "Destiny::Process() - %s(%u): warp stalled %u ticks with no progress - forcing WarpStop.",
+                     mySE->GetName(), mySE->GetID(), m_warpStallTicks);
+                WarpStop(0.0);
+                m_warpStallTicks = 0;
+            }
+        } else {
+            m_warpStallTicks = 0;
+        }
+        m_lastWarpPos = m_position;
+    }
 
     //check for and process Destiny::Ball::State changes.
     if (m_ticAlign) {
