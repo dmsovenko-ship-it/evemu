@@ -2353,13 +2353,10 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
             delivered.emplace(id, se);
         sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
 
-        // If the warp crossed into a DIFFERENT bubble (e.g. anomaly dungeon -> gate)
-        // the client's incremental grid can drop balls that were delivered during the
-        // long warp - the turrets/NPCs were sent (seen in the ball decoder) yet were
-        // not rendered after the anomaly warp, while a short station warp was fine.
-        // Force a full grid rebuild via SetState so EVERYTHING on grid arrives.
-        if (mySE->SysBubble()->GetID() != m_warpOriginBubbleID)
-            SendSetState();
+        // NOTE: do NOT send a full SetState here. The client's RemoveBall already
+        // clears slimItems (michelle.py:1137), so the stale-slimski theory was wrong;
+        // the SetState's ClearAll() only made the grid visibly flicker during normal
+        // warps. The incremental SendAddBalls above is the correct arrival delivery.
 
         // GateActivity is sent only during actual gate jumps (in JumpGate/Follow), not here.
     } else if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->HasPlayers()) {
