@@ -80,6 +80,7 @@ m_shipAgility(1.0),
 m_shipInertia(1.0),
 m_warpAccelTime(1),
 m_warpDecelTime(1),
+m_warpPending(false),
 m_warpState(nullptr),
 m_targBubble(nullptr),
 m_warpCapacitorNeed(0.00001),
@@ -702,6 +703,7 @@ void DestinyManager::Stop() {
     }
 
     // already fully stopped вЂ” skip repeated CmdStop/SetPosition spam
+    m_warpPending = false;   // Stop() cancels any pending/aligning warp
     if (m_stop and (m_ballMode == Destiny::Ball::Mode::STOP) and !IsMoving())
         return;
 
@@ -769,6 +771,7 @@ void DestinyManager::Stop() {
 
 void DestinyManager::Halt() {
     SafeDelete(m_warpState);
+    m_warpPending = false;     // warp aborted - stop suppressing bubble delivery
     m_dockRequested = false;   // cancel any deferred dock
     m_jumpRequested = false;   // and any deferred gate jump
 
@@ -2271,6 +2274,7 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     }
 
     SafeDelete(m_warpState);
+    m_warpPending = false;   // warp ended - the destination grid may be delivered now
 
     // Snap server position to the exact target point. The client's own ball is
     // NOT re-delivered below (SendAddBalls skips it), so the pilot keeps their
@@ -2618,6 +2622,9 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
      *      -> enter warp -> warp -> decel -> leave warp -> coast -> stop
      */
     SafeDelete(m_warpState);
+    // From now (alignment) until WarpStop the pilot must not receive destination
+    // bubble contents - see SystemBubble::Add / IsWarpPending().
+    m_warpPending = true;
 
     // Landing offset for warp-to-0 вЂ” reduced to 0 for precise landing
     if (distance == 0) {

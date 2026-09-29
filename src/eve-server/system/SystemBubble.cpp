@@ -342,7 +342,12 @@ void SystemBubble::Add(SystemEntity* pSE) {
         // warp starts before the client finishes aligning/turning, so delivering on
         // bubble entry made the destination grid (its rats, structures) pop in while
         // the ship was still turning to warp. Deliver at WarpStop instead.
-        if (pSE->DestinyMgr() == nullptr || !pSE->DestinyMgr()->IsWarping()) {
+        // Also skip while the pilot is still ALIGNING to warp (IsWarpPending): the
+        // warp state (m_warpState) only exists after InitWarp, so during the turn
+        // IsWarping() is false and the destination grid popped in mid-turn and was
+        // incomplete on arrival. Deliver only once the warp has actually ended.
+        if (pSE->DestinyMgr() == nullptr
+            || (!pSE->DestinyMgr()->IsWarping() && !pSE->DestinyMgr()->IsWarpPending())) {
             SendAddBalls( pSE );
             if (!m_players.empty())
                 AddBallExclusive(pSE);

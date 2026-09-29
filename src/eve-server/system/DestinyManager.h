@@ -165,6 +165,13 @@ public:
     bool IsFollowing()                                  { return (m_ballMode == Destiny::Ball::Mode::FOLLOW); }
     //bool IsJumping()                                  { return (m_ballMode == Destiny::Ball::Mode::STOP); }
     bool IsWarping()                                    { return (m_warpState ? true : false); }
+    // True from the warp REQUEST (alignment/turn) until the warp ends (WarpStop/
+    // Stop/Halt). m_warpState is only created by InitWarp AFTER the ship finished
+    // aligning, so a pilot still turning to warp reports IsWarping()==false - the
+    // destination bubble contents must NOT be delivered to them yet (they popped in
+    // while the ship was still turning, and were incomplete on arrival).
+    bool IsWarpPending()                                { return m_warpPending; }
+    void SetWarpPending(bool p)                         { m_warpPending = p; }
     bool IsCloaked()                                    { return m_cloaked; }
     bool IsTurning()                                    { return m_turning; }
     bool IsTractored()                                  { return m_tractored; }
@@ -296,6 +303,7 @@ protected:
     GVector m_velocity;                 //in m/s
 
     //User controlled information used by a state to determine what to do.
+    bool m_warpPending;                 // warp requested (aligning) but not yet in WARP mode
     bool m_stop;                        //used to denote Stop() has been called to avoid multiple stops (and associated decel)
     bool m_accel;                       //used to execute code for increasing ship speed
     bool m_decel;                       //used to execute code for decreasing ship speed
