@@ -595,7 +595,7 @@ void NPC::Killed(Damage &damage) {
     // Destroyed() empties the target list, so the cleanup below would find no
     // targets and a dying Sansha scrambler would leave "Warp drive is disrupted"
     // stuck on the player (regression from the 11-Sep drone-UAF fix order).
-    if (m_AI != nullptr) {
+    if (m_AI != nullptr || m_destiny != nullptr) {
         PyList* targets = TargetMgr()->GetTargets();
         if (targets != nullptr) {
             for (PyRep* t : targets->items) {
@@ -603,13 +603,16 @@ void NPC::Killed(Damage &damage) {
                 SystemEntity* tSE = m_system->GetSE(tID);
                 if (tSE == nullptr || tSE->GetSelf().get() == nullptr)
                     continue;
+                // Always clear the warp scramble on our targets, even if m_AI is
+                // being torn down - otherwise "Warp drive is disrupted" stayed
+                // stuck on the victim after its scrambler (a chelobot) died.
                 if (tSE->GetSelf()->HasAttribute(AttrWarpScrambleStatus))
                     tSE->GetSelf()->SetAttribute(AttrWarpScrambleStatus, 0.0f, true);
                 // Release stasis web ONLY if this NPC had actually webbed that
                 // target. WebbedMe(false) divides m_maxShipSpeed by (1+speedFactor/100)
                 // = 0.4 (x2.5) for a -60% web; without a matching WebbedMe(true) it
                 // inflates the victim's speed on every death (Sleeper SpeedFactor=-60).
-                if (m_AI->IsWebApplied() && m_AI->GetWebTargetID() == tID && tSE->DestinyMgr() != nullptr)
+                if (m_AI != nullptr && m_AI->IsWebApplied() && m_AI->GetWebTargetID() == tID && tSE->DestinyMgr() != nullptr)
                     tSE->DestinyMgr()->WebbedMe(m_self, false);
                 // Stop sticky beams on the client.
                 if (m_destiny != nullptr) {
