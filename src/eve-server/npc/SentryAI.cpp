@@ -85,8 +85,20 @@ m_webifierTimer(5000)         //arbitrary.
 }
 
 void SentryAI::Process() {
-    if ((!m_processTimer.Check()) or (!m_npc->SysBubble()->HasPlayers()))
+    // DIAGNOSTIC (temporary): pin why a sentry is silent. Gate turrets were
+    // reported non-firing in low-sec while station ones work; both are the same
+    // Sentry/SentryAI, so the difference is bubble membership / spawn position.
+    if (m_npc->SysBubble() == nullptr) {
+        _log(SPAWN__MESSAGE, "SentryAI: %s(%u) has NO bubble — never processes.", m_npc->GetName(), m_npc->GetID());
         return;
+    }
+    if (!m_processTimer.Check())
+        return;
+    if (!m_npc->SysBubble()->HasPlayers()) {
+        _log(SPAWN__MESSAGE, "SentryAI: %s(%u) bubble %u has NO players — idle (player must be in another bubble).",
+             m_npc->GetName(), m_npc->GetID(), m_npc->SysBubble()->GetID());
+        return;
+    }
 
     /* NPC::State definitions   -allan 25July15  (UD 1June16)
     *   Idle,       // not doing anything, nothing in sight....idle.

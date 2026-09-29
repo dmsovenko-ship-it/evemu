@@ -2000,6 +2000,7 @@ bool SystemManager::IsNull(std::map<uint32, SystemEntity*>::iterator& i)
 void SystemManager::SpawnSentryGuns()
 {
     if (m_gateMap.empty()) return;
+    uint32 spawnedGate = 0, spawnedStation = 0;
 
     float sec = m_data.securityRating;
     uint32 gateCount = 0, stationCount = 0;
@@ -2041,7 +2042,7 @@ void SystemManager::SpawnSentryGuns()
                 InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                 if (iRef.get() == nullptr) continue;
                 Sentry* sentry = new Sentry(iRef, m_services, this, faction);
-                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); AddEntity(sentry); }
+                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); ++spawnedGate; AddEntity(sentry); }
             }
         } else if (group == EVEDB::invGroups::Station) {
             float angleStep = 6.283185f / stationCount;
@@ -2055,10 +2056,13 @@ void SystemManager::SpawnSentryGuns()
                 InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                 if (iRef.get() == nullptr) continue;
                 Sentry* sentry = new Sentry(iRef, m_services, this, faction);
-                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); AddEntity(sentry); }
+                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); ++spawnedStation; AddEntity(sentry); }
             }
         }
     }
+    if (sec > 0.0f)
+        _log(SPAWN__MESSAGE, "SpawnSentryGuns: %s(sec %.2f) gate=%u/%u(dist %u) station=%u/%u(dist %u)",
+             m_data.name.c_str(), sec, spawnedGate, gateCount, gateDist, spawnedStation, stationCount, stationDist);
 }
 
 void SystemManager::SpawnBillboards()
