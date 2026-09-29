@@ -2312,6 +2312,11 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         if (mySE->SysBubble()->HasPlayers())
             mySE->SysBubble()->AddBallExclusive(mySE);
 
+        // Deliver the ARRIVAL bubble's contents NOW (we no longer send them on
+        // bubble entry during warp - that made the destination grid pop in while
+        // the ship was still turning). Skips the pilot's own ball (added above).
+        mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
+
         // Belts / anomaly dungeons can straddle more than one bubble: deliver
         // the balls from overlapping bubbles inside the arrival area, so
         // asteroids and dungeon objects render immediately instead of frames
