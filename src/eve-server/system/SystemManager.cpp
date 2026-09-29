@@ -2034,7 +2034,12 @@ void SystemManager::SpawnSentryGuns()
             float angleStep = 6.283185f / gateCount;
             float baseAngle = (float)(MakeRandomInt(0, 6283)) / 1000.0f;
             for (uint32 i = 0; i < gateCount; ++i) {
-                float dist = (float)(gateDist + MakeRandomInt(-(int32)gateDistVar, (int32)gateDistVar));
+                // Place the sentry OUTSIDE the gate's own radius: gates are up to
+                // ~19 km in radius and the sentries were spawning 15-18 km from the
+                // centre - i.e. INSIDE the gate model, so the client rendered them
+                // hidden inside the structure (station sentries, whose radius is
+                // smaller, were always visible).
+                float dist = pSE->GetRadius() + (float)(gateDist + MakeRandomInt(-(int32)gateDistVar, (int32)gateDistVar));
                 float a = baseAngle + angleStep * i;
                 GPoint pos(center.x + dist * cosf(a), center.y, center.z + dist * sinf(a));
                 char name[64]; snprintf(name, sizeof(name), "Sentry SG%u-%u", id, i + 1);
