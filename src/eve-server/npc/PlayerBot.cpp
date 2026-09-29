@@ -1149,6 +1149,15 @@ void PlayerBot::DroneEngageTarget(DroneSE* drone, SystemEntity* target)
     d *= dmgMult;
     target->ApplyDamage(d);
 
+    // Self-defence bookkeeping (same as SystemEntity::ApplyDamage does for a
+    // charbot's direct attack): a bot's DRONE has no Client owner, so the hit is
+    // not attributed to the bot there. Record it here so a real player's counter-
+    // fire is treated as self-defence and doesn't flag them (bug: "player flagged
+    // though the bot shot first via its drones").
+    if (target->HasPilot() && target->GetPilot() != nullptr
+        && target->GetPilot()->GetCrimeWatch() != nullptr)
+        target->GetPilot()->GetCrimeWatch()->RegisterAttackBy(m_botCharID);
+
     // Visible weapon effect from the drone to the target.
     if (drone->SysBubble() != nullptr)
         drone->DestinyMgr()->SendSpecialEffect(drone->GetSelf()->itemID(), drone->GetSelf()->itemID(),

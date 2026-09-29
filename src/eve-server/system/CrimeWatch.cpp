@@ -343,6 +343,17 @@ void CrimeWatch::OnBotAggression(uint32 botCharID, float systemSecRating)
             m_client->SendNotifyMsg("CONCORD response initiated. You have been flagged as a criminal.");
         }
         m_client->GetChar()->secStatusChange(-0.025f * systemSecRating);
+
+        // CONCORD reaction, security-scaled — start it ONCE (a running strike must
+        // not be reset by each damage tick), exactly like OnAggression/OnStructureAggression.
+        if (!m_concordTimer.Enabled()) {
+            uint32 delay = 19000;
+            if (systemSecRating >= 0.9f) delay = 6000;
+            else if (systemSecRating >= 0.8f) delay = 7000;
+            else if (systemSecRating >= 0.7f) delay = 10000;
+            else if (systemSecRating >= 0.6f) delay = 14000;
+            m_concordTimer.Start(delay);
+        }
     }
 
     // Attacking a chelobot first is a hostile act against its corporation: drop
