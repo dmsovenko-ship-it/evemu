@@ -186,6 +186,10 @@ public:
     // remove all balls in bubble for this SE
     void RemoveBall(SystemEntity* about_who);
     void RemoveBalls(SystemEntity* to_who);
+    // remove a specific set of ball ids from to_who's client grid (incremental:
+    // drops the ships left behind when a warp enters a different bubble, without
+    // a full SetState/ClearAll reload).
+    void RemoveBallsList(SystemEntity* to_who, const std::vector<uint32>& ids);
     // remove this ball from bubble.  update all clients in bubble this SE has left.
     void RemoveBallExclusive(SystemEntity* about_who);
 

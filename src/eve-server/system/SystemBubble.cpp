@@ -1081,6 +1081,26 @@ void SystemBubble::RemoveBalls(SystemEntity *to_who) {
     pClient->QueueDestinyUpdate(&tmp);
 }
 
+void SystemBubble::RemoveBallsList(SystemEntity *to_who, const std::vector<uint32>& ids) {
+    if (ids.empty() || to_who == nullptr || !to_who->HasPilot())
+        return;
+    Client* pClient = to_who->GetPilot();
+    if (pClient == nullptr)
+        return;
+
+    RemoveBallsFromBP remove_balls;
+    for (uint32 id : ids)
+        remove_balls.balls.push_back(id);
+    if (remove_balls.balls.empty())
+        return;
+
+    _log(DESTINY__MESSAGE, "SystemBubble::RemoveBallsList() - sending %zu balls to %s",
+         remove_balls.balls.size(), pClient->GetName());
+
+    PyTuple *tmp = remove_balls.Encode();
+    pClient->QueueDestinyUpdate(&tmp);
+}
+
 PyObject* SystemBubble::GetDroneState() const
 {
     PyList* header = new PyList(7);

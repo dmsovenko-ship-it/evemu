@@ -2350,36 +2350,41 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         uint32 curBubble = mySE->SysBubble()->GetID();
         bool bubbleChanged = (m_warpOriginBubbleID != 0 && m_warpOriginBubbleID != curBubble);
 
+        if (mySE->SysBubble()->HasPlayers())
+            mySE->SysBubble()->AddBallExclusive(mySE);
+
+        // Deliver the ARRIVAL bubble's contents incrementally (SendAddBalls skips
+        // the pilot's own ball, added above). We do NOT send a full SetState here:
+        // its ClearAll makes the client visibly reload the whole grid.
+        mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
+
+        // Belts / anomaly dungeons can straddle more than one bubble: deliver
+        // the balls from overlapping bubbles inside the arrival area, so
+        // asteroids and dungeon objects render immediately instead of frames
+        // (2-5 s) later. Missing ids from the arrival bubble are skipped inside.
+        std::map<uint32, SystemEntity*> delivered;
+        for (auto& [id, se] : mySE->SysBubble()->GetDynamicEntities())
+            delivered.emplace(id, se);
+        for (auto& [id, se] : mySE->SystemMgr()->GetStaticEntities())
+            delivered.emplace(id, se);
+        sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
+
         if (bubbleChanged) {
-            // Warped into a DIFFERENT bubble. The origin grid was kept during the
-            // warp (Untrack no longer clears a warping pilot's grid), so the only
-            // clean swap is a full SetState: it carries the COMPLETE destination
-            // ball list, and the client clears+rebuilds it atomically (no lingering
-            // ships from the origin grid, no separate ClearAll frame).
-            SendSetState();
-            _log(DESTINY__BUBBLE_TRACE, "Destiny::WarpStop() - %s(%u): bubble changed %u -> %u, full SetState sent.",
-                 mySE->GetName(), mySE->GetID(), m_warpOriginBubbleID, curBubble);
-        } else {
-            if (mySE->SysBubble()->HasPlayers())
-                mySE->SysBubble()->AddBallExclusive(mySE);
-
-            // Deliver the ARRIVAL bubble's contents NOW (we no longer send them on
-            // bubble entry during warp - that made the destination grid pop in while
-            // the ship was still turning). Skips the pilot's own ball (added above).
-            mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
-
-            // Belts / anomaly dungeons can straddle more than one bubble: deliver
-            // the balls from overlapping bubbles inside the arrival area, so
-            // asteroids and dungeon objects render immediately instead of frames
-            // (2-5 s) later. Missing ids from the arrival bubble are skipped inside.
-            std::map<uint32, SystemEntity*> delivered;
-            for (auto& [id, se] : mySE->SysBubble()->GetDynamicEntities())
-                delivered.emplace(id, se);
-            for (auto& [id, se] : mySE->SystemMgr()->GetStaticEntities())
-                delivered.emplace(id, se);
-            sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
+            // The origin grid was kept during the warp (Untrack no longer clears a
+            // warping pilot's grid). Drop the origin balls that are NOT part of the
+            // destination - incrementally, so nothing is visibly reloaded.
+            std::vector<uint32> originOnly;
+            for (uint32 id : m_warpOriginBalls)
+                if (id != mySE->GetID() && delivered.find(id) == delivered.end())
+                    originOnly.push_back(id);
+            if (!originOnly.empty()) {
+                mySE->SysBubble()->RemoveBallsList(mySE, originOnly);
+                _log(DESTINY__BUBBLE_TRACE, "Destiny::WarpStop() - %s(%u): bubble changed %u -> %u, removed %zu origin balls.",
+                     mySE->GetName(), mySE->GetID(), m_warpOriginBubbleID, curBubble, originOnly.size());
+            }
         }
         m_warpOriginBubbleID = 0;   // consumed; next WarpTo re-arms it
+        m_warpOriginBalls.clear();
 
         // GateActivity is sent only during actual gate jumps (in JumpGate/Follow), not here.
     } else if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->HasPlayers()) {
@@ -2691,6 +2696,13 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     // bubble contents - see SystemBubble::Add / IsWarpPending().
     m_warpPending = true;
     m_warpOriginBubbleID = (mySE->SysBubble() != nullptr) ? mySE->SysBubble()->GetID() : 0;
+    // Capture the origin grid's entity ids: at WarpStop we remove only the ones
+    // that are NOT in the destination bubble (incremental - no SetState/ClearAll
+    // reload). Filled here because the origin bubble may be unloaded by arrival.
+    m_warpOriginBalls.clear();
+    if (mySE->SysBubble() != nullptr)
+        for (auto& [id, se] : mySE->SysBubble()->GetDynamicEntities())
+            m_warpOriginBalls.push_back(id);
 
     // Landing offset for warp-to-0 вЂ” reduced to 0 for precise landing
     if (distance == 0) {
