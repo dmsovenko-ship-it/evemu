@@ -2137,14 +2137,35 @@ void PlayerBot::HuntForTarget()
             continue;   // low/null: peaceful bots are still fair game for hunters,
                         // but a novice hunter passes on them until it learns to fight
         }
+        // Value: miners/haulers/traders are good loot and weak; hunters are not.
+        auto prof = enemy->GetProfession();
+        bool softPrey = (prof == BotProfession::Miner || prof == BotProfession::Courier
+                         || prof == BotProfession::Trader || prof == BotProfession::Hacker);
         if (enemy->IsNearGate(60000.0)) {
-            if (!canCampGate)
-                continue;   // solo: avoid the gate entirely (ambush risk)
-            // group camp: still only if the victim looks alone and weaker
-            if (CountEnemiesNearby(enemy) > 0)
-                continue;   // victim has friends — the camp would turn into a brawl
-            _log(BOT__MESSAGE, "PlayerBot %s(%u): gate camp on %s(%u) at a stargate.",
-                 m_botName.c_str(), m_botCharID, enemy->GetBotName().c_str(), enemy->GetBotCharID());
+            if (!canCampGate) {
+                // Solo at a gate is normally ambush country — but a soft hauler/courier
+                // parked at a lowsec/null stargate is easy, valuable prey. A lone hunter
+                // takes it; the tactical brain may veto (AVOID) if gates have been hot.
+                if (!(softPrey && sysSec < 0.5f && MakeRandomInt(0, 99) < 60))
+                    continue;
+                std::string advice = sBotMgr.AskBrainCached((uint8)BotProfession::Hunter,
+                    "gate_hauler",
+                    "A lone hauler/courier is parked at a lowsec stargate. Gank it solo at the "
+                    "gate, or avoid the ambush risk?");
+                if (advice.find("AVOID") != std::string::npos) {
+                    _log(BOT__MESSAGE, "PlayerBot %s(%u): DeepSeek says AVOID solo gate gank on %s(%u).",
+                         m_botName.c_str(), m_botCharID, enemy->GetBotName().c_str(), enemy->GetBotCharID());
+                    continue;
+                }
+                _log(BOT__MESSAGE, "PlayerBot %s(%u): solo gate gank on hauler %s(%u).",
+                     m_botName.c_str(), m_botCharID, enemy->GetBotName().c_str(), enemy->GetBotCharID());
+            } else {
+                // group camp: still only if the victim looks alone and weaker
+                if (CountEnemiesNearby(enemy) > 0)
+                    continue;   // victim has friends — the camp would turn into a brawl
+                _log(BOT__MESSAGE, "PlayerBot %s(%u): gate camp on %s(%u) at a stargate.",
+                     m_botName.c_str(), m_botCharID, enemy->GetBotName().c_str(), enemy->GetBotCharID());
+            }
         }
         // Combat-probe scan: a hunter with probes "finds" targets across the
         // whole system (battlefield/asteroid/anomaly), not just its own bubble.
@@ -2152,10 +2173,7 @@ void PlayerBot::HuntForTarget()
         if (d > 250000)
             continue;   // beyond probe range
         int score = (int)(250000 - d) / 1000;
-        // Value: miners/haulers/traders are good loot and weak; hunters are not.
-        auto prof = enemy->GetProfession();
-        if (prof == BotProfession::Miner || prof == BotProfession::Courier
-            || prof == BotProfession::Trader || prof == BotProfession::Hacker)
+        if (softPrey)
             score += 30;
         else if (prof == BotProfession::Hunter)
             score -= 50;   // fellow hunters fight back — only if we're confident
