@@ -172,6 +172,12 @@ public:
     // while the ship was still turning, and were incomplete on arrival).
     bool IsWarpPending()                                { return m_warpPending; }
     void SetWarpPending(bool p)                         { m_warpPending = p; }
+    // True while the ship is TURNING to warp (the client renders its own align):
+    // the bubble manager must not evict the ship from its ORIGIN bubble during
+    // this window, or the client (still physically at the origin) loses its grid.
+    bool IsAligning();
+    void SetWarpAlignWindow(float seconds);
+    void ClearWarpAlignWindow();
     bool IsCloaked()                                    { return m_cloaked; }
     bool IsTurning()                                    { return m_turning; }
     bool IsTractored()                                  { return m_tractored; }
@@ -304,6 +310,7 @@ protected:
 
     //User controlled information used by a state to determine what to do.
     bool m_warpPending;                 // warp requested (aligning) but not yet in WARP mode
+    uint32 m_warpAlignUntil;            // stamp until which the ship is turning to warp (client align)
     bool m_stop;                        //used to denote Stop() has been called to avoid multiple stops (and associated decel)
     bool m_accel;                       //used to execute code for increasing ship speed
     bool m_decel;                       //used to execute code for decreasing ship speed

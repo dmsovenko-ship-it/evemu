@@ -130,6 +130,16 @@ void BubbleManager::CheckBubble(SystemEntity *pSE) {
             return;
         }
 
+        // A pilot still TURNING to warp (client-align window) must stay in its origin
+        // bubble: the client renders its own (longer) turn and is physically still at
+        // the origin, so evicting it now makes the origin grid vanish mid-turn. The
+        // warp position is unaffected; we only defer the bubble move.
+        if (pSE->HasPilot() && pSE->DestinyMgr() != nullptr && pSE->DestinyMgr()->IsAligning()) {
+            _log(DESTINY__BUBBLE_TRACE, "BubbleManager::CheckBubble() - Entity '%s'(%u) still aligning to warp - holding in bubble %u.",\
+                 pSE->GetName(), pSE->GetID(), pBubble->GetID());
+            return;
+        }
+
         _log(DESTINY__BUBBLE_DEBUG, "BubbleManager::CheckBubble() - Entity '%s'(%u) at (%.2f,%.2f,%.2f) is no longer located in bubble %u at %.2f,%.2f,%.2f.  Removing...",\
              pSE->GetName(), pSE->GetID(), pSE->GetPosition().x, pSE->GetPosition().y, pSE->GetPosition().z,\
              pBubble->GetID(), pBubble->x(), pBubble->y(), pBubble->z());

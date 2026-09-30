@@ -81,6 +81,7 @@ m_shipInertia(1.0),
 m_warpAccelTime(1),
 m_warpDecelTime(1),
 m_warpPending(false),
+m_warpAlignUntil(0),
 m_warpState(nullptr),
 m_warpStallTicks(0),
 m_warpOriginBubbleID(0),
@@ -1861,7 +1862,8 @@ void DestinyManager::InitWarp() {
     if (m_turning) {
         ClearTurn();
     }
-    m_warpStopDelay.Disable();   // fresh warp — clear the exit-hold timer
+    m_warpStopDelay.Disable();   // fresh warp
+    ClearWarpAlignWindow();      // turn finished - allow the origin bubble to be left now — clear the exit-hold timer
     // Reset movement state so warp always starts clean, regardless of prior
     // decel/accel state (e.g. post-warp decel when rapidly re-warping).
     m_accel = false;
@@ -2648,6 +2650,22 @@ void DestinyManager::GotoPoint(const GPoint& point) {
     SendSingleDestinyUpdate(&up);   // consumed
 }
 
+bool DestinyManager::IsAligning() {
+    return (m_warpAlignUntil != 0) && (sEntityList.GetStamp() < m_warpAlignUntil);
+}
+
+void DestinyManager::SetWarpAlignWindow(float seconds) {
+    if (seconds <= 0.0f) {
+        m_warpAlignUntil = 0;
+        return;
+    }
+    m_warpAlignUntil = sEntityList.GetStamp() + (uint32)seconds;
+}
+
+void DestinyManager::ClearWarpAlignWindow() {
+    m_warpAlignUntil = 0;
+}
+
 void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoPilot/*false*/, SystemEntity* pSE/*nullptr*/) {
     /* warp order..
      * pick destination -> align/accel -> aura "warp drive active" -> cap drain -> accel
@@ -2770,6 +2788,20 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     if (is_log_enabled(DESTINY__WARP_TRACE))
         _log(DESTINY__TRACE, "Destiny::WarpTo() - %s(%u) target bubble: %u  m_stopDistance: %i  m_targetDistance: %.2f",
             mySE->GetName(), mySE->GetID(), m_targBubble->GetID(), m_stopDistance, m_targetDistance);
+
+    // The client renders its own align turn for ~turnTime = m_shipAgility/2.2 (a super
+    // ~27-33s, a frigate ~2-3s). Mark this window so the BUBBLE MANAGER does not evict
+    // the ship from its ORIGIN bubble until it elapses - otherwise the client, still
+    // physically at the origin, loses its origin grid ("NPC/ships vanished on the turn").
+    // The warp itself is NOT delayed (the server still starts immediately, so no jerk).
+    if (mySE->HasPilot()) {
+        float alignSec = m_shipAgility / 2.2f;
+        if (alignSec < 2.0f)  alignSec = 2.0f;
+        if (alignSec > 30.0f) alignSec = 30.0f;
+        SetWarpAlignWindow(alignSec);
+        _log(DESTINY__WARP_TRACE, "Destiny::WarpTo() - %s(%u): client align window %.2fs (agility %.3f, mass %.0f, inertia %.4f)",
+             mySE->GetName(), mySE->GetID(), alignSec, m_shipAgility, m_mass, m_shipInertia);
+    }
 
     // npcs have no warp restrictions (yet)
     if (mySE->IsNPCSE() or mySE->IsDroneSE()) {
