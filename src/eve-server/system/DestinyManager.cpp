@@ -301,8 +301,13 @@ void DestinyManager::ProcessState() {
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
-            } else if ((degrees < WARP_ALIGNMENT) and (m_timeFraction > 0.749)) {
-                // entering warp from here is the happy path for most cases
+            } else if ((degrees < WARP_ALIGNMENT) and (m_timeFraction > 0.749)
+                       and ((sEntityList.GetStamp() - m_stateStamp) >= m_timeToEnterWarp)) {
+                // Aligned AND the client's align time has elapsed. Do NOT start before
+                // the align time even when the SERVER's heading already points at the
+                // target - the client renders its own (longer) turn meanwhile, and
+                // starting early moved the position out of the origin bubble while the
+                // client was still turning there (origin grid vanished).
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
@@ -314,14 +319,6 @@ void DestinyManager::ProcessState() {
                 // the pre-jump follow/warp), and MoveObject() would Halt() because
                 // USF==0. Forcing USF=1.0 here re-arms the ship for the warp.
                 SetSpeedFraction(1.0f, true);
-            } else if ((degrees < 30.0f) && (m_timeFraction > 0.5)
-                       && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
-                // Close enough to target — start warp early (final alignment during accel).
-                // Maintain current heading/velocity instead of zeroing, matching
-                // destiny.dll OnActivatingWarp case 3: warp enters with existing momentum.
-                m_shipHeading = toVec;
-                InitWarp();
-                return;
             } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp) {
                 // Warp alignment: enough time has passed for the ship to turn to the
                 // warp vector. Real EVE finishes the turn during warp acceleration, so
@@ -2770,6 +2767,21 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     if (is_log_enabled(DESTINY__WARP_TRACE))
         _log(DESTINY__TRACE, "Destiny::WarpTo() - %s(%u) target bubble: %u  m_stopDistance: %i  m_targetDistance: %.2f",
             mySE->GetName(), mySE->GetID(), m_targBubble->GetID(), m_stopDistance, m_targetDistance);
+
+    // Client align time (EVE formula): alignTime = ln(4) * mass * inertiaModifier / 1e6.
+    // The CLIENT renders its own turn for this long. The server still snaps its own
+    // heading and starts the warp as usual, but it must NOT move the position out of
+    // the origin bubble (or deliver the destination) until this elapses - otherwise the
+    // client, still turning at the origin, loses its origin grid ("ships vanished while
+    // I'm still here"). Delay only the warp entry; do NOT simulate a slow server turn
+    // (that was the 18-36s "turning forever" bug reverted in 95a737e7).
+    if (mySE->HasPilot()) {
+        double alignSec = std::log(4.0) * static_cast<double>(m_mass)
+                        * static_cast<double>(m_shipInertia) / 1000000.0;
+        if (alignSec < 2.0)  alignSec = 2.0;
+        if (alignSec > 30.0) alignSec = 30.0;
+        m_timeToEnterWarp = static_cast<float>(alignSec);
+    }
 
     // npcs have no warp restrictions (yet)
     if (mySE->IsNPCSE() or mySE->IsDroneSE()) {
