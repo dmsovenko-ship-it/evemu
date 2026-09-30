@@ -470,27 +470,18 @@ void SystemBubble::Untrack(SystemEntity *pSE) {
 
         m_players.erase(charId);
 
-        // A pilot leaving its ORIGIN bubble mid-warp must KEEP its client grid:
-        // RemoveBalls(pSE) clears the pilot's own grid, so wiping it while the
-        // client is still turning/warping made the origin grid vanish mid-turn;
-        // the destination grid then arrived at WarpStop and the client rebuilt it
-        // (UpdateStateRequest -> SetState/ClearAll) = teleport + jerk ("dёргается").
-        // The destination grid is delivered complete at WarpStop instead.
-        bool warping = (pSE->DestinyMgr() != nullptr)
-                    && (pSE->DestinyMgr()->IsWarping() || pSE->DestinyMgr()->IsWarpPending());
-        if (warping) {
-            _log(DESTINY__BUBBLE_TRACE, "SystemBubble::Remove() - entity %u leaving bubble %u mid-warp; keeping its grid.",
-                 pseId, m_bubbleID);
-        } else {
-            _log(
-                DESTINY__BUBBLE_TRACE,
-                "SystemBubble::Remove() - Removing entity %u from bubble %u - removing balls",
-                pseId,
-                m_bubbleID
-            );
+        // Clear the pilot's own client grid when it leaves this bubble (warp-out:
+        // the origin grid is dropped here, once the ship has actually left the
+        // origin and is on its way). The destination grid is delivered ADD-only at
+        // WarpStop, so nothing is reloaded there.
+        _log(
+            DESTINY__BUBBLE_TRACE,
+            "SystemBubble::Remove() - Removing entity %u from bubble %u - removing balls",
+            pseId,
+            m_bubbleID
+        );
 
-            RemoveBalls(pSE);
-        }
+        RemoveBalls(pSE);
     }
 
     // notify everybody else in the bubble of the removal

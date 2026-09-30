@@ -2347,9 +2347,6 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     // warp exit.  Only the pilot's OWN ball is added now (mode is STOP, so its
     // EncodeDestiny is finally correct), plus balls from overlapping bubbles.
     if (mySE->HasPilot() && mySE->SysBubble() != nullptr) {
-        uint32 curBubble = mySE->SysBubble()->GetID();
-        bool bubbleChanged = (m_warpOriginBubbleID != 0 && m_warpOriginBubbleID != curBubble);
-
         if (mySE->SysBubble()->HasPlayers())
             mySE->SysBubble()->AddBallExclusive(mySE);
 
@@ -2369,20 +2366,10 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
             delivered.emplace(id, se);
         sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
 
-        if (bubbleChanged) {
-            // The origin grid was kept during the warp (Untrack no longer clears a
-            // warping pilot's grid). Drop the origin balls that are NOT part of the
-            // destination - incrementally, so nothing is visibly reloaded.
-            std::vector<uint32> originOnly;
-            for (uint32 id : m_warpOriginBalls)
-                if (id != mySE->GetID() && delivered.find(id) == delivered.end())
-                    originOnly.push_back(id);
-            if (!originOnly.empty()) {
-                mySE->SysBubble()->RemoveBallsList(mySE, originOnly);
-                _log(DESTINY__BUBBLE_TRACE, "Destiny::WarpStop() - %s(%u): bubble changed %u -> %u, removed %zu origin balls.",
-                     mySE->GetName(), mySE->GetID(), m_warpOriginBubbleID, curBubble, originOnly.size());
-            }
-        }
+        // Warp-IN is ADD-ONLY: the origin grid is already cleared on WARP-OUT
+        // (SystemBubble::Untrack calls RemoveBalls when the pilot leaves the origin
+        // bubble), so here we only deliver the destination balls - never a SetState
+        // and never a removal (the client must not reload its grid on arrival).
         m_warpOriginBubbleID = 0;   // consumed; next WarpTo re-arms it
         m_warpOriginBalls.clear();
 
