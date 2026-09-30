@@ -153,6 +153,12 @@ public:
     void BotSayLocal(uint32 sysID, uint32 charID, const std::string& name, uint32 corpID,
                      const std::string& msg);
 
+    // Loss-driven logistics threat map (public: PlayerBot::Killed marks a system
+    // HOT when a peaceful hauler dies there; convoys routing through it take a
+    // combat escort). Reaction is loss-driven only, never pre-emptive.
+    void NoteHaulerKilled(uint32 systemID);
+    bool IsHaulHot(uint32 systemID);
+
 private:
     void SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& name, uint32 corpID, uint32 allianceID, bool arrivedViaGate = false);
     // Materialize a killmail fit (JSON array of module typeIDs) into a bot's ship:
@@ -261,11 +267,6 @@ private:
     PlayerBot* FindFreeCourier(uint32 systemID);
     // Complete courier hauls that reached their destination but never docked.
     void ProcessHaulDeliveries();
-    // Threat map for logistics: a peaceful hauler/trader/miner was just killed by
-    // a hostile in this system. Marks it HOT (with an expiry); convoys routing
-    // through HOT systems take a combat escort. Reaction is loss-driven only.
-    void NoteHaulerKilled(uint32 systemID);
-    bool IsHaulHot(uint32 systemID);
     // Market self-learning (stage-1 economy): a docked trader reads its station's
     // order book and either captures a crossing spread (real arbitrage fills via
     // MarketMgr::BotArbitrageFill) or quotes tighter than the current best bid/
