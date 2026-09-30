@@ -2347,29 +2347,39 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     // warp exit.  Only the pilot's OWN ball is added now (mode is STOP, so its
     // EncodeDestiny is finally correct), plus balls from overlapping bubbles.
     if (mySE->HasPilot() && mySE->SysBubble() != nullptr) {
-        if (mySE->SysBubble()->HasPlayers())
-            mySE->SysBubble()->AddBallExclusive(mySE);
+        uint32 curBubble = mySE->SysBubble()->GetID();
+        bool bubbleChanged = (m_warpOriginBubbleID != 0 && m_warpOriginBubbleID != curBubble);
 
-        // Deliver the ARRIVAL bubble's contents NOW (we no longer send them on
-        // bubble entry during warp - that made the destination grid pop in while
-        // the ship was still turning). Skips the pilot's own ball (added above).
-        mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
+        if (bubbleChanged) {
+            // Warped into a DIFFERENT bubble. The origin grid was kept during the
+            // warp (Untrack no longer clears a warping pilot's grid), so the only
+            // clean swap is a full SetState: it carries the COMPLETE destination
+            // ball list, and the client clears+rebuilds it atomically (no lingering
+            // ships from the origin grid, no separate ClearAll frame).
+            SendSetState();
+            _log(DESTINY__BUBBLE_TRACE, "Destiny::WarpStop() - %s(%u): bubble changed %u -> %u, full SetState sent.",
+                 mySE->GetName(), mySE->GetID(), m_warpOriginBubbleID, curBubble);
+        } else {
+            if (mySE->SysBubble()->HasPlayers())
+                mySE->SysBubble()->AddBallExclusive(mySE);
 
-        // Belts / anomaly dungeons can straddle more than one bubble: deliver
-        // the balls from overlapping bubbles inside the arrival area, so
-        // asteroids and dungeon objects render immediately instead of frames
-        // (2-5 s) later. Missing ids from the arrival bubble are skipped inside.
-        std::map<uint32, SystemEntity*> delivered;
-        for (auto& [id, se] : mySE->SysBubble()->GetDynamicEntities())
-            delivered.emplace(id, se);
-        for (auto& [id, se] : mySE->SystemMgr()->GetStaticEntities())
-            delivered.emplace(id, se);
-        sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
+            // Deliver the ARRIVAL bubble's contents NOW (we no longer send them on
+            // bubble entry during warp - that made the destination grid pop in while
+            // the ship was still turning). Skips the pilot's own ball (added above).
+            mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
 
-        // NOTE: do NOT send a full SetState here. The client's RemoveBall already
-        // clears slimItems (michelle.py:1137), so the stale-slimski theory was wrong;
-        // the SetState's ClearAll() only made the grid visibly flicker during normal
-        // warps. The incremental SendAddBalls above is the correct arrival delivery.
+            // Belts / anomaly dungeons can straddle more than one bubble: deliver
+            // the balls from overlapping bubbles inside the arrival area, so
+            // asteroids and dungeon objects render immediately instead of frames
+            // (2-5 s) later. Missing ids from the arrival bubble are skipped inside.
+            std::map<uint32, SystemEntity*> delivered;
+            for (auto& [id, se] : mySE->SysBubble()->GetDynamicEntities())
+                delivered.emplace(id, se);
+            for (auto& [id, se] : mySE->SystemMgr()->GetStaticEntities())
+                delivered.emplace(id, se);
+            sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
+        }
+        m_warpOriginBubbleID = 0;   // consumed; next WarpTo re-arms it
 
         // GateActivity is sent only during actual gate jumps (in JumpGate/Follow), not here.
     } else if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->HasPlayers()) {
