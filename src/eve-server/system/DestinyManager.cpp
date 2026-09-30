@@ -1971,6 +1971,16 @@ void DestinyManager::InitWarp() {
         }
         cruiseDistance = (static_cast<double>(m_targetDistance) - accelDistance - decelDistance);
         cruiseTime = static_cast<float>(cruiseDistance / warpSpeedInMeters);
+
+        // Truthful decel duration: WarpDecel runs the exponential phase from its
+        // exp-start distance down to ~1 m, which takes ln(expDist) seconds (it is
+        // distance-driven). m_warpDecelTime was left at the short-warp value, so the
+        // logged "total time" (14s) did not match the real warp (~accel+cruise+ln).
+        // Record the real value so the timeline log is accurate.
+        double expStart = (decelDistance - warpSpeedInMeters * warpLinearTime / 2.0)
+                          / (warpLinearTime / 2.0 + 1.0);
+        if (expStart < 1.0) expStart = 1.0;
+        m_warpDecelTime = static_cast<float>(log(expStart));
     }
 
     //  set total warp time based on above math.
