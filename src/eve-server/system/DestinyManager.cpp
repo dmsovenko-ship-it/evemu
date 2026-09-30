@@ -2776,11 +2776,18 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     // I'm still here"). Delay only the warp entry; do NOT simulate a slow server turn
     // (that was the 18-36s "turning forever" bug reverted in 95a737e7).
     if (mySE->HasPilot()) {
-        double alignSec = std::log(4.0) * static_cast<double>(m_mass)
-                        * static_cast<double>(m_shipInertia) / 1000000.0;
+        // m_shipAgility = (mass/1e6) * inertiaModifier; /2.2 matches the observed
+        // client align (a supercarrier ~27-33s, a frigate ~2-3s). Fall back to the
+        // EVE formula if agility isn't loaded yet.
+        double alignSec = static_cast<double>(m_shipAgility) / 2.2;
+        if (alignSec < 2.0)
+            alignSec = std::log(4.0) * static_cast<double>(m_mass)
+                     * static_cast<double>(m_shipInertia) / 1000000.0;
         if (alignSec < 2.0)  alignSec = 2.0;
         if (alignSec > 30.0) alignSec = 30.0;
         m_timeToEnterWarp = static_cast<float>(alignSec);
+        _log(DESTINY__WARP_TRACE, "Destiny::WarpTo() - %s(%u): client align time %.2fs (agility %.3f, mass %.0f, inertia %.4f)",
+             mySE->GetName(), mySE->GetID(), alignSec, m_shipAgility, m_mass, m_shipInertia);
     }
 
     // npcs have no warp restrictions (yet)
