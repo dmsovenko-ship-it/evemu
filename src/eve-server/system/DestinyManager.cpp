@@ -2060,7 +2060,12 @@ void DestinyManager::WarpAccel(uint32 sec_into_warp) {
      */
     double currentDistance = exp(3 * sec_into_warp);
 
-    if (mySE->SysBubble() != nullptr && currentDistance > BUBBLE_RADIUS_METERS && mySE->SysBubble() != m_targBubble) {
+    // Hold the pilot in its ORIGIN bubble while the client is still rendering its
+    // align turn (IsAligning): the client is physically still at the origin, so
+    // removing it here immediately (>300km of server accel - ~4-5s) made the origin
+    // grid vanish mid-turn. The warp itself is unaffected.
+    if (mySE->SysBubble() != nullptr && currentDistance > BUBBLE_RADIUS_METERS && mySE->SysBubble() != m_targBubble
+        && !(mySE->HasPilot() && IsAligning())) {
         if (is_log_enabled(DESTINY__WARP_TRACE)) {
             _log(
                 DESTINY__WARP_TRACE,
