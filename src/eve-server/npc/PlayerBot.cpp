@@ -600,6 +600,14 @@ void PlayerBot::Killed(Damage& damage)
             || m_brainAdvice.find("FLEET") != std::string::npos
             || m_brainAdvice.find("REFIT") != std::string::npos)
             sBotMgr.TrainBotCombatSkill(m_botCharID);
+
+        // Threat map: a peaceful hauler/trader/miner just got cut down in this
+        // system — mark it HOT so convoys take escorts when they route through it
+        // (only reacts once transports actually start dying, never pre-emptively).
+        if ((m_profession == BotProfession::Courier || m_profession == BotProfession::Trader
+             || m_profession == BotProfession::Miner || m_profession == BotProfession::Hacker)
+            && (threat == "chelo" || threat == "human") && SystemMgr() != nullptr)
+            sBotMgr.NoteHaulerKilled(SystemMgr()->GetID());
     }
 
     // Insurance: a chelobot recovers part of the lost hull's value (like a
@@ -1646,6 +1654,34 @@ void PlayerBot::DoProfessionActivity()
 
     switch (m_profession) {
         case BotProfession::Hunter: {
+            // Convoy escort: while assigned to a hauler, stay glued to it instead
+            // of roaming — a guard covers its ward wherever it moves in-system.
+            // BotMgr moves the escort between systems with the convoy at each hop.
+            if (m_escortCharID != 0) {
+                PlayerBot* ward = nullptr;
+                for (auto& [id, se] : SystemMgr()->GetEntities()) {
+                    if (se == nullptr || se->GetNPCSE() == nullptr)
+                        continue;
+                    PlayerBot* ob = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                    if (ob != nullptr && ob->GetBotCharID() == m_escortCharID) { ward = ob; break; }
+                }
+                if (ward != nullptr && ward != this) {
+                    double d = GetPosition().distance(ward->GetPosition());
+                    if (!m_destiny->IsWarping()) {
+                        if (d > 30000) {
+                            m_destiny->SetMaxVelocity(GetAIMgr()->GetMaxShipSpeed());
+                            m_destiny->WarpTo(ward->GetPosition(), 3000);
+                        } else if (d > 8000 && !m_destiny->IsOrbiting()) {
+                            m_destiny->Orbit(ward, 5000);
+                        }
+                    }
+                    return;   // escorting — no roaming this cycle
+                }
+                // Ward gone from this system: the courier docked/died (convoy over)
+                // or BotMgr is about to move us across the gate with it (it re-sets
+                // the escort target on arrival). Drop the escort and roam free.
+                m_escortCharID = 0;
+            }
             // A broke/unfitted ganker earns ISK first (ratting NPC bounties), then
             // re-fits on the market and goes back to ganking. No naked destroyers.
             if (m_outlaw && !IsArmed()) {

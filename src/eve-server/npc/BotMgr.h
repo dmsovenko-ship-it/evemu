@@ -261,6 +261,11 @@ private:
     PlayerBot* FindFreeCourier(uint32 systemID);
     // Complete courier hauls that reached their destination but never docked.
     void ProcessHaulDeliveries();
+    // Threat map for logistics: a peaceful hauler/trader/miner was just killed by
+    // a hostile in this system. Marks it HOT (with an expiry); convoys routing
+    // through HOT systems take a combat escort. Reaction is loss-driven only.
+    void NoteHaulerKilled(uint32 systemID);
+    bool IsHaulHot(uint32 systemID);
     // Market self-learning (stage-1 economy): a docked trader reads its station's
     // order book and either captures a crossing spread (real arbitrage fills via
     // MarketMgr::BotArbitrageFill) or quotes tighter than the current best bid/
@@ -408,8 +413,14 @@ private:
         uint32 endStation  = 0;     // destination station
         std::vector<uint32> route;  // remaining systems to cross (front = next hop)
         time_t arrivedAt   = 0;     // when the courier reached endSys (0 = en route)
+        uint32 escortCharID = 0;    // combat guard flying the same route (0 = none)
     };
     std::map<uint32, CourierHaul> m_hauls;   // courier charID -> active haul
+
+    // Logistics threat map: systemID -> "hot until" (filetime). A system becomes
+    // hot when a peaceful hauler is ganked there; convoys routing through it take
+    // an escort/eyes. Entries expire so the reaction is temporary.
+    std::map<uint32, int64> m_haulHot;
 
     // POS supply run: a docked industrialist physically flies to its corp's tower
     // carrying fuel / ammo / reaction materials (and a market-bought BPC) and

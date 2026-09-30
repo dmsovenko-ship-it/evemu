@@ -3708,6 +3708,8 @@ void BotMgr::ProcessTravel()
                 continue;   // tower guard holds its POS - never wanders off
             if (pb->IsAggressed())
                 continue;   // aggression timer — can't jump a gate until it cools down
+            if (pb->IsEscorting())
+                continue;   // convoy guard: BotMgr moves it with its courier, never on its own
             if (pb->WantsToTravel())
                 readyToJump.push_back(pb);   // visible flight to the gate is done
             else if (MakeRandomInt(0, 899) == 0)   // ~0.11% per tic decides to leave (was 0.33% — churn booted whole systems)
@@ -3785,6 +3787,31 @@ void BotMgr::ProcessTravel()
             SystemManager* dest = sEntityList.FindOrBootSystem(destSystem);
             if (dest != nullptr)
                 SpawnBot(dest, charID, name, corp, ally, true);   // arrived via gate → jump-in animation
+
+            // Convoy: move the escort to the destination with the courier — the
+            // guard flies the same route, staying with the haul across every gate.
+            if (haulIt != m_hauls.end() && haulIt->second.escortCharID != 0 && dest != nullptr) {
+                PlayerBot* esc = BotMgr_FindInSystem(pSystem, haulIt->second.escortCharID);
+                if (esc != nullptr) {
+                    uint32 escID = esc->GetBotCharID();
+                    std::string escName = esc->GetBotName();
+                    uint32 escCorp = esc->GetBotCorpID();
+                    uint32 escAlly = esc->GetBotAllianceID();
+                    if (esc->TargetMgr() != nullptr)
+                        esc->TargetMgr()->ClearFromTargets();
+                    pSystem->RemoveNPCFromList(esc);
+                    pSystem->RemoveEntity(esc);
+                    SafeDelete(esc);
+                    SpawnBot(dest, escID, escName, escCorp, escAlly, true);
+                    PlayerBot* arrivedEsc = BotMgr_FindInSystem(dest, escID);
+                    if (arrivedEsc != nullptr)
+                        arrivedEsc->SetEscortTarget(charID);
+                    else
+                        haulIt->second.escortCharID = 0;   // escort lost in transit
+                } else {
+                    haulIt->second.escortCharID = 0;       // escort no longer present
+                }
+            }
 
             // Courier haul bookkeeping for this hop.
             if (haulIt != m_hauls.end()) {
@@ -8077,11 +8104,43 @@ void BotMgr::ProcessPlayerContracts()
                     haul.endStation = 0;
                     haul.route.assign(route.begin() + 1, route.end());   // skip current system
                     haul.arrivedAt = 0;
-                    m_hauls[courier->GetBotCharID()] = std::move(haul);
+                    haul.escortCharID = 0;
+                    uint32 courierID = courier->GetBotCharID();
+                    m_hauls[courierID] = std::move(haul);
+                    // Loss-driven convoy: if the route runs through a system where
+                    // haulers were just ganked, take a corpmate combat escort that
+                    // flies the same route with the courier (the escort doubles as
+                    // the "eyes" ahead). Only reacts once transports started dying.
+                    bool hotRoute = IsHaulHot(curSys);
+                    for (uint32 s : m_hauls[courierID].route)
+                        if (IsHaulHot(s)) hotRoute = true;
+                    if (hotRoute && courier->SystemMgr() != nullptr) {
+                        for (auto& [eid, ese] : courier->SystemMgr()->GetEntities()) {
+                            if (ese == nullptr || ese->GetNPCSE() == nullptr)
+                                continue;
+                            PlayerBot* g = dynamic_cast<PlayerBot*>(ese->GetNPCSE());
+                            if (g == nullptr || g == courier)
+                                continue;
+                            if (g->GetProfession() != PlayerBot::BotProfession::Hunter)
+                                continue;
+                            if (g->GetBotCorpID() != courier->GetBotCorpID()
+                                && g->GetBotAllianceID() != courier->GetBotAllianceID())
+                                continue;
+                            if (g->IsEscorting() || g->IsTraveling() || g->WantsToTravel()
+                                || g->GetAIMgr()->IsFighting())
+                                continue;
+                            g->SetEscortTarget(courierID);
+                            m_hauls[courierID].escortCharID = g->GetBotCharID();
+                            _log(BOT__MESSAGE, "BotMgr: hot route - guard %s(%u) assigned to courier %s(%u).",
+                                 g->GetBotName().c_str(), g->GetBotCharID(),
+                                 courier->GetBotName().c_str(), courierID);
+                            break;
+                        }
+                    }
                     courier->SetTravelDestination(route[1]);
                     courier->MarkForTravel(route[1]);
                     _log(BOT__MESSAGE, "BotMgr: courier %s(%u) hauling contract %u via gate route (%zu jumps) to system %u.",
-                         courier->GetBotName().c_str(), courier->GetBotCharID(), contractID,
+                         courier->GetBotName().c_str(), courierID, contractID,
                          route.size() - 1, endSys);
                 } else {
                     // No path or already there — fall back to the direct hop.
@@ -8093,6 +8152,27 @@ void BotMgr::ProcessPlayerContracts()
             // freighter/courier completes the run), not at acceptance.
         }
     }
+}
+
+// Loss-driven logistics threat map. Marked when a peaceful hauler dies to a
+// hostile; convoys routing through the system then take a combat escort.
+void BotMgr::NoteHaulerKilled(uint32 systemID)
+{
+    if (systemID == 0)
+        return;
+    m_haulHot[systemID] = GetFileTimeNow() + 15LL * EvE::Time::Minute;
+}
+
+bool BotMgr::IsHaulHot(uint32 systemID)
+{
+    auto it = m_haulHot.find(systemID);
+    if (it == m_haulHot.end())
+        return false;
+    if (it->second < GetFileTimeNow()) {
+        m_haulHot.erase(it);   // heat expired
+        return false;
+    }
+    return true;
 }
 
 PlayerBot* BotMgr::FindFreeCourier(uint32 systemID)

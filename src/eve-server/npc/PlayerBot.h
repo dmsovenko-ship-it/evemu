@@ -92,6 +92,12 @@ public:
     uint32 GetTravelDestination() const { return m_destSystemID; }
     void SetTravelDestination(uint32 sysID) { m_destSystemID = sysID; }
 
+    /* convoy protection: a combat bot (guard) sticks to the hauler with this
+       charID; 0 = free agent. Set by BotMgr when a hot route needs an escort. */
+    void SetEscortTarget(uint32 charID) { m_escortCharID = charID; }
+    uint32 GetEscortTarget() const      { return m_escortCharID; }
+    bool IsEscorting() const            { return m_escortCharID != 0; }
+
     /* bot role in combat */
     enum class BotRole : uint8 {
         Fighter = 0,    // pure DPS
@@ -310,6 +316,7 @@ protected:
     bool m_wantsTravel;                 // true when the bot wants to leave via gate
     bool m_traveling;                   // true while the bot visibly warps to the gate
     uint32 m_destSystemID;              // target system to cross into (0 = random)
+    uint32 m_escortCharID = 0;          // guard: charID of the hauler we escort (0 = free)
     Timer m_abilityTimer;               // logistics/EWAR/bonus tick
     Timer m_activityTimer;              // profession run counter (self-learning)
     Timer m_huntCooldown;               // PvP hunter: pause between engages (no gate camping)
