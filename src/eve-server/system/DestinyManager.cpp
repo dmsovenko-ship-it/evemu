@@ -1874,6 +1874,17 @@ void DestinyManager::InitWarp() {
     }
     m_warpStopDelay.Disable();   // fresh warp
     ClearWarpAlignWindow();      // turn finished - allow the origin bubble to be left now — clear the exit-hold timer
+
+    // A pilot enters warp HERE (server time is synced to the client's own align):
+    // drop the ORIGIN grid exactly at the visible warp-entry moment, instead of
+    // earlier at the >300 km accelerator tick. Untrack -> RemoveBalls(pSE) clears
+    // the pilot's origin grid; WarpAccel's >300 km removal then becomes a no-op.
+    if (mySE->HasPilot() && mySE->SysBubble() != nullptr
+        && mySE->SysBubble() != m_targBubble) {
+        _log(DESTINY__BUBBLE_TRACE, "Destiny::InitWarp() - %s(%u): warp entry, leaving origin bubble %u.",
+             mySE->GetName(), mySE->GetID(), mySE->SysBubble()->GetID());
+        mySE->SysBubble()->Remove(mySE);
+    }
     // Reset movement state so warp always starts clean, regardless of prior
     // decel/accel state (e.g. post-warp decel when rapidly re-warping).
     m_accel = false;
