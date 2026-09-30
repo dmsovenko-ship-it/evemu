@@ -257,6 +257,21 @@ void Missile::HitTarget() {
     if (m_system->GetSE(m_targetID) != m_targetSE)
         return;
 
+    // A ship that entered warp (or is turning to warp) cannot be hit: it is
+    // untargetable during warp, and under the align-hold its bubble briefly differs
+    // from its real (warp-path) position. Drop the missile instead of applying damage
+    // at a desynced position ("miss").
+    if (m_targetSE->DestinyMgr() != nullptr
+        && (m_targetSE->DestinyMgr()->IsWarping() || m_targetSE->DestinyMgr()->IsAligning())) {
+        m_alive = false;
+        return;
+    }
+    if (m_targetSE->SysBubble() != nullptr && this->SysBubble() != nullptr
+        && m_targetSE->SysBubble() != this->SysBubble()) {
+        m_alive = false;
+        return;
+    }
+
     // Bomb: AoE detonation over all entities within explosionRange.
     if (m_self->groupID() == EVEDB::invGroups::Bomb
      or m_self->groupID() == EVEDB::invGroups::Bomb_ECM
