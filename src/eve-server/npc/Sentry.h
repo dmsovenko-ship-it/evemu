@@ -28,6 +28,10 @@ public:
     virtual Sentry* GetSentrySE()                       { return this; }
     /* class type tests. */
     virtual bool IsSentrySE()                           { return true; }
+    // Sentries never move: deliver them the same way as gates/stations (static
+    // bubble path), which the client renders reliably. Dynamic delivery was being
+    // dropped/held by the client's slim cache (AddBalls skips already-known ids).
+    virtual bool IsStaticEntity()                       { return true; }
 
     /* SystemEntity interface */
     virtual void Process();
