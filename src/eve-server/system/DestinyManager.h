@@ -441,7 +441,6 @@ private:
     GPoint m_lastWarpPos;               // watchdog: last position checked during WARP
     uint32 m_warpStallTicks;            // watchdog: consecutive ticks with no warp progress
     uint32 m_warpOriginBubbleID;        // bubble the ship was in when the warp started
-    uint32 m_warpStartStamp;            // entity stamp when WarpTo was issued (align window base)
     std::vector<uint32> m_warpOriginBalls;  // ids of the origin bubble's dynamic entities (see WarpStop)
 };
 

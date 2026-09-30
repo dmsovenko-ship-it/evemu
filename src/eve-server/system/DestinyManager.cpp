@@ -85,7 +85,6 @@ m_warpAlignUntil(0),
 m_warpState(nullptr),
 m_warpStallTicks(0),
 m_warpOriginBubbleID(0),
-m_warpStartStamp(0),
 m_targBubble(nullptr),
 m_warpCapacitorNeed(0.00001),
 m_frozen(false),
@@ -305,7 +304,7 @@ void DestinyManager::ProcessState() {
             float clientAlignSec = m_shipAgility / 2.2f;
             if (clientAlignSec < 2.0f)  clientAlignSec = 2.0f;
             if (clientAlignSec > 30.0f) clientAlignSec = 30.0f;
-            bool clientAlignDone = (sEntityList.GetStamp() - m_warpStartStamp) >= (uint32)clientAlignSec;
+            bool clientAlignDone = (sEntityList.GetStamp() - m_stateStamp) >= (uint32)clientAlignSec;
 
             if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->CountPlayers() <= 0)
             {
@@ -2704,7 +2703,6 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     // From now (alignment) until WarpStop the pilot must not receive destination
     // bubble contents - see SystemBubble::Add / IsWarpPending().
     m_warpPending = true;
-    m_warpStartStamp = sEntityList.GetStamp();   // base for the client-align gate below
     m_warpOriginBubbleID = (mySE->SysBubble() != nullptr) ? mySE->SysBubble()->GetID() : 0;
     // Capture the origin grid's entity ids: at WarpStop we remove only the ones
     // that are NOT in the destination bubble (incremental - no SetState/ClearAll
