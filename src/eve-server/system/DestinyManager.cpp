@@ -726,6 +726,7 @@ void DestinyManager::Stop() {
 
     // already fully stopped вЂ” skip repeated CmdStop/SetPosition spam
     m_warpPending = false;   // Stop() cancels any pending/aligning warp
+    ClearWarpAlignWindow();  // aborted: release the origin-bubble hold immediately
     if (m_stop and (m_ballMode == Destiny::Ball::Mode::STOP) and !IsMoving())
         return;
 
@@ -1863,7 +1864,12 @@ void DestinyManager::InitWarp() {
         ClearTurn();
     }
     m_warpStopDelay.Disable();   // fresh warp
-    ClearWarpAlignWindow();      // turn finished - allow the origin bubble to be left now — clear the exit-hold timer
+    // NOTE: do NOT clear the warp-align window here. InitWarp runs when the
+    // SERVER-side turn is done (~1-2s), but the CLIENT keeps rendering its own
+    // align turn for the full alignSec (up to ~30s for a capital). Clearing the
+    // window here nullified the origin-bubble hold (WarpAccel/CheckBubble guards)
+    // and the origin grid vanished mid-turn. The window now expires on its own;
+    // Stop()/Halt() clear it when a warp is aborted.
     // Reset movement state so warp always starts clean, regardless of prior
     // decel/accel state (e.g. post-warp decel when rapidly re-warping).
     m_accel = false;
