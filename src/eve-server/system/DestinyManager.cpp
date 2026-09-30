@@ -2276,16 +2276,15 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
         // warp frame), flooding the system with hundreds of empty bubbles that
         // are then untracked all at once on arrival. The ship needs no bubble
         // until it reaches the target.
+        // Do NOT deliver the destination grid here (mid-warp bubble entry). The
+        // server-side warp runs AHEAD of the client's turn/align, so delivering on
+        // bubble entry made the destination grid (ships/NPCs/sentries) pop into the
+        // client's overview while it was still turning to warp - the reported
+        // regression since 8b5a2e5a. Keep m_warpPending set; the grid is delivered
+        // once, complete, at WarpStop (when the client has actually arrived).
         SystemBubble* midWarpSystemBubble(sBubbleMgr.FindBubble(mySE->SystemMgr()->GetID(), m_position));
-        if (midWarpSystemBubble != nullptr) {
-            // Official EVE delivers the destination grid as soon as the ship is within
-            // bubble range (~300 km) of the target, NOT at WarpStop. Stop suppressing
-            // the delivery now (but only for a bubble that is NOT the warp origin, so
-            // we don't re-send the origin) - SystemBubble::Add will send the grid.
-            if (midWarpSystemBubble->GetID() != m_warpOriginBubbleID)
-                m_warpPending = false;
+        if (midWarpSystemBubble != nullptr)
             midWarpSystemBubble->Add(mySE);
-        }
     }
 }
 
