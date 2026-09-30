@@ -233,6 +233,11 @@ public:
     bool IsNearGate(double threshold = 60000.0);   // within X m of a gate (ambush risk)
     int  CountEnemiesNearby(SystemEntity* target, double radius = 100000.0);  // hostile ships around target
     int  CountAlliesNearby(double radius = 100000.0);                          // friendly ships around me
+    // Is `other` a friendly bot? Binds only a REAL chelobot corp/alliance (an org
+    // the bot joined) - the shared NPC school corps are NOT an org, so a pirate in
+    // an NPC corp is unaffiliated and may attack anyone. The alliance check ignores
+    // the 0 'no alliance' value (otherwise every alliance-less bot looks like an ally).
+    bool IsAlly(PlayerBot* other) const;
     bool ShouldEngage(int myPower, int theirPower, bool defending);   // power + skill + luck decision
     // A hunter's decision to commit against a REAL player (not a bot): strength
     // check + skill-based confidence. Used by the NPCAI Idle scan so hunters

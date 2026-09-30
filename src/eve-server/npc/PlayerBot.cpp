@@ -335,7 +335,7 @@ SystemEntity* PlayerBot::PickPriorityTarget(SystemEntity* attacker)
             continue;
         if (enemy == this)
             continue;
-        if (enemy->GetBotCorpID() == m_botCorpID || enemy->GetBotAllianceID() == m_botAllianceID)
+        if (IsAlly(enemy))
             continue;   // ally, not target
         if (!enemy->GetAIMgr()->IsFighting())
             continue;   // not engaged — don't pull aggro
@@ -840,7 +840,7 @@ int PlayerBot::CountEnemiesNearby(SystemEntity* target, double radius)
             PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
             if (other == nullptr)
                 continue;
-            if (other->GetBotCorpID() == m_botCorpID || other->GetBotAllianceID() == m_botAllianceID)
+            if (IsAlly(other))
                 continue;   // ally of mine — not an enemy
             ++count;
         } else if (se->GetPilot() != nullptr) {
@@ -864,11 +864,28 @@ int PlayerBot::CountAlliesNearby(double radius)
             PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
             if (other == nullptr)
                 continue;
-            if (other->GetBotCorpID() == m_botCorpID || other->GetBotAllianceID() == m_botAllianceID)
+            if (IsAlly(other))
                 ++count;
         }
     }
     return count;
+}
+
+bool PlayerBot::IsAlly(PlayerBot* other) const
+{
+    if (other == nullptr || other == this)
+        return true;
+    // Bind only to a REAL chelobot corp/alliance (an org the bot joined). Bots parked
+    // in the shared NPC school corps are NOT an org, so a pirate in an NPC corp is
+    // effectively unaffiliated and may attack anyone - including another bot that
+    // shares the same NPC school corp. The alliance check MUST ignore the 0
+    // 'no alliance' value, or every alliance-less bot looks like an ally (this bug
+    // made hunters treat everyone as an ally and never engage).
+    if (IsPlayerCorp(m_botCorpID) && other->GetBotCorpID() == m_botCorpID)
+        return true;
+    if (m_botAllianceID != 0 && other->GetBotAllianceID() == m_botAllianceID)
+        return true;
+    return false;
 }
 
 bool PlayerBot::ShouldEngage(int myPower, int theirPower, bool defending)
@@ -2142,7 +2159,7 @@ void PlayerBot::HuntForTarget()
         PlayerBot* enemy = dynamic_cast<PlayerBot*>(se->GetNPCSE());
         if (enemy == nullptr || enemy == this)
             continue;
-        if (enemy->GetBotCorpID() == m_botCorpID || enemy->GetBotAllianceID() == m_botAllianceID)
+        if (IsAlly(enemy))
             continue;   // ally
         // Who may be attacked — like real pilots, bots don't care about race.
         // Any bot of a DIFFERENT corp/alliance is a potential target; the decider
@@ -2957,7 +2974,7 @@ void PlayerBot::AnalyzeCombatSituation()
         PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
         if (other == nullptr || other == this)
             continue;
-        if (other->GetBotCorpID() == m_botCorpID || other->GetBotAllianceID() == m_botAllianceID)
+        if (IsAlly(other))
             ++allies;
         else if (other->GetAIMgr()->IsFighting())
             ++enemies;
@@ -2978,7 +2995,7 @@ void PlayerBot::AnalyzeCombatSituation()
                 PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
                 if (other == nullptr || other == this)
                     continue;
-                if (other->GetBotCorpID() == m_botCorpID || other->GetBotAllianceID() == m_botAllianceID)
+                if (IsAlly(other))
                     continue;
                 if (other->GetAIMgr()->IsFighting()) { fleeFrom = se; break; }
             }
