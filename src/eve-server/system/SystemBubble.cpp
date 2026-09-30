@@ -997,7 +997,7 @@ void SystemBubble::RemoveBall(SystemEntity *about_who) {
     RemoveBallsFromBP removeball;
     removeball.balls.push_back(about_who->GetID());
 
-    _log(DESTINY__MESSAGE, "SystemBubble::RemoveBall()");
+    _log(DESTINY__MESSAGE, "SystemBubble::RemoveBall() - %s(%u)", about_who->GetName(), about_who->GetID());
     if (is_log_enabled(DESTINY__BALL_DUMP))
         removeball.Dump( DESTINY__BALL_DUMP, "    " );
 
@@ -1050,7 +1050,16 @@ void SystemBubble::RemoveBalls(SystemEntity *to_who) {
         return;
     }
 
-    _log(DESTINY__MESSAGE, "SystemBubble::RemoveBalls() - sending to %s", pClient->GetName());
+    {
+        std::string ids;
+        char b[16];
+        for (size_t i = 0; i < remove_balls.balls.size() && i < 12; ++i) {
+            snprintf(b, sizeof(b), "%u ", remove_balls.balls[i]);
+            ids += b;
+        }
+        _log(DESTINY__MESSAGE, "SystemBubble::RemoveBalls() - sending %zu balls to %s: %s",
+             remove_balls.balls.size(), pClient->GetName(), ids.c_str());
+    }
     if (is_log_enabled(DESTINY__BALL_DUMP)) {
         remove_balls.Dump(DESTINY__BALL_DUMP, "    ");
     }
