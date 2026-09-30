@@ -296,13 +296,23 @@ void DestinyManager::ProcessState() {
             double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
             float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
 
+            // The server's heading-align is fast (a few ticks): it can InitWarp while
+            // the CLIENT is still rendering its own (agility-based) turn - so the
+            // server reached the target and delivered/cleared grids while the ship
+            // was still visibly turning. Do not enter warp before the client's align
+            // time (m_shipAgility/2.2, same formula the client uses) has elapsed.
+            float clientAlignSec = m_shipAgility / 2.2f;
+            if (clientAlignSec < 2.0f)  clientAlignSec = 2.0f;
+            if (clientAlignSec > 30.0f) clientAlignSec = 30.0f;
+            bool clientAlignDone = (sEntityList.GetStamp() - m_stateStamp) >= (uint32)clientAlignSec;
+
             if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->CountPlayers() <= 0)
             {
                 // this is an NPC that was spawned off-grid - nobody will ever see it, so just warp it in so it doesn't get disposed randomly
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
-            } else if ((degrees < WARP_ALIGNMENT) and (m_timeFraction > 0.749)) {
+            } else if ((degrees < WARP_ALIGNMENT) and (m_timeFraction > 0.749) && clientAlignDone) {
                 // entering warp from here is the happy path for most cases
                 m_shipHeading = toVec;
                 InitWarp();
@@ -315,7 +325,7 @@ void DestinyManager::ProcessState() {
                 // the pre-jump follow/warp), and MoveObject() would Halt() because
                 // USF==0. Forcing USF=1.0 here re-arms the ship for the warp.
                 SetSpeedFraction(1.0f, true);
-            } else if ((degrees < 30.0f) && (m_timeFraction > 0.5)
+            } else if (clientAlignDone && (degrees < 30.0f) && (m_timeFraction > 0.5)
                        && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
                 // Close enough to target — start warp early (final alignment during accel).
                 // Maintain current heading/velocity instead of zeroing, matching
@@ -323,7 +333,7 @@ void DestinyManager::ProcessState() {
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
-            } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp) {
+            } else if (clientAlignDone && (sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp) {
                 // Warp alignment: enough time has passed for the ship to turn to the
                 // warp vector. Real EVE finishes the turn during warp acceleration, so
                 // rather than leave the ship spinning for many seconds (m_degPerTic is
@@ -333,7 +343,7 @@ void DestinyManager::ProcessState() {
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
-            } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
+            } else if (clientAlignDone && (sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
                 // catchall for turn checks messed up, and m_moveTime > ship align time
                 if (mySE->HasPilot()) {
                 _log(DESTINY__ERROR, "Destiny::ProcessState() Error!  Ship %s(%u) for Player %s(%u) - warp align/speed is incorrect, but time > shipTimeToWarp.",  \
