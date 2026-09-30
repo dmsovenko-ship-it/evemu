@@ -4010,6 +4010,30 @@ std::string BotMgr::MakeTicker()
     return std::string(base[MakeRandomInt(0, 9)]) + std::string(base[MakeRandomInt(0, 9)]);
 }
 
+bool BotMgr::PickCorpIdentity(std::string& name, std::string& ticker)
+{
+    // Prefer a REAL killboard corp name (botCorpNames, filled by
+    // tools/import_edk_corps.py), consumed once. Falls back to the procedural
+    // MakeCorpName/MakeTicker when the table is empty or the migration was not run.
+    DBQueryResult q;
+    if (!sDatabase.RunQuery(q,
+        "SELECT id, corpName, ticker FROM botCorpNames WHERE used = 0 ORDER BY RAND() LIMIT 1"))
+        return false;
+    DBResultRow r;
+    if (!q.GetRow(r))
+        return false;
+    uint32 id = r.GetUInt(0);
+    name = r.GetText(1);
+    ticker = r.GetText(2);
+    if (name.empty())
+        return false;
+    DBerror e;
+    sDatabase.RunQuery(e, "UPDATE botCorpNames SET used = 1 WHERE id = %u", id);
+    if (ticker.empty())
+        ticker = MakeTicker();
+    return true;
+}
+
 int64 BotMgr::MakeCorpLogo(uint32 seed, uint8 slot)
 {
     // Deterministic pseudo-random from the seed (founder char id). Slot mapping:
@@ -4035,7 +4059,10 @@ void BotMgr::MaybeFoundCorp(PlayerBot* bot)
         return;
     if (bot->GetProfession() != PlayerBot::BotProfession::Hunter)
         return;   // only leader-type pilots found corps
-    if (bot->GetBotSkillLevel() < 5)
+    // A pirate that has gone down the piracy path belongs in a chelobot corp, not a
+    // shared NPC school corp. Any practised hunter (skill >= 2) can now found one -
+    // not just the rare skill-5 leader.
+    if (bot->GetBotSkillLevel() < 2)
         return;
     uint32 charID = bot->GetBotCharID();
     uint32 oldCorp = bot->GetBotCorpID();
@@ -4066,15 +4093,44 @@ void BotMgr::MaybeFoundCorp(PlayerBot* bot)
         }
     }
 
+    // A pirate already in a chelobot corp stays there. One still parked in a shared
+    // NPC school corp joins an existing chelobot corp if there is one (preferred),
+    // otherwise founds a new one below.
+    if (!IsPlayerCorp(oldCorp)) {
+        DBQueryResult q;
+        if (sDatabase.RunQuery(q,
+            "SELECT corporationID FROM crpCorporation WHERE corporationType=2 "
+            "AND corporationID <> %u ORDER BY RAND() LIMIT 1", oldCorp))
+        {
+            DBResultRow r;
+            if (q.GetRow(r)) {
+                uint32 joinID = r.GetUInt(0);
+                if (MakeRandomInt(0, 99) < 70) {
+                    CharacterDB::AddEmployment(charID, joinID, oldCorp);
+                    bot->SetBotCorpID(joinID);
+                    _log(BOT__MESSAGE, "BotMgr: %s(%u) joined chelobot corp %u (left NPC corp %u).",
+                         bot->GetBotName().c_str(), charID, joinID, oldCorp);
+                    return;
+                }
+            }
+        }
+    }
+
     float practice = bot->GetMemory() ? bot->GetMemory()->GetActivitySkill() : 0.0f;
-    if (MakeRandomInt(0, 999) >= (int)(20 + practice * 80))
-        return;   // rare, and more likely with practice
+    // Pirates should actually end up organised: a much higher chance than before
+    // (was 20+practice*80 per 1000 -> now most hunters found/join a corp over time).
+    if (MakeRandomInt(0, 999) >= (int)(300 + practice * 500))
+        return;
 
     // Build a new corp owned by this bot (CEO = founder). Logo derived from the
     // new corp id (deterministic): a real-EVE-style logo = graphicID (1447-1627)
     // + 3 colours + 3 shapes, so every bot corp looks like a real player corp.
-    std::string cName = MakeCorpName();
-    std::string ticker = MakeTicker();
+    // Prefer a real killboard corp name (botCorpNames); fall back to procedural.
+    std::string cName, ticker;
+    if (!PickCorpIdentity(cName, ticker)) {
+        cName = MakeCorpName();
+        ticker = MakeTicker();
+    }
     DBerror err;
     uint32 corpID = 0;
     if (!sDatabase.RunQueryLID(err, corpID,

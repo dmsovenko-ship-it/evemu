@@ -207,6 +207,10 @@ private:
     // Random corp name/ticker for a bot-founded corporation.
     static std::string MakeCorpName();
     static std::string MakeTicker();
+    // Draw an unused REAL killboard corp name+ticker from botCorpNames (marks it
+    // used). Returns false when the table is empty/absent -> caller falls back to
+    // the procedural MakeCorpName/MakeTicker.
+    bool PickCorpIdentity(std::string& name, std::string& ticker);
     // Experienced leader bots can found their own corporation (start in NPC corps,
     // later branch off). Transfers the bot to the new corp as CEO.
     void MaybeFoundCorp(PlayerBot* bot);
