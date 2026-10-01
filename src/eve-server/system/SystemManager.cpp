@@ -40,6 +40,7 @@
 #include "npc/FactionPatrolManager.h"
 #include "npc/Drone.h"
 #include "npc/NPC.h"
+#include "npc/NPCAI.h"
 #include "npc/ConvoyAI.h"
 #include "npc/Sentry.h"
 #include "packets/Destiny.h"

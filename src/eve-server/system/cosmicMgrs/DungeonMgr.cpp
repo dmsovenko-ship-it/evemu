@@ -21,6 +21,7 @@
 #include "system/cosmicMgrs/AnomalyMgr.h"
 #include "system/cosmicMgrs/BeltMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
+#include "npc/NPC.h"
 #include <sstream>
 
 /*
