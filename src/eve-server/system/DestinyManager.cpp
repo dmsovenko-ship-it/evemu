@@ -2321,7 +2321,10 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
         // regression since 8b5a2e5a. Keep m_warpPending set; the grid is delivered
         // once, complete, at WarpStop (when the client has actually arrived).
         SystemBubble* midWarpSystemBubble(sBubbleMgr.FindBubble(mySE->SystemMgr()->GetID(), m_position));
-        if (midWarpSystemBubble != nullptr)
+        // Never rejoin the ORIGIN bubble: the pilot left it at warp entry (InitWarp),
+        // and rejoining here re-announced the ship in its old grid mid-acceleration.
+        // Only genuinely intermediate bubbles are joined during the warp.
+        if (midWarpSystemBubble != nullptr && midWarpSystemBubble->GetID() != m_warpOriginBubbleID)
             midWarpSystemBubble->Add(mySE);
     }
 }
