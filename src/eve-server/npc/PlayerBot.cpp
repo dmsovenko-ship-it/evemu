@@ -2280,7 +2280,13 @@ void PlayerBot::HuntForTarget()
         // MATH works — its damage inside CONCORD's response window must exceed the
         // target's EHP, and the target must actually be carrying cargo worth the
         // ship (scan the hold first). No naked destroyers killing empty ships.
-        if (!engage && m_outlaw && IsArmed()) {
+        // HIGHSEC ONLY: the alpha-gank math exists because CONCORD answers in 6-19s,
+        // so the strike must guarantee the kill inside that window. In lowsec/nullsec
+        // there is NO CONCORD - the threat is gate/station SENTRY guns (sustained
+        // damage), which changes the whole model: the gank is a SIEGE, not a sniper
+        // shot. There the normal power math (ShouldEngage, margin=0 at parity)
+        // decides, the tackle holds the prey, and sustained DPS grinds the big EHP.
+        if (!engage && m_outlaw && IsArmed() && sysSec >= 0.5f) {
             double delay = 19.0 - ((double)sysSec - 0.5) * 26.0;   // 0.5->19s .. 1.0->6s
             if (delay < 5.0) delay = 5.0;
             uint32 hull = m_self->typeID();
