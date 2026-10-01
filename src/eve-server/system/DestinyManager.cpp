@@ -1874,18 +1874,10 @@ void DestinyManager::InitWarp() {
     }
     m_warpStopDelay.Disable();   // fresh warp
     ClearWarpAlignWindow();      // turn finished - allow the origin bubble to be left now — clear the exit-hold timer
-
-    // A pilot enters warp HERE (server time is synced to the client's own align):
-    // leave the ORIGIN bubble now, but KEEP the pilot's client grid - wiping it here
-    // (RemoveBalls) left the client with an empty scene for the whole warp while it
-    // was still visibly turning ("завис отварп"). The grid is swapped at WarpStop:
-    // the destination balls are added and only then the origin-only balls removed.
-    if (mySE->HasPilot() && mySE->SysBubble() != nullptr
-        && mySE->SysBubble() != m_targBubble) {
-        _log(DESTINY__BUBBLE_TRACE, "Destiny::InitWarp() - %s(%u): warp entry, leaving origin bubble %u (grid kept).",
-             mySE->GetName(), mySE->GetID(), mySE->SysBubble()->GetID());
-        mySE->SysBubble()->Remove(mySE, /*clearPilotGrid*/false);
-    }
+    // NOTE: the origin-bubble removal happens in WarpAccel at >300 km (the classic
+    // timing). Removing it here (at warp entry, ~2s after the button) wiped the
+    // pilot's grid while the client was still rendering its align turn and froze the
+    // scene; keeping the grid and swapping at arrival desynced the client instead.
     // Reset movement state so warp always starts clean, regardless of prior
     // decel/accel state (e.g. post-warp decel when rapidly re-warping).
     m_accel = false;
@@ -2401,19 +2393,9 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
             delivered.emplace(id, se);
         sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
 
-        // Grid swap on arrival: the origin grid was KEPT during the whole warp (the
-        // client must not sit with an empty scene). Now that the destination balls
-        // are delivered (above), remove only the origin balls that are NOT part of
-        // the destination - incremental, no SetState/ClearAll, scene never empties.
-        std::vector<uint32> originOnly;
-        for (uint32 id : m_warpOriginBalls)
-            if (id != mySE->GetID() && delivered.find(id) == delivered.end())
-                originOnly.push_back(id);
-        if (!originOnly.empty()) {
-            mySE->SysBubble()->RemoveBallsList(mySE, originOnly);
-            _log(DESTINY__BUBBLE_TRACE, "Destiny::WarpStop() - %s(%u): removed %zu origin-only balls (grid swap).",
-                 mySE->GetName(), mySE->GetID(), originOnly.size());
-        }
+        // Arrival is ADD-ONLY: the origin grid was cleared on warp-out (WarpAccel at
+        // >300 km, the classic timing), so here we only deliver the destination
+        // balls - never a SetState and never a removal on arrival.
         m_warpOriginBubbleID = 0;   // consumed; next WarpTo re-arms it
         m_warpOriginBalls.clear();
 
