@@ -340,6 +340,23 @@ NPCAIMgr::NPCAIMgr(NPC* who)
         m_warpScramStrength = 0;
     }
 
+    // Chelobot hunters carry a VIRTUAL warp disruptor (24 km, strength 2, ~80%
+    // application per cycle). Without tackle the prey simply warps off mid-fight,
+    // NPCAI drops the target when it leaves the bubble, and bot-vs-bot fights end in
+    // "wins" instead of kills (botMemory.kills was 0 across the whole pool).
+    if (m_npc->IsPlayerBot()) {
+        PlayerBot* pb = dynamic_cast<PlayerBot*>(m_npc);
+        if (pb != nullptr && pb->GetProfession() == PlayerBot::BotProfession::Hunter) {
+            if (!m_self->HasAttribute(AttrWarpScrambleRange))
+                m_self->SetAttribute(AttrWarpScrambleRange, 24000.0f);
+            if (!m_self->HasAttribute(AttrWarpScrambleStrength))
+                m_self->SetAttribute(AttrWarpScrambleStrength, 2);
+            m_warpScramRange  = 24000.0f;
+            m_warpScramStrength = 2.0f;
+            m_warpScramChance = 0.2f;   // MakeRandomFloat() > chance -> applies ~80%
+        }
+    }
+
     // EWAR — stasis webifier
     if (m_self->HasAttribute(AttrModifyTargetSpeedRange))
         m_webRange = m_self->GetAttribute(AttrModifyTargetSpeedRange).get_uint32();
