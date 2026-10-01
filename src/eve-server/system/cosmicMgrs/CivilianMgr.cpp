@@ -68,6 +68,23 @@ void CivilianMgr::Process() {
     if (!m_initalized) return;
     if (m_processTimer == nullptr || !m_processTimer->Check()) return;
 
+    // Chelobots replace convoys entirely: they already fly haulers/couriers between
+    // systems (with PvP, corps, contracts), so the NPC convoys are duplicate traffic
+    // and pure load (spawn churn, extra bubbles, extra tics). When the player-bot
+    // system is enabled, convoys are OFF - existing groups are removed.
+    if (sConfig.playerBots.Enabled) {
+        if (!m_systemCivs.empty() || !m_transitConvoys.empty()) {
+            for (auto& [sysID, group] : m_systemCivs)
+                RemoveConvoy(group);
+            m_systemCivs.clear();
+            for (auto* group : m_transitConvoys)
+                RemoveConvoy(group);
+            m_transitConvoys.clear();
+            _log(COSMIC_MGR__MESSAGE, "CivilianMgr: playerBots enabled - all convoys removed and convoy spawning is disabled.");
+        }
+        return;
+    }
+
     // Process in-transit convoys (cross-system transfers)
     auto transitIt = m_transitConvoys.begin();
     while (transitIt != m_transitConvoys.end()) {
