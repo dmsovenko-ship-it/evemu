@@ -340,21 +340,75 @@ NPCAIMgr::NPCAIMgr(NPC* who)
         m_warpScramStrength = 0;
     }
 
-    // Chelobot hunters carry a VIRTUAL warp disruptor (24 km, strength 2, ~80%
-    // application per cycle). Without tackle the prey simply warps off mid-fight,
-    // NPCAI drops the target when it leaves the bubble, and bot-vs-bot fights end in
-    // "wins" instead of kills (botMemory.kills was 0 across the whole pool).
+    // Chelobot hunters: derive tackle/web from the REAL fitted modules (PvP fits
+    // carry a warp scram/disruptor in mids and usually a stasis web). Without tackle
+    // the prey warps off mid-fight, NPCAI drops the target when it leaves the bubble,
+    // and bot-vs-bot fights end in "wins" instead of kills. Fallback: a virtual 24 km
+    // disruptor when the fit has no tackle at all.
     if (m_npc->IsPlayerBot()) {
         PlayerBot* pb = dynamic_cast<PlayerBot*>(m_npc);
         if (pb != nullptr && pb->GetProfession() == PlayerBot::BotProfession::Hunter) {
-            if (!m_self->HasAttribute(AttrWarpScrambleRange))
-                m_self->SetAttribute(AttrWarpScrambleRange, 24000.0f);
-            if (!m_self->HasAttribute(AttrWarpScrambleStrength))
-                m_self->SetAttribute(AttrWarpScrambleStrength, 2);
-            m_warpScramRange  = 24000.0f;
-            m_warpScramStrength = 2.0f;
-            m_warpScramChance = 0.2f;   // MakeRandomFloat() > chance -> applies ~80%
+            bool hasScram = false, hasWeb = false;
+            float scramRange = 0, scramStr = 0, webRange = 0, webFactor = 0;
+            Inventory* inv = m_self->GetMyInventory();
+            if (inv != nullptr) {
+                std::vector<InventoryItemRef> mods;
+                inv->GetInventoryVec(mods);
+                for (auto& mod : mods) {
+                    if (mod.get() == nullptr)
+                        continue;
+                    // mid slots only (tackle/web live there)
+                    if (mod->flag() < flagMidSlot0 || mod->flag() >= flagHiSlot0)
+                        continue;
+                    uint16 grp = mod->groupID();
+                    if (grp == EVEDB::invGroups::Warp_Scrambler) {   // scram + disruptor
+                        hasScram = true;
+                        float r = mod->GetAttribute(AttrWarpScrambleRange).get_float();
+                        float s = mod->GetAttribute(AttrWarpScrambleStrength).get_float();
+                        if (r > scramRange) scramRange = r;
+                        if (s > scramStr)   scramStr = s;
+                    } else if (grp == EVEDB::invGroups::Stasis_Web) {
+                        hasWeb = true;
+                        float r = mod->GetAttribute(AttrModifyTargetSpeedRange).get_float();
+                        float f = mod->GetAttribute(AttrSpeedFactor).get_float();
+                        if (r > webRange)  webRange = r;
+                        if (f < webFactor) webFactor = f;   // strongest (most negative)
+                    }
+                }
+            }
+            if (hasScram) {
+                if (scramRange < 1.0f) scramRange = 20000.0f;
+                if (scramStr   < 1.0f) scramStr   = 2.0f;
+                if (!m_self->HasAttribute(AttrWarpScrambleRange))
+                    m_self->SetAttribute(AttrWarpScrambleRange, scramRange);
+                if (!m_self->HasAttribute(AttrWarpScrambleStrength))
+                    m_self->SetAttribute(AttrWarpScrambleStrength, scramStr);
+                m_warpScramRange    = scramRange;
+                m_warpScramStrength = scramStr;
+                m_warpScramChance   = 0.2f;   // ~80% apply per cycle
+            } else {
+                // virtual disruptor fallback (fit had no tackle)
+                if (!m_self->HasAttribute(AttrWarpScrambleRange))
+                    m_self->SetAttribute(AttrWarpScrambleRange, 24000.0f);
+                if (!m_self->HasAttribute(AttrWarpScrambleStrength))
+                    m_self->SetAttribute(AttrWarpScrambleStrength, 2);
+                m_warpScramRange    = 24000.0f;
+                m_warpScramStrength = 2.0f;
+                m_warpScramChance   = 0.2f;
+            }
+            if (hasWeb) {
+                if (webRange  < 1.0f) webRange  = 10000.0f;
+                if (webFactor > -5.0f) webFactor = -60.0f;
+                if (!m_self->HasAttribute(AttrModifyTargetSpeedRange))
+                    m_self->SetAttribute(AttrModifyTargetSpeedRange, webRange);
+                if (!m_self->HasAttribute(AttrSpeedFactor))
+                    m_self->SetAttribute(AttrSpeedFactor, webFactor);
+                m_webRange    = webRange;
+                m_webStrength = -webFactor / 100.0f;
+                m_webChance   = 0.2f;
+            }
         }
+    }
     }
 
     // EWAR — stasis webifier
