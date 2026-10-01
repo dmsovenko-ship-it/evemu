@@ -41,6 +41,7 @@
 
 #include "Client.h"
 #include "inventory/AttributeEnum.h"
+#include "inventory/Inventory.h"
 #include "npc/NPC.h"
 #include "npc/NPCAI.h"
 #include "npc/PlayerBot.h"
@@ -408,7 +409,6 @@ NPCAIMgr::NPCAIMgr(NPC* who)
                 m_webChance   = 0.2f;
             }
         }
-    }
     }
 
     // EWAR — stasis webifier
