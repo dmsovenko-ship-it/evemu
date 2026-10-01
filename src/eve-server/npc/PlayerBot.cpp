@@ -2236,6 +2236,7 @@ void PlayerBot::HuntForTarget()
     // trap). Targets at a gate are only for the rare group camp; solo hunters
     // avoid them (that's where camps and friends hide).
     SystemEntity* prey = nullptr;
+    bool preyIsSoft = false;
     int bestScore = -1000;
     for (auto& [id, se] : SystemMgr()->GetEntities()) {
         if (se == nullptr || se->GetNPCSE() == nullptr)
@@ -2316,7 +2317,7 @@ void PlayerBot::HuntForTarget()
             score += 25;
         // Risk: friends near the target lower the score hard (bait check).
         score -= CountEnemiesNearby(enemy) * 40;
-        if (score > bestScore) { bestScore = score; prey = enemy; }
+        if (score > bestScore) { bestScore = score; prey = enemy; preyIsSoft = softPrey; }
     }
 
     // While scouting (fresh arrival), the bot only reports, never commits to a
@@ -2337,6 +2338,12 @@ void PlayerBot::HuntForTarget()
         // Bots are bolder against each other than against players — an AI pilot is
         // a more predictable opponent, so the hunter commits a little easier.
         theirPower -= 2;
+        // Soft prey (haulers/miners/traders) cannot meaningfully fight back: in
+        // lowsec/null the ganker commits REGARDLESS - theirPower often evaluates
+        // <= 0 (class 0 + low skill) and ShouldEngage's floor rejected every
+        // gate-hauler gank, which is why no kills ever happened.
+        if (preyIsSoft && sysSec < 0.5f)
+            theirPower = 1;
         // Analytic threat: capitals may cyno in a fleet, battleships are assumed
         // fitted to fight, and a carrier with fighters/drones out is a real screen.
         using namespace EVEDB::invGroups;
