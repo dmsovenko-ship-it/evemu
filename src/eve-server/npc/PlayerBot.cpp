@@ -2374,6 +2374,24 @@ void PlayerBot::HuntForTarget()
             if (GetDroneCapacity() > 0 && m_drones.empty())
                 SpawnDrones(0);
             ApplyCombatStyle();
+            // Bump tackle: vs a hauler/freighter the tackler orbits at COLLISION
+            // range - the constant bump shoves the target off alignment so it can
+            // neither align out nor warp while the tackle (disruptor) holds it and
+            // the fleet's sustained DPS grinds the big EHP.
+            {
+                uint16 pg = enemyBot->GetSelf()->groupID();
+                if (pg == EVEDB::invGroups::Industrial
+                    || pg == EVEDB::invGroups::Freighter
+                    || pg == EVEDB::invGroups::TransportShip
+                    || pg == EVEDB::invGroups::JumpFreighter
+                    || pg == EVEDB::invGroups::MiningBarge
+                    || pg == EVEDB::invGroups::Exhumer) {
+                    GetAIMgr()->SetOrbitRange(1500);
+                    _log(BOT__MESSAGE, "PlayerBot %s(%u): bump-tackle orbit 1500m on %s(%u).",
+                         m_botName.c_str(), m_botCharID,
+                         enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID());
+                }
+            }
             GetAIMgr()->WakeUp();
             GetAIMgr()->StartAttackCycle(2000);
             GetAIMgr()->Target(prey);
