@@ -426,7 +426,7 @@ void SystemBubble::Add(SystemEntity* pSE) {
  * See `SystemBubble::Remove` for calling this and also unsetting the
  * `SystemEntity`'s bubble.
  */
-void SystemBubble::Untrack(SystemEntity *pSE) {
+void SystemBubble::Untrack(SystemEntity *pSE, bool clearPilotGrid) {
     if (pSE == nullptr) {
         return;
     }
@@ -470,18 +470,23 @@ void SystemBubble::Untrack(SystemEntity *pSE) {
 
         m_players.erase(charId);
 
-        // Clear the pilot's own client grid when it leaves this bubble (warp-out:
-        // the origin grid is dropped here, once the ship has actually left the
-        // origin and is on its way). The destination grid is delivered ADD-only at
-        // WarpStop, so nothing is reloaded there.
-        _log(
-            DESTINY__BUBBLE_TRACE,
-            "SystemBubble::Remove() - Removing entity %u from bubble %u - removing balls",
-            pseId,
-            m_bubbleID
-        );
+        // Clear the pilot's own client grid when it leaves this bubble - UNLESS the
+        // caller asked to keep it (warp entry): wiping the origin grid while the
+        // client is still turning left it with an empty scene for the whole warp
+        // ("завис отварп"). The warp keeps the grid and swaps it at WarpStop.
+        if (clearPilotGrid) {
+            _log(
+                DESTINY__BUBBLE_TRACE,
+                "SystemBubble::Remove() - Removing entity %u from bubble %u - removing balls",
+                pseId,
+                m_bubbleID
+            );
 
-        RemoveBalls(pSE);
+            RemoveBalls(pSE);
+        } else {
+            _log(DESTINY__BUBBLE_TRACE, "SystemBubble::Remove() - entity %u left bubble %u; pilot grid kept (swap at WarpStop).",
+                 pseId, m_bubbleID);
+        }
     }
 
     // notify everybody else in the bubble of the removal
@@ -503,7 +508,7 @@ void SystemBubble::Untrack(SystemEntity *pSE) {
  * `SystemEntity` is a `nullptr`, it is not assumed to be in space - call
  * `Untrack` instead if you don't want to do this.
  */
-void SystemBubble::Remove(SystemEntity *pSE) {
+void SystemBubble::Remove(SystemEntity *pSE, bool clearPilotGrid) {
     // Clear warp scramble when leaving a warp disruption bubble
     if (m_hasBubble && pSE->HasPilot()) {
         Client* pClient = pSE->GetPilot();
@@ -515,7 +520,7 @@ void SystemBubble::Remove(SystemEntity *pSE) {
         }
     }
 
-    Untrack(pSE);
+    Untrack(pSE, clearPilotGrid);
 
     if (is_log_enabled(DESTINY__BUBBLE_DEBUG)) {
         sLog.Warning("SystemBubble::Remove()", "Removing entity %u from bubble %u", pSE->GetID(), m_bubbleID);

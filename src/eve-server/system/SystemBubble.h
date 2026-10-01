@@ -107,8 +107,8 @@ public:
      * See `SystemBubble::Remove` for calling this and also unsetting the
      * `SystemEntity`'s bubble.
      */
-    void Untrack(SystemEntity* pSE);
-    void Remove(SystemEntity* pSE);
+    void Untrack(SystemEntity* pSE, bool clearPilotGrid = true);
+    void Remove(SystemEntity* pSE, bool clearPilotGrid = true);
     void ProcessWander(std::vector< SystemEntity* >& wanderers);
 
     void SendAddBalls(SystemEntity* to_who, uint32 skipItemID = 0);
