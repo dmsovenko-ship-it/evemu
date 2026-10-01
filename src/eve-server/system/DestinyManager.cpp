@@ -296,23 +296,13 @@ void DestinyManager::ProcessState() {
             double dot = std::clamp(toVec.dotProduct(m_shipHeading), -1.0, 1.0);
             float degrees = EvE::Trig::Rad2Deg(std::acos(dot));
 
-            // The server's heading-align is fast (a few ticks): it can InitWarp while
-            // the CLIENT is still rendering its own (agility-based) turn - so the
-            // server reached the target and delivered/cleared grids while the ship
-            // was still visibly turning. Do not enter warp before the client's align
-            // time (m_shipAgility/2.2, same formula the client uses) has elapsed.
-            float clientAlignSec = m_shipAgility / 2.2f;
-            if (clientAlignSec < 2.0f)  clientAlignSec = 2.0f;
-            if (clientAlignSec > 30.0f) clientAlignSec = 30.0f;
-            bool clientAlignDone = (sEntityList.GetStamp() - m_stateStamp) >= (uint32)clientAlignSec;
-
             if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->CountPlayers() <= 0)
             {
                 // this is an NPC that was spawned off-grid - nobody will ever see it, so just warp it in so it doesn't get disposed randomly
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
-            } else if ((degrees < WARP_ALIGNMENT) and (m_timeFraction > 0.749) && clientAlignDone) {
+            } else if ((degrees < WARP_ALIGNMENT) and (m_timeFraction > 0.749)) {
                 // entering warp from here is the happy path for most cases
                 m_shipHeading = toVec;
                 InitWarp();
@@ -325,7 +315,7 @@ void DestinyManager::ProcessState() {
                 // the pre-jump follow/warp), and MoveObject() would Halt() because
                 // USF==0. Forcing USF=1.0 here re-arms the ship for the warp.
                 SetSpeedFraction(1.0f, true);
-            } else if (clientAlignDone && (degrees < 30.0f) && (m_timeFraction > 0.5)
+            } else if ((degrees < 30.0f) && (m_timeFraction > 0.5)
                        && ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp * 0.5f)) {
                 // Close enough to target — start warp early (final alignment during accel).
                 // Maintain current heading/velocity instead of zeroing, matching
@@ -333,7 +323,7 @@ void DestinyManager::ProcessState() {
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
-            } else if (clientAlignDone && (sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp) {
+            } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp) {
                 // Warp alignment: enough time has passed for the ship to turn to the
                 // warp vector. Real EVE finishes the turn during warp acceleration, so
                 // rather than leave the ship spinning for many seconds (m_degPerTic is
@@ -343,7 +333,7 @@ void DestinyManager::ProcessState() {
                 m_shipHeading = toVec;
                 InitWarp();
                 return;
-            } else if (clientAlignDone && (sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
+            } else if ((sEntityList.GetStamp() - m_stateStamp) > m_timeToEnterWarp + 2.0f) {
                 // catchall for turn checks messed up, and m_moveTime > ship align time
                 if (mySE->HasPilot()) {
                 _log(DESTINY__ERROR, "Destiny::ProcessState() Error!  Ship %s(%u) for Player %s(%u) - warp align/speed is incorrect, but time > shipTimeToWarp.",  \
@@ -1874,10 +1864,6 @@ void DestinyManager::InitWarp() {
     }
     m_warpStopDelay.Disable();   // fresh warp
     ClearWarpAlignWindow();      // turn finished - allow the origin bubble to be left now — clear the exit-hold timer
-    // NOTE: the origin-bubble removal happens in WarpAccel at >300 km (the classic
-    // timing). Removing it here (at warp entry, ~2s after the button) wiped the
-    // pilot's grid while the client was still rendering its align turn and froze the
-    // scene; keeping the grid and swapping at arrival desynced the client instead.
     // Reset movement state so warp always starts clean, regardless of prior
     // decel/accel state (e.g. post-warp decel when rapidly re-warping).
     m_accel = false;
@@ -1964,16 +1950,6 @@ void DestinyManager::InitWarp() {
         }
         cruiseDistance = (static_cast<double>(m_targetDistance) - accelDistance - decelDistance);
         cruiseTime = static_cast<float>(cruiseDistance / warpSpeedInMeters);
-
-        // Truthful decel duration: WarpDecel runs the exponential phase from its
-        // exp-start distance down to ~1 m, which takes ln(expDist) seconds (it is
-        // distance-driven). m_warpDecelTime was left at the short-warp value, so the
-        // logged "total time" (14s) did not match the real warp (~accel+cruise+ln).
-        // Record the real value so the timeline log is accurate.
-        double expStart = (decelDistance - warpSpeedInMeters * warpLinearTime / 2.0)
-                          / (warpLinearTime / 2.0 + 1.0);
-        if (expStart < 1.0) expStart = 1.0;
-        m_warpDecelTime = static_cast<float>(log(expStart));
     }
 
     //  set total warp time based on above math.
@@ -2314,10 +2290,7 @@ void DestinyManager::WarpUpdate(double currentShipSpeed) {
         // regression since 8b5a2e5a. Keep m_warpPending set; the grid is delivered
         // once, complete, at WarpStop (when the client has actually arrived).
         SystemBubble* midWarpSystemBubble(sBubbleMgr.FindBubble(mySE->SystemMgr()->GetID(), m_position));
-        // Never rejoin the ORIGIN bubble: the pilot left it at warp entry (InitWarp),
-        // and rejoining here re-announced the ship in its old grid mid-acceleration.
-        // Only genuinely intermediate bubbles are joined during the warp.
-        if (midWarpSystemBubble != nullptr && midWarpSystemBubble->GetID() != m_warpOriginBubbleID)
+        if (midWarpSystemBubble != nullptr)
             midWarpSystemBubble->Add(mySE);
     }
 }
@@ -2377,9 +2350,9 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         if (mySE->SysBubble()->HasPlayers())
             mySE->SysBubble()->AddBallExclusive(mySE);
 
-        // Deliver the ARRIVAL bubble's contents incrementally (SendAddBalls skips
-        // the pilot's own ball, added above). We do NOT send a full SetState here:
-        // its ClearAll makes the client visibly reload the whole grid.
+        // Deliver the ARRIVAL bubble's contents NOW (we no longer send them on
+        // bubble entry during warp - that made the destination grid pop in while
+        // the ship was still turning). Skips the pilot's own ball (added above).
         mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
 
         // Belts / anomaly dungeons can straddle more than one bubble: deliver
@@ -2393,11 +2366,10 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
             delivered.emplace(id, se);
         sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
 
-        // Arrival is ADD-ONLY: the origin grid was cleared on warp-out (WarpAccel at
-        // >300 km, the classic timing), so here we only deliver the destination
-        // balls - never a SetState and never a removal on arrival.
-        m_warpOriginBubbleID = 0;   // consumed; next WarpTo re-arms it
-        m_warpOriginBalls.clear();
+        // NOTE: do NOT send a full SetState here. The client's RemoveBall already
+        // clears slimItems (michelle.py:1137), so the stale-slimski theory was wrong;
+        // the SetState's ClearAll() only made the grid visibly flicker during normal
+        // warps. The incremental SendAddBalls above is the correct arrival delivery.
 
         // GateActivity is sent only during actual gate jumps (in JumpGate/Follow), not here.
     } else if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->HasPlayers()) {
@@ -2709,13 +2681,6 @@ void DestinyManager::WarpTo(const GPoint& where, int32 distance/*0*/, bool autoP
     // bubble contents - see SystemBubble::Add / IsWarpPending().
     m_warpPending = true;
     m_warpOriginBubbleID = (mySE->SysBubble() != nullptr) ? mySE->SysBubble()->GetID() : 0;
-    // Capture the origin grid's entity ids: at WarpStop we remove only the ones
-    // that are NOT in the destination bubble (incremental - no SetState/ClearAll
-    // reload). Filled here because the origin bubble may be unloaded by arrival.
-    m_warpOriginBalls.clear();
-    if (mySE->SysBubble() != nullptr)
-        for (auto& [id, se] : mySE->SysBubble()->GetDynamicEntities())
-            m_warpOriginBalls.push_back(id);
 
     // Landing offset for warp-to-0 вЂ” reduced to 0 for precise landing
     if (distance == 0) {

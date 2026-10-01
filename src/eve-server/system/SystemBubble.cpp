@@ -426,7 +426,7 @@ void SystemBubble::Add(SystemEntity* pSE) {
  * See `SystemBubble::Remove` for calling this and also unsetting the
  * `SystemEntity`'s bubble.
  */
-void SystemBubble::Untrack(SystemEntity *pSE, bool clearPilotGrid) {
+void SystemBubble::Untrack(SystemEntity *pSE) {
     if (pSE == nullptr) {
         return;
     }
@@ -470,23 +470,14 @@ void SystemBubble::Untrack(SystemEntity *pSE, bool clearPilotGrid) {
 
         m_players.erase(charId);
 
-        // Clear the pilot's own client grid when it leaves this bubble - UNLESS the
-        // caller asked to keep it (warp entry): wiping the origin grid while the
-        // client is still turning left it with an empty scene for the whole warp
-        // ("завис отварп"). The warp keeps the grid and swaps it at WarpStop.
-        if (clearPilotGrid) {
-            _log(
-                DESTINY__BUBBLE_TRACE,
-                "SystemBubble::Remove() - Removing entity %u from bubble %u - removing balls",
-                pseId,
-                m_bubbleID
-            );
+        _log(
+            DESTINY__BUBBLE_TRACE,
+            "SystemBubble::Remove() - Removing entity %u from bubble %u - removing balls",
+            pseId,
+            m_bubbleID
+        );
 
-            RemoveBalls(pSE);
-        } else {
-            _log(DESTINY__BUBBLE_TRACE, "SystemBubble::Remove() - entity %u left bubble %u; pilot grid kept (swap at WarpStop).",
-                 pseId, m_bubbleID);
-        }
+        RemoveBalls(pSE);
     }
 
     // notify everybody else in the bubble of the removal
@@ -508,7 +499,7 @@ void SystemBubble::Untrack(SystemEntity *pSE, bool clearPilotGrid) {
  * `SystemEntity` is a `nullptr`, it is not assumed to be in space - call
  * `Untrack` instead if you don't want to do this.
  */
-void SystemBubble::Remove(SystemEntity *pSE, bool clearPilotGrid) {
+void SystemBubble::Remove(SystemEntity *pSE) {
     // Clear warp scramble when leaving a warp disruption bubble
     if (m_hasBubble && pSE->HasPilot()) {
         Client* pClient = pSE->GetPilot();
@@ -520,7 +511,7 @@ void SystemBubble::Remove(SystemEntity *pSE, bool clearPilotGrid) {
         }
     }
 
-    Untrack(pSE, clearPilotGrid);
+    Untrack(pSE);
 
     if (is_log_enabled(DESTINY__BUBBLE_DEBUG)) {
         sLog.Warning("SystemBubble::Remove()", "Removing entity %u from bubble %u", pSE->GetID(), m_bubbleID);
@@ -1072,26 +1063,6 @@ void SystemBubble::RemoveBalls(SystemEntity *to_who) {
     if (is_log_enabled(DESTINY__BALL_DUMP)) {
         remove_balls.Dump(DESTINY__BALL_DUMP, "    ");
     }
-
-    PyTuple *tmp = remove_balls.Encode();
-    pClient->QueueDestinyUpdate(&tmp);
-}
-
-void SystemBubble::RemoveBallsList(SystemEntity *to_who, const std::vector<uint32>& ids) {
-    if (ids.empty() || to_who == nullptr || !to_who->HasPilot())
-        return;
-    Client* pClient = to_who->GetPilot();
-    if (pClient == nullptr)
-        return;
-
-    RemoveBallsFromBP remove_balls;
-    for (uint32 id : ids)
-        remove_balls.balls.push_back(id);
-    if (remove_balls.balls.empty())
-        return;
-
-    _log(DESTINY__MESSAGE, "SystemBubble::RemoveBallsList() - sending %zu balls to %s",
-         remove_balls.balls.size(), pClient->GetName());
 
     PyTuple *tmp = remove_balls.Encode();
     pClient->QueueDestinyUpdate(&tmp);

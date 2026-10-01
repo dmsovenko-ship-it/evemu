@@ -107,8 +107,8 @@ public:
      * See `SystemBubble::Remove` for calling this and also unsetting the
      * `SystemEntity`'s bubble.
      */
-    void Untrack(SystemEntity* pSE, bool clearPilotGrid = true);
-    void Remove(SystemEntity* pSE, bool clearPilotGrid = true);
+    void Untrack(SystemEntity* pSE);
+    void Remove(SystemEntity* pSE);
     void ProcessWander(std::vector< SystemEntity* >& wanderers);
 
     void SendAddBalls(SystemEntity* to_who, uint32 skipItemID = 0);
@@ -186,10 +186,6 @@ public:
     // remove all balls in bubble for this SE
     void RemoveBall(SystemEntity* about_who);
     void RemoveBalls(SystemEntity* to_who);
-    // remove a specific set of ball ids from to_who's client grid (incremental:
-    // drops the ships left behind when a warp enters a different bubble, without
-    // a full SetState/ClearAll reload).
-    void RemoveBallsList(SystemEntity* to_who, const std::vector<uint32>& ids);
     // remove this ball from bubble.  update all clients in bubble this SE has left.
     void RemoveBallExclusive(SystemEntity* about_who);
 
