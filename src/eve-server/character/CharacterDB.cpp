@@ -2563,7 +2563,7 @@ uint32 CharacterDB::GetCorpID(uint32 charID)
 
     DBResultRow row;
     if (!res.GetRow(row)) {
-        sLog.Error("CharacterDB::GetCorpID()", "No valid rows were returned by the database query.");
+        sLog.Error("CharacterDB::GetCorpID()", "No valid rows for characterID %u (not a character, or row missing).", charID);
         return 0;
     }
 

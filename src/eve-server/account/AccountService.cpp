@@ -475,6 +475,12 @@ void AccountService::TransferFunds(
     if (pClientTo != nullptr) {
         tax = pClientTo->GetCorpTaxRate() * amount;
         corpID = pClientTo->GetCorporationID();
+    } else if (IsCorp(toID)) {
+        // recipient IS a corporation (e.g. a bounty paid straight to a corp): there
+        // is no per-character row for it, so GetCorpID() returned 0 and logged
+        // "No valid rows". A corp does not tax itself - nothing to transfer.
+        tax = 0.0f;
+        corpID = toID;
     } else {
         //  recipient is offline...try to get needed data from db
         tax = CharacterDB::GetCorpTaxRate(toID) * amount;
