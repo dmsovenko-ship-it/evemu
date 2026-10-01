@@ -167,8 +167,12 @@ void DestinyManager::Process() {
     // WarpStop after ~5 ticks with no movement so a warp can never hang permanently.
     if (m_warpState != nullptr && m_ballMode == Destiny::Ball::Mode::WARP) {
         double moved = GVector(m_lastWarpPos, m_position).length();
-        if (moved < 1.0) {
-            if (++m_warpStallTicks > 5) {
+        // The deceleration TAIL moves <1 m per tick (velocity decays to ~0.5 m/s), so
+        // a 1 m threshold killed healthy warps mid-tail and the ship teleported to the
+        // destination ("client never warped, then /update jerked"). A genuinely stuck
+        // warp (the zero-distance case this guards) does not move AT ALL.
+        if (moved < 0.1) {
+            if (++m_warpStallTicks > 10) {
                 _log(DESTINY__WARP_TRACE, "Destiny::Process() - %s(%u): warp stalled %u ticks with no progress - forcing WarpStop.",
                      mySE->GetName(), mySE->GetID(), m_warpStallTicks);
                 WarpStop(0.0);
