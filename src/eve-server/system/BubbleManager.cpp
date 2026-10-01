@@ -121,6 +121,16 @@ void BubbleManager::Process() {
 }
 
 void BubbleManager::CheckBubble(SystemEntity *pSE) {
+    // A warping (or aligning-to-warp) ship's bubble membership is managed by the
+    // warp code alone: DestinyManager removes it from the ORIGIN bubble at warp
+    // entry (InitWarp) and joins it to the TARGET bubble on arrival (WarpUpdate).
+    // Re-adding it here by position (the wanderer path) undone the warp-entry
+    // removal, so the origin grid was cleared mid-acceleration (~4-5s) instead of
+    // at the visible warp entry.
+    if (pSE->DestinyMgr() != nullptr
+        && (pSE->DestinyMgr()->IsWarping() || pSE->DestinyMgr()->IsWarpPending()))
+        return;
+
     SystemBubble *pBubble = pSE->SysBubble();
     if (pBubble != nullptr) {
         if (pBubble->InBubble(pSE->GetPosition())) {
