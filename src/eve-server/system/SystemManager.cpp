@@ -1162,6 +1162,51 @@ void SystemManager::AddNPC(NPC* pNPC) {
     sEntityList.AddNPC();
 }
 
+// Lazy anomaly NPCs: hold a spawned NPC OFF-GRID (out of its bubble, still in the
+// system lists) until a player or chelobot enters the site bubble. Stationary gun
+// batteries are never staged - they spawn in place (they cannot fly).
+void SystemManager::StageLazyNPC(NPC* pNPC) {
+    if (pNPC == nullptr)
+        return;
+    SystemBubble* b = pNPC->SysBubble();
+    if (b == nullptr)
+        return;
+    uint32 bid = b->GetID();
+    b->Remove(pNPC);            // out of the bubble -> invisible; stays in m_npcs/sEntityList
+    pNPC->DestinyMgr()->Stop();
+    m_lazyNPCs[bid].push_back(pNPC);
+    _log(COSMIC_MGR__MESSAGE, "SystemManager::StageLazyNPC() - %s(%u) staged off-grid for bubble %u.",
+         pNPC->GetName(), pNPC->GetID(), bid);
+}
+
+// Activation: a player or chelobot entered the site bubble. Every staged NPC spawns
+// 20-30 km off its final position, re-enters the bubble (the grid delivery) and warps
+// in to its position - the warp-in animation, like belts but with the flight.
+void SystemManager::ActivateLazyNPCs(SystemBubble* pBubble) {
+    if (pBubble == nullptr)
+        return;
+    auto it = m_lazyNPCs.find(pBubble->GetID());
+    if (it == m_lazyNPCs.end() || it->second.empty())
+        return;
+    _log(COSMIC_MGR__MESSAGE, "SystemManager::ActivateLazyNPCs() - warping in %u staged NPCs for bubble %u.",
+         (unsigned)it->second.size(), pBubble->GetID());
+    for (NPC* pNPC : it->second) {
+        if (pNPC == nullptr)
+            continue;
+        GPoint finalPos = pNPC->GetPosition();
+        double ang = MakeRandomFloat() * 2.0 * 3.14159;
+        double rad = 20000.0 + MakeRandomFloat() * 10000.0;
+        GPoint start(finalPos.x + cos(ang) * rad,
+                     finalPos.y + (MakeRandomFloat() - 0.5) * 3000.0,
+                     finalPos.z + sin(ang) * rad);
+        pNPC->DestinyMgr()->SetMaxVelocity(pNPC->GetAIMgr() != nullptr ? pNPC->GetAIMgr()->GetMaxShipSpeed() : 200.0f);
+        pNPC->DestinyMgr()->SetPosition(start);
+        pBubble->Add(pNPC);     // now visible to everyone in the bubble
+        pNPC->DestinyMgr()->WarpTo(finalPos, 0);   // warp-in animation to its spot
+    }
+    m_lazyNPCs.erase(it);
+}
+
 void SystemManager::RemoveNPC(NPC* pNPC) {
     if ( pNPC == nullptr)
         return;

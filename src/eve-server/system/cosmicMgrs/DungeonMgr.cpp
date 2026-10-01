@@ -635,6 +635,20 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
                 }
             }
 
+            // Lazy anomaly NPCs: mobile NPCs are held OFF-GRID until a player or
+            // chelobot enters the site bubble, then they warp in to their positions
+            // (the warp-in animation). Stationary gun batteries spawn in place -
+            // they are static structures and cannot fly. All anomaly types.
+            for (uint32 id : wave1ItemIDs) {
+                SystemEntity* se = m_system->GetSE(id);
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                NPC* npc = se->GetNPCSE();
+                if (npc->GetAIMgr() != nullptr && npc->GetAIMgr()->IsStationary())
+                    continue;   // stationary: spawn in place
+                m_system->StageLazyNPC(npc);
+            }
+
             // Wave pocket bookkeeping: NPCs of waves >1 were staged above. Register
             // the runtime so OnDungeonNPCDestroyed() can pull them in when wave 1
             // is cleared (or its trigger dies).
