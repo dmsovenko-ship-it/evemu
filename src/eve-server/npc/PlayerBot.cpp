@@ -2285,15 +2285,12 @@ void PlayerBot::HuntForTarget()
                 // takes it; the tactical brain may veto (AVOID) if gates have been hot.
                 if (!(softPrey && sysSec < 0.5f && MakeRandomInt(0, 99) < 60))
                     continue;
-                std::string advice = sBotMgr.AskBrainCached((uint8)BotProfession::Hunter,
-                    "gate_hauler",
-                    "A lone hauler/courier is parked at a lowsec stargate. Gank it solo at the "
-                    "gate, or avoid the ambush risk?");
-                if (advice.find("AVOID") != std::string::npos) {
-                    _log(BOT__MESSAGE, "PlayerBot %s(%u): DeepSeek says AVOID solo gate gank on %s(%u).",
-                         m_botName.c_str(), m_botCharID, enemy->GetBotName().c_str(), enemy->GetBotCharID());
-                    continue;
-                }
+                // NOTE: no DeepSeek veto here. The brain cached "AVOID the ambush
+                // risk" once and that single row vetoed EVERY solo gate gank in the
+                // pool (botStrategy persists, so it never re-learned). Per the lowsec
+                // doctrine a gate gank is a SIEGE - safe, no CONCORD - so the decision
+                // stays with the power math and the 60% roll above. The brain keeps
+                // its post-mortem/strategy roles elsewhere.
                 _log(BOT__MESSAGE, "PlayerBot %s(%u): solo gate gank on hauler %s(%u).",
                      m_botName.c_str(), m_botCharID, enemy->GetBotName().c_str(), enemy->GetBotCharID());
             } else {
