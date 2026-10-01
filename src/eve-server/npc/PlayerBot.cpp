@@ -300,7 +300,10 @@ void PlayerBot::CallFleetSupport(SystemEntity* attacker)
         PlayerBot* ally = dynamic_cast<PlayerBot*>(se->GetNPCSE());
         if (ally == nullptr)
             continue;
-        if (ally->GetBotCorpID() != m_botCorpID && ally->GetBotAllianceID() != m_botAllianceID)
+        // IsAlly(): binds only a real chelobot corp / a non-zero shared alliance
+        // (the raw comparison matched EVERY bot via 0==0 alliances and rallied
+        // even enemy hunters into the fight).
+        if (!IsAlly(ally))
             continue;   // not same corp / alliance — not an ally
         // Don't call a hauler/barge/freighter into a fight — non-combat hulls
         // can't contribute and would just die (or sit there looking silly).
@@ -309,6 +312,19 @@ void PlayerBot::CallFleetSupport(SystemEntity* attacker)
         // Only rally if the ally isn't already busy fighting or fleeing.
         if (ally->GetAIMgr()->IsFighting())
             continue;
+        // Logistics in the gank fleet: a logi-role ally stays in rep range of us
+        // (its UseCombatAbilities remote-reps the fleet under sentry fire).
+        if (ally->GetRole() == BotRole::Logistics && m_destiny != nullptr) {
+            ally->GetAIMgr()->WakeUp();
+            ally->GetAIMgr()->StartAttackCycle(2000);
+            SystemEntity* prio = ally->PickPriorityTarget(attacker);
+            ally->GetAIMgr()->Target(prio != nullptr ? prio : attacker);
+            if (!ally->DestinyMgr()->IsWarping())
+                ally->DestinyMgr()->Orbit(this, 5000);
+            _log(BOT__MESSAGE, "PlayerBot %s(%u): fleet support — logistics %s(%u) holding rep range on us.",
+                 m_botName.c_str(), m_botCharID, ally->GetBotName().c_str(), ally->GetBotCharID());
+            continue;
+        }
         _log(BOT__TRACE, "PlayerBot %s(%u): fleet support — %s(%u) joining.",
              m_botName.c_str(), m_botCharID, ally->GetBotName().c_str(), ally->GetBotCharID());
         ally->GetAIMgr()->WakeUp();
@@ -489,6 +505,10 @@ void PlayerBot::Process()
             m_memory->Save();
             SalvageMyWrecks();
         }
+        // Ganker looter: after a PvP fight the surviving ganker scoops what fell
+        // from the kill (50% of the victim's cargo) - "looter collects the loot".
+        if (m_profession == BotProfession::Hunter)
+            LootNearbyWrecks();
         // A surviving fight is practice — check for a skill level-up.
         LevelUpFromPractice();
         _log(BOT__TRACE, "PlayerBot %s(%u): fight ended, recorded win.", m_botName.c_str(), m_botCharID);
@@ -1525,6 +1545,63 @@ uint32 PlayerBot::SalvageMyWrecks()
         _log(BOT__TRACE, "PlayerBot %s(%u): salvaged %u of its wrecks (hold %.0f m3).",
              m_botName.c_str(), m_botCharID, salvaged, GetCargoVolume());
     return salvaged;
+}
+
+// Gank loot ("looter"): scoop the contents of nearby wrecks regardless of owner -
+// in this sim loot rights are free-for-all, so a ganker (or its corpmate looter)
+// collects what fell from the kill. No salvage here, just the dropped loot.
+uint32 PlayerBot::LootNearbyWrecks()
+{
+    if (SystemMgr() == nullptr || m_destiny == nullptr)
+        return 0;
+
+    uint32 looted = 0;
+    std::vector<SystemEntity*> wrecks;
+    for (auto& [id, se] : SystemMgr()->GetEntities()) {
+        if (se == nullptr || !se->IsWreckSE())
+            continue;
+        if (GetPosition().distance(se->GetPosition()) > 50000.0)
+            continue;   // only wrecks we can realistically reach right now
+        wrecks.push_back(se);
+    }
+
+    for (SystemEntity* wse : wrecks) {
+        InventoryItemRef wreckRef = wse->GetSelf();
+        if (wreckRef.get() == nullptr)
+            continue;
+        uint32 wreckID = wreckRef->itemID();
+
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+            "SELECT typeID, SUM(quantity) FROM entity WHERE locationID = %u AND flag = %u GROUP BY typeID",
+            wreckID, (uint32)flagNone))
+        {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                uint16 typeID = (uint16)row.GetUInt(0);
+                uint32 qty = row.GetUInt(1);
+                if (typeID != 0 && qty > 0)
+                    AddCargo(typeID, qty);
+            }
+        }
+        DBQueryResult cres;
+        if (sDatabase.RunQuery(cres, "SELECT itemID FROM entity WHERE locationID = %u AND flag = %u", wreckID, (uint32)flagNone)) {
+            DBResultRow cRow;
+            while (cres.GetRow(cRow)) {
+                InventoryItemRef itm = sItemFactory.GetItemRef(cRow.GetUInt(0));
+                if (itm.get() != nullptr)
+                    itm->Delete();
+            }
+        }
+
+        wse->Delete();
+        ++looted;
+    }
+
+    if (looted > 0)
+        _log(BOT__MESSAGE, "PlayerBot %s(%u): looted %u wreck(s) after the kill (hold %.0f m3).",
+             m_botName.c_str(), m_botCharID, looted, GetCargoVolume());
+    return looted;
 }
 
 // Real physical deposit: everything the bot is carrying is spawned as actual

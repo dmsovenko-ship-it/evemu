@@ -225,6 +225,9 @@ public:
     // into the bot's hold, the wreck yields salvage materials, then is removed.
     // Returns the number of wrecks processed.
     uint32 SalvageMyWrecks();
+    // Gank loot: scoop the contents of wrecks near us (any owner - loot rights are
+    // free-for-all in this sim). Used by gankers after a kill ("looter").
+    uint32 LootNearbyWrecks();
     // Move everything currently in the bot's hold into the station hangar
     // (ownerID = bot char). Clears the hold. Returns total volume moved.
     double DepositCargoAtStation(uint32 stationID);
