@@ -628,8 +628,15 @@ void PlayerBot::Killed(Damage& damage)
     // The killer (if a bot) has proven itself an enemy — deep grudge, both ways.
     if (damage.srcSE != nullptr && damage.srcSE->GetNPCSE() != nullptr) {
         PlayerBot* killer = dynamic_cast<PlayerBot*>(damage.srcSE->GetNPCSE());
-        if (killer != nullptr)
+        if (killer != nullptr) {
             UpdateBotStandings(killer, true);   // other (killer) won, I lost
+            // Credit the kill on the killer's persistent memory (the win path only
+            // fires for survived fights, so bot-vs-bot kills never counted).
+            if (killer->GetMemory() != nullptr) {
+                killer->GetMemory()->RecordKill();
+                killer->GetMemory()->Save();
+            }
+        }
     }
 
     // Chelobots are real pilots as far as the killboard is concerned — record a
