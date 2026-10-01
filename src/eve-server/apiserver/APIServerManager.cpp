@@ -776,8 +776,16 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 std::string ids; bool first = true;
                 for (auto& kv : need) { if (!first) ids += ","; first = false; ids += std::to_string(kv.first); }
                 DBQueryResult res;
+                // Sampling estimate ONLY: a full AVG(price) over mktOrders scanned
+                // ~38M rows per popular type and took 120+ s (and the 60 s cache TTL
+                // re-ran it every minute). The newest 100k orders (a fast reverse PK
+                // scan) cover the actively-traded types - plenty for an ISK estimate.
                 if (sDatabase.RunQuery(res,
-                    "SELECT typeID, AVG(price) FROM mktOrders WHERE typeID IN (%s) GROUP BY typeID", ids.c_str())) {
+                    "SELECT typeID, AVG(price) FROM ("
+                    "  SELECT typeID, price FROM mktOrders"
+                    "  WHERE typeID IN (%s) AND price > 0"
+                    "  ORDER BY orderID DESC LIMIT 100000"
+                    ") s GROUP BY typeID", ids.c_str())) {
                     DBResultRow row;
                     while (res.GetRow(row)) price[row.GetUInt(0)] = row.GetDouble(1);
                 }

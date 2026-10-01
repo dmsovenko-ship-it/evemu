@@ -40,7 +40,7 @@ int g_apiCacheTtl(const std::string& service, const std::string& handler)
     std::string key = service + "/" + handler;
     static const std::map<std::string, int> ttl = {
         { "server/TopKills.xml.aspx",         30 },
-        { "server/TopValuables.xml.aspx",     60 },
+        { "server/TopValuables.xml.aspx",    300 },
         { "server/Activity.xml.aspx",         30 },
         { "server/MarketTops.xml.aspx",       30 },
         { "server/MarketStats.xml.aspx",      30 },
