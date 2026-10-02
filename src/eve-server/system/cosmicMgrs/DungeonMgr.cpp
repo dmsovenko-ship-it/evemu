@@ -786,6 +786,54 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
             for (uint32 id : decoIDs)
                 newRoom.items.push_back(id);
 
+            // Decor attachment: stationary sentry/gun batteries must not float in
+            // empty space. Snap each one onto the surface of the nearest sizeable
+            // static object of the room (structure/decoration) - a mounted turret,
+            // not a floating crosshair. Mobile NPCs are exempt (they fly anyway);
+            // the lazy-staged ones keep their final position, so attach them too.
+            for (uint32 id : wave1ItemIDs) {
+                SystemEntity* se = m_system->GetSE(id);
+                if (se == nullptr || se->GetNPCSE() == nullptr)
+                    continue;
+                NPC* npc = se->GetNPCSE();
+                if (npc->GetAIMgr() == nullptr || !npc->GetAIMgr()->IsStationary())
+                    continue;
+
+                GPoint npcPos = npc->GetPosition();
+                SystemEntity* anchor = nullptr;
+                double bestD = 50000.0;
+                auto consider = [&](SystemEntity* c) {
+                    if (c == nullptr || c == se)
+                        return;
+                    if (c->GetSelf().get() == nullptr)
+                        return;
+                    float rad = c->GetSelf()->GetAttribute(AttrRadius).get_float();
+                    if (rad < 300.0f)
+                        return;   // small debris/gas clouds are not mounts
+                    double d = npcPos.distance(c->GetPosition());
+                    if (d < bestD) { bestD = d; anchor = c; }
+                };
+                for (auto& [aid, ase] : m_system->GetStaticEntities())
+                    consider(ase);
+                for (auto& [aid, ase] : m_system->GetEntities())
+                    consider(ase);
+                if (anchor == nullptr)
+                    continue;   // empty room - leave as spawned
+
+                InventoryItemRef aRef = anchor->GetSelf();
+                float aRad = aRef->GetAttribute(AttrRadius).get_float();
+                GPoint aPos = anchor->GetPosition();
+                GVector dir(aPos, npcPos);
+                if (dir.length() < 1.0)
+                    dir = GVector(0.0, 0.0, 1.0);
+                dir.normalize();
+                GPoint newPos = aPos + (dir * (aRad * 1.05f + 150.0f));
+                npc->DestinyMgr()->SetPosition(newPos);
+                sBubbleMgr.CheckBubble(npc);
+                _log(COSMIC_MGR__MESSAGE, "MakeDungeon: stationary NPC %u attached to object %u at (%.0f,%.0f,%.0f)",
+                     id, anchor->GetID(), newPos.x, newPos.y, newPos.z);
+            }
+
             // W-space Sleeper sites carry no asteroid belts (their ore/gas sites
             // spawn their own pockets via AnomalyMgr) — only k-space anomaly
             // pockets get a mineable ore belt.
