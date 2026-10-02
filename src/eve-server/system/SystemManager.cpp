@@ -237,6 +237,10 @@ bool SystemManager::LoadCosmicMgrs()
 bool SystemManager::ProcessTic() {
     double profileStartTime(GetTimeUSeconds());
 
+    // Execute lazy anomaly-NPC warp-ins scheduled by Bubble::Add last tic
+    // (they must not run inside Add() - re-entrant delivery froze mid-warp clients).
+    ProcessLazyActivation();
+
     /* the idea here is entities map NEVER has invalid items in it, but our iterator may become invalid
      *      when SE->Process() returns because Process() will add/remove from the map as needed
      *      (new objects, destroyed objects, moved objects, etc)
@@ -1180,32 +1184,56 @@ void SystemManager::StageLazyNPC(NPC* pNPC) {
          pNPC->GetName(), pNPC->GetID(), bid);
 }
 
-// Activation: a player or chelobot entered the site bubble. Every staged NPC spawns
-// 20-30 km off its final position, re-enters the bubble (the grid delivery) and warps
-// in to its position - the warp-in animation, like belts but with the flight.
+// Activation: a player or chelobot entered the site bubble. This runs INSIDE
+// SystemBubble::Add(player), so it must NOT touch the bubble here - spawning NPCs
+// and broadcasting their warp updates into a client that is mid-warp-entry froze
+// the client ("отварп завис"). Schedule the bubble; ProcessLazyActivation() does
+// the actual spawn+warp on the next tic, from a clean call context.
 void SystemManager::ActivateLazyNPCs(SystemBubble* pBubble) {
     if (pBubble == nullptr)
         return;
     auto it = m_lazyNPCs.find(pBubble->GetID());
     if (it == m_lazyNPCs.end() || it->second.empty())
         return;
-    _log(COSMIC_MGR__MESSAGE, "SystemManager::ActivateLazyNPCs() - warping in %u staged NPCs for bubble %u.",
-         (unsigned)it->second.size(), pBubble->GetID());
-    for (NPC* pNPC : it->second) {
-        if (pNPC == nullptr)
+    for (auto* sb : m_lazyActivate)
+        if (sb == pBubble)
+            return;   // already scheduled
+    m_lazyActivate.push_back(pBubble);
+}
+
+// Execute the scheduled warp-ins: each staged NPC spawns 20-30 km off its final
+// position, re-enters the bubble (grid delivery) and warps in to its spot.
+void SystemManager::ProcessLazyActivation() {
+    if (m_lazyActivate.empty())
+        return;
+    std::vector<SystemBubble*> pending;
+    pending.swap(m_lazyActivate);
+    for (SystemBubble* pBubble : pending) {
+        if (pBubble == nullptr)
             continue;
-        GPoint finalPos = pNPC->GetPosition();
-        double ang = MakeRandomFloat() * 2.0 * 3.14159;
-        double rad = 20000.0 + MakeRandomFloat() * 10000.0;
-        GPoint start(finalPos.x + cos(ang) * rad,
-                     finalPos.y + (MakeRandomFloat() - 0.5) * 3000.0,
-                     finalPos.z + sin(ang) * rad);
-        pNPC->DestinyMgr()->SetMaxVelocity(pNPC->GetAIMgr() != nullptr ? pNPC->GetAIMgr()->GetMaxShipSpeed() : 200.0f);
-        pNPC->DestinyMgr()->SetPosition(start);
-        pBubble->Add(pNPC);     // now visible to everyone in the bubble
-        pNPC->DestinyMgr()->WarpTo(finalPos, 0);   // warp-in animation to its spot
+        auto it = m_lazyNPCs.find(pBubble->GetID());
+        if (it == m_lazyNPCs.end() || it->second.empty()) {
+            m_lazyNPCs.erase(it);
+            continue;
+        }
+        _log(COSMIC_MGR__MESSAGE, "SystemManager::ProcessLazyActivation() - warping in %u staged NPCs for bubble %u.",
+             (unsigned)it->second.size(), pBubble->GetID());
+        for (NPC* pNPC : it->second) {
+            if (pNPC == nullptr)
+                continue;
+            GPoint finalPos = pNPC->GetPosition();
+            double ang = MakeRandomFloat() * 2.0 * 3.14159;
+            double rad = 20000.0 + MakeRandomFloat() * 10000.0;
+            GPoint start(finalPos.x + cos(ang) * rad,
+                         finalPos.y + (MakeRandomFloat() - 0.5) * 3000.0,
+                         finalPos.z + sin(ang) * rad);
+            pNPC->DestinyMgr()->SetMaxVelocity(pNPC->GetAIMgr() != nullptr ? pNPC->GetAIMgr()->GetMaxShipSpeed() : 200.0f);
+            pNPC->DestinyMgr()->SetPosition(start);
+            pBubble->Add(pNPC);     // now visible to everyone in the bubble
+            pNPC->DestinyMgr()->WarpTo(finalPos, 0);   // warp-in animation to its spot
+        }
+        m_lazyNPCs.erase(it);
     }
-    m_lazyNPCs.erase(it);
 }
 
 void SystemManager::RemoveNPC(NPC* pNPC) {
@@ -2057,7 +2085,9 @@ void SystemManager::SpawnSentryGuns()
         gateDist = 17000; gateDistVar = 3000;        // 15-20km
         stationDist = 22000; stationDistVar = 5000;   // 20-25km
     } else if (sec > 0.0f) {
-        gateCount = 4; stationCount = 7;
+        // Crucible lowsec doctrine: gates typically mount TWO sentry guns (fewer
+        // than highsec, and some gates had none) - ~400 DPS omni, tankable by BS.
+        gateCount = 2; stationCount = 4;
         gateDist = 16500; gateDistVar = 1500;         // 15-18km
         stationDist = 20000; stationDistVar = 2000;   // 18-22km
     } else {

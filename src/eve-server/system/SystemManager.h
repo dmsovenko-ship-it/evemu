@@ -144,7 +144,8 @@ public:
     // Lazy anomaly NPCs: hold a spawned NPC off-grid (no bubble, invisible) until a
     // player or chelobot enters the site bubble, then warp it in to its position.
     void StageLazyNPC(NPC* pNPC);
-    void ActivateLazyNPCs(SystemBubble* pBubble);
+    void ActivateLazyNPCs(SystemBubble* pBubble);   // schedules only (never call inside Bubble::Add - re-entrant)
+    void ProcessLazyActivation();                   // executes the scheduled warp-ins (ProcessTic)
     void RemoveNPC(NPC* pNPC);
     void RemoveNPCFromList(NPC* pNPC);   // only m_npcs/sEntityList cleanup — no RemoveEntity, no item delete (caller handles full removal)
     void AddEntity(SystemEntity* pSE, bool addSignal=true);    // add entity to system, and (optionally) add signal to AnomalyMgr
@@ -263,6 +264,8 @@ private:
     std::map<uint32, NPC*> m_npcs;
     // bubbleID -> anomaly NPCs held off-grid awaiting activation (lazy warp-in)
     std::map<uint32, std::vector<NPC*>> m_lazyNPCs;
+    // bubbles whose staged NPCs are due to warp in (executed on the next tic)
+    std::vector<SystemBubble*> m_lazyActivate;
     std::map<uint32, Client*> m_clients;
     std::map<uint32, SystemEntity*> m_entities;         // this list is all entities in this system.  we own these.
     std::map<uint32, SystemEntity*> m_ticEntities;      // this list is for entities that need process tics (objects, npc, client ships)
