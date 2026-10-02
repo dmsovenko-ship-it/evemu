@@ -1290,17 +1290,10 @@ void SystemBubble::BubblecastDestinyUpdate( PyTuple** payload, const char* desc 
             _log( DESTINY__BUBBLECAST, "Bubblecast %s — skipping docked client %s(%u)", desc, pClient->GetName(), cur.first);
             continue;
         }
-        // A pilot IN WARP has no grid (cleared at >300 km) - foreign thin updates
-        // reference balls it no longer has and wedge its destiny handler (ghosts,
-        // stuck warp). Suppress ONLY the in-warp window: during the align phase
-        // (IsWarpPending, grid intact) updates must still flow - including the
-        // client's own CmdWarpTo, which is cast while warp-pending.
-        SystemEntity* pSe = pClient->GetShipSE();
-        if (pSe != nullptr && pSe->DestinyMgr() != nullptr && pSe->DestinyMgr()->IsWarping())
-        {
-            _log( DESTINY__BUBBLECAST, "Bubblecast %s — skipping warping client %s(%u)", desc, pClient->GetName(), cur.first);
-            continue;
-        }
+        // NOTE: do NOT suppress updates for warping clients here. The server echoes
+        // the warping ship's own updates back to its pilot through this cast, and
+        // the client's WarpLoop relies on that stream (suppressing it froze the
+        // pilot's own warp mid-decel: '504 km to the gate and flying').
         _log( DESTINY__BUBBLECAST, "Bubblecast %s update to %s(%u)", desc, pClient->GetName(), cur.first );
         PyTuple* clone = static_cast<PyTuple*>((*payload)->Clone());
         pClient->QueueDestinyUpdate(&clone);
@@ -1315,12 +1308,6 @@ void SystemBubble::BubblecastDestinyUpdateExclusive( PyTuple** payload, const ch
         if (pClient != cur.second)
             continue;
         if (pClient->IsDocked())
-            continue;
-        // Same in-warp-only guard as BubblecastDestinyUpdate (IsWarpPending must
-        // still receive updates - its grid is intact and its own warp command is
-        // cast during that window).
-        SystemEntity* pSe = pClient->GetShipSE();
-        if (pSe != nullptr && pSe->DestinyMgr() != nullptr && pSe->DestinyMgr()->IsWarping())
             continue;
         // Only queue a Destiny update for this bubble if the current SystemEntity is not 'pSE':
         // (this is an update to all client objects in the bubble EXCLUDING 'pSE')
