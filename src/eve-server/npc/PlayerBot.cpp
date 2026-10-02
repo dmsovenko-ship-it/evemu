@@ -2315,8 +2315,14 @@ void PlayerBot::HuntForTarget()
         // A faction warrior prizes its fixed enemies a little more (war worth).
         if (m_factionWarrior && factionEnemy)
             score += 25;
-        // Risk: friends near the target lower the score hard (bait check).
-        score -= CountEnemiesNearby(enemy) * 40;
+        // Risk: friends near the target lower the score hard (bait check) - but the
+        // random travellers around a hauler at a busy gate are NOT his escorts. For
+        // soft prey cap the penalty at one real friend: at crowded gates the stranger
+        // count hit 5+ (score < -20) and rejected EVERY gate-hauler gank silently.
+        int friends = CountEnemiesNearby(enemy);
+        if (softPrey)
+            friends = std::min(friends, 1);
+        score -= friends * 40;
         if (score > bestScore) { bestScore = score; prey = enemy; preyIsSoft = softPrey; }
     }
 
