@@ -2248,6 +2248,14 @@ void SystemManager::SpawnConvoys()
     uint32 guardTypeIDs[] = { 10999, 11000, 11001, 11002 };
     uint32 haulerTypeIDs[] = { 10826, 10827, 10828, 10043, 10114, 20716, 20718 };
 
+    // playerBots enabled -> convoys are OFF (chelobots already provide the traffic).
+    // This boot-time path spawned them independently of the CivilianMgr gate.
+    if (sConfig.playerBots.Enabled) {
+        _log(SPAWN__MESSAGE, "SpawnConvoys: %s(%u) skipped (playerBots enabled - convoys off).",
+             m_data.name.c_str(), m_data.systemID);
+        return;
+    }
+
     uint32 numHaulers = 3 + (uint32)MakeRandomInt(0, 7); // 3-10
     uint32 numGuards = numHaulers / 2 + (uint32)MakeRandomInt(1, 3); // ~1 guard per 2 haulers + 1-3
 
