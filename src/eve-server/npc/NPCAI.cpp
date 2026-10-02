@@ -518,6 +518,12 @@ void NPCAIMgr::Process() {
     if (m_destiny->IsWarping())
         return;
 
+    // Lazy anomaly NPCs are held OFF-GRID (no bubble) until a player/chelobot enters
+    // the site; everything below (ambush scan, idle target scan) reads SysBubble(),
+    // which is null for them -> hard crash (SIGSEGV in GetPlayers, seen on live).
+    if (m_npc->SysBubble() == nullptr)
+        return;
+
     // Convoy NPCs only fight in self-defense
     if (m_npc->IsConvoy() && !m_npc->IsConvoyUnderAttack())
         return;
