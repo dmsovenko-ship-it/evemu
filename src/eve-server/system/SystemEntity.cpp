@@ -134,7 +134,21 @@ PyDict* SystemEntity::MakeSlimItem() {
         slim->SetItemString("categoryID",   new PyInt(m_self->categoryID()));
         slim->SetItemString("groupID",      new PyInt(m_self->groupID()));
         slim->SetItemString("itemID",       new PyLong(m_self->itemID()));
-        slim->SetItemString("name",         new PyString(m_self->itemName()));
+        // Slim name: use itemName; fall back to the type name when the item name
+        // is empty or binary garbage (spawned with name="" leaves the field
+        // uninitialized, and the client chokes on non-UTF-8 bytes in the slim).
+        {
+            std::string nm = m_self->itemName();
+            bool valid = !nm.empty();
+            if (valid) {
+                for (char c : nm) {
+                    if ((unsigned char)c < 0x20) { valid = false; break; }
+                }
+            }
+            if (!valid)
+                nm = sDataMgr.GetTypeName(m_self->typeID());
+            slim->SetItemString("name", new PyString(nm));
+        }
         slim->SetItemString("corpID",       IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",   IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
         slim->SetItemString("warFactionID", IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
