@@ -2081,7 +2081,7 @@ void SystemManager::SpawnSentryGuns()
     uint32 gateDist = 0, stationDist = 0, gateDistVar = 0, stationDistVar = 0;
 
     if (sec >= 0.5f) {
-        gateCount = 3; stationCount = 5;
+        gateCount = 4; stationCount = 5;              // lore: highsec gates ran 4 (up to 8)
         gateDist = 17000; gateDistVar = 3000;        // 15-20km
         stationDist = 22000; stationDistVar = 5000;   // 20-25km
     } else if (sec > 0.0f) {
@@ -2107,9 +2107,25 @@ void SystemManager::SpawnSentryGuns()
         faction.corporationID = pSE->GetCorporationID();
 
         if (group == EVEDB::invGroups::Stargate && gateCount > 0) {
-            float angleStep = 6.283185f / gateCount;
+            // Crucible lowsec doctrine: the count VARIED per gate - most mounted the
+            // standard pair, some had none, a few one or three (which is what made
+            // some gates better ambush spots than others). Deterministic per gate id,
+            // so the same gate keeps the same loadout across boots.
+            uint32 perGate = gateCount;
+            if (sec < 0.5f) {
+                uint32 h = (id ^ 0x9E3779B9u) * 2654435761u;
+                switch (h % 10) {
+                    case 0: case 1: perGate = 0; break;   // ~20%: no guns (ambush-friendly)
+                    case 8:         perGate = 1; break;   // ~10%: a single gun
+                    case 9:         perGate = 3; break;   // ~10%: three
+                    default:        perGate = 2; break;   // ~60%: the standard pair
+                }
+            }
+            if (perGate == 0)
+                continue;
+            float angleStep = 6.283185f / perGate;
             float baseAngle = (float)(MakeRandomInt(0, 6283)) / 1000.0f;
-            for (uint32 i = 0; i < gateCount; ++i) {
+            for (uint32 i = 0; i < perGate; ++i) {
                 // Place the sentry OUTSIDE the gate's own radius: gates are up to
                 // ~19 km in radius and the sentries were spawning 15-18 km from the
                 // centre - i.e. INSIDE the gate model, so the client rendered them
