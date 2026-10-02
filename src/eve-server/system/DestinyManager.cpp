@@ -184,6 +184,25 @@ void DestinyManager::Process() {
         m_lastWarpPos = m_position;
     }
 
+    // Arrival grid gap-fill (see WarpStop): one extra SendAddBalls pass a few
+    // seconds after warp exit. The client skips balls it already has, so this
+    // only delivers whatever chunks of the first wave it dropped.
+    if (m_gridGapFill.Check()) {
+        m_gridGapFill.Disable();
+        if (mySE->HasPilot() && !mySE->GetPilot()->IsDocked()
+            && mySE->SysBubble() != nullptr) {
+            mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
+            std::map<uint32, SystemEntity*> gapDelivered;
+            for (auto& [id, se] : mySE->SysBubble()->GetDynamicEntities())
+                gapDelivered.emplace(id, se);
+            for (auto& [id, se] : mySE->SystemMgr()->GetStaticEntities())
+                gapDelivered.emplace(id, se);
+            sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, gapDelivered);
+            _log(DESTINY__TRACE, "Destiny::Process() - %s(%u): arrival grid gap-fill pass sent.",
+                 mySE->GetName(), mySE->GetID());
+        }
+    }
+
     //check for and process Destiny::Ball::State changes.
     if (m_ticAlign) {
         m_ticAlign = false;
@@ -2358,6 +2377,12 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         // bubble entry during warp - that made the destination grid pop in while
         // the ship was still turning). Skips the pilot's own ball (added above).
         mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
+
+        // Gap-fill: clients occasionally drop CHUNKS of big AddBalls batches
+        // (second delivery waves, activation bursts) - towers/decor never render
+        // until a SetState. A second pass a few seconds later re-delivers them;
+        // the client skips balls it already has, so this only fills the gaps.
+        m_gridGapFill.Start(5000);
 
         // Belts / anomaly dungeons can straddle more than one bubble: deliver
         // the balls from overlapping bubbles inside the arrival area, so
