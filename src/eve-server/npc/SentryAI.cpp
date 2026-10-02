@@ -153,13 +153,13 @@ void SentryAI::Process() {
         } break;
         case State::Engaged: {
             if (m_npc->TargetMgr()->HasNoTargets()) {
-                _log(NPC__AI_TRACE, "%s(%u): Stopped %s, HasNoTargets = true.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state.c_str()));
+                _log(NPC__AI_TRACE, "%s(%u): Stopped %s, HasNoTargets = true.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state));
                 SetIdle();
                 return;
             }
             SystemEntity* pTarget = m_npc->TargetMgr()->GetFirstTarget(false);
             if (!pTarget) {
-                _log(NPC__AI_TRACE, "%s(%u): Stopped %s, GetFirstTarget() returned NULL.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state.c_str()));
+                _log(NPC__AI_TRACE, "%s(%u): Stopped %s, GetFirstTarget() returned NULL.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state));
                 SetIdle();
                 return;
             } else if (!pTarget->SysBubble()) {
