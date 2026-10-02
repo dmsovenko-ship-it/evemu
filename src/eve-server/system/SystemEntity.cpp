@@ -756,7 +756,10 @@ void DeployableSE::EncodeDestiny(Buffer& into)
     if (!m_anchored) {
         // Unanchored deployable — STOP mode like NPC ships (no DataSector needed for static objects).
         head.mode = Ball::Mode::STOP;
-        head.flags = Ball::Flag::IsFree;
+        // IsMassive REQUIRED: MassSector is always appended for IsFree balls. Without
+        // the flag the client skips MassSector, reads its bytes as DataSector, desyncs
+        // the binary stream, and drops the whole batch (NPCs invisible, no targeting).
+        head.flags = Ball::Flag::IsFree | Ball::Flag::IsMassive;
         into.Append(head);
         MassSector mass = MassSector();
             mass.mass = 1.0e9f;
