@@ -2720,24 +2720,28 @@ void ShipSE::Jump(bool showCloak) {
         m_targMgr->ClearAllTargets(false);
     }
 
-    // Drones in flight are left behind when jumping to another system.
-    // Set them offline so they stop processing. Reconnect via CmdReconnectToDrones on return.
+    // Drones auto-return to the bay on jump (like real EVE): scoop each drone
+    // (item to hold/bay, entity removed, ball removed). This prevents zombie
+    // DroneSE entities from persisting in the old system after the ship leaves.
     if (!m_drones.empty() && m_system != nullptr) {
-        _log(DRONE__MESSAGE, "ShipSE::Jump(): %s(%u) jumping — setting %u drones offline.",
+        _log(DRONE__MESSAGE, "ShipSE::Jump(): %s(%u) jumping — scooping %u drones into bay.",
              GetName(), GetID(), m_drones.size());
         std::vector<uint32> droneIDs;
-        for (auto& [id, droneItem] : m_drones) {
+        for (auto& [id, droneItem] : m_drones)
             droneIDs.push_back(id);
+        for (uint32 id : droneIDs) {
             SystemEntity* pSE = m_system->GetSE(id);
             if (pSE != nullptr && pSE->IsDroneSE()) {
-                DroneSE* pDrone = pSE->GetDroneSE();
-                pDrone->DestinyMgr()->Stop();
-                pDrone->Offline();
-                pDrone->ClearAssistTarget();
+                // Scoop: item moves to drone bay, entity removed from system.
+                InventoryItemRef dItem = pSE->GetSelf();
+                if (dItem.get() != nullptr) {
+                    dItem->Move(m_self->locationID(), flagDroneBay);
+                    dItem->SaveItem();
+                }
+                pSE->Delete();
             }
-        }
-        for (uint32 id : droneIDs)
             RemoveDroneFromFlight(id);
+        }
     }
 
     m_shipRef->Jump();
