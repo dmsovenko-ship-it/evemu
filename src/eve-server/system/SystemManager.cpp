@@ -572,6 +572,15 @@ bool SystemManager::LoadSystemDynamics() {
                                 cur.itemID, cur.groupID, cur.typeID);
             continue;
         }
+        // Convoy NPCs are legacy spawns from older boots: when playerBots are
+        // enabled, convoys are OFF (the CivilianMgr gate only blocks NEW spawns -
+        // these persisted rows would load and fly forever). Sweep them on load.
+        if (sConfig.playerBots.Enabled && pSE->GetName().rfind("Convoy", 0) == 0) {
+            _log(SPAWN__MESSAGE, "LoadSystemDynamics: removing legacy convoy NPC %s(%u) (playerBots enabled).",
+                 pSE->GetName(), cur.itemID);
+            pSE->Delete();
+            continue;
+        }
         _log(ITEM__TRACE, "SystemManager::LoadSystemDynamics() - Loaded dynamic entity %u of type %u for %s(%u)", \
                     cur.itemID, cur.typeID, m_data.name.c_str(), m_data.systemID);
         if (pSE->GetPosition().isZero())
