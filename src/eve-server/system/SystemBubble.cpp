@@ -1290,6 +1290,18 @@ void SystemBubble::BubblecastDestinyUpdate( PyTuple** payload, const char* desc 
             _log( DESTINY__BUBBLECAST, "Bubblecast %s — skipping docked client %s(%u)", desc, pClient->GetName(), cur.first);
             continue;
         }
+        // A warping/warp-pending pilot has NO grid delivered yet (deferred to
+        // WarpStop). Thin updates for balls it never received wedge the client's
+        // destiny handler - it stops processing the whole stream (ghost NPCs,
+        // stuck warp, uncontrollable drones; only /update recovers). It resyncs
+        // completely at WarpStop, so suppress foreign updates until then.
+        SystemEntity* pSe = pClient->GetShipSE();
+        if (pSe != nullptr && pSe->DestinyMgr() != nullptr
+            && (pSe->DestinyMgr()->IsWarping() || pSe->DestinyMgr()->IsWarpPending()))
+        {
+            _log( DESTINY__BUBBLECAST, "Bubblecast %s — skipping warping client %s(%u)", desc, pClient->GetName(), cur.first);
+            continue;
+        }
         _log( DESTINY__BUBBLECAST, "Bubblecast %s update to %s(%u)", desc, pClient->GetName(), cur.first );
         PyTuple* clone = static_cast<PyTuple*>((*payload)->Clone());
         pClient->QueueDestinyUpdate(&clone);
@@ -1304,6 +1316,12 @@ void SystemBubble::BubblecastDestinyUpdateExclusive( PyTuple** payload, const ch
         if (pClient != cur.second)
             continue;
         if (pClient->IsDocked())
+            continue;
+        // Same warping-pilot guard as BubblecastDestinyUpdate: no grid yet ->
+        // thin foreign updates wedge the client's destiny handler.
+        SystemEntity* pSe = pClient->GetShipSE();
+        if (pSe != nullptr && pSe->DestinyMgr() != nullptr
+            && (pSe->DestinyMgr()->IsWarping() || pSe->DestinyMgr()->IsWarpPending()))
             continue;
         // Only queue a Destiny update for this bubble if the current SystemEntity is not 'pSE':
         // (this is an update to all client objects in the bubble EXCLUDING 'pSE')
