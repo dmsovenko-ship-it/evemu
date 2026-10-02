@@ -2148,7 +2148,7 @@ void SystemManager::SpawnSentryGuns()
                 InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                 if (iRef.get() == nullptr) continue;
                 Sentry* sentry = new Sentry(iRef, m_services, this, faction);
-                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); ++spawnedGate; AddEntity(sentry); }
+                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); sentry->DestinyMgr()->Stop(); ++spawnedGate; AddEntity(sentry); }
             }
         } else if (group == EVEDB::invGroups::Station) {
             float angleStep = 6.283185f / stationCount;
@@ -2162,7 +2162,7 @@ void SystemManager::SpawnSentryGuns()
                 InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
                 if (iRef.get() == nullptr) continue;
                 Sentry* sentry = new Sentry(iRef, m_services, this, faction);
-                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); ++spawnedStation; AddEntity(sentry); }
+                if (sentry != nullptr) { sentry->DestinyMgr()->SetPosition(pos); sentry->DestinyMgr()->Stop(); ++spawnedStation; AddEntity(sentry); }
             }
         }
     }
@@ -2199,6 +2199,7 @@ void SystemManager::SpawnBillboards()
         ObjectSystemEntity* billboard = new ObjectSystemEntity(iRef, m_services, this);
         billboard->SetOwnerData(iRef->ownerID(), iRef->ownerID());
         billboard->DestinyMgr()->SetPosition(pos);
+        billboard->DestinyMgr()->Stop();
         uint32 billID = iRef->itemID();
         AddEntity(billboard);
         m_staticEntities[billID] = billboard;
