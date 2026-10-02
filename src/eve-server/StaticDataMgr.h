@@ -78,6 +78,8 @@ public:
 
     bool                IsRefinable(uint16 typeID);
     bool                IsRecyclable(uint16 typeID);
+    // bulk-load recyclable/refinable typeIDs (2 queries instead of ~39k at boot)
+    void                LoadRecyclableRefinable();
     void                GetRamReturns(uint16 typeID, int8 activityID, std::vector< EvERam::RequiredItem >& ramReqs); // bp typeID/data
     void                GetRamMaterials(uint16 typeID, std::vector<EvERam::RamMaterials>& ramMatls);    // bp productTypeID/data{typeID/qty}
     void                GetRamRequirements(uint16 typeID, std::vector< EvERam::RamRequirements >& ramReqs); // bp typeID/data
@@ -176,6 +178,8 @@ private:
     std::map<uint16, Inv::CatData>                      m_catData;
     std::map<uint16, Inv::GrpData>                      m_grpData;
     std::map<uint16, Inv::TypeData>                     m_typeData;
+    std::set<uint32>                                    m_recyclableTypes;
+    std::set<uint32>                                    m_refinableTypes;
 
     std::map<uint16, PyDict*>                           m_bpMatlData;       // typeID/dict*
     std::map<uint32, uint8>                             m_whRegions;        // regionID/classID

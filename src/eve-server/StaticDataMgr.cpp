@@ -230,6 +230,9 @@ void StaticDataMgr::Populate()
     sLog.Cyan("    StaticDataMgr", "%lu Inventory Groups loaded in %.3fms.", m_grpData.size(), (GetTimeMSeconds() - startTime));
 
     startTime = GetTimeMSeconds();
+    // Bulk-load recyclable/refinable typeIDs (2 queries instead of ~39k per-row
+    // queries that took 49s at boot)
+    LoadRecyclableRefinable();
     ManagerDB::GetTypeData(*res);
     while (res->GetRow(row)) {
         Inv::TypeData data              = Inv::TypeData();
@@ -248,9 +251,8 @@ void StaticDataMgr::Populate()
             data.marketGroupID          = (row.IsNull(12) ? 0 : row.GetUInt(12));
             data.chanceOfDuplicating    = (row.IsNull(13) ? 0.0f : row.GetFloat(13));
             data.metaLvl                = (row.IsNull(14) ? 0 : row.GetUInt(14));
-            // these will take a bit of work, but will eliminate multiple db hits on inventory/menu loading ingame
-            data.isRecyclable           = FactoryDB::IsRecyclable(data.id);   // +5s to startup
-            data.isRefinable            = FactoryDB::IsRefinable(data.id);     // +3s to startup
+            data.isRecyclable           = (m_recyclableTypes.count(data.id) > 0);
+            data.isRefinable            = (m_refinableTypes.count(data.id) > 0);
         m_typeData.emplace(row.GetUInt(0), data);
     }
     sLog.Cyan("    StaticDataMgr", "%lu Inventory Types loaded in %.3fms.", m_typeData.size(), (GetTimeMSeconds() - startTime));
@@ -1004,6 +1006,27 @@ bool StaticDataMgr::GetBpDataForItem(uint16 typeID, EvERam::bpTypeData& tData)
         return true;
     }
     return false;
+}
+
+// Bulk-load the sets of recyclable and refinable typeIDs in 2 queries.
+// Called before the types loop in Initialize() to replace ~39k per-row queries.
+void StaticDataMgr::LoadRecyclableRefinable() {
+    DBQueryResult res;
+    DBerror err;
+    if (sDatabase.RunQuery(res,
+        "SELECT DISTINCT typeID FROM invTypeMaterials")) {
+        DBResultRow row;
+        while (res.GetRow(row))
+            m_recyclableTypes.insert(row.GetUInt(0));
+    }
+    if (sDatabase.RunQuery(res,
+        "SELECT DISTINCT typeID FROM ramTypeRequirements WHERE extra = 0")) {
+        DBResultRow row;
+        while (res.GetRow(row))
+            m_refinableTypes.insert(row.GetUInt(0));
+    }
+    _log(SERVER__INIT, "StaticDataMgr: %lu recyclable, %lu refinable typeIDs bulk-loaded.",
+         m_recyclableTypes.size(), m_refinableTypes.size());
 }
 
 bool StaticDataMgr::IsRecyclable(uint16 typeID)
