@@ -22,6 +22,7 @@
 #include "system/cosmicMgrs/BeltMgr.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "npc/NPC.h"
+#include "npc/NPCAI.h"
 #include <sstream>
 
 /*
