@@ -2757,6 +2757,26 @@ void ShipSE::Warp() {
     m_shipRef->Warp();
 }
 
+// Re-emit OnDroneStateChange for every drone in flight. A full SetState rebuilds the
+// client's drone window EMPTY (stateByDroneID is client session state) while the
+// server still has the drones assigned - the pilot loses all control over them
+// (no window rows, scoop fails with "Unable to find droneSE", new launches break).
+void ShipSE::SendDroneState() {
+    if (m_drones.empty() || m_system == nullptr)
+        return;
+    uint32 sent = 0;
+    for (auto& [id, droneItem] : m_drones) {
+        SystemEntity* pSE = m_system->GetSE(id);
+        if (pSE == nullptr || !pSE->IsDroneSE())
+            continue;
+        pSE->GetDroneSE()->StateChange();
+        ++sent;
+    }
+    if (sent > 0)
+        _log(DRONE__MESSAGE, "ShipSE::SendDroneState(): %s(%u) re-emitted state for %u drones in flight.",
+             GetName(), GetID(), sent);
+}
+
 void ShipSE::RemoveTarget(SystemEntity* pSE) {
     // target has been unlocked
     m_shipRef->GetModuleManager()->RemoveTarget(pSE);

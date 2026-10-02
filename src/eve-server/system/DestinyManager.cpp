@@ -4193,6 +4193,12 @@ void DestinyManager::SendSetState() const {
     mySE->GetPilot()->QueueDestinyUpdate(&tmp, true, true); // consumed
 
     mySE->GetPilot()->SetStateSent(true);
+
+    // Restore drone control: the SetState rebuild cleared the client's drone window
+    // (stateByDroneID is client session state) while the server still has drones in
+    // flight - without this the pilot cannot control them or launch new ones.
+    if (mySE->IsShipSE())
+        mySE->GetShipSE()->SendDroneState();
 }
 
 void DestinyManager::SendMovementPacket()

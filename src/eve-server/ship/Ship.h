@@ -336,6 +336,7 @@ public:
     void Dock();
     void Jump(bool showCloak=true);        // this sets ship cloak
     void Warp();
+    void SendDroneState();                 // re-emit OnDroneStateChange for drones in flight (after SetState)
     void RemoveTarget(SystemEntity* pSE);
     void SetPassword(std::string pass)                  { m_towerPass = pass; }
     std::string GetTowerPassword()                      { return m_towerPass; }
