@@ -153,18 +153,46 @@ void SentryAI::Process() {
         } break;
         case State::Engaged: {
             if (m_npc->TargetMgr()->HasNoTargets()) {
-                _log(NPC__AI_TRACE, "%s(%u): Stopped %s, HasNoTargets = true.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state).c_str());
+                _log(NPC__AI_TRACE, "%s(%u): Stopped %s, HasNoTargets = true.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state.c_str()));
                 SetIdle();
                 return;
             }
             SystemEntity* pTarget = m_npc->TargetMgr()->GetFirstTarget(false);
             if (!pTarget) {
-                _log(NPC__AI_TRACE, "%s(%u): Stopped %s, GetFirstTarget() returned NULL.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state).c_str());
+                _log(NPC__AI_TRACE, "%s(%u): Stopped %s, GetFirstTarget() returned NULL.", m_npc->GetName(), m_npc->GetID(), GetStateName(m_state.c_str()));
                 SetIdle();
                 return;
             } else if (!pTarget->SysBubble()) {
                 ClearTarget(pTarget);
                 return;
+            }
+            // Crucible doctrine: sentry guns switch target every 60s when multiple
+            // attackers are present - this prevents focus-killing one ship while
+            // others shoot freely, and lets BS/HAC tank while frigates die fast.
+            if (m_targetSwitchTimer.Check()) {
+                m_targetSwitchTimer.Start(60000);
+                std::vector<Client*> clients;
+                m_npc->SysBubble()->GetPlayers(clients);
+                if (clients.size() > 1) {
+                    SystemEntity* next = nullptr;
+                    for (auto cur : clients) {
+                        if (cur == nullptr or cur->IsInvul() or cur->InPod()) continue;
+                        SystemEntity* se = cur->GetShipSE();
+                        if (se == nullptr or se == pTarget) continue;
+                        if (se->DestinyMgr() == nullptr or se->DestinyMgr()->IsCloaked() or se->DestinyMgr()->IsWarping()) continue;
+                        if (m_npc->GetPosition().distance(se->GetPosition()) > m_sightRange) continue;
+                        next = se;
+                        break;
+                    }
+                    if (next != nullptr) {
+                        ClearTarget(pTarget);
+                        Target(next);
+                        _log(NPC__AI_TRACE, "%s(%u): 60s target switch -> %s(%u).",
+                             m_npc->GetName(), m_npc->GetID(), next->GetName(), next->GetID());
+                    }
+                }
+            } else if (!m_targetSwitchTimer.Enabled()) {
+                m_targetSwitchTimer.Start(60000);
             }
             CheckDistance(pTarget);
         } break;

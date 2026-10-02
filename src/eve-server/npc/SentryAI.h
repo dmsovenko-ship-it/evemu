@@ -90,6 +90,7 @@ private:
     Timer m_processTimer;
     Timer m_mainAttackTimer;
     Timer m_beginFindTarget;
+    Timer m_targetSwitchTimer;   // Crucible: 60s target switch with multiple attackers
     Timer m_warpScramblerTimer;
     Timer m_webifierTimer;
 };
