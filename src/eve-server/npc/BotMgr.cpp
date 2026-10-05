@@ -335,6 +335,9 @@ void BotMgr::Process()
     // Temporary cyno ships despawn after their window.
     ProcessCynoShips();
 
+    // Population cap pressure: over-cap pilots log off gracefully (dock first).
+    ProcessSoftLogoff();
+
     // Post bot chat replies whose text was generated on a background thread.
     PostPendingChatReplies();
 
@@ -7546,7 +7549,22 @@ void BotMgr::ProcessDocking()
                 db.undockAt = now + (pb->GetProfession() == PlayerBot::BotProfession::Trader
                                      ? MakeRandomInt(300, 1800)    // 5-30 min at market
                                      : MakeRandomInt(30, 300));    // 0.5-5 min for everyone else
-            m_docked[pSystem->GetID()].push_back(db);
+            // Soft logoff finalization: this pilot was evicted by the population
+            // cap — the dock was the last step. Log it off (online=0, leaves
+            // local) instead of parking it in the docked pool. Hull stays
+            // property at the station (shipID); the pilot returns to the pool.
+            if (pb->IsLogoffPending()) {
+                pb->SetLogoffPending(false);
+                RemoveBotFromLocal(pSystem, db.charID);
+                DBerror lerr;
+                sDatabase.RunQuery(lerr,
+                    "UPDATE chrCharacters SET online = 0, stationID = %u, solarSystemID = %u WHERE characterID = %u",
+                    dockStationID, pSystem->GetID(), db.charID);
+                _log(BOT__MESSAGE, "BotMgr: %s(%u) docked at station %u and logged off.",
+                     db.name.c_str(), db.charID, dockStationID);
+            } else {
+                m_docked[pSystem->GetID()].push_back(db);
+            }
             _log(BOT__MESSAGE, "BotMgr: %s(%u) docking at station %u in system %u.",
                  db.name.c_str(), db.charID, dockStationID, pSystem->GetID());
             pb->ClearDockRequest();
@@ -8912,6 +8930,82 @@ void BotMgr::RemoveBotFromLocal(SystemManager* pSystem, uint32 charID)
     LSCChannel* chan = lsc->GetChannelByID((int32)pSystem->GetID());
     if (chan != nullptr)
         chan->RemoveBotChar(charID);
+}
+
+void BotMgr::ProcessSoftLogoff()
+{
+    // Soft evict over-cap pilots so the local count BREATHES instead of only
+    // growing: docked pilots log off in place (nothing visible), space pilots
+    // stop working, fly to a station, dock, then log off — exactly like a real
+    // player logging off. One eviction per ~30 s keeps the drain gentle.
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    time_t now = time(nullptr);
+    static time_t s_lastLogoff = 0;
+    if (s_lastLogoff != 0 && (now - s_lastLogoff) < 30)
+        return;
+
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+            continue;   // empty systems depopulate via ReapBots
+        uint32 cap = sConfig.playerBots.MaxPerSystem;
+        if (cap == 0)
+            return;
+        uint32 botCount = 0;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se != nullptr && se->GetNPCSE() != nullptr
+                && dynamic_cast<PlayerBot*>(se->GetNPCSE()) != nullptr)
+                ++botCount;
+        }
+        auto dockIt = m_docked.find(sysID);
+        if (dockIt != m_docked.end())
+            botCount += (uint32)dockIt->second.size();
+        if (botCount <= cap)
+            continue;
+
+        // 1) Softest: log off a DOCKED pilot — no ship in space at all.
+        if (dockIt != m_docked.end() && !dockIt->second.empty()) {
+            DockedBot db = dockIt->second.back();
+            dockIt->second.pop_back();
+            if (dockIt->second.empty())
+                m_docked.erase(dockIt);
+            DBerror err;
+            sDatabase.RunQuery(err,
+                "UPDATE chrCharacters SET online = 0 WHERE characterID = %u", db.charID);
+            RemoveBotFromLocal(pSystem, db.charID);
+            s_lastLogoff = now;
+            _log(BOT__MESSAGE, "BotMgr: %s(%u) logged off at station in system %u (cap %u, was %u).",
+                 db.name.c_str(), db.charID, sysID, cap, botCount);
+            return;
+        }
+
+        // 2) Space pilot: stop everything and dock — ProcessDocking flies it to
+        //    the station (WantsDock is set by SetLogoffPending) and, seeing the
+        //    pending flag, logs it off instead of parking it in the docked pool.
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb == nullptr || pb->IsLogoffPending() || pb->WantsToTravel()
+                || pb->IsAggressed() || pb->GetAIMgr()->IsFighting()
+                || pb->IsPosGuard() || pb->IsCynoShip() || pb->IsFleetBoss()
+                || pb->IsJumpFreighter())
+                continue;
+            if (!pb->HasStationInSystem())
+                continue;   // no station here — cap pressure resolves as others leave
+            bool isEscort = false;
+            for (auto& [hid, h] : m_hauls)
+                if (h.escortCharID == pb->GetBotCharID()) { isEscort = true; break; }
+            if (isEscort)
+                continue;
+            pb->SetLogoffPending(true);
+            pb->RecallDrones();   // stop drone activity immediately
+            s_lastLogoff = now;
+            _log(BOT__MESSAGE, "BotMgr: %s(%u) is logging off (cap %u, was %u) - docking first.",
+                 pb->GetBotName().c_str(), pb->GetBotCharID(), cap, botCount);
+            return;
+        }
+    }
 }
 
 void BotMgr::SweepLocalChannels()

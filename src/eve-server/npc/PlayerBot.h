@@ -189,6 +189,11 @@ public:
     void RequestDock()                  { m_wantsDock = true; }
     void ClearDockRequest()             { m_wantsDock = false; }
     bool WantsDock() const              { return m_wantsDock; }
+    // Soft logoff (population cap eviction): the pilot stops all activity, docks
+    // at a station (ProcessDocking flies it there), then BotMgr logs it off
+    // (online=0, leaves local) instead of keeping it in the docked pool.
+    void SetLogoffPending(bool v)       { m_logoffPending = v; if (v) m_wantsDock = true; }
+    bool IsLogoffPending() const        { return m_logoffPending; }
     // Jump freighter (big cargo / courier contracts): light a cyno, hold an
     // interception window, then jump to the destination system.
     void StartJumpFreighter(uint32 destSystem);
@@ -344,6 +349,7 @@ protected:
     Timer m_aggressionTimer;            // aggression flag: can't dock/jump while active
     bool m_inFight;                     // true while fighting (to record outcomes)
     bool m_wantsDock;                   // true when the bot wants to dock (profession)
+    bool m_logoffPending = false;       // soft logoff in progress (cap eviction)
     uint8 m_mineTrips;                  // mining runs since last dock (ore haul)
     bool m_isJumpFreighter;             // flying a jump freighter (big cargo)
     bool m_cynoActive;                  // cyno is lit — interception window open

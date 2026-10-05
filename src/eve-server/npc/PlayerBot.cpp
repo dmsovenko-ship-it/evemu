@@ -469,6 +469,11 @@ void PlayerBot::Process()
     // which calls DecideNextAction() and issues Destiny commands directly.
     NPC::Process();
 
+    // Soft logoff (cap eviction): no drone ops, no combat abilities, no learning —
+    // the pilot stands down until ProcessDocking finishes the logoff dock.
+    if (m_logoffPending)
+        return;
+
     // Manage launched drones: orbit while idle, attack during combat (or assist
     // an ally), and scoop drones that drift too far.
     ManageDrones();
@@ -1722,6 +1727,12 @@ void PlayerBot::DoProfessionActivity()
     // Supply run: BotMgr::ProcessPosSupplyRuns owns movement (undock -> POS ->
     // unload -> return).  Skip normal profession activity so the two don't fight.
     if (IsSupplyRun())
+        return;
+
+    // Soft logoff (cap eviction): NO profession work — the only goal now is the
+    // station dock (m_wantsDock is set; ProcessDocking flies it in and logs it
+    // off). Mining/PvP/scanning/trading all stop the moment the flag is set.
+    if (m_logoffPending)
         return;
 
     // Self-learning: practiced bots act more often / more efficiently.

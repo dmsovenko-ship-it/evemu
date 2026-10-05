@@ -95,6 +95,10 @@ public:
     // the local count forever. SweepLocalChannels self-heals any missed path.
     void RemoveBotFromLocal(SystemManager* pSystem, uint32 charID);
     void SweepLocalChannels();
+    // Soft logoff (population cap eviction): when a system is over MaxPerSystem,
+    // pilots leave gracefully instead of despawning in place — docked bots log
+    // off directly, space bots stop working, warp to a station, dock, log off.
+    void ProcessSoftLogoff();
 
     // Bot chat replies are QUEUED (not recursed): SendBotMessage feeds the queue,
     // BotMgr drains one per tic so a bot<-bot conversation advances without

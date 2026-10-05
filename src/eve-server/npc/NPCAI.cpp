@@ -528,6 +528,14 @@ void NPCAIMgr::Process() {
     if (m_npc->IsConvoy() && !m_npc->IsConvoyUnderAttack())
         return;
 
+    // Soft logoff (chelobot cap eviction): stand down completely — no targeting,
+    // no attack states, no wander. SetIdle stops movement once (idempotent after).
+    // ProcessDocking owns the pilot until the station dock + logoff completes.
+    if (m_npc->IsPlayerBot() && ((PlayerBot*)m_npc)->IsLogoffPending()) {
+        SetIdle();
+        return;
+    }
+
     if (m_warpOutTimer.Check(false)) {
         // disallow warpout if spawn has active respawn timer (spawn is being chained)
         // PlayerBot-owned NPCAIs have no SpawnMgr (m_spawnMgr == nullptr) — guard it.
