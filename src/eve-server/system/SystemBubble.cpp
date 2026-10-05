@@ -438,6 +438,19 @@ void SystemBubble::Untrack(SystemEntity *pSE) {
 
     uint32 pseId(pSE->GetID());
 
+    // Stale pass (already untracked from this bubble): clean up nothing and
+    // broadcast nothing. BubbleManager::Remove() calls Untrack via its
+    // all-bubbles walk AND again through SystemBubble::Remove() - the second
+    // pass used to broadcast a SECOND RemoveBall for a ball the client had
+    // already deleted, its destiny handler threw on the unknown ball and every
+    // later removal (corpses, drones, missiles) was dropped until relog.
+    // Membership is checked against the maps, NOT m_bubble: an entity still in
+    // the maps with a nulled m_bubble still gets the full cleanup below.
+    if (m_entities.find(pseId) == m_entities.end()
+        && m_dynamicEntities.find(pseId) == m_dynamicEntities.end()) {
+        return;
+    }
+
     // A null m_bubble here used to early-return WITHOUT erasing the entity from
     // the maps below - any caller that nulled m_bubble before RemoveEntity left
     // a dangling pointer in this bubble (NPC idle scan dereferenced it -> SIGSEGV).
