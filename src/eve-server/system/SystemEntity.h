@@ -81,6 +81,15 @@ class OutpostSE;
 class DungeonEditSE;
 
 /*
+ * Valid slim name for client delivery: itemName, or the type name when the item
+ * name is empty or contains binary garbage. NPCs/drones/missiles are often
+ * spawned with name="" (field left uninitialized); the client's destiny handler
+ * dies on empty/non-UTF-8 slim names and drops EVERY subsequent destiny update
+ * ("already warping" wedges, missing corpses) until relog.
+ */
+std::string GetValidSlimName(const InventoryItemRef& self);
+
+/*
  * base class for all SystemEntities  - no TargetMgr or DestinyMgr
  * complete rewrite of entity class system  - allan  9 January 2016
  * finally added rule of 5.  -allan 4Nov21

@@ -227,7 +227,7 @@ PyDict* Missile::MakeSlimItem() {
         slim->SetItemString("typeID",                   new PyInt(m_self->typeID()));
         slim->SetItemString("groupID",                  new PyInt(m_self->groupID()));
         slim->SetItemString("categoryID",               new PyInt(m_self->categoryID()));
-        slim->SetItemString("name",                     new PyString(m_self->itemName()));
+        slim->SetItemString("name",                     new PyString(GetValidSlimName(m_self)));
         slim->SetItemString("sourceShipID",             new PyInt(m_fromID));
         slim->SetItemString("sourceModuleID",           new PyInt(m_modRef->itemID()));
         slim->SetItemString("corpID",                   IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());

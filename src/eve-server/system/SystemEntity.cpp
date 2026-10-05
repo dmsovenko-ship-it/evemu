@@ -53,6 +53,36 @@
 #include "system/SystemManager.h"
 
 
+std::string GetValidSlimName(const InventoryItemRef& self) {
+    // itemName, or the type name when the item name is empty or binary garbage
+    // (spawned with name="" leaves the field uninitialized; the client's
+    // destiny handler dies on empty/non-UTF-8 slim names and drops every
+    // subsequent destiny update until relog).
+    std::string nm = self->itemName();
+    bool valid = !nm.empty();
+    // reject control chars and invalid UTF-8 (binary garbage); valid multi-byte
+    // sequences (Cyrillic ship names etc) are kept.
+    if (valid) {
+        int i = 0, n = (int)nm.size();
+        while (i < n && valid) {
+            unsigned char c = (unsigned char)nm[i];
+            if (c < 0x20) { valid = false; break; }
+            if (c < 0x80) { ++i; continue; }
+            int len = ((c & 0xE0) == 0xC0) ? 2 : ((c & 0xF0) == 0xE0) ? 3 : ((c & 0xF8) == 0xF0) ? 4 : 0;
+            if (len == 0 || i + len > n) { valid = false; break; }
+            for (int k = 1; k < len; ++k) {
+                if (((unsigned char)nm[i + k] & 0xC0) != 0x80) { valid = false; break; }
+            }
+            i += len;
+        }
+    }
+    if (!valid)
+        nm = sDataMgr.GetTypeName(self->typeID());
+    if (nm.empty())
+        nm = "Unknown";
+    return nm;
+}
+
 
 SystemEntity::SystemEntity(InventoryItemRef self, EVEServiceManager &services, SystemManager* system)
 : m_self(self),
@@ -134,21 +164,7 @@ PyDict* SystemEntity::MakeSlimItem() {
         slim->SetItemString("categoryID",   new PyInt(m_self->categoryID()));
         slim->SetItemString("groupID",      new PyInt(m_self->groupID()));
         slim->SetItemString("itemID",       new PyLong(m_self->itemID()));
-        // Slim name: use itemName; fall back to the type name when the item name
-        // is empty or binary garbage (spawned with name="" leaves the field
-        // uninitialized, and the client chokes on non-UTF-8 bytes in the slim).
-        {
-            std::string nm = m_self->itemName();
-            bool valid = !nm.empty();
-            if (valid) {
-                for (char c : nm) {
-                    if ((unsigned char)c < 0x20) { valid = false; break; }
-                }
-            }
-            if (!valid)
-                nm = sDataMgr.GetTypeName(m_self->typeID());
-            slim->SetItemString("name", new PyString(nm));
-        }
+        slim->SetItemString("name",         new PyString(GetValidSlimName(m_self)));
         slim->SetItemString("corpID",       IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",   IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
         slim->SetItemString("warFactionID", IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
@@ -415,7 +431,7 @@ PyDict* StaticSystemEntity::MakeSlimItem() {
     PyDict *slim = new PyDict();
         slim->SetItemString("itemID",       new PyLong(m_self->itemID()));
         slim->SetItemString("typeID",       new PyInt(m_self->typeID()));
-        slim->SetItemString("name",         new PyString(m_self->itemName()));
+        slim->SetItemString("name",         new PyString(GetValidSlimName(m_self)));
         slim->SetItemString("nameID",       PyStatic.NewNone());
         slim->SetItemString("ownerID",      PyStatic.NewOne());
     return slim;
@@ -507,7 +523,7 @@ PyDict* StargateSE::MakeSlimItem() {
         //  NOTE:  maybe not...logs show this is "1" for all items.
         slim->SetItemString("ownerID",      PyStatic.NewOne());
         slim->SetItemString("itemID",       new PyLong(m_self->itemID()));
-        slim->SetItemString("name",         new PyString(m_self->itemName()));
+        slim->SetItemString("name",         new PyString(GetValidSlimName(m_self)));
     if (m_jumps != nullptr)
         slim->SetItemString("jumps", m_jumps->Clone());
     return slim;
@@ -537,7 +553,7 @@ PyDict* ItemSystemEntity::MakeSlimItem() {
         slim->SetItemString("ownerID",      new PyInt(m_ownerID));
         slim->SetItemString("categoryID",   new PyInt(m_self->categoryID()));
         slim->SetItemString("groupID",      new PyInt(m_self->groupID()));
-        slim->SetItemString("name",         new PyString(m_self->itemName()));
+        slim->SetItemString("name",         new PyString(GetValidSlimName(m_self)));
         if (m_self->groupID() == EVEDB::invGroups::Warp_Gate
             || m_self->typeID() == 2902) {  // LCS Acceleration Gate (SDE group 319)
             // this is incomplete........
@@ -817,7 +833,7 @@ PyDict* ObjectSystemEntity::MakeSlimItem() {
         slim->SetItemString("ownerID",          new PyInt(m_ownerID));
         slim->SetItemString("categoryID",       new PyInt(m_self->categoryID()));
         slim->SetItemString("groupID",          new PyInt(m_self->groupID()));
-        slim->SetItemString("name",             new PyString(m_self->itemName()));
+        slim->SetItemString("name",             new PyString(GetValidSlimName(m_self)));
         slim->SetItemString("corpID",           IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",       IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
         slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
@@ -832,7 +848,7 @@ PyDict* DeployableSE::MakeSlimItem() {
         slim->SetItemString("ownerID",          new PyInt(m_ownerID));
         slim->SetItemString("categoryID",       new PyInt(m_self->categoryID()));
         slim->SetItemString("groupID",          new PyInt(m_self->groupID()));
-        slim->SetItemString("name",             new PyString(m_self->itemName()));
+        slim->SetItemString("name",             new PyString(GetValidSlimName(m_self)));
         slim->SetItemString("corpID",           IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",       IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
         slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
@@ -1190,7 +1206,7 @@ void DeployableSE::Process()
 void DeployableSE::SendSlimUpdate()
 {
     PyDict *slim = new PyDict();
-    slim->SetItemString("name", new PyString(m_self->itemName()));
+    slim->SetItemString("name", new PyString(GetValidSlimName(m_self)));
     slim->SetItemString("itemID", new PyLong(m_self->itemID()));
     slim->SetItemString("typeID", new PyInt(m_self->typeID()));
     slim->SetItemString("ownerID", new PyInt(m_ownerID));
@@ -1263,7 +1279,7 @@ PyDict *DynamicSystemEntity::MakeSlimItem() {
         slim->SetItemString("ownerID",          new PyInt(m_ownerID));
         slim->SetItemString("categoryID",       new PyInt(m_self->categoryID()));
         slim->SetItemString("groupID",          new PyInt(m_self->groupID()));
-        slim->SetItemString("name",             new PyString(m_self->itemName()));
+        slim->SetItemString("name",             new PyString(GetValidSlimName(m_self)));
         slim->SetItemString("corpID",           IsCorp(m_corpID) ? new PyInt(m_corpID) : PyStatic.NewNone());
         slim->SetItemString("allianceID",       IsAlliance(m_allyID) ? new PyInt(m_allyID) : PyStatic.NewNone());
         slim->SetItemString("warFactionID",     IsFaction(m_warID) ? new PyInt(m_warID) : PyStatic.NewNone());
