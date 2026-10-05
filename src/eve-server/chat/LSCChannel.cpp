@@ -191,6 +191,23 @@ void LSCChannel::RemoveBotChar(uint32 charID)
     sEntityList.Multicast("OnLSC", GetTypeString(), &answer, mct);
 }
 
+void LSCChannel::SweepStaleBots(const std::set<uint32>& validBotIDs)
+{
+    // Drop members that are neither real players (live Client) nor live bots
+    // (in space or docked — validBotIDs). Ghost members accumulated from
+    // despawn paths that missed RemoveBotChar and inflated local counts.
+    std::vector<uint32> stale;
+    for (auto& [cid, ch] : m_chars) {
+        if (sEntityList.FindClientByCharID(cid) != nullptr)
+            continue;   // real player — always keep
+        if (validBotIDs.find(cid) != validBotIDs.end())
+            continue;   // live bot (space or docked)
+        stale.push_back(cid);
+    }
+    for (uint32 cid : stale)
+        RemoveBotChar(cid);
+}
+
 void LSCChannel::SendBotMessage(uint32 charID, const std::string& name, uint32 corpID, const std::string& message)
 {
     // Let OTHER bots in this system react to this bot's line — a bot-to-bot

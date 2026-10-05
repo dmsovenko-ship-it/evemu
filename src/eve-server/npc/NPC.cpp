@@ -68,6 +68,10 @@ static uint32 BotCharIDByDroneOwner(uint32 owner)
 #include "faction/FactionWarMgrDB.h"
 #include "expedition/ExpeditionMgr.h"
 #include "missions/EncounterServer.h"
+#include "ServiceDB.h"
+#include "POD_containers.h"
+#include "ship/Ship.h"
+#include <sstream>
 
 
 NPC::NPC(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, SpawnMgr* spawnMgr)
@@ -687,6 +691,58 @@ void NPC::Killed(Damage &damage) {
     // directly (PlayerBots have no Client, so AwardBounty(pClient=null) is skipped).
     if (botBountyCharID != 0)
         AwardBountyTo(botBountyCharID);
+
+    // Killmail for NPC losses so rat kills show on the killboard like on live
+    // (every kill has a mail). Victim is the NPC itself (charID 0); the wreck
+    // holds the loot, so no item list is needed. Killer resolution mirrors the
+    // bounty block above: player pilot / bot pilot / bot drone owner.
+    {
+        uint32 kCharID = killerID;
+        if (kCharID == 0)
+            kCharID = botBountyCharID;
+        PlayerBot* kBot = nullptr;
+        if (pClient == nullptr && kCharID != 0 && killer->GetNPCSE() != nullptr)
+            kBot = dynamic_cast<PlayerBot*>(killer->GetNPCSE());
+        // Only player/chelobot kills get a mail (rat-vs-rat and sentry kills are
+        // not killboard events on live — the killer has no charID to report).
+        if (pClient != nullptr || botBountyCharID != 0) {
+            KillData kdata = KillData();
+            kdata.solarSystemID = m_system->GetID();
+            kdata.victimCharacterID = 0;
+            kdata.victimCorporationID = GetCorporationID();
+            kdata.victimAllianceID = 0;
+            kdata.victimFactionID = m_warID;
+            kdata.victimShipTypeID = GetTypeID();
+            kdata.victimDamageTaken = 0;
+            kdata.finalCharacterID = kCharID;
+            if (pClient != nullptr) {
+                kdata.finalCorporationID = pClient->GetCorporationID();
+                kdata.finalAllianceID = pClient->GetAllianceID();
+                kdata.finalFactionID = pClient->GetWarFactionID();
+                kdata.finalSecurityStatus = pClient->GetSecurityRating();
+                ShipSE* kShip = pClient->GetShipSE();
+                kdata.finalShipTypeID = (kShip != nullptr ? kShip->GetTypeID() : killer->GetTypeID());
+            } else if (kBot != nullptr) {
+                kdata.finalCorporationID = kBot->GetBotCorpID();
+                kdata.finalAllianceID = kBot->GetBotAllianceID();
+                kdata.finalFactionID = kBot->GetWarFactionID();
+                kdata.finalShipTypeID = kBot->GetTypeID();
+            } else {
+                kdata.finalCorporationID = killer->GetCorporationID();
+                kdata.finalAllianceID = killer->GetAllianceID();
+                kdata.finalFactionID = killer->GetWarFactionID();
+                kdata.finalShipTypeID = killer->GetTypeID();
+            }
+            kdata.finalWeaponTypeID = (damage.weaponRef.get() != nullptr) ? damage.weaponRef->typeID() : killer->GetTypeID();
+            kdata.finalDamageDone = static_cast<uint32>(damage.GetTotal());
+            std::stringstream blob;
+            blob << "<items><i t=" << GetTypeID() << " f=0 q=1 s=1 d=0 x=1/></items>";
+            kdata.killBlob = blob.str();
+            kdata.killTime = GetFileTimeNow();
+            kdata.moonID = m_system->GetID();
+            ServiceDB::SaveKillOrLoss(kdata);
+        }
+    }
 
     if (pClient != nullptr) {
         //award kill bounty.

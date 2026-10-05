@@ -29,6 +29,7 @@
 #include "EntityList.h"
 #include "EVE_LSC.h"
 #include "packets/LSCPkts.h"
+#include <set>
 
 class PyRep;
 class LSCService;
@@ -117,6 +118,10 @@ public:
     // shows up in local, and send chat messages on its behalf.
     bool AddBotChar(uint32 charID, uint32 corpID, uint32 allianceID, uint32 warFactionID, const std::string& name);
     void RemoveBotChar(uint32 charID);
+    // Self-heal: drop members that are neither live clients nor bots in validBotIDs
+    // (space or docked). Guards against ghost members from despawn paths that
+    // missed RemoveBotChar — local member counts only grew before this.
+    void SweepStaleBots(const std::set<uint32>& validBotIDs);
     void SendBotMessage(uint32 charID, const std::string& name, uint32 corpID, const std::string& message);
 
     // this is used for updating joined clients when channel config is changed.

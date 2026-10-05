@@ -663,6 +663,9 @@ void PlayerBot::Killed(Damage& damage)
     // killmail so their ship appears in chrKillTable (like any player loss).
     RecordBotKillMail(damage);
 
+    // Leave the system local channel — death despawns the pilot, exactly like a
+    // player leaving the system (ghost member otherwise).
+    sBotMgr.RemoveBotFromLocal(m_system, m_botCharID);
     NPC::Killed(damage);
 }
 

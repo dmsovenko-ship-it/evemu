@@ -90,6 +90,12 @@ public:
     uint32 CountActiveBots() const   { return m_activeBotCount.load(); }   // in-space chelobots
     uint32 GetDockedBotCount() const { return m_dockedBotCount.load(); }   // chelobots docked
 
+    // Local-channel hygiene: bots must leave the system local channel exactly
+    // where a player would (death / despawn), otherwise ghost members inflate
+    // the local count forever. SweepLocalChannels self-heals any missed path.
+    void RemoveBotFromLocal(SystemManager* pSystem, uint32 charID);
+    void SweepLocalChannels();
+
     // Bot chat replies are QUEUED (not recursed): SendBotMessage feeds the queue,
     // BotMgr drains one per tic so a bot<-bot conversation advances without
     // overflowing the stack (SIGSEGV from nested HandleLocalMessage/SendBotMessage).

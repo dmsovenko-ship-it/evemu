@@ -357,6 +357,17 @@ void BotMgr::Process()
     // Bots occasionally chatter among themselves in local (rare).
     ProcessBotSmalltalk();
 
+    // Self-heal local channel membership (ghosts from missed despawn removals).
+    {
+        static Timer s_localSweepTimer(0);
+        if (!s_localSweepTimer.Enabled())
+            s_localSweepTimer.Start(300000);
+        if (s_localSweepTimer.Check()) {
+            s_localSweepTimer.Start(300000);
+            SweepLocalChannels();
+        }
+    }
+
     // Drain queued bot chat replies (one per tic) — drives bot<-bot conversations
     // without recursing the stack.
     ProcessBotReplies();
@@ -3672,6 +3683,8 @@ void BotMgr::ReapBots(SystemManager* pSystem)
             bot->GetBotCharID());
         if (bot->TargetMgr() != nullptr)
             bot->TargetMgr()->ClearFromTargets();
+        RemoveBotFromLocal(pSystem, bot->GetBotCharID());   // leave local, like a player leaving
+        bot->RecallDrones();   // scoop or abandon-proof its drones before despawn
         pSystem->RemoveNPCFromList(bot);   // m_npcs + sEntityList
         pSystem->RemoveEntity(bot);        // bubble + maps + inventory (ship item kept)
         SafeDelete(bot);
@@ -3769,16 +3782,12 @@ void BotMgr::ProcessTravel()
                  name.c_str(), charID, destSystem, pSystem->GetID());
 
             // Remove from the local channel and the old system.
-            LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
-            if (lsc != nullptr) {
-                LSCChannel* chan = lsc->GetChannelByID((int32)pSystem->GetID());
-                if (chan != nullptr)
-                    chan->RemoveBotChar(charID);
-            }
+            RemoveBotFromLocal(pSystem, charID);
             // Keep the ship (property): the traveller re-boards the SAME hull in the
             // destination system (SpawnBot reuse). Detach without deleting the item.
             if (pb->TargetMgr() != nullptr)
                 pb->TargetMgr()->ClearFromTargets();
+            pb->RecallDrones();   // no orphaned drones left in the old system
             pSystem->RemoveNPCFromList(pb);   // m_npcs + sEntityList
             pSystem->RemoveEntity(pb);        // bubble + maps + inventory
             SafeDelete(pb);
@@ -3799,6 +3808,8 @@ void BotMgr::ProcessTravel()
                     uint32 escAlly = esc->GetBotAllianceID();
                     if (esc->TargetMgr() != nullptr)
                         esc->TargetMgr()->ClearFromTargets();
+                    RemoveBotFromLocal(pSystem, escID);
+                    esc->RecallDrones();
                     pSystem->RemoveNPCFromList(esc);
                     pSystem->RemoveEntity(esc);
                     SafeDelete(esc);
@@ -8878,9 +8889,60 @@ void BotMgr::ProcessCynoShips()
                     pb = cand; break;
                 }
             }
-            if (pb != nullptr) { pb->Delete(); SafeDelete(pb); break; }
+            if (pb != nullptr) {
+                RemoveBotFromLocal(sm, charID);   // cyno despawn leaves local too
+                pb->Delete(); SafeDelete(pb);
+                break;
+            }
         }
         it = m_cynoShips.erase(it);
+    }
+}
+
+void BotMgr::RemoveBotFromLocal(SystemManager* pSystem, uint32 charID)
+{
+    // Bots must leave the system local channel on the same lifecycle events a
+    // player would (death, despawn, system change) — otherwise the member list
+    // only ever grows (ghosts). Docked bots STAY in local, like docked players.
+    if (pSystem == nullptr || charID == 0)
+        return;
+    LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
+    if (lsc == nullptr)
+        return;
+    LSCChannel* chan = lsc->GetChannelByID((int32)pSystem->GetID());
+    if (chan != nullptr)
+        chan->RemoveBotChar(charID);
+}
+
+void BotMgr::SweepLocalChannels()
+{
+    // Self-heal pass (every 5 min): drop channel members that are neither live
+    // clients nor live bots (space or docked) — self-repairs any despawn path
+    // that missed RemoveBotFromLocal (death mid-combat, POS guards, etc).
+    if (!sConfig.playerBots.Enabled)
+        return;
+    for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+        if (sm == nullptr)
+            continue;
+        LSCService* lsc = sm->GetServiceMgr().Lookup<LSCService>("LSC");
+        if (lsc == nullptr)
+            continue;
+        LSCChannel* chan = lsc->GetChannelByID((int32)sysID);
+        if (chan == nullptr)
+            continue;
+        std::set<uint32> valid;
+        for (auto& [id, se] : sm->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb != nullptr)
+                valid.insert(pb->GetBotCharID());
+        }
+        auto dockIt = m_docked.find(sysID);
+        if (dockIt != m_docked.end())
+            for (auto& db : dockIt->second)
+                valid.insert(db.charID);
+        chan->SweepStaleBots(valid);
     }
 }
 
