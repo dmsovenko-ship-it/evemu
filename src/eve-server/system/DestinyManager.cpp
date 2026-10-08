@@ -2201,7 +2201,14 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     // client's (slower) two-phase decel always finishes and arrives first.
     // During the hold do NOT snap to the target point — the client's own decel
     // still moves its ball; a mid-holder snap is the visible end-of-warp teleport.
-    if (m_targetDistance <= 1.0) {
+    //
+    // Exit at ball RADIUS, not <=1.0m: the client's WarpLoop exits when the
+    // remaining distance < ball radius (destiny.dll condition). Waiting for the
+    // exponential tail to converge to 1 metre took ln(expDist/radius) extra
+    // seconds (~20s on long warps) - during that window the server still said
+    // "already warping" while the client sat at the destination, so every warp
+    // command bounced ("warp out of an anomaly does not work").
+    if (m_targetDistance <= std::max(m_radius, 1.0)) {
         if (!m_warpStopDelay.Enabled()) {
             // The server's two-phase decel already tracks the client's, so only a
             // small settle is needed before WarpStop. The old 8-20 s hold made the
