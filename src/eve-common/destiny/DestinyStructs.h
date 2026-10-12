@@ -60,57 +60,6 @@ namespace Destiny {
                 HasMiniBalls    = 0x40,   // if set, the client expects mini balls...not sure *what* miniballs are....collision data maybe.
             };
         }
-
-        /*
-         * The dynamic encoders (ShipSE / NPC / DroneSE / Concord) build the
-         * mode-specific sector with switch(mode). A mode with NO case falls into
-         * `default` and writes a 1-byte STOP sector while the CLIENT reads the
-         * sector size for THAT mode (e.g. FORMATION = 17, MISSILE = 49): the
-         * byte-count mismatch desyncs the whole AddBalls/SetState batch, the
-         * client's destiny tasklet dies with "ValueError: Unknown packet type"
-         * and every later destiny update (warps!) is dropped until relog.
-         * Clamp the encoded mode to one the encoders actually implement so the
-         * header mode and the written sector always agree.
-         */
-        static inline uint8 SanitizeMode(uint8 mode) {
-            switch (mode) {
-                case Mode::STOP:  case Mode::GOTO: case Mode::FOLLOW:
-                case Mode::WARP:  case Mode::ORBIT:
-                    return mode;
-                default:
-                    return Mode::STOP;
-            }
-        }
-
-        /*
-         * Number of bytes a ball occupies on the wire for (mode, flags), exactly
-         * as the client's parser (DestinyBinDump.cpp / destiny.dll) consumes:
-         *   BallHeader always; MassSector unless RIGID; DataSector when IsFree;
-         *   then the mode-specific sector. Used to verify each EncodeDestiny
-         *   against what the client will read — a mismatch desyncs the batch.
-         */
-        static inline uint32 ExpectedBallSize(uint8 mode, uint8 flags) {
-            uint32 s = sizeof(BallHeader);
-            if (mode != Mode::RIGID)
-                s += sizeof(MassSector);
-            if (flags & Flag::IsFree)
-                s += sizeof(DataSector);
-            switch (mode) {
-                case Mode::GOTO:      s += sizeof(GOTO_Struct); break;
-                case Mode::FOLLOW:    s += sizeof(FOLLOW_Struct); break;
-                case Mode::STOP:      s += sizeof(STOP_Struct); break;
-                case Mode::WARP:      s += sizeof(WARP_Struct); break;
-                case Mode::ORBIT:     s += sizeof(ORBIT_Struct); break;
-                case Mode::MISSILE:   s += sizeof(MISSILE_Struct); break;
-                case Mode::MUSHROOM:  s += sizeof(MUSHROOM_Struct); break;
-                case Mode::TROLL:     s += sizeof(TROLL_Struct); break;
-                case Mode::FIELD:     s += sizeof(FIELD_Struct); break;
-                case Mode::RIGID:     s += sizeof(RIGID_Struct); break;
-                case Mode::FORMATION: s += sizeof(FORMATION_Struct); break;
-                default: break;
-            }
-            return s;
-        }
         /*
          * not sure what these are for yet.  calls in destiny.dll ?
 DST_CREATE = 1
@@ -279,6 +228,62 @@ struct TotalStruct {
     struct DataSector ship;
     union SpecificSectors specific;
 };
+
+
+namespace Ball {
+
+    /*
+     * The dynamic encoders (ShipSE / NPC / DroneSE / Concord) build the
+     * mode-specific sector with switch(mode). A mode with NO case falls into
+     * `default` and writes a 1-byte STOP sector while the CLIENT reads the
+     * sector size for THAT mode (e.g. FORMATION = 17, MISSILE = 49): the
+     * byte-count mismatch desyncs the whole AddBalls/SetState batch, the
+     * client's destiny tasklet dies with "ValueError: Unknown packet type"
+     * and every later destiny update (warps!) is dropped until relog.
+     * Clamp the encoded mode to one the encoders actually implement so the
+     * header mode and the written sector always agree.
+     */
+    static inline uint8 SanitizeMode(uint8 mode) {
+        switch (mode) {
+            case Mode::STOP:  case Mode::GOTO: case Mode::FOLLOW:
+            case Mode::WARP:  case Mode::ORBIT:
+                return mode;
+            default:
+                return Mode::STOP;
+        }
+    }
+
+    /*
+     * Number of bytes a ball occupies on the wire for (mode, flags), exactly
+     * as the client's parser (DestinyBinDump.cpp / destiny.dll) consumes:
+     *   BallHeader always; MassSector unless RIGID; DataSector when IsFree;
+     *   then the mode-specific sector. Used to verify each EncodeDestiny
+     *   against what the client will read — a mismatch desyncs the batch.
+     */
+    static inline uint32 ExpectedBallSize(uint8 mode, uint8 flags) {
+        uint32 s = sizeof(BallHeader);
+        if (mode != Mode::RIGID)
+            s += sizeof(MassSector);
+        if (flags & Flag::IsFree)
+            s += sizeof(DataSector);
+        switch (mode) {
+            case Mode::GOTO:      s += sizeof(GOTO_Struct); break;
+            case Mode::FOLLOW:    s += sizeof(FOLLOW_Struct); break;
+            case Mode::STOP:      s += sizeof(STOP_Struct); break;
+            case Mode::WARP:      s += sizeof(WARP_Struct); break;
+            case Mode::ORBIT:     s += sizeof(ORBIT_Struct); break;
+            case Mode::MISSILE:   s += sizeof(MISSILE_Struct); break;
+            case Mode::MUSHROOM:  s += sizeof(MUSHROOM_Struct); break;
+            case Mode::TROLL:     s += sizeof(TROLL_Struct); break;
+            case Mode::FIELD:     s += sizeof(FIELD_Struct); break;
+            case Mode::RIGID:     s += sizeof(RIGID_Struct); break;
+            case Mode::FORMATION: s += sizeof(FORMATION_Struct); break;
+            default: break;
+        }
+        return s;
+    }
+
+} // namespace Ball
 
 
 #pragma pack()
