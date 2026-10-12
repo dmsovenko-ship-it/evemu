@@ -23,6 +23,12 @@ services:
       - RUN_WITH_GDB=${RUN_GDB:-FALSE} #Set to TRUE to run evemu with gdb automatically
     stdin_open: true # Enables stdin for the container. Attach to it with 'docker attach'
     tty: true
+    # Dedicated CPU cores so the single-threaded game loop and its side threads
+    # (API, Telegram, chat) never share a core with MariaDB or host housekeeping.
+    # Host has 28 cores and currently sits at ~130% total, so this is insurance
+    # against jitter (backups, other services) rather than a speedup. Adjust to
+    # the actual core count if the host changes.
+    cpuset: "0-3"
     # cap_add: #This is required for gdb to work
     #   - SYS_PTRACE
 
@@ -46,6 +52,8 @@ services:
       - --bulk-insert-buffer-size=64M       # Per-thread buffer for INSERT...SELECT
       - --log-bin=mysql-bin                 # Binary log for crash recovery (data protection)
       - --binlog-format=ROW                 # Row-based replication format
+    # MariaDB on its own cores, separate from the game loop (it idles at ~2%).
+    cpuset: "4-5"
 
 volumes:
   evemu_db:
