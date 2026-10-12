@@ -165,6 +165,19 @@ public:
     bool IsFollowing()                                  { return (m_ballMode == Destiny::Ball::Mode::FOLLOW); }
     //bool IsJumping()                                  { return (m_ballMode == Destiny::Ball::Mode::STOP); }
     bool IsWarping()                                    { return (m_warpState ? true : false); }
+    // True while the warp is in its final settle: the ship is at (or within a
+    // ball radius of) the target and WarpStop is about to fire. The client's own
+    // WarpLoop already exited at its radius, so a warp command the pilot issues
+    // right now should be ACCEPTED (finish the warp instantly) instead of being
+    // rejected with a confusing "You are already warping".
+    bool IsWarpSettling() {
+        double r = (m_radius > 1.0) ? m_radius : 1.0;
+        return (m_warpState != nullptr)
+               && (m_warpStopDelay.Enabled() || m_targetDistance <= r);
+    }
+    // Finish a settling warp immediately (a warp command arrived at the tail —
+    // see IsWarpSettling). Safe no-op when not warping.
+    void FinishWarpNow() { if (m_warpState != nullptr) WarpStop(0.0); }
     // True from the warp REQUEST (alignment/turn) until the warp ends (WarpStop/
     // Stop/Halt). m_warpState is only created by InitWarp AFTER the ship finished
     // aligning, so a pilot still turning to warp reports IsWarping()==false - the

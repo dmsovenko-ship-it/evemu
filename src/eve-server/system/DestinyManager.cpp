@@ -2210,11 +2210,11 @@ void DestinyManager::WarpDecel(uint32 sec_into_warp) {
     // command bounced ("warp out of an anomaly does not work").
     if (m_targetDistance <= std::max(m_radius, 1.0)) {
         if (!m_warpStopDelay.Enabled()) {
-            // The server's two-phase decel already tracks the client's, so only a
-            // small settle is needed before WarpStop. The old 8-20 s hold made the
-            // grid/balls appear several seconds AFTER the client visually arrived
-            // (the reported 3-5 s POS/module pop-in at the end of a warp).
-            m_warpStopDelay.Start(1500);
+            // Short settle: with the radius-based exit the server already ends
+            // where the client's WarpLoop does. A warp command in this window is
+            // accepted via IsWarpSettling(), so the hold is only a tiny visual
+            // settle, not a 1.5s "already warping" trap.
+            m_warpStopDelay.Start(250);
         }
         return;
     }

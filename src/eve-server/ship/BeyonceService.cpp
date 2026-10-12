@@ -405,8 +405,16 @@ PyResult BeyonceBound::CmdWarpToStuff(PyCallArgs &call, PyString* type, PyRep* i
         return PyStatic.NewNone();
     }
     if (pDestiny->IsWarping()){
-        call.client->SendNotifyMsg( "You are already warping");
-        return PyStatic.NewNone();
+        if (pDestiny->IsWarpSettling()) {
+            // The warp is at its target (final settle). The client already
+            // exited its own WarpLoop, so the pilot is spamming warp on arrival:
+            // finish the warp now and accept this command instead of bouncing
+            // "You are already warping".
+            pDestiny->FinishWarpNow();
+        } else {
+            call.client->SendNotifyMsg( "You are already warping");
+            return PyStatic.NewNone();
+        }
     }  else if (pDestiny->AbortIfLoginWarping(true)) {
         return PyStatic.NewNone();
     } else if (pDestiny->IsFrozen()) {
