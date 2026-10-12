@@ -319,6 +319,20 @@ PyDict* NPC::MakeSlimItem()
                  m_self->itemName(), m_self->itemID(), realGroup, remapped);
         }
 
+        // Turret/battery NPCs (Missile Battery 18032/18033, Stasis Tower 27956,
+        // Sentry Gun 13068...) live in groups (336/383/417...) the Crucible
+        // spaceObject repository has no render class for - the client draws
+        // nothing, so gate/anomaly sentries existed server-side and shot the ship
+        // but were INVISIBLE ("anomaly sentries never seen"). The sentry guns the
+        // client DOES render are group 99 (typeID 3740 Caldari Sentry Gun). Remap
+        // the turret/battery groups to 99 in the slim only (server logic keeps the
+        // real group for roles/DPS).
+        else if (realGroup == 336 || realGroup == 383 || realGroup == 417) {
+            slim->SetItemString("groupID", new PyInt(99));
+            _log(SE__SLIMITEM, "NPC::MakeSlimItem for %s(%u): remapped turret/battery group %u -> 99 (client render class)",
+                 m_self->itemName(), m_self->itemID(), realGroup);
+        }
+
         // Add fitted modules list for client display. The client's spaceObject
         // Ship.FitHardpoints -> turretSet.FitTurrets reads slimItem.modules as a
         // list of (moduleID, typeID) TUPLES (turretSet.py: modules = [[module[0],
