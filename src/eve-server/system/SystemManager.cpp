@@ -1231,6 +1231,28 @@ void SystemManager::ProcessLazyActivation() {
     for (SystemBubble* pBubble : pending) {
         if (pBubble == nullptr)
             continue;
+        // A pilot enters the site bubble mid-WARP (~300 km out) and the server
+        // would spawn+warp the NPCs right then: they lock and shoot a ship that
+        // is still visually flying ("NPCs appear very early"). Defer activation
+        // until nobody in the bubble is still warping - the rats then warp in as
+        // the pilot actually lands, like live.
+        bool anyWarping = false;
+        {
+            std::vector<Client*> players;
+            pBubble->GetPlayers(players);
+            for (Client* c : players) {
+                if (c == nullptr) continue;
+                SystemEntity* se = c->GetShipSE();
+                if (se != nullptr && se->DestinyMgr() != nullptr && se->DestinyMgr()->IsWarping()) {
+                    anyWarping = true;
+                    break;
+                }
+            }
+        }
+        if (anyWarping) {
+            m_lazyActivate.push_back(pBubble);   // try again next tic
+            continue;
+        }
         auto it = m_lazyNPCs.find(pBubble->GetID());
         if (it == m_lazyNPCs.end() || it->second.empty()) {
             m_lazyNPCs.erase(it);
