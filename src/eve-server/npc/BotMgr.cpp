@@ -6242,21 +6242,43 @@ void BotMgr::DeployBotCustomsOffice(SystemManager* sysMgr, uint32 charID, uint32
         return;
     uint32 sysID = sysMgr->GetID();
 
-    // Idempotent: a planet has AT MOST ONE customs office (like live). If an
-    // office already exists here - the seeded InterBus POCO (typeID 4318) or
-    // another corp's (2233) - the corp just USES it and pays its owner's tax;
-    // no second office is built. Previously a corp-only 2233 check let bots
-    // stack their own office on top of the InterBus one (73 offices in a hub
-    // system, two per planet).
+    // A planet has AT MOST ONE customs office (like live). Rules:
+    //  - own corp's office (2233, same corp) -> use it;
+    //  - another corp's office (2233)        -> use it, pay that owner's tax;
+    //  - InterBus (4318): a chelobot in a REAL (player-type) corporation
+    //    DESTROYS it (no penalty, like live) and anchors its own; a bot in an
+    //    NPC-school corporation just uses it and pays InterBus tax.
+    // Never two offices on a planet.
+    uint32 exID = 0, exOwner = 0, exType = 0;
     {
         DBQueryResult chk;
         if (sDatabase.RunQuery(chk,
-            "SELECT COUNT(*) FROM entity WHERE locationID = %u AND customInfo = '%u' AND typeID IN (2233,4318)",
+            "SELECT itemID, ownerID, typeID FROM entity"
+            " WHERE locationID = %u AND customInfo = '%u' AND typeID IN (2233,4318) LIMIT 1",
             sysID, planetID)) {
             DBResultRow r;
-            if (chk.GetRow(r) && r.GetUInt(0) > 0)
-                return;
+            if (chk.GetRow(r)) {
+                exID = r.GetUInt(0);
+                exOwner = r.GetUInt(1);
+                exType = r.GetUInt(2);
+            }
         }
+    }
+    if (exID != 0) {
+        if (exType == 2233)
+            return;                 // own or another corp's office -> use it + pay tax
+        // InterBus remains:
+        if (!IsPlayerCorp(corpID))
+            return;                 // NPC-school bot -> use InterBus + pay tax
+        // real chelobot corp: knock the InterBus office down, then anchor ours.
+        SystemEntity* pExSE = sysMgr->GetSE(exID);
+        if (pExSE != nullptr)
+            sysMgr->RemoveEntity(pExSE);
+        InventoryItemRef exRef = sItemFactory.GetItemRefFromID(exID);
+        if (exRef.get() != nullptr)
+            exRef->Delete();
+        _log(BOT__MESSAGE, "BotMgr: corp %u destroyed InterBus customs office %u at planet %u (building own).",
+             corpID, exID, planetID);
     }
 
     GPoint pos;
