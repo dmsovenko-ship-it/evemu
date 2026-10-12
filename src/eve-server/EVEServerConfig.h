@@ -358,7 +358,7 @@ public:
         uint8 BaselinePerSystem;   // bots that ALWAYS live in an always-on system (no player needed)
         std::string AlwaysOnSystems;  // comma-separated systemIDs kept loaded+populated 24/7
         uint16 ChatChance;         // % chance per bot tick to say something in local
-        uint16 AggroFactor;        // % confidence bonus/penalty when deciding to fight
+        int16 AggroFactor;         // % aggression bias when deciding to fight (negative = bolder, positive = more cautious)
         uint32 MinSkillLevel;      // min SP-simulated skill level for bots
         uint32 MaxSkillLevel;      // max SP-simulated skill level for bots
         bool ChatEnabled;          // enable DeepSeek-powered bot chat
