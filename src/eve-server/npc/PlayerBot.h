@@ -104,6 +104,8 @@ public:
         Logistics,      // remote-repair allies
         Support,        // EWAR: web/scram/ECM/paint
         Commander,      // gang bonuses
+        Bumper,         // rams the target to knock it out of warp alignment (tackle)
+        Looter,         // fast cloaky hull: flies to wrecks and scoops the loot
     };
     BotRole GetRole() const             { return m_role; }
     void SetRole(BotRole r)             { m_role = r; }

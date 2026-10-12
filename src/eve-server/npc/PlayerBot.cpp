@@ -521,6 +521,34 @@ void PlayerBot::Process()
         m_inFight = true;
     }
 
+    // Cloak-looter: after a gank, fly to the nearest wreck under cloak and scoop
+    // the loot (fast loot-collector role); uncloaks only to loot.
+    if (m_role == BotRole::Looter && !fighting && !m_killed && !m_traveling
+        && m_destiny != nullptr && SystemMgr() != nullptr) {
+        SystemEntity* wr = nullptr;
+        double best = 5.0e6;
+        for (auto& [id, se] : SystemMgr()->GetEntities()) {
+            if (se == nullptr || !se->IsWreckSE())
+                continue;
+            double d = GetPosition().distance(se->GetPosition());
+            if (d < best) { best = d; wr = se; }
+        }
+        if (wr != nullptr) {
+            if (best > 4000.0) {
+                if (!m_destiny->IsCloaked())
+                    m_destiny->Cloak();
+                if (!m_destiny->IsWarping())
+                    m_destiny->WarpTo(wr->GetPosition(), 0);
+            } else {
+                if (m_destiny->IsCloaked())
+                    m_destiny->UnCloak();
+                LootNearbyWrecks();
+            }
+        } else if (m_destiny->IsCloaked()) {
+            m_destiny->UnCloak();
+        }
+    }
+
     // Profession learning: each completed activity run adds experience so the bot
     // gets better at its job (see GetActivitySkill). Enough practice also raises
     // its actual skill tier (see LevelUpFromPractice) — a veteran pilot.
@@ -3025,6 +3053,21 @@ void PlayerBot::ManageOfficerHunt()
 
 void PlayerBot::UseCombatAbilities()
 {
+    // Bumper-tackler: ram the current target so the collision knocks it out of
+    // warp alignment (see DestinyManager::Bump - a bump aborts an in-progress
+    // warp align, pinning the target like live). The bot flies straight into it.
+    if (m_role == BotRole::Bumper) {
+        if (m_destiny != nullptr && TargetMgr() != nullptr) {
+            SystemEntity* tgt = TargetMgr()->GetFirstTarget(true);
+            PlayerBot* tgtBot = (tgt != nullptr && tgt->GetNPCSE() != nullptr)
+                                ? dynamic_cast<PlayerBot*>(tgt->GetNPCSE()) : nullptr;
+            if (tgt != nullptr && tgt != this && tgt->DestinyMgr() != nullptr
+                && (tgtBot == nullptr || !IsAlly(tgtBot)))
+                m_destiny->Follow(tgt, 0.0f);
+        }
+        return;
+    }
+
     // Use the bot's full arsenal while fighting: logistics repair allies,
     // commanders apply gang bonuses, support relies on NPCAI EWAR modules
     // (web/scram/ECM/paint handled in AttackTarget) and fighters just DPS.

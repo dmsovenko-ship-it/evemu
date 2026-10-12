@@ -920,6 +920,17 @@ void DestinyManager::Bump(SystemEntity* pSE)
 {
     if (m_bump)
         return;
+
+    // Bumper-tackler effect: a bump knocks the victim out of warp alignment.
+    // A pilot that has requested warp but is still turning/aligning has its warp
+    // aborted - exactly like live, where a bump pins a ship at a gate. Ships
+    // already in warp are unaffected.
+    if (pSE != nullptr && pSE != mySE && pSE->DestinyMgr() != nullptr) {
+        DestinyManager* tgt = pSE->DestinyMgr();
+        if (tgt->IsWarpPending() && !tgt->IsWarping())
+            tgt->Stop();
+    }
+
     // bump code here
     /*  determine most massive object...maybe not.  use percentiles here (becham math)
      *  determine direction(s) involved

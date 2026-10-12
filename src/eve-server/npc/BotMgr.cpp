@@ -2548,12 +2548,16 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
     // so fights use the full arsenal (EWAR, remote reps, gang bonuses).
     {
         float r = MakeRandomFloat();
-        if (r < 0.60f)
+        if (r < 0.55f)
             bot->SetRole(PlayerBot::BotRole::Fighter);
-        else if (r < 0.75f)
+        else if (r < 0.68f)
             bot->SetRole(PlayerBot::BotRole::Logistics);
-        else if (r < 0.90f)
+        else if (r < 0.80f)
             bot->SetRole(PlayerBot::BotRole::Support);
+        else if (r < 0.88f)
+            bot->SetRole(PlayerBot::BotRole::Bumper);       // rams to pin a target
+        else if (r < 0.94f)
+            bot->SetRole(PlayerBot::BotRole::Looter);       // cloaky loot collector
         else
             bot->SetRole(PlayerBot::BotRole::Commander);
         _log(BOT__TRACE, "BotMgr: %s(%u) role = %u.", bot->GetBotName().c_str(), bot->GetBotCharID(), (uint8)bot->GetRole());
