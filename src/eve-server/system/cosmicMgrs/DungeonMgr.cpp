@@ -306,15 +306,32 @@ void DungeonMgr::Process()
 {
     if (!m_initalized)
         return;
-    if (!m_procTimer.Check(false))
+    // Check(true): periodic. Check(false) disabled the timer after the FIRST
+    // fire, so dungeon expiry ran only once per system boot - abandoned sites
+    // never got cleaned up.
+    if (!m_procTimer.Check())
         return;
 
     int64 now = GetFileTimeNow();
     std::vector<uint32> toExpire;
 
+    // A site is torn down when it is ABANDONED: no real player has been in the
+    // system for DUNGEON_ABANDON. While a player is around the site is refreshed
+    // and never expires (previously a fixed 2h cap yanked sites the pilot was
+    // still running). The 2h hard cap still applies once everyone has left, so
+    // an ignored site can't linger forever.
+    const int64 DUNGEON_ABANDON = 30 * EvE::Time::Minute;
+    bool hasPlayer = (m_system != nullptr) && (m_system->PlayerCount() > 0);
+
     for (auto& kv : m_dungeonList) {
-        const Dungeon::LiveDungeon& dung = kv.second;
-        if (now >= dung.expiryTime)
+        Dungeon::LiveDungeon& dung = kv.second;
+        if (hasPlayer) {
+            dung.lastActivity = now;   // keep alive while a player is in the system
+            continue;
+        }
+        bool abandoned = (dung.lastActivity != 0) && (now - dung.lastActivity >= DUNGEON_ABANDON);
+        bool hardCap   = (now >= dung.expiryTime);
+        if (abandoned || hardCap)
             toExpire.push_back(dung.anomalyID);
     }
 
@@ -504,8 +521,9 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
         newDungeon.anomalyID = iRef->itemID();
         newDungeon.systemID = sig.systemID;
         newDungeon.dungeonType = sig.dungeonType;
-        // Sites expire after 2 hours; Process() cleans them up and re-queues for respawn
+        // Sites expire after 2 hours (hard cap) OR when abandoned - see Process().
         newDungeon.expiryTime = GetFileTimeNow() + (2 * EvE::Time::Hour);
+        newDungeon.lastActivity = GetFileTimeNow();
 
         // Iterate through rooms and handle item spawning for each room
         uint16 roomCounter = 0;

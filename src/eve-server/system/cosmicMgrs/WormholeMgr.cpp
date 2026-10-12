@@ -68,7 +68,10 @@ void WormholeMgr::Initialize() {
 void WormholeMgr::Process() {
     if (!m_initalized)
         return;
-    if (!m_updateTimer.Check(false))
+    // Check() (periodic): Check(false) disabled the timer after its first fire,
+    // so wormhole age/expiry maintenance stopped 5 min into a system's life and
+    // wormholes accumulated forever.
+    if (!m_updateTimer.Check())
         return;
 
     std::vector<uint32> toCollapse;
