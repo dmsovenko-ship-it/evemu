@@ -214,11 +214,15 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         auto party = [&](const char* tag, const std::string& where, const char* joinSel, const char* joinOn) {
             std::string out;
             DBQueryResult q;
-            std::string qs = std::string("SELECT t.characterID, ") + joinSel + ", "
-                "SUM(t.quantity * t.price) as isk, COUNT(*) as trades "
-                "FROM mktTransactions t " + joinOn + " "
-                "WHERE " + where + " GROUP BY t.characterID, " + joinSel + " "
-                "ORDER BY isk DESC LIMIT 10";
+            // Aggregate straight from the covering index (GROUP BY characterID
+            // only) into the top 10, THEN resolve the name for just those rows -
+            // joining every transaction row first cost ~1s per query.
+            std::string qs = std::string(
+                "SELECT g.characterID, MAX(") + joinSel + ") AS nm, g.isk, g.trades "
+                "FROM (SELECT characterID, SUM(quantity * price) AS isk, COUNT(*) AS trades "
+                "      FROM mktTransactions WHERE " + where + " "
+                "      GROUP BY characterID ORDER BY isk DESC LIMIT 10) g " + joinOn + " "
+                "ORDER BY g.isk DESC LIMIT 10";
             if (sDatabase.RunQuery(q, qs.c_str())) {
                 DBResultRow r;
                 while (q.GetRow(r)) {
@@ -234,12 +238,12 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
 
         part("topboughtitems", "t.transactionType = 1");
         part("topsolditems",   "t.transactionType = 0");
-        party("topbuyers",     "t.transactionType = 1", "COALESCE(cc.characterName, cr.corporationName, 'Unknown')",
-              "LEFT JOIN chrCharacters cc ON cc.characterID = t.characterID "
-              "LEFT JOIN crpCorporation cr ON cr.corporationID = t.characterID");
-        party("topsellers",    "t.transactionType = 0", "COALESCE(cc.characterName, cr.corporationName, 'Unknown')",
-              "LEFT JOIN chrCharacters cc ON cc.characterID = t.characterID "
-              "LEFT JOIN crpCorporation cr ON cr.corporationID = t.characterID");
+        party("topbuyers",     "transactionType = 1", "COALESCE(cc.characterName, cr.corporationName, 'Unknown')",
+              "LEFT JOIN chrCharacters cc ON cc.characterID = g.characterID "
+              "LEFT JOIN crpCorporation cr ON cr.corporationID = g.characterID");
+        party("topsellers",    "transactionType = 0", "COALESCE(cc.characterName, cr.corporationName, 'Unknown')",
+              "LEFT JOIN chrCharacters cc ON cc.characterID = g.characterID "
+              "LEFT JOIN crpCorporation cr ON cr.corporationID = g.characterID");
 
         xml += "  </result>\n</eveapi>\n";
         return xml;
