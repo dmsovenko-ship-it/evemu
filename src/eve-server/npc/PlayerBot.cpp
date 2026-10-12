@@ -1628,6 +1628,33 @@ double PlayerBot::DepositCargoAtStation(uint32 stationID)
         uint32 qty = entry.second;
         if (qty == 0)
             continue;
+        // Merge into an EXISTING hangar stack of the same type instead of
+        // spawning one new entity row per mining/deposit run. Without this the
+        // entity table accumulated ~2.9M mergeable mineral rows (500k+ single
+        // Tritanium stacks) which bloats the DB and slows every hangar load.
+        {
+            uint32 stackID = 0;
+            DBQueryResult sres;
+            if (sDatabase.RunQuery(sres,
+                "SELECT itemID FROM entity"
+                " WHERE ownerID = %u AND locationID = %u AND flag = %u"
+                "   AND typeID = %u AND singleton = 0 AND quantity > 0 LIMIT 1",
+                m_botCharID, stationID, (uint32)flagHangar, typeID)) {
+                DBResultRow r;
+                if (sres.GetRow(r))
+                    stackID = r.GetUInt(0);
+            }
+            if (stackID != 0) {
+                InventoryItemRef stack = sItemFactory.GetItemRef(stackID);
+                if (stack.get() != nullptr) {
+                    stack->AlterQuantity((int32)qty, true);
+                    units += qty;
+                    _log(BOT__TRACE, "PlayerBot %s(%u): merged %u x type %u into hangar stack %u at station %u.",
+                         m_botName.c_str(), m_botCharID, qty, typeID, stackID, stationID);
+                    continue;
+                }
+            }
+        }
         // Spawn in limbo then hand to the bot's hangar at the station.
         ItemData idata(typeID, ownerStation, locTemp, flagNone, qty);
         InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
