@@ -68,20 +68,24 @@ SELECT CONCAT('[stacks] duplicate rows to delete: ', COUNT(*)) AS info FROM _sta
 "
 
 echo "[stacks] deleting duplicates in batches..."
+# Batch via a JOIN against a small staging table: a 10k-id `IN (...)` list blew
+# past ARG_MAX when passed through `docker exec ... -e` ("Argument list too long").
 TOTAL=0
 while :; do
-    IDS=$(DB -N -e "SELECT GROUP_CONCAT(itemID) FROM (SELECT itemID FROM _stack_del LIMIT 10000) x;")
-    if [ -z "$IDS" ] || [ "$IDS" = "NULL" ]; then break; fi
+    INS=$(DB -N -e "
+      DROP TABLE IF EXISTS _stack_batch;
+      CREATE TABLE _stack_batch (itemID INT UNSIGNED PRIMARY KEY) ENGINE=InnoDB;
+      INSERT INTO _stack_batch SELECT itemID FROM _stack_del LIMIT 20000;
+      SELECT COUNT(*) FROM _stack_batch;")
+    if [ -z "$INS" ] || [ "$INS" = "0" ]; then break; fi
     DB -e "
-      DELETE FROM entity_attributes WHERE itemID IN ($IDS);
-      DELETE FROM entity            WHERE itemID IN ($IDS);
-      DELETE FROM _stack_del        WHERE itemID IN ($IDS);
-    "
-    N=$(echo "$IDS" | tr ',' '\n' | wc -l)
-    TOTAL=$((TOTAL + N))
+      DELETE ea FROM entity_attributes ea JOIN _stack_batch b ON ea.itemID = b.itemID;
+      DELETE e  FROM entity            e  JOIN _stack_batch b ON e.itemID  = b.itemID;
+      DELETE d  FROM _stack_del        d  JOIN _stack_batch b ON d.itemID  = b.itemID;" >/dev/null
+    TOTAL=$((TOTAL + INS))
     echo "[stacks] deleted $TOTAL..."
 done
 
 echo "[stacks] cleanup temp tables..."
-DB -e "DROP TABLE IF EXISTS _stack_keep; DROP TABLE IF EXISTS _stack_del; OPTIMIZE TABLE entity;"
+DB -e "DROP TABLE IF EXISTS _stack_batch; DROP TABLE IF EXISTS _stack_keep; DROP TABLE IF EXISTS _stack_del; OPTIMIZE TABLE entity;"
 echo "[stacks] done. total deleted: $TOTAL"
