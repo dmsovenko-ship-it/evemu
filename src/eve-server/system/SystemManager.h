@@ -194,6 +194,10 @@ public:
     // customs NPC gate tracking
     void AddCustomsGate(uint32 gateID)                  { m_customsGates.insert(gateID); }
     bool HasCustomsAtGate(uint32 gateID) const          { return m_customsGates.find(gateID) != m_customsGates.end(); }
+    // Customs patrol NPCs spawn lazily: only while a real player is in the
+    // system (spawning them at boot for bot/always-on systems wasted NPCs +
+    // a per-gate DB lookup per boot). Set once so they spawn at most once.
+    bool m_customsSpawned = false;
 
 protected:
     /** @todo  this needs more work */

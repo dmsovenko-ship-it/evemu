@@ -241,6 +241,14 @@ bool SystemManager::ProcessTic() {
     // (they must not run inside Add() - re-entrant delivery froze mid-warp clients).
     ProcessLazyActivation();
 
+    // Customs patrol NPCs (high-sec gates) load lazily: only once a real player
+    // is actually in the system. Bots/always-on/prefetch systems never spawn
+    // them, and the per-gate DB dedup lookup runs only here on first player entry.
+    if (!m_customsSpawned && PlayerCount() >= 1) {
+        m_customsSpawned = true;
+        SpawnCustomsNPCs();
+    }
+
     /* the idea here is entities map NEVER has invalid items in it, but our iterator may become invalid
      *      when SE->Process() returns because Process() will add/remove from the map as needed
      *      (new objects, destroyed objects, moved objects, etc)
@@ -544,7 +552,10 @@ bool SystemManager::LoadSystemStatics() {
     SpawnSentryGuns();
     SpawnBillboards();
     SpawnConvoys();
-    SpawnCustomsNPCs();
+    // Customs NPCs are NOT spawned here: they used to be created at every boot
+    // (including bot/always-on systems with no player) and cost a per-gate DB
+    // dedup query each time. They now spawn lazily from ProcessTic() the first
+    // time a real player is present.
     SpawnFactionPatrols();
     SpawnIncursionGateCamps();
 
