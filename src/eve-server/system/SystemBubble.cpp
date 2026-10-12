@@ -806,6 +806,36 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who, uint32 skipItemID /*0*/) {
     AddBalls addballs;
     addballs.slims = new PyList();
 
+    // Split the delivery into packets of at most this many balls. A single
+    // anomaly/belt grid can be 40+ balls (>3.5 KB of destiny stream); the
+    // client's RealFlushState/AddBalls parser throws "ValueError: Unknown
+    // packet type" on such oversized batches (proven from a live minidump:
+    // AddBalls at stamp 1435, 3541 bytes), while small gate-warp batches parse
+    // fine. Chunking keeps every packet in the range the client handles and
+    // localises any bad ball instead of voiding the whole grid.
+    const size_t BALLS_PER_PACKET = 24;
+    size_t inChunk = 0;
+    uint32 totalBalls = 0;
+    auto flushChunk = [&]() {
+        if (inChunk == 0)
+            return;
+        addballs.state = new PyBuffer( &destinyBuffer );
+        _log(DESTINY__MESSAGE, "SystemBubble::SendAddBalls() to %s (%zu balls)", pClient->GetName(), inChunk);
+        if (is_log_enabled(DESTINY__BALL_DECODE))
+            Destiny::DumpUpdate( DESTINY__BALL_DECODE, &( addballs.state->content() )[0], (uint32)addballs.state->content().size() );
+        PyTuple* t = addballs.Encode();
+        pClient->QueueDestinyUpdate( &t );    //consumed
+        // start a fresh packet
+        destinyBuffer = new Buffer();
+        Destiny::AddBall_header h = Destiny::AddBall_header();
+            h.packet_type = 1;
+            h.stamp = sEntityList.GetStamp();
+        destinyBuffer->Append(h);
+        addballs = AddBalls();
+        addballs.slims = new PyList();
+        inChunk = 0;
+    };
+
     // Deliver the most relevant balls FIRST within the packet: the client creates
     // balls in stream order, so the POS tower + its force field (and then statics /
     // nearest ships) show up immediately and the rest of the grid (a POS can have
@@ -871,24 +901,19 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who, uint32 skipItemID /*0*/) {
             if (!se->IsMissileSE() or !se->IsFieldSE())
                 addballs.damageDict[se->GetID()] = se->MakeDamageState();
             addballs.slims->AddItem(new PyObject("foo.SlimItem", se->MakeSlimItem()));
+            ++inChunk;
+            ++totalBalls;
+            if (inChunk >= BALLS_PER_PACKET)
+                flushChunk();
         }
     }
 
-    if (addballs.slims->empty()) {
+    flushChunk();   // final packet
+
+    if (totalBalls == 0) {
         SafeDelete( destinyBuffer );
         return;
     }
-
-    addballs.state = new PyBuffer( &destinyBuffer );
-
-    _log(DESTINY__MESSAGE, "SystemBubble::SendAddBalls() to %s", pClient->GetName());
-    if (is_log_enabled(DESTINY__BALL_DUMP))
-        addballs.Dump( DESTINY__BALL_DUMP, "    " );
-    _log( DESTINY__BALL_DECODE, "    Ball Decoded:" );
-    if (is_log_enabled(DESTINY__BALL_DECODE))
-        Destiny::DumpUpdate( DESTINY__BALL_DECODE, &( addballs.state->content() )[0], (uint32)addballs.state->content().size() );
-    PyTuple* t = addballs.Encode();
-    pClient->QueueDestinyUpdate( &t );    //consumed
 }
 
 void SystemBubble::SendAddBalls2( SystemEntity* to_who ) {
