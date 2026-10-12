@@ -6242,12 +6242,17 @@ void BotMgr::DeployBotCustomsOffice(SystemManager* sysMgr, uint32 charID, uint32
         return;
     uint32 sysID = sysMgr->GetID();
 
-    // Idempotent: one corp office per planet.
+    // Idempotent: a planet has AT MOST ONE customs office (like live). If an
+    // office already exists here - the seeded InterBus POCO (typeID 4318) or
+    // another corp's (2233) - the corp just USES it and pays its owner's tax;
+    // no second office is built. Previously a corp-only 2233 check let bots
+    // stack their own office on top of the InterBus one (73 offices in a hub
+    // system, two per planet).
     {
         DBQueryResult chk;
         if (sDatabase.RunQuery(chk,
-            "SELECT COUNT(*) FROM entity WHERE locationID = %u AND ownerID = %u AND typeID = 2233 AND customInfo = '%u'",
-            sysID, corpID, planetID)) {
+            "SELECT COUNT(*) FROM entity WHERE locationID = %u AND customInfo = '%u' AND typeID IN (2233,4318)",
+            sysID, planetID)) {
             DBResultRow r;
             if (chk.GetRow(r) && r.GetUInt(0) > 0)
                 return;
