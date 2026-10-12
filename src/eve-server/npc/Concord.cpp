@@ -122,7 +122,7 @@ void Concord::EncodeDestiny( Buffer& into ) const
 {
     using namespace Destiny;
 
-    uint8 mode = m_destiny->GetState(); //Ball::Mode::STOP;
+    uint8 mode = Destiny::Ball::SanitizeMode(m_destiny->GetState());
 
     BallHeader head = BallHeader();
         head.entityID = GetID();

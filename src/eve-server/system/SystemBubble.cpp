@@ -852,6 +852,22 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who, uint32 skipItemID /*0*/) {
                 destinyBuffer->Resize<uint8>(bufBefore);
                 continue;
             }
+            // Verify the encoder wrote EXACTLY what the client will read for the
+            // ball's (mode, flags). A mismatch (e.g. a mode whose sector the
+            // encoder does not implement wrote 1 byte while the client reads 17)
+            // shifts the stream for every following ball and kills the client's
+            // destiny tasklet ("ValueError: Unknown packet type") — drop the ball.
+            {
+                uint8 bMode  = (*destinyBuffer)[bufBefore + 8];    // BallHeader.mode
+                uint8 bFlags = (*destinyBuffer)[bufBefore + 37];   // BallHeader.flags
+                uint32 expect = Destiny::Ball::ExpectedBallSize(bMode, bFlags);
+                if ((uint32)encodedSize != expect) {
+                    _log(DESTINY__ERROR, "SendAddBalls: Entity %s(%u) encoded %zu bytes but client expects %u (mode %u flags 0x%X) — dropping ball.",
+                         se->GetName(), se->GetID(), encodedSize, expect, bMode, bFlags);
+                    destinyBuffer->Resize<uint8>(bufBefore);
+                    continue;
+                }
+            }
             if (!se->IsMissileSE() or !se->IsFieldSE())
                 addballs.damageDict[se->GetID()] = se->MakeDamageState();
             addballs.slims->AddItem(new PyObject("foo.SlimItem", se->MakeSlimItem()));
@@ -955,6 +971,19 @@ void SystemBubble::AddBallExclusive( SystemEntity* pSE, bool fullState ) {
     AddBalls addballs;
     //encode destiny binary
     pSE->EncodeDestiny( *destinyBuffer );
+    // Sanity: the single ball must match what the client will read for its
+    // (mode, flags) — a mismatch desyncs this packet and kills the client's
+    // destiny tasklet ("Unknown packet type"). Log loudly rather than send it.
+    {
+        uint8 bMode  = (*destinyBuffer)[sizeof(Destiny::AddBall_header) + 8];
+        uint8 bFlags = (*destinyBuffer)[sizeof(Destiny::AddBall_header) + 37];
+        uint32 expect = Destiny::Ball::ExpectedBallSize(bMode, bFlags);
+        uint32 encoded = (uint32)destinyBuffer->size() - (uint32)sizeof(Destiny::AddBall_header);
+        if (encoded != expect) {
+            _log(DESTINY__ERROR, "AddBallExclusive: %s(%u) encoded %u bytes, client expects %u (mode %u flags 0x%X) — packet would desync the client.",
+                 pSE->GetName(), pSE->GetID(), encoded, expect, bMode, bFlags);
+        }
+    }
     addballs.state = new PyBuffer( &destinyBuffer );
 	//encode damage state
     addballs.damageDict[ pSE->GetID() ] = pSE->MakeDamageState();

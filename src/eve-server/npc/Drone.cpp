@@ -436,7 +436,7 @@ void DroneSE::EncodeDestiny( Buffer& into )
 {
     using namespace Destiny;
 
-    uint8 mode = m_destiny->GetState(); //Ball::Mode::STOP;
+    uint8 mode = Destiny::Ball::SanitizeMode(m_destiny->GetState());
 
     // drone id's begin at 500m
     BallHeader head = BallHeader();

@@ -417,7 +417,7 @@ void NPC::EncodeDestiny( Buffer& into )
     // flags = IsFree only, matching ShipSE without pilot (crosshair needs no IsMassive).
     using namespace Destiny;
 
-    uint8 mode = m_destiny->GetState();
+    uint8 mode = Destiny::Ball::SanitizeMode(m_destiny->GetState());
 
     BallHeader head = BallHeader();
         head.entityID = GetID();

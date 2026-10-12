@@ -1625,6 +1625,20 @@ void SystemManager::MakeSetState(const SystemBubble* pBubble,  SetState& into) c
             stateBuffer->Resize<uint8>(bufBefore);
             continue;
         }
+        // Verify the encoder wrote EXACTLY what the client will read for this
+        // ball's (mode, flags) — a mismatch shifts every following ball and kills
+        // the client's destiny tasklet ("Unknown packet type"). Drop the ball.
+        {
+            uint8 bMode  = (*stateBuffer)[bufBefore + 8];    // BallHeader.mode
+            uint8 bFlags = (*stateBuffer)[bufBefore + 37];   // BallHeader.flags
+            uint32 expect = Destiny::Ball::ExpectedBallSize(bMode, bFlags);
+            if ((uint32)encodedSize != expect) {
+                _log(DESTINY__ERROR, "MakeSetState: Entity %s(%u) encoded %zu bytes but client expects %u (mode %u flags 0x%X) — dropping ball.",
+                     cur.second->GetName(), cur.first, encodedSize, expect, bMode, bFlags);
+                stateBuffer->Resize<uint8>(bufBefore);
+                continue;
+            }
+        }
         if (!cur.second->IsMissileSE() or !cur.second->IsFieldSE())
             into.damageState[ cur.first ] = cur.second->MakeDamageState();
         into.slims->AddItem( new PyObject( "foo.SlimItem", cur.second->MakeSlimItem()));
