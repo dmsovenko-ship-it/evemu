@@ -32,6 +32,7 @@
 #include "exploration/Probes.h"
 #include "map/MapData.h"
 #include "map/MapDB.h"
+#include "system/PrefetchCache.h"
 #include "npc/CustomsNPCManager.h"
 #include "incursion/IncursionMgr.h"
 #include "inventory/ItemFactory.h"
@@ -469,9 +470,14 @@ bool SystemManager::LoadSystemStatics() {
     entities.clear();
     m_entities.clear();
     m_staticEntities.clear();
-    if (!SystemDB::LoadSystemStaticEntities(m_data.systemID, entities)) {
-        sLog.Error( "SystemManager::LoadSystemStatics()", "Unable to load celestial entities during boot of %s(%u).", m_data.name.c_str(), m_data.systemID);
-        return false;
+    // Consume the background prefetch if it prepared this system; otherwise
+    // query synchronously. (The per-item ItemFactory loads below still run on
+    // the game thread - that part is not thread-safe.)
+    if (!sPrefetchCache.TakeStatic(m_data.systemID, entities)) {
+        if (!SystemDB::LoadSystemStaticEntities(m_data.systemID, entities)) {
+            sLog.Error( "SystemManager::LoadSystemStatics()", "Unable to load celestial entities during boot of %s(%u).", m_data.name.c_str(), m_data.systemID);
+            return false;
+        }
     }
 
     SystemEntity* pSE(nullptr);
@@ -565,9 +571,11 @@ bool SystemManager::LoadSystemStatics() {
 bool SystemManager::LoadSystemDynamics() {
     std::vector<DBSystemDynamicEntity> entities;
     entities.clear();
-    if (!SystemDB::LoadSystemDynamicEntities(m_data.systemID, entities)) {
-        sLog.Error( "SystemManager::LoadSystemDynamics()", "Unable to load dynamic entities during boot of %s(%u).", m_data.name.c_str(), m_data.systemID);
-        return false;
+    if (!sPrefetchCache.TakeDynamic(m_data.systemID, entities)) {
+        if (!SystemDB::LoadSystemDynamicEntities(m_data.systemID, entities)) {
+            sLog.Error( "SystemManager::LoadSystemDynamics()", "Unable to load dynamic entities during boot of %s(%u).", m_data.name.c_str(), m_data.systemID);
+            return false;
+        }
     }
 
     SystemEntity* pSE(nullptr);

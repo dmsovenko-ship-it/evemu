@@ -66,6 +66,7 @@
 // calendar services
 #include "system/CalendarMgrService.h"
 #include "system/CalendarProxy.h"
+#include "system/PrefetchCache.h"
 // cache services
 #include "cache/BulkDB.h"
 #include "cache/BulkMgrService.h"
@@ -679,6 +680,8 @@ int main( int argc, char* argv[] )
     /* initialize EntityList singleton, clientID seed and start tic timer */
     sLog.Green("       ServerInit", "Starting Entity List");
     sEntityList.Initialize();
+    /* background DB prefetch worker for system boot (own thread) */
+    sPrefetchCache.Start();
     /* create a service manager */
     sLog.Green("       ServerInit", "Starting Service Manager");
     EVEServiceManager newSvcMgr(888444);
@@ -1021,6 +1024,8 @@ int main( int argc, char* argv[] )
     /* stop TCP listener */
     tcps.Close();
     sLog.Warning("   ServerShutdown", "TCP listener stopped." );
+    /* stop the background prefetch worker */
+    sPrefetchCache.Stop();
     /* stop Image Server */
     sImageServer.Stop();
     sLog.Warning("   ServerShutdown", "Image Server stopped." );

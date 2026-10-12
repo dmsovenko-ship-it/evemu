@@ -41,6 +41,7 @@
 #include "agents/Agent.h"
 #include "exploration/Probes.h"
 #include "map/MapDB.h"
+#include "system/PrefetchCache.h"
 #include "market/MarketMgr.h"
 #include "market/MarketBotMgr.h"
 #include "npc/BotMgr.h"
@@ -835,6 +836,15 @@ void EntityList::PrefetchAdjacentSystems() {
             break;
         if (FindOrBootSystem(sid) != nullptr)
             ++bootsThisPass;
+    }
+
+    // Hand the not-yet-booted neighbours to the background prefetch worker so
+    // their static/dynamic entity lists are read off the game thread; the boot
+    // then consumes the prepared vectors instead of querying (the per-item
+    // ItemFactory work still happens on the game thread).
+    for (uint32 sid : want) {
+        if (m_systems.count(sid) == 0)
+            sPrefetchCache.Enqueue(sid);
     }
 
     // (re)apply the hold on everything we still want...

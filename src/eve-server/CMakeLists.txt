@@ -656,6 +656,7 @@ SET( system_SOURCE
       "${TARGET_SOURCE_DIR}/system/SystemEffectMgr.cpp"
       "${TARGET_SOURCE_DIR}/system/SystemEntity.cpp"
       "${TARGET_SOURCE_DIR}/system/SystemManager.cpp"
+      "${TARGET_SOURCE_DIR}/system/PrefetchCache.cpp"
       "${TARGET_SOURCE_DIR}/system/TargetManager.cpp"
       "${TARGET_SOURCE_DIR}/system/WorldSpaceServer.cpp"
       "${TARGET_SOURCE_DIR}/system/WormholeSvc.cpp")
