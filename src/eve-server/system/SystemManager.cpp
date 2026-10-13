@@ -42,6 +42,7 @@
 #include "npc/Drone.h"
 #include "npc/NPC.h"
 #include "npc/NPCAI.h"
+#include "npc/PlayerBot.h"
 #include "npc/ConvoyAI.h"
 #include "npc/Sentry.h"
 #include "packets/Destiny.h"
@@ -313,6 +314,13 @@ bool SystemManager::SystemActivity() {
         return true;   // prefetcher holds this system: a player is one jump away
     if (!m_clients.empty())
         return true;   // players present (docked or in space) — never unload under them
+    // A system with chelobots in space is not idle: unloading it deletes their
+    // SEs mid-tick (unload-time crashes while bots were active). They are reaped
+    // by BotMgr within ~30s once no player remains, then the system unloads.
+    for (auto& [id, npc] : m_npcs) {
+        if (npc != nullptr && dynamic_cast<PlayerBot*>(npc) != nullptr)
+            return true;
+    }
     // A DOCKED player still belongs to this system (their station is here): never
     // unload the system under them (it would drop their station/hangar SE).
     {
@@ -680,7 +688,9 @@ bool SystemManager::BuildDynamicEntity(const DBSystemDynamicEntity& entity, uint
         pWE->SetLaunchedByID(launcherID);
         if (IsCharacterID(entity.ownerID)) {
             Client* pClient = sEntityList.FindClientByCharID(entity.ownerID);
-            if (pClient->InFleet())
+            // The owner may be a chelobot (no Client) - FindClientByCharID
+            // returns null and dereferencing it crashed the wreck spawn.
+            if (pClient != nullptr && pClient->InFleet())
                 pWE->SetFleetID(pClient->GetFleetID());
         }
     }

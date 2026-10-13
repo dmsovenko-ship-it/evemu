@@ -1206,6 +1206,10 @@ void PlayerBot::DroneEngageTarget(DroneSE* drone, SystemEntity* target)
         return;
     if (target->DestinyMgr() == nullptr)
         return;   // target is a structure/decor — no ship to damage
+    if (drone == target)
+        return;   // never shoot itself (an assist can hand us our own drone)
+    if (target->IsDroneSE())
+        return;   // don't send drones after drones (friendly-fire risk)
 
     double dist = drone->GetPosition().distance(target->GetPosition());
     if (dist > 20000) {
