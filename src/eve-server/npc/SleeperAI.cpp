@@ -145,6 +145,8 @@ SystemEntity* SleeperAIMgr::FindRepairTarget()
 
     for (auto& [id, se] : entities) {
         if (se == nullptr || se == m_pNPC) continue;
+        // Stale bubble entry (deleted without untracking -> UAF): trust the map.
+        if (m_pNPC->SystemMgr()->GetSE(id) != se) continue;
         if (!se->IsNPCSE()) continue;
 
         float ratio = 1.0f;

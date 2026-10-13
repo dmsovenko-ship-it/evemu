@@ -2593,6 +2593,9 @@ void PlayerBot::RatForTarget()
     for (auto& [id, se] : entities) {
         if (se == nullptr || !se->IsNPCSE())
             continue;
+        // Stale bubble entry (deleted without untracking -> UAF).
+        if (SystemMgr()->GetSE(id) != se)
+            continue;
         if (se == this || se->GetNPCSE() == this)
             continue;
         // Skip other PlayerBots (they're NPCSE too) — we only shoot real rats.

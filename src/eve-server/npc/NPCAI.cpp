@@ -739,7 +739,14 @@ void NPCAIMgr::Process() {
                 std::map<uint32, SystemEntity*> entities;
                 m_npc->SysBubble()->GetAllEntities(entities);
                 for (auto& [id, pEnt] : entities) {
-                    if (pEnt == nullptr || !pEnt->IsDroneSE())
+                    // The bubble's raw map can still hold a pointer to an entity
+                    // that was deleted without untracking it (use-after-free ->
+                    // SIGSEGV on the deref below, seen in a fresh core:
+                    // NPCAIMgr::Process player-drone scan). The system map is
+                    // authoritative - skip anything that is no longer current.
+                    if (pEnt == nullptr || m_npc->SystemMgr()->GetSE(id) != pEnt)
+                        continue;
+                    if (!pEnt->IsDroneSE())
                         continue;
                     if (pEnt->DestinyMgr() == nullptr || pEnt->DestinyMgr()->IsWarping())
                         continue;

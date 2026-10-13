@@ -1291,6 +1291,10 @@ void DroneAIMgr::FighterBomberAttack(SystemEntity* pTarget) {
     for (auto& [id, se] : ents) {
         if (se == nullptr || se == m_pDrone)
             continue;
+        // Stale bubble entry (entity deleted without untracking) -> UAF. Trust
+        // the system map as authoritative.
+        if (m_pDrone->SystemMgr()->GetSE(id) != se)
+            continue;
         if (!se->IsShipSE() && !se->IsDroneSE() && !se->IsNPCSE())
             continue;                       // ships, drones/fighters and NPCs/bots
         if (se->DestinyMgr() == nullptr)
@@ -1805,6 +1809,9 @@ SystemEntity* DroneAIMgr::FindAggroTarget() {
     double bestDist = 1e18;
     for (auto& [id, se] : entities) {
         if (se == nullptr || se->GetSelf().get() == nullptr)
+            continue;
+        // Skip stale bubble entries (deleted without untracking -> UAF).
+        if (m_pDrone->SystemMgr()->GetSE(id) != se)
             continue;
         // Must be a lockable combat target (has a TargetManager). This excludes
         // scenery with no TargetManager (decor, clouds, acceleration gates).
