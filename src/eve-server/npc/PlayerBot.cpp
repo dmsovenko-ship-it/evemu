@@ -3222,6 +3222,12 @@ void PlayerBot::DeployWarpBubble(const GPoint& pos)
     if (pos.isZero() || pos.isNaN() || pos.isInf())
         return;
 
+    // A Mobile Warp Disruptor can only be anchored in null-sec or wormhole
+    // space - never low-sec or high-sec (the client refuses it, and it was a
+    // live-rules violation: bots were dropping gates bubbles in low-sec).
+    if (!IsWSpaceID(SystemMgr()->GetID()) && SystemMgr()->GetSystemSecurityRating() >= 0.05f)
+        return;
+
     // Mobile Medium Warp Disruptor I (12199) — 11.5km bubble, good ambush size.
     const uint32 mwdTypeID = 12199;
     ItemData idata(mwdTypeID, m_botCharID, SystemMgr()->GetID(), flagNone, "Warp Bubble", pos);
