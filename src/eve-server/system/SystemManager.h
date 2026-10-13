@@ -268,8 +268,9 @@ private:
     std::map<uint32, NPC*> m_npcs;
     // bubbleID -> anomaly NPCs held off-grid awaiting activation (lazy warp-in)
     std::map<uint32, std::vector<NPC*>> m_lazyNPCs;
-    // bubbles whose staged NPCs are due to warp in (executed on the next tic)
-    std::vector<SystemBubble*> m_lazyActivate;
+    // bubbleID -> filetime the pilot landed (0 = armed, still warping/not landed);
+    // the staged NPCs warp in ~10s after the pilot actually lands (live-like grace)
+    std::map<uint16, int64> m_lazyActivate;
     std::map<uint32, Client*> m_clients;
     std::map<uint32, SystemEntity*> m_entities;         // this list is all entities in this system.  we own these.
     std::map<uint32, SystemEntity*> m_ticEntities;      // this list is for entities that need process tics (objects, npc, client ships)

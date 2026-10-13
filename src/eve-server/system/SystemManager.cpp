@@ -1260,30 +1260,44 @@ void SystemManager::StageLazyNPC(NPC* pNPC) {
 void SystemManager::ActivateLazyNPCs(SystemBubble* pBubble) {
     if (pBubble == nullptr)
         return;
-    auto it = m_lazyNPCs.find(pBubble->GetID());
+    uint32 bid = pBubble->GetID();
+    auto it = m_lazyNPCs.find(bid);
     if (it == m_lazyNPCs.end() || it->second.empty())
         return;
-    for (auto* sb : m_lazyActivate)
-        if (sb == pBubble)
-            return;   // already scheduled
-    m_lazyActivate.push_back(pBubble);
+    if (m_lazyActivate.find((uint16)bid) != m_lazyActivate.end())
+        return;   // already scheduled
+    m_lazyActivate[(uint16)bid] = 0;   // armed; the grace countdown starts once the pilot lands
 }
 
 // Execute the scheduled warp-ins: each staged NPC spawns 20-30 km off its final
 // position, re-enters the bubble (grid delivery) and warps in to its spot.
+// Give a ~10s grace period after the pilot actually lands so he sees a calm
+// site, then the rats warp in (stationary sentries were never staged).
 void SystemManager::ProcessLazyActivation() {
     if (m_lazyActivate.empty())
         return;
-    std::vector<SystemBubble*> pending;
-    pending.swap(m_lazyActivate);
-    for (SystemBubble* pBubble : pending) {
-        if (pBubble == nullptr)
+    int64 now = GetFileTimeNow();
+    std::vector<uint32> ids;
+    ids.reserve(m_lazyActivate.size());
+    for (auto& kv : m_lazyActivate)
+        ids.push_back(kv.first);
+
+    for (uint32 bid : ids) {
+        auto ait = m_lazyActivate.find((uint16)bid);
+        if (ait == m_lazyActivate.end())
             continue;
-        // A pilot enters the site bubble mid-WARP (~300 km out) and the server
-        // would spawn+warp the NPCs right then: they lock and shoot a ship that
-        // is still visually flying ("NPCs appear very early"). Defer activation
-        // until nobody in the bubble is still warping - the rats then warp in as
-        // the pilot actually lands, like live.
+        SystemBubble* pBubble = sBubbleMgr.FindBubbleByID((uint16)bid);
+        if (pBubble == nullptr) {
+            m_lazyActivate.erase(ait);
+            continue;
+        }
+        auto it = m_lazyNPCs.find(bid);
+        if (it == m_lazyNPCs.end() || it->second.empty()) {
+            m_lazyActivate.erase(ait);
+            continue;
+        }
+        // A pilot enters the site bubble mid-WARP (~300 km out). Wait until nobody
+        // in the bubble is still warping (the pilot has LANDED), then a ~10s grace.
         bool anyWarping = false;
         {
             std::vector<Client*> players;
@@ -1298,16 +1312,18 @@ void SystemManager::ProcessLazyActivation() {
             }
         }
         if (anyWarping) {
-            m_lazyActivate.push_back(pBubble);   // try again next tic
+            ait->second = 0;   // still flying in - keep the countdown unarmed
             continue;
         }
-        auto it = m_lazyNPCs.find(pBubble->GetID());
-        if (it == m_lazyNPCs.end() || it->second.empty()) {
-            m_lazyNPCs.erase(it);
+        if (ait->second == 0) {
+            ait->second = now;   // just landed - start the grace countdown
             continue;
         }
+        if ((now - ait->second) < (10 * EvE::Time::Second))
+            continue;            // ~10s grace period after landing
+
         _log(COSMIC_MGR__MESSAGE, "SystemManager::ProcessLazyActivation() - warping in %u staged NPCs for bubble %u.",
-             (unsigned)it->second.size(), pBubble->GetID());
+             (unsigned)it->second.size(), bid);
         for (NPC* pNPC : it->second) {
             if (pNPC == nullptr)
                 continue;
@@ -1323,6 +1339,7 @@ void SystemManager::ProcessLazyActivation() {
             pNPC->DestinyMgr()->WarpTo(finalPos, 0);   // warp-in animation to its spot
         }
         m_lazyNPCs.erase(it);
+        m_lazyActivate.erase(ait);
     }
 }
 

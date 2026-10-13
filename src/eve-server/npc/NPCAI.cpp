@@ -1410,11 +1410,33 @@ void NPCAIMgr::Attack(SystemEntity* pSE)
     }
 }
 
+// Missile (charge) group -> the T1 launcher DEVICE that fires it. A missile is a
+// charge/ammo; the client's Ship.FitHardpoints -> turretSet.FitTurrets builds a
+// turret model from each slim module's typeID and wants the hardpoint DEVICE,
+// never the charge. Bots carry the device in AttrGfxTurretID, but plain missile
+// NPCs do not, so derive it from the missile's group.
+static uint32 _LauncherForMissile(uint32 missileTypeID)
+{
+    if (missileTypeID == 0)
+        return 0;
+    Inv::TypeData td;
+    sDataMgr.GetType((uint16)missileTypeID, td);
+    switch (td.groupID) {
+        case 384: case 394: return 499;     // Light / FoF Light   -> Light Missile Launcher I
+        case 385: case 395: return 501;     // Heavy / FoF Heavy   -> Heavy Missile Launcher I
+        case 386: case 396: return 13320;   // Cruise / FoF Cruise -> Cruise Missile Launcher I
+        case 387: return 10629;             // Rocket              -> Rocket Launcher I
+        case 89:  return 503;               // Torpedo             -> Torpedo Launcher I
+        case 772: case 654: return 20138;   // Assault Missile     -> Heavy Assault Missile Launcher I
+        case 476: case 1010: return 20539;  // Citadel Torpedo     -> Citadel Torpedo Launcher I
+        default:  return 0;
+    }
+}
+
 void NPCAIMgr::FitModules()
 {
     m_modules.clear();
     uint8 slotIdx = 0;
-
     // Determine weapon GUID from missile type. NOTE: 'effects.StandardWeapon' is
     // the client CLASS name, not a registered guid (see TurretEffectGuidByGroup).
     std::string guid = TurretEffectGuidByGroup(0);
@@ -1426,20 +1448,26 @@ void NPCAIMgr::FitModules()
         NPCModule mod;
         // The weapon's real TYPE ID — the client's FitTurrets builds a turret model
         // from each fitted module's typeID (group must be in const.turretModuleGroups).
-        // Prefer the hull's gfxTurretID (a real weapon module typeID we set on bots),
-        // else the missile type, else fall back to a placeholder.
-        uint32 weaponType = 248;
-        if (m_self->HasAttribute(AttrGfxTurretID))
-            weaponType = m_self->GetAttribute(AttrGfxTurretID).get_uint32();
-        else if (m_missileTypeID > 0)
-            weaponType = m_missileTypeID;
+        // Always send the hardpoint DEVICE, never a charge/ammo: bots (and turret /
+        // mining NPCs) carry the device typeID in AttrGfxTurretID (turret, launcher
+        // OR mining laser); a missile NPC without it gets the launcher derived from
+        // the missile's group.
+        uint32 weaponType = 248;    // legacy placeholder (no graphic) when nothing is known
+        uint32 weaponGfx  = 0;
+        if (m_self->HasAttribute(AttrGfxTurretID)) {
+            weaponType = m_self->GetAttribute(AttrGfxTurretID).get_uint32();   // device
+            weaponGfx  = weaponType;
+        } else if (m_missileTypeID > 0) {
+            weaponType = _LauncherForMissile(m_missileTypeID);                // launcher device
+            weaponGfx  = weaponType;
+        }
         mod.typeID = weaponType;
         mod.slotFlag = flagHiSlot0 + slotIdx++;
         mod.active = false;
         mod.cycleTime = m_attackSpeed;
         mod.cycleTimer.Start(m_attackSpeed);
         mod.effectGUID = guid;
-        mod.graphicID = m_self->HasAttribute(AttrGfxTurretID) ? m_self->GetAttribute(AttrGfxTurretID).get_uint32() : 0;
+        mod.graphicID = weaponGfx;
         mod.optimalRange = m_optimalRange;
         mod.falloff = m_falloff;
         mod.trackingSpeed = m_trackingSpeed;
@@ -1451,16 +1479,18 @@ void NPCAIMgr::FitModules()
         m_modules.push_back(mod);
     }
 
-    // Missile launcher (separate from turret if both present)
+    // Missile launcher (separate from turret if both present). Send the launcher
+    // DEVICE, never the missile charge.
     if (m_missileTypeID > 0 && guid != "effects.MissileDeployment") {
         NPCModule mod;
-        mod.typeID = m_missileTypeID;
+        mod.typeID = _LauncherForMissile(m_missileTypeID);
         mod.slotFlag = flagHiSlot0 + slotIdx++;
         mod.active = false;
         mod.cycleTime = m_launcherCycleTime > 100 ? m_launcherCycleTime : m_attackSpeed;
         mod.cycleTimer.Start(mod.cycleTime);
         mod.effectGUID = "effects.MissileDeployment";
         mod.damageMultiplier = m_damageMultiplier;
+        mod.graphicID = mod.typeID;
         m_modules.push_back(mod);
     }
 
