@@ -43,6 +43,13 @@ public:
     // ItemData for the system's celestials/stations/in-space entities in a few
     // batched SELECTs, so the per-item loaders run no per-item SELECT.
     // Consumed transparently by GetItemData(); release with ClearPreload().
+    //
+    // BuildSystemItemPreload() runs those SELECTs into a POD map and is
+    // WORKER-THREAD SAFE (pure DB reads, no singletons). InstallPreload() swaps a
+    // worker-built map into the boot cache on the game thread. PreloadSystemItems()
+    // is the synchronous (game-thread) build+install fallback.
+    static void BuildSystemItemPreload(uint32 systemID, std::map<uint32, ItemData>& out);
+    static void InstallPreload(const std::map<uint32, ItemData>& in);
     static void PreloadSystemItems(uint32 systemID);
     static void ClearPreload();
 

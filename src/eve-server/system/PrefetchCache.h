@@ -25,6 +25,7 @@
  */
 
 #include "POD_containers.h"
+#include "inventory/ItemType.h"   // ItemData (boot item preload)
 #include <map>
 #include <set>
 #include <vector>
@@ -49,6 +50,12 @@ public:
     bool TakeStatic(uint32 systemID, std::vector<DBSystemEntity>& out);
     bool TakeDynamic(uint32 systemID, std::vector<DBSystemDynamicEntity>& out);
 
+    // Worker-built per-item preloads (ItemDB ItemData map + AttributeMap rows),
+    // consumed on the game thread (see ItemDB::InstallPreload /
+    // AttributeMap::InstallPreload). false if not prepared / stale.
+    bool TakeItemPreload(uint32 systemID, std::map<uint32, ItemData>& out);
+    bool TakeAttrPreload(uint32 systemID, std::map<uint32, std::vector<PrefetchedAttr> >& out);
+
 private:
     PrefetchCache() = default;
     void Run();
@@ -56,8 +63,12 @@ private:
     struct Entry {
         bool staticReady = false;
         bool dynamicReady = false;
+        bool itemReady = false;
+        bool attrReady = false;
         std::vector<DBSystemEntity> statics;
         std::vector<DBSystemDynamicEntity> dynamics;
+        std::map<uint32, ItemData> items;                              // ItemDB boot preload
+        std::map<uint32, std::vector<PrefetchedAttr> > attrs;          // AttributeMap boot preload
         uint32 gen = 0;              // bumped on Enqueue; worker stamps it done
         int64 stamp = 0;             // filetime when prepared
     };

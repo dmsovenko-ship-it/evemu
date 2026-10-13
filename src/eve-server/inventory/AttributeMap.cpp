@@ -35,25 +35,19 @@
 
 
 // Transient batch preload for system boot: itemID -> saved attribute rows.
-// Filled by PreloadAttributes() while a system boots so Load() does not run one
-// SELECT per item; cleared by ClearPreload() when the boot ends. Game-thread
-// only (system boot), so no locking.
-struct PreAttrRow {
-    uint16  attrID;
-    bool    intNull;
-    bool    floatNull;
-    int64   vi;
-    double  vf;
-};
-static std::map<uint32, std::vector<PreAttrRow> > s_preloadAttrs;
+// Built by BuildAttrPreload() (worker-safe) or PreloadAttributes() (sync) while a
+// system boots, so Load() does not run one SELECT per item; cleared by
+// ClearPreload() when the boot ends.
+static std::map<uint32, std::vector<PrefetchedAttr> > s_preloadAttrs;
 
-void AttributeMap::PreloadAttributes(const std::vector<uint32>& itemIDs) {
+void AttributeMap::BuildAttrPreload(const std::vector<uint32>& itemIDs, std::map<uint32, std::vector<PrefetchedAttr> >& out) {
+    out.clear();
     if (itemIDs.empty())
         return;
     // Seed an (empty) entry for every requested id so Load() knows the item was
     // preloaded even when it has no saved rows -> no per-item SELECT at all.
     for (size_t i = 0; i < itemIDs.size(); ++i)
-        s_preloadAttrs[itemIDs[i]];
+        out[itemIDs[i]];
 
     const size_t CHUNK = 400;   // keep each IN() list bounded
     for (size_t start = 0; start < itemIDs.size(); start += CHUNK) {
@@ -71,23 +65,36 @@ void AttributeMap::PreloadAttributes(const std::vector<uint32>& itemIDs) {
 
         DBQueryResult res;
         if (!sDatabase.RunQuery(res, q.c_str())) {
-            codelog(DATABASE__ERROR, "AttributeMap::PreloadAttributes failed: %s", res.error.c_str());
+            codelog(DATABASE__ERROR, "AttributeMap::BuildAttrPreload failed: %s", res.error.c_str());
             continue;
         }
 
         DBResultRow row;
         while (res.GetRow(row)) {
-            PreAttrRow a;
+            PrefetchedAttr a;
             a.attrID    = row.GetUInt(1);
             a.intNull   = row.IsNull(2);
             a.floatNull = row.IsNull(3);
             a.vi        = a.intNull   ? 0   : row.GetInt64(2);
             a.vf        = a.floatNull ? 0.0 : row.GetDouble(3);
-            s_preloadAttrs[row.GetUInt(0)].push_back(a);
+            out[row.GetUInt(0)].push_back(a);
         }
     }
-    _log(ATTRIBUTE__INFO, "AttributeMap::PreloadAttributes - preloaded attribs for %lu items.",
+    _log(ATTRIBUTE__INFO, "AttributeMap::BuildAttrPreload - prepared attribs for %lu items.",
          (unsigned long)itemIDs.size());
+}
+
+void AttributeMap::InstallPreload(const std::map<uint32, std::vector<PrefetchedAttr> >& in) {
+    s_preloadAttrs = in;
+}
+
+void AttributeMap::PreloadAttributes(const std::vector<uint32>& itemIDs) {
+    // Synchronous (game-thread) fallback; appends so statics + dynamics can be
+    // preloaded in two calls.
+    std::map<uint32, std::vector<PrefetchedAttr> > m;
+    BuildAttrPreload(itemIDs, m);
+    for (std::map<uint32, std::vector<PrefetchedAttr> >::iterator it = m.begin(); it != m.end(); ++it)
+        s_preloadAttrs[it->first] = it->second;
 }
 
 void AttributeMap::ClearPreload() {
@@ -152,7 +159,7 @@ bool AttributeMap::Load(bool reset/*false*/) {
             }
         } else if (pit != s_preloadAttrs.end()) {
             // System-boot batch preload: serve saved attrs from memory (no SELECT).
-            for (std::vector<PreAttrRow>::const_iterator it = pit->second.begin(); it != pit->second.end(); ++it) {
+            for (std::vector<PrefetchedAttr>::const_iterator it = pit->second.begin(); it != pit->second.end(); ++it) {
                 EvilNumber value(EvilZero);
                 if (it->intNull) {
                     if (!it->floatNull)

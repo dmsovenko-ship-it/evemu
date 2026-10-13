@@ -205,8 +205,8 @@ bool ItemDB::GetItemData(uint32 itemID, ItemData &into) {
     return true;
 }
 
-void ItemDB::PreloadSystemItems(uint32 systemID) {
-    s_preloadItems.clear();
+void ItemDB::BuildSystemItemPreload(uint32 systemID, std::map<uint32, ItemData>& out) {
+    out.clear();
     if (systemID == 0)
         return;
 
@@ -222,7 +222,7 @@ void ItemDB::PreloadSystemItems(uint32 systemID) {
         while (res.GetRow(row)) {
             ItemData d;
             _RowToItemData(row, d);
-            s_preloadItems[row.GetUInt(12)] = d;
+            out[row.GetUInt(12)] = d;
         }
     } else {
         codelog(DATABASE__ERROR, "ItemDB::PreloadSystemItems (entity) failed: %s", res.error.c_str());
@@ -236,7 +236,7 @@ void ItemDB::PreloadSystemItems(uint32 systemID) {
         while (res.GetRow(row)) {
             ItemData d;
             _RowToItemData(row, d);
-            s_preloadItems[row.GetUInt(12)] = d;
+            out[row.GetUInt(12)] = d;
         }
     } else {
         codelog(DATABASE__ERROR, "ItemDB::PreloadSystemItems (station) failed: %s", res.error.c_str());
@@ -250,7 +250,7 @@ void ItemDB::PreloadSystemItems(uint32 systemID) {
         while (res.GetRow(row)) {
             ItemData d;
             _RowToItemData(row, d);
-            s_preloadItems[row.GetUInt(12)] = d;
+            out[row.GetUInt(12)] = d;
         }
     } else {
         codelog(DATABASE__ERROR, "ItemDB::PreloadSystemItems (celestial) failed: %s", res.error.c_str());
@@ -268,14 +268,24 @@ void ItemDB::PreloadSystemItems(uint32 systemID) {
         while (res.GetRow(row)) {
             ItemData d;
             _RowToItemData(row, d);
-            s_preloadItems[row.GetUInt(12)] = d;
+            out[row.GetUInt(12)] = d;
         }
     } else {
         codelog(DATABASE__ERROR, "ItemDB::PreloadSystemItems (stargate) failed: %s", res.error.c_str());
     }
 
-    _log(DATABASE__RESULTS, "ItemDB::PreloadSystemItems - preloaded %lu ItemData rows for system %u.",
-         (unsigned long)s_preloadItems.size(), systemID);
+    _log(DATABASE__RESULTS, "ItemDB::BuildSystemItemPreload - prepared %lu ItemData rows for system %u.",
+         (unsigned long)out.size(), systemID);
+}
+
+void ItemDB::InstallPreload(const std::map<uint32, ItemData>& in) {
+    s_preloadItems = in;
+}
+
+void ItemDB::PreloadSystemItems(uint32 systemID) {
+    std::map<uint32, ItemData> m;
+    BuildSystemItemPreload(systemID, m);
+    InstallPreload(m);
 }
 
 void ItemDB::ClearPreload() {

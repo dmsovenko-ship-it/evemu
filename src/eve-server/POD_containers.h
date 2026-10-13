@@ -467,6 +467,16 @@ struct DBGPointEntity {
     GPoint position;
 };
 
+/* POD structure for a preloaded saved attribute row (entity_attributes).
+ * Built on the prefetch worker, installed on the game thread. */
+struct PrefetchedAttr {
+    uint16  attrID;
+    bool    intNull;
+    bool    floatNull;
+    int64   vi;
+    double  vf;
+};
+
 /* POD structure for decoded probe data */
 struct ProbeData {
     uint8 state;

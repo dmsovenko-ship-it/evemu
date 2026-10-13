@@ -483,7 +483,8 @@ bool SystemManager::LoadSystemStatics() {
     // Consume the background prefetch if it prepared this system; otherwise
     // query synchronously. (The per-item ItemFactory loads below still run on
     // the game thread - that part is not thread-safe.)
-    if (!sPrefetchCache.TakeStatic(m_data.systemID, entities)) {
+    bool usedPrefetch = sPrefetchCache.TakeStatic(m_data.systemID, entities);
+    if (!usedPrefetch) {
         if (!SystemDB::LoadSystemStaticEntities(m_data.systemID, entities)) {
             sLog.Error( "SystemManager::LoadSystemStatics()", "Unable to load celestial entities during boot of %s(%u).", m_data.name.c_str(), m_data.systemID);
             return false;
@@ -492,16 +493,30 @@ bool SystemManager::LoadSystemStatics() {
 
     // Batch-preload ItemData + saved attributes for this system so the per-item
     // ItemFactory loads below (GetStationRef/GetCelestialRef/... -> GetItemData
-    // + AttributeMap::Load) run no per-item SELECTs - just a few queries for the
-    // whole system. Released after the dynamics load completes.
-    ItemDB::PreloadSystemItems(m_data.systemID);
+    // + AttributeMap::Load) run no per-item SELECTs. Prefer the worker-built maps;
+    // fall back to a synchronous build only when this system was not prefetched.
+    // Released after the dynamics load completes.
     {
-        std::vector<uint32> preIDs;
-        preIDs.reserve(entities.size());
-        for (auto& e : entities)
-            preIDs.push_back(e.itemID);
-        AttributeMap::ClearPreload();
-        AttributeMap::PreloadAttributes(preIDs);
+        std::map<uint32, ItemData> itemPreload;
+        if (sPrefetchCache.TakeItemPreload(m_data.systemID, itemPreload))
+            ItemDB::InstallPreload(itemPreload);
+        else
+            ItemDB::PreloadSystemItems(m_data.systemID);
+    }
+    {
+        std::map<uint32, std::vector<PrefetchedAttr> > attrPreload;
+        if (usedPrefetch && sPrefetchCache.TakeAttrPreload(m_data.systemID, attrPreload)) {
+            AttributeMap::InstallPreload(attrPreload);
+            m_bootFromPrefetch = true;   // worker attrs already cover the dynamic ids
+        } else {
+            std::vector<uint32> preIDs;
+            preIDs.reserve(entities.size());
+            for (auto& e : entities)
+                preIDs.push_back(e.itemID);
+            AttributeMap::ClearPreload();
+            AttributeMap::PreloadAttributes(preIDs);
+            m_bootFromPrefetch = false;
+        }
     }
 
     SystemEntity* pSE(nullptr);
@@ -603,8 +618,9 @@ bool SystemManager::LoadSystemDynamics() {
     }
 
     // Attribute batch preload for the dynamic items (appends to the statics set
-    // prepared in LoadSystemStatics).
-    {
+    // prepared in LoadSystemStatics). Skipped when the worker preloaded attrs -
+    // it already included the dynamic ids.
+    if (!m_bootFromPrefetch) {
         std::vector<uint32> preIDs;
         preIDs.reserve(entities.size());
         for (auto& e : entities)

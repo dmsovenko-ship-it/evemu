@@ -3,6 +3,8 @@
 #include "eve-server.h"
 #include "system/SystemDB.h"
 #include "system/SystemManager.h"
+#include "inventory/ItemDB.h"
+#include "inventory/AttributeMap.h"
 #include <chrono>
 
 static const int64 PREFETCH_TTL = 300LL * EvE::Time::Second;   // entries older than 5 min are ignored
@@ -36,7 +38,8 @@ void PrefetchCache::Enqueue(uint32 systemID) {
     if (it != m_cache.end()) {
         bool fresh = (it->second.stamp != 0)
                      && (GetFileTimeNow() - it->second.stamp) < PREFETCH_TTL;
-        if (fresh && it->second.staticReady && it->second.dynamicReady)
+        if (fresh && it->second.staticReady && it->second.dynamicReady
+            && it->second.itemReady && it->second.attrReady)
             return;   // already prepared and fresh
     }
     m_queue[systemID] = ++m_gen;
@@ -70,6 +73,20 @@ void PrefetchCache::Run() {
         std::vector<DBSystemDynamicEntity> dynamics;
         SystemDB::LoadSystemDynamicEntities(systemID, dynamics);
 
+        // Per-item preloads (also pure DB reads -> POD maps): same data the game
+        // thread used to build in ItemDB::PreloadSystemItems / AttributeMap, but
+        // built here so boot only has to INSTALL them.
+        std::map<uint32, ItemData> items;
+        ItemDB::BuildSystemItemPreload(systemID, items);
+        std::vector<uint32> ids;
+        ids.reserve(statics.size() + dynamics.size());
+        for (auto& e : statics)
+            ids.push_back(e.itemID);
+        for (auto& e : dynamics)
+            ids.push_back(e.itemID);
+        std::map<uint32, std::vector<PrefetchedAttr> > attrs;
+        AttributeMap::BuildAttrPreload(ids, attrs);
+
         std::lock_guard<std::mutex> lock(m_mutex);
         // Drop the request if a newer gen was queued meanwhile.
         auto qit = m_queue.find(systemID);
@@ -78,8 +95,12 @@ void PrefetchCache::Run() {
         Entry& e = m_cache[systemID];
         e.statics.swap(statics);
         e.dynamics.swap(dynamics);
+        e.items.swap(items);
+        e.attrs.swap(attrs);
         e.staticReady = true;
         e.dynamicReady = true;
+        e.itemReady = true;
+        e.attrReady = true;
         e.stamp = GetFileTimeNow();
 
         // Cap the cache: evict the oldest prepared entries.
@@ -113,5 +134,33 @@ bool PrefetchCache::TakeDynamic(uint32 systemID, std::vector<DBSystemDynamicEnti
     }
     out.swap(it->second.dynamics);
     it->second.dynamicReady = false;
+    return true;
+}
+
+bool PrefetchCache::TakeItemPreload(uint32 systemID, std::map<uint32, ItemData>& out) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_cache.find(systemID);
+    if (it == m_cache.end() || !it->second.itemReady)
+        return false;
+    if (it->second.stamp == 0 || (GetFileTimeNow() - it->second.stamp) >= PREFETCH_TTL) {
+        m_cache.erase(it);
+        return false;
+    }
+    out.swap(it->second.items);
+    it->second.itemReady = false;
+    return true;
+}
+
+bool PrefetchCache::TakeAttrPreload(uint32 systemID, std::map<uint32, std::vector<PrefetchedAttr> >& out) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_cache.find(systemID);
+    if (it == m_cache.end() || !it->second.attrReady)
+        return false;
+    if (it->second.stamp == 0 || (GetFileTimeNow() - it->second.stamp) >= PREFETCH_TTL) {
+        m_cache.erase(it);
+        return false;
+    }
+    out.swap(it->second.attrs);
+    it->second.attrReady = false;
     return true;
 }

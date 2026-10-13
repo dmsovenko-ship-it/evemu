@@ -32,6 +32,7 @@
 #include <vector>
 #include <string>
 
+#include "POD_containers.h"   // PrefetchedAttr (boot preload POD)
 #include "inventory/InventoryDB.h"
 #include "inventory/InventoryItem.h"
 
@@ -65,8 +66,12 @@ public:
 
     // Batch preload for system boot (see AttributeMap.cpp): read entity_attributes
     // for many itemIDs in a few batched queries so Load() does not run one SELECT
-    // per item. Appends to an in-memory map; release with ClearPreload() when the
-    // boot finishes. Game thread only (no locking).
+    // per item. BuildAttrPreload() is WORKER-THREAD SAFE (pure DB reads);
+    // InstallPreload() swaps a worker-built map in on the game thread;
+    // PreloadAttributes() is the synchronous (game-thread) append fallback.
+    // Release with ClearPreload() when the boot finishes.
+    static void BuildAttrPreload(const std::vector<uint32>& itemIDs, std::map<uint32, std::vector<PrefetchedAttr> >& out);
+    static void InstallPreload(const std::map<uint32, std::vector<PrefetchedAttr> >& in);
     static void PreloadAttributes(const std::vector<uint32>& itemIDs);
     static void ClearPreload();
 
