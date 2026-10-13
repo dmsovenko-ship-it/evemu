@@ -4,6 +4,7 @@
 #include "npc/NPC.h"
 #include "system/SystemBubble.h"
 #include "system/SystemEntity.h"
+#include "system/SystemManager.h"
 #include "Client.h"
 
 SleeperAIMgr::SleeperAIMgr(NPC* npc)

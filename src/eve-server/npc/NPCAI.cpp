@@ -49,6 +49,7 @@
 #include "system/DestinyManager.h"
 #include "system/Damage.h"
 #include "system/SystemBubble.h"    
+#include "system/SystemManager.h"
 #include "standing/StandingDB.h"    
 #include "effects/EffectsDataMgr.h"
 

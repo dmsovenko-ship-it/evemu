@@ -24,6 +24,7 @@
 #include "system/Damage.h"
 #include "system/BubbleManager.h"
 #include "system/SystemBubble.h"
+#include "system/SystemManager.h"
 #include "tables/invGroups.h"
 
 DroneAIMgr::DroneAIMgr(DroneSE* who)
