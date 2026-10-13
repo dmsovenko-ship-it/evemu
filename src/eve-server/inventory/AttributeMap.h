@@ -29,6 +29,9 @@
 
 #include "./eve-common.h"
 
+#include <vector>
+#include <string>
+
 #include "inventory/InventoryDB.h"
 #include "inventory/InventoryItem.h"
 
@@ -59,6 +62,13 @@ public:
 
     // load the default attributes that come with the item's typeID
     bool Load(bool reset=false);
+
+    // Batch preload for system boot (see AttributeMap.cpp): read entity_attributes
+    // for many itemIDs in a few batched queries so Load() does not run one SELECT
+    // per item. Appends to an in-memory map; release with ClearPreload() when the
+    // boot finishes. Game thread only (no locking).
+    static void PreloadAttributes(const std::vector<uint32>& itemIDs);
+    static void ClearPreload();
 
     /* only save the ship damage and heat. other attribs are calculated when ship activated */
     void SaveShipState();

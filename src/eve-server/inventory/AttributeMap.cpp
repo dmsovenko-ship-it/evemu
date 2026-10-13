@@ -34,6 +34,67 @@
 #include "inventory/InventoryItem.h"
 
 
+// Transient batch preload for system boot: itemID -> saved attribute rows.
+// Filled by PreloadAttributes() while a system boots so Load() does not run one
+// SELECT per item; cleared by ClearPreload() when the boot ends. Game-thread
+// only (system boot), so no locking.
+struct PreAttrRow {
+    uint16  attrID;
+    bool    intNull;
+    bool    floatNull;
+    int64   vi;
+    double  vf;
+};
+static std::map<uint32, std::vector<PreAttrRow> > s_preloadAttrs;
+
+void AttributeMap::PreloadAttributes(const std::vector<uint32>& itemIDs) {
+    if (itemIDs.empty())
+        return;
+    // Seed an (empty) entry for every requested id so Load() knows the item was
+    // preloaded even when it has no saved rows -> no per-item SELECT at all.
+    for (size_t i = 0; i < itemIDs.size(); ++i)
+        s_preloadAttrs[itemIDs[i]];
+
+    const size_t CHUNK = 400;   // keep each IN() list bounded
+    for (size_t start = 0; start < itemIDs.size(); start += CHUNK) {
+        size_t end = start + CHUNK;
+        if (end > itemIDs.size())
+            end = itemIDs.size();
+
+        std::string q = "SELECT itemID, attributeID, valueInt, valueFloat FROM entity_attributes WHERE itemID IN (";
+        for (size_t i = start; i < end; ++i) {
+            if (i > start)
+                q += ",";
+            q += std::to_string(itemIDs[i]);
+        }
+        q += ")";
+
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res, q.c_str())) {
+            codelog(DATABASE__ERROR, "AttributeMap::PreloadAttributes failed: %s", res.error.c_str());
+            continue;
+        }
+
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            PreAttrRow a;
+            a.attrID    = row.GetUInt(1);
+            a.intNull   = row.IsNull(2);
+            a.floatNull = row.IsNull(3);
+            a.vi        = a.intNull   ? 0   : row.GetInt64(2);
+            a.vf        = a.floatNull ? 0.0 : row.GetDouble(3);
+            s_preloadAttrs[row.GetUInt(0)].push_back(a);
+        }
+    }
+    _log(ATTRIBUTE__INFO, "AttributeMap::PreloadAttributes - preloaded attribs for %lu items.",
+         (unsigned long)itemIDs.size());
+}
+
+void AttributeMap::ClearPreload() {
+    s_preloadAttrs.clear();
+}
+
+
 /*
  * ATTRIBUTE__ADD
  * ATTRIBUTE__CHANGE
@@ -69,28 +130,57 @@ bool AttributeMap::Load(bool reset/*false*/) {
     // check for temp items.  they arent saved to db
     if (!IsTempItem(mItem.itemID()) and !IsNPC(mItem.itemID())) {
         /* load saved attribs from the db, if any, to update the defaults with items current (saved) values*/
-        DBQueryResult res;
+        auto pit = s_preloadAttrs.find(mItem.itemID());
         if (IsCharacterID(mItem.itemID())) {
+            DBQueryResult res;
             if (!sDatabase.RunQuery(res, "SELECT attributeID, valueInt, valueFloat FROM chrCharacterAttributes WHERE charID=%u", mItem.itemID()))
                 _log(DATABASE__ERROR, "AttributeMap Error in db load query: %s", res.error.c_str());
+
+            DBResultRow row;
+            EvilNumber value(EvilZero);
+            while (res.GetRow(row)) {
+                if (row.IsNull(1)) {
+                    if (row.IsNull(2)) {
+                        value = EvilZero;
+                    } else {
+                        value = row.GetDouble(2);
+                    }
+                } else {
+                    value = row.GetInt64(1);
+                }
+                SetAttribute(row.GetUInt(0), value, false);
+            }
+        } else if (pit != s_preloadAttrs.end()) {
+            // System-boot batch preload: serve saved attrs from memory (no SELECT).
+            for (std::vector<PreAttrRow>::const_iterator it = pit->second.begin(); it != pit->second.end(); ++it) {
+                EvilNumber value(EvilZero);
+                if (it->intNull) {
+                    if (!it->floatNull)
+                        value = it->vf;
+                } else {
+                    value = it->vi;
+                }
+                SetAttribute(it->attrID, value, false);
+            }
         } else {
+            DBQueryResult res;
             if (!sDatabase.RunQuery(res, "SELECT attributeID, valueInt, valueFloat FROM entity_attributes WHERE itemID=%u", mItem.itemID()))
                 _log(DATABASE__ERROR, "AttributeMap Error in db load query: %s", res.error.c_str());
-        }
 
-        DBResultRow row;
-        EvilNumber value(EvilZero);
-        while (res.GetRow(row)) {
-            if (row.IsNull(1)) {
-                if (row.IsNull(2)) {
-                    value = EvilZero;
+            DBResultRow row;
+            EvilNumber value(EvilZero);
+            while (res.GetRow(row)) {
+                if (row.IsNull(1)) {
+                    if (row.IsNull(2)) {
+                        value = EvilZero;
+                    } else {
+                        value = row.GetDouble(2);
+                    }
                 } else {
-                    value = row.GetDouble(2);
+                    value = row.GetInt64(1);
                 }
-            } else {
-                value = row.GetInt64(1);
+                SetAttribute(row.GetUInt(0), value, false);
             }
-            SetAttribute(row.GetUInt(0), value, false);
         }
     }
     /* item now has it's own attribute map, and is deleted when item object is destroyed or reset */

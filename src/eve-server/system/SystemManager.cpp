@@ -36,6 +36,8 @@
 #include "npc/CustomsNPCManager.h"
 #include "incursion/IncursionMgr.h"
 #include "inventory/ItemFactory.h"
+#include "inventory/ItemDB.h"
+#include "inventory/AttributeMap.h"
 #include "corporation/LPService.h"
 #include "faction/FactionWarMgrDB.h"
 #include "npc/FactionPatrolManager.h"
@@ -488,6 +490,20 @@ bool SystemManager::LoadSystemStatics() {
         }
     }
 
+    // Batch-preload ItemData + saved attributes for this system so the per-item
+    // ItemFactory loads below (GetStationRef/GetCelestialRef/... -> GetItemData
+    // + AttributeMap::Load) run no per-item SELECTs - just a few queries for the
+    // whole system. Released after the dynamics load completes.
+    ItemDB::PreloadSystemItems(m_data.systemID);
+    {
+        std::vector<uint32> preIDs;
+        preIDs.reserve(entities.size());
+        for (auto& e : entities)
+            preIDs.push_back(e.itemID);
+        AttributeMap::ClearPreload();
+        AttributeMap::PreloadAttributes(preIDs);
+    }
+
     SystemEntity* pSE(nullptr);
     for (auto cur : entities) {
         switch (cur.groupID) {
@@ -586,6 +602,16 @@ bool SystemManager::LoadSystemDynamics() {
         }
     }
 
+    // Attribute batch preload for the dynamic items (appends to the statics set
+    // prepared in LoadSystemStatics).
+    {
+        std::vector<uint32> preIDs;
+        preIDs.reserve(entities.size());
+        for (auto& e : entities)
+            preIDs.push_back(e.itemID);
+        AttributeMap::PreloadAttributes(preIDs);
+    }
+
     SystemEntity* pSE(nullptr);
     for (auto cur : entities) {
         // skip wrecks on system load — they are transient and have their own
@@ -621,6 +647,10 @@ bool SystemManager::LoadSystemDynamics() {
 
     }
     _log(SERVER__INIT, "SystemManager::LoadSystemDynamics - %u Dynamic System entities loaded for %s(%u)", entities.size(), m_data.name.c_str(),m_data.systemID);
+
+    // Boot done: release the batch preloads (they are boot-scoped caches).
+    ItemDB::ClearPreload();
+    AttributeMap::ClearPreload();
 
     return true;
 }

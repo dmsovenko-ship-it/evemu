@@ -39,6 +39,13 @@ public:
     static bool GetItemData(uint32 itemID, ItemData &into);   // called by RefPtr<_Ty> _Load() at InventoryItem.h:245
     static bool DeleteItem(uint32 itemID);
 
+    // Batch preload for system boot (see ItemDB.cpp): fills an in-memory map of
+    // ItemData for the system's celestials/stations/in-space entities in a few
+    // batched SELECTs, so the per-item loaders run no per-item SELECT.
+    // Consumed transparently by GetItemData(); release with ClearPreload().
+    static void PreloadSystemItems(uint32 systemID);
+    static void ClearPreload();
+
     static void UpdateLocation(uint32 itemID, uint32 locationID, EVEItemFlags flag);
 
     static uint32 NewItem(const ItemData &data);

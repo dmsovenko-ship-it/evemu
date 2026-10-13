@@ -31,7 +31,44 @@
 #include "inventory/ItemType.h"
 
 
+// Transient batch preload for system boot: itemID -> ItemData. While a system
+// boots, PreloadSystemItems() fills this with that system's celestials,
+// stations and in-space entities in a few batched SELECTs, so the per-item
+// loaders (sItemFactory.GetCelestialRef/GetStationRef/GetItemRef -> GetItemData)
+// do not run one query each. Cleared with ClearPreload() when the boot ends.
+// Only ever touched on the game thread (system boot), so no locking.
+static std::map<uint32, ItemData> s_preloadItems;
+
+// Shared row->ItemData tail. The column order (name,typeID,ownerID,locationID,
+// flag,contraband,singleton,quantity,x,y,z,customInfo) MUST match both the
+// per-item SELECTs and the batched preload queries.
+static void _RowToItemData(DBResultRow& row, ItemData& into) {
+    into.name = row.GetText(0);
+    into.typeID = row.GetUInt(1);
+    into.ownerID = (row.IsNull(2) ? 1 : row.GetUInt(2));
+    into.locationID = (row.IsNull(3) ? 0 : row.GetUInt(3));
+    into.flag = (EVEItemFlags)row.GetUInt(4);
+    into.contraband = row.GetInt(5) ? true : false;
+    into.singleton = row.GetInt(6) ? true : false;
+    into.quantity = row.GetUInt(7);
+
+    into.position.x = row.GetDouble(8);
+    into.position.y = row.GetDouble(9);
+    into.position.z = row.GetDouble(10);
+
+    into.customInfo = (row.IsNull(11) ? "" : row.GetText(11));
+}
+
 bool ItemDB::GetItemData(uint32 itemID, ItemData &into) {
+    // System-boot batch preload: serve from memory when the item was preloaded.
+    {
+        auto pit = s_preloadItems.find(itemID);
+        if (pit != s_preloadItems.end()) {
+            into = pit->second;
+            return true;
+        }
+    }
+
     DBQueryResult res;
 
     // For ranges of itemIDs we use specialized tables:
@@ -163,22 +200,86 @@ bool ItemDB::GetItemData(uint32 itemID, ItemData &into) {
         return false;
     }
 
-    into.name = row.GetText(0);
-    into.typeID = row.GetUInt(1);
-    into.ownerID = (row.IsNull(2) ? 1 : row.GetUInt(2));
-    into.locationID = (row.IsNull(3) ? 0 : row.GetUInt(3));
-    into.flag = (EVEItemFlags)row.GetUInt(4);
-    into.contraband = row.GetInt(5) ? true : false;
-    into.singleton = row.GetInt(6) ? true : false;
-    into.quantity = row.GetUInt(7);
-
-    into.position.x = row.GetDouble(8);
-    into.position.y = row.GetDouble(9);
-    into.position.z = row.GetDouble(10);
-
-    into.customInfo = (row.IsNull(11) ? "" : row.GetText(11));
+    _RowToItemData(row, into);
 
     return true;
+}
+
+void ItemDB::PreloadSystemItems(uint32 systemID) {
+    s_preloadItems.clear();
+    if (systemID == 0)
+        return;
+
+    DBQueryResult res;
+    DBResultRow row;
+
+    // 1) in-space entity rows (bots' ships, structures, deployables, POS...) -
+    //    the base layer; per-item path reads the same `entity` table for these.
+    if (sDatabase.RunQuery(res,
+        "SELECT itemName, typeID, ownerID, locationID, flag, contraband, singleton,"
+        " quantity, x, y, z, IFNULL(customInfo,'') AS customInfo, itemID"
+        " FROM entity WHERE locationID=%u", systemID)) {
+        while (res.GetRow(row)) {
+            ItemData d;
+            _RowToItemData(row, d);
+            s_preloadItems[row.GetUInt(12)] = d;
+        }
+    } else {
+        codelog(DATABASE__ERROR, "ItemDB::PreloadSystemItems (entity) failed: %s", res.error.c_str());
+    }
+
+    // 2) stations - override the entity rows (per-item path reads staStations).
+    if (sDatabase.RunQuery(res,
+        "SELECT stationName, stationTypeID, corporationID, solarSystemID, 0 AS flag,"
+        " 0 AS contraband, 1 AS singleton, 1 AS quantity, x, y, z, '' AS customInfo, stationID"
+        " FROM staStations WHERE solarSystemID=%u", systemID)) {
+        while (res.GetRow(row)) {
+            ItemData d;
+            _RowToItemData(row, d);
+            s_preloadItems[row.GetUInt(12)] = d;
+        }
+    } else {
+        codelog(DATABASE__ERROR, "ItemDB::PreloadSystemItems (station) failed: %s", res.error.c_str());
+    }
+
+    // 3) celestials - override (per-item path reads mapDenormalize).
+    if (sDatabase.RunQuery(res,
+        "SELECT itemName, typeID, 1 AS ownerID, solarSystemID, 0 AS flag, 0 AS contraband,"
+        " 1 AS singleton, 1 AS quantity, x, y, z, '' AS customInfo, itemID"
+        " FROM mapDenormalize WHERE solarSystemID=%u", systemID)) {
+        while (res.GetRow(row)) {
+            ItemData d;
+            _RowToItemData(row, d);
+            s_preloadItems[row.GetUInt(12)] = d;
+        }
+    } else {
+        codelog(DATABASE__ERROR, "ItemDB::PreloadSystemItems (celestial) failed: %s", res.error.c_str());
+    }
+
+    // 4) stargates - the per-item path uses the stargate branch, whose ownerID is
+    //    the system's factionID (via mapSolarSystems), not the generic celestial
+    //    '1'. Run last so it overrides step 3.
+    if (sDatabase.RunQuery(res,
+        "SELECT itemName, typeID, factionID, solarSystemID, 0 AS flag, 0 AS contraband,"
+        " 1 AS singleton, 1 AS quantity, mapDenormalize.x, mapDenormalize.y, mapDenormalize.z,"
+        " '' AS customInfo, itemID"
+        " FROM mapDenormalize LEFT JOIN mapSolarSystems USING (solarSystemID)"
+        " WHERE solarSystemID=%u AND groupID=10", systemID)) {
+        while (res.GetRow(row)) {
+            ItemData d;
+            _RowToItemData(row, d);
+            s_preloadItems[row.GetUInt(12)] = d;
+        }
+    } else {
+        codelog(DATABASE__ERROR, "ItemDB::PreloadSystemItems (stargate) failed: %s", res.error.c_str());
+    }
+
+    _log(DATABASE__RESULTS, "ItemDB::PreloadSystemItems - preloaded %lu ItemData rows for system %u.",
+         (unsigned long)s_preloadItems.size(), systemID);
+}
+
+void ItemDB::ClearPreload() {
+    s_preloadItems.clear();
 }
 
 uint32 ItemDB::NewItem(const ItemData &data) {
