@@ -4261,10 +4261,19 @@ void DestinyManager::SendSetState() const {
     mySE->GetPilot()->SetStateSent(true);
 
     // The client just received a full grid snapshot: rebaseline the known-grid
-    // set from the arrival bubble (used by the cross-bubble warp resync).
+    // set from what was actually encoded (used by the cross-bubble warp resync).
+    // Iterate the SetState payload (ss.damageState), NOT raw GetDynamicEntities():
+    // cloaked ships and size-dropped entities are absent from the payload, and
+    // tracking them would make WarpStop send RemoveBall for balls the client
+    // never received (wedges the client's destiny handler until relog).
+    // Statics are filtered out (not tracked for warp resync). Encode() does not
+    // clear the map — reading keys after Encode() is safe.
     m_gridBalls.clear();
-    for (auto& kv : mySE->SysBubble()->GetDynamicEntities())
-        m_gridBalls.insert(kv.first);
+    for (auto& kv : ss.damageState) {
+        SystemEntity* se = mySE->SystemMgr()->GetSE(kv.first);
+        if (se != nullptr && se->IsDynamicEntity())
+            m_gridBalls.insert(kv.first);
+    }
 
     // Restore drone control: the SetState rebuild cleared the client's drone window
     // (stateByDroneID is client session state) while the server still has drones in
