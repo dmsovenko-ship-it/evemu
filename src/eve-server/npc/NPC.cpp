@@ -346,7 +346,17 @@ PyDict* NPC::MakeSlimItem()
             if (!modules.empty()) {
                 PyList* modList = new PyList();
                 for (auto& mod : modules) {
-                    if (mod.typeID > 0)
+                    // ONLY real turret/launcher hardpoints belong in slimItem.modules:
+                    // the client's Ship.FitHardpoints -> turretSet.FitTurrets builds a
+                    // turret model from each entry's typeID and requires its GROUP to be
+                    // in const.turretModuleGroups. EWAR placeholders (Warp Scrambler 227,
+                    // Stasis Webifier 324) and missile charges (baked into the weapon
+                    // slot for missile ships) are NOT turret-group types -> FitTurrets
+                    // throws, the camera 'Look at' dies AND the whole destiny handler is
+                    // wedged ("warp stops working", invisible attackers vanish).
+                    // mod.graphicID is set only for real turrets (the hull's
+                    // AttrGfxTurretID), so use it as the hardpoint proxy.
+                    if (mod.typeID > 0 && mod.graphicID > 0)
                         modList->AddItem(new_tuple((int64)mod.typeID, (int64)mod.typeID));   // (moduleID, typeID); NPCs have no per-module item, use typeID as both
                 }
                 if (modList->size() > 0)
