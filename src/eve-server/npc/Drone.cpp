@@ -37,6 +37,7 @@
 #include "system/SystemBubble.h"
 #include "ship/Ship.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
+#include "npc/PlayerBot.h"
 
 DroneSE::DroneSE(InventoryItemRef drone, EVEServiceManager &services, SystemManager* pSystem, const FactionData& data)
 : DynamicSystemEntity(drone, services, pSystem),
@@ -550,11 +551,30 @@ void DroneSE::Killed(Damage &damage) {
         pClient = killer->GetPilot();
         killerID = pClient->GetCharacterID();
     } else if (killer->IsDroneSE()) {
-        pClient = sEntityList.FindClientByCharID( killer->GetSelf()->ownerID() );
-        if (pClient == nullptr) {
-            sLog.Error("DroneSE::Killed()", "killer == IsDrone and pPlayer == nullptr");
-        } else {
+        uint32 owner = killer->GetSelf()->ownerID();
+        pClient = sEntityList.FindClientByCharID( owner );
+        if (pClient != nullptr) {
             killerID = pClient->GetCharacterID();
+        } else {
+            // No human client behind the killer drone: it belongs to a chelobot
+            // (bots have no Client). Attribute the kill to the bot pilot instead
+            // of logging an error - this is a normal event in a bot-populated
+            // world, not a fault.
+            for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+                if (sm == nullptr)
+                    continue;
+                for (auto& [id, se] : sm->GetEntities()) {
+                    if (se == nullptr || se->GetNPCSE() == nullptr)
+                        continue;
+                    PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+                    if (pb != nullptr && (pb->GetBotCharID() == owner || pb->GetID() == owner)) {
+                        killerID = pb->GetBotCharID();
+                        break;
+                    }
+                }
+                if (killerID != 0)
+                    break;
+            }
         }
     } else {
         killerID = killer->GetID();
