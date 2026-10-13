@@ -2392,32 +2392,40 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
         const bool crossedBubble = (m_warpOriginBubbleID != 0) && (arriveBubbleID != m_warpOriginBubbleID);
 
         if (crossedBubble) {
-            // Crossed into a DIFFERENT bubble: fully resync the client grid
-            // (ClearAll + rebuild). The incremental AddBalls below can leave the
-            // client holding stale balls of ships that left the old bubble (it
-            // keeps extrapolating them - they drift off to AU distances) and can
-            // miss balls whose ids are still in the client's slimItems, so a new
-            // attacker never renders - the "invisible attacker at the gate" bug.
-            // A full SetState is only safe/needed on a real bubble change;
-            // same-bubble warps keep the flicker-free incremental path.
-            _log(DESTINY__WARP_TRACE, "Destiny::WarpStop(): bubble changed %u -> %u - sending full SetState resync.",
-                 m_warpOriginBubbleID, arriveBubbleID);
-            SendSetState();   // includes the pilot's own (STOP) ball; restores drone state
-        } else {
-            if (mySE->SysBubble()->HasPlayers())
-                mySE->SysBubble()->AddBallExclusive(mySE);
-
-            // Deliver the ARRIVAL bubble's contents NOW (we no longer send them on
-            // bubble entry during warp - that made the destination grid pop in while
-            // the ship was still turning). Skips the pilot's own ball (added above).
-            mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
-
-            // Gap-fill: clients occasionally drop CHUNKS of big AddBalls batches
-            // (second delivery waves, activation bursts) - towers/decor never render
-            // until a SetState. A second pass a few seconds later re-delivers them;
-            // the client skips balls it already has, so this only fills the gaps.
-            m_gridGapFill.Start(5000);
+            // Drop ONLY the balls the client still holds that are absent from the
+            // arrival bubble (tracked per-pilot via GridBallAdded/Removed). Ships
+            // that left the old bubble were never RemoveBall'd to this client (it
+            // was warping), so it kept extrapolating them (drifting to AU distances);
+            // and a ball whose id is still in the client's slimItems is never
+            // re-rendered - the "invisible attacker". Surgical removal, no ClearAll,
+            // so no grid flicker. Only ids the client actually holds are removed
+            // (removing an unknown ball wedges the client's destiny handler).
+            std::set<uint32> arriveIDs;
+            for (auto& kv : mySE->SysBubble()->GetDynamicEntities())
+                arriveIDs.insert(kv.first);
+            RemoveBallsFromBP stale;
+            for (uint32 id : m_gridBalls)
+                if (id != mySE->GetID() && arriveIDs.find(id) == arriveIDs.end())
+                    stale.balls.push_back(id);
+            if (!stale.balls.empty()) {
+                PyTuple* tmp = stale.Encode();
+                mySE->GetPilot()->QueueDestinyUpdate(&tmp);   // consumed
+                _log(DESTINY__WARP_TRACE, "Destiny::WarpStop(): dropped %zu stale balls (bubble %u -> %u).",
+                     stale.balls.size(), m_warpOriginBubbleID, arriveBubbleID);
+            }
+            m_gridBalls.clear();   // re-populated by the arrival AddBalls below
         }
+
+        // Arrival grid delivery (both paths): pilot's own ball + the arrival bubble.
+        if (mySE->SysBubble()->HasPlayers())
+            mySE->SysBubble()->AddBallExclusive(mySE);
+        mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
+
+        // Gap-fill: clients occasionally drop CHUNKS of big AddBalls batches
+        // (second delivery waves, activation bursts) - towers/decor never render
+        // until a SetState. A second pass a few seconds later re-delivers them;
+        // the client skips balls it already has, so this only fills the gaps.
+        m_gridGapFill.Start(5000);
 
         // Belts / anomaly dungeons can straddle more than one bubble: deliver the
         // balls from overlapping bubbles inside the arrival area, so asteroids and
@@ -4251,6 +4259,12 @@ void DestinyManager::SendSetState() const {
     mySE->GetPilot()->QueueDestinyUpdate(&tmp, true, true); // consumed
 
     mySE->GetPilot()->SetStateSent(true);
+
+    // The client just received a full grid snapshot: rebaseline the known-grid
+    // set from the arrival bubble (used by the cross-bubble warp resync).
+    m_gridBalls.clear();
+    for (auto& kv : mySE->SysBubble()->GetDynamicEntities())
+        m_gridBalls.insert(kv.first);
 
     // Restore drone control: the SetState rebuild cleared the client's drone window
     // (stateByDroneID is client session state) while the server still has drones in

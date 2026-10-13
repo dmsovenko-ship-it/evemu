@@ -29,6 +29,7 @@
 
 #include "eve-compat.h"
 
+#include <set>
 #include "services/Callable.h"
 #include "destiny/DestinyStructs.h"
 #include "inventory/ItemRef.h"
@@ -185,6 +186,15 @@ public:
     // while the ship was still turning, and were incomplete on arrival).
     bool IsWarpPending()                                { return m_warpPending; }
     void SetWarpPending(bool p)                         { m_warpPending = p; }
+
+    // Ball ids currently held on this pilot's client grid. Maintained at every
+    // grid delivery/removal so a warp across bubbles can surgically drop only the
+    // balls the client no longer should have (no full SetState / no flicker).
+    // Only meaningful for piloted ships.
+    void GridBallAdded(uint32 id)                       { m_gridBalls.insert(id); }
+    void GridBallRemoved(uint32 id)                     { m_gridBalls.erase(id); }
+    void GridBallsReset(void)                           { m_gridBalls.clear(); }
+    const std::set<uint32>& GetGridBalls(void) const    { return m_gridBalls; }
     // True while the ship is TURNING to warp (the client renders its own align):
     // the bubble manager must not evict the ship from its ORIGIN bubble during
     // this window, or the client (still physically at the origin) loses its grid.
@@ -455,6 +465,7 @@ private:
     GPoint m_lastWarpPos;               // watchdog: last position checked during WARP
     uint32 m_warpStallTicks;            // watchdog: consecutive ticks with no warp progress
     uint32 m_warpOriginBubbleID;        // bubble the ship was in when the warp started
+    mutable std::set<uint32> m_gridBalls;   // ball ids on this pilot's client grid (see GridBallAdded)
 };
 
 #endif

@@ -189,6 +189,11 @@ public:
     // remove this ball from bubble.  update all clients in bubble this SE has left.
     void RemoveBallExclusive(SystemEntity* about_who);
 
+    // Update each recipient pilot's known-client-grid set (DestinyManager::
+    // GridBallAdded/Removed) for a broadcast add/remove of `about`'s ball.
+    // excludeSE: skip that SE's own pilot (the exclusive casts).
+    void NoteGridBallToPlayers(SystemEntity* about, bool added, SystemEntity* excludeSE);
+
     void MarkBubble(const GPoint& position, std::string& name, std::string& desc, bool center=false);
 
 private:

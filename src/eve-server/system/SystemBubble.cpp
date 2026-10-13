@@ -901,6 +901,8 @@ void SystemBubble::SendAddBalls(SystemEntity* to_who, uint32 skipItemID /*0*/) {
             if (!se->IsMissileSE() or !se->IsFieldSE())
                 addballs.damageDict[se->GetID()] = se->MakeDamageState();
             addballs.slims->AddItem(new PyObject("foo.SlimItem", se->MakeSlimItem()));
+            if (to_who->DestinyMgr() != nullptr)
+                to_who->DestinyMgr()->GridBallAdded(se->GetID());
             ++inChunk;
             ++totalBalls;
             if (inChunk >= BALLS_PER_PACKET)
@@ -1041,6 +1043,7 @@ void SystemBubble::AddBallExclusive( SystemEntity* pSE, bool fullState ) {
     }
     BubblecastDestinyUpdateExclusive( &t, "AddBall", pSE );
     PySafeDecRef( t );
+    NoteGridBallToPlayers(pSE, true, pSE);
 }
 
 /*  NOTE   lil insight into clients code for RemoveBall
@@ -1076,6 +1079,7 @@ void SystemBubble::RemoveBall(SystemEntity *about_who) {
     PyTuple *tmp = removeball.Encode();
     BubblecastDestinyUpdate(&tmp, "RemoveBall");
     PySafeDecRef( tmp );
+    NoteGridBallToPlayers(about_who, false, nullptr);
 }
 
 // this *should* only be called from DestinyMgr::Cloak() and DestinyMgr::Jump()
@@ -1092,6 +1096,30 @@ void SystemBubble::RemoveBallExclusive(SystemEntity *about_who) {
     PyTuple *tmp = removeball.Encode();
     BubblecastDestinyUpdateExclusive(&tmp, "RemoveBall", about_who);
     PySafeDecRef( tmp );
+    NoteGridBallToPlayers(about_who, false, about_who);
+}
+
+// Maintain each recipient pilot's known-client-grid set so a cross-bubble warp
+// can drop exactly the balls the client still holds (see DestinyManager::
+// GridBallAdded / WarpStop).
+void SystemBubble::NoteGridBallToPlayers(SystemEntity* about, bool added, SystemEntity* excludeSE) {
+    if (about == nullptr)
+        return;
+    uint32 aboutID = about->GetID();
+    for (auto& cur : m_players) {
+        Client* pClient = sEntityList.FindClientByCharID(cur.first);
+        if (pClient != cur.second)
+            continue;
+        if (pClient->IsDocked())
+            continue;
+        ShipSE* sh = pClient->GetShipSE();
+        if (sh == nullptr || sh->DestinyMgr() == nullptr)
+            continue;
+        if (excludeSE != nullptr && sh == excludeSE)
+            continue;
+        if (added) sh->DestinyMgr()->GridBallAdded(aboutID);
+        else       sh->DestinyMgr()->GridBallRemoved(aboutID);
+    }
 }
 
 void SystemBubble::RemoveBalls(SystemEntity *to_who) {
@@ -1117,6 +1145,10 @@ void SystemBubble::RemoveBalls(SystemEntity *to_who) {
     for (auto cur : m_dynamicEntities) {
         remove_balls.balls.push_back(cur.first);
     }
+
+    if (to_who->DestinyMgr() != nullptr)
+        for (auto id : remove_balls.balls)
+            to_who->DestinyMgr()->GridBallRemoved(id);
 
     if (remove_balls.balls.empty()) {
         return;

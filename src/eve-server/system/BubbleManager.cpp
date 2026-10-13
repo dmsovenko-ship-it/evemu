@@ -394,6 +394,8 @@ void BubbleManager::SendOverlappingBalls(SystemManager* sysMgr, const GPoint& po
             if (!se->IsMissileSE() or !se->IsFieldSE())
                 addballs.damageDict[se->GetID()] = se->MakeDamageState();
             addballs.slims->AddItem(new PyObject("foo.SlimItem", se->MakeSlimItem()));
+            if (to_who->DestinyMgr() != nullptr)
+                to_who->DestinyMgr()->GridBallAdded(se->GetID());
             ++count;
         }
     }
