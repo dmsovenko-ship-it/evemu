@@ -2388,37 +2388,47 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
     // warp exit.  Only the pilot's OWN ball is added now (mode is STOP, so its
     // EncodeDestiny is finally correct), plus balls from overlapping bubbles.
     if (mySE->HasPilot() && mySE->SysBubble() != nullptr) {
-        if (mySE->SysBubble()->HasPlayers())
-            mySE->SysBubble()->AddBallExclusive(mySE);
+        const uint16 arriveBubbleID = mySE->SysBubble()->GetID();
+        const bool crossedBubble = (m_warpOriginBubbleID != 0) && (arriveBubbleID != m_warpOriginBubbleID);
 
-        // Deliver the ARRIVAL bubble's contents NOW (we no longer send them on
-        // bubble entry during warp - that made the destination grid pop in while
-        // the ship was still turning). Skips the pilot's own ball (added above).
-        mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
+        if (crossedBubble) {
+            // Crossed into a DIFFERENT bubble: fully resync the client grid
+            // (ClearAll + rebuild). The incremental AddBalls below can leave the
+            // client holding stale balls of ships that left the old bubble (it
+            // keeps extrapolating them - they drift off to AU distances) and can
+            // miss balls whose ids are still in the client's slimItems, so a new
+            // attacker never renders - the "invisible attacker at the gate" bug.
+            // A full SetState is only safe/needed on a real bubble change;
+            // same-bubble warps keep the flicker-free incremental path.
+            _log(DESTINY__WARP_TRACE, "Destiny::WarpStop(): bubble changed %u -> %u - sending full SetState resync.",
+                 m_warpOriginBubbleID, arriveBubbleID);
+            SendSetState();   // includes the pilot's own (STOP) ball; restores drone state
+        } else {
+            if (mySE->SysBubble()->HasPlayers())
+                mySE->SysBubble()->AddBallExclusive(mySE);
 
-        // Gap-fill: clients occasionally drop CHUNKS of big AddBalls batches
-        // (second delivery waves, activation bursts) - towers/decor never render
-        // until a SetState. A second pass a few seconds later re-delivers them;
-        // the client skips balls it already has, so this only fills the gaps.
-        m_gridGapFill.Start(5000);
+            // Deliver the ARRIVAL bubble's contents NOW (we no longer send them on
+            // bubble entry during warp - that made the destination grid pop in while
+            // the ship was still turning). Skips the pilot's own ball (added above).
+            mySE->SysBubble()->SendAddBalls(mySE, mySE->GetID());
 
-        // Belts / anomaly dungeons can straddle more than one bubble: deliver
-        // the balls from overlapping bubbles inside the arrival area, so
-        // asteroids and dungeon objects render immediately instead of frames
-        // (2-5 s) later. Missing ids from the arrival bubble are skipped inside.
+            // Gap-fill: clients occasionally drop CHUNKS of big AddBalls batches
+            // (second delivery waves, activation bursts) - towers/decor never render
+            // until a SetState. A second pass a few seconds later re-delivers them;
+            // the client skips balls it already has, so this only fills the gaps.
+            m_gridGapFill.Start(5000);
+        }
+
+        // Belts / anomaly dungeons can straddle more than one bubble: deliver the
+        // balls from overlapping bubbles inside the arrival area, so asteroids and
+        // dungeon objects render immediately instead of frames (2-5 s) later.
+        // Missing ids from the arrival bubble are skipped inside.
         std::map<uint32, SystemEntity*> delivered;
         for (auto& [id, se] : mySE->SysBubble()->GetDynamicEntities())
             delivered.emplace(id, se);
         for (auto& [id, se] : mySE->SystemMgr()->GetStaticEntities())
             delivered.emplace(id, se);
         sBubbleMgr.SendOverlappingBalls(mySE->SystemMgr(), m_position, mySE, delivered);
-
-        // NOTE: do NOT send a full SetState here. The client's RemoveBall already
-        // clears slimItems (michelle.py:1137), so the stale-slimski theory was wrong;
-        // the SetState's ClearAll() only made the grid visibly flicker during normal
-        // warps. The incremental SendAddBalls above is the correct arrival delivery.
-
-        // GateActivity is sent only during actual gate jumps (in JumpGate/Follow), not here.
     } else if (mySE->IsNPCSE() && mySE->SysBubble() != nullptr && mySE->SysBubble()->HasPlayers()) {
         // Same for NPCs: while warping, Bubble::Add sent AddBallExclusive with a
         // WARP EncodeDestiny, which the client won't render (a warping NPC ball is
