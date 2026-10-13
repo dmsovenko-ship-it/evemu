@@ -267,6 +267,12 @@ void StationItem::GetRefineData(uint32& stationCorpID, float& staEfficiency, flo
 
 bool StationItem::HasShip(Client* pClient)
 {
+    // The station may have been unloaded (system unload destroys its inventory)
+    // while a stale StationItemRef is still reachable through the system's
+    // inventory - using it here crashed (Inventory::GetInvForOwner on a null
+    // Inventory, DockToStation during docking).
+    if (pInventory == nullptr)
+        return false;
     std::vector< InventoryItemRef > items;
     pInventory->GetInvForOwner(pClient->GetCharacterID(), items);
 
@@ -279,11 +285,15 @@ bool StationItem::HasShip(Client* pClient)
 
 ShipItemRef StationItem::GetShipFromInventory(uint32 shipID)
 {
+    if (pInventory == nullptr)
+        return ShipItemRef();
     return ShipItemRef::StaticCast(pInventory->GetByID(shipID));
 }
 
 CargoContainerRef StationItem::GetContainerFromInventory(uint32 contID)
 {
+    if (pInventory == nullptr)
+        return CargoContainerRef();
     return CargoContainerRef::StaticCast(pInventory->GetByID(contID));
 }
 
