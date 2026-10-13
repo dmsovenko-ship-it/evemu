@@ -3711,6 +3711,11 @@ void DestinyManager::UpdateOldShip(ShipSE* pShipSE)
         slimPod->SetItemString("warFactionID",          new PyInt(pShipSE->GetWarFactionID()));
         slimPod->SetItemString("bounty",                PyStatic.NewNone());
         slimPod->SetItemString("securityStatus",        PyStatic.NewNone());
+        // The client reads slimItem.modules on 'Look at'/slim update; a missing
+        // field made Ship.LookAtMe / the destiny handler throw, wedging the whole
+        // grid (dead ship stuck as an empty hull + no warp). Mirrors
+        // UpdateNewShip(), which always emits 'modules'.
+        slimPod->SetItemString("modules",               new PyList());
     PyTuple* shipData = new PyTuple(2);
         PySetItemRelease(shipData, 0, new PyLong(pShipSE->GetID()));
         PySetItemRelease(shipData, 1, new PyObject( "foo.SlimItem", slimPod));
