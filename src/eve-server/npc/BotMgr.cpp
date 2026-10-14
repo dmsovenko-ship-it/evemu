@@ -9124,7 +9124,7 @@ void BotMgr::SweepAmbushWarpBubbles()
             if (!expired && kept < kMaxPerSystem) { ++kept; continue; }
 
             _log(BOT__MESSAGE, "BotMgr: removing stale ambush warp bubble %s(%u) in %s(%u).",
-                 se->GetName().c_str(), se->GetID(), sm->GetName(), sysID);
+                 se->GetName(), se->GetID(), sm->GetName(), sysID);
             // Delete() takes the deployable out of the bubble (clients get RemoveBall) and
             // deletes the item row; the wrapper goes with it.
             se->Delete();
