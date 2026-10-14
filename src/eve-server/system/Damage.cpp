@@ -114,6 +114,18 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         d.srcSE = this; // Damage originates from self (no attribution)
     }
 
+    // Off-grid targets cannot be hit. Anything past BUBBLE_RADIUS_METERS is dropped
+    // from its bubble by DestinyManager::WarpAccel(), so a ship that warped out mid-
+    // fight has m_bubble == nullptr while weapons keep landing on it. EVE voided those
+    // shots (you cannot lock what has left the grid). Letting them through here could
+    // finish the ship off at a moment when the kill block has no bubble to broadcast
+    // the explosion to - which used to ABANDON the kill and leave a wreck that stayed
+    // in the system forever, already flagged m_killed and therefore unkillable.
+    if (m_destiny != nullptr && m_bubble == nullptr) {
+        _log(DAMAGE__WARNING, "%s(%u): damage voided - target is off-grid (no bubble).", GetName(), GetID());
+        return false;
+    }
+
     // Force field: the Control Tower's shield IS the force field, so damage to
     // the tower goes into that shield while the field is up — shield resonances
     // and active Shield Hardening Arrays apply (EVE). A reinforced tower is
@@ -532,12 +544,15 @@ bool SystemEntity::ApplyDamage(Damage &d) {
 
         m_killed = true;
 
-        if ((m_destiny == nullptr) or (m_bubble == nullptr)) {
-            _log(DAMAGE__ERROR, "%s(%u): Cannot process kill - destiny or bubble is null.", GetName(), GetID());
-            return true;
-        }
-        // OnNotify:OnTransmission -  (235799, `You have killed this defenseless NPC, bully.  Also, you have killed this NPC and are receiving this message.`)
-        m_destiny->SendTerminalExplosion(m_self->itemID(), m_bubble->GetID(), isGlobal());
+        // The kill must NEVER be abandoned. This used to `return true` when destiny or
+        // the bubble was gone, which left the entity alive but permanently unkillable:
+        // m_killed was already set, so every later hit bailed out at the check above.
+        // The wreck stayed in the system forever - no explosion, no killmail, no loot.
+        // Only the bubblecast is conditional; the teardown always runs.
+        if (m_destiny != nullptr && m_bubble != nullptr)
+            m_destiny->SendTerminalExplosion(m_self->itemID(), m_bubble->GetID(), isGlobal());
+        else
+            _log(DAMAGE__WARNING, "%s(%u): killed off-grid - no terminal explosion sent.", GetName(), GetID());
 
         Killed(d);  // this must NOT remove dead SE from system.
         SystemEntity::Killed(d);    // this removes dead SE from system then deletes itemRef and its all contents
