@@ -2510,14 +2510,22 @@ bool DestinyManager::IsTargetInvalid(bool forOrbit/*false*/)
         Stop();
         return true;
     }
-    // Target without a DestinyManager (decor/containers/accel gates — CelestialSE/
-    // ItemSystemEntity have no m_destiny and IsDynamicEntity()==false). Orbiting
-    // a static decoration is meaningless (the client Ballpark keeps the ball in
-    // ORBIT around an invisible point -> "ship circles invisible object"), so
-    // reject it for ORBIT. But FOLLOW/approach to static objects (gates, stations)
-    // is perfectly valid — the ship just flies to the fixed point and stops.
+    // Target without a DestinyManager of its own. That covers pure decoration
+    // (clouds / acceleration gates: CelestialSE) — but ALSO asteroids and sentries,
+    // because ObjectSystemEntity never overrides IsDynamicEntity(), so they have no
+    // m_destiny either.
+    //
+    // The orbit of the PLAYER around a fixed point is simulated entirely from the
+    // target's position and radius (see Orbit(): Tr = GetRadius(), Tp = GetPosition()),
+    // so the target does not need a DestinyManager for this to work — live EVE lets you
+    // orbit asteroids and sentries normally.
+    //
+    // Stopping here used to drop the ship to 0 speed the moment the player clicked any
+    // anomaly object: the orbit command arrived, IsTargetInvalid() called Stop(), and the
+    // client kept the bracket as if it were orbiting — reported as "orbit -> speed 0 /
+    // broken grid". Only CelestialSE decoration keeps the old reject (nothing to orbit).
     if (m_targetEntity.second->DestinyMgr() == nullptr) {
-        if (forOrbit) {
+        if (forOrbit && m_targetEntity.second->IsCelestialSE()) {
             Stop();
             return true;
         }
