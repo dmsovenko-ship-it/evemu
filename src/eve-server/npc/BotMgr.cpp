@@ -169,10 +169,31 @@ void BotMgr::CleanupOrphanedSpaceItems()
             for (uint32 id : del) {
                 sDatabase.RunQuery(werr, "DELETE FROM entity_attributes WHERE itemID = %u", id);
                 sDatabase.RunQuery(werr, "DELETE FROM entity WHERE itemID = %u", id);
+                // A wormhole's cosmic signature is a SEPARATE row keyed by the
+                // wormhole's itemID (sysSignatures.sigItemID, dungeonType=6). Purging
+                // only the entity orphaned it, and every boot added more orphans -
+                // 538 of the 593 rows in sysSignatures had no wormhole left.
+                sDatabase.RunQuery(werr, "DELETE FROM sysSignatures WHERE sigItemID = %u", id);
             }
             if (!del.empty())
                 sLog.White("     Wormholes", "Space cleanup: removed %u wormhole entities (%u expired).",
                            (uint32)del.size(), expiredCount);
+        }
+    }
+
+    // 2c) Signature rows whose wormhole entity is gone (every boot before this purged
+    //     the entity only). LoadAnomalies() drops them when their system boots, but a
+    //     system that is never loaded again left them in the table forever.
+    {
+        DBerror oerr;
+        uint32 orphanSigs = 0;
+        if (sDatabase.RunQuery(oerr, orphanSigs,
+            "DELETE s FROM sysSignatures s LEFT JOIN entity e ON e.itemID = s.sigItemID"
+            " WHERE e.itemID IS NULL")) {
+            if (orphanSigs > 0)
+                sLog.White("     Wormholes", "Space cleanup: removed %u orphan cosmic signature rows.", orphanSigs);
+        } else {
+            _log(BOT__ERROR, "BotMgr: wormhole signature sweep failed: %s", oerr.GetError());
         }
     }
 
