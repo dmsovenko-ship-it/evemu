@@ -171,6 +171,7 @@ boolean can use either 0/1 OR true/false.
         <RatFaction>0</RatFaction><!-- force spawn to this faction if !=0 -->
         <LootDropChance>0.85</LootDropChance><!-- % chance for NPC to drop loot.  75% default -->
         <UseDamageMultiplier>true</UseDamageMultiplier><!-- bool  - use the damage multiplier in npc data -->
+        <SentryTargetDPS>50</SentryTargetDPS><!-- target DPS per stationary NPC sentry/turret. The SDE rows carry raw structure damage (3-8 per shot), so they are scaled up to this. 50/turret puts a big gate complex near 400 DPS. 0 disables the calibration. -->
         <!-- the next 4 are not implemented yet -->
         <WarpFollowChance>0.15</WarpFollowChance><!-- chance for npc to follow warping player (15% default) -->
         <TargetPod>false</TargetPod><!-- bool   npc target/attack pod -->

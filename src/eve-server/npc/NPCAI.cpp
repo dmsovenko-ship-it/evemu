@@ -150,6 +150,37 @@ NPCAIMgr::NPCAIMgr(NPC* who)
     // time dilation: NPC combat cycles slow with the rest of the system
     m_attackSpeed = (uint32)(m_attackSpeed * m_npc->SystemMgr()->GetTimeScale());
     m_sigRadius = m_self->GetAttribute(AttrSignatureRadius).get_uint32();
+
+    // Sentry/turret DPS calibration. The Crucible SDE rows carry the raw STRUCTURE
+    // damage for these turrets (3-8 per shot on a 2.5s cycle = 3-14 DPS), five to ten
+    // times weaker than a real on-grid sentry - a full gate complex (2-8 turrets) did
+    // roughly 25-100 DPS, so players simply warped through it. Scale every direct-fire
+    // turret to npc.SentryTargetDPS so a big complex lands near 400 DPS.
+    // Only direct-fire turrets: EWAR towers carry no damage attributes at all, and
+    // missile batteries deal theirs through the missile path, not this multiplier.
+    if (m_isStationary && hasWeaponDmg && m_attackSpeed > 0 && sConfig.npc.SentryTargetDPS > 0.0f) {
+        float rawDps = (m_self->GetAttribute(AttrEmDamage).get_float()
+                     + m_self->GetAttribute(AttrKineticDamage).get_float()
+                     + m_self->GetAttribute(AttrThermalDamage).get_float()
+                     + m_self->GetAttribute(AttrExplosiveDamage).get_float()) * 1000.0f / (float)m_attackSpeed;
+        // m_damageMultiplier already carries the NPC default (2.0 when the type has no
+        // AttrDamageMultiplier), and AttackTarget applies it to the damage - so the DPS
+        // this turret actually lands is rawDps * m_damageMultiplier, not rawDps.
+        float currentDps = rawDps * m_damageMultiplier;
+        if (currentDps > 1.0f) {
+            float scale = sConfig.npc.SentryTargetDPS / currentDps;
+            // SDE rows vary 3-8 per shot; without a ceiling a strong turret would land
+            // several times over target, and never weaken a turret that is already tuned.
+            if (scale > 10.0f) scale = 10.0f;
+            if (scale > 1.0f) {
+                m_damageMultiplier *= scale;
+                _log(NPC__AI_TRACE, "%s(%u): sentry damage calibrated x%.2f (%.1f -> %.1f DPS, cycle %ums).",
+                     m_self->name().c_str(), m_self->itemID(), scale,
+                     currentDps, currentDps * scale, m_attackSpeed);
+            }
+        }
+    }
+
     m_launcherCycleTime = m_self->GetAttribute(AttrMissileLaunchDuration).get_uint32();
     if (m_launcherCycleTime > 100)
         m_missileTypeID = m_self->GetAttribute(AttrEntityMissileTypeID).get_uint32();

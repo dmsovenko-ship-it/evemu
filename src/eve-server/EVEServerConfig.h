@@ -211,6 +211,9 @@ public:
         float TargetPodSec;
         float DefenderMissileChance;
         float LootDropChance;
+        /// Target damage-per-second for each stationary NPC sentry/turret. The SDE rows
+        /// carry raw structure damage (3-8 per shot), so they are scaled up to this.
+        float SentryTargetDPS;
     } npc;
 
     // From <database>

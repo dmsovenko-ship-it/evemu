@@ -168,6 +168,7 @@ EVEServerConfig::EVEServerConfig()
     npc.TargetPodSec = 0;
     npc.TargetPod = false;
     npc.UseDamageMultiplier = true;
+    npc.SentryTargetDPS = 50.0f;
     npc.DefenderMissileChance = 0.0;
     npc.LootDropChance = 0.75;
 
@@ -638,6 +639,7 @@ bool EVEServerConfig::ProcessNPC( const TiXmlElement* ele )
     AddValueParser( "TargetPod",                npc.TargetPod );
     AddValueParser( "TargetPodSec",             npc.TargetPodSec );
     AddValueParser( "UseDamageMultiplier",      npc.UseDamageMultiplier );
+    AddValueParser( "SentryTargetDPS",          npc.SentryTargetDPS );
     AddValueParser( "LootDropChance",           npc.LootDropChance );
     AddValueParser( "DefenderMissileChance",    npc.DefenderMissileChance );
 
@@ -656,6 +658,7 @@ bool EVEServerConfig::ProcessNPC( const TiXmlElement* ele )
     RemoveParser( "TargetPod" );
     RemoveParser( "TargetPodSec" );
     RemoveParser( "UseDamageMultiplier" );
+    RemoveParser( "SentryTargetDPS" );
     RemoveParser( "LootDropChance" );
     RemoveParser( "DefenderMissileChance" );
 
