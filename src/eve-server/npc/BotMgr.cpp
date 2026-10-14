@@ -288,6 +288,32 @@ void BotMgr::CleanupOrphanedSpaceItems()
         }
     }
 
+    // 2f) Unfinished encounter missions. Their target cluster lives in the server's
+    //     in-memory tracker, but the NPCs themselves are persisted entities (customInfo
+    //     'mission:<offerID>') and the offer counters live in agtOffers. A restart drops
+    //     the tracker but not the rest, so the offer kept claiming N targets that nothing
+    //     was tracking - and the player warping there got a random empty point, leaving
+    //     the mission impossible to finish. Live behaviour is that the whole complex
+    //     respawns and you start over, which WarpToLocation now does; this just clears
+    //     the leftovers so nothing stale is left behind.
+    {
+        DBerror merr;
+        uint32 delTargets = 0;
+        // NOTE: sDatabase.RunQuery is printf-formatted - a literal % must be written %%.
+        if (sDatabase.RunQuery(merr, delTargets,
+                "DELETE FROM entity WHERE customInfo LIKE 'mission:%%'"))
+            if (delTargets > 0)
+                sLog.White("      Agents", "Space cleanup: removed %u orphaned mission target(s) from a restart.", delTargets);
+
+        uint32 resetOffers = 0;
+        if (sDatabase.RunQuery(merr, resetOffers,
+                "UPDATE agtOffers SET missionNPCs = 0, missionNPCsKilled = 0"
+                " WHERE missionNPCs > 0 OR missionNPCsKilled > 0"))
+            if (resetOffers > 0)
+                sLog.White("      Agents", "Space cleanup: reset %u unfinished encounter mission(s) (complex restarts).",
+                           resetOffers);
+    }
+
     // 3) the stable-pilot-pool trim (see TrimPilotPool below for details).
     TrimPilotPool();
 }

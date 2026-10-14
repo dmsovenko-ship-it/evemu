@@ -1368,6 +1368,22 @@ PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyWString* locationType, P
             bool havePos = false;
             if (offer.typeID == Mission::Type::Encounter && EncounterSpawnServer::Get() != nullptr) {
                 havePos = EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, dest);
+                if (!havePos) {
+                    // A downtime wipes the in-memory tracker, and the target cluster dies
+                    // with it. On live the whole complex respawned and the encounter simply
+                    // started over, so do exactly that here. The previous fallback warped
+                    // the pilot to a random point in deep space with nothing in it, while
+                    // the offer still tracked N targets in the database - a mission that
+                    // could never be completed, with no way to re-trigger the spawn because
+                    // the mission was already accepted.
+                    uint32 respawned = EncounterSpawnServer::Get()->SpawnEncounterForOffer(
+                        offer, offer.destinationSystemID, GPoint(0.0, 0.0, 0.0));
+                    if (respawned > 0) {
+                        havePos = EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, dest);
+                        _log(AGENT__MESSAGE, "WarpToLocation: encounter %u had no live targets, respawned %u - starting over.",
+                             offer.offerID, respawned);
+                    }
+                }
             }
             if (!havePos) {
                 // Fallback: agent's own solar system origin (old behaviour was a
