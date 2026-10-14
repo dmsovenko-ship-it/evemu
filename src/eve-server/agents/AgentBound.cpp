@@ -1369,6 +1369,19 @@ PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyWString* locationType, P
             if (offer.typeID == Mission::Type::Encounter && EncounterSpawnServer::Get() != nullptr) {
                 havePos = EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, dest);
                 if (!havePos) {
+                    // Only an INTERRUPTED encounter is missing from the tracker. A cleared
+                    // one is gone from it as well (the entry is dropped when the last target
+                    // dies), and re-spawning there would reset the counters and turn a
+                    // finished mission back into an uncompletable one.
+                    bool alreadyCleared = false;
+                    DBQueryResult cres;
+                    DBResultRow crow;
+                    if (sDatabase.RunQuery(cres,
+                            "SELECT missionNPCs, missionNPCsKilled FROM agtOffers WHERE offerID = %u",
+                            offer.offerID)
+                        && cres.GetRow(crow))
+                        alreadyCleared = (crow.GetUInt(0) > 0 && crow.GetUInt(1) >= crow.GetUInt(0));
+
                     // A downtime wipes the in-memory tracker, and the target cluster dies
                     // with it. On live the whole complex respawned and the encounter simply
                     // started over, so do exactly that here. The previous fallback warped
@@ -1376,12 +1389,14 @@ PyResult AgentBound::WarpToLocation(PyCallArgs &call, PyWString* locationType, P
                     // the offer still tracked N targets in the database - a mission that
                     // could never be completed, with no way to re-trigger the spawn because
                     // the mission was already accepted.
-                    uint32 respawned = EncounterSpawnServer::Get()->SpawnEncounterForOffer(
-                        offer, offer.destinationSystemID, GPoint(0.0, 0.0, 0.0));
-                    if (respawned > 0) {
-                        havePos = EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, dest);
-                        _log(AGENT__MESSAGE, "WarpToLocation: encounter %u had no live targets, respawned %u - starting over.",
-                             offer.offerID, respawned);
+                    if (!alreadyCleared) {
+                        uint32 respawned = EncounterSpawnServer::Get()->SpawnEncounterForOffer(
+                            offer, offer.destinationSystemID, GPoint(0.0, 0.0, 0.0));
+                        if (respawned > 0) {
+                            havePos = EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, dest);
+                            _log(AGENT__MESSAGE, "WarpToLocation: encounter %u had no live targets, respawned %u - starting over.",
+                                 offer.offerID, respawned);
+                        }
                     }
                 }
             }

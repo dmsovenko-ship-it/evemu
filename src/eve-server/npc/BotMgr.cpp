@@ -306,11 +306,14 @@ void BotMgr::CleanupOrphanedSpaceItems()
                 sLog.White("      Agents", "Space cleanup: removed %u orphaned mission target(s) from a restart.", delTargets);
 
         uint32 resetOffers = 0;
+        // Only INTERRUPTED missions (targets left alive) are reset. An offer whose
+        // counters say every target is already dead was simply waiting to be handed in -
+        // wiping it would throw away a mission the player had finished.
         if (sDatabase.RunQuery(merr, resetOffers,
                 "UPDATE agtOffers SET missionNPCs = 0, missionNPCsKilled = 0"
-                " WHERE missionNPCs > 0 OR missionNPCsKilled > 0"))
+                " WHERE NOT (missionNPCs > 0 AND missionNPCsKilled >= missionNPCs)"))
             if (resetOffers > 0)
-                sLog.White("      Agents", "Space cleanup: reset %u unfinished encounter mission(s) (complex restarts).",
+                sLog.White("      Agents", "Space cleanup: reset %u interrupted encounter mission(s) (complex restarts).",
                            resetOffers);
     }
 
