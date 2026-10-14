@@ -50,6 +50,7 @@
 #include "station/Outpost.h"
 #include "system/SystemEntity.h"
 #include "system/SystemBubble.h"
+#include "system/SystemManager.h"
 
 TargetManager::TargetManager(SystemEntity *self)
 : mySE(self)
@@ -101,6 +102,10 @@ bool TargetManager::Process() {
 }
 
 void TargetManager::Unload() {
+    // Deliberately silent: UnloadSystem() frees the other entities of this system in the
+    // same loop, so notifying counterparts here would dereference pointers that may
+    // already be gone. Every manager in this system gets its own Unload() call, so the
+    // cross-references die with the system.
     for (auto cur : m_targets)
         SafeDelete(cur.second);
     m_targets.clear();
@@ -342,13 +347,40 @@ void TargetManager::ClearTargets(bool notify/*true*/) {
     sEntityList.DeleteTargMgr(mySE);
 }
 
+bool TargetManager::IsStaleTargeter(SystemEntity* pSE, TargetedByEntry* pEntry) const
+{
+    if (pSE == nullptr or pEntry == nullptr)
+        return true;
+
+    SystemManager* pSys = mySE->SystemMgr();
+    if (pSys == nullptr)
+        return true;
+
+    // Resolve the key by itemID in the authoritative system map. Comparing the returned
+    // pointer against the stored key is safe on freed memory (no dereference), so a
+    // dangling key is detected instead of crashing the caller.
+    SystemEntity* pLive = pSys->GetSE(pEntry->targetID);
+    if (pLive == pSE)
+        return false;
+
+    _log(TARGET__WARNING, "Pruning stale targeter %u from %s(%u)'s locked list - entity is gone.",
+         pEntry->targetID, mySE->GetName(), mySE->GetID());
+    return true;
+}
+
 void TargetManager::ClearFromTargets() {
     if (m_targetedBy.empty())
         return;
 
     std::vector<SystemEntity *> ToNotify;
     for (auto cur : m_targetedBy) {
+        // A key can outlive its entity (see IsStaleTargeter). Check BEFORE deleting the
+        // entry (the check reads entry->targetID) and never notify through the freed
+        // pointer - that would be a use-after-free.
+        bool stale = IsStaleTargeter(cur.first, cur.second);
         SafeDelete(cur.second);
+        if (stale)
+            continue;
         //do not notify until we clear our target list! otherwise Bad Things happen. (invalidate iterator here)
         ToNotify.push_back(cur.first);
         _log(TARGET__TRACE, "ClearFrom() - %s(%u) has added %s(%u) to delete list.", \
@@ -462,6 +494,7 @@ void TargetManager::TargetedAdd(SystemEntity *tSE) {
                 mySE->GetName(), mySE->GetID(), tSE->GetName(), tSE->GetID());
         TargetedByEntry *te = new TargetedByEntry();
         te->state = TargMgr::State::Locking;
+        te->targetID = tSE->GetID();
         m_targetedBy[tSE] = te;
     }
     if (mySE->IsNPCSE())
@@ -548,7 +581,7 @@ PyList* TargetManager::GetTargeters() const {
 
     std::map<SystemEntity*, TargetedByEntry*>::const_iterator itr = m_targetedBy.begin();
     for(; itr != m_targetedBy.end(); ++itr)
-        result->AddItemInt( itr->first->GetID() );
+        result->AddItemInt( itr->second->targetID );   //stored id, never dereferences the key
 
     return result;
 }
@@ -716,18 +749,25 @@ float TargetManager::TimeToLock ( ShipItemRef sRef, SystemEntity* tSE ) const {
         return time;
 }
 
-void TargetManager::QueueEvent( PyTuple** event ) const
+void TargetManager::QueueEvent( PyTuple** event )
 {
-    for (auto cur : m_targetedBy)
+    for (auto cur : m_targetedBy) {
+        // Never dereference the key without validating it - a freed targeter would take
+        // the virtual HasPilot() call down with it (SIGSEGV).
+        if (IsStaleTargeter(cur.first, cur.second))
+            continue;
         if (cur.first->HasPilot()) {
             PyIncRef(*event);
             cur.first->GetPilot()->QueueDestinyEvent(event);
         }
+    }
 }
 
-void TargetManager::QueueUpdate(PyTuple** update) const
+void TargetManager::QueueUpdate(PyTuple** update)
 {
     for (auto cur : m_targetedBy) {
+        if (IsStaleTargeter(cur.first, cur.second))
+            continue;
         if (!cur.first->HasPilot()) continue;
         PyTuple* clone = static_cast<PyTuple*>((*update)->Clone());
         cur.first->GetPilot()->QueueDestinyUpdate(&clone);
@@ -760,6 +800,8 @@ std::string TargetManager::TargetList(uint16 &length, uint16 &count) {
         str << "Targeted by: <br>";
         length += 15;
         for (auto cur : m_targetedBy) {
+            if (IsStaleTargeter(cur.first, cur.second))
+                continue;
             str << "  " << cur.first->GetName();
             str << " (" << cur.first->GetID() << ") <br>";
             length += 35;
@@ -797,8 +839,11 @@ void TargetManager::Dump() const {
     if (m_targetedBy.empty()) {
         _log(TARGET__DUMP, "    No Targeters");
     } else {
-        for (auto cur : m_targetedBy)
+        for (auto cur : m_targetedBy) {
+            if (IsStaleTargeter(cur.first, cur.second))
+                continue;
             cur.second->Dump(cur.first);
+        }
     }
 
     _log(TARGET__DUMP, "    Active Modules: (ship:module(moduleID))");

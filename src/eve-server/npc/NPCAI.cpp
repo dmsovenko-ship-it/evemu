@@ -1160,10 +1160,15 @@ void NPCAIMgr::Flee(SystemEntity* pTargSE)
 {
     if (pTargSE == nullptr)
         return;
-    // Register the threat as a target so the Fleeing state can track it, then
-    // hand off to SetFleeing (runs away and warps out when out of range).
-    if (m_npc->TargetMgr() != nullptr)
-        m_npc->TargetMgr()->TargetedAdd(pTargSE);
+    // Do NOT register the threat with TargetedAdd() here. TargetedAdd() writes
+    // m_targetedBy (who is locking me) without the matching m_targets entry on my side,
+    // and only the targeter's own ClearTargets() ever calls TargetedByLost() to undo it.
+    // So the entry outlived the threat: when it died, my m_targetedBy kept a dangling
+    // SystemEntity* and the first damage tick on me walked that freed key in
+    // QueueUpdate() -> SIGSEGV in a virtual HasPilot() call.
+    // The Fleeing state never read m_targetedBy anyway - it tracks via GetFirstTarget(),
+    // i.e. m_targets - so the registration bought nothing. SetFleeing() only needs the
+    // pointer for logging.
     SetFleeing(pTargSE);
 }
 

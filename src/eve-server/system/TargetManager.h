@@ -149,8 +149,8 @@ public:
     PyList*             GetTargets() const;
     PyList*             GetTargeters() const;
 
-    void                QueueEvent(PyTuple **up) const;    //queue an event to all SEs targeting me.
-    void                QueueUpdate(PyTuple **up) const;   //queue an update to all SEs targeting me.
+    void                QueueEvent(PyTuple **up);     //queue an event to all SEs targeting me.
+    void                QueueUpdate(PyTuple **up);    //queue an update to all SEs targeting me.
 
     /* debugging methods */
     void                Dump() const;
@@ -183,11 +183,15 @@ protected:
     class TargetedByEntry {
     public:
         TargetedByEntry()
-        : state(TargMgr::State::Idle) {}
+        : state(TargMgr::State::Idle), targetID(0) {}
 
         void Dump(SystemEntity* pSE) const;
 
         uint8 state;
+        // itemID of the targeter. Lets every consumer validate the m_targetedBy key
+        // against the authoritative system map instead of dereferencing a key that may
+        // already point at freed memory.
+        uint32 targetID;
     };
 
 private:
@@ -196,6 +200,13 @@ private:
     std::map<uint32, ActiveModule*> m_modules;               // map of modID/Mod* targeting this object
     std::map<SystemEntity*, TargetEntry*> m_targets;         //we own these values, not the keys
     std::map<SystemEntity*, TargetedByEntry*> m_targetedBy;  //we own these values, not the keys
+
+    // The pairing m_targetedBy[A] = B is only torn down by B's ClearTargets(), which calls
+    // back into A->TargetedByLost(). Any target reference created WITHOUT the matching
+    // m_targets entry (see NPCAIMgr::Flee), or whose counterpart was freed without
+    // notifying us, therefore leaves a dangling SystemEntity* key behind - and every
+    // consumer below dereferences that key. Resolve it through the system map first.
+    bool IsStaleTargeter(SystemEntity* pSE, TargetedByEntry* pEntry) const;
 
     bool m_canAttack;   // true if npcs can begin attack (to correct attacking before targetlock)
 };
