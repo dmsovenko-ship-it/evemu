@@ -3240,6 +3240,18 @@ void PlayerBot::DeployWarpBubble(const GPoint& pos)
         return;
     ref->ChangeSingleton(true);
     ref->SetPosition(pos);
+    // Deployed structures are NOT removed by a restart - they keep their own lifetime
+    // and it KEEPS RUNNING while the server is down (live Crucible behaviour: a T1
+    // mobile warp disruptor lives ~2 days and the clock does not pause over downtime).
+    // Our SDE has no expiry attribute for this type, so the deadline is stored in
+    // customInfo and the boot sweep collects it, exactly like wormholes do. A bot
+    // ambush is a minutes-long tactic, so half an hour is generous.
+    {
+        const int64 kBubbleLifetime = 30LL * 60LL * 1000LL * 10000LL;   // 30 min in 100ns units
+        int64 expiresAt = static_cast<int64>(GetFileTimeNow()) + kBubbleLifetime;
+        ref->SetCustomInfo(("expiry:" + std::to_string(expiresAt)).c_str());
+    }
+    ref->SaveItem();
 
     FactionData data = FactionData();
     data.corporationID = m_botCorpID;

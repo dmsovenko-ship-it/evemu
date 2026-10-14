@@ -197,23 +197,41 @@ void BotMgr::CleanupOrphanedSpaceItems()
         }
     }
 
-    // 2d) Ambush warp bubbles. PlayerBot::DeployWarpBubble() drops one and never takes it
-    //     down, and the entity row survives restarts, so the bubble came back on the next
-    //     boot - null-sec WF-1LM had 379 of them stacked on a single point (379 extra
-    //     balls in every client's grid, and that corner of space permanently unwarpable).
-    //     Keep the newest few per system; SweepAmbushWarpBubbles() holds the line at runtime.
+    // 2d) Ambush warp bubbles. PlayerBot::DeployWarpBubble() drops one and nothing takes
+    //     it down, so the entity row survives restarts - null-sec WF-1LM had 379 of them
+    //     stacked on a single point (379 extra balls in every client's grid, and that
+    //     corner of space permanently unwarpable).
+    //     Deployed structures keep their own lifetime and that clock KEEPS RUNNING over a
+    //     downtime, so the sweep is by EXPIRY, not by "delete on boot" - the bubble lives
+    //     out its window first, exactly as on live. The per-system cap is only a backstop
+    //     against pathological stacking, since our bots deploy bubbles programmatically at
+    //     a rate no pilot could match by hand.
     {
         DBQueryResult bres;
         if (sDatabase.RunQuery(bres,
-            "SELECT locationID, itemID FROM entity WHERE typeID = 12199"
+            "SELECT locationID, itemID, IFNULL(customInfo,'') FROM entity WHERE typeID = 12199"
             " ORDER BY locationID, itemID DESC")) {
+            const int64 nowFt = static_cast<int64>(GetFileTimeNow());
+            const uint32 kMaxPerSystem = 10;
             DBResultRow brow;
-            uint32 lastSys = 0, seen = 0, delCount = 0;
+            uint32 lastSys = 0, kept = 0, delCount = 0;
             std::vector<uint32> delIDs;
             while (bres.GetRow(brow)) {
                 uint32 sys = brow.GetUInt(0), id = brow.GetUInt(1);
-                if (sys != lastSys) { lastSys = sys; seen = 0; }
-                if (seen < 3) { ++seen; continue; }
+                const char* cip = brow.GetText(2);
+                std::string ci = (cip != nullptr) ? cip : "";
+                if (sys != lastSys) { lastSys = sys; kept = 0; }
+
+                // No expiry marker = a bubble from before the marker existed: treat it as
+                // expired rather than letting legacy rows live forever.
+                bool expired = true;
+                size_t p = ci.find("expiry:");
+                if (p != std::string::npos) {
+                    int64 exp = strtoll(ci.c_str() + p + 7, nullptr, 10);
+                    if (exp > 0 && exp > nowFt)
+                        expired = false;
+                }
+                if (!expired && kept < kMaxPerSystem) { ++kept; continue; }
                 delIDs.push_back(id);
                 ++delCount;
             }
@@ -223,7 +241,50 @@ void BotMgr::CleanupOrphanedSpaceItems()
                 sDatabase.RunQuery(berr, "DELETE FROM entity WHERE itemID = %u", id);
             }
             if (delCount > 0)
-                sLog.White("      Ambush", "Space cleanup: removed %u stale warp bubbles (kept 3 per system).", delCount);
+                sLog.White("      Ambush", "Space cleanup: removed %u stale warp bubbles (%u max/system kept).",
+                           delCount, kMaxPerSystem);
+        }
+    }
+
+    // 2e) Abandoned ownerless items left floating in space (a jettison that outlived its
+    //     owner, a drop whose owner went away). Runs at boot, so nothing is legitimately
+    //     mid-jettison at this point - anything ownerless here is by definition abandoned.
+    //     Deliberately NOT swept:
+    //       - ships (category 6): a chelobot's hull IS its property and is ownerID=0 by
+    //         design (corp-owned economy); 2365 bots fly hulls that way.
+    //       - celestial decor (category 11): Concord billboards and friends are static
+    //         scenery and have no owner at all.
+    //       - wormholes (group 988): static entrances, ownerless by nature.
+    //     Plus a hard guard against a character's live shipID, whatever its ownerID says.
+    {
+        DBQueryResult lres;
+        if (sDatabase.RunQuery(lres,
+            "SELECT COUNT(*) FROM entity e"
+            " JOIN invTypes t ON t.typeID = e.typeID"
+            " JOIN invGroups g ON g.groupID = t.groupID"
+            " LEFT JOIN chrCharacters c ON c.shipID = e.itemID"
+            " WHERE (e.ownerID = 0 OR e.ownerID IS NULL)"
+            " AND e.locationID >= 30000000 AND e.locationID < 32000000"
+            " AND g.categoryID NOT IN (6, 11)"
+            " AND t.groupID <> 988"
+            " AND c.characterID IS NULL")) {
+            DBResultRow lrow;
+            if (lres.GetRow(lrow) && lrow.GetUInt(0) > 0) {
+                uint32 delItems = 0;
+                DBerror ierr;
+                if (sDatabase.RunQuery(ierr, delItems,
+                        "DELETE e FROM entity e"
+                        " JOIN invTypes t ON t.typeID = e.typeID"
+                        " JOIN invGroups g ON g.groupID = t.groupID"
+                        " LEFT JOIN chrCharacters c ON c.shipID = e.itemID"
+                        " WHERE (e.ownerID = 0 OR e.ownerID IS NULL)"
+                        " AND e.locationID >= 30000000 AND e.locationID < 32000000"
+                        " AND g.categoryID NOT IN (6, 11)"
+                        " AND t.groupID <> 988"
+                        " AND c.characterID IS NULL"))
+                    sLog.White("       Items", "Space cleanup: removed %u abandoned ownerless item(s) from space.",
+                               delItems);
+            }
         }
     }
 
@@ -9008,6 +9069,10 @@ void BotMgr::ProcessCynoShips()
 // null-sec WF-1LM had 379 of them stacked on one point: 379 extra balls in every
 // client's grid, 379 scramble timers ticking on the server, and that corner of space
 // permanently unwarpable.
+// Swept BY EXPIRY, matching live: a deployed structure keeps its own lifetime and that
+// clock keeps running across a downtime, so a bubble is only collected once its window
+// is up. The per-system cap is a backstop for pathological stacking, not the main rule -
+// live players cannot machine-gun deploy bubbles the way the bots do.
 void BotMgr::SweepAmbushWarpBubbles()
 {
     if (!m_initalized || !sConfig.playerBots.Enabled)
@@ -9020,8 +9085,9 @@ void BotMgr::SweepAmbushWarpBubbles()
         return;
 
     // An ambush is a local tactic; a permanent cloud of them on the same rock is not.
-    const size_t kMaxPerSystem = 3;
+    const size_t kMaxPerSystem = 10;
 
+    const int64 nowFt = static_cast<int64>(GetFileTimeNow());
     uint32 removed = 0;
     for (auto& [sysID, sm] : sEntityList.GetSystems()) {
         if (sm == nullptr)
@@ -9034,20 +9100,31 @@ void BotMgr::SweepAmbushWarpBubbles()
             if (se->GetSelf()->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor)
                 bubbles.push_back(se);
         }
-        if (bubbles.size() <= kMaxPerSystem)
+        if (bubbles.empty())
             continue;
 
-        // itemIDs are handed out sequentially, so the lowest ones are the oldest - and an
-        // ambush is long over by the time its bubble is still anchored.
+        // itemIDs are handed out sequentially, so the lowest ones are the oldest.
         std::sort(bubbles.begin(), bubbles.end(),
                   [](SystemEntity* a, SystemEntity* b) { return a->GetID() < b->GetID(); });
 
-        // Keep the newest kMaxPerSystem, drop the rest.
-        for (size_t i = 0; (i + kMaxPerSystem) < bubbles.size(); ++i) {
-            SystemEntity* se = bubbles[i];
-            _log(BOT__MESSAGE, "BotMgr: removing stale ambush warp bubble %s(%u) in %s(%u) (%u/%u kept).",
-                 se->GetName().c_str(), se->GetID(), sm->GetName(), sysID,
-                 (uint32)(bubbles.size() - i - 1), (uint32)kMaxPerSystem);
+        size_t kept = 0;
+        for (size_t i = bubbles.size(); i > 0; --i) {
+            SystemEntity* se = bubbles[i - 1];          // newest first
+
+            // No expiry marker = a bubble from before the marker existed.
+            bool expired = true;
+            std::string ci = se->GetSelf()->customInfo();
+            size_t p = ci.find("expiry:");
+            if (p != std::string::npos) {
+                int64 exp = strtoll(ci.c_str() + p + 7, nullptr, 10);
+                if (exp > 0 && exp > nowFt)
+                    expired = false;
+            }
+
+            if (!expired && kept < kMaxPerSystem) { ++kept; continue; }
+
+            _log(BOT__MESSAGE, "BotMgr: removing stale ambush warp bubble %s(%u) in %s(%u).",
+                 se->GetName().c_str(), se->GetID(), sm->GetName(), sysID);
             // Delete() takes the deployable out of the bubble (clients get RemoveBall) and
             // deletes the item row; the wrapper goes with it.
             se->Delete();
@@ -9057,7 +9134,7 @@ void BotMgr::SweepAmbushWarpBubbles()
     }
 
     if (removed > 0)
-        sLog.White("     Ambush", "Swept %u stale warp bubble(s) (cap %u per system).",
+        sLog.White("     Ambush", "Swept %u stale warp bubble(s) (max %u per system kept).",
                    removed, (uint32)kMaxPerSystem);
 }
 
