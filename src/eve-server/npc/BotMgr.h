@@ -95,6 +95,10 @@ public:
     // the local count forever. SweepLocalChannels self-heals any missed path.
     void RemoveBotFromLocal(SystemManager* pSystem, uint32 charID);
     void SweepLocalChannels();
+    // Ambush warp bubbles outlive the pilot who dropped them (they persist in the
+    // entity table and come back on the next boot). Caps how many may linger per
+    // system and clears the surplus.
+    void SweepAmbushWarpBubbles();
     // Soft logoff (population cap eviction): when a system is over MaxPerSystem,
     // pilots leave gracefully instead of despawning in place — docked bots log
     // off directly, space bots stop working, warp to a station, dock, log off.

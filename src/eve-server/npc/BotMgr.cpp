@@ -197,6 +197,36 @@ void BotMgr::CleanupOrphanedSpaceItems()
         }
     }
 
+    // 2d) Ambush warp bubbles. PlayerBot::DeployWarpBubble() drops one and never takes it
+    //     down, and the entity row survives restarts, so the bubble came back on the next
+    //     boot - null-sec WF-1LM had 379 of them stacked on a single point (379 extra
+    //     balls in every client's grid, and that corner of space permanently unwarpable).
+    //     Keep the newest few per system; SweepAmbushWarpBubbles() holds the line at runtime.
+    {
+        DBQueryResult bres;
+        if (sDatabase.RunQuery(bres,
+            "SELECT locationID, itemID FROM entity WHERE typeID = 12199"
+            " ORDER BY locationID, itemID DESC")) {
+            DBResultRow brow;
+            uint32 lastSys = 0, seen = 0, delCount = 0;
+            std::vector<uint32> delIDs;
+            while (bres.GetRow(brow)) {
+                uint32 sys = brow.GetUInt(0), id = brow.GetUInt(1);
+                if (sys != lastSys) { lastSys = sys; seen = 0; }
+                if (seen < 3) { ++seen; continue; }
+                delIDs.push_back(id);
+                ++delCount;
+            }
+            DBerror berr;
+            for (uint32 id : delIDs) {
+                sDatabase.RunQuery(berr, "DELETE FROM entity_attributes WHERE itemID = %u", id);
+                sDatabase.RunQuery(berr, "DELETE FROM entity WHERE itemID = %u", id);
+            }
+            if (delCount > 0)
+                sLog.White("      Ambush", "Space cleanup: removed %u stale warp bubbles (kept 3 per system).", delCount);
+        }
+    }
+
     // 3) the stable-pilot-pool trim (see TrimPilotPool below for details).
     TrimPilotPool();
 }
@@ -355,6 +385,9 @@ void BotMgr::Process()
 
     // Temporary cyno ships despawn after their window.
     ProcessCynoShips();
+
+    // Ambush warp bubbles left behind by departed/dead pilots are capped per system.
+    SweepAmbushWarpBubbles();
 
     // Population cap pressure: over-cap pilots log off gracefully (dock first).
     ProcessSoftLogoff();
@@ -8967,6 +9000,65 @@ void BotMgr::ProcessCynoShips()
         }
         it = m_cynoShips.erase(it);
     }
+}
+
+// Ambush warp bubbles (PlayerBot::DeployWarpBubble) are never cleaned up by the pilot
+// who dropped them: it fights, dies or warps off and the deployable stays anchored. The
+// entity row persists, so the bubble also came BACK on the next boot of that system -
+// null-sec WF-1LM had 379 of them stacked on one point: 379 extra balls in every
+// client's grid, 379 scramble timers ticking on the server, and that corner of space
+// permanently unwarpable.
+void BotMgr::SweepAmbushWarpBubbles()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+
+    static Timer s_bubbleSweep(0);
+    if (!s_bubbleSweep.Enabled())
+        s_bubbleSweep.Start(60000);
+    if (!s_bubbleSweep.Check())
+        return;
+
+    // An ambush is a local tactic; a permanent cloud of them on the same rock is not.
+    const size_t kMaxPerSystem = 3;
+
+    uint32 removed = 0;
+    for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+        if (sm == nullptr)
+            continue;
+
+        std::vector<SystemEntity*> bubbles;
+        for (auto& [id, se] : sm->GetEntities()) {
+            if (se == nullptr || se->GetSelf().get() == nullptr)
+                continue;
+            if (se->GetSelf()->groupID() == EVEDB::invGroups::Mobile_Warp_Disruptor)
+                bubbles.push_back(se);
+        }
+        if (bubbles.size() <= kMaxPerSystem)
+            continue;
+
+        // itemIDs are handed out sequentially, so the lowest ones are the oldest - and an
+        // ambush is long over by the time its bubble is still anchored.
+        std::sort(bubbles.begin(), bubbles.end(),
+                  [](SystemEntity* a, SystemEntity* b) { return a->GetID() < b->GetID(); });
+
+        // Keep the newest kMaxPerSystem, drop the rest.
+        for (size_t i = 0; (i + kMaxPerSystem) < bubbles.size(); ++i) {
+            SystemEntity* se = bubbles[i];
+            _log(BOT__MESSAGE, "BotMgr: removing stale ambush warp bubble %s(%u) in %s(%u) (%u/%u kept).",
+                 se->GetName().c_str(), se->GetID(), sm->GetName(), sysID,
+                 (uint32)(bubbles.size() - i - 1), (uint32)kMaxPerSystem);
+            // Delete() takes the deployable out of the bubble (clients get RemoveBall) and
+            // deletes the item row; the wrapper goes with it.
+            se->Delete();
+            SafeDelete(se);
+            ++removed;
+        }
+    }
+
+    if (removed > 0)
+        sLog.White("     Ambush", "Swept %u stale warp bubble(s) (cap %u per system).",
+                   removed, (uint32)kMaxPerSystem);
 }
 
 void BotMgr::RemoveBotFromLocal(SystemManager* pSystem, uint32 charID)
