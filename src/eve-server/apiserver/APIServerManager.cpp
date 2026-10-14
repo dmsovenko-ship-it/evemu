@@ -777,21 +777,49 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
                 }
             }
             if (!need.empty()) {
-                std::string ids; bool first = true;
-                for (auto& kv : need) { if (!first) ids += ","; first = false; ids += std::to_string(kv.first); }
+                // Do NOT filter this sample by typeID. mktOrders is ~10 GB (38.6M rows,
+                // 1 GB buffer pool) and with an IN-list the optimizer walks EVERY order of
+                // EVERY requested type - hundreds of them, hull plus every module, fuel and
+                // ammo in the kill blobs - before it can sort them by orderID. That scan is
+                // the entire cold cost of this endpoint: measured 22-26 s on an idle server,
+                // while the pool query above it takes 4 ms. It is also unbounded work: the
+                // more types the 400 kills happen to contain, the more it reads.
+                //
+                // Bound the work by the PRIMARY KEY window instead: the newest N orders are
+                // a fixed slice no matter what is asked for, so the cost is predictable and
+                // independent of the type count (~0.5 s for 500k).
                 DBQueryResult res;
-                // Sampling estimate ONLY: a full AVG(price) over mktOrders scanned
-                // ~38M rows per popular type and took 120+ s (and the 60 s cache TTL
-                // re-ran it every minute). The newest 100k orders (a fast reverse PK
-                // scan) cover the actively-traded types - plenty for an ISK estimate.
                 if (sDatabase.RunQuery(res,
                     "SELECT typeID, AVG(price) FROM ("
                     "  SELECT typeID, price FROM mktOrders"
-                    "  WHERE typeID IN (%s) AND price > 0"
-                    "  ORDER BY orderID DESC LIMIT 100000"
-                    ") s GROUP BY typeID", ids.c_str())) {
+                    "  WHERE price > 0"
+                    "  ORDER BY orderID DESC LIMIT 500000"
+                    ") s GROUP BY typeID")) {
                     DBResultRow row;
                     while (res.GetRow(row)) price[row.GetUInt(0)] = row.GetDouble(1);
+                }
+
+                // Whatever the sample did not cover falls back to the price already
+                // imported into invTypes.basePrice. Without this a fit made of older
+                // modules would be valued at almost nothing, because those types are no
+                // longer in the newest slice of the market.
+                std::string ids; bool first = true;
+                for (auto& kv : need) {
+                    if (price.find(kv.first) != price.end())
+                        continue;
+                    if (!first) ids += ",";
+                    first = false;
+                    ids += std::to_string(kv.first);
+                }
+                if (!ids.empty()) {
+                    DBQueryResult bres;
+                    if (sDatabase.RunQuery(bres,
+                        "SELECT typeID, basePrice FROM invTypes WHERE basePrice > 0 AND typeID IN (%s)",
+                        ids.c_str())) {
+                        DBResultRow brow;
+                        while (bres.GetRow(brow))
+                            price[brow.GetUInt(0)] = brow.GetDouble(1);
+                    }
                 }
             }
         }
