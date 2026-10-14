@@ -175,7 +175,7 @@ NPCAIMgr::NPCAIMgr(NPC* who)
             if (scale > 1.0f) {
                 m_damageMultiplier *= scale;
                 _log(NPC__AI_TRACE, "%s(%u): sentry damage calibrated x%.2f (%.1f -> %.1f DPS, cycle %ums).",
-                     m_self->name().c_str(), m_self->itemID(), scale,
+                     m_self->name(), m_self->itemID(), scale,
                      currentDps, currentDps * scale, m_attackSpeed);
             }
         }
