@@ -284,6 +284,28 @@ void PlanetSE::CreateCustomsOffice()
      * CO can go into reinforced mode, like towers (hint: use same code)
      */
 
+    // A planet has AT MOST ONE customs office. GetCustomsOffice() only reports the
+    // in-memory pointer and pCO starts out null on every boot, so without a database
+    // check the first colony pin created after a restart anchored a SECOND office on a
+    // planet that already had one. BotMgr::DeployBotCustomsOffice() does this lookup
+    // already; keep both sides of the rule identical.
+    {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res,
+                "SELECT itemID FROM entity WHERE locationID = %u AND customInfo = '%u'"
+                " AND typeID IN (%u, %u) LIMIT 1",
+                m_system->GetID(), m_self->itemID(),
+                (uint32)EVEDB::invTypes::PlanetaryCustomsOffice,
+                (uint32)EVEDB::invTypes::InterbusCustomsOffice)) {
+            DBResultRow r;
+            if (res.GetRow(r)) {
+                _log(PLANET__WARNING, "PlanetSE::CreateCustomsOffice() - planet %u already has customs office %u, not creating another.",
+                     m_self->itemID(), r.GetUInt(0));
+                return;
+            }
+        }
+    }
+
     //ItemData( uint32 _typeID, uint32 _ownerID, uint32 _locationID, EVEItemFlags _flag, uint32 _quantity, const char *_customInfo = "", bool _contraband = false);
     FactionData data = FactionData();
         data.ownerID = corpInterbus;
