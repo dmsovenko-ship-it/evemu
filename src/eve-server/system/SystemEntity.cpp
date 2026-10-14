@@ -206,8 +206,18 @@ void SystemEntity::Killed(Damage& damage)
 
 void SystemEntity::Delete()
 {
-    if (m_targMgr != nullptr)
+    if (m_targMgr != nullptr) {
+        // BOTH directions, not just one. ClearTargets() is what drops us from the
+        // m_targetedBy of everything we were targeting (via TargetedByLost); ClearFromTargets()
+        // drops us from the m_targets of everything targeting us (via TargetLost). Killed()
+        // already ran ClearAllTargets() + SafeDelete()d the manager, so this is a no-op there -
+        // but the direct Delete() callers (CONCORD despawn, probe destroy, drone scoop,
+        // POS module trim, GM delete) never ran Destroyed(), so anything we had locked kept a
+        // dangling SystemEntity* in its m_targetedBy and the next QueueUpdate() over that map
+        // dereferenced freed memory.
+        m_targMgr->ClearTargets(false);
         m_targMgr->ClearFromTargets(); //OnTarget(nullptr, TargMgr::Mode::Clear, TargMgr::Msg::Deleted);
+    }
     if (m_system != nullptr)
         m_system->RemoveEntity(this);
     // containers have additional calls to process and calls this.  calling here will create infinite loop
