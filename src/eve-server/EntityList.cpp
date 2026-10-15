@@ -74,7 +74,8 @@ m_npcs(0),
 m_stamp(1000),   /* arbitrary.  start at 1k.  in seconds.  used for destiny and client counters */
 m_minutes(0),
 m_connections(0),
-m_clientSeedID(0)
+m_clientSeedID(0),
+m_shutdownRequested(false)
 {
     m_agents.clear();
     m_probes.clear();
@@ -641,6 +642,7 @@ void EntityList::Process() {
         // these minute tics do not need to be precise
         if (m_minuteTimer.Check()) {
             ++m_minutes;
+            ProcessDowntime();          // daily downtime announcements + shutdown trigger
             sMissionDataMgr.Process();  // 1m
             sIncursionMgr.Process();    // 1m
             sExpMgr.Process();          // 1m — expedition expiry
@@ -1421,4 +1423,60 @@ uint32 EntityList::CreateNotification(uint32 receiverID, uint8 typeID, uint32 se
     PySafeDecRef(data);
 
     return notifyID;
+}
+
+// Daily downtime (Crucible-style). Announces 1h / 15m / 5..1m before the window
+// and requests a clean shutdown at the exact minute. The DB container stays UP:
+// tools/downtime_maintenance.sh (host cron) runs the heavy work (price sync,
+// OPTIMIZE, purges, image prune) while ONLY the game server is down, then starts
+// it back. A clean exit persists cleanShutdown, so the daily reboot is not
+// counted as a crash by the TG reports, and the >=10 min debounce means the
+// daily offline/online pair IS announced (expected).
+void EntityList::ProcessDowntime() {
+    if (!sConfig.world.DailyDowntime)
+        return;
+
+    time_t now = time(nullptr);
+    struct tm utc;
+    gmtime_r(&now, &utc);
+    int nowMin = utc.tm_hour * 60 + utc.tm_min;
+    int dtMin  = sConfig.world.DowntimeHourUTC * 60 + sConfig.world.DowntimeMinuteUTC;
+
+    // shutdown at the exact minute
+    if (nowMin == dtMin) {
+        if (!m_shutdownRequested.load()) {
+            m_shutdownRequested.store(true);
+            BroadcastDowntimeMsg("Server downtime started. Estimated downtime: %u minutes.", sConfig.world.DowntimeLengthMin);
+            sLog.White("     Downtime", "Daily downtime reached (%02u:%02u UTC) - shutting down.",
+                       sConfig.world.DowntimeHourUTC, sConfig.world.DowntimeMinuteUTC);
+        }
+        return;
+    }
+
+    int until = dtMin - nowMin;
+    if (until < 0)
+        until += 1440;   // tomorrow; a boot INSIDE the window also lands here (no shutdown loop)
+
+    const char* msg = nullptr;
+    char buf[96];
+    if (until == 60)        msg = "Server downtime in 1 hour.";
+    else if (until == 15)   msg = "Server downtime in 15 minutes.";
+    else if (until <= 5)  { snprintf(buf, sizeof(buf), "Server downtime in %d minute%s.", until, (until == 1) ? "" : "s"); msg = buf; }
+
+    static int sLastAnnounced = -1;
+    if ((msg != nullptr) && (until != sLastAnnounced)) {
+        sLastAnnounced = until;
+        BroadcastDowntimeMsg("%s", msg);
+    }
+}
+
+void EntityList::BroadcastDowntimeMsg(const char* fmt, ...) {
+    va_list args;
+    char buf[256];
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    for (auto cur : m_players)
+        if (cur.second != nullptr)
+            cur.second->SendNotifyMsg("%s", buf);
 }

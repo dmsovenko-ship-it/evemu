@@ -84,6 +84,10 @@ EVEServerConfig::EVEServerConfig()
     world.PrefetchSystems = false;
     world.PrefetchRadius = 1;
     world.PrefetchMax = 16;
+    world.DailyDowntime = false;
+    world.DowntimeHourUTC = 11;
+    world.DowntimeMinuteUTC = 0;
+    world.DowntimeLengthMin = 30;
 
     // rates
     rates.npcBountyMultiply = 1.0;
@@ -435,6 +439,10 @@ bool EVEServerConfig::ProcessWorld( const TiXmlElement* ele )
     AddValueParser( "PrefetchSystems",   world.PrefetchSystems );
     AddValueParser( "PrefetchRadius",    world.PrefetchRadius );
     AddValueParser( "PrefetchMax",       world.PrefetchMax );
+    AddValueParser( "DailyDowntime",     world.DailyDowntime );
+    AddValueParser( "DowntimeHourUTC",   world.DowntimeHourUTC );
+    AddValueParser( "DowntimeMinuteUTC", world.DowntimeMinuteUTC );
+    AddValueParser( "DowntimeLengthMin", world.DowntimeLengthMin );
 
     const bool result = ParseElementChildren( ele );
 
@@ -457,6 +465,10 @@ bool EVEServerConfig::ProcessWorld( const TiXmlElement* ele )
     RemoveParser( "PrefetchSystems" );
     RemoveParser( "PrefetchRadius" );
     RemoveParser( "PrefetchMax" );
+    RemoveParser( "DailyDowntime" );
+    RemoveParser( "DowntimeHourUTC" );
+    RemoveParser( "DowntimeMinuteUTC" );
+    RemoveParser( "DowntimeLengthMin" );
 
     return result;
 }

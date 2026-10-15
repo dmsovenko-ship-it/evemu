@@ -317,6 +317,35 @@ void BotMgr::CleanupOrphanedSpaceItems()
                            resetOffers);
     }
 
+    // 2g) Wrecks: per the Crucible downtime spec NOTHING in space survives the
+    //     reboot except ships/drones/structures - wrecks (loot included) are gone,
+    //     NPC and mission wrecks alike. The in-run decay timers (customInfo
+    //     'created:') only fire while the server runs, so the downtime reboot is
+    //     the natural GC point for all of them. (LCO wreckage decor is group 226,
+    //     NOT 186 - untouched.)
+    {
+        std::vector<uint32> wrecks;
+        DBQueryResult wres;
+        if (sDatabase.RunQuery(wres,
+            "SELECT e.itemID FROM entity e JOIN invTypes t ON t.typeID = e.typeID WHERE t.groupID = 186")) {
+            DBResultRow wrow;
+            while (wres.GetRow(wrow))
+                wrecks.push_back(wrow.GetUInt(0));
+        }
+        if (!wrecks.empty()) {
+            DBerror werr;
+            for (uint32 id : wrecks) {
+                // loot first (items located IN the wreck), then the wreck itself
+                sDatabase.RunQuery(werr,
+                    "DELETE FROM entity_attributes WHERE itemID IN (SELECT itemID FROM entity WHERE locationID = %u)", id);
+                sDatabase.RunQuery(werr, "DELETE FROM entity WHERE locationID = %u", id);
+                sDatabase.RunQuery(werr, "DELETE FROM entity_attributes WHERE itemID = %u", id);
+                sDatabase.RunQuery(werr, "DELETE FROM entity WHERE itemID = %u", id);
+            }
+            sLog.White("       Wrecks", "Downtime cleanup: removed %u wreck(s) with their loot.", (uint32)wrecks.size());
+        }
+    }
+
     // 3) the stable-pilot-pool trim (see TrimPilotPool below for details).
     TrimPilotPool();
 }

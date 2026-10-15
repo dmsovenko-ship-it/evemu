@@ -28,6 +28,7 @@
 #define EVE_ENTITY_LIST_H
 
 #include <vector>
+#include <atomic>
 
 #include "eve-common.h"
 #include "utils/Singleton.h"
@@ -123,6 +124,10 @@ public:
     /* stamp shit here */
     uint32 GetStamp()                                   { return m_stamp; }
     uint32 GetMinutes()                                 { return m_minutes; }
+    // Daily downtime (see ProcessDowntime); main loop polls this each tic.
+    bool IsShutdownRequested()                      { return m_shutdownRequested.load(); }
+    void ProcessDowntime();
+    void BroadcastDowntimeMsg(const char* fmt, ...);
 
     // gets Client* for all ingame players
     void GetClients(std::vector<Client* > &result) const;
@@ -226,6 +231,7 @@ private:
     uint32 m_npcs;
     uint32 m_stamp;
     uint32 m_minutes;
+    std::atomic<bool> m_shutdownRequested;   // set by ProcessDowntime at the daily downtime minute
     uint32 m_connections;
     uint16 m_clientSeedID;
 

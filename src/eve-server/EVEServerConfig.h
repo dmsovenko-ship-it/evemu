@@ -89,6 +89,10 @@ public:
         bool PrefetchSystems;   // proactively boot systems adjacent to players (removes the jump-into-unloaded-system hitch)
         uint8 PrefetchRadius;   // jumps radius for the prefetch (1 = direct neighbours)
         uint8 PrefetchMax;      // max number of systems held loaded by the prefetcher
+        bool DailyDowntime;     // Crucible-style daily downtime: announcements + clean shutdown at the set UTC time (DB stays up; the host script runs maintenance and restarts)
+        uint8 DowntimeHourUTC;  // hour (UTC) of the daily downtime
+        uint8 DowntimeMinuteUTC;// minute (UTC) of the daily downtime
+        uint8 DowntimeLengthMin;// nominal length in minutes (announcement text)
     } world;
 
     // From <rates>

@@ -1001,6 +1001,13 @@ int main( int argc, char* argv[] )
         if (!sConsole.Process())
             m_run = false;
 
+        // Daily downtime (EntityList::ProcessDowntime): announcements have already
+        // gone out; this exits through the SAME clean path as SIGTERM, so
+        // cleanShutdown/lastOffline are persisted and the host maintenance script
+        // (tools/downtime_maintenance.sh) starts the server back after its work.
+        if (sEntityList.IsShutdownRequested())
+            m_run = false;
+
         /* do the stuff for thread sleeping */
         start = GetTickCount() - start;
         if (m_sleepTime > start)
