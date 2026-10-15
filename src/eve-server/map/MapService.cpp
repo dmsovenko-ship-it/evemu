@@ -277,12 +277,20 @@ PyResult MapService::GetIncursionGlobalReport(PyCallArgs &call) {
     PyList* report = new PyList();
     DBResultRow row;
     while (res.GetRow(row)) {
+        // client journal indexes incursionStateMessages[state] with only
+        // 3 entries: [0]='Идет отступление', [1]='Вторжение мобилизовано',
+        // [2]='Созвездие захвачено'.  Our states are 1=established, 2=mobilized,
+        // 3=withdrawal - state 3 raised IndexError in the journal the moment an
+        // incursion progressed to withdrawal.  Map to client semantics:
+        // established(1) -> 2, mobilized(2) -> 1, withdrawal(3) -> 0.
+        uint32 srvState = row.GetUInt(4);
+        uint32 clientState = (srvState == 1) ? 2 : (srvState == 2) ? 1 : 0;
         PyDict* entry = new PyDict();
         entry->SetItemString("incursionID",            new PyInt(row.GetUInt(0)));
         entry->SetItemString("factionID",              new PyInt(row.GetUInt(1)));
         entry->SetItemString("stagingSolarSystemID",   new PyInt(row.GetUInt(2)));
         entry->SetItemString("constellationID",        new PyInt(row.GetUInt(3)));
-        entry->SetItemString("state",                  new PyInt(row.GetUInt(4)));
+        entry->SetItemString("state",                  new PyInt(clientState));
         entry->SetItemString("influence",              new PyFloat(row.GetDouble(5)));
         entry->SetItemString("hasBoss",                new PyInt(row.GetUInt(6)));
         entry->SetItemString("rewardGroupID",          new PyInt(row.GetUInt(7)));
