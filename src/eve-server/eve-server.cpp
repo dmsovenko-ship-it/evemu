@@ -170,6 +170,7 @@
 #include "standing/StandingMgr.h"
 // station services
 #include "station/HoloscreenMgrService.h"
+#include "station/StoreServerService.h"
 #include "station/InsuranceService.h"
 #include "station/JumpCloneService.h"
 #include "station/RepairService.h"
@@ -764,6 +765,7 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new ClientStatsMgr());
     newSvcMgr.Register(new ReprocessingService(newSvcMgr));
     newSvcMgr.Register(new HoloscreenMgrService());
+    newSvcMgr.Register(new StoreServerService());
     newSvcMgr.Register(new Standing());
     newSvcMgr.Register(new TutorialService());
     newSvcMgr.Register(new TutorialLocationService());

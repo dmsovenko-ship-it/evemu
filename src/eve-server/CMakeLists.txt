@@ -580,6 +580,7 @@ SET( standing_SOURCE
 
 SET( station_INCLUDE
      "${TARGET_INCLUDE_DIR}/station/HoloscreenMgrService.h"
+"${TARGET_INCLUDE_DIR}/station/StoreServerService.h"
      "${TARGET_INCLUDE_DIR}/station/InsuranceService.h"
      "${TARGET_INCLUDE_DIR}/station/JumpCloneService.h"
      "${TARGET_INCLUDE_DIR}/station/RepairService.h"
@@ -595,6 +596,7 @@ SET( station_INCLUDE
      "${TARGET_INCLUDE_DIR}/station/Outpost.h"  )
 SET( station_SOURCE
      "${TARGET_SOURCE_DIR}/station/HoloscreenMgrService.cpp"
+"${TARGET_SOURCE_DIR}/station/StoreServerService.cpp"
      "${TARGET_SOURCE_DIR}/station/InsuranceService.cpp"
      "${TARGET_SOURCE_DIR}/station/JumpCloneService.cpp"
      "${TARGET_SOURCE_DIR}/station/RepairService.cpp"

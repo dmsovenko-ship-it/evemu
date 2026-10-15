@@ -58,6 +58,32 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         return xml;
     }
 
+    if (handler == "NewsFeed.xml.aspx") {
+        // public news feed for the portal's RDF endpoint (client station news
+        // ticker fetches http://www.eveonline.com/feed/rdfnews.asp - hosts-
+        // redirected to the portal, which renders serverNews through this call)
+        uint32 limit = 10;
+        { std::string l = get("limit"); if (!l.empty()) limit = strtoul(l.c_str(), nullptr, 10); }
+        if (limit == 0 || limit > 50) limit = 10;
+
+        DBQueryResult res;
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n    <rows>\n";
+        if (sDatabase.RunQuery(res,
+            "SELECT newsID, title, authorName, createdAt FROM serverNews ORDER BY newsID DESC LIMIT %u", limit)) {
+            DBResultRow row;
+            while (res.GetRow(row)) {
+                xml += "      <row id=\"" + std::to_string(row.GetUInt(0))
+                    + "\" title=\"" + xmlEscape(row.GetText(1))
+                    + "\" author=\"" + xmlEscape(row.GetText(2))
+                    + "\" date=\"" + std::string(row.GetText(3) ? row.GetText(3) : "") + "\"/>\n";
+            }
+        }
+        xml += "    </rows>\n  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     if (handler == "KillStats.xml.aspx") {
         DBQueryResult res;
         uint32 totalkills = 0;
