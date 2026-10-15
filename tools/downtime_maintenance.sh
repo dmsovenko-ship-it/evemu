@@ -25,7 +25,8 @@ HOLD_FILE=/opt/evemu/downtime.hold
 LOCK=/tmp/downtime_maintenance.lock
 LOGTAG="[downtime]"
 
-now_min=$(( $(date -u +%H) * 60 + $(date -u +%M) ))
+# 10# forces base-10: %H/%M yield leading zeros (08/09) which bash reads as octal
+now_min=$(( 10#$(date -u +%H) * 60 + 10#$(date -u +%M) ))
 start_min=$(( DT_HOUR * 60 + DT_MIN ))
 delta=$(( (now_min - start_min + 1440) % 1440 ))
 [ "$delta" -gt "$TASK_DEADLINE_MIN" ] && exit 0          # outside the window

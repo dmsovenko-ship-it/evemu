@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # ============================================================================
 # Deploys the Crucible-style daily downtime onto a game host. Idempotent -
 # safe to re-run. Run on the host from the repo checkout:
@@ -29,13 +29,13 @@ if ! bash -n "$MAINT"; then echo "ERROR: syntax error in $MAINT"; exit 1; fi
 mkdir -p "$LOGDIR"
 
 # --- 1) config tags (idempotent) ---
-if ! grep -q '<DailyDowntime>' "$CONFIG"; then
+if ! grep -a -q '<DailyDowntime>' "$CONFIG"; then
     BAK="$CONFIG.bak_downtime_$(date -u +%Y%m%d%H%M%S)"
     cp -a "$CONFIG" "$BAK"
     own=$(stat -c '%u:%g' "$CONFIG")
     sed -i 's|[[:space:]]*</world>|    <DailyDowntime>true</DailyDowntime>\n    <DowntimeHourUTC>11</DowntimeHourUTC>\n    <DowntimeMinuteUTC>0</DowntimeMinuteUTC>\n    <DowntimeLengthMin>30</DowntimeLengthMin>\n</world>|' "$CONFIG"
     chown "$own" "$CONFIG"
-    if grep -q '<DailyDowntime>' "$CONFIG"; then
+    if grep -a -q '<DailyDowntime>' "$CONFIG"; then
         echo "config: tags added (backup: $BAK). Applied on the NEXT server start."
     else
         echo "ERROR: could not add config tags (no </world> found?). Config restored from backup."
