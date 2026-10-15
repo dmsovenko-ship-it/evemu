@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # ============================================================================
 # Deploys the Crucible-style daily downtime onto a game host. Idempotent -
 # safe to re-run. Run on the host from the repo checkout:
