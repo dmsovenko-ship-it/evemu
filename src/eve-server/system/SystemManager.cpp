@@ -1442,12 +1442,16 @@ void SystemManager::RemoveEntity(SystemEntity* pSE) {
     /** @note  this does not remove static balls (bubble center markers) and no clue why */
     if (pSE == nullptr)
         return;
-    // Save bubble pointer before Remove clears it, so we can send RemoveBall to clients
-    SystemBubble* pBubble = pSE->SysBubble();
+    // sBubbleMgr.Remove() walks every bubble and Untrack()s the real one, which
+    // broadcasts RemoveBall to all players in that bubble AND cleans their grid
+    // trackers (NoteGridBallToPlayers). A second RemoveBall here (78ce5e4a,
+    // "prevents stale bracket crash") hit a ball the client had ALREADY deleted:
+    // its destiny handler threw on the unknown ball and every later destiny
+    // update (RemoveBall, AddBalls, SetState) was dropped until relog — stale
+    // brackets, "Unable to find entity to Orbit", the broken-grid report after
+    // a bot crossed a gate. Untrack is the single notifier; do NOT add a manual
+    // RemoveBall here.
     sBubbleMgr.Remove(pSE);
-    // Notify clients in the bubble that this ball is gone — prevents stale bracket crash
-    if (pBubble != nullptr)
-        pBubble->RemoveBallExclusive(pSE);
     // Remove Entity's Item Ref from Solar System Dynamic Inventory:
     RemoveItemFromInventory(pSE->GetSelf());
     // remove entity from our maps

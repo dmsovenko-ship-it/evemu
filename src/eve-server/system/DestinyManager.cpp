@@ -3766,8 +3766,13 @@ void DestinyManager::Jump(bool showCloak)
     if (showCloak) {
         m_cloaked = true;
     }
-    if (mySE->SysBubble() != nullptr)
-        mySE->SysBubble()->RemoveExclusive(mySE);
+    // Do NOT send RemoveBall here. Both callers (ExecuteJump / ExecuteDriveJump)
+    // immediately call MoveToLocation -> SystemManager::RemoveEntity, whose
+    // sBubbleMgr.Remove() -> Untrack() broadcasts RemoveBall to the remaining
+    // players exactly once, same tick. Sending it here as well hit a ball the
+    // observers had already deleted: their destiny handler threw on the unknown
+    // ball and every later destiny update was dropped until relog — the
+    // "grid breaks when someone crosses a gate" report.
 }
 
 void DestinyManager::Cloak() {

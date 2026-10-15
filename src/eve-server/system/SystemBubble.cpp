@@ -498,8 +498,14 @@ void SystemBubble::Untrack(SystemEntity *pSE) {
         RemoveBalls(pSE);
     }
 
-    // notify everybody else in the bubble of the removal
-    if (!m_players.empty()) {
+    // notify everybody else in the bubble of the removal.
+    // A cloaked entity's ball is NOT at any client: DestinyMgr::Cloak() removed it
+    // (RemoveBallExclusive) and both AddBallExclusive and SendAddBalls skip cloaked
+    // entities. RemoveBall for a ball the clients do not have throws in their destiny
+    // handler and drops every later destiny update until relog — e.g. a cloaked ship
+    // dying to AoE, or the jump-cloak path. Skip the notify for cloaked entities.
+    if (!m_players.empty()
+        && !(pSE->DestinyMgr() != nullptr && pSE->DestinyMgr()->IsCloaked())) {
         RemoveBall(pSE);
     }
 
