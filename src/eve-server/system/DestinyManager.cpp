@@ -2404,9 +2404,20 @@ void DestinyManager::WarpStop(double currentShipSpeed) {
             for (auto& kv : mySE->SysBubble()->GetDynamicEntities())
                 arriveIDs.insert(kv.first);
             RemoveBallsFromBP stale;
-            for (uint32 id : m_gridBalls)
-                if (id != mySE->GetID() && arriveIDs.find(id) == arriveIDs.end())
-                    stale.balls.push_back(id);
+            for (uint32 id : m_gridBalls) {
+                if (id == mySE->GetID() || arriveIDs.find(id) != arriveIDs.end())
+                    continue;
+                // NEVER remove statics (gates/stations/planets): they are system-wide
+                // and the client keeps them across bubble changes. Removing the gate
+                // the pilot just warped away from erased it from the overview and the
+                // warp menu until relog ("gate disappeared after warping off it").
+                // Defensive: m_gridBalls should hold dynamics only — the add sites
+                // (SendAddBalls / SendOverlappingBalls) filter statics out.
+                SystemEntity* gridSE = mySE->SystemMgr()->GetSE(id);
+                if (gridSE != nullptr && gridSE->IsStaticEntity())
+                    continue;
+                stale.balls.push_back(id);
+            }
             if (!stale.balls.empty()) {
                 PyTuple* tmp = stale.Encode();
                 mySE->GetPilot()->QueueDestinyUpdate(&tmp);   // consumed
