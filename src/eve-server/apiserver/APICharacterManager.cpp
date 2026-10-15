@@ -314,22 +314,43 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
                     xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\" name=\"" + std::string(row.GetText(1)) + "\" type=\"character\"/>\n";
             }
         }
-        // ship type names (+ median market price for ISK valuation on the portal).
-        // MEDIAN (PERCENTILE_CONT 0.5) is robust to outlier orders; fall back to
-        // basePrice when the type has no market orders at all.
+        // ship type names (+ market price for ISK valuation on the portal).
+        // The old query priced every type with a correlated PERCENTILE_CONT over
+        // ALL of its mktOrders rows: with 38.6M orders a popular type (Tritanium)
+        // alone took seconds, a whole kill fit blew through the portal's 5 s
+        // timeout — the first click rendered "Unknown #N" and only a retry (API
+        // cache warmed server-side) showed the fit. Same cure as TopValuables:
+        // one FIXED primary-key window of the newest orders (bounded cost,
+        // independent of the type count), AVG per type, and invTypes.basePrice
+        // for anything the sample does not cover.
         {
+            std::map<uint32, std::pair<std::string, double>> types;   // typeID -> (name, price)
+            {
+                DBQueryResult res;
+                if (sDatabase.RunQuery(res,
+                    "SELECT typeID, typeName, basePrice FROM invTypes WHERE typeID IN (%s)", ids.c_str())) {
+                    DBResultRow row;
+                    while (res.GetRow(row))
+                        types[row.GetUInt(0)] = { std::string(row.GetText(1)), row.GetDouble(2) };
+                }
+            }
             DBQueryResult res;
             if (sDatabase.RunQuery(res,
-                "SELECT t.typeID, t.typeName, "
-                "IFNULL((SELECT DISTINCT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price) OVER (PARTITION BY typeID) "
-                "        FROM mktOrders WHERE typeID = t.typeID), t.basePrice) "
-                "FROM invTypes t WHERE t.typeID IN (%s)", ids.c_str())) {
+                "SELECT typeID, AVG(price) FROM ("
+                "  SELECT typeID, price FROM mktOrders"
+                "  WHERE price > 0"
+                "  ORDER BY orderID DESC LIMIT 500000"
+                ") s WHERE typeID IN (%s) GROUP BY typeID", ids.c_str(), ids.c_str())) {
                 DBResultRow row;
                 while (res.GetRow(row)) {
-                    std::ostringstream prc; prc.precision(2); prc << std::fixed << row.GetDouble(2);
-                    xml += "      <row id=\"" + std::to_string(row.GetUInt(0)) + "\" name=\"" + std::string(row.GetText(1))
-                        + "\" type=\"ship\" price=\"" + prc.str() + "\"/>\n";
+                    auto it = types.find(row.GetUInt(0));
+                    if (it != types.end()) it->second.second = row.GetDouble(1);
                 }
+            }
+            for (auto& kv : types) {
+                std::ostringstream prc; prc.precision(2); prc << std::fixed << kv.second.second;
+                xml += "      <row id=\"" + std::to_string(kv.first) + "\" name=\"" + xmlEscape(kv.second.first.c_str())
+                    + "\" type=\"ship\" price=\"" + prc.str() + "\"/>\n";
             }
         }
         // system names
