@@ -108,10 +108,54 @@ if [ -d "$CORE_DIR" ]; then
     M "old core dumps cleaned"
 fi
 
-# --- 6) start the server back (unless the operator holds it for updates) ---
+# --- 6) update + (re)build + start ---
+# Semantics: git pull; if new commits -> rebuild and recreate ONLY the server
+# container (the DB container is never touched: no `docker-compose down`).
+# Any failure (diverged pull, dirty tree, broken build) falls back to starting
+# the PREVIOUS image, so a bad commit can not leave the server down.
+# The hold file skips pull/build entirely (manual update session).
 if [ -f "$HOLD_FILE" ]; then
-    M "HOLD active ($HOLD_FILE) - server NOT started. When done: rm $HOLD_FILE && docker start server"
+    M "HOLD active ($HOLD_FILE) - no pull/build, server NOT started. When done: rm $HOLD_FILE && docker start server"
     exit 0
 fi
-M "starting server"
-docker start server >/dev/null && M "server started"
+
+cd /opt/evemu 2>/dev/null || { M "no $EVEMU_DIR - starting server as is"; docker start server; exit 0; }
+
+BUILD_PID=""
+OLD_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
+if git pull --ff-only origin master >/tmp/dt_pull.log 2>&1; then
+    NEW_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
+    chown -R dmitry:dmitry /opt/evemu/.git 2>/dev/null
+    if [ -n "$OLD_HEAD" ] && [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
+        M "updates pulled: ${OLD_HEAD:0:7} -> ${NEW_HEAD:0:7}"
+        if docker-compose build server >/tmp/dt_build.log 2>&1; then
+            BUILD_PID=$!
+            M "build started in background (pid $BUILD_PID, overlaps the OPTIMIZE below)"
+        else
+            M "WARNING: could not start build (compose?) - will start previous image"
+        fi
+    else
+        M "no updates (at ${NEW_HEAD:0:7})"
+    fi
+else
+    M "git pull FAILED - keeping current code: $(tail -2 /tmp/dt_pull.log | tr '\n' ' ')"
+fi
+
+# --- 7) start the server back ---
+BUILD_RC=0
+if [ -n "$BUILD_PID" ]; then
+    wait "$BUILD_PID"; BUILD_RC=$?
+    if [ "$BUILD_RC" -eq 0 ]; then M "build ok"; else M "BUILD FAILED (rc=$BUILD_RC): $(tail -3 /tmp/dt_build.log | tr '\n' ' ')"; fi
+fi
+
+if [ -n "$BUILD_PID" ] && [ "$BUILD_RC" -eq 0 ]; then
+    if docker-compose up -d --no-deps server >>/tmp/dt_build.log 2>&1; then
+        M "server recreated with the new image"
+    else
+        M "up -d failed - starting previous container"
+        docker start server >/dev/null && M "server started (previous image)"
+    fi
+else
+    M "starting server (no rebuild)"
+    docker start server >/dev/null && M "server started"
+fi
