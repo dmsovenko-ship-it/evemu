@@ -62,9 +62,9 @@ PyList* LiveUpdateDB::GenerateUpdates()
     header->AddColumn("buildNumberMax", DBTYPE_I4);
     header->AddColumn("code", DBTYPE_STR);
 
-    // count rows + 2 for news ticker patch (holoscreen patch + RPC fallback)
+    // count rows + 3 for news ticker patch (holoscreen patch + RPC fallback) + logError alias
     uint32 rowCount = res.GetRowCount();
-    PyList* list = new PyList(rowCount + 2);
+    PyList* list = new PyList(rowCount + 3);
     int listIndex = 0;
     DBResultRow row;
     while (res.GetRow(row))
@@ -196,6 +196,37 @@ PyList* LiveUpdateDB::GenerateUpdates()
             inner.objectID = "holoscreenMgr";
             inner.methodName = "GetNewsTickerData";
             packedRow->SetField(7, inner.Encode());
+            list->SetItem(listIndex++, packedRow);
+        }
+
+        // Row 3: alias log.logError -> log.LogError.
+        // The client's audioService.GetAudioBus, when all 8 audio bus channels
+        // are busy, does log.logError('Bus voice starvation!') -- but the log
+        // module only exports LogError (capital L). The AttributeError escapes
+        // Sprite.ApplyAttributes (video intro) and kills
+        // HoloscreenSvc._PlayTemplates -> the CQ main screen stops cycling and
+        // piles every template into one frame.
+        {
+            PyPackedRow* packedRow = new PyPackedRow(header);
+            PySetFieldRelease(packedRow, uint32(0), static_cast<PyRep*>(new PyInt(997)));
+            PySetFieldRelease(packedRow, uint32(1), static_cast<PyRep*>(new PyWString(std::string("LogErrorAlias"))));
+            PySetFieldRelease(packedRow, uint32(2), static_cast<PyRep*>(new PyWString(std::string("Alias log.logError to log.LogError (audio bus starvation crash)"))));
+            packedRow->SetField(uint32(3), static_cast<PyRep*>(PyStatic.NewInt(0)));
+            PySetFieldRelease(packedRow, uint32(4), static_cast<PyRep*>(new PyInt(999999)));
+            packedRow->SetField(uint32(5), static_cast<PyRep*>(PyStatic.NewInt(0)));
+            PySetFieldRelease(packedRow, uint32(6), static_cast<PyRep*>(new PyInt(999999)));
+
+            LiveUpdateInner inner;
+            inner.code = "try:\n"
+                         "    import log\n"
+                         "    if not hasattr(log, 'logError'):\n"
+                         "        log.logError = log.LogError\n"
+                         "except:\n"
+                         "    pass\n";
+            inner.codeType = "";   // exec'd as raw Python by the client
+            inner.objectID = "";
+            inner.methodName = "";
+            packedRow->SetField(uint32(7), inner.Encode());
             list->SetItem(listIndex++, packedRow);
         }
     }
