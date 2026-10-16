@@ -87,7 +87,15 @@ static std::string url_decode(const std::string& str) {
 }
 
 APIServer::APIServer() = default;
-APIServer::~APIServer() = default;
+APIServer::~APIServer()
+{
+    // Join the io thread cleanly; if for any reason it is still joinable
+    // afterwards (e.g. Stop() raced), detach so ~std::thread never calls
+    // std::terminate() during static destruction at exit.
+    Stop();
+    if (_ioThread.joinable())
+        _ioThread.detach();
+}
 
 void APIServer::CreateServices()
 {
@@ -266,18 +274,31 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
 void APIServer::RunInternal()
 {
     try {
-        boost::asio::io_context io;
-        tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), sConfig.net.imageServerPort + 1));
+        if (_stopping)
+            return;
+        _acceptor = std::make_unique<tcp::acceptor>(_io, tcp::endpoint(tcp::v4(), sConfig.net.imageServerPort + 1));
+        if (_stopping) {   // Stop() raced us before the listener existed
+            boost::system::error_code ec;
+            _acceptor->close(ec);
+            return;
+        }
 
         sLog.Green("API Server", "Listening on port %u", sConfig.net.imageServerPort);
 
-        for (;;) {
-            tcp::socket socket(io);
-            acceptor.accept(socket);
+        while (!_stopping) {
+            tcp::socket socket(_io);
+            boost::system::error_code ec;
+            _acceptor->accept(socket, ec);
+            if (ec) {
+                if (_stopping)
+                    break;
+                continue;   // transient accept error - keep listening
+            }
             std::thread(HandleSession, std::move(socket), std::ref(*this)).detach();
         }
     } catch (std::exception& e) {
-        sLog.Error("APIServer", "Fatal: %s", e.what());
+        if (!_stopping)
+            sLog.Error("APIServer", "Fatal: %s", e.what());
     }
 }
 
@@ -288,5 +309,15 @@ void APIServer::Run()
 
 void APIServer::Stop()
 {
-    // best-effort: the io_context is inside RunInternal's stack
+    if (_stopping.exchange(true))
+        return;   // already stopping/stopped (safe to call from shutdown + dtor)
+    try {
+        if (_acceptor) {
+            boost::system::error_code ec;
+            _acceptor->close(ec);
+        }
+    } catch (...) {}
+    _io.stop();
+    if (_ioThread.joinable())
+        _ioThread.join();
 }

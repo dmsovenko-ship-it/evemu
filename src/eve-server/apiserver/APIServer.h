@@ -6,6 +6,8 @@
 #include <map>
 #include <thread>
 #include <mutex>
+#include <atomic>
+#include <boost/asio.hpp>
 
 class APIServiceManager;
 
@@ -33,7 +35,10 @@ private:
     APIServer();
     void RunInternal();
 
+    boost::asio::io_context _io;
+    std::unique_ptr<boost::asio::ip::tcp::acceptor> _acceptor;
     std::thread _ioThread;
+    std::atomic<bool> _stopping{false};
     std::string _url;
     bool _runOnce = false;
     std::map<std::string, std::unique_ptr<APIServiceManager>> _serviceManagers;

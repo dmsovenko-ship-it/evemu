@@ -1040,6 +1040,9 @@ int main( int argc, char* argv[] )
     sLog.Warning("   ServerShutdown", "Image Server stopped." );
     /* stop the Telegram command poller */
     TelegramCmd::Stop();
+    /* stop the API server io thread (must join before we exit: exit() runs
+     * static destructors and a joinable std::thread would std::terminate) */
+    sAPIServer.Stop();
     /* Close the MarketMgr */
     sMktMgr.Close();
     /* Close the bulk data manager */
