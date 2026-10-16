@@ -310,6 +310,34 @@ static std::string NewsDeleteXML(const std::map<std::string, std::string>& param
     return xml;
 }
 
+// Edit an archived news item's title/body in place (all channels re-render it).
+static std::string NewsEditXML(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string nid = get("newsid");
+    if (nid.empty() || nid.find_first_not_of("0123456789") != std::string::npos)
+        return APIServiceManager::BuildErrorXML("105", "Missing newsid.");
+    std::string title = get("title");
+    std::string body  = get("body");
+    if (title.empty() || body.empty())
+        return APIServiceManager::BuildErrorXML("105", "Missing title or body.");
+
+    std::string tEsc, bEsc;
+    sDatabase.DoEscapeString(tEsc, title);
+    sDatabase.DoEscapeString(bEsc, body);
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE serverNews SET title = '%s', body = '%s' WHERE newsID = %u",
+        tEsc.c_str(), bEsc.c_str(), std::stoul(nid));
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <ok/>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
 // Admin saves/clears a free-form note on an account (watchlist / follow-ups).
 static std::string SetAccountCommentXML(const std::map<std::string, std::string>& params)
 {
@@ -447,6 +475,8 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
         return NewsListXML();
     if (handler == "NewsResend.xml.aspx")
         return NewsResendXML(params);
+    if (handler == "NewsEdit.xml.aspx")
+        return NewsEditXML(params);
     if (handler == "NewsDelete.xml.aspx")
         return NewsDeleteXML(params);
 
