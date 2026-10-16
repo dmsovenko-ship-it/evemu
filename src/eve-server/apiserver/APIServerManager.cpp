@@ -71,13 +71,14 @@ std::string APIServerManager::ProcessCall(const std::string& handler,
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
         xml += "  <result>\n    <rows>\n";
         if (sDatabase.RunQuery(res,
-            "SELECT newsID, title, authorName, createdAt FROM serverNews ORDER BY newsID DESC LIMIT %u", limit)) {
+            "SELECT newsID, title, authorName, createdAt, body FROM serverNews ORDER BY newsID DESC LIMIT %u", limit)) {
             DBResultRow row;
             while (res.GetRow(row)) {
                 xml += "      <row id=\"" + std::to_string(row.GetUInt(0))
                     + "\" title=\"" + xmlEscape(row.GetText(1))
                     + "\" author=\"" + xmlEscape(row.GetText(2))
-                    + "\" date=\"" + std::string(row.GetText(3) ? row.GetText(3) : "") + "\"/>\n";
+                    + "\" date=\"" + std::string(row.GetText(3) ? row.GetText(3) : "")
+                    + "\" body=\"" + xmlEscape(row.GetText(4) ? row.GetText(4) : "") + "\"/>\n";
             }
         }
         xml += "    </rows>\n  </result>\n</eveapi>\n";
