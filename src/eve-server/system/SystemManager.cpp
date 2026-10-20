@@ -2325,7 +2325,12 @@ void SystemManager::SpawnBillboards()
                  (group == EVEDB::invGroups::Stargate) ? "SG" : "ST", id);
 
         ItemData itemData(itemTypeBillboard, pSE->GetCorporationID(), m_data.systemID, flagNone, name, pos);
-        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        // Billboards are ephemeral decor -> SpawnTempItem (NOT SpawnItem). SpawnItem
+        // persisted a row on EVERY system load and nothing removed it, so billboards
+        // piled up (Uemon: 35 for 3 gates + 2 stations = 7 reloads). That bloated the
+        // undock SetState until the client parser died with
+        // "ValueError: Unknown packet type" in michelle.SetState (grid never loaded).
+        InventoryItemRef iRef = sItemFactory.SpawnTempItem(itemData);
         if (iRef.get() == nullptr) continue;
 
         ObjectSystemEntity* billboard = new ObjectSystemEntity(iRef, m_services, this);
