@@ -62,9 +62,11 @@ PyList* LiveUpdateDB::GenerateUpdates()
     header->AddColumn("buildNumberMax", DBTYPE_I4);
     header->AddColumn("code", DBTYPE_STR);
 
-    // count rows + 3 for news ticker patch (holoscreen patch + RPC fallback) + logError alias
+    // DB rows only - the old hardcoded news/logError rows used an invalid protocol
+    // (source text + empty/"method" codeType) that the client's LiveUpdateSvc
+    // cannot apply; real fixes live in the liveupdates table as marshalled code.
     uint32 rowCount = res.GetRowCount();
-    PyList* list = new PyList(rowCount + 3);
+    PyList* list = new PyList(rowCount);
     int listIndex = 0;
     DBResultRow row;
     while (res.GetRow(row))
@@ -84,6 +86,12 @@ PyList* LiveUpdateDB::GenerateUpdates()
         list->SetItem(listIndex++, packedRow);
     }
 
+#if 0
+    // legacy: invalid live-update protocol (plain source text + empty/"method"
+    // codeType). The Crucible LiveUpdateSvc only accepts a marshalled py2.7
+    // func_code with globalClassMethod/globalFunction/globalObjectMethod, so
+    // none of these rows ever applied. Real fixes are rows in the liveupdates
+    // table (e.g. updateID 6 = AudioLogErrorFix).
     // add news ticker live update with latest commit title
     {
         // read latest commit message
@@ -230,6 +238,7 @@ PyList* LiveUpdateDB::GenerateUpdates()
             list->SetItem(listIndex++, packedRow);
         }
     }
+#endif
 
     list->Dump(NET__PRES_DEBUG, "    ");
 
