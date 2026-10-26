@@ -595,15 +595,12 @@ bool SystemManager::LoadSystemStatics() {
 
     // Spawn sentry guns at gates and stations
     SpawnSentryGuns();
-    // TEMPORARILY DISABLED (2026-10-26): the client's
-    // parklife/billboardMgr.GenerateAdvert throws (TypeError: not all arguments
-    // converted during string formatting on the "billboard.asp?%s" URL) and
-    // Billboard::LateAssembleUpdate -> sm.GetService('billboard') ->
-    // StartServiceAndWaitForRunningState then BLOCKS forever, so the whole space
-    // scene never finishes loading. Re-enable once the client side is fixed
-    // (a live-update replacing GenerateAdvert - needs py2.7 marshal - or a
-    // compiled.code patch).
-    // SpawnBillboards();
+    // Billboards are safe again: client BillboardMgr.GenerateAdvert is patched by
+    // live-update #7 (migration 20261026000000-liveupdate_billboard_advert.sql),
+    // which fixed the TypeError that used to hang StartServiceAndWaitForRunningState
+    // (the space scene never loaded). NOTE: BillboardMgr starts on EVERY login via
+    // the service manager, so disabling billboard spawns does NOT avoid that crash.
+    SpawnBillboards();
     SpawnConvoys();
     // Customs NPCs are NOT spawned here: they used to be created at every boot
     // (including bot/always-on systems with no player) and cost a per-gate DB
