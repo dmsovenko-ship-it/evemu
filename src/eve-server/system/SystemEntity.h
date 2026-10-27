@@ -275,6 +275,7 @@ public:
     /* generic functions handled here, but set elsewhere */
     bool                        IsDead()                { return m_killed; }
     const GVector&              GetVelocity()           { return (m_destiny != nullptr ? m_destiny->GetVelocity() : NULL_ORIGIN_V); }
+    double                      GetDamageTaken()        { return m_damageTaken; }
 
     /* virtual functions default to base class and overridden as needed */
     virtual void                Killed(Damage &damage);
@@ -300,6 +301,7 @@ protected:
     SystemManager*              m_system;               /* we do not own this  never NULL in space */
     TargetManager*              m_targMgr;              /* we do not own this. only Destructible items will have it */
     DestinyManager*             m_destiny;              /* we do not own this. only mobile items will have it */
+    double                      m_damageTaken = 0.0;    /* cumulative damage applied (killmail "Damage Taken") */
 
     EVEServiceManager&          m_services;
 

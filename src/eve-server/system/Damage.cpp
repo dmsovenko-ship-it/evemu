@@ -325,6 +325,10 @@ bool SystemEntity::ApplyDamage(Damage &d) {
         }
     }
 
+    // Cumulative damage this entity has actually taken (killmail "Damage Taken").
+    // Replaces the old HP placeholder that gave a constant 30000 for bots.
+    m_damageTaken += d.GetTotal();
+
     if (is_log_enabled(DAMAGE__MESSAGE)) {
         if (d.srcSE->IsNPCSE()) {
             _log(DAMAGE__MESSAGE, "%s(%u): Initializing %.2f damage from NPC %s(%u) with K:%.3f, T:%.3f, EM:%.3f, E:%.3f",\
@@ -833,7 +837,8 @@ void ShipSE::Killed(Damage &fatal_blow) {
         uint32 totalHP = m_self->GetAttribute(AttrHP).get_int();
             totalHP += m_self->GetAttribute(AttrArmorHP).get_int();
             totalHP += m_self->GetAttribute(AttrShieldCapacity).get_int();
-        data.victimDamageTaken = totalHP;
+        double dmgTaken = GetDamageTaken();
+        data.victimDamageTaken = (dmgTaken >= 1.0) ? (uint32)dmgTaken : totalHP;
 
     std::stringstream blob;
     std::vector<InventoryItemRef> survivedItems;

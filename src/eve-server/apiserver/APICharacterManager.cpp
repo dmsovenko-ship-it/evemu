@@ -69,7 +69,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "k.killTime, k.moonID, "
             "vc.characterName, fc.characterName, "
             "iv.typeName, if_.typeName, iw.typeName, "
-            "ss.solarSystemName, k.killBlob "
+            "ss.solarSystemName, k.killBlob, ss.security "
             "FROM chrKillTable k "
             "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
             "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
@@ -124,6 +124,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             // killBlob for item drops
             const char* blob = row.GetText(24);
             xml += " killblob=\"" + xmlEscape(blob) + "\"";
+            { const char* ssec = row.GetText(25); xml += " security=\"" + std::string(ssec ? ssec : "0.0") + "\""; }
             xml += "/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
@@ -232,7 +233,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             "iv.typeName, if_.typeName, iw.typeName, "
             "ss.solarSystemName, k.killBlob, "
             "igv.groupID, igv.groupName, "
-            "igf.groupID, igf.groupName "
+            "igf.groupID, igf.groupName, ss.security "
             "FROM chrKillTable k "
             "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
             "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
@@ -290,6 +291,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
             xml += " victimgroupname=\"" + xmlEscape(row.GetText(26)) + "\"";
             xml += " finalgroupid=\"" + std::to_string(row.GetUInt(27)) + "\"";
             xml += " finalgroupname=\"" + xmlEscape(row.GetText(28)) + "\"";
+            { const char* ssec = row.GetText(29); xml += " security=\"" + std::string(ssec ? ssec : "0.0") + "\""; }
             xml += "/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";

@@ -767,7 +767,8 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
     uint32 totalHP = m_self->GetAttribute(AttrHP).get_int();
     totalHP += m_self->GetAttribute(AttrArmorHP).get_int();
     totalHP += m_self->GetAttribute(AttrShieldCapacity).get_int();
-    data.victimDamageTaken = totalHP;
+    double dmgTaken = GetDamageTaken();
+    data.victimDamageTaken = (dmgTaken >= 1.0) ? (uint32)dmgTaken : totalHP;
 
     // dropped/destroyed items (modules + cargo from the ship). Read the ship's
     // in-memory inventory (like a real player loss) so we can BOTH list them in

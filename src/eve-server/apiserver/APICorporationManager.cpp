@@ -81,7 +81,7 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
             "k.killTime, k.moonID, "
             "vc.characterName, fc.characterName, "
             "iv.typeName, if_.typeName, "
-            "ss.solarSystemName "
+            "ss.solarSystemName, ss.security "
             "FROM chrKillTable k "
             "LEFT JOIN chrCharacters vc ON vc.characterID = k.victimCharacterID "
             "LEFT JOIN chrCharacters fc ON fc.characterID = k.finalCharacterID "
@@ -123,7 +123,9 @@ std::string APICorporationManager::ProcessCall(const std::string& handler,
             xml += " finalname=\"" + xmlEscape(row.GetText(19)) + "\"";
             xml += " victimshipname=\"" + xmlEscape(row.GetText(20)) + "\"";
             xml += " finalshipname=\"" + xmlEscape(row.GetText(21)) + "\"";
-            xml += " solarsystemname=\"" + xmlEscape(row.GetText(22)) + "\"/>\n";
+            xml += " solarsystemname=\"" + xmlEscape(row.GetText(22)) + "\"";
+            { const char* ssec = row.GetText(23); xml += " security=\"" + std::string(ssec ? ssec : "0.0") + "\""; }
+            xml += "/>\n";
         }
         xml += "    </kills>\n  </result>\n</eveapi>\n";
         return xml;
