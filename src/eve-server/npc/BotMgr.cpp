@@ -554,8 +554,8 @@ void BotMgr::Process()
     // Call out reds that appear in a system with a player (before a kill).
     ProcessThreatWatch();
 
-    // Neutral spotters/scouts/scammers (NPC-corps) in systems with a player.
-    ProcessSpotters();
+    // Neutral "разводилы" (scammers) post bait lines at the trade hub.
+    ProcessScammers();
 
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
@@ -5033,11 +5033,10 @@ void BotMgr::ProcessThreatWatch()
         m_threatSeen.clear();   // safety cap
 }
 
-// "Наводчики/разведчики/разводилы": NEUTRAL pilots from NPC corps (not part of
-// the fight) call out a juicy target to nearby hunters/gankers - that is how a
-// lot of real ganks get set up - and at trade hubs the occasional scammer posts
-// a bait line. Only in systems where a real player can hear it.
-void BotMgr::ProcessSpotters()
+// "Разводилы": at a trade hub the odd NEUTRAL pilot from an NPC corp posts a
+// bait line in local (cheap-fit / contract bait). We deliberately do NOT call
+// out targets in the victim's local - a real spotter reports to his own fleet.
+void BotMgr::ProcessScammers()
 {
     if (!m_initalized || !sConfig.playerBots.Enabled)
         return;
@@ -5047,82 +5046,53 @@ void BotMgr::ProcessSpotters()
         return;
     s_lastCheck = now;
 
+    uint32 hub = GetTradeHubSystem();
+    if (hub == 0)
+        return;
+
     for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
-        if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+        if (pSystem == nullptr || sysID != hub || pSystem->PlayerCount() < 1)
             continue;
 
-        bool hunterNear = false;
+        auto it = m_scamAt.find(sysID);
+        if (it != m_scamAt.end() && (now - it->second) < 300)
+            continue;   // one bait line per hub per ~5 min
+        if (MakeRandomInt(0, 99) >= 25)
+            continue;
+
         std::vector<PlayerBot*> neutrals;
         for (auto& [id, se] : pSystem->GetEntities()) {
             if (se == nullptr || se->GetNPCSE() == nullptr)
                 continue;
             PlayerBot* b = dynamic_cast<PlayerBot*>(se->GetNPCSE());
-            if (b == nullptr)
-                continue;
-            if (b->GetProfession() == PlayerBot::BotProfession::Hunter || b->IsOutlaw())
-                hunterNear = true;
-            if (!b->IsOutlaw() && !IsPlayerCorp(b->GetBotCorpID()))
+            if (b != nullptr && !b->IsOutlaw() && !IsPlayerCorp(b->GetBotCorpID()))
                 neutrals.push_back(b);   // neutral NPC-corp pilot
         }
         if (neutrals.empty())
             continue;
 
-        auto it = m_spotterAt.find(sysID);
-        if (it != m_spotterAt.end() && (now - it->second) < 180)
-            continue;   // one spotter/scam line per system per ~3 min
-
-        if (hunterNear) {
-            if (MakeRandomInt(0, 99) >= 20)
-                continue;
-            m_spotterAt[sysID] = now;
-            PlayerBot* w = neutrals[MakeRandomInt(0, (int)neutrals.size() - 1)];
-            std::string line;
-            if (w->SpeaksRussian()) {
-                std::vector<std::string> lines = {
-                    "в локале цель, кто хочет?",
-                    "хаулер на гейте стоит, кому надо",
-                    "тут есть жирный, если что",
-                    "цель в системе, гейт чист"
-                };
-                line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
-            } else {
-                std::vector<std::string> lines = {
-                    "got a target in local, anyone?",
-                    "hauler sitting on the gate, easy catch",
-                    "juicy one in system if anyone's hunting",
-                    "target in system, gate's clear"
-                };
-                line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
-            }
-            BotSayLocal(sysID, w->GetBotCharID(), w->GetBotName(), w->GetBotCorpID(), line);
-            return;
+        m_scamAt[sysID] = now;
+        PlayerBot* w = neutrals[MakeRandomInt(0, (int)neutrals.size() - 1)];
+        std::string line;
+        if (w->SpeaksRussian()) {
+            std::vector<std::string> lines = {
+                "продам фит дешевле рынка, контракт в джите",
+                "кто хочет хороший фит за полцены? контракт есть",
+                "скину фит по дешману, пишите",
+                "дешёвый фит, контракт в джите, кому?"
+            };
+            line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        } else {
+            std::vector<std::string> lines = {
+                "selling a fit below market, contract's up",
+                "cheap fit, contract in Jita, first come",
+                "good fit for half price, contract's live",
+                "bargain fit on contract, hit me up"
+            };
+            line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
         }
-
-        // Trade hub: the odd "разводила" (scammer) posts a bait line.
-        if (sysID == GetTradeHubSystem() && MakeRandomInt(0, 99) < 25) {
-            m_spotterAt[sysID] = now;
-            PlayerBot* w = neutrals[MakeRandomInt(0, (int)neutrals.size() - 1)];
-            std::string line;
-            if (w->SpeaksRussian()) {
-                std::vector<std::string> lines = {
-                    "продам фит дешевле рынка, контракт в джите",
-                    "кто хочет хороший фит за полцены? контракт есть",
-                    "скину фит по дешману, пишите",
-                    "дешёвый фит, контракт в джите, кому?"
-                };
-                line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
-            } else {
-                std::vector<std::string> lines = {
-                    "selling a fit below market, contract's up",
-                    "cheap fit, contract in Jita, first come",
-                    "good fit for half price, contract's live",
-                    "bargain fit on contract, hit me up"
-                };
-                line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
-            }
-            BotSayLocal(sysID, w->GetBotCharID(), w->GetBotName(), w->GetBotCorpID(), line);
-            return;
-        }
+        BotSayLocal(sysID, w->GetBotCharID(), w->GetBotName(), w->GetBotCorpID(), line);
+        return;
     }
 }
 
