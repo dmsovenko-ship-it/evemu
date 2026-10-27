@@ -10824,9 +10824,13 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
                     : "we fly together as a corp - come to the gate, we're gathering";
                 BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
             } else {
+                uint32 beltID = pSystem->GetRandBeltID();
+                SystemEntity* belt = (beltID != 0) ? pSystem->GetSE(beltID) : nullptr;
+                if (belt != nullptr && responder->DestinyMgr() != nullptr)
+                    responder->DestinyMgr()->WarpTo(belt->GetPosition(), 10000);
                 std::string line = responder->SpeaksRussian()
-                    ? "флот не собираю, я соло - но прикрою, если что"
-                    : "i fly solo, no fleet - but i'll back you up";
+                    ? "флит не вожу, но го фармить - варпай за мной"
+                    : "not running a fleet, but come rat with me - warp after me";
                 BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
             }
             return;
