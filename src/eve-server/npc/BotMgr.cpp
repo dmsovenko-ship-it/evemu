@@ -551,6 +551,9 @@ void BotMgr::Process()
     // Recruitment ads from player-corp pilots (only where a real player is).
     ProcessRecruitment();
 
+    // Call out reds that appear in a system with a player (before a kill).
+    ProcessThreatWatch();
+
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
 
@@ -4937,6 +4940,96 @@ void BotMgr::ProcessRecruitment()
     }
 }
 
+// Call out reds that APPEAR in a system with a real player (before a kill).
+void BotMgr::ProcessThreatWatch()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    static time_t s_lastCheck = 0;
+    time_t now = time(nullptr);
+    if (now - s_lastCheck < 45)
+        return;
+    s_lastCheck = now;
+
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+            continue;
+
+        std::set<uint32> nowHostile;
+        int nearGate = 0;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* o = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (o == nullptr)
+                continue;
+            if (!(o->IsOutlaw() || o->IsAggressive()))
+                continue;
+            nowHostile.insert(o->GetBotCharID());
+            if (o->IsNearGate(120000.0))
+                ++nearGate;
+        }
+
+        std::set<uint32>& prev = m_threatSeen[sysID];
+        bool appeared = false;
+        for (uint32 id : nowHostile) {
+            if (prev.find(id) == prev.end()) { appeared = true; break; }
+        }
+        prev = nowHostile;
+        if (!appeared)
+            continue;
+
+        auto wit = m_threatWarnAt.find(sysID);
+        if (wit != m_threatWarnAt.end() && (now - wit->second) < 60)
+            continue;
+        m_threatWarnAt[sysID] = now;
+
+        // A neutral (non-outlaw) pilot calls it out in local.
+        std::vector<PlayerBot*> bots;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* b = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (b != nullptr && !b->IsOutlaw())
+                bots.push_back(b);
+        }
+        if (bots.empty())
+            continue;
+        PlayerBot* w = bots[MakeRandomInt(0, (int)bots.size() - 1)];
+
+        std::string line;
+        if (w->SpeaksRussian()) {
+            if (nearGate >= 2) {
+                line = "на гейте кто-то стоит, похоже кемп - не лезьте";
+            } else {
+                std::vector<std::string> lines = {
+                    "в локале красный, аккуратнее",
+                    "кто-то чужой в системе, гляньте",
+                    "красный нарисовался, будьте на стрёме",
+                    "в локале подозрительный тип"
+                };
+                line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+            }
+        } else {
+            if (nearGate >= 2) {
+                line = "someone's sitting on the gate, likely a camp - stay clear";
+            } else {
+                std::vector<std::string> lines = {
+                    "red in local, watch out",
+                    "someone hostile just showed up",
+                    "got a red in system, keep eyes open",
+                    "local's got a suspicious pilot"
+                };
+                line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+            }
+        }
+        BotSayLocal(sysID, w->GetBotCharID(), w->GetBotName(), w->GetBotCorpID(), line);
+    }
+
+    if (m_threatSeen.size() > 4096)
+        m_threatSeen.clear();   // safety cap
+}
+
 void BotMgr::OnCorpMateKilled(SystemManager* sys, uint32 corpID, uint32 allianceID,
                               const std::string& victim, const std::string& killer)
 {
@@ -8146,6 +8239,34 @@ void BotMgr::ProcessDocking()
                  db.name.c_str(), db.charID, dockStationID, pSystem->GetID());
             pb->ClearDockRequest();
             pb->RecallDrones();   // scoop drones before docking
+
+            // Station repairs (thin economy): a docked hull is patched up for a
+            // small fee, so the pilot doesn't undock permanently damaged.
+            {
+                InventoryItemRef shipRef = pb->GetSelf();
+                if (shipRef.get() != nullptr) {
+                    double dmg = shipRef->GetAttribute(AttrDamage).get_float();
+                    double armorDmg = shipRef->GetAttribute(AttrArmorDamage).get_float();
+                    double shieldCap = shipRef->GetAttribute(AttrShieldCapacity).get_float();
+                    double shield = shipRef->GetAttribute(AttrShieldCharge).get_float();
+                    double lostShield = (shieldCap > shield) ? (shieldCap - shield) : 0.0;
+                    double total = dmg + armorDmg + lostShield;
+                    if (total > 1.0) {
+                        double cost = total * 0.5;   // ISK per point of damage
+                        DBerror rerr;
+                        sDatabase.RunQuery(rerr,
+                            "UPDATE chrCharacters SET balance = GREATEST(0, balance - %.2f) WHERE characterID = %u",
+                            cost, db.charID);
+                        shipRef->SetAttribute(AttrDamage, 0.0, false);
+                        shipRef->SetAttribute(AttrArmorDamage, 0.0, false);
+                        if (shieldCap > 0.0)
+                            shipRef->SetAttribute(AttrShieldCharge, shieldCap, false);
+                        shipRef->SaveItem();
+                        _log(BOT__MESSAGE, "BotMgr: %s(%u) repaired at station for %.0f ISK.",
+                             db.name.c_str(), db.charID, cost);
+                    }
+                }
+            }
             // Courier haul arrived at its destination and now docked → deliver the
             // contract (real physical "dock to complete") and end the run.
             auto haulIt = m_hauls.find(db.charID);

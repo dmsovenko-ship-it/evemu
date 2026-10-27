@@ -388,6 +388,11 @@ private:
     // Player-corp pilots occasionally advertise recruitment in local, only in
     // systems where a real player is present to hear it (throttled per system).
     void ProcessRecruitment();
+    // Threat watch: pilots call out "reds" (outlaw/flagged) that APPEAR in a
+    // system with a real player, before any kill happens.
+    void ProcessThreatWatch();
+    std::map<uint32, std::set<uint32>> m_threatSeen;   // sysID -> hostile charIDs
+    std::map<uint32, time_t> m_threatWarnAt;           // sysID -> last callout
     // Drain queued bot chat replies (one per tic) so bot<-bot conversations
     // advance without recursing the call stack.
     void ProcessBotReplies();
