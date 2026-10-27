@@ -10724,6 +10724,53 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     if (responder == nullptr)
         return;
 
+    // ---- 0) Direct requests: "go to an anomaly" / "fleet?" ----
+    // A bot cannot join a player fleet in this emulator (fleets are Client-bound),
+    // but it CAN take the player ratting: say "follow me" and warp to a belt/anomaly.
+    if (!senderIsBot) {
+        std::string lowRu;
+        lowRu.reserve(message.size());
+        for (size_t i = 0; i < message.size(); ++i) {
+            unsigned char a = (unsigned char)message[i];
+            if (a == 0xD0 && i + 1 < message.size()) {
+                unsigned char b = (unsigned char)message[i + 1];
+                if (b >= 0x90 && b <= 0xAF) { lowRu.push_back((char)0xD0); lowRu.push_back((char)(b + 0x20)); ++i; continue; }
+                if (b == 0x81) { lowRu.push_back((char)0xD1); lowRu.push_back((char)0x91); ++i; continue; }
+            }
+            lowRu.push_back((char)((a >= 'A' && a <= 'Z') ? (a - 'A' + 'a') : a));
+        }
+        bool wantAnom = lowRu.find("аномал") != std::string::npos
+                     || lowRu.find("анов") != std::string::npos
+                     || lowRu.find("раттинг") != std::string::npos
+                     || lowRu.find("фарм") != std::string::npos
+                     || lowRu.find("anomal") != std::string::npos
+                     || lowRu.find("ratting") != std::string::npos
+                     || lowRu.find("farm") != std::string::npos;
+        bool wantFleet = lowRu.find("флот") != std::string::npos
+                      || lowRu.find("fleet") != std::string::npos
+                      || lowRu.find("инвайт") != std::string::npos
+                      || lowRu.find("invite") != std::string::npos;
+
+        if (wantAnom) {
+            uint32 beltID = pSystem->GetRandBeltID();
+            SystemEntity* belt = (beltID != 0) ? pSystem->GetSE(beltID) : nullptr;
+            if (belt != nullptr && responder->DestinyMgr() != nullptr)
+                responder->DestinyMgr()->WarpTo(belt->GetPosition(), 10000);
+            std::string line = responder->SpeaksRussian()
+                ? "го, варпай за мной, на аномальку"
+                : "sure, warp after me, heading to an anomaly";
+            BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
+            return;
+        }
+        if (wantFleet) {
+            std::string line = responder->SpeaksRussian()
+                ? "флот не собираю, я соло - но прикрою, если что"
+                : "i fly solo, no fleet - but i'll back you up";
+            BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
+            return;
+        }
+    }
+
     // ---- 1) LEARNED phrases first (lively, no throttle) ----
     // Answer from phrases this bot learned (a line it said that drew a reply).
     // Reuse is immediate and frequent — a remembered exchange is "live". Only
