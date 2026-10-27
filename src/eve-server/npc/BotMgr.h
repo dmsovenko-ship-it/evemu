@@ -168,6 +168,10 @@ public:
     // demands and other in-character callouts).
     void BotSayLocal(uint32 sysID, uint32 charID, const std::string& name, uint32 corpID,
                      const std::string& msg);
+    // A chelobot died: its corp/alliance mates in the system react in local
+    // (throttled) - "they just got X, watch the gate".
+    void OnCorpMateKilled(SystemManager* sys, uint32 corpID, uint32 allianceID,
+                          const std::string& victim, const std::string& killer);
 
     // Loss-driven logistics threat map (public: PlayerBot::Killed marks a system
     // HOT when a peaceful hauler dies there; convoys routing through it take a

@@ -806,6 +806,12 @@ void PlayerBot::Killed(Damage& damage)
         sBotMgr.BotSayLocal(m_system->GetID(), m_botCharID, m_botName, m_botCorpID, line);
     }
 
+    // Corp/alliance mates in the system react to the loss (social realism).
+    if (m_system != nullptr) {
+        const char* kn = damage.srcSE != nullptr ? damage.srcSE->GetName() : "";
+        sBotMgr.OnCorpMateKilled(m_system, m_botCorpID, m_botAllianceID, m_botName, kn ? kn : "");
+    }
+
     sBotMgr.RemoveBotFromLocal(m_system, m_botCharID);
     NPC::Killed(damage);
 }

@@ -4623,6 +4623,57 @@ void BotMgr::BotSayLocal(uint32 sysID, uint32 charID, const std::string& name, u
     RecordChannelPhrase((int32)sysID, charID, msg);
 }
 
+void BotMgr::OnCorpMateKilled(SystemManager* sys, uint32 corpID, uint32 allianceID,
+                              const std::string& victim, const std::string& killer)
+{
+    if (sys == nullptr || victim.empty())
+        return;
+    uint32 sysID = sys->GetID();
+    // At most one reaction per system per 20s (avoid spam when a fleet dies).
+    static std::map<uint32, double> s_lastLossLine;
+    double now = GetFileTimeNow();
+    auto it = s_lastLossLine.find(sysID);
+    if (it != s_lastLossLine.end() && (now - it->second) < 20.0 * 10000000.0)
+        return;
+    s_lastLossLine[sysID] = now;
+
+    for (auto& [id, se] : sys->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* mate = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (mate == nullptr)
+            continue;
+        bool sameCorp = (corpID != 0 && mate->GetBotCorpID() == corpID);
+        bool sameAlly = (allianceID != 0 && mate->GetBotAllianceID() == allianceID);
+        if (!sameCorp && !sameAlly)
+            continue;
+        std::string line;
+        if (mate->SpeaksRussian()) {
+            static const char* const ru[] = {
+                "они только что убили %s, осторожно на гейте.",
+                "потеряли %s, кто рядом — прикройте.",
+                "%s словил, вижу их на локе.",
+                "плохо, %s в вреке. мстим?"
+            };
+            line = ru[MakeRandomInt(0, 3)];
+        } else {
+            static const char* const en[] = {
+                "%s just went down, watch the gate.",
+                "we lost %s, anyone nearby cover me?",
+                "%s got caught, I see them on scan.",
+                "rough, %s is in a wreck. payback?"
+            };
+            line = en[MakeRandomInt(0, 3)];
+        }
+        size_t pos = line.find("%s");
+        if (pos != std::string::npos) line.replace(pos, 2, victim);
+        BotSayLocal(sysID, mate->GetBotCharID(), mate->GetBotName(), mate->GetBotCorpID(), line);
+        break;   // one mate reaction is enough
+    }
+    _log(BOT__MESSAGE, "BotMgr: corp mate loss reaction for %s (killer %s) in system %u.",
+         victim.c_str(), killer.c_str(), sysID);
+}
+
 bool BotMgr::DemandRansom(uint32 pirateCharID, uint32 victimCharID, const std::string& victimName,
                           double amount, uint32 systemID)
 {
