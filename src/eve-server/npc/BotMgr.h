@@ -40,6 +40,9 @@ public:
     int Initialize();
     void Process();     // called from EntityList on the 1Hz tic
 
+    // War state between two bot corps (used by PlayerBot::IsAlly and targeting).
+    bool AreBotsAtWar(uint32 corpA, uint32 corpB);
+
     // Boot sweep for the portal's "147 ships with 3 online" problem: after an
     // unclean shutdown, chelobot hulls / transient NPC ships and drones stay
     // behind in the entity table as in-space garbage (nobody is flying them).
@@ -401,7 +404,6 @@ private:
     // corp/alliance mattered), so wars were cosmetic. Now war pairs are cached
     // and war targets are legal even in hi-sec; rival bot corps declare wars
     // from time to time so the map gets real conflict.
-    bool AreBotsAtWar(uint32 corpA, uint32 corpB);
     void MaybeDeclareWars();
     void LoadWarCache();
     std::map<int64, bool> m_warCache;   // key = (minCorp<<32)|maxCorp
