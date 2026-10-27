@@ -8958,7 +8958,7 @@ void BotMgr::MaybeDeclareWars()
     if (sDatabase.RunQuery(res,
         "SELECT c.corporationID, COUNT(*) AS n FROM chrCharacters c "
         "JOIN crpCorporation cc ON cc.corporationID = c.corporationID "
-        "JOIN botMemory bm ON bm.characterID = c.characterID "
+        "JOIN botMemory bm ON bm.charID = c.characterID "
         "WHERE cc.corporationType = 2 AND c.corporationID > 1000182 "
         "GROUP BY c.corporationID HAVING n >= 3 ORDER BY n DESC LIMIT 40"))
     {
