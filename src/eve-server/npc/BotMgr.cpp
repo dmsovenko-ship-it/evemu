@@ -8089,7 +8089,7 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
         // Mix in DB-grown RU lines (profession+100 pools / 355 combat) for variety,
         // on top of the hardcoded situational pools.
         {
-            uint8 ruPool = (uint8)((inFight || aggro) ? 355 : (a->GetProfession() + 100));
+            uint8 ruPool = (uint8)((inFight || aggro) ? 355 : ((uint8)a->GetProfession() + 100));
             LoadSmalltalkPool(ruPool);
             auto it = m_smalltalk.find(ruPool);
             if (it != m_smalltalk.end() && !it->second.second.empty() && MakeRandomInt(0, 99) < 45) {
