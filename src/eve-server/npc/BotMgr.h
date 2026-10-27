@@ -385,6 +385,9 @@ private:
     // Bots occasionally chat among themselves in local (rare, so it doesn't
     // spam). Makes the channel feel alive without DeepSeek calls.
     void ProcessBotSmalltalk();
+    // Player-corp pilots occasionally advertise recruitment in local, only in
+    // systems where a real player is present to hear it (throttled per system).
+    void ProcessRecruitment();
     // Drain queued bot chat replies (one per tic) so bot<-bot conversations
     // advance without recursing the call stack.
     void ProcessBotReplies();

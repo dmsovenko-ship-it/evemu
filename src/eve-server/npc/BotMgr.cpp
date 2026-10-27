@@ -548,6 +548,9 @@ void BotMgr::Process()
     // without recursing the stack.
     ProcessBotReplies();
 
+    // Recruitment ads from player-corp pilots (only where a real player is).
+    ProcessRecruitment();
+
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
 
@@ -4873,6 +4876,65 @@ void BotMgr::OnPilotKilledInSystem(uint32 sysID, const std::string& victim, cons
             line = victim + " got killed by " + killer + ", careful";
     }
     BotSayLocal(sysID, w->GetBotCharID(), w->GetBotName(), w->GetBotCorpID(), line);
+}
+
+// Player-corp pilots occasionally advertise recruitment in local - only in
+// systems where a real player is present, and throttled per system so it reads
+// like the odd organic ad rather than spam.
+void BotMgr::ProcessRecruitment()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    static time_t s_lastCheck = 0;
+    time_t now = time(nullptr);
+    if (now - s_lastCheck < 90)
+        return;
+    s_lastCheck = now;
+
+    static std::map<uint32, time_t> s_lastAd;
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+            continue;   // only advertise where a real player can hear it
+        auto it = s_lastAd.find(sysID);
+        if (it != s_lastAd.end() && (now - it->second) < 900)
+            continue;   // one ad per system per ~15 min
+        if (MakeRandomInt(0, 99) >= 25)
+            continue;
+
+        std::vector<PlayerBot*> cands;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* b = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (b != nullptr && IsPlayerCorp(b->GetBotCorpID()))
+                cands.push_back(b);
+        }
+        if (cands.empty())
+            continue;
+
+        PlayerBot* b = cands[MakeRandomInt(0, (int)cands.size() - 1)];
+        s_lastAd[sysID] = now;
+        std::string line;
+        if (b->SpeaksRussian()) {
+            std::vector<std::string> lines = {
+                "наш корп берёт пилотов, если что - пишите",
+                "ищем народ в корп, лут и доля с фарма",
+                "набор в корп открыт, кому интересно - спрашивайте",
+                "в корпе есть места, заходите кто хочет"
+            };
+            line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        } else {
+            std::vector<std::string> lines = {
+                "our corp is recruiting, ping me if interested",
+                "we're looking for pilots - loot share, no drama",
+                "corp's open for new members, ask me",
+                "got a few slots in the corp, hit me up"
+            };
+            line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        }
+        BotSayLocal(sysID, b->GetBotCharID(), b->GetBotName(), b->GetBotCorpID(), line);
+        return;   // one ad per tick
+    }
 }
 
 void BotMgr::OnCorpMateKilled(SystemManager* sys, uint32 corpID, uint32 allianceID,
