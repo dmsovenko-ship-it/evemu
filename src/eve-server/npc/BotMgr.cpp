@@ -7670,6 +7670,7 @@ void BotMgr::ProcessDocking()
 
         for (auto db = it->second.begin(); db != it->second.end(); ) {
             if (db->undockAt > 0 && db->undockAt > now) { ++db; continue; }
+            if (IsBotNight(db->charID, db->speaksRussian)) { ++db; continue; }   // night / working hours: stay docked
             _log(BOT__MESSAGE, "BotMgr: %s(%u) undocking from station in system %u.",
                  db->name.c_str(), db->charID, it->first);
             SpawnBot(pSystem, db->charID, db->name, db->corpID, db->allianceID);
@@ -7772,7 +7773,8 @@ void BotMgr::ProcessDocking()
                 continue;   // aggression timer — can't dock mid-aggression
             if (pb->GetAIMgr()->IsFighting())
                 continue;   // in combat — never vanish mid-fight (no teleport)
-            if (!pb->WantsDock() && MakeRandomInt(0, 599) != 0)
+            bool nightRest = IsBotNight(pb->GetBotCharID(), pb->SpeaksRussian());
+            if (!nightRest && !pb->WantsDock() && MakeRandomInt(0, 599) != 0)
                 continue;   // neither profession wants the station nor occasional roll
             // Fly to the station first so the dock is visible (no teleport).
             SystemEntity* station = nullptr;
@@ -7803,6 +7805,7 @@ void BotMgr::ProcessDocking()
             }
             DockedBot db;
                 db.charID = pb->GetBotCharID();
+                db.speaksRussian = pb->SpeaksRussian();
                 db.name = pb->GetBotName();
                 db.corpID = pb->GetBotCorpID();
                 db.allianceID = pb->GetBotAllianceID();
@@ -8420,6 +8423,54 @@ void BotMgr::MaybeDeclareWars()
         _log(BOT__MESSAGE, "BotMgr::MaybeDeclareWars() - corp %u declared war on corp %u", a, b);
         return;
     }
+}
+
+// True when the pilot is in its "night" (should be docked / stay docked).
+// Peaks in the local evening; cohorts follow their real time zone (RU -> Moscow,
+// EN -> EU/US); each pilot has one of four staggered wake-up waves and a small
+// blur, a rotating slice fly around the clock, and during working hours most
+// pilots are at work/school (with exceptions) - so the server breathes in waves
+// instead of a single synchronised (100% fixed) flip.
+bool BotMgr::IsBotNight(uint32 charID, bool russian)
+{
+    time_t now = time(nullptr);
+    struct tm utc;
+    gmtime_r(&now, &utc);
+
+    uint32 day = (uint32)(now / 86400);
+    bool nightOwl = (((charID * 2654435761u + day * 40503u) % 100) < 15);   // ~15%
+
+    int tzMin = 0;
+    if (russian)
+        tzMin = 3 * 60;                 // RU pilots on Moscow time
+    else if ((charID % 10) < 6)
+        tzMin = 1 * 60;                 // EN, EU
+    else
+        tzMin = -5 * 60;                // EN, US East
+
+    int blur = (int)((charID * 37u) % 71) - 35;   // -35..+35 min per pilot
+
+    int utcMin = utc.tm_hour * 60 + utc.tm_min;
+    int localMin = (utcMin + tzMin + blur + 2880) % 1440;
+
+    // 1) Sleep 01:00 .. 07:00-10:00 local (four staggered waves). Night owls skip it.
+    if (!nightOwl) {
+        int wakeHour = 7 + (int)(charID % 4);   // 07/08/09/10 local
+        if (localMin >= 60 && localMin < wakeHour * 60)
+            return true;
+    }
+
+    // 2) Working hours 09:00-17:00 local: most pilots are at work/school and not
+    //    flying - but there are exceptions (freelancers, shift workers, students,
+    //    the hardcore). The split is deterministic per pilot/day (no flicker).
+    if (localMin >= 9 * 60 && localMin < 17 * 60) {
+        bool atWork   = (((charID * 7u  + day * 11u) % 100) < 55);   // ~55% have a day job
+        bool exception = (((charID * 13u + day * 17u) % 100) < 30);  // 30% of them still fly
+        if (atWork && !exception)
+            return true;
+    }
+
+    return false;
 }
 
 // Self-growing chat base: every run asks DeepSeek for fresh smalltalk lines for

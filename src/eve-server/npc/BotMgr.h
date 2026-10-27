@@ -354,6 +354,7 @@ private:
         std::string name;
         uint32 corpID;
         uint32 allianceID;
+        bool   speaksRussian = false;   // used for the time-zone ("wave") schedule
         uint8  profession;   // PlayerBot::BotProfession while docked
         uint32 stationID;    // station the bot is docked at (0 = any/unknown)
         time_t undockAt;   // when to undock (0 = already waiting)
@@ -403,6 +404,12 @@ private:
     std::map<int64, bool> m_warCache;   // key = (minCorp<<32)|maxCorp
     int64 m_warCacheStamp = 0;
     int64 m_warDeclareStamp = 0;
+
+    // Realistic day/night schedule: pilots follow their language cohort's time
+    // zone (RU -> Moscow, EN -> EU/US) with a few wake-up "waves" and a small
+    // blur, so the server breathes (space population dips at night, builds in
+    // waves) instead of every bot flying 24/7.
+    bool IsBotNight(uint32 charID, bool russian);
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
