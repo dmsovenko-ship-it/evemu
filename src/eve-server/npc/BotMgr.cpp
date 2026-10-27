@@ -8675,6 +8675,7 @@ BotMgr::Bond* BotMgr::GetBond(uint32 a, uint32 b)
 {
     if (a == 0 || b == 0 || a == b)
         return nullptr;
+    LoadBonds();
     uint32 lo = (a < b) ? a : b;
     uint32 hi = (a < b) ? b : a;
     auto it = m_bonds.find(((int64)lo << 32) | (int64)hi);
@@ -8685,6 +8686,7 @@ void BotMgr::NoteBond(PlayerBot* a, PlayerBot* b)
 {
     if (a == nullptr || b == nullptr || a == b)
         return;
+    LoadBonds();
     uint32 lo = (a->GetBotCharID() < b->GetBotCharID()) ? a->GetBotCharID() : b->GetBotCharID();
     uint32 hi = (a->GetBotCharID() < b->GetBotCharID()) ? b->GetBotCharID() : a->GetBotCharID();
     if (lo == 0 || hi == 0)
@@ -8694,16 +8696,59 @@ void BotMgr::NoteBond(PlayerBot* a, PlayerBot* b)
         ++bond.score;
 
     // Couples are strictly m/f (RU pilots included, per the user's rule).
+    bool becameCouple = false;
     if (!bond.couple && bond.score >= 12 && a->IsFemale() != b->IsFemale()
         && MakeRandomInt(0, 99) < 40) {
         bond.couple = true;
+        becameCouple = true;
         _log(BOT__MESSAGE, "BotMgr: %s(%u) and %s(%u) are now a couple.",
              a->GetBotName().c_str(), a->GetBotCharID(),
              b->GetBotName().c_str(), b->GetBotCharID());
     }
 
+    // Persist occasionally (not on every meeting) so bonds survive restarts.
+    if (becameCouple || (bond.score % 5 == 0))
+        SaveBond(lo, hi);
+
     if (m_bonds.size() > 20000)
         m_bonds.clear();   // safety cap (bonds re-form)
+}
+
+// Persisted friendships/couples (table botBonds; charA < charB).
+void BotMgr::LoadBonds()
+{
+    if (m_bondsLoaded)
+        return;
+    m_bondsLoaded = true;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT charA, charB, score, couple FROM botBonds")) {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            uint32 a = row.GetUInt(0);
+            uint32 b = row.GetUInt(1);
+            if (a == 0 || b == 0 || a == b)
+                continue;
+            Bond& bd = m_bonds[((int64)a << 32) | (int64)b];
+            bd.score = (int)row.GetUInt(2);
+            bd.couple = (row.GetUInt(3) != 0);
+        }
+    }
+}
+
+void BotMgr::SaveBond(uint32 a, uint32 b)
+{
+    if (a == b)
+        return;
+    uint32 lo = (a < b) ? a : b;
+    uint32 hi = (a < b) ? b : a;
+    auto it = m_bonds.find(((int64)lo << 32) | (int64)hi);
+    if (it == m_bonds.end())
+        return;
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO botBonds (charA, charB, score, couple) VALUES (%u, %u, %d, %d) "
+        "ON DUPLICATE KEY UPDATE score=VALUES(score), couple=VALUES(couple)",
+        lo, hi, it->second.score, it->second.couple ? 1 : 0);
 }
 
 // Self-growing chat base: every run asks DeepSeek for fresh smalltalk lines for

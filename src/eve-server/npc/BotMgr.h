@@ -423,6 +423,9 @@ private:
     std::map<int64, Bond> m_bonds;
     Bond* GetBond(uint32 a, uint32 b);
     void NoteBond(PlayerBot* a, PlayerBot* b);
+    void LoadBonds();
+    void SaveBond(uint32 a, uint32 b);
+    bool m_bondsLoaded = false;
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
