@@ -10790,6 +10790,23 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             SystemEntity* belt = (beltID != 0) ? pSystem->GetSE(beltID) : nullptr;
             if (belt != nullptr && responder->DestinyMgr() != nullptr)
                 responder->DestinyMgr()->WarpTo(belt->GetPosition(), 10000);
+            // People rarely rat alone: a corp-mate or two joins the run (pair/trio).
+            if (belt != nullptr && responder->GetBotCorpID() != 0) {
+                int extra = 0;
+                for (auto& [id2, se2] : pSystem->GetEntities()) {
+                    if (extra >= 2)
+                        break;
+                    if (se2 == nullptr || se2->GetNPCSE() == nullptr)
+                        continue;
+                    PlayerBot* m = dynamic_cast<PlayerBot*>(se2->GetNPCSE());
+                    if (m == nullptr || m == responder || m->GetBotCorpID() != responder->GetBotCorpID())
+                        continue;
+                    if (m->DestinyMgr() != nullptr) {
+                        m->DestinyMgr()->WarpTo(belt->GetPosition(), 10000);
+                        ++extra;
+                    }
+                }
+            }
             std::string line = responder->SpeaksRussian()
                 ? "го, варпай за мной, на аномальку"
                 : "sure, warp after me, heading to an anomaly";
