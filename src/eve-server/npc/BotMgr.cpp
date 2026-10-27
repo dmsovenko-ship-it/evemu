@@ -8050,20 +8050,29 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
         };
         static const char* const lowhpRu[] = {
             "потрёпан, иду на станцию чиниться", "щит в ноль, не до фарма",
-            "чуть не словил, отхожу", "на ремонт, потом обратно"
+            "чуть не словил, отхожу", "на ремонт, потом обратно",
+            "втапливаю на станцию, чуть не слился", "ну всё, щит в ноль, отварпываю"
         };
         static const char* const gateRu[] = {
             "стою на гейте, жду", "на гейте кто-то есть?", "гейт вроде чист",
-            "кого-нибудь ждём тут?", "не люблю гейт-кемпы, но стою"
+            "кого-нибудь ждём тут?", "не люблю гейт-кемпы, но стою",
+            "на гейте кемп, аккуратнее", "локал чистый, иду дальше",
+            "подскан пустой, втапливаю"
         };
         static const char* const outlawRu[] = {
             "я официально пират, не подходи", "минус на статусе, зато весело",
             "конкорд по мне плачет", "кто меня ещё не забанил?"
         };
+        // Authentic PvP/gate chatter mined from RU killboard/forum players (live EVE slang).
+        static const char* const pvpRu[] = {
+            "таклим, варпайте сюда", "минус", "весь ганг сливается, втапливай",
+            "грейте мвд, иначе не догоним", "держу скребком", "подскан пустой, иду на аномальку",
+            "варпаем, таклим, без наобум", "сливаемся, уходим"
+        };
         const char* m = nullptr;
-        if (inFight || aggro) m = combat[MakeRandomInt(0, 7)];
-        else if (lowHp)       m = lowhpRu[MakeRandomInt(0, 3)];
-        else if (nearGate)    m = gateRu[MakeRandomInt(0, 4)];
+        if (inFight || aggro) m = (MakeRandomInt(0, 1) ? combat[MakeRandomInt(0, 7)] : pvpRu[MakeRandomInt(0, 7)]);
+        else if (lowHp)       m = lowhpRu[MakeRandomInt(0, 5)];
+        else if (nearGate)    m = gateRu[MakeRandomInt(0, 7)];
         else if (outlaw)      m = outlawRu[MakeRandomInt(0, 3)];
         else switch (a->GetProfession()) {
             case PlayerBot::BotProfession::Miner:        m = miner[MakeRandomInt(0, 7)];    break;
