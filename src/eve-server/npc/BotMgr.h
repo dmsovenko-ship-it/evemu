@@ -393,6 +393,17 @@ private:
     void ExpandSmalltalkPool();
     std::map<uint8, std::pair<time_t, std::vector<std::string>>> m_smalltalk;
 
+    // Corp wars between bot corps. The AI ignored warRegistry entirely (only
+    // corp/alliance mattered), so wars were cosmetic. Now war pairs are cached
+    // and war targets are legal even in hi-sec; rival bot corps declare wars
+    // from time to time so the map gets real conflict.
+    bool AreBotsAtWar(uint32 corpA, uint32 corpB);
+    void MaybeDeclareWars();
+    void LoadWarCache();
+    std::map<int64, bool> m_warCache;   // key = (minCorp<<32)|maxCorp
+    int64 m_warCacheStamp = 0;
+    int64 m_warDeclareStamp = 0;
+
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator
     std::atomic<uint32> m_activeBotCount{ 0 };   // refreshed each tic (game thread)

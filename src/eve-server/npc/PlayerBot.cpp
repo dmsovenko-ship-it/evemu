@@ -267,6 +267,12 @@ void PlayerBot::OnAttacked(SystemEntity* attacker)
                 targetLowSec = true;
         }
         mayAttack = targetCriminal || targetLowSec;
+        // A formal war target is legal even in hi-sec.
+        if (!mayAttack && attacker->GetNPCSE() != nullptr) {
+            PlayerBot* atkBot = dynamic_cast<PlayerBot*>(attacker->GetNPCSE());
+            if (atkBot != nullptr && sBotMgr.AreBotsAtWar(m_botCorpID, atkBot->GetBotCorpID()))
+                mayAttack = true;
+        }
     }
 
     // Evaluate the fight: compare its own combat power (skill tier + ship class)
@@ -1068,6 +1074,9 @@ bool PlayerBot::IsAlly(PlayerBot* other) const
 {
     if (other == nullptr || other == this)
         return true;
+    // Formal war (warRegistry): a war target is never an ally.
+    if (sBotMgr.AreBotsAtWar(m_botCorpID, other->GetBotCorpID()))
+        return false;
     // Bind only to a REAL chelobot corp/alliance (an org the bot joined). Bots parked
     // in the shared NPC school corps are NOT an org, so a pirate in an NPC corp is
     // effectively unaffiliated and may attack anyone - including another bot that
@@ -2471,8 +2480,10 @@ void PlayerBot::HuntForTarget()
             // known enemy (from standings) — hunt it anywhere
         } else if (sysSec >= 0.5f) {
             // Highsec: a normal hunter only engages aggressive targets (both
-            // flagged). An OUTLAW ganker ignores CONCORD and preys on anyone.
-            if (!m_outlaw && !enemy->IsAggressive())
+            // flagged) OR a formal war target. An OUTLAW ganker ignores CONCORD
+            // and preys on anyone.
+            bool atWar = sBotMgr.AreBotsAtWar(m_botCorpID, enemy->GetBotCorpID());
+            if (!m_outlaw && !atWar && !enemy->IsAggressive())
                 continue;
         } else if (!enemy->IsAggressive() && !m_memory) {
             continue;   // low/null: peaceful bots are still fair game for hunters,

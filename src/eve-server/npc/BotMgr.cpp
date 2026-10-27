@@ -551,6 +551,9 @@ void BotMgr::Process()
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
 
+    // Corp wars between bot corps (so war targets are legal and the map has conflict).
+    MaybeDeclareWars();
+
     // Complete courier hauls that reached their destination but could not dock.
     ProcessHaulDeliveries();
 
@@ -8339,6 +8342,84 @@ void BotMgr::LoadSmalltalkPool(uint8 pool)
             lines.push_back(row.GetText(0));
     }
     m_smalltalk[pool] = { GetFileTimeNow(), std::move(lines) };
+}
+
+// Refresh the corp-war cache from warRegistry (one query per minute at most).
+void BotMgr::LoadWarCache()
+{
+    int64 now = GetFileTimeNow();
+    if ((now - m_warCacheStamp) < (int64)EvE::Time::Minute)
+        return;
+    m_warCache.clear();
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT declaredByID, againstID FROM warRegistry WHERE retracted = 0"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            uint32 x = row.GetUInt(0);
+            uint32 y = row.GetUInt(1);
+            if (x == 0 || y == 0 || x == y)
+                continue;
+            uint32 lo = (x < y) ? x : y;
+            uint32 hi = (x < y) ? y : x;
+            m_warCache[((int64)lo << 32) | (int64)hi] = true;
+        }
+    }
+    m_warCacheStamp = now;
+}
+
+bool BotMgr::AreBotsAtWar(uint32 corpA, uint32 corpB)
+{
+    if (corpA == 0 || corpB == 0 || corpA == corpB)
+        return false;
+    LoadWarCache();
+    uint32 lo = (corpA < corpB) ? corpA : corpB;
+    uint32 hi = (corpA < corpB) ? corpB : corpA;
+    return m_warCache.find(((int64)lo << 32) | (int64)hi) != m_warCache.end();
+}
+
+// Rival chelobot corps occasionally go to war (from the player-corp pool).
+void BotMgr::MaybeDeclareWars()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    int64 now = GetFileTimeNow();
+    if ((now - m_warDeclareStamp) < (int64)EvE::Time::Minute * 20)
+        return;
+    m_warDeclareStamp = now;
+    if (MakeRandomInt(0, 99) >= 25)
+        return;   // roughly one war every couple of hours at most
+
+    std::vector<uint32> corps;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT c.corporationID, COUNT(*) AS n FROM chrCharacters c "
+        "JOIN crpCorporation cc ON cc.corporationID = c.corporationID "
+        "JOIN botMemory bm ON bm.characterID = c.characterID "
+        "WHERE cc.corporationType = 2 AND c.corporationID > 1000182 "
+        "GROUP BY c.corporationID HAVING n >= 3 ORDER BY n DESC LIMIT 40"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row))
+            corps.push_back(row.GetUInt(0));
+    }
+    if (corps.size() < 2)
+        return;
+
+    for (int tries = 0; tries < 6; ++tries) {
+        uint32 a = corps[MakeRandomInt(0, (int)corps.size() - 1)];
+        uint32 b = corps[MakeRandomInt(0, (int)corps.size() - 1)];
+        if (a == b || AreBotsAtWar(a, b))
+            continue;
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "INSERT INTO warRegistry (declaredByID, againstID, timeDeclared, mutual) "
+            "VALUES (%u, %u, %.0f, 0)", a, b, (double)now);
+        m_warCacheStamp = 0;   // force the pair to show up immediately
+        _log(BOT__MESSAGE, "BotMgr::MaybeDeclareWars() - corp %u declared war on corp %u", a, b);
+        return;
+    }
 }
 
 // Self-growing chat base: every run asks DeepSeek for fresh smalltalk lines for
