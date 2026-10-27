@@ -401,6 +401,10 @@ private:
     // Real recruitment: a bot officer accepts pending player applications to a
     // bot corp (the same corp-application DB the client uses).
     void ProcessCorpApplications();
+    // Corp chat: bots of the player's corp join the corp channel (per-system LSC)
+    // and occasionally talk there, so a player who joined a bot corp sees it live.
+    void ProcessCorpChat();
+    std::map<uint32, time_t> m_corpChatAt;             // sysID -> last corp-chat line
     // Drain queued bot chat replies (one per tic) so bot<-bot conversations
     // advance without recursing the call stack.
     void ProcessBotReplies();

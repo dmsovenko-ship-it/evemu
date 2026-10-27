@@ -561,6 +561,9 @@ void BotMgr::Process()
     // Bot corps accept pending player applications (real recruitment).
     ProcessCorpApplications();
 
+    // Corp chat: bots of the player's corp talk in the corp channel.
+    ProcessCorpChat();
+
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
 
@@ -5154,6 +5157,89 @@ void BotMgr::ProcessCorpApplications()
 
         _log(BOT__MESSAGE, "BotMgr: corp %u accepted the application from char %u", corpID, charID);
         break;   // one per pass
+    }
+}
+
+// Corp chat: bots of the real player's corp join the corp channel (LSC is
+// per-system) and occasionally talk there, so a player who joined a bot corp
+// sees live corp chatter instead of an empty channel.
+void BotMgr::ProcessCorpChat()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    static time_t s_last = 0;
+    time_t now = time(nullptr);
+    if (now - s_last < 45)
+        return;
+    s_last = now;
+
+    for (auto& [sysID, pSystem] : sEntityList.GetSystems()) {
+        if (pSystem == nullptr || pSystem->PlayerCount() < 1)
+            continue;
+
+        // The corp of a real player currently in this system.
+        uint32 corpID = 0;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() != nullptr || !se->HasPilot())
+                continue;
+            Client* c = se->GetPilot();
+            if (c != nullptr) { corpID = c->GetCorporationID(); break; }
+        }
+        if (corpID == 0 || !IsPlayerCorp(corpID))
+            continue;
+
+        LSCService* lsc = pSystem->GetServiceMgr().Lookup<LSCService>("LSC");
+        if (lsc == nullptr)
+            continue;
+        lsc->CreateSystemChannel((int32)corpID);   // idempotent
+        LSCChannel* chan = lsc->GetChannelByID((int32)corpID);
+        if (chan == nullptr)
+            continue;
+
+        // Bots of the same corp: make sure they are members of the corp channel.
+        std::vector<PlayerBot*> mates;
+        for (auto& [id, se] : pSystem->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* b = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (b == nullptr || b->GetBotCorpID() != corpID)
+                continue;
+            mates.push_back(b);
+        }
+        if (mates.empty())
+            continue;
+        for (PlayerBot* b : mates)
+            chan->AddBotChar(b->GetBotCharID(), b->GetBotCorpID(), b->GetBotAllianceID(), 0, b->GetBotName());
+
+        auto it = m_corpChatAt.find(sysID);
+        if (it != m_corpChatAt.end() && (now - it->second) < 120)
+            continue;
+        if (MakeRandomInt(0, 99) >= 30)
+            continue;
+        m_corpChatAt[sysID] = now;
+
+        PlayerBot* w = mates[MakeRandomInt(0, (int)mates.size() - 1)];
+        std::string line;
+        if (w->SpeaksRussian()) {
+            std::vector<std::string> lines = {
+                "го на аномальку, кто со мной?",
+                "кто на складе оставил хлам? разберите",
+                "флит собираем, пишите в личку",
+                "кто в джите, возьмите мне фит",
+                "через час даунтайм, не залипайте в космосе"
+            };
+            line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        } else {
+            std::vector<std::string> lines = {
+                "anyone up for an anomaly run?",
+                "who left junk in the hangar? sort it out",
+                "putting a fleet together, ping me",
+                "anyone in Jita, grab me a fit?",
+                "downtime in an hour, don't get caught in space"
+            };
+            line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        }
+        chan->SendBotMessage(w->GetBotCharID(), w->GetBotName(), w->GetBotCorpID(), line);
     }
 }
 
