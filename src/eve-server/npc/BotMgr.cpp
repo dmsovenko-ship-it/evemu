@@ -5219,8 +5219,26 @@ void BotMgr::ProcessCorpChat()
         m_corpChatAt[sysID] = now;
 
         PlayerBot* w = mates[MakeRandomInt(0, (int)mates.size() - 1)];
+        bool pvp = (w->GetProfession() == PlayerBot::BotProfession::Hunter || w->IsOutlaw());
         std::string line;
-        if (w->SpeaksRussian()) {
+        if (pvp && w->SpeaksRussian()) {
+            std::vector<std::string> lines = {
+                "собираемся на гейте, погнали",
+                "есть кто на кемп? я в лоу",
+                "кто видел цели в округе?",
+                "го ганкать, лоу пустой",
+                "на гейте чисто, жду остальных"
+            };
+            line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        } else if (pvp) {
+            std::vector<std::string> lines = {
+                "gate camp in 10, who's in?",
+                "any targets around? i'm in lowsec",
+                "lets go gank, it's quiet out here",
+                "holding the gate, waiting for the rest"
+            };
+            line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        } else if (w->SpeaksRussian()) {
             std::vector<std::string> lines = {
                 "го на аномальку, кто со мной?",
                 "кто на складе оставил хлам? разберите",
@@ -10778,11 +10796,39 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
             return;
         }
+        // Is this a combat corp? (most of this corp's pilots here are hunters/outlaws)
+        int corpMembers = 0, corpHunters = 0;
+        for (auto& [id2, se2] : pSystem->GetEntities()) {
+            if (se2 == nullptr || se2->GetNPCSE() == nullptr)
+                continue;
+            PlayerBot* b2 = dynamic_cast<PlayerBot*>(se2->GetNPCSE());
+            if (b2 == nullptr || b2->GetBotCorpID() == 0 || b2->GetBotCorpID() != responder->GetBotCorpID())
+                continue;
+            ++corpMembers;
+            if (b2->GetProfession() == PlayerBot::BotProfession::Hunter || b2->IsOutlaw())
+                ++corpHunters;
+        }
+        bool combatCorp = (corpMembers > 0 && corpHunters * 2 >= corpMembers);
+
         if (wantFleet) {
-            std::string line = responder->SpeaksRussian()
-                ? "флот не собираю, я соло - но прикрою, если что"
-                : "i fly solo, no fleet - but i'll back you up";
-            BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
+            if (combatCorp) {
+                // A combat corp doesn't say "solo" to a gang invite - they group up.
+                SystemEntity* gate = nullptr;
+                for (auto& [sid, sse] : pSystem->GetStaticEntities()) {
+                    if (sse != nullptr && sse->IsGateSE()) { gate = sse; break; }
+                }
+                if (gate != nullptr && responder->DestinyMgr() != nullptr)
+                    responder->DestinyMgr()->WarpTo(gate->GetPosition(), 10000);
+                std::string line = responder->SpeaksRussian()
+                    ? "мы в корпе вместе летаем, го на гейт - собираемся"
+                    : "we fly together as a corp - come to the gate, we're gathering";
+                BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
+            } else {
+                std::string line = responder->SpeaksRussian()
+                    ? "флот не собираю, я соло - но прикрою, если что"
+                    : "i fly solo, no fleet - but i'll back you up";
+                BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
+            }
             return;
         }
 
