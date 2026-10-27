@@ -2757,7 +2757,9 @@ void PlayerBot::HuntForTarget()
             // guns. Soft prey (haulers) keep the bump-tackle orbit set above.
             if (!softPrey) {
                 uint32 maxR = GetAIMgr()->GetAttackRange();
-                if (maxR >= 25000 && enemyBot->GetShipClass() > GetShipClass())
+                int myClass = PlayerBot::GetShipClass(m_self->groupID());
+                int thClass = PlayerBot::GetShipClass(enemyBot->GetSelf()->groupID());
+                if (maxR >= 25000 && thClass > myClass)
                     GetAIMgr()->SetOrbitRange((uint32)((double)maxR * 0.8));
                 else
                     GetAIMgr()->SetOrbitRange(0);   // 0 -> fall back to weapon optimal
