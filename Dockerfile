@@ -80,6 +80,10 @@ EXPOSE 26001
 RUN useradd evemu
 RUN chown -R evemu:evemu /app
 RUN chown -R evemu:evemu /src
+# The server writes its cache files to ../data/cache (relative to /app/bin).
+# Without this directory every cache (market/bulk) fails and the client gets a
+# black space/CQ (GetRegionBest etc. "No such file or directory").
+RUN mkdir -p /app/data/cache && chown -R evemu:evemu /app/data
 
 ENTRYPOINT ["/bin/sh", "/src/utils/container-scripts/entry.sh"]
 
