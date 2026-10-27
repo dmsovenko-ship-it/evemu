@@ -2744,6 +2744,7 @@ void PlayerBot::HuntForTarget()
             // range - the constant bump shoves the target off alignment so it can
             // neither align out nor warp while the tackle (disruptor) holds it and
             // the fleet's sustained DPS grinds the big EHP.
+            bool softHull = false;
             {
                 uint16 pg = enemyBot->GetSelf()->groupID();
                 if (pg == EVEDB::invGroups::Industrial
@@ -2752,6 +2753,7 @@ void PlayerBot::HuntForTarget()
                     || pg == EVEDB::invGroups::JumpFreighter
                     || pg == EVEDB::invGroups::MiningBarge
                     || pg == EVEDB::invGroups::Exhumer) {
+                    softHull = true;
                     GetAIMgr()->SetOrbitRange(1500);
                     _log(BOT__MESSAGE, "PlayerBot %s(%u): bump-tackle orbit 1500m on %s(%u).",
                          m_botName.c_str(), m_botCharID,
@@ -2761,7 +2763,7 @@ void PlayerBot::HuntForTarget()
             // Kiting (range control): a longer-ranged hunter keeps a bigger, slower
             // target at the edge of its weapon range instead of brawling into its
             // guns. Soft prey (haulers) keep the bump-tackle orbit set above.
-            if (!softPrey) {
+            if (!softHull) {
                 uint32 maxR = GetAIMgr()->GetAttackRange();
                 int myClass = PlayerBot::GetShipClass(m_self->groupID());
                 int thClass = PlayerBot::GetShipClass(enemyBot->GetSelf()->groupID());
