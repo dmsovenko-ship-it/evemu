@@ -135,6 +135,9 @@ def main():
         (old_base + '/feed/rdfnews.asp?tid=7', base + '/feed/rdfnews.asp?tid=7'),
         (old_base + '/feed/rdfnews.asp?tid=4', base + '/feed/rdfnews.asp?tid=4'),
         # station billboard: news headlines + ad texture (billboardMgr)
+        # NOTE: CCP's billboard.asp is 404 today, so the ad image is served by our
+        # portal (rotating pool, /billboard.php). Only the news + click links and
+        # the ad image are ours - there is no live CCP source left.
         (old_base + '/mb/news-headlines.asp', base + '/mb/news-headlines.asp'),
         (old_base + '/billboard.asp', base + '/billboard.asp'),
         # billboard "Read News" menu + in-game browser home (browserutil/menusvc)
