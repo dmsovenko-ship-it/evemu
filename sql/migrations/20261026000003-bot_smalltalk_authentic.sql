@@ -1,7 +1,7 @@
 -- +migrate Up
 -- Authentic RU chatter mined from live EVE players (goha.ru PvP/bar threads,
 -- pikabu battle writeups).  Stored in the "Russian" pools as profession+100
--- (355 = RU combat); BotMgr::BuildBotSmalltalkLine mixes them in on top of its
+-- (155 = RU combat; 255 is the EN combat pool); BotMgr::BuildBotSmalltalkLine mixes them in on top of its
 -- hardcoded situational lines, so the ambient chat reads like real pilots
 -- instead of uniform generated phrases.
 INSERT INTO botSmalltalk (profession, line) VALUES
@@ -30,15 +30,15 @@ INSERT INTO botSmalltalk (profession, line) VALUES
  (104, 'контракт взял, полетел'),
  (104, 'коллатерал дорогой, аккуратнее'),
  (104, 'лоу стрёмный, но везут'),
--- RU combat pool (355)
- (355, 'таклим, варпайте сюда'),
- (355, 'минус!'),
- (355, 'весь ганг сливается, втапливай'),
- (355, 'грейте мвд, иначе не догоним'),
- (355, 'держу скребком'),
- (355, 'фокус по логистам'),
- (355, 'дреды пробросили, факсы не тянут'),
- (355, 'судный день прошёл, добиваем');
+-- RU combat pool (155; 255 is the EN combat pool, the column is TINYINT)
+ (155, 'таклим, варпайте сюда'),
+ (155, 'минус!'),
+ (155, 'весь ганг сливается, втапливай'),
+ (155, 'грейте мвд, иначе не догоним'),
+ (155, 'держу скребком'),
+ (155, 'фокус по логистам'),
+ (155, 'дреды пробросили, факсы не тянут'),
+ (155, 'судный день прошёл, добиваем');
 
 -- +migrate Down
-DELETE FROM botSmalltalk WHERE profession IN (100, 101, 102, 103, 104, 355);
+DELETE FROM botSmalltalk WHERE profession IN (100, 101, 102, 103, 104, 155);
