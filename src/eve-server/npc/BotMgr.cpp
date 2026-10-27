@@ -4822,6 +4822,59 @@ void BotMgr::BotGreetOnLogin(PlayerBot* bot, SystemManager* pSystem)
     }
 }
 
+// Someone died nearby: surviving pilots (not just corp mates) warn the system
+// local. Throttled per system so a big fight doesn't spam the channel.
+void BotMgr::OnPilotKilledInSystem(uint32 sysID, const std::string& victim, const std::string& killer)
+{
+    static std::map<uint32, time_t> s_lastWarn;
+    time_t now = time(nullptr);
+    auto it = s_lastWarn.find(sysID);
+    if (it != s_lastWarn.end() && (now - it->second) < 60)
+        return;
+    s_lastWarn[sysID] = now;
+
+    SystemManager* sys = sEntityList.FindOrBootSystem(sysID);
+    if (sys == nullptr)
+        return;
+
+    std::vector<PlayerBot*> bots;
+    for (auto& [id, se] : sys->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* b = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (b != nullptr && b->GetBotName() != victim)
+            bots.push_back(b);
+    }
+    if (bots.empty())
+        return;
+
+    PlayerBot* w = bots[MakeRandomInt(0, (int)bots.size() - 1)];
+    std::string line;
+    if (w->SpeaksRussian()) {
+        std::vector<std::string> lines = {
+            "у нас в системе красный, аккуратнее",
+            "в локале чисто? а то кого-то сливают",
+            "гейт-кемп походу, не лезьте",
+            "минус в системе, будьте на стрёме",
+            "кто-то хищничает, гляньте подскан"
+        };
+        line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        if (!killer.empty() && MakeRandomInt(0, 99) < 40)
+            line = victim + " словил от " + killer + ", аккуратнее";
+    } else {
+        std::vector<std::string> lines = {
+            "we got a red in system, watch out",
+            "someone's hunting here, keep eyes open",
+            "gate camp? stay sharp",
+            "keep an eye on d-scan, hostiles around"
+        };
+        line = lines[MakeRandomInt(0, (int)lines.size() - 1)];
+        if (!killer.empty() && MakeRandomInt(0, 99) < 40)
+            line = victim + " got killed by " + killer + ", careful";
+    }
+    BotSayLocal(sysID, w->GetBotCharID(), w->GetBotName(), w->GetBotCorpID(), line);
+}
+
 void BotMgr::OnCorpMateKilled(SystemManager* sys, uint32 corpID, uint32 allianceID,
                               const std::string& victim, const std::string& killer)
 {

@@ -877,6 +877,12 @@ void PlayerBot::Killed(Damage& damage)
         sBotMgr.OnCorpMateKilled(m_system, m_botCorpID, m_botAllianceID, m_botName, kn ? kn : "");
     }
 
+    // Other pilots in the system (not just corp mates) warn local about the kill.
+    if (m_system != nullptr) {
+        const char* kn2 = damage.srcSE != nullptr ? damage.srcSE->GetName() : "";
+        sBotMgr.OnPilotKilledInSystem(m_system->GetID(), m_botName, kn2 ? kn2 : "");
+    }
+
     sBotMgr.RemoveBotFromLocal(m_system, m_botCharID);
     NPC::Killed(damage);
 }

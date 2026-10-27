@@ -175,6 +175,8 @@ public:
     // (throttled) - "they just got X, watch the gate".
     void OnCorpMateKilled(SystemManager* sys, uint32 corpID, uint32 allianceID,
                           const std::string& victim, const std::string& killer);
+    // Someone died nearby: surviving pilots warn the system local (throttled).
+    void OnPilotKilledInSystem(uint32 sysID, const std::string& victim, const std::string& killer);
 
     // Loss-driven logistics threat map (public: PlayerBot::Killed marks a system
     // HOT when a peaceful hauler dies there; convoys routing through it take a
