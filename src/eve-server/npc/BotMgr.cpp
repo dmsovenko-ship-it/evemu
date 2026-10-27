@@ -4008,7 +4008,7 @@ void BotMgr::ProcessTravel()
                     SystemManager* dsys = sEntityList.FindOrBootSystem(destSystem);
                     if (dsys != nullptr) {
                         for (auto& [sid, sse] : dsys->GetStaticEntities()) {
-                            if (sse != nullptr && sse->IsGateSE() != nullptr) {
+                            if (sse != nullptr && sse->IsGateSE()) {
                                 hot = HasHostileNear(dsys, pb, sse->GetPosition(), 150000.0);
                                 break;
                             }
