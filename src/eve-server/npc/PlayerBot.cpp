@@ -2752,6 +2752,16 @@ void PlayerBot::HuntForTarget()
                          enemyBot->GetBotName().c_str(), enemyBot->GetBotCharID());
                 }
             }
+            // Kiting (range control): a longer-ranged hunter keeps a bigger, slower
+            // target at the edge of its weapon range instead of brawling into its
+            // guns. Soft prey (haulers) keep the bump-tackle orbit set above.
+            if (!softPrey) {
+                uint32 maxR = GetAIMgr()->GetAttackRange();
+                if (maxR >= 25000 && enemyBot->GetShipClass() > GetShipClass())
+                    GetAIMgr()->SetOrbitRange((uint32)((double)maxR * 0.8));
+                else
+                    GetAIMgr()->SetOrbitRange(0);   // 0 -> fall back to weapon optimal
+            }
             GetAIMgr()->WakeUp();
             GetAIMgr()->StartAttackCycle(2000);
             GetAIMgr()->Target(prey);
