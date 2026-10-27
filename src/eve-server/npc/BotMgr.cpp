@@ -7564,6 +7564,11 @@ static PlayerBot* BotMgr_FindInSystem(SystemManager* sm, uint32 charID)
     return nullptr;
 }
 
+PlayerBot* BotMgr::FindBotInSystem(SystemManager* sm, uint32 charID)
+{
+    return BotMgr_FindInSystem(sm, charID);
+}
+
 // Flag a courier to dock at its destination station (delivery happens on dock).
 static void BotMgr_RequestCourierDock(PlayerBot* pb)
 {

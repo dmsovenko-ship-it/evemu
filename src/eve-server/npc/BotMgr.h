@@ -118,6 +118,8 @@ public:
     // by ProcessBotSmalltalk so bots never say off-topic things (a miner doesn't
     // shout "pvp?" from a belt).
     std::string BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemManager* pSystem);
+    // Look up a live PlayerBot by charID inside one system (public wrapper).
+    PlayerBot* FindBotInSystem(SystemManager* sm, uint32 charID);
 
     // Primary trade hub system (Jita by default), from botTradeHubs. 0 if none.
     uint32 GetTradeHubSystem() const;

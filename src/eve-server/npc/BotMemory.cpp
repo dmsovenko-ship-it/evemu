@@ -16,6 +16,7 @@ BotMemory::BotMemory(uint32 charID)
   profession(0xFF),
   skillLevel(0xFF),
   tradeProfit(0), tradeLosses(0),
+  securityStatus(0.0),
   m_dirty(false)
 {
 }
@@ -26,7 +27,7 @@ void BotMemory::Load()
     if (sDatabase.RunQuery(res,
         "SELECT wins, losses, kills, deaths, chatLines, chatReplies,"
         "       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,"
-        "       skillLevel, tradeProfit, tradeLosses"
+        "       skillLevel, tradeProfit, tradeLosses, securityStatus"
         " FROM botMemory WHERE charID = %u", m_charID))
     {
         DBResultRow row;
@@ -50,6 +51,8 @@ void BotMemory::Load()
                 tradeProfit = row.GetInt64(13);
                 tradeLosses = row.GetUInt(14);
             }
+            if (row.ColumnCount() > 15)
+                securityStatus = row.GetDouble(15);
         }
     }
     m_dirty = false;
@@ -63,18 +66,19 @@ void BotMemory::Save() const
     if (!sDatabase.RunQuery(err,
         "INSERT INTO botMemory (charID, wins, losses, kills, deaths, chatLines, chatReplies,"
         "                       ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,"
-        "                       skillLevel, tradeProfit, tradeLosses, lastUpdate)"
-        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %lli, %u, NOW())"
+        "                       skillLevel, tradeProfit, tradeLosses, securityStatus, lastUpdate)"
+        " VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %lli, %u, %.6f, NOW())"
         " ON DUPLICATE KEY UPDATE"
         "  wins = VALUES(wins), losses = VALUES(losses), kills = VALUES(kills),"
         "  deaths = VALUES(deaths), chatLines = VALUES(chatLines), chatReplies = VALUES(chatReplies),"
         "  ratKills = VALUES(ratKills), mineRuns = VALUES(mineRuns), tradeRuns = VALUES(tradeRuns),"
         "  hackRuns = VALUES(hackRuns), pvpMistakes = VALUES(pvpMistakes), profession = VALUES(profession),"
         "  skillLevel = VALUES(skillLevel), tradeProfit = VALUES(tradeProfit), tradeLosses = VALUES(tradeLosses),"
+        "  securityStatus = VALUES(securityStatus),"
         "  lastUpdate = NOW()",
         m_charID, wins, losses, kills, deaths, chatLines, chatReplies,
         ratKills, mineRuns, tradeRuns, hackRuns, pvpMistakes, profession,
-        skillLevel, (int64)tradeProfit, tradeLosses))
+        skillLevel, (int64)tradeProfit, tradeLosses, securityStatus))
     {
         codelog(DATABASE__ERROR, "BotMemory::Save() failed for %u: %s", m_charID, err.c_str());
     }

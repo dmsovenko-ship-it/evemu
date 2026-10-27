@@ -110,6 +110,19 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
 
 PlayerBot::~PlayerBot() = default;
 
+void PlayerBot::AwardSecurity(double delta)
+{
+    if (m_memory == nullptr || delta == 0.0)
+        return;
+    m_memory->AdjustSecurityStatus(delta);   // clamps to [-10, +10]
+    m_memory->Save();
+}
+
+double PlayerBot::GetSecurityStatus() const
+{
+    return m_memory != nullptr ? m_memory->GetSecurityStatus() : 0.0;
+}
+
 PyDict* PlayerBot::MakeSlimItem()
 {
     PyDict* slim = NPC::MakeSlimItem();
@@ -118,20 +131,9 @@ PyDict* PlayerBot::MakeSlimItem()
         slim->SetItemString("name", new PyString(m_botName));
         slim->SetItemString("corpID", new PyInt(m_botCorpID));
         slim->SetItemString("allianceID", new PyInt(m_botAllianceID));
-        // Security status reflects the bot's history: a veteran killer shows a
-        // red skull (< -5.0), a brawler an orange badge (-5..-0.1), a clean pilot
-        // 0.0+. Kills lower it, deaths/non-pvp don't raise it much.
-        float sec = 0.0f;
-        if (m_memory != nullptr) {
-            int kills = (int)m_memory->GetKills();
-            if (kills > 0)
-                sec = -0.5f - (float)kills * 0.9f;   // each kill ≈ -0.9
-            // Cap: heavy killers deep into criminal range (red skull).
-            if (sec < -10.0f) sec = -10.0f;
-            // A bot that died a lot is a bad pilot, slightly negative but not criminal.
-            if (kills == 0 && m_memory->GetDeaths() > 3)
-                sec = -0.3f;
-        }
+        // Security status: persistent (BotMemory). NPC kills raise it anywhere (cap
+        // +5); PvP kills lower it only in hi/low sec. Red skull (< -5) = pirate.
+        float sec = (float)GetSecurityStatus();
         slim->SetItemString("securityStatus", new PyFloat(sec));
         slim->SetItemString("characterID", new PyInt(m_botCharID));
         // A charbot is a ship with a pilot: charID must be set (not None like
@@ -715,6 +717,7 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
     // resolve the killer (player, player drone, NPC, or another chelobot)
     uint32 killerID = 0;
     Client* pClient = nullptr;
+    PlayerBot* killerBot = nullptr;
     if (killer->HasPilot()) {
         pClient = killer->GetPilot();
         if (pClient != nullptr) killerID = pClient->GetCharacterID();
@@ -726,12 +729,25 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
         // the bot PILOT's charID, not its corporation. The killboard joins
         // chrCharacters on finalCharacterID, so a corp id here left every
         // bot-vs-bot kill unattributed (0 rows with a bot as the killer).
-        PlayerBot* killerBot = dynamic_cast<PlayerBot*>(killer->GetNPCSE());
+        killerBot = dynamic_cast<PlayerBot*>(killer->GetNPCSE());
         if (killerBot != nullptr) {
             killerID = killerBot->GetBotCharID();
         } else {
             killerID = killer->GetCorporationID();
             if (killerID == 0) killerID = killer->GetID();
+        }
+    }
+
+    // PvP security hit (Crucible): only in high/low sec (null/w-space: none).
+    // Modification% = -2.5% * systemSec * (1 + (targetSec - aggressorSec)/100)
+    // NewStatus = Old + (10 - Old) * Modification%
+    if (killerBot != nullptr && killerBot != this) {
+        float sysSec = m_system->GetSystemSecurityRating();
+        if (sysSec >= 0.0f) {
+            double kOld = killerBot->GetSecurityStatus();
+            double vSec = GetSecurityStatus();
+            double mod = -0.025 * (double)sysSec * (1.0 + (vSec - kOld) / 100.0);
+            killerBot->AwardSecurity((10.0 - kOld) * mod);
         }
     }
 
@@ -761,7 +777,8 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
                           : (killer->GetWarFactionID() > 500021 ? 500021 : killer->GetWarFactionID()));
     data.finalShipTypeID = finalShipTypeID;
     data.finalWeaponTypeID = (fatal_blow.weaponRef.get() != nullptr) ? fatal_blow.weaponRef->typeID() : killer->GetTypeID();
-    data.finalSecurityStatus = (pClient != nullptr) ? pClient->GetSecurityRating() : 0.0;
+    data.finalSecurityStatus = (pClient != nullptr) ? pClient->GetSecurityRating()
+                              : (killerBot != nullptr ? killerBot->GetSecurityStatus() : 0.0);
     data.finalDamageDone = static_cast<uint32>(fatal_blow.GetTotal());
 
     uint32 totalHP = m_self->GetAttribute(AttrHP).get_int();

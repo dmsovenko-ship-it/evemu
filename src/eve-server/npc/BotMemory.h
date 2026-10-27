@@ -101,6 +101,17 @@ public:
     uint32 GetHackRuns() const  { return hackRuns; }
     uint32 GetPvpMistakes() const { return pvpMistakes; }
 
+    /* security status (Crucible mechanics): killing pirate NPCs raises it
+     * anywhere (cap +5); PvP kills lower it (only in high/low sec). Persisted so
+     * a bot's criminal/clean record survives respawns. */
+    double GetSecurityStatus() const { return securityStatus; }
+    void   SetSecurityStatus(double s) {
+        if (s > 10.0) s = 10.0;
+        if (s < -10.0) s = -10.0;
+        securityStatus = s; RecordChange();
+    }
+    void   AdjustSecurityStatus(double delta) { SetSecurityStatus(securityStatus + delta); }
+
 private:
     void RecordChange() { m_dirty = true; }
 

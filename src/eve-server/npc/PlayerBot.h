@@ -37,6 +37,9 @@ public:
 
     /* bot identity */
     uint32 GetBotCharID() const         { return m_botCharID; }
+    // Security status (Crucible): + for NPC kills (cap +5), - for PvP in hi/low.
+    void   AwardSecurity(double delta);
+    double GetSecurityStatus() const;
     const std::string& GetBotName() const { return m_botName; }
     uint32 GetBotCorpID() const         { return m_botCorpID; }
     uint32 GetBotAllianceID() const     { return m_botAllianceID; }

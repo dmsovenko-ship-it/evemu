@@ -35,6 +35,7 @@
 #include "npc/NPCAI.h"
 #include "npc/SleeperAI.h"
 #include "npc/PlayerBot.h"
+#include "npc/BotMgr.h"
 #include "system/SystemManager.h"
 
 // Resolve the chelobot that owns a drone (drones have no Client): match the
@@ -704,8 +705,22 @@ void NPC::Killed(Damage &damage) {
 
     // Chelobot killer (its ship or its drone): credit the bot pilot's wallet
     // directly (PlayerBots have no Client, so AwardBounty(pClient=null) is skipped).
-    if (botBountyCharID != 0)
+    if (botBountyCharID != 0) {
         AwardBountyTo(botBountyCharID);
+        // Security status increase for the bot killer. Crucible: killing pirate
+        // NPCs raises sec ANYWHERE (also null-sec), capped at +5:
+        //   New = Old + (10 - Old) * (killBonus / 100)
+        PlayerBot* kb = (killer->GetNPCSE() != nullptr)
+                        ? dynamic_cast<PlayerBot*>(killer->GetNPCSE()) : nullptr;
+        if (kb == nullptr)
+            kb = sBotMgr.FindBotInSystem(m_system, botBountyCharID);   // drone kill
+        if (kb != nullptr) {
+            double old = kb->GetSecurityStatus();
+            float killBonus = m_self->GetAttribute(AttrEntitySecurityStatusKillBonus).get_float();
+            if (old < 5.0 && killBonus > 0.0f)
+                kb->AwardSecurity((10.0 - old) * (double)killBonus / 100.0);
+        }
+    }
 
     // NOTE: NPC kills intentionally produce NO killmail — the killboard lists
     // player and chelobot losses only (an earlier experiment that wrote
@@ -715,8 +730,9 @@ void NPC::Killed(Damage &damage) {
         //award kill bounty.
         AwardBounty( pClient );
         if (pClient->GetChar().get() != nullptr) {
-            if (m_system->GetSystemSecurityRating() > 0)
-                AwardSecurityStatus(m_self, pClient->GetChar().get());  // this awards secStatusChange for npcs in empire space
+            // Crucible: killing pirate NPCs raises sec status in ANY space
+            // (including null-sec) - not only empire space.
+            AwardSecurityStatus(m_self, pClient->GetChar().get());
         }
 
         // Faction standing changes on NPC kill
