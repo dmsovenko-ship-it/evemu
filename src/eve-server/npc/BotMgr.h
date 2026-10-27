@@ -445,6 +445,10 @@ private:
     std::map<int64, Bond> m_bonds;
     Bond* GetBond(uint32 a, uint32 b);
     void NoteBond(PlayerBot* a, PlayerBot* b);
+    // Player<->bot friendship (in-memory): repeated interaction makes a pilot
+    // warmer; a romantic advance gets a soft, friendly deflection.
+    std::map<int64, int> m_playerBonds;   // (playerChar<<32)|botChar
+    int NotePlayerBond(uint32 playerID, uint32 botID);
     void LoadBonds();
     void SaveBond(uint32 a, uint32 b);
     bool m_bondsLoaded = false;

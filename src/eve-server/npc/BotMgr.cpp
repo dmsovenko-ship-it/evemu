@@ -5224,7 +5224,7 @@ void BotMgr::ProcessCorpChat()
             std::vector<std::string> lines = {
                 "го на аномальку, кто со мной?",
                 "кто на складе оставил хлам? разберите",
-                "флит собираем, пишите в личку",
+                "го фармить, есть свободное место",
                 "кто в джите, возьмите мне фит",
                 "через час даунтайм, не залипайте в космосе"
             };
@@ -5233,7 +5233,7 @@ void BotMgr::ProcessCorpChat()
             std::vector<std::string> lines = {
                 "anyone up for an anomaly run?",
                 "who left junk in the hangar? sort it out",
-                "putting a fleet together, ping me",
+                "heading to an anomaly, room for one more",
                 "anyone in Jita, grab me a fit?",
                 "downtime in an hour, don't get caught in space"
             };
@@ -9200,6 +9200,21 @@ void BotMgr::SaveBond(uint32 a, uint32 b)
         lo, hi, it->second.score, it->second.couple ? 1 : 0);
 }
 
+// Repeated chat with the same pilot makes a bot warmer toward them. In-memory
+// (resets on restart); a high score = "friend" replies, still no romance.
+int BotMgr::NotePlayerBond(uint32 playerID, uint32 botID)
+{
+    if (playerID == 0 || botID == 0)
+        return 0;
+    int64 key = ((int64)playerID << 32) | (int64)botID;
+    int& score = m_playerBonds[key];
+    if (score < 1000)
+        ++score;
+    if (m_playerBonds.size() > 8192)
+        m_playerBonds.clear();
+    return score;
+}
+
 // Self-growing chat base: every run asks DeepSeek for fresh smalltalk lines for
 // ONE pool (rotating: 9 professions, then the combat pool) and inserts the new
 // ones.  Runs every 30 min from Process(); requires ChatEnabled + DeepSeekKey.
@@ -10739,6 +10754,7 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             }
             lowRu.push_back((char)((a >= 'A' && a <= 'Z') ? (a - 'A' + 'a') : a));
         }
+        int bond = NotePlayerBond(senderCharID, responder->GetBotCharID());
         bool wantAnom = lowRu.find("аномал") != std::string::npos
                      || lowRu.find("анов") != std::string::npos
                      || lowRu.find("раттинг") != std::string::npos
@@ -10766,6 +10782,40 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             std::string line = responder->SpeaksRussian()
                 ? "флот не собираю, я соло - но прикрою, если что"
                 : "i fly solo, no fleet - but i'll back you up";
+            BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
+            return;
+        }
+
+        // Friendship / romance: a real player-bot bond grows with repeated chat;
+        // a romantic advance gets a soft, friendly deflection (never creepy).
+        bool flirt = lowRu.find("люблю") != std::string::npos
+                  || lowRu.find("красив") != std::string::npos
+                  || lowRu.find("встречат") != std::string::npos
+                  || lowRu.find("девушк") != std::string::npos
+                  || lowRu.find("свидан") != std::string::npos
+                  || lowRu.find("love you") != std::string::npos
+                  || lowRu.find("girl") != std::string::npos;
+        bool wantFriend = lowRu.find("друж") != std::string::npos
+                       || lowRu.find("friend") != std::string::npos;
+        if (flirt) {
+            std::string line;
+            if (responder->SpeaksRussian())
+                line = (bond >= 8) ? "ты норм, но давай без романтики - я тут полетать"
+                                   : "спасибо, но я тут по космосу, не до этого)";
+            else
+                line = (bond >= 8) ? "you're cool, but no romance - i'm here to fly"
+                                   : "flattered, but i'm just here to fly";
+            BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
+            return;
+        }
+        if (wantFriend) {
+            std::string line;
+            if (responder->SpeaksRussian())
+                line = (bond >= 8) ? "с тобой можно, ты норм. пиши"
+                                   : "пока не знаю тебя, но не против полетать вместе";
+            else
+                line = (bond >= 8) ? "sure, you're alright - hit me up"
+                                   : "don't know you yet, but i'm up for flying together";
             BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
             return;
         }
