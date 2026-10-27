@@ -393,6 +393,10 @@ private:
     void ProcessThreatWatch();
     std::map<uint32, std::set<uint32>> m_threatSeen;   // sysID -> hostile charIDs
     std::map<uint32, time_t> m_threatWarnAt;           // sysID -> last callout
+    // "Наводчики/разведчики/разводилы": neutral NPC-corp pilots call out a juicy
+    // target to nearby hunters, and the odd scammer posts a bait line at a hub.
+    void ProcessSpotters();
+    std::map<uint32, time_t> m_spotterAt;              // sysID -> last spotter/scam line
     // Drain queued bot chat replies (one per tic) so bot<-bot conversations
     // advance without recursing the call stack.
     void ProcessBotReplies();
