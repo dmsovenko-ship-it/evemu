@@ -389,6 +389,9 @@ private:
     // "under attack" combat pool) with a short TTL; picking weights the
     // least-used lines, so the base actually rotates.
     void LoadSmalltalkPool(uint8 pool);
+    // Returning pilots greet whoever is already in local (frequently overlapping
+    // bots recognise each other) - a bit of small talk, real life included.
+    void BotGreetOnLogin(PlayerBot* bot, SystemManager* pSystem);
     // Ask DeepSeek for fresh smalltalk lines for one pool (rotating), insert the
     // new ones.  Runs every 30 min when ChatEnabled + DeepSeekKey are set.
     void ExpandSmalltalkPool();
@@ -410,6 +413,14 @@ private:
     // blur, so the server breathes (space population dips at night, builds in
     // waves) instead of every bot flying 24/7.
     bool IsBotNight(uint32 charID, bool russian);
+
+    // Friendships / couples. Bonds build up as the same pilots keep running into
+    // each other; a pair of opposite genders can become a couple (the user's rule:
+    // RU pilots strictly m/f). In-memory (re-forms after a restart).
+    struct Bond { int score = 0; bool couple = false; };
+    std::map<int64, Bond> m_bonds;
+    Bond* GetBond(uint32 a, uint32 b);
+    void NoteBond(PlayerBot* a, PlayerBot* b);
 
     bool m_initalized;
     uint32 m_botCounter;    // unique bot instance id generator

@@ -48,6 +48,7 @@ public:
     // common Russian transliteration). Russian pilots chat in Russian, the rest
     // in English - like the real shard population.
     bool SpeaksRussian() const          { return m_speaksRussian; }
+    bool IsFemale() const               { return m_female; }
     uint32 GetBotCorpID() const         { return m_botCorpID; }
     uint32 GetBotAllianceID() const     { return m_botAllianceID; }
     // Update the bot's identity corp/alliance in memory after it founds a corp /
@@ -322,6 +323,7 @@ protected:
     uint32 m_botCharID;
     std::string m_botName;
     bool m_speaksRussian = false;   // nickname says "Russian pilot" (set in ctor)
+    bool m_female = false;          // gender guessed from the nickname (set in ctor)
     uint32 m_botCorpID;
     uint32 m_botAllianceID;
     uint8 m_botSkill;                   // simulated pilot skill tier (0..5)

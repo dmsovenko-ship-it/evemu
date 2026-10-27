@@ -2817,6 +2817,8 @@ void BotMgr::SpawnBot(SystemManager* pSystem, uint32 charID, const std::string& 
             if (chan != nullptr)
                 chan->AddBotChar(useCharID, useCorpID, useAllianceID, 0, useName);
         }
+        // Returning pilots greet whoever is already in local.
+        BotGreetOnLogin(bot, pSystem);
     }
 }
 
@@ -4624,6 +4626,140 @@ void BotMgr::BotSayLocal(uint32 sysID, uint32 charID, const std::string& name, u
         return;
     chan->SendBotMessage(charID, name, corpID, msg);
     RecordChannelPhrase((int32)sysID, charID, msg);
+}
+
+// A pilot who just "logged in" (undocked) often greets whoever is already in
+// local - especially bots that keep running into each other. A short exchange,
+// real life included, so the channel feels like real pilots, not NPCs.
+void BotMgr::BotGreetOnLogin(PlayerBot* bot, SystemManager* pSystem)
+{
+    if (bot == nullptr || pSystem == nullptr)
+        return;
+    if (MakeRandomInt(0, 99) >= 40)
+        return;   // not everyone says hi
+
+    PlayerBot* mate = nullptr;
+    bool sameOrg = false;
+    for (auto& [id, se] : pSystem->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* other = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (other == nullptr || other == bot)
+            continue;
+        if (MakeRandomInt(0, 3) != 0)
+            continue;   // pick roughly the first of a few
+        mate = other;
+        sameOrg = (bot->GetBotCorpID() != 0 && other->GetBotCorpID() == bot->GetBotCorpID())
+               || (bot->GetBotAllianceID() != 0 && other->GetBotAllianceID() == bot->GetBotAllianceID());
+        break;
+    }
+    if (mate == nullptr)
+        return;
+
+    uint32 sysID = pSystem->GetID();
+    const std::string mateName = mate->GetBotName();
+    std::string line;
+    char buf[192];
+
+    NoteBond(bot, mate);
+    Bond* bond = GetBond(bot->GetBotCharID(), mate->GetBotCharID());
+    const bool couple  = (bond != nullptr && bond->couple);
+    const bool friendB = (bond != nullptr && bond->score >= 8);
+
+    if (bot->SpeaksRussian()) {
+        if (couple) {
+            static const char* const cRu[] = {
+                "о, %s. ты тут. как ты?",
+                "привет, %s. береги себя там",
+                "ты как, %s? я рядом, если что",
+                "о, %s. наконец-то"
+            };
+            snprintf(buf, sizeof(buf), cRu[MakeRandomInt(0, 3)], mateName.c_str());
+        } else if (friendB) {
+            static const char* const fRu[] = {
+                "о, %s. снова вместе",
+                "привет, %s. как оно?",
+                "здарова, %s. чё нового?",
+                "о, %s. давно не виделись"
+            };
+            snprintf(buf, sizeof(buf), fRu[MakeRandomInt(0, 3)], mateName.c_str());
+        } else {
+            static const char* const hiRu[] = {
+                "о, %s, снова ты. как сам?",
+                "привет, %s. опять вместе крабим?",
+                "здарова, %s. чё нового в реале?",
+                "о, %s нарисовался. как на работе?",
+                "привет. опять на одном гейте торчим)",
+                "чё как жизнь, %s? всё в космосе?",
+                "снова вместе, %s. мож по пиву как-нибудь)",
+                "о, %s. я уж думал, ты завязал"
+            };
+            snprintf(buf, sizeof(buf), hiRu[MakeRandomInt(0, 7)], mateName.c_str());
+        }
+        line = buf;
+        if (!couple && !friendB && sameOrg && MakeRandomInt(0, 99) < 50)
+            line = "снова вместе, " + mateName + ". как оно?";
+    } else {
+        if (couple) {
+            static const char* const cEn[] = {
+                "hey %s. you're here. how are you?",
+                "o/ %s, be safe out there",
+                "%s, you around? i'm close if you need me",
+                "hey %s, good to see you"
+            };
+            snprintf(buf, sizeof(buf), cEn[MakeRandomInt(0, 3)], mateName.c_str());
+        } else if (friendB) {
+            static const char* const fEn[] = {
+                "hey %s, good to see you",
+                "o7 %s, back again",
+                "%s o/, how's it going?",
+                "yo %s, long time no see"
+            };
+            snprintf(buf, sizeof(buf), fEn[MakeRandomInt(0, 3)], mateName.c_str());
+        } else {
+            static const char* const hiEn[] = {
+                "o/, %s. back again?",
+                "hey %s, we keep running into each other lol",
+                "sup %s, how's real life?",
+                "morning %s, work's slow today?",
+                "o7 %s, still around i see",
+                "yo %s, do you live here now?"
+            };
+            snprintf(buf, sizeof(buf), hiEn[MakeRandomInt(0, 5)], mateName.c_str());
+        }
+        line = buf;
+    }
+
+    BotSayLocal(sysID, bot->GetBotCharID(), bot->GetBotName(), bot->GetBotCorpID(), line);
+
+    // A bit later the other pilot usually answers.
+    if (MakeRandomInt(0, 99) < 55) {
+        std::string reply;
+        if (mate->SpeaksRussian()) {
+            static const char* const reRu[] = {
+                "да норм, краблю потихоньку",
+                "зашёл на часик, как сам?",
+                "в реале всё по плану, работы много",
+                "живой, космос не отпускает)",
+                "да всё так же, летаю"
+            };
+            reply = reRu[MakeRandomInt(0, 4)];
+        } else {
+            static const char* const reEn[] = {
+                "yeah all good, just grinding",
+                "only got an hour, u?",
+                "real life's fine, busy though",
+                "still here, eve doesn't let go lol"
+            };
+            reply = reEn[MakeRandomInt(0, 3)];
+        }
+        PendingBotReply r;
+        r.channelID = (int32)sysID;
+        r.charID = mate->GetBotCharID();
+        r.name = mate->GetBotName();
+        r.message = reply;
+        QueueBotReply(r);
+    }
 }
 
 void BotMgr::OnCorpMateKilled(SystemManager* sys, uint32 corpID, uint32 allianceID,
@@ -8471,6 +8607,43 @@ bool BotMgr::IsBotNight(uint32 charID, bool russian)
     }
 
     return false;
+}
+
+// Social bonds: the more two pilots keep meeting, the closer they get (friend,
+// then - for an opposite-gender pair - a couple). Key = (minChar<<32)|maxChar.
+BotMgr::Bond* BotMgr::GetBond(uint32 a, uint32 b)
+{
+    if (a == 0 || b == 0 || a == b)
+        return nullptr;
+    uint32 lo = (a < b) ? a : b;
+    uint32 hi = (a < b) ? b : a;
+    auto it = m_bonds.find(((int64)lo << 32) | (int64)hi);
+    return (it != m_bonds.end()) ? &it->second : nullptr;
+}
+
+void BotMgr::NoteBond(PlayerBot* a, PlayerBot* b)
+{
+    if (a == nullptr || b == nullptr || a == b)
+        return;
+    uint32 lo = (a->GetBotCharID() < b->GetBotCharID()) ? a->GetBotCharID() : b->GetBotCharID();
+    uint32 hi = (a->GetBotCharID() < b->GetBotCharID()) ? b->GetBotCharID() : a->GetBotCharID();
+    if (lo == 0 || hi == 0)
+        return;
+    Bond& bond = m_bonds[((int64)lo << 32) | (int64)hi];
+    if (bond.score < 1000000)
+        ++bond.score;
+
+    // Couples are strictly m/f (RU pilots included, per the user's rule).
+    if (!bond.couple && bond.score >= 12 && a->IsFemale() != b->IsFemale()
+        && MakeRandomInt(0, 99) < 40) {
+        bond.couple = true;
+        _log(BOT__MESSAGE, "BotMgr: %s(%u) and %s(%u) are now a couple.",
+             a->GetBotName().c_str(), a->GetBotCharID(),
+             b->GetBotName().c_str(), b->GetBotCharID());
+    }
+
+    if (m_bonds.size() > 20000)
+        m_bonds.clear();   // safety cap (bonds re-form)
 }
 
 // Self-growing chat base: every run asks DeepSeek for fresh smalltalk lines for

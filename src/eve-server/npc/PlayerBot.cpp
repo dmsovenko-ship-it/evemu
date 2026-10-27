@@ -87,6 +87,64 @@ static const char* BotPickLine(const char* const* pool, int n) {
     return pool[MakeRandomInt(0, n - 1)];
 }
 
+// Best-effort gender guess from the nickname: Russian feminine names usually end
+// in -а/-я (male diminutives like Саша/Миша/Никита are excluded), a few common
+// English female names are listed, and anything ambiguous falls back to a
+// deterministic hash so a pilot's gender never flickers between sessions.
+static bool BotNameLooksFemale(const std::string& name)
+{
+    std::string first;
+    for (char c : name) {
+        if (c == ' ' || c == '\t') break;
+        first += (char)std::tolower((unsigned char)c);
+    }
+    if (first.empty())
+        return false;
+
+    static const char* maleA[] = {
+        "sasha","misha","pasha","dima","vasya","petya","vova","yura","kolya",
+        "tolya","seryozha","vanya","grisha","mitya","kostya","goga","gosha",
+        "nikita","ilya","sava","luka","foma","danila","zhenya","valya","shura",
+        "\xD1\x81\xD0\xB0\xD1\x88\xD0\xB0",         // саша
+        "\xD0\xBC\xD0\xB8\xD1\x88\xD0\xB0",         // миша
+        "\xD0\xBF\xD0\xB0\xD1\x88\xD0\xB0",         // паша
+        "\xD0\xB4\xD0\xB8\xD0\xBC\xD0\xB0",         // дима
+        "\xD0\xB2\xD0\xB0\xD1\x81\xD1\x8F",         // вася
+        "\xD0\xBF\xD0\xB5\xD1\x82\xD1\x8F",         // петя
+        "\xD0\xB2\xD0\xBE\xD0\xB2\xD0\xB0",         // вова
+        "\xD1\x8E\xD1\x80\xD0\xB0",                 // юра
+        "\xD0\xBA\xD0\xBE\xD0\xBB\xD1\x8F",         // коля
+        "\xD1\x82\xD0\xBE\xD0\xBB\xD1\x8F",         // толя
+        "\xD0\xB2\xD0\xB0\xD0\xBD\xD1\x8F",         // ваня
+        "\xD0\xBD\xD0\xB8\xD0\xBA\xD0\xB8\xD1\x82\xD0\xB0",   // никита
+        "\xD0\xB8\xD0\xBB\xD1\x8C\xD1\x8F"          // илья
+    };
+    for (const char* m : maleA)
+        if (first == m)
+            return false;
+
+    auto ends = [&](const std::string& suf) {
+        return first.size() >= suf.size()
+            && first.compare(first.size() - suf.size(), suf.size(), suf) == 0;
+    };
+    if (ends("a") || ends("\xD0\xB0") || ends("\xD1\x8F"))   // -a, -а, -я
+        return true;
+
+    static const char* femaleEn[] = {
+        "anna","sarah","kate","katherine","emma","lisa","maria","julia","olga",
+        "elena","nina","vera","irina","svetlana","natasha","tatiana","alice",
+        "jane","mary","laura","sophie","jessica","natalie","kristen","kristina"
+    };
+    for (const char* f : femaleEn)
+        if (first == f)
+            return true;
+
+    uint32 h = 2166136261u;
+    for (unsigned char c : name)
+        h = (h ^ c) * 16777619u;
+    return ((h >> 12) & 1) != 0;
+}
+
 // A pilot "speaks Russian" when its nickname is Cyrillic (UTF-8 bytes) or a
 // common Russian transliteration. Russian pilots chat in Russian, the rest in
 // English - like the real shard population.
@@ -145,6 +203,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
     m_warID = 0;
     m_ownerID = m_botCharID;
     m_speaksRussian = IsRussianName(charName);
+    m_female = BotNameLooksFemale(charName);
 
     // Load persistent learning (win/loss history, chat quality).
     m_memory->Load();
