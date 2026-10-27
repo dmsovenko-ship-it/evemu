@@ -7966,35 +7966,85 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
 
     // Russian-speaking pilots (nickname localised by PlayerBot::SpeaksRussian)
     // chat in conversational Russian, not English - the real shard is mixed.
+    // Pools are profession/situation aware so a miner does not talk like a ganker.
     if (a->SpeaksRussian()) {
-        static const char* const ruCombat[] = {
-            "меня бьют, помогайте!", "танк не держит, нужна помощь.",
-            "их тут много, отходим.", "лок на мне, дайте репы.",
-            "разберусь сам, не лезьте.", "о7"
+        static const char* const combat[] = {
+            "меня бьют, помогайте!", "танк не держит, нужна помощь",
+            "их тут много, отходим", "лок на мне, дайте репы",
+            "разберусь сам, не лезьте", "о7", "да ладно, я и один справлюсь",
+            "харош стрелять, я свой"
         };
-        static const char* const ruIdle[] = {
-            "в %s сегодня тихо, фармлю потихоньку.",
-            "народ, кто-нибудь есть в %s?",
-            "о, живой человек, привет.",
-            "тут крысы злые, осторожно.",
-            "го в флот, если что.",
-            "в локале пусто, скучно.",
-            "%s на гейте чисто, проезжайте.",
-            "кто-нибудь продаёт минералы?",
-            "варпнулся, дела идут.",
-            "как там цены на хабе?",
-            "не люблю лоусек, но платят хорошо.",
-            "снова чуть не убили, ну и ладно.",
-            "о7",
-            "да ладно, это же просто крысы.",
-            "собираюсь на станцию, налетай если что.",
-            "у меня всё норм, а у вас?"
+        static const char* const generic[] = {
+            "чё тут у вас, живые есть?", "о, народ подтянулся, збс",
+            "летаю потихоньку, не мешаю", "лок вялый, скучновато",
+            "кто на хабе был, цены как?", "ну чё, полетели кто куда",
+            "офф скоро, дел дофига", "тут всегда так тихо?",
+            "го катать, если чё", "да всё норм, коплю иск"
         };
-        std::string m = (inFight || aggro) ? ruCombat[MakeRandomInt(0, 5)]
-                                           : ruIdle[MakeRandomInt(0, 15)];
-        size_t pos = m.find("%s");
-        if (pos != std::string::npos) m.replace(pos, 2, sysName);
-        return m;
+        static const char* const miner[] = {
+            "коплю вельд, дело нехитрое", "стрипы гудят, трюм набивается",
+            "крысы опять донимают, уймите кто-нибудь", "рефайн тут норм или в хаб везти?",
+            "полтрюма есть, ещё пару циклов", "руда — наше всё, ребят",
+            "надо уже баржу, на венче больно", "чуть не уснул на орбите астероида"
+        };
+        static const char* const ratter[] = {
+            "ановый сайт в лоу чистый, фармлю", "крысы злые нынче, но платят",
+            "раттинг — это работа, чё вы", "хавен в нулях поднялся, красота",
+            "дропнул офицера, талия дрожит", "сентри чуть дронов не съели",
+            "иск капает, грех жаловаться", "эскалация выпала, кайф"
+        };
+        static const char* const trader[] = {
+            "спред норм, торгуем потихоньку", "опять кто-то демпит, бесит",
+            "купил дёшево, поставил дорого", "0.01 иск — наше всё",
+            "рынок движ, день удался", "подрезали ордер, классика",
+            "эскроу тяжеловат, но терпимо", "хаб не спит, я тоже"
+        };
+        static const char* const courier[] = {
+            "грузы вожу, платят — живу", "контракт на хаб взял, полетел",
+            "коллатерал дорогой, аккуратнее", "чуть курьерку не профукал",
+            "движ через лоу немного стрёмный", "груз тяжёлый, варп долгий",
+            "кто ещё чего перекинуть?", "привёз, сдал, прослезился"
+        };
+        static const char* const hacker[] = {
+            "релик норм зашёл, декриптор мой", "дата-сайты опять кемпят",
+            "сканю потихоньку, есть сиг", "хакнули кан, лут так себе",
+            "чуть не повесил на анализ", "релики — лотерея, если честно"
+        };
+        static const char* const explorer[] = {
+            "проблю, вроде чё-то есть", "вх нашёл, лезть не буду",
+            "сиги в системе есть, сканю", "нули статик, стрёмно",
+            "девиация бесит, скилла мало", "карта почти собрана"
+        };
+        static const char* const missioner[] = {
+            "миску взял, полетел", "в отчёте у агента, скоро назад",
+            "крысы не сдаются, чё ж", "агент о5 дал жирную, кайф",
+            "миски — стабильный доход", "вернусь на станцию, сдам"
+        };
+        static const char* const industry[] = {
+            "кручу производство, не отвлекайте", "материалы подорожали, блин",
+            "бпи купил, крафчу", "жалею, что не взял больше триты",
+            "офис апаю потихоньку", "поставки пошли, жду"
+        };
+        static const char* const hunter[] = {
+            "щёлкаю проезжающих у гейта", "кто на локе, не дёргайся",
+            "ганк — это стиль жизни", "го в лоу, там весело",
+            "конкорд не спит, но и я", "поймал вкусного, гг"
+        };
+        const char* m = nullptr;
+        if (inFight || aggro) m = combat[MakeRandomInt(0, 7)];
+        else switch (a->GetProfession()) {
+            case PlayerBot::BotProfession::Miner:        m = miner[MakeRandomInt(0, 7)];    break;
+            case PlayerBot::BotProfession::RatHunter:    m = ratter[MakeRandomInt(0, 7)];   break;
+            case PlayerBot::BotProfession::Trader:       m = trader[MakeRandomInt(0, 7)];   break;
+            case PlayerBot::BotProfession::Courier:      m = courier[MakeRandomInt(0, 7)];  break;
+            case PlayerBot::BotProfession::Hacker:       m = hacker[MakeRandomInt(0, 5)];   break;
+            case PlayerBot::BotProfession::Explorer:     m = explorer[MakeRandomInt(0, 5)]; break;
+            case PlayerBot::BotProfession::Missioner:    m = missioner[MakeRandomInt(0, 5)];break;
+            case PlayerBot::BotProfession::Industrialist: m = industry[MakeRandomInt(0, 5)];break;
+            case PlayerBot::BotProfession::Hunter:       m = hunter[MakeRandomInt(0, 5)];   break;
+            default:                                      m = generic[MakeRandomInt(0, 9)];  break;
+        }
+        return std::string(m);
     }
 
     // Lines live in the botSmalltalk table (seeded by migration, topped up by
