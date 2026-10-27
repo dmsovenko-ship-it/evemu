@@ -12,6 +12,7 @@
 #include "system/Damage.h"
 #include "corporation/CorporationDB.h"
 #include "character/CharacterDB.h"
+#include "EVE_Corp.h"
 #include "chat/LSCService.h"
 #include "chat/LSCChannel.h"
 #include "services/ServiceManager.h"
@@ -556,6 +557,9 @@ void BotMgr::Process()
 
     // Neutral "разводилы" (scammers) post bait lines at the trade hub.
     ProcessScammers();
+
+    // Bot corps accept pending player applications (real recruitment).
+    ProcessCorpApplications();
 
     // Courier bots pick up unaccepted player courier contracts.
     ProcessPlayerContracts();
@@ -5093,6 +5097,63 @@ void BotMgr::ProcessScammers()
         }
         BotSayLocal(sysID, w->GetBotCharID(), w->GetBotName(), w->GetBotCorpID(), line);
         return;
+    }
+}
+
+// Real recruitment: a bot officer accepts pending player applications to a bot
+// corp (same corp-application flow the client uses). Membership is written to
+// the DB; an online player gets a notice and sees the change after relogin.
+void BotMgr::ProcessCorpApplications()
+{
+    if (!m_initalized || !sConfig.playerBots.Enabled)
+        return;
+    static time_t s_last = 0;
+    time_t now = time(nullptr);
+    if (now - s_last < 90)
+        return;
+    s_last = now;
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT a.corporationID, a.characterID FROM crpApplications a "
+        "JOIN crpCorporation c ON c.corporationID = a.corporationID "
+        "WHERE a.status = %u AND a.deleted = 0 AND c.corporationType = 2 "
+        "ORDER BY a.applicationDateTime ASC LIMIT 5",
+        (uint32)Corp::AppStatus::AppliedByCharacter))
+        return;
+
+    std::vector<std::pair<uint32, uint32>> apps;
+    DBResultRow row;
+    while (res.GetRow(row))
+        apps.emplace_back(row.GetUInt(0), row.GetUInt(1));
+    if (apps.empty())
+        return;
+
+    for (auto& ap : apps) {
+        uint32 corpID = ap.first;
+        uint32 charID = ap.second;
+        if (!IsPlayerCorp(corpID))
+            continue;
+        if (MakeRandomInt(0, 99) < 50)
+            continue;   // not accepted instantly, like a real recruiter
+
+        CorporationDB cdb;
+        MemberAttributeUpdate change;
+        if (!cdb.CreateMemberAttributeUpdate(corpID, charID, change))
+            continue;
+
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE crpApplications SET status = %u WHERE corporationID = %u AND characterID = %u",
+            (uint32)Corp::AppStatus::AcceptedByCorporation, corpID, charID);
+        CharacterDB::AddEmployment(charID, corpID);
+
+        Client* recruit = sEntityList.FindClientByCharID(charID);
+        if (recruit != nullptr)
+            recruit->SendNotifyMsg("Your corporation application has been accepted. Please relog to apply it.");
+
+        _log(BOT__MESSAGE, "BotMgr: corp %u accepted the application from char %u", corpID, charID);
+        break;   // one per pass
     }
 }
 

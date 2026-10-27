@@ -398,6 +398,9 @@ private:
     // a real spotter reports to his own fleet, not to the victim's local.
     void ProcessScammers();
     std::map<uint32, time_t> m_scamAt;                 // hub system -> last scam line
+    // Real recruitment: a bot officer accepts pending player applications to a
+    // bot corp (the same corp-application DB the client uses).
+    void ProcessCorpApplications();
     // Drain queued bot chat replies (one per tic) so bot<-bot conversations
     // advance without recursing the call stack.
     void ProcessBotReplies();
