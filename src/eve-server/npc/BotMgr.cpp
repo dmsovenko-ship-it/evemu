@@ -7964,6 +7964,24 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
     // Near a gate? (hunter bait / gate camp / waiting to jump)
     bool nearGate = a->IsNearGate(150000.0);
 
+    // Situation flags so ambient lines fit "in the moment" (not just profession).
+    bool lowHp = false;
+    {
+        InventoryItemRef sref = a->GetSelf();
+        if (sref.get() != nullptr) {
+            float sc = sref->GetAttribute(AttrShieldCapacity).get_float();
+            float scc = sref->GetAttribute(AttrShieldCharge).get_float();
+            float ah = sref->GetAttribute(AttrArmorHP).get_float();
+            float ad = sref->GetAttribute(AttrArmorDamage).get_float();
+            float hh = sref->GetAttribute(AttrHP).get_float();
+            float hd = sref->GetAttribute(AttrDamage).get_float();
+            float maxHP = sc + ah + hh;
+            float curHP = scc + (ah - ad) + (hh - hd);
+            if (maxHP > 0.0f) lowHp = (curHP / maxHP) < 0.5f;
+        }
+    }
+    bool outlaw = a->GetSecurityStatus() < -5.0;
+
     // Russian-speaking pilots (nickname localised by PlayerBot::SpeaksRussian)
     // chat in conversational Russian, not English - the real shard is mixed.
     // Pools are profession/situation aware so a miner does not talk like a ganker.
@@ -8030,8 +8048,23 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
             "ганк — это стиль жизни", "го в лоу, там весело",
             "конкорд не спит, но и я", "поймал вкусного, гг"
         };
+        static const char* const lowhpRu[] = {
+            "потрёпан, иду на станцию чиниться", "щит в ноль, не до фарма",
+            "чуть не словил, отхожу", "на ремонт, потом обратно"
+        };
+        static const char* const gateRu[] = {
+            "стою на гейте, жду", "на гейте кто-то есть?", "гейт вроде чист",
+            "кого-нибудь ждём тут?", "не люблю гейт-кемпы, но стою"
+        };
+        static const char* const outlawRu[] = {
+            "я официально пират, не подходи", "минус на статусе, зато весело",
+            "конкорд по мне плачет", "кто меня ещё не забанил?"
+        };
         const char* m = nullptr;
         if (inFight || aggro) m = combat[MakeRandomInt(0, 7)];
+        else if (lowHp)       m = lowhpRu[MakeRandomInt(0, 3)];
+        else if (nearGate)    m = gateRu[MakeRandomInt(0, 4)];
+        else if (outlaw)      m = outlawRu[MakeRandomInt(0, 3)];
         else switch (a->GetProfession()) {
             case PlayerBot::BotProfession::Miner:        m = miner[MakeRandomInt(0, 7)];    break;
             case PlayerBot::BotProfession::RatHunter:    m = ratter[MakeRandomInt(0, 7)];   break;
@@ -8050,6 +8083,19 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
     // Lines live in the botSmalltalk table (seeded by migration, topped up by
     // DeepSeek).  The pick prefers least-used lines, so the base rotates instead
     // of repeating the same phrases.  255 = the "under attack" combat pool.
+    // English situation lines (low HP / gate) - fit the moment, not just profession.
+    if (lowHp || nearGate) {
+        static const char* const enLowHp[] = {
+            "hull's beat up, docking up", "shields gone, not doing this",
+            "almost died, warping to station", "need repairs, brb"
+        };
+        static const char* const enGate[] = {
+            "holding on the gate", "anyone at the gate?", "gate looks clear",
+            "gate camp earlier, careful", "waiting on the gate, got backup?"
+        };
+        return lowHp ? enLowHp[MakeRandomInt(0, 3)] : enGate[MakeRandomInt(0, 4)];
+    }
+
     uint8 poolKey = (inFight || aggro) ? (uint8)255 : (uint8)a->GetProfession();
     LoadSmalltalkPool(poolKey);
 
