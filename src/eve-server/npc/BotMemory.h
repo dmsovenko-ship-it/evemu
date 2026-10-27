@@ -124,6 +124,7 @@ private:
     uint8  skillLevel;   // 0..5 current tier (0xFF = unset, rolled at spawn)
     int64  tradeProfit;  // net ISK from the bot's market-making / arbitrage fills
     uint32 tradeLosses;  // number of losing fills (RecordTradeResult with isk<0)
+    double securityStatus;  // persistent Crucible security status (-10..+10)
     bool m_dirty;
 };
 

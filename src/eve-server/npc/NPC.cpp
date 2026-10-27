@@ -715,10 +715,8 @@ void NPC::Killed(Damage &damage) {
         if (kb == nullptr)
             kb = sBotMgr.FindBotInSystem(m_system, botBountyCharID);   // drone kill
         if (kb != nullptr) {
-            double old = kb->GetSecurityStatus();
             float killBonus = m_self->GetAttribute(AttrEntitySecurityStatusKillBonus).get_float();
-            if (old < 5.0 && killBonus > 0.0f)
-                kb->AwardSecurity((10.0 - old) * (double)killBonus / 100.0);
+            kb->AwardSecurityForNpc(killBonus);
         }
     }
 

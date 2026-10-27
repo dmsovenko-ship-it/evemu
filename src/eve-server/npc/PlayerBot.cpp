@@ -123,6 +123,56 @@ double PlayerBot::GetSecurityStatus() const
     return m_memory != nullptr ? m_memory->GetSecurityStatus() : 0.0;
 }
 
+void PlayerBot::AwardSecurityForNpc(float killBonus)
+{
+    if (killBonus <= 0.0f)
+        return;
+    // Crucible: only the most valuable NPC killed within a 5-minute window
+    // grants the security increase; weaker kills in the window give nothing.
+    const double SEC_WINDOW = 5.0 * 60.0 * 10000000.0;   // 5 min in 100-ns units
+    double now = GetFileTimeNow();
+    if (m_secWindowStamp <= 0.0 || (now - m_secWindowStamp) >= SEC_WINDOW) {
+        m_secWindowStamp = now;
+        m_secBestBonus = 0.0f;
+    }
+    if (killBonus <= m_secBestBonus)
+        return;
+    m_secBestBonus = killBonus;
+    double old = GetSecurityStatus();
+    if (old >= 5.0)
+        return;                                          // cap: no NPC sec above +5
+    if (m_fastTalk == 0xFF)
+        m_fastTalk = (uint8)CharacterDB::GetSkillLevel(m_botCharID, EvESkill::FastTalk);
+    double delta = (10.0 - old) * (double)killBonus / 100.0;
+    delta *= (1.0 + 0.05 * (double)m_fastTalk);          // Fast Talk: +5% / level
+    AwardSecurity(delta);
+}
+
+void PlayerBot::AwardPvpSecurity(double victimSec, double systemSec, bool victimPod)
+{
+    // Crucible: PvP sec penalty only in high/low sec (null/w-space: none).
+    if (systemSec < 0.0)
+        return;
+    double old = GetSecurityStatus();
+    double mod = (victimPod ? -0.25 : -0.025) * systemSec
+                 * (1.0 + (victimSec - old) / 100.0);
+    AwardSecurity((10.0 - old) * mod);
+}
+
+void PlayerBot::UpdateSecurityRecovery()
+{
+    double sec = GetSecurityStatus();
+    if (!m_recoveringSec && sec < -1.0) {
+        m_recoveringSec = true;
+        _log(BOT__MESSAGE, "PlayerBot %s(%u): sec %.2f too low - hunting pirate NPCs to recover.",
+             m_botName.c_str(), m_botCharID, sec);
+    } else if (m_recoveringSec && sec >= -0.3) {
+        m_recoveringSec = false;
+        _log(BOT__MESSAGE, "PlayerBot %s(%u): sec recovered to %.2f - resuming profession.",
+             m_botName.c_str(), m_botCharID, sec);
+    }
+}
+
 PyDict* PlayerBot::MakeSlimItem()
 {
     PyDict* slim = NPC::MakeSlimItem();
@@ -601,7 +651,13 @@ void PlayerBot::Process()
     // When not fighting or traveling, do the bot's profession activity
     // (mine/trade/courier/hack). Hunters prowl for targets instead.
     if (!fighting && !m_traveling && !m_wantsTravel && m_decisionTimer.Check(false)) {
-        DoProfessionActivity();
+        // Deep-negative security: hunt pirate NPCs (red crosses) to wash it,
+        // like a live player; otherwise do the normal profession activity.
+        UpdateSecurityRecovery();
+        if (m_recoveringSec)
+            RatForTarget();
+        else
+            DoProfessionActivity();
     }
 
     if (m_decisionTimer.Check(false)) {
@@ -738,18 +794,10 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
         }
     }
 
-    // PvP security hit (Crucible): only in high/low sec (null/w-space: none).
-    // Modification% = -2.5% * systemSec * (1 + (targetSec - aggressorSec)/100)
-    // NewStatus = Old + (10 - Old) * Modification%
-    if (killerBot != nullptr && killerBot != this) {
-        float sysSec = m_system->GetSystemSecurityRating();
-        if (sysSec >= 0.0f) {
-            double kOld = killerBot->GetSecurityStatus();
-            double vSec = GetSecurityStatus();
-            double mod = -0.025 * (double)sysSec * (1.0 + (vSec - kOld) / 100.0);
-            killerBot->AwardSecurity((10.0 - kOld) * mod);
-        }
-    }
+    // PvP security hit for the bot killer (Crucible: hi/low only; the victim is
+    // a ship - bots don't fly pods, so pass victimPod=false).
+    if (killerBot != nullptr && killerBot != this)
+        killerBot->AwardPvpSecurity(GetSecurityStatus(), m_system->GetSystemSecurityRating(), false);
 
     KillData data = KillData();
     data.solarSystemID = m_system->GetID();

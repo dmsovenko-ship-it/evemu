@@ -40,6 +40,9 @@ public:
     // Security status (Crucible): + for NPC kills (cap +5), - for PvP in hi/low.
     void   AwardSecurity(double delta);
     double GetSecurityStatus() const;
+    void   AwardSecurityForNpc(float killBonus);           // 5-min best-NPC window + Fast Talk + cap
+    void   AwardPvpSecurity(double victimSec, double systemSec, bool victimPod);
+    void   UpdateSecurityRecovery();                       // toggles m_recoveringSec
     const std::string& GetBotName() const { return m_botName; }
     uint32 GetBotCorpID() const         { return m_botCorpID; }
     uint32 GetBotAllianceID() const     { return m_botAllianceID; }
@@ -343,6 +346,13 @@ protected:
     bool  m_gateCamping = false;        // low/null: holding a stargate camp
     uint32 m_campGateID = 0;            // stargate being camped
     bool  m_capitalPilot = false;       // top-skill nullsec capital pilot
+    // Security-status recovery: a bot whose sec dropped deep negative hunts rats
+    // (red crosses) to wash it, like a live player. Window/bonus feed the NPC-kill
+    // sec award (only the best NPC within 5 min counts).
+    bool   m_recoveringSec  = false;
+    double m_secWindowStamp = 0.0;      // GetFileTimeNow (100ns units) of window start
+    float  m_secBestBonus   = 0.0f;     // best entitySecurityStatusKillBonus seen this window
+    uint8  m_fastTalk       = 0xFF;     // Fast Talk skill level (lazy-loaded)
     bool  m_cynoShip = false;           // temporary corpmate cyno ship (drop beacon)
     uint32 m_officerTargetID = 0;       // officer NPC we are hunting (for kill/reset)
     std::string m_brainAdvice;          // learned strategy from the botStrategy table
