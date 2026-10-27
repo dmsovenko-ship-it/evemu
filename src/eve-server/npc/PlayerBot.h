@@ -44,6 +44,10 @@ public:
     void   AwardPvpSecurity(double victimSec, double systemSec, bool victimPod);
     void   UpdateSecurityRecovery();                       // toggles m_recoveringSec
     const std::string& GetBotName() const { return m_botName; }
+    // Whether this pilot "speaks Russian" (nickname analysis: Cyrillic or a
+    // common Russian transliteration). Russian pilots chat in Russian, the rest
+    // in English - like the real shard population.
+    bool SpeaksRussian() const          { return m_speaksRussian; }
     uint32 GetBotCorpID() const         { return m_botCorpID; }
     uint32 GetBotAllianceID() const     { return m_botAllianceID; }
     // Update the bot's identity corp/alliance in memory after it founds a corp /
@@ -317,6 +321,7 @@ protected:
 
     uint32 m_botCharID;
     std::string m_botName;
+    bool m_speaksRussian = false;   // nickname says "Russian pilot" (set in ctor)
     uint32 m_botCorpID;
     uint32 m_botAllianceID;
     uint8 m_botSkill;                   // simulated pilot skill tier (0..5)

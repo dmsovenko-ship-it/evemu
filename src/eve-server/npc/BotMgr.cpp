@@ -7913,6 +7913,39 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
     // Near a gate? (hunter bait / gate camp / waiting to jump)
     bool nearGate = a->IsNearGate(150000.0);
 
+    // Russian-speaking pilots (nickname localised by PlayerBot::SpeaksRussian)
+    // chat in conversational Russian, not English - the real shard is mixed.
+    if (a->SpeaksRussian()) {
+        static const char* const ruCombat[] = {
+            "меня бьют, помогайте!", "танк не держит, нужна помощь.",
+            "их тут много, отходим.", "лок на мне, дайте репы.",
+            "разберусь сам, не лезьте.", "о7"
+        };
+        static const char* const ruIdle[] = {
+            "в %s сегодня тихо, фармлю потихоньку.",
+            "народ, кто-нибудь есть в %s?",
+            "о, живой человек, привет.",
+            "тут крысы злые, осторожно.",
+            "го в флот, если что.",
+            "в локале пусто, скучно.",
+            "%s на гейте чисто, проезжайте.",
+            "кто-нибудь продаёт минералы?",
+            "варпнулся, дела идут.",
+            "как там цены на хабе?",
+            "не люблю лоусек, но платят хорошо.",
+            "снова чуть не убили, ну и ладно.",
+            "о7",
+            "да ладно, это же просто крысы.",
+            "собираюсь на станцию, налетай если что.",
+            "у меня всё норм, а у вас?"
+        };
+        std::string m = (inFight || aggro) ? ruCombat[MakeRandomInt(0, 5)]
+                                           : ruIdle[MakeRandomInt(0, 15)];
+        size_t pos = m.find("%s");
+        if (pos != std::string::npos) m.replace(pos, 2, sysName);
+        return m;
+    }
+
     // Lines live in the botSmalltalk table (seeded by migration, topped up by
     // DeepSeek).  The pick prefers least-used lines, so the base rotates instead
     // of repeating the same phrases.  255 = the "under attack" combat pool.
@@ -9875,6 +9908,16 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
         "You may be blunt, rude or dismissive if the situation calls for it — a grumpy veteran, a cocky PvP'er, "
         "a sarcastic miner — but stay within EVE's rules: no real-life hate speech, threats, slurs or anything "
         "that would get a real account banned. Being human and rough is fine; being toxic is not.";
+
+    // Native language identity: Russian-nick pilots prefer conversational Russian
+    // and have limited English; the rest speak English with only a little Russian.
+    if (responder->SpeaksRussian())
+        systemHint += " You are a Russian-speaking pilot: chat naturally in conversational Russian; "
+                      "your English is limited — if someone writes in English, keep it short and simple and "
+                      "you may miss nuance.";
+    else
+        systemHint += " You are an English-speaking pilot; you understand only a little Russian, so keep any "
+                      "Russian reply minimal.";
 
     // Situational context the bot IS aware of (it's in the same system/bubble):
     // this keeps replies grounded and prevents the classic "I'm alone ratting"

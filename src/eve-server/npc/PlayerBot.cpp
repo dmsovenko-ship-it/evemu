@@ -23,6 +23,8 @@
 #include <algorithm>
 #include <cmath>
 #include <sstream>
+#include <cstring>
+#include <cctype>
 
 /*
  * @file PlayerBot.cpp
@@ -75,8 +77,32 @@ static const char* const kBotLossLines[] = {
     "well played", "gg", "you got me", "o7", "I'll be back",
     "that hurt", "bring friends next time", "warping out didn't work..."
 };
+static const char* const kBotKillTauntsRu[] = {
+    "гф", "хорош", "лут мой", "надо было варпать", "медленный", "о7", "спасибо за лут"
+};
+static const char* const kBotLossLinesRu[] = {
+    "хорош", "гф", "поймал", "о7", "я вернусь", "больно", "зови друзей"
+};
 static const char* BotPickLine(const char* const* pool, int n) {
     return pool[MakeRandomInt(0, n - 1)];
+}
+
+// A pilot "speaks Russian" when its nickname is Cyrillic (UTF-8 bytes) or a
+// common Russian transliteration. Russian pilots chat in Russian, the rest in
+// English - like the real shard population.
+static bool IsRussianName(const std::string& name) {
+    for (unsigned char c : name)
+        if (c >= 0x80) return true;                 // UTF-8 Cyrillic
+    std::string low;
+    for (char c : name) low += (char)std::tolower((unsigned char)c);
+    static const char* suf[] = { "ov", "ev", "in", "ko", "uk", "yuk", "enko",
+                                 "skiy", "sky", "tsov", "ova", "eva", "ina",
+                                 "ich", "ych", "ovna", "evna", "ya" };
+    for (const char* s : suf) {
+        size_t l = std::strlen(s);
+        if (low.size() >= l && low.compare(low.size() - l, l, s) == 0) return true;
+    }
+    return false;
 }
 
 PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, uint32 charID, std::string charName, uint32 corpID, uint32 allianceID)
@@ -118,6 +144,7 @@ PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemM
     m_corpID = m_botCorpID;
     m_warID = 0;
     m_ownerID = m_botCharID;
+    m_speaksRussian = IsRussianName(charName);
 
     // Load persistent learning (win/loss history, chat quality).
     m_memory->Load();
@@ -773,9 +800,11 @@ void PlayerBot::Killed(Damage& damage)
     // player leaving the system (ghost member otherwise).
     // Last words in local before the pilot leaves, with ~50% chance (players
     // don't always talk, but they often do after a loss).
-    if (m_system != nullptr && MakeRandomInt(0, 100) < 50)
-        sBotMgr.BotSayLocal(m_system->GetID(), m_botCharID, m_botName, m_botCorpID,
-                            BotPickLine(kBotLossLines, 8));
+    if (m_system != nullptr && MakeRandomInt(0, 100) < 50) {
+        const char* line = m_speaksRussian ? BotPickLine(kBotLossLinesRu, 7)
+                                           : BotPickLine(kBotLossLines, 8);
+        sBotMgr.BotSayLocal(m_system->GetID(), m_botCharID, m_botName, m_botCorpID, line);
+    }
 
     sBotMgr.RemoveBotFromLocal(m_system, m_botCharID);
     NPC::Killed(damage);
@@ -821,9 +850,12 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
         killerBot->AwardPvpSecurity(GetSecurityStatus(), m_system->GetSystemSecurityRating(), false);
 
     // Killer taunts in local (~50% chance), like a live pilot after a win.
-    if (killerBot != nullptr && killerBot != this && m_system != nullptr && MakeRandomInt(0, 100) < 50)
+    if (killerBot != nullptr && killerBot != this && m_system != nullptr && MakeRandomInt(0, 100) < 50) {
+        const char* line = killerBot->SpeaksRussian() ? BotPickLine(kBotKillTauntsRu, 7)
+                                                      : BotPickLine(kBotKillTaunts, 9);
         sBotMgr.BotSayLocal(m_system->GetID(), killerBot->GetBotCharID(), killerBot->GetBotName(),
-                            killerBot->GetBotCorpID(), BotPickLine(kBotKillTaunts, 9));
+                            killerBot->GetBotCorpID(), line);
+    }
 
     KillData data = KillData();
     data.solarSystemID = m_system->GetID();
