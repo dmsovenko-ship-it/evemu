@@ -8086,6 +8086,17 @@ std::string BotMgr::BuildBotSmalltalkLine(PlayerBot* a, PlayerBot* b, SystemMana
             case PlayerBot::BotProfession::Hunter:       m = hunter[MakeRandomInt(0, 5)];   break;
             default:                                      m = generic[MakeRandomInt(0, 9)];  break;
         }
+        // Mix in DB-grown RU lines (profession+100 pools / 355 combat) for variety,
+        // on top of the hardcoded situational pools.
+        {
+            uint8 ruPool = (uint8)((inFight || aggro) ? 355 : (a->GetProfession() + 100));
+            LoadSmalltalkPool(ruPool);
+            auto it = m_smalltalk.find(ruPool);
+            if (it != m_smalltalk.end() && !it->second.second.empty() && MakeRandomInt(0, 99) < 45) {
+                const std::vector<std::string>& v = it->second.second;
+                m = v[MakeRandomInt(0, (int)v.size() - 1)].c_str();
+            }
+        }
         return std::string(m);
     }
 
