@@ -64,6 +64,21 @@ static bool Bot_IsOfficerSE(SystemEntity* se)
     return se->GetSelf()->GetAttribute(AttrEntitySecurityStatusKillBonus).get_float() >= 0.12f;
 }
 
+// Short combat chatter so chelobots feel like live pilots in local (like a
+// player typing "gf"/"o7" after a fight). Fired with a ~50% chance so it is
+// not spammy.
+static const char* const kBotKillTaunts[] = {
+    "gf", "nice try", "loot is mine", "should've warped", "too slow",
+    "thanks for the loot", "o7", "better luck next time", "easy"
+};
+static const char* const kBotLossLines[] = {
+    "well played", "gg", "you got me", "o7", "I'll be back",
+    "that hurt", "bring friends next time", "warping out didn't work..."
+};
+static const char* BotPickLine(const char* const* pool, int n) {
+    return pool[MakeRandomInt(0, n - 1)];
+}
+
 PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, uint32 charID, std::string charName, uint32 corpID, uint32 allianceID)
 : NPC(self, services, system, data, nullptr),
   m_botCharID(charID),
@@ -756,6 +771,12 @@ void PlayerBot::Killed(Damage& damage)
 
     // Leave the system local channel — death despawns the pilot, exactly like a
     // player leaving the system (ghost member otherwise).
+    // Last words in local before the pilot leaves, with ~50% chance (players
+    // don't always talk, but they often do after a loss).
+    if (m_system != nullptr && MakeRandomInt(0, 100) < 50)
+        sBotMgr.BotSayLocal(m_system->GetID(), m_botCharID, m_botName, m_botCorpID,
+                            BotPickLine(kBotLossLines, 8));
+
     sBotMgr.RemoveBotFromLocal(m_system, m_botCharID);
     NPC::Killed(damage);
 }
@@ -798,6 +819,11 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
     // a ship - bots don't fly pods, so pass victimPod=false).
     if (killerBot != nullptr && killerBot != this)
         killerBot->AwardPvpSecurity(GetSecurityStatus(), m_system->GetSystemSecurityRating(), false);
+
+    // Killer taunts in local (~50% chance), like a live pilot after a win.
+    if (killerBot != nullptr && killerBot != this && m_system != nullptr && MakeRandomInt(0, 100) < 50)
+        sBotMgr.BotSayLocal(m_system->GetID(), killerBot->GetBotCharID(), killerBot->GetBotName(),
+                            killerBot->GetBotCorpID(), BotPickLine(kBotKillTaunts, 9));
 
     KillData data = KillData();
     data.solarSystemID = m_system->GetID();
