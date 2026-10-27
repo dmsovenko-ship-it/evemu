@@ -549,8 +549,8 @@ void BotMgr::Process()
     // without recursing the stack.
     ProcessBotReplies();
 
-    // Recruitment ads from player-corp pilots (only where a real player is).
-    ProcessRecruitment();
+    // (Recruitment ads disabled: bot corps are not recruiting - applications are
+    //  softly declined, see ProcessCorpApplications.)
 
     // Call out reds that appear in a system with a player (before a kill).
     ProcessThreatWatch();
@@ -5138,24 +5138,18 @@ void BotMgr::ProcessCorpApplications()
         if (!IsPlayerCorp(corpID))
             continue;
         if (MakeRandomInt(0, 99) < 50)
-            continue;   // not accepted instantly, like a real recruiter
-
-        CorporationDB cdb;
-        MemberAttributeUpdate change;
-        if (!cdb.CreateMemberAttributeUpdate(corpID, charID, change))
-            continue;
+            continue;   // decline at a human pace, not instantly
 
         DBerror err;
         sDatabase.RunQuery(err,
             "UPDATE crpApplications SET status = %u WHERE corporationID = %u AND characterID = %u",
-            (uint32)Corp::AppStatus::AcceptedByCorporation, corpID, charID);
-        CharacterDB::AddEmployment(charID, corpID);
+            (uint32)Corp::AppStatus::RejectedByCorporation, corpID, charID);
 
         Client* recruit = sEntityList.FindClientByCharID(charID);
         if (recruit != nullptr)
-            recruit->SendNotifyMsg("Your corporation application has been accepted. Please relog to apply it.");
+            recruit->SendNotifyMsg("Your corporation application was declined: the CEO isn't taking new members right now.");
 
-        _log(BOT__MESSAGE, "BotMgr: corp %u accepted the application from char %u", corpID, charID);
+        _log(BOT__MESSAGE, "BotMgr: corp %u declined the application from char %u (not recruiting)", corpID, charID);
         break;   // one per pass
     }
 }
@@ -10883,6 +10877,21 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
             else
                 line = (bond >= 8) ? "sure, you're alright - hit me up"
                                    : "don't know you yet, but i'm up for flying together";
+            BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
+            return;
+        }
+
+        // Corp-join requests: bot corps are not recruiting - decline politely.
+        bool wantCorp = lowRu.find("корп") != std::string::npos
+                     || lowRu.find("набор") != std::string::npos
+                     || lowRu.find("возьм") != std::string::npos
+                     || lowRu.find("примете") != std::string::npos
+                     || lowRu.find("join") != std::string::npos
+                     || lowRu.find("recruit") != std::string::npos;
+        if (wantCorp) {
+            std::string line = responder->SpeaksRussian()
+                ? "не, наш СЕО сейчас новых не берёт, извини"
+                : "nah, our CEO isn't taking new members right now, sorry";
             BotSayLocal((uint32)channelID, responder->GetBotCharID(), responder->GetBotName(), responder->GetBotCorpID(), line);
             return;
         }
