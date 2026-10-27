@@ -3881,6 +3881,43 @@ void BotMgr::ReapBots(SystemManager* pSystem)
 static PlayerBot* BotMgr_FindInSystem(SystemManager* sm, uint32 charID);
 static void BotMgr_RequestCourierDock(PlayerBot* pb);
 
+// Non-combat hulls (miners/haulers/traders/industrialists...) don't pick fights -
+// they scout a gate before committing.
+static bool IsNonCombatProfession(PlayerBot::BotProfession p)
+{
+    return p == PlayerBot::BotProfession::Miner
+        || p == PlayerBot::BotProfession::Trader
+        || p == PlayerBot::BotProfession::Courier
+        || p == PlayerBot::BotProfession::Hacker
+        || p == PlayerBot::BotProfession::Explorer
+        || p == PlayerBot::BotProfession::Industrialist;
+}
+
+// True when a hostile pilot (pirate / hunter / war target) sits within `range` of
+// `pos`. Used by non-combat bots to spot a camp before jumping.
+static bool HasHostileNear(SystemManager* sys, PlayerBot* self, const GPoint& pos, double range)
+{
+    if (sys == nullptr || self == nullptr)
+        return false;
+    for (auto& [id, se] : sys->GetEntities()) {
+        if (se == nullptr || se->GetNPCSE() == nullptr)
+            continue;
+        PlayerBot* o = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+        if (o == nullptr || o == self)
+            continue;
+        if (self->IsAlly(o))
+            continue;   // friends don't count
+        bool hostile = o->IsOutlaw()
+                    || (o->GetProfession() == PlayerBot::BotProfession::Hunter)
+                    || sBotMgr.AreBotsAtWar(self->GetBotCorpID(), o->GetBotCorpID());
+        if (!hostile)
+            continue;
+        if (se->GetPosition().distance(pos) <= range)
+            return true;
+    }
+    return false;
+}
+
 void BotMgr::ProcessTravel()
 {
     if (!m_initalized || !sConfig.playerBots.Enabled)
@@ -3962,6 +3999,29 @@ void BotMgr::ProcessTravel()
             }
             if (destSystem == 0)
                 continue;   // dead-end system or no map data — stay put
+
+            // Non-combat pilots scout first: if reds are camped on the gate (here
+            // or in the destination), hold instead of feeding the camp.
+            if (IsNonCombatProfession(pb->GetProfession())) {
+                bool hot = HasHostileNear(pSystem, pb, pb->GetPosition(), 150000.0);
+                if (!hot && sEntityList.IsSystemLoaded(destSystem)) {
+                    SystemManager* dsys = sEntityList.FindOrBootSystem(destSystem);
+                    if (dsys != nullptr) {
+                        for (auto& [sid, sse] : dsys->GetStaticEntities()) {
+                            if (sse != nullptr && sse->IsGateSE() != nullptr) {
+                                hot = HasHostileNear(dsys, pb, sse->GetPosition(), 150000.0);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (hot) {
+                    pb->ClearTravel();
+                    _log(BOT__MESSAGE, "BotMgr: %s(%u) scouted reds at the gate - holding back.",
+                         name.c_str(), charID);
+                    continue;
+                }
+            }
 
             _log(BOT__MESSAGE, "BotMgr: %s(%u) crossing gate to system %u (from %u).",
                  name.c_str(), charID, destSystem, pSystem->GetID());
