@@ -435,6 +435,9 @@ private:
     struct BotPhrase { uint32 charID; std::string phrase; time_t when; };
     std::map<int32, BotPhrase> m_lastBotPhrase;   // channelID -> last bot line (for learning replies)
     std::map<int32, std::deque<BotPhrase>> m_channelPhrases;   // channelID -> recent bot lines (no-repeat guard)
+    // Last few local lines per channel (who said what) so DeepSeek replies follow
+    // the thread instead of answering each line in isolation. Game thread only.
+    std::map<int32, std::deque<std::pair<std::string, std::string>>> m_chatHistory;
     std::map<int32, uint32> m_botChainDepth;   // channelID -> consecutive bot-bot replies (loop breaker)
     std::vector<PendingBotReply> m_pendingBotReplies;
     std::map<uint32, std::vector<DockedBot>> m_docked;   // systemID -> docked bots

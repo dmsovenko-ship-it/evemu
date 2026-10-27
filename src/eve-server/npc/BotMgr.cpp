@@ -10407,7 +10407,28 @@ void BotMgr::HandleLocalMessage(int32 channelID, uint32 senderCharID, const std:
     _log(BOT__MESSAGE, "BotMgr: %s(%u) reacting to local chat from %s in system %u.",
          responder->GetBotName().c_str(), responder->GetBotCharID(), senderName.c_str(), (uint32)channelID);
 
-    std::string prompt = senderName + " says: \"" + message + "\"";
+    // Record the player's line (bounded) and build a prompt that carries the
+    // last few lines, so the bot follows the conversation instead of answering
+    // each message in isolation.
+    {
+        auto& hist = m_chatHistory[channelID];
+        hist.emplace_back(senderName, message);
+        while (hist.size() > 8)
+            hist.pop_front();
+    }
+    std::string prompt;
+    {
+        auto hit = m_chatHistory.find(channelID);
+        if (hit != m_chatHistory.end() && hit->second.size() > 1) {
+            size_t n = hit->second.size();
+            size_t start = (n > 7) ? (n - 7) : 0;
+            prompt = "Recent local chat (oldest first):\n";
+            for (size_t i = start; i + 1 < n; ++i)   // skip the last = the new line
+                prompt += "  " + hit->second[i].first + ": " + hit->second[i].second + "\n";
+            prompt += "Continue the conversation.\n";
+        }
+    }
+    prompt += senderName + " says: \"" + message + "\"";
 
     // ---- minimal message analysis (so the bot actually responds to what was
     // said instead of spitting a canned line at every message) ----
@@ -10607,6 +10628,13 @@ void BotMgr::PostPendingChatReplies()
             continue;
         chan->SendBotMessage(r.botChar, r.botName, r.botCorp, r.reply);
         RecordChannelPhrase(r.channelID, r.botChar, r.reply);
+        // Keep the bot's reply in the channel history too (multi-turn context).
+        {
+            auto& hist = m_chatHistory[r.channelID];
+            hist.emplace_back(r.botName, r.reply);
+            while (hist.size() > 8)
+                hist.pop_front();
+        }
         // Remember this line so a reply to it can be LEARNED (botChatLearned).
         m_lastBotPhrase[r.channelID] = { r.botChar, r.reply, time(nullptr) };
         // Self-learning: this bot sent a chat line. Record it (persisted).
