@@ -43,7 +43,7 @@ TARGET_ENTRY2 = 'script:/parklife/billboardMgr.py'
 # billboard "Read News" menu + in-game browser home page
 TARGET_ENTRY3 = 'script:/ui/control/browser/browserutil.py'
 TARGET_ENTRY4 = 'script:/ui/services/menusvc.py'
-TARGETS = (TARGET_ENTRY, TARGET_ENTRY2, TARGET_ENTRY3, TARGET_ENTRY4)
+TARGETS = (TARGET_ENTRY2,)
 
 DEFAULT_CONFIG = {
     "news_url_base": "http://router.iks-online.net:26006",
@@ -130,29 +130,12 @@ def main():
     base = cfg['news_url_base'].rstrip('/')
     old_base = cfg['old_url_base'].rstrip('/')
 
-    # The billboard AD image must stay on the ORIGINAL CCP url: it is 404 today,
-    # so the client falls back to the ad baked into it (the Quafe advert) - that
-    # is the "original" look. Only the news ticker + click links point at our
-    # portal, so instead of "news service unavailable" players see our news.
-    KEEP_BILLBOARD = 'http://__keep_original_billboard__/billboard.asp'
+    # Final decision: start from the UNPATCHED original client and change exactly
+    # ONE thing - the billboard news line URL. The ad image, the click links and
+    # the RSS feeds all stay at their original CCP values (the images/baked ad
+    # animation is what the client had before we ever touched it).
     replacements = [
-        # protect the original (404 -> baked Quafe advert) billboard ad url
-        (old_base + '/billboard.asp', KEEP_BILLBOARD),
-        # the two RSS feeds the ticker polls
-        (old_base + '/feed/rdfnews.asp?tid=7', base + '/feed/rdfnews.asp?tid=7'),
-        (old_base + '/feed/rdfnews.asp?tid=4', base + '/feed/rdfnews.asp?tid=4'),
-        # station billboard: news headlines (the ad texture stays the baked one)
         (old_base + '/mb/news-headlines.asp', base + '/mb/news-headlines.asp'),
-        # billboard "Read News" menu + in-game browser home (browserutil/menusvc)
-        (old_base + '/mb2/news.asp', base + '/news'),
-        (old_base + '/mb/news.asp', base + '/news'),
-        (old_base + '/mb/fwnews.asp', base + '/news'),
-        # the "click a news item" link shown when the feed is unreachable
-        (old_base + '/news', base + '/'),
-        # any remaining reference to the CCP site
-        (old_base, base + '/'),
-        # restore the original billboard ad url (baked ad)
-        (KEEP_BILLBOARD, old_base + '/billboard.asp'),
     ]
 
     print('=== crypto init ===')
