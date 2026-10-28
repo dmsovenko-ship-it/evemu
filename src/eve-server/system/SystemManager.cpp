@@ -2366,8 +2366,9 @@ void SystemManager::ResendBillboards()
     if (m_clients.empty()) return;
     for (auto& [id, pSE] : m_staticEntities) {
         if (pSE == nullptr) continue;
-        if (pSE->GetSelf() == nullptr) continue;
-        if (pSE->GetSelf()->groupID() != EVEDB::invGroups::Billboard) continue;
+        InventoryItemRef selfRef = pSE->GetSelf();
+        if (selfRef.get() == nullptr) continue;
+        if (selfRef->groupID() != EVEDB::invGroups::Billboard) continue;
         SystemBubble* bubble = pSE->SysBubble();
         if (bubble == nullptr) continue;
         bubble->RemoveBall(pSE);
