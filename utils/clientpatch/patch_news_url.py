@@ -43,7 +43,7 @@ TARGET_ENTRY2 = 'script:/parklife/billboardMgr.py'
 # billboard "Read News" menu + in-game browser home page
 TARGET_ENTRY3 = 'script:/ui/control/browser/browserutil.py'
 TARGET_ENTRY4 = 'script:/ui/services/menusvc.py'
-TARGETS = (TARGET_ENTRY2,)
+TARGETS = (TARGET_ENTRY, TARGET_ENTRY2, TARGET_ENTRY3, TARGET_ENTRY4)
 
 DEFAULT_CONFIG = {
     "news_url_base": "http://router.iks-online.net:26006",
@@ -130,12 +130,28 @@ def main():
     base = cfg['news_url_base'].rstrip('/')
     old_base = cfg['old_url_base'].rstrip('/')
 
-    # Final decision: start from the UNPATCHED original client and change exactly
-    # ONE thing - the billboard news line URL. The ad image, the click links and
-    # the RSS feeds all stay at their original CCP values (the images/baked ad
-    # animation is what the client had before we ever touched it).
+    # Original client + only the NEWS is ours: the station-billboard news line,
+    # the CQ news ticker (RSS feeds) and the "Read News" click. The billboard AD
+    # IMAGE stays on the original CCP url (its baked animation is the original
+    # look; CCP's billboard.asp is 404 so the client falls back to the baked ad).
+    KEEP_BILLBOARD = 'http://__keep_original_billboard__/billboard.asp'
     replacements = [
+        # keep the ad image on the original (baked) url
+        (old_base + '/billboard.asp', KEEP_BILLBOARD),
+        # station billboard: the scrolling news line
         (old_base + '/mb/news-headlines.asp', base + '/mb/news-headlines.asp'),
+        # CQ news ticker: the two RSS feeds it polls
+        (old_base + '/feed/rdfnews.asp?tid=7', base + '/feed/rdfnews.asp?tid=7'),
+        (old_base + '/feed/rdfnews.asp?tid=4', base + '/feed/rdfnews.asp?tid=4'),
+        # "Read News" menu + in-game browser home
+        (old_base + '/mb2/news.asp', base + '/news'),
+        (old_base + '/mb/news.asp', base + '/news'),
+        (old_base + '/mb/fwnews.asp', base + '/news'),
+        (old_base + '/news', base + '/'),
+        # any remaining reference to the CCP site
+        (old_base, base + '/'),
+        # restore the original billboard ad url (baked ad)
+        (KEEP_BILLBOARD, old_base + '/billboard.asp'),
     ]
 
     print('=== crypto init ===')
