@@ -419,6 +419,7 @@ protected:
     Timer m_logoutTimer;     // used to hold client object until WarpOut finishes
     Timer m_sessionTimer;    // used to prevent multiple session changes from occurring too fast
     Timer m_ballparkTimer;   // this is to properly send SetState data after a delay (cant do it correctly otherwise)
+    Timer m_billboardTimer;  // periodic billboard refresh (GenerateAdvert + ball re-emit)
     Timer m_contrabandTimer; // 60s timer for contraband jettison window
     bool  m_contrabandActive;
 
@@ -464,6 +465,10 @@ public:
     void SendNotification(const char *notifyType, const char *idType, PyTuple *payload, bool seq=true);
     void SendNotification(const char *notifyType, const char *idType, PyTuple **payload, bool seq=true);
 
+    // Send a CallReq to a CLIENT-side service (e.g. svc.billboard.GenerateAdvert/Update).
+    // The response (macho.CallRsp) is consumed silently by Handle_CallRsp.
+    void SendServiceCall(const std::string& service, const std::string& method, PyTuple* args = nullptr);
+
     // this is to check Throw status, to avoid throws/segfault when not applicable  (should use try/catch block)
     bool CanThrow()                                     { return m_canThrow; }
 
@@ -489,6 +494,7 @@ protected:
 
     bool Handle_CallReq( PyPacket* packet, PyCallStream& req );
     bool Handle_Notify( PyPacket* packet );
+    bool Handle_CallRsp( PyPacket* packet );
     bool Handle_PingReq( PyPacket* packet )             { _SendPingResponse( packet->dest, packet->source.callID ); return true; }
     bool Handle_PingRsp( PyPacket* packet )             { /* do nothing */ return true; }
 
@@ -499,6 +505,7 @@ private:
     void _SendQueuedUpdates();
 
     uint32 m_nextNotifySequence;
+    int64 m_nextCallID;
 
     std::map<uint32, uint32>    m_lpMap;    // corpID/points
 

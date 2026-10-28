@@ -98,6 +98,7 @@ public:
     void ProcessGhostShips();
     void SpawnSentryGuns();
     void SpawnBillboards();
+    void ResendBillboards();
     void SpawnConvoys();
     void SpawnCustomsNPCs();
     void SpawnFactionPatrols();

@@ -70,6 +70,7 @@
 #include "standing/StandingDB.h"
 
 static const uint32 PING_INTERVAL_MS = 600000; //10m
+static const uint32 BILLBOARD_REFRESH_MS = 90000; //90s
 
 Client::Client(EVEServiceManager& services, EVETCPConnection** con)
 : EVEClientSession(con),
@@ -84,6 +85,7 @@ Client::Client(EVEServiceManager& services, EVETCPConnection** con)
   m_clientState(Player::State::Idle),
   m_stateTimer(0),
   m_ballparkTimer(0),
+  m_billboardTimer(0),
   m_pingTimer(PING_INTERVAL_MS),
   m_scanTimer(0),
   m_cloakTimer(0),
@@ -99,7 +101,8 @@ Client::Client(EVEServiceManager& services, EVETCPConnection** con)
 
   m_destinyEventQueue(new PyList()),
   m_destinyUpdateQueue(new PyList()),
-    m_nextNotifySequence(0)
+  m_nextNotifySequence(0),
+  m_nextCallID(0)
 {
     m_crimeWatch = new CrimeWatch(this);
     m_pod = ShipItemRef(nullptr);
@@ -497,6 +500,19 @@ void Client::ProcessClient() {
     if (pShipSE == nullptr) {
         sLog.Error("ProcessClient()","%s: InSpace with no shipSE.  LocationID %u", m_char->name(), m_locationID);
         return;
+    }
+
+    // Periodic billboard refresh. The client fetches the advert once per session
+    // (BillboardMgr.Run) and svc.billboard.Update() without a model is a no-op,
+    // so the server asks the client to regenerate the advert file and re-emits
+    // the billboard balls; the client reassembles each ball, which triggers
+    // Billboard.LateAssembleUpdate -> billboardSvc.Update(self) -> re-apply of
+    // AdvertMap/FaceMap/DiffuseMap.
+    if (m_billboardTimer.Check()) {
+        m_billboardTimer.Start(BILLBOARD_REFRESH_MS);
+        SendServiceCall("billboard", "GenerateAdvert");
+        if (SystemMgr() != nullptr)
+            SystemMgr()->ResendBillboards();
     }
 
     if (m_invulTimer.Enabled()/*m_invul*/)
@@ -3056,6 +3072,51 @@ void Client::SendNotification(const PyAddress &dest, EVENotificationStream &noti
     QueuePacket(packet);
 }
 
+// Send a macho.CallReq to a CLIENT-side service, e.g.
+//   SendServiceCall("billboard", "GenerateAdvert")
+// The client validates the method against the service's __exportedcalls__
+// (svc.billboard exports only 'Update' and 'GenerateAdvert') and replies with
+// macho.CallRsp, which we consume silently in Handle_CallRsp.
+void Client::SendServiceCall(const std::string& service, const std::string& method, PyTuple* args)
+{
+    PyPacket* packet = new PyPacket();
+    packet->type_string = "macho.CallReq";
+    packet->type = CALL_REQ;
+
+    packet->source.type = PyAddress::Node;
+    packet->source.objectID = m_services.GetNodeID();
+    packet->source.callID = 0;
+
+    // Client address form: [addressType, clientID, callID, service]
+    packet->dest.type = PyAddress::Client;
+    packet->dest.objectID = GetClientID();
+    packet->dest.callID = ++m_nextCallID;
+    packet->dest.service = service;
+
+    packet->userid = GetUserID();
+
+    PyCallStream cs;
+    cs.remoteObject = 0;
+    cs.method = method;
+    cs.arg_tuple = (args != nullptr) ? args : new PyTuple(0);
+    cs.arg_dict = nullptr;
+    // Encode() stores arg_tuple/arg_dict directly into the returned payload.
+    // Detach them from the stack object so ~PyCallStream does not double-free.
+    packet->payload = cs.Encode();
+    cs.arg_tuple = nullptr;
+    cs.arg_dict = nullptr;
+
+    packet->named_payload = nullptr;
+
+    if (is_log_enabled(CLIENT__NOTIFY_DUMP)) {
+        _log(CLIENT__NOTIFY_REP, "Sending service call %s::%s to %s", service.c_str(), method.c_str(), GetName());
+        PyLogDumpVisitor dumper(CLIENT__NOTIFY_DUMP, CLIENT__NOTIFY_REP, "", true, true);
+        packet->Dump(CLIENT__NOTIFY_DUMP, dumper);
+    }
+
+    QueuePacket(packet);
+}
+
 /************************************************************************/
 /* EVEAdministration Interface                                          */
 /************************************************************************/
@@ -3527,6 +3588,15 @@ bool Client::Handle_CallReq(PyPacket* packet, PyCallStream& req)
 
     _SendCallReturn(packet->dest, packet->source.callID, result);
 
+    return true;
+}
+
+bool Client::Handle_CallRsp(PyPacket* packet)
+{
+    // Response to a server-initiated CallReq to a client service (e.g.
+    // svc.billboard.GenerateAdvert / Update). The call itself has already done
+    // its work on the client, so there is nothing to do here. Consume it
+    // silently so the base dispatcher does not log "Unhandled Call Response".
     return true;
 }
 

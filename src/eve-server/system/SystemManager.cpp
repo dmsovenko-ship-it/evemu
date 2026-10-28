@@ -2354,6 +2354,27 @@ void SystemManager::SpawnBillboards()
          count, m_data.name.c_str(), m_data.systemID);
 }
 
+// Re-emit the billboard balls to everyone in this system. The client's
+// spaceObject.Billboard.Assemble() schedules LateAssembleUpdate(), which calls
+// svc.billboard.Update(self) -> UpdateBillboardContents(advertPath, facePath)
+// and re-applies AdvertMap/FaceMap/DiffuseMap. That is the only server-side
+// lever for re-rendering a billboard (Update() with no model is a no-op).
+// The RemoveBall is required first: the client ignores an AddBall whose id is
+// already in its slimItems, so the ball would never be reassembled.
+void SystemManager::ResendBillboards()
+{
+    if (m_clients.empty()) return;
+    for (auto& [id, pSE] : m_staticEntities) {
+        if (pSE == nullptr) continue;
+        if (pSE->GetSelf() == nullptr) continue;
+        if (pSE->GetSelf()->groupID() != EVEDB::invGroups::Billboard) continue;
+        SystemBubble* bubble = pSE->SysBubble();
+        if (bubble == nullptr) continue;
+        bubble->RemoveBall(pSE);
+        SendStaticBall(pSE);
+    }
+}
+
 void SystemManager::SpawnConvoys()
 {
     float sec = m_data.securityRating;
