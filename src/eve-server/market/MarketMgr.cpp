@@ -124,7 +124,7 @@ void MarketMgr::UpdatePriceHistory()
     /** @todo  this doesnt belong here...  */
     //build the history record from the recent market transactions.
     sDatabase.RunQuery(err,
-            "INSERT INTO"
+            "INSERT IGNORE INTO"
             "    mktHistory"
             "     (regionID, typeID, historyDate, lowPrice, highPrice, avgPrice, volume, orders)"
             " SELECT"
