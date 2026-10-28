@@ -318,6 +318,22 @@ void BotMgr::CleanupOrphanedSpaceItems()
                            resetOffers);
     }
 
+    // 2g) Foreign customs offices. A bot used to anchor its colony's customs office
+    //     in whatever system it happened to be working in, so offices from other
+    //     systems littered the hubs with their planets' coordinates in the wrong
+    //     space (visible "customs offices from other systems"). One office per
+    //     planet, in the planet's OWN system.
+    {
+        DBerror cerr;
+        uint32 delForeign = 0;
+        if (sDatabase.RunQuery(cerr, delForeign,
+                "DELETE e FROM entity e JOIN mapDenormalize d ON d.itemID = CAST(e.customInfo AS UNSIGNED)"
+                " WHERE e.typeID IN (2233,4318) AND e.customInfo REGEXP '^[0-9]+$'"
+                " AND d.solarSystemID <> e.locationID"))
+            if (delForeign > 0)
+                sLog.White("       Items", "Space cleanup: removed %u foreign customs office(s) (wrong system).", delForeign);
+    }
+
     // 2g) Wrecks: per the Crucible downtime spec NOTHING in space survives the
     //     reboot except ships/drones/structures - wrecks (loot included) are gone,
     //     NPC and mission wrecks alike. The in-run decay timers (customInfo
@@ -7101,6 +7117,24 @@ void BotMgr::DeployBotCustomsOffice(SystemManager* sysMgr, uint32 charID, uint32
     if (sysMgr == nullptr || corpID == 0 || planetID == 0)
         return;
     uint32 sysID = sysMgr->GetID();
+
+    // The planet MUST belong to THIS system. A colony may be in another system;
+    // anchoring its customs office here used to drop a foreign office (another
+    // system's coordinates) into our space, visible across the map.
+    {
+        DBQueryResult ps;
+        if (!sDatabase.RunQuery(ps, "SELECT solarSystemID FROM mapDenormalize WHERE itemID = %u", planetID))
+            return;
+        DBResultRow r;
+        if (!ps.GetRow(r) || r.GetUInt(0) != sysID)
+            return;
+    }
+
+    // Hi-sec customs offices are CONCORD's and cannot be attacked (Crucible lore):
+    // a bot never anchors its own or knocks the existing one down there - it just
+    // uses the office that is already in orbit and pays its tax.
+    if (sysMgr->GetSystemSecurityRating() >= 0.5f)
+        return;
 
     // A planet has AT MOST ONE customs office (like live). Rules:
     //  - own corp's office (2233, same corp) -> use it;
