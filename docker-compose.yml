@@ -45,8 +45,12 @@ services:
       - MARIADB_PASSWORD=evemu
       - MARIADB_DATABASE=evemu
     command:
-      - --innodb-buffer-pool-size=1G        # Default is 128MB — far too small for bulk seeding
-      - --innodb-log-file-size=256M         # Larger redo log handles big transactions without stalling
+      - --innodb-buffer-pool-size=8G        # 49 GiB host - cache the 10 GB order book in RAM
+      - --innodb-buffer-pool-instances=4
+      - --innodb-log-file-size=1G           # Larger redo log handles big transactions without stalling
+      - --innodb-read-io-threads=8          # async IO depth (innodb_thread_concurrency is obsolete in 10.5+)
+      - --innodb-write-io-threads=8
+      - --innodb-io-capacity=1000
       - --innodb-flush-log-at-trx-commit=2  # Flush every second instead of every commit (safe for dev)
       - --max-allowed-packet=64M            # Prevent packet size errors on large queries
       - --bulk-insert-buffer-size=64M       # Per-thread buffer for INSERT...SELECT
