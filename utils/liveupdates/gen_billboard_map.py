@@ -2,13 +2,11 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 v6: spaceObject.Billboard.UpdateBillboardContents
-# v5 proved the marquee runs (BBMQ marquee started) but it was frame-rate driven
-# and far too fast. v6 makes it time-based (20s for one pass, throttled updates).
-#
-# The advert keeps changing in the log (Setting AdvertMap + BlueAsyncRes) without
-# any visible change, so v6 also points FaceMap at the advert: whichever of the
-# Screen area's two maps is actually visible will then show the rotating ad.
+# Live-update #9 v7 (diagnostic): spaceObject.Billboard.UpdateBillboardContents
+# Texture swaps after the first assignment do not render (the first one at login
+# does). Dump dir() of the model and of the FaceMap texture parameter once per
+# ball so we can find the reload/invalidate API, keep the marquee, keep the ad on
+# FaceMap (the visible map) so a change would be obvious.
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
@@ -19,6 +17,18 @@ def UpdateBillboardContents(self, advertPath, facePath):
     self.SetMap('FaceMap', advertPath)
     self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds', 1)
     self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds')
+    try:
+        if not getattr(self, '_bbdir', 0):
+            self._bbdir = 1
+            self.LogError('BBDIR model: ' + ' '.join([str(x) for x in dir(self.model)]))
+            try:
+                ps = [p for p in self.model.Find('trinity.TriTexture2DParameter') if p.name == 'FaceMap']
+                if ps:
+                    self.LogError('BBDIR facemap: ' + ' '.join([str(x) for x in dir(ps[0])]))
+            except:
+                pass
+    except:
+        pass
     try:
         found = self.model.Find('trinity.Tr2Vector4Parameter')
         scales = []
@@ -54,7 +64,7 @@ def UpdateBillboardContents(self, advertPath, facePath):
                     pass
 
             uthread.pool('Billboard::Marquee', _marquee)
-        self.LogError('BBMQ v6 trans=' + str(len(trans)) + ' scales=' + str(len(scales)) + ' advert=' + str(advertPath))
+        self.LogError('BBMQ v7 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
     except:
         try:
             self.LogError('BBMQ failed: ' + str(sys.exc_info()[1]))
