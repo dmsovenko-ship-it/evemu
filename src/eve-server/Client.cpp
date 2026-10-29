@@ -85,7 +85,7 @@ Client::Client(EVEServiceManager& services, EVETCPConnection** con)
   m_clientState(Player::State::Idle),
   m_stateTimer(0),
   m_ballparkTimer(0),
-  m_billboardTimer(0),
+  m_billboardTimer(BILLBOARD_REFRESH_MS),   // Timer(0) is DISABLED and Check() would never fire
   m_pingTimer(PING_INTERVAL_MS),
   m_scanTimer(0),
   m_cloakTimer(0),
