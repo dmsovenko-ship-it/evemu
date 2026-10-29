@@ -6,19 +6,18 @@ import binascii
 #   objectID   = svc.billboard::BillboardMgr
 #   methodName = Update
 #
-# Problem: BillboardMgr.Run() sets self.advertPath ONCE at session start, and
-# Billboard.UpdateBillboardContents() always re-applies that stored path. The
-# server re-emits the billboard ball every 90s -> Billboard.Assemble ->
-# LateAssembleUpdate -> billboardSvc.Update(self), but it only re-applies the
-# SAME textures, so nothing visibly changes.
+# BillboardMgr.Run() stores self.advertPath ONCE per session and
+# Billboard.UpdateBillboardContents() always re-applies that same path, so the
+# server's periodic billboard ball re-emit (Client::SendServiceCall +
+# SystemManager::ResendBillboards) had no visible effect.
 #
-# Also: photo.GetTextureFromURL() caches by URL (browserCache), and the advert
-# URL is stable, so a plain re-call returns the cached DDS. We pass ignoreCache=1
-# to force a fresh download each time (the cache entry is simply replaced, so
-# the client cache does not grow).
+# photo.GetTextureFromURL() caches by URL in browserCache, so a stable advert URL
+# always returns the cached DDS (and trinity will not reload a texture whose path
+# did not change). We append a wallclock cache-buster so the cache misses, a new
+# file name is produced and the model actually reloads it.
 #
 # func_code replacement keeps the ORIGINAL func_globals (billboardMgr module):
-# blue / type / len / str / getattr resolve there.
+# blue / sys / type / len / str resolve there.
 
 
 def Update(self, model=None):
@@ -28,14 +27,17 @@ def Update(self, model=None):
             params = params[0] if len(params) else ''
         elif params is None:
             params = ''
-        url = 'http://router.iks-online.net:26006/billboard.asp?' + str(params)
-        tex, tWidth, tHeight = self.photo.GetTextureFromURL(url, None, 1)
+        url = 'http://router.iks-online.net:26006/billboard.asp?' + str(params) + '&t=' + str(blue.os.GetWallclockTime())
+        tex, tWidth, tHeight = self.photo.GetTextureFromURL(url)
         if tex is not None:
             path = tex.resPath
             if 'none.dds' not in path:
                 self.advertPath = path
     except:
-        pass
+        try:
+            self.LogError('BBLU8 advert refresh failed:', str(sys.exc_info()[1]))
+        except:
+            pass
     try:
         self.UpdateBounty()
     except:
