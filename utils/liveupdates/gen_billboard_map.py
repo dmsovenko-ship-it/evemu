@@ -2,25 +2,19 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 v4: spaceObject.Billboard.UpdateBillboardContents
+# Live-update #9 v5: spaceObject.Billboard.UpdateBillboardContents
 #
-# BBMAP order: 0 DiffuseMap->Text (0.2 window+curve), 1 DiffuseMap->Text2 (full,
-# curved brightness), 5 AdvertMap->Screen, 8 DiffuseMap->Base(hull). The visible
-# strip is index 1. v3 tried model.Find('trinity.TriVector4Parameter') but logged
-# nothing, which means the lookup returned <=1 params (the guard swallowed it).
-# v4 logs the vector parameter list unconditionally (both class spellings) and
-# applies the 0.2 UV window to every TextureScaling it finds.
+# BBVEC showed the model exposes Tr2Vector4Parameter params:
+#   [TextureScaling, TextureTranslation, DiffuseColor,
+#    TextureScaling, TextureTranslation, DiffuseColor,
+#    HologramFxFactors2, HologramFxFactors, ScrollerColor, ...]
+# Setting .value works (set scaling on 2 succeeded), but the model's own
+# TextScrollingCurve does not move the texture, so v5 sets the 0.2 UV window and
+# runs its own marquee loop that advances TextureTranslation.x (0..0.8, wrap).
+# The loop runs in a uthread tasklet and stops when the ball is released.
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
-    try:
-        found = self.model.Find('trinity.TriTexture2DParameter')
-        out = []
-        for p in found:
-            out.append(str(p.name) + '|' + str(getattr(p, 'resourcePath', '')))
-        self.LogError('BBMAP ' + ' ; '.join(out))
-    except:
-        pass
     self.LogInfo('UpdateBillboardWithPictureAndText:', advertPath, facePath)
     if self.model is None:
         return
@@ -28,27 +22,47 @@ def UpdateBillboardContents(self, advertPath, facePath):
     self.SetMap('AdvertMap', advertPath)
     self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds', 1)
     self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds')
-    for cls in ('trinity.TriVector4Parameter', 'trinity.Tr2Vector4Parameter'):
-        try:
-            found = self.model.Find(cls)
-            names = []
-            for p in found:
-                names.append(str(p.name))
-            self.LogError('BBVEC ' + cls + ' n=' + str(len(found)) + ' [' + ', '.join(names) + ']')
-            hit = 0
-            for p in found:
-                if p.name == 'TextureScaling':
-                    try:
-                        p.value = (0.2, 1.0, 1.0, 1.0)
-                        hit += 1
-                    except:
-                        pass
-            self.LogError('BBVEC set scaling on ' + str(hit))
-        except:
+    try:
+        found = self.model.Find('trinity.Tr2Vector4Parameter')
+        scales = []
+        trans = []
+        for p in found:
+            if p.name == 'TextureScaling':
+                scales.append(p)
+            elif p.name == 'TextureTranslation':
+                trans.append(p)
+        for p in scales:
             try:
-                self.LogError('BBVEC Find failed: ' + cls + ' ' + str(sys.exc_info()[1]))
+                p.value = (0.2, 1.0, 1.0, 1.0)
             except:
                 pass
+        self.LogError('BBMQ trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
+        if trans and not getattr(self, '_bbmq', 0):
+            self._bbmq = 1
+
+            def _marquee():
+                try:
+                    x = 0.0
+                    while not getattr(self, 'released', 1):
+                        for t in trans:
+                            try:
+                                t.value = (x, 0.0, 0.0, 0.0)
+                            except:
+                                pass
+                        x = x + 0.004
+                        if x > 0.8:
+                            x = 0.0
+                        blue.pyos.BeNice()
+                except:
+                    pass
+
+            uthread.pool('Billboard::Marquee', _marquee)
+            self.LogError('BBMQ marquee started')
+    except:
+        try:
+            self.LogError('BBMQ failed: ' + str(sys.exc_info()[1]))
+        except:
+            pass
 
 
 code = UpdateBillboardContents.func_code
