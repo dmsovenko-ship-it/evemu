@@ -2,46 +2,53 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 v8: spaceObject.Billboard.UpdateBillboardContents
+# Live-update #9 v10: spaceObject.Billboard.UpdateBillboardContents
 #
-# BBDIR showed TriTexture2DParameter has SetResource/resource/resourcePath, and the
-# planet code (planet.ResourceCallback) reloads a texture with
-#   param.SetResource(None); param.resourcePath = ''  -> later SetResource(tex)
-# SetMap only assigns resourcePath, which renders the FIRST time and is ignored
-# afterwards. v8 detaches the resource and re-assigns the path for AdvertMap and
-# FaceMap (the visible map), keeping the text marquee from v6.
+# v8 proved the reload trick works: param.SetResource(None) -> resourcePath = ''
+# -> resourcePath = new path actually swaps the texture. v10 adds a per-ball
+# timeline: 16s of "advert + news headline", then 8s of "wanted portrait + wanted
+# caption" (the model's own AdvertToFaceFadeCurve does not run, so we drive it).
+# The marquee (0.2 UV window + TextureTranslation.x) stays.
+
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
     self.LogInfo('UpdateBillboardWithPictureAndText:', advertPath, facePath)
     if self.model is None:
         return
-    try:
-        texs = self.model.Find('trinity.TriTexture2DParameter')
-        n = 0
-        for p in texs:
-            if p.name in ('AdvertMap', 'FaceMap'):
-                try:
-                    p.SetResource(None)
-                except:
-                    pass
-                try:
-                    p.resourcePath = ''
-                except:
-                    pass
-                try:
-                    p.resourcePath = advertPath
-                    n = n + 1
-                except:
-                    pass
-        self.LogError('BBRELOAD ' + str(n) + ' -> ' + str(advertPath))
-    except:
+
+    def _settex(name, path, idx):
         try:
-            self.LogError('BBRELOAD failed: ' + str(sys.exc_info()[1]))
+            ps = self.model.Find('trinity.TriTexture2DParameter')
+            same = []
+            for p in ps:
+                if p.name == name:
+                    same.append(p)
+            if len(same) > idx:
+                q = same[idx]
+                try:
+                    q.SetResource(None)
+                except:
+                    pass
+                try:
+                    q.resourcePath = ''
+                except:
+                    pass
+                try:
+                    q.resourcePath = path
+                except:
+                    pass
         except:
             pass
-    self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds', 1)
-    self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds')
+
+    self._bbAd = advertPath
+    self._bbFace = facePath
+    _settex('AdvertMap', advertPath, 0)
+    _settex('FaceMap', advertPath, 0)
+    _settex('DiffuseMap', 'cache:/Temp/headlines.dds', 0)
+    _settex('DiffuseMap', 'cache:/Temp/bounty_caption.dds', 1)
+    self.LogError('BBMAP10 ad=' + str(advertPath) + ' face=' + str(facePath))
+
     try:
         found = self.model.Find('trinity.Tr2Vector4Parameter')
         scales = []
@@ -77,7 +84,33 @@ def UpdateBillboardContents(self, advertPath, facePath):
                     pass
 
             uthread.pool('Billboard::Marquee', _marquee)
-        self.LogError('BBMQ v8 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
+
+        if not getattr(self, '_bbtl', 0):
+            self._bbtl = 1
+
+            def _timeline():
+                try:
+                    prev = -1
+                    while not getattr(self, 'released', 1):
+                        sec = (blue.os.GetWallclockTime() / 10000000) % 24
+                        phase = 0
+                        if sec >= 16 and self._bbFace:
+                            phase = 1
+                        if phase != prev:
+                            prev = phase
+                            if phase == 0:
+                                _settex('FaceMap', self._bbAd, 0)
+                                _settex('DiffuseMap', 'cache:/Temp/headlines.dds', 0)
+                            else:
+                                _settex('FaceMap', self._bbFace, 0)
+                                _settex('DiffuseMap', 'cache:/Temp/bounty_caption.dds', 0)
+                        blue.pyos.BeNice()
+                except:
+                    pass
+
+            uthread.pool('Billboard::Timeline', _timeline)
+
+        self.LogError('BBMQ v10 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
     except:
         try:
             self.LogError('BBMQ failed: ' + str(sys.exc_info()[1]))
