@@ -502,23 +502,21 @@ void Client::ProcessClient() {
         return;
     }
 
-    // Billboard refresh is fully client-side now (live-update #9 on
-    // spaceObject.Billboard.UpdateBillboardContents: marquee, 24s advert/wanted
-    // timeline and a 90s self-refresh that re-downloads the advert, re-renders
-    // the headlines and the wanted portrait and re-applies the textures with
-    // SetResource(None)).
+    // Billboard refresh: re-emit the billboard balls every 90s so the client
+    // rebuilds the model. Recreating the ball is the only thing that actually
+    // re-renders a new advert texture (assigning resourcePath on a live model,
+    // even after SetResource(None), never renders).
     //
-    // The old server-side approach (SendServiceCall("billboard","GenerateAdvert")
-    // + SystemManager::ResendBillboards) re-emitted the ball every 90s, which
-    // made the client camera lose its target and flashed the baked Quafe texture
-    // while the reassembled ball waited for the new one. It also produced a
-    // client ErrorResponse the server could not decode. Left disabled.
-    // if (m_billboardTimer.Check()) {
-    //     m_billboardTimer.Start(BILLBOARD_REFRESH_MS);
-    //     SendServiceCall("billboard", "GenerateAdvert");
-    //     if (SystemMgr() != nullptr)
-    //         SystemMgr()->ResendBillboards();
-    // }
+    // No CallReq is sent: the client rejects svc.billboard.GenerateAdvert through
+    // its Service role check (client session has no ROLE_SERVICE) and replies with
+    // an ErrorResponse the server cannot decode. Instead the client pre-fetches
+    // the advert itself (live-update #9: every 60s, cache-buster URL), so the
+    // reassembled ball applies an already downloaded texture (no Quafe flash).
+    if (m_billboardTimer.Check()) {
+        m_billboardTimer.Start(BILLBOARD_REFRESH_MS);
+        if (SystemMgr() != nullptr)
+            SystemMgr()->ResendBillboards();
+    }
 
     if (m_invulTimer.Enabled()/*m_invul*/)
         if (m_invulTimer.Check(false)) {

@@ -2,18 +2,21 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 v12: spaceObject.Billboard.UpdateBillboardContents
+# Live-update #9 v13: spaceObject.Billboard.UpdateBillboardContents
 #
-# Facts learned from BBREF/BBMAP logs:
-#  - the advert IS re-downloaded (new cache:/ files every 90s) but assigning a
-#    texture on a live model never re-renders it, not even with
-#    SetResource(None) + resourcePath reset;
-#  - the VISIBLE text strip is DiffuseMap index 1.
+# The server re-emits the billboard ball every 90s (the only thing that actually
+# re-renders a new texture), so the client must not rebuild anything itself.
 #
-# So v12 refreshes by REBUILDING the ball's model locally: UnSync() + Assemble()
-# (the ball object stays -> the client camera keeps its target), and every
-# rebuild alternates "advert + news" / "wanted portrait + wanted caption".
-# The marquee re-reads its parameters from self._bbTrans so it survives rebuilds.
+# What the client does here:
+#  - applies AdvertMap/FaceMap and the visible text strip (index 1) from the
+#    paths the service already holds, alternating "advert + news" / "wanted
+#    portrait + wanted caption" on each reassemble;
+#  - runs the marquee (0.2 UV window + TextureTranslation.x, 20s per pass) and
+#    re-reads its parameters from self._bbTrans so it survives model rebuilds;
+#  - runs a PREFETCH loop every 60s: downloads the next advert (cache-buster),
+#    re-renders the news headlines and the wanted caption/portrait and stores them
+#    on the billboard service, so the next server re-emit applies an already
+#    downloaded texture (no Quafe flash).
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
@@ -63,7 +66,7 @@ def UpdateBillboardContents(self, advertPath, facePath):
     _settex('FaceMap', face, 0)
     _settex('DiffuseMap', other, 0)
     _settex('DiffuseMap', vis, 1)
-    self.LogError('BBMAP12 flip=' + str(flip) + ' wanted=' + str(showWanted) + ' ad=' + str(advertPath))
+    self.LogError('BBMAP13 flip=' + str(flip) + ' wanted=' + str(showWanted != None and showWanted != False))
 
     try:
         found = self.model.Find('trinity.Tr2Vector4Parameter')
@@ -105,31 +108,51 @@ def UpdateBillboardContents(self, advertPath, facePath):
 
             uthread.pool('Billboard::Marquee', _marquee)
 
-        if not getattr(self, '_bbrl', 0):
-            self._bbrl = 1
+        if not getattr(self, '_bbpf', 0):
+            self._bbpf = 1
 
-            def _refresher():
+            def _prefetch():
                 try:
-                    last = blue.os.GetWallclockTime()
+                    last = 0
                     while not getattr(self, 'released', 1):
                         now = blue.os.GetWallclockTime()
-                        if now - last > 900000000:
+                        if last == 0 or now - last > 600000000:
                             last = now
                             try:
-                                self.Assemble()
-                                self.LogError('BBREFRESH rebuild')
-                            except:
+                                svc = sm.GetService('billboard')
                                 try:
-                                    self.LogError('BBREFRESH failed: ' + str(sys.exc_info()[1]))
+                                    params = svc.patch.GetWebRequestParameters()
+                                    if type(params) in (list, tuple):
+                                        params = params[0] if len(params) else ''
+                                    elif params is None:
+                                        params = ''
+                                    url = 'http://router.iks-online.net:26006/billboard.asp?' + str(params) + '&t=' + str(now)
+                                    tex, tw, th = sm.GetService('photo').GetTextureFromURL(url)
+                                    if tex is not None and 'none.dds' not in tex.resPath:
+                                        svc.advertPath = tex.resPath
+                                        self._bbAd = tex.resPath
                                 except:
                                     pass
+                                try:
+                                    svc.DoNewsHeadlines()
+                                except:
+                                    pass
+                                try:
+                                    svc.UpdateBounty()
+                                    if svc.facePath:
+                                        self._bbFace = svc.facePath
+                                except:
+                                    pass
+                                self.LogError('BBPF ' + str(svc.advertPath) + ' / ' + str(svc.facePath))
+                            except:
+                                pass
                         blue.pyos.BeNice()
                 except:
                     pass
 
-            uthread.pool('Billboard::Refresh', _refresher)
+            uthread.pool('Billboard::Prefetch', _prefetch)
 
-        self.LogError('BBMQ v12 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
+        self.LogError('BBMQ v13 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
     except:
         try:
             self.LogError('BBMQ failed: ' + str(sys.exc_info()[1]))

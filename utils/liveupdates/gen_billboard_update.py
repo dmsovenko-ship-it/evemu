@@ -2,42 +2,20 @@ import os
 import marshal
 import binascii
 
-# Live-update payload for the Crucible client:
-#   objectID   = svc.billboard::BillboardMgr
-#   methodName = Update
+# Live-update #8 v2: svc.billboard::BillboardMgr -> Update
 #
-# BillboardMgr.Run() stores self.advertPath ONCE per session and
-# Billboard.UpdateBillboardContents() always re-applies that same path, so the
-# server's periodic billboard ball re-emit (Client::SendServiceCall +
-# SystemManager::ResendBillboards) had no visible effect.
+# The server re-emits the billboard balls every 90s (Client::ProcessClient ->
+# SystemManager::ResendBillboards) and the client rebuilds the model. v1 of this
+# patch downloaded a fresh advert inside Update, so the reassembled ball showed
+# the baked Quafe texture until the download finished (the "flash").
 #
-# photo.GetTextureFromURL() caches by URL in browserCache, so a stable advert URL
-# always returns the cached DDS (and trinity will not reload a texture whose path
-# did not change). We append a wallclock cache-buster so the cache misses, a new
-# file name is produced and the model actually reloads it.
-#
-# func_code replacement keeps the ORIGINAL func_globals (billboardMgr module):
-# blue / sys / type / len / str resolve there.
+# The download now happens in a prefetch loop inside the billboard ball itself
+# (live-update #9), so Update only re-picks the wanted portrait and delegates to
+# the original __UpdateBillboard, which applies the already cached advert path
+# immediately.
 
 
 def Update(self, model=None):
-    try:
-        params = self.patch.GetWebRequestParameters()
-        if type(params) in (list, tuple):
-            params = params[0] if len(params) else ''
-        elif params is None:
-            params = ''
-        url = 'http://router.iks-online.net:26006/billboard.asp?' + str(params) + '&t=' + str(blue.os.GetWallclockTime())
-        tex, tWidth, tHeight = self.photo.GetTextureFromURL(url)
-        if tex is not None:
-            path = tex.resPath
-            if 'none.dds' not in path:
-                self.advertPath = path
-    except:
-        try:
-            self.LogError('BBLU8 advert refresh failed:', str(sys.exc_info()[1]))
-        except:
-            pass
     try:
         self.UpdateBounty()
     except:
