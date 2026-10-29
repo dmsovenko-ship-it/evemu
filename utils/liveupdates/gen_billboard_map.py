@@ -48,8 +48,16 @@ def UpdateBillboardContents(self, advertPath, facePath):
         except:
             pass
 
-    flip = getattr(self, '_bbFlip', 0) + 1
-    self._bbFlip = flip
+    try:
+        svc0 = sm.GetService('billboard')
+        now0 = blue.os.GetWallclockTime()
+        if now0 - getattr(svc0, '_bbFlipStamp', 0) > 300000000:
+            svc0._bbFlipStamp = now0
+            svc0._bbFlipSvc = getattr(svc0, '_bbFlipSvc', 0) + 1
+        flip = getattr(svc0, '_bbFlipSvc', 1)
+    except:
+        flip = getattr(self, '_bbFlip', 0) + 1
+        self._bbFlip = flip
     showWanted = (flip % 2 == 0) and facePath
     if showWanted:
         face = facePath
