@@ -2,14 +2,18 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 v10: spaceObject.Billboard.UpdateBillboardContents
+# Live-update #9 v12: spaceObject.Billboard.UpdateBillboardContents
 #
-# v8 proved the reload trick works: param.SetResource(None) -> resourcePath = ''
-# -> resourcePath = new path actually swaps the texture. v10 adds a per-ball
-# timeline: 16s of "advert + news headline", then 8s of "wanted portrait + wanted
-# caption" (the model's own AdvertToFaceFadeCurve does not run, so we drive it).
-# The marquee (0.2 UV window + TextureTranslation.x) stays.
-
+# Facts learned from BBREF/BBMAP logs:
+#  - the advert IS re-downloaded (new cache:/ files every 90s) but assigning a
+#    texture on a live model never re-renders it, not even with
+#    SetResource(None) + resourcePath reset;
+#  - the VISIBLE text strip is DiffuseMap index 1.
+#
+# So v12 refreshes by REBUILDING the ball's model locally: UnSync() + Assemble()
+# (the ball object stays -> the client camera keeps its target), and every
+# rebuild alternates "advert + news" / "wanted portrait + wanted caption".
+# The marquee re-reads its parameters from self._bbTrans so it survives rebuilds.
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
@@ -41,13 +45,25 @@ def UpdateBillboardContents(self, advertPath, facePath):
         except:
             pass
 
+    flip = getattr(self, '_bbFlip', 0) + 1
+    self._bbFlip = flip
+    showWanted = (flip % 2 == 0) and facePath
+    if showWanted:
+        face = facePath
+        vis = 'cache:/Temp/bounty_caption.dds'
+        other = 'cache:/Temp/headlines.dds'
+    else:
+        face = advertPath
+        vis = 'cache:/Temp/headlines.dds'
+        other = 'cache:/Temp/bounty_caption.dds'
+
     self._bbAd = advertPath
     self._bbFace = facePath
     _settex('AdvertMap', advertPath, 0)
-    _settex('FaceMap', advertPath, 0)
-    _settex('DiffuseMap', 'cache:/Temp/headlines.dds', 0)
-    _settex('DiffuseMap', 'cache:/Temp/bounty_caption.dds', 1)
-    self.LogError('BBMAP10 ad=' + str(advertPath) + ' face=' + str(facePath))
+    _settex('FaceMap', face, 0)
+    _settex('DiffuseMap', other, 0)
+    _settex('DiffuseMap', vis, 1)
+    self.LogError('BBMAP12 flip=' + str(flip) + ' wanted=' + str(showWanted) + ' ad=' + str(advertPath))
 
     try:
         found = self.model.Find('trinity.Tr2Vector4Parameter')
@@ -63,7 +79,9 @@ def UpdateBillboardContents(self, advertPath, facePath):
                 p.value = (0.2, 1.0, 1.0, 1.0)
             except:
                 pass
-        if trans and not getattr(self, '_bbmq', 0):
+        self._bbTrans = trans
+
+        if not getattr(self, '_bbmq', 0):
             self._bbmq = 1
 
             def _marquee():
@@ -74,43 +92,44 @@ def UpdateBillboardContents(self, advertPath, facePath):
                         x = (blue.os.GetWallclockTime() % period) * 0.8 / period
                         if x < prev or x - prev > 0.003:
                             prev = x
-                            for t in trans:
-                                try:
-                                    t.value = (x, 0.0, 0.0, 0.0)
-                                except:
-                                    pass
+                            tr = getattr(self, '_bbTrans', None)
+                            if tr:
+                                for t in tr:
+                                    try:
+                                        t.value = (x, 0.0, 0.0, 0.0)
+                                    except:
+                                        pass
                         blue.pyos.BeNice()
                 except:
                     pass
 
             uthread.pool('Billboard::Marquee', _marquee)
 
-        if not getattr(self, '_bbtl', 0):
-            self._bbtl = 1
+        if not getattr(self, '_bbrl', 0):
+            self._bbrl = 1
 
-            def _timeline():
+            def _refresher():
                 try:
-                    prev = -1
+                    last = blue.os.GetWallclockTime()
                     while not getattr(self, 'released', 1):
-                        sec = (blue.os.GetWallclockTime() / 10000000) % 24
-                        phase = 0
-                        if sec >= 16 and self._bbFace:
-                            phase = 1
-                        if phase != prev:
-                            prev = phase
-                            if phase == 0:
-                                _settex('FaceMap', self._bbAd, 0)
-                                _settex('DiffuseMap', 'cache:/Temp/headlines.dds', 0)
-                            else:
-                                _settex('FaceMap', self._bbFace, 0)
-                                _settex('DiffuseMap', 'cache:/Temp/bounty_caption.dds', 0)
+                        now = blue.os.GetWallclockTime()
+                        if now - last > 900000000:
+                            last = now
+                            try:
+                                self.Assemble()
+                                self.LogError('BBREFRESH rebuild')
+                            except:
+                                try:
+                                    self.LogError('BBREFRESH failed: ' + str(sys.exc_info()[1]))
+                                except:
+                                    pass
                         blue.pyos.BeNice()
                 except:
                     pass
 
-            uthread.pool('Billboard::Timeline', _timeline)
+            uthread.pool('Billboard::Refresh', _refresher)
 
-        self.LogError('BBMQ v10 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
+        self.LogError('BBMQ v12 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
     except:
         try:
             self.LogError('BBMQ failed: ' + str(sys.exc_info()[1]))
