@@ -2,15 +2,18 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 (diagnostic): spaceObject.Billboard.UpdateBillboardContents
-#   objectID   = spaceObject.Billboard::Billboard
-#   methodName = UpdateBillboardContents
+# Live-update #10: spaceObject.Billboard.UpdateBillboardContents
 #
-# Logs the real texture-parameter order of the billboard model, then runs the
-# original mapping unchanged. The client's SetMap('DiffuseMap', path, idx) picks
-# the idx-th parameter named "DiffuseMap" in model.Find() order, and we need to
-# know which panel (Text, windowed 0.2 + scrolling curve, or Text2, full+faded)
-# it actually lands on.
+# BBMAP (live-update #9) showed the real model texture order:
+#   0 DiffuseMap -> Text   (TextureScaling U=0.2 window + TextScrollingCurve)
+#   1 DiffuseMap -> Text2  (no scaling, Brightness driven by Text2FadeCurve)
+#   ...
+#   5 AdvertMap  -> Screen
+#   8 DiffuseMap -> Base (hull)
+#
+# The client put the news headline on index 1 (Text2 - faded, no window) and the
+# wanted caption on index 0 (Text - the scrolling window), so the marquee text
+# was never the headline. Swap them: headlines -> Text (index 0), bounty -> Text2.
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
@@ -21,17 +24,14 @@ def UpdateBillboardContents(self, advertPath, facePath):
             out.append(str(p.name) + '|' + str(getattr(p, 'resourcePath', '')))
         self.LogError('BBMAP ' + ' ; '.join(out))
     except:
-        try:
-            self.LogError('BBMAP failed', str(sys.exc_info()[1]))
-        except:
-            pass
+        pass
     self.LogInfo('UpdateBillboardWithPictureAndText:', advertPath, facePath)
     if self.model is None:
         return
     self.SetMap('FaceMap', facePath)
     self.SetMap('AdvertMap', advertPath)
-    self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds', 1)
-    self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds')
+    self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds')
+    self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds', 1)
 
 
 code = UpdateBillboardContents.func_code
