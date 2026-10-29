@@ -2,24 +2,21 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 v5: spaceObject.Billboard.UpdateBillboardContents
+# Live-update #9 v6: spaceObject.Billboard.UpdateBillboardContents
+# v5 proved the marquee runs (BBMQ marquee started) but it was frame-rate driven
+# and far too fast. v6 makes it time-based (20s for one pass, throttled updates).
 #
-# BBVEC showed the model exposes Tr2Vector4Parameter params:
-#   [TextureScaling, TextureTranslation, DiffuseColor,
-#    TextureScaling, TextureTranslation, DiffuseColor,
-#    HologramFxFactors2, HologramFxFactors, ScrollerColor, ...]
-# Setting .value works (set scaling on 2 succeeded), but the model's own
-# TextScrollingCurve does not move the texture, so v5 sets the 0.2 UV window and
-# runs its own marquee loop that advances TextureTranslation.x (0..0.8, wrap).
-# The loop runs in a uthread tasklet and stops when the ball is released.
+# The advert keeps changing in the log (Setting AdvertMap + BlueAsyncRes) without
+# any visible change, so v6 also points FaceMap at the advert: whichever of the
+# Screen area's two maps is actually visible will then show the rotating ad.
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
     self.LogInfo('UpdateBillboardWithPictureAndText:', advertPath, facePath)
     if self.model is None:
         return
-    self.SetMap('FaceMap', facePath)
     self.SetMap('AdvertMap', advertPath)
+    self.SetMap('FaceMap', advertPath)
     self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds', 1)
     self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds')
     try:
@@ -36,28 +33,28 @@ def UpdateBillboardContents(self, advertPath, facePath):
                 p.value = (0.2, 1.0, 1.0, 1.0)
             except:
                 pass
-        self.LogError('BBMQ trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
         if trans and not getattr(self, '_bbmq', 0):
             self._bbmq = 1
 
             def _marquee():
                 try:
-                    x = 0.0
+                    period = 200000000
+                    prev = -1.0
                     while not getattr(self, 'released', 1):
-                        for t in trans:
-                            try:
-                                t.value = (x, 0.0, 0.0, 0.0)
-                            except:
-                                pass
-                        x = x + 0.004
-                        if x > 0.8:
-                            x = 0.0
+                        x = (blue.os.GetWallclockTime() % period) * 0.8 / period
+                        if x < prev or x - prev > 0.003:
+                            prev = x
+                            for t in trans:
+                                try:
+                                    t.value = (x, 0.0, 0.0, 0.0)
+                                except:
+                                    pass
                         blue.pyos.BeNice()
                 except:
                     pass
 
             uthread.pool('Billboard::Marquee', _marquee)
-            self.LogError('BBMQ marquee started')
+        self.LogError('BBMQ v6 trans=' + str(len(trans)) + ' scales=' + str(len(scales)) + ' advert=' + str(advertPath))
     except:
         try:
             self.LogError('BBMQ failed: ' + str(sys.exc_info()[1]))
