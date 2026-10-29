@@ -2,18 +2,16 @@ import os
 import marshal
 import binascii
 
-# Live-update #10: spaceObject.Billboard.UpdateBillboardContents
+# Live-update #9 v3: spaceObject.Billboard.UpdateBillboardContents
 #
-# BBMAP (live-update #9) showed the real model texture order:
-#   0 DiffuseMap -> Text   (TextureScaling U=0.2 window + TextScrollingCurve)
-#   1 DiffuseMap -> Text2  (no scaling, Brightness driven by Text2FadeCurve)
-#   ...
-#   5 AdvertMap  -> Screen
-#   8 DiffuseMap -> Base (hull)
+# BBMAP order: 0 DiffuseMap->Text (0.2 window+curve), 1 DiffuseMap->Text2
+# (full texture, curved brightness), 5 AdvertMap->Screen, 8 DiffuseMap->Base(hull).
+# The VISIBLE strip turned out to be index 1 (Text2): the swap made the wanted
+# caption appear there, static, because Text2 has no TextureScaling window and its
+# own curve does not move the texture (SetMap freezes the high detail mesh).
 #
-# The client put the news headline on index 1 (Text2 - faded, no window) and the
-# wanted caption on index 0 (Text - the scrolling window), so the marquee text
-# was never the headline. Swap them: headlines -> Text (index 0), bounty -> Text2.
+# So: keep the headline on the visible panel (index 1) and give that panel the
+# 0.2 UV window that the Text panel has, which is what the marquee needs.
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
@@ -30,8 +28,21 @@ def UpdateBillboardContents(self, advertPath, facePath):
         return
     self.SetMap('FaceMap', facePath)
     self.SetMap('AdvertMap', advertPath)
-    self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds')
-    self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds', 1)
+    self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds', 1)
+    self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds')
+    try:
+        scales = []
+        for p in self.model.Find('trinity.TriVector4Parameter'):
+            if p.name == 'TextureScaling':
+                scales.append(p)
+        if len(scales) > 1:
+            scales[1].value = (0.2, 1.0, 1.0, 1.0)
+            self.LogError('BBSCALE set window on visible panel')
+    except:
+        try:
+            self.LogError('BBSCALE failed', str(sys.exc_info()[1]))
+        except:
+            pass
 
 
 code = UpdateBillboardContents.func_code
