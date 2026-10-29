@@ -2,16 +2,14 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 v3: spaceObject.Billboard.UpdateBillboardContents
+# Live-update #9 v4: spaceObject.Billboard.UpdateBillboardContents
 #
-# BBMAP order: 0 DiffuseMap->Text (0.2 window+curve), 1 DiffuseMap->Text2
-# (full texture, curved brightness), 5 AdvertMap->Screen, 8 DiffuseMap->Base(hull).
-# The VISIBLE strip turned out to be index 1 (Text2): the swap made the wanted
-# caption appear there, static, because Text2 has no TextureScaling window and its
-# own curve does not move the texture (SetMap freezes the high detail mesh).
-#
-# So: keep the headline on the visible panel (index 1) and give that panel the
-# 0.2 UV window that the Text panel has, which is what the marquee needs.
+# BBMAP order: 0 DiffuseMap->Text (0.2 window+curve), 1 DiffuseMap->Text2 (full,
+# curved brightness), 5 AdvertMap->Screen, 8 DiffuseMap->Base(hull). The visible
+# strip is index 1. v3 tried model.Find('trinity.TriVector4Parameter') but logged
+# nothing, which means the lookup returned <=1 params (the guard swallowed it).
+# v4 logs the vector parameter list unconditionally (both class spellings) and
+# applies the 0.2 UV window to every TextureScaling it finds.
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
@@ -30,19 +28,27 @@ def UpdateBillboardContents(self, advertPath, facePath):
     self.SetMap('AdvertMap', advertPath)
     self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds', 1)
     self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds')
-    try:
-        scales = []
-        for p in self.model.Find('trinity.TriVector4Parameter'):
-            if p.name == 'TextureScaling':
-                scales.append(p)
-        if len(scales) > 1:
-            scales[1].value = (0.2, 1.0, 1.0, 1.0)
-            self.LogError('BBSCALE set window on visible panel')
-    except:
+    for cls in ('trinity.TriVector4Parameter', 'trinity.Tr2Vector4Parameter'):
         try:
-            self.LogError('BBSCALE failed', str(sys.exc_info()[1]))
+            found = self.model.Find(cls)
+            names = []
+            for p in found:
+                names.append(str(p.name))
+            self.LogError('BBVEC ' + cls + ' n=' + str(len(found)) + ' [' + ', '.join(names) + ']')
+            hit = 0
+            for p in found:
+                if p.name == 'TextureScaling':
+                    try:
+                        p.value = (0.2, 1.0, 1.0, 1.0)
+                        hit += 1
+                    except:
+                        pass
+            self.LogError('BBVEC set scaling on ' + str(hit))
         except:
-            pass
+            try:
+                self.LogError('BBVEC Find failed: ' + cls + ' ' + str(sys.exc_info()[1]))
+            except:
+                pass
 
 
 code = UpdateBillboardContents.func_code
