@@ -2,33 +2,46 @@ import os
 import marshal
 import binascii
 
-# Live-update #9 v7 (diagnostic): spaceObject.Billboard.UpdateBillboardContents
-# Texture swaps after the first assignment do not render (the first one at login
-# does). Dump dir() of the model and of the FaceMap texture parameter once per
-# ball so we can find the reload/invalidate API, keep the marquee, keep the ad on
-# FaceMap (the visible map) so a change would be obvious.
+# Live-update #9 v8: spaceObject.Billboard.UpdateBillboardContents
+#
+# BBDIR showed TriTexture2DParameter has SetResource/resource/resourcePath, and the
+# planet code (planet.ResourceCallback) reloads a texture with
+#   param.SetResource(None); param.resourcePath = ''  -> later SetResource(tex)
+# SetMap only assigns resourcePath, which renders the FIRST time and is ignored
+# afterwards. v8 detaches the resource and re-assigns the path for AdvertMap and
+# FaceMap (the visible map), keeping the text marquee from v6.
 
 
 def UpdateBillboardContents(self, advertPath, facePath):
     self.LogInfo('UpdateBillboardWithPictureAndText:', advertPath, facePath)
     if self.model is None:
         return
-    self.SetMap('AdvertMap', advertPath)
-    self.SetMap('FaceMap', advertPath)
+    try:
+        texs = self.model.Find('trinity.TriTexture2DParameter')
+        n = 0
+        for p in texs:
+            if p.name in ('AdvertMap', 'FaceMap'):
+                try:
+                    p.SetResource(None)
+                except:
+                    pass
+                try:
+                    p.resourcePath = ''
+                except:
+                    pass
+                try:
+                    p.resourcePath = advertPath
+                    n = n + 1
+                except:
+                    pass
+        self.LogError('BBRELOAD ' + str(n) + ' -> ' + str(advertPath))
+    except:
+        try:
+            self.LogError('BBRELOAD failed: ' + str(sys.exc_info()[1]))
+        except:
+            pass
     self.SetMap('DiffuseMap', 'cache:/Temp/headlines.dds', 1)
     self.SetMap('DiffuseMap', 'cache:/Temp/bounty_caption.dds')
-    try:
-        if not getattr(self, '_bbdir', 0):
-            self._bbdir = 1
-            self.LogError('BBDIR model: ' + ' '.join([str(x) for x in dir(self.model)]))
-            try:
-                ps = [p for p in self.model.Find('trinity.TriTexture2DParameter') if p.name == 'FaceMap']
-                if ps:
-                    self.LogError('BBDIR facemap: ' + ' '.join([str(x) for x in dir(ps[0])]))
-            except:
-                pass
-    except:
-        pass
     try:
         found = self.model.Find('trinity.Tr2Vector4Parameter')
         scales = []
@@ -64,7 +77,7 @@ def UpdateBillboardContents(self, advertPath, facePath):
                     pass
 
             uthread.pool('Billboard::Marquee', _marquee)
-        self.LogError('BBMQ v7 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
+        self.LogError('BBMQ v8 trans=' + str(len(trans)) + ' scales=' + str(len(scales)))
     except:
         try:
             self.LogError('BBMQ failed: ' + str(sys.exc_info()[1]))
