@@ -20,6 +20,7 @@ private:
                              const std::map<std::string, std::string>& params);
     std::string ProcessRoles(const std::string& handler,
                              const std::map<std::string, std::string>& params);
+    std::string ProcessInjectPlex(const std::map<std::string, std::string>& params);
 
     // petition ownership/state helpers
     static bool PetitionOwnedBy(uint32 petitionID, uint32 accountID);
