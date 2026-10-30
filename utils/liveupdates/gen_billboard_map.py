@@ -48,6 +48,23 @@ def UpdateBillboardContents(self, advertPath, facePath):
         except:
             pass
 
+    def _todds(path):
+        try:
+            import uiutil
+            dev = trinity.device
+            surface = dev.CreateOffscreenPlainSurface(8, 8, trinity.TRIFMT_A8R8G8B8, trinity.TRIPOOL_SYSTEMMEM)
+            data = surface.LoadSurfaceFromFile(blue.ResFile(path))
+            w = data['Width']
+            h = data['Height']
+            bw, bh = uiutil.GetBuffersize(w), uiutil.GetBuffersize(h)
+            tex = dev.CreateTexture(bw, bh, 1, 0, trinity.TRIFMT_A8R8G8B8, trinity.TRIPOOL_MANAGED)
+            dev.UpdateSurface(surface, None, tex.GetSurfaceLevel(0))
+            out = blue.paths.ResolvePathForWriting('cache:/Temp/wanted.dds')
+            tex.SaveToDDS(out)
+            return 'cache:/Temp/wanted.dds'
+        except:
+            return path
+
     try:
         svc0 = sm.GetService('billboard')
         now0 = blue.os.GetWallclockTime()
@@ -60,7 +77,7 @@ def UpdateBillboardContents(self, advertPath, facePath):
         self._bbFlip = flip
     showWanted = (flip % 2 == 0) and facePath
     if showWanted:
-        face = facePath
+        face = _todds(facePath)
         vis = 'cache:/Temp/bounty_caption.dds'
         other = 'cache:/Temp/headlines.dds'
     else:
