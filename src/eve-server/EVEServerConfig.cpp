@@ -77,6 +77,9 @@ EVEServerConfig::EVEServerConfig()
     world.shootRoids = false;
     world.shootWrecks = false;
     world.mailDelay = 5;//N
+    subscription.Enabled = false;//N
+    subscription.PremiumDays = 30;
+    subscription.FreeSkillPointCap = 5000000;
     world.StationDockDelay = 4 /*s*/;
     world.apWarptoDistance = 15000;
     world.shipBoardDistance = 300;
@@ -325,6 +328,7 @@ bool EVEServerConfig::ProcessEveServer( const TiXmlElement* ele )
     AddMemberParser( "market",      &EVEServerConfig::ProcessMarket );
     AddMemberParser( "ram",     &EVEServerConfig::ProcessBPTimes );
     AddMemberParser( "account",     &EVEServerConfig::ProcessAccount );
+    AddMemberParser( "subscription", &EVEServerConfig::ProcessSubscription );
     AddMemberParser( "character",   &EVEServerConfig::ProcessCharacter );
     AddMemberParser( "npc",         &EVEServerConfig::ProcessNPC );
     AddMemberParser( "cosmic",      &EVEServerConfig::ProcessCosmic );
@@ -825,6 +829,21 @@ bool EVEServerConfig::ProcessChat(const TiXmlElement* ele)
     RemoveParser( "EnableSquadChat" );
     RemoveParser( "EnableVoiceChat" );
     RemoveParser( "EnforceRookieInHelp" );
+
+    return result;
+}
+
+bool EVEServerConfig::ProcessSubscription(const TiXmlElement* ele)
+{
+    AddValueParser( "Enabled",           subscription.Enabled );
+    AddValueParser( "PremiumDays",       subscription.PremiumDays );
+    AddValueParser( "FreeSkillPointCap", subscription.FreeSkillPointCap );
+
+    const bool result = ParseElementChildren( ele );
+
+    RemoveParser( "Enabled" );
+    RemoveParser( "PremiumDays" );
+    RemoveParser( "FreeSkillPointCap" );
 
     return result;
 }

@@ -95,6 +95,13 @@ public:
         uint8 DowntimeLengthMin;// nominal length in minutes (announcement text)
     } world;
 
+    // From <subscription>
+    struct {
+        bool   Enabled;            // false = every account is Omega (feature off)
+        uint32 PremiumDays;        // days granted by one PLEX / payment
+        uint32 FreeSkillPointCap;  // free (Alpha) training cap in SP
+    } subscription;
+
     // From <rates>
     struct {
         // Decay timer for item deletion (garbage collection)
@@ -419,6 +426,7 @@ protected:
     bool ProcessRates( const TiXmlElement* ele );
     bool ProcessMarket( const TiXmlElement* ele );
     bool ProcessAccount( const TiXmlElement* ele );
+    bool ProcessSubscription( const TiXmlElement* ele );
     bool ProcessCharacter( const TiXmlElement* ele );
     bool ProcessNPC( const TiXmlElement* ele );
     bool ProcessDatabase( const TiXmlElement* ele );
