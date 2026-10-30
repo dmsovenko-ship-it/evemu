@@ -54,6 +54,64 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         return it != params.end() ? it->second : "";
     };
 
+    // ------------------------------------------------------------------
+    // Alpha/Omega subscription: consume one PLEX from the character hangar and
+    // extend account.premiumUntil (filetime). Portal-only (APIServer allowlist).
+    if (handler == "ActivatePlex.xml.aspx") {
+        std::string aid = get("accountid");
+        std::string cid = get("characterid");
+        if (aid.empty() || cid.empty())
+            return BuildErrorXML("105", "accountid and characterid are required.");
+        uint32 accountID = (uint32)std::stoul(aid);
+        uint32 characterID = (uint32)std::stoul(cid);
+
+        // the character must belong to that account
+        DBQueryResult cres;
+        if (!sDatabase.RunQuery(cres, "SELECT accountID FROM chrCharacters WHERE characterID=%u", characterID))
+            return BuildErrorXML("999", "Query failed.");
+        DBResultRow crow;
+        if (!cres.GetRow(crow) || (uint32)crow.GetUInt(0) != accountID)
+            return BuildErrorXML("106", "Character does not belong to that account.");
+
+        // find one PLEX (29668) in the character hangar
+        DBQueryResult pres;
+        if (!sDatabase.RunQuery(pres,
+                "SELECT itemID FROM entity WHERE ownerID=%u AND typeID=29668 AND flag=4 AND quantity>0 LIMIT 1", characterID))
+            return BuildErrorXML("999", "Query failed.");
+        DBResultRow prow;
+        if (!pres.GetRow(prow))
+            return BuildErrorXML("107", "No PLEX in the hangar.");
+        uint32 plexID = (uint32)prow.GetUInt(0);
+
+        // consume it
+        DBerror err;
+        sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID=%u", plexID);
+        sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID=%u", plexID);
+
+        // extend the subscription
+        uint32 days = (sConfig.subscription.PremiumDays > 0 ? sConfig.subscription.PremiumDays : 30);
+        int64 add = (int64)days * 86400LL * 10000000LL;
+        sDatabase.RunQuery(err,
+            "UPDATE account SET premiumUntil = GREATEST(premiumUntil, (UNIX_TIMESTAMP()+11644473600)*10000000) + %lld WHERE accountID=%u",
+            add, accountID);
+
+        int64 newUntil = 0;
+        DBQueryResult ures;
+        if (sDatabase.RunQuery(ures, "SELECT premiumUntil FROM account WHERE accountID=%u", accountID)) {
+            DBResultRow urow;
+            if (ures.GetRow(urow))
+                newUntil = urow.GetInt64(0);
+        }
+
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+        xml += "  <result>\n";
+        xml += "    <premiumuntil>" + std::to_string(newUntil) + "</premiumuntil>\n";
+        xml += "    <days>" + std::to_string(days) + "</days>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     if (handler == "KillMails.xml.aspx") {
         std::string cid = get("characterid");
         if (cid.empty()) return BuildErrorXML("105", "Invalid characterID.");
