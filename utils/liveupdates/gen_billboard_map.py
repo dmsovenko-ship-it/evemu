@@ -87,7 +87,10 @@ def UpdateBillboardContents(self, advertPath, facePath):
 
     self._bbAd = advertPath
     self._bbFace = facePath
-    _settex('AdvertMap', advertPath, 0)
+    if showWanted:
+        _settex('AdvertMap', face, 0)
+    else:
+        _settex('AdvertMap', advertPath, 0)
     _settex('FaceMap', face, 0)
     _settex('DiffuseMap', other, 0)
     _settex('DiffuseMap', vis, 1)

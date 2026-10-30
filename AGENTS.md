@@ -15,6 +15,24 @@
   - Python 2.7 нужен только для генерации маршала live-update (py3-маршал несовместим).
 - **Открыто/проверить:** андок в Уемоне после фикса билбордов (грид грузится?). При остаточном `Unknown packet type` — включить `DESTINY__SETSTATE_DECODE`/`DESTINY__BALL_DECODE` и поймать конкретный шар.
 
+## 📌 СОХРАНЕНИЕ СЕССИИ (30 окт.): биллборды (финал), CQ-видео, подписка Alpha/Omega, админ-API, права, правила
+**Master: `4a5a9a47`. Билборды/розыск/видео/подписка/API/права/правила — см. ниже. ⚠️ Эндпоинт `char/ActivatePlex` + его allowlist (`74a323cf`,`4a5a9a47`) в ЗАПУЩЕННОМ бинаре отсутствуют — нужна пересборка (`Unknown handler` в тесте).**
+- **Билборд (космос) РАБОТАЕТ**: сервер пере-эмитит шары каждые 90 с (`SystemManager::ResendBillboards`) **БЕЗ `SendServiceCall`** — клиент отклонял CallReq (`ROLE_SERVICE`) и слал нерасшифровываемые `ErrorResponse`. Клиентский live-update #9 (БД `updateID=9`): перезагрузка текстуры `SetResource(None)+resourcePath` (единственный рабочий способ), окно `TextureScaling 0.2` + своя бегущая строка (`TextureTranslation`, `blue.pyos.synchro.SleepWallclock(50)` — busy-spin `BeNice()` давал **6 FPS**), цикл «реклама+новости ↔ портрет+текст розыска» (счётчик на **сервисе** `_bbFlipSvc` — на шаре он сбрасывался при каждом пересоздании!), prefetch рекламы раз в 60 с (cache-buster) + `DoNewsHeadlines`/`UpdateBounty` → нет Quafe-флеша.
+- **Смена картинки только через пересоздание шара** (assign текстуры на живой модели не рендерится — проверено `SetMap`, `SetResource(None)`, `UnSync/Assemble`).
+- **Реклама**: 5 JPEG (`ad1..ad5.jpg`, ~80–110 КБ) — реальные рендеры evetech (Raven/Apocalypse/Megathron/Tempest/Nyx) на звёздном фоне, центрированный заголовок+подзаголовок, двойная рамка; тексты переписаны литературно. Генератор: `C:\opencode-projects\otherillboard_ads\gen_ads.ps1` (UTF-8 **с BOM**, иначе PS 5.1 ломает кириллицу).
+- **Розыск**: портрет (jpeg→**DDS** через `_todds`, иначе модель не грузит jpeg) + текст; работает.
+- **CQ (каюта)**: `.bik` из `<клиент>/cache/CQScreenVideos/` играют сами (`holoscreenSvc.GetCustomVideoPlaylist`); тест — `res/video/cq/LOGO_QUAFE.bik` и др. **Image-шаблон УБРАН** (ломал рендер кораблей; live-update #10 удалён, миграция no-op). `/admin/cq` — только видео (1280×720/16:9/60 с/12 МБ, сигнатура BINK, без конвертации). Bink-энкодер: RAD Video Tools (`radgametools.com/bnkdown.htm`, 7z pass `RAD`).
+- **Подписка Alpha/Omega** (фича-флаг `<subscription Enabled="false" PremiumDays="30" FreeSkillPointCap="5000000">`):
+  - схема `account.premiumUntil` (filetime, 0=Alpha) + `alphaSkills` (190 скиллов rank≤3, правится по строкам);
+  - гейт инъекции `SkillMgrBound::InjectSkillIntoBrain`; заморозка `Character::GetSkillLevel`/`HasSkillTrainedToLevel` (0/false вне списка, кэш 60 с);
+  - PLEX→Омега: `char/ActivatePlex.xml.aspx?accountid&characterid` (1 PLEX 29668 из ангара flag=4 → `premiumUntil += PremiumDays`), **portal-only**;
+  - НЕ СДЕЛАНО: портал `/account`, лимит 5M SP, гейты на капиталы/POS, PLEX только от админов, вброс PLEX на рынок.
+- **Админ-API закрыт**: `/admin/*` и `char/ActivatePlex` — только с `172.20.1.49`/localhost; IPv6 отдаёт `::ffff:a.b.c.d` → **нормализация обязательна**; прочие → `Forbidden` + лог. Проверено на живом.
+- **Права**: `autoAccountRole` был **BOSS** (любой зарегистрированный = админ!) → теперь **0** (клиентская авто-регистрация выключена, `ServiceDB.cpp:91`), портал всегда создаёт **STD** (`APIAuthManager`, `%llu`). `/admin/roles`: «Full» (BOSS) — только `ROLE_ADMIN`; нижние админы выдают только свои биты; «Player» = STD-маска (было 0).
+- **Правила**: имя сервера через `<SITE NAME>` → `SITE_NAME` (прод «MuEVE»).
+- **Живой конфиг**: вычищены legacy-теги (`UseBeanCount/UseStackTrace/StackTrace/UseMarketBot/bpTimes/marketBotSettings`), бэкап `.bak_legacytags`.
+- **Опс**: Docker Hub недоступен → `debian:12` с `mirror.gcr.io` + `docker tag`; диск 124 ГБ свободно (можно ~20 ГБ почистить).
+
 ## 📌 СОХРАНЕНИЕ СЕССИИ (16 окт.): ЛАУНЧЕР (репо+self-update), новости на сайт, правила, магазин-иконки, фикс SIGABRT на стопе, фикс каюты
 **Сервер пересобран и запущен** (юзер). Коммиты в master: evemu `570b3c44`,`baef702b`,`34f7836b`,`2be09139`; портал `50f3f47`,`1deb26a`,`955177c`,`59fac84`,`82c4b50`; лаунчер — новый приватный репо.
 - **ЛАУНЧЕР — опубликован приватный репо** `https://github.com/dmsovenko-ship-it/evemu-launcher` (репо `C:\opencode-projects\evemu-launcher`, раньше не был под git). `launcher.json` в `.gitignore` (там креды) — вместо него `launcher.sample.json`. Собирается MSBuild 15 (`VS2017\Community\MSBuild\15.0\Bin\MSBuild.exe`), .NET 4.6.1.
