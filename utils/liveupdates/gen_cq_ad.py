@@ -10,7 +10,12 @@ def SetDefaultPlaylist(self):
                 if data is not None:
                     path = data.get('img')
                 if not path:
-                    path = getattr(sm.GetService('billboard'), 'advertPath', None)
+                    try:
+                        path = sm.GetService('billboard').advertPath
+                    except:
+                        path = None
+                if not path:
+                    path = 'res:/UI/Texture/classes/CQLoadingScreen/loadingScreen.png'
                 if path:
                     self.sprite = uicls.Sprite(parent=self.parent, texturePath=path, align=uiconst.TOALL)
             except:
