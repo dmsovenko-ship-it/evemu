@@ -110,7 +110,7 @@ def UpdateBillboardContents(self, advertPath, facePath):
                                         t.value = (x, 0.0, 0.0, 0.0)
                                     except:
                                         pass
-                        blue.pyos.BeNice()
+                        blue.pyos.synchro.SleepWallclock(50)
                 except:
                     pass
 
@@ -154,7 +154,7 @@ def UpdateBillboardContents(self, advertPath, facePath):
                                 self.LogError('BBPF ' + str(svc.advertPath) + ' / ' + str(svc.facePath))
                             except:
                                 pass
-                        blue.pyos.BeNice()
+                        blue.pyos.synchro.SleepWallclock(500)
                 except:
                     pass
 
