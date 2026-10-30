@@ -262,7 +262,12 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
         }
 
         std::string remoteIP;
-        try { remoteIP = socket.remote_endpoint().address().to_string(); } catch (...) {}
+        try {
+            remoteIP = socket.remote_endpoint().address().to_string();
+            // IPv6 sockets report IPv4 peers as ::ffff:a.b.c.d - normalise
+            if (remoteIP.compare(0, 7, "::ffff:") == 0)
+                remoteIP = remoteIP.substr(7);
+        } catch (...) {}
         std::string xml = srv.ProcessRequest(service, handler, params, remoteIP);
 
         std::ostringstream resp;
