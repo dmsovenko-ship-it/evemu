@@ -119,6 +119,35 @@ PyResult SkillMgrBound::InjectSkillIntoBrain(PyCallArgs &call, PyList* skillItem
         skillItemIDsList.push_back(t->value());
     }
 
+    // ------------------------------------------------------------------
+    // Alpha/Omega subscription gate (feature-flagged by <subscription Enabled>).
+    // An Alpha clone may only inject skills present in the alphaSkills table;
+    // everything else requires an Omega account (premiumUntil in the future).
+    bool isOmega = true;
+    static bool s_alphaLoaded = false;
+    static std::map<uint32, bool> s_alphaSkills;
+    if (sConfig.subscription.Enabled) {
+        if (!s_alphaLoaded) {
+            DBQueryResult ares;
+            if (sDatabase.RunQuery(ares, "SELECT typeID FROM alphaSkills")) {
+                DBResultRow arow;
+                while (ares.GetRow(arow))
+                    s_alphaSkills[arow.GetUInt(0)] = true;
+                s_alphaLoaded = true;
+            }
+        }
+        int64 premiumUntil = 0;
+        DBQueryResult pres;
+        if (sDatabase.RunQuery(pres, "SELECT premiumUntil FROM account WHERE accountID=%u", call.client->GetUserID())) {
+            DBResultRow prow;
+            if (pres.GetRow(prow))
+                premiumUntil = prow.GetInt64(0);
+        }
+        isOmega = (premiumUntil > GetFileTimeNow());
+        if (!isOmega)
+            sLog.Blue("SkillMgr", "%s: Alpha clone - %u skills in whitelist.", call.client->GetName(), (uint32)s_alphaSkills.size());
+    }
+
     // make a list of skills successfully injected to display after injection
     // name, ret value  where 1=success, 2=prereqs, 3=already known, 4=split fail, 5=load fail
     std::map<std::string, uint8> skills;
@@ -134,6 +163,10 @@ PyResult SkillMgrBound::InjectSkillIntoBrain(PyCallArgs &call, PyList* skillItem
             continue;
         }
 
+        if (!isOmega && s_alphaSkills.find(skill->typeID()) == s_alphaSkills.end()) {
+            call.client->SendInfoModalMsg("Injection of %s failed: this skill requires an Omega account (PLEX).", skill->itemName().c_str());
+            continue;
+        }
         skills.emplace(skill->itemName(), cRef->InjectSkillIntoBrain(skill));
     }
 
