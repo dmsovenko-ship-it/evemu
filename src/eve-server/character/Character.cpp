@@ -581,7 +581,55 @@ SkillRef Character::GetCharSkillRef(uint16 skillTypeID) const
     return SkillRef::StaticCast( skill );
 }
 
+// ---------------------------------------------------------------------------
+// Alpha/Omega: an Alpha clone's skills outside the alphaSkills whitelist are
+// FROZEN - they keep the trained level in the DB but have no effect until the
+// account is Omega again (premiumUntil in the future). Feature-flagged by
+// <subscription Enabled>; when off these helpers are never consulted.
+static bool s_alphaFxLoaded = false;
+static std::map<uint16, bool> s_alphaFxWhitelist;
+static std::map<uint32, std::pair<int64, int64> > s_alphaFxAccounts;
+
+static bool IsAlphaSkillWhitelisted(uint16 typeID) {
+    if (!s_alphaFxLoaded) {
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT typeID FROM alphaSkills")) {
+            DBResultRow row;
+            while (res.GetRow(row))
+                s_alphaFxWhitelist[(uint16)row.GetUInt(0)] = true;
+            s_alphaFxLoaded = true;
+        }
+    }
+    return (s_alphaFxWhitelist.find(typeID) != s_alphaFxWhitelist.end());
+}
+
+static bool IsAlphaAccount(uint32 accountID) {
+    const int64 now = GetFileTimeNow();
+    std::map<uint32, std::pair<int64, int64> >::iterator it = s_alphaFxAccounts.find(accountID);
+    if (it != s_alphaFxAccounts.end() && (now - it->second.second) < 600000000LL)
+        return (it->second.first <= now);
+    int64 premiumUntil = 0;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT premiumUntil FROM account WHERE accountID=%u", accountID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            premiumUntil = row.GetInt64(0);
+    }
+    s_alphaFxAccounts[accountID] = std::make_pair(premiumUntil, now);
+    return (premiumUntil <= now);
+}
+
+static bool IsSkillFrozenForAlpha(const Character* c, uint16 typeID) {
+    if (!sConfig.subscription.Enabled)
+        return false;
+    if (!IsAlphaAccount(c->accountID()))
+        return false;
+    return !IsAlphaSkillWhitelisted(typeID);
+}
+
 int8 Character::GetSkillLevel(uint16 skillTypeID, bool zeroForNotInjected /*true*/) const {
+    if (IsSkillFrozenForAlpha(this, skillTypeID))
+        return 0;
     SkillRef requiredSkill = GetCharSkillRef( skillTypeID );
     // First, check for existence of skill trained or in training:
     if (requiredSkill.get() == nullptr)
@@ -591,6 +639,8 @@ int8 Character::GetSkillLevel(uint16 skillTypeID, bool zeroForNotInjected /*true
 }
 
 bool Character::HasSkillTrainedToLevel(uint16 skillTypeID, uint8 skillLevel) const {
+    if (IsSkillFrozenForAlpha(this, skillTypeID))
+        return false;
     SkillRef requiredSkill = GetCharSkillRef( skillTypeID );
     // First, check for existence of skill
     if (requiredSkill.get() == nullptr)
