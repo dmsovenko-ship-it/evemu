@@ -425,6 +425,56 @@ static std::string BanByIPXML(const std::map<std::string, std::string>& params)
     return xml;
 }
 
+// Inject N PLEX sell orders at a station (NPC corp owner). Portal-only; the
+// portal hides the button from non-ROLE_ADMIN users.
+std::string APIAdminManager::ProcessInjectPlex(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string st = get("stationid");
+    std::string pr = get("price");
+    std::string qt = get("quantity");
+    if (st.empty() || pr.empty() || qt.empty())
+        return BuildErrorXML("105", "stationid, price and quantity are required.");
+    uint32 stationID = (uint32)std::stoul(st);
+    double price = std::stod(pr);
+    uint32 qty = (uint32)std::stoul(qt);
+    if (price <= 0.0)
+        return BuildErrorXML("106", "price must be > 0.");
+    if (qty < 1 || qty > 100)
+        return BuildErrorXML("107", "quantity must be 1..100.");
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res, "SELECT solarSystemID, corporationID FROM staStations WHERE stationID=%u", stationID))
+        return BuildErrorXML("999", "Query failed.");
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return BuildErrorXML("108", "Unknown station ID.");
+    uint32 systemID = (uint32)row.GetUInt(0);
+    uint32 ownerID  = (uint32)row.GetUInt(1);
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "INSERT INTO mktOrders"
+        "  (typeID, ownerID, regionID, stationID, solarSystemID, orderRange, bid, price,"
+        "   escrow, minVolume, volEntered, volRemaining, issued, duration, isCorp, accountKey, memberID)"
+        " VALUES"
+        "  (29668, %u, (SELECT regionID FROM mapSolarSystems WHERE solarSystemID = %u), %u, %u, 32767, 0, %f,"
+        "   0, 1, %u, %u, %f, 90, 1, 1000, %u)",
+        ownerID, systemID, stationID, systemID, price, qty, qty, GetFileTimeNow(), ownerID);
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+    xml += "  <result>\n";
+    xml += "    <stationid>" + std::to_string(stationID) + "</stationid>\n";
+    xml += "    <price>" + std::to_string((int64)price) + "</price>\n";
+    xml += "    <quantity>" + std::to_string(qty) + "</quantity>\n";
+    xml += "  </result>\n</eveapi>\n";
+    return xml;
+}
+
 std::string APIAdminManager::ProcessCall(const std::string& handler,
                                          const std::map<std::string, std::string>& params)
 {
@@ -453,6 +503,10 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
     // items
     if (handler == "GiveItem.xml.aspx")
         return ProcessItems(handler, params);
+
+    // main admin: inject PLEX sell orders onto the NPC market
+    if (handler == "InjectPlex.xml.aspx")
+        return ProcessInjectPlex(params);
 
     // roles
     if (handler == "SetRole.xml.aspx")
