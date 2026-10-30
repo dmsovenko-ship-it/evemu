@@ -15,6 +15,21 @@
   - Python 2.7 нужен только для генерации маршала live-update (py3-маршал несовместим).
 - **Открыто/проверить:** андок в Уемоне после фикса билбордов (грид грузится?). При остаточном `Unknown packet type` — включить `DESTINY__SETSTATE_DECODE`/`DESTINY__BALL_DECODE` и поймать конкретный шар.
 
+## 📌 ДОПОЛНЕНИЕ (30 окт., вечер): подписка Alpha/Omega — эндпоинты, PLEX, портал, админ-API
+**Master: `d87f0c30` (сборка собрана). Портал: `38fcb70`.**
+- **Серверные эндпоинты (все portal-only через allowlist `APIServer`):**
+  - `char/ActivatePlex.xml.aspx?accountid&characterid` (`74a323cf`) — гасит 1 PLEX (29668, `flag=4` ангар) → `account.premiumUntil = GREATEST(now)+PremiumDays`; ошибки 105/106/107.
+  - `char/PremiumStatus.xml.aspx?accountid` (`a7d26448`) — `<omega>,<premiumuntil>,<daysleft>`.
+  - `admin/InjectPlex.xml.aspx?stationid&price&quantity` (`c6e94efe`) — N (1..100) **sell-ордеров PLEX** от NPC-корпы станции на рынок; объявление — `d87f0c30` (заголовок).
+  - **Allowlist** (`a91f8a4a`,`04138cb2`,`4a5a9a47`): `/admin/*` + `char|account + ActivatePlex|PremiumStatus` — только `172.20.1.49`/localhost; IPv4-mapped IPv6 нормализуется (`::ffff:a.b.c.d`). Проверено на живом (`.47`→Forbidden, `.49`→XML).
+- **PLEX убран с рынка**: удалено 3705 sell-ордеров (29668). Повторно не вернётся: боты ставят только фикс-пул из 10 товаров (`PlaceBotOrderAt`), маркет-сидер — только на пустую книгу, `import_prices.py` пишет лишь `invTypes.basePrice`, магазин NeX — только Apparel.
+- **Портал:**
+  - `/account` (`442fb7b`) — статус Alpha/Omega (char/PremiumStatus), дата/дней, селектор персонажа + «Активировать PLEX».
+  - `/admin/items` — **«Выдать PLEX (29668)»** (`a4005a0`) и **«Вброс PLEX на рынок»** (ROLE_ADMIN; station/price/qty → InjectPlex) (`38fcb70`).
+- **AGENTS/правила:** имя сервера в правилах через `<SITE NAME>`→`SITE_NAME` (`3515a6b`); `autoAccountRole` 0 (клиентская авто-регистрация выключена), портал всегда STD (`02869f2a`); `/admin/roles` — «Full» только для ROLE_ADMIN (`cc008d0`).
+- **⚠️ Проверить после старта:** `/account` статус, выдача/вброс PLEX, отсутствие `Unknown handler`.
+- **Осталось:** лимит 5M SP, гейты на капиталы/POS (Stage B), мультибокс (Stage D), пункт в меню для `/account`.
+
 ## 📌 СОХРАНЕНИЕ СЕССИИ (30 окт.): биллборды (финал), CQ-видео, подписка Alpha/Omega, админ-API, права, правила
 **Master: `4a5a9a47`. Билборды/розыск/видео/подписка/API/права/правила — см. ниже. ⚠️ Эндпоинт `char/ActivatePlex` + его allowlist (`74a323cf`,`4a5a9a47`) в ЗАПУЩЕННОМ бинаре отсутствуют — нужна пересборка (`Unknown handler` в тесте).**
 - **Билборд (космос) РАБОТАЕТ**: сервер пере-эмитит шары каждые 90 с (`SystemManager::ResendBillboards`) **БЕЗ `SendServiceCall`** — клиент отклонял CallReq (`ROLE_SERVICE`) и слал нерасшифровываемые `ErrorResponse`. Клиентский live-update #9 (БД `updateID=9`): перезагрузка текстуры `SetResource(None)+resourcePath` (единственный рабочий способ), окно `TextureScaling 0.2` + своя бегущая строка (`TextureTranslation`, `blue.pyos.synchro.SleepWallclock(50)` — busy-spin `BeNice()` давал **6 FPS**), цикл «реклама+новости ↔ портрет+текст розыска» (счётчик на **сервисе** `_bbFlipSvc` — на шаре он сбрасывался при каждом пересоздании!), prefetch рекламы раз в 60 с (cache-buster) + `DoNewsHeadlines`/`UpdateBounty` → нет Quafe-флеша.
