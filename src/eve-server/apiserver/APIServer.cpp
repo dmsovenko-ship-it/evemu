@@ -111,8 +111,15 @@ void APIServer::CreateServices()
 }
 
 std::string APIServer::ProcessRequest(const std::string& service, const std::string& handler,
-                                      const std::map<std::string, std::string>& params)
+                                      const std::map<std::string, std::string>& params,
+                                      const std::string& remoteIP)
 {
+    // Admin endpoints (role management, item grants, PLEX) may only be called
+    // from the portal host (or locally). The API port is otherwise public.
+    if (service == "admin" && remoteIP != "172.20.1.49" && remoteIP != "127.0.0.1" && remoteIP != "::1") {
+        sLog.Error("APIServer", "Admin API call from %s blocked (%s/%s).", remoteIP.c_str(), service.c_str(), handler.c_str());
+        return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><error>Forbidden: admin API is restricted to the portal host.</error></eveapi>";
+    }
     // Only GET-style read endpoints are cached (whitelist above); POST / admin /
     // auth calls return TTL 0 and always execute live.
     int ttl = g_apiCacheTtl(service, handler);
@@ -254,7 +261,9 @@ static void HandleSession(tcp::socket socket, APIServer& srv)
             handler = path;
         }
 
-        std::string xml = srv.ProcessRequest(service, handler, params);
+        std::string remoteIP;
+        try { remoteIP = socket.remote_endpoint().address().to_string(); } catch (...) {}
+        std::string xml = srv.ProcessRequest(service, handler, params, remoteIP);
 
         std::ostringstream resp;
         resp << "HTTP/1.0 200 OK\r\n"

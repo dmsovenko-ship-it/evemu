@@ -25,7 +25,8 @@ public:
     std::string& url() { return _url; }
 
     std::string ProcessRequest(const std::string& service, const std::string& handler,
-                               const std::map<std::string, std::string>& params);
+                               const std::map<std::string, std::string>& params,
+                               const std::string& remoteIP = std::string());
 
     APIServer(const APIServer&) = delete;
     APIServer& operator=(const APIServer&) = delete;
