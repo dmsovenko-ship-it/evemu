@@ -57,6 +57,31 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
     // ------------------------------------------------------------------
     // Alpha/Omega subscription: consume one PLEX from the character hangar and
     // extend account.premiumUntil (filetime). Portal-only (APIServer allowlist).
+    // Read-only premium status for the portal /account page.
+    if (handler == "PremiumStatus.xml.aspx") {
+        std::string aid = get("accountid");
+        if (aid.empty())
+            return BuildErrorXML("105", "accountid is required.");
+        uint32 accountID = (uint32)std::stoul(aid);
+        int64 premiumUntil = 0;
+        DBQueryResult res;
+        if (sDatabase.RunQuery(res, "SELECT premiumUntil FROM account WHERE accountID=%u", accountID)) {
+            DBResultRow row;
+            if (res.GetRow(row))
+                premiumUntil = row.GetInt64(0);
+        }
+        const int64 now = GetFileTimeNow();
+        const int64 daysLeft = (premiumUntil > now) ? ((premiumUntil - now) / (86400LL * 10000000LL)) : 0;
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <currentTime>" + Win32TimeToString(now) + "</currentTime>\n";
+        xml += "  <result>\n";
+        xml += "    <omega>" + std::string(premiumUntil > now ? "1" : "0") + "</omega>\n";
+        xml += "    <premiumuntil>" + std::to_string(premiumUntil) + "</premiumuntil>\n";
+        xml += "    <daysleft>" + std::to_string(daysLeft) + "</daysleft>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
     if (handler == "ActivatePlex.xml.aspx") {
         std::string aid = get("accountid");
         std::string cid = get("characterid");
