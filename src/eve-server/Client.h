@@ -506,6 +506,9 @@ private:
 
     uint32 m_nextNotifySequence;
     int64 m_nextCallID;
+    int64 m_lastNetTime;    // GetFileTimeNow() of the last received packet (stale-session detection)
+
+    int64 GetLastNetTime() const                        { return m_lastNetTime; }
 
     std::map<uint32, uint32>    m_lpMap;    // corpID/points
 

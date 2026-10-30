@@ -102,7 +102,8 @@ Client::Client(EVEServiceManager& services, EVETCPConnection** con)
   m_destinyEventQueue(new PyList()),
   m_destinyUpdateQueue(new PyList()),
   m_nextNotifySequence(0),
-  m_nextCallID(0)
+  m_nextCallID(0),
+  m_lastNetTime(0)
 {
     m_crimeWatch = new CrimeWatch(this);
     m_pod = ShipItemRef(nullptr);
@@ -240,6 +241,7 @@ bool Client::ProcessNet()
 
     PyPacket *p(nullptr);
     while ((p = PopPacket())) {
+        m_lastNetTime = GetFileTimeNow();
         try {
             if (!DispatchPacket(p))
                 sLog.Error("Client", "%s: Failed to dispatch packet of type %s (%i).", m_char->name(), MACHONETMSG_TYPE_NAMES[ p->type ], (int)p->type);
@@ -271,10 +273,22 @@ bool Client::SelectCharacter(int32 charID/*0*/)
         Client* existing = sEntityList.FindClientByCharID(charID);
         if (existing != nullptr
             && existing->GetState() == TCPConnection::STATE_CONNECTED) {
-            sLog.Error("Client::SelectCharacter()", "Char %u already online.", charID);
-            SendErrorMsg("That Character is already online.  Selection Failed.");
-            CloseClientConnection();
-            return false;
+            // Half-open socket: a client that dropped without a clean close keeps
+            // the OS connection in STATE_CONNECTED until the TCP timeout. If it has
+            // not sent a single packet for 60s, treat it as dead so the player can log
+            // back in (otherwise: "That Character is already online").
+            int64 silent = GetFileTimeNow() - existing->GetLastNetTime();
+            if (existing->GetLastNetTime() != 0 && silent > 60LL * 10000000LL) {
+                sLog.Error("Client::SelectCharacter()", "Char %u marked online but silent for %llds - force-logging out the half-open session.",
+                           charID, (long long)(silent / 10000000LL));
+                sEntityList.RemovePlayer(existing);
+                existing->CloseClientConnection();
+            } else {
+                sLog.Error("Client::SelectCharacter()", "Char %u already online.", charID);
+                SendErrorMsg("That Character is already online.  Selection Failed.");
+                CloseClientConnection();
+                return false;
+            }
         }
         // Stale/dead session: reap it so this login can proceed.
         if (existing != nullptr) {
