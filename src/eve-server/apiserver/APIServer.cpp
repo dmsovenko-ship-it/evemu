@@ -116,7 +116,9 @@ std::string APIServer::ProcessRequest(const std::string& service, const std::str
 {
     // Admin endpoints (role management, item grants, PLEX) may only be called
     // from the portal host (or locally). The API port is otherwise public.
-    if (service == "admin" && remoteIP != "172.20.1.49" && remoteIP != "127.0.0.1" && remoteIP != "::1") {
+    const bool isPortalOnly = (service == "admin")
+                             || (service == "account" && handler.compare(0, 12, "ActivatePlex") == 0);
+    if (isPortalOnly && remoteIP != "172.20.1.49" && remoteIP != "127.0.0.1" && remoteIP != "::1") {
         sLog.Error("APIServer", "Admin API call from %s blocked (%s/%s).", remoteIP.c_str(), service.c_str(), handler.c_str());
         return "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\"><error>Forbidden: admin API is restricted to the portal host.</error></eveapi>";
     }
