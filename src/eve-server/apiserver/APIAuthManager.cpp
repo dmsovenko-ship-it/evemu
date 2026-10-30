@@ -105,13 +105,16 @@ std::string APIAuthManager::ProcessCall(const std::string& handler,
         std::string escapedPass;
         sDatabase.DoEscapeString(escapedPass, pass);
 
-        uint32 role = sConfig.account.autoAccountRole;
-        if (role == 0) role = 1; // ROLE_PLAYER if no auto-role configured
+        // Portal registrations always create a normal player account (STD =
+        // LOGIN|PLAYER|IGB). autoAccountRole is only used by the game client's
+        // auto-create path; setting it to 0 disables client-side account creation
+        // and must not affect portal registration.
+        int64 role = Acct::Role::STD;
 
         DBerror err;
         uint32 accountID = 0;
         if (!sDatabase.RunQueryLID(err, accountID,
-            "INSERT INTO account (accountName, password, hash, role, type, email) VALUES ('%s', '%s', '', %u, 23, '%s')",
+            "INSERT INTO account (accountName, password, hash, role, type, email) VALUES ('%s', '%s', '', %llu, 23, '%s')",
             nameEsc.c_str(), escapedPass.c_str(), role, emailEsc.c_str()))
             return BuildErrorXML("999", "Failed to create account.");
 
