@@ -3318,6 +3318,45 @@ bool Client::_VerifyLogin(CryptoChallengePacket& ccp)
         }
     }
 
+    // Alpha/Omega (Stage D): an Alpha account may run only ONE client at a time.
+    // If another account is already online from the same IP, refuse the login.
+    // Omega accounts are exempt. Feature-flagged by <subscription Enabled>.
+    if (sConfig.subscription.Enabled) {
+        std::string ip = EVEClientSession::GetAddress();
+        size_t cp = ip.find(':');
+        if (cp != std::string::npos)
+            ip = ip.substr(0, cp);
+        if (!ip.empty() && ip != "0.0.0.0") {
+            int64 premiumUntil = 0;
+            DBQueryResult pr;
+            if (sDatabase.RunQuery(pr, "SELECT premiumUntil FROM account WHERE accountID=%u", aData.id)) {
+                DBResultRow prow;
+                if (pr.GetRow(prow))
+                    premiumUntil = prow.GetInt64(0);
+            }
+            if (premiumUntil <= GetFileTimeNow()) {
+                std::string esc;
+                sDatabase.DoEscapeString(esc, ip);
+                DBQueryResult orr;
+                bool other = false;
+                if (sDatabase.RunQuery(orr,
+                        "SELECT COUNT(DISTINCT c.accountID) FROM chrCharacters c "
+                        "JOIN accountLoginHistory h ON h.accountID = c.accountID "
+                        "WHERE c.online = 1 AND c.accountID <> %u AND h.ip = '%s' "
+                        "AND h.loginTime > NOW() - INTERVAL 30 MINUTE",
+                        aData.id, esc.c_str())) {
+                    DBResultRow orow;
+                    if (orr.GetRow(orow))
+                        other = (orow.GetUInt(0) > 0);
+                }
+                if (other) {
+                    failMsg = "Alpha accounts may run only one client at a time. Close the other client or activate Omega (PLEX).";
+                    return _LoginFail(failMsg);
+                }
+            }
+        }
+    }
+
     /* send our handshake */
     CryptoServerHandshake server_shake;
     //server_shake.context = ??
