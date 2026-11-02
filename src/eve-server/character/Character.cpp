@@ -1059,6 +1059,18 @@ void Character::UpdateSkillQueue() {
 void Character::SkillQueueLoop(bool update/*true*/)
 {
     double begin(GetTimeMSeconds());
+    // Alpha/Omega: free (Alpha) training stops once the total trained SP reaches
+    // the configured cap (FreeSkillPointCap). Skills are not lost - they resume as
+    // soon as the account becomes Omega (or SP are injected).
+    if (sConfig.subscription.Enabled && sConfig.subscription.FreeSkillPointCap > 0
+        && IsAlphaAccount(accountID()) && GetTotalSPTrained() >= sConfig.subscription.FreeSkillPointCap) {
+        if (m_inTraining != nullptr) {
+            _log(SKILL__INFO, "%s(%%u): Alpha SP cap (%%u) reached - training paused.", name(), m_itemID, sConfig.subscription.FreeSkillPointCap);
+            CancelSkillInTraining(update);
+        }
+        return;
+    }
+
     _log(SKILL__QUEUE, "%s(%u) calling SkillQueueLoop() - update %s", name(), m_itemID, update?"true":"false");
 
     // anything to do here?
