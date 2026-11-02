@@ -15,6 +15,18 @@
   - Python 2.7 нужен только для генерации маршала live-update (py3-маршал несовместим).
 - **Открыто/проверить:** андок в Уемоне после фикса билбордов (грид грузится?). При остаточном `Unknown packet type` — включить `DESTINY__SETSTATE_DECODE`/`DESTINY__BALL_DECODE` и поймать конкретный шар.
 
+## 📌 ДОПОЛНЕНИЕ (2 нояб.): подписка Stage A+B, чистка хоста, валидный конфиг
+**Master: `185fdb27` (+`a06e1349`,`c04bbc11`) — пересобрано и запущено. Портал: `569e5ce`.**
+- **Подписка (всё под `<subscription Enabled>` — сейчас `false`):**
+  - **5M SP**: `Character::SkillQueueLoop` — Альфа с `GetTotalSPTrained() >= FreeSkillPointCap` → `CancelSkillInTraining` + return (`a06e1349`).
+  - **Stage B (капиталы/T2)**: серверный backstop в `ShipBound::ActivateShip` — группы сверяются **по ИМЕНИ** (`invGroups.groupName IN ('Titan','Dreadnought','Carrier','Supercarrier','Capital Industrial Ship','Jump Freighter','Industrial Command Ship','Exhumer','Heavy Assault Cruiser','Heavy Interdictor','Logistics','Recon Ship','Marauder','Black Ops','Command Ship','Strategic Cruiser','Interceptor','Assault Frigate','Covert Ops','Stealth Bomber','Force Auxiliary','Command Destroyer')`) → `SendNotifyMsg` + `return nullptr` (`185fdb27`).
+  - **POS — через скиллы** (по совету юзера): из `alphaSkills` удалён **`Anchoring`** (190→189); `Starbase Defense/Management/Fuel Consumption` и все кап/T2-скиллы имеют rank>3 и в список не попадали → заморожены ✅. Отдельный код-гейт для POS не нужен.
+- **Портал**: ссылка **«Подписка»** в навбаре → `/account` (`569e5ce`).
+- **Чистка хоста `.47`** (4.4 ГБ → 1.8 ГБ): конфиг-бэкапы оставлены по 1 (`*.bak_autorole`, `log.ini.bak_gatewarp`), удалены ~11+25 старых бэкапов конфигов/логов, `out.txt`, `wget-log*`, `log.b64`; дампы БД — оставлены 3 последних. ⚠️ `xargs -r sudo rm` в пайпе не сработал — использовать `for`-цикл.
+- **Конфиг `eve-server.xml`**: добавлена секция `<subscription .../>`; **удалён NUL-байт в конце файла** (из-за него `grep` считал файл бинарным, XML формально невалиден) + CRLF→LF; проверено `ET.parse` → **XML OK**. Бэкап `.bak_sub`.
+- **Краш 31 окт**: `core_pattern` = `/app/server_cache/core.%e.%t` (в контейнере `/proc/sys` ro → ставится на хосте; бэкап `/tmp/core_pattern.bak`) — следующий SIGSEGV оставит кор в volume.
+- **Осталось:** Stage D (мультибокс 1 клиент для Альфы), проверить `/account`/PLEX на живом после рестарта, разбор следующего краша `UnloadSystem` по кору.
+
 ## 📌 КРАШ 31 окт. ~22:45 UTC: SIGSEGV при массовой выгрузке систем
 - **Симптом**: батч `SystemManager: UnloadSystem()` (Gyng, Crielere, Rancer, Miroitem, Kassigainen, **Hatakani**) → `Segmentation fault (core dumped)` → контейнер `Exited (139)`, стоял ~9 ч (поднят `docker start server`).
 - **Перед крахом**: `curl: (28) Connection timed out` — это healthcheck из `start.sh` (сервер перестал отвечать/процесс упал).
