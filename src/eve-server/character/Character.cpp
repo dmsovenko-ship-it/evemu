@@ -1065,7 +1065,7 @@ void Character::SkillQueueLoop(bool update/*true*/)
     if (sConfig.subscription.Enabled && sConfig.subscription.FreeSkillPointCap > 0
         && IsAlphaAccount(accountID()) && GetTotalSPTrained() >= sConfig.subscription.FreeSkillPointCap) {
         if (m_inTraining != nullptr) {
-            _log(SKILL__INFO, "%s(%%u): Alpha SP cap (%%u) reached - training paused.", name(), m_itemID, sConfig.subscription.FreeSkillPointCap);
+            _log(SKILL__INFO, "%s(%u): Alpha SP cap (%u) reached - training paused.", name(), m_itemID, sConfig.subscription.FreeSkillPointCap);
             CancelSkillInTraining(update);
         }
         return;
