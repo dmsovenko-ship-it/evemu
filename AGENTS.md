@@ -15,6 +15,13 @@
   - Python 2.7 нужен только для генерации маршала live-update (py3-маршал несовместим).
 - **Открыто/проверить:** андок в Уемоне после фикса билбордов (грид грузится?). При остаточном `Unknown packet type` — включить `DESTINY__SETSTATE_DECODE`/`DESTINY__BALL_DECODE` и поймать конкретный шар.
 
+## 📌 КРАШ 31 окт. ~22:45 UTC: SIGSEGV при массовой выгрузке систем
+- **Симптом**: батч `SystemManager: UnloadSystem()` (Gyng, Crielere, Rancer, Miroitem, Kassigainen, **Hatakani**) → `Segmentation fault (core dumped)` → контейнер `Exited (139)`, стоял ~9 ч (поднят `docker start server`).
+- **Перед крахом**: `curl: (28) Connection timed out` — это healthcheck из `start.sh` (сервер перестал отвечать/процесс упал).
+- **Кор на сегодня НЕТ** (`core_pattern` = apport, ядро в volume не пишется — там только старые от 15–16 окт.). Для разбора включить `core_pattern=/app/server_cache/core.%e.%t` в контейнере и дождаться повтора.
+- **Класс**: известные падения `UnloadSystem` (`f05b6987` — `StationSE::UnloadStation` с null inventory; `866795cf` — `erase(end())` у статиков-ворот). Кандидаты: массовый churn (боты/префетч), Hatakani.
+- **Проверить**: `docker logs server | grep -B5 "Segmentation"`, повторить с кором + `bt`.
+
 ## 📌 ДОПОЛНЕНИЕ (30 окт., вечер): подписка Alpha/Omega — эндпоинты, PLEX, портал, админ-API
 **Master: `d87f0c30` (сборка собрана). Портал: `38fcb70`.**
 - **Серверные эндпоинты (все portal-only через allowlist `APIServer`):**
