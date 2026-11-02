@@ -254,6 +254,36 @@ PyResult ShipBound::ActivateShip(PyCallArgs &call, PyInt* newShipID, std::option
         throw CustomError ("Something bad happened as you prepared to board the ship.  Ref: ServerError 15173+1");
     }
     //ShipMustBeInPersonalHangar
+    // Alpha/Omega: Alpha clones cannot board capital ships or T2 hulls (matched
+    // by group NAME so SDE group-id drift cannot break it).
+    if (sConfig.subscription.Enabled) {
+        DBQueryResult gres;
+        bool restricted = false;
+        const char* q = "SELECT COUNT(*) FROM invGroups WHERE groupID=%u AND groupName IN ("
+            "'Titan','Dreadnought','Carrier','Supercarrier','Capital Industrial Ship','Jump Freighter',"
+            "'Industrial Command Ship','Exhumer','Heavy Assault Cruiser','Heavy Interdictor','Logistics',"
+            "'Recon Ship','Marauder','Black Ops','Command Ship','Strategic Cruiser','Interceptor',"
+            "'Assault Frigate','Covert Ops','Stealth Bomber','Force Auxiliary','Command Destroyer')";
+        if (sDatabase.RunQuery(gres, q, newShipRef->groupID())) {
+            DBResultRow grow;
+            if (gres.GetRow(grow))
+                restricted = (grow.GetUInt(0) > 0);
+        }
+        if (restricted) {
+            DBQueryResult pres;
+            int64 premiumUntil = 0;
+            if (sDatabase.RunQuery(pres, "SELECT premiumUntil FROM account WHERE accountID=%u", pClient->GetUserID())) {
+                DBResultRow prow;
+                if (pres.GetRow(prow))
+                    premiumUntil = prow.GetInt64(0);
+            }
+            if (premiumUntil <= GetFileTimeNow()) {
+                pClient->SendNotifyMsg("Alpha clone cannot pilot this ship. An Omega subscription (PLEX) is required.");
+                return nullptr;
+            }
+        }
+    }
+
 
     pClient->BoardShip(newShipRef);
 
