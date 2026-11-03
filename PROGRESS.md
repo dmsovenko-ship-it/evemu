@@ -34,16 +34,6 @@
 
 ---
 
-
-### Session 3 Nov
-
-- **Killboard/portal API**: public character/corp/alliance sheets, killmails, market, sov, petitions, news (portal is API-only).
-- **Corp/alliance images**: image server serves generated/cached logos (sotzone/dotlan/evepc sources) in `image_cache`.
-- **Station billboards**: server-side ad/news/wanted broadcast, refreshed on a timer.
-- **Live updates**: server data globals delivered at handshake (no client changes).
-- **Premium (Alpha/Omega)**: Alpha skill/SP limits, PLEX activation, capital/T2 restriction, portal status page.
-- Fixes: drone final blow attribution (bot pilot, not drone/corp), corp page lowercase API fields, `/battles` authority filter.
-
 ## Details / Детали
 
 > ✅ done · 🟡 partial · ❌ not implemented · **bold** = significantly improved vs upstream
