@@ -95,7 +95,7 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
         "SELECT t.typeID FROM invTypes t JOIN invGroups g ON g.groupID = t.groupID"
-        " WHERE g.categoryID = 30 AND t.published = 1 AND t.typeName NOT LIKE '%"%' ORDER BY t.typeID"))
+        " WHERE g.categoryID = 30 AND t.published = 1 AND t.typeName NOT LIKE CONCAT('%', CHAR(34), '%') ORDER BY t.typeID"))
     {
         DBResultRow row;
         uint32 offerID = 0;
@@ -151,7 +151,7 @@ PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyI
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT t.typeID FROM invTypes t JOIN invGroups g ON g.groupID = t.groupID"
-        " WHERE g.categoryID = 30 AND t.published = 1 AND t.typeName NOT LIKE '%"%' ORDER BY t.typeID LIMIT %u, 1", offerID - 1))
+        " WHERE g.categoryID = 30 AND t.published = 1 AND t.typeName NOT LIKE CONCAT('%', CHAR(34), '%') ORDER BY t.typeID LIMIT %u, 1", offerID - 1))
         throw UserError("VStoreNotAvailable");
 
     DBResultRow row;
