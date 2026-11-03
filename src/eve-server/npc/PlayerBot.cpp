@@ -163,6 +163,24 @@ static bool IsRussianName(const std::string& name) {
     return false;
 }
 
+
+// Drones have no Client; resolve the bot pilot from the drone's item ownerID
+// (the home-ship pointer may already be cleared when the drone's kill lands).
+static uint32 BotCharIDByDroneOwnerLocal(uint32 owner)
+{
+    if (owner == 0) return 0;
+    for (auto& [sysID, sm] : sEntityList.GetSystems()) {
+        if (sm == nullptr) continue;
+        for (auto& [id, se] : sm->GetEntities()) {
+            if (se == nullptr || se->GetNPCSE() == nullptr) continue;
+            PlayerBot* pb = dynamic_cast<PlayerBot*>(se->GetNPCSE());
+            if (pb == nullptr) continue;
+            if (pb->GetBotCharID() == owner || pb->GetID() == owner) return pb->GetBotCharID();
+        }
+    }
+    return 0;
+}
+
 PlayerBot::PlayerBot(InventoryItemRef self, EVEServiceManager& services, SystemManager* system, const FactionData& data, uint32 charID, std::string charName, uint32 corpID, uint32 allianceID)
 : NPC(self, services, system, data, nullptr),
   m_botCharID(charID),
@@ -921,7 +939,9 @@ void PlayerBot::RecordBotKillMail(Damage& fatal_blow)
                     killerID = killerBot->GetBotCharID();
             }
             if (killerID == 0)
-                killerID = killer->GetCorporationID();
+                killerID = BotCharIDByDroneOwnerLocal(killer->GetOwnerID());
+            if (killerID == 0)
+                                        killerID = killer->GetCorporationID();
         }
     } else {
         // Another chelobot (PlayerBot is an NPC SE — no pilot, no drone): report
