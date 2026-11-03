@@ -1237,7 +1237,10 @@ PyRep *CharacterDB::GetCharPublicInfo(uint32 characterID) {
         "  ch.gender,"
         "  ch.characterID,"
         "  ch.description,"
-        "  ch.startDateTime"
+        "  ch.startDateTime",
+        "  (SELECT CASE WHEN a.premiumUntil > (UNIX_TIMESTAMP()+11644473600)*10000000 "
+        "    THEN FLOOR((a.premiumUntil - (UNIX_TIMESTAMP()+11644473600)*10000000)/864000000000) ELSE 0 END "
+        "    FROM account a WHERE a.accountID = ch.accountID) AS daysLeft"
         " FROM chrCharacters AS ch"
         "  LEFT JOIN chrSchools AS cs USING (schoolID) "
         " WHERE ch.characterID=%u", characterID))
