@@ -251,5 +251,5 @@ PyResult UserService::ApplyPilotLicence(PyCallArgs& call, PyInt* itemID)
     // The alpha flag cache in Character.cpp re-reads premiumUntil on a 60s TTL.
 
     client->SendNotifyMsg("30 Day Pilot's License Extension activated - account is now Omega for %u days.", days);
-    return PyInt::New(days);
+    return new PyInt((int)days);
 }
