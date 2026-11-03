@@ -86,7 +86,9 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
 {
     _log(SERVICE__MESSAGE, "StoreServerService::Handle_GetAvailableOffers()", "size=%lu", call.tuple->size());
 
-    // full published Apparel catalog (category 30) - the client filters/labels it itself
+    // Client expects a FLAT dict {offerID: KeyVal{ typeID, numberOffered, bpME,
+    // bpPE, bpRuns, genderRestrictions, price }} - PopulateOfferScroll() reads
+    // those attributes straight off the offer object.
     PyDict* offers = new PyDict();
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
@@ -100,7 +102,13 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
             uint32 typeID = row.GetUInt(0);
             uint32 price = PriceForType(typeID);
             PyDict* offer = new PyDict();
-                offer->SetItemString("goods", BuildGoodsList(typeID, 1, price));
+                offer->SetItemString("typeID", new PyInt(typeID));
+                offer->SetItemString("numberOffered", new PyInt(1));
+                offer->SetItemString("bpME", new PyInt(0));
+                offer->SetItemString("bpPE", new PyInt(0));
+                offer->SetItemString("bpRuns", new PyInt(0));
+                offer->SetItemString("genderRestrictions", new PyInt(0));   // unisex
+                offer->SetItemString("price", new PyInt(price));
             offers->SetItem(new PyInt(offerID), new PyObject("util.KeyVal", offer));
         }
     }
