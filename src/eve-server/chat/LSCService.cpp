@@ -1047,7 +1047,7 @@ void LSCService::CreateStaticChannels() {
     str.str("");
     str << "<br><color=0xffffffff>Welcome to this</color> <color=0xff00ffff>Content</color><color=0xffffffff> channel.<br><br>";
     str << "This channel is intended for those players looking to discuss the various items as referenced in the channel title.</color>";
-    CreateChannel(60, 1, "Incursions", str.str().c_str(), nullptr, "incursions", LSC::Type::normal, cspa, 263328, -1/*263289*/, true);
+    CreateChannel(60, 1, "Incursions", str.str().c_str(), nullptr, "incursions", LSC::Type::incursion, cspa, 263328, -1/*263289*/, true);
     CreateChannel(61, 1, "Ratting", str.str().c_str(), nullptr, "ratting", LSC::Type::normal, cspa, 263328, -1/*263338*/, true);
     CreateChannel(62, 1, "Scanning", str.str().c_str(), nullptr, "scanning", LSC::Type::normal, cspa, 263328, -1/*263339*/, true);
     CreateChannel(63, 1, "Wormholes", str.str().c_str(), nullptr, "wormholes", LSC::Type::normal, cspa, 263328, -1/*263340*/, true);
