@@ -34,7 +34,7 @@ public:
 
 protected:
     PyResult GetAvailableOffers(PyCallArgs& call);
-    PyResult AcceptOffer(PyCallArgs& call);
+    PyResult AcceptOffer(PyCallArgs& call, PyInt* offerID, PyInt* quantity);
 
 private:
     static uint32 PriceForType(uint32 typeID);

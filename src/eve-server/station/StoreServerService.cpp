@@ -123,9 +123,7 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
                     d->SetItemString("amount", new PyInt(price));
                 goods->AddItem(new PyObject("util.KeyVal", d));
             }
-            PyDict* offer = new PyDict();
-                offer->SetItemString("goods", goods);
-            offers->SetItem(new PyInt(offerID), new PyObject("util.KeyVal", offer));
+            offers->SetItem(new PyInt(offerID), new PyObject("util.KeyVal", goods));
         }
     }
 
@@ -133,20 +131,15 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
     return offers;
 }
 
-PyResult StoreServerService::AcceptOffer(PyCallArgs& call)
+PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyInt* qtyIn)
 {
     _log(SERVICE__MESSAGE, "StoreServerService::Handle_AcceptOffer()", "size=%lu", call.tuple->size());
 
     if (call.tuple->size() < 2)
         throw UserError("VStoreNotAvailable");
 
-    PyRep* offerRep = call.tuple->GetItem(0);
-    PyRep* qtyRep = call.tuple->GetItem(1);
-    if (offerRep == nullptr || qtyRep == nullptr)
-        throw UserError("VStoreNotAvailable");
-
-    uint32 offerID = offerRep->IsInt() ? (uint32)(offerRep->AsInt()->value()) : 0;
-    uint32 quantity = qtyRep->IsInt() ? (uint32)(qtyRep->AsInt()->value()) : 0;
+    uint32 offerID = (offerIDIn != nullptr) ? (uint32)offerIDIn->value() : 0;
+    uint32 quantity = (qtyIn != nullptr) ? (uint32)qtyIn->value() : 0;
     if (offerID == 0 || quantity == 0 || quantity > 10)
         throw UserError("VStoreNotAvailable");
 
