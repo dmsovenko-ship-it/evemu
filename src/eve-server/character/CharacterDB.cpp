@@ -1199,7 +1199,7 @@ PyRep *CharacterDB::GetCharSelectInfo(uint32 characterID) {
         "  title, "
         "  balance, "
         "  aurBalance, "
-        "  15 AS daysLeft, "    /* this calls a subscription renewal warning on char select screen (see pic in gallery) when <= 10 */
+        "  (SELECT CASE WHEN a.premiumUntil > (UNIX_TIMESTAMP()+11644473600)*10000000 THEN FLOOR((a.premiumUntil - (UNIX_TIMESTAMP()+11644473600)*10000000)/864000000000) ELSE 0 END FROM account a WHERE a.accountID = chrCharacters.accountID) AS daysLeft, "    /* days until premium expiry; 0 = alpha/"Fine", <=10 shows renewal warning */
         "  30 AS userType,"     /* 23 is trial acct.  30 is normal */
         "  paperDollState"      // used for re-customization.  see paperDollState:: in packet_types.h
         " FROM chrCharacters"
