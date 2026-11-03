@@ -1,4 +1,6 @@
 #include "eve-server.h"
+#include "inventory/ItemFactory.h"
+#include "inventory/InventoryItem.h"
 #include "apiserver/APIAdminManager.h"
 #include "apiserver/APIServiceManager.h"
 #include "TelegramBot.h"
