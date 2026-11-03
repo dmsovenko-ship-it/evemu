@@ -1088,14 +1088,14 @@ std::string APIAdminManager::ProcessItems(const std::string& handler,
 
         uint32 locationID = row.GetUInt(0);
 
-        // create the item in the character's hangar (flag 5 = Hangar)
-        DBerror err;
-        uint32 itemID = 0;
-        if (!sDatabase.RunQueryLID(err, itemID,
-            "INSERT INTO entity (typeID, ownerID, locationID, flag, quantity, customName) "
-            "VALUES (%u, %u, %u, 5, %u, '')",
-            typeID, charID, locationID, quantity))
+        // create the item in the character's hangar (flag 4 = Hangar)
+        ItemData idata(typeID, charID, locationID, flagHangar, "", GPoint(0.0, 0.0, 0.0));
+        idata.quantity = quantity;
+        idata.singleton = (quantity == 1) ? 1 : 0;
+        InventoryItemRef iref = sItemFactory.SpawnItem(idata);
+        if (iref.get() == nullptr)
             return BuildErrorXML("999", "Failed to create item.");
+        uint32 itemID = iref->itemID();
 
         std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
         xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
