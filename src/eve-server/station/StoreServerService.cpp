@@ -86,9 +86,11 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
 {
     _log(SERVICE__MESSAGE, "StoreServerService::Handle_GetAvailableOffers()", "size=%lu", call.tuple->size());
 
-    // Client expects a FLAT dict {offerID: KeyVal{ typeID, numberOffered, bpME,
-    // bpPE, bpRuns, genderRestrictions, price }} - PopulateOfferScroll() reads
-    // those attributes straight off the offer object.
+    // Client storesvc.GetPreparedOffers() unpacks: offerInfo.goods = [items];
+    // exactly ONE item.offered=true with argumentType=GOODTYPE_EVETYPEID(2),
+    // plus price items argumentType=GOODTYPE_CREDITS(1) whose argumentValue is
+    // a currency TYPEID: const.creditsISK is rejected (corruptOffer),
+    // const.creditsAURUM (Aurum Token typeID 2833) sums item.amount into price.
     PyDict* offers = new PyDict();
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
@@ -101,14 +103,28 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
             ++offerID;
             uint32 typeID = row.GetUInt(0);
             uint32 price = PriceForType(typeID);
+            PyList* goods = new PyList();
+            {
+                PyDict* d = new PyDict();
+                    d->SetItemString("offered", new PyBool(true));
+                    d->SetItemString("argumentType", new PyInt(2));             // GOODTYPE_EVETYPEID
+                    d->SetItemString("argumentValue", new PyInt(typeID));
+                    d->SetItemString("amount", new PyInt(1));
+                    d->SetItemString("details1", new PyInt(0));                 // bpME
+                    d->SetItemString("details2", new PyInt(0));                 // bpPE
+                    d->SetItemString("details3", new PyInt(0));                 // bpRuns
+                goods->AddItem(new PyObject("util.KeyVal", d));
+            }
+            {
+                PyDict* d = new PyDict();
+                    d->SetItemString("offered", new PyBool(false));
+                    d->SetItemString("argumentType", new PyInt(1));             // GOODTYPE_CREDITS
+                    d->SetItemString("argumentValue", new PyInt(2833));         // const.creditsAURUM (Aurum Token typeID)
+                    d->SetItemString("amount", new PyInt(price));
+                goods->AddItem(new PyObject("util.KeyVal", d));
+            }
             PyDict* offer = new PyDict();
-                offer->SetItemString("typeID", new PyInt(typeID));
-                offer->SetItemString("numberOffered", new PyInt(1));
-                offer->SetItemString("bpME", new PyInt(0));
-                offer->SetItemString("bpPE", new PyInt(0));
-                offer->SetItemString("bpRuns", new PyInt(0));
-                offer->SetItemString("genderRestrictions", new PyInt(0));   // unisex
-                offer->SetItemString("price", new PyInt(price));
+                offer->SetItemString("goods", goods);
             offers->SetItem(new PyInt(offerID), new PyObject("util.KeyVal", offer));
         }
     }
