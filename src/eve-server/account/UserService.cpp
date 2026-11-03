@@ -27,6 +27,8 @@
 
 
 #include "account/UserService.h"
+#include "inventory/ItemFactory.h"
+#include "inventory/InventoryItem.h"
 #include "services/ServiceManager.h"
 
 MovementService::MovementService(EVEServiceManager *mgr) :
@@ -236,7 +238,13 @@ PyResult UserService::ApplyPilotLicence(PyCallArgs& call, PyInt* itemID)
     if (accountID == 0)
         return nullptr;
 
-    // Consume the PLEX
+    // Consume the PLEX: delete the in-memory item (this also removes it from the
+    // container + emits the inventory update the client needs), then SQL as a
+    // safety net if the item was not loaded in this process.
+    InventoryItemRef plexRef = sItemFactory.GetItem(plexID);
+    if (plexRef.get() != nullptr) {
+        plexRef->Delete();
+    }
     DBerror err;
     sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID=%u", plexID);
     sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID=%u", plexID);
