@@ -241,7 +241,7 @@ PyResult UserService::ApplyPilotLicence(PyCallArgs& call, PyInt* itemID)
     // Consume the PLEX: delete the in-memory item (this also removes it from the
     // container + emits the inventory update the client needs), then SQL as a
     // safety net if the item was not loaded in this process.
-    InventoryItemRef plexRef = sItemFactory.GetItem(plexID);
+    InventoryItemRef plexRef = sItemFactory.GetItemRef(plexID);
     if (plexRef.get() != nullptr) {
         plexRef->Delete();
     }
