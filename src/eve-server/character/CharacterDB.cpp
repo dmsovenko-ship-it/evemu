@@ -1210,10 +1210,7 @@ PyRep *CharacterDB::GetCharSelectInfo(uint32 characterID) {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
         return nullptr;
     }
-    DBResultRow row;
-    if (!res.GetRow(row))
-        return nullptr;
-    return DBRowToPackedRow(row);
+    return DBResultToCRowset(res);
 }
 
 PyRep *CharacterDB::GetCharPublicInfo(uint32 characterID) {
