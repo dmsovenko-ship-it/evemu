@@ -58,6 +58,9 @@
 | **PvE Expeditions** — escalation chains (3/10→10/10), faction-specific DED sites, Journal tracking | **Экспедиции** — эскалации, фракционные DED-сайты, трекинг в журнале |
 | **W-space / Sleepers** — SleeperAI (remote rep, energy neut, capital escalation), combat sites by WH class, **full site set (combat/data/relic/ore/gas)** | **W-space / Слиперы** — SleeperAI, боевые сайты по классу ВХ, **полный набор сайтов (бой/дата/релик/руда/газ)** |
 | **Scanning** — probes, cosmic signatures, anomalies, directional scan | **Сканирование** — пробы, сигнатуры, аномалии, D-scan |
+| **Killboard & portal API** — public character/corp/alliance sheets, killmails, market, sovereignty, petitions, news (the portal reads only the API) | **Киллборд и API портала** — публичные листы персонажа/корпорации/альянса, киллмейлы, рынок, суверенитет, петиции, новости (портал читает только API) |
+| **Live updates & billboards** — server data globals delivered at handshake; station billboard refresh (ads/news/wanted) | **Live-обновления и биллборды** — серверные data-globals при handshake; обновление станционного биллборда (реклама/новости/розыск) |
+| **Premium (Alpha/Omega)** — skill/SP limits for Alpha, PLEX activation, capital/T2 ship restrictions for Alpha; portal status page | **Премиум (Alpha/Omega)** — лимиты скиллов/SP для Alpha, активация PLEX, ограничения на капиталы/T2 для Alpha; страница статуса на портале |
 | **Fleet** — fleet warp, boosts, warfare links, specialist skills | **Флот** — флот-варп, бусты, warfare-линки, скиллы |
 | **Incursions** — state machine, wave spawning, contest rewards, **scanner-safe sites, Sansha remap for client rendering** | **Инкурсии** — стейт-машина, волновой спавн, contest награды, **сайты совместимы со сканером, ремап Саньши для клиента** |
 | **GM commands** — spawn, dogma, giveallskills, kick, ban, teleport | **GM команды** — спавн, догма, скиллы, кик, бан, телепорт |
