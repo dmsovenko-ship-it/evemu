@@ -49,8 +49,20 @@ StoreServerService::StoreServerService()
 
 uint32 StoreServerService::PriceForType(uint32 typeID)
 {
-    // deterministic per-type price in AUR, stable across boots
-    return 500 + (typeID % 24) * 250;
+    // officer (metaGroup 5) catalog: price derived from the item's basePrice.
+    // AUR is a premium currency, so x50 with a 1,000,000 floor keeps the shelf
+    // meaningful but not absurd; stable across boots (no RNG).
+    DBQueryResult res;
+    double base = 0.0;
+    if (sDatabase.RunQuery(res, "SELECT basePrice FROM invTypes WHERE typeID = %u", typeID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            base = row.GetDouble(0);
+    }
+    double price = base * 50.0;
+    if (price < 1000000.0)
+        price = 1000000.0;
+    return (uint32)price;
 }
 
 PyRep* StoreServerService::BuildGoodsList(uint32 typeID, uint32 quantity, uint32 price)
@@ -90,8 +102,8 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
     PyDict* offers = new PyDict();
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
-        "SELECT t.typeID FROM invTypes t JOIN invGroups g ON g.groupID = t.groupID"
-        " WHERE g.categoryID = 30 AND t.published = 1 ORDER BY t.typeID"))
+        "SELECT t.typeID FROM invMetaTypes m JOIN invTypes t ON t.typeID = m.typeID"
+        " WHERE m.metaGroupID = 5 AND t.published = 1 ORDER BY t.typeID"))
     {
         DBResultRow row;
         uint32 offerID = 0;
@@ -133,8 +145,8 @@ PyResult StoreServerService::AcceptOffer(PyCallArgs& call)
     // resolve the offer back to a typeID from the same deterministic catalog
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-        "SELECT t.typeID FROM invTypes t JOIN invGroups g ON g.groupID = t.groupID"
-        " WHERE g.categoryID = 30 AND t.published = 1 ORDER BY t.typeID LIMIT %u, 1", offerID - 1))
+        "SELECT t.typeID FROM invMetaTypes m JOIN invTypes t ON t.typeID = m.typeID"
+        " WHERE m.metaGroupID = 5 AND t.published = 1 ORDER BY t.typeID LIMIT %u, 1", offerID - 1))
         throw UserError("VStoreNotAvailable");
 
     DBResultRow row;
