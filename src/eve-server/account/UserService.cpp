@@ -201,9 +201,55 @@ PyResult UserService::ReportBot(PyCallArgs& call, PyInt* itemID)
 
 PyResult UserService::ApplyPilotLicence(PyCallArgs& call, PyInt* itemID)
 {
-    //sm.RemoteSvc('userSvc').ApplyPilotLicence(itemID, justQuery=True)
-    sLog.Yellow( "UserService", "Handle_ApplyPilotLicence" );
+    sLog.Yellow("UserService", "Handle_ApplyPilotLicence");
     call.Dump(CHARACTER__DEBUG);
 
-    return nullptr;
+    uint32 plexID = (itemID != nullptr) ? (uint32)itemID->value() : 0;
+    if (plexID == 0)
+        return nullptr;
+
+    Client* client = call.client;
+    if (client == nullptr)
+        return nullptr;
+    uint32 charID = client->GetCharacterID();
+    if (charID == 0)
+        return nullptr;
+
+    // The PLEX must be a real item owned by this character (hangar flag 4 or cargo flag 5)
+    DBQueryResult pres;
+    if (!sDatabase.RunQuery(pres,
+            "SELECT itemID FROM entity WHERE itemID=%u AND ownerID=%u AND typeID=29668 AND quantity>0 LIMIT 1",
+            plexID, charID))
+        return nullptr;
+    DBResultRow prow;
+    if (!pres.GetRow(prow))
+        return nullptr;   // not a PLEX / not ours
+
+    // Resolve the account
+    uint32 accountID = 0;
+    DBQueryResult ares;
+    if (sDatabase.RunQuery(ares, "SELECT accountID FROM chrCharacters WHERE characterID=%u", charID)) {
+        DBResultRow arow;
+        if (ares.GetRow(arow))
+            accountID = arow.GetUInt(0);
+    }
+    if (accountID == 0)
+        return nullptr;
+
+    // Consume the PLEX
+    DBerror err;
+    sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID=%u", plexID);
+    sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID=%u", plexID);
+
+    // Extend the subscription (same math as the portal's char/ActivatePlex)
+    uint32 days = (sConfig.subscription.PremiumDays > 0 ? sConfig.subscription.PremiumDays : 30);
+    int64 add = (int64)days * 86400LL * 10000000LL;
+    sDatabase.RunQuery(err,
+        "UPDATE account SET premiumUntil = GREATEST(premiumUntil, (UNIX_TIMESTAMP()+11644473600)*10000000) + %lld WHERE accountID=%u",
+        add, accountID);
+
+    // The alpha flag cache in Character.cpp re-reads premiumUntil on a 60s TTL.
+
+    client->SendNotifyMsg("30 Day Pilot's License Extension activated - account is now Omega for %u days.", days);
+    return PyInt::New(days);
 }
