@@ -16,6 +16,7 @@ enum EVEItemFlags {
     // flagFactory                     = 2,  // not in client
     flagWardrobe                    = 3,  // dunno what this is for  clothes?
     flagHangar                      = 4,  // station hangar and ship corp hangar 1
+    flagRedeemQueue                 = 211, // EVEmu: purchased/granted PLEX waiting in the redeem queue (not rendered in hangar windows)
     flagCargoHold                   = 5,    //AttrCapacity
     flagBriefcase                   = 6,  // dunno what this is for
     flagSkill                       = 7,

@@ -101,7 +101,7 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         // find one PLEX (29668) in the character hangar
         DBQueryResult pres;
         if (!sDatabase.RunQuery(pres,
-                "SELECT itemID FROM entity WHERE ownerID=%u AND typeID=29668 AND flag=4 AND quantity>0 LIMIT 1", characterID))
+                "SELECT itemID FROM entity WHERE ownerID=%u AND typeID=29668 AND flag IN (4, 211) AND quantity>0 LIMIT 1", characterID))
             return BuildErrorXML("999", "Query failed.");
         DBResultRow prow;
         if (!pres.GetRow(prow))

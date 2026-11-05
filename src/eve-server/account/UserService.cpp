@@ -71,7 +71,7 @@ PyResult UserService::GetRedeemTokens(PyCallArgs& call)
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
         "SELECT itemID, quantity FROM entity WHERE ownerID = %u AND typeID = 29668"
-        " AND flag = 4 AND locationID = %u",
+        " AND flag = 211 AND locationID = %u",
         pClient->GetCharacterID(), pClient->GetStationID()))
         return list;
     DBResultRow row;
