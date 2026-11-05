@@ -129,10 +129,8 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
                     d->SetItemString("amount", new PyInt(price));
                 goods->AddItem(new PyObject("util.KeyVal", d));
             }
-            PyDict* offerWrap = new PyDict();
-                offerWrap->SetItemString("goods", goods);
             PyDict* offer = new PyDict();
-                offer->SetItemString("goods", new PyObject("util.KeyVal", offerWrap));
+                offer->SetItemString("goods", goods);
             offers->SetItem(new PyInt(offerID), new PyObject("util.KeyVal", offer));
         }
     }
