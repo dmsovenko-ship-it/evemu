@@ -209,6 +209,7 @@ PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyI
     // (charging before spawn refunded nothing when spawn failed)
     ItemData idata(typeID, pClient->GetCharacterID(), pClient->GetStationID(), flagHangar, "", GPoint(0.0, 0.0, 0.0));
     idata.quantity = quantity;
+    idata.singleton = 1;   // apparel (cat 30) items are singleton clothing pieces
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
     if (iRef.get() == nullptr) {
         sLog.Error("AcceptOffer gate", "SpawnItem failed: type=%u owner=%u station=%u qty=%u", typeID, pClient->GetCharacterID(), pClient->GetStationID(), quantity);
