@@ -42,7 +42,7 @@
 #include "account/AccountService.h"
 #include "station/StoreServerService.h"
 
-extern const uint32 NEX_PAYEE_ID;
+static const uint32 NEX_PAYEE_ID = 1000001;   // CONCORD sink (same as StoreServerService)
 
 InvBrokerService::InvBrokerService(EVEServiceManager &mgr) :
     BindableService("invbroker", mgr)
