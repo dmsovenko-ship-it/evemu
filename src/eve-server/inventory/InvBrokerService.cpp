@@ -551,3 +551,54 @@ PyResult InvBrokerBound::DeliverToCorpMember(PyCallArgs &call, PyInt* corporatio
 
     return nullptr;
 }
+
+PyResult InvBrokerBound::ConvertPlexToCurrency(PyCallArgs& call, PyList* plexIDs, PyInt* quantity)
+{
+    // vitrine SellPlex: client sends the PLEX itemIDs it wants to exchange
+    uint32 qty = (quantity != nullptr) ? (uint32)quantity->value() : 0;
+    if (plexIDs == nullptr || qty == 0)
+        throw UserError("VStoreNotAvailable");
+
+    Client* pClient = call.client;
+    if (pClient == nullptr)
+        throw UserError("VStoreNotAvailable");
+
+    int64 totalAUR = 0;
+    uint32 converted = 0;
+    DBerror err;
+    for (size_t i = 0; i < plexIDs->size(); ++i) {
+        PyRep* r = plexIDs->GetItem(i);
+        if (r == nullptr || !(r)->IsInt())
+            continue;
+        uint32 itemID = (uint32)(r)->AsInt()->value();
+        InventoryItemRef plex = sItemFactory.GetItemRef(itemID);
+        if (plex.get() == nullptr)
+            continue;
+        if (plex->typeID() != 29668 || plex->ownerID() != pClient->GetCharacterID())
+            continue;
+        if (converted >= qty)
+            break;
+        plex->Delete();
+        ++converted;
+        totalAUR += 3500;   // Crucible Plex2AurExchangeRatio
+    }
+    if (converted == 0)
+        throw UserError("RedeemNoTokens");
+
+    // credit AUR wallet and notify client wallet
+    double newBal = 0.0;
+    AccountService::TransferFunds(
+        NEX_PAYEE_ID,
+        pClient->GetCharacterID(),
+        (double)totalAUR,
+        "PLEX exchange",
+        Journal::EntryType::StorePurchase,
+        29668,
+        Account::KeyType::Cash,
+        Account::KeyType::AUR,
+        pClient
+    );
+    newBal = pClient->GetBalance(Account::CreditType::AURUM);
+    pClient->SendNotifyMsg("PLEX x%u exchanged for %llu AURUM. New balance: %s", converted, (unsigned long long)totalAUR, "");
+    return new PyFloat(newBal);
+}
