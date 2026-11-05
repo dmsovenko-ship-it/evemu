@@ -16,6 +16,7 @@
 #include "eve-server.h"
 
 #include "station/StoreServerService.h"
+#include "cache/ObjCacheService.h"
 #include "account/AccountService.h"
 
 /*
@@ -45,6 +46,7 @@ StoreServerService::StoreServerService()
 {
     this->Add("GetAvailableOffers", &StoreServerService::GetAvailableOffers);
     this->Add("AcceptOffer", &StoreServerService::AcceptOffer);
+    this->m_cache = m_manager.Lookup <ObjCacheService>("objectCaching");
 }
 
 uint32 StoreServerService::PriceForType(uint32 typeID)
@@ -91,6 +93,8 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
     // plus price items argumentType=GOODTYPE_CREDITS(1) whose argumentValue is
     // a currency TYPEID: const.creditsISK is rejected (corruptOffer),
     // const.creditsAURUM (Aurum Token typeID 2833) sums item.amount into price.
+    ObjectCachedMethodID method_id(GetName().c_str(), "GetAvailableOffers");
+    if (!this->m_cache->IsCacheLoaded(method_id)) {
     PyDict* offers = new PyDict();
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
@@ -128,7 +132,10 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
     }
 
     _log(SERVICE__MESSAGE, "StoreServerService::Handle_GetAvailableOffers()", "returning %u offers", offers->size());
-    return offers;
+    PyRep* result = offers;
+    this->m_cache->GiveCache(method_id, &result);
+    }
+    return(this->m_cache->MakeObjectCachedMethodCallResult(method_id));
 }
 
 PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyInt* qtyIn)

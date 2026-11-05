@@ -26,6 +26,8 @@
  * through storeServer.AcceptOffer(offerID, quantity): we charge the character's
  * AUR wallet and deliver the item into the station hangar.
  */
+class ObjCacheService;
+
 class StoreServerService : public Service<StoreServerService>
 {
 public:
@@ -37,6 +39,7 @@ protected:
     PyResult AcceptOffer(PyCallArgs& call, PyInt* offerID, PyInt* quantity);
 
 private:
+    ObjCacheService* m_cache;
     static uint32 PriceForType(uint32 typeID);
     static PyRep* BuildGoodsList(uint32 typeID, uint32 quantity, uint32 price);
 };
