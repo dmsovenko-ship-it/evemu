@@ -41,12 +41,13 @@
 
 const uint32 NEX_PAYEE_ID = 1000001;   // CONCORD NPC corp - TransferFunds does nothing on this side (payee sink)
 
-StoreServerService::StoreServerService()
+StoreServerService::StoreServerService(EVEServiceManager& mgr)
 : Service("storeServer", eAccessLevel_Character)
+, m_manager(mgr)
 {
     this->Add("GetAvailableOffers", &StoreServerService::GetAvailableOffers);
     this->Add("AcceptOffer", &StoreServerService::AcceptOffer);
-    this->m_cache = this->GetServiceManager().Lookup <ObjCacheService>("objectCaching");
+    this->m_cache = m_manager.Lookup <ObjCacheService>("objectCaching");
 }
 
 uint32 StoreServerService::PriceForType(uint32 typeID)

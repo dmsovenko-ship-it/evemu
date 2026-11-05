@@ -765,7 +765,7 @@ int main( int argc, char* argv[] )
     newSvcMgr.Register(new ClientStatsMgr());
     newSvcMgr.Register(new ReprocessingService(newSvcMgr));
     newSvcMgr.Register(new HoloscreenMgrService());
-    newSvcMgr.Register(new StoreServerService());
+    newSvcMgr.Register(new StoreServerService(newSvcMgr));
     newSvcMgr.Register(new Standing());
     newSvcMgr.Register(new TutorialService());
     newSvcMgr.Register(new TutorialLocationService());
