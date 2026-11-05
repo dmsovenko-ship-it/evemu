@@ -39,6 +39,10 @@
 #include "station/StationOffice.h"
 #include "system/SystemManager.h"
 #include "services/ServiceManager.h"
+#include "account/AccountService.h"
+#include "station/StoreServerService.h"
+
+extern const uint32 NEX_PAYEE_ID;
 
 InvBrokerService::InvBrokerService(EVEServiceManager &mgr) :
     BindableService("invbroker", mgr)
