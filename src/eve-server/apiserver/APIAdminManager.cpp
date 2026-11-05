@@ -1091,7 +1091,8 @@ std::string APIAdminManager::ProcessItems(const std::string& handler,
         uint32 locationID = row.GetUInt(0);
 
         // create the item in the character's hangar (flag 4 = Hangar)
-        ItemData idata(typeID, charID, locationID, flagHangar, "", GPoint(0.0, 0.0, 0.0));
+uint16 spawnFlag = (typeID == 29668) ? flagRedeemQueue : flagHangar;
+                ItemData idata(typeID, charID, locationID, spawnFlag, "", GPoint(0.0, 0.0, 0.0));
         idata.quantity = quantity;
         idata.singleton = (quantity == 1) ? 1 : 0;
         InventoryItemRef iref = sItemFactory.SpawnItem(idata);
