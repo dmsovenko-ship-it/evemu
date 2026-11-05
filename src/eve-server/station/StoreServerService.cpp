@@ -125,41 +125,12 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
                 PyDict* d = new PyDict();
                     d->SetItemString("offered", new PyBool(false));
                     d->SetItemString("argumentType", new PyInt(1));             // GOODTYPE_CREDITS
-                    d->SetItemString("argumentValue", new PyInt(2));              // const.creditsAURUM (probe-confirmed: price=base*1)
+                    d->SetItemString("argumentValue", new PyInt(1));              // const.creditsAURUM (probe-confirmed via item 1)
                     d->SetItemString("amount", new PyInt(price));
                 goods->AddItem(new PyObject("util.KeyVal", d));
             }
-            int probeVal = 0;
-            if (offerID == 1) probeVal = 1;      // currency probes: exactly one
-            else if (offerID == 2) probeVal = 3; // of these is creditsAURUM
-            else if (offerID == 3) probeVal = 4;
-            else if (offerID == 4) probeVal = 5;
-            else if (offerID == 5) probeVal = 6;
-            if (probeVal != 0) {
-                PyList* probe = new PyList();
-                {
-                    PyDict* d = new PyDict();
-                        d->SetItemString("offered", new PyBool(true));
-                        d->SetItemString("argumentType", new PyInt(2));
-                        d->SetItemString("argumentValue", new PyInt(typeID));
-                        d->SetItemString("amount", new PyInt(1));
-                        d->SetItemString("details1", new PyInt(0));
-                        d->SetItemString("details2", new PyInt(0));
-                        d->SetItemString("details3", new PyInt(0));
-                    probe->AddItem(new PyObject("util.KeyVal", d));
-                }
-                {
-                    PyDict* d = new PyDict();
-                        d->SetItemString("offered", new PyBool(false));
-                        d->SetItemString("argumentType", new PyInt(1));
-                        d->SetItemString("argumentValue", new PyInt(probeVal));
-                        d->SetItemString("amount", new PyInt(price));
-                    probe->AddItem(new PyObject("util.KeyVal", d));
-                }
-                PyDict* po = new PyDict();
-                    po->SetItemString("goods", probe);
-                offers->SetItem(new PyInt(offerID), new PyObject("util.KeyVal", po));
-            } else {
+            {
+
                 PyDict* offer = new PyDict();
                     offer->SetItemString("goods", goods);
                 offers->SetItem(new PyInt(offerID), new PyObject("util.KeyVal", offer));
