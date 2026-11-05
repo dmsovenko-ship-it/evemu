@@ -418,6 +418,7 @@ InventoryItemRef InventoryItem::Spawn(ItemData &data)
         case EVEDB::invCategories::Material:            // includes minerals
         case EVEDB::invCategories::Reaction:
         case EVEDB::invCategories::Commodity:
+        case EVEDB::invCategories::Apparel:             // NeX vitrine clothing - spawn like generic items
         case EVEDB::invCategories::Accessories:         // this is for bookmark vouchers
         case EVEDB::invCategories::AncientRelics:       // t3 bpc from sleepers
         // these *may* need their own class
