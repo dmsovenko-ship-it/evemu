@@ -42,7 +42,25 @@ PyResult HoloscreenMgrService::GetRecentEpicArcCompletions(PyCallArgs& call)
 {       //  this is cached object!!!
     _log(SERVICE__MESSAGE, "HoloscreenMgrService::Handle_GetRecentEpicArcCompletions()", "size=%lu", call.tuple->size());
 
-    return new PyList();
+    // CQ "New Pilot Certification" slide: the client displays each entry as
+    // {characterID, completionDate}.  An empty list makes the client fall back to
+    // the *viewer* with the *current* time as the certification date.  Serve recent
+    // real pilots (newest created characters) as freshly certified capsuleers.
+    PyList* list = new PyList();
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+        "SELECT characterID, createDateTime FROM chrCharacters"
+        " ORDER BY createDateTime DESC LIMIT 8"))
+    {
+        DBResultRow row;
+        while (res.GetRow(row)) {
+            PyDict* d = new PyDict();
+                d->SetItemString("characterID", new PyInt(row.GetUInt(0)));
+                d->SetItemString("completionDate", new PyLong(row.GetInt64(1)));
+            list->AddItem(new PyObject("util.KeyVal", d));
+        }
+    }
+    return list;
 }
 
 PyResult HoloscreenMgrService::GetTwoHourCache(PyCallArgs& call)
