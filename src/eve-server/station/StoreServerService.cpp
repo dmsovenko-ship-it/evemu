@@ -193,6 +193,15 @@ PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyI
     reason += " x";
     reason += std::to_string(quantity);
 
+    // deliver into the station hangar FIRST; charge only after a successful spawn
+    // (charging before spawn refunded nothing when spawn failed)
+    ItemData idata(typeID, pClient->GetCharacterID(), pClient->GetStationID(), flagHangar, "", GPoint(0.0, 0.0, 0.0));
+    idata.quantity = quantity;
+    InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
+    if (iRef.get() == nullptr)
+        throw UserError("VStoreNotAvailable");
+    iRef->Move(pClient->GetStationID(), flagHangar, true);
+
     // charge the AUR wallet (journal entry 106 = StorePurchase; NPC payee sink)
     AccountService::TransferFunds(
         pClient->GetCharacterID(),
@@ -205,13 +214,6 @@ PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyI
         Account::KeyType::Cash,
         pClient
     );
-
-    // deliver into the station hangar
-    ItemData idata(typeID, pClient->GetCharacterID(), pClient->GetStationID(), flagHangar, quantity);
-    InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
-    if (iRef.get() == nullptr)
-        throw UserError("VStoreNotAvailable");
-    iRef->Move(pClient->GetStationID(), flagHangar, true);
 
     pClient->SendNotifyMsg("NeX Store: %s x%u delivered to your hangar.", typeName.c_str(), quantity);
     return new PyNone();
