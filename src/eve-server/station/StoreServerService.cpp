@@ -185,7 +185,9 @@ PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyI
         throw UserError("VStoreNotAvailable");
 
     Client* pClient = call.client;
-    if (pClient == nullptr || !pClient->IsDock() || pClient->GetStationID() == 0)
+    // CQ vitrine purchase: client is docked but session dock-flag can lag inside
+    // the captains quarters state - trust stationID only.
+    if (pClient == nullptr || pClient->GetStationID() == 0)
         throw UserError("VStoreNotAvailable");
 
     // resolve the offer back to a typeID from the same deterministic catalog
