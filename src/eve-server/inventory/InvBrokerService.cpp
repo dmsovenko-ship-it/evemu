@@ -90,6 +90,7 @@ InvBrokerBound::InvBrokerBound(EVEServiceManager& mgr, InvBrokerService& parent,
     this->Add("SplitStack", &InvBrokerBound::SplitStack);
     this->Add("DeliverToCorpHangar", &InvBrokerBound::DeliverToCorpHangar);
     this->Add("DeliverToCorpMember", &InvBrokerBound::DeliverToCorpMember);
+    this->Add("ConvertPlexToCurrency", &InvBrokerBound::ConvertPlexToCurrency);
 }
 
 //is this completely right?
