@@ -47,7 +47,6 @@ StoreServerService::StoreServerService(EVEServiceManager& mgr)
 {
     this->Add("GetAvailableOffers", &StoreServerService::GetAvailableOffers);
     this->Add("AcceptOffer", &StoreServerService::AcceptOffer);
-    this->m_cache = m_manager.Lookup <ObjCacheService>("objectCaching");
 }
 
 uint32 StoreServerService::PriceForType(uint32 typeID)
@@ -94,6 +93,8 @@ PyResult StoreServerService::GetAvailableOffers(PyCallArgs& call)
     // plus price items argumentType=GOODTYPE_CREDITS(1) whose argumentValue is
     // a currency TYPEID: const.creditsISK is rejected (corruptOffer),
     // const.creditsAURUM (Aurum Token typeID 2833) sums item.amount into price.
+    if (m_cache == nullptr)
+        m_cache = m_manager.Lookup <ObjCacheService>("objectCaching");   // lazy: objectCaching registers later in main()
     ObjectCachedMethodID method_id(GetName().c_str(), "GetAvailableOffers");
     if (!this->m_cache->IsCacheLoaded(method_id)) {
     PyDict* offers = new PyDict();

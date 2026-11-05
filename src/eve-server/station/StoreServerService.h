@@ -41,7 +41,7 @@ protected:
 
 private:
     EVEServiceManager& m_manager;
-    ObjCacheService* m_cache;
+    ObjCacheService* m_cache = nullptr;
     static uint32 PriceForType(uint32 typeID);
     static PyRep* BuildGoodsList(uint32 typeID, uint32 quantity, uint32 price);
 };
