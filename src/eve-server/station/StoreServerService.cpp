@@ -210,8 +210,10 @@ PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyI
     ItemData idata(typeID, pClient->GetCharacterID(), pClient->GetStationID(), flagHangar, "", GPoint(0.0, 0.0, 0.0));
     idata.quantity = quantity;
     InventoryItemRef iRef = sItemFactory.SpawnItem(idata);
-    if (iRef.get() == nullptr)
+    if (iRef.get() == nullptr) {
+        sLog.Error("AcceptOffer gate", "SpawnItem failed: type=%u owner=%u station=%u qty=%u", typeID, pClient->GetCharacterID(), pClient->GetStationID(), quantity);
         throw UserError("VStoreNotAvailable");
+    }
     iRef->Move(pClient->GetStationID(), flagHangar, true);
 
     // charge the AUR wallet (journal entry 106 = StorePurchase; NPC payee sink)
