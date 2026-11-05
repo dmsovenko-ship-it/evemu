@@ -46,7 +46,7 @@ StoreServerService::StoreServerService()
 {
     this->Add("GetAvailableOffers", &StoreServerService::GetAvailableOffers);
     this->Add("AcceptOffer", &StoreServerService::AcceptOffer);
-    this->m_cache = m_manager.Lookup <ObjCacheService>("objectCaching");
+    this->m_cache = this->GetServiceManager().Lookup <ObjCacheService>("objectCaching");
 }
 
 uint32 StoreServerService::PriceForType(uint32 typeID)
