@@ -49,6 +49,10 @@ StoreServerService::StoreServerService(EVEServiceManager& mgr)
     this->Add("AcceptOffer", &StoreServerService::AcceptOffer);
 }
 
+namespace {
+    std::map<uint32, int64> sLastBuyByChar;   // charID -> last purchase filetime
+}
+
 uint32 StoreServerService::PriceForType(uint32 typeID)
 {
     // deterministic per-type price in AUR, stable across boots
@@ -162,6 +166,14 @@ PyResult StoreServerService::AcceptOffer(PyCallArgs& call, PyInt* offerIDIn, PyI
     // the captains quarters state - trust stationID only.
     if (pClient == nullptr || pClient->GetStationID() == 0)
         throw UserError("VStoreNotAvailable");
+
+    // anti-dup: client re-clicks while its buy window is open; each click is a
+    // REAL purchase, so throttle same char to one buy per 10 seconds
+    int64 nowft = GetFileTimeNow();
+    std::map<uint32, int64>::iterator dup = sLastBuyByChar.find(pClient->GetCharacterID());
+    if (dup != sLastBuyByChar.end() && nowft - dup->second < 100000000LL)   // 10 s
+        throw UserError("VStoreBuyCooldown");
+    sLastBuyByChar[pClient->GetCharacterID()] = nowft;
 
     // resolve the offer back to a typeID from the same deterministic catalog
     DBQueryResult res;
