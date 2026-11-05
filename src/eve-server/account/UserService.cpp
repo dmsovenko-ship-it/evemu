@@ -50,6 +50,7 @@ UserService::UserService() :
     Service("userSvc", eAccessLevel_User)
 {
     this->Add("GetRedeemTokens", &UserService::GetRedeemTokens);
+    this->Add("ClaimRedeemTokens", &UserService::ClaimRedeemTokens);
     this->Add("ReverseRedeem", &UserService::ReverseRedeem);
     this->Add("GetCreateDate", &UserService::GetCreateDate);
     this->Add("ReportISKSpammer", &UserService::ReportISKSpammer);
@@ -59,108 +60,68 @@ UserService::UserService() :
 
 PyResult UserService::GetRedeemTokens(PyCallArgs& call)
 {
-    /*
-    sLog.Yellow( "UserService", "Handle_GetRedeemTokens" );
-    call.Dump(SERVICE__CALL_DUMP);
-     * ==================== Sent from Client 84 bytes
-     *
-     * [PyObjectData Name: macho.CallReq]
-     *  [PyTuple 7 items]
-     *    [PyInt 6]
-     *    [PyObjectData Name: macho.MachoAddress]
-     *      [PyTuple 4 items]
-     *        [PyInt 2]
-     *        [PyInt 0]
-     *        [PyIntegerVar 13]
-     *        [PyNone]
-     *    [PyObjectData Name: macho.MachoAddress]
-     *      [PyTuple 3 items]
-     *        [PyInt 8]
-     *        [PyString "userSvc"]
-     *        [PyNone]
-     *    [PyInt 5654387]
-     *    [PyTuple 1 items]
-     *      [PyTuple 2 items]
-     *        [PyInt 0]
-     *        [PySubStream 31 bytes]
-     *          [PyTuple 4 items]
-     *            [PyInt 1]
-     *            [PyString "GetRedeemTokens"]
-     *            [PyTuple 0 items]
-     *            [PyDict 1 kvp]
-     *              [PyString "machoVersion"]
-     *              [PyInt 1]
-     *    [PyNone]
-     *    [PyNone]
-     *
-     *
-     *
-     * ==================== Sent from Server 200 bytes [Compressed]
-     *
-     * [PyObjectData Name: macho.CallRsp]
-     *  [PyTuple 7 items]
-     *    [PyInt 7]
-     *    [PyObjectData Name: macho.MachoAddress]
-     *      [PyTuple 3 items]
-     *        [PyInt 8]
-     *        [PyString "userSvc"]
-     *        [PyNone]
-     *    [PyObjectData Name: macho.MachoAddress]
-     *      [PyTuple 4 items]
-     *        [PyInt 2]
-     *        [PyIntegerVar 241241000001103]
-     *        [PyIntegerVar 13]
-     *        [PyNone]
-     *    [PyInt 5654387]
-     *    [PyTuple 1 items]
-     *      [PySubStream 173 bytes]
-     *        [PyObjectEx Type2]
-     *          [PyTuple 2 items]
-     *            [PyTuple 1 items]
-     *              [PyToken dbutil.CRowset]
-     *            [PyDict 1 kvp]
-     *              [PyString "header"]
-     *              [PyObjectEx Normal]
-     *                [PyTuple 2 items]
-     *                  [PyToken blue.DBRowDescriptor]
-     *                  [PyTuple 1 items]
-     *                    [PyTuple 10 items]
-     *                      [PyTuple 2 items]
-     *                        [PyString "tokenID"]
-     *                        [PyInt 3]
-     *                      [PyTuple 2 items]
-     *                        [PyString "massTokenID"]
-     *                        [PyInt 3]
-     *                      [PyTuple 2 items]
-     *                        [PyString "typeID"]
-     *                        [PyInt 3]
-     *                      [PyTuple 2 items]
-     *                        [PyString "quantity"]
-     *                        [PyInt 3]
-     *                      [PyTuple 2 items]
-     *                        [PyString "label"]
-     *                        [PyInt 130]
-     *                      [PyTuple 2 items]
-     *                        [PyString "description"]
-     *                        [PyInt 130]
-     *                      [PyTuple 2 items]
-     *                        [PyString "dateTime"]
-     *                        [PyInt 64]
-     *                      [PyTuple 2 items]
-     *                        [PyString "expireDateTime"]
-     *                        [PyInt 64]
-     *                      [PyTuple 2 items]
-     *                        [PyString "availableDateTime"]
-     *                        [PyInt 64]
-     *                      [PyTuple 2 items]
-     *                        [PyString "stationID"]
-     *                        [PyInt 3]
-     *    [PyNone]
-     *    [PyNone]
-     *
-     */
+    Client* pClient = call.client;
+    if (pClient == nullptr)
+        return new PyList();
 
-    return new PyList();
+    // vitrine RedeemPlex: PLEX owned by the character in their current station
+    // hangar are presented as redeem tokens; ClaimRedeemTokens delivers them
+    // to the target character's hangar.
+    PyList* list = new PyList();
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT itemID, quantity FROM entity WHERE ownerID = %u AND typeID = 29668"
+        " AND flag = 4 AND locationID = %u",
+        pClient->GetCharacterID(), pClient->GetStationID()))
+        return list;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        PyDict* d = new PyDict();
+            d->SetItemString("tokenID", new PyInt(row.GetUInt(0)));
+            d->SetItemString("massTokenID", new PyInt(0));
+            d->SetItemString("typeID", new PyInt(29668));
+            d->SetItemString("quantity", new PyInt(row.GetUInt(1)));
+            d->SetItemString("description", new PyString("PLEX"));
+            d->SetItemString("label", new PyString(""));
+            d->SetItemString("stationID", new PyInt(pClient->GetStationID()));
+            d->SetItemString("expireDateTime", new PyInt(0));
+        list->AddItem(new PyObject("util.KeyVal", d));
+    }
+    return list;
+}
+
+PyResult UserService::ClaimRedeemTokens(PyCallArgs& call, PyList* tokens, PyInt* charIDIn)
+{
+    Client* pClient = call.client;
+    if (pClient == nullptr || tokens == nullptr || charIDIn == nullptr)
+        return new PyNone();
+    uint32 targetCharID = (uint32)charIDIn->value();
+    uint32 stationID = pClient->GetStationID();
+    if (stationID == 0)
+        throw UserError("RedeemNoTokens");
+
+    int64 nowft = GetFileTimeNow();
+    for (size_t i = 0; i < tokens->size(); ++i) {
+        PyRep* r = tokens->GetItem(i);
+        if (r == nullptr || !(r)->IsTuple())
+            continue;
+        PyTuple* pair = (r)->AsTuple();
+        if (pair->size() < 1 || pair->GetItem(0) == nullptr || !(pair->GetItem(0))->IsInt())
+            continue;
+        uint32 itemID = (uint32)(pair->GetItem(0))->AsInt()->value();
+        InventoryItemRef plex = sItemFactory.GetItemRef(itemID);
+        if (plex.get() == nullptr)
+            continue;
+        if (plex->typeID() != 29668)
+            continue;
+        // allow only own PLEX, or gift: keep owner check on source
+        if (plex->ownerID() != pClient->GetCharacterID())
+            continue;
+        plex->ChangeOwner(targetCharID, false);
+        plex->Move(stationID, flagHangar, true);
+        (void)nowft;
+    }
+    return new PyNone();
 }
 
 PyResult UserService::ReverseRedeem(PyCallArgs& call, PyInt* itemID)

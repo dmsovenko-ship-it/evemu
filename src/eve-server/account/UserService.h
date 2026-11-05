@@ -36,6 +36,7 @@ public:
 
 protected:
     PyResult GetRedeemTokens(PyCallArgs& call);
+    PyResult ClaimRedeemTokens(PyCallArgs& call, PyList* tokens, PyInt* charID);
     PyResult ReverseRedeem(PyCallArgs& call, PyInt* itemID);
     PyResult GetCreateDate(PyCallArgs& call);
     PyResult ReportISKSpammer(PyCallArgs& call, PyInt* characterID, PyInt* channelID);
