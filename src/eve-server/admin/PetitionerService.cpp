@@ -646,7 +646,7 @@ PyResult PetitionerService::UpdatePetitionRating(PyCallArgs& call, std::optional
     uint32 rResponse = (a.has_value() && a.value() != nullptr && a.value()->IsInt()) ? (uint32)a.value()->AsInt()->value() : 0;
     uint32 rHelp = (b.has_value() && b.value() != nullptr && b.value()->IsInt()) ? (uint32)b.value()->AsInt()->value() : 0;
     uint32 rAttitude = (c.has_value() && c.value() != nullptr && c.value()->IsInt()) ? (uint32)c.value()->AsInt()->value() : 0;
-    std::string comment = (comment.has_value() && comment.value() != nullptr) ? PyRep::StringContent(comment.value()) : std::string("");
+    std::string commentStr = (comment.has_value() && comment.value() != nullptr) ? PyRep::StringContent(comment.value()) : std::string("");
     int32 charID = call.client->GetCharacterID();
     int32 accountID = call.client->GetUserID();
     DBerror err;
@@ -657,7 +657,7 @@ PyResult PetitionerService::UpdatePetitionRating(PyCallArgs& call, std::optional
     // store the escaped comment separately to avoid quoting issues with the printf-based RunQuery
     {
         std::string esc;
-        sDatabase.DoEscapeString(esc, comment);
+        sDatabase.DoEscapeString(esc, commentStr);
         sDatabase.RunQuery(err,
             "UPDATE portal_petitions SET ratingComment = '%s' WHERE petitionID = %u",
             esc.c_str(), pid);
@@ -675,7 +675,7 @@ PyResult PetitionerService::AddPetitionRating(PyCallArgs& call, std::optional<Py
     uint32 rResponse = (a.has_value() && a.value() != nullptr && a.value()->IsInt()) ? (uint32)a.value()->AsInt()->value() : 0;
     uint32 rHelp = (b.has_value() && b.value() != nullptr && b.value()->IsInt()) ? (uint32)b.value()->AsInt()->value() : 0;
     uint32 rAttitude = (c.has_value() && c.value() != nullptr && c.value()->IsInt()) ? (uint32)c.value()->AsInt()->value() : 0;
-    std::string comment = (comment.has_value() && comment.value() != nullptr) ? PyRep::StringContent(comment.value()) : std::string("");
+    std::string commentStr = (comment.has_value() && comment.value() != nullptr) ? PyRep::StringContent(comment.value()) : std::string("");
     int32 charID = call.client->GetCharacterID();
     int32 accountID = call.client->GetUserID();
     DBerror err;
@@ -686,7 +686,7 @@ PyResult PetitionerService::AddPetitionRating(PyCallArgs& call, std::optional<Py
     // store the escaped comment separately to avoid quoting issues with the printf-based RunQuery
     {
         std::string esc;
-        sDatabase.DoEscapeString(esc, comment);
+        sDatabase.DoEscapeString(esc, commentStr);
         sDatabase.RunQuery(err,
             "UPDATE portal_petitions SET ratingComment = '%s' WHERE petitionID = %u",
             esc.c_str(), pid);
