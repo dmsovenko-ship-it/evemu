@@ -27,6 +27,8 @@
 #include "eve-server.h"
 
 #include "EntityList.h"
+#include "inventory/ItemFactory.h"
+#include "inventory/InventoryItem.h"
 #include "EVE_Mail.h"
 #include "standing/StandingDB.h"
 #include "cache/ObjCacheService.h"
@@ -368,14 +370,57 @@ PyResult FactionWarMgrService::GetFactionCorporations(PyCallArgs &call, PyInt* f
 }
 
 PyResult FactionWarMgrService::JoinFactionAsCharacterRecommendationLetter(PyCallArgs &call, PyInt* factionID, PyInt* itemID) {
-    //self.facWarMgr.JoinFactionAsCharacterRecommendationLetter, factionID, itemID)
-    // if char standing with faction is < 0.5,
-    // they can join provided they have a 'recommendation letter', typeID 30906
-    // dunno if the letter is removed after joining.
-    _log(FACWAR__CALL, "FacWarMgr::Handle_JoinFactionAsCharacterRecommendationLetter()");
-    call.Dump(FACWAR__CALL_DUMP);
+    // self.facWarMgr.JoinFactionAsCharacterRecommendationLetter(factionID, itemID)
+    // joining under the 0.5 standing gate with a Letter of Recommendation (30906):
+    // the item is consumed on success.
+    _log(FACWAR__CALL, "FacWarMgr::JoinFactionAsCharacterRecommendationLetter()");
+    uint32 charID = (uint32)call.client->GetCharacterID();
+    uint32 fID = (uint32)factionID->value();
+    uint32 letterID = (uint32)itemID->value();
 
-    return nullptr;
+    if (!m_db.IsValidFaction(fID)) {
+        call.client->SendErrorMsg("Invalid faction.");
+        return PyStatic.NewFalse();
+    }
+
+    DBQueryResult curRes;
+    sDatabase.RunQuery(curRes, "SELECT characterID FROM facWarCharacters WHERE characterID = %u", charID);
+    if (curRes.GetRowCount() > 0) {
+        call.client->SendErrorMsg("You are already enlisted in Faction Warfare.");
+        return PyStatic.NewFalse();
+    }
+
+    InventoryItemRef letter = sItemFactory.GetItemRef(letterID);
+    if (letter.get() == nullptr || letter->typeID() != 30906 || letter->ownerID() != charID) {
+        call.client->SendErrorMsg("You need a Letter of Recommendation to enlist.");
+        return PyStatic.NewFalse();
+    }
+
+    DBerror err;
+    int64 now = GetFileTimeNow();
+    sDatabase.RunQuery(err,
+        "INSERT INTO facWarCharacters (characterID, factionID, joined, lastActive, currentRank, highestRank)"
+        " VALUES (%u, %u, %lli, %lli, 1, 1)",
+        charID, fID, now, now);
+
+    // consume the letter (in-memory delete sends the inventory update; SQL is a safety net)
+    uint32 letterQty = letter->quantity();
+    if (letterQty > 1) {
+        letter->AlterQuantity(-1, true);
+        sDatabase.RunQuery(err, "UPDATE entity SET quantity = quantity - 1 WHERE itemID = %u AND quantity > 1", letterID);
+    } else {
+        letter->Delete();
+        sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID = %u", letterID);
+        sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID = %u", letterID);
+    }
+
+    PyDict* data = new PyDict();
+        data->SetItemString("factionID", new PyInt(fID));
+        data->SetItemString("charID", new PyInt(charID));
+    sEntityList.CreateNotification(charID, Notify::Types::FWCorpJoin, fID, data);
+
+    call.client->SendNotifyMsg("You have joined the %s militia.", m_db.GetFactionName(fID).c_str());
+    return PyStatic.NewTrue();
 }
 
 PyResult FactionWarMgrService::JoinFactionAsAlliance(PyCallArgs &call, PyInt* factionID) {
