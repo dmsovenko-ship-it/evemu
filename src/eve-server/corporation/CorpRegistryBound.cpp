@@ -7,6 +7,7 @@
 #include <string>
 
 #include "EVE_Corp.h"
+#include "EVE_Roles.h"
 #include "EVE_Mail.h"
 #include "CorpData.h"
 #include "StaticDataMgr.h"
@@ -69,6 +70,7 @@ CorpRegistryBound::CorpRegistryBound(EVEServiceManager& mgr, CorpRegistryService
     this->Add("GetMember", &CorpRegistryBound::GetMember);
     this->Add("GetMembers", &CorpRegistryBound::GetMembers);
     this->Add("UpdateMember", &CorpRegistryBound::UpdateMember);
+    this->Add("ResignFromCEO", &CorpRegistryBound::ResignFromCEO);
 
     this->Add("MoveCompanyShares", &CorpRegistryBound::MoveCompanyShares);
     this->Add("MovePrivateShares", &CorpRegistryBound::MovePrivateShares);
@@ -299,6 +301,69 @@ PyResult CorpRegistryBound::GetRecentKillsAndLosses(PyCallArgs &call, PyInt* num
     call.Dump(SERVICE__CALL_DUMP);
     uint32 offsetVal = offset.has_value() ? offset.value()->value() : 0;
     return m_db.GetKillsAndLosses(m_corpID, number->value(), offsetVal);
+}
+
+PyResult CorpRegistryBound::ResignFromCEO(PyCallArgs& call, PyRep* newCeoID)
+{
+    // self.GetCorpRegistry().ResignFromCEO(newCeoID)
+    // - called with None first: return the list of candidates (client shows a picker)
+    // - called again with the chosen charID: transfer the CEO position
+    uint32 corpID = m_corpID;
+    uint32 callerCharID = (uint32)call.client->GetCharacterID();
+    uint32 ceoID = CorporationDB::GetCorporationCEO(corpID);
+    if (ceoID != callerCharID) {
+        call.client->SendNotifyMsg("Only the CEO can resign.");
+        return PyStatic.NewNone();
+    }
+
+    if (newCeoID == nullptr || newCeoID->IsNone()) {
+        // hand the client every other member so it can show the replacement picker
+        PyList* candidates = new PyList();
+        DBQueryResult mres;
+        if (sDatabase.RunQuery(mres, "SELECT characterID FROM chrCharacters WHERE corporationID = %u AND deleted = 0", corpID)) {
+            DBResultRow mrow;
+            while (mres.GetRow(mrow)) {
+                uint32 id = mrow.GetUInt(0);
+                if (id != callerCharID)
+                    candidates->AddItem(new PyInt(id));
+            }
+        }
+        _log(CORP__MESSAGE, "%s asked to resign as CEO of corp %u - %u candidates", call.client->GetName(), corpID, (uint32)candidates->size());
+        return candidates;
+    }
+
+    if (!newCeoID->IsInt()) {
+        call.client->SendNotifyMsg("Invalid replacement CEO.");
+        return PyStatic.NewNone();
+    }
+    uint32 target = (uint32)newCeoID->AsInt()->value();
+    if (target == callerCharID) {
+        call.client->SendNotifyMsg("You cannot resign in favour of yourself.");
+        return PyStatic.NewNone();
+    }
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+            "SELECT 1 FROM chrCharacters WHERE characterID = %u AND corporationID = %u AND deleted = 0",
+            target, corpID) || res.GetRowCount() == 0) {
+        call.client->SendNotifyMsg("That pilot is not a member of your corporation.");
+        return PyStatic.NewNone();
+    }
+
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE crpCorporation SET ceoID = %u WHERE corporationID = %u AND ceoID = %u",
+        target, corpID, callerCharID);
+    // the new CEO gets the Director role at every location
+    sDatabase.RunQuery(err,
+        "UPDATE chrCharacters SET corpRole = corpRole | %lli, rolesAtAll = rolesAtAll | %lli WHERE characterID = %u",
+        (int64)Corp::Role::Director, (int64)Corp::Role::Director, target);
+
+    _log(CORP__MESSAGE, "%s resigned as CEO of corp %u - new CEO is char %u", call.client->GetName(), corpID, target);
+    call.client->SendNotifyMsg("You have resigned as CEO.");
+    Client* newCeoClient = sEntityList.FindClientByCharID(target);
+    if (newCeoClient != nullptr)
+        newCeoClient->SendNotifyMsg("You are now the CEO of your corporation.");
+    return nullptr;
 }
 
 PyResult CorpRegistryBound::GetMember(PyCallArgs &call, PyInt* characterID)

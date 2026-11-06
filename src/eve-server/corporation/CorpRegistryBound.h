@@ -60,6 +60,7 @@ protected:
         PyRep* typeface);
     PyResult SetAccountKey(PyCallArgs& call, PyInt* accountKey);
     PyResult GetMember(PyCallArgs& call, PyInt* characterID);
+    PyResult ResignFromCEO(PyCallArgs& call, PyRep* newCeoID);
     PyResult GetMembers(PyCallArgs& call);
 
     PyResult MoveCompanyShares(PyCallArgs& call, PyInt* corporationID, PyInt* toShareholderID, PyInt* numberOfShares);
