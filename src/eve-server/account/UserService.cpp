@@ -69,12 +69,28 @@ PyResult UserService::GetRedeemTokens(PyCallArgs& call)
     // to the target character's hangar.
     PyList* list = new PyList();
     DBQueryResult res;
-    if (!sDatabase.RunQuery(res,
-        "SELECT itemID, quantity FROM entity WHERE ownerID = %u AND typeID = 29668"
-        " AND flag = 211 AND locationID = %u",
-        pClient->GetCharacterID(), pClient->GetStationID())) {
-        sLog.Error("GetRedeemTokens", "query failed: %s", res.error.c_str());
-        return list;
+    uint32 charID = pClient->GetCharacterID();
+    uint32 stationID = pClient->GetStationID();
+    if (charID != 0 && stationID != 0) {
+        if (!sDatabase.RunQuery(res,
+            "SELECT itemID, quantity FROM entity WHERE ownerID = %u AND typeID = 29668"
+            " AND flag = 211 AND locationID = %u",
+            charID, stationID)) {
+            sLog.Error("GetRedeemTokens", "query failed: %s", res.error.c_str());
+            return list;
+        }
+    } else {
+        // login race: the client fetches tokens before session charid/stationid
+        // are flushed to the Client - fall back to all chars of the account
+        uint32 accountID = (uint32)pClient->GetUserID();
+        sLog.Error("GetRedeemTokens", "login race (char=%u station=%u) - fallback by accountID=%u", charID, stationID, accountID);
+        if (accountID == 0 || !sDatabase.RunQuery(res,
+            "SELECT e.itemID, e.quantity FROM entity e JOIN chrCharacters c ON c.characterID = e.ownerID"
+            " WHERE c.accountID = %u AND e.typeID = 29668 AND e.flag = 211",
+            accountID)) {
+            sLog.Error("GetRedeemTokens", "fallback query failed: %s", res.error.c_str());
+            return list;
+        }
     }
     DBResultRow row;
     uint32 cnt = 0;
@@ -87,11 +103,11 @@ PyResult UserService::GetRedeemTokens(PyCallArgs& call)
             d->SetItemString("quantity", new PyInt(row.GetUInt(1)));
             d->SetItemString("description", new PyString("PLEX"));
             d->SetItemString("label", new PyString(""));
-            d->SetItemString("stationID", new PyInt(pClient->GetStationID()));
+            d->SetItemString("stationID", new PyInt(stationID != 0 ? stationID : 60001624));
             d->SetItemString("expireDateTime", new PyInt(0));
         list->AddItem(new PyObject("util.KeyVal", d));
     }
-    sLog.Error("GetRedeemTokens", "char=%u station=%u -> %u tokens", pClient->GetCharacterID(), pClient->GetStationID(), cnt);
+    sLog.Error("GetRedeemTokens", "char=%u station=%u -> %u tokens", charID, stationID, cnt);
     return list;
 }
 
