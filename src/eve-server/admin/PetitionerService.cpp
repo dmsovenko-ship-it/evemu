@@ -428,7 +428,7 @@ PyResult PetitionerService::GetUnreadMessages(PyCallArgs& call)
         " FROM portal_petition_messages m"
         " JOIN portal_petitions p ON p.petitionID = m.petitionID"
         " WHERE (p.characterID = %u OR (p.characterID = 0 AND p.accountID = %u))"
-        "   AND m.isGM = 1 AND p.status = 1 AND p.deleted = 0"
+        "   AND m.isGM = 1 AND m.isRead = 0 AND p.status = 1 AND p.deleted = 0"
         " ORDER BY m.sentDate DESC LIMIT 20", charID, accountID))
         return nullptr;
 
@@ -444,8 +444,18 @@ PyResult PetitionerService::GetUnreadMessages(PyCallArgs& call)
     return list;
 }
 
-PyResult PetitionerService::MarkAsRead(PyCallArgs& call, PyInt* messageID)
-{
+PyResult PetitionerService::MarkAsRead(PyCallArgs& call, PyInt* messageID) {
+    // petitioner.MarkAsRead(messageID) - clear the unread marker of a GM reply
+    if (messageID == nullptr)
+        return nullptr;
+    int32 charID = call.client->GetCharacterID();
+    int32 accountID = call.client->GetUserID();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petition_messages SET isRead = 1 WHERE messageID = %u"
+        " AND petitionID IN (SELECT petitionID FROM portal_petitions"
+        "   WHERE characterID = %u OR (characterID = 0 AND accountID = %u))",
+        messageID->value(), charID, accountID);
     return nullptr;
 }
 
@@ -559,8 +569,19 @@ PyResult PetitionerService::UnClaimPetition(PyCallArgs& call, PyInt* petitionID)
     return nullptr;
 }
 
-PyResult PetitionerService::EscalatePetition(PyCallArgs& call, PyInt* petitionID, PyRep* queueID)
-{
+PyResult PetitionerService::EscalatePetition(PyCallArgs& call, PyInt* petitionID, PyRep* queueID) {
+    // petitioner.EscalatePetition(petitionID, escalatesTo)
+    if (petitionID == nullptr)
+        return nullptr;
+    uint32 queue = (queueID != nullptr && queueID->IsInt()) ? (uint32)queueID->AsInt()->value() : 0;
+    int32 charID = call.client->GetCharacterID();
+    int32 accountID = call.client->GetUserID();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petitions SET escalatedCategoryID = %u, touchDate = NOW()"
+        " WHERE petitionID = %u AND (characterID = %u OR (characterID = 0 AND accountID = %u))",
+        queue, petitionID->value(), charID, accountID);
+    call.client->SendNotifyMsg("Your petition has been escalated.");
     return nullptr;
 }
 
@@ -617,12 +638,60 @@ PyResult PetitionerService::GetLog(PyCallArgs& call, PyInt* petitionID)
     return new PyList();
 }
 
-PyResult PetitionerService::UpdatePetitionRating(PyCallArgs& call, std::optional<PyRep*> petitionID, std::optional<PyRep*> a, std::optional<PyRep*> b, std::optional<PyRep*> c, std::optional<PyRep*> comment)
-{
+PyResult PetitionerService::UpdatePetitionRating(PyCallArgs& call, std::optional<PyRep*> petitionID, std::optional<PyRep*> a, std::optional<PyRep*> b, std::optional<PyRep*> c, std::optional<PyRep*> comment) {
+    // petitioner.UpdatePetitionRating(petitionID, responseTime, helpfulness, attitude, comment)
+    if (!petitionID.has_value() || petitionID.value() == nullptr || !petitionID.value()->IsInt())
+        return nullptr;
+    uint32 pid = (uint32)petitionID.value()->AsInt()->value();
+    uint32 rResponse = (a.has_value() && a.value() != nullptr && a.value()->IsInt()) ? (uint32)a.value()->AsInt()->value() : 0;
+    uint32 rHelp = (b.has_value() && b.value() != nullptr && b.value()->IsInt()) ? (uint32)b.value()->AsInt()->value() : 0;
+    uint32 rAttitude = (c.has_value() && c.value() != nullptr && c.value()->IsInt()) ? (uint32)c.value()->AsInt()->value() : 0;
+    std::string comment = (comment.has_value() && comment.value() != nullptr) ? PyRep::StringContent(comment.value()) : std::string("");
+    int32 charID = call.client->GetCharacterID();
+    int32 accountID = call.client->GetUserID();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petitions SET responseRating = %u, helpfulnessRating = %u, attitudeRating = %u, ratingComment = '%s'"
+        " WHERE petitionID = %u AND (characterID = %u OR (characterID = 0 AND accountID = %u))",
+        rResponse, rHelp, rAttitude, "", pid, charID, accountID);
+    // store the escaped comment separately to avoid quoting issues with the printf-based RunQuery
+    {
+        std::string esc;
+        sDatabase.DoEscapeString(esc, comment);
+        sDatabase.RunQuery(err,
+            "UPDATE portal_petitions SET ratingComment = '%s' WHERE petitionID = %u",
+            esc.c_str(), pid);
+    }
+    if (false)
+        call.client->SendNotifyMsg("Thank you for rating this petition.");
     return nullptr;
 }
 
-PyResult PetitionerService::AddPetitionRating(PyCallArgs& call, std::optional<PyRep*> petitionID, std::optional<PyRep*> a, std::optional<PyRep*> b, std::optional<PyRep*> c, std::optional<PyRep*> comment, std::optional<PyRep*> ratingTime)
-{
+PyResult PetitionerService::AddPetitionRating(PyCallArgs& call, std::optional<PyRep*> petitionID, std::optional<PyRep*> a, std::optional<PyRep*> b, std::optional<PyRep*> c, std::optional<PyRep*> comment, std::optional<PyRep*> ratingTime) {
+    // petitioner.AddPetitionRating(petitionID, responseTime, helpfulness, attitude, comment, ratingTime)
+    if (!petitionID.has_value() || petitionID.value() == nullptr || !petitionID.value()->IsInt())
+        return nullptr;
+    uint32 pid = (uint32)petitionID.value()->AsInt()->value();
+    uint32 rResponse = (a.has_value() && a.value() != nullptr && a.value()->IsInt()) ? (uint32)a.value()->AsInt()->value() : 0;
+    uint32 rHelp = (b.has_value() && b.value() != nullptr && b.value()->IsInt()) ? (uint32)b.value()->AsInt()->value() : 0;
+    uint32 rAttitude = (c.has_value() && c.value() != nullptr && c.value()->IsInt()) ? (uint32)c.value()->AsInt()->value() : 0;
+    std::string comment = (comment.has_value() && comment.value() != nullptr) ? PyRep::StringContent(comment.value()) : std::string("");
+    int32 charID = call.client->GetCharacterID();
+    int32 accountID = call.client->GetUserID();
+    DBerror err;
+    sDatabase.RunQuery(err,
+        "UPDATE portal_petitions SET responseRating = %u, helpfulnessRating = %u, attitudeRating = %u, ratingComment = '%s'"
+        " WHERE petitionID = %u AND (characterID = %u OR (characterID = 0 AND accountID = %u))",
+        rResponse, rHelp, rAttitude, "", pid, charID, accountID);
+    // store the escaped comment separately to avoid quoting issues with the printf-based RunQuery
+    {
+        std::string esc;
+        sDatabase.DoEscapeString(esc, comment);
+        sDatabase.RunQuery(err,
+            "UPDATE portal_petitions SET ratingComment = '%s' WHERE petitionID = %u",
+            esc.c_str(), pid);
+    }
+    if (true)
+        call.client->SendNotifyMsg("Thank you for rating this petition.");
     return nullptr;
 }
