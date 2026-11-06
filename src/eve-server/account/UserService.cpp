@@ -91,7 +91,7 @@ PyResult UserService::GetRedeemTokens(PyCallArgs& call)
             d->SetItemString("expireDateTime", new PyInt(0));
         list->AddItem(new PyObject("util.KeyVal", d));
     }
-    sLog.Message("GetRedeemTokens", "char=%u station=%u -> %u tokens", pClient->GetCharacterID(), pClient->GetStationID(), cnt);
+    sLog.Error("GetRedeemTokens", "char=%u station=%u -> %u tokens", pClient->GetCharacterID(), pClient->GetStationID(), cnt);
     return list;
 }
 
