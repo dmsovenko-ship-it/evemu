@@ -580,42 +580,104 @@ PyResult InvBrokerBound::SplitStack(PyCallArgs &call, PyInt* locationID, PyInt* 
 }
 
 PyResult InvBrokerBound::DeliverToCorpHangar(PyCallArgs &call, PyInt* officeID, PyInt* locationID, PyInt* itemsToDeliver, std::optional <PyInt*> quantity, PyInt* ownerID, PyInt* destinationFlag) {
-    //
-    /*
-    18:11:51 W InvBrokerBound::Handle_DeliverToCorpHangar(): size= 6
-    18:11:51 [InvDump]   Call Arguments:
-    18:11:51 [InvDump]      Tuple: 6 elements
-    18:11:51 [InvDump]       [ 0]    Integer: 100000000         << officeID
-    18:11:51 [InvDump]       [ 1]    Integer: 60014140          << locationID
-    18:11:51 [InvDump]       [ 2]   List: 1 elements            << items to deliver
-    18:11:51 [InvDump]       [ 2]   [ 0]    Integer: 140024211  << itemID
-    18:11:51 [InvDump]       [ 3]       None                    << u/k
-    18:11:51 [InvDump]       [ 4]    Integer: 98000001          << ownerID (corpID)
-    18:11:51 [InvDump]       [ 5]    Integer: 119               << destination flagID
-    */
+    // right-click item -> Deliver To -> corporate hangar
+    if (itemsToDeliver == nullptr || destinationFlag == nullptr)
+        return nullptr;
+    uint32 corpID = (uint32)call.client->GetCorporationID();
+    uint32 charID = (uint32)call.client->GetCharacterID();
+    if (corpID == 0 || !IsPlayerCorp(corpID)) {
+        call.client->SendNotifyMsg("You are not in a player corporation.");
+        return nullptr;
+    }
 
-    sLog.Warning( "InvBrokerBound::Handle_DeliverToCorpHangar()", "size=%lu", call.tuple->size());
-    call.Dump(INV__DUMP);
+    // destination: the office inventory when given, else the station given
+    uint32 destLoc = 0;
+    if (officeID != nullptr && IsOfficeID(officeID->value())) {
+        InventoryItemRef officeRef = sItemFactory.GetItemRef(officeID->value());
+        if (officeRef.get() == nullptr || officeRef->ownerID() != corpID) {
+            call.client->SendNotifyMsg("You do not have access to that corporate hangar.");
+            return nullptr;
+        }
+        destLoc = officeID->value();
+    } else if (locationID != nullptr) {
+        destLoc = locationID->value();
+    }
+    if (destLoc == 0)
+        return nullptr;
 
+    EVEItemFlags flag = (EVEItemFlags)destinationFlag->value();
+    if (!(flag == flagHangar || (flag >= flagCorpHangar2 && flag <= flagCorpHangar7)))
+        flag = flagHangar;
+
+    InventoryItemRef item = sItemFactory.GetItemRef(itemsToDeliver->value());
+    if (item.get() == nullptr)
+        return nullptr;
+    if (item->ownerID() != charID) {
+        call.client->SendNotifyMsg("You can only deliver items you own.");
+        return nullptr;
+    }
+
+    uint32 qty = item->quantity();
+    if (quantity.has_value() && quantity.value() != nullptr
+        && quantity.value()->value() > 0 && (uint32)quantity.value()->value() < qty) {
+        qty = (uint32)quantity.value()->value();
+        InventoryItemRef part = item->Split((int32)qty, true);
+        if (part.get() == nullptr)
+            return nullptr;
+        item = part;
+    }
+
+    item->ChangeOwner(corpID, true);
+    item->Move(destLoc, flag, true);
+    _log(INV__MESSAGE, "%s delivered item %u (x%u) to corp hangar %u (flag %s)",
+         call.client->GetName(), item->itemID(), qty, destLoc, sDataMgr.GetFlagName(flag));
     return nullptr;
 }
 
 PyResult InvBrokerBound::DeliverToCorpMember(PyCallArgs &call, PyInt* corporationMemberID, PyInt* stationID, PyList* itemIDs, std::optional <PyInt*> quantity, PyInt* ownerID) {
-    //
-    /*
-    18:49:06 W InvBrokerBound::Handle_DeliverToCorpMember(): size= 5
-    18:49:06 [InvDump]   Call Arguments:
-    18:49:06 [InvDump]      Tuple: 5 elements
-    18:49:06 [InvDump]       [ 0]    Integer: 90000000          << member charID
-    18:49:06 [InvDump]       [ 1]    Integer: 60014140          << locationID
-    18:49:06 [InvDump]       [ 2]   List: 1 elements            << items to deliver
-    18:49:06 [InvDump]       [ 2]   [ 0]    Integer: 140024205  << itemID
-    18:49:06 [InvDump]       [ 3]       None                    << u/k
-    18:49:06 [InvDump]       [ 4]    Integer: 98000001          << ownerID (corpID)
-    */
-    sLog.Warning( "InvBrokerBound::Handle_DeliverToCorpMember()", "size=%lu", call.tuple->size());
-    call.Dump(INV__DUMP);
+    // right-click item -> Deliver To -> corporation member
+    if (corporationMemberID == nullptr || stationID == nullptr || itemIDs == nullptr)
+        return nullptr;
+    uint32 charID = (uint32)call.client->GetCharacterID();
+    uint32 corpID = (uint32)call.client->GetCorporationID();
+    uint32 target = (uint32)corporationMemberID->value();
 
+    if (target != charID) {
+        DBQueryResult res;
+        if (corpID == 0 || !sDatabase.RunQuery(res,
+                "SELECT 1 FROM chrCharacters WHERE characterID = %u AND corporationID = %u AND deleted = 0",
+                target, corpID) || res.GetRowCount() == 0) {
+            call.client->SendNotifyMsg("That pilot is not a member of your corporation.");
+            return nullptr;
+        }
+    }
+
+    uint32 delivered = 0;
+    for (PyList::const_iterator itr = itemIDs->begin(); itr != itemIDs->end(); ++itr) {
+        if (!(*itr)->IsInt())
+            continue;
+        InventoryItemRef item = sItemFactory.GetItemRef((*itr)->AsInt()->value());
+        if (item.get() == nullptr)
+            continue;
+        if (item->ownerID() != charID) {
+            call.client->SendNotifyMsg("You can only deliver items you own.");
+            continue;
+        }
+        InventoryItemRef deliver = item;
+        if (itemIDs->size() == 1 && quantity.has_value() && quantity.value() != nullptr
+            && quantity.value()->value() > 0 && (uint32)quantity.value()->value() < item->quantity()) {
+            deliver = item->Split(quantity.value()->value(), true);
+            if (deliver.get() == nullptr)
+                continue;
+        }
+        deliver->ChangeOwner(target, true);
+        deliver->Move(stationID->value(), flagHangar, true);
+        ++delivered;
+    }
+    _log(INV__MESSAGE, "%s delivered %u item(s) to corp member %u at %u",
+         call.client->GetName(), delivered, target, stationID->value());
+    if (delivered > 0 && target != charID)
+        call.client->SendNotifyMsg("Items delivered to your corpmate.");
     return nullptr;
 }
 
