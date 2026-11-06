@@ -40,6 +40,8 @@
  */
 
 #include "eve-server.h"
+#include "inventory/ItemFactory.h"
+#include "inventory/InventoryItem.h"
 
 
 
@@ -419,15 +421,20 @@ PyResult CorpStationMgrIMBound::GetQuoteForGettingCorpJunkBack(PyCallArgs &call)
     return new PyInt(pStationItem->GetOfficeRentalFee());
 }
 
-PyResult CorpStationMgrIMBound::DoesPlayersCorpHaveJunkAtStation(PyCallArgs &call)
-{   //if corpStationMgr.DoesPlayersCorpHaveJunkAtStation():
-    _log(CORP__CALL, "CorpStationMgrIMBound::Handle_DoesPlayersCorpHaveJunkAtStation()");
-    call.Dump(CORP__CALL_DUMP);
-
-    // query station for (officeID:flagimpounded)
-
-    // returns boolean
-    return PyStatic.NewFalse();
+PyResult CorpStationMgrIMBound::DoesPlayersCorpHaveJunkAtStation(PyCallArgs &call) {
+    // corp has impounded items at this station?
+    uint32 corpID = (uint32)call.client->GetCorporationID();
+    if (corpID == 0)
+        return PyStatic.NewFalse();
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+            "SELECT 1 FROM entity WHERE ownerID = %u AND flag = %u"
+            " AND (locationID = %u OR locationID IN (SELECT itemID FROM staOffices WHERE stationID = %u AND corporationID = %u))"
+            " LIMIT 1",
+            corpID, flagImpounded, m_stationID, m_stationID, corpID)) {
+        return PyStatic.NewFalse();
+    }
+    return (res.GetRowCount() > 0) ? PyStatic.NewTrue() : PyStatic.NewFalse();
 }
 
 PyResult CorpStationMgrIMBound::SetHomeStation(PyCallArgs &call, PyInt* newHomeStationID) {
@@ -497,11 +504,53 @@ PyResult CorpStationMgrIMBound::CancelRentOfOffice(PyCallArgs &call)
     return PyStatic.NewNone();
 }
 
-PyResult CorpStationMgrIMBound::PayForReturnOfCorpJunk(PyCallArgs &call, PyFloat* cost)
-{   //    corpStationMgr.PayForReturnOfCorpJunk(cost)
-    _log(CORP__CALL, "CorpStationMgrIMBound::Handle_PayForReturnOfCorpJunk()");
-    call.Dump(CORP__CALL_DUMP);
+PyResult CorpStationMgrIMBound::PayForReturnOfCorpJunk(PyCallArgs &call, PyFloat* cost) {
+    // corpStationMgr.PayForReturnOfCorpJunk(cost) - pay and move impounded corp
+    // items back into the corporation hangar (division 1) at this station.
+    uint32 corpID = (uint32)call.client->GetCorporationID();
+    if (corpID == 0)
+        return nullptr;
+    double pay = (cost != nullptr) ? cost->value() : 0.0;
+    if (pay > 0.0) {
+        if (!call.client->AddBalance(-pay)) {
+            call.client->SendNotifyMsg("You do not have enough ISK to recover the corporate items.");
+            return nullptr;
+        }
+    }
 
+    // office (may be gone if the lease expired) - deliver back into it when present
+    uint32 officeID = 0;
+    DBQueryResult ores;
+    if (sDatabase.RunQuery(ores, "SELECT itemID FROM staOffices WHERE stationID = %u AND corporationID = %u LIMIT 1", m_stationID, corpID)) {
+        DBResultRow orow;
+        if (ores.GetRow(orow))
+            officeID = orow.GetUInt(0);
+    }
+    uint32 destLoc = (officeID != 0) ? officeID : m_stationID;
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+            "SELECT itemID FROM entity WHERE ownerID = %u AND flag = %u"
+            " AND (locationID = %u OR locationID IN (SELECT itemID FROM staOffices WHERE stationID = %u AND corporationID = %u))",
+            corpID, flagImpounded, m_stationID, m_stationID, corpID)) {
+        codelog(CORP__DB_ERROR, "PayForReturnOfCorpJunk: %s", res.error.c_str());
+        return nullptr;
+    }
+    uint32 moved = 0;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        InventoryItemRef item = sItemFactory.GetItemRef(row.GetUInt(0));
+        if (item.get() == nullptr)
+            continue;
+        item->Move(destLoc, flagHangar, true);
+        ++moved;
+    }
+    _log(CORP__MESSAGE, "%s paid %.2f ISK to recover %u corporate item(s) at station %u",
+         call.client->GetName(), pay, moved, m_stationID);
+    if (moved == 0)
+        call.client->SendNotifyMsg("There are no impounded corporate items at this station.");
+    else
+        call.client->SendNotifyMsg("Corporate items recovered (%u).", moved);
     return nullptr;
 }
 
