@@ -153,7 +153,7 @@ EVEServerConfig::EVEServerConfig()
 
     // character
     character.startBalance = 6666000000.0f;
-    character.startAurBalance = 60000.0f;
+    character.startAurBalance = 1000.0f;
     character.startStation = 0;
     character.startSecRating = 0.0;
     character.startCorporation = 0;

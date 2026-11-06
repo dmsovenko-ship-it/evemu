@@ -120,26 +120,47 @@ PyResult UserService::ClaimRedeemTokens(PyCallArgs& call, PyList* tokens, PyInt*
     uint32 stationID = pClient->GetStationID();
     if (stationID == 0)
         throw UserError("RedeemNoTokens");
+    sLog.Error("ClaimRedeemTokens", "target=%u station=%u tokens=%u", targetCharID, stationID, tokens->size());
 
     int64 nowft = GetFileTimeNow();
     for (size_t i = 0; i < tokens->size(); ++i) {
         PyRep* r = tokens->GetItem(i);
-        if (r == nullptr || !(r)->IsTuple())
+        if (r == nullptr) continue;
+        uint32 itemID = 0;
+        if ((r)->IsTuple()) {
+            PyTuple* pair = (r)->AsTuple();
+            if (pair->size() >= 1 && (pair->GetItem(0)) != nullptr && (pair->GetItem(0))->IsInt())
+                itemID = (uint32)(pair->GetItem(0))->AsInt()->value();
+        } else if ((r)->IsInt()) {
+            itemID = (uint32)(r)->AsInt()->value();
+        } else if ((r)->IsDict()) {
+            PyDict* d = (r)->AsDict();
+            PyRep* key = d->GetItemString("tokenID");
+            if (key != nullptr && (key)->IsInt())
+                itemID = (uint32)(key)->AsInt()->value();
+        }
+        if (itemID == 0) {
+            sLog.Error("ClaimRedeemTokens", "token %u: unparseable type=%s - skipped", i, (r)->TypeString());
             continue;
-        PyTuple* pair = (r)->AsTuple();
-        if (pair->size() < 1 || pair->GetItem(0) == nullptr || !(pair->GetItem(0))->IsInt())
-            continue;
-        uint32 itemID = (uint32)(pair->GetItem(0))->AsInt()->value();
+        }
         InventoryItemRef plex = sItemFactory.GetItemRef(itemID);
-        if (plex.get() == nullptr)
+        if (plex.get() == nullptr) {
+            sLog.Error("ClaimRedeemTokens", "token %u: item %u not found", i, itemID);
             continue;
-        if (plex->typeID() != 29668)
+        }
+        if (plex->typeID() != 29668) {
+            sLog.Error("ClaimRedeemTokens", "token %u: item %u is type %u (not PLEX)", i, itemID, plex->typeID());
             continue;
+        }
         // allow only own PLEX, or gift: keep owner check on source
-        if (plex->ownerID() != pClient->GetCharacterID())
+        if (plex->ownerID() != pClient->GetCharacterID()) {
+            sLog.Error("ClaimRedeemTokens", "token %u: item %u owner %u != char %u", i, itemID, plex->ownerID(), pClient->GetCharacterID());
             continue;
+        }
+        sLog.Error("ClaimRedeemTokens", "token %u: claiming item %u (%u x PLEX) -> char %u hangar @ %u", i, itemID, plex->quantity(), targetCharID, stationID);
         plex->ChangeOwner(targetCharID, false);
         plex->Move(stationID, flagHangar, true);
+        sLog.Error("ClaimRedeemTokens", "token %u: done - item %u now loc=%u flag=%u", i, itemID, plex->locationID(), plex->flag());
         (void)nowft;
     }
     return new PyNone();
