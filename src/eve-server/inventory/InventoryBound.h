@@ -51,6 +51,7 @@ protected:
     PyResult TakeOutTrash(PyCallArgs& call, PyInt* itemIDs);
     PyResult SetPassword(PyCallArgs& call, PyInt* which, PyString* newPassword, PyString* oldPassword);
     PyResult ListDroneBay(PyCallArgs& call);
+    PyResult BreakPlasticWrap(PyCallArgs& call);
     PyResult RunRefiningProcess(PyCallArgs& call);
     PyResult Build(PyCallArgs& call);
 

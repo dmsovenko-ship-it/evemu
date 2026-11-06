@@ -68,6 +68,7 @@ InventoryBound::InventoryBound(EVEServiceManager &mgr, BoundServiceParent<Invent
     EVEBoundObject::Add("ImportExportWithPlanet", &InventoryBound::ImportExportWithPlanet);
     EVEBoundObject::Add("CreateBookmarkVouchers", &InventoryBound::CreateBookmarkVouchers);
     EVEBoundObject::Add("ListDroneBay", &InventoryBound::ListDroneBay);
+    EVEBoundObject::Add("BreakPlasticWrap", &InventoryBound::BreakPlasticWrap);
     EVEBoundObject::Add("SetPassword", &InventoryBound::SetPassword);
     EVEBoundObject::Add("RunRefiningProcess", &InventoryBound::RunRefiningProcess);
     EVEBoundObject::Add("TakeOutTrash", &InventoryBound::TakeOutTrash);
@@ -913,6 +914,35 @@ PyResult InventoryBound::TakeOutTrash(PyCallArgs &call, PyInt* itemIDs) {
 PyResult InventoryBound::SetPassword(PyCallArgs &call, PyInt* which, PyString* newPassword, PyString* oldPassword) {
     _log(INV__MESSAGE, "%s Calling InventoryBound::SetPassword() for %s(%u)", call.client->GetName(), m_self->name(), m_itemID);
     call.Dump(INV__DUMP);
+    return nullptr;
+}
+
+PyResult InventoryBound::BreakPlasticWrap(PyCallArgs &call)
+{
+    // invCache.GetInventoryFromId(wrapID).BreakPlasticWrap() - open a courier package:
+    // move its contents into the container where the wrap sits, then remove the wrap.
+    if (m_self.get() == nullptr || m_self->typeID() != 3468) {   // 3468 = Plastic Wrap
+        sLog.Error("IB::BreakPlasticWrap", "%s tried to break a non-wrap item.", call.client->GetName());
+        return nullptr;
+    }
+    if (m_self->ownerID() != call.client->GetCharacterID()) {
+        sLog.Error("IB::BreakPlasticWrap", "%s does not own wrap %u (owner %u).", call.client->GetName(), m_self->itemID(), m_self->ownerID());
+        return nullptr;
+    }
+    Inventory* inv = (pInventory != nullptr) ? pInventory : m_self->GetMyInventory();
+    uint32 locID = m_self->locationID();
+    EVEItemFlags outFlag = sDataMgr.IsStation(locID) ? flagHangar : flagCargoHold;
+    if (inv != nullptr) {
+        std::vector<InventoryItemRef> contents;
+        inv->GetInventoryVec(contents);
+        for (auto& it : contents) {
+            if (it.get() == nullptr || it->itemID() == m_self->itemID())
+                continue;
+            it->Move(locID, outFlag, true);
+        }
+    }
+    _log(INV__MESSAGE, "%s broke plastic wrap %u - contents moved to %u (flag %s)", call.client->GetName(), m_self->itemID(), locID, sDataMgr.GetFlagName(outFlag));
+    m_self->Delete();
     return nullptr;
 }
 
