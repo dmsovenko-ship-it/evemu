@@ -11,6 +11,7 @@
 
 #include "Client.h"
 #include "EntityList.h"
+#include "StaticDataMgr.h"
 #include "agents/Agent.h"
 #include "agents/AgentMgrService.h"
 #include "database/EVEDBUtils.h"
@@ -357,6 +358,7 @@ void MissionDataMgr::Populate()
         offer.typeID = row.GetInt(31);
         offer.dungeonLocationID = row.GetInt(32);
         offer.dungeonSolarSystemID = row.GetInt(33);
+        offer.objectiveType = row.GetInt(34);
         offer.dateCompleted = 0;
         // will need to determine how to store/retrieve bookmarks as a list of dicts here
         offer.bookmarks = RefPtr<PyList>(new PyList());
@@ -408,6 +410,7 @@ void MissionDataMgr::Populate()
         offer.destinationSystemID = 0;
         offer.dungeonLocationID = 0;
         offer.dungeonSolarSystemID = 0;
+        offer.objectiveType = 0;
         offer.bookmarks = RefPtr<PyList>(new PyList()); //invalid offers will not have bms
         m_xoffers.emplace(row.GetInt(2), offer);
     }
@@ -495,6 +498,7 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
 {
     // variable mission data based on agent, init to 0 here.
     data.stateID                = Mission::State::Allocated;
+    data.objectiveType          = 0;
     data.dateIssued             = GetFileTimeNow();
     data.remoteOfferable        = false;
     data.remoteCompletable      = false;
@@ -766,6 +770,42 @@ std::string MissionDataMgr::GetTypeLabel(uint8 typeID)
         case Burner:            return "UI/Agents/MissionTypes/Burner";
         default:                return "Invalid";
     }
+}
+
+void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
+{
+    // Epic arc / COSMOS missions carry no objective data in our SDE dump. Give each
+    // one a deterministic (stable across repeats) but real objective:
+    //   1 = travel  - fly to the destination system, then report back to the agent
+    //   2 = courier - bring the mission package to a station in that system
+    //   3 = hunt    - destroy the hostile cluster spawned there
+    using namespace Mission::Type;
+    if (!(offer.typeID == EpicArc || offer.typeID == Cosmos))
+        return;
+    if (offer.objectiveType != 0)
+        return;
+
+    uint8 kind = (uint8)(offer.missionID % 3);   // 0 travel, 1 courier, 2 hunt
+    offer.objectiveType = kind + 1;
+
+    if (offer.objectiveType == 2) {   // courier objective - needs a station to hand in
+        static const uint16 arcGoods[] = { 34, 38, 39, 40, 1229 };
+        offer.courierTypeID = arcGoods[offer.missionID % 5];
+        offer.courierAmount = (uint16)(50 + (offer.missionID % 7) * 25);
+        offer.courierItemVolume = 0.01f;
+        if (!sDataMgr.IsStation(offer.destinationID)) {
+            std::vector<uint32> stations;
+            if (offer.destinationSystemID != 0
+                && sDataMgr.GetStationList(offer.destinationSystemID, stations) && !stations.empty())
+                offer.destinationID = stations.front();
+            else if (offer.originID != 0)
+                offer.destinationID = offer.originID;
+        }
+    }
+
+    _log(AGENT__MESSAGE, "AssignArcObjective: mission %u (%s) -> objective %u%s",
+         offer.missionID, offer.name.c_str(), offer.objectiveType,
+         (offer.objectiveType == 2 ? " (courier)" : (offer.objectiveType == 3 ? " (hunt)" : " (travel)")));
 }
 
 void MissionDataMgr::UpdateMissionData(uint32 charID, MissionOffer& data)

@@ -31,6 +31,7 @@
 #include "../../eve-common/EVE_Standings.h"
 
 #include "StaticDataMgr.h"
+#include "map/MapData.h"
 #include "account/AccountService.h"
 #include "corporation/LPService.h"
 #include "agents/AgentBound.h"
@@ -39,6 +40,7 @@
 #include "services/ServiceManager.h"
 #include "missions/EpicArcMgr.h"
 #include "missions/EncounterServer.h"
+#include "missions/MissionDB.h"
 #include "system/SystemManager.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "POD_containers.h"
@@ -225,6 +227,26 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         offer.dateIssued = GetFileTimeNow();
                         offer.expiryTime = GetFileTimeNow() + EvE::Time::Day * 90;
                         offer.stateID = Mission::State::Allocated;
+                        // resolve a destination system for the objective (arc missions are
+                        // not courier/trade, so MakeOffer never picked one), then assign the
+                        // objective before the offer row is written
+                        offer.range = 2;
+                        sMapData.GetMissionDestination(m_agent, Mission::Type::Encounter, offer);
+                        if (offer.destinationSystemID == 0 || offer.destinationSystemID == offer.originSystemID) {
+                            DBQueryResult jumpRes;
+                            if (sDatabase.RunQuery(jumpRes, "SELECT toSolarSystemID FROM mapSolarSystemJumps WHERE fromSolarSystemID = %u LIMIT 1", offer.originSystemID)) {
+                                DBResultRow jumpRow;
+                                if (jumpRes.GetRow(jumpRow)) {
+                                    offer.destinationSystemID = jumpRow.GetUInt(0);
+                                    offer.destinationID = offer.destinationSystemID;
+                                    offer.destinationTypeID = 0;
+                                    offer.destinationOwnerID = 0;
+                                }
+                            }
+                        }
+                        sMissionDataMgr.AssignArcObjective(offer);
+                        MissionDB::CreateOfferID(offer);
+                        m_agent->m_offers.emplace(charID, offer);
                         sMissionDataMgr.AddMissionOffer(charID, offer);
                         m_agent->SendMissionUpdate(call.client, "offered");
                         // persistent notification
@@ -338,7 +360,9 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 // only courier missions hand the pilot a mission package; mining/trade/
                 // research missions expect the pilot to mine or buy the goods themselves
                 // (spawning cargo for them made every such mission instantly complete)
-                if (offer.typeID == Mission::Type::Courier && offer.courierTypeID) {
+                bool isCourierObjective = (offer.typeID == Mission::Type::Courier)
+                    || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 2);
+                if (isCourierObjective && offer.courierTypeID) {
                     sItemFactory.SetUsingClient(call.client);
                     ItemData data(offer.courierTypeID, pchar->itemID(), locTemp, flagNone, offer.courierAmount);
                     InventoryItemRef iRef = sItemFactory.SpawnItem(data);
@@ -414,6 +438,20 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                             _log(AGENT__MESSAGE, "Spawned mining belt (%zu roids of type %u) for mission %u offer %u.",
                                  roids.size(), offer.courierTypeID, offer.missionID, offer.offerID);
                         }
+                    }
+                }
+                // Epic arc / COSMOS hunt objectives spawn a tracked hostile cluster in the
+                // destination system (completion = every target destroyed)
+                if ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos)
+                    && offer.objectiveType == 3 && offer.destinationSystemID != 0) {
+                    EncounterSpawnServer* huntEss = EncounterSpawnServer::Get();
+                    if (huntEss != nullptr) {
+                        GPoint huntPos = dungeonSite;
+                        if (huntPos.x == 0 && huntPos.y == 0 && huntPos.z == 0)
+                            huntPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+                        uint32 huntCount = huntEss->SpawnEncounterForOffer(offer, offer.destinationSystemID, huntPos);
+                        _log(AGENT__MESSAGE, "Arc/cosmos hunt: spawned %u targets for mission %u offer %u.",
+                             huntCount, offer.missionID, offer.offerID);
                     }
                 }
                 m_agent->UpdateOffer(pchar->itemID(), offer);
@@ -1063,7 +1101,8 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
     // the client a dungeon objective with those coordinates so it can build the
     // warp-to-site link ("Objective: <location>"). Without this the player has no
     // way to reach the spawned targets.
-    bool isSiteMission = (offer.typeID == Mission::Type::Encounter || offer.typeID == Mission::Type::Mining);
+    bool isSiteMission = (offer.typeID == Mission::Type::Encounter || offer.typeID == Mission::Type::Mining
+        || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 3));
     if (isSiteMission && EncounterSpawnServer::Get() != nullptr) {
         GPoint tgt;
         if (EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, tgt)) {
@@ -1209,10 +1248,39 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
                 objType->SetItem(1, objData);
             objectives->SetItem(0, objType);
         } break;
-        case Mission::Type::Anomic:
         case Mission::Type::EpicArc:
+        case Mission::Type::Cosmos: {
+            // procedural arc/cosmos objectives: courier ones look like a delivery run
+            if (offer.objectiveType == 2 && offer.courierTypeID != 0) {
+                PyDict* pickupLocation = new PyDict();
+                    pickupLocation->SetItemString("typeID", new PyInt(m_agent->GetLocTypeID()) );
+                    pickupLocation->SetItemString("locationID", new PyInt(offer.originID) );
+                    pickupLocation->SetItemString("locationType", PyStatic.NewNone());
+                    pickupLocation->SetItemString("solarsystemID", new PyInt(offer.originSystemID) );
+                PyDict* cargo = new PyDict();
+                    cargo->SetItemString("hasCargo", new PyBool(pClient->ContainsTypeQty(offer.courierTypeID, offer.courierAmount)));
+                    cargo->SetItemString("typeID", new PyInt(offer.courierTypeID));
+                    cargo->SetItemString("quantity", new PyInt(offer.courierAmount));
+                    cargo->SetItemString("volume", new PyFloat(offer.courierItemVolume * offer.courierAmount));
+                PyTuple* objData = new PyTuple(5);
+                    PySetItemRelease(objData, 0, new PyInt(offer.originOwnerID));
+                    objData->SetItem(1, pickupLocation);
+                    PySetItemRelease(objData, 2, new PyInt(offer.destinationOwnerID));
+                    objData->SetItem(3, dropoffLocation);
+                    objData->SetItem(4, cargo);
+                PyTuple* objType = new PyTuple(2);
+                    PySetItemRelease(objType, 0, new PyString("transport"));
+                    objType->SetItem(1, objData);
+                objectives->SetItem(0, objType);
+            } else {
+                PyTuple* objType = new PyTuple(2);
+                    PySetItemRelease(objType, 0, new PyString("none"));
+                    PySetItemRelease(objType, 1, new PyDict());
+                objectives->SetItem(0, objType);
+            }
+        } break;
+        case Mission::Type::Anomic:
         case Mission::Type::Burner:
-        case Mission::Type::Cosmos:
         case Mission::Type::Data:
         case Mission::Type::Storyline:
         case Mission::Type::Tutorial:

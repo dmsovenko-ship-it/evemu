@@ -2537,11 +2537,31 @@ bool Client::IsMissionComplete(MissionOffer& data)
                 return true;
         } break;
         case Mission::Type::Cosmos:
-        case Mission::Type::EpicArc:
+        case Mission::Type::EpicArc: {
+            // procedurally assigned objectives (see MissionDataMgr::AssignArcObjective)
+            switch (data.objectiveType) {
+                case 1: {   // travel: visit the destination system, report back to the agent
+                    if (m_locationID == 0 || data.originID == 0 || m_locationID != data.originID)
+                        return false;
+                    DBQueryResult vres;
+                    if (!sDatabase.RunQuery(vres,
+                            "SELECT 1 FROM chrVisitedSystems WHERE characterID = %u AND solarSystemID = %u",
+                            (uint32)GetCharacterID(), data.destinationSystemID))
+                        return false;
+                    return (vres.GetRowCount() > 0);
+                }
+                case 2:     // courier: package delivered to the destination station
+                    return (data.courierTypeID != 0 && m_locationID == data.destinationID
+                            && ContainsTypeQty(data.courierTypeID, data.courierAmount));
+                case 3:     // hunt: every spawned target destroyed
+                    return (EncounterSpawnServer::Get() != nullptr
+                            && EncounterSpawnServer::Get()->IsOfferComplete(data.offerID));
+                default:    // legacy offers from before objectives existed
+                    return (m_locationID != 0);
+            }
+        } break;
         case Mission::Type::Anomic: {
-            // Their real objectives (hacking, specific kills, item hand-ins) are not
-            // modelled; the client only offers "Complete" while talking to the agent,
-            // so being docked is the completion condition.
+            // not modelled - being docked at the agent is enough
             if (m_locationID != 0)
                 return true;
         } break;

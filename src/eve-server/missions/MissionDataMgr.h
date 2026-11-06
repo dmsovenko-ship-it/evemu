@@ -38,6 +38,8 @@ public:
     void                LoadMissionOffers(uint32 charID, std::vector<MissionOffer>& data);
     void                LoadAgentOffers(const uint32 agentID, std::map<uint32, MissionOffer>& data);
     void                CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID, bool important, MissionOffer& data);
+    // Arc/COSMOS missions: assign a deterministic, meaningful objective (no SDE data).
+    void                AssignArcObjective(MissionOffer& offer);
 
     std::string         GetTypeName(uint8 typeID);
     std::string         GetTypeLabel(uint8 typeID);
