@@ -146,6 +146,8 @@ CharMgrService::CharMgrService(EVEServiceManager& mgr) :
     //these 2 are for labels in PnP window;
     this->Add("GetLabels", &CharMgrService::GetLabels);
     this->Add("CreateLabel", &CharMgrService::CreateLabel);
+    this->Add("EditLabel", &CharMgrService::EditLabel);
+    this->Add("DeleteLabel", &CharMgrService::DeleteLabel);
 }
 
 BoundDispatcher* CharMgrService::BindObject(Client *client, PyRep* bindParameters) {
@@ -721,12 +723,57 @@ PyResult CharMgrService::EditContact(PyCallArgs& call, PyInt* characterID, PyFlo
   return nullptr;
 }
 
-PyResult CharMgrService::CreateLabel(PyCallArgs& call)
+PyResult CharMgrService::CreateLabel(PyCallArgs& call, PyRep* name, PyRep* color)
 {
-  sLog.Warning( "CharMgrService::Handle_CreateLabel()", "size=%lu", call.tuple->size());
-  call.Dump(CHARACTER__DEBUG);
+    // self.GetSvc().CreateLabel(name, color) -> returns the new labelID
+    std::string nameStr = "Label";
+    if (name != nullptr) {
+        if (name->IsString())
+            nameStr = name->AsString()->content();
+        else if (name->IsWString())
+            nameStr = PyRep::StringContent(name);
+    }
+    uint32 colorVal = (color != nullptr && color->IsInt()) ? (uint32)color->AsInt()->value() : 0;
+    uint32 labelID = m_db.CreateLabel(call.client->GetCharacterID(), colorVal, nameStr);
+    return new PyInt(labelID);
+}
 
-  return nullptr;
+PyResult CharMgrService::EditLabel(PyCallArgs& call, PyInt* labelID, PyRep* name, PyRep* color)
+{
+    // self.GetSvc().EditLabel(labelID, name, color) - None leaves the value as-is
+    if (labelID == nullptr)
+        return nullptr;
+    uint32 charID = (uint32)call.client->GetCharacterID();
+    uint32 colorVal = 0;
+    std::string nameStr;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT color, name FROM chrLabels WHERE ownerID = %u AND labelID = %u", charID, labelID->value())) {
+        DBResultRow row;
+        if (res.GetRow(row)) {
+            colorVal = row.GetUInt(0);
+            const char* dbName = row.GetText(1);
+            if (dbName != nullptr)
+                nameStr = dbName;
+        }
+    }
+    if (color != nullptr && color->IsInt())
+        colorVal = (uint32)color->AsInt()->value();
+    if (name != nullptr) {
+        if (name->IsString())
+            nameStr = name->AsString()->content();
+        else if (name->IsWString())
+            nameStr = PyRep::StringContent(name);
+    }
+    m_db.EditLabel(charID, labelID->value(), colorVal, nameStr);
+    return nullptr;
+}
+
+PyResult CharMgrService::DeleteLabel(PyCallArgs& call, PyInt* labelID)
+{
+    if (labelID == nullptr)
+        return nullptr;
+    m_db.DeleteLabel(call.client->GetCharacterID(), labelID->value());
+    return nullptr;
 }
 
 PyResult CharMgrService::DeleteContacts(PyCallArgs& call, PyList* contactIDs)

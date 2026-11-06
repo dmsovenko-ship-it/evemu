@@ -68,7 +68,9 @@ protected:
     PyResult EditContact(PyCallArgs& call, PyInt* characterID, PyFloat* standing, PyInt* inWatchlist, PyBool* notify, std::optional<PyWString*> note);
     PyResult GetRecentShipKillsAndLosses(PyCallArgs& call, PyInt* num, std::optional<PyInt*> startIndex);
     PyResult GetLabels(PyCallArgs& call);
-    PyResult CreateLabel(PyCallArgs& call);
+    PyResult CreateLabel(PyCallArgs& call, PyRep* name, PyRep* color);
+PyResult EditLabel(PyCallArgs& call, PyInt* labelID, PyRep* name, PyRep* color);
+PyResult DeleteLabel(PyCallArgs& call, PyInt* labelID);
     PyResult DeleteContacts(PyCallArgs& call, PyList* contactIDs);
     PyResult BlockOwners(PyCallArgs& call, PyList* ownerIDs);
     PyResult UnblockOwners(PyCallArgs& call, PyList* ownerIDs);

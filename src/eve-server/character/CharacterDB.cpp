@@ -2290,6 +2290,24 @@ void CharacterDB::SetLabel(uint32 charID, uint32 color, std::string name)
     sDatabase.RunQuery(err, "INSERT INTO chrLabels (color, name, ownerID) VALUES (%u, '%s', %u)", color, eName.c_str(), charID);
 }
 
+uint32 CharacterDB::CreateLabel(uint32 charID, uint32 color, std::string name)
+{
+    std::string eName;
+    sDatabase.DoEscapeString(eName, name);
+    DBerror err;
+    sDatabase.RunQuery(err, "INSERT INTO chrLabels (color, name, ownerID) VALUES (%u, '%s', %u)", color, eName.c_str(), charID);
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res, "SELECT labelID FROM chrLabels WHERE ownerID = %u ORDER BY labelID DESC LIMIT 1", charID)) {
+        codelog(DATABASE__ERROR, "CreateLabel: %s", res.error.c_str());
+        return 0;
+    }
+    DBResultRow row;
+    if (res.GetRow(row))
+        return row.GetUInt(0);
+    return 0;
+}
+
 void CharacterDB::DeleteLabel(uint32 charID, uint32 labelID)
 {
     DBerror err;

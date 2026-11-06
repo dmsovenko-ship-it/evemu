@@ -258,7 +258,8 @@ public:
     static uint8 GetSkillLevel(uint32 charID, uint16 skillTypeID);
 
     PyRep*      GetLabels(uint32 charID);
-    void        SetLabel(uint32 charID, uint32 color, std::string name);
+    uint32      CreateLabel(uint32 charID, uint32 color, std::string name);
+void        SetLabel(uint32 charID, uint32 color, std::string name);
     void        EditLabel(uint32 charID, uint32 labelID, uint32 color, std::string name);
     void        DeleteLabel(uint32 charID, uint32 labelID);
 
