@@ -101,17 +101,22 @@ std::string APICharacterManager::ProcessCall(const std::string& handler,
         // find one PLEX (29668) in the character hangar
         DBQueryResult pres;
         if (!sDatabase.RunQuery(pres,
-                "SELECT itemID FROM entity WHERE ownerID=%u AND typeID=29668 AND flag IN (4, 211) AND quantity>0 LIMIT 1", characterID))
+                "SELECT itemID, quantity FROM entity WHERE ownerID=%u AND typeID=29668 AND flag IN (4, 211) AND quantity>0 LIMIT 1", characterID))
             return BuildErrorXML("999", "Query failed.");
         DBResultRow prow;
         if (!pres.GetRow(prow))
             return BuildErrorXML("107", "No PLEX in the hangar.");
         uint32 plexID = (uint32)prow.GetUInt(0);
+        uint32 plexQty = prow.GetUInt(1);
 
-        // consume it
+        // consume ONE PLEX from the stack (a stack of N is a single entity row)
         DBerror err;
-        sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID=%u", plexID);
-        sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID=%u", plexID);
+        if (plexQty > 1) {
+            sDatabase.RunQuery(err, "UPDATE entity SET quantity=quantity-1 WHERE itemID=%u AND quantity>1", plexID);
+        } else {
+            sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID=%u", plexID);
+            sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID=%u", plexID);
+        }
 
         // extend the subscription
         uint32 days = (sConfig.subscription.PremiumDays > 0 ? sConfig.subscription.PremiumDays : 30);
