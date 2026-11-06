@@ -246,8 +246,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         }
                         sMissionDataMgr.AssignArcObjective(offer);
                         MissionDB::CreateOfferID(offer);
-                        m_agent->m_offers.emplace(charID, offer);
-                        sMissionDataMgr.AddMissionOffer(charID, offer);
+                        m_agent->AddOffer(charID, offer);
                         m_agent->SendMissionUpdate(call.client, "offered");
                         // persistent notification
                         PyDict* notifData = new PyDict();

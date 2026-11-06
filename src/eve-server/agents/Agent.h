@@ -48,6 +48,8 @@ public:
     bool HasMission(uint32 charID, MissionOffer& offer);
 
     void MakeOffer(uint32 charID, MissionOffer& offer);
+    // register an externally built offer (epic arc path) in the agent + mission manager
+    void AddOffer(uint32 charID, MissionOffer& offer);
     void GetOffer(uint32 charID, MissionOffer& offer);
     void UpdateOffer(uint32 charID, MissionOffer& offer);
     void DeleteOffer(uint32 charID);    // completely deletes offer from agent data, missionMgr data, and db

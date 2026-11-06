@@ -249,6 +249,12 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     sMissionDataMgr.AddMissionOffer(charID, offer);
 }
 
+void Agent::AddOffer(uint32 charID, MissionOffer& offer)
+{
+    m_offers[charID] = offer;
+    sMissionDataMgr.AddMissionOffer(charID, offer);
+}
+
 bool Agent::HasMission(uint32 charID)
 {
     std::map<uint32, MissionOffer>::iterator itr = m_offers.find(charID);
