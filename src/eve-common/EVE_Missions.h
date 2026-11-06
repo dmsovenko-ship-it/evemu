@@ -17,7 +17,7 @@ struct MissionData {
         uint8 level;
         uint8 typeID;
         uint8 range;
-        uint16 missionID;
+        uint32 missionID;
         uint32 briefingID;
         uint32 constellationID;
         uint32 corporationID;
@@ -37,7 +37,7 @@ struct MissionOffer {
     uint8 objectiveType;        // arc/cosmos procedural objective: 0 none, 1 travel, 2 courier, 3 hunt, 4 tutorial
     uint32 objectiveTutorialID; // tutorial step tracked by an Aura tutorial mission
     uint16 bonusTime;           // time in minutes
-    uint16 missionID;           // this is mission title messageID for locale
+    uint32 missionID;           // mission title/messageID (arc/cosmos ids exceed uint16)
     uint16 rewardLP;
     uint16 rewardItemID;
     uint16 rewardItemQty;
@@ -46,7 +46,7 @@ struct MissionOffer {
     uint16 destinationTypeID;
     uint32 offerID;
     uint32 agentID;
-    uint32 briefingID;          // this is mission briefing messageID for locale
+    uint32 briefingID;          // mission briefing messageID for locale
     //uint32 contentID;           // on live, this is specific char data for mission keywords.  we're not using it
     uint32 characterID;
     uint32 rewardISK;
@@ -80,7 +80,7 @@ struct CourierData {
     uint8 range;
     uint8 raceID;
     uint16 bonusTime;
-    uint16 missionID;
+    uint32 missionID;
     uint16 itemTypeID;
     uint16 itemQty;
     uint16 rewardItemID;

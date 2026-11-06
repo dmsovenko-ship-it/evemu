@@ -802,7 +802,7 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
             uint32 itype = objRow.GetUInt(2);
             uint32 iqty = objRow.GetUInt(3);
             if (brief != 0)
-                offer.briefingID = (uint16)brief;
+                offer.briefingID = brief;
             if (itype != 0) {
                 offer.courierTypeID = (uint16)itype;
                 offer.courierAmount = (uint16)(iqty != 0 ? iqty : 1);
@@ -825,7 +825,7 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
                 return;
             }
             if (brief != 0) {
-                offer.briefingID = (uint16)brief;
+                offer.briefingID = brief;
                 _log(AGENT__MESSAGE, "AssignArcObjective: mission %u uses localized briefing %u", offer.missionID, brief);
             }
         }
