@@ -917,11 +917,12 @@ PyResult InventoryBound::SetPassword(PyCallArgs &call, PyInt* which, PyString* n
 }
 
 PyResult InventoryBound::ListDroneBay(PyCallArgs &call) {
-    // i dont think this one is used....
-    sLog.Error("IB::ListDroneBay", "Character '%s', self: '%s'(%u)", call.client->GetName(), m_self->name(), m_itemID);
-    _log(INV__MESSAGE, "%s Calling InventoryBound::ListDroneBay() for %s(%u)", call.client->GetName(), m_self->name(), m_itemID);
-    call.Dump(INV__DUMP);
-    return nullptr;
+    // invCache.GetInventoryFromId(shipID).ListDroneBay() - drone bay contents
+    // (drone window / tactical overlay) shares the List() response format.
+    _log(INV__MESSAGE, "%s Listing drone bay of %s(%u)", call.client->GetName(), m_self->name(), m_itemID);
+    PyInt flag(flagDroneBay);
+    PyInt* pFlag = &flag;
+    return this->List(call, std::optional<PyInt*>(pFlag));
 }
 
 PyResult InventoryBound::RunRefiningProcess(PyCallArgs &call) {
