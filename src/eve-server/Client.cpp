@@ -2503,6 +2503,15 @@ bool Client::IsMissionComplete(MissionOffer& data)
     // dont know all the stipulations of "completion" yet, but skeleton code for starters...
     switch (data.typeID) {
         case Mission::Type::Tutorial: {
+            // Aura tutorial mission: complete when the tracked tutorial step is finished
+            if (data.objectiveType == 4 && data.objectiveTutorialID != 0) {
+                DBQueryResult tres;
+                if (!sDatabase.RunQuery(tres,
+                        "SELECT 1 FROM characterTutorialState WHERE characterID = %u AND tutorialID = %u AND completed = 1 LIMIT 1",
+                        (uint32)GetCharacterID(), data.objectiveTutorialID))
+                    return false;
+                return (tres.GetRowCount() > 0);
+            }
         } break;
         case Mission::Type::Encounter: {
             // An encounter mission is complete when every hostile target the

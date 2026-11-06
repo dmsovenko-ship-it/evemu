@@ -17,6 +17,8 @@
 #include "database/EVEDBUtils.h"
 #include "missions/MissionDataMgr.h"
 #include "inventory/ItemFactory.h"
+#include <algorithm>
+#include <cctype>
 
 MissionDataMgr::MissionDataMgr()
 {
@@ -359,6 +361,7 @@ void MissionDataMgr::Populate()
         offer.dungeonLocationID = row.GetInt(32);
         offer.dungeonSolarSystemID = row.GetInt(33);
         offer.objectiveType = row.GetInt(34);
+        offer.objectiveTutorialID = row.GetUInt(35);
         offer.dateCompleted = 0;
         // will need to determine how to store/retrieve bookmarks as a list of dicts here
         offer.bookmarks = RefPtr<PyList>(new PyList());
@@ -411,6 +414,7 @@ void MissionDataMgr::Populate()
         offer.dungeonLocationID = 0;
         offer.dungeonSolarSystemID = 0;
         offer.objectiveType = 0;
+        offer.objectiveTutorialID = 0;
         offer.bookmarks = RefPtr<PyList>(new PyList()); //invalid offers will not have bms
         m_xoffers.emplace(row.GetInt(2), offer);
     }
@@ -499,6 +503,7 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
     // variable mission data based on agent, init to 0 here.
     data.stateID                = Mission::State::Allocated;
     data.objectiveType          = 0;
+    data.objectiveTutorialID    = 0;
     data.dateIssued             = GetFileTimeNow();
     data.remoteOfferable        = false;
     data.remoteCompletable      = false;
@@ -785,7 +790,29 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
     if (offer.objectiveType != 0)
         return;
 
-    uint8 kind = (uint8)(offer.missionID % 3);   // 0 travel, 1 courier, 2 hunt
+    // classify by the mission title so the objective matches the mission description
+    std::string lname = offer.name;
+    std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
+    auto hasWord = [&lname](const char* w) { return lname.find(w) != std::string::npos; };
+
+    uint8 kind = 0;             // 0 travel, 1 courier, 2 hunt
+    bool matched = false;
+    if (hasWord("kill") || hasWord("destroy") || hasWord("ambush") || hasWord("attack") || hasWord("clear")
+        || hasWord("eliminat") || hasWord("pirate") || hasWord("raid") || hasWord("hunt") || hasWord("assault")
+        || hasWord("defend") || hasWord("protect") || hasWord("intercept") || hasWord("rescue") || hasWord("combat")) {
+        kind = 2; matched = true;
+    } else if (hasWord("deliver") || hasWord("cargo") || hasWord("package") || hasWord("bring")
+        || hasWord("transport") || hasWord("shipment") || hasWord("freight") || hasWord("supply")
+        || hasWord("pickup") || hasWord("pick up") || hasWord("courier") || hasWord("haul")) {
+        kind = 1; matched = true;
+    } else if (hasWord("beacon") || hasWord("report") || hasWord("talk") || hasWord("speak")
+        || hasWord("inquiry") || hasWord("investigat") || hasWord("survey") || hasWord("scan")
+        || hasWord("explor") || hasWord("visit") || hasWord("meet") || hasWord("contact") || hasWord("ask")
+        || hasWord("find") || hasWord("locate") || hasWord("check") || hasWord("question") || hasWord("word")) {
+        kind = 0; matched = true;
+    }
+    if (!matched)
+        kind = (uint8)(offer.missionID % 3);
     offer.objectiveType = kind + 1;
 
     if (offer.objectiveType == 2) {   // courier objective - needs a station to hand in

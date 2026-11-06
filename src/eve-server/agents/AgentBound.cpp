@@ -79,6 +79,43 @@ PyResult AgentBound::GetInfoServiceDetails(PyCallArgs& call) {
  * @note   these below are partially coded
  */
 
+// Build (but do not persist) a tutorial/aura mission offer that tracks one tutorial
+// step of the Aura chain. The mission name is the tutorial's own name, so the
+// journal entry matches what the client shows during training.
+static void BuildTutorialOffer(Agent* agent, uint32 charID, uint32 tutorialID, MissionOffer& offer)
+{
+    offer = MissionOffer();
+    offer.bookmarks = RefPtr<PyList>(new PyList());
+    offer.typeID = Mission::Type::Tutorial;
+    offer.objectiveType = 4;             // tutorial step objective
+    offer.objectiveTutorialID = tutorialID;
+    offer.stateID = Mission::State::Accepted;
+    offer.characterID = charID;
+    offer.agentID = agent->GetID();
+    offer.missionID = 1;
+    offer.briefingID = 0;
+    offer.name = "Aura Training";
+    DBQueryResult tRes;
+    if (sDatabase.RunQuery(tRes, "SELECT tutorialName FROM tutorials WHERE tutorialID = %u", tutorialID)) {
+        DBResultRow tRow;
+        if (tRes.GetRow(tRow)) {
+            const char* n = tRow.GetText(0);
+            if (n != nullptr)
+                offer.name = n;
+        }
+    }
+    offer.originID = agent->GetStationID();
+    offer.originOwnerID = agent->GetCorpID();
+    offer.originSystemID = agent->GetSystemID();
+    offer.destinationID = offer.originID;
+    offer.destinationOwnerID = offer.originOwnerID;
+    offer.destinationSystemID = offer.originSystemID;
+    offer.rewardISK = 10000;
+    offer.dateIssued = GetFileTimeNow();
+    offer.dateAccepted = GetFileTimeNow();
+    offer.expiryTime = GetFileTimeNow() + EvE::Time::Day * 30;
+}
+
 PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID) {
     // this is first call when initiating agent convo
     _log(AGENT__DUMP,  "AgentBound::Handle_DoAction() - size=%lli", call.tuple->size());
@@ -350,6 +387,14 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 if (m_agent->GetTypeID() == Agents::Type::Aura) {
                     PySetItemRelease(agentSays, 0, new PyString("Good luck pilot. Follow the tutorial instructions."));
                     agentSays->SetItem(1, PyStatic.NewNone());
+                    // journal mission that tracks the tutorial step the client is running
+                    if (!m_agent->HasMission(pchar->itemID())) {
+                        MissionOffer tut = MissionOffer();
+                        BuildTutorialOffer(m_agent, pchar->itemID(), 215, tut);
+                        MissionDB::CreateOfferID(tut);
+                        m_agent->AddOffer(pchar->itemID(), tut);
+                        m_agent->SendMissionUpdate(call.client, "offer_accepted");
+                    }
                 } else {
                 MissionOffer offer = MissionOffer();
                 m_agent->GetOffer(pchar->itemID(), offer);
@@ -528,6 +573,30 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     LPService::AddLP(pchar->itemID(), m_agent->GetCorpID(), offer.rewardLP);
                 m_agent->UpdateStandings(call.client, Standings::MissionCompleted, offer.important);
                 m_agent->RemoveOffer(pchar->itemID());
+                // tutorial chain: hand out the next Aura step and tell the client to run it
+                if (offer.typeID == Mission::Type::Tutorial) {
+                    uint32 nextTut = 0;
+                    DBQueryResult tRes;
+                    if (sDatabase.RunQuery(tRes, "SELECT nextTutorialID FROM tutorials WHERE tutorialID = %u", offer.objectiveTutorialID)) {
+                        DBResultRow tRow;
+                        if (tRes.GetRow(tRow))
+                            nextTut = tRow.GetUInt(0);
+                    }
+                    if (nextTut != 0) {
+                        MissionOffer tut = MissionOffer();
+                        BuildTutorialOffer(m_agent, pchar->itemID(), nextTut, tut);
+                        MissionDB::CreateOfferID(tut);
+                        m_agent->AddOffer(pchar->itemID(), tut);
+                        m_agent->SendMissionUpdate(call.client, "offered");
+                        PyDict* targs = new PyDict();
+                            targs->SetItemString("tutorialID", new PyInt(nextTut));
+                        PyTuple* tpayload = new PyTuple(1);
+                            tpayload->SetItem(0, targs);
+                        call.client->SendNotification("OnServerTutorialRequest", "clientID", tpayload, false);
+                    } else {
+                        call.client->SendNotifyMsg("Training complete. Welcome to New Eden, pilot.");
+                    }
+                }
             } break;
             case Defer: {   //10
                 // extend expiry time and close

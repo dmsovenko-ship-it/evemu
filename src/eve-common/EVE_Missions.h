@@ -34,7 +34,8 @@ struct MissionOffer {
     uint8 stateID;
     uint8 typeID;
     uint8 range;
-    uint8 objectiveType;        // arc/cosmos procedural objective: 0 none, 1 travel, 2 courier, 3 hunt
+    uint8 objectiveType;        // arc/cosmos procedural objective: 0 none, 1 travel, 2 courier, 3 hunt, 4 tutorial
+    uint32 objectiveTutorialID; // tutorial step tracked by an Aura tutorial mission
     uint16 bonusTime;           // time in minutes
     uint16 missionID;           // this is mission title messageID for locale
     uint16 rewardLP;
