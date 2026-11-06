@@ -2529,12 +2529,21 @@ bool Client::IsMissionComplete(MissionOffer& data)
                     return true;
         } break;
         case Mission::Type::Storyline: {
+            // Storylines are built from encounter/courier data; use whatever
+            // objective data the offer carries.
+            if (data.courierTypeID != 0 && ContainsTypeQty(data.courierTypeID, data.courierAmount))
+                return true;
+            if (EncounterSpawnServer::Get() != nullptr && EncounterSpawnServer::Get()->IsOfferComplete(data.offerID))
+                return true;
         } break;
-        case Mission::Type::Cosmos: {
-        } break;
-        case Mission::Type::EpicArc: {
-        } break;
+        case Mission::Type::Cosmos:
+        case Mission::Type::EpicArc:
         case Mission::Type::Anomic: {
+            // Their real objectives (hacking, specific kills, item hand-ins) are not
+            // modelled; the client only offers "Complete" while talking to the agent,
+            // so being docked is the completion condition.
+            if (m_locationID != 0)
+                return true;
         } break;
     }
 

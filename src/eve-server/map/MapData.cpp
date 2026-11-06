@@ -244,6 +244,13 @@ void MapData::GetMissionDestination(Agent* pAgent, uint8 misionType, MissionOffe
         offer.destinationSystemID = pAgent->GetSystemID();
     }
 
+    // Trade/Research: the pilot buys the goods and brings them back to the agent,
+    // so the drop-off is always the agent's own station.
+    if ((misionType == Trade || misionType == Research)
+        && pAgent->GetStationID() != 0 && sDataMgr.IsStation(pAgent->GetStationID())) {
+        offer.destinationID = pAgent->GetStationID();
+    }
+
     if (sDataMgr.IsStation(offer.destinationID)) {
         StationData data = StationData();
         stDataMgr.GetStationData(offer.destinationID, data);

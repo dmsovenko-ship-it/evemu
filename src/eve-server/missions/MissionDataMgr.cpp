@@ -650,7 +650,9 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             data.courierAmount = 50 + level * 50;
         } break;
         case Mission::Type::Research: {
-            // R&D agents give a small courier/trade mission for bonus RP
+            // R&D agents give a small delivery run for bonus RP: bring a common
+            // industrial commodity to the agent (bought, not handed out).
+            static const uint16 researchGoods[] = { 34, 38, 39, 40, 1229, 1230 };
             data.name = "Research Material Delivery";
             data.typeID = Mission::Type::Research;
             data.rewardISK = level * 5000 + 5000;
@@ -658,8 +660,8 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             data.bonusTime = 12; // 12h cooldown
             data.storyline = false;
             data.range = level > 2 ? 5 : 3;
-            data.courierTypeID = 0;
-            data.courierAmount = 0;
+            data.courierTypeID = researchGoods[MakeRandomInt(0, (sizeof(researchGoods)/sizeof(researchGoods[0]) - 1))];
+            data.courierAmount = 50 + level * 25;
         } break;
         case Mission::Type::Data: {
         } break;

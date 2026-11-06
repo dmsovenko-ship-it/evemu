@@ -335,7 +335,10 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 offer.stateID = Mission::State::Accepted;
                 offer.dateAccepted = GetFileTimeNow();
                 offer.expiryTime = GetFileTimeNow() + (30 * m_agent->GetLevel() * EvE::Time::Minute);
-                if (offer.courierTypeID) {
+                // only courier missions hand the pilot a mission package; mining/trade/
+                // research missions expect the pilot to mine or buy the goods themselves
+                // (spawning cargo for them made every such mission instantly complete)
+                if (offer.typeID == Mission::Type::Courier && offer.courierTypeID) {
                     sItemFactory.SetUsingClient(call.client);
                     ItemData data(offer.courierTypeID, pchar->itemID(), locTemp, flagNone, offer.courierAmount);
                     InventoryItemRef iRef = sItemFactory.SpawnItem(data);
@@ -1131,13 +1134,21 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
     if (destSysID == 0) {
         destSysID = m_agent->GetSystemID();
     }
+    // fetch-type missions (mining/trade/research) hand the goods to the agent:
+    // the drop-off is the agent's own station, not the mission's site system.
+    uint32 dropoffID = offer.destinationID;
+    if ((offer.typeID == Mission::Type::Mining || offer.typeID == Mission::Type::Trade || offer.typeID == Mission::Type::Research)
+        && m_agent->GetStationID() != 0 && sDataMgr.IsStation(m_agent->GetStationID())) {
+        dropoffID = m_agent->GetStationID();
+        destSysID = m_agent->GetSystemID();
+    }
     PyDict* dropoffLocation = new PyDict();
     dropoffLocation->SetItemString("typeID", new PyInt(offer.destinationTypeID) );
-    dropoffLocation->SetItemString("locationID", new PyInt(offer.destinationID) );
+    dropoffLocation->SetItemString("locationID", new PyInt(dropoffID) );
     dropoffLocation->SetItemString("locationType", new PyNone());
     dropoffLocation->SetItemString("solarsystemID", new PyInt(destSysID) );
     // If destination is not a station (e.g. in-space agent), add extra fields
-    if (!sDataMgr.IsStation(offer.destinationID)) {
+    if (!sDataMgr.IsStation(dropoffID)) {
         dropoffLocation->SetItemString("shipTypeID", new PyInt(offer.destinationTypeID) );
         dropoffLocation->SetItemString("agentID", new PyInt(offer.destinationOwnerID) );
         PyTuple* coords = new PyTuple(3);
@@ -1150,7 +1161,6 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
 
     PyTuple* objectives = new PyTuple(1);
     switch (offer.typeID) {
-        case Mission::Type::Trade:
         case Mission::Type::Courier: {
             PyDict* pickupLocation = new PyDict();
                 pickupLocation->SetItemString("typeID", new PyInt(m_agent->GetLocTypeID()) );
@@ -1182,6 +1192,8 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
                 PySetItemRelease(objType, 1, new PyDict());
             objectives->SetItem(0, objType);
         } break;
+        case Mission::Type::Trade:
+        case Mission::Type::Research:
         case Mission::Type::Mining: {
             PyDict* cargo = new PyDict();
                 cargo->SetItemString("hasCargo", new PyBool(pClient->ContainsTypeQty(offer.courierTypeID, offer.courierAmount)));
