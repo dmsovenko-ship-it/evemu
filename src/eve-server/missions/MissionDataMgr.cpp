@@ -832,7 +832,6 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
     }
 
     // classify by the mission title so the objective matches the mission description
- so the objective matches the mission description
     std::string lname = offer.name;
     std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
     auto hasWord = [&lname](const char* w) { return lname.find(w) != std::string::npos; };
