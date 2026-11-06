@@ -2194,14 +2194,26 @@ uint32 CharacterDB::AddOwnerNote(uint32 charID, const std::string & label, const
     return id;
 }
 
-bool CharacterDB::EditOwnerNote(uint32 charID, uint32 noteID, const std::string & label, const std::string & content) {
+bool CharacterDB::RemoveOwnerNote(uint32 charID, uint32 noteID)
+{
     DBerror err;
+    if (!sDatabase.RunQuery(err, "DELETE FROM chrOwnerNote WHERE ownerID = %u AND noteID = %u", charID, noteID)) {
+        codelog(DATABASE__ERROR, "Error on query: %s", err.c_str());
+        return false;
+    }
+    return true;
+}
+
+bool CharacterDB::EditOwnerNote(uint32 charID, uint32 noteID, const std::string & label, const std::string & content) {
+    std::string lblS;
+    sDatabase.DoEscapeString(lblS, label);
     std::string contS;
     sDatabase.DoEscapeString(contS, content);
 
+    DBerror err;
     if (!sDatabase.RunQuery(err,
-        "UPDATE chrOwnerNote SET note = '%s' WHERE ownerID = %u AND noteID = %u;",
-        contS.c_str(), charID, noteID))
+        "UPDATE chrOwnerNote SET note = '%s', label = '%s' WHERE ownerID = %u AND noteID = %u;",
+        contS.c_str(), lblS.c_str(), charID, noteID))
     {
         codelog(DATABASE__ERROR, "Error on query: %s", err.c_str());
         return false;
@@ -2252,7 +2264,7 @@ PyRep *CharacterDB::GetOwnerNote(uint32 charID, uint32 noteID) {
             */
     DBQueryResult res;
 
-    if (!sDatabase.RunQuery(res, "SELECT note FROM chrOwnerNote WHERE ownerID = %u AND noteID = %u", charID, noteID))
+    if (!sDatabase.RunQuery(res, "SELECT note, label FROM chrOwnerNote WHERE ownerID = %u AND noteID = %u", charID, noteID))
     {
         codelog(DATABASE__ERROR, "Error on query: %s", res.error.c_str());
         return nullptr;

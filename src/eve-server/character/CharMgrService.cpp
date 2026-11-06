@@ -36,6 +36,7 @@
 #include "character/CharMgrService.h"
 #include "packets/CorporationPkts.h"
 #include "services/ServiceManager.h"
+#include "utils/utfUtils.h"
 
 CharMgrBound::CharMgrBound(EVEServiceManager& mgr, CharMgrService& parent, uint32 ownerID, uint16 contFlag) :
     EVEBoundObject(mgr, parent),
@@ -132,6 +133,8 @@ CharMgrService::CharMgrService(EVEServiceManager& mgr) :
     this->Add("SetNote", &CharMgrService::SetNote);
     this->Add("AddOwnerNote", &CharMgrService::AddOwnerNote);
     this->Add("GetOwnerNote", &CharMgrService::GetOwnerNote);
+    this->Add("EditOwnerNote", &CharMgrService::EditOwnerNote);
+    this->Add("RemoveOwnerNote", &CharMgrService::RemoveOwnerNote);
     this->Add("GetOwnerNoteLabels", &CharMgrService::GetOwnerNoteLabels);
     this->Add("AddContact", static_cast <PyResult(CharMgrService::*)(PyCallArgs&, PyInt*, PyInt*, PyInt*, PyInt*, std::optional<PyString*>)> (&CharMgrService::AddContact));
     this->Add("AddContact", static_cast <PyResult(CharMgrService::*)(PyCallArgs&, PyInt*, PyFloat*, PyInt*, PyBool*, std::optional<PyWString*>)> (&CharMgrService::AddContact));
@@ -485,148 +488,56 @@ PyResult CharMgrService::SetNote(PyCallArgs &call, PyInt* itemID, PyString* note
     return PyStatic.NewNone();
 }
 
-PyResult CharMgrService::AddOwnerNote(PyCallArgs& call, PyString* idStr, PyWString* part) {
-    /*
-    15:51:12 Server: AddOwnerNote call made to charMgr
-    15:51:12 [SvcCall] Service charMgr: calling AddOwnerNote
-    15:51:12 CharMgrService::Handle_AddOwnerNote(): size=2
-    15:51:12 [SvcCall]   Call Arguments:
-    15:51:12 [SvcCall]       Tuple: 2 elements
-    15:51:12 [SvcCall]         [ 0] String: 'S:Folders'
-    15:51:12 [SvcCall]         [ 1] WString: '1::F::0::Main|'
-    15:51:12 [SvcCall]   Call Named Arguments:
-    15:51:12 [SvcCall]     Argument 'machoVersion':
-    15:51:12 [SvcCall]         Integer field: 1
+// incoming PyWString carries UTF-16LE bytes - normalize to UTF-8 before storing
+static std::string CharMgrRepToUtf8(PyRep* rep)
+{
+    if (rep == nullptr)
+        return "";
+    if (rep->IsWString()) {
+        std::string bytes = rep->AsWString()->content();
+        std::u16string w((const char16_t*)bytes.data(), bytes.size() / sizeof(char16_t));
+        return utf16to8(w);
+    }
+    return PyRep::StringContent(rep);
+}
 
-    15:54:45 Server: AddOwnerNote call made to charMgr
-    15:54:45 [SvcCall] Service charMgr: calling AddOwnerNote
-    15:54:45 CharMgrService::Handle_AddOwnerNote(): size=2
-    15:54:45 [SvcCall]   Call Arguments:
-    15:54:45 [SvcCall]       Tuple: 2 elements
-    15:54:45 [SvcCall]         [ 0] String: 'S:Folders'
-    15:54:45 [SvcCall]         [ 1] WString: '1::F::0::Main|2::F::0::test|'
-    15:54:45 [SvcCall]   Call Named Arguments:
-    15:54:45 [SvcCall]     Argument 'machoVersion':
-    15:54:45 [SvcCall]         Integer field: 1
+PyResult CharMgrService::AddOwnerNote(PyCallArgs& call, PyString* idStr, PyWString* part)
+{
+    // notepad: sm.RemoteSvc('charMgr').AddOwnerNote('N:name' | 'S:Folders', text) -> noteID
+    std::string label = (idStr != nullptr) ? idStr->content() : "N:note";
+    std::string content = CharMgrRepToUtf8(part);
+    uint32 noteID = m_db.AddOwnerNote(call.client->GetCharacterID(), label, content);
+    return new PyInt(noteID);
+}
 
-    10:41:26 W CharMgrService::Handle_GetOwnerNoteLabels(): size= 0
-    10:41:26 [CharDebug]   Call Arguments:
-    10:41:26 [CharDebug]      Tuple: Empty
-    10:41:26 [CharDebug]  Named Arguments:
-    10:41:26 [CharDebug]   machoVersion
-    10:41:26 [CharDebug]        Integer: 1
-    10:41:39 [Service] charMgr::AddOwnerNote()
-    10:41:39 W CharMgrService::Handle_AddOwnerNote(): size=2
-    10:41:39 [CharDebug]   Call Arguments:
-    10:41:39 [CharDebug]      Tuple: 2 elements
-    10:41:39 [CharDebug]       [ 0]    WString: 'N:testing this shit'
-    10:41:39 [CharDebug]       [ 1]     String: '<br>'
-    10:41:39 [CharDebug]  Named Arguments:
-    10:41:39 [CharDebug]   machoVersion
-    10:41:39 [CharDebug]        Integer: 1
+PyResult CharMgrService::EditOwnerNote(PyCallArgs& call, PyInt* noteID, PyRep* label, PyRep* content)
+{
+    // notepad: EditOwnerNote(noteID, 'N:name', text)
+    if (noteID == nullptr)
+        return nullptr;
+    std::string lbl = (label != nullptr) ? PyRep::StringContent(label) : "N:note";
+    m_db.EditOwnerNote(call.client->GetCharacterID(), noteID->value(), lbl, CharMgrRepToUtf8(content));
+    return nullptr;
+}
 
-    /../carbon/client/script/ui/control/buttons.py(245) OnClick
-    /client/script/ui/shared/neocom/notepad.py(706) NewNote
-    /client/script/ui/shared/neocom/notepad.py(581) ShowNote
-    id = 'None'
-    self = form.Notepad object at 0x4052ac30, name=notepad, destroyed=False>
-    force = 0
-        t = 'N'
-        noteID = ['N', 'None']
-        ValueError: invalid literal for int() with base 10: 'None'
-
-    /client/script/ui/shared/neocom/notepad.py(802) OnClick
-    /client/script/ui/shared/neocom/notepad.py(581) ShowNote
-    id = 'None'
-    self = form.Notepad object at 0x4052ac30, name=notepad, destroyed=False>
-    force = 0
-        t = 'N'
-        noteID = ['N', 'None']
-        ValueError: invalid literal for int() with base 10: 'None'
-
-    10:57:20 W CharMgrService::Handle_AddOwnerNote(): size=2
-    10:57:20 [CharDebug]   Call Arguments:
-    10:57:20 [CharDebug]      Tuple: 2 elements
-    10:57:20 [CharDebug]       [ 0]    WString: 'N:new note in new folder'
-    10:57:20 [CharDebug]       [ 1]     String: '<br>'
-    10:57:20 [CharDebug]  Named Arguments:
-    10:57:20 [CharDebug]   machoVersion
-    10:57:20 [CharDebug]        Integer: 1
-
-    /client/script/ui/shared/neocom/notepad.py(706) NewNote
-    /client/script/ui/shared/neocom/notepad.py(581) ShowNote
-    id = 'None'
-    self = form.Notepad object at 0x4052ac30, name=notepad, destroyed=False>
-    force = 0
-        t = 'N'
-        noteID = ['N', 'None']
-        ValueError: invalid literal for int() with base 10: 'None'
-
-    on notepad close....
-    10:58:09 [Service] charMgr::AddOwnerNote()
-    10:58:09 W CharMgrService::Handle_AddOwnerNote(): size=2
-    10:58:09 [CharDebug]   Call Arguments:
-    10:58:09 [CharDebug]      Tuple: 2 elements
-    10:58:09 [CharDebug]       [ 0]     String: 'S:Folders'
-    10:58:09 [CharDebug]       [ 1]    WString: '1::F::0::Main|2::F::0::added folder|3::N::2::None|'
-    10:58:09 [CharDebug]  Named Arguments:
-    10:58:09 [CharDebug]   machoVersion
-    10:58:09 [CharDebug]        Integer: 1
-
-
-    */
-
-  sLog.Warning( "CharMgrService::Handle_AddOwnerNote()", "size=%lu", call.tuple->size());
-  call.Dump(CHARACTER__DEBUG);
-
-  return nullptr;
+PyResult CharMgrService::RemoveOwnerNote(PyCallArgs& call, PyInt* noteID)
+{
+    if (noteID == nullptr)
+        return nullptr;
+    m_db.RemoveOwnerNote(call.client->GetCharacterID(), noteID->value());
+    return nullptr;
 }
 
 
-PyResult CharMgrService::GetOwnerNote(PyCallArgs &call, PyInt* noteID)
-{  /*
-        [PyObjectEx Type2]
-          [PyTuple 2 items]
-            [PyTuple 1 items]
-              [PyToken dbutil.CRowset]
-            [PyDict 1 kvp]
-              [PyString "header"]
-              [PyObjectEx Normal]
-                [PyTuple 2 items]
-                  [PyToken blue.DBRowDescriptor]
-                  [PyTuple 1 items]
-                    [PyTuple 6 items]
-                      [PyTuple 2 items]
-                        [PyString "noteDate"]
-                        [PyInt 64]
-                      [PyTuple 2 items]
-                        [PyString "typeID"]
-                        [PyInt 2]
-                      [PyTuple 2 items]
-                        [PyString "referenceID"]
-                        [PyInt 3]
-                      [PyTuple 2 items]
-                        [PyString "note"]
-                        [PyInt 130]
-                      [PyTuple 2 items]
-                        [PyString "userID"]
-                        [PyInt 3]
-                      [PyTuple 2 items]
-                        [PyString "label"]
-                        [PyInt 130]
-          [PyPackedRow 19 bytes]
-            ["noteDate" => <129041092800000000> [FileTime]]
-            ["typeID" => <1> [I2]]
-            ["referenceID" => <1661059544> [I4]]
-            ["note" => <1::F::0::Main|> [WStr]]
-            ["userID" => <0> [I4]]
-            ["label" => <S:Folders> [WStr]]
-            */
-
-    sLog.Warning( "CharMgrService::Handle_GetOwnerNote()", "size= %lli", call.tuple->size());
-    call.Dump(CHARACTER__DEBUG);
-    return nullptr;
-    //return m_db.GetOwnerNote(call.client->GetCharacterID());
+PyResult CharMgrService::GetOwnerNote(PyCallArgs& call, PyInt* noteID)
+{
+    // returns a rowset with note/label (client reads note[0].note / note[0].label)
+    if (noteID == nullptr)
+        return PyStatic.NewNone();
+    PyRep* note = m_db.GetOwnerNote(call.client->GetCharacterID(), noteID->value());
+    if (note == nullptr)
+        return PyStatic.NewNone();
+    return note;
 }
 
 PyResult CharMgrService::GetOwnerNoteLabels(PyCallArgs &call)

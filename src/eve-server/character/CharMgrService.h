@@ -49,6 +49,8 @@ protected:
     PyResult GetTopBounties(PyCallArgs& call);
     PyResult AddOwnerNote(PyCallArgs& call, PyString* idStr, PyWString* part);
     PyResult GetOwnerNote(PyCallArgs& call, PyInt* noteID);
+PyResult EditOwnerNote(PyCallArgs& call, PyInt* noteID, PyRep* label, PyRep* content);
+PyResult RemoveOwnerNote(PyCallArgs& call, PyInt* noteID);
     PyResult GetOwnerNoteLabels(PyCallArgs& call);
     PyResult GetContactList(PyCallArgs& call);
     PyResult GetCloneTypeID(PyCallArgs& call);
