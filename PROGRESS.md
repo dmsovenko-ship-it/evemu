@@ -42,7 +42,17 @@
 - **Station billboards**: server-side ad/news/wanted broadcast, refreshed on a timer.
 - **Live updates**: server data globals delivered at handshake (no client changes).
 - **Premium (Alpha/Omega)**: Alpha skill/SP limits, PLEX activation, capital/T2 restrictions, portal status page.
-- Fixes: drone final-blow attribution (bot pilot, not drone/corp), corp page lowercase API fields, `/battles` authority filter.
+- Fixes: drone final-blow attribution, corp page lowercase API fields, `/battles` authority filter.
+
+### Session 6 Nov
+
+- **PLEX**: consuming one PLEX from a stack no longer deletes the whole stack (AUR exchange, licence activation, portal); redeem queue (grant → relog → claim at the item's own station); starting AUR 1000.
+- **NeX store (CQ)**: Apparel catalog priced in AUR, purchase delivered to the hangar.
+- **Inventory/social services**: SplitStack, ListDroneBay, contact labels, notepad, container passwords, BreakPlasticWrap, DeliverToCorpHangar/Member, corp SearchAssets, impounded-item return, ResignFromCEO.
+- **Missions**: real arc-1 briefing texts seeded into `missionObjectives`; real travel/courier/hunt objectives for arcs/COSMOS; Aura tutorial chain (per-step missions); `missionID`/`briefingID` widened to uint32.
+- **Market**: covering indexes (`GetRegionBest` ~11.8 s → ~33 ms; station/system asks 6–84 ms).
+- **Petitions**: message read tracking, ratings, escalation target.
+- **Faction Warfare**: enlist via Letter of Recommendation.
 
 ## Details / Детали
 
@@ -58,6 +68,9 @@
 | Clone jump, install/destroy clones | 🟡 | ✅ |
 | KillMail, image server (portraits/logos) | ✅ | ✅ |
 | **Registration email** — required, validated, unique; `SetEmail` for legacy accounts | ❌ | ✅ |
+| **PLEX (single from stack)** — exchange / licence activation / portal consume ONE PLEX, not the whole stack | ❌ | ✅ |
+| **Redeem queue** — granted PLEX enters a redeem queue; claim delivers to the item's own station (works from character select) | ❌ | ✅ |
+| **Starting AUR** — new characters start with 1000 AUR | ❌ | ✅ |
 
 ### 2. Skills / Certificates `████████████████████` 99%
 
@@ -172,6 +185,9 @@
 | LP store (faction + CONCORD) | 🟡 | ✅ |
 | **Encounter full cycle** — accept → dungeon objectives spawn with real faction rat targets (client-lockable) → warp link → clear → mission complete & hand-in | ❌ | ✅ |
 | **Standings UI fixed** — owner cache seeded for factions/corps/agents; rows toward client-unknown factions no longer written (Character Sheet no blank window) | ❌ | ✅ |
+| **Briefing localization** — real arc-1 briefing texts seeded into `missionObjectives` | ❌ | ✅ |
+| **Real arc/COSMOS objectives** — travel (visit the target system), courier (deliver the package), hunt (kill the spawned cluster); arc offers get a real offerID | ❌ | ✅ |
+| **Tutorial chain** — Aura steps become journal missions; completion from tutorial state, auto-next step | ❌ | ✅ |
 
 ### 9. Market `███████████████████░` 95%
 
@@ -181,6 +197,7 @@
 | Trade skills, MarginTrading, escrow, expired auctions | ❌ | ✅ |
 | **Order-limit config fields uint8→uint32** — 20000 wrapped to 32, full type list in ask queries | ❌ | ✅ |
 | **Offline order execution** — resting buy/sell pairs settle without a live session; escrow, taxes, `mktTransactions` written | ❌ | ✅ |
+| **Best-price indexes** — covering indexes for region/station/system price queries (`GetRegionBest` ~11.8 s → ~33 ms) | ❌ | ✅ |
 
 ### 10. Contracts `███████████████████░` 95%
 
@@ -201,6 +218,7 @@
 | Medals — CreateMedal/GiveMedalToCharacters with cost confirmation | ❌ | ✅ |
 | War declarations — RetractWar/ChangeMutualWarFlag on CorpRegistry | ❌ | ✅ |
 | **Station management** — server-side rights (owner corp + Director / Station Manager), rename (escaped, UTF-8/Cyrillic, propagates to map + caches), service access rules & cost modifiers persisted (parsed from the real client payloads) | ❌ | ✅ |
+| **Corp deliveries & search** — DeliverToCorpHangar / DeliverToCorpMember, corp asset search (`SearchAssets`), impounded-item return, `ResignFromCEO` | ❌ | ✅ |
 
 ### 12. Science & Industry `██████████████████░░` 92%
 
@@ -281,6 +299,7 @@
 | **Plex spawning** (Scout/Small/Medium/Large), LP from NPC/PvP/plex | ❌ | ✅ |
 | **Faction patrols**, **LP exchange rates** | ❌ | ✅ |
 | **System flip** — plex capture accumulates flip points, occupier switches at threshold + notification | ❌ | ✅ |
+| **Recommendation-letter enlist** — join FW by consuming a Letter of Recommendation (typeID 30906) | ❌ | ✅ |
 
 ### 19. Sovereignty `███████████████████░` 95%
 
@@ -396,6 +415,7 @@
 | Admin monitoring — login IP history, large human↔human flow audit, shared-IP multiboxing, approved account transfers, dual alert channels (public/admins) | ❌ | ✅ |
 | **Ban UX** — persisted ban reason shown verbatim on banned login (unicode-safe); reserved/offensive account+character names refused with admin alert | ❌ | ✅ |
 | **Account tooling** — per-account admin comment, ban reason, accounts grouped by IP/e-mail, ban-all-by-IP | ❌ | ✅ |
+| **Message read / ratings / escalation** — unread filter, 3 ratings + comment, escalation category | ❌ | ✅ |
 
 ### 30. Memory Management `█████████████████░░░` 85%
 
@@ -423,6 +443,17 @@
 | **Time dilation (TiDi)** — /tidi off\|50\|25\|10: per-system slow-mo for planned battles, official SetBallSpeed client sync | ❌ | ✅ |
 | **Serpentis faction normalization** — no more wrong-faction dungeons from the random fallback | ❌ | ✅ |
 | **System-boot prefetch** — neighbours of player systems pre-booted and held loaded (idle-tick; no worker thread — ItemFactory/SystemManager are not thread-safe) | ❌ | ✅ |
+
+### 32. Inventory & UI Services
+
+| Feature | Upstream | Fork |
+|---------|:--------:|:----:|
+| **Split stack** — split a quantity into a new stack (ownership checks) | ❌ | ✅ |
+| **Drone bay listing** — `ListDroneBay` returns the bay contents | ❌ | ✅ |
+| **Contact labels** — CreateLabel / EditLabel / DeleteLabel | ❌ | ✅ |
+| **Notepad** — per-character persistent notes (UTF-16 ↔ UTF-8) | ❌ | ✅ |
+| **Container passwords** — owner-set SHA2 password, contents hidden from non-owners | ❌ | ✅ |
+| **Plastic wrap** — open a courier package (`BreakPlasticWrap`) | ❌ | ✅ |
 
 ---
 
@@ -470,3 +501,8 @@
 - **Fighter-bomber real AoE** — the munition detonates on every ship/drone inside the blast radius (cloaked included) instead of only the locked target
 - **Crash guards** — planet types with no PI resources (e.g. *Planet (Shattered)*) and empty spawn classes no longer abort the server on system boot
 - **SQL/DB hygiene** — literal `%` in `LIKE` escaped as `%%` for the printf-formatted `RunQuery`; deleted migrations cleared from the `migrations` table so EVEDBTool plans cleanly
+- **PLEX & redeem queue** — one PLEX per operation out of a stack; CCP-style redeem (grant → relog → claim at the item's station); starting AUR 1000
+- **NeX store (CQ)** — Apparel catalog in AUR delivered to the station hangar
+- **Missions localization & objectives** — real arc-1 briefing texts in `missionObjectives`; real travel/courier/hunt objectives; Aura tutorial chain; `missionID`/`briefingID` widened to uint32
+- **Inventory & social tools** — stack split, drone bay, contact labels, notepad, container passwords, plastic wrap, corp deliveries, corp asset search, impound return, CEO resignation
+- **Market best-price indexes** — covering indexes cut best-price queries from ~11.8 s to ~33 ms
