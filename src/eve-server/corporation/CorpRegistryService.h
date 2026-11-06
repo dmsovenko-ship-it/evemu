@@ -46,7 +46,7 @@ protected:
 
     /** @note: none of these fully work, and most are skeleton code only */
     PyResult CreateAlliance(PyCallArgs& call, PyRep* allianceName, PyRep* shortName, PyRep* description, PyRep* url);
-    PyResult GetRecentKillsAndLosses(PyCallArgs& call);
+    PyResult GetRecentKillsAndLosses(PyCallArgs& call, PyInt* number, std::optional<PyInt*> offset);
     PyResult GetCorporateContacts(PyCallArgs& call);
     PyResult AddCorporateContact(PyCallArgs& call, PyInt* contactID, PyInt* relationshipID);
     PyResult AddCorporateContact(PyCallArgs& call, PyInt* contactID, PyFloat* relationshipID);
@@ -61,7 +61,7 @@ protected:
     PyResult EditLabel(PyCallArgs& call, PyInt* labelID, std::optional <PyWString*> name, std::optional <PyInt*> color);
     PyResult AssignLabels(PyCallArgs& call, PyList* contactIDs, PyInt* labelMask);
     PyResult RemoveLabels(PyCallArgs& call, PyList* contactIDs, PyInt* labelMask);
-    PyResult ResignFromCEO(PyCallArgs& call, PyInt* newCeoID);
+    PyResult ResignFromCEO(PyCallArgs& call, PyRep* newCeoID);
 
     //overloaded in order to support bound objects:
     BoundDispatcher* BindObject(Client *client, PyRep* bindParameters);

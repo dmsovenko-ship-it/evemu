@@ -930,11 +930,22 @@ PyResult InventoryBound::CreateBookmarkVouchers(PyCallArgs &call, PyList* bookma
  * @note   these do absolutely nothing at this time....
  */
 
-PyResult InventoryBound::TakeOutTrash(PyCallArgs &call, PyInt* itemIDs) {
-    //TakeOutTrash([ invItem.itemID for invItem in invItems ])
-    sLog.Error("IB::TakeOutTrash", "Character '%s', self: '%s'(%u)", call.client->GetName(), m_self->name(), m_itemID);
-    _log(INV__MESSAGE, "%s Calling InventoryBound::TakeOutTrash() for %s(%u)", call.client->GetName(), m_self->name(), m_itemID);
-    call.Dump(INV__DUMP);
+PyResult InventoryBound::TakeOutTrash(PyCallArgs &call, PyList* itemIDs) {
+    // self.invCache.GetInventory(containerHangar).TakeOutTrash([itemIDs])
+    if (itemIDs == nullptr)
+        return nullptr;
+    uint32 callerID = (uint32)call.client->GetCharacterID();
+    uint32 moved = 0;
+    for (PyList::const_iterator itr = itemIDs->begin(); itr != itemIDs->end(); ++itr) {
+        if (!(*itr)->IsInt())
+            continue;
+        InventoryItemRef item = sItemFactory.GetItemRef((*itr)->AsInt()->value());
+        if (item.get() == nullptr || item->ownerID() != callerID)
+            continue;
+        item->Move(m_self->itemID(), flagHangar, true);
+        ++moved;
+    }
+    _log(INV__MESSAGE, "%s took %u item(s) out of the trash into %s(%u)", call.client->GetName(), moved, m_self->name(), m_self->itemID());
     return nullptr;
 }
 

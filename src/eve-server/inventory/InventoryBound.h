@@ -48,7 +48,7 @@ protected:
     PyResult MultiAdd(PyCallArgs& call, PyList* itemIDs, PyInt* containerID);
     PyResult List(PyCallArgs& call, std::optional <PyInt*> listFlag);
     PyResult CreateBookmarkVouchers(PyCallArgs& call, PyList* bookmarkIDs, PyInt* flag, PyBool* isMove);
-    PyResult TakeOutTrash(PyCallArgs& call, PyInt* itemIDs);
+    PyResult TakeOutTrash(PyCallArgs& call, PyList* itemIDs);
     PyResult SetPassword(PyCallArgs& call, PyInt* which, std::optional<PyRep*> newPassword, std::optional<PyRep*> oldPassword);
     PyResult ListDroneBay(PyCallArgs& call);
     PyResult BreakPlasticWrap(PyCallArgs& call);

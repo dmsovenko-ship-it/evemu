@@ -26,6 +26,7 @@
 #include "eve-server.h"
 
 #include "EVEServerConfig.h"
+#include "EVE_Roles.h"
 
 
 #include "cache/ObjCacheService.h"
@@ -116,11 +117,47 @@ PyResult CorpRegistryService::GetCorporateContacts(PyCallArgs &call)
  * @note   these do absolutely nothing at this time....
  */
 
-PyResult CorpRegistryService::ResignFromCEO(PyCallArgs &call, PyInt* newCeoID) {
-    //    self.GetCorpRegistry().ResignFromCEO(newCeoID)
-    _log(CORP__CALL, "CorpRegistryService::Handle_ResignFromCEO()");
-    call.Dump(CORP__CALL_DUMP);
-
+PyResult CorpRegistryService::ResignFromCEO(PyCallArgs &call, PyRep* newCeoID) {
+    // legacy path (modern client uses CorpRegistryBound) - same behaviour
+    uint32 corpID = (uint32)call.client->GetCorporationID();
+    uint32 callerCharID = (uint32)call.client->GetCharacterID();
+    uint32 ceoID = CorporationDB::GetCorporationCEO(corpID);
+    if (ceoID != callerCharID || corpID == 0) {
+        call.client->SendNotifyMsg("Only the CEO can resign.");
+        return PyStatic.NewNone();
+    }
+    if (newCeoID == nullptr || newCeoID->IsNone()) {
+        PyList* candidates = new PyList();
+        DBQueryResult mres;
+        if (sDatabase.RunQuery(mres, "SELECT characterID FROM chrCharacters WHERE corporationID = %u AND deleted = 0", corpID)) {
+            DBResultRow mrow;
+            while (mres.GetRow(mrow)) {
+                uint32 id = mrow.GetUInt(0);
+                if (id != callerCharID)
+                    candidates->AddItem(new PyInt(id));
+            }
+        }
+        return candidates;
+    }
+    if (!newCeoID->IsInt()) {
+        call.client->SendNotifyMsg("Invalid replacement CEO.");
+        return PyStatic.NewNone();
+    }
+    uint32 target = (uint32)newCeoID->AsInt()->value();
+    DBQueryResult res;
+    if (target == callerCharID || !sDatabase.RunQuery(res,
+            "SELECT 1 FROM chrCharacters WHERE characterID = %u AND corporationID = %u AND deleted = 0", target, corpID)
+        || res.GetRowCount() == 0) {
+        call.client->SendNotifyMsg("That pilot is not a member of your corporation.");
+        return PyStatic.NewNone();
+    }
+    DBerror err;
+    sDatabase.RunQuery(err, "UPDATE crpCorporation SET ceoID = %u WHERE corporationID = %u AND ceoID = %u", target, corpID, callerCharID);
+    sDatabase.RunQuery(err,
+        "UPDATE chrCharacters SET corpRole = corpRole | %lli, rolesAtAll = rolesAtAll | %lli WHERE characterID = %u",
+        (int64)Corp::Role::Director, (int64)Corp::Role::Director, target);
+    _log(CORP__MESSAGE, "%s resigned as CEO of corp %u (legacy path) - new CEO %u", call.client->GetName(), corpID, target);
+    call.client->SendNotifyMsg("You have resigned as CEO.");
     return nullptr;
 }
 
@@ -178,11 +215,10 @@ PyResult CorpRegistryService::CreateAlliance(PyCallArgs &call, PyRep* allianceNa
     return new PyInt(allyID);
 }
 
-PyResult CorpRegistryService::GetRecentKillsAndLosses(PyCallArgs &call) {
-    _log(CORP__CALL, "CorpRegistryService::Handle_GetRecentKillsAndLosses()");
-    call.Dump(CORP__CALL_DUMP);
-
-    return nullptr;
+PyResult CorpRegistryService::GetRecentKillsAndLosses(PyCallArgs &call, PyInt* number, std::optional<PyInt*> offset) {
+    _log(CORP__CALL, "CorpRegistryService::GetRecentKillsAndLosses() size=%lli", call.tuple->size());
+    uint32 offsetVal = offset.has_value() ? (uint32)offset.value()->value() : 0;
+    return m_db.GetKillsAndLosses(call.client->GetCorporationID(), number->value(), offsetVal);
 }
 
 

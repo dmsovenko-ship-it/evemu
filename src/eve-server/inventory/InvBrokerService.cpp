@@ -474,25 +474,21 @@ PyResult InvBrokerBound::TrashItems(PyCallArgs &call, PyList* itemIDs, PyInt* lo
  */
 
 PyResult InvBrokerBound::AssembleCargoContainer(PyCallArgs &call, PyInt* itemID, PyNone* none, PyFloat* zero) {
-    /* invMgr.AssembleCargoContainer(invItem.itemID, None, 0.0)
-     *
-     * 14:37:46 [BindDump]   Call Arguments:
-     * 14:37:46 [BindDump]       Tuple: 3 elements
-     * 14:37:46 [BindDump]         [ 0] Integer field: 140000489
-     * 14:37:46 [BindDump]         [ 1] (None)
-     * 14:37:46 [BindDump]         [ 2] Real field: 0.000000
-     *
-     * 14:37:46 L InvBrokerBound::Handle_AssembleCargoContainer(): [00msize= 3
-     * 14:37:46 [InvMsg]   Call Arguments:
-     * 14:37:46 [InvMsg]       Tuple: 3 elements
-     * 14:37:46 [InvMsg]         [ 0] Integer field: 140000489
-     * 14:37:46 [InvMsg]         [ 1] (None)
-     * 14:37:46 [InvMsg]         [ 2] Real field: 0.000000
-     */
-
-    sLog.Warning( "InvBrokerBound::Handle_AssembleCargoContainer()", "size=%lu", call.tuple->size());
-    call.Dump(INV__DUMP);
-
+    // invMgr.AssembleCargoContainer(itemID, None, 0.0) - right-click "Assemble" on a
+    // packaged cargo container. Our containers are never packed with cargo, so all
+    // that is needed is to flip the singleton (assembled) state.
+    if (itemID == nullptr)
+        return nullptr;
+    InventoryItemRef item = sItemFactory.GetItemRef(itemID->value());
+    if (item.get() == nullptr)
+        return nullptr;
+    if (item->ownerID() != (uint32)call.client->GetCharacterID()) {
+        _log(INV__ERROR, "AssembleCargoContainer: %s does not own item %u.", call.client->GetName(), itemID->value());
+        return nullptr;
+    }
+    if (!item->isSingleton())
+        item->ChangeSingleton(true, true);
+    _log(INV__MESSAGE, "%s assembled container %u", call.client->GetName(), itemID->value());
     return nullptr;
 }
 
@@ -505,10 +501,24 @@ PyResult InvBrokerBound::BreakPlasticWrap(PyCallArgs &call) {
 }
 
 PyResult InvBrokerBound::TakeOutTrash(PyCallArgs& call, PyList* itemIDs) {
-    //self.invCache.GetInventory(const.containerHangar).TakeOutTrash([ invItem.itemID for invItem in invItems ])
-    sLog.Warning( "InvBrokerBound::Handle_TakeOutTrash()", "size=%lu", call.tuple->size());
-    call.Dump(INV__DUMP);
-
+    // self.invCache.GetInventory(const.containerHangar).TakeOutTrash([itemIDs])
+    // Move the listed (owned) items back into the character's hangar.
+    if (itemIDs == nullptr)
+        return nullptr;
+    uint32 callerID = (uint32)call.client->GetCharacterID();
+    uint32 stationID = (uint32)call.client->GetStationID();
+    uint32 moved = 0;
+    for (PyList::const_iterator itr = itemIDs->begin(); itr != itemIDs->end(); ++itr) {
+        if (!(*itr)->IsInt())
+            continue;
+        InventoryItemRef item = sItemFactory.GetItemRef((*itr)->AsInt()->value());
+        if (item.get() == nullptr || item->ownerID() != callerID)
+            continue;
+        uint32 dest = (stationID != 0) ? stationID : item->locationID();
+        item->Move(dest, flagHangar, true);
+        ++moved;
+    }
+    _log(INV__MESSAGE, "%s took %u item(s) out of the trash", call.client->GetName(), moved);
     return nullptr;
 }
 
