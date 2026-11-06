@@ -516,6 +516,45 @@ PyResult InvBrokerBound::SplitStack(PyCallArgs &call, PyInt* locationID, PyInt* 
     sLog.Warning( "InvBrokerBound::Handle_SplitStack()", "size=%lu", call.tuple->size());
     call.Dump(INV__DUMP);
 
+    // invMgr.SplitStack(stationID, itemID, qty, ownerID) — take `qty` units off
+    // an item stack into a NEW stack in the same location/flag.
+    if (itemID == nullptr || quantity == nullptr)
+        return nullptr;
+    int32 take = quantity->value();
+    if (take < 1)
+        return nullptr;
+    InventoryItemRef item = sItemFactory.GetItemRef(itemID->value());
+    if (item.get() == nullptr) {
+        _log(INV__ERROR, "SplitStack: item %u not found.", itemID->value());
+        return nullptr;
+    }
+    // ownership: caller must own the stack (or the passed owner must match it)
+    uint32 owner = (ownerID != nullptr) ? (uint32)ownerID->value() : 0;
+    if (owner != 0 && item->ownerID() != owner) {
+        _log(INV__ERROR, "SplitStack: owner mismatch for item %u (%u != %u).", itemID->value(), item->ownerID(), owner);
+        return nullptr;
+    }
+    uint32 callerID = (uint32)call.client->GetCharacterID();
+    if (item->ownerID() != callerID) {
+        // corp hangar stacks: allow when the caller is docked at the stack's station
+        if (!sDataMgr.IsStation(item->locationID()) || item->locationID() != (uint32)call.client->GetStationID()) {
+            _log(INV__ERROR, "SplitStack: %s does not own item %u (owner %u).", call.client->GetName(), itemID->value(), item->ownerID());
+            return nullptr;
+        }
+    }
+    if (item->quantity() <= (uint32)take) {
+        _log(INV__ERROR, "SplitStack: %s tried to split %i of %u from item %u.", call.client->GetName(), take, item->quantity(), itemID->value());
+        return nullptr;
+    }
+    if (item->isSingleton()) {
+        _log(INV__ERROR, "SplitStack: item %u is a singleton.", itemID->value());
+        return nullptr;
+    }
+    InventoryItemRef part = item->Split(take, true);
+    if (part.get() == nullptr) {
+        _log(INV__ERROR, "SplitStack: Split(%i) failed for item %u.", take, itemID->value());
+        return nullptr;
+    }
     return nullptr;
 }
 
