@@ -46,6 +46,9 @@
 #include "station/StationDataMgr.h"
 #include "manufacturing/FactoryDB.h"
 
+// container password helpers (defined near SetPassword)
+static bool IsContainerPasswordLocked(uint32 containerID);
+
 InventoryBound::InventoryBound(EVEServiceManager &mgr, BoundServiceParent<InventoryBound>& parent, InventoryItemRef item, EVEItemFlags flag, uint32 ownerID, bool passive) :
     EVEBoundObject(mgr, parent),
     pInventory(item->GetMyInventory()),
@@ -249,6 +252,19 @@ PyResult InventoryBound::MultiMerge(PyCallArgs &call, PyList* items, std::option
  * Adding Modules to a specific slot on ship
  */
 PyResult InventoryBound::Add(PyCallArgs &call, PyInt* itemID, PyInt* containerID) {
+    // password-protected containers: no moving items in or out without being the owner
+    {
+        bool deny = false;
+        if (IsContainerPasswordLocked(m_self->itemID()) && m_self->ownerID() != (uint32)call.client->GetCharacterID())
+            deny = true;
+        InventoryItemRef src = sItemFactory.GetItemRef(containerID->value());
+        if (src.get() != nullptr && IsContainerPasswordLocked(src->itemID()) && src->ownerID() != (uint32)call.client->GetCharacterID())
+            deny = true;
+        if (deny) {
+            sLog.Error("IB::Add", "%s tried to move item %u into/out of a password-protected container.", call.client->GetName(), itemID->value());
+            return nullptr;
+        }
+    }
     if (is_log_enabled(INV__DUMP)) {
         _log(INV__DUMP, "IB::Handle_Add() size= %lli", call.tuple->size());
         call.Dump(INV__DUMP);
@@ -318,6 +334,11 @@ PyResult InventoryBound::Add(PyCallArgs &call, PyInt* itemID, PyInt* containerID
 
 // this call is for moving items to *THIS* inventory
 PyResult InventoryBound::MultiAdd(PyCallArgs &call, PyList* itemIDs, PyInt* containerID) {
+    // password-protected container: only the owner may add items
+    if (IsContainerPasswordLocked(m_self->itemID()) && m_self->ownerID() != (uint32)call.client->GetCharacterID()) {
+        sLog.Error("IB::MultiAdd", "%s tried to add items to password-protected container %u.", call.client->GetName(), m_self->itemID());
+        return nullptr;
+    }
     if (is_log_enabled(INV__DUMP)) {
         _log(INV__DUMP, "IB::Handle_MultiAdd() size= %lli", call.tuple->size());
         call.Dump(INV__DUMP);
@@ -743,6 +764,12 @@ PyResult InventoryBound::List(PyCallArgs &call, std::optional <PyInt*> listFlag)
     if (pInventory == nullptr)
         return PyStatic.NewNone();
 
+    // password-protected container: contents are hidden from everyone but the owner
+    if (IsContainerPasswordLocked(m_self->itemID()) && m_self->ownerID() != (uint32)call.client->GetCharacterID()) {
+        _log(INV__MESSAGE, "%s tried to open password-protected container %u - contents hidden.", call.client->GetName(), m_self->itemID());
+        return pInventory->List(flagNone, 0xFFFFFFFFu);
+    }
+
     _log(INV__DUMP, "IB::List() dump.");
     call.Dump(INV__DUMP);
 
@@ -911,9 +938,73 @@ PyResult InventoryBound::TakeOutTrash(PyCallArgs &call, PyInt* itemIDs) {
     return nullptr;
 }
 
-PyResult InventoryBound::SetPassword(PyCallArgs &call, PyInt* which, PyString* newPassword, PyString* oldPassword) {
-    _log(INV__MESSAGE, "%s Calling InventoryBound::SetPassword() for %s(%u)", call.client->GetName(), m_self->name(), m_itemID);
-    call.Dump(INV__DUMP);
+// container password helpers (table containerPasswords: row = locked)
+static bool IsContainerPasswordLocked(uint32 containerID)
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res, "SELECT 1 FROM containerPasswords WHERE itemID = %u", containerID))
+        return false;
+    return res.GetRowCount() > 0;
+}
+
+static std::string ContainerPasswordValue(const std::optional<PyRep*>& rep)
+{
+    if (!rep.has_value() || rep.value() == nullptr || rep.value()->IsNone())
+        return "";
+    return PyRep::StringContent(rep.value());
+}
+
+PyResult InventoryBound::SetPassword(PyCallArgs &call, PyInt* which, std::optional<PyRep*> newPassword, std::optional<PyRep*> oldPassword) {
+    // set / change / clear the password of this container (owner only)
+    if (m_self.get() == nullptr)
+        return nullptr;
+    uint32 callerID = (uint32)call.client->GetCharacterID();
+    if (m_self->ownerID() != callerID) {
+        sLog.Error("IB::SetPassword", "%s tried to change the password of container %u owned by %u.", call.client->GetName(), m_self->itemID(), m_self->ownerID());
+        return nullptr;
+    }
+
+    std::string newPass = ContainerPasswordValue(newPassword);
+    std::string oldPass = ContainerPasswordValue(oldPassword);
+
+    DBQueryResult res;
+    bool locked = false;
+    if (sDatabase.RunQuery(res, "SELECT password FROM containerPasswords WHERE itemID = %u", m_self->itemID())) {
+        DBResultRow row;
+        if (res.GetRow(row)) {
+            locked = true;
+            (void)row;
+        }
+    }
+
+    DBerror err;
+    if (locked) {
+        // must present the current password to change or clear it
+        std::string eOld;
+        sDatabase.DoEscapeString(eOld, oldPass);
+        DBQueryResult chk;
+        if (!sDatabase.RunQuery(chk,
+                "SELECT 1 FROM containerPasswords WHERE itemID = %u AND password = SHA2('%s', 256)",
+                m_self->itemID(), eOld.c_str()) || chk.GetRowCount() == 0) {
+            sLog.Error("IB::SetPassword", "%s gave a wrong current password for container %u.", call.client->GetName(), m_self->itemID());
+            call.client->SendNotifyMsg("The container password is incorrect.");
+            return nullptr;
+        }
+    }
+
+    if (newPass.empty()) {
+        sDatabase.RunQuery(err, "DELETE FROM containerPasswords WHERE itemID = %u", m_self->itemID());
+        call.client->SendNotifyMsg("Container password removed.");
+    } else {
+        std::string eNew;
+        sDatabase.DoEscapeString(eNew, newPass);
+        sDatabase.RunQuery(err,
+            "INSERT INTO containerPasswords (itemID, password) VALUES (%u, SHA2('%s', 256))"
+            " ON DUPLICATE KEY UPDATE password = SHA2('%s', 256)",
+            m_self->itemID(), eNew.c_str(), eNew.c_str());
+        call.client->SendNotifyMsg("Container password set.");
+    }
+    _log(INV__MESSAGE, "%s changed password of container %u (%s)", call.client->GetName(), m_self->itemID(), newPass.empty() ? "cleared" : "set");
     return nullptr;
 }
 

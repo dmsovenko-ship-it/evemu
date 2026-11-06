@@ -107,7 +107,18 @@ PyResult InvBrokerBound::GetContainerContents(PyCallArgs &call, PyInt* container
         _log(INV__ERROR, "GetContainerContents() - Unable to load inventory for itemID %u in locationID %u", containerID->value(), locationID->value());
         return nullptr;
     }
-    /** @todo this will need lots-o-work for corp usage, and the List() function, as well.  */
+    // password-protected containers: contents are hidden from everyone but the owner
+    {
+        DBQueryResult lres;
+        if (sDatabase.RunQuery(lres, "SELECT 1 FROM containerPasswords WHERE itemID = %u", containerID->value())
+            && lres.GetRowCount() > 0
+            && item->ownerID() != (uint32)call.client->GetCharacterID()) {
+            _log(INV__ERROR, "GetContainerContents() - %s tried to open password-protected container %u",
+                 call.client->GetName(), containerID->value());
+            return nullptr;
+        }
+    }
+        /** @todo this will need lots-o-work for corp usage, and the List() function, as well.  */
     if (item->ownerID() == call.client->GetCharacterID()) {
         _log(INV__MESSAGE, "Handle_GetContainerContents() -  %s(%u) is owned by calling character %s(%u) ", \
                     item->name(), item->itemID(), call.client->GetName(), call.client->GetCharacterID());
