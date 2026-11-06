@@ -72,10 +72,14 @@ PyResult UserService::GetRedeemTokens(PyCallArgs& call)
     if (!sDatabase.RunQuery(res,
         "SELECT itemID, quantity FROM entity WHERE ownerID = %u AND typeID = 29668"
         " AND flag = 211 AND locationID = %u",
-        pClient->GetCharacterID(), pClient->GetStationID()))
+        pClient->GetCharacterID(), pClient->GetStationID())) {
+        sLog.Error("GetRedeemTokens", "query failed: %s", res.error.c_str());
         return list;
+    }
     DBResultRow row;
+    uint32 cnt = 0;
     while (res.GetRow(row)) {
+        ++cnt;
         PyDict* d = new PyDict();
             d->SetItemString("tokenID", new PyInt(row.GetUInt(0)));
             d->SetItemString("massTokenID", new PyInt(0));
@@ -87,6 +91,7 @@ PyResult UserService::GetRedeemTokens(PyCallArgs& call)
             d->SetItemString("expireDateTime", new PyInt(0));
         list->AddItem(new PyObject("util.KeyVal", d));
     }
+    sLog.Message("GetRedeemTokens", "char=%u station=%u -> %u tokens", pClient->GetCharacterID(), pClient->GetStationID(), cnt);
     return list;
 }
 
