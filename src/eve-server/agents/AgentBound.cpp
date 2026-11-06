@@ -1214,7 +1214,6 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         case Mission::Type::Burner:
         case Mission::Type::Cosmos:
         case Mission::Type::Data:
-        case Mission::Type::Research:
         case Mission::Type::Storyline:
         case Mission::Type::Tutorial:
         default: {
