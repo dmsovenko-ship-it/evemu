@@ -236,14 +236,16 @@ PyResult UserService::ApplyPilotLicence(PyCallArgs& call, PyInt* itemID)
         return nullptr;
 
     // The PLEX must be a real item owned by this character (hangar flag 4 or cargo flag 5)
+    uint32 plexQty = 1;
     DBQueryResult pres;
     if (!sDatabase.RunQuery(pres,
-            "SELECT itemID FROM entity WHERE itemID=%u AND ownerID=%u AND typeID=29668 AND quantity>0 LIMIT 1",
+            "SELECT quantity FROM entity WHERE itemID=%u AND ownerID=%u AND typeID=29668 AND quantity>0 LIMIT 1",
             plexID, charID))
         return nullptr;
     DBResultRow prow;
     if (!pres.GetRow(prow))
         return nullptr;   // not a PLEX / not ours
+    plexQty = prow.GetUInt(0);
 
     // Resolve the account
     uint32 accountID = 0;
@@ -256,16 +258,23 @@ PyResult UserService::ApplyPilotLicence(PyCallArgs& call, PyInt* itemID)
     if (accountID == 0)
         return nullptr;
 
-    // Consume the PLEX: delete the in-memory item (this also removes it from the
-    // container + emits the inventory update the client needs), then SQL as a
-    // safety net if the item was not loaded in this process.
+    // Consume ONE PLEX from the stack (a stack of N is a single entity row).
+    // In-memory op first (removes from container + emits the inventory update
+    // the client needs), then SQL as a safety net if the item was not loaded.
     InventoryItemRef plexRef = sItemFactory.GetItemRef(plexID);
     if (plexRef.get() != nullptr) {
-        plexRef->Delete();
+        if (plexQty > 1 && plexRef->quantity() > 1)
+            plexRef->AlterQuantity(-1, true);
+        else
+            plexRef->Delete();
     }
     DBerror err;
-    sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID=%u", plexID);
-    sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID=%u", plexID);
+    if (plexQty > 1) {
+        sDatabase.RunQuery(err, "UPDATE entity SET quantity=quantity-1 WHERE itemID=%u AND quantity>1", plexID);
+    } else {
+        sDatabase.RunQuery(err, "DELETE FROM entity WHERE itemID=%u", plexID);
+        sDatabase.RunQuery(err, "DELETE FROM entity_attributes WHERE itemID=%u", plexID);
+    }
 
     // Extend the subscription (same math as the portal's char/ActivatePlex)
     uint32 days = (sConfig.subscription.PremiumDays > 0 ? sConfig.subscription.PremiumDays : 30);

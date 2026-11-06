@@ -30,6 +30,8 @@
 #include "eve-server.h"
 #include "pos/Structure.h"
 
+#include <algorithm>
+
 #include "EntityList.h"
 
 #include "StaticDataMgr.h"
@@ -583,9 +585,16 @@ PyResult InvBrokerBound::ConvertPlexToCurrency(PyCallArgs& call, PyList* plexIDs
             continue;
         if (converted >= qty)
             break;
-        plex->Delete();
-        ++converted;
-        totalAUR += 3500;   // Crucible Plex2AurExchangeRatio
+        // a PLEX stack is ONE entity row: consume only the requested count
+        uint32 have = plex->quantity();
+        uint32 take = std::min(qty - converted, have);
+        if (take >= have) {
+            plex->Delete();
+        } else {
+            plex->AlterQuantity(-(int32)take, true);
+        }
+        converted += take;
+        totalAUR += (int64)take * 3500;   // Crucible Plex2AurExchangeRatio
     }
     if (converted == 0)
         throw UserError("RedeemNoTokens");
