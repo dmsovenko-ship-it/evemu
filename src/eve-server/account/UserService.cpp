@@ -103,7 +103,7 @@ PyResult UserService::GetRedeemTokens(PyCallArgs& call)
             d->SetItemString("quantity", new PyInt(row.GetUInt(1)));
             d->SetItemString("description", new PyString("PLEX"));
             d->SetItemString("label", new PyString(""));
-            d->SetItemString("stationID", new PyInt(stationID != 0 ? stationID : 60001624));
+            d->SetItemString("stationID", new PyInt(stationID != 0 ? stationID : row.GetUInt(2)));
             d->SetItemString("expireDateTime", new PyInt(0));
         list->AddItem(new PyObject("util.KeyVal", d));
     }
@@ -117,10 +117,19 @@ PyResult UserService::ClaimRedeemTokens(PyCallArgs& call, PyList* tokens, PyInt*
     if (pClient == nullptr || tokens == nullptr || charIDIn == nullptr)
         return new PyNone();
     uint32 targetCharID = (uint32)charIDIn->value();
-    uint32 stationID = pClient->GetStationID();
-    if (stationID == 0)
+    uint32 callerCharID = (uint32)pClient->GetCharacterID();
+    if (callerCharID == 0)
+        callerCharID = targetCharID;    // claim from charsel: session charid not set yet
+    uint32 accountID = (uint32)pClient->GetUserID();
+    sLog.Error("ClaimRedeemTokens", "target=%u caller=%u account=%u tokens=%u", targetCharID, callerCharID, accountID, tokens->size());
+    // target char must belong to the caller's account (charsel sends charID from its own UI)
+    DBQueryResult vres;
+    if (!sDatabase.RunQuery(vres,
+        "SELECT 1 FROM chrCharacters WHERE characterID = %u AND accountID = %u",
+        targetCharID, accountID) || vres.GetRowCount() == 0) {
+        sLog.Error("ClaimRedeemTokens", "target char %u is not owned by account %u - rejected", targetCharID, accountID);
         throw UserError("RedeemNoTokens");
-    sLog.Error("ClaimRedeemTokens", "target=%u station=%u tokens=%u", targetCharID, stationID, tokens->size());
+    }
 
     int64 nowft = GetFileTimeNow();
     for (size_t i = 0; i < tokens->size(); ++i) {
@@ -152,11 +161,17 @@ PyResult UserService::ClaimRedeemTokens(PyCallArgs& call, PyList* tokens, PyInt*
             sLog.Error("ClaimRedeemTokens", "token %u: item %u is type %u (not PLEX)", i, itemID, plex->typeID());
             continue;
         }
-        // allow only own PLEX, or gift: keep owner check on source
-        if (plex->ownerID() != pClient->GetCharacterID()) {
-            sLog.Error("ClaimRedeemTokens", "token %u: item %u owner %u != char %u", i, itemID, plex->ownerID(), pClient->GetCharacterID());
+        // source PLEX must belong to a char of the caller's account (redeem queue)
+        DBQueryResult ores;
+        if (!sDatabase.RunQuery(ores,
+            "SELECT 1 FROM chrCharacters WHERE characterID = %u AND accountID = %u",
+            plex->ownerID(), accountID) || ores.GetRowCount() == 0) {
+            sLog.Error("ClaimRedeemTokens", "token %u: item %u owner %u not in account %u - skipped", i, itemID, plex->ownerID(), accountID);
             continue;
         }
+        // deliver to the station where the queue item sits (works from charsel too,
+        // where the caller has no stationID yet)
+        uint32 stationID = plex->locationID();
         sLog.Error("ClaimRedeemTokens", "token %u: claiming item %u (%u x PLEX) -> char %u hangar @ %u", i, itemID, plex->quantity(), targetCharID, stationID);
         plex->ChangeOwner(targetCharID, false);
         plex->Move(stationID, flagHangar, true);
