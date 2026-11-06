@@ -790,7 +790,49 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
     if (offer.objectiveType != 0)
         return;
 
+    // curated rows (built from the client localization texts) take precedence
+    DBQueryResult objRes;
+    if (sDatabase.RunQuery(objRes,
+            "SELECT objectiveType, briefingID, itemTypeID, itemQty FROM missionObjectives WHERE missionID = %u",
+            offer.missionID)) {
+        DBResultRow objRow;
+        if (objRes.GetRow(objRow)) {
+            uint8 t = (uint8)objRow.GetUInt(0);
+            uint32 brief = objRow.GetUInt(1);
+            uint32 itype = objRow.GetUInt(2);
+            uint32 iqty = objRow.GetUInt(3);
+            if (brief != 0)
+                offer.briefingID = (uint16)brief;
+            if (itype != 0) {
+                offer.courierTypeID = (uint16)itype;
+                offer.courierAmount = (uint16)(iqty != 0 ? iqty : 1);
+                offer.courierItemVolume = 0.01f;
+            }
+            if (t >= 1 && t <= 3) {
+                offer.objectiveType = t;
+                if (t == 2) {
+                    if (!sDataMgr.IsStation(offer.destinationID)) {
+                        std::vector<uint32> stations;
+                        if (offer.destinationSystemID != 0
+                            && sDataMgr.GetStationList(offer.destinationSystemID, stations) && !stations.empty())
+                            offer.destinationID = stations.front();
+                        else if (offer.originID != 0)
+                            offer.destinationID = offer.originID;
+                    }
+                }
+                _log(AGENT__MESSAGE, "AssignArcObjective: mission %u (%s) from table -> objective %u briefing %u",
+                     offer.missionID, offer.name.c_str(), offer.objectiveType, offer.briefingID);
+                return;
+            }
+            if (brief != 0) {
+                offer.briefingID = (uint16)brief;
+                _log(AGENT__MESSAGE, "AssignArcObjective: mission %u uses localized briefing %u", offer.missionID, brief);
+            }
+        }
+    }
+
     // classify by the mission title so the objective matches the mission description
+ so the objective matches the mission description
     std::string lname = offer.name;
     std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
     auto hasWord = [&lname](const char* w) { return lname.find(w) != std::string::npos; };
