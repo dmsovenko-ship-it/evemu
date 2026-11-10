@@ -200,36 +200,49 @@ def main():
                           "shipLimit": s.get("shipLimit", ""), "packs": packs,
                           "drops": drops, "gateKeys": gate_keys}
 
-    # ---- agent sites (from the agents table "Location" column) ----
-    agent_sites = {}
+    # ---- agent sites (beacon from the agent infobox / wiki Location column) ----
     ajson = []
     for fn in os.listdir(os.path.join(B, "cosmos2")):
         ajson.extend(json.load(io.open(os.path.join(B, "cosmos2", fn), encoding="utf-8")))
-    seen_agents = set()
+    agent_locs = {}
+    agent_fac = {}
     for m in ajson:
-        a = agent_by_id.get(0)
-        aname = m.get("agent")
-        match = [x for x in agents if x["name"] == aname]
+        match = [x for x in agents if x["name"] == m.get("agent")]
         if not match:
             continue
         ag = match[0]
-        if ag["id"] in seen_agents:
-            continue
-        seen_agents.add(ag["id"])
-        loc = (m.get("agentLocation") or "").strip()
-        if not loc or "#" in loc or "|" in loc or len(loc) > 80:
-            continue
-        site_name = loc
-        if " - " in loc:
-            prefix = loc.split(" - ")[0].strip()
-            sysid = systems.get(prefix.lower(), 0)
-            if sysid and sysid == ag["system"]:
+        if ag["id"] not in agent_locs:
+            agent_locs[ag["id"]] = (m.get("agentLocation") or "").strip()
+            agent_fac[ag["id"]] = faction_id(m.get("agentFaction") or m.get("faction"))
+
+    meta = {}
+    mpth = os.path.join(B, "cosmos_agents", "agents_meta.json")
+    if os.path.exists(mpth):
+        for m in json.load(io.open(mpth, encoding="utf-8")):
+            meta[m["agentID"]] = m
+
+    agent_sites = {}
+    for ag in agents:
+        loc = agent_locs.get(ag["id"], "")
+        site_name = ""
+        if loc and "#" not in loc and "|" not in loc and len(loc) <= 80:
+            if " - " in loc and systems.get(loc.split(" - ")[0].strip().lower(), 0) == ag["system"]:
                 site_name = loc.split(" - ", 1)[1].strip()
-        fid = faction_id(m.get("agentFaction") or m.get("faction"))
+            else:
+                site_name = loc
+        if not site_name or len(site_name) > 60:
+            b = (meta.get(ag["id"], {}).get("beacon") or "").strip()
+            if b and " - " in b and systems.get(b.split(" - ")[0].strip().lower(), 0) == ag["system"]:
+                b = b.split(" - ", 1)[1].strip()
+            site_name = b
+        if not site_name:
+            site_name = "COSMOS Agent Beacon"
         key = (ag["system"], site_name.lower())
         if key not in sites:
-            sites[key] = {"name": site_name, "systemID": ag["system"], "factionID": fid,
-                          "type": "Agent Site", "rating": "", "shipLimit": "", "packs": []}
+            sites[key] = {"name": site_name, "systemID": ag["system"],
+                          "factionID": agent_fac.get(ag["id"], 0),
+                          "type": "Agent Site", "rating": "", "shipLimit": "", "packs": [],
+                          "drops": [], "gateKeys": []}
         agent_sites[ag["id"]] = key
 
     # ---- positional offsets (deterministic per site) ----
