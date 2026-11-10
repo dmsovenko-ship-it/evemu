@@ -674,10 +674,117 @@ bool SystemManager::LoadSystemDynamics() {
     ItemDB::ClearPreload();
     AttributeMap::ClearPreload();
 
-    // COSMOS agents that live in this system (SDE locationID = system)
+    // COSMOS sites + the agents that live at them (SDE locationID = system)
+    SpawnCosmosSites();
     SpawnCosmosAgents();
 
     return true;
+}
+
+SystemEntity* SystemManager::GetCosmosSiteSE(uint32 siteID)
+{
+    auto it = m_cosmosSites.find(siteID);
+    if (it == m_cosmosSites.end())
+        return nullptr;
+    return GetSE(it->second);
+}
+
+void SystemManager::SpawnCosmosSites()
+{
+    if (!m_cosmosSites.empty())
+        return;
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+            "SELECT siteID, siteName, factionID, corporationID, beaconTypeID, ox, oy, oz"
+            " FROM cosmosSites WHERE systemID = %u", m_data.systemID)) {
+        _log(AGENT__ERROR, "SpawnCosmosSites: query failed for %s(%u): %s",
+             m_data.name.c_str(), m_data.systemID, res.error.c_str());
+        return;
+    }
+    if (res.GetRowCount() == 0)
+        return;
+
+    // site positions are stored as offsets from the system star
+    GPoint star(0.0, 0.0, 0.0);
+    DBQueryResult starRes;
+    if (sDatabase.RunQuery(starRes,
+            "SELECT x, y, z FROM mapDenormalize WHERE itemID = %u", m_data.systemID)) {
+        DBResultRow starRow;
+        if (starRes.GetRow(starRow))
+            star = GPoint(starRow.GetDouble(0), starRow.GetDouble(1), starRow.GetDouble(2));
+    }
+
+    uint32 count = 0;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 siteID = row.GetUInt(0);
+        std::string name = row.GetText(1);
+        uint32 factionID = row.GetUInt(2);
+        uint32 corpID = row.GetUInt(3);
+        uint16 beaconTypeID = row.GetUInt(4);
+        GPoint pos = star;
+        pos.x += row.GetDouble(5);
+        pos.y += row.GetDouble(6);
+        pos.z += row.GetDouble(7);
+
+        ItemData data(beaconTypeID, (corpID != 0 ? corpID : 1), m_data.systemID, flagNone, name, pos);
+        uint32 tempID = InventoryItem::CreateTempItemID(data);
+        InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, data);
+        if (iRef.get() == nullptr) {
+            _log(AGENT__WARNING, "SpawnCosmosSites: failed to spawn beacon for site %u (%s)",
+                 siteID, name.c_str());
+            continue;
+        }
+        CelestialSE* cSE = new CelestialSE(iRef, m_services, this);
+        AddEntity(cSE, false);
+        if (cSE->SysBubble() != nullptr)
+            cSE->SysBubble()->AddBallExclusive(cSE);
+        m_cosmosSites[siteID] = iRef->itemID();
+
+        // first-pocket NPC pack (flat model: no gates yet). Gate/pocket chains
+        // build on top of this later.
+        DBQueryResult npcRes;
+        if (sDatabase.RunQuery(npcRes,
+                "SELECT typeID, qty FROM cosmosSiteNpcs WHERE siteID = %u AND pocket = 1",
+                siteID)) {
+            FactionData faction = FactionData();
+                faction.allianceID = factionID;
+                faction.corporationID = (corpID != 0 ? corpID : 1);
+                faction.factionID = factionID;
+                faction.ownerID = (corpID != 0 ? corpID : 1);
+            DBResultRow npcRow;
+            uint32 n = 0;
+            while (npcRes.GetRow(npcRow)) {
+                uint32 npcType = npcRow.GetUInt(0);
+                uint32 qty = npcRow.GetUInt(1);
+                for (uint32 k = 0; k < qty && k < 12; ++k, ++n) {
+                    GPoint npcPos = pos;
+                    npcPos.x += 15000.0 + (n % 4) * 2500.0;
+                    npcPos.z += (n / 4) * 2500.0;
+                    ItemData npcData(npcType, faction.ownerID, m_data.systemID, flagNone, "", npcPos);
+                    InventoryItemRef npcRef = sItemFactory.SpawnItem(npcData);
+                    if (npcRef.get() == nullptr)
+                        continue;
+                    NPC* npc = new NPC(npcRef, m_services, this, faction);
+                    if (npc == nullptr)
+                        continue;
+                    if (npc->Load()) {
+                        npc->DestinyMgr()->SetPosition(npcPos);
+                        AddNPC(npc);
+                    } else {
+                        SafeDelete(npc);
+                    }
+                }
+            }
+        }
+        ++count;
+        _log(AGENT__MESSAGE, "SpawnCosmosSites: site %u (%s) beacon at (%.0f,%.0f,%.0f)",
+             siteID, name.c_str(), pos.x, pos.y, pos.z);
+    }
+    if (count != 0)
+        _log(AGENT__MESSAGE, "SpawnCosmosSites: spawned %u sites in %s(%u)",
+             count, m_data.name.c_str(), m_data.systemID);
 }
 
 SystemEntity* SystemManager::GetCosmosAgentSE(uint32 agentID)
@@ -695,10 +802,11 @@ void SystemManager::SpawnCosmosAgents()
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-            "SELECT DISTINCT a.agentID, c.characterName, a.corporationID"
+            "SELECT DISTINCT a.agentID, c.characterName, a.corporationID, IFNULL(cas.siteID,0)"
             " FROM agtAgents a"
             " JOIN chrNPCCharacters c ON c.characterID = a.agentID"
             " JOIN cosmosAgentMissions cam ON cam.agentID = a.agentID"
+            " LEFT JOIN cosmosAgentSites cas ON cas.agentID = a.agentID"
             " WHERE a.locationID = %u", m_data.systemID)) {
         _log(AGENT__ERROR, "SpawnCosmosAgents: query failed for %s(%u): %s",
              m_data.name.c_str(), m_data.systemID, res.error.c_str());
@@ -736,6 +844,7 @@ void SystemManager::SpawnCosmosAgents()
         uint32 agentID = row.GetUInt(0);
         std::string name = row.GetText(1);
         uint32 corpID = row.GetUInt(2);
+        uint32 siteID = row.GetUInt(3);
 
         // in-space model: group 517 "Agents in Space" whose type carries the
         // agentID dogma attribute (840) equal to this agent
@@ -754,8 +863,17 @@ void SystemManager::SpawnCosmosAgents()
         }
         uint32 modelTypeID = typeRow.GetUInt(0);
 
+        // stand next to the agent's COSMOS site beacon when we know it; otherwise
+        // fall back to the station/star anchor
         GPoint pos = ref;
-        pos.MakeRandomPointOnSphere(70000.0 + 5000.0 * count);    // inside agentCommRange (100km)
+        auto sit = m_cosmosSites.find(siteID);
+        SystemEntity* siteSE = (sit != m_cosmosSites.end()) ? GetSE(sit->second) : nullptr;
+        if (siteSE != nullptr) {
+            pos = siteSE->GetPosition();
+            pos.x += 20000.0 + 3000.0 * count;
+        } else {
+            pos.MakeRandomPointOnSphere(70000.0 + 5000.0 * count);    // inside agentCommRange (100km)
+        }
 
         ItemData data(modelTypeID, (corpID != 0 ? corpID : 1), m_data.systemID, flagNone, name, pos);
         uint32 tempID = InventoryItem::CreateTempItemID(data);

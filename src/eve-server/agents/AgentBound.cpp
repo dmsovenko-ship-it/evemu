@@ -571,21 +571,38 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 // mission site, so drop a lootable container there on Accept
                 if ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos)
                     && offer.objectiveType == 5 && offer.courierTypeID != 0 && offer.destinationSystemID != 0) {
-                    SystemManager* pLootSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
-                    if (pLootSys != nullptr) {
-                        // put the container next to a warpable landmark so the pilot can
-                        // actually find it (mission journal has no site bookmark for fetch)
-                        GPoint lootPos = dungeonSite;
-                        std::vector<uint32> dstStations;
-                        if (sDataMgr.GetStationList(offer.destinationSystemID, dstStations) && !dstStations.empty())
-                            if (SystemEntity* stSE = pLootSys->GetSE(dstStations.front()))
-                                lootPos = stSE->GetPosition();
-                        if (lootPos.x == 0 && lootPos.y == 0 && lootPos.z == 0)
-                            lootPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
-                        else
-                            lootPos.MakeRandomPointOnSphere(50000.0f);
-                        pLootSys->GetDungMgr()->SpawnMissionLoot(lootPos, offer.courierTypeID, offer.courierAmount);
+                    SystemManager* pLootSys = nullptr;
+                    GPoint lootPos = dungeonSite;
+                    SystemEntity* agSE = nullptr;
+                    {
+                        auto& systems = sEntityList.GetSystems();
+                        auto it = systems.find(m_agent->GetSystemID());
+                        if (it != systems.end()) {
+                            pLootSys = it->second;
+                            agSE = pLootSys->GetCosmosAgentSE(m_agent->GetID());
+                        }
                     }
+                    if (agSE != nullptr) {
+                        // COSMOS agent in space: the item lies next to the agent's site
+                        lootPos = agSE->GetPosition();
+                        lootPos.x += 20000.0;
+                    } else {
+                        pLootSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
+                        if (pLootSys != nullptr) {
+                            // put the container next to a warpable landmark so the pilot can
+                            // actually find it (mission journal has no site bookmark for fetch)
+                            std::vector<uint32> dstStations;
+                            if (sDataMgr.GetStationList(offer.destinationSystemID, dstStations) && !dstStations.empty())
+                                if (SystemEntity* stSE = pLootSys->GetSE(dstStations.front()))
+                                    lootPos = stSE->GetPosition();
+                            if (lootPos.x == 0 && lootPos.y == 0 && lootPos.z == 0)
+                                lootPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+                            else
+                                lootPos.MakeRandomPointOnSphere(50000.0f);
+                        }
+                    }
+                    if (pLootSys != nullptr)
+                        pLootSys->GetDungMgr()->SpawnMissionLoot(lootPos, offer.courierTypeID, offer.courierAmount);
                 }
                 m_agent->UpdateOffer(pchar->itemID(), offer);
                 m_agent->SendMissionUpdate(call.client, "offer_accepted");

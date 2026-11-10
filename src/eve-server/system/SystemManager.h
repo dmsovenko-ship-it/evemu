@@ -103,6 +103,9 @@ public:
     void SpawnCustomsNPCs();
     void SpawnFactionPatrols();
     void SpawnIncursionGateCamps();
+    // COSMOS sites (static beacons + NPC packs) and the agents that live at them.
+    void SpawnCosmosSites();
+    SystemEntity* GetCosmosSiteSE(uint32 siteID);
     // COSMOS agents live in space: one static "agent ship" (group 517, type carries
     // the agentID attribute) per agent whose locationID is this system.
     void SpawnCosmosAgents();
@@ -256,6 +259,8 @@ private:
 
     // COSMOS agents in space: agentID -> spawned temp itemID
     std::map<uint32, uint32> m_cosmosAgents;
+    // COSMOS sites: siteID -> beacon temp itemID
+    std::map<uint32, uint32> m_cosmosSites;
 
     // for POS system       -allan 23July17
     std::map<uint32, SystemEntity*> m_moonMap;        // our container, but we DONT own the SE*
