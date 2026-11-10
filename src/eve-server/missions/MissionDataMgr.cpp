@@ -880,6 +880,16 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
                     offer.destinationID = dstStation;
                     offer.destinationTypeID = 0;
                     offer.destinationOwnerID = 0;
+                } else if (dsys != 0) {
+                    // keep the offer's location consistent with the parsed system
+                    std::vector<uint32> dstStations;
+                    if (sDataMgr.GetStationList(dsys, dstStations) && !dstStations.empty()) {
+                        offer.destinationID = dstStations.front();
+                        offer.destinationTypeID = 0;
+                        offer.destinationOwnerID = 0;
+                    } else {
+                        offer.destinationID = dsys;
+                    }
                 }
                 if (t == 2) {
                     if (!sDataMgr.IsStation(offer.destinationID)) {

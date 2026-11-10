@@ -174,9 +174,18 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     // COSMOS: real per-agent chains (one-time missions, sequential steps) take
     // precedence over the level-based pool picked above
     if (m_agentData.cosmos) {
-        if (sMissionDataMgr.CreateCosmosChainOffer(m_agentID, charID, m_agentData.level, offer))
+        if (sMissionDataMgr.CreateCosmosChainOffer(m_agentID, charID, m_agentData.level, offer)) {
             _log(AGENT__MESSAGE, "MakeOffer: COSMOS agent %u -> chain mission %u '%s'.",
                  m_agentID, offer.missionID, offer.name.c_str());
+        } else if (m_agentData.cosmosChainCount != 0) {
+            // the agent's one-time COSMOS chain is finished - no pooled repeats
+            offer.name.clear();
+            offer.missionID = 0;
+            offer.briefingID = 0;
+            offer.objectiveType = 0;
+            _log(AGENT__MESSAGE, "MakeOffer: COSMOS agent %u chain is complete.", m_agentID);
+            return;
+        }
     }
 
     /*  static mission data from db

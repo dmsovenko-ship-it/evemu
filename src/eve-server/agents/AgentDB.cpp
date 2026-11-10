@@ -77,8 +77,8 @@ void AgentDB::LoadAgentData(uint32 agentID, AgentData& data)
         data.research       = (data.typeID == Agents::Type::Research);
         // COSMOS agents come from the SDE as agentTypeID 8 (the later numbering uses 12);
         // the authoritative marker for us is the per-agent COSMOS mission chain.
-        data.cosmos         = (data.typeID == Agents::Type::Cosmos)
-                              or (!row.IsNull(16) and row.GetUInt(16) != 0);
+        data.cosmosChainCount = row.IsNull(16) ? 0 : row.GetUInt(16);
+        data.cosmos         = (data.typeID == Agents::Type::Cosmos) or (data.cosmosChainCount != 0);
         data.facWar         = (data.typeID == Agents::Type::FacWar);
     }
 }

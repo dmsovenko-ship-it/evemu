@@ -349,6 +349,12 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 } else {
                 MissionOffer offer = MissionOffer();
                 m_agent->MakeOffer(pchar->itemID(), offer);
+                if (offer.name.empty()) {
+                    // COSMOS chain finished (one-time missions): nothing left to offer
+                    PySetItemRelease(agentSays, 0, new PyString("I have no further assignments for you right now."));
+                    agentSays->SetItem(1, PyStatic.NewNone());
+                    break;
+                }
                 m_agent->SendMissionUpdate(call.client, "offered");
 
                 //  this one will get complicated and is based on agent/char interaction
