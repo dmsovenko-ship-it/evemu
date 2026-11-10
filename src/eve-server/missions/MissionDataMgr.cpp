@@ -865,7 +865,8 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
                 offer.courierAmount = (uint16)(iqty != 0 ? iqty : 1);
                 offer.courierItemVolume = 0.01f;
             }
-            if (t >= 1 && t <= 3) {
+            // 5 = fetch: bring the item to the agent's station (no mission package)
+            if ((t >= 1 && t <= 3) or t == 5) {
                 offer.objectiveType = t;
                 if (t == 2) {
                     if (!sDataMgr.IsStation(offer.destinationID)) {

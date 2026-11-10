@@ -2565,6 +2565,13 @@ bool Client::IsMissionComplete(MissionOffer& data)
                 case 3:     // hunt: every spawned target destroyed
                     return (EncounterSpawnServer::Get() != nullptr
                             && EncounterSpawnServer::Get()->IsOfferComplete(data.offerID));
+                case 5: {   // fetch: bring the item to the agent's station
+                    if (data.courierTypeID == 0)
+                        return false;
+                    if (m_locationID == 0 || data.originID == 0 || m_locationID != data.originID)
+                        return false;
+                    return ContainsTypeQty(data.courierTypeID, data.courierAmount);
+                }
                 default:    // legacy offers from before objectives existed
                     return (m_locationID != 0);
             }

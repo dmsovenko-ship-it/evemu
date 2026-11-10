@@ -42,6 +42,7 @@
 #include "missions/EncounterServer.h"
 #include "missions/MissionDB.h"
 #include "system/SystemManager.h"
+#include "system/SystemEntity.h"
 #include "system/cosmicMgrs/DungeonMgr.h"
 #include "POD_containers.h"
 
@@ -564,6 +565,26 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         if (sitePos.x == 0 && sitePos.y == 0 && sitePos.z == 0)
                             sitePos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
                         pSiteSys->GetDungMgr()->SpawnMissionSite(sitePos, moFaction, moStruct, moStructQty);
+                    }
+                }
+                // fetch objectives: the requested item(s) must be retrievable at the
+                // mission site, so drop a lootable container there on Accept
+                if ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos)
+                    && offer.objectiveType == 5 && offer.courierTypeID != 0 && offer.destinationSystemID != 0) {
+                    SystemManager* pLootSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
+                    if (pLootSys != nullptr) {
+                        // put the container next to a warpable landmark so the pilot can
+                        // actually find it (mission journal has no site bookmark for fetch)
+                        GPoint lootPos = dungeonSite;
+                        std::vector<uint32> dstStations;
+                        if (sDataMgr.GetStationList(offer.destinationSystemID, dstStations) && !dstStations.empty())
+                            if (SystemEntity* stSE = pLootSys->GetSE(dstStations.front()))
+                                lootPos = stSE->GetPosition();
+                        if (lootPos.x == 0 && lootPos.y == 0 && lootPos.z == 0)
+                            lootPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+                        else
+                            lootPos.MakeRandomPointOnSphere(50000.0f);
+                        pLootSys->GetDungMgr()->SpawnMissionLoot(lootPos, offer.courierTypeID, offer.courierAmount);
                     }
                 }
                 m_agent->UpdateOffer(pchar->itemID(), offer);
@@ -1316,7 +1337,8 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
     // fetch-type missions (mining/trade/research) hand the goods to the agent:
     // the drop-off is the agent's own station, not the mission's site system.
     uint32 dropoffID = offer.destinationID;
-    if ((offer.typeID == Mission::Type::Mining || offer.typeID == Mission::Type::Trade || offer.typeID == Mission::Type::Research)
+    if ((offer.typeID == Mission::Type::Mining || offer.typeID == Mission::Type::Trade || offer.typeID == Mission::Type::Research
+         || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 5))
         && m_agent->GetStationID() != 0 && sDataMgr.IsStation(m_agent->GetStationID())) {
         dropoffID = m_agent->GetStationID();
         destSysID = m_agent->GetSystemID();
@@ -1413,10 +1435,26 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
                     PySetItemRelease(objType, 0, new PyString("transport"));
                     objType->SetItem(1, objData);
                 objectives->SetItem(0, objType);
+            } else if (offer.objectiveType == 5 && offer.courierTypeID != 0) {
+                // fetch: bring the item to the agent's station (same rendering as
+                // the mining/trade/research hand-in objectives)
+                PyDict* cargo = new PyDict();
+                    cargo->SetItemString("hasCargo", new PyBool(pClient->ContainsTypeQty(offer.courierTypeID, offer.courierAmount)));
+                    cargo->SetItemString("typeID", new PyInt(offer.courierTypeID));
+                    cargo->SetItemString("quantity", new PyInt(offer.courierAmount));
+                    cargo->SetItemString("volume", new PyFloat(offer.courierItemVolume * offer.courierAmount));
+                PyTuple* objData = new PyTuple(3);
+                    PySetItemRelease(objData, 0, new PyInt(offer.destinationOwnerID));
+                    objData->SetItem(1, dropoffLocation);
+                    objData->SetItem(2, cargo);
+                PyTuple* objType = new PyTuple(2);
+                    PySetItemRelease(objType, 0, new PyString("fetch"));
+                    objType->SetItem(1, objData);
+                objectives->SetItem(0, objType);
             } else {
                 PyTuple* objType = new PyTuple(2);
                     PySetItemRelease(objType, 0, new PyString("none"));
-                    PySetItemRelease(objType, 1, new PyDict());
+                    objType->SetItem(1, new PyDict());
                 objectives->SetItem(0, objType);
             }
         } break;

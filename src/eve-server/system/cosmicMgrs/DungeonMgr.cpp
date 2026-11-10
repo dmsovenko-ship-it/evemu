@@ -14,6 +14,9 @@
 #include "dungeon/DungeonDB.h"
 #include "inventory/Inventory.h"
 #include "inventory/InventoryItem.h"
+#include "inventory/ItemFactory.h"
+#include "system/Container.h"
+#include "system/SystemManager.h"
 #include "system/SystemBubble.h"
 #include "system/SystemEntity.h"
 #include "system/Asteroid.h"
@@ -953,6 +956,33 @@ std::vector<uint32> DungeonMgr::SpawnMissionSite(const GPoint& roomPos, uint32 f
         spawned.insert(spawned.end(), deco.begin(), deco.end());
     }
     return spawned;
+}
+
+uint32 DungeonMgr::SpawnMissionLoot(const GPoint& pos, uint32 itemTypeID, uint32 qty)
+{
+    if (itemTypeID == 0)
+        return 0;
+    ItemData canData(EVEDB::invTypes::CargoContainer, 1, m_system->GetID(), flagNone,
+                     "Mission Container", pos);
+    CargoContainerRef contRef = sItemFactory.SpawnCargoContainer(canData);
+    if (contRef.get() == nullptr) {
+        _log(COSMIC_MGR__WARNING, "SpawnMissionLoot: failed to spawn container for type %u", itemTypeID);
+        return 0;
+    }
+    FactionData data = FactionData();
+        data.ownerID = 1;
+    ContainerSE* cSE = new ContainerSE(contRef, m_services, m_system, data);
+    contRef->SetMySE(cSE);
+    cSE->Init();
+    m_system->AddEntity(cSE);
+
+    ItemData lootData(itemTypeID, 1, contRef->itemID(), flagNone, (qty != 0 ? qty : 1));
+    InventoryItemRef lootRef = sItemFactory.SpawnItem(lootData);
+    if (lootRef.get() != nullptr)
+        contRef->AddItem(lootRef);
+    _log(COSMIC_MGR__MESSAGE, "SpawnMissionLoot: container %u with %u x type %u at (%.0f,%.0f,%.0f)",
+         contRef->itemID(), (qty != 0 ? qty : 1), itemTypeID, pos.x, pos.y, pos.z);
+    return contRef->itemID();
 }
 
 std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID, uint8 whClass)

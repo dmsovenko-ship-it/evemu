@@ -110,6 +110,9 @@ public:
     std::vector<uint32> SpawnDecorations(const GPoint& roomPos, uint32 factionID, uint8 whClass = 0);
     // mission site: decorations + optional fixed structures (data centers etc.)
     std::vector<uint32> SpawnMissionSite(const GPoint& roomPos, uint32 factionID, uint32 structureTypeID = 0, uint32 structureQty = 0);
+    // fetch objectives: a lootable container holding the mission item(s) so the
+    // pilot can actually retrieve it at the site. Returns the container itemID.
+    uint32 SpawnMissionLoot(const GPoint& pos, uint32 itemTypeID, uint32 qty);
 
 protected:
     ManagerDB m_db;

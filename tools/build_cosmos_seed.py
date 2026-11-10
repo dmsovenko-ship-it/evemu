@@ -143,19 +143,26 @@ def main():
     mission_sql = []
     obj_sql = []
     chain_sql = []
-    stats = {"missions": 0, "hunt": 0, "travel": 0, "items": 0}
+    stats = {"missions": 0, "hunt": 0, "travel": 0, "fetch": 0, "items": 0}
+    fetch_ids = []
 
     for aid, step, m in order:
         mname = m["mission"]
         lvl = sanitize_level(m.get("level"), m["_agent"]["level"])
         fid = faction_id(m.get("faction") or m["_agent"].get("faction"))
         hunt = is_hunt(m)
-        otype = 3 if hunt else 1
         item = clean_item(m.get("itemName"))
         itype = have.get(item.lower(), 0) if item else 0
         iqty = int(m.get("itemQty") or 0) if itype else 0
         if itype:
             stats["items"] += 1
+        # 5 = fetch: bring the item to the agent (item spawned in a site container);
+        # courier-to-station missions stay travel for now (no real destination data)
+        mtype = (m.get("type") or "").lower()
+        fetch = bool(itype) and not hunt and not any(k in mtype for k in ("courier", "distribution", "transport"))
+        otype = 3 if hunt else (5 if fetch else 1)
+        if fetch:
+            fetch_ids.append(mid)
         structure = STRUCTURES.get(fid, 0) if hunt else 0
         npc_count = 5 if hunt else 0
         brief = re.sub(r"\s+", " ", m.get("briefing") or "").strip()
@@ -170,7 +177,7 @@ def main():
                 (5 if structure else 0), esc(objtxt), esc(brief)))
         chain_sql.append("(%d,%d,%d)" % (aid, mid, step))
         stats["missions"] += 1
-        stats["hunt" if hunt else "travel"] += 1
+        stats["hunt" if hunt else ("fetch" if fetch else "travel")] += 1
         mid += 1
 
     # agent rows (names + bloodline typeID 1376 default; existing rows keep theirs)
@@ -262,6 +269,23 @@ def main():
     io.open(OUT, "w", encoding="utf-8").write("\n".join(sql))
     print("agents", len(agents), "missions", stats, "ids", FIRST_ID, mid - 1)
     print("written", OUT, os.path.getsize(OUT), "bytes")
+
+    # follow-up migration: reclassify fetch objectives on databases where the
+    # 000021 seed was already applied with the old travel-only classification
+    fout = OUT.replace("20261106000021-cosmos_real_missions.sql",
+                       "20261106000022-cosmos_fetch_objectives.sql")
+    fsql = []
+    fsql.append("-- COSMOS fetch objectives: bring the item to the agent (5).")
+    fsql.append("-- Idempotent: safe on databases where 000021 already ran.")
+    fsql.append("-- +migrate Up")
+    for chunk in [fetch_ids[i:i + 200] for i in range(0, len(fetch_ids), 200)]:
+        fsql.append("UPDATE missionObjectives SET objectiveType=5 WHERE missionID IN (%s);"
+                    % ",".join(str(x) for x in chunk))
+    fsql.append("-- +migrate Down")
+    fsql.append("UPDATE missionObjectives SET objectiveType=1 WHERE objectiveType=5;")
+    fsql.append("")
+    io.open(fout, "w", encoding="utf-8").write("\n".join(fsql))
+    print("written", fout, os.path.getsize(fout), "bytes, fetch ids", len(fetch_ids))
 
 
 if __name__ == "__main__":
