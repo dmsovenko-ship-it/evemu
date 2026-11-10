@@ -30,6 +30,7 @@ public:
 
     bool IsLocator()                                    { return m_agentData.locator; }
     bool IsResearch()                                   { return m_agentData.research; }
+    bool IsCosmos()                                     { return m_agentData.cosmos; }
 
     uint8 GetLevel()                                    { return m_agentData.level; }
     int8 GetQuality()                                   { return m_agentData.quality; }

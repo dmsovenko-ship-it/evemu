@@ -737,6 +737,63 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
 }
 
 
+bool MissionDataMgr::CreateCosmosChainOffer(uint32 agentID, uint32 charID, uint8 level, MissionOffer& data)
+{
+    static const uint32 rewardByLevel[] = { 0, 15000, 35000, 80000, 200000 };
+    auto fill = [&](DBResultRow& row) -> bool {
+        data.missionID   = row.GetUInt(0);
+        data.name        = row.GetText(1);
+        data.briefingID  = row.GetUInt(2);
+        data.typeID      = Mission::Type::Cosmos;
+        uint8 lvl        = row.GetUInt(3);
+        if (lvl < 1) lvl = (level > 4) ? 4 : level;
+        if (lvl > 4) lvl = 4;
+        data.rewardISK   = rewardByLevel[lvl];
+        data.bonusISK    = data.rewardISK / 5;
+        data.bonusTime   = 0;
+        data.important   = false;
+        data.storyline   = false;
+        data.range       = 1;
+        data.courierTypeID = 0;
+        data.courierAmount = 0;
+        return true;
+    };
+
+    DBQueryResult res;
+    // 1) an offer from this agent's chain that is still open (offered/accepted)
+    if (sDatabase.RunQuery(res,
+            "SELECT cam.missionID, m.name, m.briefingID, m.level"
+            " FROM cosmosAgentMissions cam"
+            " JOIN agtMissions m ON m.id = cam.missionID"
+            " JOIN agtOffers o ON o.missionID = cam.missionID AND o.characterID = %u AND o.dateCompleted = 0"
+            " WHERE cam.agentID = %u ORDER BY cam.step LIMIT 1", charID, agentID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            return fill(row);
+    }
+
+    // 2) next sequential step after the last completed one
+    uint32 lastStep = 0;
+    if (sDatabase.RunQuery(res,
+            "SELECT IFNULL(MAX(cam.step),0) FROM cosmosAgentMissions cam"
+            " JOIN agtOffers o ON o.missionID = cam.missionID AND o.characterID = %u AND o.dateCompleted > 0"
+            " WHERE cam.agentID = %u", charID, agentID)) {
+        DBResultRow row;
+        if (res.GetRow(row))
+            lastStep = row.GetUInt(0);
+    }
+    if (!sDatabase.RunQuery(res,
+            "SELECT cam.missionID, m.name, m.briefingID, m.level"
+            " FROM cosmosAgentMissions cam"
+            " JOIN agtMissions m ON m.id = cam.missionID"
+            " WHERE cam.agentID = %u AND cam.step = %u", agentID, lastStep + 1))
+        return false;
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return false;
+    return fill(row);
+}
+
 std::string MissionDataMgr::GetTypeName(uint8 typeID)
 {
     using namespace Mission::Type;

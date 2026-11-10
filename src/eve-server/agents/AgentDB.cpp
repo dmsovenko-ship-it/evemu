@@ -37,7 +37,8 @@ void AgentDB::LoadAgentData(uint32 agentID, AgentData& data)
         "   crp.friendID, "
         "   crp.enemyID, "
         "   crp.factionID, "
-        "   chr.characterName " //15
+        "   chr.characterName, " //15
+        "   (SELECT COUNT(*) FROM cosmosAgentMissions cam WHERE cam.agentID = agt.agentID) AS cosmosChain " //16
         " FROM agtAgents AS agt"
         " LEFT JOIN chrNPCCharacters AS chr ON chr.characterID = agt.agentID"
         " LEFT JOIN crpNPCCorporations AS crp ON crp.corporationID = agt.corporationID"
@@ -74,7 +75,10 @@ void AgentDB::LoadAgentData(uint32 agentID, AgentData& data)
         data.raceID         = sDataMgr.GetFactionRace(data.factionID);
         data.name           = (row.IsNull(15) ? "" : row.GetText(15));
         data.research       = (data.typeID == Agents::Type::Research);
-        data.cosmos         = (data.typeID == Agents::Type::Cosmos);
+        // COSMOS agents come from the SDE as agentTypeID 8 (the later numbering uses 12);
+        // the authoritative marker for us is the per-agent COSMOS mission chain.
+        data.cosmos         = (data.typeID == Agents::Type::Cosmos)
+                              or (!row.IsNull(16) and row.GetUInt(16) != 0);
         data.facWar         = (data.typeID == Agents::Type::FacWar);
     }
 }

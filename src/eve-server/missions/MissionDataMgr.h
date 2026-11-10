@@ -38,6 +38,10 @@ public:
     void                LoadMissionOffers(uint32 charID, std::vector<MissionOffer>& data);
     void                LoadAgentOffers(const uint32 agentID, std::map<uint32, MissionOffer>& data);
     void                CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID, bool important, MissionOffer& data);
+    // COSMOS: pick the next mission of this agent's chain (real EVE data from the
+    // wiki, seeded into cosmosAgentMissions). Returns false when the chain is done
+    // or the agent has no chain, in which case the caller keeps the pooled offer.
+    bool                CreateCosmosChainOffer(uint32 agentID, uint32 charID, uint8 level, MissionOffer& data);
     // Arc/COSMOS missions: assign a deterministic, meaningful objective (no SDE data).
     void                AssignArcObjective(MissionOffer& offer);
 

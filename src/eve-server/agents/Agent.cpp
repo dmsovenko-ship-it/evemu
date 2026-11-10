@@ -144,6 +144,10 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
 {
     // Determine mission type from agent division and type
     uint8 misionType = Mission::Type::Encounter;
+    if (m_agentData.cosmos) {
+        // COSMOS agents (SDE type 8, marked by their cosmosAgentMissions chain)
+        misionType = Mission::Type::Cosmos;
+    } else
     switch (m_agentData.typeID) {
         case Agents::Type::Research: misionType = Mission::Type::Research; break;
         case Agents::Type::FacWar:   misionType = Mission::Type::Encounter; break;
@@ -164,6 +168,14 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     }
 
     sMissionDataMgr.CreateMissionOffer(misionType, m_agentData.level, m_agentData.raceID, m_important, offer);
+
+    // COSMOS: real per-agent chains (one-time missions, sequential steps) take
+    // precedence over the level-based pool picked above
+    if (m_agentData.cosmos) {
+        if (sMissionDataMgr.CreateCosmosChainOffer(m_agentID, charID, m_agentData.level, offer))
+            _log(AGENT__MESSAGE, "MakeOffer: COSMOS agent %u -> chain mission %u '%s'.",
+                 m_agentID, offer.missionID, offer.name.c_str());
+    }
 
     /*  static mission data from db
     offer.name               = cData.name;
@@ -928,6 +940,12 @@ bool Agent::CanUseAgent(Client* pClient)
     if (m_agentData.level == 1)
         if (m_agentData.typeID != Agents::Type::Research)
             return true;
+
+    // COSMOS agents normally demand faction standing (2.00/4.00/6.00). On this
+    // server most pilots have no faction standing yet, which would lock out the
+    // whole COSMOS content, so the gate is relaxed for them.
+    if (m_agentData.cosmos)
+        return true;
 
     Character* pChar = pClient->GetChar().get();
     uint32 charID = pChar->itemID();
