@@ -405,7 +405,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 // research missions expect the pilot to mine or buy the goods themselves
                 // (spawning cargo for them made every such mission instantly complete)
                 bool isCourierObjective = (offer.typeID == Mission::Type::Courier)
-                    || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 2);
+                    || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 2)
+                    || (offer.typeID == Mission::Type::Storyline && offer.courierTypeID != 0);
                 if (isCourierObjective && offer.courierTypeID) {
                     sItemFactory.SetUsingClient(call.client);
                     ItemData data(offer.courierTypeID, pchar->itemID(), locTemp, flagNone, offer.courierAmount);
@@ -496,6 +497,19 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         uint32 huntCount = huntEss->SpawnEncounterForOffer(offer, offer.destinationSystemID, huntPos);
                         _log(AGENT__MESSAGE, "Arc/cosmos hunt: spawned %u targets for mission %u offer %u.",
                              huntCount, offer.missionID, offer.offerID);
+                    }
+                }
+                // encounter-style storyline missions spawn their target cluster as well
+                if (offer.typeID == Mission::Type::Storyline && offer.courierTypeID == 0
+                    && offer.destinationSystemID != 0) {
+                    EncounterSpawnServer* slEss = EncounterSpawnServer::Get();
+                    if (slEss != nullptr) {
+                        GPoint slPos = dungeonSite;
+                        if (slPos.x == 0 && slPos.y == 0 && slPos.z == 0)
+                            slPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+                        uint32 slCount = slEss->SpawnEncounterForOffer(offer, offer.destinationSystemID, slPos);
+                        _log(AGENT__MESSAGE, "Storyline: spawned %u targets for mission %u offer %u.",
+                             slCount, offer.missionID, offer.offerID);
                     }
                 }
                 m_agent->UpdateOffer(pchar->itemID(), offer);
@@ -597,6 +611,9 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         call.client->SendNotifyMsg("Training complete. Welcome to New Eden, pilot.");
                     }
                 }
+                // every 15th completed mission for this corp unlocks a storyline offer
+                if (offer.typeID != Mission::Type::Tutorial && offer.typeID != Mission::Type::Storyline)
+                    m_agent->MaybeOfferStoryline(pchar->itemID(), call.client);
             } break;
             case Defer: {   //10
                 // extend expiry time and close
@@ -1170,7 +1187,8 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
     // warp-to-site link ("Objective: <location>"). Without this the player has no
     // way to reach the spawned targets.
     bool isSiteMission = (offer.typeID == Mission::Type::Encounter || offer.typeID == Mission::Type::Mining
-        || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 3));
+        || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 3)
+        || (offer.typeID == Mission::Type::Storyline && offer.courierTypeID == 0));
     if (isSiteMission && EncounterSpawnServer::Get() != nullptr) {
         GPoint tgt;
         if (EncounterSpawnServer::Get()->GetTargetPosition(offer.offerID, tgt)) {
@@ -1268,7 +1286,8 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
 
     PyTuple* objectives = new PyTuple(1);
     switch (offer.typeID) {
-        case Mission::Type::Courier: {
+        case Mission::Type::Courier:
+        case Mission::Type::Storyline: {
             PyDict* pickupLocation = new PyDict();
                 pickupLocation->SetItemString("typeID", new PyInt(m_agent->GetLocTypeID()) );
                 pickupLocation->SetItemString("locationID", new PyInt(offer.originID) );
@@ -1350,7 +1369,6 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         case Mission::Type::Anomic:
         case Mission::Type::Burner:
         case Mission::Type::Data:
-        case Mission::Type::Storyline:
         case Mission::Type::Tutorial:
         default: {
             // safety net for unknown/invalid mission types

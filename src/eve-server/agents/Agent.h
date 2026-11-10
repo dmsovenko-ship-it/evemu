@@ -50,6 +50,8 @@ public:
     void MakeOffer(uint32 charID, MissionOffer& offer);
     // register an externally built offer (epic arc path) in the agent + mission manager
     void AddOffer(uint32 charID, MissionOffer& offer);
+    // after N completed missions for this agent's corp, offer a storyline mission
+    void MaybeOfferStoryline(uint32 charID, Client* pClient);
     void GetOffer(uint32 charID, MissionOffer& offer);
     void UpdateOffer(uint32 charID, MissionOffer& offer);
     void DeleteOffer(uint32 charID);    // completely deletes offer from agent data, missionMgr data, and db

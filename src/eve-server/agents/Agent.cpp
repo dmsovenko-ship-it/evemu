@@ -249,6 +249,69 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     sMissionDataMgr.AddMissionOffer(charID, offer);
 }
 
+void Agent::MaybeOfferStoryline(uint32 charID, Client* pClient)
+{
+    // EVE: after 15 completed missions for the same corporation a storyline mission
+    // becomes available. Storyline offers are built from qstCourier typeID=8 data.
+    uint32 corpID = m_agentData.corporationID;
+    if (corpID == 0)
+        return;
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+            "SELECT COUNT(*) FROM agtOffers WHERE characterID = %u AND dateCompleted > 0 AND typeID <> %u"
+            " AND agentID IN (SELECT agentID FROM agtAgents WHERE corporationID = %u)",
+            charID, Mission::Type::Storyline, corpID))
+        return;
+    DBResultRow row;
+    if (!res.GetRow(row))
+        return;
+    uint32 completed = row.GetUInt(0);
+    if (completed == 0 || (completed % 15) != 0)
+        return;
+
+    // no pending storyline offer, and the agent must be free
+    DBQueryResult chk;
+    if (sDatabase.RunQuery(chk,
+            "SELECT 1 FROM agtOffers WHERE characterID = %u AND typeID = %u AND dateCompleted = 0 AND stateID < 3 LIMIT 1",
+            charID, Mission::Type::Storyline) && chk.GetRowCount() > 0)
+        return;
+    if (HasMission(charID))
+        return;
+
+    MissionOffer offer = MissionOffer();
+    sMissionDataMgr.CreateMissionOffer(Mission::Type::Storyline, m_agentData.level, m_agentData.raceID, true, offer);
+    offer.characterID   = charID;
+    offer.agentID       = m_agentID;
+    offer.originID      = m_agentData.stationID;
+    offer.originOwnerID = m_agentData.corporationID;
+    offer.originSystemID= m_agentData.solarSystemID;
+    offer.stateID       = Mission::State::Offered;
+    offer.dateIssued    = GetFileTimeNow();
+    offer.expiryTime    = GetFileTimeNow() + EvE::Time::Day * 7;
+    sMapData.GetMissionDestination(this, Mission::Type::Storyline, offer);
+    if (offer.destinationID == 0) {
+        offer.destinationID = m_agentData.stationID;
+        offer.destinationSystemID = m_agentData.solarSystemID;
+    }
+    // courier-style storyline: the hand-in must be a station, not a system
+    if (offer.courierTypeID != 0 && !sDataMgr.IsStation(offer.destinationID)) {
+        std::vector<uint32> stations;
+        if (offer.destinationSystemID != 0 && sDataMgr.GetStationList(offer.destinationSystemID, stations) && !stations.empty())
+            offer.destinationID = stations.front();
+        else
+            offer.destinationID = m_agentData.stationID;
+    }
+    MissionDB::CreateOfferID(offer);
+    AddOffer(charID, offer);
+    _log(AGENT__MESSAGE, "Storyline offer %u for char %u (corp %u, %u missions completed): '%s'",
+         offer.offerID, charID, corpID, completed, offer.name.c_str());
+    if (pClient != nullptr) {
+        SendMissionUpdate(pClient, "offered");
+        pClient->SendNotifyMsg("A storyline mission is available from %s.", m_agentData.name.c_str());
+    }
+}
+
 void Agent::AddOffer(uint32 charID, MissionOffer& offer)
 {
     m_offers[charID] = offer;
