@@ -75,9 +75,9 @@ AGENT_CTX = re.compile(r"\b(report|talk|speak|contact|meet|bring|deliver|return|
 
 
 def find_agent(text, agents, station_sys):
-    """'Report to <Agent Name>' -> (systemID, stationID) from the agent's location."""
+    """'Report to <Agent Name>' -> (systemID, stationID, agentID)."""
     best = None
-    for name, loc in agents:
+    for name, loc, agent_id in agents:
         pos = text.find(name)
         while pos != -1:
             if boundaries_ok(text, pos, name):
@@ -86,9 +86,9 @@ def find_agent(text, agents, station_sys):
                     if loc >= 60000000:
                         sysid = station_sys.get(loc, 0)
                         if sysid:
-                            return (sysid, loc)
+                            return (sysid, loc, agent_id)
                     elif 30000000 <= loc <= 30999999:
-                        return (loc, 0)
+                        return (loc, 0, agent_id)
                 break
             pos = text.find(name, pos + 1)
     return best
@@ -161,7 +161,7 @@ def main():
     for f in load_tsv("q_agents.tsv", 3):
         nm = norm(f[1]).lower()
         if len(nm) >= 5:
-            agents.append((nm, int(f[2])))
+            agents.append((nm, int(f[2]), int(f[0])))
     missions = []
     for f in load_tsv("q_arc_missions.tsv", 2):
         missions.append((int(f[0]), f[1]))
@@ -204,8 +204,9 @@ def main():
                 found = (sy[1], 0)
                 break
         if found:
-            out.append((mid, found[0], found[1]))
-            sys.stderr.write("%u %s -> sys %u station %u\n" % (mid, name, found[0], found[1]))
+            ag = found[2] if len(found) > 2 else 0
+            out.append((mid, found[0], found[1], ag))
+            sys.stderr.write("%u %s -> sys %u station %u agent %u\n" % (mid, name, found[0], found[1], ag))
     json.dump(out, io.open(os.path.join(args.outdir, "destinations.json"), "w", encoding="utf-8"))
 
     sql = []
@@ -214,7 +215,8 @@ def main():
     sql.append("-- +migrate Up")
     sql.append("ALTER TABLE missionObjectives ADD COLUMN IF NOT EXISTS destinationSystemID int(10) unsigned NOT NULL DEFAULT 0;")
     sql.append("ALTER TABLE missionObjectives ADD COLUMN IF NOT EXISTS destinationStationID int(10) unsigned NOT NULL DEFAULT 0;")
-    for mid, dsys, st in out:
+    for row in out:
+        mid, dsys, st = row[0], row[1], row[2]
         sql.append("UPDATE missionObjectives SET destinationSystemID=%d, destinationStationID=%d WHERE missionID=%d;"
                    % (dsys, st, mid))
     sql.append("-- +migrate Down")
@@ -222,7 +224,24 @@ def main():
     sql.append("")
     out_sql = r"C:\opencode-projects\evemu\sql\migrations\20261106000026-mission_destinations.sql"
     io.open(out_sql, "w", encoding="utf-8").write("\n".join(sql))
-    print("resolved", len(out), "of", len(missions), "sql", out_sql)
+
+    # destination agents ("Report to <Agent>") -> journal 'agent' objective
+    asql = []
+    asql.append("-- Mission destination agents (journal 'report to agent' objective).")
+    asql.append("-- +migrate Up")
+    asql.append("ALTER TABLE missionObjectives ADD COLUMN IF NOT EXISTS destinationAgentID int(10) unsigned NOT NULL DEFAULT 0;")
+    agent_count = 0
+    for row in out:
+        mid, ag = row[0], row[3]
+        if ag:
+            asql.append("UPDATE missionObjectives SET destinationAgentID=%d WHERE missionID=%d;" % (ag, mid))
+            agent_count += 1
+    asql.append("-- +migrate Down")
+    asql.append("-- (column stays)")
+    asql.append("")
+    out_agent_sql = r"C:\opencode-projects\evemu\sql\migrations\20261106000028-mission_destination_agents.sql"
+    io.open(out_agent_sql, "w", encoding="utf-8").write("\n".join(asql))
+    print("resolved", len(out), "of", len(missions), "agent targets", agent_count, "sql", out_sql)
 
 
 if __name__ == "__main__":

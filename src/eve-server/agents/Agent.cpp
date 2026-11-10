@@ -980,6 +980,10 @@ bool Agent::CanUseAgent(Client* pClient)
     // to restore the live rules.
     if (m_agentData.cosmos and !sConfig.world.cosmosRequireStandings)
         return true;
+    // epic arc agents require faction/corp standing on live; keep the content
+    // reachable on this server
+    if (m_agentData.typeID == Agents::Type::EpicArc)
+        return true;
 
     Character* pChar = pClient->GetChar().get();
     uint32 charID = pChar->itemID();

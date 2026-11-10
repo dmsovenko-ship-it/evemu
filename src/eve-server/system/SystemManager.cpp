@@ -949,9 +949,10 @@ void SystemManager::SpawnCosmosAgents()
             "SELECT DISTINCT a.agentID, c.characterName, a.corporationID, IFNULL(cas.siteID,0)"
             " FROM agtAgents a"
             " JOIN chrNPCCharacters c ON c.characterID = a.agentID"
-            " JOIN cosmosAgentMissions cam ON cam.agentID = a.agentID"
+            " LEFT JOIN cosmosAgentMissions cam ON cam.agentID = a.agentID"
             " LEFT JOIN cosmosAgentSites cas ON cas.agentID = a.agentID"
-            " WHERE a.locationID = %u", m_data.systemID)) {
+            " WHERE a.locationID = %u AND (cam.agentID IS NOT NULL OR a.agentTypeID = 10)",
+            m_data.systemID)) {
         _log(AGENT__ERROR, "SpawnCosmosAgents: query failed for %s(%u): %s",
              m_data.name.c_str(), m_data.systemID, res.error.c_str());
         return;

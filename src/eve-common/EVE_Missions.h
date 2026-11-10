@@ -57,6 +57,7 @@ struct MissionOffer {
     uint32 destinationID;
     uint32 destinationOwnerID;
     uint32 destinationSystemID;
+    uint32 destinationAgentID;   // 'report to <agent>' travel target (journal 'agent' objective)
     uint32 dungeonLocationID;
     uint32 dungeonSolarSystemID;
     uint32 acceptFee;

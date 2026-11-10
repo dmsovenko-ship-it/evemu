@@ -523,6 +523,7 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
     data.destinationTypeID      = 0;
     data.destinationOwnerID     = 0;
     data.destinationSystemID    = 0;
+    data.destinationAgentID     = 0;
     data.dungeonLocationID      = 0;
     data.dungeonSolarSystemID   = 0;
     data.bookmarks              = RefPtr<PyList>(new PyList());
@@ -852,7 +853,7 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
     // curated rows (built from the client localization texts) take precedence
     DBQueryResult objRes;
     if (sDatabase.RunQuery(objRes,
-            "SELECT objectiveType, briefingID, itemTypeID, itemQty, destinationSystemID, destinationStationID"
+            "SELECT objectiveType, briefingID, itemTypeID, itemQty, destinationSystemID, destinationStationID, destinationAgentID"
             " FROM missionObjectives WHERE missionID = %u",
             offer.missionID)) {
         DBResultRow objRow;
@@ -863,6 +864,7 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
             uint32 iqty = objRow.GetUInt(3);
             uint32 dsys = objRow.GetUInt(4);
             uint32 dstStation = objRow.GetUInt(5);
+            offer.destinationAgentID = objRow.GetUInt(6);
             if (brief != 0)
                 offer.briefingID = brief;
             if (itype != 0) {

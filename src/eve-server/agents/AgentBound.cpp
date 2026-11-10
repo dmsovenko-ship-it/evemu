@@ -34,6 +34,7 @@
 #include "map/MapData.h"
 #include "account/AccountService.h"
 #include "corporation/LPService.h"
+#include "agents/Agent.h"
 #include "agents/AgentBound.h"
 #include "agents/AgentMgrService.h"
 #include "station/Station.h"
@@ -286,7 +287,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         offer.storyline = true;
                         offer.characterID = charID;
                         offer.agentID = m_agent->GetID();
-                        offer.originID = m_agent->GetStationID();
+                        offer.originID = (m_agent->GetStationID() != 0) ? m_agent->GetStationID() : m_agent->GetLocationID();
                         offer.originOwnerID = m_agent->GetCorpID();
                         offer.originSystemID = m_agent->GetSystemID();
                         offer.dateIssued = GetFileTimeNow();
@@ -443,7 +444,13 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     sItemFactory.SetUsingClient(call.client);
                     ItemData data(offer.courierTypeID, pchar->itemID(), locTemp, flagNone, offer.courierAmount);
                     InventoryItemRef iRef = sItemFactory.SpawnItem(data);
-                    iRef->Move(offer.originID, flagHangar, true);
+                    if (iRef.get() != nullptr) {
+                        // in-space agent: the mission package goes to the ship's hold
+                        if (sDataMgr.IsStation(offer.originID))
+                            iRef->Move(offer.originID, flagHangar, true);
+                        else
+                            iRef->Move(pchar->itemID(), flagCargoHold, true);
+                    }
                     sItemFactory.UnsetUsingClient();
                 }
                 // Spawn mission dungeon for encounter/mining type missions
@@ -1466,8 +1473,36 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         } break;
         case Mission::Type::EpicArc:
         case Mission::Type::Cosmos: {
-            // procedural arc/cosmos objectives: courier ones look like a delivery run
-            if (offer.objectiveType == 2 && offer.courierTypeID != 0) {
+            // procedural arc/cosmos objectives: "report to <agent>" is the native
+            // 'agent' objective (portrait + location + warp link)
+            uint32 daID = offer.destinationAgentID;
+            if (daID == 0 && offer.missionID != 0) {
+                DBQueryResult dres;
+                if (sDatabase.RunQuery(dres,
+                        "SELECT destinationAgentID FROM missionObjectives WHERE missionID = %u",
+                        offer.missionID)) {
+                    DBResultRow drow;
+                    if (dres.GetRow(drow))
+                        daID = drow.GetUInt(0);
+                }
+            }
+            if (offer.objectiveType == 1 && daID != 0) {
+                Agent* dstAg = sEntityList.GetAgent(daID);
+                PyDict* locWrap = (dstAg != nullptr) ? dstAg->GetLocationWrap() : nullptr;
+                if (locWrap == nullptr) {
+                    locWrap = new PyDict();
+                    locWrap->SetItemString("typeID", new PyInt(0));
+                    locWrap->SetItemString("locationID", new PyInt(offer.destinationSystemID));
+                    locWrap->SetItemString("solarsystemID", new PyInt(offer.destinationSystemID));
+                }
+                PyTuple* objData = new PyTuple(2);
+                    PySetItemRelease(objData, 0, new PyInt(daID));
+                    objData->SetItem(1, locWrap);
+                PyTuple* objType = new PyTuple(2);
+                    PySetItemRelease(objType, 0, new PyString("agent"));
+                    objType->SetItem(1, objData);
+                objectives->SetItem(0, objType);
+            } else if (offer.objectiveType == 2 && offer.courierTypeID != 0) {
                 PyDict* pickupLocation = new PyDict();
                     pickupLocation->SetItemString("typeID", new PyInt(m_agent->GetLocTypeID()) );
                     pickupLocation->SetItemString("locationID", new PyInt(offer.originID) );
