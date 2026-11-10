@@ -23,6 +23,7 @@
  */
 
 #include "../eve-server.h"
+#include "../EVEServerConfig.h"
 //#include "../../eve-common/EVE_Skills.h"
 
 #include "../StaticDataMgr.h"
@@ -965,10 +966,10 @@ bool Agent::CanUseAgent(Client* pClient)
         if (m_agentData.typeID != Agents::Type::Research)
             return true;
 
-    // COSMOS agents normally demand faction standing (2.00/4.00/6.00). On this
-    // server most pilots have no faction standing yet, which would lock out the
-    // whole COSMOS content, so the gate is relaxed for them.
-    if (m_agentData.cosmos)
+    // COSMOS agents demand faction standing (2.00/4.00/6.00). The gate is relaxed
+    // by default (testing/private server); enable <world><cosmosRequireStandings>
+    // to restore the live rules.
+    if (m_agentData.cosmos and !sConfig.world.cosmosRequireStandings)
         return true;
 
     Character* pChar = pClient->GetChar().get();

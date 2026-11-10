@@ -70,6 +70,7 @@ EVEServerConfig::EVEServerConfig()
     world.gridUnload = true;
     world.gridUnloadTime = 300 /*s*/; // 5 mins
     world.TiDiEnabled = false;
+    world.cosmosRequireStandings = false;
     world.loginInfo = false;//N
     world.loginMsg = false;//N
     world.saveOnMove = false;
@@ -429,6 +430,7 @@ bool EVEServerConfig::ProcessWorld( const TiXmlElement* ele )
     AddValueParser( "gridUnload",        world.gridUnload );
     AddValueParser( "gridUnloadTime",    world.gridUnloadTime );
     AddValueParser( "TiDiEnabled",       world.TiDiEnabled );
+    AddValueParser( "cosmosRequireStandings", world.cosmosRequireStandings );
     AddValueParser( "loginInfo",         world.loginInfo );
     AddValueParser( "loginMsg",          world.loginMsg );
     AddValueParser( "saveOnMove",        world.saveOnMove );
@@ -455,6 +457,7 @@ bool EVEServerConfig::ProcessWorld( const TiXmlElement* ele )
     RemoveParser( "gridUnload" );
     RemoveParser( "gridUnloadTime" );
     RemoveParser( "TiDiEnabled" );
+    RemoveParser( "cosmosRequireStandings" );
     RemoveParser( "loginInfo" );
     RemoveParser( "loginMsg" );
     RemoveParser( "saveOnMove" );

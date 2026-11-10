@@ -820,6 +820,31 @@ void NPC::Killed(Damage &damage) {
     if ((MakeRandomFloat() < sConfig.npc.LootDropChance) or (m_allyID == factionRogueDrones))
         DropLoot(wreckItemRef, m_self->groupID(), killerID);
 
+    // COSMOS site loot: the spawner tags the pocket's lead NPC with
+    // customInfo "sq_loot:<typeID>:<qty>[,<typeID>:<qty>...]" - put those items
+    // into this wreck (named-NPC drops / mission items / passcards)
+    {
+        std::string ci = m_self->customInfo();
+        if (ci.compare(0, 8, "sq_loot:") == 0) {
+            std::string list = ci.substr(8);
+            size_t pos = 0;
+            while (pos < list.size()) {
+                size_t comma = list.find(',', pos);
+                std::string tok = list.substr(pos, (comma == std::string::npos ? list.size() : comma) - pos);
+                unsigned t = 0, q = 1;
+                if (sscanf(tok.c_str(), "%u:%u", &t, &q) == 2 && t != 0) {
+                    ItemData lootData((uint16)t, killerID, wreckItemRef->itemID(), flagNone, (q != 0 ? q : 1));
+                    InventoryItemRef lRef = sItemFactory.SpawnItem(lootData);
+                    if (lRef.get() != nullptr)
+                        wreckItemRef->AddItem(lRef);
+                }
+                if (comma == std::string::npos)
+                    break;
+                pos = comma + 1;
+            }
+        }
+    }
+
     // Sleeper-specific salvage and component drops.
     // Uses REAL EVE typeIDs present in the client SDE (Crucible) — custom typeIDs
     // 34100+ are not in the client's cfg.invtypes and crash the cargo/inventory UI.

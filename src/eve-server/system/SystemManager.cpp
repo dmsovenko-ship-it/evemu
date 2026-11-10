@@ -697,7 +697,7 @@ void SystemManager::SpawnCosmosSites()
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-            "SELECT siteID, siteName, factionID, corporationID, beaconTypeID, ox, oy, oz"
+            "SELECT siteID, siteName, factionID, corporationID, beaconTypeID, ox, oy, oz, shipLimit"
             " FROM cosmosSites WHERE systemID = %u", m_data.systemID)) {
         _log(AGENT__ERROR, "SpawnCosmosSites: query failed for %s(%u): %s",
              m_data.name.c_str(), m_data.systemID, res.error.c_str());
@@ -724,6 +724,7 @@ void SystemManager::SpawnCosmosSites()
         uint32 factionID = row.GetUInt(2);
         uint32 corpID = row.GetUInt(3);
         uint16 beaconTypeID = row.GetUInt(4);
+        std::string shipLimit = row.GetText(8);
         GPoint pos = star;
         pos.x += row.GetDouble(5);
         pos.y += row.GetDouble(6);
@@ -764,22 +765,6 @@ void SystemManager::SpawnCosmosSites()
             GPoint pocketPos = pos;
             pocketPos.x += (pocket - 1) * POCKET_SPACING;
 
-            // site loot (named drops / mission items) in containers at the pocket
-            DBQueryResult dropRes;
-            if (sDatabase.RunQuery(dropRes,
-                    "SELECT typeID, qty FROM cosmosSiteDrops WHERE siteID = %u AND pocket = %u LIMIT 3",
-                    siteID, pocket)) {
-                DBResultRow dropRow;
-                uint32 dc = 0;
-                while (dropRes.GetRow(dropRow) && dc < 3) {
-                    GPoint lootPos = pocketPos;
-                    lootPos.x += 8000.0 + 4000.0 * dc;
-                    lootPos.z += 10000.0 * (dc + 1);
-                    GetDungMgr()->SpawnMissionLoot(lootPos, dropRow.GetUInt(0), dropRow.GetUInt(1));
-                    ++dc;
-                }
-            }
-
             if (pocket < maxPocket) {
                 GPoint gatePos = pocketPos;
                 gatePos.x += 30000.0 + MakeRandomInt(0, 4000);
@@ -806,6 +791,13 @@ void SystemManager::SpawnCosmosSites()
                                      pkRow.GetUInt(0), pkRow.GetUInt(1));
                             gateInfo += pk;
                         }
+                    }
+                    // ship size limit ("Battlecruiser", "Cruiser", ...)
+                    if (!shipLimit.empty()) {
+                        std::string low = shipLimit;
+                        for (auto& ch : low) ch = (char)tolower(ch);
+                        if (low.find("no limit") == std::string::npos && low != "-" && low != "none")
+                            gateInfo += ";shiplimit:" + shipLimit;
                     }
                     gateRef->SetCustomInfo(gateInfo.c_str());
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, this);
@@ -849,6 +841,16 @@ void SystemManager::SpawnCosmosSiteNpcs(uint32 siteID, const GPoint& pos, uint32
     if (maxPocket == 0)
         return;
 
+    // per-pocket loot (named NPC drops) is carried by the first NPC of the pocket
+    std::map<uint32, std::vector<std::pair<uint32, uint32> > > pocketDrops;
+    DBQueryResult dropRes;
+    if (sDatabase.RunQuery(dropRes,
+            "SELECT pocket, typeID, qty FROM cosmosSiteDrops WHERE siteID = %u", siteID)) {
+        DBResultRow dropRow;
+        while (dropRes.GetRow(dropRow))
+            pocketDrops[dropRow.GetUInt(0)].push_back(std::make_pair(dropRow.GetUInt(1), dropRow.GetUInt(2)));
+    }
+
     FactionData faction = FactionData();
         faction.allianceID = factionID;
         faction.corporationID = (corpID != 0 ? corpID : 1);
@@ -878,6 +880,21 @@ void SystemManager::SpawnCosmosSiteNpcs(uint32 siteID, const GPoint& pos, uint32
                 InventoryItemRef npcRef = InventoryItem::SpawnItem(npcTempID, npcData);
                 if (npcRef.get() == nullptr)
                     continue;
+                // first NPC of the pocket carries the site loot (dropped into its wreck)
+                if (local == 0) {
+                    auto dit = pocketDrops.find(pocket);
+                    if (dit != pocketDrops.end()) {
+                        std::string ci = "sq_loot:";
+                        bool first = true;
+                        for (auto& d : dit->second) {
+                            char buf[48];
+                            snprintf(buf, sizeof(buf), "%s%u:%u", first ? "" : ",", d.first, d.second);
+                            ci += buf;
+                            first = false;
+                        }
+                        npcRef->SetCustomInfo(ci.c_str());
+                    }
+                }
                 NPC* npc = new NPC(npcRef, m_services, this, faction);
                 if (npc == nullptr)
                     continue;

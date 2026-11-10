@@ -40,6 +40,7 @@
  */
 
 #include "eve-server.h"
+#include "StaticDataMgr.h"
 
 #include "system/KeeperService.h"
 #include "inventory/ItemFactory.h"
@@ -154,6 +155,40 @@ PyResult KeeperService::ActivateAccelerationGate(PyCallArgs &call, PyInt* itemID
                     throw CustomError("This acceleration gate requires a passkey.");
                 pClient->RemoveMissionItem(pkType, pkQty);
             }
+        }
+    }
+
+    // optional ship-size limit stored by the COSMOS site spawner
+    if (gateItem.get() != nullptr) {
+        std::string ci3 = gateItem->customInfo();
+        size_t sl = ci3.find(";shiplimit:");
+        if (sl != std::string::npos) {
+            std::string lim = ci3.substr(sl + 11);
+            size_t semi = lim.find(';');
+            if (semi != std::string::npos)
+                lim = lim.substr(0, semi);
+            auto classRank = [](const std::string& n) -> int {
+                std::string s = n;
+                for (auto& ch : s) ch = (char)tolower(ch);
+                if (s.find("titan") != std::string::npos) return 7;
+                if (s.find("dreadnought") != std::string::npos
+                    || s.find("carrier") != std::string::npos
+                    || s.find("capital") != std::string::npos) return 6;
+                if (s.find("battleship") != std::string::npos) return 5;
+                if (s.find("battlecruiser") != std::string::npos) return 4;
+                if (s.find("destroyer") != std::string::npos) return 2;
+                if (s.find("frigate") != std::string::npos) return 1;
+                if (s.find("cruiser") != std::string::npos) return 3;
+                if (s.find("industrial") != std::string::npos
+                    || s.find("hauler") != std::string::npos) return 3;
+                if (s.find("freighter") != std::string::npos) return 5;
+                return 0;
+            };
+            int limRank = classRank(lim);
+            const char* shipGroupName = sDataMgr.GetGroupName(pClient->GetShipSE()->GetSelf()->groupID());
+            int shipRank = (shipGroupName != nullptr) ? classRank(shipGroupName) : 0;
+            if (limRank > 0 && shipRank > limRank)
+                throw CustomError("Your ship is too large to use this acceleration gate.");
         }
     }
 
