@@ -852,7 +852,8 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
     // curated rows (built from the client localization texts) take precedence
     DBQueryResult objRes;
     if (sDatabase.RunQuery(objRes,
-            "SELECT objectiveType, briefingID, itemTypeID, itemQty FROM missionObjectives WHERE missionID = %u",
+            "SELECT objectiveType, briefingID, itemTypeID, itemQty, destinationSystemID, destinationStationID"
+            " FROM missionObjectives WHERE missionID = %u",
             offer.missionID)) {
         DBResultRow objRow;
         if (objRes.GetRow(objRow)) {
@@ -860,6 +861,8 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
             uint32 brief = objRow.GetUInt(1);
             uint32 itype = objRow.GetUInt(2);
             uint32 iqty = objRow.GetUInt(3);
+            uint32 dsys = objRow.GetUInt(4);
+            uint32 dstStation = objRow.GetUInt(5);
             if (brief != 0)
                 offer.briefingID = brief;
             if (itype != 0) {
@@ -870,6 +873,14 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
             // 5 = fetch: bring the item to the agent's station (no mission package)
             if ((t >= 1 && t <= 3) or t == 5) {
                 offer.objectiveType = t;
+                // real destination parsed from the wiki (system/station)
+                if (dsys != 0)
+                    offer.destinationSystemID = dsys;
+                if (dstStation != 0) {
+                    offer.destinationID = dstStation;
+                    offer.destinationTypeID = 0;
+                    offer.destinationOwnerID = 0;
+                }
                 if (t == 2) {
                     if (!sDataMgr.IsStation(offer.destinationID)) {
                         std::vector<uint32> stations;
