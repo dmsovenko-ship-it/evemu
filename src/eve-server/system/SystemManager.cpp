@@ -801,6 +801,21 @@ void SystemManager::SpawnCosmosSites()
                     }
                 }
             }
+            // site loot (named drops / mission items) in containers at the pocket
+            DBQueryResult dropRes;
+            if (sDatabase.RunQuery(dropRes,
+                    "SELECT typeID, qty FROM cosmosSiteDrops WHERE siteID = %u AND pocket = %u LIMIT 3",
+                    siteID, pocket)) {
+                DBResultRow dropRow;
+                uint32 dc = 0;
+                while (dropRes.GetRow(dropRow) && dc < 3) {
+                    GPoint lootPos = pocketPos;
+                    lootPos.x += 8000.0 + 4000.0 * dc;
+                    lootPos.z += 10000.0 * (dc + 1);
+                    GetDungMgr()->SpawnMissionLoot(lootPos, dropRow.GetUInt(0), dropRow.GetUInt(1));
+                    ++dc;
+                }
+            }
             if (pocket < maxPocket) {
                 GPoint gatePos = pocketPos;
                 gatePos.x += 30000.0 + MakeRandomInt(0, 4000);
@@ -811,10 +826,24 @@ void SystemManager::SpawnCosmosSites()
                 uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
                 InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
                 if (gateRef.get() != nullptr) {
-                    char ci[128];
+                    char ci[160];
                     snprintf(ci, sizeof(ci), "gate_to:%lld:%lld:%lld",
                              (long long)nextPos.x, (long long)nextPos.y, (long long)nextPos.z);
-                    gateRef->SetCustomInfo(ci);
+                    std::string gateInfo(ci);
+                    // optional passkey requirement (Illian's Passcard etc.)
+                    DBQueryResult pkRes;
+                    if (sDatabase.RunQuery(pkRes,
+                            "SELECT passkeyTypeID, passkeyQty FROM cosmosSiteGates"
+                            " WHERE siteID = %u AND pocket = %u", siteID, pocket)) {
+                        DBResultRow pkRow;
+                        if (pkRes.GetRow(pkRow)) {
+                            char pk[64];
+                            snprintf(pk, sizeof(pk), ";passkey:%u:%u",
+                                     pkRow.GetUInt(0), pkRow.GetUInt(1));
+                            gateInfo += pk;
+                        }
+                    }
+                    gateRef->SetCustomInfo(gateInfo.c_str());
                     CelestialSE* gateSE = new CelestialSE(gateRef, m_services, this);
                     gateSE->SetIsStaticEntity(true);
                     AddEntity(gateSE, false);

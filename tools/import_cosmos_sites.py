@@ -116,27 +116,31 @@ def parse_site_page(text):
             continue
         npcs = []
         gates = []
+        structures = []
         for row in re.findall(r"\{\{NPCTableRow\|([^}]*)\}\}", body):
             f = [x.strip() for x in row.split("|")]
             if len(f) < 3:
                 continue
+            fields = {}
+            for fm in re.finditer(r"([A-Za-z_]+)\s*=\s*([^|}]+)", row):
+                fields[fm.group(1).strip().lower()] = clean(fm.group(2)).strip()
             cls = f[0].lower()
             if "acceleration gate" in cls or cls in ("accl gate",):
-                gates.append(row)
+                gates.append({"row": row, "fields": fields})
                 continue
             if cls not in NPC_CLASSES:
+                structures.append({"class": f[0], "count": f[1], "names": f[2], "fields": fields})
                 continue
             if not re.match(r"^\d+$", re.sub(r"[^0-9]", "", f[1]) or ""):
                 continue
-            npcs.append({"class": f[0], "count": f[1], "names": f[2],
-                         "drop": f[3] if len(f) > 3 else ""})
+            npcs.append({"class": f[0], "count": f[1], "names": f[2], "fields": fields})
         passkeys = []
         for line in body.split("\n"):
             if "passcard" in line.lower() or "passkey" in line.lower() or "requires" in line.lower():
                 passkeys.append(clean(line))
         if npcs or gates or "Pocket" in heading or "pocket" in heading:
             info["pockets"].append({"name": clean(heading), "npcs": npcs,
-                                    "gates": gates, "notes": passkeys})
+                                    "gates": gates, "structures": structures, "notes": passkeys})
     return info
 
 

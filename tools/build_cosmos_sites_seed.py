@@ -40,9 +40,11 @@ def load_tsv(name, key_col=1, val_col=0):
     if not os.path.exists(p):
         return d
     for line in io.open(p, encoding="utf-8", errors="replace"):
-        f = line.rstrip("\n").split("\t")
+        f = line.rstrip().split("\t")
         if len(f) > max(key_col, val_col) and f[val_col].strip():
-            d[f[key_col].strip().lower()] = int(f[val_col]) if f[val_col].strip().isdigit() else f[val_col]
+            key = f[key_col].strip().lstrip("\ufeff").lower()
+            val = f[val_col].strip().lstrip("\ufeff")
+            d[key] = int(val) if val.isdigit() else val
     return d
 
 
@@ -86,6 +88,28 @@ def resolve_npc(name, cls, faction, types):
     return _groups.get("Asteroid %s %s" % (prefix, suffix), 0)
 
 
+def clean_item_name(n):
+    n = (n or "").replace("\ufffd", "'").replace("\u2019", "'").replace("?", "'")
+    n = re.sub(r"<[^>]+>", "", n)
+    n = re.sub(r"^\s*(?:drops?|you to have|requires?)\s+", "", n, flags=re.I)
+    n = re.sub(r"\s+", " ", n).strip(" .,;:")
+    return n
+
+
+def parse_drop_items(txt):
+    """'10 Jedon Hekkiren's Belongings (500 m3) and X (1 m3)' -> [(name, qty)]"""
+    out = []
+    for part in re.split(r"\s+and\s+|,\s*", txt or ""):
+        m = re.match(r"\s*(\d[\d,]*)\s*[x\u00d7]?\s+([^(]+?)\s*(?:\(|$)", part)
+        if m:
+            out.append((clean_item_name(m.group(2)), int(m.group(1).replace(",", ""))))
+            continue
+        m2 = re.match(r"\s*([A-Za-z][^(]{3,})?\s*(?:\(|$)", part)
+        if m2 and m2.group(1):
+            out.append((clean_item_name(m2.group(1)), 1))
+    return out
+
+
 def faction_id(name):
     n = (name or "").lower()
     for k, v in FACTIONS.items():
@@ -97,6 +121,7 @@ def faction_id(name):
 def main():
     systems = load_tsv("q_systems.tsv", 1, 0)              # name -> id
     npc_types = load_tsv("q_npcs.tsv", 1, 0)               # name -> typeID
+    item_types = load_tsv("q_pd2.tsv", 1, 0)               # item name -> typeID
     fac_corp = load_tsv("q_faccorp.tsv", 0, 1)             # factionID(str) -> corp
 
     agents = json.load(io.open(os.path.join(B, "agents_cosmos.json"), encoding="utf-8"))
@@ -118,8 +143,47 @@ def main():
                 continue
             fid = faction_id(s.get("faction"))
             packs = []
+            drops = []
+            gate_keys = []
             for pi, pocket in enumerate(s.get("pockets", []), 1):
                 rows = {}
+                # loot/cargo items dropped by the pocket's NPCs & structures
+                for r in pocket.get("npcs", []) + pocket.get("structures", []):
+                    fld = r.get("fields") or {}
+                    for k in ("drop", "cargo"):
+                        for nm, q in parse_drop_items(fld.get(k, "")):
+                            tid = item_types.get(nm.lower(), 0)
+                            if tid:
+                                drops.append((pi, tid, min(q, 50)))
+                # passkey needed by the gate leaving this pocket
+                pkey = (0, 0)
+                for r in pocket.get("gates", []) + pocket.get("structures", []) + pocket.get("npcs", []):
+                    fld = r.get("fields") or {}
+                    for k in ("note", "cargo", "drop"):
+                        for nm, q in parse_drop_items(fld.get(k, "")):
+                            low = nm.lower()
+                            if "pass" in low or "key" in low:
+                                tid = item_types.get(nm.lower(), 0)
+                                if tid:
+                                    pkey = (tid, q)
+                                    break
+                        if pkey[0]:
+                            break
+                    if pkey[0]:
+                        break
+                if not pkey[0]:
+                    for note in pocket.get("notes", []):
+                        for nm, q in parse_drop_items(note):
+                            low = nm.lower()
+                            if "pass" in low or "key" in low:
+                                tid = item_types.get(nm.lower(), 0)
+                                if tid:
+                                    pkey = (tid, q)
+                                    break
+                        if pkey[0]:
+                            break
+                if pkey[0]:
+                    gate_keys.append((pi, pkey[0], max(1, pkey[1])))
                 for r in pocket.get("npcs", []):
                     nm = r.get("names", "").split("/")[0]
                     nm = re.sub(r"<[^>]+>", "", nm).strip()
@@ -133,7 +197,8 @@ def main():
                     packs.append((pi, rows))
             sites[key] = {"name": name, "systemID": sysid, "factionID": fid,
                           "type": s.get("type", ""), "rating": s.get("rating", ""),
-                          "shipLimit": s.get("shipLimit", ""), "packs": packs}
+                          "shipLimit": s.get("shipLimit", ""), "packs": packs,
+                          "drops": drops, "gateKeys": gate_keys}
 
     # ---- agent sites (from the agents table "Location" column) ----
     agent_sites = {}
@@ -171,6 +236,8 @@ def main():
     ordered = sorted(sites.items(), key=lambda kv: (kv[1]["systemID"], kv[1]["name"]))
     site_rows = []
     npc_rows = []
+    drop_rows = []
+    gate_rows = []
     site_ids = {}
     for idx, (key, s) in enumerate(ordered, 1):
         site_ids[key] = idx
@@ -186,12 +253,22 @@ def main():
                           s["type"], s["rating"], s["shipLimit"], BEACON_TYPE, ox, oy, oz))
         for pi, rows in s["packs"]:
             for tid, qty in rows.items():
-                npc_rows.append((idx, pi, tid, qty))
+                npc_rows.append((idx, pi, int(tid), int(qty)))
+        for pi, tid, qty in s.get("drops", []):
+            drop_rows.append((idx, pi, int(tid), int(qty)))
+        for pi, tid, qty in s.get("gateKeys", []):
+            gate_rows.append((idx, pi, int(tid), int(qty)))
 
     agent_rows = []
     for aid, key in agent_sites.items():
         if key in site_ids:
             agent_rows.append((aid, site_ids[key]))
+
+    # dedupe loot rows (same item can drop from several NPCs in one pocket)
+    dd = {}
+    for sid, pkt, tid, qty in drop_rows:
+        dd[(sid, pkt, tid)] = dd.get((sid, pkt, tid), 0) + qty
+    drop_rows = [(k[0], k[1], k[2], min(50, v)) for k, v in sorted(dd.items())]
 
     sql = []
     sql.append("-- COSMOS sites from the EVE University wiki (flat model: beacon +")
@@ -222,6 +299,22 @@ def main():
     sql.append("  siteID int(10) unsigned NOT NULL,")
     sql.append("  PRIMARY KEY (agentID), KEY siteID (siteID)")
     sql.append(") ENGINE=InnoDB;")
+    sql.append("CREATE TABLE IF NOT EXISTS cosmosSiteDrops (")
+    sql.append("  siteID int(10) unsigned NOT NULL,")
+    sql.append("  pocket tinyint(3) unsigned NOT NULL,")
+    sql.append("  typeID int(10) unsigned NOT NULL,")
+    sql.append("  qty smallint(5) unsigned NOT NULL DEFAULT 1,")
+    sql.append("  PRIMARY KEY (siteID, pocket, typeID)")
+    sql.append(") ENGINE=InnoDB;")
+    sql.append("CREATE TABLE IF NOT EXISTS cosmosSiteGates (")
+    sql.append("  siteID int(10) unsigned NOT NULL,")
+    sql.append("  pocket tinyint(3) unsigned NOT NULL,")
+    sql.append("  passkeyTypeID int(10) unsigned NOT NULL,")
+    sql.append("  passkeyQty smallint(5) unsigned NOT NULL DEFAULT 1,")
+    sql.append("  PRIMARY KEY (siteID, pocket)")
+    sql.append(") ENGINE=InnoDB;")
+    sql.append("DELETE FROM cosmosSiteDrops;")
+    sql.append("DELETE FROM cosmosSiteGates;")
     sql.append("DELETE FROM cosmosSiteNpcs;")
     sql.append("DELETE FROM cosmosAgentSites;")
     sql.append("DELETE FROM cosmosSites;")
@@ -248,9 +341,21 @@ def main():
             vals = ",\n".join("(%d,%d)" % r for r in part)
             sql.append("INSERT INTO cosmosAgentSites (agentID, siteID) VALUES")
             sql.append(vals + ";")
+    if drop_rows:
+        for part in chunks(drop_rows, 400):
+            vals = ",\n".join("(%d,%d,%d,%d)" % r for r in part)
+            sql.append("INSERT INTO cosmosSiteDrops (siteID, pocket, typeID, qty) VALUES")
+            sql.append(vals + ";")
+    if gate_rows:
+        for part in chunks(gate_rows, 400):
+            vals = ",\n".join("(%d,%d,%d,%d)" % r for r in part)
+            sql.append("INSERT INTO cosmosSiteGates (siteID, pocket, passkeyTypeID, passkeyQty) VALUES")
+            sql.append(vals + ";")
     sql.append("")
     sql.append("-- +migrate Down")
     sql.append("DELETE FROM cosmosAgentSites;")
+    sql.append("DELETE FROM cosmosSiteDrops;")
+    sql.append("DELETE FROM cosmosSiteGates;")
     sql.append("DELETE FROM cosmosSiteNpcs;")
     sql.append("DELETE FROM cosmosSites;")
     sql.append("")

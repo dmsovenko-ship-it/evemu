@@ -142,6 +142,21 @@ PyResult KeeperService::ActivateAccelerationGate(PyCallArgs &call, PyInt* itemID
         GPoint currentPosition(pClient->GetShipSE()->GetPosition());
         warpToPoint = currentPosition + GPoint(NEXT_DUNGEON_ROOM_DIST, 0, 0);
     }
+
+    // optional passkey requirement stored by the COSMOS site spawner
+    if (gateItem.get() != nullptr) {
+        std::string ci2 = gateItem->customInfo();
+        size_t pp = ci2.find(";passkey:");
+        if (pp != std::string::npos) {
+            uint32 pkType = 0, pkQty = 1;
+            if (sscanf(ci2.c_str() + pp + 9, "%u:%u", &pkType, &pkQty) == 2 && pkType != 0) {
+                if (!pClient->ContainsTypeQty(pkType, pkQty))
+                    throw CustomError("This acceleration gate requires a passkey.");
+                pClient->RemoveMissionItem(pkType, pkQty);
+            }
+        }
+    }
+
     pClient->GetShipSE()->DestinyMgr()->WarpTo(warpToPoint, 0);
 
     /* return error msg from this call, if applicable, else nodeid and timestamp */
