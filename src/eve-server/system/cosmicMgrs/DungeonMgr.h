@@ -108,6 +108,8 @@ public:
     // Spawn procedural decorations for a room/pocket. Public so SpawnMgr can
     // dress the chained incursion wave pockets (not just the first room).
     std::vector<uint32> SpawnDecorations(const GPoint& roomPos, uint32 factionID, uint8 whClass = 0);
+    // mission site: decorations + optional fixed structures (data centers etc.)
+    std::vector<uint32> SpawnMissionSite(const GPoint& roomPos, uint32 factionID, uint32 structureTypeID = 0, uint32 structureQty = 0);
 
 protected:
     ManagerDB m_db;

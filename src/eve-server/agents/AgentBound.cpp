@@ -79,6 +79,33 @@ PyResult AgentBound::GetInfoServiceDetails(PyCallArgs& call) {
  * @note   these below are partially coded
  */
 
+// Set agentSays[0]/[1] for a mission offer: prefer the real briefing text that
+// was extracted from the EVE University wiki into missionObjectives.briefingText
+// (sent as a literal string so the client shows it regardless of localization),
+// otherwise fall back to the localized briefing messageID.
+static void SetMissionBriefing(Client* pClient, MissionOffer& offer, PyTuple* agentSays)
+{
+    std::string brief;
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res, "SELECT briefingText FROM missionObjectives WHERE missionID = %u", offer.missionID)) {
+        DBResultRow row;
+        if (res.GetRow(row)) {
+            const char* t = row.GetText(0);
+            if (t != nullptr)
+                brief = t;
+        }
+    }
+    if (!brief.empty()) {
+        size_t pos;
+        while ((pos = brief.find("<Character>")) != std::string::npos)
+            brief.replace(pos, 11, pClient->GetName());
+        PySetItemRelease(agentSays, 0, new PyString(brief.c_str()));
+    } else {
+        PySetItemRelease(agentSays, 0, new PyInt(offer.briefingID));
+    }
+    PySetItemRelease(agentSays, 1, new PyInt(offer.characterID));
+}
+
 // Build (but do not persist) a tutorial/aura mission offer that tracks one tutorial
 // step of the Aura chain. The mission name is the tutorial's own name, so the
 // journal entry matches what the client shows during training.
@@ -175,8 +202,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                             PySetItemRelease(button2, 1, new PyInt(Complete));
                         dialog->AddItem(button2);
                     }
-                    PySetItemRelease(agentSays, 0, new PyInt(offer.briefingID));
-                    PySetItemRelease(agentSays, 1, new PyInt(offer.characterID));
+                    SetMissionBriefing(call.client, offer, agentSays);
                 } else {
                     // Check for epic arc
                     bool hasArc = false;
@@ -331,8 +357,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 *   contentID is used for specific char's mission keywords.  we're not using it like there here....
                 */
 
-                PySetItemRelease(agentSays, 0, new PyInt(offer.briefingID));
-                PySetItemRelease(agentSays, 1, new PyInt(offer.characterID));
+                SetMissionBriefing(call.client, offer, agentSays);
 
                 // dialog can also contain mission data.
                 //   set a dialog tuple[1] to dict and fill with MissionBriefingInfo
@@ -353,8 +378,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
             case ViewMission: { //1
                 MissionOffer offer = MissionOffer();
                 m_agent->GetOffer(pchar->itemID(), offer);
-                PySetItemRelease(agentSays, 0, new PyInt(offer.briefingID));
-                PySetItemRelease(agentSays, 1, new PyInt(offer.characterID));
+                SetMissionBriefing(call.client, offer, agentSays);
                 if (offer.stateID < Mission::State::Accepted) {
                     PyTuple* button1 = new PyTuple(2);
                         PySetItemRelease(button1, 0, new PyInt(Accept));
@@ -416,6 +440,24 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 }
                 // Spawn mission dungeon for encounter/mining type missions
                 GPoint dungeonSite(0.0, 0.0, 0.0);   // position of the spawned dungeon (if any)
+
+                // mission content overrides (faction / npc count / structures) from the
+                // curated missionObjectives table (built from the mission descriptions)
+                uint32 moFaction = 0, moCount = 0, moStruct = 0, moStructQty = 0;
+                {
+                    DBQueryResult moRes;
+                    if (sDatabase.RunQuery(moRes,
+                            "SELECT npcFactionID, npcCount, structureTypeID, structureQty FROM missionObjectives WHERE missionID = %u",
+                            offer.missionID)) {
+                        DBResultRow moRow;
+                        if (moRes.GetRow(moRow)) {
+                            moFaction = moRow.GetUInt(0);
+                            moCount = moRow.GetUInt(1);
+                            moStruct = moRow.GetUInt(2);
+                            moStructQty = moRow.GetUInt(3);
+                        }
+                    }
+                }
                 if (offer.destinationSystemID != 0 && offer.missionID != 0) {
                     uint32 dungeonID = 0;
                     DBQueryResult dunRes;
@@ -456,7 +498,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 if (offer.typeID == Mission::Type::Encounter && offer.destinationSystemID != 0) {
                     EncounterSpawnServer* ess = EncounterSpawnServer::Get();
                     if (ess != nullptr) {
-                        uint32 n = ess->SpawnEncounterForOffer(offer, offer.destinationSystemID, dungeonSite);
+                        uint32 n = ess->SpawnEncounterForOffer(offer, offer.destinationSystemID, dungeonSite, moFaction, moCount);
                         if (n > 0)
                             _log(AGENT__MESSAGE, "Spawned %u encounter targets for mission %u offer %u.",
                                  n, offer.missionID, offer.offerID);
@@ -494,7 +536,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         GPoint huntPos = dungeonSite;
                         if (huntPos.x == 0 && huntPos.y == 0 && huntPos.z == 0)
                             huntPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
-                        uint32 huntCount = huntEss->SpawnEncounterForOffer(offer, offer.destinationSystemID, huntPos);
+                        uint32 huntCount = huntEss->SpawnEncounterForOffer(offer, offer.destinationSystemID, huntPos, moFaction, moCount);
                         _log(AGENT__MESSAGE, "Arc/cosmos hunt: spawned %u targets for mission %u offer %u.",
                              huntCount, offer.missionID, offer.offerID);
                     }
@@ -507,9 +549,20 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         GPoint slPos = dungeonSite;
                         if (slPos.x == 0 && slPos.y == 0 && slPos.z == 0)
                             slPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
-                        uint32 slCount = slEss->SpawnEncounterForOffer(offer, offer.destinationSystemID, slPos);
+                        uint32 slCount = slEss->SpawnEncounterForOffer(offer, offer.destinationSystemID, slPos, moFaction, moCount);
                         _log(AGENT__MESSAGE, "Storyline: spawned %u targets for mission %u offer %u.",
                              slCount, offer.missionID, offer.offerID);
+                    }
+                }
+                // build the actual mission site: faction ambience and (for structure
+                // objectives) the target structures described by the mission text
+                if (offer.destinationSystemID != 0 && (moFaction != 0 || moStructQty > 0)) {
+                    SystemManager* pSiteSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
+                    if (pSiteSys != nullptr) {
+                        GPoint sitePos = dungeonSite;
+                        if (sitePos.x == 0 && sitePos.y == 0 && sitePos.z == 0)
+                            sitePos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+                        pSiteSys->GetDungMgr()->SpawnMissionSite(sitePos, moFaction, moStruct, moStructQty);
                     }
                 }
                 m_agent->UpdateOffer(pchar->itemID(), offer);

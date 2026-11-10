@@ -79,7 +79,7 @@ void EncounterSpawnServer::RemoveEncounter(uint32 encounterID)
 // it against the offer so the agent can mark the mission complete once every
 // spawned target has been destroyed (Client::IsMissionComplete → IsOfferComplete).
 // Returns the number of NPCs actually spawned (0 if nothing could be done).
-uint32 EncounterSpawnServer::SpawnEncounterForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos)
+uint32 EncounterSpawnServer::SpawnEncounterForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos, uint32 factionOverride, uint32 countOverride)
 {
     if (offer.offerID == 0)
         return 0;
@@ -124,7 +124,7 @@ uint32 EncounterSpawnServer::SpawnEncounterForOffer(MissionOffer& offer, uint32 
         base = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
     enc.targetPos = base;
     // 4-6 NPCs in a cluster around the site.
-    uint32 npcCount = 4 + (enc.encounterID % 3);
+    uint32 npcCount = (countOverride != 0) ? countOverride : (4 + (enc.encounterID % 3));
     for (uint32 n = 0; n < npcCount; ++n) {
         uint32 typeID = npcTypes[n % npcTypes.size()];
         char buf[64];

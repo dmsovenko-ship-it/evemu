@@ -923,6 +923,38 @@ bool DungeonMgr::MakeDungeon(CosmicSignature& sig, uint32 dungeonID)
     return false;
 }
 
+std::vector<uint32> DungeonMgr::SpawnMissionSite(const GPoint& roomPos, uint32 factionID, uint32 structureTypeID, uint32 structureQty)
+{
+    std::vector<uint32> spawned;
+    // fixed structures first (mission targets / landmarks)
+    for (uint32 n = 0; n < structureQty && structureTypeID != 0; ++n) {
+        GPoint pos = roomPos;
+        pos.x += (n % 3) * 6000.0;
+        pos.z += (n / 3) * 6000.0;
+        ItemData itemData(structureTypeID, 1, m_system->GetID(), flagNone, "", pos);
+        uint32 tempID = InventoryItem::CreateTempItemID(itemData);
+        InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, itemData);
+        if (iRef.get() == nullptr) {
+            _log(COSMIC_MGR__WARNING, "SpawnMissionSite: failed to spawn typeID %u", structureTypeID);
+            continue;
+        }
+        iRef->SetAttribute(AttrIsGlobal, 1, false);
+        CelestialSE* cSE = new CelestialSE(iRef, m_services, m_system);
+        m_system->AddEntity(cSE, false);
+        if (cSE->SysBubble() != nullptr)
+            cSE->SysBubble()->AddBallExclusive(cSE);
+        spawned.push_back(iRef->itemID());
+        _log(COSMIC_MGR__MESSAGE, "SpawnMissionSite: spawned structure %u at (%.0f,%.0f,%.0f)",
+             structureTypeID, pos.x, pos.y, pos.z);
+    }
+    // ambience (clouds / wreckage) for the faction
+    if (factionID != 0) {
+        std::vector<uint32> deco = SpawnDecorations(roomPos, factionID);
+        spawned.insert(spawned.end(), deco.begin(), deco.end());
+    }
+    return spawned;
+}
+
 std::vector<uint32> DungeonMgr::SpawnDecorations(const GPoint& roomPos, uint32 factionID, uint8 whClass)
 {
     std::vector<uint32> spawned;
