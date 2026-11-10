@@ -672,24 +672,14 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         uint32 charID = pchar->itemID();
                         // Final mission (80056 = Our Man Dagan) awards faction standing
                         if (offer.missionID == 80056) {
-                            EpicArcState state;
-                            std::vector<EpicArcState> states;
-                            sEpicArcMgr.GetCharacterArcs(charID, states);
-                            for (auto& s : states) {
-                                if (s.arcID == arc->arcID) {
-                                    // Apply faction standing without derived penalties
-                                    // Standing reward: 0.7 * (1 + SocialSkill * 0.05)
-                                    uint8 socialLvl = pchar->GetSkillLevel(EvESkill::Social);
-                                    float standingReward = 0.7f * (1.0f + 0.05f * socialLvl);
-                                    StandingDB::SaveStandingChanges(charID, arc->factionID, 126,
-                                        standingReward, "The Blood-Stained Stars completion");
-                                    sEpicArcMgr.CompleteArc(charID, arc->arcID);
-                                    break;
-                                }
-                            }
-                        } else {
-                            sEpicArcMgr.AdvanceMission(charID, arc->arcID);
+                            uint8 socialLvl = pchar->GetSkillLevel(EvESkill::Social);
+                            float standingReward = 0.7f * (1.0f + 0.05f * socialLvl);
+                            StandingDB::SaveStandingChanges(charID, arc->factionID, 126,
+                                standingReward, "The Blood-Stained Stars completion");
                         }
+                        // advance the chapter/mission state (completes the arc when
+                        // the last chapter has no further missions for this branch)
+                        sEpicArcMgr.AdvanceMission(charID, arc->arcID, offer.missionID);
                     }
                 }
                 // COSMOS one-time completion tracking

@@ -13,7 +13,36 @@ EpicArcMgr::~EpicArcMgr()
 int EpicArcMgr::Initialize()
 {
     Populate();
+    LoadStates();
     return 1;
+}
+
+void EpicArcMgr::LoadStates()
+{
+    DBQueryResult res;
+    DBResultRow row;
+    if (!sDatabase.RunQuery(res,
+            "SELECT characterID, arcID, chapterNumber, lastMissionID, branchChoice, dateStarted, dateCompleted, completed"
+            " FROM chrEpicArcState")) {
+        codelog(DATABASE__ERROR, "Error in EpicArcMgr states query: %s", res.error.c_str());
+        return;
+    }
+    uint32 count = 0;
+    while (res.GetRow(row)) {
+        EpicArcState state;
+        state.characterID = row.GetUInt(0);
+        state.arcID = row.GetUInt(1);
+        state.chapterNumber = (uint8)row.GetUInt(2);
+        state.lastMissionID = row.GetUInt(3);
+        state.branchChoice = (int8)row.GetInt(4);
+        state.dateStarted = (int64)row.GetDouble(5);
+        state.dateCompleted = (int64)row.GetDouble(6);
+        state.completed = row.GetBool(7);
+        int64 stateKey = (int64(state.characterID) << 32) | state.arcID;
+        m_state[stateKey] = state;
+        ++count;
+    }
+    sLog.Cyan("   EpicArcMgr", "%u Epic Arc states loaded.", count);
 }
 
 void EpicArcMgr::Populate()
@@ -105,7 +134,7 @@ void EpicArcMgr::StartArc(uint32 charID, uint32 arcID, uint32 agentID)
     state.arcID = arcID;
     state.chapterNumber = 1;
     state.lastMissionID = 0;
-    state.branchChoice = 0;
+    state.branchChoice = 1;    // no in-game branch dialog: play the first branch line
     state.dateStarted = GetFileTimeNow();
     state.dateCompleted = 0;
     state.completed = false;
@@ -116,11 +145,11 @@ void EpicArcMgr::StartArc(uint32 charID, uint32 arcID, uint32 agentID)
     DBerror err;
     sDatabase.RunQuery(err,
         "REPLACE INTO chrEpicArcState (characterID, arcID, chapterNumber, lastMissionID, branchChoice, dateStarted, dateCompleted, completed)"
-        " VALUES (%u, %u, 1, 0, 0, %.0f, 0, 0)",
+        " VALUES (%u, %u, 1, 0, 1, %.0f, 0, 0)",
         charID, arcID, state.dateStarted);
 }
 
-void EpicArcMgr::AdvanceMission(uint32 charID, uint32 arcID)
+void EpicArcMgr::AdvanceMission(uint32 charID, uint32 arcID, uint32 missionID)
 {
     int64 stateKey = (int64(charID) << 32) | arcID;
     auto it = m_state.find(stateKey);
@@ -128,13 +157,40 @@ void EpicArcMgr::AdvanceMission(uint32 charID, uint32 arcID)
         return;
 
     EpicArcState& state = it->second;
-    uint32 seq = state.lastMissionID;
-    state.lastMissionID = seq;
+    EpicArcMissionData* md = FindMissionByID(arcID, missionID);
+    uint8 chapter = (md != nullptr) ? md->chapterNumber : state.chapterNumber;
+    uint32 lastSeq = (md != nullptr) ? md->sequenceNumber : 0;
 
-    DBerror err;
-    sDatabase.RunQuery(err,
-        "UPDATE chrEpicArcState SET lastMissionID = %u WHERE characterID = %u AND arcID = %u",
-        seq, charID, arcID);
+    int8 branch = (state.branchChoice != 0) ? state.branchChoice : 1;   // legacy states had 0
+    EpicArcMissionData* next = GetNextMission(arcID, chapter, lastSeq, branch);
+    if (next == nullptr) {
+        // chapter finished: move to the first chapter that still has missions for
+        // this branch (chapters can be branch-specific)
+        for (uint8 c = chapter + 1; c <= 20; ++c) {
+            next = GetNextMission(arcID, c, 0, branch);
+            if (next != nullptr) {
+                chapter = c;
+                state.lastMissionID = 0;
+                break;
+            }
+        }
+    }
+
+    state.chapterNumber = chapter;
+    if (next != nullptr) {
+        state.lastMissionID = missionID;   // sequence is derived from the mission row
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE chrEpicArcState SET chapterNumber = %u, lastMissionID = %u WHERE characterID = %u AND arcID = %u",
+            chapter, missionID, charID, arcID);
+    } else {
+        // no further missions in any chapter -> the arc is complete
+        CompleteArc(charID, arcID);
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE chrEpicArcState SET chapterNumber = %u, lastMissionID = %u WHERE characterID = %u AND arcID = %u",
+            chapter, missionID, charID, arcID);
+    }
 }
 
 EpicArcMissionData* EpicArcMgr::GetNextMissionForChar(uint32 charID, uint32 arcID)
@@ -145,7 +201,22 @@ EpicArcMissionData* EpicArcMgr::GetNextMissionForChar(uint32 charID, uint32 arcI
         return nullptr;
 
     EpicArcState& state = it->second;
-    return GetNextMission(arcID, state.chapterNumber, state.lastMissionID, state.branchChoice);
+    uint8 chapter = (state.chapterNumber != 0) ? state.chapterNumber : 1;
+    uint32 lastSeq = 0;
+    if (state.lastMissionID != 0) {
+        EpicArcMissionData* md = FindMissionByID(arcID, state.lastMissionID);
+        if (md != nullptr && md->chapterNumber == chapter)
+            lastSeq = md->sequenceNumber;
+    }
+
+    // walk forward until a chapter with an available mission is found
+    for (uint8 c = chapter; c <= 20; ++c) {
+        int8 branch = (state.branchChoice != 0) ? state.branchChoice : 1;   // legacy states had 0
+        EpicArcMissionData* m = GetNextMission(arcID, c, (c == chapter) ? lastSeq : 0, branch);
+        if (m != nullptr)
+            return m;
+    }
+    return nullptr;
 }
 
 uint8 EpicArcMgr::GetCurrentChapter(uint32 charID, uint32 arcID)
@@ -207,21 +278,37 @@ void EpicArcMgr::CompleteArc(uint32 charID, uint32 arcID)
 std::vector<EpicArcMissionData> EpicArcMgr::GetChapterMissions(uint32 arcID, uint8 chapter, int8 branch)
 {
     std::vector<EpicArcMissionData> result;
-    auto range = m_missions.equal_range((int64(arcID) << 32) | (int64(chapter) << 16));
-    for (auto it = range.first; it != range.second; ++it) {
+    int64 base = (int64(arcID) << 32) | (int64(chapter) << 16);
+    auto lo = m_missions.lower_bound(base);
+    auto hi = m_missions.lower_bound(base + 0x10000);   // sequence lives in the low 16 bits
+    for (auto it = lo; it != hi; ++it) {
         if (it->second.branchID == 0 || it->second.branchID == branch)
             result.push_back(it->second);
     }
     return result;
 }
 
-EpicArcMissionData* EpicArcMgr::GetNextMission(uint32 arcID, uint8 chapter, uint32 lastMissionID, int8 branch)
+EpicArcMissionData* EpicArcMgr::FindMissionByID(uint32 arcID, uint32 missionID)
 {
-    auto range = m_missions.equal_range((int64(arcID) << 32) | (int64(chapter) << 16));
-    uint32 lastSeq = lastMissionID % 100;
-    for (auto it = range.first; it != range.second; ++it) {
-        if (it->second.sequenceNumber > lastSeq && (it->second.branchID == 0 || it->second.branchID == branch))
+    for (auto& e : m_missions)
+        if (e.second.arcID == arcID && e.second.missionID == missionID)
+            return &e.second;
+    return nullptr;
+}
+
+EpicArcMissionData* EpicArcMgr::GetNextMission(uint32 arcID, uint8 chapter, uint32 lastSequence, int8 branch)
+{
+    if (chapter == 0)
+        return nullptr;
+    int64 base = (int64(arcID) << 32) | (int64(chapter) << 16);
+    auto lo = m_missions.lower_bound(base);
+    auto hi = m_missions.lower_bound(base + 0x10000);
+    for (auto it = lo; it != hi; ++it) {
+        if (it->second.sequenceNumber <= lastSequence)
+            continue;
+        if (it->second.branchID == 0 || it->second.branchID == branch)
             return &it->second;
     }
     return nullptr;
 }
+

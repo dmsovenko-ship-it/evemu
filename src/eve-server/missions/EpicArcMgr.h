@@ -43,18 +43,20 @@ public:
     ~EpicArcMgr();
 
     int Initialize();
+    void LoadStates();
 
     EpicArcData* GetArc(uint32 arcID);
     EpicArcData* GetArcByAgent(uint32 agentID);
     std::vector<EpicArcMissionData> GetChapterMissions(uint32 arcID, uint8 chapter, int8 branch = 0);
-    EpicArcMissionData* GetNextMission(uint32 arcID, uint8 chapter, uint32 lastMissionID, int8 branch = 0);
+    EpicArcMissionData* GetNextMission(uint32 arcID, uint8 chapter, uint32 lastSequence, int8 branch = 0);
+    EpicArcMissionData* FindMissionByID(uint32 arcID, uint32 missionID);
 
     bool AgentHasArc(uint32 agentID);
     bool CanStartArc(uint32 charID, uint32 arcID);
     bool IsOnArc(uint32 charID, uint32 arcID);
     void StartArc(uint32 charID, uint32 arcID, uint32 agentID);
     EpicArcMissionData* GetNextMissionForChar(uint32 charID, uint32 arcID);
-    void AdvanceMission(uint32 charID, uint32 arcID);
+    void AdvanceMission(uint32 charID, uint32 arcID, uint32 missionID);
     void CompleteArc(uint32 charID, uint32 arcID);
     uint8 GetCurrentChapter(uint32 charID, uint32 arcID);
     void GetCharacterArcs(uint32 charID, std::vector<EpicArcState>& states);
