@@ -840,16 +840,29 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
     bool matched = false;
     if (hasWord("kill") || hasWord("destroy") || hasWord("ambush") || hasWord("attack") || hasWord("clear")
         || hasWord("eliminat") || hasWord("pirate") || hasWord("raid") || hasWord("hunt") || hasWord("assault")
-        || hasWord("defend") || hasWord("protect") || hasWord("intercept") || hasWord("rescue") || hasWord("combat")) {
+        || hasWord("defend") || hasWord("protect") || hasWord("intercept") || hasWord("rescue") || hasWord("combat")
+        || hasWord("wrath") || hasWord("sabotage") || hasWord("cull") || hasWord("raz") || hasWord("knockout")
+        || hasWord("arrest") || hasWord("breakout") || hasWord("capture") || hasWord("assassin") || hasWord("enemy")
+        || hasWord("fight") || hasWord("headhunt") || hasWord("silence") || hasWord("strike") || hasWord("siege")
+        || hasWord("revenge") || hasWord("vendetta") || hasWord("hostile") || hasWord("threat") || hasWord("battle")) {
         kind = 2; matched = true;
     } else if (hasWord("deliver") || hasWord("cargo") || hasWord("package") || hasWord("bring")
         || hasWord("transport") || hasWord("shipment") || hasWord("freight") || hasWord("supply")
-        || hasWord("pickup") || hasWord("pick up") || hasWord("courier") || hasWord("haul")) {
+        || hasWord("pickup") || hasWord("pick up") || hasWord("courier") || hasWord("haul")
+        || hasWord("heist") || hasWord("salvage") || hasWord("steal") || hasWord("acquir")
+        || hasWord("retriev") || hasWord("smuggl") || hasWord("ferry") || hasWord("transfer")
+        || hasWord("obtain") || hasWord("body") || hasWord("loot") || hasWord("stock")) {
         kind = 1; matched = true;
     } else if (hasWord("beacon") || hasWord("report") || hasWord("talk") || hasWord("speak")
         || hasWord("inquiry") || hasWord("investigat") || hasWord("survey") || hasWord("scan")
         || hasWord("explor") || hasWord("visit") || hasWord("meet") || hasWord("contact") || hasWord("ask")
-        || hasWord("find") || hasWord("locate") || hasWord("check") || hasWord("question") || hasWord("word")) {
+        || hasWord("find") || hasWord("locate") || hasWord("check") || hasWord("question") || hasWord("word")
+        || hasWord("travel") || hasWord("planning") || hasWord("recruit") || hasWord("negotiat")
+        || hasWord("infiltrat") || hasWord("surveil") || hasWord("track") || hasWord("follow")
+        || hasWord("search") || hasWord("scent") || hasWord("trace") || hasWord("intermediary")
+        || hasWord("return") || hasWord("home") || hasWord("peace") || hasWord("opinion")
+        || hasWord("options") || hasWord("conspiracy") || hasWord("forewarn") || hasWord("approach")
+        || hasWord("opportunit") || hasWord("identity") || hasWord("hidden") || hasWord("discretion")) {
         kind = 0; matched = true;
     }
     if (!matched)
