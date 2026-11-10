@@ -308,9 +308,16 @@ void Agent::MaybeOfferStoryline(uint32 charID, Client* pClient)
     sMissionDataMgr.CreateMissionOffer(Mission::Type::Storyline, m_agentData.level, m_agentData.raceID, true, offer);
     offer.characterID   = charID;
     offer.agentID       = m_agentID;
-    offer.originID      = m_agentData.stationID;
+    offer.originID      = (m_agentData.stationID != 0) ? m_agentData.stationID : m_agentData.locationID;
     offer.originOwnerID = m_agentData.corporationID;
     offer.originSystemID= m_agentData.solarSystemID;
+    // qstCourier storyline rows carry no item; make it a real courier run with a
+    // generic mission package so the offer is playable end-to-end
+    if (offer.courierTypeID == 0) {
+        offer.courierTypeID = 23;          // Cargo Container / mission package
+        offer.courierAmount = 1;
+        offer.courierItemVolume = 0.01f;
+    }
     offer.stateID       = Mission::State::Offered;
     offer.dateIssued    = GetFileTimeNow();
     offer.expiryTime    = GetFileTimeNow() + EvE::Time::Day * 7;

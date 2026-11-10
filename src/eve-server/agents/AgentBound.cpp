@@ -109,6 +109,8 @@ static void SetMissionBriefing(Client* pClient, MissionOffer& offer, PyTuple* ag
     }
     if (brief.empty() && !objective.empty())
         brief = "Objective: " + objective;      // no lore text on the wiki - show the task
+    if (brief.empty() && offer.typeID == Mission::Type::Storyline)
+        brief = "Objective: Deliver the mission package to the designated station.";
     if (!brief.empty()) {
         size_t pos;
         while ((pos = brief.find("<Character>")) != std::string::npos)

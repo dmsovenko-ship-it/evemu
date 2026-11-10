@@ -2540,9 +2540,11 @@ bool Client::IsMissionComplete(MissionOffer& data)
         } break;
         case Mission::Type::Storyline: {
             // Storylines are built from encounter/courier data; use whatever
-            // objective data the offer carries.
-            if (data.courierTypeID != 0 && ContainsTypeQty(data.courierTypeID, data.courierAmount))
-                return true;
+            // objective data the offer carries. The package must be handed in at
+            // the destination station.
+            if (data.courierTypeID != 0)
+                return (m_locationID != 0 && m_locationID == data.destinationID
+                        && ContainsTypeQty(data.courierTypeID, data.courierAmount));
             if (EncounterSpawnServer::Get() != nullptr && EncounterSpawnServer::Get()->IsOfferComplete(data.offerID))
                 return true;
         } break;
