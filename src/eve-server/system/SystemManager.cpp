@@ -763,7 +763,10 @@ void SystemManager::SpawnCosmosSites()
                     npcPos.x += 15000.0 + (n % 4) * 2500.0;
                     npcPos.z += (n / 4) * 2500.0;
                     ItemData npcData(npcType, faction.ownerID, m_data.systemID, flagNone, "", npcPos);
-                    InventoryItemRef npcRef = sItemFactory.SpawnItem(npcData);
+                    // temp item: site NPCs are re-spawned on every system boot, they must
+                    // not accumulate rows in the entity table
+                    uint32 npcTempID = InventoryItem::CreateTempItemID(npcData);
+                    InventoryItemRef npcRef = InventoryItem::SpawnItem(npcTempID, npcData);
                     if (npcRef.get() == nullptr)
                         continue;
                     NPC* npc = new NPC(npcRef, m_services, this, faction);
