@@ -88,15 +88,27 @@ PyResult AgentBound::GetInfoServiceDetails(PyCallArgs& call) {
 static void SetMissionBriefing(Client* pClient, MissionOffer& offer, PyTuple* agentSays)
 {
     std::string brief;
+    std::string objective;
     DBQueryResult res;
-    if (sDatabase.RunQuery(res, "SELECT briefingText FROM missionObjectives WHERE missionID = %u", offer.missionID)) {
+    if (sDatabase.RunQuery(res,
+            "SELECT briefingText, objectiveText FROM missionObjectives WHERE missionID = %u",
+            offer.missionID)) {
         DBResultRow row;
         if (res.GetRow(row)) {
-            const char* t = row.GetText(0);
-            if (t != nullptr)
-                brief = t;
+            if (!row.IsNull(0)) {
+                const char* t = row.GetText(0);
+                if (t != nullptr)
+                    brief = t;
+            }
+            if (!row.IsNull(1)) {
+                const char* t = row.GetText(1);
+                if (t != nullptr)
+                    objective = t;
+            }
         }
     }
+    if (brief.empty() && !objective.empty())
+        brief = "Objective: " + objective;      // no lore text on the wiki - show the task
     if (!brief.empty()) {
         size_t pos;
         while ((pos = brief.find("<Character>")) != std::string::npos)
