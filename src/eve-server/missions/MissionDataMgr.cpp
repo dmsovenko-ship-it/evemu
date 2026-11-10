@@ -844,14 +844,18 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
         || hasWord("wrath") || hasWord("sabotage") || hasWord("cull") || hasWord("raz") || hasWord("knockout")
         || hasWord("arrest") || hasWord("breakout") || hasWord("capture") || hasWord("assassin") || hasWord("enemy")
         || hasWord("fight") || hasWord("headhunt") || hasWord("silence") || hasWord("strike") || hasWord("siege")
-        || hasWord("revenge") || hasWord("vendetta") || hasWord("hostile") || hasWord("threat") || hasWord("battle")) {
+        || hasWord("revenge") || hasWord("vendetta") || hasWord("hostile") || hasWord("threat") || hasWord("battle")
+        || hasWord("destruct") || hasWord("escort") || hasWord("bounty") || hasWord("skirmish") || hasWord("kidnap")
+        || hasWord("hijack") || hasWord("retake") || hasWord("onslaught") || hasWord("wipe") || hasWord("elimination")) {
         kind = 2; matched = true;
     } else if (hasWord("deliver") || hasWord("cargo") || hasWord("package") || hasWord("bring")
         || hasWord("transport") || hasWord("shipment") || hasWord("freight") || hasWord("supply")
         || hasWord("pickup") || hasWord("pick up") || hasWord("courier") || hasWord("haul")
         || hasWord("heist") || hasWord("salvage") || hasWord("steal") || hasWord("acquir")
         || hasWord("retriev") || hasWord("smuggl") || hasWord("ferry") || hasWord("transfer")
-        || hasWord("obtain") || hasWord("body") || hasWord("loot") || hasWord("stock")) {
+        || hasWord("obtain") || hasWord("body") || hasWord("loot") || hasWord("stock")
+        || hasWord("goods") || hasWord("provisions") || hasWord("deliveries") || hasWord("shipment")
+        || hasWord("relay") || hasWord("cache") || hasWord("artifact") || hasWord("relic")) {
         kind = 1; matched = true;
     } else if (hasWord("beacon") || hasWord("report") || hasWord("talk") || hasWord("speak")
         || hasWord("inquiry") || hasWord("investigat") || hasWord("survey") || hasWord("scan")
@@ -862,7 +866,9 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
         || hasWord("search") || hasWord("scent") || hasWord("trace") || hasWord("intermediary")
         || hasWord("return") || hasWord("home") || hasWord("peace") || hasWord("opinion")
         || hasWord("options") || hasWord("conspiracy") || hasWord("forewarn") || hasWord("approach")
-        || hasWord("opportunit") || hasWord("identity") || hasWord("hidden") || hasWord("discretion")) {
+        || hasWord("opportunit") || hasWord("identity") || hasWord("hidden") || hasWord("discretion")
+        || hasWord("rendezvous") || hasWord("contact") || hasWord("message") || hasWord("situation")
+        || hasWord("consequences") || hasWord("normal") || hasWord("lock")) {
         kind = 0; matched = true;
     }
     if (!matched)
