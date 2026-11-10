@@ -946,7 +946,7 @@ void SystemManager::SpawnCosmosAgents()
 
     DBQueryResult res;
     if (!sDatabase.RunQuery(res,
-            "SELECT DISTINCT a.agentID, c.characterName, a.corporationID, IFNULL(cas.siteID,0)"
+            "SELECT DISTINCT a.agentID, c.characterName, a.corporationID, IFNULL(cas.siteID,0), IFNULL(cas.pocket,1)"
             " FROM agtAgents a"
             " JOIN chrNPCCharacters c ON c.characterID = a.agentID"
             " LEFT JOIN cosmosAgentMissions cam ON cam.agentID = a.agentID"
@@ -990,6 +990,7 @@ void SystemManager::SpawnCosmosAgents()
         std::string name = row.GetText(1);
         uint32 corpID = row.GetUInt(2);
         uint32 siteID = row.GetUInt(3);
+        uint32 sitePocket = row.GetUInt(4);
 
         // in-space model: group 517 "Agents in Space" whose type carries the
         // agentID dogma attribute (840) equal to this agent
@@ -1015,6 +1016,9 @@ void SystemManager::SpawnCosmosAgents()
         SystemEntity* siteSE = (sit != m_cosmosSites.end()) ? GetSE(sit->second) : nullptr;
         if (siteSE != nullptr) {
             pos = siteSE->GetPosition();
+            // pockets are 150km apart along +x (see SpawnCosmosSiteNpcs)
+            if (sitePocket > 1)
+                pos.x += (sitePocket - 1) * 150000.0;
             pos.x += 20000.0 + 3000.0 * count;
         } else {
             pos.MakeRandomPointOnSphere(70000.0 + 5000.0 * count);    // inside agentCommRange (100km)
