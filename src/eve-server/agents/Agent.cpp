@@ -34,6 +34,7 @@
 #include "../Client.h"
 #include "../fleet/FleetService.h"
 #include "../system/SystemManager.h"
+#include "../system/SystemEntity.h"
 #include "../standing/StandingMgr.h"
 #include "corporation/LPService.h"
 
@@ -200,7 +201,9 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
 
     // variable mission data based on agent
     offer.agentID            = m_agentID;
-    offer.originID           = m_agentData.stationID;
+    // agents in space (COSMOS) have no station; their location is the system they
+    // patrol, and objectives are completed next to the agent instead of docked
+    offer.originID           = (m_agentData.stationID != 0) ? m_agentData.stationID : m_agentData.locationID;
     offer.originOwnerID      = m_agentData.corporationID;
     offer.originSystemID     = m_agentData.solarSystemID;
     offer.expiryTime         = GetFileTimeNow() + EvE::Time::Day;
@@ -414,6 +417,27 @@ void Agent::DeleteOffer(uint32 charID)
 
 PyDict* Agent::GetLocationWrap() {
     PyDict *res = new PyDict();
+    // in-space agents: give the client the spawned agent's coordinates so the
+    // dialogue header can build a real "warp to agent" link instead of a station
+    SystemEntity* agSE = nullptr;
+    {
+        auto it = sEntityList.GetSystems().find(m_agentData.solarSystemID);
+        if (it != sEntityList.GetSystems().end())
+            agSE = it->second->GetCosmosAgentSE(m_agentID);
+    }
+    if (agSE != nullptr) {
+        res->SetItemString("typeID", new PyInt(agSE->GetTypeID()) );
+        res->SetItemString("locationID", new PyInt(agSE->GetID()) );
+        res->SetItemString("solarsystemID", new PyInt(m_agentData.solarSystemID) );
+        res->SetItemString("shipTypeID", new PyInt(agSE->GetTypeID()) );
+        res->SetItemString("agentID", new PyInt(m_agentID) );
+        PyTuple* coords = new PyTuple(3);
+            PySetItemRelease(coords, 0, new PyFloat(agSE->GetPosition().x));
+            PySetItemRelease(coords, 1, new PyFloat(agSE->GetPosition().y));
+            PySetItemRelease(coords, 2, new PyFloat(agSE->GetPosition().z));
+        res->SetItemString("coords", coords);
+        return res;
+    }
         res->SetItemString("typeID", new PyInt(m_agentData.locationTypeID) );
         res->SetItemString("locationID", new PyInt(m_agentData.locationID) );
         res->SetItemString("solarsystemID", new PyInt(m_agentData.solarSystemID) );

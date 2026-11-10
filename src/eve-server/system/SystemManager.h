@@ -103,6 +103,10 @@ public:
     void SpawnCustomsNPCs();
     void SpawnFactionPatrols();
     void SpawnIncursionGateCamps();
+    // COSMOS agents live in space: one static "agent ship" (group 517, type carries
+    // the agentID attribute) per agent whose locationID is this system.
+    void SpawnCosmosAgents();
+    SystemEntity* GetCosmosAgentSE(uint32 agentID);
     void ProcessFWCapture();
     Inventory* GetSystemInv()                           { return m_solarSystemRef->GetMyInventory(); }
     SolarSystemRef GetSystemRef()                       { return m_solarSystemRef; }
@@ -249,6 +253,9 @@ private:
 
     // customs NPC gate tracking
     std::set<uint32> m_customsGates;
+
+    // COSMOS agents in space: agentID -> spawned temp itemID
+    std::map<uint32, uint32> m_cosmosAgents;
 
     // for POS system       -allan 23July17
     std::map<uint32, SystemEntity*> m_moonMap;        // our container, but we DONT own the SE*

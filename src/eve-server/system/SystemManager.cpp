@@ -36,6 +36,7 @@
 #include "npc/CustomsNPCManager.h"
 #include "incursion/IncursionMgr.h"
 #include "inventory/ItemFactory.h"
+#include "inventory/InventoryItem.h"
 #include "inventory/ItemDB.h"
 #include "inventory/AttributeMap.h"
 #include "corporation/LPService.h"
@@ -673,7 +674,109 @@ bool SystemManager::LoadSystemDynamics() {
     ItemDB::ClearPreload();
     AttributeMap::ClearPreload();
 
+    // COSMOS agents that live in this system (SDE locationID = system)
+    SpawnCosmosAgents();
+
     return true;
+}
+
+SystemEntity* SystemManager::GetCosmosAgentSE(uint32 agentID)
+{
+    auto it = m_cosmosAgents.find(agentID);
+    if (it == m_cosmosAgents.end())
+        return nullptr;
+    return GetSE(it->second);
+}
+
+void SystemManager::SpawnCosmosAgents()
+{
+    if (!m_cosmosAgents.empty())
+        return;     // already spawned (system reload guard)
+
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+            "SELECT DISTINCT a.agentID, c.characterName, a.corporationID"
+            " FROM agtAgents a"
+            " JOIN chrNPCCharacters c ON c.characterID = a.agentID"
+            " JOIN cosmosAgentMissions cam ON cam.agentID = a.agentID"
+            " WHERE a.locationID = %u", m_data.systemID)) {
+        _log(AGENT__ERROR, "SpawnCosmosAgents: query failed for %s(%u): %s",
+             m_data.name.c_str(), m_data.systemID, res.error.c_str());
+        return;
+    }
+    if (res.GetRowCount() == 0)
+        return;
+
+    // anchor the agents at the first station of the system; systems without a
+    // station use the star instead
+    bool haveRef = false;
+    GPoint ref(0.0, 0.0, 0.0);
+    DBQueryResult refRes;
+    if (sDatabase.RunQuery(refRes,
+            "SELECT x, y, z FROM staStations WHERE solarSystemID = %u ORDER BY stationID LIMIT 1",
+            m_data.systemID)) {
+        DBResultRow refRow;
+        if (refRes.GetRow(refRow)) {
+            ref = GPoint(refRow.GetDouble(0), refRow.GetDouble(1), refRow.GetDouble(2));
+            haveRef = true;
+        }
+    }
+    if (!haveRef && sDatabase.RunQuery(refRes,
+            "SELECT x, y, z FROM mapDenormalize WHERE itemID = %u", m_data.systemID)) {
+        DBResultRow refRow;
+        if (refRes.GetRow(refRow)) {
+            ref = GPoint(refRow.GetDouble(0), refRow.GetDouble(1), refRow.GetDouble(2));
+            haveRef = true;
+        }
+    }
+
+    uint32 count = 0;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        uint32 agentID = row.GetUInt(0);
+        std::string name = row.GetText(1);
+        uint32 corpID = row.GetUInt(2);
+
+        // in-space model: group 517 "Agents in Space" whose type carries the
+        // agentID dogma attribute (840) equal to this agent
+        DBQueryResult typeRes;
+        if (!sDatabase.RunQuery(typeRes,
+                "SELECT dta.typeID FROM dgmTypeAttributes dta"
+                " JOIN invTypes t ON t.typeID = dta.typeID"
+                " WHERE dta.attributeID = 840 AND dta.valueInt = %u AND t.groupID = 517 LIMIT 1",
+                agentID))
+            continue;
+        DBResultRow typeRow;
+        if (!typeRes.GetRow(typeRow)) {
+            _log(AGENT__WARNING, "SpawnCosmosAgents: no in-space model for agent %u (%s)",
+                 agentID, name.c_str());
+            continue;
+        }
+        uint32 modelTypeID = typeRow.GetUInt(0);
+
+        GPoint pos = ref;
+        pos.MakeRandomPointOnSphere(70000.0 + 5000.0 * count);    // inside agentCommRange (100km)
+
+        ItemData data(modelTypeID, (corpID != 0 ? corpID : 1), m_data.systemID, flagNone, name, pos);
+        uint32 tempID = InventoryItem::CreateTempItemID(data);
+        InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, data);
+        if (iRef.get() == nullptr) {
+            _log(AGENT__WARNING, "SpawnCosmosAgents: failed to spawn agent %u (type %u)",
+                 agentID, modelTypeID);
+            continue;
+        }
+        CelestialSE* cSE = new CelestialSE(iRef, m_services, this);
+        AddEntity(cSE, false);
+        if (cSE->SysBubble() != nullptr)
+            cSE->SysBubble()->AddBallExclusive(cSE);
+        m_cosmosAgents[agentID] = iRef->itemID();
+        ++count;
+        _log(AGENT__MESSAGE, "SpawnCosmosAgents: agent %u (%s) type %u at (%.0f,%.0f,%.0f)",
+             agentID, name.c_str(), modelTypeID, pos.x, pos.y, pos.z);
+    }
+    if (count != 0)
+        _log(AGENT__MESSAGE, "SpawnCosmosAgents: spawned %u agents in %s(%u)",
+             count, m_data.name.c_str(), m_data.systemID);
 }
 
 bool SystemManager::LoadPlayerDynamics() {

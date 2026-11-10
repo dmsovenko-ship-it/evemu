@@ -1342,6 +1342,11 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         && m_agent->GetStationID() != 0 && sDataMgr.IsStation(m_agent->GetStationID())) {
         dropoffID = m_agent->GetStationID();
         destSysID = m_agent->GetSystemID();
+    } else if ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos)
+               && offer.objectiveType == 5 && m_agent->GetStationID() == 0) {
+        // agent in space: hand the goods in at the agent's location (system)
+        dropoffID = m_agent->GetLocationID();
+        destSysID = m_agent->GetSystemID();
     }
     PyDict* dropoffLocation = new PyDict();
     dropoffLocation->SetItemString("typeID", new PyInt(offer.destinationTypeID) );

@@ -40,6 +40,7 @@ public:
     uint32 GetCorpID()                                  { return m_agentData.corporationID; }
     uint32 GetSystemID()                                { return m_agentData.solarSystemID; }
     uint32 GetStationID()                               { return m_agentData.stationID; }
+    uint32 GetLocationID()                              { return m_agentData.locationID; }
     uint32 GetLocTypeID()                               { return m_agentData.locationTypeID; }
     uint32 GetFactionID()                               { return m_agentData.factionID; }
     uint32 MakeButtonID()                               { return ++m_buttonID; }

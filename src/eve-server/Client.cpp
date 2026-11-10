@@ -58,6 +58,7 @@
 #include "station/StationOffice.h"
 #include "system/DestinyManager.h"
 #include "system/SystemManager.h"
+#include "system/SystemEntity.h"
 #include "system/SystemBubble.h"
 #include "system/SystemEffectMgr.h"
 #include "system/cosmicMgrs/AnomalyMgr.h"
@@ -2547,11 +2548,28 @@ bool Client::IsMissionComplete(MissionOffer& data)
         } break;
         case Mission::Type::Cosmos:
         case Mission::Type::EpicArc: {
+            // COSMOS agents live in space: their objectives are fulfilled next to
+            // the agent (inside its ~100km comm range), not docked at a station.
+            auto hasSpaceAgent = [this](uint32 agentID) -> bool {
+                return (m_system != nullptr && m_system->GetCosmosAgentSE(agentID) != nullptr);
+            };
+            auto nearAgent = [this](uint32 agentID) -> bool {
+                if (pShipSE == nullptr || m_system == nullptr || m_locationID != m_system->GetID())
+                    return false;
+                SystemEntity* agSE = m_system->GetCosmosAgentSE(agentID);
+                if (agSE == nullptr)
+                    return false;
+                return pShipSE->GetPosition().distance(agSE->GetPosition()) <= 100000.0;
+            };
             // procedurally assigned objectives (see MissionDataMgr::AssignArcObjective)
             switch (data.objectiveType) {
                 case 1: {   // travel: visit the destination system, report back to the agent
-                    if (m_locationID == 0 || data.originID == 0 || m_locationID != data.originID)
+                    if (hasSpaceAgent(data.agentID)) {
+                        if (!nearAgent(data.agentID))
+                            return false;
+                    } else if (m_locationID == 0 || data.originID == 0 || m_locationID != data.originID) {
                         return false;
+                    }
                     DBQueryResult vres;
                     if (!sDatabase.RunQuery(vres,
                             "SELECT 1 FROM chrVisitedSystems WHERE characterID = %u AND solarSystemID = %u",
@@ -2565,12 +2583,14 @@ bool Client::IsMissionComplete(MissionOffer& data)
                 case 3:     // hunt: every spawned target destroyed
                     return (EncounterSpawnServer::Get() != nullptr
                             && EncounterSpawnServer::Get()->IsOfferComplete(data.offerID));
-                case 5: {   // fetch: bring the item to the agent's station
-                    if (data.courierTypeID == 0)
+                case 5: {   // fetch: bring the item to the agent (in space) or its station
+                    if (data.courierTypeID == 0 || !ContainsTypeQty(data.courierTypeID, data.courierAmount))
                         return false;
+                    if (hasSpaceAgent(data.agentID))
+                        return nearAgent(data.agentID);
                     if (m_locationID == 0 || data.originID == 0 || m_locationID != data.originID)
                         return false;
-                    return ContainsTypeQty(data.courierTypeID, data.courierAmount);
+                    return true;
                 }
                 default:    // legacy offers from before objectives existed
                     return (m_locationID != 0);

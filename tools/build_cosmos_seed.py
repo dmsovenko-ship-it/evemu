@@ -287,6 +287,31 @@ def main():
     io.open(fout, "w", encoding="utf-8").write("\n".join(fsql))
     print("written", fout, os.path.getsize(fout), "bytes, fetch ids", len(fetch_ids))
 
+    # third migration: put the COSMOS agents back where the SDE has them - in
+    # space in their own systems (the client supports "agents in space" natively)
+    sout = OUT.replace("20261106000021-cosmos_real_missions.sql",
+                       "20261106000023-cosmos_agents_in_space.sql")
+    ssql = []
+    ssql.append("-- COSMOS agents live in space in their home systems (SDE locationID = system).")
+    ssql.append("-- The client supports group 517 \"Agents in Space\" natively; the server spawns")
+    ssql.append("-- a static agent ship per row in SystemManager::SpawnCosmosAgents().")
+    ssql.append("-- +migrate Up")
+    for a in agents:
+        ssql.append("UPDATE agtAgents SET locationID=%d WHERE agentID=%d AND agentTypeID=8;"
+                    % (a["system"], a["id"]))
+    ssql.append("UPDATE chrNPCCharacters c")
+    ssql.append("  JOIN agtAgents a ON a.agentID = c.characterID")
+    ssql.append("  LEFT JOIN mapSolarSystems ms ON ms.solarSystemID = a.locationID")
+    ssql.append("  SET c.stationID = 0, c.solarSystemID = a.locationID,")
+    ssql.append("      c.constellationID = IFNULL(ms.constellationID, c.constellationID),")
+    ssql.append("      c.regionID = IFNULL(ms.regionID, c.regionID)")
+    ssql.append("  WHERE a.agentTypeID=8 AND a.locationID BETWEEN 30000000 AND 30999999;")
+    ssql.append("-- +migrate Down")
+    ssql.append("-- (agents stay in space; docking them again is 000021 behaviour)")
+    ssql.append("")
+    io.open(sout, "w", encoding="utf-8").write("\n".join(ssql))
+    print("written", sout, os.path.getsize(sout), "bytes, agents", len(agents))
+
 
 if __name__ == "__main__":
     main()
