@@ -47,12 +47,34 @@ def clean(s):
     return re.sub(r"\s+", " ", s).strip()
 
 
+NPC_CLASSES = {
+    "frigate", "destroyer", "cruiser", "battlecruiser", "battleship",
+    "elite frigate", "elite cruiser", "elite battleship",
+    "commander battleship", "overseer cruiser", "drone", "industrial",
+    "sentry", "sentries", "friendly frigate", "friendly cruiser",
+    "friendly battleship", "friendly elite frigate", "storyline mission cruiser",
+}
+
+
 def parse_site_list(page):
     """Parse the 'COSMOS sites' table into [{name, system, type}]."""
     i = page.find("COSMOS sites")
     if i < 0:
         return []
-    body = page[i:]
+    # keep only the sites section: from its heading until the next heading of the
+    # same or higher level (subsections like "==== Combat ====" stay included)
+    head = page.rfind("\n", 0, i) + 1
+    line_end = page.find("\n", head)
+    head_line = page[head:line_end]
+    level = len(head_line) - len(head_line.lstrip("="))
+    stop = len(page)
+    for m in re.finditer(r"^=+([^=\n]+)=+\s*$", page[line_end:], re.M):
+        lvl = len(m.group(1)) # not used
+        hlvl = len(m.group(0)) - len(m.group(0).lstrip("="))
+        if hlvl <= level:
+            stop = line_end + m.start()
+            break
+    body = page[i:stop]
     sites = []
     for chunk in re.split(r"^\s*\|-\s*$", body, flags=re.M):
         m = re.search(r"\[\[([^\]|]+)\]\]", chunk)
@@ -93,16 +115,21 @@ def parse_site_page(text):
         if heading is None:
             continue
         npcs = []
+        gates = []
         for row in re.findall(r"\{\{NPCTableRow\|([^}]*)\}\}", body):
             f = [x.strip() for x in row.split("|")]
             if len(f) < 3:
                 continue
+            cls = f[0].lower()
+            if "acceleration gate" in cls or cls in ("accl gate",):
+                gates.append(row)
+                continue
+            if cls not in NPC_CLASSES:
+                continue
+            if not re.match(r"^\d+$", re.sub(r"[^0-9]", "", f[1]) or ""):
+                continue
             npcs.append({"class": f[0], "count": f[1], "names": f[2],
                          "drop": f[3] if len(f) > 3 else ""})
-        gates = []
-        for row in re.findall(r"\{\{NPCTableRow\|([^}]*)\}\}", body):
-            if "Acceleration Gate" in row:
-                gates.append(row)
         passkeys = []
         for line in body.split("\n"):
             if "passcard" in line.lower() or "passkey" in line.lower() or "requires" in line.lower():

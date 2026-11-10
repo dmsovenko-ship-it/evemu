@@ -744,43 +744,88 @@ void SystemManager::SpawnCosmosSites()
 
         // first-pocket NPC pack (flat model: no gates yet). Gate/pocket chains
         // build on top of this later.
+        // pockets are laid out along +x from the beacon and chained with real
+        // acceleration gates (17831, customInfo gate_to:x:y:z)
+        static const double POCKET_SPACING = 150000.0;
+        std::map<uint32, std::vector<std::pair<uint32, uint32> > > pockets;
+        uint32 maxPocket = 0;
         DBQueryResult npcRes;
         if (sDatabase.RunQuery(npcRes,
-                "SELECT typeID, qty FROM cosmosSiteNpcs WHERE siteID = %u AND pocket = 1",
+                "SELECT pocket, typeID, qty FROM cosmosSiteNpcs WHERE siteID = %u ORDER BY pocket",
                 siteID)) {
-            FactionData faction = FactionData();
-                faction.allianceID = factionID;
-                faction.corporationID = (corpID != 0 ? corpID : 1);
-                faction.factionID = factionID;
-                faction.ownerID = (corpID != 0 ? corpID : 1);
             DBResultRow npcRow;
-            uint32 n = 0;
             while (npcRes.GetRow(npcRow)) {
-                uint32 npcType = npcRow.GetUInt(0);
-                uint32 qty = npcRow.GetUInt(1);
-                for (uint32 k = 0; k < qty && k < 12; ++k, ++n) {
-                    GPoint npcPos = pos;
-                    npcPos.x += 15000.0 + (n % 4) * 2500.0;
-                    npcPos.z += (n / 4) * 2500.0;
-                    ItemData npcData(npcType, faction.ownerID, m_data.systemID, flagNone, "", npcPos);
-                    // temp item: site NPCs are re-spawned on every system boot, they must
-                    // not accumulate rows in the entity table
-                    uint32 npcTempID = InventoryItem::CreateTempItemID(npcData);
-                    InventoryItemRef npcRef = InventoryItem::SpawnItem(npcTempID, npcData);
-                    if (npcRef.get() == nullptr)
-                        continue;
-                    NPC* npc = new NPC(npcRef, m_services, this, faction);
-                    if (npc == nullptr)
-                        continue;
-                    if (npc->Load()) {
-                        npc->DestinyMgr()->SetPosition(npcPos);
-                        AddNPC(npc);
-                    } else {
-                        SafeDelete(npc);
+                uint32 p = npcRow.GetUInt(0);
+                pockets[p].push_back(std::make_pair(npcRow.GetUInt(1), npcRow.GetUInt(2)));
+                if (p > maxPocket)
+                    maxPocket = p;
+            }
+        }
+
+        FactionData faction = FactionData();
+            faction.allianceID = factionID;
+            faction.corporationID = (corpID != 0 ? corpID : 1);
+            faction.factionID = factionID;
+            faction.ownerID = (corpID != 0 ? corpID : 1);
+
+        uint32 spawnedNpcs = 0;
+        for (uint32 pocket = 1; pocket <= maxPocket; ++pocket) {
+            GPoint pocketPos = pos;
+            pocketPos.x += (pocket - 1) * POCKET_SPACING;
+            uint32 local = 0;
+            auto it = pockets.find(pocket);
+            if (it != pockets.end()) {
+                for (auto& entry : it->second) {
+                    uint32 npcType = entry.first;
+                    uint32 qty = entry.second;
+                    for (uint32 k = 0; k < qty && k < 12 && spawnedNpcs < 20; ++k, ++local, ++spawnedNpcs) {
+                        GPoint npcPos = pocketPos;
+                        npcPos.x += 15000.0 + (local % 4) * 2500.0;
+                        npcPos.z += (local / 4) * 2500.0;
+                        ItemData npcData(npcType, faction.ownerID, m_data.systemID, flagNone, "", npcPos);
+                        // temp item: site NPCs are re-spawned on every system boot, they
+                        // must not accumulate rows in the entity table
+                        uint32 npcTempID = InventoryItem::CreateTempItemID(npcData);
+                        InventoryItemRef npcRef = InventoryItem::SpawnItem(npcTempID, npcData);
+                        if (npcRef.get() == nullptr)
+                            continue;
+                        NPC* npc = new NPC(npcRef, m_services, this, faction);
+                        if (npc == nullptr)
+                            continue;
+                        if (npc->Load()) {
+                            npc->DestinyMgr()->SetPosition(npcPos);
+                            AddNPC(npc);
+                        } else {
+                            SafeDelete(npc);
+                        }
                     }
                 }
             }
+            if (pocket < maxPocket) {
+                GPoint gatePos = pocketPos;
+                gatePos.x += 30000.0 + MakeRandomInt(0, 4000);
+                GPoint nextPos = pos;
+                nextPos.x += pocket * POCKET_SPACING;
+                ItemData gateData(17831, (corpID != 0 ? corpID : 1), m_data.systemID, flagNone,
+                                  "Acceleration Gate", gatePos);
+                uint32 gateTempID = InventoryItem::CreateTempItemID(gateData);
+                InventoryItemRef gateRef = InventoryItem::SpawnItem(gateTempID, gateData);
+                if (gateRef.get() != nullptr) {
+                    char ci[128];
+                    snprintf(ci, sizeof(ci), "gate_to:%lld:%lld:%lld",
+                             (long long)nextPos.x, (long long)nextPos.y, (long long)nextPos.z);
+                    gateRef->SetCustomInfo(ci);
+                    CelestialSE* gateSE = new CelestialSE(gateRef, m_services, this);
+                    gateSE->SetIsStaticEntity(true);
+                    AddEntity(gateSE, false);
+                    if (gateSE->SysBubble() != nullptr)
+                        gateSE->SysBubble()->AddBallExclusive(gateSE);
+                }
+            }
         }
+        if (maxPocket > 1)
+            _log(AGENT__MESSAGE, "SpawnCosmosSites: site %u (%s) has %u pockets",
+                 siteID, name.c_str(), maxPocket);
         ++count;
         _log(AGENT__MESSAGE, "SpawnCosmosSites: site %u (%s) beacon at (%.0f,%.0f,%.0f)",
              siteID, name.c_str(), pos.x, pos.y, pos.z);

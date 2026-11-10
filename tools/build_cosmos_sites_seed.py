@@ -46,6 +46,46 @@ def load_tsv(name, key_col=1, val_col=0):
     return d
 
 
+FACTION_PREFIX = {
+    500001: "Caldari State", 500002: "Minmatar Republic", 500003: "Amarr Empire",
+    500004: "Gallente Federation", 500006: "CONCORD", 500007: "Amarr Empire",
+    500008: "Khanid", 500009: "Serpentis", 500010: "Guristas", 500011: "Angel Cartel",
+    500012: "Blood Raiders", 500019: "Sansha's Nation", 500020: "Serpentis",
+    500022: "Rogue Drone",
+}
+
+CLASS_MAP = {
+    "frigate": "Frigate", "destroyer": "Destroyer", "cruiser": "Cruiser",
+    "battlecruiser": "BattleCruiser", "battleship": "Battleship",
+    "elite frigate": "Commander Frigate", "elite cruiser": "Commander Cruiser",
+    "elite battleship": "Commander Battleship",
+    "commander battleship": "Commander Battleship",
+    "overseer cruiser": "Cruiser", "industrial": "Hauler",
+    "drone": "Drone", "sentry": "Sentry", "sentries": "Sentry",
+}
+
+# groupName -> representative typeID (from the live DB)
+_groups = {}
+_gp = os.path.join(B, "q_groups.tsv")
+if os.path.exists(_gp):
+    for line in io.open(_gp, encoding="utf-8", errors="replace"):
+        f = line.rstrip("\n").split("\t")
+        if len(f) == 2 and f[1].strip().isdigit():
+            _groups[f[0].strip()] = int(f[1])
+
+
+def resolve_npc(name, cls, faction, types):
+    """exact type name, else a faction+class representative NPC type"""
+    tid = types.get((name or "").strip().lower(), 0)
+    if tid:
+        return tid
+    suffix = CLASS_MAP.get((cls or "").strip().lower())
+    prefix = FACTION_PREFIX.get(faction, "")
+    if not suffix or not prefix:
+        return 0
+    return _groups.get("Asteroid %s %s" % (prefix, suffix), 0)
+
+
 def faction_id(name):
     n = (name or "").lower()
     for k, v in FACTIONS.items():
@@ -83,9 +123,11 @@ def main():
                 for r in pocket.get("npcs", []):
                     nm = r.get("names", "").split("/")[0]
                     nm = re.sub(r"<[^>]+>", "", nm).strip()
-                    tid = npc_types.get(nm.lower(), 0)
                     qty = re.sub(r"[^0-9]", "", r.get("count", "") or "")
-                    if tid and qty:
+                    if not qty:
+                        continue
+                    tid = resolve_npc(nm, r.get("class"), fid, npc_types)
+                    if tid:
                         rows[tid] = rows.get(tid, 0) + min(int(qty), 20)
                 if rows:
                     packs.append((pi, rows))
