@@ -18,7 +18,7 @@
 | Account & Character | 97% | `███████████████████░` | +2% | Skills & Certificates | 99% | `████████████████████` | +9% |
 | Ship Navigation | 99% | `████████████████████` | +29% | Combat & Crimewatch | 99% | `████████████████████` | +9% |
 | Modules & Overheating | 97% | `███████████████████░` | +12% | Drones | 97% | `███████████████████░` | +21% |
-| NPC AI & Spawning | 97% | `███████████████████░` | +37% | Agents & Missions | 97% | `███████████████████░` | +27% |
+| NPC AI & Spawning | 97% | `███████████████████░` | +37% | Agents & Missions | 98% | `████████████████████` | +28% |
 | **POS** | 99% | `████████████████████` | +29% | Market | 95% | `███████████████████░` | +35% |
 | **Incursions** | 96% | `███████████████████░` | +96% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 92% | `██████████████████░░` | +32% | Scanning | 99% | `████████████████████` | +19% |
@@ -53,6 +53,14 @@
 - **Market**: covering indexes (`GetRegionBest` ~11.8 s → ~33 ms; station/system asks 6–84 ms).
 - **Petitions**: message read tracking, ratings, escalation target.
 - **Faction Warfare**: enlist via Letter of Recommendation.
+
+### Session 10 Nov
+
+- **COSMOS from the wiki**: 340 agents live in space on their named beacons (`Agents in Space`, group 517 / dogma attr `agentID`); 218 agent/combat sites with NPC pockets, `17831` acceleration gates, passkeys and gate ship limits; 581 one-time chain missions with real briefings/objectives (travel/fetch/hunt), fetch loot, 79 reward items.
+- **Mission destinations**: system/station parsed from the wiki for 269 missions (213 systems, 56 stations); "Report to `agent`" uses the native journal objective (portrait, location, warp); briefings filled + objective fallback (602 rows with text).
+- **Epic arcs**: chapter/branch progression repaired (`AdvanceMission` per mission, chapter roll-over, arc completion) and progress persisted in `chrEpicArcState`; starting agents point at the real agent rows; in-space arc agents spawn like COSMOS agents; standings gate configurable.
+- **Storyline**: every 15 completed missions a courier storyline with a mission package and a real station hand-in; 543 previously nameless arc/FW/storyline agents got their names from the SDE.
+- **Sites**: static beacons anchored to the star, pockets 150 km apart along +x, named-NPC loot in the lead NPC's wreck, respawn 10 minutes after the pack is wiped.
 
 ## Details / Детали
 
@@ -174,7 +182,7 @@
 | **EWAR stickiness fix** — warp scramble / web / paint released when the target leaves the manager, no lingering "Warp drive is disrupted" | ❌ | ✅ |
 | **Empty spawn-class guard** — a spawn class with no rows in the DB cancels the spawn instead of `at(0)` out_of_range abort | ❌ | ✅ |
 
-### 8. Agents & Missions `███████████████████░` 97%
+### 8. Agents & Missions `████████████████████` 98%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -188,6 +196,13 @@
 | **Briefing localization** — real arc-1 briefing texts seeded into `missionObjectives` | ❌ | ✅ |
 | **Real arc/COSMOS objectives** — travel (visit the target system), courier (deliver the package), hunt (kill the spawned cluster); arc offers get a real offerID | ❌ | ✅ |
 | **Tutorial chain** — Aura steps become journal missions; completion from tutorial state, auto-next step | ❌ | ✅ |
+| **COSMOS agents & sites (wiki)** — 340 agents in space on their named beacons (`Agents in Space` type + `agentID` dogma attribute); 218 agent/combat sites with NPC pockets, acceleration gates, passkeys and gate ship limits | ❌ | ✅ |
+| **COSMOS one-time chains & rewards** — 581 sequential chain missions with real briefings/objectives (travel/fetch/hunt), fetch loot next to the agent, reward items for 79 missions; the chain ends cleanly | ❌ | ✅ |
+| **Mission destinations** — system/station parsed from the wiki for 269 missions (213 systems, 56 stations); travel/courier offers use the real destination | ❌ | ✅ |
+| **Report-to-agent objective** — native `agent` journal objective (portrait, location, warp link) for 54 missions | ❌ | ✅ |
+| **Epic arc progression** — per-mission advancement, chapter roll-over by branch, arc completion, state persisted in `chrEpicArcState`; arcs start at the real agent rows | 🟡 | ✅ |
+| **Storyline loop** — every 15 completed missions a courier storyline with a mission package and a real station hand-in | 🟡 | ✅ |
+| **Briefing coverage** — 602 `missionObjectives` rows carry text (wiki briefings + 13 backfilled); COSMOS falls back to `Objective: …` | 🟡 | ✅ |
 
 ### 9. Market `███████████████████░` 95%
 
@@ -506,3 +521,8 @@
 - **Missions localization & objectives** — real arc-1 briefing texts in `missionObjectives`; real travel/courier/hunt objectives; Aura tutorial chain; `missionID`/`briefingID` widened to uint32
 - **Inventory & social tools** — stack split, drone bay, contact labels, notepad, container passwords, plastic wrap, corp deliveries, corp asset search, impound return, CEO resignation
 - **Market best-price indexes** — covering indexes cut best-price queries from ~11.8 s to ~33 ms
+- **COSMOS content from the wiki** — 340 agents in space on named beacons, 218 sites with pockets/gates/passkeys, 581 one-time chain missions with real briefings, objectives, fetch loot and 79 reward items
+- **Mission destinations & journal** — 269 missions carry a parsed system/station; "Report to `agent`" renders the native agent objective with a warp link
+- **Epic arc progression** — chapter/branch advancement and arc completion repaired, progress persisted in `chrEpicArcState`
+- **Storyline loop** — every 15 missions a courier storyline with a mission package and a real station hand-in
+- **Agent names restored** — 543 arc/FW/storyline agents filled from the SDE `invNames` (nameless dialogues fixed)
