@@ -535,10 +535,29 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     && offer.objectiveType == 3 && offer.destinationSystemID != 0) {
                     EncounterSpawnServer* huntEss = EncounterSpawnServer::Get();
                     if (huntEss != nullptr) {
+                        uint32 huntSys = offer.destinationSystemID;
                         GPoint huntPos = dungeonSite;
                         if (huntPos.x == 0 && huntPos.y == 0 && huntPos.z == 0)
                             huntPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
-                        uint32 huntCount = huntEss->SpawnEncounterForOffer(offer, offer.destinationSystemID, huntPos, moFaction, moCount);
+                        // COSMOS agent in space: the targets live at its own site, so
+                        // fly to the agent instead of a random destination system
+                        if (m_agent->GetStationID() == 0) {
+                            SystemEntity* agSE = nullptr;
+                            auto& systems = sEntityList.GetSystems();
+                            auto sit = systems.find(m_agent->GetSystemID());
+                            if (sit != systems.end())
+                                agSE = sit->second->GetCosmosAgentSE(m_agent->GetID());
+                            if (agSE != nullptr) {
+                                huntSys = m_agent->GetSystemID();
+                                huntPos = agSE->GetPosition();
+                                huntPos.x += 30000.0;
+                                dungeonSite = huntPos;
+                                offer.destinationSystemID = huntSys;
+                                offer.destinationID = huntSys;
+                                offer.destinationOwnerID = 0;
+                            }
+                        }
+                        uint32 huntCount = huntEss->SpawnEncounterForOffer(offer, huntSys, huntPos, moFaction, moCount);
                         _log(AGENT__MESSAGE, "Arc/cosmos hunt: spawned %u targets for mission %u offer %u.",
                              huntCount, offer.missionID, offer.offerID);
                     }

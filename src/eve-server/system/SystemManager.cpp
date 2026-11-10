@@ -297,6 +297,7 @@ bool SystemManager::ProcessTic() {
     // process planets for PI
     if (m_minutetimer.Check()) {
         //++m_minutes;  // not used at this time
+        ProcessCosmosSiteRespawns();
         for (auto cur : m_planetMap)
             cur.second->Process();
     }
@@ -744,63 +745,25 @@ void SystemManager::SpawnCosmosSites()
 
         // first-pocket NPC pack (flat model: no gates yet). Gate/pocket chains
         // build on top of this later.
-        // pockets are laid out along +x from the beacon and chained with real
-        // acceleration gates (17831, customInfo gate_to:x:y:z)
+        m_cosmosSiteFaction[siteID] = factionID;
+        m_cosmosSiteCorp[siteID] = corpID;
+        m_cosmosSiteLastSpawn[siteID] = GetFileTimeNow();
+        SpawnCosmosSiteNpcs(siteID, pos, factionID, corpID);
+
+        // pockets: loot containers at each pocket + acceleration gates between them
         static const double POCKET_SPACING = 150000.0;
-        std::map<uint32, std::vector<std::pair<uint32, uint32> > > pockets;
         uint32 maxPocket = 0;
-        DBQueryResult npcRes;
-        if (sDatabase.RunQuery(npcRes,
-                "SELECT pocket, typeID, qty FROM cosmosSiteNpcs WHERE siteID = %u ORDER BY pocket",
-                siteID)) {
-            DBResultRow npcRow;
-            while (npcRes.GetRow(npcRow)) {
-                uint32 p = npcRow.GetUInt(0);
-                pockets[p].push_back(std::make_pair(npcRow.GetUInt(1), npcRow.GetUInt(2)));
-                if (p > maxPocket)
-                    maxPocket = p;
-            }
+        DBQueryResult pocketRes;
+        if (sDatabase.RunQuery(pocketRes,
+                "SELECT MAX(pocket) FROM cosmosSiteNpcs WHERE siteID = %u", siteID)) {
+            DBResultRow pocketRow;
+            if (pocketRes.GetRow(pocketRow) && !pocketRow.IsNull(0))
+                maxPocket = pocketRow.GetUInt(0);
         }
-
-        FactionData faction = FactionData();
-            faction.allianceID = factionID;
-            faction.corporationID = (corpID != 0 ? corpID : 1);
-            faction.factionID = factionID;
-            faction.ownerID = (corpID != 0 ? corpID : 1);
-
-        uint32 spawnedNpcs = 0;
         for (uint32 pocket = 1; pocket <= maxPocket; ++pocket) {
             GPoint pocketPos = pos;
             pocketPos.x += (pocket - 1) * POCKET_SPACING;
-            uint32 local = 0;
-            auto it = pockets.find(pocket);
-            if (it != pockets.end()) {
-                for (auto& entry : it->second) {
-                    uint32 npcType = entry.first;
-                    uint32 qty = entry.second;
-                    for (uint32 k = 0; k < qty && k < 12 && spawnedNpcs < 20; ++k, ++local, ++spawnedNpcs) {
-                        GPoint npcPos = pocketPos;
-                        npcPos.x += 15000.0 + (local % 4) * 2500.0;
-                        npcPos.z += (local / 4) * 2500.0;
-                        ItemData npcData(npcType, faction.ownerID, m_data.systemID, flagNone, "", npcPos);
-                        // temp item: site NPCs are re-spawned on every system boot, they
-                        // must not accumulate rows in the entity table
-                        uint32 npcTempID = InventoryItem::CreateTempItemID(npcData);
-                        InventoryItemRef npcRef = InventoryItem::SpawnItem(npcTempID, npcData);
-                        if (npcRef.get() == nullptr)
-                            continue;
-                        NPC* npc = new NPC(npcRef, m_services, this, faction);
-                        if (npc == nullptr)
-                            continue;
-                        if (npc->Load()) {
-                            npc->DestinyMgr()->SetPosition(npcPos);
-                            AddNPC(npc);
-                        } else {
-                            SafeDelete(npc);
-                        }
-                    }
-                }
-            }
+
             // site loot (named drops / mission items) in containers at the pocket
             DBQueryResult dropRes;
             if (sDatabase.RunQuery(dropRes,
@@ -816,6 +779,7 @@ void SystemManager::SpawnCosmosSites()
                     ++dc;
                 }
             }
+
             if (pocket < maxPocket) {
                 GPoint gatePos = pocketPos;
                 gatePos.x += 30000.0 + MakeRandomInt(0, 4000);
@@ -862,6 +826,92 @@ void SystemManager::SpawnCosmosSites()
     if (count != 0)
         _log(AGENT__MESSAGE, "SpawnCosmosSites: spawned %u sites in %s(%u)",
              count, m_data.name.c_str(), m_data.systemID);
+}
+
+void SystemManager::SpawnCosmosSiteNpcs(uint32 siteID, const GPoint& pos, uint32 factionID, uint32 corpID)
+{
+    std::vector<uint32>& mobs = m_cosmosSiteMobs[siteID];
+    mobs.clear();
+
+    std::map<uint32, std::vector<std::pair<uint32, uint32> > > pockets;
+    uint32 maxPocket = 0;
+    DBQueryResult npcRes;
+    if (sDatabase.RunQuery(npcRes,
+            "SELECT pocket, typeID, qty FROM cosmosSiteNpcs WHERE siteID = %u ORDER BY pocket", siteID)) {
+        DBResultRow npcRow;
+        while (npcRes.GetRow(npcRow)) {
+            uint32 p = npcRow.GetUInt(0);
+            pockets[p].push_back(std::make_pair(npcRow.GetUInt(1), npcRow.GetUInt(2)));
+            if (p > maxPocket)
+                maxPocket = p;
+        }
+    }
+    if (maxPocket == 0)
+        return;
+
+    FactionData faction = FactionData();
+        faction.allianceID = factionID;
+        faction.corporationID = (corpID != 0 ? corpID : 1);
+        faction.factionID = factionID;
+        faction.ownerID = (corpID != 0 ? corpID : 1);
+
+    static const double POCKET_SPACING = 150000.0;
+    uint32 spawned = 0;
+    for (uint32 pocket = 1; pocket <= maxPocket; ++pocket) {
+        auto it = pockets.find(pocket);
+        if (it == pockets.end())
+            continue;
+        GPoint pocketPos = pos;
+        pocketPos.x += (pocket - 1) * POCKET_SPACING;
+        uint32 local = 0;
+        for (auto& entry : it->second) {
+            uint32 npcType = entry.first;
+            uint32 qty = entry.second;
+            for (uint32 k = 0; k < qty && k < 12 && spawned < 20; ++k, ++local, ++spawned) {
+                GPoint npcPos = pocketPos;
+                npcPos.x += 15000.0 + (local % 4) * 2500.0;
+                npcPos.z += (local / 4) * 2500.0;
+                ItemData npcData(npcType, faction.ownerID, m_data.systemID, flagNone, "", npcPos);
+                // temp item: site NPCs are re-spawned on every system boot, they
+                // must not accumulate rows in the entity table
+                uint32 npcTempID = InventoryItem::CreateTempItemID(npcData);
+                InventoryItemRef npcRef = InventoryItem::SpawnItem(npcTempID, npcData);
+                if (npcRef.get() == nullptr)
+                    continue;
+                NPC* npc = new NPC(npcRef, m_services, this, faction);
+                if (npc == nullptr)
+                    continue;
+                if (npc->Load()) {
+                    npc->DestinyMgr()->SetPosition(npcPos);
+                    AddNPC(npc);
+                    mobs.push_back(npc->GetID());
+                } else {
+                    SafeDelete(npc);
+                }
+            }
+        }
+    }
+}
+
+void SystemManager::ProcessCosmosSiteRespawns()
+{
+    if (m_cosmosSiteMobs.empty() || PlayerCount() == 0)
+        return;
+    double now = GetFileTimeNow();
+    for (auto& kv : m_cosmosSiteMobs) {
+        uint32 siteID = kv.first;
+        bool alive = false;
+        for (uint32 id : kv.second)
+            if (GetSE(id) != nullptr) { alive = true; break; }
+        if (alive || (now - m_cosmosSiteLastSpawn[siteID]) < 600)
+            continue;
+        SystemEntity* se = GetCosmosSiteSE(siteID);
+        if (se == nullptr)
+            continue;
+        SpawnCosmosSiteNpcs(siteID, se->GetPosition(), m_cosmosSiteFaction[siteID], m_cosmosSiteCorp[siteID]);
+        m_cosmosSiteLastSpawn[siteID] = now;
+        _log(AGENT__MESSAGE, "ProcessCosmosSiteRespawns: site %u respawned", siteID);
+    }
 }
 
 SystemEntity* SystemManager::GetCosmosAgentSE(uint32 agentID)
@@ -1595,7 +1645,7 @@ void SystemManager::ActivateLazyNPCs(SystemBubble* pBubble) {
 void SystemManager::ProcessLazyActivation() {
     if (m_lazyActivate.empty())
         return;
-    int64 now = GetFileTimeNow();
+    double now = GetFileTimeNow();
     std::vector<uint32> ids;
     ids.reserve(m_lazyActivate.size());
     for (auto& kv : m_lazyActivate)
@@ -2835,7 +2885,7 @@ void SystemManager::ClearDronesAssignedTo(ShipSE* pShip) {
 void SystemManager::ProcessGhostShips() {
     if (m_ghostShips.empty())
         return;
-    int64 now = GetFileTimeNow();
+    double now = GetFileTimeNow();
     auto it = m_ghostShips.begin();
     while (it != m_ghostShips.end()) {
         ShipSE* pShip = it->first;
