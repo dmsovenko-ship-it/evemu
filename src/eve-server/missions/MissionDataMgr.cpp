@@ -756,13 +756,15 @@ bool MissionDataMgr::CreateCosmosChainOffer(uint32 agentID, uint32 charID, uint8
         data.range       = 1;
         data.courierTypeID = 0;
         data.courierAmount = 0;
+        data.rewardItemID = row.GetUInt(4);
+        data.rewardItemQty = row.GetUInt(5);
         return true;
     };
 
     DBQueryResult res;
     // 1) an offer from this agent's chain that is still open (offered/accepted)
     if (sDatabase.RunQuery(res,
-            "SELECT cam.missionID, m.name, m.briefingID, m.level"
+            "SELECT cam.missionID, m.name, m.briefingID, m.level, m.rewardItemID, m.rewardItemQty"
             " FROM cosmosAgentMissions cam"
             " JOIN agtMissions m ON m.id = cam.missionID"
             " JOIN agtOffers o ON o.missionID = cam.missionID AND o.characterID = %u AND o.dateCompleted = 0"
@@ -783,7 +785,7 @@ bool MissionDataMgr::CreateCosmosChainOffer(uint32 agentID, uint32 charID, uint8
             lastStep = row.GetUInt(0);
     }
     if (!sDatabase.RunQuery(res,
-            "SELECT cam.missionID, m.name, m.briefingID, m.level"
+            "SELECT cam.missionID, m.name, m.briefingID, m.level, m.rewardItemID, m.rewardItemQty"
             " FROM cosmosAgentMissions cam"
             " JOIN agtMissions m ON m.id = cam.missionID"
             " WHERE cam.agentID = %u AND cam.step = %u", agentID, lastStep + 1))

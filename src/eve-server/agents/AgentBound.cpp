@@ -681,11 +681,17 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     call.client->RemoveMissionItem(offer.courierTypeID, offer.courierAmount);
                 }
                 if (offer.rewardItemID) {
-                    // add reward item to players hangar
+                    // add reward item: to the hangar when docked, otherwise to the
+                    // ship's cargo hold (COSMOS agents live in space, no station)
                     sItemFactory.SetUsingClient(call.client);
                     ItemData data(offer.rewardItemID, pchar->itemID(), locTemp, flagNone, offer.rewardItemQty);
                     InventoryItemRef iRef = sItemFactory.SpawnItem(data);
-                    iRef->Move(m_agent->GetStationID(), flagHangar, true);
+                    if (iRef.get() != nullptr) {
+                        if (m_agent->GetStationID() != 0)
+                            iRef->Move(m_agent->GetStationID(), flagHangar, true);
+                        else
+                            iRef->Move(pchar->itemID(), flagCargoHold, true);
+                    }
                     sItemFactory.UnsetUsingClient();
                 }
                 /** @todo  add fleet sharing  */

@@ -90,6 +90,55 @@ def is_hunt(m):
     return any(k in o for k in ("destroy", "kill", "clear out", "eliminate"))
 
 
+def load_tsv(name, key_col, val_col):
+    d = {}
+    path = os.path.join(BASE, name)
+    if not os.path.exists(path):
+        return d
+    for line in io.open(path, encoding="utf-8", errors="replace"):
+        f = line.rstrip().split("\t")
+        if len(f) > max(key_col, val_col) and f[val_col].strip():
+            key = f[key_col].strip().lstrip("\ufeff").lower()
+            val = f[val_col].strip().lstrip("\ufeff")
+            d[key] = int(val) if val.isdigit() else val
+    return d
+
+
+REWARD_SKIP = ("random", "isk", "standing", "bonus time", "time bonus",
+               "ammunition", "module bpc", "loyalty")
+REWARD_BAD = re.compile(r"^(me|te|copy|runs?|material|time|bonus|level)\b|[:=]", re.I)
+
+
+def parse_reward_items(txt):
+    """Missiondetails Rewards -> [(itemName, qty)] for concrete (non-random) items."""
+    out = []
+    for part in re.split(r"\+", txt or ""):
+        part = part.strip()
+        if not part:
+            continue
+        low = part.lower()
+        if any(k in low for k in REWARD_SKIP):
+            continue
+        m = re.match(r"(\d+)\s*[x\u00d7]\s+(.+)$", part)
+        qty = 1
+        name = part
+        if m:
+            qty = int(m.group(1))
+            name = m.group(2)
+        is_bp = ("blueprint" in name.lower() or "bpc" in name.lower())
+        name = name.split("(")[0]
+        name = re.sub(r"\bBPC\b", "", name, flags=re.I)
+        name = re.sub(r"\bBlueprint\b", "", name, flags=re.I)
+        name = re.sub(r"\s+", " ", name).strip(" .,;:-")
+        if is_bp:
+            name = name + " Blueprint"
+        if REWARD_BAD.search(name) or not re.search(r"[a-z]", name):
+            continue
+        if 4 <= len(name) <= 70:
+            out.append((name, max(1, min(qty, 10))))
+    return out
+
+
 def step_of(name):
     m = re.search(r"\((\d+)\s+of\s+(\d+)\)", name or "")
     return int(m.group(1)) if m else 0
@@ -138,11 +187,13 @@ def main():
         if len(f) >= 2 and f[0].isdigit():
             have[f[1].lower()] = int(f[0])
     have.update(MANUAL_ITEMS)
+    reward_map = load_tsv("q_rew.tsv", 1, 0)
 
     mid = FIRST_ID
     mission_sql = []
     obj_sql = []
     chain_sql = []
+    reward_rows = []
     stats = {"missions": 0, "hunt": 0, "travel": 0, "fetch": 0, "items": 0}
     fetch_ids = []
 
@@ -169,8 +220,16 @@ def main():
         objtxt = re.sub(r"\s+", " ", m.get("objective") or "").strip()[:500]
         note = ("COSMOS %s / %s" % (m["_page"], m.get("type") or "?"))[:255]
 
+        rid, rqty = 0, 0
+        for rname, rq in parse_reward_items(m.get("rewards")):
+            rtid = reward_map.get(rname.lower(), 0)
+            if rtid:
+                rid, rqty = int(rtid), int(rq)
+                break
+        if rid:
+            reward_rows.append((mid, rid, rqty))
         mission_sql.append(
-            "(%d,0,%s,%d,9,0,0,0,0,0,0,0,0,0,0,0)" % (mid, esc(mname), lvl))
+            "(%d,0,%s,%d,9,0,0,0,0,0,0,0,%d,%d,0,0)" % (mid, esc(mname), lvl, rid, rqty))
         obj_sql.append(
             "(%d,0,%d,%d,%d,%d,%s,%d,%d,%d,%s,%s)" % (
                 mid, otype, itype, iqty, npc_count, esc(note), fid, structure,
@@ -311,6 +370,21 @@ def main():
     ssql.append("")
     io.open(sout, "w", encoding="utf-8").write("\n".join(ssql))
     print("written", sout, os.path.getsize(sout), "bytes, agents", len(agents))
+
+    # reward items from the wiki Rewards column (idempotent UPDATE for live DBs)
+    rout = OUT.replace("20261106000021-cosmos_real_missions.sql",
+                       "20261106000025-cosmos_mission_rewards.sql")
+    rsql = []
+    rsql.append("-- COSMOS mission reward items (wiki Rewards column, concrete items only).")
+    rsql.append("-- +migrate Up")
+    for rid, rt, rq in reward_rows:
+        rsql.append("UPDATE agtMissions SET rewardItemID=%d, rewardItemQty=%d WHERE id=%d;"
+                    % (rt, rq, rid))
+    rsql.append("-- +migrate Down")
+    rsql.append("-- (reward items stay)")
+    rsql.append("")
+    io.open(rout, "w", encoding="utf-8").write("\n".join(rsql))
+    print("written", rout, os.path.getsize(rout), "bytes, rewards", len(reward_rows))
 
 
 if __name__ == "__main__":
