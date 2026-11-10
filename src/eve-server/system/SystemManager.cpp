@@ -728,7 +728,7 @@ void SystemManager::SpawnCosmosSites()
         pos.y += row.GetDouble(6);
         pos.z += row.GetDouble(7);
 
-        ItemData data(beaconTypeID, (corpID != 0 ? corpID : 1), m_data.systemID, flagNone, name, pos);
+        ItemData data(beaconTypeID, (corpID != 0 ? corpID : 1), m_data.systemID, flagNone, name.c_str(), pos);
         uint32 tempID = InventoryItem::CreateTempItemID(data);
         InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, data);
         if (iRef.get() == nullptr) {
@@ -875,7 +875,7 @@ void SystemManager::SpawnCosmosAgents()
             pos.MakeRandomPointOnSphere(70000.0 + 5000.0 * count);    // inside agentCommRange (100km)
         }
 
-        ItemData data(modelTypeID, (corpID != 0 ? corpID : 1), m_data.systemID, flagNone, name, pos);
+        ItemData data(modelTypeID, (corpID != 0 ? corpID : 1), m_data.systemID, flagNone, name.c_str(), pos);
         uint32 tempID = InventoryItem::CreateTempItemID(data);
         InventoryItemRef iRef = InventoryItem::SpawnItem(tempID, data);
         if (iRef.get() == nullptr) {
