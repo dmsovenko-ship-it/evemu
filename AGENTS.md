@@ -1,4 +1,4 @@
-## 📌 ИТОГ СЕССИИ 11 нояб. — master `60a62574` (+ docs), ждёт пересборки
+## 📌 ИТОГ СЕССИИ 11 нояб. — master `0212480f` (+ docs), ждёт пересборки
 **Все типы миссий доведены до играбельного состояния, COSMOS-контент добит по доступным источникам, добавлена системная рассылка с портала.**
 - **Стандартные миссии**: Data — дивизион 18 (Basic RnD); Anomic/Burner — отдельный тип, level 4 security (шанс 20%), elite deadspace-пират + 2 эскорта на tracked-сайте; Tutorial (type 3 «Tutor …») — реальные career-цепочки `tutorials` 1001/1011/1031/1041 с `OnServerTutorialRequest`; Storyline (6/7) — только milestone после 15 миссий, один раз на рубеж. Encounter/Anomic завершаются по `agtOffers.missionNPCs/Killed` даже после erase/рестарта.
 - **Описания стандартных миссий**: `BuildMissionBriefing` собирает литеральную цель (предмет/станция/система) для `briefingID=0`; offer panel и журнал принимают строку (`ProcessMessage`), «CorruptBriefing» больше нет. Стандартные encounter-сайты получают фракционные облака/обломки/LCO.
