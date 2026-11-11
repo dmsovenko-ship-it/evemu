@@ -153,12 +153,15 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
     switch (m_agentData.typeID) {
         case Agents::Type::Research: misionType = Mission::Type::Research; break;
         case Agents::Type::FacWar:   misionType = Mission::Type::Encounter; break;
-        case Agents::Type::EpicArc:  return; // Epic arc agents — no regular missions
+        case Agents::Type::EpicArc:  return; // epic arc agents give no regular missions
         case Agents::Type::Cosmos:   misionType = Mission::Type::Cosmos;   break;
-        case Agents::Type::Event:    return; // Event agents — no regular missions
-        case Agents::Type::Aura:     return; // Aura — tutorial, not missions
+        case Agents::Type::StoryLine:
+        case Agents::Type::GenericStoryLine: misionType = Mission::Type::Storyline; break;
+        case Agents::Type::Event:    return; // event agents give no regular missions
+        case Agents::Type::Aura:     return; // aura is the tutorial, not missions
         default: {
-            if (m_agentData.typeID != Agents::Type::Basic and m_agentData.typeID != Agents::Type::None)
+            if (m_agentData.typeID != Agents::Type::Basic and m_agentData.typeID != Agents::Type::None
+                and m_agentData.typeID != Agents::Type::Tutorial and m_agentData.typeID != Agents::Type::Generic)
                 return; // unknown agent type - skip
             // Division decides the mission family (old 1..21 + RMR 22..24 ids)
             switch (m_agentData.divisionID) {
@@ -241,10 +244,37 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
         offer.destinationSystemID = m_agentData.solarSystemID;
         _log(AGENT__ERROR, "MakeOffer: destinationID still 0 after GetMissionDestination, fallback to station=%u system=%u.", offer.destinationID, offer.destinationSystemID);
     }
+    // Storyline runs are courier-style: always give the pilot a package
+    if (offer.typeID == Mission::Type::Storyline && offer.courierTypeID == 0) {
+        offer.courierTypeID = 23;
+        offer.courierAmount = 1;
+        offer.courierItemVolume = 0.01f;
+    }
+    // Storyline courier runs are handed in at a station (MapData gives a system)
+    if (offer.typeID == Mission::Type::Storyline && offer.courierTypeID != 0 && !sDataMgr.IsStation(offer.destinationID)) {
+        std::vector<uint32> stations;
+        if (offer.destinationSystemID != 0 && sDataMgr.GetStationList(offer.destinationSystemID, stations) && !stations.empty())
+            offer.destinationID = stations.front();
+        else
+            offer.destinationID = m_agentData.stationID;
+        if (sDataMgr.IsStation(offer.destinationID)) {
+            StationData sd = StationData();
+            stDataMgr.GetStationData(offer.destinationID, sd);
+            offer.destinationOwnerID = sd.corporationID;
+            offer.destinationSystemID = sd.systemID;
+            offer.destinationTypeID = sd.typeID;
+        }
+    }
 
     // not sure how this is checked/set
     offer.remoteOfferable    = false;
     offer.remoteCompletable  = false;
+    // Courier missions are handed in at the destination station, away from the
+    // issuing agent - the client completes them remotely from the mission journal.
+    if ((offer.typeID == Mission::Type::Courier || offer.typeID == Mission::Type::Storyline
+         || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 2))
+        && sDataMgr.IsStation(offer.destinationID))
+        offer.remoteCompletable = true;
     // LP Reward
     offer.rewardLP           = LPService::GetLPReward(offer.missionID, m_agentData.solarSystemID, m_agentData.level);   // LP reward = (1.6288 - System security) × Base LP
     // same with these
@@ -341,6 +371,8 @@ void Agent::MaybeOfferStoryline(uint32 charID, Client* pClient)
         else
             offer.destinationID = m_agentData.stationID;
     }
+    if (offer.courierTypeID != 0 && sDataMgr.IsStation(offer.destinationID))
+        offer.remoteCompletable = true;     // hand in at the destination station
     MissionDB::CreateOfferID(offer);
     AddOffer(charID, offer);
     _log(AGENT__MESSAGE, "Storyline offer %u for char %u (corp %u, %u missions completed): '%s'",

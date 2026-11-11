@@ -48,6 +48,7 @@ namespace Agents {
             Basic               = 2,
             Tutorial            = 3,
             Research            = 4,        //249
+            Generic             = 5,        // career/generic agents
             GenericStoryLine    = 6,
             StoryLine           = 7,
             Event               = 8,

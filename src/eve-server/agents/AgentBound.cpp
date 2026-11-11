@@ -23,6 +23,7 @@
  */
 
 #include "eve-server.h"
+#include <cstdio>
 #include "EntityList.h"
 #include "../../eve-common/EVE_Agent.h"
 #include "../../eve-common/EVE_Mail.h"
@@ -111,6 +112,43 @@ static void SetMissionBriefing(Client* pClient, MissionOffer& offer, PyTuple* ag
         brief = "Objective: " + objective;      // no lore text on the wiki - show the task
     if (brief.empty() && offer.typeID == Mission::Type::Storyline)
         brief = "Objective: Deliver the mission package to the designated station.";
+    if (brief.empty()) {
+        // Synthetic pool missions (trade/research/fallback mining) have no
+        // missionID/localization row - describe the task with the real item name.
+        std::string itemName;
+        if (offer.courierTypeID != 0) {
+            DBQueryResult ires;
+            if (sDatabase.RunQuery(ires, "SELECT typeName FROM invTypes WHERE typeID = %u", offer.courierTypeID)) {
+                DBResultRow irow;
+                if (ires.GetRow(irow) && !irow.IsNull(0)) {
+                    const char* n = irow.GetText(0);
+                    if (n != nullptr) itemName = n;
+                }
+            }
+        }
+        char buf[512];
+        switch (offer.typeID) {
+            case Mission::Type::Mining:
+                snprintf(buf, sizeof(buf), "Objective: Mine %u units of %s and bring them to me.",
+                         offer.courierAmount, itemName.empty() ? "the requested ore" : itemName.c_str());
+                brief = buf; break;
+            case Mission::Type::Trade:
+            case Mission::Type::Data:
+                snprintf(buf, sizeof(buf), "Objective: Acquire %u units of %s and bring them to me.",
+                         offer.courierAmount, itemName.empty() ? "the requested goods" : itemName.c_str());
+                brief = buf; break;
+            case Mission::Type::Research:
+                snprintf(buf, sizeof(buf), "Objective: Acquire %u units of %s for my research and bring them to me.",
+                         offer.courierAmount, itemName.empty() ? "the requested materials" : itemName.c_str());
+                brief = buf; break;
+            case Mission::Type::Tutorial:
+                brief = "Objective: Follow the tutorial instructions."; break;
+            case Mission::Type::Anomic:
+            case Mission::Type::Burner:
+                brief = "Objective: Destroy the target ships at the designated site."; break;
+            default: break;
+        }
+    }
     if (!brief.empty()) {
         size_t pos;
         while ((pos = brief.find("<Character>")) != std::string::npos)
@@ -773,8 +811,13 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                     ItemData data(offer.rewardItemID, pchar->itemID(), locTemp, flagNone, offer.rewardItemQty);
                     InventoryItemRef iRef = sItemFactory.SpawnItem(data);
                     if (iRef.get() != nullptr) {
-                        if (m_agent->GetStationID() != 0)
-                            iRef->Move(m_agent->GetStationID(), flagHangar, true);
+                        // courier missions can be completed remotely at the
+                        // destination station - deliver the item where the pilot is
+                        uint32 rewardStation = call.client->GetStationID();
+                        if (rewardStation == 0)
+                            rewardStation = m_agent->GetStationID();
+                        if (rewardStation != 0)
+                            iRef->Move(rewardStation, flagHangar, true);
                         else
                             iRef->Move(pchar->itemID(), flagCargoHold, true);
                     }
@@ -783,7 +826,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 /** @todo  add fleet sharing  */
                 if (offer.rewardISK)
                     AccountService::TransferFunds(m_agent->GetID(), pchar->itemID(), offer.rewardISK, "Mission Reward", Journal::EntryType::AgentMissionReward, m_agent->GetID());
-                if ((offer.bonusTime > 0) and (offer.bonusTime < (offer.dateAccepted - GetFileTimeNow())))
+                if (offer.bonusTime > 0 && offer.dateAccepted > 0 && offer.bonusISK > 0
+                    && (GetFileTimeNow() - offer.dateAccepted) < ((int64)offer.bonusTime * EvE::Time::Minute))
                     AccountService::TransferFunds(m_agent->GetID(), pchar->itemID(), offer.bonusISK, "Mission Bonus Reward", Journal::EntryType::AgentMissionTimeBonusReward, m_agent->GetID());
                 /** @todo  add lp, etc, etc  */
                 if (offer.rewardLP)
@@ -1349,13 +1393,15 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
             //extra->SetItemString("specificItemID", PyStatic.NewNone());
             //extra->SetItemString("blueprintInfo", PyStatic.NewNone());
         PyTuple* bonusRewards = new PyTuple(4);
+        int64 bonusLeft = (int64)offer.bonusTime * EvE::Time::Minute;
         if (offer.dateAccepted > 0) {
-            PySetItemRelease(bonusRewards, 0, new PyLong(offer.bonusTime - (offer.dateAccepted - offer.dateIssued) * EvE::Time::Minute));  // bonus time - elapsed time * minutes
-        } else {
-            PySetItemRelease(bonusRewards, 0, new PyLong(offer.bonusTime * EvE::Time::Minute));  // bonus time * minutes
+            bonusLeft -= (GetFileTimeNow() - offer.dateAccepted);
+            if (bonusLeft < 0)
+                bonusLeft = 0;
         }
-            PySetItemRelease(bonusRewards, 1, new PyInt(itemTypeCredits));   // bonus is *usually* isk.  for now, we'll keep it as isk (easier)
-            PySetItemRelease(bonusRewards, 2, new PyInt(offer.rewardISK *2));
+        PySetItemRelease(bonusRewards, 0, new PyLong(bonusLeft));
+            PySetItemRelease(bonusRewards, 1, new PyInt(itemTypeCredits));
+            PySetItemRelease(bonusRewards, 2, new PyInt(offer.bonusISK ? offer.bonusISK : offer.rewardISK));
             bonusRewards->SetItem(3, extra);
         bonusList->AddItem(bonusRewards);
     }
@@ -1465,7 +1511,7 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
     // fetch-type missions (mining/trade/research) hand the goods to the agent:
     // the drop-off is the agent's own station, not the mission's site system.
     uint32 dropoffID = offer.destinationID;
-    if ((offer.typeID == Mission::Type::Mining || offer.typeID == Mission::Type::Trade || offer.typeID == Mission::Type::Research
+    if ((offer.typeID == Mission::Type::Mining || offer.typeID == Mission::Type::Trade || offer.typeID == Mission::Type::Research || offer.typeID == Mission::Type::Data
          || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 5))
         && m_agent->GetStationID() != 0 && sDataMgr.IsStation(m_agent->GetStationID())) {
         dropoffID = m_agent->GetStationID();
@@ -1547,7 +1593,8 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         } break;
         case Mission::Type::Trade:
         case Mission::Type::Research:
-        case Mission::Type::Mining: {
+        case Mission::Type::Mining:
+        case Mission::Type::Data: {
             PyDict* cargo = new PyDict();
                 cargo->SetItemString("hasCargo", new PyBool(pClient->ContainsTypeQty(offer.courierTypeID, offer.courierAmount)));
                 cargo->SetItemString("typeID", new PyInt(offer.courierTypeID));
@@ -1639,7 +1686,6 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         } break;
         case Mission::Type::Anomic:
         case Mission::Type::Burner:
-        case Mission::Type::Data:
         case Mission::Type::Tutorial:
         default: {
             // safety net for unknown/invalid mission types

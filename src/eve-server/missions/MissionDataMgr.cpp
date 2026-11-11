@@ -720,6 +720,15 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             data.courierAmount = 50 + level * 25;
         } break;
         case Mission::Type::Data: {
+            // Data missions: retrieve data sheets/chips and hand them to the agent
+            data.name = "Data Retrieval";
+            data.typeID = Mission::Type::Data;
+            data.rewardISK = 9000 + level * 7000;
+            data.bonusISK = 2500 * level;
+            data.bonusTime = 15;
+            data.courierTypeID = 3812;              // Data Sheets
+            data.courierAmount = 5 + level * 5;
+            data.range = 1;
         } break;
         case Mission::Type::Storyline: {
             std::vector<CourierData> cVec;
@@ -748,6 +757,19 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
                 data.courierTypeID      = cData.itemTypeID;
                 data.courierAmount      = cData.itemQty;
                 data.range              = cData.range;
+            } else {
+                // no SDE storyline row for this level - synthesize a playable courier
+                data.name = "Storyline Mission";
+                data.typeID = Mission::Type::Storyline;
+                data.rewardISK = 25000 * level;
+                data.bonusISK = 5000 * level;
+                data.bonusTime = 30;
+                data.important = true;
+                data.storyline = true;
+                data.courierTypeID = 23;
+                data.courierAmount = 1;
+                data.courierItemVolume = 0.01f;
+                data.range = 1;
             }
         } break;
         case Mission::Type::Cosmos: {
@@ -776,8 +798,30 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         } break;
         case Mission::Type::EpicArc: {
         } break;
-        case Mission::Type::Anomic: {
+        case Mission::Type::Anomic:
+        case Mission::Type::Burner: {
+            // Anomic/burner work is a high-paying combat assignment: model it as
+            // an encounter so Accept spawns a tracked hostile cluster.
+            data.name = "Combat Assignment";
+            data.typeID = Mission::Type::Encounter;
+            data.rewardISK = 25000 * level;
+            data.bonusISK = 5000 * level;
+            data.bonusTime = 20;
+            data.important = true;
+            data.range = 2;
         } break;
+    }
+
+    // fill cargo volume for synthetic/pool missions (courier rows already carry it)
+    if (data.courierTypeID != 0 && data.courierItemVolume == 0) {
+        DBQueryResult vres;
+        if (sDatabase.RunQuery(vres, "SELECT volume FROM invTypes WHERE typeID = %u", data.courierTypeID)) {
+            DBResultRow vrow;
+            if (vres.GetRow(vrow) && !vrow.IsNull(0))
+                data.courierItemVolume = vrow.GetFloat(0);
+            if (data.courierItemVolume <= 0)
+                data.courierItemVolume = 0.01f;
+        }
     }
 
     _log(AGENT__DEBUG, "Created %s level %u %s offer - '%s'", (important?"an important":"a"), level, GetTypeName(data.typeID).c_str(), data.name.c_str());
