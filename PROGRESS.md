@@ -215,7 +215,7 @@
 | **Storyline loop** — every 15 completed missions a courier storyline with a mission package and a real station hand-in | 🟡 | ✅ |
 | **Standard mission types** - Data from division 18, Anomic/Burner with an elite deadspace site, career tutorial chains (type 3), storylines only after 15 missions | ✅ | ✅ |
 | **Standard mission text** - literal item/station objectives when `briefingID=0` (no "corrupt briefing"); standard encounter sites get faction clouds/wreckage/LCO | ✅ | ✅ |
-| **Briefing coverage** - **561/581** COSMOS briefings (18 booster runs without lore, 2 objective-only trade missions); literal fallback for all remaining `briefingID=0` missions | 🟡 | ✅ |
+| **Briefing coverage** - **561/581** COSMOS briefings (18 booster runs without lore, 2 objective-only trade missions) and **289/371** standard mission briefings backfilled from EVE University Wiki; the remaining standard rows use the literal item/station objective | 🟡 | ✅ |
 
 ### 9. Market `███████████████████░` 95%
 
