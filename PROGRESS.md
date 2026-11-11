@@ -57,7 +57,7 @@
 ### Session 10 Nov
 
 - **COSMOS from the wiki**: 340 agents live in space on their named beacons (`Agents in Space`, group 517 / dogma attr `agentID`); 218 agent/combat sites with NPC pockets, `17831` acceleration gates, passkeys and gate ship limits; 581 one-time chain missions with real briefings/objectives (travel/fetch/hunt), fetch loot, 79 reward items.
-- **Mission destinations**: system/station parsed from the wiki for 269 missions (213 systems, 56 stations); "Report to `agent`" uses the native journal objective (portrait, location, warp); briefings filled + objective fallback (602 rows with text).
+- **Mission destinations**: system/station parsed from the wiki for 414 missions (349 systems, 65 stations, 61 agent targets; wiki notes prose and redirects included); "Report to `agent`" uses the native journal objective (portrait, location, warp); briefings filled + objective fallback (602 rows with text).
 - **Epic arcs**: chapter/branch progression repaired (`AdvanceMission` per mission, chapter roll-over, arc completion) and progress persisted in `chrEpicArcState`; starting agents point at the real agent rows; in-space arc agents spawn like COSMOS agents; standings gate configurable.
 - **Storyline**: every 15 completed missions a courier storyline with a mission package and a real station hand-in; 543 previously nameless arc/FW/storyline agents got their names from the SDE.
 - **Sites**: static beacons anchored to the star, pockets 150 km apart along +x, named-NPC loot in the lead NPC's wreck, respawn 10 minutes after the pack is wiped.
@@ -198,7 +198,7 @@
 | **Tutorial chain** — Aura steps become journal missions; completion from tutorial state, auto-next step | ❌ | ✅ |
 | **COSMOS agents & sites (wiki)** — 340 agents in space on their named beacons (`Agents in Space` type + `agentID` dogma attribute); 218 agent/combat sites with NPC pockets, acceleration gates, passkeys and gate ship limits | ❌ | ✅ |
 | **COSMOS one-time chains & rewards** — 581 sequential chain missions with real briefings/objectives (travel/fetch/hunt), fetch loot next to the agent, reward items for 79 missions; the chain ends cleanly | ❌ | ✅ |
-| **Mission destinations** — system/station parsed from the wiki for 269 missions (213 systems, 56 stations); travel/courier offers use the real destination | ❌ | ✅ |
+| **Mission destinations** — system/station parsed from the wiki for 414 missions (349 systems, 65 stations, 61 agent targets); travel/courier offers use the real destination | ❌ | ✅ |
 | **Report-to-agent objective** — native `agent` journal objective (portrait, location, warp link) for 54 missions | ❌ | ✅ |
 | **Epic arc progression** — per-mission advancement, chapter roll-over by branch, arc completion, state persisted in `chrEpicArcState`; arcs start at the real agent rows | 🟡 | ✅ |
 | **Storyline loop** — every 15 completed missions a courier storyline with a mission package and a real station hand-in | 🟡 | ✅ |
@@ -522,7 +522,7 @@
 - **Inventory & social tools** — stack split, drone bay, contact labels, notepad, container passwords, plastic wrap, corp deliveries, corp asset search, impound return, CEO resignation
 - **Market best-price indexes** — covering indexes cut best-price queries from ~11.8 s to ~33 ms
 - **COSMOS content from the wiki** — 340 agents in space on named beacons, 218 sites with pockets/gates/passkeys, 581 one-time chain missions with real briefings, objectives, fetch loot and 79 reward items
-- **Mission destinations & journal** — 269 missions carry a parsed system/station; "Report to `agent`" renders the native agent objective with a warp link
+- **Mission destinations & journal** — 414 missions carry a parsed system/station/agent (wiki notes prose and redirects included); "Report to `agent`" renders the native agent objective with a warp link
 - **Epic arc progression** — chapter/branch advancement and arc completion repaired, progress persisted in `chrEpicArcState`
 - **Storyline loop** — every 15 missions a courier storyline with a mission package and a real station hand-in
 - **Agent names restored** — 543 arc/FW/storyline agents filled from the SDE `invNames` (nameless dialogues fixed)

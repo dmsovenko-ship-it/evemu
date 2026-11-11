@@ -35,16 +35,20 @@ def norm(s):
     return s
 
 
-def raw(title, cache_dir):
+def raw(title, cache_dir, _depth=0):
     fn = os.path.join(cache_dir, re.sub(r"[^A-Za-z0-9._-]", "_", title) + ".wiki")
     if os.path.exists(fn):
-        return io.open(fn, encoding="utf-8", errors="replace").read()
-    url = BASE + "?title=" + urllib.parse.quote(title.replace(" ", "_")) + "&action=raw"
-    req = urllib.request.Request(url, headers={"User-Agent": "evemu-content/1.0"})
-    with urllib.request.urlopen(req, timeout=40, context=CTX) as r:
-        data = r.read().decode("utf-8", "replace")
-    time.sleep(0.15)
-    io.open(fn, "w", encoding="utf-8").write(data)
+        data = io.open(fn, encoding="utf-8", errors="replace").read()
+    else:
+        url = BASE + "?title=" + urllib.parse.quote(title.replace(" ", "_")) + "&action=raw"
+        req = urllib.request.Request(url, headers={"User-Agent": "evemu-content/1.0"})
+        with urllib.request.urlopen(req, timeout=40, context=CTX) as r:
+            data = r.read().decode("utf-8", "replace")
+        time.sleep(0.15)
+        io.open(fn, "w", encoding="utf-8").write(data)
+    m = re.match(r"\s*#REDIRECT\s*\[\[([^\]|]+)", data, re.I)
+    if m and _depth < 3:
+        return raw(m.group(1).strip(), cache_dir, _depth + 1)
     return data
 
 
@@ -140,7 +144,18 @@ def mission_text(text):
     m = re.search(r"==\s*Description\s*==(.*?)(?:\n==|\Z)", text, re.S)
     if m:
         desc = m.group(1)
-    return norm(obj), norm(brief), norm(desc)
+    # prose notes under the mission template (often mention the target system/station)
+    body = re.sub(r"\{\{Missiondetails.*?\}\}", "", text, flags=re.S)
+    body = re.sub(r"\{\{MissionBriefing.*?\}\}", "", body, flags=re.S)
+    lines = []
+    for line in body.split("\n"):
+        line = line.strip()
+        if not line or line[0] in "|{}[]!":
+            continue
+        if line.lower().startswith(("tips", "category:", "[[category")):
+            continue
+        lines.append(line)
+    return norm(obj), norm(brief), norm(desc), norm(" ".join(lines))
 
 
 def main():
@@ -241,6 +256,24 @@ def main():
     asql.append("")
     out_agent_sql = r"C:\opencode-projects\evemu\sql\migrations\20261106000028-mission_destination_agents.sql"
     io.open(out_agent_sql, "w", encoding="utf-8").write("\n".join(asql))
+    # idempotent replay for live databases where 000026/000028 already ran
+    extra = []
+    extra.append("-- Mission destinations (replay incl. wiki redirect resolution).")
+    extra.append("-- +migrate Up")
+    extra.append("ALTER TABLE missionObjectives ADD COLUMN IF NOT EXISTS destinationSystemID int(10) unsigned NOT NULL DEFAULT 0;")
+    extra.append("ALTER TABLE missionObjectives ADD COLUMN IF NOT EXISTS destinationStationID int(10) unsigned NOT NULL DEFAULT 0;")
+    extra.append("ALTER TABLE missionObjectives ADD COLUMN IF NOT EXISTS destinationAgentID int(10) unsigned NOT NULL DEFAULT 0;")
+    for row in out:
+        mid, dsys, st = row[0], row[1], row[2]
+        ag = row[3] if len(row) > 3 else 0
+        extra.append("UPDATE missionObjectives SET destinationSystemID=%d, destinationStationID=%d, destinationAgentID=%d WHERE missionID=%d;"
+                     % (dsys, st, ag, mid))
+    extra.append("-- +migrate Down")
+    extra.append("-- (destinations stay)")
+    extra.append("")
+    out_extra = r"C:\opencode-projects\evemu\sql\migrations\20261106000039-mission_destinations_extra.sql"
+    io.open(out_extra, "w", encoding="utf-8").write("\n".join(extra))
+    print("extra written", out_extra)
     print("resolved", len(out), "of", len(missions), "agent targets", agent_count, "sql", out_sql)
 
 
