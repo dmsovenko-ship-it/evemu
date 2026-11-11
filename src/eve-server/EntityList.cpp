@@ -33,6 +33,7 @@
 #include "Client.h"
 #include "ConsoleCommands.h"
 #include "EntityList.h"
+#include "apiserver/APIAdminManager.h"
 #include "EVE_Wallet.h"
 #include "account/AccountService.h"
 #include "inventory/ItemFactory.h"
@@ -643,6 +644,7 @@ void EntityList::Process() {
         if (m_minuteTimer.Check()) {
             ++m_minutes;
             ProcessDowntime();          // daily downtime announcements + shutdown trigger
+            APIAdminManager::ProcessScheduledBroadcasts();   // portal-scheduled system mail
             sMissionDataMgr.Process();  // 1m
             sIncursionMgr.Process();    // 1m
             sExpMgr.Process();          // 1m — expedition expiry

@@ -9,6 +9,9 @@ public:
     std::string ProcessCall(const std::string& handler,
                              const std::map<std::string, std::string>& params) override;
 
+    // Called from the EntityList minute tick: sends due scheduled broadcasts.
+    static void ProcessScheduledBroadcasts();
+
 private:
     std::string ProcessAccounts(const std::string& handler,
                                 const std::map<std::string, std::string>& params);
@@ -21,6 +24,9 @@ private:
     std::string ProcessRoles(const std::string& handler,
                              const std::map<std::string, std::string>& params);
     std::string ProcessInjectPlex(const std::map<std::string, std::string>& params);
+    static std::string ProcessBroadcast(const std::map<std::string, std::string>& params);
+    static std::string BroadcastListXML();
+    static std::string BroadcastCancelXML(const std::map<std::string, std::string>& params);
 
     // petition ownership/state helpers
     static bool PetitionOwnedBy(uint32 petitionID, uint32 accountID);

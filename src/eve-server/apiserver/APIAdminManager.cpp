@@ -4,6 +4,9 @@
 #include "apiserver/APIAdminManager.h"
 #include "apiserver/APIServiceManager.h"
 #include "TelegramBot.h"
+#include "EntityList.h"
+#include "Client.h"
+#include <ctime>
 
 static std::string SafeStr(const char* s) { return s ? s : ""; }
 
@@ -477,6 +480,237 @@ std::string APIAdminManager::ProcessInjectPlex(const std::map<std::string, std::
     return xml;
 }
 
+
+// ---------------------------------------------------------------------------
+// System broadcast: admin mail from the system to every real player
+// (characters with an account; bots have accountID = 0 and are skipped).
+// Immediate sends happen in the API call; scheduled rows are processed by the
+// EntityList minute tick (APIAdminManager::ProcessScheduledBroadcasts).
+// ---------------------------------------------------------------------------
+static const uint32 kBroadcastSenderID = 500006;          // CONCORD Assembly
+static const char*  kBroadcastSenderName = "CONCORD Assembly";
+
+static uint32 SendSystemBroadcastMail(const std::string& subject, const std::string& body,
+                                      std::string& errOut, uint32& messageID)
+{
+    messageID = 0;
+    std::vector<uint32> players;
+    DBQueryResult pres;
+    if (!sDatabase.RunQuery(pres,
+            "SELECT characterID FROM chrCharacters WHERE accountID > 0"))
+        { errOut = "player query failed"; return 0; }
+    DBResultRow prow;
+    while (pres.GetRow(prow))
+        players.push_back(prow.GetUInt(0));
+    if (players.empty())
+        return 0;
+
+    std::string bodyStored;
+    {
+        Buffer bodyCompressed;
+        Buffer bodyInput(body.begin(), body.end());
+        if (DeflateData(bodyInput, bodyCompressed))
+            bodyStored.assign(bodyCompressed.begin<char>(), bodyCompressed.end<char>());
+        else
+            bodyStored = body;
+    }
+    std::string titleEsc, bodyEsc;
+    sDatabase.DoEscapeString(titleEsc, subject);
+    sDatabase.DoEscapeString(bodyEsc, bodyStored);
+
+    DBerror err;
+    if (!sDatabase.RunQueryLID(err, messageID,
+        "INSERT INTO mailMessage (senderID, toCharacterIDs, toListID, toCorpOrAllianceID,"
+        " title, body, sentDate) VALUES (%u, '', 0, 0, '%s', '%s', %lli)",
+        kBroadcastSenderID, titleEsc.c_str(), bodyEsc.c_str(), (long long)GetFileTimeNow()))
+        { errOut = "message insert failed"; messageID = 0; return 0; }
+
+    std::vector<uint32> online;
+    uint32 delivered = 0;
+    for (uint32 charID : players) {
+        if (!sDatabase.RunQuery(err,
+                "INSERT INTO mailStatus (messageID, characterID, statusMask, labelMask)"
+                " VALUES (%u, %u, 0, 1)", messageID, charID))
+            continue;
+        ++delivered;
+        if (sEntityList.FindClientByCharID(charID) != nullptr)
+            online.push_back(charID);
+    }
+
+    for (uint32 charID : online) {
+        Client* client = sEntityList.FindClientByCharID(charID);
+        if (client == nullptr)
+            continue;
+        PyTuple* payload = new PyTuple(9);
+        PySetItemRelease(payload, 0, new PyInt(messageID));
+        PySetItemRelease(payload, 1, new PyInt(kBroadcastSenderID));
+        PySetItemRelease(payload, 2, new PyLong(GetFileTimeNow()));
+        PySetItemRelease(payload, 3, new PyString(std::to_string(kBroadcastSenderID)));
+        payload->SetItem(4, PyStatic.NewNone());
+        payload->SetItem(5, PyStatic.NewNone());
+        PySetItemRelease(payload, 6, new PyString(subject.c_str()));
+        PySetItemRelease(payload, 7, new PyInt(0));
+        PyDict* extra = new PyDict();
+        extra->SetItemString("senderName", new PyString(kBroadcastSenderName));
+        payload->SetItem(8, extra);
+        client->SendNotification("OnMailSent", "charid", payload, false);
+    }
+    return delivered;
+}
+
+std::string APIAdminManager::ProcessBroadcast(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string subject = get("subject");
+    std::string body    = get("body");
+    std::string author  = get("author");
+    if (subject.empty() || body.empty())
+        return BuildErrorXML("105", "Missing subject or body.");
+    if (subject.size() > 200)
+        return BuildErrorXML("106", "Subject is too long (max 200 bytes).");
+    if (body.size() > 20000)
+        return BuildErrorXML("107", "Body is too long (max 20000 bytes).");
+
+    std::string sendat = get("sendat");
+    int64 when = 0;
+    if (!sendat.empty()) {
+        try { when = (int64)std::stoull(sendat); } catch (...) { when = 0; }
+    }
+    int64 now = (int64)std::time(nullptr);
+
+    if (when > now + 5) {
+        std::string sEsc, bEsc, aEsc;
+        sDatabase.DoEscapeString(sEsc, subject);
+        sDatabase.DoEscapeString(bEsc, body);
+        sDatabase.DoEscapeString(aEsc, author);
+        DBerror err;
+        uint32 id = 0;
+        if (!sDatabase.RunQueryLID(err, id,
+            "INSERT INTO systemBroadcasts (subject, body, authorName, status, scheduledAt)"
+            " VALUES ('%s', '%s', '%s', 0, FROM_UNIXTIME(%llu))",
+            sEsc.c_str(), bEsc.c_str(), aEsc.c_str(), (unsigned long long)when))
+            return BuildErrorXML("999", "Insert failed.");
+        std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+        xml += "  <result>\n    <ok/>\n    <status>scheduled</status>\n";
+        xml += "    <broadcastid>" + std::to_string(id) + "</broadcastid>\n";
+        xml += "    <sendat>" + std::to_string(when) + "</sendat>\n";
+        xml += "  </result>\n</eveapi>\n";
+        return xml;
+    }
+
+    std::string errOut;
+    uint32 messageID = 0;
+    uint32 delivered = SendSystemBroadcastMail(subject, body, errOut, messageID);
+    if (!errOut.empty())
+        return BuildErrorXML("999", errOut);
+
+    std::string sEsc, bEsc, aEsc;
+    sDatabase.DoEscapeString(sEsc, subject);
+    sDatabase.DoEscapeString(bEsc, body);
+    sDatabase.DoEscapeString(aEsc, author);
+    DBerror err;
+    uint32 id = 0;
+    sDatabase.RunQueryLID(err, id,
+        "INSERT INTO systemBroadcasts (subject, body, authorName, status, scheduledAt, sentAt, sentCount, messageID)"
+        " VALUES ('%s', '%s', '%s', 1, NOW(), NOW(), %u, %u)",
+        sEsc.c_str(), bEsc.c_str(), aEsc.c_str(), delivered, messageID);
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <ok/>\n    <status>sent</status>\n";
+    xml += "    <broadcastid>" + std::to_string(id) + "</broadcastid>\n";
+    xml += "    <recipients>" + std::to_string(delivered) + "</recipients>\n";
+    xml += "    <messageid>" + std::to_string(messageID) + "</messageid>\n";
+    xml += "  </result>\n</eveapi>\n";
+    return xml;
+}
+
+std::string APIAdminManager::BroadcastListXML()
+{
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT broadcastID, subject, body, authorName, status,"
+        " IFNULL(UNIX_TIMESTAMP(scheduledAt),0), IFNULL(UNIX_TIMESTAMP(sentAt),0),"
+        " sentCount, messageID, IFNULL(UNIX_TIMESTAMP(createdAt),0)"
+        " FROM systemBroadcasts ORDER BY broadcastID DESC LIMIT 100"))
+        return BuildErrorXML("999", "Query failed.");
+
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <currentTime>" + Win32TimeToString(GetFileTimeNow()) + "</currentTime>\n";
+    xml += "  <result>\n    <broadcasts>\n";
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        xml += "      <row broadcastid=\"" + std::to_string(row.GetUInt(0)) + "\"";
+        xml += " subject=\"" + xmlEscape(row.GetText(1)) + "\"";
+        xml += " body=\"" + xmlEscape(row.GetText(2)) + "\"";
+        xml += " author=\"" + xmlEscape(row.IsNull(3) ? "" : row.GetText(3)) + "\"";
+        xml += " status=\"" + std::to_string(row.GetInt(4)) + "\"";
+        xml += " scheduledat=\"" + std::to_string((int64)row.GetInt64(5)) + "\"";
+        xml += " sentat=\"" + std::to_string((int64)row.GetInt64(6)) + "\"";
+        xml += " sentcount=\"" + std::to_string(row.GetUInt(7)) + "\"";
+        xml += " messageid=\"" + std::to_string(row.GetUInt(8)) + "\"";
+        xml += " createdat=\"" + std::to_string((int64)row.GetInt64(9)) + "\"/>\n";
+    }
+    xml += "    </broadcasts>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
+std::string APIAdminManager::BroadcastCancelXML(const std::map<std::string, std::string>& params)
+{
+    auto get = [&](const std::string& k) -> std::string {
+        auto it = params.find(k);
+        return it != params.end() ? it->second : "";
+    };
+    std::string bid = get("broadcastid");
+    if (bid.empty() || bid.find_first_not_of("0123456789") != std::string::npos)
+        return BuildErrorXML("105", "Missing broadcastid.");
+    DBerror err;
+    if (!sDatabase.RunQuery(err,
+        "UPDATE systemBroadcasts SET status = 2 WHERE broadcastID = %u AND status = 0",
+        (uint32)std::stoul(bid)))
+        return BuildErrorXML("999", "Update failed.");
+    std::string xml = "<?xml version='1.0' encoding='UTF-8'?>\n<eveapi version=\"2\">\n";
+    xml += "  <result>\n    <ok/>\n  </result>\n</eveapi>\n";
+    return xml;
+}
+
+void APIAdminManager::ProcessScheduledBroadcasts()
+{
+    struct Pending { uint32 id; std::string subject, body, author; };
+    std::vector<Pending> due;
+    DBQueryResult res;
+    if (!sDatabase.RunQuery(res,
+        "SELECT broadcastID, subject, body, authorName FROM systemBroadcasts"
+        " WHERE status = 0 AND scheduledAt IS NOT NULL AND scheduledAt <= NOW()"
+        " ORDER BY broadcastID LIMIT 20"))
+        return;
+    DBResultRow row;
+    while (res.GetRow(row)) {
+        Pending p;
+        p.id = row.GetUInt(0);
+        p.subject = row.IsNull(1) ? "" : row.GetText(1);
+        p.body = row.IsNull(2) ? "" : row.GetText(2);
+        p.author = row.IsNull(3) ? "" : row.GetText(3);
+        due.push_back(p);
+    }
+    for (const Pending& p : due) {
+        std::string errOut;
+        uint32 messageID = 0;
+        uint32 delivered = SendSystemBroadcastMail(p.subject, p.body, errOut, messageID);
+        if (!errOut.empty()) {
+            codelog(DATABASE__ERROR, "System broadcast %u failed: %s", p.id, errOut.c_str());
+            continue;
+        }
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE systemBroadcasts SET status = 1, sentAt = NOW(), sentCount = %u, messageID = %u"
+            " WHERE broadcastID = %u AND status = 0", delivered, messageID, p.id);
+        _log(AGENT__MESSAGE, "System broadcast %u sent to %u players (message %u).", p.id, delivered, messageID);
+    }
+}
+
 std::string APIAdminManager::ProcessCall(const std::string& handler,
                                          const std::map<std::string, std::string>& params)
 {
@@ -523,6 +757,13 @@ std::string APIAdminManager::ProcessCall(const std::string& handler,
         return ApproveTransferXML(params);
 
     // admin publishes news → public (player) Telegram group + history table
+    if (handler == "Broadcast.xml.aspx")
+        return ProcessBroadcast(params);
+    if (handler == "BroadcastList.xml.aspx")
+        return BroadcastListXML();
+    if (handler == "BroadcastCancel.xml.aspx")
+        return BroadcastCancelXML(params);
+
     if (handler == "PostNews.xml.aspx")
         return PostNewsXML(params);
 
