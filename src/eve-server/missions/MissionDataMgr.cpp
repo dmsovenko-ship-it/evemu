@@ -533,16 +533,31 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         case Mission::Type::Courier: {
             CourierData cData = CourierData();
             std::vector<CourierData> cVec;
-            if (important) {
-                auto itr = m_courierImp.equal_range(level);
+            auto fillCourier = [&](bool imp, uint8 lvl) {
+                cVec.clear();
+                auto &pool = imp ? m_courierImp : m_courier;
+                auto itr = pool.equal_range(lvl);
                 for (auto it = itr.first; it != itr.second; ++it)
                     cVec.push_back(it->second);
-            } else {
-                auto itr = m_courier.equal_range(level);
-                for (auto it = itr.first; it != itr.second; ++it)
-                    cVec.push_back(it->second);
+            };
+            fillCourier(important, level);
+            for (uint8 off = 1; cVec.empty() and off <= 4; ++off) {
+                if (level >= off) fillCourier(false, level - off);
+                if (cVec.empty()) fillCourier(false, level + off);
             }
-            cData = cVec[MakeRandomInt(0, (cVec.size() -1))];
+            if (cVec.empty()) {
+                // No SDE courier row for this level/importance - synthesize a
+                // simple delivery so the agent still has work to offer.
+                cData.name = "Courier Mission";
+                cData.typeID = Mission::Type::Courier;
+                cData.rewardISK = 8000 * level;
+                cData.bonusISK = 2000 * level;
+                cData.itemTypeID = 23;
+                cData.itemQty = 1;
+                cData.range = 1;
+            } else {
+                cData = cVec[MakeRandomInt(0, (cVec.size() -1))];
+            }
             // verify mission race acceptable
             if ((cData.raceID) and ((cData.raceID & raceID) != raceID)) {
                 for (auto cur :cVec) {
@@ -570,16 +585,29 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         case Mission::Type::Mining: {
             CourierData cData = CourierData();
             std::vector<CourierData> cVec;
-            if (important) {
-                auto itr = m_miningImp.equal_range(level);
+            auto fillMining = [&](bool imp, uint8 lvl) {
+                cVec.clear();
+                auto &pool = imp ? m_miningImp : m_mining;
+                auto itr = pool.equal_range(lvl);
                 for (auto it = itr.first; it != itr.second; ++it)
                     cVec.push_back(it->second);
-            } else {
-                auto itr = m_mining.equal_range(level);
-                for (auto it = itr.first; it != itr.second; ++it)
-                    cVec.push_back(it->second);
+            };
+            fillMining(important, level);
+            for (uint8 off = 1; cVec.empty() and off <= 4; ++off) {
+                if (level >= off) fillMining(false, level - off);
+                if (cVec.empty()) fillMining(false, level + off);
             }
-            cData = cVec[MakeRandomInt(0, (cVec.size() -1))];
+            if (cVec.empty()) {
+                cData.name = "Mining Operation";
+                cData.typeID = Mission::Type::Mining;
+                cData.rewardISK = 10000 * level;
+                cData.bonusISK = 2500 * level;
+                cData.itemTypeID = 0;
+                cData.itemQty = 1000 * level;
+                cData.range = 1;
+            } else {
+                cData = cVec[MakeRandomInt(0, (cVec.size() -1))];
+            }
 
             data.name               = cData.name;
             data.typeID             = cData.typeID;
@@ -625,9 +653,17 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         } break;
         case Mission::Type::Encounter: {
             std::vector<CourierData> cVec;
-            auto itr = m_encounter.equal_range(level);
-            for (auto it = itr.first; it != itr.second; ++it)
-                cVec.push_back(it->second);
+            auto fillEncounter = [&](uint8 lvl) {
+                cVec.clear();
+                auto itr = m_encounter.equal_range(lvl);
+                for (auto it = itr.first; it != itr.second; ++it)
+                    cVec.push_back(it->second);
+            };
+            fillEncounter(level);
+            for (uint8 off = 1; cVec.empty() and off <= 4; ++off) {
+                if (level >= off) fillEncounter(level - off);
+                if (cVec.empty()) fillEncounter(level + off);
+            }
             if (!cVec.empty()) {
                 CourierData cData = cVec[MakeRandomInt(0, (cVec.size() - 1))];
                 data.name               = cData.name;
@@ -641,6 +677,16 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
                 data.briefingID         = cData.briefingID;
                 data.rewardItemID       = cData.rewardItemID;
                 data.rewardItemQty      = cData.rewardItemQty;
+            } else {
+                data.name          = "Combat Assignment";
+                data.typeID        = Mission::Type::Encounter;
+                data.rewardISK     = 12000 * level;
+                data.bonusISK      = 3000 * level;
+                data.bonusTime     = 0;
+                data.important     = false;
+                data.storyline     = false;
+                data.missionID     = 0;
+                data.briefingID    = 0;
             }
         } break;
         case Mission::Type::Trade: {
