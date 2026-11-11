@@ -61,6 +61,7 @@
 - **Epic arcs**: chapter/branch progression repaired (`AdvanceMission` per mission, chapter roll-over, arc completion) and progress persisted in `chrEpicArcState`; starting agents point at the real agent rows; in-space arc agents spawn like COSMOS agents; standings gate configurable.
 - **Storyline**: every 15 completed missions a courier storyline with a mission package and a real station hand-in; 543 previously nameless arc/FW/storyline agents got their names from the SDE.
 - **Sites**: static beacons anchored to the star, pockets 150 km apart along +x, named-NPC loot in the lead NPC's wreck, respawn 10 minutes after the pack is wiped.
+- **Agent portraits**: all 11,017 agents seeded into the image cache from images.evetech.net (512px JPEG, 0 failures); the image server answers every requested size.
 
 ## Details / Детали
 
@@ -530,3 +531,4 @@
 - **Named-NPC loot** — pocket drops are attached to the exact NPC type that drops them (28 rows), the rest ride the pocket lead NPC; the loot lands in that wreck
 - **Hunt anchoring** — arc hunt clusters spawn +30 km from the destination station; COSMOS hunt clusters spawn next to the agent's station/site
 - **Agent location fix** — station agents report the station type in the dialogue header (fallback to `staStations.stationTypeID`)
+- **Agent portraits** — all 11,017 agents seeded into `image_cache/Character` from images.evetech.net (512px, 0 failures)
