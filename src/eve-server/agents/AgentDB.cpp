@@ -38,12 +38,14 @@ void AgentDB::LoadAgentData(uint32 agentID, AgentData& data)
         "   crp.enemyID, "
         "   crp.factionID, "
         "   chr.characterName, " //15
-        "   (SELECT COUNT(*) FROM cosmosAgentMissions cam WHERE cam.agentID = agt.agentID) AS cosmosChain " //16
+        "   (SELECT COUNT(*) FROM cosmosAgentMissions cam WHERE cam.agentID = agt.agentID) AS cosmosChain, " //16
+        "   st.stationTypeID " //17
         " FROM agtAgents AS agt"
         " LEFT JOIN chrNPCCharacters AS chr ON chr.characterID = agt.agentID"
         " LEFT JOIN crpNPCCorporations AS crp ON crp.corporationID = agt.corporationID"
         " LEFT JOIN bloodlineTypes AS bl ON bl.typeID = chr.typeID"
         " LEFT JOIN mapDenormalize AS itm ON itm.itemID = agt.locationID"
+        " LEFT JOIN staStations AS st ON st.stationID = agt.locationID"
         " WHERE agt.agentID = %u", agentID))
     {
         codelog(DATABASE__ERROR, "Error in GetAgents query: %s", res.error.c_str());
@@ -69,6 +71,8 @@ void AgentDB::LoadAgentData(uint32 agentID, AgentData& data)
         data.gender         = (row.IsNull(9) ? false : row.GetBool(9));
         data.bloodlineID    = row.GetUInt(10);
         data.locationTypeID = row.GetUInt(11);
+        if (data.locationTypeID == 0 and !row.IsNull(17))
+            data.locationTypeID = row.GetUInt(17);   // station type for docked agents
         data.friendCorp     = (row.IsNull(12) ? 0 : row.GetInt(12));
         data.enemyCorp      = (row.IsNull(13) ? 0 : row.GetInt(13));
         data.factionID      = (row.IsNull(14) ? 0 : row.GetInt(14));
