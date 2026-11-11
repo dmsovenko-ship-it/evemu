@@ -800,15 +800,16 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         } break;
         case Mission::Type::Anomic:
         case Mission::Type::Burner: {
-            // Anomic/burner work is a high-paying combat assignment: model it as
-            // an encounter so Accept spawns a tracked hostile cluster.
-            data.name = "Combat Assignment";
-            data.typeID = Mission::Type::Encounter;
-            data.rewardISK = 25000 * level;
-            data.bonusISK = 5000 * level;
-            data.bonusTime = 20;
+            // Anomic/burner work: one elite "burner" + escorts at a deadspace
+            // site (spawned on Accept by EncounterSpawnServer::SpawnAnomicForOffer)
+            data.name = "Anomic Combat Assignment";
+            data.typeID = Mission::Type::Anomic;
+            data.rewardISK = 2500000 + level * 500000;
+            data.bonusISK = 500000 + level * 100000;
+            data.bonusTime = 30;
             data.important = true;
-            data.range = 2;
+            data.storyline = false;
+            data.range = 1;
         } break;
     }
 

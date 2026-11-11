@@ -528,6 +528,14 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 offer.stateID = Mission::State::Accepted;
                 offer.dateAccepted = GetFileTimeNow();
                 offer.expiryTime = GetFileTimeNow() + (30 * m_agent->GetLevel() * EvE::Time::Minute);
+                // career-agent tutorial chain: ask the client to run this step
+                if (offer.typeID == Mission::Type::Tutorial && offer.objectiveTutorialID != 0) {
+                    PyDict* targs = new PyDict();
+                        targs->SetItemString("tutorialID", new PyInt(offer.objectiveTutorialID));
+                    PyTuple* tpayload = new PyTuple(1);
+                        tpayload->SetItem(0, targs);
+                    call.client->SendNotification("OnServerTutorialRequest", "clientID", tpayload, false);
+                }
                 // only courier missions hand the pilot a mission package; mining/trade/
                 // research missions expect the pilot to mine or buy the goods themselves
                 // (spawning cargo for them made every such mission instantly complete)
@@ -611,6 +619,20 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         if (n > 0)
                             _log(AGENT__MESSAGE, "Spawned %u encounter targets for mission %u offer %u.",
                                  n, offer.missionID, offer.offerID);
+                    }
+                }
+                // Anomic/burner: elite deadspace pirate + escorts at a site
+                if (offer.typeID == Mission::Type::Anomic && offer.destinationSystemID != 0) {
+                    EncounterSpawnServer* ess = EncounterSpawnServer::Get();
+                    if (ess != nullptr) {
+                        GPoint anomicPos = dungeonSite;
+                        if (anomicPos.x == 0 && anomicPos.y == 0 && anomicPos.z == 0)
+                            anomicPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+                        uint32 n = ess->SpawnAnomicForOffer(offer, offer.destinationSystemID, anomicPos, moFaction);
+                        if (n == 0)
+                            n = ess->SpawnEncounterForOffer(offer, offer.destinationSystemID, anomicPos, moFaction, 3);
+                        _log(AGENT__MESSAGE, "Spawned %u anomic targets for mission %u offer %u.",
+                             n, offer.missionID, offer.offerID);
                     }
                 }
                 // Mining missions: spawn an ore belt of the requested ore in the
@@ -1436,6 +1458,7 @@ PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer
     // warp-to-site link ("Objective: <location>"). Without this the player has no
     // way to reach the spawned targets.
     bool isSiteMission = (offer.typeID == Mission::Type::Encounter || offer.typeID == Mission::Type::Mining
+        || offer.typeID == Mission::Type::Anomic
         || ((offer.typeID == Mission::Type::EpicArc || offer.typeID == Mission::Type::Cosmos) && offer.objectiveType == 3)
         || (offer.typeID == Mission::Type::Storyline && offer.courierTypeID == 0));
     if (isSiteMission && EncounterSpawnServer::Get() != nullptr) {

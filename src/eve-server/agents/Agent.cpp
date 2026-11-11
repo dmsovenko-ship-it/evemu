@@ -142,10 +142,62 @@ bool Agent::Load() {
     return true;
 }
 
+
+// Career-agent tutorial chains (tutorials 1001..1060). The client drives the
+// actual tutorial steps; the mission offer tracks whichever step is not done.
+static uint32 CareerTutorialStartForAgent(const std::string& name)
+{
+    if (name.find("Industry") != std::string::npos)    return 1011;
+    if (name.find("Business") != std::string::npos)    return 1031;
+    if (name.find("Exploration") != std::string::npos) return 1041;
+    if (name.find("Military") != std::string::npos)    return 1001;
+    if (name.find("AdvMil") != std::string::npos)      return 1051;
+    return 0;
+}
+
+static uint32 FirstIncompleteCareerTutorial(uint32 charID, uint32 start, std::string& outName)
+{
+    uint32 tid = start;
+    for (int n = 0; n < 20 && tid != 0; ++n) {
+        std::string name;
+        uint32 next = 0;
+        DBQueryResult res;
+        if (!sDatabase.RunQuery(res, "SELECT tutorialName, nextTutorialID FROM tutorials WHERE tutorialID = %u", tid))
+            return 0;
+        DBResultRow row;
+        if (!res.GetRow(row))
+            return 0;
+        if (!row.IsNull(0)) { const char* s = row.GetText(0); if (s) name = s; }
+        next = row.GetUInt(1);
+
+        DBQueryResult done;
+        bool completed = false;
+        if (sDatabase.RunQuery(done,
+                "SELECT 1 FROM characterTutorialState WHERE characterID = %u AND tutorialID = %u AND completed = 1 LIMIT 1",
+                charID, tid) && done.GetRowCount() > 0)
+            completed = true;
+        if (!completed) {
+            outName = name;
+            return tid;
+        }
+        tid = next;
+    }
+    return 0;
+}
+
 void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
 {
     // Determine mission type from agent division and type
     uint8 misionType = Mission::Type::Encounter;
+    uint32 careerTutorialID = 0;
+    std::string careerTutorialName;
+    if (m_agentData.typeID == Agents::Type::Tutorial) {
+        uint32 start = CareerTutorialStartForAgent(m_agentData.name);
+        if (start != 0)
+            careerTutorialID = FirstIncompleteCareerTutorial(charID, start, careerTutorialName);
+        if (start != 0 && careerTutorialID == 0)
+            return;     // career chain finished
+    }
     if (m_agentData.cosmos) {
         // COSMOS agents (SDE type 8, marked by their cosmosAgentMissions chain)
         misionType = Mission::Type::Cosmos;
@@ -156,7 +208,39 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
         case Agents::Type::EpicArc:  return; // epic arc agents give no regular missions
         case Agents::Type::Cosmos:   misionType = Mission::Type::Cosmos;   break;
         case Agents::Type::StoryLine:
-        case Agents::Type::GenericStoryLine: misionType = Mission::Type::Storyline; break;
+        case Agents::Type::GenericStoryLine: {
+            // Storyline agents only hand out the milestone mission: one per 15
+            // completed missions for their corporation (never on demand).
+            DBQueryResult cres;
+            uint32 completed = 0, storylines = 0;
+            if (!sDatabase.RunQuery(cres,
+                    "SELECT COUNT(*) FROM agtOffers WHERE characterID = %u AND dateCompleted > 0 AND typeID <> %u"
+                    " AND agentID IN (SELECT agentID FROM agtAgents WHERE corporationID = %u)",
+                    charID, Mission::Type::Storyline, m_agentData.corporationID))
+                return;
+            DBResultRow crow;
+            if (cres.GetRow(crow))
+                completed = crow.GetUInt(0);
+            if (completed == 0 || (completed % 15) != 0)
+                return;
+            if (!sDatabase.RunQuery(cres,
+                    "SELECT COUNT(*) FROM agtOffers WHERE characterID = %u AND dateCompleted > 0 AND typeID = %u"
+                    " AND agentID IN (SELECT agentID FROM agtAgents WHERE corporationID = %u)",
+                    charID, Mission::Type::Storyline, m_agentData.corporationID))
+                return;
+            if (cres.GetRow(crow))
+                storylines = crow.GetUInt(0);
+            if (storylines >= completed / 15)
+                return;     // this milestone's storyline was already handed out
+            DBQueryResult pending;
+            if (sDatabase.RunQuery(pending,
+                    "SELECT 1 FROM agtOffers WHERE characterID = %u AND typeID = %u AND dateCompleted = 0 AND stateID < 3 LIMIT 1",
+                    charID, Mission::Type::Storyline) && pending.GetRowCount() > 0)
+                return;
+            if (HasMission(charID))
+                return;
+            misionType = Mission::Type::Storyline;
+        } break;
         case Agents::Type::Event:    return; // event agents give no regular missions
         case Agents::Type::Aura:     return; // aura is the tutorial, not missions
         default: {
@@ -170,15 +254,23 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
                 case 5: case 14: case 16: case 23:
                     misionType = Mission::Type::Mining; break;
                 case 18:
-                    misionType = Mission::Type::Research; break;
+                    misionType = Mission::Type::Data; break;
                 case 8: case 13:
                     misionType = Mission::Type::Trade; break;
                 default:
                     misionType = Mission::Type::Encounter; break;
             }
+            // level 4 security agents occasionally hand out anomic/burner work
+            if (m_agentData.level >= 4
+                && (m_agentData.divisionID == 19 || m_agentData.divisionID == 21 || m_agentData.divisionID == 24)
+                && MakeRandomInt(0, 99) < 20)
+                misionType = Mission::Type::Anomic;
         }
     }
 
+    if (careerTutorialID != 0) {
+        misionType = Mission::Type::Tutorial;
+    }
     sMissionDataMgr.CreateMissionOffer(misionType, m_agentData.level, m_agentData.raceID, m_important, offer);
 
     // COSMOS: real per-agent chains (one-time missions, sequential steps) take
@@ -288,6 +380,30 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
 
     offer.stateID            = Mission::State::Offered;
     //offer.offerID            = 0;     //created when saving offer in db
+
+    if (careerTutorialID != 0) {
+        offer.typeID = Mission::Type::Tutorial;
+        offer.objectiveType = 4;                 // tutorial-step objective
+        offer.objectiveTutorialID = careerTutorialID;
+        offer.name = careerTutorialName;
+        offer.missionID = 0;
+        offer.briefingID = 0;
+        offer.courierTypeID = 0;
+        offer.courierAmount = 0;
+        offer.courierItemVolume = 0;
+        offer.rewardISK = 10000;
+        offer.rewardLP = 0;
+        offer.rewardItemID = 0;
+        offer.rewardItemQty = 0;
+        offer.important = false;
+        offer.storyline = false;
+        offer.remoteCompletable = false;
+        offer.remoteOfferable = false;
+        offer.destinationID = m_agentData.stationID;
+        offer.destinationOwnerID = m_agentData.corporationID;
+        offer.destinationSystemID = m_agentData.solarSystemID;
+        offer.expiryTime = GetFileTimeNow() + EvE::Time::Day * 30;
+    }
 
     // update mission data as needed....
     if (offer.typeID == Mission::Type::Courier) {

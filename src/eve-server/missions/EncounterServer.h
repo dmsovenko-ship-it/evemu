@@ -41,6 +41,10 @@ public:
     // Returns the number of targets spawned (0 = nothing to do / no system).
     uint32 SpawnEncounterForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos,
                                   uint32 factionOverride = 0, uint32 countOverride = 0);
+    // Spawn an anomic/burner site: one elite deadspace pirate + escorts, tracked
+    // against the offer like an encounter so completing it is a real kill.
+    uint32 SpawnAnomicForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos,
+                               uint32 factionOverride = 0);
     // Called from NPC::Killed when a mission-flagged NPC dies. Removes the dead
     // entity from its encounter; when none remain the offer is marked cleared
     // (agtOffers.missionNPCsKilled = missionNPCs).

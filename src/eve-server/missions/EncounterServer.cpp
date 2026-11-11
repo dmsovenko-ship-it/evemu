@@ -168,6 +168,123 @@ uint32 EncounterSpawnServer::SpawnEncounterForOffer(MissionOffer& offer, uint32 
     return spawned;
 }
 
+
+// Anomic/burner targets: real deadspace pirate hulls from the client SDE.
+// Agent faction (empire) is mapped to the pirate faction that opposes it.
+static uint32 BurnerFactionForAgent(uint32 factionID)
+{
+    switch (factionID) {
+        case 500001: return 500010;   // Caldari -> Guristas
+        case 500002: return 500011;   // Minmatar -> Angel Cartel
+        case 500003: return 500012;   // Amarr -> Blood Raiders
+        case 500004: return 500020;   // Gallente -> Serpentis
+        case 500010: case 500011: case 500012: case 500019: case 500020:
+            return factionID;
+        default: return 500010;
+    }
+}
+
+static const std::vector<uint32>& GetBurnerNPCs(uint32 factionID)
+{
+    static const std::vector<uint32> angel    = { 24134, 16877, 16879 };  // Gist Domination Seraphim + Gistii
+    static const std::vector<uint32> blood    = { 24144, 16934, 16941 };  // Dark Corpus Pope + Corpus
+    static const std::vector<uint32> guristas = { 24154, 16984, 16988 };  // Dread Pith Usurper + Pith
+    static const std::vector<uint32> sansha   = { 24155, 17058, 17066 };  // Centus Plague Lord + Centus
+    static const std::vector<uint32> serpentis= { 24174, 17034, 17037 };  // Shadow Core Lord Admiral + Core
+    switch (factionID) {
+        case 500011: return angel;
+        case 500012: return blood;
+        case 500019: return sansha;
+        case 500020: return serpentis;
+        default:     return guristas;
+    }
+}
+
+uint32 EncounterSpawnServer::SpawnAnomicForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos, uint32 factionOverride)
+{
+    if (offer.offerID == 0)
+        return 0;
+    SystemManager* pSystem = sEntityList.FindOrBootSystem(destinationSystemID);
+    if (pSystem == nullptr)
+        return 0;
+
+    uint32 factionID = factionOverride;
+    if (factionID == 0) {
+        uint32 agentCorp = offer.originOwnerID;
+        if (agentCorp != 0)
+            factionID = sDataMgr.GetCorpFaction(agentCorp);
+    }
+    factionID = BurnerFactionForAgent(factionID);
+    const std::vector<uint32>& npcTypes = GetBurnerNPCs(factionID);
+    uint32 corpID = GetCorpIDForFaction(factionID);
+    if (npcTypes.empty() || corpID == 0)
+        return 0;
+
+    FactionData faction;
+        faction.allianceID = factionID;
+        faction.corporationID = corpID;
+        faction.factionID = factionID;
+        faction.ownerID = corpID;
+
+    MissionEncounter enc;
+        enc.encounterID = m_nextEncounterID++;
+        enc.missionID = offer.missionID;
+        enc.agentID = offer.agentID;
+        enc.charID = offer.characterID;
+        enc.offerID = offer.offerID;
+        enc.systemID = destinationSystemID;
+        enc.agentTypeID = offer.typeID;
+        enc.encounterName = offer.name;
+        enc.active = true;
+
+    GPoint base = atPos;
+    if (base.x == 0.0 && base.y == 0.0 && base.z == 0.0)
+        base = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+    enc.targetPos = base;
+
+    // one burner (first type) + two escorts, 8-12 km apart
+    uint32 spawned = 0;
+    const uint32 npcCount = 3;
+    for (uint32 n = 0; n < npcCount; ++n) {
+        uint32 typeID = npcTypes[n % npcTypes.size()];
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Anomic NPC %u-%u", enc.encounterID, n);
+        GPoint pos = base;
+        pos.x += 8000 + n * 2000;
+        pos.z += n * 1500;
+
+        ItemData itemData(typeID, corpID, destinationSystemID, flagNone, buf, pos);
+        InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+        if (iRef.get() == nullptr) continue;
+        iRef->SetCustomInfo(("mission:" + std::to_string(offer.offerID)).c_str());
+        iRef->SaveItem();
+
+        NPC* npc = new NPC(iRef, pSystem->GetServiceMgr(), pSystem, faction);
+        if (npc == nullptr) continue;
+        if (npc->Load()) {
+            npc->DestinyMgr()->SetPosition(pos);
+            pSystem->AddNPC(npc);
+            enc.spawnedEntities.push_back(npc->GetID());
+            ++spawned;
+            _log(AGENT__MESSAGE, "EncounterSpawnServer: spawned anomic target %s (typeID=%u) for offer %u.",
+                 buf, typeID, offer.offerID);
+        } else {
+            SafeDelete(npc);
+        }
+    }
+
+    if (spawned > 0) {
+        m_encounters.emplace(enc.encounterID, enc);
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE agtOffers SET missionNPCs = %u, missionNPCsKilled = 0, dungeonSolarSystemID = %u"
+            " WHERE offerID = %u", spawned, destinationSystemID, offer.offerID);
+        _log(AGENT__MESSAGE, "EncounterSpawnServer: anomic offer %u tracks %u targets in system %u.",
+             offer.offerID, spawned, destinationSystemID);
+    }
+    return spawned;
+}
+
 void EncounterSpawnServer::OnMissionTargetKilled(uint32 entityID)
 {
     for (auto it = m_encounters.begin(); it != m_encounters.end(); ++it) {
@@ -194,7 +311,20 @@ bool EncounterSpawnServer::IsOfferComplete(uint32 offerID) const
     for (const auto& pair : m_encounters)
         if (pair.second.offerID == offerID)
             return pair.second.spawnedEntities.empty();
-    return false;   // unknown offer — not complete
+
+    // The tracking entry is erased on the last kill (and is lost on a server
+    // restart), so fall back to the persisted counters on the offer.
+    DBQueryResult res;
+    if (sDatabase.RunQuery(res,
+            "SELECT missionNPCs, missionNPCsKilled FROM agtOffers WHERE offerID = %u", offerID)) {
+        DBResultRow row;
+        if (res.GetRow(row)) {
+            uint32 total = row.GetUInt(0);
+            uint32 killed = row.GetUInt(1);
+            return (total > 0 && killed >= total);
+        }
+    }
+    return false;   // unknown offer - not complete
 }
 
 void EncounterSpawnServer::RegisterMiningSite(uint32 offerID, const GPoint& pos)

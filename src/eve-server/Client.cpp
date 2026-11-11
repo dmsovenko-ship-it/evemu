@@ -2599,8 +2599,9 @@ bool Client::IsMissionComplete(MissionOffer& data)
             }
         } break;
         case Mission::Type::Anomic: {
-            // not modelled - being docked at the agent is enough
-            if (m_locationID != 0)
+            // burner site: complete when the spawned anomic targets are dead
+            if (EncounterSpawnServer::Get() != nullptr
+                && EncounterSpawnServer::Get()->IsOfferComplete(data.offerID))
                 return true;
         } break;
     }
