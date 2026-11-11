@@ -713,7 +713,23 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                                     dungeonSite = huntPos;
                                 }
                         }
-                        uint32 huntCount = huntEss->SpawnEncounterForOffer(offer, huntSys, huntPos, moFaction, moCount);
+                        uint32 huntCount = 0;
+                        if (offer.typeID == Mission::Type::Cosmos) {
+                            // use the real NPC pack of the agent's COSMOS site when possible
+                            uint32 siteID = 0;
+                            DBQueryResult siteRes;
+                            if (sDatabase.RunQuery(siteRes,
+                                    "SELECT siteID FROM cosmosAgentSites WHERE agentID = %u LIMIT 1",
+                                    m_agent->GetID())) {
+                                DBResultRow siteRow;
+                                if (siteRes.GetRow(siteRow))
+                                    siteID = siteRow.GetUInt(0);
+                            }
+                            if (siteID != 0)
+                                huntCount = huntEss->SpawnCosmosHuntForOffer(offer, huntSys, huntPos, siteID);
+                        }
+                        if (huntCount == 0)
+                            huntCount = huntEss->SpawnEncounterForOffer(offer, huntSys, huntPos, moFaction, moCount);
                         _log(AGENT__MESSAGE, "Arc/cosmos hunt: spawned %u targets for mission %u offer %u.",
                              huntCount, offer.missionID, offer.offerID);
                     }

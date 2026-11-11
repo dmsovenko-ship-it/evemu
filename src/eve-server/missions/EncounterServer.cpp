@@ -285,6 +285,113 @@ uint32 EncounterSpawnServer::SpawnAnomicForOffer(MissionOffer& offer, uint32 des
     return spawned;
 }
 
+
+uint32 EncounterSpawnServer::SpawnCosmosHuntForOffer(MissionOffer& offer, uint32 destinationSystemID,
+                                                     const GPoint& atPos, uint32 siteID)
+{
+    if (offer.offerID == 0 || siteID == 0)
+        return 0;
+    SystemManager* pSystem = sEntityList.FindOrBootSystem(destinationSystemID);
+    if (pSystem == nullptr)
+        return 0;
+
+    struct SiteNpc { uint32 typeID; uint32 qty; };
+    std::vector<SiteNpc> siteNpcs;
+    DBQueryResult nres;
+    if (!sDatabase.RunQuery(nres,
+            "SELECT typeID, qty FROM cosmosSiteNpcs WHERE siteID = %u ORDER BY pocket, typeID", siteID))
+        return 0;
+    DBResultRow nrow;
+    while (nres.GetRow(nrow)) {
+        SiteNpc n;
+        n.typeID = nrow.GetUInt(0);
+        n.qty = nrow.GetUInt(1);
+        if (n.typeID != 0)
+            siteNpcs.push_back(n);
+    }
+    if (siteNpcs.empty())
+        return 0;
+
+    uint32 factionID = 500010;
+    DBQueryResult sres;
+    if (sDatabase.RunQuery(sres, "SELECT factionID FROM cosmosSites WHERE siteID = %u", siteID)) {
+        DBResultRow srow;
+        if (sres.GetRow(srow))
+            factionID = srow.GetUInt(0);
+    }
+    if (factionID == 0)
+        factionID = 500010;
+    uint32 corpID = GetCorpIDForFaction(factionID);
+    if (corpID == 0)
+        corpID = 1000125;       // CONCORD fallback owner; visuals unaffected
+
+    FactionData faction;
+        faction.allianceID = factionID;
+        faction.corporationID = corpID;
+        faction.factionID = factionID;
+        faction.ownerID = corpID;
+
+    MissionEncounter enc;
+        enc.encounterID = m_nextEncounterID++;
+        enc.missionID = offer.missionID;
+        enc.agentID = offer.agentID;
+        enc.charID = offer.characterID;
+        enc.offerID = offer.offerID;
+        enc.systemID = destinationSystemID;
+        enc.agentTypeID = offer.typeID;
+        enc.encounterName = offer.name;
+        enc.active = true;
+
+    GPoint base = atPos;
+    if (base.x == 0.0 && base.y == 0.0 && base.z == 0.0)
+        base = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+    enc.targetPos = base;
+
+    uint32 spawned = 0;
+    const uint32 maxTargets = 10;
+    for (const SiteNpc& sn : siteNpcs) {
+        uint32 repeat = sn.qty ? sn.qty : 1;
+        if (repeat > 4) repeat = 4;     // cap duplicate NPCs per row
+        for (uint32 q = 0; q < repeat && spawned < maxTargets; ++q) {
+            GPoint pos = base;
+            pos.x += 8000 + (spawned % 4) * 1800;
+            pos.z += (spawned / 4) * 1800;
+            char buf[64];
+            snprintf(buf, sizeof(buf), "Cosmos Hunt NPC %u-%u", enc.encounterID, spawned);
+
+            ItemData itemData(sn.typeID, corpID, destinationSystemID, flagNone, buf, pos);
+            InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
+            if (iRef.get() == nullptr) continue;
+            iRef->SetCustomInfo(("mission:" + std::to_string(offer.offerID)).c_str());
+            iRef->SaveItem();
+
+            NPC* npc = new NPC(iRef, pSystem->GetServiceMgr(), pSystem, faction);
+            if (npc == nullptr) continue;
+            if (npc->Load()) {
+                npc->DestinyMgr()->SetPosition(pos);
+                pSystem->AddNPC(npc);
+                enc.spawnedEntities.push_back(npc->GetID());
+                ++spawned;
+            } else {
+                SafeDelete(npc);
+            }
+        }
+        if (spawned >= maxTargets)
+            break;
+    }
+
+    if (spawned > 0) {
+        m_encounters.emplace(enc.encounterID, enc);
+        DBerror err;
+        sDatabase.RunQuery(err,
+            "UPDATE agtOffers SET missionNPCs = %u, missionNPCsKilled = 0, dungeonSolarSystemID = %u"
+            " WHERE offerID = %u", spawned, destinationSystemID, offer.offerID);
+        _log(AGENT__MESSAGE, "EncounterSpawnServer: COSMOS hunt offer %u spawned %u site NPCs from site %u.",
+             offer.offerID, spawned, siteID);
+    }
+    return spawned;
+}
+
 void EncounterSpawnServer::OnMissionTargetKilled(uint32 entityID)
 {
     for (auto it = m_encounters.begin(); it != m_encounters.end(); ++it) {

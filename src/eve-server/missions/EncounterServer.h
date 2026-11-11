@@ -45,6 +45,10 @@ public:
     // against the offer like an encounter so completing it is a real kill.
     uint32 SpawnAnomicForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos,
                                uint32 factionOverride = 0);
+    // COSMOS hunt: spawn the agent site's real NPC pack (cosmosSiteNpcs) as
+    // tracked mission targets; falls back to the generic faction cluster.
+    uint32 SpawnCosmosHuntForOffer(MissionOffer& offer, uint32 destinationSystemID, const GPoint& atPos,
+                                   uint32 siteID);
     // Called from NPC::Killed when a mission-flagged NPC dies. Removes the dead
     // entity from its encounter; when none remain the offer is marked cleared
     // (agtOffers.missionNPCsKilled = missionNPCs).
