@@ -584,6 +584,21 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                                 offer.destinationOwnerID = 0;
                             }
                         }
+                        // COSMOS agents docked at a station: keep the fight in their
+                        // own system next to the agent's station
+                        if (offer.typeID == Mission::Type::Cosmos && m_agent->GetStationID() != 0) {
+                            SystemManager* pAgentSys = sEntityList.FindOrBootSystem(m_agent->GetSystemID());
+                            if (pAgentSys != nullptr)
+                                if (SystemEntity* stSE = pAgentSys->GetSE(m_agent->GetStationID())) {
+                                    huntSys = m_agent->GetSystemID();
+                                    huntPos = stSE->GetPosition();
+                                    huntPos.x += 30000.0;
+                                    dungeonSite = huntPos;
+                                    offer.destinationSystemID = huntSys;
+                                    offer.destinationID = huntSys;
+                                    offer.destinationOwnerID = 0;
+                                }
+                        }
                         // arc hunt with a real destination station: put the target
                         // cluster next to that station (reachable + visible in the journal)
                         if (huntSys == offer.destinationSystemID && offer.destinationID != 0

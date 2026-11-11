@@ -526,3 +526,7 @@
 - **Epic arc progression** — chapter/branch advancement and arc completion repaired, progress persisted in `chrEpicArcState`
 - **Storyline loop** — every 15 missions a courier storyline with a mission package and a real station hand-in
 - **Agent names restored** — 543 arc/FW/storyline agents filled from the SDE `invNames` (nameless dialogues fixed)
+- **COSMOS site structures** — 41 wiki structures (Prison Facility, Guard Post, strongholds, batteries) spawned as static landmarks inside their pockets
+- **Named-NPC loot** — pocket drops are attached to the exact NPC type that drops them (28 rows), the rest ride the pocket lead NPC; the loot lands in that wreck
+- **Hunt anchoring** — arc hunt clusters spawn +30 km from the destination station; COSMOS hunt clusters spawn next to the agent's station/site
+- **Agent location fix** — station agents report the station type in the dialogue header (fallback to `staStations.stationTypeID`)
