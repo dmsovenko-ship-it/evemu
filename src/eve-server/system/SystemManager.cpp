@@ -959,6 +959,8 @@ void SystemManager::ProcessCosmosSiteRespawns()
     double now = GetFileTimeNow();
     for (auto& kv : m_cosmosSiteMobs) {
         uint32 siteID = kv.first;
+        if (kv.second.empty())
+            continue;   // agent-site beacon without a combat pack
         bool alive = false;
         for (uint32 id : kv.second)
             if (GetSE(id) != nullptr) { alive = true; break; }
