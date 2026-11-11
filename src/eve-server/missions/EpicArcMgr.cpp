@@ -1,4 +1,5 @@
 #include "missions/EpicArcMgr.h"
+#include <set>
 #include "database/EVEDBUtils.h"
 #include "missions/MissionDB.h"
 
@@ -134,7 +135,7 @@ void EpicArcMgr::StartArc(uint32 charID, uint32 arcID, uint32 agentID)
     state.arcID = arcID;
     state.chapterNumber = 1;
     state.lastMissionID = 0;
-    state.branchChoice = 1;    // no in-game branch dialog: play the first branch line
+    state.branchChoice = 0;    // 0 = not chosen yet (prompt at branch points)
     state.dateStarted = GetFileTimeNow();
     state.dateCompleted = 0;
     state.completed = false;
@@ -145,7 +146,7 @@ void EpicArcMgr::StartArc(uint32 charID, uint32 arcID, uint32 agentID)
     DBerror err;
     sDatabase.RunQuery(err,
         "REPLACE INTO chrEpicArcState (characterID, arcID, chapterNumber, lastMissionID, branchChoice, dateStarted, dateCompleted, completed)"
-        " VALUES (%u, %u, 1, 0, 1, %.0f, 0, 0)",
+        " VALUES (%u, %u, 1, 0, 0, %.0f, 0, 0)",
         charID, arcID, state.dateStarted);
 }
 
@@ -177,19 +178,22 @@ void EpicArcMgr::AdvanceMission(uint32 charID, uint32 arcID, uint32 missionID)
     }
 
     state.chapterNumber = chapter;
+    // a shared (non-branch) mission ends a branch block: ask again at the next one
+    if (md != nullptr && md->branchID == 0)
+        state.branchChoice = 0;
     if (next != nullptr) {
         state.lastMissionID = missionID;   // sequence is derived from the mission row
         DBerror err;
         sDatabase.RunQuery(err,
-            "UPDATE chrEpicArcState SET chapterNumber = %u, lastMissionID = %u WHERE characterID = %u AND arcID = %u",
-            chapter, missionID, charID, arcID);
+            "UPDATE chrEpicArcState SET chapterNumber = %u, lastMissionID = %u, branchChoice = %d WHERE characterID = %u AND arcID = %u",
+            chapter, missionID, (int)state.branchChoice, charID, arcID);
     } else {
         // no further missions in any chapter -> the arc is complete
         CompleteArc(charID, arcID);
         DBerror err;
         sDatabase.RunQuery(err,
-            "UPDATE chrEpicArcState SET chapterNumber = %u, lastMissionID = %u WHERE characterID = %u AND arcID = %u",
-            chapter, missionID, charID, arcID);
+            "UPDATE chrEpicArcState SET chapterNumber = %u, lastMissionID = %u, branchChoice = %d WHERE characterID = %u AND arcID = %u",
+            chapter, missionID, (int)state.branchChoice, charID, arcID);
     }
 }
 
@@ -217,6 +221,85 @@ EpicArcMissionData* EpicArcMgr::GetNextMissionForChar(uint32 charID, uint32 arcI
             return m;
     }
     return nullptr;
+}
+
+std::vector<EpicArcMissionData> EpicArcMgr::GetNextMissionOptions(uint32 charID, uint32 arcID)
+{
+    std::vector<EpicArcMissionData> out;
+    int64 stateKey = (int64(charID) << 32) | arcID;
+    auto it = m_state.find(stateKey);
+    if (it == m_state.end())
+        return out;
+
+    EpicArcState& state = it->second;
+    uint8 chapter = (state.chapterNumber != 0) ? state.chapterNumber : 1;
+    int8 branch = (state.branchChoice != 0) ? state.branchChoice : 1;
+    uint32 lastSeq = 0;
+    if (state.lastMissionID != 0) {
+        EpicArcMissionData* md = FindMissionByID(arcID, state.lastMissionID);
+        if (md != nullptr && md->chapterNumber == chapter)
+            lastSeq = md->sequenceNumber;
+    }
+
+    int64 base = (int64(arcID) << 32) | (int64(chapter) << 16);
+    auto lo = m_missions.lower_bound(base);
+    auto hi = m_missions.lower_bound(base + 0x10000);
+    uint32 minSeq = 0;
+    bool found = false;
+    for (auto e = lo; e != hi; ++e) {
+        uint32 seq = e->second.sequenceNumber;
+        if (seq <= lastSeq)
+            continue;
+        if (!found || seq < minSeq) {
+            minSeq = seq;
+            found = true;
+        }
+    }
+    if (!found) {
+        // chapter finished: fall back to the normal single-mission advance
+        EpicArcMissionData* m = GetNextMissionForChar(charID, arcID);
+        if (m != nullptr)
+            out.push_back(*m);
+        return out;
+    }
+
+    std::vector<EpicArcMissionData> cand;
+    for (auto e = lo; e != hi; ++e)
+        if (e->second.sequenceNumber == minSeq)
+            cand.push_back(e->second);
+
+    std::set<int8> branches;
+    for (auto& c : cand)
+        if (c.branchID != 0)
+            branches.insert(c.branchID);
+
+    // a branch line consists of several consecutive sequences; only prompt at the
+    // start of the block (the previous mission was shared, branchID 0)
+    int8 lastBranch = 0;
+    if (state.lastMissionID != 0) {
+        EpicArcMissionData* md = FindMissionByID(arcID, state.lastMissionID);
+        if (md != nullptr)
+            lastBranch = md->branchID;
+    }
+
+    if (branches.size() >= 2 && lastBranch == 0 && state.branchChoice == 0) {
+        // one option per branch line, in branchID order
+        for (int8 b : branches)
+            for (auto& c : cand)
+                if (c.branchID == b) {
+                    out.push_back(c);
+                    break;
+                }
+        return out;
+    }
+    for (auto& c : cand)
+        if (c.branchID == 0 || c.branchID == branch) {
+            out.push_back(c);
+            return out;
+        }
+    if (!cand.empty())
+        out.push_back(cand.front());
+    return out;
 }
 
 uint8 EpicArcMgr::GetCurrentChapter(uint32 charID, uint32 arcID)

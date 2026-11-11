@@ -202,8 +202,18 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
         dialog->AddItem(adminButton);
     }
 
+                // branch-choice links (epic arcs) arrive as actionID 200+N, where N
+                // is the branchID of the chosen mission
+                int actionVal = actionID.has_value() ? actionID.value()->value() : 0;
+                if (actionVal >= 200 && actionVal < 300) {
+                    EpicArcData* bArc = sEpicArcMgr.GetArcByAgent(m_agent->GetID());
+                    if (bArc != nullptr)
+                        sEpicArcMgr.SetBranchChoice(pchar->itemID(), bArc->arcID, (int8)(actionVal - 200));
+                    actionVal = EpicArcStart;
+                }
+
                 if (m_agent->CanUseAgent(call.client)) {
-        switch (actionID.has_value() ? actionID.value()->value() : 0) {
+        switch (actionVal) {
             case 0: {
                 //  if char has current mission with this agent, add this one.
                 MissionOffer offer = MissionOffer();
@@ -285,6 +295,38 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         if (sEpicArcMgr.CanStartArc(charID, arc->arcID))
                             sEpicArcMgr.StartArc(charID, arc->arcID, m_agent->GetID());
                     }
+                    // branch point: let the player choose the story line (the client
+                    // renders the dict entries as mission-title links)
+                    std::vector<EpicArcMissionData> arcOptions = sEpicArcMgr.GetNextMissionOptions(charID, arc->arcID);
+                    if (arcOptions.size() > 1) {
+                        PySetItemRelease(agentSays, 0, new PyString("Choose your path."));
+                        agentSays->SetItem(1, PyStatic.NewNone());
+                        for (auto& opt : arcOptions) {
+                            std::string optBrief;
+                            DBQueryResult bRes;
+                            if (sDatabase.RunQuery(bRes,
+                                    "SELECT briefingText FROM missionObjectives WHERE missionID = %u", opt.missionID)) {
+                                DBResultRow bRow;
+                                if (bRes.GetRow(bRow) && !bRow.IsNull(0))
+                                    if (const char* t = bRow.GetText(0))
+                                        optBrief = t;
+                            }
+                            PyDict* choice = new PyDict();
+                                choice->SetItemString("ContentID", new PyInt(charID));
+                                choice->SetItemString("Mission Keywords", new PyDict());
+                                choice->SetItemString("Mission Title ID", new PyString(opt.missionName));
+                                if (!optBrief.empty())
+                                    choice->SetItemString("Mission Briefing ID", new PyString(optBrief.c_str()));
+                                else
+                                    choice->SetItemString("Mission Briefing ID", PyStatic.NewNone());
+                            PyTuple* choiceEntry = new PyTuple(2);
+                                PySetItemRelease(choiceEntry, 0, new PyInt(200 + opt.branchID));
+                                PySetItemRelease(choiceEntry, 1, choice);
+                            dialog->AddItem(choiceEntry);
+                        }
+                        break;
+                    }
+
                     MissionOffer offer = MissionOffer();
                     // the journal clones offer.bookmarks — a null RefPtr here
                     // segfaulted the server on the first journal open

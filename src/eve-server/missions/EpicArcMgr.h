@@ -56,6 +56,8 @@ public:
     bool IsOnArc(uint32 charID, uint32 arcID);
     void StartArc(uint32 charID, uint32 arcID, uint32 agentID);
     EpicArcMissionData* GetNextMissionForChar(uint32 charID, uint32 arcID);
+    // branch point: >1 entries = the player must choose a path (branchID values)
+    std::vector<EpicArcMissionData> GetNextMissionOptions(uint32 charID, uint32 arcID);
     void AdvanceMission(uint32 charID, uint32 arcID, uint32 missionID);
     void CompleteArc(uint32 charID, uint32 arcID);
     uint8 GetCurrentChapter(uint32 charID, uint32 arcID);
