@@ -254,6 +254,14 @@ bool SystemManager::ProcessTic() {
         SpawnCustomsNPCs();
     }
 
+    // COSMOS sites/agents are only needed once a player is actually in the
+    // system (spawning them for prefetched/hub systems wasted NPCs and DB work)
+    if (!m_cosmosSpawned && PlayerCount() >= 1) {
+        m_cosmosSpawned = true;
+        SpawnCosmosSites();
+        SpawnCosmosAgents();
+    }
+
     /* the idea here is entities map NEVER has invalid items in it, but our iterator may become invalid
      *      when SE->Process() returns because Process() will add/remove from the map as needed
      *      (new objects, destroyed objects, moved objects, etc)
@@ -674,10 +682,6 @@ bool SystemManager::LoadSystemDynamics() {
     // Boot done: release the batch preloads (they are boot-scoped caches).
     ItemDB::ClearPreload();
     AttributeMap::ClearPreload();
-
-    // COSMOS sites + the agents that live at them (SDE locationID = system)
-    SpawnCosmosSites();
-    SpawnCosmosAgents();
 
     return true;
 }

@@ -208,6 +208,7 @@ public:
     // system (spawning them at boot for bot/always-on systems wasted NPCs +
     // a per-gate DB lookup per boot). Set once so they spawn at most once.
     bool m_customsSpawned = false;
+    bool m_cosmosSpawned = false;      // sites/agents spawned when a player enters
 
 protected:
     /** @todo  this needs more work */
