@@ -1422,6 +1422,24 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
             PySetItemRelease(coords, 2, new PyFloat(0));
         dropoffLocation->SetItemString("coords", coords);
         dropoffLocation->SetItemString("referringAgentID", new PyInt(offer.agentID) );
+        // COSMOS/arc agent in space: use the spawned agent's real position and id so
+        // the journal objective can offer a warp link to the agent
+        if (m_agent->GetStationID() == 0) {
+            SystemEntity* agSE = nullptr;
+            auto& systems = sEntityList.GetSystems();
+            auto sit = systems.find(m_agent->GetSystemID());
+            if (sit != systems.end())
+                agSE = sit->second->GetCosmosAgentSE(m_agent->GetID());
+            if (agSE != nullptr) {
+                dropoffLocation->SetItemString("typeID", new PyInt(agSE->GetTypeID()) );
+                dropoffLocation->SetItemString("agentID", new PyInt(m_agent->GetID()) );
+                PyTuple* agCoords = new PyTuple(3);
+                    PySetItemRelease(agCoords, 0, new PyFloat(agSE->GetPosition().x));
+                    PySetItemRelease(agCoords, 1, new PyFloat(agSE->GetPosition().y));
+                    PySetItemRelease(agCoords, 2, new PyFloat(agSE->GetPosition().z));
+                dropoffLocation->SetItemString("coords", agCoords);
+            }
+        }
     }
 
     PyTuple* objectives = new PyTuple(1);
