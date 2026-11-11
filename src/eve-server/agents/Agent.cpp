@@ -158,14 +158,21 @@ void Agent::MakeOffer(uint32 charID, MissionOffer& offer)
         case Agents::Type::Event:    return; // Event agents — no regular missions
         case Agents::Type::Aura:     return; // Aura — tutorial, not missions
         default: {
-            if (m_agentData.divisionID >= 16 and m_agentData.divisionID <= 20)
-                misionType = Mission::Type::Mining;
-            else if (m_agentData.divisionID >= 21)
-                misionType = Mission::Type::Courier;
-            else if (m_agentData.typeID != Agents::Type::Basic and m_agentData.typeID != Agents::Type::None)
-                return; // Unknown agent types — skip
-            else
-                misionType = Mission::Type::Encounter;
+            if (m_agentData.typeID != Agents::Type::Basic and m_agentData.typeID != Agents::Type::None)
+                return; // unknown agent type - skip
+            // Division decides the mission family (old 1..21 + RMR 22..24 ids)
+            switch (m_agentData.divisionID) {
+                case 2: case 4: case 7: case 11: case 15: case 17: case 22:
+                    misionType = Mission::Type::Courier; break;
+                case 5: case 14: case 16: case 23:
+                    misionType = Mission::Type::Mining; break;
+                case 18:
+                    misionType = Mission::Type::Research; break;
+                case 8: case 13:
+                    misionType = Mission::Type::Trade; break;
+                default:
+                    misionType = Mission::Type::Encounter; break;
+            }
         }
     }
 
