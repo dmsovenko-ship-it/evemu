@@ -765,6 +765,35 @@ void SystemManager::SpawnCosmosSites()
             GPoint pocketPos = pos;
             pocketPos.x += (pocket - 1) * POCKET_SPACING;
 
+            // site structures (wiki Structures tables): static landmarks of the pocket
+            DBQueryResult stRes;
+            if (sDatabase.RunQuery(stRes,
+                    "SELECT typeID, qty FROM cosmosSiteStructures WHERE siteID = %u AND pocket = %u",
+                    siteID, pocket)) {
+                DBResultRow stRow;
+                uint32 sc = 0;
+                while (stRes.GetRow(stRow) && sc < 8) {
+                    uint32 stType = stRow.GetUInt(0);
+                    uint32 stQty = stRow.GetUInt(1);
+                    for (uint32 k = 0; k < stQty && sc < 8; ++k, ++sc) {
+                        GPoint stPos = pocketPos;
+                        stPos.x += 12000.0 + (sc % 3) * 5000.0;
+                        stPos.z += 12000.0 + (sc / 3) * 5000.0;
+                        ItemData stData(stType, (corpID != 0 ? corpID : 1), m_data.systemID,
+                                        flagNone, "", stPos);
+                        uint32 stTempID = InventoryItem::CreateTempItemID(stData);
+                        InventoryItemRef stRef = InventoryItem::SpawnItem(stTempID, stData);
+                        if (stRef.get() == nullptr)
+                            continue;
+                        stRef->SetAttribute(AttrIsGlobal, 1, false);
+                        CelestialSE* stSE = new CelestialSE(stRef, m_services, this);
+                        AddEntity(stSE, false);
+                        if (stSE->SysBubble() != nullptr)
+                            stSE->SysBubble()->AddBallExclusive(stSE);
+                    }
+                }
+            }
+
             if (pocket < maxPocket) {
                 GPoint gatePos = pocketPos;
                 gatePos.x += 30000.0 + MakeRandomInt(0, 4000);
