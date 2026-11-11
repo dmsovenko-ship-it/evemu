@@ -584,6 +584,18 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                                 offer.destinationOwnerID = 0;
                             }
                         }
+                        // arc hunt with a real destination station: put the target
+                        // cluster next to that station (reachable + visible in the journal)
+                        if (huntSys == offer.destinationSystemID && offer.destinationID != 0
+                            && sDataMgr.IsStation(offer.destinationID)) {
+                            SystemManager* pDestSys = sEntityList.FindOrBootSystem(huntSys);
+                            if (pDestSys != nullptr)
+                                if (SystemEntity* stSE = pDestSys->GetSE(offer.destinationID)) {
+                                    huntPos = stSE->GetPosition();
+                                    huntPos.x += 30000.0;
+                                    dungeonSite = huntPos;
+                                }
+                        }
                         uint32 huntCount = huntEss->SpawnEncounterForOffer(offer, huntSys, huntPos, moFaction, moCount);
                         _log(AGENT__MESSAGE, "Arc/cosmos hunt: spawned %u targets for mission %u offer %u.",
                              huntCount, offer.missionID, offer.offerID);
