@@ -57,7 +57,7 @@
 ### Session 10 Nov
 
 - **COSMOS from the wiki**: 340 agents live in space on their named beacons (`Agents in Space`, group 517 / dogma attr `agentID`); 218 agent/combat sites with NPC pockets, `17831` acceleration gates, passkeys and gate ship limits; 581 one-time chain missions with real briefings/objectives (travel/fetch/hunt), fetch loot, 79 reward items.
-- **Mission destinations**: system/station parsed from the wiki for 414 missions (349 systems, 65 stations, 61 agent targets; wiki notes prose and redirects included); "Report to `agent`" uses the native journal objective (portrait, location, warp); briefings filled + objective fallback (602 rows with text).
+- **Mission destinations**: system/station parsed from the wiki for 414 missions (349 systems, 65 stations, 61 agent targets; wiki notes prose and redirects included); "Report to `agent`" uses the native journal objective (portrait, location, warp); briefings filled + objective fallback (608 rows with text; 5 more backfilled from the client localization, 2 missions remain objective-only).
 - **Epic arcs**: chapter/branch progression repaired (`AdvanceMission` per mission, chapter roll-over, arc completion) and progress persisted in `chrEpicArcState`; starting agents point at the real agent rows; in-space arc agents spawn like COSMOS agents; standings gate configurable.
 - **Storyline**: every 15 completed missions a courier storyline with a mission package and a real station hand-in; 543 previously nameless arc/FW/storyline agents got their names from the SDE.
 - **Sites**: static beacons anchored to the star, pockets 150 km apart along +x, named-NPC loot in the lead NPC's wreck, respawn 10 minutes after the pack is wiped.
@@ -202,7 +202,7 @@
 | **Report-to-agent objective** — native `agent` journal objective (portrait, location, warp link) for 54 missions | ❌ | ✅ |
 | **Epic arc progression** — per-mission advancement, chapter roll-over by branch, arc completion, state persisted in `chrEpicArcState`; arcs start at the real agent rows | 🟡 | ✅ |
 | **Storyline loop** — every 15 completed missions a courier storyline with a mission package and a real station hand-in | 🟡 | ✅ |
-| **Briefing coverage** — 602 `missionObjectives` rows carry text (wiki briefings + 13 backfilled); COSMOS falls back to `Objective: …` | 🟡 | ✅ |
+| **Briefing coverage** — 608 `missionObjectives` rows carry text (wiki briefings, 13 wiki backfills, 5 from the client localization); COSMOS falls back to `Objective: …` | 🟡 | ✅ |
 
 ### 9. Market `███████████████████░` 95%
 
