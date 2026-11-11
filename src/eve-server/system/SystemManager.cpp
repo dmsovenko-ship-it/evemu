@@ -841,14 +841,15 @@ void SystemManager::SpawnCosmosSiteNpcs(uint32 siteID, const GPoint& pos, uint32
     if (maxPocket == 0)
         return;
 
-    // per-pocket loot (named NPC drops) is carried by the first NPC of the pocket
-    std::map<uint32, std::vector<std::pair<uint32, uint32> > > pocketDrops;
+    // per-pocket loot keyed by the NPC type that drops it (npcTypeID 0 = lead NPC)
+    std::map<uint32, std::map<uint32, std::vector<std::pair<uint32, uint32> > > > pocketDrops;
     DBQueryResult dropRes;
     if (sDatabase.RunQuery(dropRes,
-            "SELECT pocket, typeID, qty FROM cosmosSiteDrops WHERE siteID = %u", siteID)) {
+            "SELECT pocket, npcTypeID, typeID, qty FROM cosmosSiteDrops WHERE siteID = %u", siteID)) {
         DBResultRow dropRow;
         while (dropRes.GetRow(dropRow))
-            pocketDrops[dropRow.GetUInt(0)].push_back(std::make_pair(dropRow.GetUInt(1), dropRow.GetUInt(2)));
+            pocketDrops[dropRow.GetUInt(0)][dropRow.GetUInt(1)].push_back(
+                std::make_pair(dropRow.GetUInt(2), dropRow.GetUInt(3)));
     }
 
     FactionData faction = FactionData();
@@ -880,13 +881,25 @@ void SystemManager::SpawnCosmosSiteNpcs(uint32 siteID, const GPoint& pos, uint32
                 InventoryItemRef npcRef = InventoryItem::SpawnItem(npcTempID, npcData);
                 if (npcRef.get() == nullptr)
                     continue;
-                // first NPC of the pocket carries the site loot (dropped into its wreck)
-                if (local == 0) {
-                    auto dit = pocketDrops.find(pocket);
-                    if (dit != pocketDrops.end()) {
+                // loot goes to the NPC type that drops it; npcTypeID 0 means the
+                // pocket's lead NPC carries it
+                {
+                    std::vector<std::pair<uint32, uint32> > loot;
+                    auto pit = pocketDrops.find(pocket);
+                    if (pit != pocketDrops.end()) {
+                        auto tit = pit->second.find(npcType);
+                        if (tit != pit->second.end())
+                            loot = tit->second;
+                        if (local == 0) {
+                            auto lit = pit->second.find(0);
+                            if (lit != pit->second.end())
+                                loot.insert(loot.end(), lit->second.begin(), lit->second.end());
+                        }
+                    }
+                    if (!loot.empty()) {
                         std::string ci = "sq_loot:";
                         bool first = true;
-                        for (auto& d : dit->second) {
+                        for (auto& d : loot) {
                             char buf[48];
                             snprintf(buf, sizeof(buf), "%s%u:%u", first ? "" : ",", d.first, d.second);
                             ci += buf;
