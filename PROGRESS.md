@@ -18,7 +18,7 @@
 | Account & Character | 97% | `███████████████████░` | +2% | Skills & Certificates | 99% | `████████████████████` | +9% |
 | Ship Navigation | 99% | `████████████████████` | +29% | Combat & Crimewatch | 99% | `████████████████████` | +9% |
 | Modules & Overheating | 97% | `███████████████████░` | +12% | Drones | 97% | `███████████████████░` | +21% |
-| NPC AI & Spawning | 97% | `███████████████████░` | +37% | Agents & Missions | 98% | `████████████████████` | +28% |
+| NPC AI & Spawning | 97% | `███████████████████░` | +37% | Agents & Missions | 99% | `████████████████████` | +28% |
 | **POS** | 99% | `████████████████████` | +29% | Market | 95% | `███████████████████░` | +35% |
 | **Incursions** | 96% | `███████████████████░` | +96% | Fleet | 100% | `████████████████████` | +25% |
 | **Wormholes** | 92% | `██████████████████░░` | +32% | Scanning | 99% | `████████████████████` | +19% |
@@ -62,6 +62,16 @@
 - **Storyline**: every 15 completed missions a courier storyline with a mission package and a real station hand-in; 543 previously nameless arc/FW/storyline agents got their names from the SDE.
 - **Sites**: static beacons anchored to the star, pockets 150 km apart along +x, named-NPC loot in the lead NPC's wreck, respawn 10 minutes after the pack is wiped.
 - **Agent portraits**: all 11,017 agents seeded into the image cache from images.evetech.net (512px JPEG, 0 failures); the image server answers every requested size.
+
+### Session 11 Nov
+
+- **Standard mission types actualized**: Data missions from RnD/basic division 18; Anomic/Burner as its own offer with an elite deadspace pirate + escorts at a tracked site (level-4 security agents, 20%); Tutorial (type 3 "Tutor …") agents run real career tutorial chains (Cash Flow/Industry/Business/Exploration) step by step; Storyline agents (6/7) only give the milestone mission after 15 completed missions, once per milestone.
+- **Standard mission presentation**: missions with `briefingID=0` no longer show the client's "corrupt briefing" — the server builds a literal objective with the real item/station/system for the offer panel and journal; standard encounter sites now get faction clouds/wreckage/LCO when no curated dungeon exists.
+- **Encounter completion**: `IsOfferComplete` falls back to the persisted `agtOffers.missionNPCs/Killed` counters, so Complete still works after the in-memory encounter is erased or the server restarts.
+- **COSMOS**: **561/581** missions have a briefing (remaining 18 are Booster Manufacturing without lore, plus two objective-only trade missions); 40 item missions converted to fetch and 6 to real courier stations; all hunt factions filled; COSMOS hunt spawns the agent site's real `cosmosSiteNpcs` pack; 340 agents on beacon sites, 6 bound to specific site pockets.
+- **Portal**: system broadcast to all real players (accountID > 0) as CONCORD Assembly mail, immediate or scheduled from `/admin/broadcast`; scheduled rows are processed by the server minute tick and catch up after restart.
+- **DB**: `mktOrders(ownerID,bid,typeID)` index fixes a 25-minute corporation-market self-join (MariaDB pinned at 100% CPU / game hang); migrations `000049`–`000056` applied.
+
 
 ## Details / Детали
 
@@ -183,7 +193,7 @@
 | **EWAR stickiness fix** — warp scramble / web / paint released when the target leaves the manager, no lingering "Warp drive is disrupted" | ❌ | ✅ |
 | **Empty spawn-class guard** — a spawn class with no rows in the DB cancels the spawn instead of `at(0)` out_of_range abort | ❌ | ✅ |
 
-### 8. Agents & Missions `████████████████████` 98%
+### 8. Agents & Missions `████████████████████` 99%
 
 | Feature | Upstream | Fork |
 |---------|:--------:|:----:|
@@ -203,7 +213,9 @@
 | **Report-to-agent objective** — native `agent` journal objective (portrait, location, warp link) for 54 missions | ❌ | ✅ |
 | **Epic arc progression** — per-mission advancement, chapter roll-over by branch, arc completion, state persisted in `chrEpicArcState`; arcs start at the real agent rows | 🟡 | ✅ |
 | **Storyline loop** — every 15 completed missions a courier storyline with a mission package and a real station hand-in | 🟡 | ✅ |
-| **Briefing coverage** — 653 `missionObjectives` rows carry text (wiki briefings, 13 wiki backfills, 5 from the client localization, 45 COSMOS from community guides); COSMOS falls back to `Objective: …` | 🟡 | ✅ |
+| **Standard mission types** - Data from division 18, Anomic/Burner with an elite deadspace site, career tutorial chains (type 3), storylines only after 15 missions | ✅ | ✅ |
+| **Standard mission text** - literal item/station objectives when `briefingID=0` (no "corrupt briefing"); standard encounter sites get faction clouds/wreckage/LCO | ✅ | ✅ |
+| **Briefing coverage** - **561/581** COSMOS briefings (18 booster runs without lore, 2 objective-only trade missions); literal fallback for all remaining `briefingID=0` missions | 🟡 | ✅ |
 
 ### 9. Market `███████████████████░` 95%
 

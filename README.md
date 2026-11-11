@@ -54,7 +54,7 @@
 | **Planetary Interaction** — colonies, customs offices, resource extraction | **Планетарка** — колонии, таможня, добыча |
 | **Sovereignty** — TCU claim, IHub reinforcement, outpost capture, sov levels, upgrades | **Суверенность** — TCU захват, IHub reinforce, аутпосты, уровни, апгрейды |
 | **Wormholes** — full lifecycle, mass/lifetime tracking, K162 generation, **signature cleanup (no orphan spam in scanner)** | **Варпхолы** — полный цикл, масса/время жизни, K162, **очистка сигнатур (без мусора в сканере)** |
-| **Missions** — courier, mining, encounter, storyline, epic arcs, **COSMOS agents in space** (named beacons, 581 one-time missions, sites/passkeys) | **Миссии** — курьер, майнинг, encounter, storyline, эпик арки, **COSMOS-агенты в космосе** (именованные маяки, 581 одноразовая миссия, сайты/passkey) |
+| **Missions** - courier, mining, encounter, trade, research, data, storyline, **all mission/agent types**; literal objectives when the SDE has no briefing; COSMOS agents in space (340 beacons, 581 one-time missions, 561 briefings, sites/passkeys) | **Миссии** - курьерские, майнинг, encounter, trade, research, data, storyline, **все типы миссий/агентов**; литеральные цели, если в SDE нет брифинга; COSMOS-агенты в космосе (340 маяков, 581 одноразовая миссия, 561 брифинг, сайты/passkey) |
 | **PvE Expeditions** — escalation chains (3/10→10/10), faction-specific DED sites, Journal tracking | **Экспедиции** — эскалации, фракционные DED-сайты, трекинг в журнале |
 | **W-space / Sleepers** — SleeperAI (remote rep, energy neut, capital escalation), combat sites by WH class, **full site set (combat/data/relic/ore/gas)** | **W-space / Слиперы** — SleeperAI, боевые сайты по классу ВХ, **полный набор сайтов (бой/дата/релик/руда/газ)** |
 | **Scanning** — probes, cosmic signatures, anomalies, directional scan | **Сканирование** — пробы, сигнатуры, аномалии, D-scan |
@@ -131,7 +131,7 @@ Full history in `git log` / полная история — в `git log`.
 | Account & Character | 95% | 97% | +2% | Skills & Certificates | 90% | 99% | +9% |
 | Ship Navigation | 70% | **99%** | +29% | Combat & Crimewatch | 90% | 99% | +9% |
 | Modules & Overheating | 85% | 97% | +12% | Drones | 75% | **97%** | +21% |
-| NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 97% | +27% |
+| NPC AI & Spawning | 60% | **97%** | +37% | Agents & Missions | 70% | 99% | +29% |
 | **POS** | 70% | **99%** | +29% | Market | 60% | 95% | +35% |
 | **Incursions** | 0% | **96%** | +96% | Fleet | 75% | **100%** | +25% |
 | **Wormholes** | 60% | **92%** | +32% | Scanning | 80% | 99% | +19% |
