@@ -86,69 +86,85 @@ PyResult AgentBound::GetInfoServiceDetails(PyCallArgs& call) {
 // was extracted from the EVE University wiki into missionObjectives.briefingText
 // (sent as a literal string so the client shows it regardless of localization),
 // otherwise fall back to the localized briefing messageID.
-static void SetMissionBriefing(Client* pClient, MissionOffer& offer, PyTuple* agentSays)
+static std::string BuildMissionBriefing(MissionOffer& offer)
 {
-    std::string brief;
-    std::string objective;
+    std::string brief, objective;
     DBQueryResult res;
     if (sDatabase.RunQuery(res,
             "SELECT briefingText, objectiveText FROM missionObjectives WHERE missionID = %u",
             offer.missionID)) {
         DBResultRow row;
         if (res.GetRow(row)) {
-            if (!row.IsNull(0)) {
-                const char* t = row.GetText(0);
-                if (t != nullptr)
-                    brief = t;
-            }
-            if (!row.IsNull(1)) {
-                const char* t = row.GetText(1);
-                if (t != nullptr)
-                    objective = t;
-            }
+            if (!row.IsNull(0)) { const char* t = row.GetText(0); if (t) brief = t; }
+            if (!row.IsNull(1)) { const char* t = row.GetText(1); if (t) objective = t; }
         }
     }
     if (brief.empty() && !objective.empty())
-        brief = "Objective: " + objective;      // no lore text on the wiki - show the task
+        brief = "Objective: " + objective;
     if (brief.empty() && offer.typeID == Mission::Type::Storyline)
         brief = "Objective: Deliver the mission package to the designated station.";
-    if (brief.empty()) {
-        // Synthetic pool missions (trade/research/fallback mining) have no
-        // missionID/localization row - describe the task with the real item name.
-        std::string itemName;
-        if (offer.courierTypeID != 0) {
-            DBQueryResult ires;
-            if (sDatabase.RunQuery(ires, "SELECT typeName FROM invTypes WHERE typeID = %u", offer.courierTypeID)) {
-                DBResultRow irow;
-                if (ires.GetRow(irow) && !irow.IsNull(0)) {
-                    const char* n = irow.GetText(0);
-                    if (n != nullptr) itemName = n;
-                }
-            }
-        }
-        char buf[512];
-        switch (offer.typeID) {
-            case Mission::Type::Mining:
-                snprintf(buf, sizeof(buf), "Objective: Mine %u units of %s and bring them to me.",
-                         offer.courierAmount, itemName.empty() ? "the requested ore" : itemName.c_str());
-                brief = buf; break;
-            case Mission::Type::Trade:
-            case Mission::Type::Data:
-                snprintf(buf, sizeof(buf), "Objective: Acquire %u units of %s and bring them to me.",
-                         offer.courierAmount, itemName.empty() ? "the requested goods" : itemName.c_str());
-                brief = buf; break;
-            case Mission::Type::Research:
-                snprintf(buf, sizeof(buf), "Objective: Acquire %u units of %s for my research and bring them to me.",
-                         offer.courierAmount, itemName.empty() ? "the requested materials" : itemName.c_str());
-                brief = buf; break;
-            case Mission::Type::Tutorial:
-                brief = "Objective: Follow the tutorial instructions."; break;
-            case Mission::Type::Anomic:
-            case Mission::Type::Burner:
-                brief = "Objective: Destroy the target ships at the designated site."; break;
-            default: break;
+    if (!brief.empty())
+        return brief;
+
+    // No localized lore for this mission (the SDE dump has many briefingID=0
+    // rows). Build a literal, informative objective from the offer data.
+    std::string itemName, destName;
+    if (offer.courierTypeID != 0) {
+        DBQueryResult ires;
+        if (sDatabase.RunQuery(ires, "SELECT typeName FROM invTypes WHERE typeID = %u", offer.courierTypeID)) {
+            DBResultRow irow;
+            if (ires.GetRow(irow) && !irow.IsNull(0)) { const char* n = irow.GetText(0); if (n) itemName = n; }
         }
     }
+    if (offer.destinationID != 0) {
+        DBQueryResult dres;
+        if (sDatabase.RunQuery(dres, "SELECT stationName FROM staStations WHERE stationID = %u", offer.destinationID)) {
+            DBResultRow drow;
+            if (dres.GetRow(drow) && !drow.IsNull(0)) { const char* n = drow.GetText(0); if (n) destName = n; }
+        }
+        if (destName.empty() && offer.destinationSystemID != 0) {
+            if (sDatabase.RunQuery(dres, "SELECT solarSystemName FROM mapSolarSystems WHERE solarSystemID = %u", offer.destinationSystemID)) {
+                DBResultRow drow;
+                if (dres.GetRow(drow) && !drow.IsNull(0)) { const char* n = drow.GetText(0); if (n) destName = n; }
+            }
+        }
+    }
+
+    char buf[640];
+    switch (offer.typeID) {
+        case Mission::Type::Courier:
+            snprintf(buf, sizeof(buf), "Objective: Transport %u units of %s to %s.",
+                     offer.courierAmount,
+                     itemName.empty() ? "the mission cargo" : itemName.c_str(),
+                     destName.empty() ? "the designated station" : destName.c_str());
+            brief = buf; break;
+        case Mission::Type::Mining:
+            snprintf(buf, sizeof(buf), "Objective: Mine %u units of %s and bring them to me.",
+                     offer.courierAmount, itemName.empty() ? "the requested ore" : itemName.c_str());
+            brief = buf; break;
+        case Mission::Type::Trade:
+        case Mission::Type::Data:
+            snprintf(buf, sizeof(buf), "Objective: Acquire %u units of %s and bring them to me.",
+                     offer.courierAmount, itemName.empty() ? "the requested goods" : itemName.c_str());
+            brief = buf; break;
+        case Mission::Type::Research:
+            snprintf(buf, sizeof(buf), "Objective: Acquire %u units of %s for my research and bring them to me.",
+                     offer.courierAmount, itemName.empty() ? "the requested materials" : itemName.c_str());
+            brief = buf; break;
+        case Mission::Type::Encounter:
+        case Mission::Type::Anomic:
+        case Mission::Type::Burner:
+            brief = "Objective: Destroy the hostile ships at the designated site."; break;
+        case Mission::Type::Tutorial:
+            brief = "Objective: Follow the tutorial instructions."; break;
+        default: break;
+    }
+    return brief;
+}
+
+static void SetMissionBriefing(Client* pClient, MissionOffer& offer, PyTuple* agentSays)
+{
+    std::string brief = BuildMissionBriefing(offer);
     if (!brief.empty()) {
         size_t pos;
         while ((pos = brief.find("<Character>")) != std::string::npos)
@@ -557,6 +573,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 }
                 // Spawn mission dungeon for encounter/mining type missions
                 GPoint dungeonSite(0.0, 0.0, 0.0);   // position of the spawned dungeon (if any)
+                bool hasDungeon = false;
 
                 // mission content overrides (faction / npc count / structures) from the
                 // curated missionObjectives table (built from the mission descriptions)
@@ -602,6 +619,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                             // Remember where the dungeon went so the encounter
                             // target cluster can be placed beside it.
                             dungeonSite = sig.position;
+                            hasDungeon = true;
                             _log(AGENT__MESSAGE, "Spawned dungeon %u for mission %u in system %u.",
                                  dungeonID, offer.missionID, offer.destinationSystemID);
                         }
@@ -615,10 +633,23 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 if (offer.typeID == Mission::Type::Encounter && offer.destinationSystemID != 0) {
                     EncounterSpawnServer* ess = EncounterSpawnServer::Get();
                     if (ess != nullptr) {
-                        uint32 n = ess->SpawnEncounterForOffer(offer, offer.destinationSystemID, dungeonSite, moFaction, moCount);
+                        GPoint encounterPos = dungeonSite;
+                        if (encounterPos.x == 0 && encounterPos.y == 0 && encounterPos.z == 0)
+                            encounterPos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
+                        uint32 n = ess->SpawnEncounterForOffer(offer, offer.destinationSystemID, encounterPos, moFaction, moCount);
                         if (n > 0)
                             _log(AGENT__MESSAGE, "Spawned %u encounter targets for mission %u offer %u.",
                                  n, offer.missionID, offer.offerID);
+                        // give the site a faction ambience (clouds/wreckage/LCO) when
+                        // there is no curated dungeon behind it
+                        if (!hasDungeon) {
+                            SystemManager* pSiteSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
+                            if (pSiteSys != nullptr) {
+                                uint32 siteFaction = moFaction ? moFaction : sDataMgr.GetCorpFaction(offer.originOwnerID);
+                                if (siteFaction != 0)
+                                    pSiteSys->GetDungMgr()->SpawnMissionSite(encounterPos, siteFaction, 0, 0);
+                            }
+                        }
                     }
                 }
                 // Anomic/burner: elite deadspace pirate + escorts at a site
@@ -1149,11 +1180,18 @@ PyResult AgentBound::GetMissionBriefingInfo(PyCallArgs &call) {
         }
         keywords->SetItemString("dungeonLocationID", new PyInt(offer.dungeonLocationID));
         keywords->SetItemString("dungeonSolarSystemID", new PyInt(offer.dungeonSolarSystemID));
+    std::string briefText = BuildMissionBriefing(offer);
     PyDict *briefingInfo = new PyDict();
         briefingInfo->SetItemString("ContentID", new PyInt(offer.characterID));
         briefingInfo->SetItemString("Mission Keywords", keywords);
-        briefingInfo->SetItemString("Mission Title ID", new PyInt(offer.missionID));
-        briefingInfo->SetItemString("Mission Briefing ID", new PyInt(offer.briefingID));
+        if (offer.missionID != 0)
+            briefingInfo->SetItemString("Mission Title ID", new PyInt(offer.missionID));
+        else
+            briefingInfo->SetItemString("Mission Title ID", new PyString(offer.name.c_str()));
+        if (!briefText.empty())
+            briefingInfo->SetItemString("Mission Briefing ID", new PyString(briefText.c_str()));
+        else
+            briefingInfo->SetItemString("Mission Briefing ID", new PyInt(offer.briefingID));
         switch(offer.typeID) {
             case Mission::Type::Courier:
                 briefingInfo->SetItemString("Mission Image", sMissionDataMgr.GetCourierRes()); break;
@@ -1322,10 +1360,17 @@ PyResult AgentBound::GetMissionJournalInfo(PyCallArgs &call, std::optional <PyIn
     if (!m_agent->HasMission(call.client->GetCharacterID(), offer))
         return PyStatic.NewNone();
 
+    std::string journalBrief = BuildMissionBriefing(offer);
     PyDict* journalInfo = new PyDict();
     journalInfo->SetItemString("contentID", new PyInt(offer.characterID));
-    journalInfo->SetItemString("missionNameID", new PyInt(offer.missionID));
-    journalInfo->SetItemString("briefingTextID", new PyInt(offer.briefingID));
+    if (offer.missionID != 0)
+        journalInfo->SetItemString("missionNameID", new PyInt(offer.missionID));
+    else
+        journalInfo->SetItemString("missionNameID", new PyString(offer.name.c_str()));
+    if (!journalBrief.empty())
+        journalInfo->SetItemString("briefingTextID", new PyString(journalBrief.c_str()));
+    else
+        journalInfo->SetItemString("briefingTextID", new PyInt(offer.briefingID));
     journalInfo->SetItemString("missionState", new PyInt(offer.stateID));
     journalInfo->SetItemString("expirationTime", new PyLong(offer.expiryTime) );
     journalInfo->SetItemString("objectives", GetMissionObjectiveInfo(call.client, offer));
@@ -1350,7 +1395,10 @@ PyResult AgentBound::GetMissionJournalInfo(PyCallArgs &call, std::optional <PyIn
 PyDict* AgentBound::GetMissionObjectiveInfo(Client* pClient, MissionOffer& offer)
 {
     PyDict* objectiveData = new PyDict();
-    objectiveData->SetItemString("missionTitleID", new PyInt(offer.missionID));
+    if (offer.missionID != 0)
+        objectiveData->SetItemString("missionTitleID", new PyInt(offer.missionID));
+    else
+        objectiveData->SetItemString("missionTitleID", new PyString(offer.name.c_str()));
     objectiveData->SetItemString("contentID", new PyInt(offer.characterID));
     objectiveData->SetItemString("importantStandings", new PyInt(offer.important));     // boolean integer
     // will need to test for this to set correctly.....
