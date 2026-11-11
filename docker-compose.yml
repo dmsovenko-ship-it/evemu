@@ -60,8 +60,10 @@ services:
     cpuset: "4-5"
 
 volumes:
+  # Explicit name keeps the live database when Compose recreates the stack,
+  # while a fresh clone creates the volume automatically on first `up`.
   evemu_db:
-    external: true
+    name: evemu_db
   server_cache:
   image_cache:
   ccache:

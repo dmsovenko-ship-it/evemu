@@ -103,6 +103,8 @@ docker logs -f server
 | `docker compose down -v` | Full DB reset |
 | `bash utils/grant-admin.sh "Name"` | Grant GM |
 
+Fresh clone: the `evemu_db` volume is created automatically on the first `docker compose up` (the explicit volume name keeps existing live databases when the stack is recreated). Default configs are copied from `utils/config/` into `config/` by `start.sh` on first boot; edit `config/eve-server.xml` only if you need to override them. The base database and all migrations are in `sql/` and are installed by `db_init.sh` / `evedbtool install`.
+
 | GM Command | Purpose |
 |------------|---------|
 | `/giveallskills me` | Max all skills |

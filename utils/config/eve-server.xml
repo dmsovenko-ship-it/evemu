@@ -19,7 +19,7 @@ boolean can use either 0/1 OR true/false.
         7131450020691447808 (0x62f8000280c40000)  ROLE_DEV     = ROLE_CREATOR | ROLE_QA | ROLE_PROGRAMMER
         7203507614729375744 (0x63f8000280c40000)  ROLE_BOSS    = ROLE_ADMIN | ROLE_DEV
         -->
-        <autoAccountRole>7131450020691447808</autoAccountRole>
+        <autoAccountRole>0</autoAccountRole><!-- 0 = no automatic admin role on registration -->
         <!--
         <loginMessage>
             &lt;html&gt;
@@ -84,6 +84,11 @@ boolean can use either 0/1 OR true/false.
         <PrefetchSystems>true</PrefetchSystems><!-- bool - pre-boot the systems adjacent to players so a jump into them doesn't stall the tick -->
         <PrefetchRadius>1</PrefetchRadius><!-- int - jumps radius for the prefetch (1 = direct neighbours) -->
         <PrefetchMax>16</PrefetchMax><!-- int - max number of systems held loaded by the prefetcher -->
+        <DailyDowntime>false</DailyDowntime><!-- bool - daily announced shutdown/maintenance window -->
+        <DowntimeHourUTC>11</DowntimeHourUTC><!-- int - UTC hour of the daily downtime -->
+        <DowntimeMinuteUTC>0</DowntimeMinuteUTC><!-- int - UTC minute -->
+        <DowntimeLengthMin>30</DowntimeLengthMin><!-- int - downtime length in minutes -->
+        <cosmosRequireStandings>false</cosmosRequireStandings><!-- bool - enable live COSMOS agent standing gates (2/4/6) -->
     </world>
 
     <rates>
@@ -125,6 +130,9 @@ boolean can use either 0/1 OR true/false.
     </rates>
 
     <market>
+        <StationOrderLimit>20000</StationOrderLimit><!-- max order rows per station ask list -->
+        <SystemOrderLimit>20000</SystemOrderLimit><!-- max order rows per system ask list -->
+        <RegionOrderLimit>20000</RegionOrderLimit><!-- max order rows per region best list -->
         <FindBuyOrder>10</FindBuyOrder><!-- integer  - number of orders to return (lower = less bandwidth)  default: 10  limit: 256 -->
         <FindSellOrder>10</FindSellOrder><!-- integer  - number of orders to return (lower = less bandwidth)  default: 10  limit: 256 -->
         <OldPriceLimit>10</OldPriceLimit><!-- integer  - number of orders to return (lower = less bandwidth)  default: 10  limit: 256 -->
@@ -318,5 +326,21 @@ boolean can use either 0/1 OR true/false.
         <AlertCooldownSec>21600</AlertCooldownSec><!-- min seconds between alerts for the same finding -->
         <ExcludeAccounts></ExcludeAccounts><!-- comma-separated accountIDs to ignore (your own alts), e.g. 1,2,3 -->
     </security>
+
+
+    <!-- Subscription (Alpha/Omega). Disabled by default for a fresh install. -->
+    <subscription Enabled="false" PremiumDays="30" FreeSkillPointCap="5000000"/>
+
+    <!-- Telegram notifications (optional; leave disabled on a fresh install). -->
+    <telegram>
+        <Endpoint></Endpoint>
+        <PlayerEnabled>false</PlayerEnabled>
+        <PlayerBotToken></PlayerBotToken>
+        <PlayerChatID>0</PlayerChatID>
+        <PlayerAnnounceChatID>0</PlayerAnnounceChatID>
+        <AdminEnabled>false</AdminEnabled>
+        <AdminBotToken></AdminBotToken>
+        <AdminChatID>0</AdminChatID>
+    </telegram>
 
 </eve-server>
