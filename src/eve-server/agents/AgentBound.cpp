@@ -573,7 +573,6 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 }
                 // Spawn mission dungeon for encounter/mining type missions
                 GPoint dungeonSite(0.0, 0.0, 0.0);   // position of the spawned dungeon (if any)
-                bool hasDungeon = false;
 
                 // mission content overrides (faction / npc count / structures) from the
                 // curated missionObjectives table (built from the mission descriptions)
@@ -619,7 +618,6 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                             // Remember where the dungeon went so the encounter
                             // target cluster can be placed beside it.
                             dungeonSite = sig.position;
-                            hasDungeon = true;
                             _log(AGENT__MESSAGE, "Spawned dungeon %u for mission %u in system %u.",
                                  dungeonID, offer.missionID, offer.destinationSystemID);
                         }
@@ -640,16 +638,8 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         if (n > 0)
                             _log(AGENT__MESSAGE, "Spawned %u encounter targets for mission %u offer %u.",
                                  n, offer.missionID, offer.offerID);
-                        // give the site a faction ambience (clouds/wreckage/LCO) when
-                        // there is no curated dungeon behind it
-                        if (!hasDungeon) {
-                            SystemManager* pSiteSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
-                            if (pSiteSys != nullptr) {
-                                uint32 siteFaction = moFaction ? moFaction : sDataMgr.GetCorpFaction(offer.originOwnerID);
-                                if (siteFaction != 0)
-                                    pSiteSys->GetDungMgr()->SpawnMissionSite(encounterPos, siteFaction, 0, 0);
-                            }
-                        }
+                        // keep the shared site builder aligned with the spawn point
+                        dungeonSite = encounterPos;
                     }
                 }
                 // Anomic/burner: elite deadspace pirate + escorts at a site
@@ -780,13 +770,16 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                 }
                 // build the actual mission site: faction ambience and (for structure
                 // objectives) the target structures described by the mission text
-                if (offer.destinationSystemID != 0 && (moFaction != 0 || moStructQty > 0)) {
+                uint32 siteFaction = moFaction;
+                if (offer.typeID == Mission::Type::Encounter && siteFaction == 0)
+                    siteFaction = sDataMgr.GetCorpFaction(offer.originOwnerID);
+                if (offer.destinationSystemID != 0 && (siteFaction != 0 || moStructQty > 0)) {
                     SystemManager* pSiteSys = sEntityList.FindOrBootSystem(offer.destinationSystemID);
                     if (pSiteSys != nullptr) {
                         GPoint sitePos = dungeonSite;
                         if (sitePos.x == 0 && sitePos.y == 0 && sitePos.z == 0)
                             sitePos = GPoint(MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12), MakeRandomFloat(-2.0e12, 2.0e12));
-                        pSiteSys->GetDungMgr()->SpawnMissionSite(sitePos, moFaction, moStruct, moStructQty);
+                        pSiteSys->GetDungMgr()->SpawnMissionSite(sitePos, siteFaction, moStruct, moStructQty);
                     }
                 }
                 // fetch objectives: the requested item(s) must be retrievable at the
