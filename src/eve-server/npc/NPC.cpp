@@ -825,8 +825,9 @@ void NPC::Killed(Damage &damage) {
     // into this wreck (named-NPC drops / mission items / passcards)
     {
         std::string ci = m_self->customInfo();
-        if (ci.compare(0, 8, "sq_loot:") == 0) {
-            std::string list = ci.substr(8);
+        size_t lootAt = ci.find("sq_loot:");
+        if (lootAt != std::string::npos) {
+            std::string list = ci.substr(lootAt + 8);
             size_t pos = 0;
             while (pos < list.size()) {
                 size_t comma = list.find(',', pos);

@@ -312,6 +312,16 @@ uint32 EncounterSpawnServer::SpawnCosmosHuntForOffer(MissionOffer& offer, uint32
     if (siteNpcs.empty())
         return 0;
 
+    // real site loot, keyed by the NPC type that drops it (0 = lead NPC)
+    std::map<uint32, std::vector<std::pair<uint32, uint32> > > drops;
+    DBQueryResult dropRes;
+    if (sDatabase.RunQuery(dropRes,
+            "SELECT npcTypeID, typeID, qty FROM cosmosSiteDrops WHERE siteID = %u", siteID)) {
+        DBResultRow dropRow;
+        while (dropRes.GetRow(dropRow))
+            drops[dropRow.GetUInt(0)].push_back(std::make_pair(dropRow.GetUInt(1), dropRow.GetUInt(2)));
+    }
+
     uint32 factionID = 500010;
     DBQueryResult sres;
     if (sDatabase.RunQuery(sres, "SELECT factionID FROM cosmosSites WHERE siteID = %u", siteID)) {
@@ -362,7 +372,28 @@ uint32 EncounterSpawnServer::SpawnCosmosHuntForOffer(MissionOffer& offer, uint32
             ItemData itemData(sn.typeID, corpID, destinationSystemID, flagNone, buf, pos);
             InventoryItemRef iRef = sItemFactory.SpawnItem(itemData);
             if (iRef.get() == nullptr) continue;
-            iRef->SetCustomInfo(("mission:" + std::to_string(offer.offerID)).c_str());
+
+            std::string ci = "mission:" + std::to_string(offer.offerID);
+            std::vector<std::pair<uint32, uint32> > loot;
+            auto dit = drops.find(sn.typeID);
+            if (dit != drops.end())
+                loot = dit->second;
+            if (spawned == 0) {
+                auto lit = drops.find(0);
+                if (lit != drops.end())
+                    loot.insert(loot.end(), lit->second.begin(), lit->second.end());
+            }
+            if (!loot.empty()) {
+                ci += ";sq_loot:";
+                bool first = true;
+                for (auto& d : loot) {
+                    char lbuf[48];
+                    snprintf(lbuf, sizeof(lbuf), "%s%u:%u", first ? "" : ",", d.first, d.second);
+                    ci += lbuf;
+                    first = false;
+                }
+            }
+            iRef->SetCustomInfo(ci.c_str());
             iRef->SaveItem();
 
             NPC* npc = new NPC(iRef, pSystem->GetServiceMgr(), pSystem, faction);
