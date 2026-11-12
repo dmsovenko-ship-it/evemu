@@ -936,8 +936,39 @@ void MissionDataMgr::AssignArcObjective(MissionOffer& offer)
     //   2 = courier - bring the mission package to a station in that system
     //   3 = hunt    - destroy the hostile cluster spawned there
     using namespace Mission::Type;
-    if (!(offer.typeID == EpicArc || offer.typeID == Cosmos))
+    if (!(offer.typeID == EpicArc || offer.typeID == Cosmos)) {
+        // Standard missions may still have a wiki-parsed destination
+        // (missionObjectives.destinationSystemID/StationID, migration 000061).
+        DBQueryResult dres;
+        if (sDatabase.RunQuery(dres,
+                "SELECT destinationSystemID, destinationStationID FROM missionObjectives WHERE missionID = %u",
+                offer.missionID)) {
+            DBResultRow drow;
+            if (dres.GetRow(drow)) {
+                uint32 dsys = drow.GetUInt(0);
+                uint32 dstStation = drow.GetUInt(1);
+                bool isCourier = (offer.typeID == Mission::Type::Courier);
+                bool isSite = (offer.typeID == Mission::Type::Encounter || offer.typeID == Mission::Type::Mining);
+                if (dsys != 0 && (isCourier || isSite)) {
+                    offer.destinationSystemID = dsys;
+                    if (dstStation != 0) {
+                        offer.destinationID = dstStation;
+                        offer.destinationTypeID = 0;
+                        offer.destinationOwnerID = 0;
+                    } else if (isCourier) {
+                        std::vector<uint32> stations;
+                        if (sDataMgr.GetStationList(dsys, stations) && !stations.empty())
+                            offer.destinationID = stations.front();
+                        else
+                            offer.destinationID = dsys;
+                    } else {
+                        offer.destinationID = dsys;
+                    }
+                }
+            }
+        }
         return;
+    }
     if (offer.objectiveType != 0)
         return;
 
