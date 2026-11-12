@@ -47,7 +47,7 @@ PyRep *TutorialDB::GetPages(uint32 tutorialID) {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT pageID, pageNumber, pageName, text AS textID, imagePath, audioPath,"
+        "SELECT pageID, pageNumber, pageName, pageNameID, CAST(text AS UNSIGNED) AS textID, imagePath, audioPath,"
         " 0 AS uiPointerID, 0 AS uiPointerTextID, 0 AS pageActionID, 0 AS dataID"
         " FROM tutorial_pages"
         " WHERE tutorialID=%u"
@@ -64,7 +64,7 @@ PyRep *TutorialDB::GetTutorial(uint32 tutorialID) {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT tutorialID, tutorialName AS tutorialNameID, nextTutorialID, 0 AS dataID"
+        "SELECT tutorialID, tutorialNameID, nextTutorialID, 0 AS dataID"
         " FROM tutorials"
         " WHERE tutorialID=%u", tutorialID))
     {
@@ -94,7 +94,7 @@ PyRep *TutorialDB::GetAllTutorials() {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT tutorialID, tutorialName AS tutorialNameID, nextTutorialID, categoryID, 0 AS dataID"
+        "SELECT tutorialID, tutorialNameID, nextTutorialID, categoryID, 0 AS dataID"
         " FROM tutorials"))
     {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
@@ -108,7 +108,7 @@ PyRep *TutorialDB::GetAllCriterias() {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT criteriaID, criteriaName, messageText AS messageTextID, audioPath, 0 AS dataID"
+        "SELECT criteriaID, criteriaName, messageTextID, audioPath, 0 AS dataID"
         " FROM tutorial_criteria"))
     {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
@@ -122,7 +122,7 @@ PyRep *TutorialDB::GetCategories() {
     DBQueryResult res;
 
     if (!sDatabase.RunQuery(res,
-        "SELECT categoryID, categoryName AS categoryNameID, description AS descriptionID, 0 AS dataID"
+        "SELECT categoryID, categoryNameID, descriptionID, 0 AS dataID"
         " FROM tutorial_categories"))
     {
         codelog(DATABASE__ERROR, "Error in query: %s", res.error.c_str());
