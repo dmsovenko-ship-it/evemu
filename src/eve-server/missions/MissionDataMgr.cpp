@@ -813,6 +813,27 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
         } break;
     }
 
+    // Mission item rewards: the Crucible SDE's qst* rows, like most of the
+    // generated agent offers, carry only ISK/LP. Give every standard mission a
+    // deterministic real item reward so the reward window is not empty. COSMOS
+    // and epic arcs already have their own curated reward items.
+    if (data.rewardItemID == 0
+        && data.typeID != Mission::Type::Cosmos
+        && data.typeID != Mission::Type::EpicArc) {
+        static const uint16 rewardByLevel[] = {
+            2454,   // L1 Hobgoblin I
+            2454,   // L1 Hobgoblin I
+            2048,   // L2 Damage Control II
+            17557,  // L3 Federation Navy Thermic Plating
+            22107   // L4+ Low-grade Crystal Alpha
+        };
+        uint8 rewardLevel = level;
+        if (rewardLevel > 4)
+            rewardLevel = 4;
+        data.rewardItemID  = rewardByLevel[rewardLevel];
+        data.rewardItemQty = 1;
+    }
+
     // fill cargo volume for synthetic/pool missions (courier rows already carry it)
     if (data.courierTypeID != 0 && data.courierItemVolume == 0) {
         DBQueryResult vres;
