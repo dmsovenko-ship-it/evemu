@@ -1,0 +1,74 @@
+-- Mining mission objectives: use the real ore and quantity from the
+-- mission description instead of the random fallback ore stack.
+-- +migrate Up
+UPDATE qstMining SET itemTypeID=28618,itemQty=3600 WHERE id=91000;
+UPDATE missionObjectives SET itemTypeID=28618,itemQty=3600 WHERE missionID=91000;
+UPDATE agtOffers SET courierTypeID=28618,courierAmount=3600 WHERE missionID=91000 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28617,itemQty=20000 WHERE id=91001;
+UPDATE missionObjectives SET itemTypeID=28617,itemQty=20000 WHERE missionID=91001;
+UPDATE agtOffers SET courierTypeID=28617,courierAmount=20000 WHERE missionID=91001 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28618,itemQty=3600 WHERE id=91002;
+UPDATE missionObjectives SET itemTypeID=28618,itemQty=3600 WHERE missionID=91002;
+UPDATE agtOffers SET courierTypeID=28618,courierAmount=3600 WHERE missionID=91002 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28619,itemQty=1800 WHERE id=91003;
+UPDATE missionObjectives SET itemTypeID=28619,itemQty=1800 WHERE missionID=91003;
+UPDATE agtOffers SET courierTypeID=28619,courierAmount=1800 WHERE missionID=91003 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28617,itemQty=20000 WHERE id=91004;
+UPDATE missionObjectives SET itemTypeID=28617,itemQty=20000 WHERE missionID=91004;
+UPDATE agtOffers SET courierTypeID=28617,courierAmount=20000 WHERE missionID=91004 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28617,itemQty=18000 WHERE id=91005;
+UPDATE missionObjectives SET itemTypeID=28617,itemQty=18000 WHERE missionID=91005;
+UPDATE agtOffers SET courierTypeID=28617,courierAmount=18000 WHERE missionID=91005 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28618,itemQty=7500 WHERE id=91006;
+UPDATE missionObjectives SET itemTypeID=28618,itemQty=7500 WHERE missionID=91006;
+UPDATE agtOffers SET courierTypeID=28618,courierAmount=7500 WHERE missionID=91006 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28619,itemQty=10000 WHERE id=91007;
+UPDATE missionObjectives SET itemTypeID=28619,itemQty=10000 WHERE missionID=91007;
+UPDATE agtOffers SET courierTypeID=28619,courierAmount=10000 WHERE missionID=91007 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28620,itemQty=5000 WHERE id=91008;
+UPDATE missionObjectives SET itemTypeID=28620,itemQty=5000 WHERE missionID=91008;
+UPDATE agtOffers SET courierTypeID=28620,courierAmount=5000 WHERE missionID=91008 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28618,itemQty=20000 WHERE id=91009;
+UPDATE missionObjectives SET itemTypeID=28618,itemQty=20000 WHERE missionID=91009;
+UPDATE agtOffers SET courierTypeID=28618,courierAmount=20000 WHERE missionID=91009 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28618,itemQty=15000 WHERE id=91010;
+UPDATE missionObjectives SET itemTypeID=28618,itemQty=15000 WHERE missionID=91010;
+UPDATE agtOffers SET courierTypeID=28618,courierAmount=15000 WHERE missionID=91010 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28618,itemQty=20000 WHERE id=91011;
+UPDATE missionObjectives SET itemTypeID=28618,itemQty=20000 WHERE missionID=91011;
+UPDATE agtOffers SET courierTypeID=28618,courierAmount=20000 WHERE missionID=91011 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28617,itemQty=40000 WHERE id=91012;
+UPDATE missionObjectives SET itemTypeID=28617,itemQty=40000 WHERE missionID=91012;
+UPDATE agtOffers SET courierTypeID=28617,courierAmount=40000 WHERE missionID=91012 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28617,itemQty=40000 WHERE id=91013;
+UPDATE missionObjectives SET itemTypeID=28617,itemQty=40000 WHERE missionID=91013;
+UPDATE agtOffers SET courierTypeID=28617,courierAmount=40000 WHERE missionID=91013 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28618,itemQty=4500 WHERE id=91014;
+UPDATE missionObjectives SET itemTypeID=28618,itemQty=4500 WHERE missionID=91014;
+UPDATE agtOffers SET courierTypeID=28618,courierAmount=4500 WHERE missionID=91014 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28627,itemQty=10 WHERE id=91015;
+UPDATE missionObjectives SET itemTypeID=28627,itemQty=10 WHERE missionID=91015;
+UPDATE agtOffers SET courierTypeID=28627,courierAmount=10 WHERE missionID=91015 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28622,itemQty=9000 WHERE id=91016;
+UPDATE missionObjectives SET itemTypeID=28622,itemQty=9000 WHERE missionID=91016;
+UPDATE agtOffers SET courierTypeID=28622,courierAmount=9000 WHERE missionID=91016 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28627,itemQty=20 WHERE id=91017;
+UPDATE missionObjectives SET itemTypeID=28627,itemQty=20 WHERE missionID=91017;
+UPDATE agtOffers SET courierTypeID=28627,courierAmount=20 WHERE missionID=91017 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28623,itemQty=5600 WHERE id=91018;
+UPDATE missionObjectives SET itemTypeID=28623,itemQty=5600 WHERE missionID=91018;
+UPDATE agtOffers SET courierTypeID=28623,courierAmount=5600 WHERE missionID=91018 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28624,itemQty=2800 WHERE id=91019;
+UPDATE missionObjectives SET itemTypeID=28624,itemQty=2800 WHERE missionID=91019;
+UPDATE agtOffers SET courierTypeID=28624,courierAmount=2800 WHERE missionID=91019 AND dateCompleted=0;
+UPDATE qstMining SET itemQty=20 WHERE id=91020;
+UPDATE missionObjectives SET itemQty=20 WHERE missionID=91020;
+UPDATE qstMining SET itemTypeID=28625,itemQty=2800 WHERE id=91021;
+UPDATE missionObjectives SET itemTypeID=28625,itemQty=2800 WHERE missionID=91021;
+UPDATE agtOffers SET courierTypeID=28625,courierAmount=2800 WHERE missionID=91021 AND dateCompleted=0;
+UPDATE qstMining SET itemTypeID=28622,itemQty=4200 WHERE id=91022;
+UPDATE missionObjectives SET itemTypeID=28622,itemQty=4200 WHERE missionID=91022;
+UPDATE agtOffers SET courierTypeID=28622,courierAmount=4200 WHERE missionID=91022 AND dateCompleted=0;
+
+-- +migrate Down
+-- (real objective quantities are intentionally retained)

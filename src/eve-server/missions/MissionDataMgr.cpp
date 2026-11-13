@@ -832,6 +832,12 @@ void MissionDataMgr::CreateMissionOffer(uint8 typeID, uint8 level, uint8 raceID,
             rewardLevel = 4;
         data.rewardItemID  = rewardByLevel[rewardLevel];
         data.rewardItemQty = 1;
+        // Make the fallback item fit the profession instead of handing a
+        // combat drone to a miner or a mining laser to a courier.
+        if (data.typeID == Mission::Type::Mining)
+            data.rewardItemID = 483;       // Miner I
+        else if (data.typeID == Mission::Type::Courier)
+            data.rewardItemID = 1317;      // Expanded Cargohold I
     }
 
     // fill cargo volume for synthetic/pool missions (courier rows already carry it)
