@@ -169,6 +169,9 @@ static void SetMissionBriefing(Client* pClient, MissionOffer& offer, PyTuple* ag
         size_t pos;
         while ((pos = brief.find("<Character>")) != std::string::npos)
             brief.replace(pos, 11, pClient->GetName());
+        const std::string playerToken = "{[character]player.name}";
+        while ((pos = brief.find(playerToken)) != std::string::npos)
+            brief.replace(pos, playerToken.size(), pClient->GetName());
         PySetItemRelease(agentSays, 0, new PyString(brief.c_str()));
     } else {
         PySetItemRelease(agentSays, 0, new PyInt(offer.briefingID));
@@ -192,6 +195,21 @@ static void BuildTutorialOffer(Agent* agent, uint32 charID, uint32 tutorialID, M
     offer.missionID = 1;
     offer.briefingID = 0;
     offer.name = "Aura Training";
+    // Aura's 24 tutorial pages are grouped into the four client missions.
+    // Use the real agtMissions ids so the missionObjectives briefing is shown.
+    switch (tutorialID) {
+        case 215: case 217: case 136: case 249:
+        case 110: case 137: case 204: case 117:
+            offer.missionID = 58557; offer.name = "Covering the Basics"; break;
+        case 250: case 234: case 226: case 224:
+        case 228: case 210: case 112: case 222:
+            offer.missionID = 58558; offer.name = "Combat Basics"; break;
+        case 251: case 221: case 212: case 230:
+            offer.missionID = 58559; offer.name = "The Academy"; break;
+        case 231: case 232: case 252: case 233:
+            offer.missionID = 58556; offer.name = "Moving Onwards"; break;
+        default: break;
+    }
     DBQueryResult tRes;
     if (sDatabase.RunQuery(tRes, "SELECT tutorialName FROM tutorials WHERE tutorialID = %u", tutorialID)) {
         DBResultRow tRow;
@@ -445,8 +463,13 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
             case RequestMission: {  //2
                 // Aura starts tutorial chain, not a standard mission
                 if (m_agent->GetTypeID() == Agents::Type::Aura) {
-                    PySetItemRelease(agentSays, 0, new PyString("Welcome to EVE Online. Your training begins now."));
-                    agentSays->SetItem(1, PyStatic.NewNone());
+                    MissionOffer current;
+                    if (m_agent->HasMission(pchar->itemID(), current) && current.typeID == Mission::Type::Tutorial) {
+                        SetMissionBriefing(call.client, current, agentSays);
+                    } else {
+                        PySetItemRelease(agentSays, 0, new PyString("Welcome to EVE Online. Your training begins now."));
+                        agentSays->SetItem(1, PyStatic.NewNone());
+                    }
                     PyTuple* button1 = new PyTuple(2);
                         PySetItemRelease(button1, 0, new PyInt(Accept));
                         PySetItemRelease(button1, 1, new PyString("Begin Training"));
@@ -536,6 +559,7 @@ PyResult AgentBound::DoAction(PyCallArgs &call, std::optional <PyInt*> actionID)
                         BuildTutorialOffer(m_agent, pchar->itemID(), 215, tut);
                         MissionDB::CreateOfferID(tut);
                         m_agent->AddOffer(pchar->itemID(), tut);
+                        SetMissionBriefing(call.client, tut, agentSays);
                         m_agent->SendMissionUpdate(call.client, "offer_accepted");
                     }
                 } else {
