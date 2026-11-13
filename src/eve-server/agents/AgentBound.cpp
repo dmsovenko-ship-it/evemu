@@ -1800,10 +1800,11 @@ PyTuple* AgentBound::GetMissionObjectives(Client* pClient, MissionOffer& offer)
         } break;
     }
 
-    // cleanup: clear() releases the dict's own refs to its items — when the dict
-    // was stored (Courier/Trade/Mining) the items survive via the tuple's refs;
-    // when it wasn't (Encounter/default) this actually frees them instead of leaking.
-    dropoffLocation->clear();
+    // Do NOT clear() the dict: the objectives tuple holds the same object by
+    // reference. Clearing it here produced an empty dropoffLocation, which made
+    // the client raise KeyError('locationID') in BuildObjectiveHTML and left the
+    // agent window empty. Drop only our local reference; stored objectives keep
+    // the dictionary alive through their own ref.
     PySafeDecRef(dropoffLocation);
 
     return objectives;
